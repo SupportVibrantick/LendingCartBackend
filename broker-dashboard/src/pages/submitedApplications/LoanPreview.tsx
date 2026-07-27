@@ -53,6 +53,7 @@ import {
   getDocumentStatusChipClass,
 } from "../../lib/documentStatus";
 import DocumentControlsBar from "../../components/documents/DocumentControlsBar";
+import EmbeddedFilePreview from "../../components/documents/EmbeddedFilePreview";
 import SignDocumentsPanel from "../../components/documents/SignDocumentsPanel";
 import DocumentReminderPanel from "../../components/loanPipeline/DocumentReminderPanel";
 import BrokerLoiPanel from "../../components/loi/BrokerLoiPanel";
@@ -67,6 +68,7 @@ import {
   canBrokerRequestDocuments,
   getBrokerRequestDocumentsDisabledReason,
 } from "../../lib/brokerDocumentRequest";
+import { buildApiPublicFileUrl } from "../../lib/publicFileUrl";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
@@ -1941,6 +1943,10 @@ const LoanPreview = () => {
   };
 
   const currentFile = previewFiles[activeIndex];
+  const currentPreviewFileUrl = useMemo(
+    () => buildApiPublicFileUrl(API_BASE, currentFile?.fileUrl),
+    [currentFile?.fileUrl],
+  );
 
   const renderViewDetails = () => (
     <SubmissionDetailsView
@@ -3921,10 +3927,15 @@ dark:bg-red-900/20 dark:text-red-400"
                 {/* DOWNLOAD */}
                 <button
                   onClick={async () => {
+                    if (!currentPreviewFileUrl) {
+                      toast.error("Download failed");
+                      return;
+                    }
+
                     try {
-                      const res = await fetch(
-                        `${API_BASE}${currentFile.fileUrl}`,
-                      );
+                      const res = await fetch(currentPreviewFileUrl, {
+                        headers: getAuthHeaders(),
+                      });
                       const blob = await res.blob();
 
                       const url = window.URL.createObjectURL(blob);
@@ -3989,65 +4000,15 @@ dark:bg-red-900/20 dark:text-red-400"
               )}
 
               {/* FILE VIEW */}
-              {currentFile.fileMimeType?.includes("image") ? (
-                <img
-                  src={`${API_BASE}${currentFile.fileUrl}`}
-                  className="max-h-full max-w-full object-contain rounded-xl shadow"
-                />
-              ) : currentFile.fileMimeType?.includes("pdf") ? (
-                <object
-                  data={`${API_BASE}${currentFile.fileUrl}`}
-                  type="application/pdf"
-                  className="w-full h-full rounded-xl bg-white"
-                >
-                  {/* FALLBACK */}
-                  <div className="flex flex-col items-center justify-center h-full text-center px-6">
-                    {/* ICON CONTAINER */}
-                    <div
-                      className="flex items-center justify-center w-20 h-20 rounded-2xl 
-    bg-gradient-to-br from-blue-100 to-cyan-100 
-    dark:from-slate-800 dark:to-slate-700 shadow-md mb-4"
-                    >
-                      <FileText
-                        size={36}
-                        className="text-blue-600 dark:text-cyan-400"
-                      />
-                    </div>
-
-                    {/* TITLE */}
-                    <h3 className="text-lg font-semibold text-slate-800 dark:text-white">
-                      Preview not available
-                    </h3>
-
-                    {/* DESCRIPTION */}
-                    <p className="text-sm text-slate-500 mt-1 max-w-xs">
-                      This PDF cannot be previewed here. Click below to open it
-                      in a new tab.
-                    </p>
-
-                    {/* BUTTON */}
-                    <button
-                      onClick={() =>
-                        window.open(
-                          `${API_BASE}${currentFile.fileUrl}`,
-                          "_blank",
-                        )
-                      }
-                      className="mt-5 inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium
-                      bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-xl 
-                      shadow-md hover:shadow-lg hover:scale-[1.02] active:scale-95
-                      transition-all duration-200"
-                    >
-                      Open PDF
-                    </button>
-                  </div>
-                </object>
-              ) : (
-                <div className="flex flex-col items-center justify-center h-full text-slate-500">
-                  <FileText size={40} className="mb-2 opacity-50" />
-                  <p>Preview not supported</p>
-                </div>
-              )}
+              <EmbeddedFilePreview
+                remoteUrl={currentPreviewFileUrl}
+                mimeType={currentFile?.fileMimeType}
+                fileName={currentFile?.fileName}
+                getAuthHeaders={getAuthHeaders}
+                className="relative flex h-full w-full flex-1 items-center justify-center bg-slate-100"
+                iframeClassName="h-full w-full rounded-xl bg-white"
+                imageClassName="max-h-full max-w-full rounded-xl object-contain shadow"
+              />
             </div>
 
             {/* THUMBNAILS */}

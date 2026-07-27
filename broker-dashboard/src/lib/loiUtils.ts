@@ -1,3 +1,5 @@
+import { buildApiPublicFileUrl } from "./publicFileUrl";
+
 export type BrokerLoiCondition = {
   conditionId: string;
   description: string;
@@ -180,18 +182,7 @@ export function getLoiStatusChipClass(status?: string | null) {
 }
 
 export function buildLoiPdfUrl(apiBase: string, loiUrl?: string | null) {
-  if (!loiUrl) return null;
-  if (loiUrl.startsWith("http://") || loiUrl.startsWith("https://")) {
-    return loiUrl;
-  }
-  const normalizedBase = apiBase.replace(/\/+$/, "");
-  if (loiUrl.startsWith("/uploads/")) {
-    return `${normalizedBase}${loiUrl}`;
-  }
-  if (loiUrl.startsWith("/public/")) {
-    return `${normalizedBase}${loiUrl}`;
-  }
-  return `${normalizedBase}/public${loiUrl}`;
+  return buildApiPublicFileUrl(apiBase, loiUrl);
 }
 
 export type LoiSortOption =

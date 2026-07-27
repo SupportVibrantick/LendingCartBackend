@@ -15,7 +15,6 @@ import {
   Upload,
   X,
 } from "lucide-react";
-import { buildApiPublicFileUrl } from "../../lib/publicFileUrl";
 
 const SigCanvas = SignatureCanvas as unknown as React.FC<any>;
 
@@ -703,6 +702,18 @@ export default function SignDocumentsPanel({
     );
   };
 
+  const resolvePreviewMimeType = (
+    mime?: string | null,
+    url?: string | null,
+  ) => {
+    if (isPdfTemplate(mime, url)) return "application/pdf";
+    if (isImageTemplate(mime, url)) {
+      if (mime?.startsWith("image/")) return mime;
+      return "image/*";
+    }
+    return mime || undefined;
+  };
+
   const renderTemplatePreview = (row: SignDocumentRow) => {
     if (!row.templateFileUrl) {
       return (
@@ -712,8 +723,7 @@ export default function SignDocumentsPanel({
       );
     }
 
-    const fileUrl = buildApiPublicFileUrl(apiBase, row.templateFileUrl);
-    if (!fileUrl) return null;
+    const fileUrl = `${apiBase}${row.templateFileUrl}`;
 
     if (isPdfTemplate(row.templateMimeType, row.templateFileUrl)) {
       return (
@@ -765,8 +775,9 @@ export default function SignDocumentsPanel({
       );
     }
 
-    const fileUrl = buildApiPublicFileUrl(apiBase, signed.fileUrl);
-    if (!fileUrl) {
+    const fileUrl = `${apiBase}${signed.fileUrl}`;
+
+    if (isPdfTemplate(signed.fileMimeType, signed.fileUrl)) {
       return (
         <div className="flex h-full min-h-[320px] items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 text-sm text-slate-500">
           Signed copy unavailable
@@ -774,43 +785,43 @@ export default function SignDocumentsPanel({
       );
     }
 
-    if (isPdfTemplate(signed.fileMimeType, signed.fileUrl)) {
-      return (
-        <iframe
-          title={`Signed ${row.documentName}`}
-          src={fileUrl}
-          className="h-[min(420px,50vh)] w-full rounded-xl border border-slate-200 bg-white lg:h-[min(520px,58vh)]"
-        />
-      );
-    }
+    const previewMimeType = resolvePreviewMimeType(
+      signed.fileMimeType,
+      signed.fileUrl,
+    );
 
-    if (isImageTemplate(signed.fileMimeType, signed.fileUrl)) {
+    if (
+      !isPdfTemplate(signed.fileMimeType, signed.fileUrl) &&
+      !isImageTemplate(signed.fileMimeType, signed.fileUrl)
+    ) {
       return (
-        <div className="flex h-[min(420px,50vh)] items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-50 p-4 lg:h-[min(520px,58vh)]">
-          <img
-            src={fileUrl}
-            alt={`Signed ${row.documentName}`}
-            className="max-h-full max-w-full rounded-lg object-contain shadow-sm"
-          />
+        <div className="flex h-full min-h-[240px] flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-slate-200 bg-slate-50 p-6 text-center">
+          <FileText className="h-10 w-10 text-blue-500" />
+          <p className="text-sm text-slate-600">
+            Preview not supported in browser. Open the signed copy in a new tab.
+          </p>
+          <button
+            type="button"
+            onClick={() => openFile(signed.fileUrl)}
+            className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white"
+          >
+            <Eye size={16} />
+            Open signed copy
+          </button>
         </div>
       );
     }
 
     return (
-      <div className="flex h-full min-h-[240px] flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-slate-200 bg-slate-50 p-6 text-center">
-        <FileText className="h-10 w-10 text-emerald-500" />
-        <p className="text-sm text-slate-600">
-          Preview not supported in browser. Open the signed copy in a new tab.
-        </p>
-        <button
-          type="button"
-          onClick={() => openFile(signed.fileUrl)}
-          className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white"
-        >
-          <Download size={16} />
-          Open signed copy
-        </button>
-      </div>
+      <EmbeddedFilePreview
+        remoteUrl={fileUrl}
+        mimeType={previewMimeType}
+        fileName={`Signed ${row.documentName}`}
+        getAuthHeaders={getAuthHeaders}
+        className="flex h-[min(420px,50vh)] items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-50 p-4 lg:h-[min(520px,58vh)]"
+        iframeClassName="h-[min(420px,50vh)] w-full rounded-xl border border-slate-200 bg-white lg:h-[min(520px,58vh)]"
+        imageClassName="max-h-full max-w-full rounded-lg object-contain shadow-sm"
+      />
     );
   };
 

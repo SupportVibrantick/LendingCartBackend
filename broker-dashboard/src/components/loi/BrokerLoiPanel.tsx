@@ -28,7 +28,6 @@ import {
 import toast from "react-hot-toast";
 import {
   buildLoiComparisonSummary,
-  buildLoiPdfUrl,
   formatCurrency,
   formatLoiApprovedDisplay,
   formatLoiDate,
@@ -44,6 +43,8 @@ import {
   type BrokerLoiRecord,
   type LoiSortOption,
 } from "../../lib/loiUtils";
+import { buildApiPublicFileUrl } from "../../lib/publicFileUrl";
+import EmbeddedFilePreview from "../documents/EmbeddedFilePreview";
 import BrokerLoiEditorPanel from "./BrokerLoiEditorPanel";
 import type { BrokerLoiTerms } from "../../lib/brokerLoiTerms";
 
@@ -850,13 +851,13 @@ export default function BrokerLoiPanel({
         signWorkflow?.signStatus === "LENDER_SEEN");
 
     if (showSignedPdf) {
-      return buildLoiPdfUrl(API_BASE, signedPdfUrl);
+      return buildApiPublicFileUrl(API_BASE, signedPdfUrl);
     }
     if (previewMode === "broker-pdf" && brokerLoiStatus?.brokerLoiUrl) {
-      return buildLoiPdfUrl(API_BASE, brokerLoiStatus.brokerLoiUrl);
+      return buildApiPublicFileUrl(API_BASE, brokerLoiStatus.brokerLoiUrl);
     }
     if (previewMode === "lender" && selectedLoi) {
-      return buildLoiPdfUrl(API_BASE, selectedLoi.loiUrl);
+      return buildApiPublicFileUrl(API_BASE, selectedLoi.loiUrl);
     }
     return null;
   }, [
@@ -1386,10 +1387,11 @@ export default function BrokerLoiPanel({
                       onSubmit={handleGenerateBrokerLoi}
                     />
                   ) : previewUrl ? (
-                    <iframe
-                      src={previewUrl}
-                      title={previewTitle}
-                      className="h-full min-h-[480px] w-full flex-1 bg-white"
+                    <EmbeddedFilePreview
+                      remoteUrl={previewUrl}
+                      mimeType="application/pdf"
+                      fileName={previewTitle}
+                      getAuthHeaders={getAuthHeaders}
                     />
                   ) : previewMode === "broker-edit" ? (
                     <div className="flex flex-1 items-center justify-center p-8 text-center text-sm text-slate-500">
