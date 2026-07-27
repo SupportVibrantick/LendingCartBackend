@@ -47,9 +47,6 @@ jobs:
             echo "🔧 Generating Prisma client..."
             npx prisma generate
 
-            echo "📦 Syncing subscription packages..."
-            npm run db:seed:subscription-packages
-
             #################################################
             # Admin Dashboard
             #################################################
