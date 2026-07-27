@@ -21,9 +21,7 @@ module.exports = async function deleteBrokerUser(fastify) {
       const { id } = req.params;
 
       try {
-        /* ================================
-           1️⃣ AUTHORIZATION
-        ================================= */
+        // AUTHORIZATION
 
         if (!req.user || req.user.orgType !== "BROKER") {
           return reply.code(403).send({
@@ -41,9 +39,7 @@ module.exports = async function deleteBrokerUser(fastify) {
 
         const brokerOrgId = req.user.organizationId;
 
-        /* ================================
-           2️⃣ FETCH USER
-        ================================= */
+        // FETCH USER
 
         const user = await prisma.userAccount.findUnique({
           where: { id },
@@ -75,25 +71,31 @@ module.exports = async function deleteBrokerUser(fastify) {
           });
         }
 
-        /* ================================
-           3️⃣ PERMANENT DELETE (TRANSACTION)
-        ================================= */
+        // PERMANENT DELETE (TRANSACTION)
 
-       await prisma.$transaction([
-  prisma.userRole.deleteMany({
-    where: { userId: id },
-  }),
-  prisma.brokerUserProfile.deleteMany({
-    where: { userId: id },
-  }),
-  prisma.userAccount.delete({
-    where: { id },
-  }),
-]);
+        await prisma.$transaction([
+          // Delete user permissions
+          prisma.userPermission.deleteMany({
+            where: { userId: id },
+          }),
 
-        /* ================================
-           4️⃣ AUDIT LOG (Central Logger)
-        ================================= */
+          // Delete user roles
+          prisma.userRole.deleteMany({
+            where: { userId: id },
+          }),
+
+          // Delete broker profile
+          prisma.brokerUserProfile.deleteMany({
+            where: { userId: id },
+          }),
+
+          // Delete user account
+          prisma.userAccount.delete({
+            where: { id },
+          }),
+        ]);
+
+        // AUDIT LOG (Central Logger)
 
         await logAudit({
           prisma,
@@ -107,26 +109,28 @@ module.exports = async function deleteBrokerUser(fastify) {
             email: user.email,
             firstName: user.firstName,
             lastName: user.lastName,
-            roles: user.roles.map(r => r.role.name)
-          }
+            roles: user.roles.map((r) => r.role.name),
+          },
         });
 
         return reply.send({
           success: true,
           message: "User permanently deleted",
         });
-
       } catch (error) {
         fastify.log.error(
-          { error: error.message, userId: id },
-          "Delete broker user failed"
+          {
+            error,
+            userId: id,
+          },
+          "Delete broker user failed",
         );
 
         return reply.code(500).send({
           success: false,
-          message: "Internal server error",
+          message: error.message,
         });
       }
-    }
+    },
   );
 };
