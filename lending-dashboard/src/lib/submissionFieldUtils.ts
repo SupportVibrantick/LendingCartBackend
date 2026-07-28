@@ -15,6 +15,11 @@ const FIELD_LABELS: Record<string, string> = {
   noiProforma: "NOI Proforma",
   loanProductCode: "Loan Product",
   amountRequested: "Loan Amount Requested",
+  interimMonthsReported: "Months Reported (Interim Year)",
+  businessIndustry: "Business / Industry Type",
+  business_industry: "Business / Industry Type",
+  naicsCode: "Industry Code (NAICS)",
+  naics: "Industry Code (NAICS)",
 };
 
 const METRIC_ONLY_FIELD_KEYS = new Set([
@@ -23,6 +28,8 @@ const METRIC_ONLY_FIELD_KEYS = new Set([
   "arvPercentage",
   "dscr",
   "netWorth",
+  "totalAssets",
+  "totalLiabilities",
 ]);
 
 /** Shown in Application Overview / Key Metrics — avoid repeating in field sections. */
@@ -34,6 +41,50 @@ const OVERVIEW_ONLY_FIELD_KEYS = new Set([
   "existingDebt",
   "brokerPoints",
 ]);
+
+/** Stored for calculations / duplicates — not shown in read-only details. */
+const INTERNAL_SUBMISSION_FIELD_KEYS = new Set([
+  "annualTaxes",
+  "insurancePremium",
+  "inFloodZone",
+  "financialReferenceYear",
+  "financialYearColumnCount",
+  "sreoTotalMarketValue",
+  "dscrCalculationMethod",
+  "hasRentalIncome",
+  "rentalProperty",
+]);
+
+const ENUM_VALUE_LABELS: Record<string, string> = {
+  ...PRODUCT_LABELS,
+  RESIDENTIAL_1_4: "1-4 Units Residential",
+  CRE_MULTIFAMILY: "CRE & Multifamily",
+  SBA_USDA: "SBA & USDA",
+  ABL: "Asset Based Lending",
+  FULL_RECOURSE: "Full Recourse",
+  NON_RECOURSE: "Non-Recourse",
+};
+
+function formatEnumLikeDisplayValue(value: unknown) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return "—";
+
+  if (ENUM_VALUE_LABELS[raw]) return ENUM_VALUE_LABELS[raw];
+
+  if (raw.includes("_")) {
+    return raw
+      .replace(/_/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .replace(/\b\w/g, (char) => char.toUpperCase());
+  }
+
+  return raw;
+}
+
+function stripCoBorrowerPrefix(fieldKey: string) {
+  return fieldKey.replace(/^coBorrower_\d+_/, "");
+}
 
 /**
  * Alias groups: first key is preferred when multiple equivalent fields exist.
@@ -92,6 +143,38 @@ function isComputedFinancialField(
   );
 }
 
+/**
+ * Internal storage keys, override columns, and granular breakdown rows
+ * that should not appear on lender read-only View Details.
+ */
+function isInternalBackOfficeField(
+  fieldKey: string,
+  label?: string | null,
+) {
+  const key = fieldKey.trim();
+  if (!key) return true;
+
+  const bareKey = stripCoBorrowerPrefix(key);
+  const labelText = (label || "").trim();
+
+  if (INTERNAL_SUBMISSION_FIELD_KEYS.has(key)) return true;
+  if (INTERNAL_SUBMISSION_FIELD_KEYS.has(bareKey)) return true;
+
+  if (/^asset_/i.test(bareKey)) return true;
+  if (/^liability_/i.test(bareKey)) return true;
+  if (/^financial_/i.test(bareKey)) return true;
+  if (/^financialYear_/i.test(bareKey)) return true;
+  if (/^proFormaNoi_year_/i.test(bareKey)) return true;
+
+  if (/override/i.test(key) || /override/i.test(bareKey)) return true;
+  if (/\boverride\b/i.test(labelText)) return true;
+
+  if (/_col\d+$/i.test(key)) return true;
+  if (/^col\d+$/i.test(bareKey)) return true;
+
+  return false;
+}
+
 function shouldOmitSubmissionFieldFromDetails(
   fieldKey: string,
   label?: string | null,
@@ -99,7 +182,8 @@ function shouldOmitSubmissionFieldFromDetails(
   if (OVERVIEW_ONLY_FIELD_KEYS.has(fieldKey)) return true;
   return (
     isApplicationDocumentField(fieldKey, label) ||
-    isComputedFinancialField(fieldKey, label)
+    isComputedFinancialField(fieldKey, label) ||
+    isInternalBackOfficeField(fieldKey, label)
   );
 }
 
@@ -157,10 +241,13 @@ export function parseSubmissionFieldValue(value: string | unknown) {
 export function formatFieldDisplayValue(fieldKey: string, value: unknown) {
   if (value === undefined || value === null || value === "") return "—";
 
+  const normalizedYesNo = String(value).trim().toLowerCase();
+  if (normalizedYesNo === "yes") return "Yes";
+  if (normalizedYesNo === "no") return "No";
+
   if (fieldKey === "floodZone") {
-    const normalized = String(value).trim().toLowerCase();
-    if (normalized === "yes") return "Yes";
-    if (normalized === "no") return "No";
+    if (normalizedYesNo === "yes") return "Yes";
+    if (normalizedYesNo === "no") return "No";
   }
 
   if (
@@ -181,16 +268,24 @@ export function formatFieldDisplayValue(fieldKey: string, value: unknown) {
     }
   }
 
-  if (fieldKey === "loanProductCode") {
-    const code = String(value);
-    return PRODUCT_LABELS[code] || code.replace(/_/g, " ");
+  if (
+    fieldKey === "loanProductCode" ||
+    fieldKey === "loanCategory" ||
+    fieldKey === "recourse"
+  ) {
+    return formatEnumLikeDisplayValue(value);
   }
 
   if (typeof value === "boolean") {
     return value ? "Yes" : "No";
   }
 
-  return String(value);
+  const stringValue = String(value).trim();
+  if (stringValue.includes("_")) {
+    return formatEnumLikeDisplayValue(stringValue);
+  }
+
+  return stringValue;
 }
 
 export function getLatestSubmission(submissions: any[] = []) {
@@ -245,6 +340,16 @@ export function getSubmissionFieldLabel(field: SubmissionDetailField) {
 export function formatSubmissionFieldValue(field: SubmissionDetailField) {
   const fieldKey = field.fieldKey || "";
   const parsed = parseSubmissionFieldValue(field.value);
+
+  if (fieldKey === "loanProductCode") {
+    const code = String(parsed ?? "");
+    return PRODUCT_LABELS[code] || formatEnumLikeDisplayValue(code);
+  }
+
+  if (fieldKey === "loanCategory" || fieldKey === "recourse") {
+    return formatEnumLikeDisplayValue(parsed);
+  }
+
   return formatFieldDisplayValue(fieldKey, parsed);
 }
 
@@ -278,7 +383,7 @@ function resolveHeuristicSection(fieldKey: string) {
     };
   }
 
-  if (/noi|revenue|income|rent|tax|insurance|hoa|assets|liabilities|floodZone|financial/i.test(fieldKey)) {
+  if (/noi|revenue|income|rent|tax|insurance|hoa|floodZone|financial|vacancy|cashFlow|grossIncome|override|expense|debt|equity|balance|inventoryValue|ebitda/i.test(fieldKey)) {
     return {
       id: "financial-details",
       title: "Financial Details",

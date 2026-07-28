@@ -1708,7 +1708,7 @@ export default function LoanApplicationsPage() {
                                     className="flex w-full items-center gap-3 px-4 py-3 text-sm text-cyan-600 hover:bg-cyan-50"
                                   >
                                     <MdEdit size={14} />
-                                    Assign Sub Broker
+                                    Assign Co Broker
                                   </button>
                                 </>
                               )}

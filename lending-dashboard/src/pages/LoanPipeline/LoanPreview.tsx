@@ -48,6 +48,10 @@ import {
   canUploadSignDocuments,
 } from "../../lib/lenderPermissions";
 import LenderSubmissionDetailsView from "../../components/submissions/LenderSubmissionDetailsView";
+import {
+  fetchLenderBrandingForPdf,
+  type PdfBranding,
+} from "../../lib/applicationDetailsPdf";
 import SignDocumentsPanel from "../../components/documents/SignDocumentsPanel";
 import { buildApiPublicFileUrl } from "../../lib/publicFileUrl";
 import LoiUnderwritingFormModal from "../../components/loi/LoiUnderwritingFormModal";
@@ -333,6 +337,11 @@ export default function LoanPreview() {
   const [decisionFormErrors, setDecisionFormErrors] =
     useState<DecisionFormErrors>({});
   const [decisionSubmitting, setDecisionSubmitting] = useState(false);
+  const [pdfBranding, setPdfBranding] = useState<PdfBranding | null>(null);
+
+  useEffect(() => {
+    fetchLenderBrandingForPdf().then(setPdfBranding);
+  }, []);
 
   const handleAddCustomDoc = () => {
     if (!customInput.trim()) return;
@@ -1264,6 +1273,7 @@ export default function LoanPreview() {
         monthlyPayment={monthlyPayment}
         monthlyPaymentDisplay={monthlyPaymentDisplay}
         submittedDate={submittedDate}
+        pdfBranding={pdfBranding}
       />
     );
   };
@@ -2342,7 +2352,7 @@ export default function LoanPreview() {
                     className="inline-flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700 transition hover:bg-rose-100 dark:border-rose-900/40 dark:bg-rose-950/30 dark:text-rose-300 dark:hover:bg-rose-950/50"
                   >
                     <XCircle size={16} />
-                    Reject
+                    Declined
                   </button>
                 )}
               </div>
@@ -2805,7 +2815,7 @@ export default function LoanPreview() {
                 <h2 className="text-lg font-bold">
                   {decisionModal.type === "APPROVED"
                     ? "Final Approval"
-                    : "Reject Application"}
+                    : "Declined Application"}
                 </h2>
 
                 <button
@@ -2958,7 +2968,7 @@ export default function LoanPreview() {
                       ? "Processing..."
                       : decisionModal.type === "APPROVED"
                         ? "Confirm Final Approval"
-                        : "Confirm Rejection"}
+                        : "Confirm Declined"}
                   </button>
                 </div>
               </div>

@@ -1,6 +1,8 @@
 import { FileText, User } from "lucide-react";
 import { motion } from "framer-motion";
 import type { ReactNode } from "react";
+import LenderApplicationDetailsDownloadButton from "./LenderApplicationDetailsDownloadButton";
+import type { PdfBranding } from "../../lib/applicationDetailsPdf";
 import {
   resolveLatestLenderReview,
   resolveLenderDecisionStatus,
@@ -35,6 +37,8 @@ type LenderSubmissionDetailsViewProps = {
   monthlyPayment?: number;
   monthlyPaymentDisplay?: string;
   submittedDate?: Date | null;
+  showPdfDownload?: boolean;
+  pdfBranding?: PdfBranding | null;
 };
 
 function InfoCard({ label, value }: { label: string; value: ReactNode }) {
@@ -216,6 +220,8 @@ export default function LenderSubmissionDetailsView({
   monthlyPayment = 0,
   monthlyPaymentDisplay,
   submittedDate,
+  showPdfDownload = true,
+  pdfBranding = null,
 }: LenderSubmissionDetailsViewProps) {
   const loanApplication = applicationLender?.loanApplication;
   const { sections, signatureField } = groupSubmissionFieldsForDisplay(fields);
@@ -241,6 +247,23 @@ export default function LenderSubmissionDetailsView({
       )}
 
       <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-950">
+        {showPdfDownload ? (
+          <div className="mb-5 flex justify-end">
+            <LenderApplicationDetailsDownloadButton
+              applicationLender={applicationLender}
+              fields={fields}
+              formatApplicationStatus={formatApplicationStatus}
+              loanAmount={loanAmount}
+              ltv={ltv}
+              dscr={dscr}
+              monthlyPayment={monthlyPayment}
+              monthlyPaymentDisplay={monthlyPaymentDisplay}
+              submittedDate={submittedDate}
+              initialBranding={pdfBranding}
+            />
+          </div>
+        ) : null}
+
         <SectionBlock
           title="Application Overview"
           icon={<FileText size={16} className="text-cyan-600" />}

@@ -1,6 +1,7 @@
 import { Eye, FileText, User } from "lucide-react";
 import { motion } from "framer-motion";
 import type { ReactNode } from "react";
+import ApplicationDetailsDownloadButton from "./ApplicationDetailsDownloadButton";
 import {
   formatSubmissionFieldValue,
   getBorrowerDisplayNameFromFields,
@@ -53,6 +54,7 @@ type SubmissionDetailsViewProps = {
   markFundedBlockedReason?: string | null;
   markingFundedId?: string | null;
   onMarkFunded?: (applicationLenderId: string) => void | Promise<void>;
+  showPdfDownload?: boolean;
 };
 
 function InfoCard({ label, value }: { label: string; value: ReactNode }) {
@@ -292,6 +294,7 @@ export default function SubmissionDetailsView({
   markFundedBlockedReason = null,
   markingFundedId = null,
   onMarkFunded,
+  showPdfDownload = true,
 }: SubmissionDetailsViewProps) {
   const isApplicationFunded =
     submissionDetail?.applicationStatus === "FUNDED" ||
@@ -370,6 +373,23 @@ export default function SubmissionDetailsView({
     )}
 
       <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-950">
+        {showPdfDownload ? (
+          <div className="mb-5 flex justify-end">
+            <ApplicationDetailsDownloadButton
+              submissionDetail={submissionDetail}
+              fields={fields}
+              formatSubmissionStatus={formatSubmissionStatus}
+              formatCompactAmount={formatCompactAmount}
+              loanAmount={loanAmount}
+              ltv={ltv}
+              dscr={dscr}
+              monthlyPayment={monthlyPayment}
+              monthlyPaymentDisplay={monthlyPaymentDisplay}
+              submittedDate={submittedDate}
+            />
+          </div>
+        ) : null}
+
         <SectionBlock
           title="Application Overview"
           icon={<FileText size={16} className="text-cyan-600" />}
