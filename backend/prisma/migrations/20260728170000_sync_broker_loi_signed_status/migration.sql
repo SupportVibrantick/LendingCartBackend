@@ -3,13 +3,13 @@
 UPDATE "broker_loi_versions" bv
 SET
   "status" = CASE
-    WHEN adr."signStatus" IN ('FORWARDED_TO_LENDER', 'LENDER_SEEN') THEN 'FORWARDED_TO_LENDER'
-    WHEN adr."signStatus" = 'CLIENT_SIGNED' THEN 'CLIENT_SIGNED'
-    WHEN adr."signStatus" = 'SENT_TO_CLIENT' THEN 'SENT_TO_CLIENT'
+    WHEN adr."sign_status" IN ('FORWARDED_TO_LENDER', 'LENDER_SEEN') THEN 'FORWARDED_TO_LENDER'
+    WHEN adr."sign_status" = 'CLIENT_SIGNED' THEN 'CLIENT_SIGNED'
+    WHEN adr."sign_status" = 'SENT_TO_CLIENT' THEN 'SENT_TO_CLIENT'
     ELSE bv."status"
   END,
-  "sent_to_client_at" = COALESCE(bv."sent_to_client_at", adr."sentToClientAt"),
-  "client_signed_at" = COALESCE(bv."client_signed_at", adr."clientSignedAt"),
+  "sent_to_client_at" = COALESCE(bv."sent_to_client_at", adr."sent_to_client_at"),
+  "client_signed_at" = COALESCE(bv."client_signed_at", adr."client_signed_at"),
   "document_requirement_id" = COALESCE(bv."document_requirement_id", adr."id")
 FROM "loan_applications" la
 JOIN "application_document_requirements" adr
@@ -19,8 +19,8 @@ JOIN "document_types" dt
 WHERE bv."loan_application_id" = la."id"
   AND bv."id" = la."current_broker_loi_version_id"
   AND dt."code" = 'BROKER_LOI_TERM_SHEET'
-  AND adr."requiresClientSignature" = true
-  AND adr."signStatus" IN (
+  AND adr."requires_client_signature" = true
+  AND adr."sign_status" IN (
     'SENT_TO_CLIENT',
     'CLIENT_SIGNED',
     'FORWARDED_TO_LENDER',
@@ -34,7 +34,7 @@ FROM (
     adu."documentRequirementId",
     adu."fileUrl"
   FROM "application_document_uploads" adu
-  WHERE adu."isSignedOutput" = true
+  WHERE adu."is_signed_output" = true
   ORDER BY adu."documentRequirementId", adu."uploadedAt" DESC
 ) signed
 WHERE bv."document_requirement_id" = signed."documentRequirementId"
