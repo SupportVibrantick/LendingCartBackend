@@ -68,6 +68,68 @@ function defaultExpirationDate() {
   return date.toISOString().slice(0, 10);
 }
 
+function stringifyFormField(value: unknown) {
+  if (value === null || value === undefined) return "";
+  return String(value);
+}
+
+function parseStoredInterestRate(stored: Record<string, unknown>) {
+  if (stored.interestRate != null && stored.interestRate !== "") {
+    return stringifyFormField(stored.interestRate);
+  }
+
+  const display = String(stored.interestRateDisplay || "").trim();
+  if (!display) return "";
+
+  const numeric = Number(display.replace(/%/g, ""));
+  return Number.isFinite(numeric) && numeric > 0 ? String(numeric) : display;
+}
+
+export function mapStoredLoiTermsToForm(
+  stored: unknown,
+): LoiUnderwritingTerms | null {
+  if (!stored || typeof stored !== "object") return null;
+
+  const record = stored as Record<string, unknown>;
+  const approvedAmount = record.approvedAmount;
+  if (approvedAmount == null || approvedAmount === "") return null;
+
+  const requiredDocuments = Array.isArray(record.requiredDocuments)
+    ? record.requiredDocuments
+        .map((item) => String(item || "").trim())
+        .filter(Boolean)
+    : Array.isArray(record.closingConditions)
+      ? record.closingConditions
+          .map((item) => String(item || "").trim())
+          .filter(Boolean)
+      : [];
+
+  return {
+    approvedAmount: stringifyFormField(approvedAmount),
+    interestRate: parseStoredInterestRate(record),
+    ltvPercent:
+      record.ltvPercent != null && record.ltvPercent !== ""
+        ? stringifyFormField(record.ltvPercent)
+        : "",
+    ltcPercent:
+      record.ltcPercent != null && record.ltcPercent !== ""
+        ? stringifyFormField(record.ltcPercent)
+        : "",
+    arvPercent:
+      record.arvPercent != null && record.arvPercent !== ""
+        ? stringifyFormField(record.arvPercent)
+        : "",
+    monthlyPayment:
+      record.monthlyPayment != null && record.monthlyPayment !== ""
+        ? stringifyFormField(record.monthlyPayment)
+        : "",
+    interestOnly: Boolean(record.interestOnly),
+    loanTerm: record.loanTerm ? String(record.loanTerm) : "12 Months",
+    requiredDocuments,
+    customDocument: "",
+  };
+}
+
 export function calculateSuggestedLoiMetrics(input: {
   approvedAmount?: string;
   interestRate?: string;

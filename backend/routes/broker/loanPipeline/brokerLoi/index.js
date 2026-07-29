@@ -117,6 +117,8 @@ function createBrokerLoiRoutes({ tagPrefix, requireBrokerUserId = false }) {
                   logoUrl: { type: "string" },
                 },
               },
+              regenerate: { type: "boolean" },
+              revised: { type: "boolean" },
             },
           },
         },
@@ -132,6 +134,8 @@ function createBrokerLoiRoutes({ tagPrefix, requireBrokerUserId = false }) {
             sourceApplicationLenderId: req.body.sourceApplicationLenderId,
             brokerTerms: req.body.brokerTerms,
             branding: req.body.branding,
+            regenerate: Boolean(req.body.regenerate),
+            revised: Boolean(req.body.revised),
             brokerOrgId: req.user.organizationId,
             brokerUserId: requireBrokerUserId
               ? req.user.id || req.user.userId
@@ -143,12 +147,19 @@ function createBrokerLoiRoutes({ tagPrefix, requireBrokerUserId = false }) {
             return reply.code(result.error.status).send({
               success: false,
               message: result.error.message,
+              code: result.error.code,
             });
           }
 
+          const message = req.body.revised
+            ? `Revised broker LOI (Version ${result.data.versionNumber}) created. Send to client for signature.`
+            : req.body.regenerate
+              ? "Broker LOI regenerated successfully"
+              : "Broker LOI generated successfully";
+
           return reply.send({
             success: true,
-            message: "Broker LOI generated successfully",
+            message,
             data: result.data,
           });
         } catch (error) {

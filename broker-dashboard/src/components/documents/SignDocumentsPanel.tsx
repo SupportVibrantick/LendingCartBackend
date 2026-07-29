@@ -65,6 +65,17 @@ export type SignDocumentRow = {
     fileMimeType?: string | null;
     clientSignatureData?: string | null;
   } | null;
+  loiVersionNumber?: number;
+  loiVersionLabel?: string;
+  isBrokerLoi?: boolean;
+};
+
+type PreviousSignedLoiVersion = {
+  versionNumber: number;
+  label: string;
+  signedPdfUrl: string;
+  clientSignedAt?: string | null;
+  status: string;
 };
 
 type SignDocumentsPanelProps = {
@@ -115,6 +126,9 @@ export default function SignDocumentsPanel({
 
   const [loading, setLoading] = useState(false);
   const [rows, setRows] = useState<SignDocumentRow[]>([]);
+  const [previousSignedLoiVersions, setPreviousSignedLoiVersions] = useState<
+    PreviousSignedLoiVersion[]
+  >([]);
   const [uploadName, setUploadName] = useState("");
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -153,6 +167,9 @@ export default function SignDocumentsPanel({
       }
 
       setRows(json.data || []);
+      setPreviousSignedLoiVersions(
+        isClientMode ? json.previousSignedLoiVersions || [] : [],
+      );
     } catch (err: any) {
       toast.error(err.message || "Failed to load sign documents");
     } finally {
@@ -1284,7 +1301,9 @@ export default function SignDocumentsPanel({
 
   const renderClientDocumentActions = (row: SignDocumentRow) => {
     const hasTemplate = Boolean(row.templateFileUrl);
-    const hasSigned = Boolean(row.signedUpload?.fileUrl);
+    const awaitingNewSignature = row.signStatus === "SENT_TO_CLIENT";
+    const hasSigned =
+      !awaitingNewSignature && Boolean(row.signedUpload?.fileUrl);
 
     if (!hasTemplate && !hasSigned) return null;
 
@@ -1400,6 +1419,11 @@ export default function SignDocumentsPanel({
               title={row.documentName}
             >
               {row.documentName}
+              {row.loiVersionLabel ? (
+                <span className="ml-2 text-xs font-medium text-violet-600">
+                  ({row.loiVersionLabel})
+                </span>
+              ) : null}
             </h3>
             {row.lenderName && (
               <p className="mt-1 flex items-center gap-1 text-xs text-slate-500">
@@ -1506,9 +1530,63 @@ export default function SignDocumentsPanel({
           </div>
         ) : (
           <>
-            <div className="mx-auto grid max-w-2xl gap-4">
-              {rows.map((row) => renderClientDocumentCard(row))}
-            </div>
+            {pendingDocs.length > 0 && (
+              <div className="space-y-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">
+                  Action required
+                </p>
+                <div className="mx-auto grid max-w-2xl gap-4">
+                  {pendingDocs.map((row) => renderClientDocumentCard(row))}
+                </div>
+              </div>
+            )}
+
+            {completedDocs.length > 0 && (
+              <div className="space-y-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">
+                  Completed
+                </p>
+                <div className="mx-auto grid max-w-2xl gap-4">
+                  {completedDocs.map((row) => renderClientDocumentCard(row))}
+                </div>
+              </div>
+            )}
+
+            {previousSignedLoiVersions.length > 0 && (
+              <div className="mx-auto max-w-2xl space-y-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Previous signed LOI versions (archive)
+                </p>
+                <div className="space-y-2">
+                  {previousSignedLoiVersions.map((version) => (
+                    <div
+                      key={version.versionNumber}
+                      className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3"
+                    >
+                      <div>
+                        <p className="text-sm font-semibold text-slate-800">
+                          Broker LOI / Term Sheet · {version.label}
+                        </p>
+                        {version.clientSignedAt && (
+                          <p className="text-xs text-slate-500">
+                            Signed{" "}
+                            {new Date(version.clientSignedAt).toLocaleDateString()}
+                          </p>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => openFile(version.signedPdfUrl)}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-800 hover:bg-emerald-100"
+                      >
+                        <Eye size={13} />
+                        View archive
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {renderSigningModal()}
             {renderTemplateViewModal()}

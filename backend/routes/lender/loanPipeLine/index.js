@@ -7,6 +7,7 @@ async function loanPipelineRoutes(fastify) {
   fastify.register(require("./lenderViewDocuments"));
   fastify.register(require("./generateLoi"));
   fastify.register(require("./sendLoiToBroker"));
+  fastify.register(require("./loiVersions"));
   fastify.register(require("./viewLoi.js"));
   fastify.register(require("./uploadLoiTemplate.js"));
   fastify.register(require("./getLoanPipelineStats.js"));

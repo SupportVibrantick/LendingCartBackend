@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useLocation, useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
@@ -17,6 +17,7 @@ import {
   FolderOpen,
   Loader2,
   MessageSquare,
+  RotateCcw,
   Search,
   SearchX,
   Send,
@@ -294,6 +295,20 @@ export default function LoanPreview() {
   const [loiGenerating, setLoiGenerating] = useState(false);
   const [loiSendingToBroker, setLoiSendingToBroker] = useState(false);
   const [loiFormOpen, setLoiFormOpen] = useState(shouldOpenLoiForm);
+  const [loiFormMode, setLoiFormMode] = useState<
+    "create" | "regenerate" | "revised"
+  >("create");
+  const [loiVersions, setLoiVersions] = useState<
+    Array<{
+      id: string;
+      versionNumber: number;
+      label: string;
+      loiUrl: string;
+      status: string;
+      sentToBrokerAt?: string | null;
+      isCurrent?: boolean;
+    }>
+  >([]);
   const [loiUrl, setLoiUrl] = useState<string | null>(null);
   const [signedBrokerLoi, setSignedBrokerLoi] = useState<any>(null);
   const [signedBrokerLoiUrl, setSignedBrokerLoiUrl] = useState<string | null>(
@@ -302,6 +317,7 @@ export default function LoanPreview() {
   const [loiViewMode, setLoiViewMode] = useState<"lender" | "signed-broker">(
     "lender",
   );
+  const loadedSignedBrokerLoiFileRef = useRef<string | null>(null);
   const [loanProducts, setLoanProducts] = useState<any[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(false);
   const [customDocs, setCustomDocs] = useState<string[]>([]);
@@ -488,11 +504,21 @@ export default function LoanPreview() {
       }
       return null;
     });
+    loadedSignedBrokerLoiFileRef.current = null;
   }, [applicationLenderId]);
 
   const canCreateLoi = useMemo(() => canGenerateLoi(), []);
   const loiGenerated = Boolean(submissionDetail?.loiUrl);
   const loiSentToBroker = Boolean(submissionDetail?.loiSentToBrokerAt);
+  const currentLoiVersion = loiVersions.find((v) => v.isCurrent);
+  const nextRevisedVersionNumber =
+    (loiVersions.reduce(
+      (max, v) => Math.max(max, v.versionNumber || 0),
+      0,
+    ) || 0) + 1;
+  const currentLoiIsDraft = currentLoiVersion
+    ? currentLoiVersion.status === "DRAFT"
+    : !loiSentToBroker;
   const hasSignedBrokerLoi = Boolean(signedBrokerLoi?.signedUpload?.fileUrl);
   const showLoiTab =
     canCreateLoi || loiGenerated || Boolean(isLoi) || hasSignedBrokerLoi;
@@ -513,6 +539,23 @@ export default function LoanPreview() {
     return formatLoanProduct(code);
   }, [submissionDetail, loanProducts]);
 
+  const fetchLoiVersions = async () => {
+    if (!applicationLenderId) return;
+
+    try {
+      const res = await fetch(
+        `${API_BASE}/lender/loan-pipeline/${applicationLenderId}/loi-versions`,
+        { headers: getAuthHeaders() },
+      );
+      const json = await res.json();
+      if (res.ok && json.success) {
+        setLoiVersions(json.data?.versions || []);
+      }
+    } catch {
+      /* optional */
+    }
+  };
+
   const fetchLenderApplicationDetail = async () => {
     if (!applicationLenderId) return;
 
@@ -531,6 +574,7 @@ export default function LoanPreview() {
       }
 
       setSubmissionDetail(json.data);
+      void fetchLoiVersions();
     } catch (err: any) {
       toast.error(err.message || "Failed to load application");
     } finally {
@@ -744,7 +788,13 @@ export default function LoanPreview() {
   };
 
   const loadSignedBrokerLoiPreview = async (fileUrl: string, force = false) => {
-    if (signedBrokerLoiUrl && !force) return;
+    if (
+      !force &&
+      loadedSignedBrokerLoiFileRef.current === fileUrl &&
+      signedBrokerLoiUrl
+    ) {
+      return;
+    }
 
     const resolved = buildApiPublicFileUrl(API_BASE, fileUrl);
     if (!resolved) {
@@ -762,6 +812,8 @@ export default function LoanPreview() {
     const blob = await fileRes.blob();
     const blobUrl = URL.createObjectURL(blob);
 
+    loadedSignedBrokerLoiFileRef.current = fileUrl;
+
     setSignedBrokerLoiUrl((prev) => {
       if (prev?.startsWith("blob:")) {
         URL.revokeObjectURL(prev);
@@ -772,7 +824,6 @@ export default function LoanPreview() {
 
   const loadLoiPreview = async (loiPath?: string, force = false) => {
     if (!applicationLenderId) return;
-    if (loiUrl && signedBrokerLoiUrl && !force) return;
 
     try {
       setLoiLoading(true);
@@ -791,13 +842,18 @@ export default function LoanPreview() {
         throw new Error(json.message || "Failed to fetch LOI");
       }
 
-      setSignedBrokerLoi(json.data?.signedBrokerLoi || null);
+      const nextSignedBrokerLoi = json.data?.signedBrokerLoi || null;
+      const nextSignedFileUrl =
+        nextSignedBrokerLoi?.signedUpload?.fileUrl || null;
 
-      if (json.data?.signedBrokerLoi?.signedUpload?.fileUrl) {
-        await loadSignedBrokerLoiPreview(
-          json.data.signedBrokerLoi.signedUpload.fileUrl,
-          force,
-        );
+      setSignedBrokerLoi(nextSignedBrokerLoi);
+
+      const signedFileChanged =
+        nextSignedFileUrl &&
+        loadedSignedBrokerLoiFileRef.current !== nextSignedFileUrl;
+
+      if (nextSignedFileUrl && (force || signedFileChanged || !signedBrokerLoiUrl)) {
+        await loadSignedBrokerLoiPreview(nextSignedFileUrl, force || signedFileChanged);
         if (!json.data?.loiPath) {
           setLoiViewMode("signed-broker");
         } else if (force || loiViewMode === "signed-broker") {
@@ -806,10 +862,14 @@ export default function LoanPreview() {
       }
 
       if (!json.data?.loiPath) {
-        if (json.data?.signedBrokerLoi?.signedUpload?.fileUrl) {
+        if (nextSignedFileUrl) {
           return;
         }
         throw new Error("LOI not generated yet");
+      }
+
+      if (!force && loiUrl && !signedFileChanged) {
+        return;
       }
 
       resolvedPath = json.data.loiPath;
@@ -847,6 +907,9 @@ export default function LoanPreview() {
   }) => {
     if (!applicationLenderId) return;
 
+    const isRegenerate = loiFormMode === "regenerate";
+    const isRevised = loiFormMode === "revised";
+
     try {
       setLoiGenerating(true);
 
@@ -855,7 +918,11 @@ export default function LoanPreview() {
         {
           method: "POST",
           headers: getAuthHeaders(),
-          body: JSON.stringify(payload),
+          body: JSON.stringify({
+            ...payload,
+            regenerate: isRegenerate || isRevised,
+            revised: isRevised,
+          }),
         },
       );
 
@@ -866,19 +933,31 @@ export default function LoanPreview() {
       }
 
       toast.success(
-        "Term sheet generated. Review it below, then send it to the broker when ready.",
+        isRevised
+          ? `Revised LOI (Version ${json.versionNumber || nextRevisedVersionNumber}) created. Review it, then send to the broker when ready.`
+          : isRegenerate
+            ? "LOI draft updated. Review the updated document, then send it to the broker when ready."
+            : "Term sheet generated. Review it below, then send it to the broker when ready.",
       );
       setLoiFormOpen(false);
+      setLoiFormMode("create");
 
       setSubmissionDetail((prev: any) =>
         prev
           ? {
               ...prev,
               loiUrl: json.loiUrl,
-              loiSentToBrokerAt: null,
+              loiSentToBrokerAt: isRevised || isRegenerate ? null : prev.loiSentToBrokerAt,
+              loiTermsJson: payload.lenderTerms,
             }
           : prev,
       );
+
+      if (json.versions) {
+        setLoiVersions(json.versions);
+      } else {
+        void fetchLoiVersions();
+      }
 
       setLoiUrl((prev) => {
         if (prev?.startsWith("blob:")) {
@@ -935,11 +1014,41 @@ export default function LoanPreview() {
             }
           : prev,
       );
+      void fetchLoiVersions();
     } catch (err: any) {
       toast.error(err.message || "Failed to send LOI to broker");
     } finally {
       setLoiSendingToBroker(false);
     }
+  };
+
+  const openCreateLoiForm = () => {
+    setLoiFormMode("create");
+    setLoiFormOpen(true);
+  };
+
+  const openRegenerateLoiForm = async () => {
+    setLoiViewMode("lender");
+    setLoiFormMode("regenerate");
+    setLoiFormOpen(true);
+  };
+
+  const openRevisedLoiForm = async () => {
+    const result = await Swal.fire({
+      title: `Create Revised LOI (Version ${nextRevisedVersionNumber})?`,
+      html: "Previous LOI versions are preserved for audit. A new version will be created and must be sent to the broker again.",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Create Revised LOI",
+      cancelButtonText: "Cancel",
+      confirmButtonColor: "#7C3AED",
+    });
+
+    if (!result.isConfirmed) return;
+
+    setLoiViewMode("lender");
+    setLoiFormMode("revised");
+    setLoiFormOpen(true);
   };
 
   useEffect(() => {
@@ -2007,7 +2116,11 @@ export default function LoanPreview() {
           <Loader2 className="animate-spin w-8 h-8 text-blue-500" />
           <p className="text-sm text-slate-500">
             {loiGenerating
-              ? "Generating Term Sheet / LOI from application data..."
+              ? loiFormMode === "revised"
+                ? "Creating Revised Term Sheet / LOI..."
+                : loiFormMode === "regenerate"
+                  ? "Updating LOI Draft..."
+                  : "Generating Term Sheet / LOI from application data..."
               : "Loading LOI preview..."}
           </p>
         </div>
@@ -2037,7 +2150,7 @@ export default function LoanPreview() {
           </p>
           <button
             type="button"
-            onClick={() => setLoiFormOpen(true)}
+            onClick={openCreateLoiForm}
             disabled={loiGenerating || detailLoading}
             className="mt-6 inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-purple-600 text-white text-sm font-semibold hover:bg-purple-700 transition disabled:opacity-50"
           >
@@ -2100,12 +2213,40 @@ export default function LoanPreview() {
           </div>
         )}
 
-        {loiGenerated && loiSentToBroker && (
+        {loiGenerated && loiSentToBroker && !currentLoiIsDraft && (
           <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-100">
             Sent to broker
             {submissionDetail?.loiSentToBrokerAt
               ? ` · ${new Date(submissionDetail.loiSentToBrokerAt).toLocaleString()}`
               : ""}
+            {currentLoiVersion
+              ? ` · Version ${currentLoiVersion.versionNumber}`
+              : ""}
+          </div>
+        )}
+
+        {loiVersions.length > 0 && (
+          <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-900/40">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              LOI Version History
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {loiVersions.map((version) => (
+                <span
+                  key={version.id}
+                  className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium ${
+                    version.isCurrent
+                      ? "bg-purple-100 text-purple-800"
+                      : "bg-white text-slate-600 border border-slate-200"
+                  }`}
+                >
+                  Version {version.versionNumber}
+                  {version.status === "SENT_TO_BROKER" && " · Sent"}
+                  {version.status === "SUPERSEDED" && " · Superseded"}
+                  {version.isCurrent && version.status === "DRAFT" && " · Current draft"}
+                </span>
+              ))}
+            </div>
           </div>
         )}
 
@@ -2124,7 +2265,10 @@ export default function LoanPreview() {
             </button>
             <button
               type="button"
-              onClick={() => setLoiViewMode("signed-broker")}
+              onClick={() => {
+                setLoiViewMode("signed-broker");
+                void loadLoiPreview(undefined, true);
+              }}
               className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${
                 loiViewMode === "signed-broker"
                   ? "bg-emerald-600 text-white"
@@ -2139,13 +2283,39 @@ export default function LoanPreview() {
         {loiViewMode === "signed-broker" && signedBrokerLoi && (
           <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
             Client-signed broker LOI forwarded by the broker
+            {signedBrokerLoi.versionLabel
+              ? ` · ${signedBrokerLoi.versionLabel}`
+              : ""}
             {signedBrokerLoi.clientSignedAt
               ? ` · signed ${new Date(signedBrokerLoi.clientSignedAt).toLocaleDateString()}`
               : ""}
           </div>
         )}
 
-        <div className="flex justify-end">
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {canCreateLoi && loiGenerated && loiViewMode === "lender" ? (
+            currentLoiIsDraft ? (
+              <button
+                type="button"
+                onClick={openRegenerateLoiForm}
+                disabled={loiGenerating || loiLoading}
+                className="inline-flex items-center gap-2 rounded-xl border border-purple-200 bg-purple-50 px-4 py-2 text-sm font-semibold text-purple-700 transition hover:bg-purple-100 disabled:opacity-50"
+              >
+                <RotateCcw size={16} />
+                Update Draft
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={openRevisedLoiForm}
+                disabled={loiGenerating || loiLoading}
+                className="inline-flex items-center gap-2 rounded-xl border border-purple-200 bg-purple-50 px-4 py-2 text-sm font-semibold text-purple-700 transition hover:bg-purple-100 disabled:opacity-50"
+              >
+                <RotateCcw size={16} />
+                Create Revised LOI (Version {nextRevisedVersionNumber})
+              </button>
+            )
+          ) : null}
           <button
             onClick={() => handleDownload(activePreviewUrl, activeDownloadName)}
             className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-100 text-sm font-semibold hover:bg-slate-200 transition"
@@ -2980,6 +3150,11 @@ export default function LoanPreview() {
       {createPortal(
         <LoiUnderwritingFormModal
           isOpen={loiFormOpen}
+          mode={loiFormMode}
+          revisedVersionNumber={
+            loiFormMode === "revised" ? nextRevisedVersionNumber : undefined
+          }
+          storedTerms={submissionDetail?.loiTermsJson}
           requestedAmount={loanAmount}
           propertyValue={
             getNumericFieldValue(submissionFields, "currentMarketValue") ||
@@ -3037,7 +3212,10 @@ export default function LoanPreview() {
                   undefined,
           }}
           submitting={loiGenerating}
-          onClose={() => setLoiFormOpen(false)}
+          onClose={() => {
+            setLoiFormOpen(false);
+            setLoiFormMode("create");
+          }}
           onSubmit={handleGenerateLOI}
         />,
         document.body,

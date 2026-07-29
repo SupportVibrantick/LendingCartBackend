@@ -95,26 +95,40 @@ function drawHeader(doc, data) {
 
   const brandName = display(data.lenderBrandName || data.lenderName, "Lender");
   const logoBuffer = resolveLogoBuffer(data.lenderLogoUrl);
-  let textX = PAGE.margin;
+
+  const LOGO_W = 96;
+  const LOGO_H = 28;
+  const brandFontSize = 10;
+  const brandGap = 4;
+  const metaX = PAGE.width - PAGE.margin - 150;
+  const brandMaxWidth = Math.max(140, metaX - PAGE.margin - 12);
 
   if (logoBuffer) {
     try {
-      doc.image(logoBuffer, PAGE.margin, 14, { fit: [96, 32] });
-      textX = PAGE.margin;
+      const blockHeight = LOGO_H + brandGap + brandFontSize;
+      const blockTop = (headerHeight - blockHeight) / 2;
+      const logoY = blockTop;
+
+      doc.image(logoBuffer, PAGE.margin, logoY, { fit: [LOGO_W, LOGO_H] });
+
+      doc.fillColor(COLORS.white).font("Helvetica-Bold").fontSize(brandFontSize);
+      drawAt(doc, brandName, PAGE.margin, logoY + LOGO_H + brandGap, {
+        width: brandMaxWidth,
+      });
     } catch {
-      /* ignore */
+      doc.fillColor(COLORS.white).font("Helvetica-Bold").fontSize(brandFontSize);
+      drawAt(doc, brandName, PAGE.margin, (headerHeight - brandFontSize) / 2, {
+        width: brandMaxWidth,
+      });
     }
+  } else {
+    doc.fillColor(COLORS.white).font("Helvetica-Bold").fontSize(11);
+    drawAt(doc, brandName, PAGE.margin, (headerHeight - 11) / 2, {
+      width: brandMaxWidth,
+    });
   }
 
-  doc.fillColor(COLORS.white).font("Helvetica-Bold").fontSize(logoBuffer ? 10 : 12);
-  drawAt(doc, brandName, textX, logoBuffer ? 50 : 18, { width: 220 });
-  doc.font("Helvetica").fontSize(7.5).fillColor("#CCFBF1");
-  drawAt(doc, "Commercial Loan Term Sheet", textX, logoBuffer ? 64 : 34, {
-    width: 220,
-  });
-
   doc.font("Helvetica").fontSize(7.5).fillColor("#E2E8F0");
-  const metaX = PAGE.width - PAGE.margin - 150;
   drawAt(doc, `Loan # ${display(data.applicationNumber, "N/A")}`, metaX, 16, {
     width: 150,
     align: "right",
@@ -347,10 +361,10 @@ function estimateConditionsHeight(data) {
 }
 
 function estimateDisclaimerHeight(doc, text, boxWidth) {
-  const fontSize = 10;
-  const lineHeight = 12;
+  const fontSize = 7.5;
+  const lineHeight = 9.5;
   const lines = wrapTextLines(doc, text, boxWidth - 24, fontSize);
-  const boxHeight = Math.max(52, 14 + lines.length * lineHeight);
+  const boxHeight = Math.max(44, 12 + lines.length * lineHeight);
   return 17 + boxHeight + 6;
 }
 
@@ -412,10 +426,10 @@ function drawDisclaimerBlock(doc, startY, data) {
   let y = drawSectionHeading(doc, startY, "Disclaimer");
   const boxWidth = PAGE.width - PAGE.margin * 2;
   const text = display(data.disclaimerText);
-  const fontSize = 10;
-  const lineHeight = 12;
+  const fontSize = 7.5;
+  const lineHeight = 9.5;
   const lines = wrapTextLines(doc, text, boxWidth - 24, fontSize);
-  const boxHeight = Math.max(52, 14 + lines.length * lineHeight);
+  const boxHeight = Math.max(44, 12 + lines.length * lineHeight);
 
   doc
     .roundedRect(PAGE.margin, y, boxWidth, boxHeight, 6)

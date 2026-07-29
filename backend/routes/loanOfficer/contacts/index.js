@@ -5,10 +5,10 @@ async function loanOfficerContactsRoutes(fastify) {
     fastify.addHook("preHandler", handler);
   }
 
-  fastify.register(require("./create"));
-  fastify.register(require("./list"));
-  fastify.register(require("./delete"));
-  fastify.register(require("./update"));
+  await fastify.register(require("./create"));
+  await fastify.register(require("./list"));
+  await fastify.register(require("./delete"));
+  await fastify.register(require("./update"));
 }
 
 module.exports = loanOfficerContactsRoutes;

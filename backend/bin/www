@@ -49,5 +49,11 @@ async function start() {
 
 start().catch((err) => {
   console.error("Error starting API server:", err);
+  if (err?.code) {
+    console.error("Startup error code:", err.code);
+  }
+  if (err?.cause) {
+    console.error("Startup error cause:", err.cause);
+  }
   process.exit(1);
 });

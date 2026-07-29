@@ -23,6 +23,18 @@ const {
   resolveLatestActiveSubmission,
 } = require("../../utils/applications/clientPortalSubmission");
 const {
+  BROKER_LOI_STATUS,
+  getCurrentBrokerLoiVersion,
+  createBrokerLoiVersion,
+  updateBrokerLoiDraftVersion,
+  listBrokerLoiVersions,
+  isBrokerLoiVersionLocked,
+  canRegenerateBrokerLoiDraft,
+  canCreateRevisedBrokerLoi,
+  syncBrokerLoiVersionFromSignWorkflow,
+  getCurrentLenderLoiVersion,
+} = require("../../services/loi/loiVersionService");
+const {
   APPLICATION_LENDER_LOI_INCLUDE,
 } = require("./brokerLoiList");
 const {
@@ -496,6 +508,23 @@ async function getBrokerLoiStatus(
     brokerOrgId,
   );
 
+  await syncBrokerLoiVersionFromSignWorkflow(prisma, {
+    applicationId,
+    signRequirement,
+  });
+
+  const currentVersion = await getCurrentBrokerLoiVersion(prisma, applicationId);
+  const versions = await listBrokerLoiVersions(prisma, applicationId);
+
+  const effectiveLocked =
+    isBrokerLoiVersionLocked(currentVersion) ||
+    Boolean(
+      signRequirement &&
+        ["CLIENT_SIGNED", "FORWARDED_TO_LENDER", "LENDER_SEEN"].includes(
+          signRequirement.signStatus,
+        ),
+    );
+
   return {
     data: {
       applicationId,
@@ -505,6 +534,26 @@ async function getBrokerLoiStatus(
         application.brokerLoiSourceApplicationLenderId,
       sourceLenderName,
       terms: application.brokerLoiTerms || null,
+      currentVersion: currentVersion
+        ? {
+            id: currentVersion.id,
+            versionNumber: currentVersion.versionNumber,
+            label: `Version ${currentVersion.versionNumber}`,
+            status: currentVersion.status,
+            brokerLoiUrl: currentVersion.brokerLoiUrl,
+            sentToClientAt: currentVersion.sentToClientAt,
+            clientSignedAt: currentVersion.clientSignedAt,
+            signedPdfUrl: currentVersion.signedPdfUrl,
+            isLocked: effectiveLocked,
+            canRegenerateDraft:
+              !effectiveLocked && canRegenerateBrokerLoiDraft(currentVersion),
+            canCreateRevised: canCreateRevisedBrokerLoi(
+              currentVersion,
+              signRequirement,
+            ),
+          }
+        : null,
+      versions,
       signWorkflow: buildSignWorkflowPayload(
         signRequirement,
         submission?.id || null,
@@ -574,6 +623,8 @@ async function generateBrokerLoi(
     brokerOrgId,
     brokerUserId,
     userId,
+    regenerate = false,
+    revised = false,
   },
 ) {
   const application = await loadBrokerApplication(
@@ -585,6 +636,67 @@ async function generateBrokerLoi(
 
   if (!application) {
     return { error: { status: 404, message: "Application not found" } };
+  }
+
+  const signRequirement = await findBrokerLoiSignRequirement(
+    prisma,
+    applicationId,
+    brokerOrgId,
+  );
+
+  await syncBrokerLoiVersionFromSignWorkflow(prisma, {
+    applicationId,
+    signRequirement,
+  });
+
+  const currentVersion = await getCurrentBrokerLoiVersion(
+    prisma,
+    applicationId,
+  );
+
+  if (currentVersion && !regenerate && !revised) {
+    return {
+      error: {
+        status: 400,
+        message:
+          "Broker LOI already generated. Regenerate the draft or create a revised version.",
+        code: "ALREADY_GENERATED",
+      },
+    };
+  }
+
+  if (revised) {
+    if (
+      !currentVersion ||
+      !canCreateRevisedBrokerLoi(currentVersion, signRequirement)
+    ) {
+      return {
+        error: {
+          status: 400,
+          message:
+            "Revised broker LOI can only be created after the client has signed the current version.",
+        },
+      };
+    }
+  } else if (regenerate) {
+    const workflowLocked =
+      signRequirement &&
+      ["CLIENT_SIGNED", "FORWARDED_TO_LENDER", "LENDER_SEEN"].includes(
+        signRequirement.signStatus,
+      );
+    if (
+      (currentVersion && isBrokerLoiVersionLocked(currentVersion)) ||
+      workflowLocked
+    ) {
+      return {
+        error: {
+          status: 400,
+          message:
+            "Broker LOI is locked after client signature. Create a revised LOI (new version) instead.",
+          code: "LOI_LOCKED",
+        },
+      };
+    }
   }
 
   const sourceRecord = await prisma.applicationLender.findFirst({
@@ -692,22 +804,39 @@ async function generateBrokerLoi(
 
   const fileUrl = `/broker/LOI/${fileName}`;
 
-  const updated = await prisma.loanApplication.update({
-    where: { id: applicationId },
-    data: {
+  const sourceLenderVersion = await getCurrentLenderLoiVersion(
+    prisma,
+    sourceApplicationLenderId,
+  );
+
+  const isDraftUpdate =
+    regenerate &&
+    !revised &&
+    currentVersion &&
+    canRegenerateBrokerLoiDraft(currentVersion);
+  const isRevisedLoi = Boolean(revised);
+
+  let savedVersion;
+
+  if (isDraftUpdate) {
+    savedVersion = await updateBrokerLoiDraftVersion(prisma, {
+      versionId: currentVersion.id,
+      loanApplicationId: applicationId,
       brokerLoiUrl: fileUrl,
-      brokerLoiSourceApplicationLenderId: sourceApplicationLenderId,
       brokerLoiTerms: brokerTerms,
-      brokerLoiGeneratedAt: new Date(),
-      brokerLoiGeneratedByUserId: userId,
-    },
-    select: {
-      id: true,
-      brokerLoiUrl: true,
-      brokerLoiGeneratedAt: true,
-      brokerLoiSourceApplicationLenderId: true,
-    },
-  });
+      generatedByUserId: userId,
+    });
+  } else {
+    savedVersion = await createBrokerLoiVersion(prisma, {
+      loanApplicationId: applicationId,
+      sourceApplicationLenderId,
+      sourceLenderLoiVersionId: sourceLenderVersion?.id || null,
+      brokerLoiUrl: fileUrl,
+      brokerLoiTerms: brokerTerms,
+      generatedByUserId: userId,
+      isRevised: isRevisedLoi,
+    });
+  }
 
   try {
     await syncLoiRequiredDocuments(prisma, {
@@ -732,19 +861,34 @@ async function generateBrokerLoi(
     sourceApplicationLenderId,
     brokerLoiUrl: fileUrl,
     fileName,
+    isRevised: isRevisedLoi,
   });
 
   if (signRequirementResult?.error) {
     return signRequirementResult;
   }
 
+  if (signRequirementResult?.id && savedVersion?.id) {
+    await prisma.brokerLoiVersion.update({
+      where: { id: savedVersion.id },
+      data: { documentRequirementId: signRequirementResult.id },
+    });
+  }
+
+  const versions = await listBrokerLoiVersions(prisma, applicationId);
+
   return {
     data: {
       applicationId,
-      brokerLoiUrl: updated.brokerLoiUrl,
-      brokerLoiGeneratedAt: updated.brokerLoiGeneratedAt,
-      sourceApplicationLenderId: updated.brokerLoiSourceApplicationLenderId,
+      brokerLoiUrl: fileUrl,
+      brokerLoiGeneratedAt: new Date(),
+      sourceApplicationLenderId,
       sourceLenderName: sourceRecord.lender?.name || "Lender",
+      regenerated: Boolean(regenerate && !revised),
+      revised: isRevisedLoi,
+      versionNumber: savedVersion.versionNumber,
+      versionId: savedVersion.id,
+      versions,
       signWorkflow: buildSignWorkflowPayload(
         signRequirementResult,
         submission?.id || null,

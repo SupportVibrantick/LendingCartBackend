@@ -15,7 +15,17 @@ const REQUEST_APPLICATION_LENDER_INCLUDE = {
   },
 };
 
+const ACTIVE_SIGNED_STATUSES = [
+  "CLIENT_SIGNED",
+  "FORWARDED_TO_LENDER",
+  "LENDER_SEEN",
+];
+
 function getSignedUpload(requirement) {
+  if (!ACTIVE_SIGNED_STATUSES.includes(requirement.signStatus)) {
+    return null;
+  }
+
   return (requirement.uploads || []).find((upload) => upload.isSignedOutput);
 }
 
@@ -94,4 +104,5 @@ module.exports = {
   REQUEST_APPLICATION_LENDER_INCLUDE,
   formatSignDocumentRequirement,
   getSignedUpload,
+  ACTIVE_SIGNED_STATUSES,
 };

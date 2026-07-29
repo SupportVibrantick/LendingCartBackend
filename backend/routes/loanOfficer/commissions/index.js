@@ -8,18 +8,19 @@ const downloadInvoice = require("../../broker/commissions/downloadInvoice");
 const getCommissionHistory = require("../../broker/commissions/getCommissionHistory");
 
 async function loanOfficerCommissionRoutes(fastify) {
-  fastify.register(listCommissions);
-  fastify.register(listInvoices);
-  fastify.register(getLoanCommissions);
-  fastify.register(getCommissionSummary);
+  await fastify.register(listCommissions);
+  await fastify.register(listInvoices);
+  await fastify.register(getLoanCommissions);
+  await fastify.register(getCommissionSummary);
 
-  fastify.register(async function securedCommissionActions(instance) {
+  await fastify.register(async function securedCommissionActions(instance) {
     for (const handler of officerPreHandler(fastify)) {
       instance.addHook("preHandler", handler);
     }
-    instance.register(generateInvoice);
-    instance.register(downloadInvoice);
-    instance.register(getCommissionHistory);
+
+    await instance.register(generateInvoice);
+    await instance.register(downloadInvoice);
+    await instance.register(getCommissionHistory);
   });
 }
 

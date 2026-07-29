@@ -35,6 +35,8 @@ type Props = {
   brokerBranding?: BrokerBrandingPreview;
   submitting?: boolean;
   readOnly?: boolean;
+  mode?: "create" | "regenerate" | "revised";
+  revisedVersionNumber?: number;
   onCancel: () => void;
   onSubmit: (terms: BrokerLoiTerms, branding: LoiBrandingValues) => void;
 };
@@ -59,6 +61,8 @@ export default function BrokerLoiEditorPanel({
   brokerBranding,
   submitting = false,
   readOnly = false,
+  mode = "create",
+  revisedVersionNumber,
   onCancel,
   onSubmit,
 }: Props) {
@@ -162,12 +166,20 @@ export default function BrokerLoiEditorPanel({
 
         <div className="mb-4 rounded-xl border border-violet-100 bg-violet-50/60 px-4 py-3 dark:border-violet-500/20 dark:bg-violet-500/10">
           <p className="text-xs font-semibold uppercase tracking-wide text-violet-600 dark:text-violet-300">
-            Copied from lender LOI
+            {mode === "revised"
+              ? revisedVersionNumber
+                ? `Create Revised Broker LOI (Version ${revisedVersionNumber})`
+                : "Create Revised Broker LOI"
+              : mode === "regenerate"
+                ? "Regenerate broker LOI"
+                : "Copied from lender LOI"}
           </p>
           <p className="mt-1 text-sm text-slate-700 dark:text-slate-200">
-            Terms pre-filled from{" "}
-            <span className="font-semibold">{sourceLenderName}</span>. Edit below
-            — your broker branding will replace the lender branding on the PDF.
+            {mode === "revised"
+              ? "Previous signed versions are preserved. The client must sign this new version."
+              : mode === "regenerate"
+                ? `Update terms below and regenerate your branded PDF based on ${sourceLenderName}.`
+                : `Terms pre-filled from ${sourceLenderName}. Edit below — your broker branding will replace the lender branding on the PDF.`}
           </p>
         </div>
 
@@ -504,12 +516,22 @@ export default function BrokerLoiEditorPanel({
           {submitting ? (
             <>
               <Loader2 className="h-4 w-4 animate-spin" />
-              Generating...
+              {mode === "revised"
+                ? "Creating revised LOI..."
+                : mode === "regenerate"
+                  ? "Regenerating..."
+                  : "Generating..."}
             </>
           ) : (
             <>
               <Sparkles size={15} />
-              Generate Broker PDF
+              {mode === "revised"
+                ? revisedVersionNumber
+                  ? `Create Revised LOI (v${revisedVersionNumber})`
+                  : "Create Revised LOI"
+                : mode === "regenerate"
+                  ? "Regenerate Broker PDF"
+                  : "Generate Broker PDF"}
             </>
           )}
         </button>

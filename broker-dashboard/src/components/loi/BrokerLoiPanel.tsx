@@ -9,6 +9,7 @@ import {
   Loader2,
   Mail,
   Phone,
+  RotateCcw,
   Search,
   SendHorizonal,
   Sparkles,
@@ -26,6 +27,7 @@ import {
   type ReactNode,
 } from "react";
 import toast from "react-hot-toast";
+import Swal from "sweetalert2";
 import {
   buildLoiComparisonSummary,
   formatCurrency,
@@ -49,6 +51,7 @@ import BrokerLoiEditorPanel from "./BrokerLoiEditorPanel";
 import type { BrokerLoiTerms } from "../../lib/brokerLoiTerms";
 
 type PreviewMode = "lender" | "broker-edit" | "broker-pdf";
+type BrokerEditorMode = "create" | "regenerate" | "revised";
 
 type BrokerLoiSignWorkflow = {
   requirementId?: string | null;
@@ -61,7 +64,18 @@ type BrokerLoiSignWorkflow = {
   signedPdfFileName?: string | null;
   canSendToClient?: boolean;
   canForwardToLender?: boolean;
+  isLocked?: boolean;
   isComplete?: boolean;
+};
+
+type BrokerLoiVersionInfo = {
+  id: string;
+  versionNumber: number;
+  label: string;
+  status: string;
+  isLocked?: boolean;
+  canRegenerateDraft?: boolean;
+  canCreateRevised?: boolean;
 };
 
 type BrokerLoiStatus = {
@@ -70,6 +84,8 @@ type BrokerLoiStatus = {
   sourceApplicationLenderId?: string | null;
   sourceLenderName?: string | null;
   terms?: BrokerLoiTerms | null;
+  currentVersion?: BrokerLoiVersionInfo | null;
+  versions?: BrokerLoiVersionInfo[];
   signWorkflow?: BrokerLoiSignWorkflow | null;
 };
 
@@ -439,12 +455,22 @@ export default function BrokerLoiPanel({
   const [prefillLoading, setPrefillLoading] = useState(false);
   const [prefillData, setPrefillData] = useState<BrokerLoiPrefill | null>(null);
   const [generatingBrokerLoi, setGeneratingBrokerLoi] = useState(false);
+  const [brokerEditorMode, setBrokerEditorMode] =
+    useState<BrokerEditorMode>("create");
   const [signActionLoading, setSignActionLoading] = useState(false);
   const [previewMode, setPreviewMode] = useState<PreviewMode>("lender");
   const pdfPreviewRef = useRef<HTMLElement>(null);
 
   const signWorkflow = brokerLoiStatus?.signWorkflow;
-  const brokerLoiLocked = Boolean(signWorkflow?.isComplete);
+  const brokerLoiLocked = Boolean(signWorkflow?.isLocked);
+  const canCreateRevisedBrokerLoi = Boolean(
+    brokerLoiStatus?.currentVersion?.canCreateRevised || brokerLoiLocked,
+  );
+  const nextBrokerRevisedVersion =
+    (brokerLoiStatus?.versions?.reduce(
+      (max, v) => Math.max(max, v.versionNumber || 0),
+      0,
+    ) || 0) + 1;
 
   const canManageBrokerLoi = apiRole === "broker" || apiRole === "loanofficer";
 
@@ -538,18 +564,45 @@ export default function BrokerLoiPanel({
 
   const handleOpenBrokerLoiForm = useCallback(
     async (sourceApplicationLenderId?: unknown) => {
-      if (brokerLoiLocked) {
-        toast.error(
-          "Broker LOI was already forwarded to the lender and cannot be edited.",
-        );
-        return;
-      }
-
       const lenderId =
         resolveApplicationLenderId(sourceApplicationLenderId) || selectedId;
       if (!applicationId || !lenderId) {
         toast.error("Select a lender LOI first");
         return;
+      }
+
+      const hasExistingBrokerLoi = Boolean(brokerLoiStatus?.brokerLoiUrl);
+      const sameSource =
+        brokerLoiStatus?.sourceApplicationLenderId === lenderId;
+
+      if (
+        hasExistingBrokerLoi &&
+        brokerLoiLocked &&
+        !canCreateRevisedBrokerLoi
+      ) {
+        toast.error(
+          "Broker LOI is locked after client signature. Create a revised LOI instead.",
+        );
+        return;
+      }
+
+      if (
+        hasExistingBrokerLoi &&
+        !brokerLoiLocked &&
+        (signWorkflow?.sentToClientAt ||
+          signWorkflow?.signStatus === "SENT_TO_CLIENT")
+      ) {
+        const result = await Swal.fire({
+          title: "Regenerate broker term sheet?",
+          html: "This updates the broker LOI draft and resets the client send workflow. You will need to send the updated term sheet to the client again.",
+          icon: "warning",
+          showCancelButton: true,
+          confirmButtonText: "Regenerate",
+          cancelButtonText: "Cancel",
+          confirmButtonColor: "#7C3AED",
+        });
+
+        if (!result.isConfirmed) return;
       }
 
       try {
@@ -565,7 +618,14 @@ export default function BrokerLoiPanel({
         if (!res.ok || !json.success) {
           throw new Error(json.message || "Failed to load LOI details");
         }
-        setPrefillData(json.data);
+
+        const terms =
+          hasExistingBrokerLoi && sameSource && brokerLoiStatus?.terms
+            ? brokerLoiStatus.terms
+            : json.data.terms;
+
+        setPrefillData({ ...json.data, terms });
+        setBrokerEditorMode(hasExistingBrokerLoi ? "regenerate" : "create");
         setPreviewMode("broker-edit");
       } catch (err: any) {
         toast.error(err.message || "Failed to prepare broker LOI");
@@ -573,20 +633,47 @@ export default function BrokerLoiPanel({
         setPrefillLoading(false);
       }
     },
-    [applicationId, apiPath, brokerLoiLocked, getAuthHeaders, selectedId],
+    [
+      applicationId,
+      apiPath,
+      brokerLoiLocked,
+      canCreateRevisedBrokerLoi,
+      brokerLoiStatus?.brokerLoiUrl,
+      brokerLoiStatus?.sourceApplicationLenderId,
+      brokerLoiStatus?.terms,
+      getAuthHeaders,
+      selectedId,
+      signWorkflow?.sentToClientAt,
+      signWorkflow?.signStatus,
+    ],
   );
 
   const handleEditBrokerLoi = async () => {
     if (brokerLoiLocked) {
-      toast.error(
-        "Broker LOI was already forwarded to the lender and cannot be edited.",
-      );
+      void handleCreateRevisedBrokerLoi();
       return;
     }
 
     if (!applicationId || !brokerLoiStatus?.sourceApplicationLenderId) {
       toast.error("No broker LOI to edit");
       return;
+    }
+
+    if (
+      signWorkflow?.sentToClientAt ||
+      signWorkflow?.signStatus === "SENT_TO_CLIENT"
+    ) {
+      const result = await Swal.fire({
+        title: "Regenerate broker term sheet?",
+        html: "This creates a new broker LOI PDF and resets the client send / signature workflow. You will need to send the updated term sheet to the client again.",
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonText: "Regenerate",
+        cancelButtonText: "Cancel",
+        confirmButtonColor: "#7C3AED",
+      });
+
+      if (!result.isConfirmed) return;
     }
 
     if (
@@ -605,6 +692,7 @@ export default function BrokerLoiPanel({
               terms: brokerLoiStatus.terms!,
             },
       );
+      setBrokerEditorMode("regenerate");
       setPreviewMode("broker-edit");
       return;
     }
@@ -626,6 +714,7 @@ export default function BrokerLoiPanel({
         ...json.data,
         terms: brokerLoiStatus.terms || json.data.terms,
       });
+      setBrokerEditorMode("regenerate");
       setPreviewMode("broker-edit");
     } catch (err: any) {
       toast.error(err.message || "Failed to prepare broker LOI editor");
@@ -635,6 +724,7 @@ export default function BrokerLoiPanel({
   };
 
   const handleCancelBrokerEdit = () => {
+    setBrokerEditorMode("create");
     setPreviewMode(brokerLoiStatus?.brokerLoiUrl ? "broker-pdf" : "lender");
   };
 
@@ -681,17 +771,64 @@ export default function BrokerLoiPanel({
     scrollToPdfPreview();
   };
 
+  const handleCreateRevisedBrokerLoi = async () => {
+    if (!applicationId || !brokerLoiStatus?.sourceApplicationLenderId) {
+      toast.error("No broker LOI to revise");
+      return;
+    }
+
+    const result = await Swal.fire({
+      title: `Create Revised Broker LOI (Version ${nextBrokerRevisedVersion})?`,
+      html: "Previous signed versions are preserved. The client must sign the new version before forwarding to the lender.",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Create Revised LOI",
+      cancelButtonText: "Cancel",
+      confirmButtonColor: "#7C3AED",
+    });
+
+    if (!result.isConfirmed) return;
+
+    try {
+      setPrefillLoading(true);
+      const params = new URLSearchParams({
+        sourceApplicationLenderId: brokerLoiStatus.sourceApplicationLenderId,
+      });
+      const res = await fetch(
+        `${apiPath}/${applicationId}/broker-loi/prefill?${params.toString()}`,
+        { headers: getAuthHeaders() },
+      );
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || "Failed to load broker LOI details");
+      }
+      setPrefillData({
+        ...json.data,
+        terms: brokerLoiStatus.terms || json.data.terms,
+      });
+      setBrokerEditorMode("revised");
+      setPreviewMode("broker-edit");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to prepare revised broker LOI");
+    } finally {
+      setPrefillLoading(false);
+    }
+  };
+
   const handleGenerateBrokerLoi = async (
     terms: BrokerLoiTerms,
     branding: { brandName: string; logoUrl: string },
   ) => {
     if (!applicationId || !prefillData) return;
-    if (brokerLoiLocked) {
+    if (brokerLoiLocked && brokerEditorMode !== "revised") {
       toast.error(
-        "Broker LOI was already forwarded to the lender and cannot be replaced.",
+        "Broker LOI is locked after client signature. Create a revised LOI instead.",
       );
       return;
     }
+
+    const isRegenerate = brokerEditorMode === "regenerate";
+    const isRevised = brokerEditorMode === "revised";
 
     try {
       setGeneratingBrokerLoi(true);
@@ -704,6 +841,8 @@ export default function BrokerLoiPanel({
             sourceApplicationLenderId: prefillData.sourceApplicationLenderId,
             brokerTerms: terms,
             branding,
+            regenerate: isRegenerate || isRevised,
+            revised: isRevised,
           }),
         },
       );
@@ -712,7 +851,13 @@ export default function BrokerLoiPanel({
         throw new Error(json.message || "Failed to generate broker LOI");
       }
 
-      toast.success("Broker LOI generated successfully");
+      toast.success(
+        isRevised
+          ? `Revised broker LOI (Version ${json.data?.versionNumber || nextBrokerRevisedVersion}) created. Send to client for signature.`
+          : isRegenerate
+            ? "Broker LOI regenerated successfully"
+            : "Broker LOI generated successfully",
+      );
       if (json.data?.signWorkflow) {
         setBrokerLoiStatus((prev) =>
           prev
@@ -721,6 +866,7 @@ export default function BrokerLoiPanel({
         );
       }
       await fetchBrokerLoiStatus();
+      setBrokerEditorMode("create");
       setPreviewMode("broker-pdf");
     } catch (err: any) {
       toast.error(err.message || "Failed to generate broker LOI");
@@ -836,10 +982,14 @@ export default function BrokerLoiPanel({
   ]);
 
   useEffect(() => {
-    if (brokerLoiLocked && previewMode === "broker-edit") {
+    if (
+      brokerLoiLocked &&
+      previewMode === "broker-edit" &&
+      brokerEditorMode !== "revised"
+    ) {
       setPreviewMode("broker-pdf");
     }
-  }, [brokerLoiLocked, previewMode]);
+  }, [brokerLoiLocked, previewMode, brokerEditorMode]);
 
   const previewUrl = useMemo(() => {
     const signedPdfUrl = signWorkflow?.signedPdfUrl;
@@ -1024,6 +1174,28 @@ export default function BrokerLoiPanel({
                           ` · ${formatLoiDate(signWorkflow.clientSignedAt)}`}
                       </p>
                     )}
+                  {brokerLoiLocked && (
+                    <p className="mt-2 text-xs text-amber-800/90 dark:text-amber-200/90">
+                      This LOI is locked after client signature. Create a revised
+                      LOI (Version {nextBrokerRevisedVersion}) if commercial
+                      terms change — the client must sign again.
+                    </p>
+                  )}
+                  {brokerLoiStatus.versions && brokerLoiStatus.versions.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {brokerLoiStatus.versions.map((version) => (
+                        <span
+                          key={version.id}
+                          className="rounded-full bg-white/80 px-2 py-0.5 text-[10px] font-semibold text-emerald-900 dark:bg-emerald-950 dark:text-emerald-200"
+                        >
+                          v{version.versionNumber}
+                          {version.status === "CLIENT_SIGNED" && " · Signed"}
+                          {version.status === "FORWARDED_TO_LENDER" && " · Forwarded"}
+                          {version.status === "SUPERSEDED" && " · Superseded"}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   <button
@@ -1037,6 +1209,35 @@ export default function BrokerLoiPanel({
                       ? "View Signed PDF"
                       : "View Broker PDF"}
                   </button>
+                  {!brokerLoiLocked ? (
+                    <button
+                      type="button"
+                      disabled={prefillLoading}
+                      onClick={() => void handleEditBrokerLoi()}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-purple-200 bg-white px-3 py-1.5 text-xs font-semibold text-purple-700 transition hover:bg-purple-50 disabled:opacity-50 dark:border-purple-500/30 dark:bg-purple-950 dark:text-purple-200"
+                    >
+                      {prefillLoading ? (
+                        <Loader2 size={13} className="animate-spin" />
+                      ) : (
+                        <RotateCcw size={13} />
+                      )}
+                      Regenerate LOI
+                    </button>
+                  ) : canCreateRevisedBrokerLoi ? (
+                    <button
+                      type="button"
+                      disabled={prefillLoading}
+                      onClick={() => void handleCreateRevisedBrokerLoi()}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-purple-200 bg-white px-3 py-1.5 text-xs font-semibold text-purple-700 transition hover:bg-purple-50 disabled:opacity-50 dark:border-purple-500/30 dark:bg-purple-950 dark:text-purple-200"
+                    >
+                      {prefillLoading ? (
+                        <Loader2 size={13} className="animate-spin" />
+                      ) : (
+                        <RotateCcw size={13} />
+                      )}
+                      Create Revised LOI (v{nextBrokerRevisedVersion})
+                    </button>
+                  ) : null}
                   {signWorkflow?.canSendToClient && (
                     <button
                       type="button"
@@ -1205,7 +1406,7 @@ export default function BrokerLoiPanel({
                             onClick={() => handleSwitchPreviewMode("broker-edit")}
                             title={
                               brokerLoiLocked
-                                ? "Broker LOI was forwarded to the lender and cannot be edited"
+                                ? "Broker LOI was forwarded to the lender and cannot be regenerated"
                                 : undefined
                             }
                             className={`rounded-lg px-3 py-1 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50 ${
@@ -1215,7 +1416,7 @@ export default function BrokerLoiPanel({
                             }`}
                           >
                             {brokerLoiStatus?.brokerLoiUrl
-                              ? "Edit Broker LOI"
+                              ? "Regenerate LOI"
                               : "Create Broker LOI"}
                           </button>
                           {brokerLoiStatus?.brokerLoiUrl && (
@@ -1239,7 +1440,7 @@ export default function BrokerLoiPanel({
                           ? "Broker LOI / Term Sheet"
                           : previewMode === "broker-edit"
                             ? brokerLoiStatus?.brokerLoiUrl
-                              ? "Edit Broker LOI"
+                              ? "Regenerate Broker LOI"
                               : "Create Broker LOI"
                             : selectedLoi?.lenderName}
                       </h3>
@@ -1248,7 +1449,9 @@ export default function BrokerLoiPanel({
                           ? `Based on ${brokerLoiStatus?.sourceLenderName || "selected lender LOI"}`
                           : previewMode === "broker-edit"
                             ? prefillData
-                              ? `Terms from ${prefillData.sourceLenderName} — edit below, then generate your branded PDF`
+                              ? brokerLoiStatus?.brokerLoiUrl
+                                ? `Update terms from ${prefillData.sourceLenderName}, then regenerate your branded PDF`
+                                : `Terms from ${prefillData.sourceLenderName} — edit below, then generate your branded PDF`
                               : "Select a lender LOI and copy terms to create your broker LOI"
                             : selectedLoi
                               ? getLoiProductLabel(selectedLoi)
@@ -1273,16 +1476,12 @@ export default function BrokerLoiPanel({
                     <div className="flex flex-wrap items-center gap-2">
                       {canManageBrokerLoi &&
                         previewMode === "lender" &&
-                        selectedLoi && (
+                        selectedLoi &&
+                        !brokerLoiStatus?.brokerLoiUrl && (
                           <button
                             type="button"
                             disabled={prefillLoading || brokerLoiLocked}
                             onClick={() => void handleOpenBrokerLoiForm()}
-                            title={
-                              brokerLoiLocked
-                                ? "Broker LOI was forwarded to the lender and cannot be edited"
-                                : undefined
-                            }
                             className="inline-flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
                           >
                             {prefillLoading ? (
@@ -1330,15 +1529,20 @@ export default function BrokerLoiPanel({
                             <button
                               type="button"
                               disabled={prefillLoading || brokerLoiLocked}
-                              onClick={handleEditBrokerLoi}
+                              onClick={() => void handleEditBrokerLoi()}
                               title={
                                 brokerLoiLocked
-                                  ? "Broker LOI was forwarded to the lender and cannot be edited"
+                                  ? "Broker LOI was forwarded to the lender and cannot be regenerated"
                                   : undefined
                               }
-                              className="rounded-lg border border-violet-200 px-3 py-1.5 text-xs font-semibold text-violet-700 transition hover:bg-violet-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-violet-500/30 dark:text-violet-300 dark:hover:bg-violet-500/10"
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-violet-200 px-3 py-1.5 text-xs font-semibold text-violet-700 transition hover:bg-violet-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-violet-500/30 dark:text-violet-300 dark:hover:bg-violet-500/10"
                             >
-                              Edit & Regenerate
+                              {prefillLoading ? (
+                                <Loader2 size={13} className="animate-spin" />
+                              ) : (
+                                <RotateCcw size={13} />
+                              )}
+                              Regenerate LOI
                             </button>
                           </>
                         )}
@@ -1382,7 +1586,13 @@ export default function BrokerLoiPanel({
                       applicationContext={prefillData.applicationContext}
                       brokerBranding={prefillData.brokerBranding}
                       submitting={generatingBrokerLoi}
-                      readOnly={brokerLoiLocked}
+                      readOnly={brokerLoiLocked && brokerEditorMode !== "revised"}
+                      mode={brokerEditorMode}
+                      revisedVersionNumber={
+                        brokerEditorMode === "revised"
+                          ? nextBrokerRevisedVersion
+                          : undefined
+                      }
                       onCancel={handleCancelBrokerEdit}
                       onSubmit={handleGenerateBrokerLoi}
                     />

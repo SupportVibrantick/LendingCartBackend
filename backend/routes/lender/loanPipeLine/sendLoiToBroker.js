@@ -3,6 +3,12 @@ const {
   syncLoiRequiredDocuments,
   extractStoredBrokerLoiDocumentNames,
 } = require("../../../services/loi/syncLoiRequiredDocuments");
+const {
+  LENDER_LOI_STATUS,
+  getCurrentLenderLoiVersion,
+  markLenderLoiVersionSentToBroker,
+  listLenderLoiVersions,
+} = require("../../../services/loi/loiVersionService");
 
 /**
  * @param {import("fastify").FastifyInstance} fastify
@@ -76,13 +82,33 @@ async function sendLoiToBrokerRoute(fastify) {
           });
         }
 
-        if (lenderRecord.loiSentToBrokerAt) {
+        const currentVersion = await getCurrentLenderLoiVersion(
+          prisma,
+          applicationLenderId,
+        );
+
+        if (!currentVersion) {
           return reply.code(400).send({
             success: false,
-            message: "LOI was already sent to the broker",
+            message: "LOI version not found. Generate the LOI first.",
+          });
+        }
+
+        if (currentVersion.status === LENDER_LOI_STATUS.SENT_TO_BROKER) {
+          return reply.code(400).send({
+            success: false,
+            message: "This LOI version was already sent to the broker",
             data: {
-              loiSentToBrokerAt: lenderRecord.loiSentToBrokerAt,
+              loiSentToBrokerAt: currentVersion.sentToBrokerAt,
+              versionNumber: currentVersion.versionNumber,
             },
+          });
+        }
+
+        if (currentVersion.status !== LENDER_LOI_STATUS.DRAFT) {
+          return reply.code(400).send({
+            success: false,
+            message: "Only a draft LOI can be sent to the broker",
           });
         }
 
@@ -90,13 +116,15 @@ async function sendLoiToBrokerRoute(fastify) {
         const lenderName = lenderRecord.lender?.name || "Lender";
         const sentAt = new Date();
         const requiredDocuments = extractStoredBrokerLoiDocumentNames(
-          lenderRecord.loiTermsJson,
+          currentVersion.loiTermsJson || lenderRecord.loiTermsJson,
         );
 
         const [, notification] = await prisma.$transaction([
           prisma.applicationLender.update({
             where: { id: applicationLenderId },
             data: {
+              loiUrl: currentVersion.loiUrl,
+              loiTermsJson: currentVersion.loiTermsJson,
               loiSentToBrokerAt: sentAt,
               lastUpdatedAt: sentAt,
             },
@@ -116,12 +144,16 @@ async function sendLoiToBrokerRoute(fastify) {
                 applicationNumber: lenderRecord.loanApplication.applicationNumber,
                 applicationLenderId: lenderRecord.id,
                 lenderName,
-                loiPath: lenderRecord.loiUrl,
+                loiPath: currentVersion.loiUrl,
+                loiVersionNumber: currentVersion.versionNumber,
+                loiVersionId: currentVersion.id,
               },
               sentAt,
             },
           }),
         ]);
+
+        await markLenderLoiVersionSentToBroker(prisma, applicationLenderId);
 
         if (requiredDocuments.length > 0) {
           try {
@@ -149,10 +181,14 @@ async function sendLoiToBrokerRoute(fastify) {
           entityId: applicationLenderId,
           action: "SEND_LOI_TO_BROKER",
           newValue: {
-            loiUrl: lenderRecord.loiUrl,
+            loiUrl: currentVersion.loiUrl,
             loiSentToBrokerAt: sentAt,
+            versionNumber: currentVersion.versionNumber,
+            versionId: currentVersion.id,
           },
         });
+
+        const versions = await listLenderLoiVersions(prisma, applicationLenderId);
 
         try {
           const {
@@ -168,7 +204,10 @@ async function sendLoiToBrokerRoute(fastify) {
           message: "LOI sent to broker successfully",
           data: {
             loiSentToBrokerAt: sentAt,
-            loiUrl: lenderRecord.loiUrl,
+            loiUrl: currentVersion.loiUrl,
+            versionNumber: currentVersion.versionNumber,
+            versionId: currentVersion.id,
+            versions,
           },
         });
       } catch (error) {

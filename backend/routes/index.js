@@ -10,7 +10,6 @@ const publicBrokerApplications = require("./public/broker/applications");
 const clientPortalRoutes = require("../routes/clientPortal");
 const messagingRoutes = require("../routes/common/messaging");
 const subBrokerRoutes = require("../routes/subBroker");
-const loanOfficerRoutes = require("../routes/loanOfficer");
 
 async function indexRoutes(fastify, options) {
   fastify.get("/", async (request, reply) => {
@@ -69,9 +68,9 @@ async function indexRoutes(fastify, options) {
   fastify.register(subBrokerRoutes, {
     prefix: "/subbroker",
   });
-  // fastify.register(loanOfficerRoutes, {
-  //   prefix: "/loanofficer",
-  // });
+  await fastify.register(require("./loanOfficer"), {
+    prefix: "/loanofficer",
+  });
 }
 
 module.exports = indexRoutes;

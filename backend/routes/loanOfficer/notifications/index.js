@@ -5,11 +5,11 @@ async function loanOfficerNotificationRoutes(fastify) {
     fastify.addHook("preHandler", handler);
   }
 
-  fastify.register(require("../../broker/notifications/list"));
-  fastify.register(require("../../broker/notifications/markRead"));
-  fastify.register(require("../../broker/notifications/markAllRead"));
-  fastify.register(require("../../broker/notifications/delete"));
-  fastify.register(require("../../broker/notifications/deleteAll"));
+  await fastify.register(require("../../broker/notifications/list"));
+  await fastify.register(require("../../broker/notifications/markRead"));
+  await fastify.register(require("../../broker/notifications/markAllRead"));
+  await fastify.register(require("../../broker/notifications/delete"));
+  await fastify.register(require("../../broker/notifications/deleteAll"));
 }
 
 module.exports = loanOfficerNotificationRoutes;

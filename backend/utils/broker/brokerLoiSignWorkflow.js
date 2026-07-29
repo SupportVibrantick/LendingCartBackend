@@ -26,8 +26,12 @@ const {
 const {
   resolveLatestActiveSubmission,
 } = require("../applications/clientPortalSubmission");
-
-const BROKER_LOI_SIGN_TITLE = "Broker LOI / Term Sheet";
+const {
+  markBrokerLoiVersionSentToClient,
+  markBrokerLoiVersionForwardedToLender,
+  markBrokerLoiVersionClientSigned,
+  getCurrentBrokerLoiVersion,
+} = require("../../services/loi/loiVersionService");const BROKER_LOI_SIGN_TITLE = "Broker LOI / Term Sheet";
 const BROKER_LOI_DOC_CODE = "BROKER_LOI_TERM_SHEET";
 
 async function getOrCreateBrokerLoiDocumentType(prisma, brokerOrgId) {
@@ -91,6 +95,7 @@ async function upsertBrokerLoiSignRequirement(
     sourceApplicationLenderId,
     brokerLoiUrl,
     fileName,
+    isRevised = false,
   },
 ) {
   const documentType = await getOrCreateBrokerLoiDocumentType(prisma, brokerOrgId);
@@ -102,14 +107,17 @@ async function upsertBrokerLoiSignRequirement(
 
   if (
     existing &&
-    (existing.signStatus === "FORWARDED_TO_LENDER" ||
+    !isRevised &&
+    (existing.signStatus === "CLIENT_SIGNED" ||
+      existing.signStatus === "FORWARDED_TO_LENDER" ||
       existing.signStatus === "LENDER_SEEN")
   ) {
     return {
       error: {
         status: 400,
         message:
-          "Broker LOI was already forwarded to the lender. Cannot replace the document.",
+          "Broker LOI is locked after client signature. Create a revised LOI (new version) instead.",
+        code: "LOI_LOCKED",
       },
     };
   }
@@ -131,12 +139,26 @@ async function upsertBrokerLoiSignRequirement(
   };
 
   if (existing) {
-    await prisma.applicationDocumentUpload.deleteMany({
-      where: {
-        documentRequirementId: existing.id,
-        isSignedOutput: true,
-      },
-    });
+    if (!isRevised) {
+      const signedUploadIds = (existing.uploads || [])
+        .filter((upload) => upload.isSignedOutput)
+        .map((upload) => upload.id);
+
+      if (signedUploadIds.length > 0) {
+        const submissionCount = await prisma.applicationDocumentSubmission.count({
+          where: { documentUploadId: { in: signedUploadIds } },
+        });
+
+        if (submissionCount === 0) {
+          await prisma.applicationDocumentUpload.deleteMany({
+            where: {
+              documentRequirementId: existing.id,
+              isSignedOutput: true,
+            },
+          });
+        }
+      }
+    }
 
     return prisma.applicationDocumentRequirement.update({
       where: { id: existing.id },
@@ -185,7 +207,12 @@ function buildSignWorkflowPayload(requirement, submissionId) {
   const formatted = formatSignDocumentRequirement(requirement, {
     viewer: "broker",
   });
-  const signedUpload = formatted.signedUpload;
+  const showSignedUpload = [
+    "CLIENT_SIGNED",
+    "FORWARDED_TO_LENDER",
+    "LENDER_SEEN",
+  ].includes(requirement.signStatus);
+  const signedUpload = showSignedUpload ? formatted.signedUpload : null;
 
   return {
     requirementId: requirement.id,
@@ -200,6 +227,10 @@ function buildSignWorkflowPayload(requirement, submissionId) {
       requirement.signStatus === "AWAITING_BROKER" &&
       Boolean(requirement.templateFileUrl),
     canForwardToLender: requirement.signStatus === "CLIENT_SIGNED",
+    isLocked:
+      requirement.signStatus === "CLIENT_SIGNED" ||
+      requirement.signStatus === "FORWARDED_TO_LENDER" ||
+      requirement.signStatus === "LENDER_SEEN",
     isComplete:
       requirement.signStatus === "FORWARDED_TO_LENDER" ||
       requirement.signStatus === "LENDER_SEEN",
@@ -232,6 +263,46 @@ async function getSignedBrokerLoiForLender(
     return { error: { status: 404, message: "Application not found" } };
   }
 
+  const brokerLoiVersions = await prisma.brokerLoiVersion.findMany({
+    where: {
+      loanApplicationId: applicationLender.loanApplicationId,
+      status: "FORWARDED_TO_LENDER",
+      signedPdfUrl: { not: null },
+    },
+    orderBy: { versionNumber: "desc" },
+  });
+
+  const latestForwardedVersion =
+    brokerLoiVersions.find(
+      (version) => version.sourceApplicationLenderId === applicationLenderId,
+    ) ||
+    (applicationLender.loanApplication.brokerLoiSourceApplicationLenderId ===
+    applicationLenderId
+      ? brokerLoiVersions[0]
+      : null);
+
+  if (latestForwardedVersion?.signedPdfUrl) {
+    return {
+      data: {
+        requirementId: latestForwardedVersion.documentRequirementId,
+        documentName: BROKER_LOI_SIGN_TITLE,
+        signStatus: "FORWARDED_TO_LENDER",
+        signStatusLabel: "Forwarded to lender",
+        clientSignedAt: latestForwardedVersion.clientSignedAt,
+        versionNumber: latestForwardedVersion.versionNumber,
+        versionLabel: `Version ${latestForwardedVersion.versionNumber}`,
+        signedUpload: {
+          uploadId: null,
+          fileName: `Signed-Broker-LOI-v${latestForwardedVersion.versionNumber}.pdf`,
+          fileUrl: latestForwardedVersion.signedPdfUrl,
+          fileMimeType: "application/pdf",
+          uploadedAt: latestForwardedVersion.clientSignedAt,
+          clientSignatureData: null,
+        },
+      },
+    };
+  }
+
   const documentType = await prisma.documentType.findFirst({
     where: {
       code: BROKER_LOI_DOC_CODE,
@@ -256,7 +327,6 @@ async function getSignedBrokerLoiForLender(
       uploads: {
         where: { isSignedOutput: true },
         orderBy: { uploadedAt: "desc" },
-        take: 1,
       },
     },
   });
@@ -278,7 +348,6 @@ async function getSignedBrokerLoiForLender(
         uploads: {
           where: { isSignedOutput: true },
           orderBy: { uploadedAt: "desc" },
-          take: 1,
         },
       },
     });
@@ -415,6 +484,14 @@ async function sendBrokerLoiToClient(
       },
     },
   });
+
+  const currentVersion = await getCurrentBrokerLoiVersion(
+    prisma,
+    applicationId,
+  );
+  if (currentVersion?.id) {
+    await markBrokerLoiVersionSentToClient(prisma, currentVersion.id);
+  }
 
   const brokerLoiDocumentNames = extractStoredBrokerLoiDocumentNames(
     application.brokerLoiTerms,
@@ -622,6 +699,14 @@ async function forwardBrokerLoiToLender(
       },
     },
   });
+
+  const currentVersion = await getCurrentBrokerLoiVersion(
+    prisma,
+    applicationId,
+  );
+  if (currentVersion?.id) {
+    await markBrokerLoiVersionForwardedToLender(prisma, currentVersion.id);
+  }
 
   await applyDocumentSendStatusUpdates(prisma, {
     loanApplicationId: applicationId,

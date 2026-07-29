@@ -20,6 +20,13 @@ const { logAudit } = require("../../../services/logger/auditLogger");
 const {
   resolveLatestActiveSubmission,
 } = require("../../../utils/applications/clientPortalSubmission");
+const {
+  LENDER_LOI_STATUS,
+  getCurrentLenderLoiVersion,
+  createLenderLoiVersion,
+  updateLenderLoiDraftVersion,
+  listLenderLoiVersions,
+} = require("../../../services/loi/loiVersionService");
 
 async function generateLoiRoute(fastify) {
   fastify.post(
@@ -98,6 +105,8 @@ async function generateLoiRoute(fastify) {
                 logoUrl: { type: "string" },
               },
             },
+            regenerate: { type: "boolean" },
+            revised: { type: "boolean" },
           },
         },
       },
@@ -124,6 +133,8 @@ async function generateLoiRoute(fastify) {
         const lenderOrgId = req.user.organizationId;
         const { applicationLenderId } = req.params;
         const lenderTerms = req.body?.lenderTerms;
+        const regenerate = Boolean(req.body?.regenerate);
+        const revised = Boolean(req.body?.revised);
 
         if (!applicationLenderId) {
           return reply.code(400).send({
@@ -267,14 +278,45 @@ async function generateLoiRoute(fastify) {
           });
         }
 
-        if (lenderRecord.loiUrl) {
+        const currentVersion = await getCurrentLenderLoiVersion(
+          prisma,
+          applicationLenderId,
+        );
+
+        if (currentVersion && !regenerate && !revised) {
           return reply.code(400).send({
             success: false,
             message: "LOI already generated",
             status: "ALREADY_GENERATED",
             loiUrl: lenderRecord.loiUrl,
+            versionNumber: currentVersion.versionNumber,
           });
         }
+
+        if (revised && currentVersion?.status === LENDER_LOI_STATUS.DRAFT) {
+          return reply.code(400).send({
+            success: false,
+            message:
+              "Current LOI is still a draft. Update the draft or send it to the broker before creating a revised version.",
+          });
+        }
+
+        if (regenerate && !currentVersion) {
+          return reply.code(400).send({
+            success: false,
+            message: "No LOI exists to regenerate",
+          });
+        }
+
+        const isDraftUpdate =
+          regenerate &&
+          !revised &&
+          currentVersion?.status === LENDER_LOI_STATUS.DRAFT;
+        const isRevisedLoi =
+          revised ||
+          (regenerate &&
+            currentVersion &&
+            currentVersion.status !== LENDER_LOI_STATUS.DRAFT);
 
         const submission = resolveLatestActiveSubmission(
           lenderRecord.loanApplication?.submissions || [],
@@ -421,23 +463,36 @@ async function generateLoiRoute(fastify) {
         }
 
         const fileUrl = `/lender/LOI/${fileName}`;
-        const loanApplicationId = lenderRecord.loanApplication.id;
 
-        /* ===============================
-           DB TRANSACTION
-        =============================== */
-        await prisma.applicationLender.update({
-          where: { id: applicationLenderId },
-          data: {
+        const userId = req.user.id || req.user.userId || null;
+        let savedVersion;
+
+        if (isDraftUpdate) {
+          savedVersion = await updateLenderLoiDraftVersion(prisma, {
+            versionId: currentVersion.id,
+            applicationLenderId,
             loiUrl: fileUrl,
             loiTermsJson: persistedLoiTerms || lenderTerms,
-            lastUpdatedAt: new Date(),
-          },
-        });
+            generatedByUserId: userId,
+          });
+        } else {
+          savedVersion = await createLenderLoiVersion(prisma, {
+            applicationLenderId,
+            loiUrl: fileUrl,
+            loiTermsJson: persistedLoiTerms || lenderTerms,
+            generatedByUserId: userId,
+            isRevised: isRevisedLoi,
+          });
+        }
 
-        /* ===============================
-           AUDIT LOG
-        =============================== */
+        const auditAction = isRevisedLoi
+          ? "CREATE_REVISED_LOI"
+          : isDraftUpdate
+            ? "REGENERATE_LOI_DRAFT"
+            : regenerate
+              ? "REGENERATE_LOI"
+              : "GENERATE_LOI";
+
         await logAudit({
           prisma,
           req,
@@ -445,19 +500,36 @@ async function generateLoiRoute(fastify) {
           category: "LOI",
           entityType: "ApplicationLender",
           entityId: applicationLenderId,
-          action: "GENERATE_LOI",
-          newValue: { loiUrl: fileUrl, generatedVia },
+          action: auditAction,
+          newValue: {
+            loiUrl: fileUrl,
+            generatedVia,
+            regenerate,
+            revised: isRevisedLoi,
+            versionNumber: savedVersion.versionNumber,
+            versionId: savedVersion.id,
+          },
         });
 
-        /* ===============================
-           RESPONSE
-        =============================== */
+        const versions = await listLenderLoiVersions(prisma, applicationLenderId);
+        const responseMessage = isRevisedLoi
+          ? `Revised LOI (Version ${savedVersion.versionNumber}) created. Review the updated term sheet, then send it to the broker when ready.`
+          : isDraftUpdate
+            ? "LOI draft updated. Review the updated document, then send it to the broker when ready."
+            : regenerate
+              ? "LOI regenerated successfully. Review the updated term sheet, then send it to the broker when ready."
+              : "LOI generated successfully. Review the term sheet, then send it to the broker when ready.";
+
         return reply.send({
           success: true,
-          message:
-            "LOI generated successfully. Review the term sheet, then send it to the broker when ready.",
+          message: responseMessage,
           loiUrl: fileUrl,
           loiSentToBrokerAt: null,
+          regenerated: regenerate || isDraftUpdate,
+          revised: isRevisedLoi,
+          versionNumber: savedVersion.versionNumber,
+          versionId: savedVersion.id,
+          versions,
         });
 
       } catch (error) {

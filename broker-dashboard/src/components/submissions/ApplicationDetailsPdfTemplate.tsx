@@ -8,6 +8,7 @@ import {
 } from "../../lib/submissionFieldUtils";
 import {
   resolvePdfAssetUrl,
+  splitLongTextForPdf,
   type BrokerPdfBranding,
   type BrokerPdfProfile,
 } from "../../lib/applicationDetailsPdf";
@@ -83,12 +84,65 @@ function isLoanHighlightSection(title: string): boolean {
   );
 }
 
-function chunkArray<T>(items: T[], size: number): T[][] {
-  const rows: T[][] = [];
-  for (let i = 0; i < items.length; i += size) {
-    rows.push(items.slice(i, i + size));
+const LONG_TEXT_FIELD_KEYS = new Set([
+  "projectsummary",
+  "exitstrategy",
+  "purpose",
+  "notes",
+  "description",
+  "comments",
+  "projectdescription",
+  "loandescription",
+  "propertydescription",
+  "businessdescription",
+]);
+
+function isLongTextField(field: SubmissionDetailField): boolean {
+  const key = (field.fieldKey || "").toLowerCase();
+  const label = getSubmissionFieldLabel(field).toLowerCase();
+  const value = formatSubmissionFieldValue(field);
+
+  if (LONG_TEXT_FIELD_KEYS.has(key)) return true;
+  if (
+    /summary|strategy|description|purpose|notes|comments|narrative|remarks/i.test(
+      label,
+    )
+  ) {
+    return true;
   }
-  return rows;
+  return value.length > 150;
+}
+
+type SectionLayoutItem =
+  | { type: "row"; fields: SubmissionDetailField[] }
+  | { type: "full"; field: SubmissionDetailField };
+
+function buildSectionLayout(
+  sectionFields: SubmissionDetailField[],
+  columns: number,
+): SectionLayoutItem[] {
+  const items: SectionLayoutItem[] = [];
+  let buffer: SubmissionDetailField[] = [];
+
+  const flushBuffer = () => {
+    if (!buffer.length) return;
+    for (let i = 0; i < buffer.length; i += columns) {
+      items.push({ type: "row", fields: buffer.slice(i, i + columns) });
+    }
+    buffer = [];
+  };
+
+  for (const field of sectionFields) {
+    if (isLongTextField(field)) {
+      flushBuffer();
+      items.push({ type: "full", field });
+    } else {
+      buffer.push(field);
+    }
+  }
+
+  flushBuffer();
+  return items;
 }
 
 function BrandLogo({
@@ -132,6 +186,64 @@ function BrandLogo({
     >
       {brandName.charAt(0).toUpperCase()}
     </div>
+  );
+}
+
+function LongTextFieldCell({
+  field,
+  highlight,
+  showTopBorder = true,
+}: {
+  field: SubmissionDetailField;
+  highlight?: boolean;
+  showTopBorder?: boolean;
+}) {
+  const label = getSubmissionFieldLabel(field).toUpperCase();
+  const value = formatSubmissionFieldValue(field);
+  const chunks = splitLongTextForPdf(value || "—");
+
+  return (
+    <>
+      {chunks.map((chunk, chunkIndex) => (
+        <div
+          key={`${field.fieldKey}-${chunkIndex}`}
+          data-pdf-block={`field-${field.fieldKey || label}-${chunkIndex}`}
+          style={{
+            padding: "14px 16px",
+            borderTop:
+              showTopBorder || chunkIndex > 0 ? "1px solid #E8EDF3" : "none",
+            width: "100%",
+            boxSizing: "border-box",
+          }}
+        >
+          <div
+            style={{
+              fontSize: "8px",
+              fontWeight: 700,
+              letterSpacing: "0.1em",
+              textTransform: "uppercase",
+              color: "#64748B",
+              marginBottom: "6px",
+            }}
+          >
+            {chunkIndex === 0 ? label : `${label} (continued)`}
+          </div>
+          <div
+            style={{
+              fontSize: "11px",
+              fontWeight: 600,
+              color: highlight ? "#13538A" : "#0F172A",
+              lineHeight: 1.65,
+              whiteSpace: "pre-wrap",
+              wordBreak: "break-word",
+              overflowWrap: "anywhere",
+            }}
+          >
+            {chunk}
+          </div>
+        </div>
+      ))}
+    </>
   );
 }
 
@@ -181,46 +293,68 @@ function SectionFieldsGrid({
   columns?: 2 | 3 | 4;
 }) {
   const widthPct = `${100 / columns}%`;
+  const layoutItems = buildSectionLayout(sectionFields, columns);
 
   return (
     <div>
-      {chunkArray(sectionFields, columns).map((row, rowIndex) => (
-        <div
-          key={`row-${rowIndex}`}
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            borderBottom:
-              rowIndex < Math.ceil(sectionFields.length / columns) - 1
-                ? "1px solid #E8EDF3"
-                : "none",
-          }}
-        >
-          {row.map((field) => (
-            <div
-              key={`${field.fieldKey}-${field.fieldId || ""}`}
-              style={{ width: widthPct, boxSizing: "border-box" }}
-            >
-              <FieldCell
-                label={getSubmissionFieldLabel(field).toUpperCase()}
-                value={formatSubmissionFieldValue(field)}
-                highlight={
-                  field.fieldKey === "amountRequested" ||
-                  /amount/i.test(getSubmissionFieldLabel(field))
-                }
-              />
-            </div>
-          ))}
-          {row.length < columns
-            ? Array.from({ length: columns - row.length }).map((_, i) => (
-                <div
-                  key={`pad-${i}`}
-                  style={{ width: widthPct, boxSizing: "border-box" }}
+      {layoutItems.map((item, itemIndex) => {
+        if (item.type === "full") {
+          return (
+            <LongTextFieldCell
+              key={`${item.field.fieldKey}-${item.field.fieldId || ""}`}
+              field={item.field}
+              showTopBorder={itemIndex > 0}
+              highlight={
+                item.field.fieldKey === "amountRequested" ||
+                /amount/i.test(getSubmissionFieldLabel(item.field))
+              }
+            />
+          );
+        }
+
+        const row = item.fields;
+        const rowIndex = itemIndex;
+
+        return (
+          <div
+            key={`row-${rowIndex}`}
+            data-pdf-block={`row-${row.map((f) => f.fieldKey).join("-")}`}
+            style={{
+              display: "flex",
+              flexWrap: "nowrap",
+              alignItems: "flex-start",
+              borderBottom:
+                itemIndex < layoutItems.length - 1
+                  ? "1px solid #E8EDF3"
+                  : "none",
+            }}
+          >
+            {row.map((field) => (
+              <div
+                key={`${field.fieldKey}-${field.fieldId || ""}`}
+                style={{ width: widthPct, boxSizing: "border-box", flexShrink: 0 }}
+              >
+                <FieldCell
+                  label={getSubmissionFieldLabel(field).toUpperCase()}
+                  value={formatSubmissionFieldValue(field)}
+                  highlight={
+                    field.fieldKey === "amountRequested" ||
+                    /amount/i.test(getSubmissionFieldLabel(field))
+                  }
                 />
-              ))
-            : null}
-        </div>
-      ))}
+              </div>
+            ))}
+            {row.length < columns
+              ? Array.from({ length: columns - row.length }).map((_, i) => (
+                  <div
+                    key={`pad-${i}`}
+                    style={{ width: widthPct, boxSizing: "border-box", flexShrink: 0 }}
+                  />
+                ))
+              : null}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -345,7 +479,6 @@ export default function ApplicationDetailsPdfTemplate({
         color: "#0F172A",
         fontFamily: "'Segoe UI', Arial, Helvetica, sans-serif",
         position: "relative",
-        overflow: "hidden",
       }}
     >
       <div
@@ -557,7 +690,7 @@ export default function ApplicationDetailsPdfTemplate({
               section.fields.length <= 4
                 ? 2
                 : section.fields.some((f) =>
-                      /description|purpose|address|notes/i.test(
+                      /description|purpose|address|notes|summary|strategy/i.test(
                         getSubmissionFieldLabel(f),
                       ),
                     )
@@ -567,13 +700,12 @@ export default function ApplicationDetailsPdfTemplate({
             return (
               <div
                 key={section.id}
-                data-pdf-block={`section-${index + 1}`}
                 style={{
                   marginBottom: "14px",
-                  pageBreakInside: "avoid",
                 }}
               >
                 <div
+                  data-pdf-block={`section-header-${index + 1}`}
                   style={{
                     display: "flex",
                     alignItems: "center",
@@ -621,7 +753,7 @@ export default function ApplicationDetailsPdfTemplate({
                   style={{
                     border: "1px solid #E2E8F0",
                     borderRadius: "10px",
-                    overflow: "hidden",
+                    overflow: "visible",
                     background: highlight ? "#FFFBEB" : "#ffffff",
                     boxShadow: "0 1px 3px rgba(15,23,42,0.04)",
                   }}

@@ -3,9 +3,9 @@ const meRoute = require("./me");
 const updateProfileRoute = require("./updateProfile");
 
 async function loanOfficerAuthRoutes(fastify) {
-  fastify.register(loginRoute);
-  fastify.register(meRoute);
-  fastify.register(updateProfileRoute);
+  await fastify.register(loginRoute);
+  await fastify.register(meRoute);
+  await fastify.register(updateProfileRoute);
 }
 
 module.exports = loanOfficerAuthRoutes;

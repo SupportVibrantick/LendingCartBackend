@@ -5,6 +5,7 @@ import {
   LOI_TERM_OPTIONS,
   calculateSuggestedLoiMetrics,
   createEmptyLoiUnderwritingTerms,
+  mapStoredLoiTermsToForm,
   serializeLoiUnderwritingTerms,
   validateLoiUnderwritingTerms,
   type LoiApplicationContext,
@@ -46,6 +47,9 @@ type Props = {
   loanProductCode?: string | null;
   applicationContext?: LoiApplicationContext;
   submitting?: boolean;
+  mode?: "create" | "regenerate" | "revised";
+  revisedVersionNumber?: number;
+  storedTerms?: unknown;
   onClose: () => void;
   onSubmit: (payload: {
     lenderTerms: ReturnType<typeof serializeLoiUnderwritingTerms>;
@@ -83,6 +87,9 @@ export default function LoiUnderwritingFormModal({
   loanProductCode = null,
   applicationContext,
   submitting = false,
+  mode = "create",
+  revisedVersionNumber,
+  storedTerms,
   onClose,
   onSubmit,
 }: Props) {
@@ -110,14 +117,20 @@ export default function LoiUnderwritingFormModal({
   useEffect(() => {
     if (!isOpen) return;
 
+    const fromStored =
+      mode === "revised" || mode === "regenerate"
+        ? mapStoredLoiTermsToForm(storedTerms)
+        : null;
+
     setTerms(
-      createEmptyLoiUnderwritingTerms(requestedAmount, {
-        interestRate: applicationInterestRate,
-        loanTerm: applicationLoanTerm,
-        propertyValue,
-        projectCost,
-        arv,
-      }),
+      fromStored ||
+        createEmptyLoiUnderwritingTerms(requestedAmount, {
+          interestRate: applicationInterestRate,
+          loanTerm: applicationLoanTerm,
+          propertyValue,
+          projectCost,
+          arv,
+        }),
     );
     setErrors({});
     setMetricsTouched({
@@ -128,6 +141,8 @@ export default function LoiUnderwritingFormModal({
     });
   }, [
     isOpen,
+    mode,
+    storedTerms,
     requestedAmount,
     propertyValue,
     projectCost,
@@ -279,10 +294,21 @@ export default function LoiUnderwritingFormModal({
                 <FileText className="h-3.5 w-3.5" />
                 Term Sheet / LOI
               </div>
-              <h2 className="text-xl font-bold">Generate Loan Term Sheet</h2>
+              <h2 className="text-xl font-bold">
+                {mode === "revised"
+                  ? revisedVersionNumber
+                    ? `Create Revised LOI (Version ${revisedVersionNumber})`
+                    : "Create Revised LOI"
+                  : mode === "regenerate"
+                    ? "Update LOI Draft"
+                    : "Generate Loan Term Sheet"}
+              </h2>
               <p className="mt-1 max-w-2xl text-sm text-teal-50/90">
-                Application details are loaded automatically. Enter your final
-                credit terms below to generate the LOI.
+                {mode === "revised"
+                  ? "Previous versions are preserved for audit. Enter updated commercial terms below — the broker will receive a new version to review."
+                  : mode === "regenerate"
+                    ? "Previous LOI terms are pre-filled. Update any terms below and regenerate the draft term sheet."
+                    : "Application details are loaded automatically. Enter your final credit terms below to generate the LOI."}
               </p>
             </div>
             <button
@@ -614,8 +640,18 @@ export default function LoiUnderwritingFormModal({
             {submitting ? (
               <>
                 <Loader2 size={16} className="animate-spin" />
-                Generating...
+                {mode === "revised"
+                  ? "Creating revised LOI..."
+                  : mode === "regenerate"
+                    ? "Updating draft..."
+                    : "Generating..."}
               </>
+            ) : mode === "revised" ? (
+              revisedVersionNumber
+                ? `Create Revised LOI (Version ${revisedVersionNumber})`
+                : "Create Revised LOI"
+            ) : mode === "regenerate" ? (
+              "Update Draft Term Sheet"
             ) : (
               "Generate Term Sheet / LOI"
             )}

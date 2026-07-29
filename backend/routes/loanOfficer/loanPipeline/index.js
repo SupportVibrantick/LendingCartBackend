@@ -5,23 +5,26 @@ async function loanOfficerLoanPipelineRoutes(fastify) {
     fastify.addHook("preHandler", handler);
   }
 
-  fastify.register(require("./getApplications"));
-  fastify.register(require("./listSubmissions"));
-  fastify.register(require("./pipelineStats"));
-  fastify.register(require("./submissionDocuments"));
-  fastify.register(require("./uploadSubmissionDocument"));
-  fastify.register(require("./requestDocuments"));
-  fastify.register(require("./submitDocumentsToLender"));
-  fastify.register(require("./updateDocumentAutoForward"));
-  fastify.register(require("./listLoi"));
-  fastify.register(require("../../broker/loanPipeline/brokerLoi")({
-    tagPrefix: "Loan Officer",
-    requireBrokerUserId: true,
-  }), { prefix: "" });
-  fastify.register(require("./getSubmittedlenders"));
-  fastify.register(require("./sendClientLink"));
-  fastify.register(require("./feeAgreement"));
-  fastify.register(require("./signDocuments"));
+  await fastify.register(require("./getApplications"));
+  await fastify.register(require("./listSubmissions"));
+  await fastify.register(require("./pipelineStats"));
+  await fastify.register(require("./submissionDocuments"));
+  await fastify.register(require("./uploadSubmissionDocument"));
+  await fastify.register(require("./requestDocuments"));
+  await fastify.register(require("./submitDocumentsToLender"));
+  await fastify.register(require("./updateDocumentAutoForward"));
+  await fastify.register(require("./listLoi"));
+  await fastify.register(
+    require("../../broker/loanPipeline/brokerLoi")({
+      tagPrefix: "Loan Officer",
+      requireBrokerUserId: true,
+    }),
+    { prefix: "" },
+  );
+  await fastify.register(require("./getSubmittedlenders"));
+  await fastify.register(require("./sendClientLink"));
+  await fastify.register(require("./feeAgreement"));
+  await fastify.register(require("./signDocuments"));
 }
 
 module.exports = loanOfficerLoanPipelineRoutes;

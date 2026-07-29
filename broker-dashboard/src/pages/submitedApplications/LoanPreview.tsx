@@ -24,7 +24,8 @@ import {
   X,
 } from "lucide-react";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
+import { createPortal } from "react-dom";
 import toast from "react-hot-toast";
 import { useLocation, useNavigate } from "react-router";
 import { motion } from "framer-motion";
@@ -373,7 +374,12 @@ const getRequestDocColor = (name: string) => {
 
 const LoanPreview = () => {
   const Location = useLocation();
-  const actionRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const actionMenuRef = useRef<HTMLDivElement | null>(null);
+  const actionButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const [actionMenuPos, setActionMenuPos] = useState<{
+    top: number;
+    left: number;
+  } | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const lendersSectionRef = useRef<HTMLDivElement | null>(null);
   const navigate = useNavigate();
@@ -935,20 +941,37 @@ const LoanPreview = () => {
   }, [lenderSearchQ]);
 
   useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
+    const handleClickOutside = (e: globalThis.MouseEvent) => {
       if (!activeAction) return;
-  
-      const current = actionRefs.current[activeAction];
-  
-      if (current && !current.contains(e.target as Node)) {
-        setActiveAction(null);
-      }
+
+      const target = e.target as Node;
+      if (actionMenuRef.current?.contains(target)) return;
+      if (actionButtonRefs.current[activeAction]?.contains(target)) return;
+
+      setActiveAction(null);
+      setActionMenuPos(null);
     };
-  
+
     document.addEventListener("mousedown", handleClickOutside);
-  
-    return () =>
-      document.removeEventListener("mousedown", handleClickOutside);
+
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [activeAction]);
+
+  useEffect(() => {
+    if (!activeAction) return;
+
+    const closeOnScroll = () => {
+      setActiveAction(null);
+      setActionMenuPos(null);
+    };
+
+    window.addEventListener("scroll", closeOnScroll, true);
+    window.addEventListener("resize", closeOnScroll);
+
+    return () => {
+      window.removeEventListener("scroll", closeOnScroll, true);
+      window.removeEventListener("resize", closeOnScroll);
+    };
   }, [activeAction]);
 
   const fetchSubmissionDetails = async (id: string) => {
@@ -2858,6 +2881,42 @@ dark:bg-red-900/20 dark:text-red-400"
 
   const finalOptions = [selectAllOption, ...lenderOptions];
 
+  const activeActionDoc = useMemo(
+    () => displayDocuments.find((doc) => doc.rowKey === activeAction) ?? null,
+    [displayDocuments, activeAction],
+  );
+
+  const openDocumentActionMenu = (
+    rowKey: string,
+    event: MouseEvent<HTMLButtonElement>,
+  ) => {
+    if (activeAction === rowKey) {
+      setActiveAction(null);
+      setActionMenuPos(null);
+      return;
+    }
+
+    const rect = event.currentTarget.getBoundingClientRect();
+    const menuWidth = 208;
+    const menuHeight = 220;
+    let left = Math.min(
+      Math.max(8, rect.right - menuWidth),
+      window.innerWidth - menuWidth - 8,
+    );
+    let top = rect.bottom + 8;
+    if (top + menuHeight > window.innerHeight - 8) {
+      top = Math.max(8, rect.top - menuHeight - 8);
+    }
+
+    setActionMenuPos({ top, left });
+    setActiveAction(rowKey);
+  };
+
+  const closeDocumentActionMenu = () => {
+    setActiveAction(null);
+    setActionMenuPos(null);
+  };
+
   const renderDocuments = () => (
     <div className="h-[90vh] min-h-screen w-full">
       <div className="mb-2">
@@ -3143,14 +3202,14 @@ dark:bg-red-900/20 dark:text-red-400"
           </div>
 
           <div className="min-h-0 flex-1 overflow-auto">
-            <table className="w-full min-w-[960px] text-sm">
+            <table className="w-full min-w-[920px] table-fixed text-sm">
               <colgroup>
                 <col className="w-12" />
-                <col className="w-[30%]" />
-                <col className="w-[15%]" />
                 <col className="w-[28%]" />
                 <col className="w-[14%]" />
-                <col className="w-14" />
+                <col className="w-[26%]" />
+                <col className="w-[16%]" />
+                <col className="w-16" />
               </colgroup>
 
               <thead className="sticky top-0 z-10 border-b border-slate-200 bg-white/95 backdrop-blur dark:border-slate-800 dark:bg-slate-900/95">
@@ -3168,7 +3227,7 @@ dark:bg-red-900/20 dark:text-red-400"
                   <th className="px-4 py-3 text-left">Source</th>
                   <th className="px-4 py-3 text-left">Status</th>
                   <th className="px-4 py-3 text-left">Files</th>
-                  <th className="px-4 py-3 text-right">Actions</th>
+                  <th className="px-4 py-3 text-center">Actions</th>
                 </tr>
               </thead>
 
@@ -3191,31 +3250,31 @@ dark:bg-red-900/20 dark:text-red-400"
                             : "bg-white dark:bg-slate-900"
                       } hover:bg-slate-50 dark:hover:bg-slate-800/40`}
                     >
-                      <td className="px-4 py-3 align-top">
+                      <td className="px-4 py-3 align-middle">
                         <input
                           type="checkbox"
                           disabled={doc.status === "SKIPPED"}
                           checked={isSelected}
                           onChange={() => handleSelectRow(doc.rowKey)}
-                          className="mt-1 h-4 w-4 cursor-pointer accent-blue-600 disabled:opacity-40"
+                          className="h-4 w-4 cursor-pointer accent-blue-600 disabled:opacity-40"
                           aria-label={`Select ${doc.documentName}`}
                         />
                       </td>
 
-                      <td className="px-4 py-3 align-top">
-                        <div className="flex items-start gap-3">
+                      <td className="px-4 py-3 align-middle">
+                        <div className="flex min-w-0 items-center gap-3">
                           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-blue-50 to-indigo-50 text-blue-600 ring-1 ring-blue-100 dark:from-blue-950/40 dark:to-indigo-950/30 dark:text-blue-400 dark:ring-blue-900/40">
                             <FileText size={16} />
                           </div>
                           <div className="min-w-0">
                             <p
-                              className="font-semibold leading-snug text-slate-800 dark:text-white"
+                              className="truncate font-semibold text-slate-800 dark:text-white"
                               title={doc.documentName}
                             >
                               {doc.documentName}
                             </p>
                             {doc.isRequired && (
-                              <span className="mt-1 inline-flex rounded-md bg-rose-50 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-rose-600 ring-1 ring-rose-100 dark:bg-rose-950/30 dark:text-rose-400 dark:ring-rose-900/40">
+                              <span className="mt-0.5 inline-flex rounded-md bg-rose-50 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-rose-600 ring-1 ring-rose-100 dark:bg-rose-950/30 dark:text-rose-400 dark:ring-rose-900/40">
                                 Required
                               </span>
                             )}
@@ -3223,20 +3282,20 @@ dark:bg-red-900/20 dark:text-red-400"
                         </div>
                       </td>
 
-                      <td className="px-4 py-3 align-top">
+                      <td className="px-4 py-3 align-middle">
                         <span
-                          className={`inline-flex max-w-[160px] truncate rounded-full px-2.5 py-1 text-[11px] font-semibold ${sourceClass}`}
+                          className={`inline-flex max-w-full truncate rounded-full px-2.5 py-1 text-[11px] font-semibold ${sourceClass}`}
                           title={sourceLabel}
                         >
                           {sourceLabel}
                         </span>
                       </td>
 
-                      <td className="px-4 py-3 align-top">
-                        <DocumentStatusCell doc={doc} />
+                      <td className="px-4 py-3 align-middle">
+                        <DocumentStatusCell doc={doc} hideUploadChip />
                       </td>
 
-                      <td className="px-4 py-3 align-top">
+                      <td className="px-4 py-3 align-middle">
                         {uploadedCount > 0 ? (
                           <button
                             type="button"
@@ -3261,195 +3320,25 @@ dark:bg-red-900/20 dark:text-red-400"
                         )}
                       </td>
 
-                      <td className="relative px-4 py-3 text-right align-top">
-                        <div
+                      <td className="px-4 py-3 text-center align-middle">
+                        <button
+                          type="button"
                           ref={(el) => {
-                            actionRefs.current[doc.rowKey] = el;
+                            actionButtonRefs.current[doc.rowKey] = el;
                           }}
+                          onClick={(event) =>
+                            openDocumentActionMenu(doc.rowKey, event)
+                          }
+                          className={`rounded-xl border p-2 transition ${
+                            isOpen
+                              ? "border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-300"
+                              : "border-transparent text-slate-500 hover:border-slate-200 hover:bg-white hover:text-slate-700 dark:hover:border-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+                          }`}
+                          aria-label={`Actions for ${doc.documentName}`}
+                          aria-expanded={isOpen}
                         >
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setActiveAction(isOpen ? null : doc.rowKey)
-                            }
-                            className="rounded-xl border border-transparent p-2 text-slate-500 transition hover:border-slate-200 hover:bg-white hover:text-slate-700 dark:hover:border-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
-                            aria-label={`Actions for ${doc.documentName}`}
-                          >
-                            <MoreVertical size={16} />
-                          </button>
-
-                          {isOpen && (
-                            <div className="absolute right-4 top-11 z-50 w-52 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-900">
-                              <div className="border-b border-slate-100 px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400 dark:border-slate-800">
-                                Document actions
-                              </div>
-                              <label className="flex cursor-pointer items-center gap-2 px-4 py-2.5 text-sm text-amber-700 transition hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950/20">
-                              <Upload size={14} />
-                              Upload Files
-                              <input
-                                type="file"
-                                multiple
-                                className="hidden"
-                                onChange={async (e) => {
-                                  const files = e.target.files;
-                                  if (!files) return;
-
-                                  try {
-                                    const token =
-                                      sessionStorage.getItem("broker_token");
-
-                                    for (const file of Array.from(files)) {
-                                      const formData = new FormData();
-                                      formData.append("file", file);
-
-                                      const res = await fetch(
-                                        `${API_BASE}/broker/loan-pipeline/submissions/${documentsData.submissionId}/documents/${doc.requirementId}/upload`,
-                                        {
-                                          method: "POST",
-                                          headers: {
-                                            ...(token && {
-                                              Authorization: `Bearer ${token}`,
-                                            }),
-                                          },
-                                          body: formData,
-                                        },
-                                      );
-
-                                      const json = await res.json();
-                                      if (!res.ok || !json.success) {
-                                        throw new Error(`${file.name} failed`);
-                                      }
-                                    }
-
-                                    toast.success("Uploaded successfully");
-                                    await fetchSubmissionDocuments(
-                                      documentsData.submissionId,
-                                    );
-                                  } catch (err: any) {
-                                    toast.error(err.message);
-                                  } finally {
-                                    setActiveAction(null);
-                                  }
-                                }}
-                              />
-                            </label>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setActivityDoc(doc);
-                                setActiveAction(null);
-                              }}
-                              className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-slate-700 transition hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800"
-                            >
-                              <Activity size={14} />
-                              Current Activities
-                            </button>
-                            {(doc.source === "LENDER_ADDED" ||
-                              doc.source === "BROKER_ADDED") &&
-                              doc.status !== "SKIPPED" && (
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    handleForwardToClient([
-                                      String(doc.requirementId),
-                                    ])
-                                  }
-                                  disabled={forwardingToClient}
-                                  className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-indigo-600 transition hover:bg-indigo-50 disabled:opacity-60 dark:text-indigo-400 dark:hover:bg-indigo-950/20"
-                                >
-                                  <Mail size={14} />
-                                  Send to Client
-                                </button>
-                              )}
-                            {doc.source === "SUB_BROKER_ADDED" &&
-                              doc.status !== "SKIPPED" && (
-                                <>
-                                  <div className="my-1 border-t border-slate-100 dark:border-slate-800" />
-                                  <button
-                                  onClick={async () => {
-                                    const result = await Swal.fire({
-                                      title: "Skip Document?",
-                                      input: "textarea",
-                                      inputLabel: "Reason",
-                                      inputPlaceholder: "Enter skip reason...",
-                                      inputValidator: (value) => {
-                                        if (!value) {
-                                          return "Reason is required";
-                                        }
-                                      },
-                                      showCancelButton: true,
-                                      confirmButtonText: "Skip",
-                                      confirmButtonColor: "#dc2626",
-                                    });
-
-                                    if (!result.isConfirmed) return;
-
-                                    try {
-                                      const token =
-                                        sessionStorage.getItem("broker_token");
-
-                                      const res = await fetch(
-                                        `${API_BASE}/broker/loan-pipeline/sub-broker-submissions/${doc.subBrokerSubmissionId}/skip`,
-                                        {
-                                          method: "POST",
-
-                                          headers: {
-                                            "Content-Type": "application/json",
-
-                                            ...(token && {
-                                              Authorization: `Bearer ${token}`,
-                                            }),
-                                          },
-
-                                          body: JSON.stringify({
-                                            reason: result.value,
-                                          }),
-                                        },
-                                      );
-
-                                      const json = await res.json();
-
-                                      if (!res.ok || !json.success) {
-                                        throw new Error(
-                                          json.message ||
-                                          "Failed to skip document",
-                                        );
-                                      }
-
-                                      toast.success(
-                                        "Document skipped successfully",
-                                      );
-
-                                      setSelectedRows((prev) =>
-                                        prev.filter(
-                                          (id) => id !== doc.requirementId,
-                                        ),
-                                      );
-
-                                      await fetchSubmissionDocuments(
-                                        documentsData.submissionId,
-                                        page,
-                                        debouncedSearch,
-                                      );
-                                    } catch (err: any) {
-                                      toast.error(
-                                        err.message ||
-                                        "Failed to skip document",
-                                      );
-                                    } finally {
-                                      setActiveAction(null);
-                                    }
-                                  }}
-                                  className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-red-600 transition hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/20"
-                                >
-                                  <Send size={14} />
-                                  Skip Document
-                                </button>
-                                </>
-                              )}
-                          </div>
-                        )}
-                        </div>
+                          <MoreVertical size={16} />
+                        </button>
                       </td>
                     </tr>
                   );
@@ -3546,6 +3435,172 @@ dark:bg-red-900/20 dark:text-red-400"
           </p>
         </div>
       )}
+      {activeActionDoc &&
+        actionMenuPos &&
+        createPortal(
+          <div
+            ref={actionMenuRef}
+            style={{
+              position: "fixed",
+              top: actionMenuPos.top,
+              left: actionMenuPos.left,
+              zIndex: 9999,
+            }}
+            className="w-52 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-900"
+          >
+            <label className="flex cursor-pointer items-center gap-2 px-4 py-2.5 text-sm text-amber-700 transition hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950/20">
+              <Upload size={14} />
+              Upload Files
+              <input
+                type="file"
+                multiple
+                className="hidden"
+                onChange={async (e) => {
+                  const files = e.target.files;
+                  if (!files) return;
+
+                  try {
+                    const token = sessionStorage.getItem("broker_token");
+
+                    for (const file of Array.from(files)) {
+                      const formData = new FormData();
+                      formData.append("file", file);
+
+                      const res = await fetch(
+                        `${API_BASE}/broker/loan-pipeline/submissions/${documentsData.submissionId}/documents/${activeActionDoc.requirementId}/upload`,
+                        {
+                          method: "POST",
+                          headers: {
+                            ...(token && {
+                              Authorization: `Bearer ${token}`,
+                            }),
+                          },
+                          body: formData,
+                        },
+                      );
+
+                      const json = await res.json();
+                      if (!res.ok || !json.success) {
+                        throw new Error(`${file.name} failed`);
+                      }
+                    }
+
+                    toast.success("Uploaded successfully");
+                    await fetchSubmissionDocuments(documentsData.submissionId);
+                  } catch (err: any) {
+                    toast.error(err.message);
+                  } finally {
+                    closeDocumentActionMenu();
+                  }
+                }}
+              />
+            </label>
+            <button
+              type="button"
+              onClick={() => {
+                setActivityDoc(activeActionDoc);
+                closeDocumentActionMenu();
+              }}
+              className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-slate-700 transition hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800"
+            >
+              <Activity size={14} />
+              Current Activities
+            </button>
+            {(activeActionDoc.source === "LENDER_ADDED" ||
+              activeActionDoc.source === "BROKER_ADDED") &&
+              activeActionDoc.status !== "SKIPPED" && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    handleForwardToClient([String(activeActionDoc.requirementId)])
+                  }
+                  disabled={forwardingToClient}
+                  className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-indigo-600 transition hover:bg-indigo-50 disabled:opacity-60 dark:text-indigo-400 dark:hover:bg-indigo-950/20"
+                >
+                  <Mail size={14} />
+                  Send to Client
+                </button>
+              )}
+            {activeActionDoc.source === "SUB_BROKER_ADDED" &&
+              activeActionDoc.status !== "SKIPPED" && (
+                <>
+                  <div className="my-1 border-t border-slate-100 dark:border-slate-800" />
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const result = await Swal.fire({
+                        title: "Skip Document?",
+                        input: "textarea",
+                        inputLabel: "Reason",
+                        inputPlaceholder: "Enter skip reason...",
+                        inputValidator: (value) => {
+                          if (!value) {
+                            return "Reason is required";
+                          }
+                        },
+                        showCancelButton: true,
+                        confirmButtonText: "Skip",
+                        confirmButtonColor: "#dc2626",
+                      });
+
+                      if (!result.isConfirmed) return;
+
+                      try {
+                        const token = sessionStorage.getItem("broker_token");
+
+                        const res = await fetch(
+                          `${API_BASE}/broker/loan-pipeline/sub-broker-submissions/${activeActionDoc.subBrokerSubmissionId}/skip`,
+                          {
+                            method: "POST",
+                            headers: {
+                              "Content-Type": "application/json",
+                              ...(token && {
+                                Authorization: `Bearer ${token}`,
+                              }),
+                            },
+                            body: JSON.stringify({
+                              reason: result.value,
+                            }),
+                          },
+                        );
+
+                        const json = await res.json();
+
+                        if (!res.ok || !json.success) {
+                          throw new Error(
+                            json.message || "Failed to skip document",
+                          );
+                        }
+
+                        toast.success("Document skipped successfully");
+
+                        setSelectedRows((prev) =>
+                          prev.filter(
+                            (id) => id !== activeActionDoc.requirementId,
+                          ),
+                        );
+
+                        await fetchSubmissionDocuments(
+                          documentsData.submissionId,
+                          page,
+                          debouncedSearch,
+                        );
+                      } catch (err: any) {
+                        toast.error(err.message || "Failed to skip document");
+                      } finally {
+                        closeDocumentActionMenu();
+                      }
+                    }}
+                    className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-red-600 transition hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/20"
+                  >
+                    <Send size={14} />
+                    Skip Document
+                  </button>
+                </>
+              )}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 

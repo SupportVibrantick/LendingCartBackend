@@ -1,6 +1,6 @@
-module.exports = async function (fastify) {
-  fastify.register(require("./getFeeAgreement"));
-  fastify.register(require("./updateFeeAgreement"));
-  fastify.register(require("./signFeeAgreement"));
-  fastify.register(require("./downloadFeeAgreementPdf"));
+module.exports = async function loanOfficerFeeAgreementRoutes(fastify) {
+  await fastify.register(require("./getFeeAgreement"));
+  await fastify.register(require("./updateFeeAgreement"));
+  await fastify.register(require("./signFeeAgreement"));
+  await fastify.register(require("./downloadFeeAgreementPdf"));
 };

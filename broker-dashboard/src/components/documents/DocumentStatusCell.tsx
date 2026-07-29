@@ -16,6 +16,8 @@ import {
 
 type Props = {
   doc: DocumentDisplayRow;
+  /** Hide upload file count — use when the table already has a Files column. */
+  hideUploadChip?: boolean;
 };
 
 const chipToneClass: Record<string, string> = {
@@ -74,13 +76,19 @@ function getCompactChipLabel(itemKey: string, label: string) {
   return label;
 }
 
-export default function DocumentStatusCell({ doc }: Props) {
+export default function DocumentStatusCell({
+  doc,
+  hideUploadChip = false,
+}: Props) {
   const summary = getDocumentStatusSummary(doc);
   const isSkipped = doc.status === "SKIPPED";
+  const visibleItems = hideUploadChip
+    ? summary.items.filter((item) => item.key !== "upload")
+    : summary.items;
 
   return (
-    <div className="flex min-w-[200px] flex-col gap-1.5">
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+    <div className="flex min-w-0 flex-col gap-1">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
         <span
           className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-bold tracking-wide ${getDocumentStatusChipClass(
             doc.status ?? "",
@@ -94,13 +102,15 @@ export default function DocumentStatusCell({ doc }: Props) {
           {formatDocumentStatusLabel(summary.statusLabel)}
         </span>
         {summary.statusDate && !isSkipped && (
-          <span className="text-[10px] text-slate-400">{summary.statusDate}</span>
+          <span className="whitespace-nowrap text-[10px] text-slate-400">
+            {summary.statusDate}
+          </span>
         )}
       </div>
 
-      {!isSkipped && summary.items.length > 0 && (
+      {!isSkipped && visibleItems.length > 0 && (
         <div className="flex flex-wrap gap-1">
-          {summary.items.map((item) => (
+          {visibleItems.map((item) => (
             <span
               key={item.key}
               title={[item.label, item.detail].filter(Boolean).join(" · ")}

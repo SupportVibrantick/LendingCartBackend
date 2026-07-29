@@ -5,10 +5,10 @@ async function loanOfficerApplicationsRoutes(fastify) {
     fastify.addHook("preHandler", handler);
   }
 
-  fastify.register(require("./submit"));
-  fastify.register(require("./activeApplication"));
-  fastify.register(require("./editSubmittedApplication"));
-  fastify.register(require("./viewSubmission"));
+  await fastify.register(require("./submit"));
+  await fastify.register(require("./activeApplication"));
+  await fastify.register(require("./editSubmittedApplication"));
+  await fastify.register(require("./viewSubmission"));
 }
 
 module.exports = loanOfficerApplicationsRoutes;

@@ -126,6 +126,8 @@ model UserAccount {
   organization                  Organization?                    @relation(fields: [organizationId], references: [id])
   userPermissions               UserPermission[]
   roles                         UserRole[]
+  lenderLoiVersionsGenerated    LenderLoiVersion[]               @relation("LenderLoiVersionGeneratedBy")
+  brokerLoiVersionsGenerated    BrokerLoiVersion[]               @relation("BrokerLoiVersionGeneratedBy")
 
   @@map("user_accounts")
 }
@@ -776,7 +778,10 @@ model LoanApplication {
   brokerLoiTerms             Json?                            @map("broker_loi_terms")
   brokerLoiGeneratedAt       DateTime?                        @map("broker_loi_generated_at") @db.Timestamptz(6)
   brokerLoiGeneratedByUserId String?                          @map("broker_loi_generated_by_user_id") @db.Uuid
+  currentBrokerLoiVersionId  String?                          @unique @map("current_broker_loi_version_id") @db.Uuid
   clientUploadTokens           ClientUploadToken?
+  brokerLoiVersions            BrokerLoiVersion[]
+  currentBrokerLoiVersion      BrokerLoiVersion?                @relation("CurrentBrokerLoiVersion", fields: [currentBrokerLoiVersionId], references: [id])
   subBrokerSubmissions         SubBrokerSubmission[]
   collaterals                  ApplicationCollateral[]
   documentRequirements         ApplicationDocumentRequirement[]
@@ -1177,7 +1182,10 @@ model ApplicationLender {
   loiUrl                    String?
   loiTermsJson              Json?                           @map("loi_terms_json")
   loiSentToBrokerAt         DateTime?                       @map("loi_sent_to_broker_at") @db.Timestamptz(6)
+  currentLenderLoiVersionId String?                         @unique @map("current_lender_loi_version_id") @db.Uuid
   documentSubmissions       ApplicationDocumentSubmission[]
+  lenderLoiVersions         LenderLoiVersion[]
+  currentLenderLoiVersion   LenderLoiVersion?               @relation("CurrentLenderLoiVersion", fields: [currentLenderLoiVersionId], references: [id])
   lender                    Organization                    @relation("LenderApplications", fields: [lenderOrgId], references: [id])
   lenderProduct             LenderProduct?                  @relation(fields: [lenderProductId], references: [id])
   loanApplication           LoanApplication                 @relation(fields: [loanApplicationId], references: [id])
@@ -1192,6 +1200,53 @@ model ApplicationLender {
   @@index([loanApplicationId])
   @@index([lenderOrgId])
   @@map("application_lenders")
+}
+
+model LenderLoiVersion {
+  id                  String            @id @default(uuid()) @db.Uuid
+  applicationLenderId String            @map("application_lender_id") @db.Uuid
+  versionNumber       Int               @map("version_number")
+  loiUrl              String            @map("loi_url")
+  loiTermsJson        Json?             @map("loi_terms_json")
+  status              String            @default("DRAFT")
+  sentToBrokerAt      DateTime?         @map("sent_to_broker_at") @db.Timestamptz(6)
+  generatedByUserId   String?           @map("generated_by_user_id") @db.Uuid
+  generatedAt         DateTime          @default(now()) @map("generated_at") @db.Timestamptz(6)
+  supersededAt        DateTime?         @map("superseded_at") @db.Timestamptz(6)
+  applicationLender   ApplicationLender @relation(fields: [applicationLenderId], references: [id], onDelete: Cascade)
+  generatedByUser     UserAccount?      @relation("LenderLoiVersionGeneratedBy", fields: [generatedByUserId], references: [id])
+  currentForLender    ApplicationLender? @relation("CurrentLenderLoiVersion")
+  brokerLoiVersions   BrokerLoiVersion[] @relation("BrokerLoiSourceLenderVersion")
+
+  @@unique([applicationLenderId, versionNumber])
+  @@index([applicationLenderId])
+  @@map("lender_loi_versions")
+}
+
+model BrokerLoiVersion {
+  id                         String              @id @default(uuid()) @db.Uuid
+  loanApplicationId          String              @map("loan_application_id") @db.Uuid
+  sourceApplicationLenderId  String?             @map("source_application_lender_id") @db.Uuid
+  sourceLenderLoiVersionId   String?             @map("source_lender_loi_version_id") @db.Uuid
+  versionNumber              Int                 @map("version_number")
+  brokerLoiUrl               String              @map("broker_loi_url")
+  brokerLoiTerms             Json?               @map("broker_loi_terms")
+  status                     String              @default("DRAFT")
+  sentToClientAt             DateTime?           @map("sent_to_client_at") @db.Timestamptz(6)
+  clientSignedAt             DateTime?           @map("client_signed_at") @db.Timestamptz(6)
+  signedPdfUrl               String?             @map("signed_pdf_url")
+  documentRequirementId      String?             @map("document_requirement_id") @db.Uuid
+  generatedByUserId          String?             @map("generated_by_user_id") @db.Uuid
+  generatedAt                DateTime            @default(now()) @map("generated_at") @db.Timestamptz(6)
+  supersededAt               DateTime?           @map("superseded_at") @db.Timestamptz(6)
+  loanApplication            LoanApplication     @relation(fields: [loanApplicationId], references: [id], onDelete: Cascade)
+  sourceLenderLoiVersion     LenderLoiVersion?   @relation("BrokerLoiSourceLenderVersion", fields: [sourceLenderLoiVersionId], references: [id])
+  generatedByUser            UserAccount?        @relation("BrokerLoiVersionGeneratedBy", fields: [generatedByUserId], references: [id])
+  currentForApplication      LoanApplication?    @relation("CurrentBrokerLoiVersion")
+
+  @@unique([loanApplicationId, versionNumber])
+  @@index([loanApplicationId])
+  @@map("broker_loi_versions")
 }
 
 model LenderReview {

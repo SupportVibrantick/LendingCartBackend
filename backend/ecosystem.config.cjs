@@ -9,7 +9,7 @@ module.exports = {
       instances: 1,
       cwd: __dirname,
       autorestart: true,
-      max_memory_restart: "512M",
+      max_memory_restart: "768M",
       env: {
         NODE_ENV: "production",
         ENABLE_CRONS: "false",
@@ -22,7 +22,7 @@ module.exports = {
       instances: 1,
       cwd: __dirname,
       autorestart: true,
-      max_memory_restart: "512M",
+      max_memory_restart: "768M",
       env: {
         NODE_ENV: "production",
         ENABLE_CRONS: "true",

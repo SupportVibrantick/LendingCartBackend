@@ -236,21 +236,9 @@ function canBrokerRequestDocuments(application) {
     };
   }
 
-  const lenders = application.applicationLenders || [];
   const displayStatus = resolveBrokerPipelineDisplayStatus(application);
   const status = application.status;
   const resolvedStatus = resolveApplicationStatus(application);
-
-  if (
-    displayStatus === "APPROVED" ||
-    ["LENDER_APPROVED", "AUTO_APPROVED"].includes(resolvedStatus)
-  ) {
-    return {
-      allowed: false,
-      reason:
-        "Documents cannot be requested after a lender has approved this application.",
-    };
-  }
 
   if (displayStatus === "DECLINED" || resolvedStatus === "LENDER_DECLINED") {
     return {

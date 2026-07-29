@@ -19,13 +19,6 @@ export function canBrokerRequestDocuments(
     .trim();
   const appStatus = (detail.applicationStatus || "").toUpperCase().trim();
 
-  if (
-    displayStatus === "APPROVED" ||
-    ["LENDER_APPROVED", "AUTO_APPROVED"].includes(appStatus)
-  ) {
-    return false;
-  }
-
   if (displayStatus === "DECLINED" || appStatus === "LENDER_DECLINED") {
     return false;
   }
@@ -48,10 +41,6 @@ export function getBrokerRequestDocumentsDisabledReason(
     const displayStatus = (detail?.pipelineStatus || detail?.status || "")
       .toUpperCase()
       .trim();
-
-    if (displayStatus === "APPROVED") {
-      return "Documents cannot be requested after a lender has approved this application.";
-    }
 
     if (displayStatus === "DECLINED") {
       return "Documents cannot be requested for a declined application.";

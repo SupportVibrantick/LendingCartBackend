@@ -65,8 +65,58 @@ export function buildApplicationDetailsPdfFilename(data: {
   return `Loan-Application-${base}.pdf`;
 }
 
+/** Split long narrative fields so each chunk fits on one PDF page slice. */
+export function splitLongTextForPdf(
+  text: string,
+  maxChars = 2400,
+): string[] {
+  const normalized = text.replace(/\r\n/g, "\n").trim();
+  if (!normalized) return ["—"];
+  if (normalized.length <= maxChars) return [normalized];
+
+  const paragraphs = normalized.split(/\n{2,}/);
+  const chunks: string[] = [];
+  let current = "";
+
+  const flush = () => {
+    if (current.trim()) {
+      chunks.push(current.trim());
+    }
+    current = "";
+  };
+
+  const pushOversizedParagraph = (paragraph: string) => {
+    let remaining = paragraph;
+    while (remaining.length > maxChars) {
+      let splitAt = remaining.lastIndexOf(" ", maxChars);
+      if (splitAt <= 0) splitAt = maxChars;
+      chunks.push(remaining.slice(0, splitAt).trim());
+      remaining = remaining.slice(splitAt).trim();
+    }
+    if (remaining) current = remaining;
+  };
+
+  for (const paragraph of paragraphs) {
+    const candidate = current ? `${current}\n\n${paragraph}` : paragraph;
+    if (candidate.length <= maxChars) {
+      current = candidate;
+      continue;
+    }
+
+    flush();
+    if (paragraph.length > maxChars) {
+      pushOversizedParagraph(paragraph);
+      flush();
+    } else {
+      current = paragraph;
+    }
+  }
+
+  flush();
+  return chunks.length ? chunks : ["—"];
+}
+
 const CANVAS_SCALE = 2;
-const MAX_PAGE_WASTE_RATIO = 0.15;
 
 type PdfBlockRect = {
   top: number;
@@ -99,32 +149,31 @@ function resolveSliceEndPx(
   const idealEnd = Math.min(currentY + pageSliceHeightPx, canvasHeight);
   if (idealEnd >= canvasHeight) return canvasHeight;
 
-  const splitBlock = blocks.find(
-    (block) =>
-      block.top > currentY &&
-      block.top < idealEnd &&
-      block.bottom > idealEnd,
-  );
+  const crossingBlock = blocks
+    .filter(
+      (block) =>
+        block.top < idealEnd &&
+        block.bottom > idealEnd &&
+        block.bottom > currentY,
+    )
+    .sort((a, b) => a.top - b.top)[0];
 
-  if (!splitBlock) return idealEnd;
+  if (!crossingBlock) return idealEnd;
 
-  const spaceBeforeBlock = splitBlock.top - currentY;
-  const wastedIfBreakBefore = idealEnd - splitBlock.top;
-  const maxWastePx = pageSliceHeightPx * MAX_PAGE_WASTE_RATIO;
-
-  if (splitBlock.height <= pageSliceHeightPx) {
-    const blockFitsOnPage = splitBlock.bottom - currentY <= pageSliceHeightPx;
-
-    if (blockFitsOnPage) {
-      return Math.min(splitBlock.bottom, canvasHeight);
+  if (crossingBlock.top <= currentY) {
+    const restHeight = crossingBlock.bottom - currentY;
+    if (restHeight <= pageSliceHeightPx) {
+      return Math.min(crossingBlock.bottom, canvasHeight);
     }
+    return idealEnd;
+  }
 
-    if (
-      wastedIfBreakBefore <= maxWastePx &&
-      spaceBeforeBlock >= 60
-    ) {
-      return splitBlock.top;
-    }
+  if (crossingBlock.bottom - currentY <= pageSliceHeightPx) {
+    return Math.min(crossingBlock.bottom, canvasHeight);
+  }
+
+  if (crossingBlock.top > currentY) {
+    return crossingBlock.top;
   }
 
   return idealEnd;

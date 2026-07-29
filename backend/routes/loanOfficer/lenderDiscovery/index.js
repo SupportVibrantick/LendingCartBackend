@@ -5,8 +5,8 @@ async function loanOfficerLenderDiscoveryRoutes(fastify) {
     fastify.addHook("preHandler", handler);
   }
 
-  fastify.register(require("./findEligible"));
-  fastify.register(require("./sendToLenders"));
+  await fastify.register(require("./findEligible"));
+  await fastify.register(require("./sendToLenders"));
 }
 
 module.exports = loanOfficerLenderDiscoveryRoutes;

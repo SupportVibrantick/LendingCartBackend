@@ -12,6 +12,10 @@ const {
   notifyBroker,
   BROKER_NOTIFICATION_EVENTS,
 } = require("../../services/notifications/brokerNotifications");
+const {
+  markBrokerLoiVersionClientSigned,
+  getCurrentBrokerLoiVersion,
+} = require("../../services/loi/loiVersionService");
 
 async function resolveClientFromRequest(req, prisma) {
   if (req.client?.clientId) {
@@ -58,6 +62,7 @@ module.exports = async function clientSignDocuments(fastify) {
 
         const application = await prisma.loanApplication.findFirst({
           where: { id: applicationId, clientId: auth.clientId },
+          select: { id: true, currentBrokerLoiVersionId: true },
         });
 
         if (!application) {
@@ -93,11 +98,78 @@ module.exports = async function clientSignDocuments(fastify) {
           orderBy: { createdAt: "desc" },
         });
 
+        const brokerLoiVersions = await prisma.brokerLoiVersion.findMany({
+          where: { loanApplicationId: applicationId },
+          orderBy: { versionNumber: "asc" },
+          select: {
+            id: true,
+            documentRequirementId: true,
+            versionNumber: true,
+            status: true,
+            signedPdfUrl: true,
+            clientSignedAt: true,
+          },
+        });
+
+        const currentBrokerLoiVersion = application.currentBrokerLoiVersionId
+          ? brokerLoiVersions.find(
+              (item) => item.id === application.currentBrokerLoiVersionId,
+            )
+          : brokerLoiVersions[brokerLoiVersions.length - 1] || null;
+
+        const versionByRequirementId = new Map(
+          brokerLoiVersions
+            .filter((item) => item.documentRequirementId)
+            .map((item) => [item.documentRequirementId, item]),
+        );
+
+        const previousSignedLoiVersions = brokerLoiVersions.filter(
+          (item) =>
+            item.id !== currentBrokerLoiVersion?.id &&
+            ["CLIENT_SIGNED", "FORWARDED_TO_LENDER", "SUPERSEDED"].includes(
+              item.status,
+            ) &&
+            item.signedPdfUrl,
+        );
+
         return reply.send({
           success: true,
-          data: requirements.map((item) =>
-            formatSignDocumentRequirement(item, { viewer: "client" }),
-          ),
+          data: requirements.map((item) => {
+            const formatted = formatSignDocumentRequirement(item, {
+              viewer: "client",
+            });
+            const isBrokerLoi =
+              item.documentType?.code === "BROKER_LOI_TERM_SHEET";
+
+            let loiVersionNumber = null;
+            if (isBrokerLoi) {
+              if (item.signStatus === "SENT_TO_CLIENT" && currentBrokerLoiVersion) {
+                loiVersionNumber = currentBrokerLoiVersion.versionNumber;
+              } else {
+                const linkedVersion = versionByRequirementId.get(item.id);
+                loiVersionNumber =
+                  linkedVersion?.versionNumber ||
+                  currentBrokerLoiVersion?.versionNumber ||
+                  null;
+              }
+            }
+
+            return {
+              ...formatted,
+              loiVersionNumber,
+              loiVersionLabel: loiVersionNumber
+                ? `Version ${loiVersionNumber}`
+                : null,
+              isBrokerLoi,
+            };
+          }),
+          previousSignedLoiVersions: previousSignedLoiVersions.map((item) => ({
+            versionNumber: item.versionNumber,
+            label: `Version ${item.versionNumber}`,
+            signedPdfUrl: item.signedPdfUrl,
+            clientSignedAt: item.clientSignedAt,
+            status: item.status,
+          })),
         });
       } catch (error) {
         fastify.log.error(error);
@@ -244,6 +316,37 @@ module.exports = async function clientSignDocuments(fastify) {
 
           return { signedUpload, updatedRequirement };
         });
+
+        const isBrokerLoi = /\/broker\/LOI\//i.test(
+          requirement.templateFileUrl || "",
+        );
+        if (isBrokerLoi) {
+          let version = await prisma.brokerLoiVersion.findFirst({
+            where: { documentRequirementId: requirement.id },
+          });
+
+          if (!version) {
+            version = await getCurrentBrokerLoiVersion(
+              prisma,
+              requirement.loanApplicationId,
+            );
+          }
+
+          if (version?.id) {
+            await markBrokerLoiVersionClientSigned(
+              prisma,
+              version.id,
+              result.signedUpload.fileUrl,
+            );
+
+            if (!version.documentRequirementId) {
+              await prisma.brokerLoiVersion.update({
+                where: { id: version.id },
+                data: { documentRequirementId: requirement.id },
+              });
+            }
+          }
+        }
 
         await notifyBroker(prisma, fastify.io, {
           brokerOrgId: requirement.loanApplication.brokerOrgId,
