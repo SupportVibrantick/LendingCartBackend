@@ -27,6 +27,7 @@ async function brokerInvitesRoutes(fastify) {
         where: {
           brokerOrgId,
           status: "PENDING",
+          initiatedBy: "LENDER",
         },
         include: {
           lender: {

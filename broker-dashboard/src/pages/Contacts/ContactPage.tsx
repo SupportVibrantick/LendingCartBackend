@@ -28,6 +28,7 @@ import CreateContactModal from "./CreateContactModal";
 import ViewContactModal from "./ViewContactModal";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
+const SEARCH_DEBOUNCE_MS = 400;
 
 type Contact = {
   id: string;
@@ -100,21 +101,55 @@ function SortHeader({
     <button
       type="button"
       onClick={onClick}
-      className={`group inline-flex w-full items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-gray-500 transition hover:text-[#13538A] ${
+      className={`group inline-flex w-full items-center gap-1.5 text-xs font-semibold uppercase tracking-wide transition ${
         align === "right" ? "justify-end" : "justify-start"
-      } ${active ? "text-[#13538A]" : ""}`}
+      } ${active ? "text-[#13538A]" : "text-gray-500 hover:text-[#13538A] dark:text-gray-400"}`}
     >
       {label}
       {active ? (
         direction === "asc" ? (
-          <ChevronUp className="h-3.5 w-3.5" />
+          <ChevronUp className="h-4 w-4 shrink-0" />
         ) : (
-          <ChevronDown className="h-3.5 w-3.5" />
+          <ChevronDown className="h-4 w-4 shrink-0" />
         )
       ) : (
-        <ArrowUpDown className="h-3.5 w-3.5 opacity-0 transition group-hover:opacity-60" />
+        <ArrowUpDown className="h-3.5 w-3.5 shrink-0 opacity-0 transition group-hover:opacity-50" />
       )}
     </button>
+  );
+}
+
+function StatChip({
+  icon,
+  label,
+  value,
+  tone = "blue",
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: number;
+  tone?: "blue" | "emerald" | "slate";
+}) {
+  const tones = {
+    blue: "border-blue-100 bg-blue-50 text-blue-700 dark:border-blue-500/20 dark:bg-blue-500/10 dark:text-blue-300",
+    emerald:
+      "border-emerald-100 bg-emerald-50 text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300",
+    slate:
+      "border-gray-200 bg-gray-50 text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300",
+  };
+
+  return (
+    <div
+      className={`flex items-center gap-2.5 rounded-xl border px-4 py-2.5 ${tones[tone]}`}
+    >
+      {icon}
+      <div>
+        <p className="text-[10px] font-semibold uppercase tracking-wide opacity-70">
+          {label}
+        </p>
+        <p className="text-lg font-bold leading-tight">{value}</p>
+      </div>
+    </div>
   );
 }
 
@@ -166,7 +201,7 @@ export default function ContactPage() {
   const [page, setPage] = useState(1);
   const [limit] = useState(10);
   const [totalPages, setTotalPages] = useState(1);
-  const [totalCount, setTotalCount] = useState(0);
+  const [total, setTotal] = useState(0);
   const [sortKey, setSortKey] = useState<SortKey>("createdAt");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
@@ -180,10 +215,12 @@ export default function ContactPage() {
       const params = new URLSearchParams({
         page: String(page),
         limit: String(limit),
+        sortBy: sortKey,
+        sortOrder: sortDir,
       });
 
       if (debouncedSearch) {
-        params.append("search", debouncedSearch);
+        params.set("search", debouncedSearch);
       }
 
       const res = await fetch(`${API_BASE}/broker/contacts/list?${params}`, {
@@ -193,22 +230,42 @@ export default function ContactPage() {
 
       const data: ApiResponse = await res.json();
 
-      if (data.success) {
-        setContacts(data.data);
-        setTotalPages(data.pagination.totalPages);
-        setTotalCount(data.pagination.total);
-        setPage(data.pagination.page);
+      if (!res.ok || !data.success) {
+        toast.error("Failed to fetch contacts");
+        setContacts([]);
+        setTotal(0);
+        setTotalPages(1);
+        return;
+      }
+
+      setContacts(data.data || []);
+      setTotal(data.pagination.total ?? 0);
+      setTotalPages(data.pagination.totalPages || 1);
+
+      if (page > (data.pagination.totalPages || 1) && (data.pagination.totalPages || 1) >= 1) {
+        setPage(data.pagination.totalPages || 1);
       }
     } catch {
       toast.error("Failed to fetch contacts");
     } finally {
       setLoading(false);
     }
-  }, [page, limit, debouncedSearch]);
+  }, [page, limit, debouncedSearch, sortKey, sortDir]);
+
+  const isSearching = search.trim() !== debouncedSearch;
 
   useEffect(() => {
-    const timer = window.setTimeout(() => setDebouncedSearch(search.trim()), 350);
-    return () => window.clearTimeout(timer);
+    const handler = setTimeout(() => {
+      const next = search.trim();
+      setDebouncedSearch((prev) => {
+        if (prev !== next) {
+          setPage(1);
+        }
+        return next;
+      });
+    }, SEARCH_DEBOUNCE_MS);
+
+    return () => clearTimeout(handler);
   }, [search]);
 
   useEffect(() => {
@@ -222,7 +279,7 @@ export default function ContactPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearch]);
+  }, [sortKey, sortDir]);
 
   useEffect(() => {
     fetchContacts();
@@ -280,39 +337,9 @@ export default function ContactPage() {
 
   const closeRowMenu = () => setActiveMenuId(null);
 
-  const sortedContacts = useMemo(() => {
-    const list = [...contacts];
-
-    list.sort((a, b) => {
-      let cmp = 0;
-
-      switch (sortKey) {
-        case "name":
-          cmp = `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`);
-          break;
-        case "email":
-          cmp = a.email.localeCompare(b.email);
-          break;
-        case "company":
-          cmp = (a.companyName || "").localeCompare(b.companyName || "");
-          break;
-        case "phone":
-          cmp = (a.phone || "").localeCompare(b.phone || "");
-          break;
-        case "createdAt":
-          cmp = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-          break;
-      }
-
-      return sortDir === "asc" ? cmp : -cmp;
-    });
-
-    return list;
-  }, [contacts, sortKey, sortDir]);
-
   const activeMenuContact = useMemo(
-    () => sortedContacts.find((c) => c.id === activeMenuId) ?? null,
-    [sortedContacts, activeMenuId],
+    () => contacts.find((c) => c.id === activeMenuId) ?? null,
+    [contacts, activeMenuId],
   );
 
   const toggleSort = (key: SortKey) => {
@@ -380,112 +407,145 @@ export default function ContactPage() {
     }
   };
 
+  const sortLabel =
+    sortKey === "createdAt"
+      ? "date created"
+      : sortKey === "company"
+        ? "company"
+        : sortKey;
+
   return (
     <>
       <PageMeta title="Contacts | Broker Dashboard" description="Manage CRM contacts" />
 
-      <div className="space-y-4 pb-6">
-        {/* Hero */}
-        <div className="overflow-hidden rounded-2xl border border-gray-200 bg-gradient-to-br from-[#13538A] via-[#1a6aad] to-[#2C92D5] p-4 text-white shadow-sm dark:border-gray-800 sm:p-5">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <div className="mb-1.5 inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-0.5 text-[10px] font-medium backdrop-blur-sm">
-                <Users className="h-3 w-3" />
-                CRM · Directory
-              </div>
-              <h1 className="text-xl font-semibold tracking-tight">Contacts</h1>
-              <p className="mt-1 max-w-2xl text-xs text-white/80">
-                Manage lenders, brokers, partners, and everyone in your loan network.
-              </p>
-            </div>
+      <div className="space-y-5 pb-6">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <p className="mb-1 text-xs font-semibold uppercase tracking-widest text-gray-400">
+            User Management
+            </p>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Contacts</h1>
+            <p className="mt-1 max-w-xl text-sm text-gray-500 dark:text-gray-400">
+              Manage lenders, brokers, partners, and everyone in your loan network.
+            </p>
+          </div>
 
-            <div className="grid grid-cols-2 gap-2">
-              <div className="rounded-lg bg-white/10 px-3 py-2 ring-1 ring-white/20 backdrop-blur-sm">
-                <p className="text-[10px] text-white/70">Total contacts</p>
-                <p className="mt-0.5 text-lg font-semibold">{totalCount}</p>
-              </div>
-              <div className="rounded-lg bg-white/10 px-3 py-2 ring-1 ring-white/20 backdrop-blur-sm">
-                <p className="text-[10px] text-white/70">On this page</p>
-                <p className="mt-0.5 text-lg font-semibold">{contacts.length}</p>
-              </div>
-            </div>
+          <div className="flex flex-wrap gap-2 lg:justify-end">
+            <StatChip
+              icon={<Users className="h-3.5 w-3.5" />}
+              label="Total"
+              value={total}
+              tone="blue"
+            />
+            <StatChip
+              icon={<Building2 className="h-3.5 w-3.5" />}
+              label="This page"
+              value={contacts.length}
+              tone="emerald"
+            />
           </div>
         </div>
 
-        {/* Toolbar */}
-        <div className="rounded-2xl border border-gray-200 bg-white p-3 shadow-sm dark:border-gray-800 dark:bg-gray-900 sm:p-4">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search contacts..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="h-9 w-full rounded-xl border border-gray-200 bg-gray-50 pl-9 pr-9 text-xs outline-none focus:border-[#13538A]/40 focus:ring-2 focus:ring-[#13538A]/10 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100"
-              />
-              {search && (
+        <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
+          <div className="border-b border-gray-100 p-4 dark:border-gray-800 sm:p-5">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div className="relative w-full sm:max-w-sm lg:flex-1 lg:max-w-md">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search by name, email, phone, or company..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="h-10 w-full rounded-xl border border-gray-200 bg-gray-50 pl-10 pr-9 text-sm outline-none focus:border-[#13538A]/40 focus:ring-2 focus:ring-[#13538A]/10 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100"
+                />
+                {search && (
+                  <button
+                    type="button"
+                    onClick={() => setSearch("")}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+
+              <div className="flex shrink-0 items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => setSearch("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500"
+                  onClick={() => fetchContacts()}
+                  disabled={loading || isSearching}
+                  className="inline-flex h-10 items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-200"
                 >
-                  <X className="h-3.5 w-3.5" />
+                  <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+                  Refresh
                 </button>
-              )}
-            </div>
 
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={() => fetchContacts()}
-                disabled={loading}
-                className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-200"
-              >
-                <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
-                Refresh
-              </button>
-
-              <button
-                type="button"
-                onClick={openCreateModal}
-                className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-[#13538A] px-3 text-xs font-medium text-white shadow-sm hover:bg-[#1a6aad]"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                Create Contact
-              </button>
+                <button
+                  type="button"
+                  onClick={openCreateModal}
+                  className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#13538A] px-4 text-sm font-semibold text-white hover:bg-[#1a6aad]"
+                >
+                  <Plus className="h-4 w-4" />
+                  Create Contact
+                </button>
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Table */}
-        <div className="rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
-          {loading ? (
+          <div className="flex items-center justify-between gap-3 border-b border-gray-100 bg-gray-50/50 px-4 py-2.5 dark:border-gray-800 dark:bg-gray-800/30 sm:px-5">
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              {loading || isSearching ? (
+                isSearching ? "Searching..." : "Loading contacts..."
+              ) : (
+                <>
+                  <span className="font-semibold text-gray-800 dark:text-gray-200">
+                    {total}
+                  </span>{" "}
+                  contact{total === 1 ? "" : "s"}
+                  {debouncedSearch ? ` matching "${debouncedSearch}"` : ""}
+                </>
+              )}
+            </p>
+            {!loading && !isSearching && contacts.length > 0 && (
+              <p className="text-xs text-gray-400">
+                Sorted by{" "}
+                <span className="font-medium text-gray-600 dark:text-gray-300">
+                  {sortLabel}
+                </span>
+              </p>
+            )}
+          </div>
+
+          {loading && !isSearching ? (
             <div className="divide-y divide-gray-100 dark:divide-gray-800">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="flex animate-pulse items-center gap-4 px-6 py-4">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="flex animate-pulse items-center gap-4 px-5 py-4"
+                >
                   <div className="h-4 w-6 rounded bg-gray-100 dark:bg-gray-800" />
-                  <div className="h-11 w-11 rounded-xl bg-gray-100 dark:bg-gray-800" />
-                  <div className="h-4 flex-1 rounded bg-gray-100 dark:bg-gray-800" />
-                  <div className="h-4 w-32 rounded bg-gray-100 dark:bg-gray-800" />
-                  <div className="h-6 w-16 rounded-full bg-gray-100 dark:bg-gray-800" />
+                  <div className="h-9 w-9 rounded-lg bg-gray-100 dark:bg-gray-800" />
+                  <div className="h-4 flex-1 max-w-[180px] rounded bg-gray-100 dark:bg-gray-800" />
+                  <div className="hidden h-4 w-40 rounded bg-gray-100 dark:bg-gray-800 md:block" />
+                  <div className="hidden h-4 w-24 rounded bg-gray-100 dark:bg-gray-800 lg:block" />
+                  <div className="ml-auto h-8 w-8 rounded-lg bg-gray-100 dark:bg-gray-800" />
                 </div>
               ))}
             </div>
-          ) : sortedContacts.length === 0 ? (
+          ) : !loading && contacts.length === 0 ? (
             <div className="flex flex-col items-center py-20 text-center">
               <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#13538A]/10 text-[#13538A]">
                 <Users size={24} />
               </div>
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                {search ? "No matching contacts" : "No contacts yet"}
+                {search || debouncedSearch ? "No matching contacts" : "No contacts yet"}
               </h3>
               <p className="mt-1 max-w-md text-sm text-gray-500">
-                {search
+                {search || debouncedSearch
                   ? "Try adjusting your search terms."
                   : "Create your first contact to manage lenders, brokers, and partners."}
               </p>
-              {!search && (
+              {!search && !debouncedSearch && (
                 <button
                   type="button"
                   onClick={openCreateModal}
@@ -497,23 +557,14 @@ export default function ContactPage() {
               )}
             </div>
           ) : (
-            <div className="max-h-[calc(100vh-15rem)] overflow-y-auto overflow-x-hidden">
-              <table className="w-full table-fixed border-collapse text-left text-xs">
-                <colgroup>
-                  <col className="w-12" />
-                  <col className="w-[22%]" />
-                  <col className="w-[24%]" />
-                  <col className="w-[18%]" />
-                  <col className="w-[14%]" />
-                  <col className="w-[12%]" />
-                  <col className="w-14" />
-                </colgroup>
-                <thead className="sticky top-0 z-10 border-b border-gray-200 bg-gray-50/95 backdrop-blur dark:border-gray-700 dark:bg-gray-800/95">
-                  <tr>
-                    <th className="px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-left">
+                <thead>
+                  <tr className="border-b border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
+                    <th className="w-10 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-400">
                       #
                     </th>
-                    <th className="px-4 py-2">
+                    <th className="px-4 py-3 text-left">
                       <SortHeader
                         label="Name"
                         active={sortKey === "name"}
@@ -521,7 +572,7 @@ export default function ContactPage() {
                         onClick={() => toggleSort("name")}
                       />
                     </th>
-                    <th className="px-4 py-2">
+                    <th className="px-4 py-3 text-left">
                       <SortHeader
                         label="Email"
                         active={sortKey === "email"}
@@ -529,7 +580,7 @@ export default function ContactPage() {
                         onClick={() => toggleSort("email")}
                       />
                     </th>
-                    <th className="px-4 py-2">
+                    <th className="hidden px-4 py-3 text-left md:table-cell">
                       <SortHeader
                         label="Company"
                         active={sortKey === "company"}
@@ -537,7 +588,7 @@ export default function ContactPage() {
                         onClick={() => toggleSort("company")}
                       />
                     </th>
-                    <th className="px-4 py-2">
+                    <th className="hidden px-4 py-3 text-left lg:table-cell">
                       <SortHeader
                         label="Phone"
                         active={sortKey === "phone"}
@@ -545,7 +596,7 @@ export default function ContactPage() {
                         onClick={() => toggleSort("phone")}
                       />
                     </th>
-                    <th className="px-4 py-2">
+                    <th className="hidden px-4 py-3 text-left sm:table-cell">
                       <SortHeader
                         label="Created"
                         active={sortKey === "createdAt"}
@@ -553,15 +604,15 @@ export default function ContactPage() {
                         onClick={() => toggleSort("createdAt")}
                       />
                     </th>
-                    <th className="px-4 py-2 text-right">
-                      <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                    <th className="w-20 px-4 py-3 text-right">
+                      <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                         Actions
                       </span>
                     </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                  {sortedContacts.map((contact, index) => {
+                  {contacts.map((contact, index) => {
                     const fullName = `${contact.firstName} ${contact.lastName}`.trim();
                     const location = [contact.city, contact.state].filter(Boolean).join(", ");
 
@@ -570,22 +621,22 @@ export default function ContactPage() {
                         key={contact.id}
                         className="group transition-colors hover:bg-[#13538A]/[0.03] dark:hover:bg-gray-800/40"
                       >
-                        <td className="px-4 py-2.5 text-[11px] font-medium tabular-nums text-gray-400">
+                        <td className="px-4 py-3.5 text-xs font-medium tabular-nums text-gray-400">
                           {(page - 1) * limit + index + 1}
                         </td>
 
-                        <td className="px-4 py-2.5">
+                        <td className="px-4 py-3.5">
                           <div className="flex min-w-0 items-center gap-2.5">
                             <span
-                              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[11px] font-bold ring-1 ring-gray-200/80 dark:ring-gray-700 ${getAvatarTone(fullName)}`}
+                              className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-xs font-bold ring-1 ring-gray-200/80 dark:ring-gray-700 ${getAvatarTone(fullName)}`}
                             >
                               {getInitials(contact.firstName, contact.lastName)}
                             </span>
                             <div className="min-w-0">
-                              <p className="truncate text-xs font-semibold text-gray-900 dark:text-gray-100">
-                                {fullName}
+                              <p className="truncate text-sm font-semibold text-gray-900 dark:text-gray-100">
+                                {fullName || "—"}
                               </p>
-                              <p className="truncate text-[10px] text-gray-400">
+                              <p className="truncate text-xs text-gray-400">
                                 {formatContactType(contact.contactType)}
                                 {location ? ` · ${location}` : ""}
                               </p>
@@ -593,62 +644,66 @@ export default function ContactPage() {
                           </div>
                         </td>
 
-                        <td className="px-4 py-2.5">
-                          <a
-                            href={`mailto:${contact.email}`}
-                            className="flex min-w-0 items-center gap-1.5 text-xs text-gray-600 transition hover:text-[#13538A] dark:text-gray-300 dark:hover:text-cyan-400"
-                            title={contact.email}
-                          >
-                            <Mail className="h-3 w-3 shrink-0 text-gray-400" />
-                            <span className="truncate">{contact.email}</span>
-                          </a>
+                        <td className="px-4 py-3.5">
+                          {contact.email ? (
+                            <a
+                              href={`mailto:${contact.email}`}
+                              className="flex min-w-0 items-center gap-1.5 text-sm text-gray-600 transition hover:text-[#13538A] dark:text-gray-300 dark:hover:text-cyan-400"
+                              title={contact.email}
+                            >
+                              <Mail className="h-3.5 w-3.5 shrink-0 text-gray-400" />
+                              <span className="truncate">{contact.email}</span>
+                            </a>
+                          ) : (
+                            <span className="text-sm text-gray-400">—</span>
+                          )}
                         </td>
 
-                        <td className="px-4 py-2.5">
+                        <td className="hidden px-4 py-3.5 md:table-cell">
                           <div
-                            className="flex min-w-0 items-center gap-1.5 text-xs text-gray-600 dark:text-gray-300"
+                            className="flex min-w-0 items-center gap-1.5 text-sm text-gray-600 dark:text-gray-300"
                             title={contact.companyName}
                           >
-                            <Building2 className="h-3 w-3 shrink-0 text-gray-400" />
+                            <Building2 className="h-3.5 w-3.5 shrink-0 text-gray-400" />
                             <span className="truncate">{contact.companyName || "—"}</span>
                           </div>
                         </td>
 
-                        <td className="px-4 py-2.5">
+                        <td className="hidden px-4 py-3.5 lg:table-cell">
                           {contact.phone ? (
                             <a
                               href={`tel:${contact.phone}`}
-                              className="inline-flex items-center gap-1.5 text-xs text-gray-600 transition hover:text-[#13538A] dark:text-gray-300 dark:hover:text-cyan-400"
+                              className="inline-flex items-center gap-1.5 text-sm text-gray-600 transition hover:text-[#13538A] dark:text-gray-300 dark:hover:text-cyan-400"
                             >
-                              <Phone className="h-3 w-3 shrink-0 text-gray-400" />
+                              <Phone className="h-3.5 w-3.5 shrink-0 text-gray-400" />
                               {contact.phone}
                             </a>
                           ) : (
-                            <span className="text-xs text-gray-400">—</span>
+                            <span className="text-sm text-gray-400">—</span>
                           )}
                         </td>
 
-                        <td className="px-4 py-2.5">
-                          <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
-                            <Calendar className="h-3 w-3 shrink-0 opacity-70" />
+                        <td className="hidden px-4 py-3.5 sm:table-cell">
+                          <div className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400">
+                            <Calendar className="h-3.5 w-3.5 shrink-0 opacity-70" />
                             <span className="whitespace-nowrap">{formatDate(contact.createdAt)}</span>
                           </div>
                         </td>
 
-                        <td className="px-2 py-2.5 text-right">
+                        <td className="px-4 py-3.5 text-right">
                           <button
                             type="button"
                             data-menu-id={contact.id}
                             onClick={(event) => openRowMenu(contact.id, event)}
-                            className={`inline-flex h-7 w-7 items-center justify-center rounded-md border border-transparent text-gray-500 transition hover:border-gray-200 hover:bg-gray-100 hover:text-gray-800 dark:text-gray-400 dark:hover:border-gray-700 dark:hover:bg-gray-800 dark:hover:text-white ${
+                            className={`inline-flex h-8 w-8 items-center justify-center rounded-lg border transition ${
                               activeMenuId === contact.id
-                                ? "border-gray-200 bg-gray-100 text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
-                                : ""
+                                ? "border-[#13538A]/30 bg-[#13538A]/5 text-[#13538A] dark:border-cyan-500/30 dark:bg-cyan-500/10 dark:text-cyan-400"
+                                : "border-gray-200 bg-white text-gray-500 hover:border-gray-300 hover:bg-gray-50 hover:text-gray-800 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400 dark:hover:border-gray-600 dark:hover:bg-gray-800 dark:hover:text-white"
                             }`}
                             title="Actions"
                             aria-label="Open actions menu"
                           >
-                            <MoreVertical className="h-3.5 w-3.5" />
+                            <MoreVertical className="h-4 w-4" />
                           </button>
                         </td>
                       </tr>
@@ -659,28 +714,47 @@ export default function ContactPage() {
             </div>
           )}
 
-          {!loading && sortedContacts.length > 0 && (
-            <div className="flex flex-col gap-1.5 border-t border-gray-100 bg-gray-50/50 px-4 py-2.5 text-[10px] text-gray-500 dark:border-gray-800 dark:bg-gray-900/50 sm:flex-row sm:items-center sm:justify-between">
-              <span>
+          {!loading && !isSearching && contacts.length > 0 && (
+            <div className="flex flex-col gap-3 border-t border-gray-100 bg-gray-50/60 px-4 py-3 dark:border-gray-800 dark:bg-gray-900/50 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+              <p className="text-sm text-gray-500 dark:text-gray-400">
                 Showing{" "}
                 <span className="font-semibold text-gray-800 dark:text-gray-200">
-                  {sortedContacts.length}
+                  {total === 0 ? 0 : (page - 1) * limit + 1}–
+                  {Math.min(page * limit, total)}
                 </span>{" "}
-                of{" "}
-                <span className="font-semibold text-gray-800 dark:text-gray-200">
-                  {totalCount}
-                </span>{" "}
-                contact(s)
-              </span>
-              <span className="text-gray-400">
-                Sorted by {sortKey.replace("createdAt", "created")} ({sortDir})
-              </span>
+                of {total} contact{total === 1 ? "" : "s"}
+              </p>
+
+              {totalPages > 1 && (
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    disabled={page === 1 || loading}
+                    onClick={() => setPage((p) => Math.max(p - 1, 1))}
+                    className="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                    Previous
+                  </button>
+                  <span className="px-2 text-sm font-medium text-gray-600 dark:text-gray-300">
+                    Page {page} of {totalPages}
+                  </span>
+                  <button
+                    type="button"
+                    disabled={page === totalPages || loading}
+                    onClick={() => setPage((p) => Math.min(p + 1, totalPages))}
+                    className="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200"
+                  >
+                    Next
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>
 
-        {/* Pagination */}
-        {totalPages > 1 && (
+        {totalPages > 1 && (loading || contacts.length === 0) && (
           <div className="flex items-center justify-between rounded-xl border border-gray-200 bg-white px-4 py-3 dark:border-gray-800 dark:bg-gray-900">
             <p className="text-sm text-gray-500">
               Page{" "}
@@ -696,7 +770,7 @@ export default function ContactPage() {
                 className="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200"
               >
                 <ChevronLeft className="h-4 w-4" />
-                Prev
+                Previous
               </button>
               <button
                 type="button"
@@ -718,7 +792,7 @@ export default function ContactPage() {
           <div
             ref={menuRef}
             style={{ position: "fixed", top: menuPos.top, left: menuPos.left }}
-            className="z-[9999] w-[168px] max-h-[min(168px,calc(100vh-16px))] overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-xl dark:border-gray-700 dark:bg-gray-900"
+            className="z-[9999] w-[168px] max-h-[min(168px,calc(100vh-16px))] overflow-y-auto rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900"
           >
             <div className="border-b border-gray-100 px-3 py-2 dark:border-gray-800">
               <p className="truncate text-[11px] font-semibold text-gray-900 dark:text-white">

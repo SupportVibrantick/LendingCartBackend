@@ -190,6 +190,14 @@ async function lenderRegisterRoutes(fastify) {
           });
         }
 
+        if (invite.tokenUsedAt || invite._tokenAlreadyUsed) {
+          return reply.status(409).send({
+            success: false,
+            message: "This invitation link has already been used",
+            code: "TOKEN_USED",
+          });
+        }
+
         const inviteEmail = String(invite.email).toLowerCase();
         if (normalizedAdminEmail !== inviteEmail) {
           return reply.status(400).send({
@@ -200,19 +208,55 @@ async function lenderRegisterRoutes(fastify) {
         }
       }
 
-      const orgExists = await prisma.organization.findFirst({
-        where: {
-          OR: [{ name: organizationName }, { email: normalizedOrgEmail }],
-          isDeleted: false,
-        },
-      });
+      const isClaimFlow = Boolean(invite?.lenderOrgId);
 
-      if (orgExists) {
-        return reply.status(409).send({
-          success: false,
-          message: "Organization already exists",
-          code: "ORG_EXISTS",
+      if (!isClaimFlow) {
+        const orgExists = await prisma.organization.findFirst({
+          where: {
+            OR: [{ name: organizationName }, { email: normalizedOrgEmail }],
+            isDeleted: false,
+          },
         });
+
+        if (orgExists) {
+          return reply.status(409).send({
+            success: false,
+            message: "Organization already exists",
+            code: "ORG_EXISTS",
+          });
+        }
+      } else {
+        const preCreatedOrg = await prisma.organization.findFirst({
+          where: {
+            id: invite.lenderOrgId,
+            type: "LENDER",
+            isDeleted: { not: true },
+          },
+        });
+
+        if (!preCreatedOrg) {
+          return reply.status(404).send({
+            success: false,
+            message: "Pre-created lender organization not found",
+            code: "ORG_NOT_FOUND",
+          });
+        }
+
+        const existingOrgUser = await prisma.userAccount.findFirst({
+          where: {
+            organizationId: invite.lenderOrgId,
+            isDeleted: false,
+          },
+          select: { id: true },
+        });
+
+        if (existingOrgUser) {
+          return reply.status(409).send({
+            success: false,
+            message: "This lender account has already been claimed",
+            code: "ALREADY_CLAIMED",
+          });
+        }
       }
 
       const userExists = await prisma.userAccount.findFirst({
@@ -239,29 +283,57 @@ async function lenderRegisterRoutes(fastify) {
 
       try {
         await prisma.$transaction(async (tx) => {
-          lenderOrg = await tx.organization.create({
-            data: {
-              name: String(organizationName).trim(),
-              email: normalizedOrgEmail,
-              phone: organizationPhone || invite?.phone || null,
-              type: "LENDER",
-              status: "ACTIVE",
-            },
-          });
+          if (isClaimFlow) {
+            lenderOrg = await tx.organization.findUnique({
+              where: { id: invite.lenderOrgId },
+            });
 
-          adminUser = await tx.userAccount.create({
-            data: {
-              organizationId: lenderOrg.id,
-              email: normalizedAdminEmail,
-              passwordHash,
-              firstName: adminFirstName || nameParts.firstName,
-              lastName: adminLastName || nameParts.lastName,
-              phone: organizationPhone || invite?.phone || null,
-              status: "ACTIVE",
-              emailVerifiedAt: invite ? new Date() : null,
-              ...(invite ? { lastLoginAt: new Date() } : {}),
-            },
-          });
+            adminUser = await tx.userAccount.create({
+              data: {
+                organizationId: lenderOrg.id,
+                email: normalizedAdminEmail,
+                passwordHash,
+                firstName: adminFirstName || nameParts.firstName,
+                lastName: adminLastName || nameParts.lastName,
+                phone: organizationPhone || invite?.phone || lenderOrg.phone || null,
+                status: "ACTIVE",
+                emailVerifiedAt: new Date(),
+                lastLoginAt: new Date(),
+              },
+            });
+          } else {
+            lenderOrg = await tx.organization.create({
+              data: {
+                name: String(organizationName).trim(),
+                email: normalizedOrgEmail,
+                phone: organizationPhone || invite?.phone || null,
+                type: "LENDER",
+                status: "ACTIVE",
+              },
+            });
+
+            adminUser = await tx.userAccount.create({
+              data: {
+                organizationId: lenderOrg.id,
+                email: normalizedAdminEmail,
+                passwordHash,
+                firstName: adminFirstName || nameParts.firstName,
+                lastName: adminLastName || nameParts.lastName,
+                phone: organizationPhone || invite?.phone || null,
+                status: "ACTIVE",
+                emailVerifiedAt: invite ? new Date() : null,
+                ...(invite ? { lastLoginAt: new Date() } : {}),
+              },
+            });
+
+            await tx.lenderProfile.create({
+              data: {
+                lenderOrgId: lenderOrg.id,
+                profileStatus: "DRAFT",
+                isVisible: false,
+              },
+            });
+          }
 
           const role = await tx.role.findFirst({
             where: { name: "LENDER_ADMIN" },
@@ -276,20 +348,13 @@ async function lenderRegisterRoutes(fastify) {
             },
           });
 
-          await tx.lenderProfile.create({
-            data: {
-              lenderOrgId: lenderOrg.id,
-              profileStatus: "DRAFT",
-              isVisible: false,
-            },
-          });
-
           if (invite) {
             await tx.adminLenderInvite.update({
               where: { id: invite.id },
               data: {
                 status: "ACCEPTED",
                 acceptedAt: new Date(),
+                tokenUsedAt: new Date(),
                 lenderOrgId: lenderOrg.id,
               },
             });
@@ -356,13 +421,17 @@ async function lenderRegisterRoutes(fastify) {
 
       return reply.status(201).send({
         success: true,
-        message: "Lender registered successfully",
+        message: isClaimFlow
+          ? "Account claimed successfully"
+          : "Lender registered successfully",
         data: {
           organizationId: lenderOrg.id,
           adminUserId: adminUser.id,
           inviteAccepted: true,
           emailVerified: true,
           emailVerificationRequired: false,
+          claimFlow: isClaimFlow,
+          redirectTo: isClaimFlow ? "/profile/edit?onboarding=1" : "/",
           token,
           user: {
             id: adminUser.id,

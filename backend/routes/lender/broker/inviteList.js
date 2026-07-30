@@ -79,6 +79,8 @@ async function listInvitedBrokersRoutes(fastify) {
             phone: i.broker.phone,
             brokerStatus: i.broker.status,
             inviteStatus: i.status,
+            initiatedBy: i.initiatedBy,
+            direction: i.initiatedBy === "BROKER" ? "incoming" : "outgoing",
             invitedAt: i.createdAt,
           })),
         });

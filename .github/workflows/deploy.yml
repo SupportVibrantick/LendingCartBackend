@@ -42,8 +42,6 @@ jobs:
             npm ci
 
             echo "🗄️ Running Prisma migrations..."
-            # Recover from a previously failed migration so the fixed SQL can re-apply
-            npx prisma migrate resolve --rolled-back 20260728170000_sync_broker_loi_signed_status 2>/dev/null || true
             npx prisma migrate deploy
 
             echo "🔧 Generating Prisma client..."

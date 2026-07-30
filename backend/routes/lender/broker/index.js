@@ -3,13 +3,17 @@ const findRoutes = require("./find");
 const inviteRoutes = require("./invite");
 const invitedRoutes = require("./inviteList");
 const statusRoutes = require("./status");
+const acceptInviteRoutes = require("./acceptInvite");
+const rejectInviteRoutes = require("./rejectInvite");
 
 async function lenderBrokerRoutes(fastify) {
   fastify.register(listRoutes, { prefix: "/list" });
   fastify.register(findRoutes, { prefix: "/find" });
   fastify.register(inviteRoutes, { prefix: "/invite" });
   fastify.register(invitedRoutes, { prefix: "/invites" });
-  fastify.register(statusRoutes, { prefix: "" }); 
+  fastify.register(acceptInviteRoutes, { prefix: "" });
+  fastify.register(rejectInviteRoutes, { prefix: "" });
+  fastify.register(statusRoutes, { prefix: "" });
 }
 
 module.exports = lenderBrokerRoutes;

@@ -1,15 +1,16 @@
 /**
  * @param {import("fastify").FastifyInstance} fastify
  */
-async function rejectInviteRoutes(fastify) {
+async function rejectBrokerInviteRoutes(fastify) {
   fastify.post(
-    "/:inviteId",
+    "/reject/:inviteId",
     {
       schema: {
-        tags: ["Broker -> Lenders"],
-        summary: "Reject lender invite",
+        tags: ["Lender -> Brokers"],
+        summary: "Reject broker connection invite",
         params: {
           type: "object",
+          required: ["inviteId"],
           properties: {
             inviteId: { type: "string", format: "uuid" },
           },
@@ -20,21 +21,21 @@ async function rejectInviteRoutes(fastify) {
       const prisma = fastify.prisma;
       const { inviteId } = req.params;
 
-      if (!req.user || req.user.orgType !== "BROKER") {
+      if (!req.user || req.user.orgType !== "LENDER" || !req.user.organizationId) {
         return reply.code(403).send({
           success: false,
-          message: "Broker access only",
+          message: "Lender access only",
         });
       }
 
-      const brokerOrgId = req.user.organizationId;
+      const lenderOrgId = req.user.organizationId;
 
       const invite = await prisma.brokerLenderInvite.findFirst({
         where: {
           id: inviteId,
-          brokerOrgId,
+          lenderOrgId,
           status: "PENDING",
-          initiatedBy: "LENDER",
+          initiatedBy: "BROKER",
         },
       });
 
@@ -58,4 +59,4 @@ async function rejectInviteRoutes(fastify) {
   );
 }
 
-module.exports = rejectInviteRoutes;
+module.exports = rejectBrokerInviteRoutes;

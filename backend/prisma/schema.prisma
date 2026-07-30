@@ -65,6 +65,11 @@ model AdminLenderInvite {
   cancelledAt      DateTime?                @map("cancelled_at") @db.Timestamptz(6)
   lastSentAt       DateTime                 @default(now()) @map("last_sent_at") @db.Timestamptz(6)
   invitedByAdminId String?                  @map("invited_by_admin_id") @db.Uuid
+  invitedByBrokerOrgId String?              @map("invited_by_broker_org_id") @db.Uuid
+  invitedByBrokerUserId String?             @map("invited_by_broker_user_id") @db.Uuid
+  notes              String?
+  tokenUsedAt        DateTime?              @map("token_used_at") @db.Timestamptz(6)
+  inviteSource       LenderInviteSource     @default(ADMIN) @map("invite_source")
   lenderOrgId      String?                  @map("lender_org_id") @db.Uuid
   createdAt        DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt        DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -269,6 +274,7 @@ model LenderProfile {
   state                String?
   zip                  String?
   lenderType           String?
+  submittedByBrokerOrgId String?            @map("submitted_by_broker_org_id") @db.Uuid
   lender               Organization        @relation(fields: [lenderOrgId], references: [id])
 
   @@map("lender_profiles")
@@ -491,14 +497,15 @@ model BrokerLenderAccess {
 }
 
 model BrokerLenderInvite {
-  id          String       @id @default(uuid()) @db.Uuid
-  lenderOrgId String       @db.Uuid
-  brokerOrgId String       @db.Uuid
-  status      InviteStatus @default(PENDING)
-  createdAt   DateTime     @default(now()) @db.Timestamptz(6)
-  updatedAt   DateTime     @updatedAt @db.Timestamptz(6)
-  broker      Organization @relation("BrokerInvite_broker", fields: [brokerOrgId], references: [id])
-  lender      Organization @relation("BrokerInvite_lender", fields: [lenderOrgId], references: [id])
+  id           String            @id @default(uuid()) @db.Uuid
+  lenderOrgId  String            @db.Uuid
+  brokerOrgId  String            @db.Uuid
+  status       InviteStatus      @default(PENDING)
+  initiatedBy  InviteInitiator?
+  createdAt    DateTime          @default(now()) @db.Timestamptz(6)
+  updatedAt    DateTime          @updatedAt @db.Timestamptz(6)
+  broker       Organization      @relation("BrokerInvite_broker", fields: [brokerOrgId], references: [id])
+  lender       Organization      @relation("BrokerInvite_lender", fields: [lenderOrgId], references: [id])
 
   @@unique([lenderOrgId, brokerOrgId])
   @@index([lenderOrgId])
@@ -1869,12 +1876,22 @@ enum InviteStatus {
   REJECTED
 }
 
+enum InviteInitiator {
+  BROKER
+  LENDER
+}
+
 enum AdminLenderInviteStatus {
   PENDING
   ACCEPTED
   DECLINED
   EXPIRED
   CANCELLED
+}
+
+enum LenderInviteSource {
+  ADMIN
+  BROKER
 }
 
 enum FeeAgreementStatus {

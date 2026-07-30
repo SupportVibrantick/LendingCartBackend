@@ -23,6 +23,17 @@ module.exports = async function listBrokerUsers(fastify) {
               type: "string",
               enum: ["ACTIVE", "INVITED", "DISABLED"],
             },
+            role: { type: "string" },
+            sortBy: {
+              type: "string",
+              enum: ["name", "email", "phone", "status", "createdAt"],
+              default: "createdAt",
+            },
+            sortOrder: {
+              type: "string",
+              enum: ["asc", "desc"],
+              default: "desc",
+            },
           },
         },
       },
@@ -55,41 +66,87 @@ module.exports = async function listBrokerUsers(fastify) {
            2️⃣ QUERY PARAMS
         ===================================================== */
 
-        const { page = 1, limit = 10, search, status } = req.query;
+        const {
+          page = 1,
+          limit = 10,
+          search,
+          status,
+          role,
+          sortBy = "createdAt",
+          sortOrder = "desc",
+        } = req.query;
 
         const skip = (page - 1) * limit;
+        const order = sortOrder === "asc" ? "asc" : "desc";
 
         /* =====================================================
            3️⃣ BUILD FILTER
         ===================================================== */
 
+        const searchFilter = search
+          ? {
+              OR: [
+                { email: { contains: search, mode: "insensitive" } },
+                { firstName: { contains: search, mode: "insensitive" } },
+                { lastName: { contains: search, mode: "insensitive" } },
+                { phone: { contains: search, mode: "insensitive" } },
+              ],
+            }
+          : {};
+
+        const roleFilter = role
+          ? {
+              roles: {
+                some: {
+                  role: { name: role },
+                },
+              },
+            }
+          : {};
+
         const where = {
           organizationId: brokerOrgId,
           isDeleted: false,
+          ...roleFilter,
+          ...(status ? { status } : {}),
+          ...searchFilter,
         };
 
-        if (status) {
-          where.status = status;
+        let orderBy;
+        switch (sortBy) {
+          case "name":
+            orderBy = [{ firstName: order }, { lastName: order }];
+            break;
+          case "email":
+            orderBy = { email: order };
+            break;
+          case "phone":
+            orderBy = { phone: order };
+            break;
+          case "status":
+            orderBy = { status: order };
+            break;
+          default:
+            orderBy = { createdAt: order };
         }
 
-        if (search) {
-          where.OR = [
-            { email: { contains: search, mode: "insensitive" } },
-            { firstName: { contains: search, mode: "insensitive" } },
-            { lastName: { contains: search, mode: "insensitive" } },
-          ];
-        }
+        const statsBaseWhere = {
+          organizationId: brokerOrgId,
+          isDeleted: false,
+          ...roleFilter,
+          ...searchFilter,
+        };
 
         /* =====================================================
            4️⃣ FETCH USERS + PROFILE + ROLES + PERMISSIONS
         ===================================================== */
 
-        const [users, total] = await prisma.$transaction([
+        const queries = [
           prisma.userAccount.findMany({
             where,
             skip,
             take: limit,
-            orderBy: { createdAt: "desc" },
+            orderBy,
             include: {
               roles: {
                 include: {
@@ -128,7 +185,26 @@ module.exports = async function listBrokerUsers(fastify) {
             },
           }),
           prisma.userAccount.count({ where }),
-        ]);
+        ];
+
+        if (role) {
+          queries.push(
+            prisma.userAccount.count({ where: statsBaseWhere }),
+            prisma.userAccount.count({
+              where: { ...statsBaseWhere, status: "ACTIVE" },
+            }),
+            prisma.userAccount.count({
+              where: { ...statsBaseWhere, status: "DISABLED" },
+            }),
+          );
+        }
+
+        const results = await prisma.$transaction(queries);
+        const users = results[0];
+        const total = results[1];
+        const statsTotal = role ? results[2] : null;
+        const activeCount = role ? results[3] : null;
+        const disabledCount = role ? results[4] : null;
 
         /* =====================================================
            5️⃣ FORMAT RESPONSE
@@ -163,7 +239,14 @@ module.exports = async function listBrokerUsers(fastify) {
           page,
           limit,
           total,
-          totalPages: Math.ceil(total / limit),
+          totalPages: Math.ceil(total / limit) || 1,
+          stats: role
+            ? {
+                total: statsTotal,
+                active: activeCount,
+                disabled: disabledCount,
+              }
+            : undefined,
           data: formattedUsers,
         });
 

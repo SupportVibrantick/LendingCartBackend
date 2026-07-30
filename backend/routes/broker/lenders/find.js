@@ -53,6 +53,20 @@ async function findBrokerLendersRoutes(fastify) {
         const limit = Number(req.query.limit) || 10;
         const skip = (page - 1) * limit;
 
+        const loanProduct = (req.query.loanProduct || "").trim();
+        const state = (req.query.state || "").trim().toUpperCase();
+        const fundingMax = req.query.fundingMax
+          ? Number(req.query.fundingMax)
+          : null;
+        const minAmount = req.query.minAmount
+          ? Number(req.query.minAmount)
+          : null;
+        const maxAmount = req.query.maxAmount
+          ? Number(req.query.maxAmount)
+          : null;
+        const industry = (req.query.industry || "").trim();
+        const eligibleOnly = req.query.eligible === "true";
+
         /* ===============================
            3. CONNECTED LENDERS
         =============================== */
@@ -71,25 +85,93 @@ async function findBrokerLendersRoutes(fastify) {
         /* ===============================
            4. SEARCH FILTER
         =============================== */
+        const searchFilter = q.trim()
+          ? {
+              OR: [
+                {
+                  name: {
+                    contains: q.trim(),
+                    mode: "insensitive",
+                  },
+                },
+                {
+                  lenderProfile: {
+                    is: {
+                      summary: {
+                        contains: q.trim(),
+                        mode: "insensitive",
+                      },
+                    },
+                  },
+                },
+                {
+                  lenderProfile: {
+                    is: {
+                      statesSupported: {
+                        contains: q.trim(),
+                        mode: "insensitive",
+                      },
+                    },
+                  },
+                },
+                {
+                  lenderProfile: {
+                    is: {
+                      industries: {
+                        contains: q.trim(),
+                        mode: "insensitive",
+                      },
+                    },
+                  },
+                },
+              ],
+            }
+          : {};
+
         const where = {
           type: "LENDER",
           status: "ACTIVE",
           isDeleted: { not: true },
 
           lenderProfile: {
-            isVisible: true, //  only show visible lenders
+            isVisible: true,
+            ...(loanProduct && {
+              loanTypes: { has: loanProduct },
+            }),
+            ...(state && {
+              statesSupported: {
+                contains: state,
+                mode: "insensitive",
+              },
+            }),
+            ...(Number.isFinite(fundingMax) &&
+              fundingMax > 0 && {
+                fundingSpeedDays: { lte: fundingMax },
+              }),
+            ...(Number.isFinite(minAmount) &&
+              minAmount > 0 && {
+                maxFunding: { gte: minAmount },
+              }),
+            ...(Number.isFinite(maxAmount) &&
+              maxAmount > 0 && {
+                minFunding: { lte: maxAmount },
+              }),
+            ...(industry && {
+              industries: {
+                contains: industry,
+                mode: "insensitive",
+              },
+            }),
+            ...(eligibleOnly && {
+              profileStatus: "COMPLETED",
+            }),
           },
 
           ...(connectedLenderIds.length && {
             id: { notIn: connectedLenderIds },
           }),
 
-          ...(q && {
-            name: {
-              contains: q,
-              mode: "insensitive",
-            },
-          }),
+          ...searchFilter,
         };
 
         /* ===============================
@@ -119,7 +201,13 @@ async function findBrokerLendersRoutes(fastify) {
                 },
               },
 
-              //  admin profile image
+              // admin profile image + brand logo
+              lenderBrandingSettings: {
+                select: {
+                  logoUrl: true,
+                  brandName: true,
+                },
+              },
               users: {
                 select: {
                   profileImage: true,
@@ -148,6 +236,8 @@ async function findBrokerLendersRoutes(fastify) {
               : null,
             phone: l.phone,
 
+            brandLogoUrl: l.lenderBrandingSettings?.logoUrl || null,
+            brandName: l.lenderBrandingSettings?.brandName || null,
             profileImage: l.users[0]?.profileImage || null,
 
             //  lender discovery info

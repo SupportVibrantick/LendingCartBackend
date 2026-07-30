@@ -80,11 +80,13 @@ async function inviteBrokerRoutes(fastify) {
           },
           update: {
             status: "PENDING",
+            initiatedBy: "LENDER",
           },
           create: {
             lenderOrgId,
             brokerOrgId,
             status: "PENDING",
+            initiatedBy: "LENDER",
           },
         });
 

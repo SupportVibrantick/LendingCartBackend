@@ -10,8 +10,18 @@ module.exports = async function listContactsRoutes(fastify) {
           properties: {
             page: { type: "integer", minimum: 1, default: 1 },
             limit: { type: "integer", minimum: 1, maximum: 100, default: 20 },
-            search: { type: "string" }
-          }
+            search: { type: "string" },
+            sortBy: {
+              type: "string",
+              enum: ["name", "email", "company", "phone", "createdAt"],
+              default: "createdAt",
+            },
+            sortOrder: {
+              type: "string",
+              enum: ["asc", "desc"],
+              default: "desc",
+            },
+          },
         }
       }
     },
@@ -35,7 +45,9 @@ module.exports = async function listContactsRoutes(fastify) {
 
         const page = Number(req.query.page || 1);
         const limit = Number(req.query.limit || 20);
-        const search = req.query.search || "";
+        const search = (req.query.search || "").trim();
+        const sortBy = req.query.sortBy || "createdAt";
+        const sortOrder = req.query.sortOrder === "asc" ? "asc" : "desc";
 
         const skip = (page - 1) * limit;
 
@@ -52,19 +64,38 @@ module.exports = async function listContactsRoutes(fastify) {
                 { firstName: { contains: search, mode: "insensitive" } },
                 { lastName: { contains: search, mode: "insensitive" } },
                 { email: { contains: search, mode: "insensitive" } },
-                { companyName: { contains: search, mode: "insensitive" } }
+                { phone: { contains: search, mode: "insensitive" } },
+                { companyName: { contains: search, mode: "insensitive" } },
               ]
-            : undefined
+            : undefined,
         };
+
+        let orderBy;
+        switch (sortBy) {
+          case "name":
+            orderBy = [{ firstName: sortOrder }, { lastName: sortOrder }];
+            break;
+          case "email":
+            orderBy = { email: sortOrder };
+            break;
+          case "company":
+            orderBy = { companyName: sortOrder };
+            break;
+          case "phone":
+            orderBy = { phone: sortOrder };
+            break;
+          default:
+            orderBy = { createdAt: sortOrder };
+        }
 
         /* ================= FETCH ================= */
 
         const [contacts, total] = await prisma.$transaction([
           prisma.contact.findMany({
             where,
-            orderBy: { createdAt: "desc" },
+            orderBy,
             skip,
-            take: limit
+            take: limit,
           }),
           prisma.contact.count({ where })
         ]);
@@ -78,7 +109,7 @@ module.exports = async function listContactsRoutes(fastify) {
             total,
             page,
             limit,
-            totalPages: Math.ceil(total / limit)
+            totalPages: Math.ceil(total / limit) || 1,
           }
         });
 

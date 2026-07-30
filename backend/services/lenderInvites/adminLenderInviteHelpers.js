@@ -58,6 +58,10 @@ async function findInviteByToken(prisma, token) {
 
   if (!invite) return null;
 
+  if (invite.tokenUsedAt) {
+    return { ...invite, status: "ACCEPTED", _tokenAlreadyUsed: true };
+  }
+
   if (invite.status === "PENDING" && invite.expiresAt < new Date()) {
     return prisma.adminLenderInvite.update({
       where: { id: invite.id },

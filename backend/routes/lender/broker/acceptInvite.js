@@ -1,15 +1,16 @@
 /**
  * @param {import("fastify").FastifyInstance} fastify
  */
-async function acceptInviteRoutes(fastify) {
+async function acceptBrokerInviteRoutes(fastify) {
   fastify.post(
-    "/:inviteId",
+    "/accept/:inviteId",
     {
       schema: {
-        tags: ["Broker -> Lenders"],
-        summary: "Accept lender invite",
+        tags: ["Lender -> Brokers"],
+        summary: "Accept broker connection invite",
         params: {
           type: "object",
+          required: ["inviteId"],
           properties: {
             inviteId: { type: "string", format: "uuid" },
           },
@@ -20,21 +21,21 @@ async function acceptInviteRoutes(fastify) {
       const prisma = fastify.prisma;
       const { inviteId } = req.params;
 
-      if (!req.user || req.user.orgType !== "BROKER") {
+      if (!req.user || req.user.orgType !== "LENDER" || !req.user.organizationId) {
         return reply.code(403).send({
           success: false,
-          message: "Broker access only",
+          message: "Lender access only",
         });
       }
 
-      const brokerOrgId = req.user.organizationId;
+      const lenderOrgId = req.user.organizationId;
 
       const invite = await prisma.brokerLenderInvite.findFirst({
         where: {
           id: inviteId,
-          brokerOrgId,
+          lenderOrgId,
           status: "PENDING",
-          initiatedBy: "LENDER",
+          initiatedBy: "BROKER",
         },
       });
 
@@ -47,8 +48,8 @@ async function acceptInviteRoutes(fastify) {
 
       const existingAccess = await prisma.brokerLenderAccess.findFirst({
         where: {
-          brokerOrgId,
-          lenderOrgId: invite.lenderOrgId,
+          brokerOrgId: invite.brokerOrgId,
+          lenderOrgId,
         },
       });
 
@@ -66,8 +67,8 @@ async function acceptInviteRoutes(fastify) {
         } else {
           await tx.brokerLenderAccess.create({
             data: {
-              brokerOrgId,
-              lenderOrgId: invite.lenderOrgId,
+              brokerOrgId: invite.brokerOrgId,
+              lenderOrgId,
               source: "BROKER_ADDED",
             },
           });
@@ -76,10 +77,10 @@ async function acceptInviteRoutes(fastify) {
 
       return reply.send({
         success: true,
-        message: "Lender connected successfully",
+        message: "Broker connected successfully",
       });
     }
   );
 }
 
-module.exports = acceptInviteRoutes;
+module.exports = acceptBrokerInviteRoutes;

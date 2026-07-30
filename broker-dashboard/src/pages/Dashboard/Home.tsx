@@ -68,9 +68,9 @@ const quickActions = [
     icon: FilePlus,
   },
   {
-    label: "Find Lenders",
-    desc: "Expand your network",
-    path: "/find-lenders",
+    label: "Lender Marketplace",
+    desc: "Discover & connect lenders",
+    path: "/lender-marketplace",
     icon: Building2,
   },
 ];

@@ -123,11 +123,7 @@ const AppSidebar: React.FC = () => {
           {
             icon: <FaUsersBetweenLines />,
             name: "Lender Marketplace",
-            subItems: [
-              { name: "My Lenders", path: "/my-lenders" },
-              { name: "Invited Lenders", path: "/invited-lenders" },
-              { name: "Find Lenders", path: "/find-lenders" },
-            ],
+            path: "/lender-marketplace",
           },
         ]
         : []),

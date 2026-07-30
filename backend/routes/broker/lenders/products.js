@@ -68,9 +68,10 @@ async function lenderProductsRoutes(fastify) {
           maxLoanAmount: p.maxLoanAmount,
           termRange:
             p.minTermMonths && p.maxTermMonths
-              ? `${p.minTermMonths} - ${p.maxTermMonths} months`
+              ? `${p.minTermMonths}–${p.maxTermMonths} months`
               : null,
-          regionsSupported: p.regionsSupported,
+          regionsSupported: p.statesSupported,
+          description: p.loanProduct?.description || null,
           industriesSupported: p.industriesSupported,
           isActive: p.isActive,
         })),

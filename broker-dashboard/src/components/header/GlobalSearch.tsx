@@ -219,7 +219,7 @@ export function GlobalSearchProvider({ children }: { children: React.ReactNode }
           navigate(`/contacts-list?q=${encoded}`);
           break;
         case "lenders":
-          navigate(`/find-lenders?q=${encoded}`);
+          navigate(`/lender-marketplace?tab=discover&q=${encoded}`);
           break;
       }
     },
@@ -248,8 +248,8 @@ export function GlobalSearchProvider({ children }: { children: React.ReactNode }
       } else if (item.kind === "lender") {
         navigate(
           item.isConnected
-            ? `/my-lenders?q=${encoded}`
-            : `/find-lenders?q=${encoded}`,
+            ? `/lender-marketplace?tab=network&q=${encoded}`
+            : `/lender-marketplace?tab=discover&q=${encoded}`,
         );
       } else if (item.kind === "application") {
         navigate("/loan-preview", { state: { submissionId: item.submissionId } });

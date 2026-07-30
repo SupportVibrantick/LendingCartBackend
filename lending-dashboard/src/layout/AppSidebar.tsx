@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router";
 import type { LucideIcon } from "lucide-react";
-import { ChevronDown, FileText, LayoutDashboard, Layers, Settings, TrendingUp, UserCircle, Users } from "lucide-react";
+import { ChevronDown, FileText, Handshake, LayoutDashboard, Layers, Settings, TrendingUp, UserCircle, Users } from "lucide-react";
 import { HorizontaLDots } from "../icons";
 import { useSidebar } from "../context/SidebarContext";
 import { isLenderAdminUser } from "../lib/lenderTeamMembers";
@@ -42,6 +42,13 @@ const navItems: NavItem[] = [
       "/lender-assigned-products",
       "/assigned-products",
     ],
+  },
+  {
+    icon: Handshake,
+    name: "Brokers",
+    description: "Requests & connections",
+    path: "/brokers",
+    matchPaths: ["/brokers", "/broker-request", "/my-broker", "/find-broker"],
   },
   {
     icon: FileText,

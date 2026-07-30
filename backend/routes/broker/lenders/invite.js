@@ -100,11 +100,13 @@ async function inviteLenderRoutes(fastify) {
           },
           update: {
             status: "PENDING",
+            initiatedBy: "BROKER",
           },
           create: {
             lenderOrgId,
             brokerOrgId,
             status: "PENDING",
+            initiatedBy: "BROKER",
           },
         });
 
@@ -123,7 +125,7 @@ async function inviteLenderRoutes(fastify) {
         req.log.error(error);
         return reply.status(500).send({
           success: false,
-          message: "Server error while sending invite",
+          message: error.message || "Server error while sending invite",
         });
       }
     }

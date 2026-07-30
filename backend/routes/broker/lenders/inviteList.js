@@ -48,7 +48,10 @@ async function listInvitedLendersRoutes(fastify) {
         // Fetch invites sent by broker
         // ---------------------------
         const invites = await prisma.brokerLenderInvite.findMany({
-          where: { brokerOrgId },
+          where: {
+            brokerOrgId,
+            initiatedBy: "BROKER",
+          },
           include: {
             lender: {
               select: {
@@ -107,7 +110,7 @@ async function listInvitedLendersRoutes(fastify) {
         req.log.error(error);
         return reply.status(500).send({
           success: false,
-          message: "Server error while fetching invited lenders",
+          message: error.message || "Server error while fetching invited lenders",
         });
       }
     }

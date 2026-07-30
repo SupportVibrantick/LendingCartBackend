@@ -1806,6 +1806,18 @@ const LoanPreview = () => {
   ]);
 
   useEffect(() => {
+    if (activeTab !== "find-lenders") return;
+    const highlightName = (Location.state as { highlightLenderName?: string })
+      ?.highlightLenderName;
+    if (highlightName?.trim()) {
+      setLenderSearchQ(highlightName.trim());
+      setDebouncedLenderSearch(highlightName.trim());
+      setLenderFilter("all");
+      setLenderPage(1);
+    }
+  }, [activeTab, Location.state]);
+
+  useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearch(searchInput);
     }, 500); // 500ms delay

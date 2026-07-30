@@ -17,6 +17,8 @@ type InviteData = {
   phone?: string | null;
   status: string;
   expiresAt: string;
+  isClaimFlow?: boolean;
+  inviteSource?: string;
 };
 
 function splitName(fullName = "") {
@@ -125,8 +127,12 @@ export default function AcceptInvite() {
 
       if (json.data?.token) {
         saveLenderSession(json.data.token, json.data.user || null);
-        toast.success("Account created successfully");
-        navigate("/");
+        toast.success(
+          json.data.claimFlow
+            ? "Account created — complete your lender profile"
+            : "Account created successfully",
+        );
+        navigate(json.data.redirectTo || "/");
         return;
       }
 
@@ -173,7 +179,9 @@ export default function AcceptInvite() {
               Accept Invitation
             </h1>
             <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-              Create your lender account to join LendingCart.
+              {invite?.isClaimFlow
+                ? "Set your password to access your lender account and complete your profile."
+                : "Create your lender account to join LendingCart."}
             </p>
           </div>
 
@@ -196,6 +204,13 @@ export default function AcceptInvite() {
             </div>
           ) : (
             <form onSubmit={handleRegister} className="space-y-5">
+              {invite.isClaimFlow && (
+                <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900 dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-100">
+                  Your company profile was started by a broker partner. Confirm
+                  your details and create a password to continue.
+                </div>
+              )}
+
               <div className="w-full">
                 <Label>
                   Company Name<span className="text-error-500">*</span>
@@ -203,8 +218,12 @@ export default function AcceptInvite() {
                 <Input
                   type="text"
                   value={form.organizationName}
+                  disabled={invite.isClaimFlow}
                   onChange={(e) =>
                     setForm({ ...form, organizationName: e.target.value })
+                  }
+                  className={
+                    invite.isClaimFlow ? "cursor-not-allowed bg-gray-100" : ""
                   }
                 />
               </div>
@@ -216,53 +235,73 @@ export default function AcceptInvite() {
                 <Input
                   type="email"
                   value={form.organizationEmail}
+                  disabled={invite.isClaimFlow}
                   onChange={(e) =>
                     setForm({ ...form, organizationEmail: e.target.value })
+                  }
+                  className={
+                    invite.isClaimFlow ? "cursor-not-allowed bg-gray-100" : ""
                   }
                 />
               </div>
 
-              <div className="grid w-full grid-cols-1 gap-5 sm:grid-cols-2">
-                <div className="min-w-0 w-full">
-                  <Label>
-                    First Name<span className="text-error-500">*</span>
-                  </Label>
-                  <Input
-                    type="text"
-                    value={form.adminFirstName}
-                    onChange={(e) =>
-                      setForm({ ...form, adminFirstName: e.target.value })
-                    }
-                  />
-                </div>
-                <div className="min-w-0 w-full">
-                  <Label>
-                    Last Name<span className="text-error-500">*</span>
-                  </Label>
-                  <Input
-                    type="text"
-                    value={form.adminLastName}
-                    onChange={(e) =>
-                      setForm({ ...form, adminLastName: e.target.value })
-                    }
-                  />
-                </div>
-              </div>
+              {!invite.isClaimFlow && (
+                <>
+                  <div className="grid w-full grid-cols-1 gap-5 sm:grid-cols-2">
+                    <div className="min-w-0 w-full">
+                      <Label>
+                        First Name<span className="text-error-500">*</span>
+                      </Label>
+                      <Input
+                        type="text"
+                        value={form.adminFirstName}
+                        onChange={(e) =>
+                          setForm({ ...form, adminFirstName: e.target.value })
+                        }
+                      />
+                    </div>
+                    <div className="min-w-0 w-full">
+                      <Label>
+                        Last Name<span className="text-error-500">*</span>
+                      </Label>
+                      <Input
+                        type="text"
+                        value={form.adminLastName}
+                        onChange={(e) =>
+                          setForm({ ...form, adminLastName: e.target.value })
+                        }
+                      />
+                    </div>
+                  </div>
 
-              <div className="w-full">
-                <Label>
-                  Admin Email<span className="text-error-500">*</span>
-                </Label>
-                <Input
-                  type="email"
-                  value={form.adminEmail}
-                  disabled
-                  className="cursor-not-allowed bg-gray-100"
-                />
-                <p className="mt-1.5 text-xs text-gray-500">
-                  Locked to the invited email address
-                </p>
-              </div>
+                  <div className="w-full">
+                    <Label>
+                      Admin Email<span className="text-error-500">*</span>
+                    </Label>
+                    <Input
+                      type="email"
+                      value={form.adminEmail}
+                      disabled
+                      className="cursor-not-allowed bg-gray-100"
+                    />
+                    <p className="mt-1.5 text-xs text-gray-500">
+                      Locked to the invited email address
+                    </p>
+                  </div>
+                </>
+              )}
+
+              {invite.isClaimFlow && (
+                <div className="w-full">
+                  <Label>Contact Person</Label>
+                  <Input
+                    type="text"
+                    value={invite.fullName}
+                    disabled
+                    className="cursor-not-allowed bg-gray-100"
+                  />
+                </div>
+              )}
 
               <div className="w-full">
                 <Label>
@@ -298,7 +337,11 @@ export default function AcceptInvite() {
                   disabled={saving}
                   className="inline-flex w-full flex-1 items-center justify-center whitespace-nowrap rounded-lg bg-brand-500 px-5 py-3.5 text-sm font-medium text-white hover:bg-brand-600 disabled:opacity-50"
                 >
-                  {saving ? "Creating account..." : "Create Account"}
+                  {saving
+                    ? "Creating account..."
+                    : invite.isClaimFlow
+                      ? "Create Password & Continue"
+                      : "Create Account"}
                 </button>
                 <button
                   type="button"

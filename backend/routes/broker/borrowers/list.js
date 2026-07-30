@@ -31,6 +31,22 @@ module.exports = async function listBorrowersRoute(fastify) {
             page: { type: "integer", minimum: 1, default: 1 },
             limit: { type: "integer", minimum: 1, maximum: 100, default: 20 },
             search: { type: "string" },
+            sortBy: {
+              type: "string",
+              enum: [
+                "name",
+                "email",
+                "phone",
+                "applicationNumber",
+                "createdAt",
+              ],
+              default: "createdAt",
+            },
+            sortOrder: {
+              type: "string",
+              enum: ["asc", "desc"],
+              default: "desc",
+            },
           },
         },
       },
@@ -54,6 +70,8 @@ module.exports = async function listBorrowersRoute(fastify) {
         const page = Number(req.query.page || 1);
         const limit = Number(req.query.limit || 20);
         const search = (req.query.search || "").trim();
+        const sortBy = req.query.sortBy || "createdAt";
+        const sortOrder = req.query.sortOrder === "asc" ? "asc" : "desc";
         const skip = (page - 1) * limit;
 
         const where = {
@@ -106,10 +124,29 @@ module.exports = async function listBorrowersRoute(fastify) {
             : {}),
         };
 
+        let orderBy;
+        switch (sortBy) {
+          case "name":
+            orderBy = { client: { legalName: sortOrder } };
+            break;
+          case "applicationNumber":
+            orderBy = { applicationNumber: sortOrder };
+            break;
+          case "email":
+          case "phone":
+            orderBy = [
+              { client: { legalName: sortOrder } },
+              { createdAt: sortOrder },
+            ];
+            break;
+          default:
+            orderBy = { createdAt: sortOrder };
+        }
+
         const [applications, total] = await prisma.$transaction([
           prisma.loanApplication.findMany({
             where,
-            orderBy: { createdAt: "desc" },
+            orderBy,
             skip,
             take: limit,
             select: {

@@ -40,9 +40,7 @@ import CreateApplication from "./pages/ApplicationBuilder/CreateApplication";
 import Application from "./pages/ApplicationBuilder/Application";
 import LoanApplicationConfig from "./pages/ApplicationBuilder/LoanApplicationConfig";
 // import ActiveApplication from "./pages/ActiveApplication/ActiveApp";
-import FindLenders from "./pages/LenderInteraction/FindLenders";
-import InvitedLenders from "./pages/LenderInteraction/InvitedLenders";
-import MyLenders from "./pages/LenderInteraction/MyLenders";
+import LenderMarketplace from "./pages/LenderInteraction/LenderMarketplace";
 // import Templates from "./pages/ApplicationBuilder/Templates";
 import AddSection from "./pages/ApplicationBuilder/AddSection";
 import SubmitApplications from "./pages/submitedApplications/SubmitApplication";
@@ -289,11 +287,21 @@ export default function App() {
               element={<Navigate to="/payments/commissions" replace />}
             />
 
-            <Route index path="/find-lenders" element={<FindLenders />} />
-
-            <Route index path="/my-lenders" element={<MyLenders />} />
-
-            <Route index path="/invited-lenders" element={<InvitedLenders />} />
+            <Route path="/lender-marketplace" element={<LenderMarketplace />} />
+            <Route
+              path="/find-lenders"
+              element={<Navigate to="/lender-marketplace?tab=discover" replace />}
+            />
+            <Route
+              path="/my-lenders"
+              element={<Navigate to="/lender-marketplace?tab=network" replace />}
+            />
+            <Route
+              path="/invited-lenders"
+              element={
+                <Navigate to="/lender-marketplace?tab=network&filter=sent" replace />
+              }
+            />
 
             <Route index path="/all-super-admins" element={<AllSuperadmin />} />
 

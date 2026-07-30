@@ -1,6 +1,5 @@
 import {
   ArrowUpDown,
-  Calendar,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -22,7 +21,7 @@ import {
   ExternalLink,
   X,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { createPortal } from "react-dom";
 import toast from "react-hot-toast";
@@ -37,6 +36,7 @@ import LoanOfficerFormModal from "../../components/loanOfficer/LoanOfficerFormMo
 export { PERMISSIONS } from "./loanOfficerShared";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
+const SEARCH_DEBOUNCE_MS = 400;
 
 interface LoanOfficer {
   id: string;
@@ -170,21 +170,108 @@ function SortHeader({
     <button
       type="button"
       onClick={onClick}
-      className={`group inline-flex w-full items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-gray-500 transition hover:text-[#13538A] ${
+      className={`group inline-flex w-full items-center gap-1.5 text-xs font-semibold uppercase tracking-wide transition ${
         align === "right" ? "justify-end" : "justify-start"
-      } ${active ? "text-[#13538A]" : ""}`}
+      } ${active ? "text-[#13538A]" : "text-gray-500 hover:text-[#13538A] dark:text-gray-400"}`}
     >
       {label}
       {active ? (
         direction === "asc" ? (
-          <ChevronUp className="h-3.5 w-3.5" />
+          <ChevronUp className="h-4 w-4 shrink-0" />
         ) : (
-          <ChevronDown className="h-3.5 w-3.5" />
+          <ChevronDown className="h-4 w-4 shrink-0" />
         )
       ) : (
-        <ArrowUpDown className="h-3.5 w-3.5 opacity-0 transition group-hover:opacity-60" />
+        <ArrowUpDown className="h-3.5 w-3.5 shrink-0 opacity-0 transition group-hover:opacity-50" />
       )}
     </button>
+  );
+}
+
+function OfficerStatusBadge({
+  active,
+  loading,
+  onClick,
+}: {
+  active: boolean;
+  loading?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={loading}
+      onClick={onClick}
+      title="Click to toggle status"
+      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold transition disabled:opacity-50 ${
+        active
+          ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/80 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-500/30"
+          : "bg-slate-100 text-slate-600 ring-1 ring-slate-200 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:ring-slate-700"
+      }`}
+    >
+      <span
+        className={`h-1.5 w-1.5 rounded-full ${
+          active ? "bg-emerald-500" : "bg-slate-400"
+        }`}
+      />
+      {loading ? "Updating..." : active ? "Active" : "Disabled"}
+    </button>
+  );
+}
+
+function CoBrokerBadge({
+  label,
+  title,
+}: {
+  label: string;
+  title?: string;
+}) {
+  if (label === "—") {
+    return <span className="text-sm text-gray-400">—</span>;
+  }
+
+  return (
+    <span
+      title={title}
+      className="inline-flex max-w-[140px] items-center rounded-md bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700 dark:bg-gray-800 dark:text-gray-300"
+    >
+      <Users className="mr-1 h-3 w-3 shrink-0 text-gray-400" />
+      <span className="truncate">{label}</span>
+    </span>
+  );
+}
+
+function StatChip({
+  icon,
+  label,
+  value,
+  tone = "blue",
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: number;
+  tone?: "blue" | "emerald" | "slate";
+}) {
+  const tones = {
+    blue: "border-blue-100 bg-blue-50 text-blue-700 dark:border-blue-500/20 dark:bg-blue-500/10 dark:text-blue-300",
+    emerald:
+      "border-emerald-100 bg-emerald-50 text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300",
+    slate:
+      "border-gray-200 bg-gray-50 text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300",
+  };
+
+  return (
+    <div
+      className={`flex items-center gap-2.5 rounded-xl border px-4 py-2.5 ${tones[tone]}`}
+    >
+      {icon}
+      <div>
+        <p className="text-[10px] font-semibold uppercase tracking-wide opacity-70">
+          {label}
+        </p>
+        <p className="text-lg font-bold leading-tight">{value}</p>
+      </div>
+    </div>
   );
 }
 
@@ -196,7 +283,13 @@ export default function LoanOfficersPage() {
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
   const [limit] = useState(10);
+  const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
+  const [listStats, setListStats] = useState({
+    total: 0,
+    active: 0,
+    disabled: 0,
+  });
   const [search, setSearch] = useState(initialQuery);
   const [formModal, setFormModal] = useState<{
     open: boolean;
@@ -323,17 +416,24 @@ export default function LoanOfficersPage() {
 
   /* ================= FETCH ================= */
 
-  const fetchOfficers = async () => {
+  const fetchOfficers = useCallback(async () => {
     try {
       setLoading(true);
 
       const queryParams = new URLSearchParams({
         page: String(page),
         limit: String(limit),
+        role: "BROKER_OFFICER",
+        sortBy: sortKey,
+        sortOrder: sortDir,
       });
 
       if (debouncedSearch) {
-        queryParams.append("search", debouncedSearch);
+        queryParams.set("search", debouncedSearch);
+      }
+
+      if (statusFilter) {
+        queryParams.set("status", statusFilter);
       }
 
       const res = await fetch(
@@ -343,32 +443,49 @@ export default function LoanOfficersPage() {
 
       const json = await res.json();
 
-      if (json.success) {
-        const officersOnly: LoanOfficer[] = (json.data || []).filter(
-          (user: LoanOfficer) => user?.roles?.includes("BROKER_OFFICER"),
-        );
+      if (!res.ok || !json.success) {
+        toast.error(json.message || "Failed to load loan officers");
+        setOfficers([]);
+        setTotal(0);
+        setTotalPages(1);
+        return;
+      }
 
-        setOfficers(officersOnly);
+      setOfficers(json.data || []);
+      setTotal(json.total ?? 0);
+      setTotalPages(json.totalPages || 1);
 
-        // IMPORTANT: use backend total (not filtered length)
-        setTotalPages(json.totalPages || 1);
+      if (json.stats) {
+        setListStats({
+          total: json.stats.total ?? 0,
+          active: json.stats.active ?? 0,
+          disabled: json.stats.disabled ?? 0,
+        });
+      }
 
-        // Safety reset if page exceeds totalPages
-        if (page > (json.totalPages || 1)) {
-          setPage(1);
-        }
+      if (page > (json.totalPages || 1) && (json.totalPages || 1) >= 1) {
+        setPage(json.totalPages || 1);
       }
     } catch (err) {
       console.error(err);
+      toast.error("Failed to load loan officers");
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, limit, debouncedSearch, statusFilter, sortKey, sortDir]);
+
+  const isSearching = search.trim() !== debouncedSearch;
 
   useEffect(() => {
     const handler = setTimeout(() => {
-      setDebouncedSearch(search.trim());
-    }, 500);
+      const next = search.trim();
+      setDebouncedSearch((prev) => {
+        if (prev !== next) {
+          setPage(1);
+        }
+        return next;
+      });
+    }, SEARCH_DEBOUNCE_MS);
 
     return () => clearTimeout(handler);
   }, [search]);
@@ -384,11 +501,11 @@ export default function LoanOfficersPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearch]);
+  }, [statusFilter, sortKey, sortDir]);
 
   useEffect(() => {
     fetchOfficers();
-  }, [page, debouncedSearch]);
+  }, [fetchOfficers]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -442,54 +559,12 @@ export default function LoanOfficersPage() {
 
   const closeRowMenu = () => setActiveMenuId(null);
 
-  const filteredOfficers = useMemo(() => {
-    if (!statusFilter) return officers;
-    return officers.filter((o) => o.status === statusFilter);
-  }, [officers, statusFilter]);
-
-  const sortedOfficers = useMemo(() => {
-    const list = [...filteredOfficers];
-
-    list.sort((a, b) => {
-      let cmp = 0;
-
-      switch (sortKey) {
-        case "name":
-          cmp = `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`);
-          break;
-        case "email":
-          cmp = a.email.localeCompare(b.email);
-          break;
-        case "phone":
-          cmp = (a.phone || "").localeCompare(b.phone || "");
-          break;
-        case "status":
-          cmp = a.status.localeCompare(b.status);
-          break;
-        case "createdAt":
-          cmp = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-          break;
-      }
-
-      return sortDir === "asc" ? cmp : -cmp;
-    });
-
-    return list;
-  }, [filteredOfficers, sortKey, sortDir]);
-
   const activeMenuUser = useMemo(
-    () => sortedOfficers.find((o) => o.id === activeMenuId) ?? null,
-    [sortedOfficers, activeMenuId],
+    () => officers.find((o) => o.id === activeMenuId) ?? null,
+    [officers, activeMenuId],
   );
 
-  const stats = useMemo(
-    () => ({
-      total: officers.length,
-      active: officers.filter((o) => o.status === "ACTIVE").length,
-      disabled: officers.filter((o) => o.status === "DISABLED").length,
-    }),
-    [officers],
-  );
+  const stats = listStats;
 
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -642,120 +717,147 @@ export default function LoanOfficersPage() {
     <>
       <PageMeta title="Loan Officers | Broker Dashboard" description="Manage loan officers" />
 
-      <div className="space-y-4 pb-6">
-        {/* Hero */}
-        <div className="overflow-hidden rounded-2xl border border-gray-200 bg-gradient-to-br from-[#13538A] via-[#1a6aad] to-[#2C92D5] p-4 text-white shadow-sm dark:border-gray-800 sm:p-5">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <div className="mb-1.5 inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-0.5 text-[10px] font-medium backdrop-blur-sm">
-                <Users className="h-3 w-3" />
-                CRM · Team
-              </div>
-              <h1 className="text-xl font-semibold tracking-tight">Loan Officers</h1>
-              <p className="mt-1 max-w-2xl text-xs text-white/80">
-                Manage and monitor all your loan officers in one place.
-              </p>
-            </div>
+      <div className="space-y-5 pb-6">
+        {/* Page header */}
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-1">
+              User Management
+            </p>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+              Loan Officers
+            </h1>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400 max-w-xl">
+              Manage and monitor your loan officer team.
+            </p>
+          </div>
 
-            <div className="grid grid-cols-3 gap-2">
-              <div className="rounded-lg bg-white/10 px-3 py-2 ring-1 ring-white/20 backdrop-blur-sm">
-                <p className="text-[10px] text-white/70">Total (page)</p>
-                <p className="mt-0.5 text-lg font-semibold">{stats.total}</p>
-              </div>
-              <div className="rounded-lg bg-white/10 px-3 py-2 ring-1 ring-white/20 backdrop-blur-sm">
-                <p className="flex items-center gap-1 text-[10px] text-white/70">
-                  <UserCheck className="h-3 w-3" /> Active
-                </p>
-                <p className="mt-0.5 text-lg font-semibold">{stats.active}</p>
-              </div>
-              <div className="rounded-lg bg-white/10 px-3 py-2 ring-1 ring-white/20 backdrop-blur-sm">
-                <p className="flex items-center gap-1 text-[10px] text-white/70">
-                  <UserX className="h-3 w-3" /> Disabled
-                </p>
-                <p className="mt-0.5 text-lg font-semibold">{stats.disabled}</p>
-              </div>
-            </div>
+          <div className="flex flex-wrap gap-2 lg:justify-end">
+            <StatChip icon={<Users className="h-3.5 w-3.5" />} label="Total" value={stats.total} />
+            <StatChip
+              icon={<UserCheck className="h-3.5 w-3.5" />}
+              label="Active"
+              value={stats.active}
+              tone="emerald"
+            />
+            <StatChip
+              icon={<UserX className="h-3.5 w-3.5" />}
+              label="Disabled"
+              value={stats.disabled}
+              tone="slate"
+            />
           </div>
         </div>
 
-        {/* Toolbar */}
-        <div className="rounded-2xl border border-gray-200 bg-white p-3 shadow-sm dark:border-gray-800 dark:bg-gray-900 sm:p-4">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
-              <input
-                placeholder="Search loan officers..."
-                className="h-9 w-full rounded-xl border border-gray-200 bg-gray-50 pl-9 pr-9 text-xs outline-none focus:border-[#13538A]/40 focus:ring-2 focus:ring-[#13538A]/10 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-              {search && (
+        {/* Toolbar + table card */}
+        <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white  dark:border-gray-800 dark:bg-gray-900">
+          <div className="border-b border-gray-100 px-4 py-4 dark:border-gray-800 sm:px-5">
+            <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:flex-1 sm:min-w-0">
+                <div className="relative w-full sm:max-w-xs">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                  <input
+                    placeholder="Search loan officers..."
+                    className="h-10 w-full rounded-xl border border-gray-200 bg-gray-50 pl-10 pr-9 text-sm outline-none focus:border-[#13538A]/40 focus:ring-2 focus:ring-[#13538A]/10 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                  />
+                  {search && (
+                    <button
+                      type="button"
+                      onClick={() => setSearch("")}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5">
+                  {(["", "ACTIVE", "DISABLED"] as const).map((value) => (
+                    <button
+                      key={value || "all"}
+                      type="button"
+                      onClick={() => setStatusFilter(value)}
+                      className={`shrink-0 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+                        statusFilter === value
+                          ? "bg-[#13538A] text-white"
+                          : "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                      }`}
+                    >
+                      {value === "" ? "All" : value === "ACTIVE" ? "Active" : "Disabled"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex shrink-0 items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => setSearch("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500"
+                  onClick={() => fetchOfficers()}
+                  disabled={loading || isSearching}
+                  className="inline-flex h-10 items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-200"
                 >
-                  <X className="h-3.5 w-3.5" />
+                  <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+                  Refresh
                 </button>
+
+                <button
+                  type="button"
+                  onClick={openCreateModal}
+                  className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#13538A] px-4 text-sm font-semibold text-white hover:bg-[#1a6aad]"
+                >
+                  <Plus className="h-4 w-4" />
+                  Create Loan Officer
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between gap-3 border-b border-gray-100 bg-gray-50/50 px-4 py-2.5 dark:border-gray-800 dark:bg-gray-800/30 sm:px-5">
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              {loading || isSearching ? (
+                isSearching ? "Searching..." : "Loading team members..."
+              ) : (
+                <>
+                  <span className="font-semibold text-gray-800 dark:text-gray-200">
+                    {total}
+                  </span>{" "}
+                  loan officer{total === 1 ? "" : "s"}
+                  {debouncedSearch ? ` matching "${debouncedSearch}"` : ""}
+                  {statusFilter
+                    ? ` · ${statusFilter === "ACTIVE" ? "Active" : "Disabled"}`
+                    : ""}
+                </>
               )}
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={() => fetchOfficers()}
-                disabled={loading}
-                className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-200"
-              >
-                <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
-                Refresh
-              </button>
-
-              <button
-                type="button"
-                onClick={openCreateModal}
-                className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-[#13538A] px-3 text-xs font-medium text-white shadow-sm hover:bg-[#1a6aad]"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                Create Loan Officer
-              </button>
-            </div>
+            </p>
+            {!loading && !isSearching && officers.length > 0 && (
+              <p className="text-xs text-gray-400">
+                Sorted by{" "}
+                <span className="font-medium text-gray-600 dark:text-gray-300">
+                  {sortKey === "createdAt" ? "date created" : sortKey}
+                </span>
+              </p>
+            )}
           </div>
 
-          <div className="mt-3 flex items-center gap-2 overflow-x-auto pb-0.5">
-            <span className="shrink-0 text-[10px] font-medium text-gray-500">Status:</span>
-            {(["", "ACTIVE", "DISABLED"] as const).map((value) => (
-              <button
-                key={value || "all"}
-                type="button"
-                onClick={() => setStatusFilter(value)}
-                className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-medium transition ${
-                  statusFilter === value
-                    ? "bg-[#13538A] text-white"
-                    : "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300"
-                }`}
-              >
-                {value === "" ? "All" : value === "ACTIVE" ? "Active" : "Disabled"}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Table */}
-        <div className="rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
-          {loading ? (
+          {loading && !isSearching ? (
             <div className="divide-y divide-gray-100 dark:divide-gray-800">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="flex animate-pulse items-center gap-4 px-6 py-4">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="flex animate-pulse items-center gap-4 px-5 py-4"
+                >
                   <div className="h-4 w-6 rounded bg-gray-100 dark:bg-gray-800" />
-                  <div className="h-11 w-11 rounded-xl bg-gray-100 dark:bg-gray-800" />
-                  <div className="h-4 flex-1 rounded bg-gray-100 dark:bg-gray-800" />
-                  <div className="h-4 w-32 rounded bg-gray-100 dark:bg-gray-800" />
-                  <div className="h-6 w-16 rounded-full bg-gray-100 dark:bg-gray-800" />
+                  <div className="h-10 w-10 rounded-xl bg-gray-100 dark:bg-gray-800" />
+                  <div className="h-4 flex-1 max-w-[180px] rounded bg-gray-100 dark:bg-gray-800" />
+                  <div className="hidden h-4 w-40 rounded bg-gray-100 dark:bg-gray-800 md:block" />
+                  <div className="hidden h-6 w-20 rounded-full bg-gray-100 dark:bg-gray-800 sm:block" />
+                  <div className="ml-auto h-8 w-8 rounded-lg bg-gray-100 dark:bg-gray-800" />
                 </div>
               ))}
             </div>
-          ) : sortedOfficers.length === 0 ? (
+          ) : !loading && officers.length === 0 ? (
             <div className="flex flex-col items-center py-20 text-center">
               <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#13538A]/10 text-[#13538A]">
                 <Users size={24} />
@@ -764,11 +866,11 @@ export default function LoanOfficersPage() {
                 {search || statusFilter ? "No matching loan officers" : "No loan officers yet"}
               </h3>
               <p className="mt-1 max-w-md text-sm text-gray-500">
-                {search || statusFilter
+                {search || debouncedSearch || statusFilter
                   ? "Try adjusting your search or status filter."
                   : "Create your first loan officer to start building your team."}
               </p>
-              {!search && !statusFilter && (
+              {!search && !debouncedSearch && !statusFilter && (
                 <button
                   type="button"
                   onClick={openCreateModal}
@@ -780,25 +882,14 @@ export default function LoanOfficersPage() {
               )}
             </div>
           ) : (
-            <div className="max-h-[calc(100vh-15rem)] overflow-y-auto overflow-x-hidden">
-              <table className="w-full table-fixed border-collapse text-left text-xs">
-                <colgroup>
-                  <col className="w-12" />
-                  <col className="w-[24%]" />
-                  <col className="w-[30%]" />
-                  <col className="w-[14%]" />
-                  <col className="w-[12%]" />
-                  <col className="w-[14%]" />
-                  <col className="w-[10%]" />
-                  <col className="w-[10%]" />
-                  <col className="w-14" />
-                </colgroup>
-                <thead className="sticky top-0 z-10 border-b border-gray-200 bg-gray-50/95 backdrop-blur dark:border-gray-700 dark:bg-gray-800/95">
-                  <tr>
-                    <th className="px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-left">
+                <thead>
+                  <tr className="border-b border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
+                    <th className="w-10 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-400">
                       #
                     </th>
-                    <th className="px-4 py-2">
+                    <th className="px-4 py-3 text-left">
                       <SortHeader
                         label="Name"
                         active={sortKey === "name"}
@@ -806,7 +897,7 @@ export default function LoanOfficersPage() {
                         onClick={() => toggleSort("name")}
                       />
                     </th>
-                    <th className="px-4 py-2">
+                    <th className="px-4 py-3 text-left">
                       <SortHeader
                         label="Email"
                         active={sortKey === "email"}
@@ -814,7 +905,7 @@ export default function LoanOfficersPage() {
                         onClick={() => toggleSort("email")}
                       />
                     </th>
-                    <th className="px-4 py-2">
+                    <th className="hidden px-4 py-3 text-left md:table-cell">
                       <SortHeader
                         label="Phone"
                         active={sortKey === "phone"}
@@ -822,7 +913,7 @@ export default function LoanOfficersPage() {
                         onClick={() => toggleSort("phone")}
                       />
                     </th>
-                    <th className="px-4 py-2">
+                    <th className="px-4 py-3 text-left">
                       <SortHeader
                         label="Status"
                         active={sortKey === "status"}
@@ -830,12 +921,12 @@ export default function LoanOfficersPage() {
                         onClick={() => toggleSort("status")}
                       />
                     </th>
-                    <th className="px-4 py-2">
-                      <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                    <th className="hidden px-4 py-3 text-left lg:table-cell">
+                      <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                         Co-Brokers
                       </span>
                     </th>
-                    <th className="px-4 py-2">
+                    <th className="hidden px-4 py-3 text-left sm:table-cell">
                       <SortHeader
                         label="Created"
                         active={sortKey === "createdAt"}
@@ -843,17 +934,19 @@ export default function LoanOfficersPage() {
                         onClick={() => toggleSort("createdAt")}
                       />
                     </th>
-                    <th className="px-4 py-2 text-right">
-                      <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                    <th className="w-20 px-4 py-3 text-right">
+                      <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                         Actions
                       </span>
                     </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                  {sortedOfficers.map((o, index) => {
+                  {officers.map((o, index) => {
                     const fullName = `${o.firstName} ${o.lastName}`.trim();
                     const isActive = o.status === "ACTIVE";
+                    const coBrokerLabel = formatTeamAssignments(o.assignedCoBrokers);
+                    const coBrokerTitle = getTeamAssignmentTitle(o.assignedCoBrokers);
 
                     return (
                       <tr
@@ -861,16 +954,16 @@ export default function LoanOfficersPage() {
                         className={`group transition-colors ${
                           isActive
                             ? "hover:bg-[#13538A]/[0.03] dark:hover:bg-gray-800/40"
-                            : "bg-gray-50/50 hover:bg-gray-100/70 dark:bg-gray-900/20 dark:hover:bg-gray-800/40"
+                            : "bg-gray-50/40 hover:bg-gray-100/60 dark:bg-gray-900/20 dark:hover:bg-gray-800/40"
                         }`}
                       >
-                        <td className="px-4 py-2.5 text-[11px] font-medium tabular-nums text-gray-400">
+                        <td className="px-4 py-3.5 text-sm font-medium tabular-nums text-gray-400">
                           {(page - 1) * limit + index + 1}
                         </td>
 
-                        <td className="px-4 py-2.5">
-                          <div className="flex min-w-0 items-center gap-2.5">
-                            <span className="relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-lg ring-1 ring-gray-200/80 dark:ring-gray-700">
+                        <td className="px-4 py-3.5">
+                          <div className="flex min-w-0 items-center gap-3">
+                            <span className="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg ring-1 ring-gray-200/80 dark:ring-gray-700">
                               {o.profile?.avatarUrl ? (
                                 <img
                                   src={`${API_BASE}${o.profile.avatarUrl}`}
@@ -879,103 +972,96 @@ export default function LoanOfficersPage() {
                                 />
                               ) : (
                                 <span
-                                  className={`flex h-full w-full items-center justify-center text-[11px] font-bold ${getAvatarTone(fullName)}`}
+                                  className={`flex h-full w-full items-center justify-center text-xs font-bold ${getAvatarTone(fullName)}`}
                                 >
                                   {getInitials(o.firstName, o.lastName)}
                                 </span>
                               )}
                               <span
-                                className={`absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full border border-white dark:border-gray-900 ${
+                                className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-white dark:border-gray-900 ${
                                   isActive ? "bg-emerald-500" : "bg-gray-400"
                                 }`}
                               />
                             </span>
                             <div className="min-w-0">
-                              <p className="truncate text-xs font-semibold text-gray-900 dark:text-gray-100">
+                              <p className="truncate text-sm font-semibold text-gray-900 dark:text-gray-100">
                                 {fullName}
                               </p>
-                              <p className="truncate text-[10px] text-gray-400">
+                              <p className="truncate text-xs text-gray-500 dark:text-gray-400">
                                 {o.profile?.agentType || "Loan Officer"}
                               </p>
                             </div>
                           </div>
                         </td>
 
-                        <td className="px-4 py-2.5">
+                        <td className="px-4 py-3.5">
                           <a
                             href={`mailto:${o.email}`}
-                            className="flex min-w-0 items-center gap-1.5 text-xs text-gray-600 transition hover:text-[#13538A] dark:text-gray-300 dark:hover:text-cyan-400"
+                            className="inline-flex max-w-[220px] items-center gap-2 text-sm text-gray-600 transition hover:text-[#13538A] dark:text-gray-300 dark:hover:text-cyan-400 xl:max-w-none"
                             title={o.email}
                           >
-                            <Mail className="h-3 w-3 shrink-0 text-gray-400" />
+                            <Mail className="h-3.5 w-3.5 shrink-0 text-gray-400" />
                             <span className="truncate">{o.email}</span>
                           </a>
                         </td>
 
-                        <td className="px-4 py-2.5">
+                        <td className="hidden px-4 py-3.5 md:table-cell">
                           {o.phone ? (
                             <a
                               href={`tel:${o.phone}`}
-                              className="inline-flex items-center gap-1.5 text-xs text-gray-600 transition hover:text-[#13538A] dark:text-gray-300 dark:hover:text-cyan-400"
+                              className="inline-flex items-center gap-2 text-sm text-gray-600 transition hover:text-[#13538A] dark:text-gray-300 dark:hover:text-cyan-400 whitespace-nowrap"
                             >
-                              <Phone className="h-3 w-3 shrink-0 text-gray-400" />
+                              <Phone className="h-3.5 w-3.5 shrink-0 text-gray-400" />
                               {formatPhone(o.phone)}
                             </a>
                           ) : (
-                            <span className="text-xs text-gray-400">—</span>
+                            <span className="text-sm text-gray-400">—</span>
                           )}
                         </td>
 
-                        <td className="px-4 py-2.5">
-                          <button
-                            type="button"
-                            disabled={togglingId === o.id}
+                        <td className="px-4 py-3.5">
+                          <OfficerStatusBadge
+                            active={isActive}
+                            loading={togglingId === o.id}
                             onClick={() => toggleStatus(o.id, o.status)}
-                            className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide transition disabled:opacity-50 ${
-                              isActive
-                                ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-500/30"
-                                : "bg-gray-100 text-gray-600 ring-1 ring-gray-200 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:ring-gray-700"
-                            }`}
-                            title="Click to toggle status"
-                          >
-                            <span
-                              className={`h-1.5 w-1.5 rounded-full ${
-                                isActive ? "bg-emerald-500" : "bg-gray-400"
+                          />
+                        </td>
+
+                        <td className="hidden px-4 py-3.5 lg:table-cell">
+                          <CoBrokerBadge label={coBrokerLabel} title={coBrokerTitle} />
+                        </td>
+
+                        <td className="hidden px-4 py-3.5 sm:table-cell">
+                          <span className="text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                            {formatDate(o.createdAt)}
+                          </span>
+                        </td>
+
+                        <td className="px-4 py-3.5 text-right">
+                          <div className="inline-flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => setViewOfficer(o)}
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-transparent text-gray-400 transition hover:border-gray-200 hover:bg-white hover:text-[#13538A] dark:hover:border-gray-700 dark:hover:bg-gray-800 dark:hover:text-cyan-400 sm:opacity-0 sm:group-hover:opacity-100"
+                              title="View details"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </button>
+                            <button
+                              type="button"
+                              data-menu-id={o.id}
+                              onClick={(event) => openRowMenu(o.id, event)}
+                              className={`inline-flex h-8 w-8 items-center justify-center rounded-lg border transition ${
+                                activeMenuId === o.id
+                                  ? "border-[#13538A]/30 bg-[#13538A]/5 text-[#13538A] dark:border-cyan-500/30 dark:bg-cyan-500/10 dark:text-cyan-400"
+                                  : "border-gray-200 bg-white text-gray-500 hover:border-gray-300 hover:bg-gray-50 hover:text-gray-800 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400 dark:hover:border-gray-600 dark:hover:bg-gray-800 dark:hover:text-white"
                               }`}
-                            />
-                            {togglingId === o.id ? "..." : isActive ? "Active" : "Disabled"}
-                          </button>
-                        </td>
-
-                        <td
-                          className="px-4 py-2.5 text-xs text-gray-600 dark:text-gray-300"
-                          title={getTeamAssignmentTitle(o.assignedCoBrokers)}
-                        >
-                          {formatTeamAssignments(o.assignedCoBrokers)}
-                        </td>
-
-                        <td className="px-4 py-2.5">
-                          <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
-                            <Calendar className="h-3 w-3 shrink-0 opacity-70" />
-                            <span className="whitespace-nowrap">{formatDate(o.createdAt)}</span>
+                              title="More actions"
+                              aria-label="Open actions menu"
+                            >
+                              <MoreVertical className="h-4 w-4" />
+                            </button>
                           </div>
-                        </td>
-
-                        <td className="px-2 py-2.5 text-right">
-                          <button
-                            type="button"
-                            data-menu-id={o.id}
-                            onClick={(event) => openRowMenu(o.id, event)}
-                            className={`inline-flex h-7 w-7 items-center justify-center rounded-md border border-transparent text-gray-500 transition hover:border-gray-200 hover:bg-gray-100 hover:text-gray-800 dark:text-gray-400 dark:hover:border-gray-700 dark:hover:bg-gray-800 dark:hover:text-white ${
-                              activeMenuId === o.id
-                                ? "border-gray-200 bg-gray-100 text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
-                                : ""
-                            }`}
-                            title="Actions"
-                            aria-label="Open actions menu"
-                          >
-                            <MoreVertical className="h-3.5 w-3.5" />
-                          </button>
                         </td>
                       </tr>
                     );
@@ -985,34 +1071,48 @@ export default function LoanOfficersPage() {
             </div>
           )}
 
-          {!loading && sortedOfficers.length > 0 && (
-            <div className="flex flex-col gap-1.5 border-t border-gray-100 bg-gray-50/50 px-4 py-2.5 text-[10px] text-gray-500 dark:border-gray-800 dark:bg-gray-900/50 sm:flex-row sm:items-center sm:justify-between">
-              <span>
+          {!loading && !isSearching && officers.length > 0 && (
+            <div className="flex flex-col gap-3 border-t border-gray-100 bg-gray-50/60 px-4 py-3 dark:border-gray-800 dark:bg-gray-900/50 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+              <p className="text-sm text-gray-500 dark:text-gray-400">
                 Showing{" "}
                 <span className="font-semibold text-gray-800 dark:text-gray-200">
-                  {sortedOfficers.length}
+                  {total === 0 ? 0 : (page - 1) * limit + 1}–
+                  {Math.min(page * limit, total)}
                 </span>{" "}
-                on page{" "}
-                <span className="font-semibold text-gray-800 dark:text-gray-200">{page}</span>
-                {statusFilter ? (
-                  <>
-                    {" "}
-                    · filtered by{" "}
-                    <span className="font-medium text-[#13538A] dark:text-cyan-400">
-                      {statusFilter.toLowerCase()}
-                    </span>
-                  </>
-                ) : null}
-              </span>
-              <span className="text-gray-400">
-                Sorted by {sortKey.replace("createdAt", "created")} ({sortDir})
-              </span>
+                of {total} loan officer{total === 1 ? "" : "s"}
+              </p>
+
+              {totalPages > 1 && (
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    disabled={page === 1 || loading}
+                    onClick={() => setPage((p) => Math.max(p - 1, 1))}
+                    className="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                    Previous
+                  </button>
+                  <span className="px-2 text-sm font-medium text-gray-600 dark:text-gray-300">
+                    Page {page} of {totalPages}
+                  </span>
+                  <button
+                    type="button"
+                    disabled={page === totalPages || loading}
+                    onClick={() => setPage((p) => Math.min(p + 1, totalPages))}
+                    className="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200"
+                  >
+                    Next
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>
 
-        {/* Pagination */}
-        {totalPages > 1 && (
+        {/* Pagination — standalone when table footer hidden */}
+        {totalPages > 1 && (loading || officers.length === 0) && (
           <div className="flex items-center justify-between rounded-xl border border-gray-200 bg-white px-4 py-3 dark:border-gray-800 dark:bg-gray-900">
             <p className="text-sm text-gray-500">
               Page{" "}
@@ -1050,7 +1150,7 @@ export default function LoanOfficersPage() {
           <div
             ref={menuRef}
             style={{ position: "fixed", top: menuPos.top, left: menuPos.left }}
-            className="z-[9999] w-[168px] max-h-[min(232px,calc(100vh-16px))] overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-xl dark:border-gray-700 dark:bg-gray-900"
+            className="z-[9999] w-[168px] max-h-[min(232px,calc(100vh-16px))] overflow-y-auto rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900"
           >
             <div className="border-b border-gray-100 px-3 py-2 dark:border-gray-800">
               <p className="truncate text-[11px] font-semibold text-gray-900 dark:text-white">

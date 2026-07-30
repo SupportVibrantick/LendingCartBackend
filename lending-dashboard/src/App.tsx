@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route } from "react-router";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router";
 import SignIn from "./pages/AuthPages/SignIn";
 import ResetPassword from "./pages/AuthPages/ResetPassword";
 import AcceptInvite from "./pages/AuthPages/AcceptInvite";
@@ -41,9 +41,8 @@ import AllDocuments from "./pages/Documents/AllDocuments";
 import AllSuperadmin from "./pages/SuperAdmin/AllSuperAdmin";
 import LenderProductAssign from "./pages/LoanProducts/LenderAssignProduct";
 import AssignedProducts from "./pages/LoanProducts/AssignedProducts";
-import MyBroker from "./pages/Brokers/MyBroker";
+import BrokerConnections from "./pages/Brokers/BrokerConnections";
 import FindBroker from "./pages/Brokers/FindBroker";
-import BrokerRequest from "./pages/Brokers/BrokerInvites";
 import LoanPipeline from "./pages/LoanPipeline/LoanPipeline";
 import ImpersonateLogin from "./pages/ImpersonateLogin";
 import LoiPreview from "./pages/LoanPipeline/LoiPreview";
@@ -106,8 +105,9 @@ export default function App() {
               }
             />
             <Route index path="/admin-logs" element={<AdminLogs />} />
-            <Route index path="/my-broker" element={<MyBroker />} />
-            <Route index path="/broker-request" element={<BrokerRequest />} />
+            <Route index path="/brokers" element={<BrokerConnections />} />
+            <Route path="/broker-request" element={<Navigate to="/brokers?tab=requests" replace />} />
+            <Route path="/my-broker" element={<Navigate to="/brokers?tab=connected" replace />} />
             <Route index path="/find-broker" element={<FindBroker />} />
             <Route index path="/loan-pipeline" element={<LoanPipeline />} />
             <Route index path="/loan-preview" element={<LoanPreview />} />

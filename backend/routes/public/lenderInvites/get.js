@@ -49,6 +49,14 @@ async function getPublicLenderInviteRoutes(fastify) {
           });
         }
 
+        if (invite.tokenUsedAt || invite._tokenAlreadyUsed) {
+          return reply.status(409).send({
+            success: false,
+            message: "This invitation link has already been used",
+            code: "TOKEN_USED",
+          });
+        }
+
         if (invite.status === "ACCEPTED") {
           return reply.status(409).send({
             success: false,
@@ -85,6 +93,8 @@ async function getPublicLenderInviteRoutes(fastify) {
             phone: invite.phone,
             status: invite.status,
             expiresAt: invite.expiresAt,
+            isClaimFlow: Boolean(invite.lenderOrgId),
+            inviteSource: invite.inviteSource || "ADMIN",
           },
         });
       } catch (error) {
