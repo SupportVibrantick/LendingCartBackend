@@ -18,6 +18,7 @@ import {
   type DuplicateLenderMatch,
   type SubmitBrokerLenderPayload,
 } from "../../lib/lenderMarketplaceApi";
+import { formatPhone } from "../UserManagement/loanOfficerShared";
 
 const BRAND = "#2C92D5";
 
@@ -83,8 +84,11 @@ export default function AddBrokerLenderModal({
       next.contactPerson = "Contact person is required";
     }
     const digits = form.phone.replace(/\D/g, "");
-    if (!digits) next.phone = "Phone is required";
-    else if (digits.length < 10) next.phone = "Enter at least 10 digits";
+    if (!digits) {
+      next.phone = "Phone is required";
+    } else if (digits.length !== 10) {
+      next.phone = "Enter a valid US phone number (999-999-9999)";
+    }
 
     setErrors(next);
     return Object.keys(next).length === 0;
@@ -374,12 +378,18 @@ export default function AddBrokerLenderModal({
                       />
                       <input
                         type="tel"
+                        inputMode="numeric"
+                        autoComplete="tel"
+                        maxLength={12}
                         className={`${inputClass} pl-10`}
                         value={form.phone}
                         onChange={(e) =>
-                          setForm((f) => ({ ...f, phone: e.target.value }))
+                          setForm((f) => ({
+                            ...f,
+                            phone: formatPhone(e.target.value),
+                          }))
                         }
-                        placeholder="(555) 123-4567"
+                        placeholder="999-999-9999"
                       />
                     </div>
                   </Field>

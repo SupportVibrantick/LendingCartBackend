@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { Link, useLocation } from "react-router";
-import { ArrowLeft, Loader2, Pencil } from "lucide-react";
+import { Loader2, Pencil } from "lucide-react";
 import toast from "react-hot-toast";
 import { API_BASE, getLenderAuthHeaders } from "../../lib/lenderApi";
 import { formatCompactAmount } from "../../lib/loanPipelineUtils";
@@ -46,12 +46,16 @@ function parseRateRange(value?: string | null) {
   return { min: min?.trim() || "", max: max?.trim() || "" };
 }
 
+function isProfileComplete(status: string) {
+  return status === "COMPLETED";
+}
+
 export default function LenderProfileView() {
   const location = useLocation();
   const canManageProfile = canManageLenderProfile();
   const [loading, setLoading] = useState(true);
   const [orgName, setOrgName] = useState("");
-  const [profileStatus, setProfileStatus] = useState("DRAFT");
+  const [profileStatus, setProfileStatus] = useState("INCOMPLETE");
   const [contactName, setContactName] = useState("");
   const [contactEmail, setContactEmail] = useState("");
   const [contactPhone, setContactPhone] = useState("");
@@ -60,6 +64,8 @@ export default function LenderProfileView() {
   const [minFunding, setMinFunding] = useState<number | null>(null);
   const [maxFunding, setMaxFunding] = useState<number | null>(null);
   const [loanProducts, setLoanProducts] = useState<LoanProductRow[]>([]);
+
+  const profileComplete = isProfileComplete(profileStatus);
 
   const productSummary = useMemo(() => {
     const active = loanProducts.filter((product) => product.isActive !== false);
@@ -116,7 +122,7 @@ export default function LenderProfileView() {
       const { user, lenderProfile, organization } = profileJson.data;
 
       setOrgName(organization?.name || "Lender");
-      setProfileStatus(lenderProfile?.profileStatus || "DRAFT");
+      setProfileStatus(lenderProfile?.profileStatus || "INCOMPLETE");
       setContactName(`${user.firstName || ""} ${user.lastName || ""}`.trim());
       setContactEmail(organization?.email || user.email || "");
       setContactPhone(organization?.phone || "");
@@ -143,10 +149,8 @@ export default function LenderProfileView() {
     loadProfile();
   }, [loadProfile, location.key]);
 
-  const displayMinLoan =
-    productSummary?.minLoan ?? minFunding ?? null;
-  const displayMaxLoan =
-    productSummary?.maxLoan ?? maxFunding ?? null;
+  const displayMinLoan = productSummary?.minLoan ?? minFunding ?? null;
+  const displayMaxLoan = productSummary?.maxLoan ?? maxFunding ?? null;
 
   if (loading) {
     return (
@@ -166,17 +170,22 @@ export default function LenderProfileView() {
           <h1 className="mt-1 text-2xl font-semibold text-slate-900 dark:text-white">
             My Profile
           </h1>
+          {!profileComplete && canManageProfile && (
+            <p className="mt-1 text-sm text-amber-700 dark:text-amber-300">
+              Complete your full profile to appear in the broker marketplace.
+            </p>
+          )}
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
           <span
             className={`rounded-full px-3 py-1 text-xs font-semibold uppercase ${
-              profileStatus === "COMPLETED"
+              profileComplete
                 ? "bg-emerald-100 text-emerald-700"
                 : "bg-amber-100 text-amber-700"
             }`}
           >
-            {profileStatus.replace("_", " ")}
+            {profileComplete ? "Profile Complete" : "Profile Incomplete"}
           </span>
           {canManageProfile && (
             <Link
@@ -184,7 +193,7 @@ export default function LenderProfileView() {
               className="inline-flex items-center gap-2 rounded-xl bg-[#134E4A] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0f3f3c]"
             >
               <Pencil size={16} />
-              Edit Full Profile
+              {profileComplete ? "Edit Full Profile" : "Complete Full Profile"}
             </Link>
           )}
         </div>
@@ -242,21 +251,11 @@ export default function LenderProfileView() {
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        {canManageProfile ? (
-          <Link
-            to="/profile/guidelines"
-            className="inline-flex items-center gap-2 text-sm font-medium text-[#134E4A] hover:underline"
-          >
-            Manage lending guidelines & discovery details
-            <ArrowLeft size={14} className="rotate-180" />
-          </Link>
-        ) : (
-          <p className="text-sm text-slate-500">
-            Read-only profile view. Contact your lender admin to make changes.
-          </p>
-        )}
-      </div>
+      {!canManageProfile && (
+        <p className="text-sm text-slate-500">
+          Read-only profile view. Contact your lender admin to make changes.
+        </p>
+      )}
     </div>
   );
 }

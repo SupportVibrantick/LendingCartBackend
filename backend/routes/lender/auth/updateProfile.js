@@ -46,15 +46,27 @@ function parseOptionalNumber(raw) {
   return Number.isFinite(parsed) ? parsed : undefined;
 }
 
-function resolveProfileStatus(profile) {
-  if (
+function resolveProfileStatus(
+  profile,
+  { markProfileComplete = false, existingStatus = null } = {},
+) {
+  const meetsCriteria =
     profile?.summary &&
     Array.isArray(profile.loanTypes) &&
     profile.loanTypes.length > 0 &&
     profile.minFunding &&
     profile.maxFunding &&
-    profile.statesSupported
-  ) {
+    profile.statesSupported;
+
+  if (!meetsCriteria) {
+    return "INCOMPLETE";
+  }
+
+  if (markProfileComplete) {
+    return "COMPLETED";
+  }
+
+  if (existingStatus === "COMPLETED") {
     return "COMPLETED";
   }
 
@@ -132,6 +144,7 @@ async function lenderUpdateProfileRoutes(fastify) {
         let state;
         let zip;
         let lenderType;
+        let markProfileComplete = false;
 
         await ensureLenderProfileFields();
 
@@ -261,6 +274,12 @@ async function lenderUpdateProfileRoutes(fastify) {
               case "lenderType":
                 lenderType = value;
                 sentFields.add("lenderType");
+                break;
+
+              case "markProfileComplete":
+                markProfileComplete =
+                  value === "true" || value === "1" || value === true;
+                sentFields.add("markProfileComplete");
                 break;
 
               default:
@@ -428,7 +447,7 @@ async function lenderUpdateProfileRoutes(fastify) {
 
         let lenderProfile = existingProfile;
 
-        if (Object.keys(profileData).length > 0) {
+        if (Object.keys(profileData).length > 0 || markProfileComplete) {
           const mergedProfile = {
             summary: sentFields.has("summary")
               ? profileData.summary
@@ -447,7 +466,10 @@ async function lenderUpdateProfileRoutes(fastify) {
               : existingProfile?.statesSupported,
           };
 
-          const profileStatus = resolveProfileStatus(mergedProfile);
+          const profileStatus = resolveProfileStatus(mergedProfile, {
+            markProfileComplete,
+            existingStatus: existingProfile?.profileStatus,
+          });
 
           lenderProfile = await prisma.lenderProfile.upsert({
             where: { lenderOrgId: organizationId },
@@ -458,7 +480,7 @@ async function lenderUpdateProfileRoutes(fastify) {
               isVisible: profileStatus === "COMPLETED",
             },
             update: {
-              ...profileData,
+              ...(Object.keys(profileData).length > 0 ? profileData : {}),
               profileStatus,
               isVisible: profileStatus === "COMPLETED",
             },

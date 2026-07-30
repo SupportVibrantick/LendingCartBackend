@@ -35,6 +35,14 @@ import {
   mapToCanonicalCatalogId,
   resolveLenderOfferedProductCode,
 } from "../../lib/lenderLoanProducts";
+import {
+  formatUSPhone,
+  formatUSZip,
+  isValidUSPhone,
+  isValidUSState,
+  isValidUSZip,
+  normalizeUSState,
+} from "../../lib/usAddressFormat";
 
 type Product = {
   id: string;
@@ -136,6 +144,22 @@ export default function EditFullProfile() {
     }
     if (!company.organizationEmail.trim()) {
       nextErrors.organizationEmail = "Contact email is required";
+    }
+
+    if (
+      company.organizationPhone.trim() &&
+      !isValidUSPhone(company.organizationPhone)
+    ) {
+      nextErrors.organizationPhone =
+        "Enter a valid US phone number (999-999-9999)";
+    }
+
+    if (company.zip.trim() && !isValidUSZip(company.zip)) {
+      nextErrors.zip = "Enter a valid US ZIP (12345 or 12345-6789)";
+    }
+
+    if (company.state.trim() && !isValidUSState(company.state)) {
+      nextErrors.state = "Select a valid US state";
     }
 
     setCompanyErrors(nextErrors);
@@ -325,13 +349,13 @@ export default function EditFullProfile() {
       firstName: user.firstName || "",
       lastName: user.lastName || "",
       organizationEmail: organization?.email || user.email || "",
-      organizationPhone: organization?.phone || "",
+      organizationPhone: formatUSPhone(organization?.phone || ""),
       website: lenderProfile?.website || "",
       nmls: lenderProfile?.nmls || "",
       address: lenderProfile?.address || "",
       city: lenderProfile?.city || "",
-      state: lenderProfile?.state || "",
-      zip: lenderProfile?.zip || "",
+      state: normalizeUSState(lenderProfile?.state || ""),
+      zip: formatUSZip(lenderProfile?.zip || ""),
       summary: lenderProfile?.summary || "",
       fundingSpeedDays: lenderProfile?.fundingSpeedDays
         ? String(lenderProfile.fundingSpeedDays)
@@ -398,7 +422,10 @@ export default function EditFullProfile() {
     });
   }, [form.loanPrograms, products]);
 
-  const saveCompanyProfile = async (showToast = true) => {
+  const saveCompanyProfile = async (
+    showToast = true,
+    markComplete = false,
+  ) => {
     if (!validateCompany()) {
       if (showToast) {
         toast.error("Please fix company information before saving.");
@@ -456,6 +483,10 @@ export default function EditFullProfile() {
       }
       if (allStates.size) {
         formData.append("statesSupported", Array.from(allStates).join(", "));
+      }
+
+      if (markComplete) {
+        formData.append("markProfileComplete", "true");
       }
 
       const response = await fetch(`${API_BASE}/lender/auth/profile`, {
@@ -639,6 +670,11 @@ export default function EditFullProfile() {
             },
           );
         }
+      }
+
+      const markedComplete = await saveCompanyProfile(false, true);
+      if (!markedComplete) {
+        throw new Error("Failed to mark profile as complete");
       }
 
       toast.success("Lender profile saved successfully");

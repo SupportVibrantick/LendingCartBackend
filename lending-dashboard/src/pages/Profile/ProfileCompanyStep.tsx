@@ -1,4 +1,9 @@
 import type { Dispatch, SetStateAction } from "react";
+import {
+  formatUSPhone,
+  formatUSZip,
+  US_STATE_OPTIONS,
+} from "../../lib/usAddressFormat";
 
 type CompanyForm = {
   companyName: string;
@@ -132,13 +137,22 @@ export default function ProfileCompanyStep({
             Phone
           </label>
           <input
-            placeholder="(555) 000-0000"
+            type="tel"
+            inputMode="numeric"
+            autoComplete="tel"
+            placeholder="999-999-9999"
+            maxLength={12}
             value={form.organizationPhone}
             onChange={(event) =>
-              handle("organizationPhone", event.target.value)
+              handle("organizationPhone", formatUSPhone(event.target.value))
             }
             className={fieldClass}
           />
+          {errors.organizationPhone && (
+            <p className="mt-1 text-xs text-red-500">
+              {errors.organizationPhone}
+            </p>
+          )}
         </div>
 
         <div>
@@ -192,12 +206,21 @@ export default function ProfileCompanyStep({
           <label className="text-sm font-medium text-gray-700 dark:text-slate-300">
             State
           </label>
-          <input
-            placeholder="e.g. CA"
+          <select
             value={form.state}
             onChange={(event) => handle("state", event.target.value)}
             className={fieldClass}
-          />
+          >
+            <option value="">Select state</option>
+            {US_STATE_OPTIONS.map((code) => (
+              <option key={code} value={code}>
+                {code}
+              </option>
+            ))}
+          </select>
+          {errors.state && (
+            <p className="mt-1 text-xs text-red-500">{errors.state}</p>
+          )}
         </div>
 
         <div>
@@ -205,10 +228,17 @@ export default function ProfileCompanyStep({
             ZIP
           </label>
           <input
+            inputMode="numeric"
+            autoComplete="postal-code"
+            placeholder="12345 or 12345-6789"
+            maxLength={10}
             value={form.zip}
-            onChange={(event) => handle("zip", event.target.value)}
+            onChange={(event) => handle("zip", formatUSZip(event.target.value))}
             className={fieldClass}
           />
+          {errors.zip && (
+            <p className="mt-1 text-xs text-red-500">{errors.zip}</p>
+          )}
         </div>
 
         <div>
