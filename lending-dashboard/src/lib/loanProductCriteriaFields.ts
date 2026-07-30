@@ -387,7 +387,7 @@ const DSCR_RENTAL_CRITERIA_FIELDS: CriteriaField[] = [
   { label: "Min Rate (%)", key: "minRate", required: true },
   { label: "Max Rate (%)", key: "maxRate", required: true },
   { label: "Max LTV (%)", key: "maxLtv", required: true },
-  { label: "Min DSCR", key: "minDscr", required: true, decimal: true },
+  { label: "Min DSCR", key: "minDscr", required: false, decimal: true },
   { label: "Min FICO Score", key: "fico", required: true },
   {
     label: "Min Term (years)",
@@ -439,7 +439,7 @@ const RENTAL_PORTFOLIO_CRITERIA_FIELDS: CriteriaField[] = [
   { label: "Min Rate (%)", key: "minRate", required: true },
   { label: "Max Rate (%)", key: "maxRate", required: true },
   { label: "Max LTV (%)", key: "maxLtv", required: true },
-  { label: "Min DSCR", key: "minDscr", required: true, decimal: true },
+  { label: "Min DSCR", key: "minDscr", required: false, decimal: true },
   { label: "Min FICO Score", key: "fico", required: true },
   {
     label: "Min Term (years)",
@@ -488,7 +488,7 @@ const CRE_PERMANENT_CRITERIA_FIELDS: CriteriaField[] = [
   { label: "Min Rate (%)", key: "minRate", required: true },
   { label: "Max Rate (%)", key: "maxRate", required: true },
   { label: "Max LTV (%)", key: "maxLtv", required: true },
-  { label: "Min DSCR", key: "minDscr", required: true, decimal: true },
+  { label: "Min DSCR", key: "minDscr", required: false, decimal: true },
   { label: "Min Debt Yield (%)", key: "minDebtYield", required: false },
   { label: "Min FICO Score", key: "fico", required: true },
   {
@@ -518,7 +518,7 @@ const CMBS_CRITERIA_FIELDS: CriteriaField[] = [
   { label: "Min Rate (%)", key: "minRate", required: true },
   { label: "Max Rate (%)", key: "maxRate", required: true },
   { label: "Max LTV (%)", key: "maxLtv", required: true },
-  { label: "Min DSCR", key: "minDscr", required: true, decimal: true },
+  { label: "Min DSCR", key: "minDscr", required: false, decimal: true },
   { label: "Min Debt Yield (%)", key: "minDebtYield", required: false },
   {
     label: "Min Term (years)",
@@ -552,7 +552,7 @@ const AGENCY_MULTIFAMILY_CRITERIA_FIELDS: CriteriaField[] = [
   { label: "Min Rate (%)", key: "minRate", required: true },
   { label: "Max Rate (%)", key: "maxRate", required: true },
   { label: "Max LTV (%)", key: "maxLtv", required: true },
-  { label: "Min DSCR", key: "minDscr", required: true, decimal: true },
+  { label: "Min DSCR", key: "minDscr", required: false, decimal: true },
   {
     label: "Min Term (years)",
     key: "minTerm",
@@ -621,7 +621,7 @@ const SBA_7A_COMMON_FIELDS: CriteriaField[] = [
   { label: "Max Rate Spread (%)", key: "maxRateSpread", required: true },
   { label: "SBA Guarantee (%)", key: "sbaGuaranteePercent", required: true },
   { label: "Min FICO Score", key: "fico", required: true },
-  { label: "Min DSCR", key: "minDscr", required: true, decimal: true },
+  { label: "Min DSCR", key: "minDscr", required: false, decimal: true },
   {
     label: "Personal Guarantee Required",
     key: "personalGuaranteeRequired",
@@ -817,7 +817,7 @@ const SBA_504_CRITERIA_FIELDS: CriteriaField[] = [
     key: "minTimeInBusiness",
     required: true,
   },
-  { label: "Min DSCR", key: "minDscr", required: true, decimal: true },
+  { label: "Min DSCR", key: "minDscr", required: false, decimal: true },
   {
     label: "Interest Rate",
     key: "interestRateNote",

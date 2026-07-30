@@ -51,7 +51,6 @@ function resolveProfileStatus(
   { markProfileComplete = false, existingStatus = null } = {},
 ) {
   const meetsCriteria =
-    profile?.summary &&
     Array.isArray(profile.loanTypes) &&
     profile.loanTypes.length > 0 &&
     profile.minFunding &&

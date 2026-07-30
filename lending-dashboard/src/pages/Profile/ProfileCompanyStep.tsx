@@ -259,7 +259,8 @@ export default function ProfileCompanyStep({
 
         <div className="md:col-span-2">
           <label className="text-sm font-medium text-gray-700 dark:text-slate-300">
-            Notes / Business Summary
+            Notes / Business Summary{" "}
+            <span className="text-xs font-normal text-slate-400">(Optional)</span>
           </label>
           <textarea
             rows={4}

@@ -5,6 +5,10 @@ import toast from "react-hot-toast";
 import { API_BASE, getLenderAuthHeaders } from "../../lib/lenderApi";
 import { formatCompactAmount } from "../../lib/loanPipelineUtils";
 import { canManageLenderProfile } from "../../lib/lenderPermissions";
+import {
+  getProfileCompletionGaps,
+  isLenderProfileComplete,
+} from "../../lib/profileCompletion";
 
 type LoanProductRow = {
   id: string;
@@ -46,10 +50,6 @@ function parseRateRange(value?: string | null) {
   return { min: min?.trim() || "", max: max?.trim() || "" };
 }
 
-function isProfileComplete(status: string) {
-  return status === "COMPLETED";
-}
-
 export default function LenderProfileView() {
   const location = useLocation();
   const canManageProfile = canManageLenderProfile();
@@ -63,9 +63,31 @@ export default function LenderProfileView() {
   const [website, setWebsite] = useState("");
   const [minFunding, setMinFunding] = useState<number | null>(null);
   const [maxFunding, setMaxFunding] = useState<number | null>(null);
+  const [loanTypes, setLoanTypes] = useState<string[]>([]);
+  const [statesSupported, setStatesSupported] = useState("");
   const [loanProducts, setLoanProducts] = useState<LoanProductRow[]>([]);
 
-  const profileComplete = isProfileComplete(profileStatus);
+  const profileComplete = isLenderProfileComplete(profileStatus);
+
+  const completionGaps = useMemo(
+    () =>
+      getProfileCompletionGaps({
+        summary,
+        loanTypes,
+        minFunding,
+        maxFunding,
+        statesSupported,
+        profileStatus,
+      }),
+    [
+      summary,
+      loanTypes,
+      minFunding,
+      maxFunding,
+      statesSupported,
+      profileStatus,
+    ],
+  );
 
   const productSummary = useMemo(() => {
     const active = loanProducts.filter((product) => product.isActive !== false);
@@ -134,6 +156,10 @@ export default function LenderProfileView() {
       setMaxFunding(
         lenderProfile?.maxFunding ? Number(lenderProfile.maxFunding) : null,
       );
+      setLoanTypes(
+        Array.isArray(lenderProfile?.loanTypes) ? lenderProfile.loanTypes : [],
+      );
+      setStatesSupported(lenderProfile?.statesSupported || "");
 
       if (productsRes.ok && productsJson.success) {
         setLoanProducts(productsJson.data || []);
@@ -198,6 +224,19 @@ export default function LenderProfileView() {
           )}
         </div>
       </div>
+
+      {!profileComplete && completionGaps.length > 0 && canManageProfile && (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 dark:border-amber-500/30 dark:bg-amber-500/10">
+          <p className="text-sm font-semibold text-amber-900 dark:text-amber-100">
+            To mark your profile complete:
+          </p>
+          <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-amber-800 dark:text-amber-200">
+            {completionGaps.map((gap) => (
+              <li key={gap}>{gap}</li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <div className="border-b border-slate-100 bg-gradient-to-r from-[#134E4A] to-[#0f766e] px-6 py-5 dark:border-slate-800">
