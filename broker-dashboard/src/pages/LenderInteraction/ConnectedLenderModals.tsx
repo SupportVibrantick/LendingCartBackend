@@ -31,17 +31,25 @@ import {
   fetchRecentPipelineSubmissions,
   formatCompactMoney,
   formatCurrency,
+  formatDisplayPhone,
+  formatFundingTime,
+  formatLenderType,
+  formatLoanAmountRange,
   formatLoanTypeLabel,
+  formatStatesSummary,
   getLenderDisplayName,
+  mergeDiscoverProfile,
   parseDelimitedList,
   parseStatesList,
   resolveLenderLogoUrl,
   sendSubmissionToLenders,
+  abbreviateStateCode,
   type ConnectedLender,
   type DiscoverLender,
   type EligibleLenderMatch,
   type LenderFullProfile,
   type LenderProduct,
+  type LenderProfileProduct,
   type PipelineSubmissionOption,
 } from "../../lib/lenderMarketplaceApi";
 
@@ -492,18 +500,21 @@ export function LenderDiscoverProfileModal({
 }) {
   const [detail, setDetail] = useState<LenderFullProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       setLoading(true);
+      setLoadFailed(false);
       try {
         const data = await fetchLenderProfile(lender.id);
         if (!cancelled) setDetail(data);
       } catch (err: any) {
         if (!cancelled) {
-          toast.error(err.message || "Failed to load profile");
+          setLoadFailed(true);
           setDetail(null);
+          toast.error(err.message || "Failed to load full profile");
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -514,38 +525,61 @@ export function LenderDiscoverProfileModal({
     };
   }, [lender.id]);
 
-  const profile = detail?.profile;
-  const states = parseStatesList(profile?.statesSupported);
-  const industries = parseDelimitedList(profile?.industries);
-  const products = detail?.products ?? [];
-  const documentsRequired = detail?.documentsRequired ?? [];
-  const fallbackLoanTypes = (profile?.loanTypes || lender.loanTypes).map(
-    formatLoanTypeLabel,
+  const profile = useMemo(
+    () => mergeDiscoverProfile(detail, lender),
+    [detail, lender],
   );
+
+  const states = useMemo(
+    () => parseStatesList(profile.statesSupported),
+    [profile.statesSupported],
+  );
+  const stateSummary = useMemo(
+    () => formatStatesSummary(states),
+    [states],
+  );
+  const industries = useMemo(
+    () => parseDelimitedList(profile.industries),
+    [profile.industries],
+  );
+  const products = detail?.products ?? [];
+  const fallbackLoanTypes = (profile.loanTypes || []).map(formatLoanTypeLabel);
   const isEligible =
-    profile?.profileStatus === "COMPLETED" || lender.isEligible;
+    profile.profileStatus === "COMPLETED" || lender.isEligible;
   const displayName = getLenderDisplayName(
     detail?.name || lender.name,
     detail?.brandName || lender.brandName,
   );
+  const formattedPhone = formatDisplayPhone(detail?.phone || lender.phone);
 
   const locationLine = [
-    profile?.address,
-    profile?.city,
-    profile?.state,
-    profile?.zip,
+    profile.address,
+    profile.city,
+    profile.state,
+    profile.zip,
   ]
     .filter(Boolean)
     .join(", ");
 
   const criteriaBlocks = [
-    { label: "Lending Criteria", value: profile?.lendingCriteria },
-    { label: "Guidelines", value: profile?.lendingGuidelines },
-    { label: "Credit Requirements", value: profile?.creditRequirements },
-    { label: "Property Requirements", value: profile?.propertyRequirements },
+    { label: "Lending Criteria", value: profile.lendingCriteria },
+    { label: "Guidelines", value: profile.lendingGuidelines },
+    { label: "Credit Requirements", value: profile.creditRequirements },
+    { label: "Property Requirements", value: profile.propertyRequirements },
   ].filter((block) => block.value?.trim());
 
-  const profileFooter = !loading && profile && (
+  const hasFundingMetrics =
+    Boolean(profile.fundingSpeedDays) ||
+    Boolean(profile.minFunding) ||
+    Boolean(profile.maxFunding);
+
+  const hasContactInfo =
+    Boolean(formattedPhone) ||
+    Boolean(detail?.email || lender.email) ||
+    Boolean(profile.website) ||
+    Boolean(locationLine);
+
+  const profileFooter = !loading && (
     <div className="flex flex-col sm:flex-row gap-3">
       <button
         type="button"
@@ -582,12 +616,15 @@ export function LenderDiscoverProfileModal({
     >
       {loading ? (
         <ProfileModalSkeleton />
-      ) : !profile ? (
-        <div className="py-12 text-center text-slate-500">
-          Unable to load profile details.
-        </div>
       ) : (
         <div className="space-y-5 pb-2">
+          {loadFailed && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
+              Showing summary from marketplace listing. Some details may be
+              limited until the full profile loads.
+            </div>
+          )}
+
           {/* Logo + Company */}
           <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-gradient-to-br from-slate-50 to-blue-50/30 dark:from-slate-800/60 dark:to-blue-500/5 p-5">
             <div className="flex flex-col sm:flex-row gap-4">
@@ -618,7 +655,7 @@ export function LenderDiscoverProfileModal({
                   )}
                   {profile.lenderType && (
                     <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-white/80 dark:bg-slate-900/80 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
-                      {profile.lenderType}
+                      {formatLenderType(profile.lenderType)}
                     </span>
                   )}
                 </div>
@@ -633,9 +670,10 @@ export function LenderDiscoverProfileModal({
                     {states.map((st) => (
                       <span
                         key={st}
+                        title={st}
                         className="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-300 border border-blue-100 dark:border-blue-500/20"
                       >
-                        {st}
+                        {abbreviateStateCode(st)}
                       </span>
                     ))}
                   </div>
@@ -644,36 +682,41 @@ export function LenderDiscoverProfileModal({
             </div>
           </div>
 
+          {/* Quick metrics */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <FundingMetric
+              label="Loan Range"
+              value={formatLoanAmountRange(
+                profile.minFunding,
+                profile.maxFunding,
+              )}
+            />
+            <FundingMetric
+              label="Funding Speed"
+              value={formatFundingTime(profile.fundingSpeedDays)}
+            />
+            <FundingMetric
+              label="States Served"
+              value={stateSummary.display}
+              title={stateSummary.tooltip || undefined}
+            />
+          </div>
+
           {/* About */}
-          <ProfileBlock icon={<Building2 size={16} />} title="About">
-            <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">
-              {profile.summary?.trim() || "No description provided."}
-            </p>
-          </ProfileBlock>
+          {profile.summary?.trim() && (
+            <ProfileBlock icon={<Building2 size={16} />} title="About">
+              <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">
+                {profile.summary.trim()}
+              </p>
+            </ProfileBlock>
+          )}
 
           {/* Loan Products */}
           <ProfileBlock icon={<Layers size={16} />} title="Loan Products">
             {products.length > 0 ? (
               <div className="space-y-2">
                 {products.map((product) => (
-                  <div
-                    key={product.id}
-                    className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 p-3.5"
-                  >
-                    <p className="font-semibold text-sm text-slate-900 dark:text-white">
-                      {product.loanProductName}
-                    </p>
-                    <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
-                      {(product.minLoanAmount || product.maxLoanAmount) && (
-                        <span>
-                          {formatCompactMoney(String(product.minLoanAmount ?? ""))}
-                          {" – "}
-                          {formatCompactMoney(String(product.maxLoanAmount ?? ""))}
-                        </span>
-                      )}
-                      {product.termRange && <span>{product.termRange}</span>}
-                    </div>
-                  </div>
+                  <DiscoverProductCard key={product.id} product={product} />
                 ))}
               </div>
             ) : fallbackLoanTypes.length > 0 ? (
@@ -693,8 +736,8 @@ export function LenderDiscoverProfileModal({
           </ProfileBlock>
 
           {/* Criteria */}
-          <ProfileBlock icon={<FileText size={16} />} title="Criteria">
-            {criteriaBlocks.length > 0 ? (
+          {criteriaBlocks.length > 0 && (
+            <ProfileBlock icon={<FileText size={16} />} title="Criteria">
               <div className="space-y-3">
                 {criteriaBlocks.map((block) => (
                   <div key={block.label}>
@@ -707,63 +750,42 @@ export function LenderDiscoverProfileModal({
                   </div>
                 ))}
               </div>
-            ) : (
-              <p className="text-sm text-slate-500">No criteria specified.</p>
-            )}
-          </ProfileBlock>
-
-          {/* Documents Required */}
-          <ProfileBlock icon={<FileText size={16} />} title="Documents Required">
-            {documentsRequired.length > 0 ? (
-              <ul className="grid gap-2 sm:grid-cols-2">
-                {documentsRequired.map((doc) => (
-                  <li
-                    key={doc.id}
-                    className="flex items-center gap-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-800/40 px-3 py-2 text-sm text-slate-700 dark:text-slate-200"
-                  >
-                    <span className="h-1.5 w-1.5 rounded-full bg-blue-500 shrink-0" />
-                    {doc.name || doc.code || "Document"}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-sm text-slate-500">
-                Document requirements will be shared after connection.
-              </p>
-            )}
-          </ProfileBlock>
-
-          {/* Funding Time */}
-          <ProfileBlock icon={<Clock size={16} />} title="Funding Time">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <FundingMetric
-                label="Typical Speed"
-                value={
-                  profile.fundingSpeedDays
-                    ? `${profile.fundingSpeedDays} days`
-                    : "—"
-                }
-              />
-              <FundingMetric
-                label="Min Funding"
-                value={formatCompactMoney(String(profile.minFunding ?? ""))}
-              />
-              <FundingMetric
-                label="Max Funding"
-                value={formatCompactMoney(String(profile.maxFunding ?? ""))}
-              />
-            </div>
-          </ProfileBlock>
+            </ProfileBlock>
+          )}
 
           {/* Contact */}
-          <ProfileBlock icon={<Phone size={16} />} title="Contact">
-            {(detail?.phone || detail?.email || profile.website || locationLine) ? (
+          {hasFundingMetrics && !profile.fundingSpeedDays && (
+            <ProfileBlock icon={<Clock size={16} />} title="Funding">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <FundingMetric
+                  label="Min Funding"
+                  value={formatCompactMoney(String(profile.minFunding ?? ""))}
+                />
+                <FundingMetric
+                  label="Max Funding"
+                  value={formatCompactMoney(String(profile.maxFunding ?? ""))}
+                />
+              </div>
+            </ProfileBlock>
+          )}
+
+          {/* Contact */}
+          {hasContactInfo && (
+            <ProfileBlock icon={<Phone size={16} />} title="Contact">
               <div className="grid gap-3 sm:grid-cols-2">
-                {detail.phone && (
-                  <ContactRow icon={<Phone size={14} />} label="Phone" value={detail.phone} />
+                {formattedPhone && (
+                  <ContactRow
+                    icon={<Phone size={14} />}
+                    label="Phone"
+                    value={formattedPhone}
+                  />
                 )}
-                {detail.email && (
-                  <ContactRow icon={<Mail size={14} />} label="Email" value={detail.email} />
+                {(detail?.email || lender.email) && (
+                  <ContactRow
+                    icon={<Mail size={14} />}
+                    label="Email"
+                    value={detail?.email || lender.email || ""}
+                  />
                 )}
                 {profile.website && (
                   <ContactRow
@@ -794,26 +816,104 @@ export function LenderDiscoverProfileModal({
                   />
                 )}
               </div>
-            ) : (
-              <p className="text-sm text-slate-500">Contact details not available.</p>
-            )}
-          </ProfileBlock>
-
-          {/* Reviews (Future) */}
-          <ProfileBlock icon={<Star size={16} />} title="Reviews">
-            <div className="rounded-xl border border-dashed border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/30 px-4 py-6 text-center">
-              <Star size={20} className="mx-auto text-slate-300 dark:text-slate-600 mb-2" />
-              <p className="text-sm font-medium text-slate-600 dark:text-slate-300">
-                Coming soon
-              </p>
-              <p className="text-xs text-slate-400 mt-1">
-                Broker reviews and ratings will appear here.
-              </p>
-            </div>
-          </ProfileBlock>
+            </ProfileBlock>
+          )}
         </div>
       )}
     </ModalShell>
+  );
+}
+
+function DiscoverProductCard({ product }: { product: LenderProfileProduct }) {
+  const productStates = formatStatesSummary(
+    parseStatesList(product.statesSupported),
+  );
+  const documents = product.documents ?? [];
+
+  return (
+    <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 p-3.5">
+      <p className="font-semibold text-sm text-slate-900 dark:text-white">
+        {product.loanProductName}
+      </p>
+      <div className="mt-2 flex flex-wrap gap-2">
+        {(product.minLoanAmount || product.maxLoanAmount) && (
+          <ProductFact
+            label="Amount"
+            value={formatLoanAmountRange(
+              product.minLoanAmount,
+              product.maxLoanAmount,
+            )}
+          />
+        )}
+        {product.termRange && (
+          <ProductFact label="Term" value={product.termRange} />
+        )}
+        {product.interestRateRange && (
+          <ProductFact label="Rate" value={product.interestRateRange} />
+        )}
+        {product.minCreditScore != null && (
+          <ProductFact label="Min FICO" value={String(product.minCreditScore)} />
+        )}
+        {product.minDscr != null && product.minDscr !== "" && (
+          <ProductFact label="Min DSCR" value={`${product.minDscr}x`} />
+        )}
+        {productStates.display !== "—" && (
+          <ProductFact
+            label="States"
+            value={productStates.display}
+            title={productStates.tooltip || undefined}
+          />
+        )}
+      </div>
+
+      {documents.length > 0 && (
+        <div className="mt-3 border-t border-slate-100 pt-3 dark:border-slate-800">
+          <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400 mb-2">
+            Required Documents
+          </p>
+          <ul className="grid gap-1.5 sm:grid-cols-2">
+            {documents.map((doc) => (
+              <li
+                key={doc.id}
+                className="flex items-center gap-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-800/40 px-2.5 py-2 text-xs text-slate-700 dark:text-slate-200"
+              >
+                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500" />
+                <span className="min-w-0 truncate">
+                  {doc.name || doc.code || "Document"}
+                </span>
+                {doc.isRequired === false && (
+                  <span className="ml-auto shrink-0 text-[10px] text-slate-400">
+                    Optional
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ProductFact({
+  label,
+  value,
+  title,
+}: {
+  label: string;
+  value: string;
+  title?: string;
+}) {
+  return (
+    <span
+      title={title}
+      className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-2.5 py-1 text-[11px] text-slate-600 dark:bg-slate-800 dark:text-slate-300"
+    >
+      <span className="font-semibold uppercase tracking-wide text-slate-400">
+        {label}
+      </span>
+      {value}
+    </span>
   );
 }
 
@@ -839,9 +939,20 @@ function ProfileBlock({
   );
 }
 
-function FundingMetric({ label, value }: { label: string; value: string }) {
+function FundingMetric({
+  label,
+  value,
+  title,
+}: {
+  label: string;
+  value: string;
+  title?: string;
+}) {
   return (
-    <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/40 px-4 py-3">
+    <div
+      title={title}
+      className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/40 px-4 py-3"
+    >
       <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
         {label}
       </p>

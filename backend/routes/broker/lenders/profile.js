@@ -114,36 +114,35 @@ async function lenderProfileRoutes(fastify) {
       }
 
       const p = lender.lenderProfile;
-      const activeProducts = (lender.lenderProducts || []).map((product) => ({
-        id: product.id,
-        loanProductCode: product.loanProductCode,
-        loanProductName: product.loanProduct?.name || product.loanProductCode,
-        minLoanAmount: product.minLoanAmount,
-        maxLoanAmount: product.maxLoanAmount,
-        termRange:
-          product.minTermMonths && product.maxTermMonths
-            ? `${product.minTermMonths}–${product.maxTermMonths} months`
-            : null,
-        documents: mapLenderDocumentRequirements(
+      const activeProducts = (lender.lenderProducts || []).map((product) => {
+        const documents = mapLenderDocumentRequirements(
           product.lenderDocumentRequirements,
-        ),
-      }));
+        );
 
-      const documentsRequired = [];
-      const seenDocIds = new Set();
-      for (const product of activeProducts) {
-        for (const doc of product.documents) {
-          const docId = doc.documentTypeId || doc.id;
-          if (!docId || seenDocIds.has(docId)) continue;
-          seenDocIds.add(docId);
-          documentsRequired.push({
-            id: docId,
+        return {
+          id: product.id,
+          loanProductCode: product.loanProductCode,
+          loanProductName: product.loanProduct?.name || product.loanProductCode,
+          minLoanAmount:
+            product.minLoanAmount?.toString?.() ?? product.minLoanAmount,
+          maxLoanAmount:
+            product.maxLoanAmount?.toString?.() ?? product.maxLoanAmount,
+          minCreditScore: product.minCreditScore ?? null,
+          minDscr: product.minDscr?.toString?.() ?? product.minDscr ?? null,
+          interestRateRange: product.interestRateRange ?? null,
+          statesSupported: product.statesSupported ?? null,
+          termRange:
+            product.minTermMonths && product.maxTermMonths
+              ? `${product.minTermMonths}–${product.maxTermMonths} months`
+              : null,
+          documents: documents.map((doc) => ({
+            id: doc.documentTypeId || doc.id,
             name: doc.documentName || doc.name,
             code: doc.documentCode,
-            isRequired: doc.isRequired,
-          });
-        }
-      }
+            isRequired: doc.isRequired ?? true,
+          })),
+        };
+      });
 
       return reply.send({
         success: true,
@@ -157,8 +156,7 @@ async function lenderProfileRoutes(fastify) {
           brandLogoUrl: lender.lenderBrandingSettings?.logoUrl || null,
           brandName: lender.lenderBrandingSettings?.brandName || null,
           profileImage: lender.users[0]?.profileImage || null,
-          products: activeProducts.map(({ documents, ...product }) => product),
-          documentsRequired,
+          products: activeProducts,
           profile: {
             summary: p.summary,
             loanTypes: p.loanTypes,

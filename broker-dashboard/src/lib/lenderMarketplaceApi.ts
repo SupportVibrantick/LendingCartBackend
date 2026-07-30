@@ -555,7 +555,12 @@ export type LenderProfileProduct = {
   loanProductName: string;
   minLoanAmount?: string | number | null;
   maxLoanAmount?: string | number | null;
+  minCreditScore?: number | null;
+  minDscr?: string | number | null;
+  interestRateRange?: string | null;
+  statesSupported?: string | null;
   termRange?: string | null;
+  documents?: LenderProfileDocument[];
 };
 
 export type LenderProfileDocument = {
@@ -783,4 +788,59 @@ export function formatLoanTypeLabel(code: string) {
     .replace(/_/g, " ")
     .toLowerCase()
     .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+export function formatLenderType(value?: string | null) {
+  if (!value?.trim()) return "";
+  const map: Record<string, string> = {
+    bank: "Bank",
+    hard_money: "Hard Money",
+    private: "Private Lender",
+    credit_union: "Credit Union",
+    nbfc: "NBFC",
+  };
+  const key = value.trim().toLowerCase();
+  return (
+    map[key] ||
+    value
+      .replace(/_/g, " ")
+      .replace(/\b\w/g, (char) => char.toUpperCase())
+  );
+}
+
+export function formatDisplayPhone(value?: string | null) {
+  if (!value?.trim()) return "";
+  const digits = value.replace(/\D/g, "").slice(0, 10);
+  if (digits.length !== 10) return value.trim();
+  return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
+}
+
+export function mergeDiscoverProfile(
+  detail: LenderFullProfile | null,
+  lender: DiscoverLender,
+): LenderFullProfile["profile"] & { loanTypes: string[] } {
+  const profile = detail?.profile;
+  return {
+    summary: profile?.summary ?? lender.summary ?? null,
+    loanTypes:
+      profile?.loanTypes?.length ? profile.loanTypes : lender.loanTypes ?? [],
+    minFunding: profile?.minFunding ?? lender.minFunding ?? null,
+    maxFunding: profile?.maxFunding ?? lender.maxFunding ?? null,
+    statesSupported: profile?.statesSupported ?? lender.statesSupported ?? null,
+    industries: profile?.industries ?? lender.industries ?? null,
+    fundingSpeedDays:
+      profile?.fundingSpeedDays ?? lender.fundingSpeedDays ?? null,
+    profileStatus: profile?.profileStatus ?? lender.profileStatus,
+    lendingCriteria: profile?.lendingCriteria ?? null,
+    lendingGuidelines: profile?.lendingGuidelines ?? null,
+    creditRequirements: profile?.creditRequirements ?? null,
+    propertyRequirements: profile?.propertyRequirements ?? null,
+    website: profile?.website ?? null,
+    nmls: profile?.nmls ?? null,
+    address: profile?.address ?? null,
+    city: profile?.city ?? null,
+    state: profile?.state ?? null,
+    zip: profile?.zip ?? null,
+    lenderType: profile?.lenderType ?? null,
+  };
 }
