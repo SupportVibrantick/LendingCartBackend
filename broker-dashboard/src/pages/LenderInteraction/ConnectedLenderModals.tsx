@@ -21,7 +21,6 @@ import {
   RefreshCcw,
   Search,
   Send,
-  Star,
   X,
 } from "lucide-react";
 import {
