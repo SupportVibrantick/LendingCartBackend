@@ -1,4 +1,6 @@
 import {
+  getCriteriaFieldInputSuffix,
+  getCriteriaFieldsForProduct,
   isAgencyMultifamilyProduct,
   isApSupplyChainProduct,
   isArFactoringProduct,
@@ -21,6 +23,8 @@ import {
   isSba7aRealEstateProduct,
   isSba7aWorkingCapitalProduct,
   isUsdaBiProduct,
+  mapApiProductToCriteriaForm,
+  type CriteriaField,
 } from "./loanProductCriteriaFields";
 
 type ProductLike = {
@@ -268,4 +272,115 @@ export const formatListKeyCriteria = (
   appendProductHighlights(product, productCode, parts);
 
   return parts.length ? parts.join(" · ") : "-";
+};
+
+export type LoanProductDetailRow = {
+  label: string;
+  value: string;
+  fullWidth?: boolean;
+};
+
+const DETAIL_EMPTY = "-";
+
+const CURRENCY_FIELD_KEYS = new Set([
+  "minLoan",
+  "maxLoan",
+  "minFacilitySize",
+  "maxFacilitySize",
+  "minProgramSize",
+  "maxProgramSize",
+  "minAnnualRevenue",
+  "maxTotalProject",
+  "maxSba504Debenture",
+  "maxUsdaGuarantee",
+]);
+
+const formatDetailCurrency = (
+  value: unknown,
+  formatAmount: AmountFormatter,
+) => {
+  const parsed = Number(String(value ?? "").replace(/,/g, ""));
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return DETAIL_EMPTY;
+  }
+
+  return formatAmount(parsed);
+};
+
+const formatDetailFieldValue = (
+  field: CriteriaField,
+  criteria: Record<string, unknown>,
+  formatAmount: AmountFormatter,
+) => {
+  const raw = criteria[field.key];
+  const fieldType = field.type || "number";
+
+  if (fieldType === "toggle") {
+    if (raw === true) return "Yes";
+    if (raw === false) return "No";
+    return DETAIL_EMPTY;
+  }
+
+  if (fieldType === "textarea" || fieldType === "text") {
+    const text = typeof raw === "string" ? raw.trim() : "";
+    return text || DETAIL_EMPTY;
+  }
+
+  if (raw === null || raw === undefined || raw === "") {
+    return DETAIL_EMPTY;
+  }
+
+  if (CURRENCY_FIELD_KEYS.has(field.key)) {
+    return formatDetailCurrency(raw, formatAmount);
+  }
+
+  const suffix = getCriteriaFieldInputSuffix(field);
+  if (suffix === "%") {
+    return formatPercentDisplay(raw);
+  }
+
+  if (suffix === "x" || field.key === "minDscr") {
+    return String(raw);
+  }
+
+  if (suffix === "yr" || field.label.includes("(years)")) {
+    return `${raw} years`;
+  }
+
+  if (field.label.includes("(months)")) {
+    return `${raw} months`;
+  }
+
+  if (field.label.includes("(days)")) {
+    return `${raw} days`;
+  }
+
+  return String(raw);
+};
+
+export const formatLoanProductCode = (product: ProductLike) => {
+  const code = resolveProductCode(product);
+  if (!code) return DETAIL_EMPTY;
+
+  return code
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+};
+
+export const buildLoanProductDetailFields = (
+  product: ProductLike & Record<string, unknown>,
+  formatAmount: AmountFormatter,
+): LoanProductDetailRow[] => {
+  const productCode = resolveProductCode(product);
+  const criteria = mapApiProductToCriteriaForm({
+    ...product,
+    loanProductCode: productCode,
+    code: productCode,
+  });
+
+  return getCriteriaFieldsForProduct(productCode).map((field) => ({
+    label: field.label,
+    value: formatDetailFieldValue(field, criteria, formatAmount),
+    fullWidth: field.type === "textarea",
+  }));
 };

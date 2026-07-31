@@ -8,12 +8,10 @@ import StepFour from "./LoanCriteria/StepFour";
 import StepFive from "./LoanCriteria/StepFive";
 import EquipmentFinancingStep from "./LoanCriteria/EquipmentFinancingStep";
 import {
-  buildLenderProductCriteriaPayload,
-  getRequiredCriteriaKeysForProduct,
-  isMezzanineProduct,
-  isNoMinLoanCriteriaProduct,
-  isSba504Product,
+  getLoanCriteriaFooterMessage,
+  validateLoanProductCriteriaStep,
 } from "../../lib/loanProductCriteriaFields";
+import { mapToLenderProductUpdatePayload } from "../../lib/lenderProductLenderPayload";
 import { mapToCanonicalCatalogId } from "../../lib/lenderLoanProducts";
 
 type FormType = {
@@ -161,66 +159,20 @@ export default function AddLoanProduct() {
   const loanCriteriaStepIndex = steps.length - 1;
   const isLastStep = step === steps.length - 1;
 
-  const validateStep5 = () => {
-    for (const product of selectedProducts) {
-      const data = form.loanCriteria?.[product.id];
-
-      if (!data) {
-        return `Please fill details for ${product.name}`;
-      }
-
-      const requiredFields = getRequiredCriteriaKeysForProduct(product.code);
-
-      for (const field of requiredFields) {
-        if (!data[field] && data[field] !== 0) {
-          return `${product.name}: ${field} is required`;
-        }
-      }
-
-      if (!data.states || data.states.length === 0) {
-        return `${product.name}: Select at least one state`;
-      }
-
-      // if (!data.documents || data.documents.length === 0) {
-      //   return `${product.name}: Select at least one required document`;
-      // }
-
-      if (isSba504Product(product.code)) {
-        const total = Number(data.maxTotalProject);
-        const debenture = Number(data.maxSba504Debenture);
-        if (
-          data.maxTotalProject &&
-          data.maxSba504Debenture &&
-          debenture > total
-        ) {
-          return `${product.name}: SBA 504 debenture cannot exceed total project amount`;
-        }
-      } else if (
-        !isNoMinLoanCriteriaProduct(product.code) &&
-        !isMezzanineProduct(product.code)
-      ) {
-        const minAmount = Number(
-          data.minFacilitySize ?? data.minProgramSize ?? data.minLoan,
-        );
-        const maxAmount = Number(
-          data.maxFacilitySize ?? data.maxProgramSize ?? data.maxLoan,
-        );
-
-        if (
-          Number.isFinite(minAmount) &&
-          Number.isFinite(maxAmount) &&
-          minAmount > maxAmount
-        ) {
-          return `${product.name}: Minimum amount cannot exceed maximum amount`;
-        }
-      }
-    }
-
-    return null;
-  };
+  const footerValidationMessage =
+    step === loanCriteriaStepIndex
+      ? getLoanCriteriaFooterMessage(
+          selectedProducts,
+          form.loanCriteria,
+          hasStep5Errors,
+        )
+      : null;
 
   const handleSubmit = async () => {
-    const step5Error = validateStep5();
+    const step5Error = validateLoanProductCriteriaStep(
+      selectedProducts,
+      form.loanCriteria,
+    );
     if (step5Error) {
       toast.error(step5Error);
       return;
@@ -237,19 +189,9 @@ export default function AddLoanProduct() {
       const headers = getAuthHeaders();
 
       for (const product of selectedProducts) {
-        const criteria = form.loanCriteria?.[product.id] || {};
+        const criteria = form.loanCriteria?.[String(product.id)] || {};
 
-        const payload = {
-          loanProductCode: product.code,
-          businessTypes: form.businessTypes,
-          propertyTypes: form.propertyTypes,
-          ...buildLenderProductCriteriaPayload(criteria, product.code),
-          ...(product.code === "EQUIPMENT_FINANCE" &&
-            form.equipmentFinance?.length && {
-              equipmentTypes: form.equipmentFinance,
-            }),
-          isActive: true,
-        };
+        const payload = mapToLenderProductUpdatePayload(product, form, criteria);
 
         const res = await fetch(`${API_BASE}/lender/loan-products/create`, {
           method: "POST",
@@ -377,13 +319,10 @@ export default function AddLoanProduct() {
     return null;
   };
 
-  const step5ValidationMessage =
-    step === loanCriteriaStepIndex ? validateStep5() : null;
-
   const nextDisabled =
     (!isLastStep && step === 0 && form.loanPrograms.length === 0) ||
-    (step === loanCriteriaStepIndex && hasStep5Errors) ||
-    (isLastStep && step5ValidationMessage !== null) ||
+    (step === loanCriteriaStepIndex &&
+      (hasStep5Errors || footerValidationMessage !== null)) ||
     submitting;
 
   return (
@@ -462,8 +401,10 @@ export default function AddLoanProduct() {
             Step <span className="font-semibold text-gray-700">{step + 1}</span>{" "}
             of{" "}
             <span className="font-semibold text-gray-700">{steps.length}</span>
-            {isLastStep && step5ValidationMessage && (
-              <p className="mt-1 text-red-600">{step5ValidationMessage}</p>
+            {footerValidationMessage && (
+              <p className="mt-1 max-w-xl text-sm text-red-600">
+                {footerValidationMessage}
+              </p>
             )}
           </div>
 

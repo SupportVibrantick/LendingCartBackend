@@ -9,12 +9,9 @@ import StepFour from "./LoanCriteria/StepFour";
 import StepFive from "./LoanCriteria/StepFive";
 import EquipmentFinancingStep from "./LoanCriteria/EquipmentFinancingStep";
 import {
-  getDefaultCriteriaValuesForProduct,
-  getRequiredCriteriaKeysForProduct,
-  isMezzanineProduct,
-  isNoMinLoanCriteriaProduct,
-  isSba504Product,
+  getLoanCriteriaFooterMessage,
   mapApiProductToCriteriaForm,
+  validateLoanProductCriteriaStep,
 } from "../../lib/loanProductCriteriaFields";
 import {
   mapToLenderProductUpdatePayload,
@@ -22,8 +19,11 @@ import {
   normalizeGroupedSelectionFromApi,
 } from "../../lib/lenderProductLenderPayload";
 import {
+  buildLoanCriteriaFromLenderProducts,
   filterLenderCatalogProducts,
   mapToCanonicalCatalogId,
+  mergeCriteriaForms,
+  normalizeLenderProductRecord,
   resolveLenderOfferedProductCode,
 } from "../../lib/lenderLoanProducts";
 
@@ -68,6 +68,61 @@ function getAuthHeaders(): Record<string, string> {
 
 function getProgramId(record: LenderProductRecord) {
   return String(record.loanProductId || record.loanProduct?.id || "");
+}
+
+async function fetchAllLenderProducts(
+  headers: Record<string, string>,
+): Promise<LenderProductRecord[]> {
+  const allItems: LenderProductRecord[] = [];
+  let page = 1;
+  let totalPages = 1;
+
+  do {
+    const res = await fetch(
+      `${API_BASE}/lender/loan-products/list?page=${page}&limit=100`,
+      { headers },
+    );
+
+    const raw = await res.text();
+    let json: Record<string, unknown> = {};
+
+    try {
+      json = raw ? JSON.parse(raw) : {};
+    } catch {
+      throw new Error(
+        "Could not load your loan programs. Please refresh and try again.",
+      );
+    }
+
+    if (!res.ok || !json.success) {
+      throw new Error(
+        (typeof json.message === "string" ? json.message : undefined) ||
+          "Failed to load loan products",
+      );
+    }
+
+    allItems.push(...((json.data || []) as LenderProductRecord[]));
+    totalPages = Number((json.meta as { totalPages?: number })?.totalPages) || 1;
+    page += 1;
+  } while (page <= totalPages);
+
+  return allItems;
+}
+
+async function fetchLenderProductById(
+  id: string,
+  headers: Record<string, string>,
+): Promise<LenderProductRecord | null> {
+  const res = await fetch(`${API_BASE}/lender/loan-products/${id}`, {
+    headers,
+  });
+
+  if (!res.ok) {
+    return null;
+  }
+
+  const json = await res.json().catch(() => ({}));
+  return json?.data ? (json.data as LenderProductRecord) : null;
 }
 
 async function syncDocumentConfigs(
@@ -152,7 +207,10 @@ export default function UpdateLoanProduct() {
   });
 
   const selectedProducts = useMemo(
-    () => products.filter((p) => form.loanPrograms.includes(p.id)),
+    () =>
+      products.filter((p) =>
+        form.loanPrograms.includes(String(p.id)),
+      ),
     [products, form.loanPrograms],
   );
 
@@ -209,62 +267,20 @@ export default function UpdateLoanProduct() {
   const loanCriteriaStepIndex = steps.length - 1;
   const isLastStep = step === steps.length - 1;
 
-  const validateStep5 = () => {
-    for (const product of selectedProducts) {
-      const data = form.loanCriteria?.[product.id];
-
-      if (!data) {
-        return `Please fill details for ${product.name}`;
-      }
-
-      const requiredFields = getRequiredCriteriaKeysForProduct(product.code);
-
-      for (const field of requiredFields) {
-        if (!data[field] && data[field] !== 0) {
-          return `${product.name}: ${field} is required`;
-        }
-      }
-
-      if (!data.states || data.states.length === 0) {
-        return `${product.name}: Select at least one state`;
-      }
-
-      if (isSba504Product(product.code)) {
-        const total = Number(data.maxTotalProject);
-        const debenture = Number(data.maxSba504Debenture);
-        if (
-          data.maxTotalProject &&
-          data.maxSba504Debenture &&
-          debenture > total
-        ) {
-          return `${product.name}: SBA 504 debenture cannot exceed total project amount`;
-        }
-      } else if (
-        !isNoMinLoanCriteriaProduct(product.code) &&
-        !isMezzanineProduct(product.code)
-      ) {
-        const minAmount = Number(
-          data.minFacilitySize ?? data.minProgramSize ?? data.minLoan,
-        );
-        const maxAmount = Number(
-          data.maxFacilitySize ?? data.maxProgramSize ?? data.maxLoan,
-        );
-
-        if (
-          Number.isFinite(minAmount) &&
-          Number.isFinite(maxAmount) &&
-          minAmount > maxAmount
-        ) {
-          return `${product.name}: Minimum amount cannot exceed maximum amount`;
-        }
-      }
-    }
-
-    return null;
-  };
+  const footerValidationMessage =
+    step === loanCriteriaStepIndex
+      ? getLoanCriteriaFooterMessage(
+          selectedProducts,
+          form.loanCriteria,
+          hasStep5Errors,
+        )
+      : null;
 
   const handleSubmit = async () => {
-    const step5Error = validateStep5();
+    const step5Error = validateLoanProductCriteriaStep(
+      selectedProducts,
+      form.loanCriteria,
+    );
 
     if (step5Error) {
       toast.error(step5Error);
@@ -284,7 +300,7 @@ export default function UpdateLoanProduct() {
       let updatedCount = 0;
 
       for (const product of selectedProducts) {
-        const criteria = form.loanCriteria?.[product.id] || {};
+        const criteria = form.loanCriteria?.[String(product.id)] || {};
         const existing = lenderProductByProgramId[product.id];
 
         const payload = mapToLenderProductUpdatePayload(product, form, criteria);
@@ -443,8 +459,18 @@ export default function UpdateLoanProduct() {
     }
 
     if (step === loanCriteriaIndex) {
+      if (loadingExisting) {
+        return (
+          <div className="rounded-2xl border border-gray-200 bg-white p-10 text-center text-sm text-gray-500">
+            Loading loan criteria...
+          </div>
+        );
+      }
+
       return (
         <StepFive
+          key={`update-criteria-${form.loanPrograms.join("-")}`}
+          mode="update"
           products={selectedProducts}
           value={form.loanCriteria}
           setValue={(val: Record<string, any>) =>
@@ -459,10 +485,10 @@ export default function UpdateLoanProduct() {
   };
 
   const nextDisabled =
-    (loadingExisting && step === 0) ||
+    loadingExisting ||
     (!isLastStep && step === 0 && form.loanPrograms.length === 0) ||
-    (step === loanCriteriaStepIndex && hasStep5Errors) ||
-    (isLastStep && validateStep5() !== null) ||
+    (step === loanCriteriaStepIndex &&
+      (hasStep5Errors || footerValidationMessage !== null)) ||
     submitting;
 
   useEffect(() => {
@@ -472,31 +498,30 @@ export default function UpdateLoanProduct() {
       try {
         setLoadingExisting(true);
 
-        const [lenderRes, catalogRes] = await Promise.all([
-          fetch(`${API_BASE}/lender/loan-products/list?limit=100`, {
-            headers: getAuthHeaders(),
-          }),
+        const headers = getAuthHeaders();
+
+        const [itemsFromList, catalogRes] = await Promise.all([
+          fetchAllLenderProducts(headers),
           fetch(`${API_BASE}/common/loan-products/loan-product-code`, {
-            headers: getAuthHeaders(),
+            headers,
           }),
         ]);
 
-        const raw = await lenderRes.text();
-        let json: Record<string, unknown> = {};
+        let items = itemsFromList;
 
-        try {
-          json = raw ? JSON.parse(raw) : {};
-        } catch {
-          throw new Error(
-            "Could not load your loan programs. Please refresh and try again.",
+        if (updatedLoanProduct?.id) {
+          const freshProduct = await fetchLenderProductById(
+            String(updatedLoanProduct.id),
+            headers,
           );
-        }
 
-        if (!lenderRes.ok || !json.success) {
-          throw new Error(
-            (typeof json.message === "string" ? json.message : undefined) ||
-              "Failed to load loan products",
-          );
+          if (freshProduct) {
+            items = items.some((item) => item.id === freshProduct.id)
+              ? items.map((item) =>
+                  item.id === freshProduct.id ? freshProduct : item,
+                )
+              : [...items, freshProduct];
+          }
         }
 
         const catalogJson = await catalogRes.json().catch(() => ({}));
@@ -514,7 +539,6 @@ export default function UpdateLoanProduct() {
 
         if (cancelled) return;
 
-        const items = (json.data || []) as LenderProductRecord[];
         setExistingLenderProducts(items);
         setProducts(catalogProducts);
 
@@ -528,11 +552,49 @@ export default function UpdateLoanProduct() {
                   getProgramId(item),
                 ),
               )
-              .filter(Boolean),
+              .filter(Boolean)
+              .map(String),
           ),
         ] as string[];
 
-        const loanCriteria: Record<string, any> = {};
+        const loanCriteria = buildLoanCriteriaFromLenderProducts(
+          items,
+          catalogProducts,
+          mapApiProductToCriteriaForm,
+        );
+
+        if (updatedLoanProduct) {
+          const focusedProgramId = mapToCanonicalCatalogId(
+            catalogProducts,
+            updatedLoanProduct.loanProductCode || updatedLoanProduct.code,
+            getProgramId(updatedLoanProduct as LenderProductRecord),
+          );
+
+          if (focusedProgramId) {
+            const focusedCode = resolveLenderOfferedProductCode(
+              updatedLoanProduct.loanProductCode ||
+                updatedLoanProduct.code ||
+                updatedLoanProduct.loanProduct?.code ||
+                "",
+            );
+
+            const focusedRecord = normalizeLenderProductRecord(
+              items.find((item) => item.id === updatedLoanProduct.id) ||
+                updatedLoanProduct,
+            );
+
+            const focusedCriteria = mapApiProductToCriteriaForm({
+              ...focusedRecord,
+              loanProductCode: focusedCode,
+              code: focusedCode,
+            });
+
+            loanCriteria[String(focusedProgramId)] = mergeCriteriaForms(
+              loanCriteria[String(focusedProgramId)] || {},
+              focusedCriteria,
+            );
+          }
+        }
         let propertyTypes: Record<string, string[]> = {};
         let businessTypes: Record<string, string[]> = {};
         let equipmentFinance: string[] = [];
@@ -558,12 +620,6 @@ export default function UpdateLoanProduct() {
           const canonicalCode = resolveLenderOfferedProductCode(
             item.loanProductCode || item.code || "",
           );
-
-          loanCriteria[programId] = mapApiProductToCriteriaForm({
-            ...item,
-            loanProductCode: canonicalCode,
-            code: canonicalCode,
-          });
 
           if (canonicalCode === "EQUIPMENT_FINANCE") {
             equipmentFinance = Array.isArray(item.equipmentTypes)
@@ -604,21 +660,17 @@ export default function UpdateLoanProduct() {
   }, [updatedLoanProduct]);
 
   useEffect(() => {
-    if (!products.length || !form.loanPrograms.length) return;
+    if (!products.length || loadingExisting) return;
 
     setForm((prev) => {
       let changed = false;
       const nextCriteria = { ...prev.loanCriteria };
 
-      form.loanPrograms.forEach((programId) => {
-        if (nextCriteria[programId]) return;
+      prev.loanPrograms.forEach((programId) => {
+        const key = String(programId);
+        if (nextCriteria[key]) return;
 
-        const product = products.find((p) => p.id === programId);
-        if (!product) return;
-
-        const defaults = getDefaultCriteriaValuesForProduct(product.code);
-        nextCriteria[programId] = {
-          ...defaults,
+        nextCriteria[key] = {
           states: [],
           documents: [],
         };
@@ -632,7 +684,7 @@ export default function UpdateLoanProduct() {
         loanCriteria: nextCriteria,
       };
     });
-  }, [form.loanPrograms, products]);
+  }, [form.loanPrograms, products, loadingExisting]);
 
   return (
     <div className="h-[calc(100vh-80px)] flex flex-col bg-gray-50">
@@ -718,6 +770,11 @@ export default function UpdateLoanProduct() {
                   : ""}
               </span>
             ) : null}
+            {footerValidationMessage && (
+              <p className="mt-1 max-w-xl text-sm text-red-600">
+                {footerValidationMessage}
+              </p>
+            )}
           </div>
 
           <div className="flex items-center gap-3">

@@ -4,8 +4,6 @@ import toast from "react-hot-toast";
 import {
   getCriteriaFieldsForProduct,
   getCriteriaFieldInputSuffix,
-  getDefaultCriteriaValuesForProduct,
-  getRequiredCriteriaKeysForProduct,
   type CriteriaField,
 } from "../../../lib/loanProductCriteriaFields";
 import { cleanupOrphanedCustomDocumentTypes } from "../../../lib/documentConfigApi";
@@ -129,7 +127,15 @@ const createDefaultDocumentState = (): ProductDocumentState => ({
   loading: false,
 });
 
-const StepFive = ({ products, value, setValue, setHasErrors }: any) => {
+const StepFive = ({
+  products,
+  value,
+  setValue,
+  setHasErrors,
+  mode = "create",
+}: any) => {
+  const getProductKey = (product: { id: string | number }) =>
+    String(product.id);
   const [openIndex, setOpenIndex] = useState<number | null>(0);
   const [errors, setErrors] = useState<any>({});
   const [docStateByProduct, setDocStateByProduct] = useState<
@@ -643,7 +649,7 @@ const StepFive = ({ products, value, setValue, setHasErrors }: any) => {
 
   const renderField = (product: any, field: CriteriaField) => {
     const fieldType = field.type || "number";
-    const currentValue = value?.[product.id]?.[field.key];
+    const currentValue = value?.[getProductKey(product)]?.[field.key];
     const isRequired = field.required !== false && fieldType !== "toggle";
 
     if (fieldType === "toggle") {
@@ -658,7 +664,7 @@ const StepFive = ({ products, value, setValue, setHasErrors }: any) => {
           <button
             type="button"
             onClick={() =>
-              handleChange(product.id, field.key, !Boolean(currentValue))
+              handleChange(getProductKey(product), field.key, !Boolean(currentValue))
             }
             className={`relative inline-flex h-6 w-11 items-center rounded-full transition ${
               currentValue ? "bg-blue-600" : "bg-gray-300"
@@ -683,7 +689,7 @@ const StepFive = ({ products, value, setValue, setHasErrors }: any) => {
           <textarea
             value={currentValue || ""}
             onChange={(e) =>
-              handleChange(product.id, field.key, e.target.value)
+              handleChange(getProductKey(product), field.key, e.target.value)
             }
             rows={4}
             className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -703,7 +709,7 @@ const StepFive = ({ products, value, setValue, setHasErrors }: any) => {
             type="text"
             value={currentValue || ""}
             onChange={(e) =>
-              handleChange(product.id, field.key, e.target.value)
+              handleChange(getProductKey(product), field.key, e.target.value)
             }
             className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
@@ -728,16 +734,16 @@ const StepFive = ({ products, value, setValue, setHasErrors }: any) => {
             const val = sanitizeNumberInput(e.target.value, {
               decimal: field.decimal,
             });
-            const err = validateField(product.id, field.key, val, {
+            const err = validateField(getProductKey(product), field.key, val, {
               required: field.required !== false,
             });
 
-            handleChange(product.id, field.key, val);
+            handleChange(getProductKey(product), field.key, val);
 
             setErrors((prev: any) => ({
               ...prev,
-              [product.id]: {
-                ...prev?.[product.id],
+              [getProductKey(product)]: {
+                ...prev?.[getProductKey(product)],
                 [field.key]: err,
               },
             }));
@@ -746,7 +752,7 @@ const StepFive = ({ products, value, setValue, setHasErrors }: any) => {
             inputSuffix ? "pr-9" : ""
           }
   ${
-    errors?.[product.id]?.[field.key]
+    errors?.[getProductKey(product)]?.[field.key]
       ? "border-red-500 focus:ring-red-500"
       : "border-gray-300 focus:ring-blue-500"
   }`}
@@ -757,9 +763,9 @@ const StepFive = ({ products, value, setValue, setHasErrors }: any) => {
           </span>
         )}
         </div>
-        {errors?.[product.id]?.[field.key] && (
+        {errors?.[getProductKey(product)]?.[field.key] && (
           <p className="text-xs text-red-500 mt-1">
-            {errors[product.id][field.key]}
+            {errors[getProductKey(product)][field.key]}
           </p>
         )}
       </div>
@@ -767,7 +773,9 @@ const StepFive = ({ products, value, setValue, setHasErrors }: any) => {
   };
 
   const openProductId =
-    openIndex !== null ? products[openIndex]?.id : undefined;
+    openIndex !== null && products[openIndex]
+      ? getProductKey(products[openIndex])
+      : undefined;
   const openProductDocState = openProductId
     ? getDocState(openProductId)
     : null;
@@ -812,52 +820,28 @@ const StepFive = ({ products, value, setValue, setHasErrors }: any) => {
   }, [errors]);
 
   useEffect(() => {
-    if (!products.length) return;
+    if (mode === "update" || !products.length) return;
 
     let changed = false;
     const next = { ...(value || {}) };
 
     products.forEach((product: any) => {
-      const defaults = getDefaultCriteriaValuesForProduct(product.code);
-      const existing = next[product.id] || {};
+      const existing = next[getProductKey(product)];
 
-      const hasAnySavedData = Object.entries(existing).some(([key, val]) => {
-        if (key === "states" || key === "documents") return false;
-        return val !== undefined && val !== "" && val !== null;
-      });
-
-      if (!hasAnySavedData) {
-        if (!Object.keys(defaults).length) return;
-
-        next[product.id] = {
-          ...defaults,
+      if (!existing) {
+        next[getProductKey(product)] = {
           states: US_STATES,
-          documents: existing.documents || [],
+          documents: [],
         };
         changed = true;
         return;
       }
 
-      const requiredKeys = getRequiredCriteriaKeysForProduct(product.code);
-      const patch: Record<string, any> = {};
-
-      requiredKeys.forEach((key) => {
-        const current = existing[key];
-        if (
-          (current === undefined || current === "") &&
-          defaults[key] !== undefined &&
-          defaults[key] !== ""
-        ) {
-          patch[key] = defaults[key];
-        }
-      });
-
       if (!existing.states?.length) {
-        patch.states = US_STATES;
-      }
-
-      if (Object.keys(patch).length) {
-        next[product.id] = { ...existing, ...patch };
+        next[getProductKey(product)] = {
+          ...existing,
+          states: US_STATES,
+        };
         changed = true;
       }
     });
@@ -865,23 +849,24 @@ const StepFive = ({ products, value, setValue, setHasErrors }: any) => {
     if (changed) {
       setValue(next);
     }
-  }, [products]);
+  }, [mode, products]);
 
   useEffect(() => {
     if (!products.length) return;
 
     products.forEach((p: any) => {
-      const hasStates = Boolean(value?.[p.id]?.states?.length);
+      const productKey = getProductKey(p);
+      const hasStates = Boolean(value?.[productKey]?.states?.length);
 
       setErrors((prev: any) => {
-        const currentError = prev?.[p.id]?.states || "";
+        const currentError = prev?.[productKey]?.states || "";
 
         if (hasStates) {
           if (!currentError) return prev;
           return {
             ...prev,
-            [p.id]: {
-              ...prev?.[p.id],
+            [productKey]: {
+              ...prev?.[productKey],
               states: "",
             },
           };
@@ -893,8 +878,8 @@ const StepFive = ({ products, value, setValue, setHasErrors }: any) => {
 
         return {
           ...prev,
-          [p.id]: {
-            ...prev?.[p.id],
+          [productKey]: {
+            ...prev?.[productKey],
             states: message,
           },
         };
@@ -917,11 +902,11 @@ const StepFive = ({ products, value, setValue, setHasErrors }: any) => {
       {/* List */}
       {products.map((product: any, index: number) => {
         const isOpen = openIndex === index;
-        const docState = getDocState(product.id);
+        const docState = getDocState(getProductKey(product));
 
         return (
           <div
-            key={product.id}
+            key={getProductKey(product)}
             className="border rounded-xl overflow-hidden transition"
           >
             {/* Header Row */}
@@ -960,14 +945,14 @@ const StepFive = ({ products, value, setValue, setHasErrors }: any) => {
 
                     <div className="flex gap-3 text-xs">
                       <button
-                        onClick={() => selectAllStates(product.id)}
+                        onClick={() => selectAllStates(getProductKey(product))}
                         className="text-blue-600 font-medium hover:underline"
                       >
                         Select All
                       </button>
 
                       <button
-                        onClick={() => clearStates(product.id)}
+                        onClick={() => clearStates(getProductKey(product))}
                         className="text-red-500 font-medium hover:underline"
                       >
                         Clear All
@@ -978,12 +963,12 @@ const StepFive = ({ products, value, setValue, setHasErrors }: any) => {
                   {/* States Container */}
                   <div
                     className={`border rounded-xl p-3 max-h-44 overflow-y-auto bg-white
-  ${errors?.[product.id]?.states ? "border-red-500" : "border-gray-300"}`}
+  ${errors?.[getProductKey(product)]?.states ? "border-red-500" : "border-gray-300"}`}
                   >
                     <div className="grid grid-cols-4 gap-2">
                       {US_STATES.map((state) => {
                         const selected =
-                          value?.[product.id]?.states?.includes(state);
+                          value?.[getProductKey(product)]?.states?.includes(state);
 
                         return (
                           <label
@@ -994,7 +979,7 @@ const StepFive = ({ products, value, setValue, setHasErrors }: any) => {
                             <input
                               type="checkbox"
                               checked={selected || false}
-                              onChange={() => toggleState(product.id, state)}
+                              onChange={() => toggleState(getProductKey(product), state)}
                               className="accent-blue-600 cursor-pointer"
                             />
                             {state}
@@ -1007,13 +992,13 @@ const StepFive = ({ products, value, setValue, setHasErrors }: any) => {
                   {/* Selected Count */}
                   <div className="flex justify-between items-center mt-2">
                     <p className="text-xs text-gray-500">
-                      {value?.[product.id]?.states?.length || 0} states selected
+                      {value?.[getProductKey(product)]?.states?.length || 0} states selected
                     </p>
                   </div>
                 </div>
-                {errors?.[product.id]?.states && (
+                {errors?.[getProductKey(product)]?.states && (
                   <p className="text-xs text-red-500 mt-1">
-                    {errors[product.id].states}
+                    {errors[getProductKey(product)].states}
                   </p>
                 )}
 
@@ -1027,9 +1012,9 @@ const StepFive = ({ products, value, setValue, setHasErrors }: any) => {
                         Upfront Documents (optional)
                       </h3>
 
-                      {!!value?.[product.id]?.documents?.length && (
+                      {!!value?.[getProductKey(product)]?.documents?.length && (
                         <span className="text-xs bg-indigo-100 text-indigo-600 px-2 py-0.5 rounded-full">
-                          {value?.[product.id]?.documents?.length} selected
+                          {value?.[getProductKey(product)]?.documents?.length} selected
                         </span>
                       )}
                     </div>
@@ -1037,7 +1022,7 @@ const StepFive = ({ products, value, setValue, setHasErrors }: any) => {
                     <div className="flex gap-3 text-xs">
                       <button
                         type="button"
-                        onClick={() => selectAllDocuments(product.id)}
+                        onClick={() => selectAllDocuments(getProductKey(product))}
                         className="text-indigo-600 font-medium hover:underline"
                       >
                         Select All
@@ -1045,7 +1030,7 @@ const StepFive = ({ products, value, setValue, setHasErrors }: any) => {
 
                       <button
                         type="button"
-                        onClick={() => clearDocuments(product.id)}
+                        onClick={() => clearDocuments(getProductKey(product))}
                         className="text-red-500 font-medium hover:underline"
                       >
                         Clear All
@@ -1058,7 +1043,7 @@ const StepFive = ({ products, value, setValue, setHasErrors }: any) => {
                       placeholder="Search documents..."
                       value={docState.search}
                       onChange={(e) =>
-                        patchDocState(product.id, {
+                        patchDocState(getProductKey(product), {
                           search: e.target.value,
                         })
                       }
@@ -1071,7 +1056,7 @@ const StepFive = ({ products, value, setValue, setHasErrors }: any) => {
     placeholder="Enter custom document name..."
     value={docState.customDocumentName}
     onChange={(e) =>
-      patchDocState(product.id, {
+      patchDocState(getProductKey(product), {
         customDocumentName: e.target.value,
       })
     }
@@ -1080,7 +1065,7 @@ const StepFive = ({ products, value, setValue, setHasErrors }: any) => {
 
   <button
     type="button"
-    onClick={() => addCustomDocument(product.id)}
+    onClick={() => addCustomDocument(getProductKey(product))}
     className="flex h-12 shrink-0 items-center justify-center rounded-xl bg-indigo-600 px-6 text-sm font-semibold text-white transition hover:bg-indigo-700 active:scale-[0.98] md:w-auto"
   >
     + Add Document
@@ -1094,7 +1079,7 @@ const StepFive = ({ products, value, setValue, setHasErrors }: any) => {
                     <>
                       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                         {docState.documents.map((doc) => {
-                          const checked = value?.[product.id]?.documents?.some(
+                          const checked = value?.[getProductKey(product)]?.documents?.some(
                             (d: any) =>
                               d.id === doc.id || d.documentTypeId === doc.id,
                           );
@@ -1112,7 +1097,7 @@ const StepFive = ({ products, value, setValue, setHasErrors }: any) => {
                               <input
                                 type="checkbox"
                                 checked={checked || false}
-                                onChange={() => toggleDocument(product.id, doc)}
+                                onChange={() => toggleDocument(getProductKey(product), doc)}
                                 className="mt-1 accent-indigo-600 cursor-pointer"
                               />
 
@@ -1172,7 +1157,7 @@ const StepFive = ({ products, value, setValue, setHasErrors }: any) => {
                               type="button"
                               disabled={!docState.pagination.hasPreviousPage}
                               onClick={() =>
-                                patchDocState(product.id, {
+                                patchDocState(getProductKey(product), {
                                   page: docState.page - 1,
                                 })
                               }
@@ -1190,7 +1175,7 @@ const StepFive = ({ products, value, setValue, setHasErrors }: any) => {
                               type="button"
                               disabled={!docState.pagination.hasNextPage}
                               onClick={() =>
-                                patchDocState(product.id, {
+                                patchDocState(getProductKey(product), {
                                   page: docState.page + 1,
                                 })
                               }

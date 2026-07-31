@@ -1,21 +1,19 @@
-import { useEffect, useRef, useState } from "react";
+﻿import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { X } from "lucide-react";
 import { MdModeEdit, MdOutlineRemoveRedEye } from "react-icons/md";
 import { TiPlus } from "react-icons/ti";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import toast from "react-hot-toast";
 import EditLoanProductModal from "./EditLoanProductModal";
-import { isDscrRentalProduct, isConstructionLoanProduct, isRentalPortfolioProduct, isCrePermanentProduct, isCmbsProduct, isAgencyMultifamilyProduct, isMezzanineProduct, isPreferredEquityProduct, isSba7aGeneralProduct, isSba7aBusinessAcquisitionProduct, isSba7aWorkingCapitalProduct, isSba7aEquipmentPurchaseProduct, isSba7aRealEstateProduct, isSba504Product, isUsdaBiProduct, isPurchaseOrderFinanceProduct, isEquipmentFinanceProduct, isArFactoringProduct, isApSupplyChainProduct, isSba7aMaxLoanOnlyProduct, isNoMinLoanCriteriaProduct, isNoPropertyMetricsProduct, buildLenderProductCriteriaPayload, mapApiProductToCriteriaForm } from "../../lib/loanProductCriteriaFields";
+import { buildLenderProductCriteriaPayload, mapApiProductToCriteriaForm } from "../../lib/loanProductCriteriaFields";
 import { resolveLenderOfferedProductCode } from "../../lib/lenderLoanProducts";
 import {
+  buildLoanProductDetailFields,
   formatListKeyCriteria,
-  formatListTenure,
+  formatLoanProductCode,
   formatLoanProductName,
-  formatPercentDisplay,
   formatPercentValue,
-  getMaxAmountLabel,
-  getMinAmountLabel,
-  shouldShowMaxAmount,
 } from "../../lib/loanProductListDisplay";
 import { canManageLoanProducts } from "../../lib/lenderPermissions";
 
@@ -95,6 +93,7 @@ type LoanProductList = {
   }>;
   businessTypes?: Record<string, string[]> | Array<any> | null;
   propertyTypes?: Record<string, string[]> | Array<any> | null;
+  equipmentTypes?: string[];
   industriesSupported: string[];
   regionsSupported: string[];
   isActive: boolean;
@@ -268,7 +267,7 @@ export default function AlloanProducts() {
       const normalized = (list as LoanProductList[]).map((product: any) => ({
         ...product,
 
-        // ✅ PRODUCT DETAILS
+        // âœ… PRODUCT DETAILS
         loanProductName: product.loanProduct?.name || product.name || "-",
 
         loanProductCode:
@@ -285,15 +284,15 @@ export default function AlloanProducts() {
           product.earlyPaymentDiscountPercent,
         ),
 
-        // ✅ STATES
+        // âœ… STATES
         statesSupported: Array.isArray(product.statesSupported)
           ? product.statesSupported
           : [],
 
-        // ✅ DOCUMENTS
+        // âœ… DOCUMENTS
         documents: Array.isArray(product.documents) ? product.documents : [],
 
-        // ✅ BUSINESS / PROPERTY TYPES
+        // âœ… BUSINESS / PROPERTY TYPES
         businessTypes:
           typeof product.businessTypes === "object"
             ? product.businessTypes
@@ -304,7 +303,7 @@ export default function AlloanProducts() {
             ? product.propertyTypes
             : {},
 
-        // ✅ NEW FIELDS
+        // âœ… NEW FIELDS
         maxArvPercent: product.maxArvPercent ?? null,
         maxLtcPercent: product.maxLtcPercent ?? null,
         maxLtvPercent: product.maxLtvPercent ?? null,
@@ -769,21 +768,33 @@ export default function AlloanProducts() {
 
       {/* View details Modal */}
       {viewDetails && (
-        <div className="fixed inset-0 z-999999 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+        <div
+          className="fixed inset-0 z-999999 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+          onClick={() => setViewDetails(null)}
+        >
           <div
             className="w-[95%] max-w-3xl bg-white rounded-xl shadow-xl p-6 overflow-y-auto max-h-[90vh]
                     dark:bg-slate-900"
+            onClick={(event) => event.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="loan-product-details-title"
           >
             {/* HEADER */}
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-semibold text-gray-800 dark:text-white">
+              <h2
+                id="loan-product-details-title"
+                className="text-lg font-semibold text-gray-800 dark:text-white"
+              >
                 Loan Product Details
               </h2>
               <button
+                type="button"
                 onClick={() => setViewDetails(null)}
-                className="text-gray-500 hover:text-red-500 text-lg"
+                aria-label="Close loan product details"
+                className="flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 transition hover:bg-gray-100 hover:text-gray-800 dark:hover:bg-slate-800 dark:hover:text-white"
               >
-                ✕
+                <X size={18} />
               </button>
             </div>
 
@@ -791,453 +802,23 @@ export default function AlloanProducts() {
             <div className="grid grid-cols-2 gap-4 text-sm">
               <Detail
                 label="Product Code"
-                value={viewDetails.loanProductCode
-                  ?.replace(/_/g, " ")
-                  ?.replace(/\b\w/g, (c: any) => c.toUpperCase())}
+                value={formatLoanProductCode(viewDetails)}
               />
               <Detail
                 label="Product Name"
-                value={viewDetails.loanProduct?.name
-                  ?.replace(/_/g, " ")
-                  ?.replace(/\b\w/g, (c: string) => c.toUpperCase())}
+                value={formatLoanProductName(viewDetails)}
               />
-              {!isNoMinLoanCriteriaProduct(viewDetails.loanProductCode) && (
-              <Detail
-                label={getMinAmountLabel(viewDetails.loanProductCode)}
-                value={formatAmount(viewDetails.minLoanAmount)}
-              />
-              )}
-              {shouldShowMaxAmount(viewDetails.loanProductCode) && (
-              <Detail
-                label={getMaxAmountLabel(viewDetails.loanProductCode)}
-                value={formatAmount(viewDetails.maxLoanAmount)}
-              />
-              )}
-              <Detail label="Tenure" value={formatListTenure(viewDetails)} />
-              <Detail
-                label="Interest Rate"
-                value={
-                  isSba7aMaxLoanOnlyProduct(viewDetails.loanProductCode)
-                    ? viewDetails.maxRateSpreadPercent != null
-                      ? `${viewDetails.maxRateSpreadPercent}% max spread`
-                      : "-"
-                    : isSba504Product(viewDetails.loanProductCode) ||
-                        isUsdaBiProduct(viewDetails.loanProductCode) ||
-                        isPurchaseOrderFinanceProduct(viewDetails.loanProductCode) ||
-                        isArFactoringProduct(viewDetails.loanProductCode) ||
-                        isApSupplyChainProduct(viewDetails.loanProductCode)
-                      ? "-"
-                    : isPreferredEquityProduct(viewDetails.loanProductCode)
-                      ? viewDetails.preferredReturnPercent != null
-                        ? `${viewDetails.preferredReturnPercent}% preferred return`
-                        : "-"
-                      : viewDetails.interestRateRange
-                }
-              />
-              {!isNoPropertyMetricsProduct(viewDetails.loanProductCode) && (
-              <Detail
-                label="Max LTV"
-                value={
-                  isMezzanineProduct(viewDetails.loanProductCode)
-                    ? viewDetails.minMezzLtvPercent != null &&
-                      viewDetails.maxMezzLtvPercent != null
-                      ? `${viewDetails.minMezzLtvPercent}% - ${viewDetails.maxMezzLtvPercent}%`
-                      : "-"
-                    : viewDetails.maxLtvPercent != null
-                      ? `${viewDetails.maxLtvPercent}%`
-                      : "-"
-                }
-              />
-              )}
 
-              {!isNoPropertyMetricsProduct(viewDetails.loanProductCode) && (
-              <Detail
-                label="Max ARV"
-                value={formatPercentDisplay(viewDetails.maxArvPercent)}
-              />
+              {buildLoanProductDetailFields(viewDetails, formatAmount).map(
+                (field, index) => (
+                  <div
+                    key={`${field.label}-${index}`}
+                    className={field.fullWidth ? "col-span-2" : undefined}
+                  >
+                    <Detail label={field.label} value={field.value} />
+                  </div>
+                ),
               )}
-
-              {[
-                "MEZZ_FINANCE_PREF_EQUITY",
-                "MEZZ_FINANCE",
-                "FIX_AND_FLIP",
-                "CONSTRUCTION_LOAN",
-              ].includes(viewDetails.loanProductCode) && (
-                <Detail
-                  label="Max LTC"
-                  value={
-                    viewDetails.maxLtcPercent != null
-                      ? `${viewDetails.maxLtcPercent}%`
-                      : "-"
-                  }
-                />
-              )}
-              {(!isCmbsProduct(viewDetails.loanProductCode) &&
-                !isAgencyMultifamilyProduct(viewDetails.loanProductCode) &&
-                !isMezzanineProduct(viewDetails.loanProductCode) &&
-                !isPreferredEquityProduct(viewDetails.loanProductCode) &&
-                !isPurchaseOrderFinanceProduct(viewDetails.loanProductCode) &&
-                !isArFactoringProduct(viewDetails.loanProductCode) &&
-                !isApSupplyChainProduct(viewDetails.loanProductCode)) && (
-                <Detail label="Credit Score" value={viewDetails.minCreditScore} />
-              )}
-              {isDscrRentalProduct(viewDetails.loanProductCode) ? (
-                <>
-                  <Detail label="Min DSCR" value={viewDetails.minDscr ?? "-"} />
-                  <Detail
-                    label="Origination Points"
-                    value={
-                      viewDetails.originationPointsPercent != null
-                        ? `${viewDetails.originationPointsPercent}%`
-                        : "-"
-                    }
-                  />
-                  <Detail
-                    label="Interest Only Available"
-                    value={viewDetails.interestOnlyAvailable ? "Yes" : "No"}
-                  />
-                  <Detail
-                    label="Short-Term Rentals OK"
-                    value={viewDetails.shortTermRentalsOk ? "Yes" : "No"}
-                  />
-                  <Detail
-                    label="Foreign Nationals Allowed"
-                    value={viewDetails.foreignNationalsAllowed ? "Yes" : "No"}
-                  />
-                </>
-              ) : isRentalPortfolioProduct(viewDetails.loanProductCode) ? (
-                <>
-                  <Detail
-                    label="Min Properties"
-                    value={viewDetails.minPropertiesInPortfolio ?? "-"}
-                  />
-                  <Detail
-                    label="Max Properties"
-                    value={viewDetails.maxPropertiesInPortfolio ?? "-"}
-                  />
-                  <Detail label="Min DSCR" value={viewDetails.minDscr ?? "-"} />
-                </>
-              ) : isCrePermanentProduct(viewDetails.loanProductCode) ? (
-                <>
-                  <Detail label="Min DSCR" value={viewDetails.minDscr ?? "-"} />
-                  <Detail
-                    label="Min Debt Yield"
-                    value={
-                      viewDetails.minDebtYieldPercent != null
-                        ? `${viewDetails.minDebtYieldPercent}%`
-                        : "-"
-                    }
-                  />
-                  <Detail
-                    label="Amortization"
-                    value={
-                      viewDetails.amortizationYears != null
-                        ? `${viewDetails.amortizationYears} years`
-                        : "-"
-                    }
-                  />
-                  <Detail
-                    label="Origination Points"
-                    value={
-                      viewDetails.originationPointsPercent != null
-                        ? `${viewDetails.originationPointsPercent}%`
-                        : "-"
-                    }
-                  />
-                </>
-              ) : isCmbsProduct(viewDetails.loanProductCode) ? (
-                <>
-                  <Detail label="Min DSCR" value={viewDetails.minDscr ?? "-"} />
-                  <Detail
-                    label="Min Debt Yield"
-                    value={
-                      viewDetails.minDebtYieldPercent != null
-                        ? `${viewDetails.minDebtYieldPercent}%`
-                        : "-"
-                    }
-                  />
-                  <Detail
-                    label="Amortization"
-                    value={
-                      viewDetails.amortizationYears != null
-                        ? `${viewDetails.amortizationYears} years`
-                        : "-"
-                    }
-                  />
-                  <Detail
-                    label="Prepayment Structure"
-                    value={viewDetails.prepaymentStructure || "-"}
-                  />
-                </>
-              ) : isAgencyMultifamilyProduct(viewDetails.loanProductCode) ? (
-                <>
-                  <Detail label="Min DSCR" value={viewDetails.minDscr ?? "-"} />
-                  <Detail
-                    label="Amortization"
-                    value={
-                      viewDetails.amortizationYears != null
-                        ? `${viewDetails.amortizationYears} years`
-                        : "-"
-                    }
-                  />
-                  <Detail label="Min Units" value={viewDetails.minUnits ?? "-"} />
-                </>
-              ) : isMezzanineProduct(viewDetails.loanProductCode) ? (
-                <>
-                  <Detail
-                    label="Origination Points"
-                    value={
-                      viewDetails.originationPointsPercent != null
-                        ? `${viewDetails.originationPointsPercent}%`
-                        : "-"
-                    }
-                  />
-                  <Detail
-                    label="Exit Fee"
-                    value={
-                      viewDetails.exitFeePercent != null
-                        ? `${viewDetails.exitFeePercent}%`
-                        : "-"
-                    }
-                  />
-                </>
-              ) : isArFactoringProduct(viewDetails.loanProductCode) ? (
-                <>
-                  <Detail
-                    label="Advance Rate"
-                    value={
-                      viewDetails.advanceRatePercent != null
-                        ? `${viewDetails.advanceRatePercent}%`
-                        : "-"
-                    }
-                  />
-                  <Detail
-                    label="Discount Fee"
-                    value={
-                      viewDetails.discountFeePercent != null
-                        ? `${viewDetails.discountFeePercent}%`
-                        : "-"
-                    }
-                  />
-                  <Detail
-                    label="Max Invoice Age"
-                    value={
-                      viewDetails.maxInvoiceAgeDays != null
-                        ? `${viewDetails.maxInvoiceAgeDays} days`
-                        : "-"
-                    }
-                  />
-                  <Detail
-                    label="Non-Recourse Available"
-                    value={viewDetails.nonRecourseAvailable ? "Yes" : "No"}
-                  />
-                  <Detail
-                    label="Government Invoices OK"
-                    value={viewDetails.governmentInvoicesOk ? "Yes" : "No"}
-                  />
-                </>
-              ) : isApSupplyChainProduct(viewDetails.loanProductCode) ? (
-                <>
-                  <Detail
-                    label="Early Payment Discount"
-                    value={
-                      viewDetails.earlyPaymentDiscountPercent != null
-                        ? `${viewDetails.earlyPaymentDiscountPercent}%`
-                        : "-"
-                    }
-                  />
-                  <Detail
-                    label="Payment Terms Extension"
-                    value={
-                      viewDetails.paymentTermsExtensionDays != null
-                        ? `${viewDetails.paymentTermsExtensionDays} days`
-                        : "-"
-                    }
-                  />
-                  <Detail
-                    label="Dynamic Discounting Available"
-                    value={
-                      viewDetails.dynamicDiscountingAvailable ? "Yes" : "No"
-                    }
-                  />
-                  <Detail
-                    label="Reverse Factoring Available"
-                    value={viewDetails.reverseFactoringAvailable ? "Yes" : "No"}
-                  />
-                </>
-              ) : isPurchaseOrderFinanceProduct(viewDetails.loanProductCode) ? (
-                <>
-                  <Detail
-                    label="Advance Rate"
-                    value={formatPercentDisplay(viewDetails.advanceRatePercent)}
-                  />
-                  <Detail
-                    label="Transaction Fee"
-                    value={formatPercentDisplay(viewDetails.transactionFeePercent)}
-                  />
-                  <Detail
-                    label="Min Gross Margin"
-                    value={formatPercentDisplay(viewDetails.minGrossMarginPercent)}
-                  />
-                  <Detail
-                    label="International POs Allowed"
-                    value={viewDetails.internationalPosAllowed ? "Yes" : "No"}
-                  />
-                </>
-              ) : isEquipmentFinanceProduct(viewDetails.loanProductCode) ? (
-                <>
-                  <Detail
-                    label="Used Equipment Allowed"
-                    value={viewDetails.usedEquipmentAllowed ? "Yes" : "No"}
-                  />
-                  <Detail
-                    label="Sale-Leaseback Available"
-                    value={viewDetails.saleLeasebackAvailable ? "Yes" : "No"}
-                  />
-                </>
-              ) : isSba504Product(viewDetails.loanProductCode) ? (
-                <>
-                  <Detail
-                    label="Max Total Project"
-                    value={formatAmount(viewDetails.maxTotalProjectAmount)}
-                  />
-                  <Detail
-                    label="Max SBA 504 Debenture"
-                    value={formatAmount(viewDetails.maxSba504DebentureAmount)}
-                  />
-                  <Detail
-                    label="Job Creation Required"
-                    value={viewDetails.jobCreationRequired ? "Yes" : "No"}
-                  />
-                </>
-              ) : isUsdaBiProduct(viewDetails.loanProductCode) ? (
-                <>
-                  <Detail
-                    label="Max USDA Guarantee"
-                    value={formatAmount(viewDetails.maxUsdaGuaranteeAmount)}
-                  />
-                  <Detail
-                    label="USDA Guarantee"
-                    value={
-                      viewDetails.usdaGuaranteePercent != null
-                        ? `${viewDetails.usdaGuaranteePercent}%`
-                        : "-"
-                    }
-                  />
-                  <Detail
-                    label="Rural Area Required"
-                    value={viewDetails.ruralAreaRequired ? "Yes" : "No"}
-                  />
-                </>
-              ) : isSba7aRealEstateProduct(viewDetails.loanProductCode) ? (
-                <>
-                  <Detail
-                    label="Owner-Occupied Required"
-                    value={viewDetails.ownerOccupiedRequired ? "Yes" : "No"}
-                  />
-                </>
-              ) : isSba7aEquipmentPurchaseProduct(viewDetails.loanProductCode) ? (
-                <>
-                  <Detail
-                    label="Used Equipment Allowed"
-                    value={viewDetails.usedEquipmentAllowed ? "Yes" : "No"}
-                  />
-                </>
-              ) : isSba7aWorkingCapitalProduct(viewDetails.loanProductCode) ? (
-                <>
-                  <Detail
-                    label="Min Time In Business"
-                    value={
-                      viewDetails.minTimeInBusinessMonths != null
-                        ? `${viewDetails.minTimeInBusinessMonths} months`
-                        : "-"
-                    }
-                  />
-                  <Detail
-                    label="Line of Credit Available"
-                    value={viewDetails.lineOfCreditAvailable ? "Yes" : "No"}
-                  />
-                </>
-              ) : isSba7aBusinessAcquisitionProduct(viewDetails.loanProductCode) ? (
-                <>
-                  <Detail
-                    label="Required Injection"
-                    value={
-                      viewDetails.requiredInjectionPercent != null
-                        ? `${viewDetails.requiredInjectionPercent}%`
-                        : "-"
-                    }
-                  />
-                  <Detail
-                    label="Goodwill Financing Allowed"
-                    value={viewDetails.goodwillFinancingAllowed ? "Yes" : "No"}
-                  />
-                  <Detail
-                    label="Seller Financing Allowed"
-                    value={viewDetails.sellerFinancingAllowed ? "Yes" : "No"}
-                  />
-                </>
-              ) : isSba7aGeneralProduct(viewDetails.loanProductCode) ? (
-                <>
-                  <Detail
-                    label="Avg Turnaround"
-                    value={
-                      viewDetails.avgTurnaroundDays != null
-                        ? `${viewDetails.avgTurnaroundDays} days`
-                        : "-"
-                    }
-                  />
-                  <Detail
-                    label="Preferred Lender (PLP)"
-                    value={viewDetails.preferredLenderPlp ? "Yes" : "No"}
-                  />
-                </>
-              ) : isPreferredEquityProduct(viewDetails.loanProductCode) ? (
-                <>
-                  <Detail
-                    label="Origination Fee"
-                    value={
-                      viewDetails.originationPointsPercent != null
-                        ? `${viewDetails.originationPointsPercent}%`
-                        : "-"
-                    }
-                  />
-                  <Detail
-                    label="Exit Fee"
-                    value={
-                      viewDetails.exitFeePercent != null
-                        ? `${viewDetails.exitFeePercent}%`
-                        : "-"
-                    }
-                  />
-                </>
-              ) : isConstructionLoanProduct(viewDetails.loanProductCode) ? (
-                <>
-                  <Detail
-                    label="Origination Points"
-                    value={
-                      viewDetails.originationPointsPercent != null
-                        ? `${viewDetails.originationPointsPercent}%`
-                        : "-"
-                    }
-                  />
-                  <Detail
-                    label="GC Required"
-                    value={viewDetails.gcRequired ? "Yes" : "No"}
-                  />
-                  <Detail
-                    label="Completion Guarantee Required"
-                    value={viewDetails.completionGuaranteeRequired ? "Yes" : "No"}
-                  />
-                </>
-              ) : (
-                <Detail label="Experience" value={viewDetails.minExperience} />
-              )}
-              {viewDetails.criteriaNotes ? (
-                <div className="col-span-2">
-                  <Detail label="Notes" value={viewDetails.criteriaNotes} />
-                </div>
-              ) : null}
 
               {/* DOCUMENTS */}
               <div className="col-span-2">
@@ -1373,6 +954,25 @@ export default function AlloanProducts() {
                   </div>
                 )}
               </div>
+
+              {viewDetails.equipmentTypes?.length ? (
+                <div className="col-span-2">
+                  <p className="font-medium text-gray-700 dark:text-slate-300 mb-1">
+                    Equipment Types
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {viewDetails.equipmentTypes.map((type: string) => (
+                      <span
+                        key={type}
+                        className="px-2 py-1 text-xs rounded-full bg-sky-100 text-sky-700
+                           dark:bg-sky-500/10 dark:text-sky-300"
+                      >
+                        {type}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
             </div>
           </div>
         </div>

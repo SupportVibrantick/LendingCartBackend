@@ -162,12 +162,10 @@ const isSba7aMaxLoanOnlyProduct = (loanProductCode) =>
   isSba7aEquipmentPurchaseProduct(loanProductCode) ||
   isSba7aRealEstateProduct(loanProductCode);
 
-const isNoMinLoanCriteriaProduct = (loanProductCode) =>
-  isUsdaBiProduct(loanProductCode);
+const isNoMinLoanCriteriaProduct = (_loanProductCode) => false;
 
 const isSba7aNoLtvProduct = (loanProductCode) =>
-  isSba7aGeneralProduct(loanProductCode) ||
-  isSba7aWorkingCapitalProduct(loanProductCode);
+  isSba7aGeneralProduct(loanProductCode);
 
 const isAnySba7aProduct = (loanProductCode) =>
   isSba7aMaxLoanOnlyProduct(loanProductCode);
@@ -176,14 +174,11 @@ const isAnySbaProduct = (loanProductCode) =>
   isAnySba7aProduct(loanProductCode) || isSba504Product(loanProductCode);
 
 const isNoLtvCriteriaProduct = (loanProductCode) =>
-  isSba7aNoLtvProduct(loanProductCode) || isUsdaBiProduct(loanProductCode);
+  isSba7aGeneralProduct(loanProductCode);
 
 const isNoPropertyMetricsProduct = (loanProductCode) =>
-  isNoLtvCriteriaProduct(loanProductCode) ||
-  isPurchaseOrderFinanceProduct(loanProductCode) ||
-  isEquipmentFinanceProduct(loanProductCode) ||
-  isArFactoringProduct(loanProductCode) ||
-  isApSupplyChainProduct(loanProductCode);
+  isSba7aGeneralProduct(loanProductCode) ||
+  isArFactoringProduct(loanProductCode);
 
 const isNoTermCriteriaProduct = (loanProductCode) =>
   isPurchaseOrderFinanceProduct(loanProductCode) ||
@@ -294,10 +289,8 @@ const getProductEligibilityRules = (productCode) => {
     checkBusinessIndustry: isAnySbaProduct(code),
     checkInterestRate:
       !isPreferredEquityProduct(code) &&
-      !noMinLoan &&
-      !isPurchaseOrderFinanceProduct(code) &&
       !isArFactoringProduct(code) &&
-      !isApSupplyChainProduct(code),
+      !isSba7aRateSpreadProduct(code),
     usesYearTerms: usesYearTerms(code),
   };
 };

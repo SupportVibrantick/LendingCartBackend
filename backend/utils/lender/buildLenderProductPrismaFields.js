@@ -306,10 +306,8 @@ function buildLenderProductPrismaFields(item) {
 
     interestRateRange:
       isPreferredEquityProduct(code) ||
-      isNoMinLoanCriteriaProduct(code) ||
-      isPurchaseOrderFinanceProduct(code) ||
       isArFactoringProduct(code) ||
-      isApSupplyChainProduct(code)
+      isSba7aRateSpreadProduct(code)
         ? null
         : item.interestRateRange ?? null,
 

@@ -17,7 +17,6 @@ import StepFour from "../LoanProducts/LoanCriteria/StepFour";
 import StepFive from "../LoanProducts/LoanCriteria/StepFive";
 import EquipmentFinancingStep from "../LoanProducts/LoanCriteria/EquipmentFinancingStep";
 import {
-  getDefaultCriteriaValuesForProduct,
   getRequiredCriteriaKeysForProduct,
   isMezzanineProduct,
   isNoMinLoanCriteriaProduct,
@@ -31,6 +30,7 @@ import {
 } from "../../lib/lenderProductLenderPayload";
 import { API_BASE, getLenderAuthHeaders } from "../../lib/lenderApi";
 import {
+  buildLoanCriteriaFromLenderProducts,
   filterLenderCatalogProducts,
   mapToCanonicalCatalogId,
   resolveLenderOfferedProductCode,
@@ -242,11 +242,16 @@ export default function EditFullProfile() {
               product.loanProductId,
             ),
           )
-          .filter((id): id is string => Boolean(id)),
+          .filter((id): id is string => Boolean(id))
+          .map(String),
       ),
     ];
 
-    const loanCriteria: Record<string, any> = {};
+    const loanCriteria = buildLoanCriteriaFromLenderProducts(
+      activeProducts,
+      catalogProducts,
+      mapApiProductToCriteriaForm,
+    );
     let propertyTypes: Record<string, string[]> = {};
     let businessTypes: Record<string, string[]> = {};
     let equipmentFinance: string[] = [];
@@ -272,12 +277,6 @@ export default function EditFullProfile() {
       const canonicalCode = resolveLenderOfferedProductCode(
         lenderProduct.code || "",
       );
-
-      loanCriteria[canonicalId] = mapApiProductToCriteriaForm({
-        ...lenderProduct,
-        loanProductCode: canonicalCode,
-        code: canonicalCode,
-      });
 
       if (canonicalCode === "EQUIPMENT_FINANCE") {
         equipmentFinance = Array.isArray(lenderProduct.equipmentTypes)
@@ -401,12 +400,7 @@ export default function EditFullProfile() {
       form.loanPrograms.forEach((programId) => {
         if (nextCriteria[programId]) return;
 
-        const product = products.find((p) => p.id === programId);
-        if (!product) return;
-
-        const defaults = getDefaultCriteriaValuesForProduct(product.code);
         nextCriteria[programId] = {
-          ...defaults,
           states: [],
           documents: [],
         };
@@ -751,6 +745,7 @@ export default function EditFullProfile() {
     if (step === loanCriteriaStepIndex) {
       return (
         <StepFive
+          mode="update"
           products={selectedProducts}
           value={form.loanCriteria}
           setValue={(value: Record<string, any>) =>
