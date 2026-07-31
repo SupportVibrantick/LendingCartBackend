@@ -922,8 +922,6 @@ const USDA_BI_CRITERIA_FIELDS: CriteriaField[] = [
 ];
 
 const PURCHASE_ORDER_FINANCE_CRITERIA_FIELDS: CriteriaField[] = [
-  { label: "Min Facility Size ($)", key: "minFacilitySize", required: true },
-  { label: "Max Facility Size ($)", key: "maxFacilitySize", required: true },
   { label: "Advance Rate (%)", key: "advanceRate", required: true },
   { label: "Transaction Fee (%)", key: "transactionFee", required: true },
   { label: "Min Gross Margin (%)", key: "minGrossMargin", required: true },
@@ -937,8 +935,6 @@ const PURCHASE_ORDER_FINANCE_CRITERIA_FIELDS: CriteriaField[] = [
 ];
 
 const INVOICE_FACTORING_CRITERIA_FIELDS: CriteriaField[] = [
-  { label: "Min Facility Size ($)", key: "minFacilitySize", required: true },
-  { label: "Max Facility Size ($)", key: "maxFacilitySize", required: true },
   { label: "Advance Rate (%)", key: "advanceRate", required: true },
   { label: "Discount Fee (%)", key: "discountFee", required: true },
   { label: "Max Invoice Age (days)", key: "maxInvoiceAgeDays", required: true },
@@ -958,8 +954,6 @@ const INVOICE_FACTORING_CRITERIA_FIELDS: CriteriaField[] = [
 ];
 
 const ACCOUNTS_PAYABLE_FINANCE_CRITERIA_FIELDS: CriteriaField[] = [
-  { label: "Min Program Size ($)", key: "minProgramSize", required: true },
-  { label: "Max Program Size ($)", key: "maxProgramSize", required: true },
   {
     label: "Early Payment Discount (%)",
     key: "earlyPaymentDiscount",
@@ -1313,10 +1307,10 @@ export const validateLoanProductCriteriaStep = (
       !isMezzanineProduct(product.code)
     ) {
       const minAmount = Number(
-        data.minFacilitySize ?? data.minProgramSize ?? data.minLoan,
+        data.minLoan ?? data.minFacilitySize ?? data.minProgramSize,
       );
       const maxAmount = Number(
-        data.maxFacilitySize ?? data.maxProgramSize ?? data.maxLoan,
+        data.maxLoan ?? data.maxFacilitySize ?? data.maxProgramSize,
       );
 
       if (
@@ -1391,32 +1385,32 @@ export const buildLenderProductCriteriaPayload = (
 
   const payload = {
     minLoanAmount:
-      (purchaseOrderProduct || arFactoringProduct) &&
-      criteria.minFacilitySize !== undefined &&
-      criteria.minFacilitySize !== ""
-        ? Number(criteria.minFacilitySize)
-        : apSupplyChainProduct &&
-            criteria.minProgramSize !== undefined &&
-            criteria.minProgramSize !== ""
-          ? Number(criteria.minProgramSize)
-          : !noMinLoanProduct &&
-              criteria.minLoan !== undefined &&
-              criteria.minLoan !== ""
-            ? Number(criteria.minLoan)
+      !noMinLoanProduct &&
+      criteria.minLoan !== undefined &&
+      criteria.minLoan !== ""
+        ? Number(criteria.minLoan)
+        : (purchaseOrderProduct || arFactoringProduct) &&
+            criteria.minFacilitySize !== undefined &&
+            criteria.minFacilitySize !== ""
+          ? Number(criteria.minFacilitySize)
+          : apSupplyChainProduct &&
+              criteria.minProgramSize !== undefined &&
+              criteria.minProgramSize !== ""
+            ? Number(criteria.minProgramSize)
             : null,
     maxLoanAmount:
-      (purchaseOrderProduct || arFactoringProduct) &&
-      criteria.maxFacilitySize !== undefined &&
-      criteria.maxFacilitySize !== ""
-        ? Number(criteria.maxFacilitySize)
-        : apSupplyChainProduct &&
-            criteria.maxProgramSize !== undefined &&
-            criteria.maxProgramSize !== ""
-          ? Number(criteria.maxProgramSize)
-          : !sba504Product &&
-              criteria.maxLoan !== undefined &&
-              criteria.maxLoan !== ""
-            ? Number(criteria.maxLoan)
+      !sba504Product &&
+      criteria.maxLoan !== undefined &&
+      criteria.maxLoan !== ""
+        ? Number(criteria.maxLoan)
+        : (purchaseOrderProduct || arFactoringProduct) &&
+            criteria.maxFacilitySize !== undefined &&
+            criteria.maxFacilitySize !== ""
+          ? Number(criteria.maxFacilitySize)
+          : apSupplyChainProduct &&
+              criteria.maxProgramSize !== undefined &&
+              criteria.maxProgramSize !== ""
+            ? Number(criteria.maxProgramSize)
             : null,
     minTermMonths: noTermProduct
       ? null
@@ -1906,18 +1900,8 @@ export const mapApiProductToCriteriaForm = (product: any) => {
   const interestRates = resolveFormInterestRates(product);
 
   return {
-    minLoan: isPurchaseOrderFinanceProduct(productCode) ||
-      isArFactoringProduct(productCode)
-      ? ""
-      : isApSupplyChainProduct(productCode)
-        ? ""
-        : toFormValue(product.minLoanAmount),
-    maxLoan: isPurchaseOrderFinanceProduct(productCode) ||
-      isArFactoringProduct(productCode)
-      ? ""
-      : isApSupplyChainProduct(productCode)
-        ? ""
-        : toFormValue(product.maxLoanAmount),
+    minLoan: toFormValue(product.minLoanAmount),
+    maxLoan: toFormValue(product.maxLoanAmount),
     minFacilitySize:
       isPurchaseOrderFinanceProduct(productCode) ||
       isArFactoringProduct(productCode)
