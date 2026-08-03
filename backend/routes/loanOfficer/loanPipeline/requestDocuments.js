@@ -8,6 +8,7 @@ const {
 const {
   canBrokerRequestDocuments,
 } = require("../../../utils/applications/resolveApplicationStatus");
+const { extraOfficerPermission } = require("../../../services/broker/loanOfficerAccess");
 
 /**
  * @param {import("fastify").FastifyInstance} fastify
@@ -17,6 +18,7 @@ async function requestDocumentsRoute(fastify) {
   fastify.post(
     "/:loanId/request-documents",
     {
+      preHandler: extraOfficerPermission(fastify, "REQUEST_DOCUMENTS"),
       schema: {
         tags: ["Loan Pipeline"],
         summary: "Request documents from client (Broker / Lender)",

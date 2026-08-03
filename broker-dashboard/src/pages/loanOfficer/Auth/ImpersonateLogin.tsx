@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { readImpersonateParams } from "../../../lib/impersonateUrl";
+import { setSessionPermissions } from "../../../lib/brokerPermissions";
 import {
   LO_TOKEN_KEY,
   LO_USER_KEY,
@@ -40,7 +41,7 @@ export default function LoanOfficerImpersonateLogin() {
 
         if (permissionsParam) {
           const permissions = JSON.parse(permissionsParam);
-          sessionStorage.setItem("permissions", JSON.stringify(permissions));
+          setSessionPermissions(permissions);
         }
 
         const verified = await verifyLoanOfficerSession(token);

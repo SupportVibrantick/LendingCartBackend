@@ -3,6 +3,9 @@ const jwtSecret = require("../../../utils/auth/jwtSecret");
 const {
   resolveCoBrokerBranding,
 } = require("../../../utils/broker/resolveCoBrokerBranding");
+const {
+  requireLoOfficerPermission,
+} = require("../../../services/broker/loanOfficerAccess");
 
 /**
  * @param {import("fastify").FastifyInstance} fastify
@@ -21,6 +24,14 @@ module.exports = async function impersonateSubBrokerRoutes(fastify) {
             subBrokerId: { type: "string", format: "uuid" },
           },
         },
+      },
+      preHandler: async (req, reply) => {
+        await requireLoOfficerPermission(
+          req,
+          reply,
+          fastify,
+          "ACCESS_CO_BROKER_PORTAL",
+        );
       },
     },
     async (req, reply) => {

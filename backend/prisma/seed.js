@@ -5,6 +5,9 @@ const prisma = new PrismaClient();
 // Admin seeds
 const { seedRoles } = require("./admin/role.seed");
 const { seedPermissions } = require("./admin/permission.seed");
+const {
+  seedLoanOfficerPermissions,
+} = require("./broker/loanOfficerPermissions.seed");
 const { seedRolePermissions } = require("./admin/rolePermission.seed");
 const { seedPlatformOrg } = require("./admin/platformOrg.seed");
 const { seedAdminUser } = require("./admin/admin.seed");
@@ -36,6 +39,7 @@ async function main() {
   // ================== Admin ==================
   await seedRoles();
   await seedPermissions();
+  await seedLoanOfficerPermissions();
   await seedRolePermissions();
   await seedPlatformOrg();
   await seedAdminUser();

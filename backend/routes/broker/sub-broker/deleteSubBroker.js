@@ -14,6 +14,10 @@ function buildFreedDeletedEmail(user) {
 }
 
 module.exports = async function deleteSubBrokerRoutes(fastify) {
+  const {
+    requireLoOfficerPermission,
+  } = require("../../../services/broker/loanOfficerAccess");
+
   fastify.delete(
     "/:id",
     {
@@ -27,6 +31,9 @@ module.exports = async function deleteSubBrokerRoutes(fastify) {
             id: { type: "string", minLength: 1 },
           },
         },
+      },
+      preHandler: async (req, reply) => {
+        await requireLoOfficerPermission(req, reply, fastify, "DELETE_CO_BROKERS");
       },
     },
     async (req, reply) => {

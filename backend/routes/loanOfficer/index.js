@@ -9,6 +9,7 @@ async function loanOfficerRoutes(fastify) {
   await fastify.register(require("./messaging"), { prefix: "/messaging" });
   await fastify.register(require("./notifications"), { prefix: "/notifications" });
   await fastify.register(require("./commissions"), { prefix: "/commissions" });
+  await fastify.register(require("./dashboard"), { prefix: "/dashboard" });
 }
 
 module.exports = loanOfficerRoutes;

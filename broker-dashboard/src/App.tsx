@@ -88,6 +88,8 @@ import BrokerCustomDocuments from "./pages/Documents/BrokerCustomDocuments";
 import CommissionsPage from "./pages/Commissions/CommissionsPage";
 import PaymentsLayout from "./pages/Payments/PaymentsLayout";
 import InvoicesPage from "./pages/Payments/InvoicesPage";
+import RequirePermission from "./components/auth/RequirePermission";
+import type { PermissionKey } from "./lib/brokerPermissions";
 
 // type RequirePermissionProps = {
 //   children: ReactNode;
@@ -109,6 +111,33 @@ import InvoicesPage from "./pages/Payments/InvoicesPage";
 
 //   return <>{children}</>;
 // };
+
+const BrokerRequirePermission = ({
+  children,
+  permission,
+}: {
+  children: React.ReactNode;
+  permission: string | string[];
+}) => (
+  <RequirePermission permission={permission as PermissionKey | PermissionKey[]} portal="broker">
+    {children}
+  </RequirePermission>
+);
+
+const LoRequirePermission = ({
+  permission,
+  children,
+}: {
+  permission: PermissionKey | PermissionKey[] | "always";
+  children: React.ReactNode;
+}) => {
+  if (permission === "always") return <>{children}</>;
+  return (
+    <RequirePermission permission={permission} portal="loanOfficer">
+      {children}
+    </RequirePermission>
+  );
+};
 
 const isSubBrokerUser = () => {
   try {
@@ -176,7 +205,11 @@ export default function App() {
               path="/lender-assigned-products"
               element={<LenderProductAssign />}
             />
-            <Route index path="/email-marketing" element={<EmailMarketing />} />
+            <Route index path="/email-marketing" element={
+              <BrokerRequirePermission permission="MANAGE_SETTINGS">
+                <EmailMarketing />
+              </BrokerRequirePermission>
+            } />
             <Route
               index
               path="/assigned-products"
@@ -249,7 +282,9 @@ export default function App() {
                 isSubBrokerUser() ? (
                   <Navigate to="/" replace />
                 ) : (
-                  <ContactPage />
+                  <BrokerRequirePermission permission="VIEW_CLIENTS">
+                    <ContactPage />
+                  </BrokerRequirePermission>
                 )
               }
             />
@@ -261,9 +296,9 @@ export default function App() {
             <Route
               path="/submit-applications"
               element={
-                // <RequirePermission permission="VIEW_PIPELINE">
-                <SubmitApplications />
-                // </RequirePermission>
+                <BrokerRequirePermission permission="VIEW_PIPELINE">
+                  <SubmitApplications />
+                </BrokerRequirePermission>
               }
             />
 
@@ -272,7 +307,11 @@ export default function App() {
             <Route
               index
               path="/loan-application"
-              element={<LoanApplication />}
+              element={
+                <BrokerRequirePermission permission="CREATE_APPLICATION">
+                  <LoanApplication />
+                </BrokerRequirePermission>
+              }
             />
 
             <Route index path="/loan-preview" element={<LoanPreview />} />
@@ -287,7 +326,11 @@ export default function App() {
               element={<Navigate to="/payments/commissions" replace />}
             />
 
-            <Route path="/lender-marketplace" element={<LenderMarketplace />} />
+            <Route path="/lender-marketplace" element={
+              <BrokerRequirePermission permission="VIEW_LENDERS">
+                <LenderMarketplace />
+              </BrokerRequirePermission>
+            } />
             <Route
               path="/find-lenders"
               element={<Navigate to="/lender-marketplace?tab=discover" replace />}
@@ -307,14 +350,26 @@ export default function App() {
 
             <Route index path="/all-documents" element={<AllDocuments />} />
 
-            <Route index path="/admin-logs" element={<AdminLogs />} />
+            <Route index path="/admin-logs" element={
+              <BrokerRequirePermission permission="VIEW_LOGS">
+                <AdminLogs />
+              </BrokerRequirePermission>
+            } />
 
             {/* Others Page */}
             <Route path="/profile" element={<UserProfiles />} />
-            <Route path="/settings/branding" element={<BrokerBranding />} />
+            <Route path="/settings/branding" element={
+              <BrokerRequirePermission permission="VIEW_SETTINGS">
+                <BrokerBranding />
+              </BrokerRequirePermission>
+            } />
             <Route
               path="/documents/custom"
-              element={<BrokerCustomDocuments />}
+              element={
+                <BrokerRequirePermission permission="VIEW_TEMPLATES">
+                  <BrokerCustomDocuments />
+                </BrokerRequirePermission>
+              }
             />
             <Route
               path="/settings/custom-documents"
@@ -345,7 +400,11 @@ export default function App() {
             <Route
               index
               path="/broker-website-dashboard/config-website"
-              element={<ConfigWebsite />}
+              element={
+                <BrokerRequirePermission permission="VIEW_WEBSITE_BUILDER">
+                  <ConfigWebsite />
+                </BrokerRequirePermission>
+              }
             />
           </Route>
 
@@ -430,22 +489,122 @@ export default function App() {
           >
             <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="dashboard" element={<LoanOfficerDashboard />} />
-            <Route path="invoices" element={<LoanOfficerInvoicesPage />} />
-            <Route path="commissions" element={<LoanOfficerCommissionsPage />} />
+            <Route
+              path="invoices"
+              element={
+                <LoRequirePermission permission="VIEW_INVOICES">
+                  <LoanOfficerInvoicesPage />
+                </LoRequirePermission>
+              }
+            />
+            <Route
+              path="commissions"
+              element={
+                <LoRequirePermission permission="VIEW_COMMISSIONS">
+                  <LoanOfficerCommissionsPage />
+                </LoRequirePermission>
+              }
+            />
             <Route
               path="loan-pipeline"
-              element={<LoanOfficerSubmitApplications />}
+              element={
+                <LoRequirePermission permission="VIEW_APPLICATIONS">
+                  <LoanOfficerSubmitApplications />
+                </LoRequirePermission>
+              }
             />
             <Route
               path="loan-pipeline-preview"
-              element={<LoanOfficerLoanPreview />}
+              element={
+                <LoRequirePermission permission="VIEW_APPLICATIONS">
+                  <LoanOfficerLoanPreview />
+                </LoRequirePermission>
+              }
             />
             <Route
               path="loan-application"
-              element={<LoanOfficerApplication />}
+              element={
+                <LoRequirePermission permission="CREATE_APPLICATION">
+                  <LoanOfficerApplication />
+                </LoRequirePermission>
+              }
             />
-            <Route path="contacts" element={<LoanOfficerContacts />} />
-            <Route path="messages" element={<LoanOfficerMessagesPage />} />
+            <Route
+              path="contacts"
+              element={
+                <LoRequirePermission permission="VIEW_CONTACTS">
+                  <LoanOfficerContacts />
+                </LoRequirePermission>
+              }
+            />
+            <Route
+              path="co-brokers"
+              element={
+                <LoRequirePermission permission="VIEW_CO_BROKERS">
+                  <SubBroker />
+                </LoRequirePermission>
+              }
+            />
+            <Route
+              path="borrowers"
+              element={
+                <LoRequirePermission permission="VIEW_BORROWERS">
+                  <BorrowersPage />
+                </LoRequirePermission>
+              }
+            />
+            <Route
+              path="lender-marketplace"
+              element={
+                <LoRequirePermission permission="VIEW_MARKETPLACE">
+                  <LenderMarketplace />
+                </LoRequirePermission>
+              }
+            />
+            <Route
+              path="documents/custom"
+              element={
+                <LoRequirePermission
+                  permission={["MANAGE_CUSTOM_DOCUMENTS", "VIEW_CUSTOM_DOCUMENTS"]}
+                >
+                  <BrokerCustomDocuments />
+                </LoRequirePermission>
+              }
+            />
+            <Route
+              path="email-marketing"
+              element={
+                <LoRequirePermission permission="SEND_EMAILS">
+                  <EmailMarketing />
+                </LoRequirePermission>
+              }
+            />
+            <Route
+              path="messages"
+              element={
+                <LoRequirePermission permission="CHAT">
+                  <LoanOfficerMessagesPage />
+                </LoRequirePermission>
+              }
+            />
+            <Route
+              path="settings/branding"
+              element={
+                <LoRequirePermission
+                  permission={["MANAGE_BRANDING", "VIEW_COMPANY_SETTINGS"]}
+                >
+                  <BrokerBranding />
+                </LoRequirePermission>
+              }
+            />
+            <Route
+              path="admin-logs"
+              element={
+                <LoRequirePermission permission="VIEW_REPORTS">
+                  <AdminLogs />
+                </LoRequirePermission>
+              }
+            />
             <Route path="profile" element={<LoanOfficerProfile />} />
           </Route>
 

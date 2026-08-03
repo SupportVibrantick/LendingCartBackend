@@ -4,7 +4,9 @@ import toast from "react-hot-toast";
 import Swal from "sweetalert2";
 import CreateContactModal from "./CreateContactModal";
 import ViewContactModal from "./ViewContactModal";
-import { loAuthHeaders, LO_API_BASE } from "../../../lib/loanOfficerApi";
+import { loAuthHeaders, LO_API_BASE, checkLoanOfficerResponse } from "../../../lib/loanOfficerApi";
+import { isSessionExpiredError } from "../../../lib/sessionExpiry";
+import { hasPermission } from "../../../lib/brokerPermissions";
 
 type Contact = {
   id: string;
@@ -31,6 +33,10 @@ type ApiResponse = {
 };
 
 export default function ContactPage() {
+  const canCreateContacts = hasPermission("CREATE_CONTACTS", "loanOfficer");
+  const canEditContacts = hasPermission("EDIT_CONTACTS", "loanOfficer");
+  const canDeleteContacts = hasPermission("DELETE_CONTACTS", "loanOfficer");
+
   const [open, setOpen] = useState(false);
   const [editContact, setEditContact] = useState<Contact | null>(null);
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -54,6 +60,7 @@ export default function ContactPage() {
       );
 
       const data: ApiResponse = await res.json();
+      checkLoanOfficerResponse(res, data);
 
       if (data.success) {
         setContacts(data.data);
@@ -61,6 +68,7 @@ export default function ContactPage() {
         setPage(data.pagination.page);
       }
     } catch (err) {
+      if (isSessionExpiredError(err)) return;
       console.error("Failed to fetch contacts", err);
     } finally {
       setLoading(false);
@@ -86,6 +94,10 @@ export default function ContactPage() {
   });
 
   const handleDelete = async (contact: Contact) => {
+    if (!canDeleteContacts) {
+      toast.error("You don't have permission to delete contacts");
+      return;
+    }
     const result = await Swal.fire({
       title: "Delete contact?",
       text: `${contact.firstName} ${contact.lastName} will be removed.`,
@@ -103,14 +115,34 @@ export default function ContactPage() {
         headers: loAuthHeaders(false),
       });
       const json = await res.json();
+      checkLoanOfficerResponse(res, json);
       if (!res.ok || json.success === false) {
         throw new Error(json.message || "Delete failed");
       }
       toast.success("Contact deleted");
       fetchContacts(page);
     } catch (err: unknown) {
+      if (isSessionExpiredError(err)) return;
       toast.error(err instanceof Error ? err.message : "Delete failed");
     }
+  };
+
+  const openCreateModal = () => {
+    if (!canCreateContacts) {
+      toast.error("You don't have permission to create contacts");
+      return;
+    }
+    setEditContact(null);
+    setOpen(true);
+  };
+
+  const openEditModal = (contact: Contact) => {
+    if (!canEditContacts) {
+      toast.error("You don't have permission to edit contacts");
+      return;
+    }
+    setEditContact(contact);
+    setOpen(true);
   };
 
   return (
@@ -169,17 +201,16 @@ export default function ContactPage() {
             <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
             Refresh
           </button>
-          <button
-            type="button"
-            onClick={() => {
-              setEditContact(null);
-              setOpen(true);
-            }}
-            className="inline-flex items-center gap-2 rounded-xl bg-[#13538A] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#1a6aad]"
-          >
-            <Plus className="h-4 w-4" />
-            Create Contact
-          </button>
+          {canCreateContacts && (
+            <button
+              type="button"
+              onClick={openCreateModal}
+              className="inline-flex items-center gap-2 rounded-xl bg-[#13538A] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#1a6aad]"
+            >
+              <Plus className="h-4 w-4" />
+              Create Contact
+            </button>
+          )}
         </div>
       </div>
 
@@ -250,24 +281,25 @@ export default function ContactPage() {
                   <Eye size={16} />
                 </button>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEditContact(contact);
-                    setOpen(true);
-                  }}
-                  className="rounded-lg p-2 text-gray-500 transition hover:bg-amber-50 hover:text-amber-600"
-                >
-                  <Pencil size={16} />
-                </button>
+                {canEditContacts && (
+                  <button
+                    type="button"
+                    onClick={() => openEditModal(contact)}
+                    className="rounded-lg p-2 text-gray-500 transition hover:bg-amber-50 hover:text-amber-600"
+                  >
+                    <Pencil size={16} />
+                  </button>
+                )}
 
-                <button
-                  type="button"
-                  onClick={() => handleDelete(contact)}
-                  className="rounded-lg p-2 text-gray-500 transition hover:bg-red-50 hover:text-red-600"
-                >
-                  <Trash2 size={16} />
-                </button>
+                {canDeleteContacts && (
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(contact)}
+                    className="rounded-lg p-2 text-gray-500 transition hover:bg-red-50 hover:text-red-600"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                )}
               </div>            </div>
           ))}
 
@@ -318,10 +350,10 @@ export default function ContactPage() {
                 ? "Try adjusting your search terms."
                 : "Create your first contact to manage lenders, brokers, and partners."}
             </p>
-            {!search && (
+            {!search && canCreateContacts && (
               <button
                 type="button"
-                onClick={() => setOpen(true)}
+                onClick={openCreateModal}
                 className="mt-4 inline-flex items-center gap-2 rounded-xl bg-[#13538A] px-4 py-2 text-sm font-medium text-white hover:bg-[#1a6aad]"
               >
                 <Plus className="h-4 w-4" />

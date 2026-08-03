@@ -7,6 +7,9 @@ const {
 const {
   extractApplicantEligibilityData,
 } = require("../../../utils/lender/extractApplicantEligibilityData");
+const {
+  requireLoSendApplications,
+} = require("../../../services/broker/loanOfficerAccess");
 
 module.exports = async function findEligibleLenders(fastify) {
   fastify.get(
@@ -47,6 +50,9 @@ module.exports = async function findEligibleLenders(fastify) {
             },
           },
         },
+      },
+      preHandler: async (req, reply) => {
+        await requireLoSendApplications(req, reply, fastify);
       },
     },
     async (req, reply) => {

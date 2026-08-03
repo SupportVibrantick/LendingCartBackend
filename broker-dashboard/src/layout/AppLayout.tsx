@@ -3,11 +3,14 @@ import { Outlet, useLocation } from "react-router";
 import AppHeader from "./AppHeader";
 import Backdrop from "./Backdrop";
 import AppSidebar from "./AppSidebar";
+import { useBrokerSessionMonitor } from "../hooks/useSessionMonitor";
 
 const LayoutContent: React.FC = () => {
   const { isExpanded, isHovered, isMobileOpen } = useSidebar();
   const { pathname } = useLocation();
   const isLoanApplicationPage = pathname === "/loan-application";
+
+  useBrokerSessionMonitor();
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50 dark:bg-gray-950">

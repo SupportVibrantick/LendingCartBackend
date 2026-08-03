@@ -13,7 +13,13 @@ import {
   Trash2,
 } from "lucide-react";
 
+import { getPortalAuthHeaders } from "../../lib/portalAuth";
+
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
+
+function getAuthHeaders(json = false): Record<string, string> {
+  return getPortalAuthHeaders(json);
+}
 
 type ReminderType =
   | "PENDING_UPLOAD"
@@ -69,14 +75,6 @@ const INTERVAL_PRESETS = [
   { label: "Every day", value: 1, unit: "DAYS" as IntervalUnit },
   { label: "Every 3 days", value: 3, unit: "DAYS" as IntervalUnit },
 ];
-
-function getAuthHeaders(json = false): Record<string, string> {
-  const token = sessionStorage.getItem("broker_token");
-  return {
-    ...(json ? { "Content-Type": "application/json" } : {}),
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-  };
-}
 
 function formatDateTime(value: string | null) {
   if (!value) return "—";

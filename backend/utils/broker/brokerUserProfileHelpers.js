@@ -157,7 +157,13 @@ async function parseBrokerUserMultipart(req) {
 }
 
 async function syncUserPermissions(prisma, userId, permissionKeys = []) {
-  const uniqueKeys = [...new Set((permissionKeys || []).filter(Boolean))];
+  const {
+    normalizeLoanOfficerPermissions,
+  } = require("./loanOfficerPermissions");
+
+  const uniqueKeys = normalizeLoanOfficerPermissions(
+    [...new Set((permissionKeys || []).filter(Boolean))],
+  );
 
   await prisma.userPermission.deleteMany({
     where: { userId },

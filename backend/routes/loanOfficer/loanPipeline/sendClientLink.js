@@ -2,9 +2,13 @@ const crypto = require("crypto");
 const { loadTemplate } = require("../../../utils/email/loadTemplate");
 const { buildClientLinkEmailData } = require("../../../utils/email/emailTemplateData");
 const sendMail = require("../../../services/emails/mail");
+const { extraOfficerPermission } = require("../../../services/broker/loanOfficerAccess");
 
 async function sendClientLinkRoute(fastify) {
-  fastify.post("/:loanId/send-client-link", async (req, reply) => {
+  fastify.post(
+    "/:loanId/send-client-link",
+    { preHandler: extraOfficerPermission(fastify, "REQUEST_DOCUMENTS") },
+    async (req, reply) => {
     const prisma = fastify.prisma;
 
     try {

@@ -1,3 +1,9 @@
+import {
+  SESSION_EXPIRED_MESSAGE,
+  beginSessionLogout,
+  showSessionExpiredToast,
+} from "./sessionExpiry";
+
 export const LO_API_BASE =
   import.meta.env.VITE_API_BASE?.replace(/\/$/, "") || "http://localhost:4000";
 
@@ -34,15 +40,29 @@ export function clearLoanOfficerSession() {
   );
 }
 
-export function handleLoanOfficerUnauthorized(message?: string) {
+export function handleLoanOfficerUnauthorized(_message?: string) {
+  const isFirst = beginSessionLogout("loanOfficer");
   clearLoanOfficerSession();
 
-  const onSignIn = window.location.pathname === "/loan-officer/login";
-  if (!onSignIn) {
+  const onSignIn =
+    window.location.pathname === "/loan-officer/login" ||
+    window.location.pathname === "/loan-officer/impersonate";
+
+  if (isFirst && !onSignIn) {
+    showSessionExpiredToast();
     window.location.href = "/loan-officer/login";
   }
 
-  return new Error(message || "Session expired. Please sign in again.");
+  return new Error(SESSION_EXPIRED_MESSAGE);
+}
+
+export function checkLoanOfficerResponse(
+  res: Response,
+  _json?: Record<string, unknown>,
+): void {
+  if (res.status === 401) {
+    throw handleLoanOfficerUnauthorized();
+  }
 }
 
 export const loAuthHeaders = (json = true) => {
@@ -68,13 +88,7 @@ export async function loFetch<T = unknown>(
 
   const json = (await res.json().catch(() => ({}))) as Record<string, unknown>;
 
-  if (res.status === 401) {
-    throw handleLoanOfficerUnauthorized(
-      typeof json.message === "string"
-        ? json.message
-        : "Session expired. Please sign in again.",
-    );
-  }
+  checkLoanOfficerResponse(res, json);
 
   if (!res.ok || json.success === false) {
     throw new Error(
@@ -84,6 +98,26 @@ export async function loFetch<T = unknown>(
   }
 
   return json as T;
+}
+
+export async function loFetchAbsolute<T = Record<string, unknown>>(
+  url: string,
+  options: RequestInit = {},
+): Promise<{ res: Response; json: T }> {
+  const hasJsonBody =
+    options.body !== undefined &&
+    options.body !== null &&
+    !(options.body instanceof FormData);
+  const res = await fetch(url, {
+    ...options,
+    headers: {
+      ...loAuthHeaders(hasJsonBody),
+      ...(options.headers || {}),
+    },
+  });
+  const json = (await res.json().catch(() => ({}))) as T;
+  checkLoanOfficerResponse(res, json as Record<string, unknown>);
+  return { res, json };
 }
 
 export async function verifyLoanOfficerSession(token: string): Promise<boolean> {

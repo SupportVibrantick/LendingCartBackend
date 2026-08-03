@@ -4,6 +4,14 @@ require("dotenv").config();
 const jwt = require("jsonwebtoken");
 const jwtSecret = require("../utils/auth/jwtSecret");
 const logger = require("../services/logger/contextLogger");
+const {
+  loadUserPermissionKeys,
+  rolesIncludeAdmin,
+  userHasPermissionKeys,
+} = require("../utils/broker/brokerPermissionHelpers");
+const {
+  normalizeLoanOfficerPermissions,
+} = require("../utils/broker/loanOfficerPermissions");
 
 function registerAuthMiddleware(fastify, opts, done) {
   fastify.decorate("authenticate", async function (request, reply) {
@@ -47,6 +55,10 @@ function registerAuthMiddleware(fastify, opts, done) {
         decoded.role ??
         [];
 
+      const permissions = Array.isArray(decoded.permissions)
+        ? decoded.permissions.filter((key) => typeof key === "string")
+        : [];
+
       if (!userId) {
         logger.commonLogs.warn("Token missing user id", {
           endpoint: request.url,
@@ -75,6 +87,7 @@ request.user = {
   // roles
   roles,
   role: decoded.role ?? null,
+  permissions,
 
   // 🔥 IMPORTANT
   email:
@@ -120,6 +133,51 @@ request.user = {
         return reply
           .code(403)
           .send({ ok: false, message: "Forbidden - insufficient role" });
+      }
+    };
+  });
+
+  fastify.decorate("requirePermission", (requiredPermissions = []) => {
+    const requiredKeys = Array.isArray(requiredPermissions)
+      ? requiredPermissions
+      : [requiredPermissions];
+
+    return async (request, reply) => {
+      const userRoles = request.user?.roles ?? [];
+
+      if (rolesIncludeAdmin(userRoles)) {
+        return;
+      }
+
+      const userId = request.user?.userId || request.user?.id;
+      let permissionKeys = Array.isArray(request.user?.permissions)
+        ? request.user.permissions
+        : [];
+
+      // Loan officers: always read latest permissions from DB so broker updates
+      // apply without forcing a re-login.
+      if (userRoles.includes("BROKER_OFFICER") && userId) {
+        permissionKeys = normalizeLoanOfficerPermissions(
+          await loadUserPermissionKeys(fastify.prisma, userId),
+        );
+        request.user.permissions = permissionKeys;
+      } else if (!permissionKeys.length && userId) {
+        permissionKeys = await loadUserPermissionKeys(fastify.prisma, userId);
+      }
+
+      if (!userHasPermissionKeys(permissionKeys, requiredKeys)) {
+        logger.commonLogs.warn("Access denied - permission", {
+          endpoint: request.url,
+          method: request.method,
+          requiredKeys,
+          permissionKeys,
+        });
+
+        return reply.code(403).send({
+          success: false,
+          ok: false,
+          message: "Forbidden - insufficient permissions",
+        });
       }
     };
   });

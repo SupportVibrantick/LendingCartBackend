@@ -1,7 +1,7 @@
 /**
  * @param {import("fastify").FastifyInstance} fastify
  */
-const { assertOwnsSubmission } = require("../../../services/broker/loanOfficerAccess");
+const { assertOwnsSubmission, extraOfficerPermission } = require("../../../services/broker/loanOfficerAccess");
 const {
   setAutoForwardDocumentsToLender,
 } = require("../../../services/documents/documentAutoForwardSetting");
@@ -10,6 +10,7 @@ module.exports = async function updateDocumentAutoForward(fastify) {
   fastify.patch(
     "/submissions/:submissionId/documents/auto-forward",
     {
+      preHandler: extraOfficerPermission(fastify, "AUTO_FORWARD_TO_LENDER"),
       schema: {
         tags: ["Loan Officer -> Loan Pipeline"],
         summary: "Toggle auto-forward of uploaded documents to lenders",

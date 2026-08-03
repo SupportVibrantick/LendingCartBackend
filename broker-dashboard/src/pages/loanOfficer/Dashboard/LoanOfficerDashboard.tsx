@@ -5,12 +5,23 @@ import {
   ArrowRight,
   BriefcaseBusiness,
   FilePlus,
-  // MessageSquare,
+  FolderOpen,
+  Mail,
   RefreshCw,
+  Store,
+  UserRound,
   Users,
+  Contact,
 } from "lucide-react";
-import { LO_API_BASE, loAuthHeaders } from "../../../lib/loanOfficerApi";
+import { LO_API_BASE, loAuthHeaders, checkLoanOfficerResponse } from "../../../lib/loanOfficerApi";
+import { isSessionExpiredError } from "../../../lib/sessionExpiry";
 import StaffCommissionOverview from "../../../components/commissions/StaffCommissionOverview";
+import {
+  hasAnyPermission,
+  hasPermission,
+  LO_PERMISSIONS_UPDATED_EVENT,
+  type PermissionKey,
+} from "../../../lib/brokerPermissions";
 
 type PipelineStats = {
   totalVolume: number;
@@ -59,40 +70,67 @@ export default function LoanOfficerDashboard() {
     draft: 0,
   });
   const [recent, setRecent] = useState<RecentApp[]>([]);
+  const [permTick, setPermTick] = useState(0);
+
+  useEffect(() => {
+    const refresh = () => setPermTick((value) => value + 1);
+    window.addEventListener(LO_PERMISSIONS_UPDATED_EVENT, refresh);
+    return () => window.removeEventListener(LO_PERMISSIONS_UPDATED_EVENT, refresh);
+  }, []);
 
   const load = async () => {
     try {
       setLoading(true);
-      const [statsRes, listRes] = await Promise.all([
-        fetch(`${LO_API_BASE}/loanofficer/loan-pipeline/pipeline-stats`, {
-          headers: loAuthHeaders(),
-        }),
-        fetch(`${LO_API_BASE}/loanofficer/loan-pipeline/submissions?limit=5`, {
-          headers: loAuthHeaders(),
-        }),
-      ]);
 
-      const statsJson = await statsRes.json();
-      const listJson = await listRes.json();
+      const canViewStats = hasPermission("VIEW_DASHBOARD_STATS", "loanOfficer");
+      const canViewRecent = hasPermission("VIEW_DASHBOARD_RECENT", "loanOfficer");
 
-      if (statsRes.ok && statsJson.success) {
-        setStats(statsJson.data);
+      const requests: Promise<Response | null>[] = [
+        canViewStats
+          ? fetch(`${LO_API_BASE}/loanofficer/dashboard/stats`, {
+              headers: loAuthHeaders(),
+            })
+          : Promise.resolve(null),
+        canViewRecent
+          ? fetch(
+              `${LO_API_BASE}/loanofficer/dashboard/recent-applications?limit=5`,
+              { headers: loAuthHeaders() },
+            )
+          : Promise.resolve(null),
+      ];
+
+      const [statsRes, listRes] = await Promise.all(requests);
+
+      if (statsRes) {
+        const statsJson = await statsRes.json();
+        checkLoanOfficerResponse(statsRes, statsJson);
+        if (statsRes.ok && statsJson.success) {
+          setStats(statsJson.data);
+        }
+      } else {
+        setStats({
+          totalVolume: 0,
+          totalApplications: 0,
+          submitted: 0,
+          clientPending: 0,
+          approved: 0,
+          rejected: 0,
+          inReview: 0,
+          draft: 0,
+        });
       }
 
-      if (listRes.ok && Array.isArray(listJson.data)) {
-        setRecent(
-          listJson.data.slice(0, 5).map((item: any) => ({
-            submissionId: item.submissionId,
-            applicationId: item.applicationId,
-            applicationNumber: item.applicationNumber,
-            borrower: item.borrower || "Applicant",
-            amount: item.amount || "0",
-            status: item.status,
-            submittedOn: item.submittedOn,
-          })),
-        );
+      if (listRes) {
+        const listJson = await listRes.json();
+        checkLoanOfficerResponse(listRes, listJson);
+        if (listRes.ok && Array.isArray(listJson.data)) {
+          setRecent(listJson.data);
+        }
+      } else {
+        setRecent([]);
       }
-    } catch {
+    } catch (err) {
+      if (isSessionExpiredError(err)) return;
       toast.error("Failed to load dashboard");
     } finally {
       setLoading(false);
@@ -101,7 +139,7 @@ export default function LoanOfficerDashboard() {
 
   useEffect(() => {
     load();
-  }, []);
+  }, [permTick]);
 
   const statCards = [
     {
@@ -131,6 +169,7 @@ export default function LoanOfficerDashboard() {
       icon: FilePlus,
       to: "/loan-officer/loan-application",
       color: "bg-[#13538A]",
+      permission: "CREATE_APPLICATION" as PermissionKey,
     },
     {
       label: "Loan Pipeline",
@@ -138,22 +177,67 @@ export default function LoanOfficerDashboard() {
       icon: BriefcaseBusiness,
       to: "/loan-officer/loan-pipeline",
       color: "bg-[#1a6aad]",
+      permission: "VIEW_APPLICATIONS" as PermissionKey,
     },
-    // {
-    //   label: "Messages",
-    //   desc: "Client & lender conversations",
-    //   icon: MessageSquare,
-    //   to: "/loan-officer/messages",
-    //   color: "bg-[#2C92D5]",
-    // },
     {
-      label: "My Contacts",
-      desc: "Manage your directory",
+      label: "Co-Brokers",
+      desc: "Manage your co-broker team",
       icon: Users,
+      to: "/loan-officer/co-brokers",
+      color: "bg-violet-600",
+      permission: "VIEW_CO_BROKERS" as PermissionKey,
+    },
+    {
+      label: "Contacts",
+      desc: "Manage your directory",
+      icon: Contact,
       to: "/loan-officer/contacts",
       color: "bg-slate-700",
+      permission: "VIEW_CONTACTS" as PermissionKey,
     },
-  ];
+    {
+      label: "Borrowers",
+      desc: "View borrower records",
+      icon: UserRound,
+      to: "/loan-officer/borrowers",
+      color: "bg-orange-600",
+      permission: "VIEW_BORROWERS" as PermissionKey,
+    },
+    {
+      label: "Lender Marketplace",
+      desc: "Discover and connect lenders",
+      icon: Store,
+      to: "/loan-officer/lender-marketplace",
+      color: "bg-emerald-600",
+      permission: "VIEW_MARKETPLACE" as PermissionKey,
+    },
+    {
+      label: "Custom Documents",
+      desc: "Manage document templates",
+      icon: FolderOpen,
+      to: "/loan-officer/documents/custom",
+      color: "bg-amber-600",
+      permission: ["MANAGE_CUSTOM_DOCUMENTS", "VIEW_CUSTOM_DOCUMENTS"] as PermissionKey[],
+    },
+    {
+      label: "Email Marketing",
+      desc: "Run email campaigns",
+      icon: Mail,
+      to: "/loan-officer/email-marketing",
+      color: "bg-rose-600",
+      permission: "SEND_EMAILS" as PermissionKey,
+    },
+  ].filter((action) => {
+    void permTick;
+    const required = Array.isArray(action.permission)
+      ? action.permission
+      : [action.permission];
+    return hasAnyPermission(required, "loanOfficer");
+  });
+
+  const canViewStats = hasPermission("VIEW_DASHBOARD_STATS", "loanOfficer");
+  const canViewRecent = hasPermission("VIEW_DASHBOARD_RECENT", "loanOfficer");
+  const canViewPipeline = hasPermission("VIEW_APPLICATIONS", "loanOfficer");
 
   return (
     <div className="space-y-6">
@@ -180,75 +264,84 @@ export default function LoanOfficerDashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-6">
-        {statCards.map((card) => (
-          <div
-            key={card.label}
-            className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900"
-          >
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">
-              {card.label}
-            </p>
-            <p className={`mt-2 text-2xl font-bold ${card.color}`}>
-              {loading ? "—" : card.value}
-            </p>
-          </div>
-        ))}
-      </div>
-
-      <StaffCommissionOverview
-        apiBase={LO_API_BASE}
-        summaryPath="/loanofficer/commissions/summary"
-        listPath="/loanofficer/commissions"
-        getHeaders={() => loAuthHeaders(false)}
-        portal="loanofficer"
-        title="My Commission Earnings"
-        invoicesHref="/loan-officer/invoices"
-        commissionsHref="/loan-officer/commissions"
-      />
-
-      <div>
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-500">
-          Quick Actions
-        </h2>
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {quickActions.map((action) => {
-            const Icon = action.icon;
-            return (
-              <Link
-                key={action.to}
-                to={action.to}
-                className="group flex items-start gap-4 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition hover:border-[#13538A]/30 hover:shadow-md dark:border-gray-800 dark:bg-gray-900"
-              >
-                <div
-                  className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-white ${action.color}`}
-                >
-                  <Icon size={20} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="font-semibold text-gray-900 dark:text-white">
-                    {action.label}
-                  </p>
-                  <p className="mt-0.5 text-xs text-gray-500">{action.desc}</p>
-                </div>
-                <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-gray-300 transition group-hover:text-[#13538A]" />
-              </Link>
-            );
-          })}
+      {canViewStats && (
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-6">
+          {statCards.map((card) => (
+            <div
+              key={card.label}
+              className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900"
+            >
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+                {card.label}
+              </p>
+              <p className={`mt-2 text-2xl font-bold ${card.color}`}>
+                {loading ? "—" : card.value}
+              </p>
+            </div>
+          ))}
         </div>
-      </div>
+      )}
 
+      {hasPermission("VIEW_COMMISSIONS", "loanOfficer") && (
+        <StaffCommissionOverview
+          apiBase={LO_API_BASE}
+          summaryPath="/loanofficer/commissions/summary"
+          listPath="/loanofficer/commissions"
+          getHeaders={() => loAuthHeaders(false)}
+          portal="loanofficer"
+          title="My Commission Earnings"
+          invoicesHref="/loan-officer/invoices"
+          commissionsHref="/loan-officer/commissions"
+        />
+      )}
+
+      {quickActions.length > 0 && (
+        <div>
+          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-500">
+            Quick Actions
+          </h2>
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            {quickActions.map((action) => {
+              const Icon = action.icon;
+              return (
+                <Link
+                  key={action.to}
+                  to={action.to}
+                  className="group flex items-start gap-4 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition hover:border-[#13538A]/30 hover:shadow-md dark:border-gray-800 dark:bg-gray-900"
+                >
+                  <div
+                    className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-white ${action.color}`}
+                  >
+                    <Icon size={20} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold text-gray-900 dark:text-white">
+                      {action.label}
+                    </p>
+                    <p className="mt-0.5 text-xs text-gray-500">{action.desc}</p>
+                  </div>
+                  <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-gray-300 transition group-hover:text-[#13538A]" />
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {canViewRecent && (
       <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
         <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-800">
           <h2 className="font-semibold text-gray-900 dark:text-white">
             Recent Applications
           </h2>
+          {canViewPipeline ? (
           <Link
             to="/loan-officer/loan-pipeline"
             className="text-sm font-medium text-[#13538A] hover:underline"
           >
             View all
           </Link>
+          ) : null}
         </div>
 
         {loading ? (
@@ -323,6 +416,7 @@ export default function LoanOfficerDashboard() {
           </div>
         )}
       </div>
+      )}
     </div>
   );
 }

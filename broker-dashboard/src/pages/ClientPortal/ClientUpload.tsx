@@ -29,6 +29,9 @@ import {
   FiUser,
   FiX,
   FiSearch,
+  FiMapPin,
+  FiHome,
+  FiLayers,
 } from "react-icons/fi";
 import Chat from "./Chat";
 import ClientNotificationDropdown, {
@@ -285,6 +288,47 @@ const getDocumentProgressPercent = (app: {
   return Math.min(100, Math.round((uploaded / total) * 100));
 };
 
+type ApplicationCardSummary = {
+  businessName?: string | null;
+  propertyInfo?: string | null;
+  collateralSummary?: string | null;
+  address?: string | null;
+};
+
+const ApplicationCardMetaRow = ({
+  icon,
+  label,
+  value,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value?: string | null;
+}) => {
+  if (!value?.trim()) return null;
+
+  return (
+    <div className="flex items-start gap-2.5">
+      <span className="mt-0.5 shrink-0 text-slate-400">{icon}</span>
+      <div className="min-w-0">
+        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+          {label}
+        </p>
+        <p className="mt-0.5 line-clamp-2 text-xs font-medium leading-snug text-slate-700">
+          {value}
+        </p>
+      </div>
+    </div>
+  );
+};
+
+const hasApplicationCardSummary = (app: ApplicationCardSummary) =>
+  Boolean(
+    app.businessName?.trim() ||
+      app.propertyInfo?.trim() ||
+      app.collateralSummary?.trim() ||
+      app.address?.trim(),
+  );
+
 const getStatusAccentClass = (status?: string) => {
   switch (status ?? "") {
     case "SUBMITTED":
@@ -403,14 +447,27 @@ function ApplicationWorkspaceHeader({
     <div className="mb-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
       <div className="flex flex-col gap-4 border-b border-slate-100 px-4 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
         <div className="min-w-0">
-          <button
-            type="button"
-            onClick={onBackToApplications}
-            className="mb-2 inline-flex items-center gap-1.5 text-md font-medium text-slate-500 transition hover:text-blue-600"
-          >
-            <ChevronLeft size={14} />
-            Back to applications
-          </button>
+        <button
+    type="button"
+    onClick={onBackToApplications}
+    className="
+      mb-3 inline-flex items-center gap-2
+      rounded-lg border border-slate-200
+      bg-white px-3 py-2
+      text-sm font-semibold text-slate-700
+      shadow-sm transition-all
+      hover:border-blue-200
+      hover:bg-blue-50
+      hover:text-blue-700
+      focus:outline-none
+      focus:ring-2
+      focus:ring-blue-500/20
+    "
+  >
+    <ChevronLeft size={18} strokeWidth={2.5} />
+    <span>Back to Applications</span>
+  </button>
+
           <h1 className="text-lg font-bold tracking-tight text-slate-900 sm:text-xl">
             Loan Application
           </h1>
@@ -1669,7 +1726,7 @@ export default function ClientUpload() {
                   />
                   <input
                     type="text"
-                    placeholder="Search by application ID or product..."
+                    placeholder="Search by ID, product, business, or address..."
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-9 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15"
@@ -1798,6 +1855,31 @@ export default function ClientUpload() {
                             )}
                           </p>
                         </div>
+
+                        {hasApplicationCardSummary(app) && (
+                          <div className="mb-4 space-y-2.5 rounded-xl border border-slate-100 bg-white px-3 py-3">
+                            <ApplicationCardMetaRow
+                              icon={<FiUser size={14} />}
+                              label="Business"
+                              value={app.businessName}
+                            />
+                            <ApplicationCardMetaRow
+                              icon={<FiHome size={14} />}
+                              label="Property"
+                              value={app.propertyInfo}
+                            />
+                            <ApplicationCardMetaRow
+                              icon={<FiLayers size={14} />}
+                              label="Collateral"
+                              value={app.collateralSummary}
+                            />
+                            <ApplicationCardMetaRow
+                              icon={<FiMapPin size={14} />}
+                              label="Address"
+                              value={app.address}
+                            />
+                          </div>
+                        )}
 
                         <div className="mt-auto space-y-3">
                           <div className="flex items-end justify-between gap-3">

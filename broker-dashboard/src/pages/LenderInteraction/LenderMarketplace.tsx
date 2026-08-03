@@ -48,6 +48,8 @@ import {
   type IncomingLenderInvite,
   type LenderInvite,
 } from "../../lib/lenderMarketplaceApi";
+import { hasPermission } from "../../lib/brokerPermissions";
+import { isLoanOfficerPortalPath } from "../../lib/portalAuth";
 import {
   LenderDiscoverProfileModal,
   LenderLogo,
@@ -143,6 +145,14 @@ function toApiFilters(filters: DiscoverFilters): DiscoverLenderFilters {
 }
 
 export default function LenderMarketplace() {
+  const isLoanOfficerPortal = isLoanOfficerPortalPath();
+  const canAddOwnLender =
+    !isLoanOfficerPortal || hasPermission("ADD_OWN_LENDER", "loanOfficer");
+  const canConnectLenders =
+    !isLoanOfficerPortal || hasPermission("CONNECT_LENDERS", "loanOfficer");
+  const canSendApplications =
+    !isLoanOfficerPortal || hasPermission("SEND_APPLICATIONS", "loanOfficer");
+
   const [searchParams, setSearchParams] = useSearchParams();
   const initialTab =
     searchParams.get("tab") === "network" ||
@@ -334,6 +344,10 @@ export default function LenderMarketplace() {
 
   async function handleConnect(lenderId: string) {
     if (connectingId) return;
+    if (!canConnectLenders) {
+      toast.error("You don't have permission to connect with lenders");
+      return;
+    }
     setConnectingId(lenderId);
     try {
       await inviteLender(lenderId);
@@ -456,6 +470,10 @@ export default function LenderMarketplace() {
 
   function openSendApplication(lenders: ConnectedLender[]) {
     if (!lenders.length) return;
+    if (!canSendApplications) {
+      toast.error("You don't have permission to send applications to lenders");
+      return;
+    }
     setSendApplicationLenders(lenders);
   }
 
@@ -569,15 +587,17 @@ export default function LenderMarketplace() {
                   </span>
                 )}
               </button>
-              <button
-                type="button"
-                onClick={() => setAddLenderOpen(true)}
-                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white shrink-0 hover:opacity-90 transition-opacity"
-                style={{ backgroundColor: BRAND }}
-              >
-                <Plus size={16} />
-                Add Your Own Lender
-              </button>
+              {canAddOwnLender && (
+                <button
+                  type="button"
+                  onClick={() => setAddLenderOpen(true)}
+                  className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white shrink-0 hover:opacity-90 transition-opacity"
+                  style={{ backgroundColor: BRAND }}
+                >
+                  <Plus size={16} />
+                  Add Your Own Lender
+                </button>
+              )}
               {discoverLoading && (
                 <div className="flex items-center gap-2 text-sm text-slate-500 px-2 shrink-0">
                   <RefreshCcw size={16} className="animate-spin" />
@@ -666,6 +686,7 @@ export default function LenderMarketplace() {
                       connecting={connectingId === l.id}
                       onConnect={() => handleConnect(l.id)}
                       onViewProfile={() => setProfileLender(l)}
+                      showConnect={canConnectLenders}
                     />
                   ))}
                 </div>
@@ -762,21 +783,23 @@ export default function LenderMarketplace() {
                   >
                     Clear
                   </button>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      openSendApplication(
-                        connected.filter((l) =>
-                          selectedConnectedIds.has(l.lenderId),
-                        ),
-                      )
-                    }
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white hover:opacity-90"
-                    style={{ backgroundColor: BRAND }}
-                  >
-                    <Send size={14} />
-                    Send Application
-                  </button>
+                  {canSendApplications && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        openSendApplication(
+                          connected.filter((l) =>
+                            selectedConnectedIds.has(l.lenderId),
+                          ),
+                        )
+                      }
+                      className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white hover:opacity-90"
+                      style={{ backgroundColor: BRAND }}
+                    >
+                      <Send size={14} />
+                      Send Application
+                    </button>
+                  )}
                 </div>
               </div>
             )}
@@ -796,7 +819,7 @@ export default function LenderMarketplace() {
                       : undefined
                   }
                   headerPrefix={
-                    networkFilter === "connected" ? (
+                    networkFilter === "connected" && canSendApplications ? (
                       <input
                         type="checkbox"
                         checked={allFilteredConnectedSelected}
@@ -806,18 +829,26 @@ export default function LenderMarketplace() {
                       />
                     ) : undefined
                   }
-                  headers={["", "Lender", "Email", "Status", "Connected", "Actions"]}
-                  selectedIds={selectedConnectedIds}
+                  headers={
+                    networkFilter === "connected" && canSendApplications
+                      ? ["", "Lender", "Email", "Status", "Connected", "Actions"]
+                      : ["Lender", "Email", "Status", "Connected", "Actions"]
+                  }
+                  selectedIds={canSendApplications ? selectedConnectedIds : undefined}
                   rows={filteredConnected.map((l) => ({
                     id: l.lenderId,
                     cells: [
-                      <input
-                        type="checkbox"
-                        checked={selectedConnectedIds.has(l.lenderId)}
-                        onChange={() => toggleConnectedSelection(l.lenderId)}
-                        className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                        aria-label={`Select ${l.lenderName}`}
-                      />,
+                      ...(canSendApplications
+                        ? [
+                            <input
+                              type="checkbox"
+                              checked={selectedConnectedIds.has(l.lenderId)}
+                              onChange={() => toggleConnectedSelection(l.lenderId)}
+                              className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                              aria-label={`Select ${l.lenderName}`}
+                            />,
+                          ]
+                        : []),
                       <span className="font-medium text-slate-900 dark:text-white">
                         {l.lenderName}
                       </span>,
@@ -835,15 +866,17 @@ export default function LenderMarketplace() {
                           <Layers size={12} />
                           Products
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => openSendApplication([l])}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white hover:opacity-90"
-                          style={{ backgroundColor: BRAND }}
-                        >
-                          <Send size={12} />
-                          Send Application
-                        </button>
+                        {canSendApplications && (
+                          <button
+                            type="button"
+                            onClick={() => openSendApplication([l])}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white hover:opacity-90"
+                            style={{ backgroundColor: BRAND }}
+                          >
+                            <Send size={12} />
+                            Send Application
+                          </button>
+                        )}
                       </div>,
                     ],
                   }))}
@@ -889,28 +922,32 @@ export default function LenderMarketplace() {
                     cells: [
                       <span className="font-medium">{i.lenderName}</span>,
                       <span className="text-slate-500">{i.lenderEmail}</span>,
-                      <div className="flex items-center gap-2">
-                        <button
-                          disabled={actionId === i.inviteId}
-                          onClick={() => handleAcceptIncoming(i.inviteId)}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50"
-                        >
-                          {actionId === i.inviteId ? (
-                            <RefreshCcw size={12} className="animate-spin" />
-                          ) : (
-                            <Check size={12} />
-                          )}
-                          Accept
-                        </button>
-                        <button
-                          disabled={actionId === i.inviteId}
-                          onClick={() => handleRejectIncoming(i.inviteId)}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50"
-                        >
-                          <X size={12} />
-                          Decline
-                        </button>
-                      </div>,
+                      canConnectLenders ? (
+                        <div className="flex items-center gap-2">
+                          <button
+                            disabled={actionId === i.inviteId}
+                            onClick={() => handleAcceptIncoming(i.inviteId)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50"
+                          >
+                            {actionId === i.inviteId ? (
+                              <RefreshCcw size={12} className="animate-spin" />
+                            ) : (
+                              <Check size={12} />
+                            )}
+                            Accept
+                          </button>
+                          <button
+                            disabled={actionId === i.inviteId}
+                            onClick={() => handleRejectIncoming(i.inviteId)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50"
+                          >
+                            <X size={12} />
+                            Decline
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-slate-400">—</span>
+                      ),
                       <span className="text-slate-500 text-xs">
                         {formatDateTime(i.invitedAt)}
                       </span>,
@@ -937,15 +974,17 @@ export default function LenderMarketplace() {
                   className="w-full pl-10 pr-4 py-2.5 rounded-xl text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
                 />
               </div>
-              <button
-                type="button"
-                onClick={() => setAddLenderOpen(true)}
-                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white shrink-0 hover:opacity-90"
-                style={{ backgroundColor: BRAND }}
-              >
-                <Plus size={16} />
-                Add Lender
-              </button>
+              {canAddOwnLender && (
+                <button
+                  type="button"
+                  onClick={() => setAddLenderOpen(true)}
+                  className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white shrink-0 hover:opacity-90"
+                  style={{ backgroundColor: BRAND }}
+                >
+                  <Plus size={16} />
+                  Add Lender
+                </button>
+              )}
               <button
                 onClick={loadSubmissions}
                 disabled={submissionsLoading}
@@ -970,15 +1009,17 @@ export default function LenderMarketplace() {
                   title="No lender submissions yet"
                   subtitle="Add your own lender to invite them to complete their profile on LendingCart."
                   action={
-                    <button
-                      type="button"
-                      onClick={() => setAddLenderOpen(true)}
-                      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white"
-                      style={{ backgroundColor: BRAND }}
-                    >
-                      <Plus size={16} />
-                      Add Your Own Lender
-                    </button>
+                    canAddOwnLender ? (
+                      <button
+                        type="button"
+                        onClick={() => setAddLenderOpen(true)}
+                        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white"
+                        style={{ backgroundColor: BRAND }}
+                      >
+                        <Plus size={16} />
+                        Add Your Own Lender
+                      </button>
+                    ) : undefined
                   }
                 />
               ) : (
@@ -1014,7 +1055,7 @@ export default function LenderMarketplace() {
                           {s.lastSentAt ? formatDateTime(s.lastSentAt) : "—"}
                         </span>,
                         <div className="flex flex-wrap items-center gap-2">
-                          {canResend && (
+                          {canAddOwnLender && canResend && (
                             <button
                               type="button"
                               disabled={resendingId === s.id}
@@ -1029,7 +1070,7 @@ export default function LenderMarketplace() {
                               Resend Invite
                             </button>
                           )}
-                          {canConnect && s.lenderOrgId && (
+                          {canConnectLenders && canConnect && s.lenderOrgId && (
                             <button
                               type="button"
                               onClick={async () => {
@@ -1106,6 +1147,7 @@ export default function LenderMarketplace() {
           onClose={() => setProfileLender(null)}
           onInvite={() => handleConnect(profileLender.id)}
           inviting={connectingId === profileLender.id}
+          showInvite={canConnectLenders}
         />
       )}
 
@@ -1177,11 +1219,13 @@ function DiscoverLenderCard({
   connecting,
   onConnect,
   onViewProfile,
+  showConnect = true,
 }: {
   lender: DiscoverLender;
   connecting: boolean;
   onConnect: () => void;
   onViewProfile: () => void;
+  showConnect?: boolean;
 }) {
   const states = parseStatesList(lender.statesSupported);
   const statesSummary = formatStatesSummary(states);
@@ -1252,7 +1296,11 @@ function DiscoverLenderCard({
         </div>
       </div>
 
-      <div className="mt-auto grid grid-cols-2 gap-2 p-4 pt-0">
+      <div
+        className={`mt-auto grid gap-2 p-4 pt-0 ${
+          showConnect ? "grid-cols-2" : "grid-cols-1"
+        }`}
+      >
         <button
           type="button"
           onClick={onViewProfile}
@@ -1260,20 +1308,22 @@ function DiscoverLenderCard({
         >
           View Profile
         </button>
-        <button
-          type="button"
-          onClick={onConnect}
-          disabled={connecting}
-          className="inline-flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-60 transition-all hover:opacity-90"
-          style={{ backgroundColor: BRAND }}
-        >
-          {connecting ? (
-            <RefreshCcw size={14} className="animate-spin" />
-          ) : (
-            <Handshake size={14} />
-          )}
-          {connecting ? "Connecting..." : "Connect"}
-        </button>
+        {showConnect && (
+          <button
+            type="button"
+            onClick={onConnect}
+            disabled={connecting}
+            className="inline-flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-60 transition-all hover:opacity-90"
+            style={{ backgroundColor: BRAND }}
+          >
+            {connecting ? (
+              <RefreshCcw size={14} className="animate-spin" />
+            ) : (
+              <Handshake size={14} />
+            )}
+            {connecting ? "Connecting..." : "Connect"}
+          </button>
+        )}
       </div>
     </div>
   );

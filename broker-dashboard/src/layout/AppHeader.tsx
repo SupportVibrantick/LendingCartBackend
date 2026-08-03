@@ -53,9 +53,7 @@ const AppHeader: React.FC = () => {
 
       const json = await res.json();
       if (res.status === 401) {
-        handleBrokerUnauthorized(
-          typeof json.message === "string" ? json.message : undefined,
-        );
+        handleBrokerUnauthorized();
         return;
       }
       if (!res.ok || json.ok !== true) return;

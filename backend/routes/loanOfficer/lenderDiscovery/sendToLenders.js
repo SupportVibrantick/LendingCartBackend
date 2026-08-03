@@ -8,11 +8,13 @@ const {
   notifyLender,
   LENDER_NOTIFICATION_EVENTS,
 } = require("../../../services/notifications/lenderNotifications");
+const { extraOfficerPermission } = require("../../../services/broker/loanOfficerAccess");
 
 module.exports = async function sendToLenders(fastify) {
   fastify.post(
     "/applications/:applicationId/submissions/:submissionId/send-to-lenders",
     {
+      preHandler: extraOfficerPermission(fastify, "SEND_APPLICATIONS"),
       schema: {
         tags: ["Broker -> Lender Discovery"],
         summary: "Send submission to selected lenders",

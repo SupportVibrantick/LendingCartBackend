@@ -30,6 +30,9 @@ import CoBrokerFormModal from "../../components/coBroker/CoBrokerFormModal";
 import CoBrokerDetailsModal from "../../components/coBroker/CoBrokerDetailsModal";
 import type { CoBrokerDetail } from "../../lib/coBrokerForm";
 import { buildImpersonatePortalUrl } from "../../lib/impersonateUrl";
+import { getBrokerAuthHeaders } from "../../lib/brokerApi";
+import { hasPermission } from "../../lib/brokerPermissions";
+import { isLoanOfficerPortalPath } from "../../lib/portalAuth";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 const SEARCH_DEBOUNCE_MS = 400;
@@ -46,11 +49,7 @@ const AVATAR_TONES = [
 ];
 
 function getAuthHeaders(options?: { json?: boolean }): Record<string, string> {
-  const token = sessionStorage.getItem("broker_token");
-  return {
-    ...(options?.json ? { "Content-Type": "application/json" } : {}),
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-  };
+  return getBrokerAuthHeaders(Boolean(options?.json));
 }
 
 function formatPhone(value: string) {
@@ -175,14 +174,14 @@ function CoBrokerStatusBadge({
 }: {
   active: boolean;
   loading?: boolean;
-  onClick: () => void;
+  onClick?: () => void;
 }) {
   return (
     <button
       type="button"
-      disabled={loading}
+      disabled={loading || !onClick}
       onClick={onClick}
-      title="Click to toggle status"
+      title={onClick ? "Click to toggle status" : undefined}
       className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold transition disabled:opacity-50 ${
         active
           ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/80 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-500/30"
@@ -257,6 +256,16 @@ function StatChip({
 
 
 export default function SubBroker() {
+  const isLoPortal = isLoanOfficerPortalPath();
+  const canAccessCoBrokerPortal =
+    !isLoPortal || hasPermission("ACCESS_CO_BROKER_PORTAL", "loanOfficer");
+  const canEditCoBrokers =
+    !isLoPortal || hasPermission("EDIT_CO_BROKERS", "loanOfficer");
+  const canDisableCoBrokers =
+    !isLoPortal || hasPermission("DISABLE_CO_BROKERS", "loanOfficer");
+  const canDeleteCoBrokers =
+    !isLoPortal || hasPermission("DELETE_CO_BROKERS", "loanOfficer");
+
   const [searchParams, setSearchParams] = useSearchParams();
   const initialQuery = searchParams.get("q") || "";
   const [officers, setOfficers] = useState<SubBrokerUser[]>([]);
@@ -464,6 +473,10 @@ export default function SubBroker() {
   };
 
   const handleImpersonate = async (officer: SubBrokerUser) => {
+    if (!canAccessCoBrokerPortal) {
+      toast.error("You don't have permission to access co-broker portals");
+      return;
+    }
     if (officer.status !== "ACTIVE") {
       toast.error("Only active co-brokers can be accessed");
       return;
@@ -520,6 +533,10 @@ export default function SubBroker() {
   };
 
   const toggleStatus = async (id: string, currentStatus: string) => {
+    if (!canDisableCoBrokers) {
+      toast.error("You don't have permission to disable co-brokers");
+      return;
+    }
     try {
       setTogglingId(id);
       const newStatus = currentStatus === "ACTIVE" ? "DISABLED" : "ACTIVE";
@@ -581,12 +598,20 @@ export default function SubBroker() {
   };
 
   const openEditSubBroker = async (id: string) => {
+    if (!canEditCoBrokers) {
+      toast.error("You don't have permission to edit co-brokers");
+      return;
+    }
     setFormModalMode("edit");
     setEditSubBrokerId(id);
     setFormModalOpen(true);
   };
 
   const handleDelete = async (id: string) => {
+    if (!canDeleteCoBrokers) {
+      toast.error("You don't have permission to delete co-brokers");
+      return;
+    }
     const isDark = document.documentElement.classList.contains("dark");
 
     const result = await Swal.fire({
@@ -647,6 +672,10 @@ export default function SubBroker() {
   };
 
   const openCreateModal = () => {
+    if (!canEditCoBrokers) {
+      toast.error("You don't have permission to create co-brokers");
+      return;
+    }
     setFormModalMode("create");
     setEditSubBrokerId(null);
     setFormModalOpen(true);
@@ -746,14 +775,16 @@ export default function SubBroker() {
                   Refresh
                 </button>
 
-                <button
-                  type="button"
-                  onClick={openCreateModal}
-                  className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#13538A] px-4 text-sm font-semibold text-white hover:bg-[#1a6aad]"
-                >
-                  <Plus className="h-4 w-4" />
-                  Create Co Broker
-                </button>
+                {canEditCoBrokers && (
+                  <button
+                    type="button"
+                    onClick={openCreateModal}
+                    className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#13538A] px-4 text-sm font-semibold text-white hover:bg-[#1a6aad]"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Create Co Broker
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -816,7 +847,7 @@ export default function SubBroker() {
                   ? "Try adjusting your search or status filter."
                   : "Create your first co-broker to delegate loan pipeline work."}
               </p>
-              {!search && !debouncedSearch && !statusFilter && (
+              {!search && !debouncedSearch && !statusFilter && canEditCoBrokers && (
                 <button
                   type="button"
                   onClick={openCreateModal}
@@ -959,7 +990,11 @@ export default function SubBroker() {
                           <CoBrokerStatusBadge
                             active={isActive}
                             loading={togglingId === o.id}
-                            onClick={() => toggleStatus(o.id, o.status)}
+                            onClick={
+                              canDisableCoBrokers
+                                ? () => toggleStatus(o.id, o.status)
+                                : undefined
+                            }
                           />
                         </td>
 
@@ -1079,46 +1114,53 @@ export default function SubBroker() {
                 <Eye className="h-3.5 w-3.5 text-[#13538A]" />
                 View details
               </button>
-              <button
-                type="button"
-                disabled={
-                  impersonatingId === activeMenuUser.id ||
-                  activeMenuUser.status !== "ACTIVE"
-                }
-                onClick={() => handleImpersonate(activeMenuUser)}
-                className="flex w-full items-center gap-2 px-3 py-2 text-xs text-gray-700 transition hover:bg-gray-50 disabled:opacity-50 dark:text-gray-200 dark:hover:bg-gray-800"
-              >
-                <ExternalLink className="h-3.5 w-3.5 text-cyan-600" />
-                {impersonatingId === activeMenuUser.id
-                  ? "Opening portal..."
-                  : "Access portal"}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  closeRowMenu();
-                  openEditSubBroker(activeMenuUser.id);
-                }}
-                className="flex w-full items-center gap-2 px-3 py-2 text-xs text-gray-700 transition hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-800"
-              >
-                <Pencil className="h-3.5 w-3.5 text-amber-600" />
-                Edit
-              </button>
-              <button
-                type="button"
-                disabled={togglingId === activeMenuUser.id}
-                onClick={() => toggleStatus(activeMenuUser.id, activeMenuUser.status)}
-                className="flex w-full items-center gap-2 px-3 py-2 text-xs text-gray-700 transition hover:bg-gray-50 disabled:opacity-50 dark:text-gray-200 dark:hover:bg-gray-800"
-              >
-                <Power
-                  className={`h-3.5 w-3.5 ${
-                    activeMenuUser.status === "ACTIVE" ? "text-emerald-600" : "text-gray-500"
-                  }`}
-                />
-                {activeMenuUser.status === "ACTIVE" ? "Disable" : "Enable"}
-              </button>
+              {canAccessCoBrokerPortal && (
+                <button
+                  type="button"
+                  disabled={
+                    impersonatingId === activeMenuUser.id ||
+                    activeMenuUser.status !== "ACTIVE"
+                  }
+                  onClick={() => handleImpersonate(activeMenuUser)}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-xs text-gray-700 transition hover:bg-gray-50 disabled:opacity-50 dark:text-gray-200 dark:hover:bg-gray-800"
+                >
+                  <ExternalLink className="h-3.5 w-3.5 text-cyan-600" />
+                  {impersonatingId === activeMenuUser.id
+                    ? "Opening portal..."
+                    : "Access portal"}
+                </button>
+              )}
+              {canEditCoBrokers && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    closeRowMenu();
+                    openEditSubBroker(activeMenuUser.id);
+                  }}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-xs text-gray-700 transition hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-800"
+                >
+                  <Pencil className="h-3.5 w-3.5 text-amber-600" />
+                  Edit
+                </button>
+              )}
+              {canDisableCoBrokers && (
+                <button
+                  type="button"
+                  disabled={togglingId === activeMenuUser.id}
+                  onClick={() => toggleStatus(activeMenuUser.id, activeMenuUser.status)}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-xs text-gray-700 transition hover:bg-gray-50 disabled:opacity-50 dark:text-gray-200 dark:hover:bg-gray-800"
+                >
+                  <Power
+                    className={`h-3.5 w-3.5 ${
+                      activeMenuUser.status === "ACTIVE" ? "text-emerald-600" : "text-gray-500"
+                    }`}
+                  />
+                  {activeMenuUser.status === "ACTIVE" ? "Disable" : "Enable"}
+                </button>
+              )}
             </div>
 
+            {canDeleteCoBrokers && (
             <div className="border-t border-gray-100 py-0.5 dark:border-gray-800">
               <button
                 type="button"
@@ -1130,6 +1172,7 @@ export default function SubBroker() {
                 Delete
               </button>
             </div>
+            )}
           </div>,
           document.body,
         )}

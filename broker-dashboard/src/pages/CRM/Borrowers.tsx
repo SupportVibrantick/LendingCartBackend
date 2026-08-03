@@ -20,6 +20,9 @@ import { useNavigate, useSearchParams } from "react-router";
 import toast from "react-hot-toast";
 import PageMeta from "../../components/common/PageMeta";
 import { buildImpersonatePortalUrl } from "../../lib/impersonateUrl";
+import { getBrokerAuthHeaders } from "../../lib/brokerApi";
+import { hasPermission } from "../../lib/brokerPermissions";
+import { isLoanOfficerPortalPath } from "../../lib/portalAuth";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 const SEARCH_DEBOUNCE_MS = 400;
@@ -59,11 +62,7 @@ const AVATAR_TONES = [
 ];
 
 function getAuthHeaders(json = false): Record<string, string> {
-  const token = sessionStorage.getItem("broker_token");
-  return {
-    ...(json ? { "Content-Type": "application/json" } : {}),
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-  };
+  return getBrokerAuthHeaders(json);
 }
 
 function getInitials(name?: string) {
@@ -167,6 +166,9 @@ function StatChip({
 
 export default function BorrowersPage() {
   const navigate = useNavigate();
+  const isLoPortal = isLoanOfficerPortalPath();
+  const canAccessBorrowerPortal =
+    !isLoPortal || hasPermission("ACCESS_BORROWER_PORTAL", "loanOfficer");
   const [searchParams, setSearchParams] = useSearchParams();
   const initialQuery = searchParams.get("q") || "";
 
@@ -273,10 +275,17 @@ export default function BorrowersPage() {
       toast.error("No submission found for this application");
       return;
     }
-    navigate("/loan-preview", { state: { submissionId: row.submissionId } });
+    const previewPath = isLoanOfficerPortalPath()
+      ? "/loan-officer/loan-pipeline-preview"
+      : "/loan-preview";
+    navigate(previewPath, { state: { submissionId: row.submissionId } });
   };
 
   const handleImpersonate = async (row: BorrowerRow) => {
+    if (!canAccessBorrowerPortal) {
+      toast.error("You don't have permission to access borrower portals");
+      return;
+    }
     if (!row.clientId) {
       toast.error("This borrower does not have a linked client record");
       return;
@@ -590,24 +599,26 @@ export default function BorrowersPage() {
                           >
                             <Eye className="h-4 w-4" />
                           </button>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              void handleImpersonate(row);
-                            }}
-                            disabled={
-                              !row.clientId || impersonatingId === row.clientId
-                            }
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 transition hover:border-gray-300 hover:bg-gray-50 hover:text-cyan-700 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400 dark:hover:border-gray-600 dark:hover:bg-gray-800 dark:hover:text-cyan-400"
-                            title={
-                              impersonatingId === row.clientId
-                                ? "Opening portal..."
-                                : "Access client portal"
-                            }
-                          >
-                            <ExternalLink className="h-4 w-4" />
-                          </button>
+                          {canAccessBorrowerPortal && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                void handleImpersonate(row);
+                              }}
+                              disabled={
+                                !row.clientId || impersonatingId === row.clientId
+                              }
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 transition hover:border-gray-300 hover:bg-gray-50 hover:text-cyan-700 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400 dark:hover:border-gray-600 dark:hover:bg-gray-800 dark:hover:text-cyan-400"
+                              title={
+                                impersonatingId === row.clientId
+                                  ? "Opening portal..."
+                                  : "Access client portal"
+                              }
+                            >
+                              <ExternalLink className="h-4 w-4" />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>

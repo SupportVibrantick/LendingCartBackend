@@ -47,6 +47,9 @@ jobs:
             echo "🔧 Generating Prisma client..."
             npx prisma generate
 
+            echo "🔐 Syncing loan officer permissions..."
+            node prisma/syncLoanOfficerPermissions.js
+
             #################################################
             # Admin Dashboard
             #################################################

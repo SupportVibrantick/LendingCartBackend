@@ -26,6 +26,8 @@ import Swal from "sweetalert2";
 import PageMeta from "../../components/common/PageMeta";
 import CreateContactModal from "./CreateContactModal";
 import ViewContactModal from "./ViewContactModal";
+import { hasPermission } from "../../lib/brokerPermissions";
+import { isLoanOfficerPortalPath } from "../../lib/portalAuth";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 const SEARCH_DEBOUNCE_MS = 400;
@@ -189,6 +191,14 @@ function formatContactType(value?: string) {
 }
 
 export default function ContactPage() {
+  const isLoPortal = isLoanOfficerPortalPath();
+  const canCreateContacts =
+    !isLoPortal || hasPermission("CREATE_CONTACTS", "loanOfficer");
+  const canEditContacts =
+    !isLoPortal || hasPermission("EDIT_CONTACTS", "loanOfficer");
+  const canDeleteContacts =
+    !isLoPortal || hasPermission("DELETE_CONTACTS", "loanOfficer");
+
   const [searchParams, setSearchParams] = useSearchParams();
   const initialQuery = searchParams.get("q") || "";
   const [open, setOpen] = useState(false);
@@ -352,11 +362,19 @@ export default function ContactPage() {
   };
 
   const openCreateModal = () => {
+    if (!canCreateContacts) {
+      toast.error("You don't have permission to create contacts");
+      return;
+    }
     setEditContact(null);
     setOpen(true);
   };
 
   const openEditModal = (contact: Contact) => {
+    if (!canEditContacts) {
+      toast.error("You don't have permission to edit contacts");
+      return;
+    }
     setEditContact(contact);
     setOpen(true);
   };
@@ -368,6 +386,10 @@ export default function ContactPage() {
   };
 
   const handleDelete = async (id: string, name: string) => {
+    if (!canDeleteContacts) {
+      toast.error("You don't have permission to delete contacts");
+      return;
+    }
     const isDark = document.documentElement.classList.contains("dark");
 
     const result = await Swal.fire({
@@ -480,14 +502,16 @@ export default function ContactPage() {
                   Refresh
                 </button>
 
-                <button
-                  type="button"
-                  onClick={openCreateModal}
-                  className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#13538A] px-4 text-sm font-semibold text-white hover:bg-[#1a6aad]"
-                >
-                  <Plus className="h-4 w-4" />
-                  Create Contact
-                </button>
+                {canCreateContacts && (
+                  <button
+                    type="button"
+                    onClick={openCreateModal}
+                    className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#13538A] px-4 text-sm font-semibold text-white hover:bg-[#1a6aad]"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Create Contact
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -545,7 +569,7 @@ export default function ContactPage() {
                   ? "Try adjusting your search terms."
                   : "Create your first contact to manage lenders, brokers, and partners."}
               </p>
-              {!search && !debouncedSearch && (
+              {!search && !debouncedSearch && canCreateContacts && (
                 <button
                   type="button"
                   onClick={openCreateModal}
@@ -813,19 +837,22 @@ export default function ContactPage() {
                 <Eye className="h-3.5 w-3.5 text-[#13538A]" />
                 View details
               </button>
-              <button
-                type="button"
-                onClick={() => {
-                  closeRowMenu();
-                  openEditModal(activeMenuContact);
-                }}
-                className="flex w-full items-center gap-2 px-3 py-2 text-xs text-gray-700 transition hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-800"
-              >
-                <Pencil className="h-3.5 w-3.5 text-amber-600" />
-                Edit
-              </button>
+              {canEditContacts && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    closeRowMenu();
+                    openEditModal(activeMenuContact);
+                  }}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-xs text-gray-700 transition hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-800"
+                >
+                  <Pencil className="h-3.5 w-3.5 text-amber-600" />
+                  Edit
+                </button>
+              )}
             </div>
 
+            {canDeleteContacts && (
             <div className="border-t border-gray-100 py-0.5 dark:border-gray-800">
               <button
                 type="button"
@@ -841,6 +868,7 @@ export default function ContactPage() {
                 Delete
               </button>
             </div>
+            )}
           </div>,
           document.body,
         )}

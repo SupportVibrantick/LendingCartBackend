@@ -1,6 +1,9 @@
 const {
   formatAssignedLoanOfficers,
 } = require("../../../utils/broker/subBrokerProfileHelpers");
+const {
+  requireLoOfficerPermission,
+} = require("../../../services/broker/loanOfficerAccess");
 
 /**
  * @param {import("fastify").FastifyInstance} fastify
@@ -34,6 +37,9 @@ module.exports = async function listSubBrokersRoutes(fastify) {
             },
           },
         },
+      },
+      preHandler: async (req, reply) => {
+        await requireLoOfficerPermission(req, reply, fastify, "VIEW_CO_BROKERS");
       },
     },
     async (req, reply) => {

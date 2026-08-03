@@ -7,11 +7,17 @@ const {
 const {
   extractApplicantEligibilityData,
 } = require("../../../utils/lender/extractApplicantEligibilityData");
+const { extraOfficerPermission } = require("../../../services/broker/loanOfficerAccess");
 
 module.exports = async function findEligibleLenders(fastify) {
   fastify.get(
     "/applications/submissions/:submissionId/eligible",
     {
+      preHandler: extraOfficerPermission(fastify, [
+        "VIEW_LENDER_HUB",
+        "SUBMIT_TO_LENDERS",
+        "SEND_APPLICATIONS",
+      ]),
       schema: {
         tags: ["Broker -> Lender Discovery"],
         summary: "Find eligible lenders for a submission",

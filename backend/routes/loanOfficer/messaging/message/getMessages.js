@@ -3,12 +3,13 @@
  */
 
 const { assertConversationTypeAccess } = require("../../../../services/messaging/messagingAccess");
+const { extraOfficerPermission, LOAN_OFFICER_MESSAGING_PERMISSIONS } = require("../../../../services/broker/loanOfficerAccess");
 
 module.exports = async function getMessages(fastify) {
   fastify.get(
     "/conversation/:conversationId/messages",
     {
-      preHandler: [fastify.authenticate],
+      preHandler: extraOfficerPermission(fastify, LOAN_OFFICER_MESSAGING_PERMISSIONS),
       schema: {
         tags: ["Messaging"],
         summary: "Get messages of a conversation",

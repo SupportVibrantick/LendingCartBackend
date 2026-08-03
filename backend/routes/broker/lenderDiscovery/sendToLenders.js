@@ -8,6 +8,9 @@ const {
   notifyLender,
   LENDER_NOTIFICATION_EVENTS,
 } = require("../../../services/notifications/lenderNotifications");
+const {
+  requireLoSendApplications,
+} = require("../../../services/broker/loanOfficerAccess");
 
 module.exports = async function sendToLenders(fastify) {
   fastify.post(
@@ -27,6 +30,9 @@ module.exports = async function sendToLenders(fastify) {
             },
           },
         },
+      },
+      preHandler: async (req, reply) => {
+        await requireLoSendApplications(req, reply, fastify);
       },
     },
     async (req, reply) => {

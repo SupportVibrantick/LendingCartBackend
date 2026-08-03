@@ -17,12 +17,54 @@ import {
 } from "lucide-react";
 import { MdSettings } from "react-icons/md";
 import { CgProfile } from "react-icons/cg";
+import {
+  hasAnyPermission,
+  isBrokerAdmin as sessionIsBrokerAdmin,
+  type PermissionKey,
+} from "../lib/brokerPermissions";
 
 type NavItem = {
   name: string;
   icon?: React.ReactNode;
   path?: string;
   subItems?: NavItem[];
+  permission?: PermissionKey | PermissionKey[];
+  adminOnly?: boolean;
+};
+
+const filterBrokerNavItems = (items: NavItem[]): NavItem[] => {
+  if (sessionIsBrokerAdmin("broker")) {
+    return items;
+  }
+
+  return items
+    .map((item) => {
+      if (item.adminOnly) {
+        return null;
+      }
+
+      if (item.subItems?.length) {
+        const subItems = filterBrokerNavItems(item.subItems);
+        if (!subItems.length) {
+          return null;
+        }
+
+        return { ...item, subItems };
+      }
+
+      if (item.permission) {
+        const required = Array.isArray(item.permission)
+          ? item.permission
+          : [item.permission];
+
+        if (!hasAnyPermission(required, "broker")) {
+          return null;
+        }
+      }
+
+      return item;
+    })
+    .filter((item): item is NavItem => item !== null);
 };
 
 const AppSidebar: React.FC = () => {
@@ -74,6 +116,7 @@ const AppSidebar: React.FC = () => {
         icon: <TrendingUp />,
         name: "Loan Pipeline",
         path: "/submit-applications",
+        permission: "VIEW_PIPELINE",
       },
       // {
       //   icon: <MessageSquare />,
@@ -85,6 +128,7 @@ const AppSidebar: React.FC = () => {
           {
             icon: <MdWeb />,
             name: "Website Builder",
+            permission: "VIEW_WEBSITE_BUILDER",
             subItems: [
               {
                 name: "Config Website",
@@ -100,14 +144,16 @@ const AppSidebar: React.FC = () => {
             icon: <MdOutlineDocumentScanner />,
             name: "New Loan Application",
             path: "/loan-application",
+            permission: "CREATE_APPLICATION",
           },
         ]
         : []),
-      ...(!isSubBroker
+      ...(isBrokerAdmin
         ? [
           {
             icon: <FaUserGroup />,
             name: "User Management",
+            adminOnly: true,
             subItems: [
               { name: "Loan Officers", path: "/loan-officers" },
               { name: "Co Brokers", path: "/sub-brokers" },
@@ -124,6 +170,7 @@ const AppSidebar: React.FC = () => {
             icon: <FaUsersBetweenLines />,
             name: "Lender Marketplace",
             path: "/lender-marketplace",
+            permission: "VIEW_LENDERS",
           },
         ]
         : []),
@@ -132,6 +179,7 @@ const AppSidebar: React.FC = () => {
           {
             icon: <FolderOpen size={18} />,
             name: "Documents",
+            permission: "VIEW_TEMPLATES",
             subItems: [
               {
                 name: "Custom Documents",
@@ -147,6 +195,7 @@ const AppSidebar: React.FC = () => {
             icon: <MdEmail />,
             name: "Email Marketing",
             path: "/email-marketing",
+            permission: "MANAGE_SETTINGS",
           },
         ]
         : []),
@@ -155,6 +204,7 @@ const AppSidebar: React.FC = () => {
               {
                 icon: <Wallet />,
                 name: "Payments",
+                adminOnly: true,
                 subItems: [
                   { name: "Commissions", path: "/payments/commissions" },
                   { name: "Invoices", path: "/payments/invoices" },
@@ -167,6 +217,7 @@ const AppSidebar: React.FC = () => {
           {
             icon: <MdSettings />,
             name: "Settings",
+            permission: "VIEW_SETTINGS",
             subItems: [
               {
                 name: "Branding",
@@ -195,6 +246,7 @@ const AppSidebar: React.FC = () => {
             icon: <PiSecurityCameraFill />,
             name: "Dashboard Logs",
             path: "/admin-logs",
+            permission: "VIEW_LOGS",
           },
         ]
         : []),
@@ -203,8 +255,13 @@ const AppSidebar: React.FC = () => {
         name: "Profile",
         path: "/profile",
       },
-    ],
+    ] as NavItem[],
     [isSubBroker, isBrokerAdmin],
+  );
+
+  const visibleNavItems = useMemo(
+    () => filterBrokerNavItems(navItems),
+    [navItems],
   );
 
   const isActive = useCallback(
@@ -254,8 +311,8 @@ const AppSidebar: React.FC = () => {
       return result;
     };
 
-    setOpenMenus(findActiveMenus(navItems));
-  }, [location.pathname, navItems]);
+    setOpenMenus(findActiveMenus(visibleNavItems));
+  }, [location.pathname, visibleNavItems]);
 
   const renderMenuItems = (
     items: NavItem[],
@@ -445,7 +502,7 @@ const AppSidebar: React.FC = () => {
             )}
           </h2>
 
-          {renderMenuItems(navItems)}
+          {renderMenuItems(visibleNavItems)}
         </nav>
       </div>
 

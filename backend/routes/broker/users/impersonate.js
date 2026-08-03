@@ -1,5 +1,8 @@
 const jwt = require("jsonwebtoken");
 const jwtSecret = require("../../../utils/auth/jwtSecret");
+const {
+  normalizeLoanOfficerPermissions,
+} = require("../../../utils/broker/loanOfficerPermissions");
 
 /**
  * @param {import("fastify").FastifyInstance} fastify
@@ -89,8 +92,8 @@ module.exports = async function impersonateLoanOfficerRoute(fastify) {
           });
         }
 
-        const permissions = targetUser.userPermissions.map(
-          (p) => p.permission.key,
+        const permissions = normalizeLoanOfficerPermissions(
+          targetUser.userPermissions.map((p) => p.permission.key),
         );
 
         const token = jwt.sign(
@@ -98,9 +101,11 @@ module.exports = async function impersonateLoanOfficerRoute(fastify) {
             userId: targetUser.id,
             id: targetUser.id,
             roles: ["BROKER_OFFICER"],
+            permissions,
             organizationId: targetUser.organizationId,
             orgType: "BROKER",
             email: targetUser.email,
+            permissions,
             userType: "LOAN_OFFICER",
             impersonatedBy: brokerUserId,
           },

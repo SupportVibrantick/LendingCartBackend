@@ -4,11 +4,12 @@ const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
 export { API_BASE };
 
+import { getPortalAuthHeaders } from "./portalAuth";
+
 export function getBrokerAuthHeaders(): HeadersInit {
-  const token = sessionStorage.getItem("broker_token");
   return {
     "Content-Type": "application/json",
-    ...(token && { Authorization: `Bearer ${token}` }),
+    ...getPortalAuthHeaders(),
   };
 }
 

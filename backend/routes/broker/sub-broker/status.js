@@ -2,6 +2,10 @@
  * @param {import("fastify").FastifyInstance} fastify
  */
 module.exports = async function subBrokerStatusRoutes(fastify) {
+  const {
+    requireLoOfficerPermission,
+  } = require("../../../services/broker/loanOfficerAccess");
+
   fastify.patch(
     "/:id/status",
     {
@@ -27,6 +31,9 @@ module.exports = async function subBrokerStatusRoutes(fastify) {
             },
           },
         },
+      },
+      preHandler: async (req, reply) => {
+        await requireLoOfficerPermission(req, reply, fastify, "DISABLE_CO_BROKERS");
       },
     },
     async (req, reply) => {
