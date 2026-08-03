@@ -10,7 +10,7 @@ export type {
   LoanApplicationMode,
   LoanApplicationPortal,
   LoanApplicationProps,
-} from "../../LoanApplication/LoanApplication";
+} from "../../LoanApplication/types";
 
 export default function LoanOfficerApplication(props: LoanApplicationProps) {
   return <LoanApplication portal="loanOfficer" {...props} />;

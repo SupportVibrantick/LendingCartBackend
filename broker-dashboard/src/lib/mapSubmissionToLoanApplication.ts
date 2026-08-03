@@ -1,9 +1,6 @@
-import {
-  CATEGORY_LOAN_TYPES,
-  getLoanProductAliasGroup,
-  type FormDataType,
-  type LoanCategory,
-} from "../pages/LoanApplication/LoanApplication";
+import { CATEGORY_LOAN_TYPES } from "../pages/LoanApplication/constants";
+import { getLoanProductAliasGroup } from "../pages/LoanApplication/productRules";
+import type { FormDataType, LoanCategory } from "../pages/LoanApplication/types";
 import { createResidentialBorrowerDefaults, hydrateResidentialBorrowerFromFields } from "./residentialBorrower";
 import { createSbaEntityDefaults } from "./sba7aAcquisition";
 import {
@@ -150,7 +147,6 @@ const mapResidentialFinancialsFromFields = (
   const financials = createResidentialFinancialsDefaults();
   const columnCount = detectFinancialYearColumnCount(fields);
   financials.financialYearColumnCount = columnCount;
-
   financials.rentalProperty = normalizeYesNo(getFieldValue(fields, "rentalProperty"));
   financials.hasRentalIncome = normalizeYesNo(
     getFieldValue(fields, "hasRentalIncome"),
@@ -284,6 +280,10 @@ export function createEmptyFormData(): FormDataType {
       state: "",
       zip: "",
       numberOfUnits: "",
+      currentLoanBalance: "",
+      downPayment: "",
+      useOfFunds: "",
+      exitStrategy: "",
     },
     loanTermIncome: {
       loanTerm: "",
