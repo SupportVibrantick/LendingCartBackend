@@ -531,6 +531,26 @@ export const showResidentialPropertyRehabCost = (product: string) =>
 /** "Equity / Down Payment" block: visible for purchase-related purposes. */
 export const showEquityDownPaymentBlock = (product: string, purpose: string) => {
   if (!purpose) return true; // default visible when nothing selected
+  // console.log(product);
+  // console.log(purpose);
+  if ((purpose == "Portfolio Blanket")) {
+    return false
+  }
+  if ((product === "MEZZANINE_FINANCE" && purpose === "Leverage Enhancement") ||
+    (product === "MEZZANINE_FINANCE" && purpose === "JV Equity") ||
+    (product === "MEZZANINE_FINANCE" && purpose === "Construction Project") ||
+    (product === "SBA_7A_WORKING_CAPITAL" && purpose === "Inventory Purchase") ||
+    (product === "SBA_7A_REAL_ESTATE" && purpose === "Purchase (Owner-Occupied)") ||
+    (product === "SBA_504_REAL_ESTATE_AND_EQUIPMENT" && purpose === "Real Estate Acquisition") ||
+    (product === "USDA_BI" && purpose === "Business Acquisition") ||
+    (product === "USDA_BI" && purpose === "Real Estate Purchase") ||
+    (product === "USDA_BI" && purpose === "Equipment Purchase") ||
+    (product === "EQUIPMENT_FINANCE" && purpose === "New Equipment Purchase") ||
+    (product === "EQUIPMENT_FINANCE" && purpose === "Used Equipment Purchase")
+  ) {
+    return true;
+  }
+
   return (
     RESIDENTIAL_PURCHASE_PRICE_PURPOSES.has(purpose) ||
     isBridgePurchaseAcquisition(product, purpose) ||
@@ -543,6 +563,21 @@ export const showEquityDownPaymentBlock = (product: string, purpose: string) => 
 /** "Valuation & Equity" block: visible for refinance-style purposes. */
 export const showValuationEquityBlock = (product: string, purpose: string) => {
   if (!purpose) return false;
+  // console.log(product);
+  // console.log(purpose);
+  if (
+    (purpose === "Construction Completion") ||
+    (purpose === "Portfolio Blanket") ||
+    (purpose === "Recapitalization") ||
+    (purpose === "Affordable Housing") ||
+    (purpose === "Supplement Loan")
+  ) {
+    return false;
+  }
+
+
+
+
   return (
     RESIDENTIAL_MARKET_VALUE_PURPOSES.has(purpose) ||
     isBridgeOriginalPurchaseDate(product, purpose) ||
