@@ -1,13 +1,15 @@
 export const SESSION_EXPIRED_MESSAGE =
   "Your session has expired. Please sign in again.";
 
-let activeLogout: "loanOfficer" | "broker" | null = null;
+let activeLogout: "loanOfficer" | "broker" | "coBroker" | null = null;
 
 export function isSessionLogoutInProgress() {
   return activeLogout !== null;
 }
 
-export function beginSessionLogout(portal: "loanOfficer" | "broker"): boolean {
+export function beginSessionLogout(
+  portal: "loanOfficer" | "broker" | "coBroker",
+): boolean {
   if (activeLogout) return false;
   activeLogout = portal;
   return true;

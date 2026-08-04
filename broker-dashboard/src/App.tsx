@@ -67,9 +67,11 @@ import CoBrokerInvoicesPage from "./pages/subBroker/Invoices/CoBrokerInvoicesPag
 import CoBrokerCommissionsPage from "./pages/subBroker/Commissions/CoBrokerCommissionsPage";
 // import Dashboard from "./pages/subBroker/Dashboard/Dashboard";
 import LoanPipeline from "./pages/subBroker/LoanPipeline/LoanPipeline";
-import SubBrokerLoanPreview from "./pages/subBroker/LoanPipeline/SubBrokerLoanPreview";
+import CoBrokerLoanPreview from "./pages/subBroker/LoanPipeline/LoanPreview";
 import SubBrokerProtected from "./components/auth/SubBrokerProtected";
 import SubBrokerProfile from "./pages/subBroker/Auth/Profile";
+import CoBrokerApplication from "./pages/subBroker/LoanApplication/LoanApplication";
+import CoBrokerContactsPage from "./pages/subBroker/Contacts/ContactPage";
 import LoanOfficerLayout from "./layout/LoanOfficerLayout";
 import LoanOfficerLogin from "./pages/loanOfficer/Auth/Login";
 import LoanOfficerImpersonateLogin from "./pages/loanOfficer/Auth/ImpersonateLogin";
@@ -464,9 +466,15 @@ export default function App() {
 
             <Route path="loan-pipeline" element={<LoanPipeline />} />
 
+            <Route path="loan-application" element={<CoBrokerApplication />} />
+
+            <Route path="borrowers" element={<BorrowersPage />} />
+
+            <Route path="contacts" element={<CoBrokerContactsPage />} />
+
             <Route
               path="loan-pipeline-preview"
-              element={<SubBrokerLoanPreview />}
+              element={<CoBrokerLoanPreview />}
             />
             <Route path="profile" element={<SubBrokerProfile />} />
           </Route>

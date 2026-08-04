@@ -932,7 +932,76 @@ const isConstruction14Product = (product: string) =>
 
 export type LoanApplicationMode = "create" | "update";
 
-export type LoanApplicationPortal = "broker" | "loanOfficer";
+export type LoanApplicationPortal = "broker" | "loanOfficer" | "coBroker";
+
+export type LoanApplicationDocumentPaths = {
+  requestDocuments: (loanApplicationId: string) => string;
+  listDocuments: (submissionId: string) => string;
+  uploadDocument: (submissionId: string, requirementId: string) => string;
+};
+
+function getPortalConfig(portal: LoanApplicationPortal, apiBase: string) {
+  if (portal === "loanOfficer") {
+    return {
+      tokenKey: "loan_officer_token",
+      submitUrl: `${apiBase}/loanofficer/applications/submit`,
+      editUrl: (applicationId: string) =>
+        `${apiBase}/loanofficer/applications/${applicationId}/edit`,
+      loanProductsUrl: `${apiBase}/common/loan-products/loan-product-code`,
+      loanProductsAuth: false,
+      successPath: "/loan-officer/loan-pipeline",
+      backLabel: "Back to Loan Pipeline",
+      documentPaths: {
+        requestDocuments: (loanApplicationId: string) =>
+          `${apiBase}/broker/loan-pipeline/${loanApplicationId}/request-documents`,
+        listDocuments: (submissionId: string) =>
+          `${apiBase}/broker/loan-pipeline/submissions/${submissionId}/documents?limit=100&documentCategory=upload`,
+        uploadDocument: (submissionId: string, requirementId: string) =>
+          `${apiBase}/broker/loan-pipeline/submissions/${submissionId}/documents/${requirementId}/upload`,
+      } satisfies LoanApplicationDocumentPaths,
+    };
+  }
+
+  if (portal === "coBroker") {
+    return {
+      tokenKey: "sub_broker_token",
+      submitUrl: `${apiBase}/subbroker/applications/submit`,
+      editUrl: (applicationId: string) =>
+        `${apiBase}/subbroker/applications/${applicationId}/edit`,
+      loanProductsUrl: `${apiBase}/common/loan-products/loan-product-code`,
+      loanProductsAuth: false,
+      successPath: "/sub-broker/loan-pipeline",
+      backLabel: "Back to Loan Pipeline",
+      documentPaths: {
+        requestDocuments: (loanApplicationId: string) =>
+          `${apiBase}/subbroker/documents/${loanApplicationId}/request-documents`,
+        listDocuments: (submissionId: string) =>
+          `${apiBase}/subbroker/documents/submissions/${submissionId}/documents?limit=100&documentCategory=upload`,
+        uploadDocument: (submissionId: string, requirementId: string) =>
+          `${apiBase}/subbroker/documents/submissions/${submissionId}/documents/${requirementId}/upload`,
+      } satisfies LoanApplicationDocumentPaths,
+    };
+  }
+
+  return {
+    tokenKey: "broker_token",
+    submitUrl: `${apiBase}/broker/applications/submit`,
+    editUrl: (applicationId: string) =>
+      `${apiBase}/broker/applications/${applicationId}/edit`,
+    loanProductsUrl: `${apiBase}/common/loan-products/loan-product-code`,
+    loanProductsAuth: false,
+    successPath: "/submit-applications",
+    backLabel: "Back to Submit Applications",
+    documentPaths: {
+      requestDocuments: (loanApplicationId: string) =>
+        `${apiBase}/broker/loan-pipeline/${loanApplicationId}/request-documents`,
+      listDocuments: (submissionId: string) =>
+        `${apiBase}/broker/loan-pipeline/submissions/${submissionId}/documents?limit=100&documentCategory=upload`,
+      uploadDocument: (submissionId: string, requirementId: string) =>
+        `${apiBase}/broker/loan-pipeline/submissions/${submissionId}/documents/${requirementId}/upload`,
+    } satisfies LoanApplicationDocumentPaths,
+  };
+}
 
 export type LoanApplicationProps = {
   mode?: LoanApplicationMode;
@@ -950,32 +1019,6 @@ export type LoanApplicationProps = {
   reviewCaptchaSlot?: ReactNode;
   recaptchaToken?: string | null;
 };
-
-function getPortalConfig(portal: LoanApplicationPortal, apiBase: string) {
-  if (portal === "loanOfficer") {
-    return {
-      tokenKey: "loan_officer_token",
-      submitUrl: `${apiBase}/loanofficer/applications/submit`,
-      editUrl: (applicationId: string) =>
-        `${apiBase}/loanofficer/applications/${applicationId}/edit`,
-      loanProductsUrl: `${apiBase}/common/loan-products/loan-product-code`,
-      loanProductsAuth: false,
-      successPath: "/loan-officer/loan-pipeline",
-      backLabel: "Back to Loan Pipeline",
-    };
-  }
-
-  return {
-    tokenKey: "broker_token",
-    submitUrl: `${apiBase}/broker/applications/submit`,
-    editUrl: (applicationId: string) =>
-      `${apiBase}/broker/applications/${applicationId}/edit`,
-    loanProductsUrl: `${apiBase}/common/loan-products/loan-product-code`,
-    loanProductsAuth: false,
-    successPath: "/submit-applications",
-    backLabel: "Back to Submit Applications",
-  };
-}
 
 async function fetchLoanProductCatalog(
   portalConfig: ReturnType<typeof getPortalConfig>,
@@ -2584,6 +2627,7 @@ const LoanApplication = ({
             loanApplicationId,
             submissionId,
             documents: pendingDocuments,
+            documentPaths: portalConfig.documentPaths,
           });
         } catch (uploadError: any) {
           toast.error(

@@ -4,9 +4,15 @@ import toast from "react-hot-toast";
 import Swal from "sweetalert2";
 import CreateContactModal from "./CreateContactModal";
 import ViewContactModal from "./ViewContactModal";
-import { loAuthHeaders, LO_API_BASE, checkLoanOfficerResponse } from "../../../lib/loanOfficerApi";
 import { isSessionExpiredError } from "../../../lib/sessionExpiry";
-import { hasPermission } from "../../../lib/brokerPermissions";
+import {
+  getContactsPortalConfig,
+  type ContactsPortal,
+} from "../../../lib/contactsPortal";
+
+type ContactPageProps = {
+  portal?: ContactsPortal;
+};
 
 type Contact = {
   id: string;
@@ -32,10 +38,11 @@ type ApiResponse = {
   };
 };
 
-export default function ContactPage() {
-  const canCreateContacts = hasPermission("CREATE_CONTACTS", "loanOfficer");
-  const canEditContacts = hasPermission("EDIT_CONTACTS", "loanOfficer");
-  const canDeleteContacts = hasPermission("DELETE_CONTACTS", "loanOfficer");
+export default function ContactPage({ portal = "loanOfficer" }: ContactPageProps) {
+  const portalConfig = getContactsPortalConfig(portal);
+  const canCreateContacts = portalConfig.canCreate;
+  const canEditContacts = portalConfig.canEdit;
+  const canDeleteContacts = portalConfig.canDelete;
 
   const [open, setOpen] = useState(false);
   const [editContact, setEditContact] = useState<Contact | null>(null);
@@ -51,16 +58,13 @@ export default function ContactPage() {
     try {
       setLoading(true);
 
-      const res = await fetch(
-        `${LO_API_BASE}/loanofficer/contacts/list?page=${pageNumber}&limit=${limit}`,
-        {
-          method: "GET",
-          headers: loAuthHeaders(false),
-        },
-      );
+      const res = await fetch(portalConfig.listUrl(pageNumber, limit), {
+        method: "GET",
+        headers: portalConfig.getHeaders(false),
+      });
 
       const data: ApiResponse = await res.json();
-      checkLoanOfficerResponse(res, data);
+      portalConfig.checkResponse(res, data as { message?: string });
 
       if (data.success) {
         setContacts(data.data);
@@ -110,12 +114,12 @@ export default function ContactPage() {
     if (!result.isConfirmed) return;
 
     try {
-      const res = await fetch(`${LO_API_BASE}/loanofficer/contacts/${contact.id}`, {
+      const res = await fetch(portalConfig.deleteUrl(contact.id), {
         method: "DELETE",
-        headers: loAuthHeaders(false),
+        headers: portalConfig.getHeaders(false),
       });
       const json = await res.json();
-      checkLoanOfficerResponse(res, json);
+      portalConfig.checkResponse(res, json);
       if (!res.ok || json.success === false) {
         throw new Error(json.message || "Delete failed");
       }
@@ -152,11 +156,11 @@ export default function ContactPage() {
         <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <p className="text-xs font-semibold uppercase tracking-widest text-white/70">
-              CRM · Directory
+              {portalConfig.heroEyebrow}
             </p>
             <h1 className="mt-1 text-2xl font-bold sm:text-3xl">My Contacts</h1>
             <p className="mt-2 max-w-xl text-sm text-white/80">
-              Manage lenders, partners, and borrowers in your personal contact directory.
+              {portalConfig.heroDescription}
             </p>
           </div>
           <div className="rounded-xl bg-white/10 px-4 py-3 backdrop-blur-sm">
@@ -368,6 +372,7 @@ export default function ContactPage() {
       {/* Modal */}
       {(open || editContact) && (
         <CreateContactModal
+          portal={portal}
           contact={editContact}
           onClose={() => {
             setOpen(false);

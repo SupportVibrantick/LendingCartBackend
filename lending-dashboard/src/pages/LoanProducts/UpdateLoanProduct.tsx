@@ -183,13 +183,14 @@ type Product = {
   id: string;
   name: string;
   code: string;
+  isActive: boolean;
 };
 
 export default function UpdateLoanProduct() {
   const navigate = useNavigate();
   const location = useLocation();
   const updatedLoanProduct = location.state?.loanProduct;
-  // const productId = updatedLoanProduct?.id;
+  const isSingleProductUpdate = Boolean(updatedLoanProduct?.id);
   const [step, setStep] = useState(0);
   const [hasStep5Errors, setHasStep5Errors] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -214,23 +215,35 @@ export default function UpdateLoanProduct() {
     [products, form.loanPrograms],
   );
 
-  const lockedProgramIds = useMemo(
-    () =>
-      [
-        ...new Set(
-          existingLenderProducts
-            .map((item) =>
-              mapToCanonicalCatalogId(
-                products,
-                item.loanProductCode || item.code,
-                getProgramId(item),
-              ),
-            )
-            .filter(Boolean),
-        ),
-      ] as string[],
-    [existingLenderProducts, products],
-  );
+  const lockedProgramIds = useMemo(() => {
+    if (isSingleProductUpdate && updatedLoanProduct) {
+      const focusedProgramId = mapToCanonicalCatalogId(
+        products,
+        updatedLoanProduct.loanProductCode || updatedLoanProduct.code,
+        getProgramId(updatedLoanProduct as LenderProductRecord),
+      );
+      return focusedProgramId ? [focusedProgramId] : [];
+    }
+
+    return [
+      ...new Set(
+        existingLenderProducts
+          .map((item) =>
+            mapToCanonicalCatalogId(
+              products,
+              item.loanProductCode || item.code,
+              getProgramId(item),
+            ),
+          )
+          .filter(Boolean),
+      ),
+    ] as string[];
+  }, [
+    existingLenderProducts,
+    isSingleProductUpdate,
+    products,
+    updatedLoanProduct,
+  ]);
 
   const lenderProductByProgramId = useMemo(() => {
     const map: Record<string, LenderProductRecord> = {};
@@ -403,7 +416,9 @@ export default function UpdateLoanProduct() {
         <StepTwo
           mode="lender"
           value={form.loanPrograms}
-          setValue={(val) =>
+          setValue={(val) => {
+            if (isSingleProductUpdate) return;
+
             setForm((prev) => ({
               ...prev,
               loanPrograms: [
@@ -412,9 +427,14 @@ export default function UpdateLoanProduct() {
                   ...(Array.isArray(val) ? val : []),
                 ]),
               ],
-            }))
-          }
+            }));
+          }}
           lockedIds={lockedProgramIds}
+          restrictToProductIds={
+            isSingleProductUpdate ? lockedProgramIds : undefined
+          }
+          singleProductMode={isSingleProductUpdate}
+          prefetchedProducts={isSingleProductUpdate ? products : undefined}
           onProductsLoad={setProducts}
         />
       );
@@ -500,27 +520,38 @@ export default function UpdateLoanProduct() {
 
         const headers = getAuthHeaders();
 
-        const [itemsFromList, catalogRes] = await Promise.all([
-          fetchAllLenderProducts(headers),
-          fetch(`${API_BASE}/common/loan-products/loan-product-code`, {
-            headers,
-          }),
-        ]);
+        const catalogRes = await fetch(
+          `${API_BASE}/common/loan-products/loan-product-code`,
+          { headers },
+        );
 
-        let items = itemsFromList;
+        let items: LenderProductRecord[] = [];
 
-        if (updatedLoanProduct?.id) {
+        if (isSingleProductUpdate && updatedLoanProduct?.id) {
           const freshProduct = await fetchLenderProductById(
             String(updatedLoanProduct.id),
             headers,
           );
 
-          if (freshProduct) {
-            items = items.some((item) => item.id === freshProduct.id)
-              ? items.map((item) =>
-                  item.id === freshProduct.id ? freshProduct : item,
-                )
-              : [...items, freshProduct];
+          items = freshProduct
+            ? [freshProduct]
+            : [updatedLoanProduct as LenderProductRecord];
+        } else {
+          items = await fetchAllLenderProducts(headers);
+
+          if (updatedLoanProduct?.id) {
+            const freshProduct = await fetchLenderProductById(
+              String(updatedLoanProduct.id),
+              headers,
+            );
+
+            if (freshProduct) {
+              items = items.some((item) => item.id === freshProduct.id)
+                ? items.map((item) =>
+                    item.id === freshProduct.id ? freshProduct : item,
+                  )
+                : [...items, freshProduct];
+            }
           }
         }
 
@@ -534,43 +565,89 @@ export default function UpdateLoanProduct() {
             id: String(item.id),
             code: item.code,
             name: item.name,
+            isActive: true,
           })),
         );
 
         if (cancelled) return;
 
+        const focusedProgramId = updatedLoanProduct
+          ? mapToCanonicalCatalogId(
+              catalogProducts,
+              updatedLoanProduct.loanProductCode || updatedLoanProduct.code,
+              getProgramId(updatedLoanProduct as LenderProductRecord),
+            )
+          : null;
+
         setExistingLenderProducts(items);
-        setProducts(catalogProducts);
-
-        const programIds = [
-          ...new Set(
-            items
-              .map((item) =>
-                mapToCanonicalCatalogId(
-                  catalogProducts,
-                  item.loanProductCode || item.code,
-                  getProgramId(item),
-                ),
-              )
-              .filter(Boolean)
-              .map(String),
-          ),
-        ] as string[];
-
-        const loanCriteria = buildLoanCriteriaFromLenderProducts(
-          items,
-          catalogProducts,
-          mapApiProductToCriteriaForm,
+        setProducts(
+          isSingleProductUpdate && focusedProgramId
+            ? catalogProducts.filter((item) => item.id === focusedProgramId)
+            : catalogProducts,
         );
 
-        if (updatedLoanProduct) {
-          const focusedProgramId = mapToCanonicalCatalogId(
-            catalogProducts,
-            updatedLoanProduct.loanProductCode || updatedLoanProduct.code,
-            getProgramId(updatedLoanProduct as LenderProductRecord),
+        const programIds = isSingleProductUpdate && focusedProgramId
+          ? [focusedProgramId]
+          : ([
+              ...new Set(
+                items
+                  .map((item) =>
+                    mapToCanonicalCatalogId(
+                      catalogProducts,
+                      item.loanProductCode || item.code,
+                      getProgramId(item),
+                    ),
+                  )
+                  .filter(Boolean)
+                  .map(String),
+              ),
+            ] as string[]);
+
+        let loanCriteria: Record<string, any> = {};
+        let propertyTypes: Record<string, string[]> = {};
+        let businessTypes: Record<string, string[]> = {};
+        let equipmentFinance: string[] = [];
+
+        if (isSingleProductUpdate && focusedProgramId) {
+          const focusedRecord = normalizeLenderProductRecord(
+            items.find((item) => item.id === updatedLoanProduct.id) ||
+              updatedLoanProduct,
+          );
+          const focusedCode = resolveLenderOfferedProductCode(
+            focusedRecord.loanProductCode ||
+              focusedRecord.code ||
+              updatedLoanProduct.loanProduct?.code ||
+              "",
           );
 
-          if (focusedProgramId) {
+          loanCriteria[String(focusedProgramId)] = mapApiProductToCriteriaForm({
+            ...focusedRecord,
+            loanProductCode: focusedCode,
+            code: focusedCode,
+          });
+
+          propertyTypes = normalizeGroupedSelectionFromApi(
+            focusedRecord.propertyTypes,
+            "type",
+          );
+          businessTypes = normalizeGroupedSelectionFromApi(
+            focusedRecord.businessTypes,
+            "name",
+          );
+
+          if (focusedCode === "EQUIPMENT_FINANCE") {
+            equipmentFinance = Array.isArray(focusedRecord.equipmentTypes)
+              ? focusedRecord.equipmentTypes
+              : [];
+          }
+        } else {
+          loanCriteria = buildLoanCriteriaFromLenderProducts(
+            items,
+            catalogProducts,
+            mapApiProductToCriteriaForm,
+          );
+
+          if (updatedLoanProduct && focusedProgramId) {
             const focusedCode = resolveLenderOfferedProductCode(
               updatedLoanProduct.loanProductCode ||
                 updatedLoanProduct.code ||
@@ -594,39 +671,36 @@ export default function UpdateLoanProduct() {
               focusedCriteria,
             );
           }
+
+          items.forEach((item) => {
+            const programId = mapToCanonicalCatalogId(
+              catalogProducts,
+              item.loanProductCode || item.code,
+              getProgramId(item),
+            );
+            if (!programId) return;
+
+            propertyTypes = mergeGroupedSelections(
+              propertyTypes,
+              normalizeGroupedSelectionFromApi(item.propertyTypes, "type"),
+            );
+
+            businessTypes = mergeGroupedSelections(
+              businessTypes,
+              normalizeGroupedSelectionFromApi(item.businessTypes, "name"),
+            );
+
+            const canonicalCode = resolveLenderOfferedProductCode(
+              item.loanProductCode || item.code || "",
+            );
+
+            if (canonicalCode === "EQUIPMENT_FINANCE") {
+              equipmentFinance = Array.isArray(item.equipmentTypes)
+                ? item.equipmentTypes
+                : [];
+            }
+          });
         }
-        let propertyTypes: Record<string, string[]> = {};
-        let businessTypes: Record<string, string[]> = {};
-        let equipmentFinance: string[] = [];
-
-        items.forEach((item) => {
-          const programId = mapToCanonicalCatalogId(
-            catalogProducts,
-            item.loanProductCode || item.code,
-            getProgramId(item),
-          );
-          if (!programId) return;
-
-          propertyTypes = mergeGroupedSelections(
-            propertyTypes,
-            normalizeGroupedSelectionFromApi(item.propertyTypes, "type"),
-          );
-
-          businessTypes = mergeGroupedSelections(
-            businessTypes,
-            normalizeGroupedSelectionFromApi(item.businessTypes, "name"),
-          );
-
-          const canonicalCode = resolveLenderOfferedProductCode(
-            item.loanProductCode || item.code || "",
-          );
-
-          if (canonicalCode === "EQUIPMENT_FINANCE") {
-            equipmentFinance = Array.isArray(item.equipmentTypes)
-              ? item.equipmentTypes
-              : [];
-          }
-        });
 
         const seedProduct = updatedLoanProduct || items[0] || null;
 
@@ -657,7 +731,7 @@ export default function UpdateLoanProduct() {
     return () => {
       cancelled = true;
     };
-  }, [updatedLoanProduct]);
+  }, [isSingleProductUpdate, updatedLoanProduct]);
 
   useEffect(() => {
     if (!products.length || loadingExisting) return;

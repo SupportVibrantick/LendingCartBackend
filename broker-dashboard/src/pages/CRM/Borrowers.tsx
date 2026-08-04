@@ -20,9 +20,12 @@ import { useNavigate, useSearchParams } from "react-router";
 import toast from "react-hot-toast";
 import PageMeta from "../../components/common/PageMeta";
 import { buildImpersonatePortalUrl } from "../../lib/impersonateUrl";
-import { getBrokerAuthHeaders } from "../../lib/brokerApi";
 import { hasPermission } from "../../lib/brokerPermissions";
-import { isLoanOfficerPortalPath } from "../../lib/portalAuth";
+import {
+  getPortalAuthHeaders,
+  isCoBrokerPortalPath,
+  isLoanOfficerPortalPath,
+} from "../../lib/portalAuth";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 const SEARCH_DEBOUNCE_MS = 400;
@@ -61,8 +64,50 @@ const AVATAR_TONES = [
   "bg-violet-100 text-violet-700",
 ];
 
+function resolveBorrowersPortalConfig() {
+  if (isCoBrokerPortalPath()) {
+    return {
+      listUrl: `${API_BASE}/subbroker/borrowers/list`,
+      impersonateUrl: (clientId: string) =>
+        `${API_BASE}/subbroker/borrowers/${clientId}/impersonate`,
+      previewPath: "/sub-broker/loan-pipeline-preview",
+      pageTitle: "Borrowers | Co-Broker Portal",
+      pageDescription:
+        "Borrowers from your assigned applications — name, contact details, and loan number.",
+      canAccessBorrowerPortal: true,
+    };
+  }
+
+  if (isLoanOfficerPortalPath()) {
+    return {
+      listUrl: `${API_BASE}/broker/borrowers/list`,
+      impersonateUrl: (clientId: string) =>
+        `${API_BASE}/broker/borrowers/${clientId}/impersonate`,
+      previewPath: "/loan-officer/loan-pipeline-preview",
+      pageTitle: "Borrowers | Loan Officer Portal",
+      pageDescription:
+        "Automatically extracted from loan applications — name, contact details, and loan number.",
+      canAccessBorrowerPortal: hasPermission(
+        "ACCESS_BORROWER_PORTAL",
+        "loanOfficer",
+      ),
+    };
+  }
+
+  return {
+    listUrl: `${API_BASE}/broker/borrowers/list`,
+    impersonateUrl: (clientId: string) =>
+      `${API_BASE}/broker/borrowers/${clientId}/impersonate`,
+    previewPath: "/loan-preview",
+    pageTitle: "Borrowers | Broker Dashboard",
+    pageDescription:
+      "Automatically extracted from loan applications — name, contact details, and loan number.",
+    canAccessBorrowerPortal: true,
+  };
+}
+
 function getAuthHeaders(json = false): Record<string, string> {
-  return getBrokerAuthHeaders(json);
+  return getPortalAuthHeaders(json);
 }
 
 function getInitials(name?: string) {
@@ -166,9 +211,8 @@ function StatChip({
 
 export default function BorrowersPage() {
   const navigate = useNavigate();
-  const isLoPortal = isLoanOfficerPortalPath();
-  const canAccessBorrowerPortal =
-    !isLoPortal || hasPermission("ACCESS_BORROWER_PORTAL", "loanOfficer");
+  const portalConfig = resolveBorrowersPortalConfig();
+  const canAccessBorrowerPortal = portalConfig.canAccessBorrowerPortal;
   const [searchParams, setSearchParams] = useSearchParams();
   const initialQuery = searchParams.get("q") || "";
 
@@ -199,7 +243,7 @@ export default function BorrowersPage() {
         params.set("search", debouncedSearch);
       }
 
-      const res = await fetch(`${API_BASE}/broker/borrowers/list?${params}`, {
+      const res = await fetch(`${portalConfig.listUrl}?${params}`, {
         method: "GET",
         headers: getAuthHeaders(),
       });
@@ -226,7 +270,7 @@ export default function BorrowersPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, limit, debouncedSearch, sortKey, sortDir]);
+  }, [page, limit, debouncedSearch, sortKey, sortDir, portalConfig.listUrl]);
 
   const isSearching = search.trim() !== debouncedSearch;
 
@@ -275,10 +319,7 @@ export default function BorrowersPage() {
       toast.error("No submission found for this application");
       return;
     }
-    const previewPath = isLoanOfficerPortalPath()
-      ? "/loan-officer/loan-pipeline-preview"
-      : "/loan-preview";
-    navigate(previewPath, { state: { submissionId: row.submissionId } });
+    navigate(portalConfig.previewPath, { state: { submissionId: row.submissionId } });
   };
 
   const handleImpersonate = async (row: BorrowerRow) => {
@@ -294,14 +335,11 @@ export default function BorrowersPage() {
     try {
       setImpersonatingId(row.clientId);
 
-      const res = await fetch(
-        `${API_BASE}/broker/borrowers/${row.clientId}/impersonate`,
-        {
-          method: "POST",
-          headers: getAuthHeaders(true),
-          body: JSON.stringify({}),
-        },
-      );
+      const res = await fetch(portalConfig.impersonateUrl(row.clientId), {
+        method: "POST",
+        headers: getAuthHeaders(true),
+        body: JSON.stringify({}),
+      });
 
       const json = await res.json();
 
@@ -340,7 +378,10 @@ export default function BorrowersPage() {
 
   return (
     <>
-      <PageMeta title="Borrowers | Broker Dashboard" description="Borrowers from loan applications" />
+      <PageMeta
+        title={portalConfig.pageTitle}
+        description={portalConfig.pageDescription}
+      />
 
       <div className="space-y-5 pb-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -350,7 +391,7 @@ export default function BorrowersPage() {
             </p>
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Borrowers</h1>
             <p className="mt-1 max-w-xl text-sm text-gray-500 dark:text-gray-400">
-              Automatically extracted from loan applications — name, contact details, and loan number.
+              {portalConfig.pageDescription}
             </p>
           </div>
 

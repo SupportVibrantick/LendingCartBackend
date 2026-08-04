@@ -8,6 +8,7 @@ import {
 import {
   getDocumentStatusSummary,
   type DocumentDisplayRow,
+  type DocumentStatusViewerPortal,
 } from "../../lib/documentLenderSend";
 import {
   formatDocumentStatusLabel,
@@ -18,6 +19,7 @@ type Props = {
   doc: DocumentDisplayRow;
   /** Hide upload file count — use when the table already has a Files column. */
   hideUploadChip?: boolean;
+  viewerPortal?: DocumentStatusViewerPortal;
 };
 
 const chipToneClass: Record<string, string> = {
@@ -79,8 +81,9 @@ function getCompactChipLabel(itemKey: string, label: string) {
 export default function DocumentStatusCell({
   doc,
   hideUploadChip = false,
+  viewerPortal,
 }: Props) {
-  const summary = getDocumentStatusSummary(doc);
+  const summary = getDocumentStatusSummary(doc, { viewerPortal });
   const isSkipped = doc.status === "SKIPPED";
   const visibleItems = hideUploadChip
     ? summary.items.filter((item) => item.key !== "upload")

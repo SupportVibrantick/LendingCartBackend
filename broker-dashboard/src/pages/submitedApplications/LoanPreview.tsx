@@ -37,6 +37,7 @@ import { FaRegCreditCard } from "react-icons/fa6";
 import { mapSubmissionToLoanApplication } from "../../lib/mapSubmissionToLoanApplication";
 import {
   expandDocumentsForDisplay,
+  getCoBrokerSendableToPrincipalBrokerIds,
   getDocumentSourceDisplay,
   getUploadFileSentLabel,
   matchesDocumentSentFilter,
@@ -63,7 +64,7 @@ import {
   getBrokerRequestDocumentsDisabledReason,
 } from "../../lib/brokerDocumentRequest";
 import { buildApiPublicFileUrl } from "../../lib/publicFileUrl";
-import { getPortalToken, assertPortalApiOk } from "../../lib/portalAuth";
+import { getPortalToken, getPortalAuthHeaders, assertPortalApiOk } from "../../lib/portalAuth";
 import { isSessionExpiredError } from "../../lib/sessionExpiry";
 import {
   getLoanPreviewConfig,
@@ -383,10 +384,9 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
   const navigate = useNavigate();
   const previewConfig = getLoanPreviewConfig(portal);
   const isLoPortal = portal === "loanOfficer";
+  const isCoBrokerPortal = portal === "coBroker";
+  const previewApi = previewConfig.api;
   const getAuthHeaders = previewConfig.getAuthHeaders;
-  const pipelineApi = `${API_BASE}/${previewConfig.pipelineApiRoot}/loan-pipeline`;
-  const lenderApi = `${API_BASE}/${previewConfig.lenderDiscoveryApiRoot}/lender-discovery`;
-  const brokerPipelineApi = `${API_BASE}/${previewConfig.brokerApiRoot}/loan-pipeline`;
   const PreviewChat = previewConfig.Chat;
   const PreviewFeeAgreement = previewConfig.FeeAgreement;
   const PreviewLoanApplication = previewConfig.LoanApplication;
@@ -494,6 +494,7 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
   const [autoForwardToClientSaving, setAutoForwardToClientSaving] =
     useState(false);
   const [forwardingToClient, setForwardingToClient] = useState(false);
+  const [sendingToBroker, setSendingToBroker] = useState(false);
   // const [currentPage, setCurrentPage] = useState(1);
 
   // const [search, setSearch] = useState("");
@@ -554,6 +555,17 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
     ];
   }, [displayDocuments, selectedRows]);
 
+  const selectedCoBrokerPbSendableIds = useMemo(
+    () =>
+      isCoBrokerPortal
+        ? getCoBrokerSendableToPrincipalBrokerIds(
+            displayDocuments,
+            selectedRows,
+          )
+        : [],
+    [displayDocuments, isCoBrokerPortal, selectedRows],
+  );
+
   const isAllSelected =
     selectableDocuments.length > 0 &&
     selectedRows.length === selectableDocuments.length;
@@ -589,7 +601,7 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
       setLenderLoading(true);
 
       const res = await fetch(
-        `${pipelineApi}/${applicationId}/submitted-lenders`,
+        previewApi.submittedLenders(applicationId),
         {
           headers: getAuthHeaders(),
         },
@@ -665,7 +677,7 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
       });
 
       const res = await fetch(
-        `${pipelineApi}/submissions/${submissionId}/documents/submit`,
+        previewApi.documentsSubmitToLender(submissionId),
         {
           method: "POST",
           headers: getAuthHeaders(),
@@ -734,7 +746,7 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
     try {
       setAutoForwardSaving(true);
       const res = await fetch(
-        `${pipelineApi}/submissions/${submissionId}/documents/auto-forward`,
+        previewApi.documentsAutoForward(submissionId),
         {
           method: "PATCH",
           headers: getAuthHeaders(),
@@ -784,7 +796,7 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
     try {
       setAutoForwardToClientSaving(true);
       const res = await fetch(
-        `${brokerPipelineApi}/submissions/${submissionId}/documents/auto-forward-to-client`,
+        previewApi.documentsAutoForwardToClient(submissionId),
         {
           method: "PATCH",
           headers: getAuthHeaders(),
@@ -840,7 +852,7 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
     try {
       setForwardingToClient(true);
       const res = await fetch(
-        `${brokerPipelineApi}/submissions/${documentsData.submissionId}/documents/forward-to-client`,
+        previewApi.documentsForwardToClient(documentsData.submissionId),
         {
           method: "POST",
           headers: getAuthHeaders(),
@@ -868,6 +880,57 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
     }
   };
 
+  const handleSendToPrincipalBroker = async (requirementIds: string[]) => {
+    if (!documentsData?.submissionId || requirementIds.length === 0) return;
+
+    const result = await Swal.fire({
+      title: "Send to Principal Broker?",
+      html: `${requirementIds.length} document${requirementIds.length === 1 ? "" : "s"} will be forwarded for Principal Broker review.`,
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonText: "Send to PB",
+      confirmButtonColor: "#2563eb",
+    });
+
+    if (!result.isConfirmed) return;
+
+    try {
+      setSendingToBroker(true);
+
+      for (const requirementId of requirementIds) {
+        const sendUrl = previewApi.sendDocumentToBroker(requirementId);
+        if (!sendUrl) continue;
+
+        const res = await fetch(sendUrl, {
+          method: "POST",
+          headers: getPortalAuthHeaders(false),
+        });
+        const json = await res.json();
+
+        if (!res.ok || !json.success) {
+          throw new Error(json.message || "Failed to send document to PB");
+        }
+      }
+
+      toast.success(
+        requirementIds.length === 1
+          ? "Document sent to Principal Broker"
+          : `${requirementIds.length} documents sent to Principal Broker`,
+      );
+      setActiveAction(null);
+      setSelectedRows([]);
+      await fetchSubmissionDocuments(
+        documentsData.submissionId,
+        page,
+        debouncedSearch,
+      );
+    } catch (err: any) {
+      toast.error(err.message || "Failed to send to Principal Broker");
+    } finally {
+      setSendingToBroker(false);
+    }
+  };
+
   const fields = useMemo(
     () => mapSubmissionDetailFields(submissionDetail?.fields || []),
     [submissionDetail?.fields],
@@ -880,8 +943,25 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
     [submissionDetail],
   );
 
-  const loDocPermissions = useMemo(
-    () => ({
+  const loDocPermissions = useMemo(() => {
+    if (isCoBrokerPortal) {
+      return {
+        upload: true,
+        request: true,
+        sign: false,
+        loi: true,
+        feeAgreement: true,
+        lenderHub: false,
+        autoForwardToLender: false,
+        autoForwardToClient: false,
+        delete: false,
+        sendApplications: false,
+        chat: true,
+        sendEmails: false,
+      };
+    }
+
+    return {
       upload:
         !isLoPortal || hasPermission("UPLOAD_DOCUMENTS", "loanOfficer"),
       request:
@@ -904,9 +984,8 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
         !isLoPortal || hasPermission("SEND_APPLICATIONS", "loanOfficer"),
       chat: !isLoPortal || hasPermission("CHAT", "loanOfficer"),
       sendEmails: !isLoPortal || hasPermission("SEND_EMAILS", "loanOfficer"),
-    }),
-    [isLoPortal],
-  );
+    };
+  }, [isLoPortal, isCoBrokerPortal]);
 
   const effectiveCanRequestDocuments =
     canRequestDocuments && loDocPermissions.request;
@@ -926,10 +1005,9 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
 
     (async () => {
       try {
-        const res = await fetch(
-          `${pipelineApi}/${applicationId}/lois?page=1&limit=1`,
-          { headers: getAuthHeaders() },
-        );
+        const res = await fetch(previewApi.lois(applicationId, "page=1&limit=1"), {
+          headers: getAuthHeaders(),
+        });
         const json = await res.json();
 
         if (!cancelled && res.ok && json.success) {
@@ -943,7 +1021,7 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
     return () => {
       cancelled = true;
     };
-  }, [applicationId, loDocPermissions.loi, pipelineApi]);
+  }, [applicationId, loDocPermissions.loi, previewApi]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -1007,6 +1085,8 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
   };
 
   const handleMarkFunded = async (applicationLenderId: string) => {
+    if (!previewConfig.showMarkFunded) return;
+
     if (!applicationId) {
       Swal.fire({
         title: "Error",
@@ -1050,7 +1130,7 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
       });
 
       const res = await fetch(
-        `${brokerPipelineApi}/${applicationId}/mark-funded`,
+        previewApi.markFunded(applicationId),
         {
           method: "POST",
           headers: getAuthHeaders(),
@@ -1384,7 +1464,7 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
       }
 
       const res = await fetch(
-        `${pipelineApi}/submissions/${submissionId}/documents?${params.toString()}`,
+        previewApi.submissionDocuments(submissionId, params.toString()),
         {
           headers: getAuthHeaders(),
         },
@@ -1426,7 +1506,7 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
     try {
       setRequestSubmitting(true);
       const res = await fetch(
-        `${pipelineApi}/${applicationId}/request-documents`,
+        previewApi.requestDocuments(applicationId),
         {
           method: "POST",
           headers: getAuthHeaders(),
@@ -1484,7 +1564,10 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
 
     try {
       const res = await fetch(
-        `${lenderApi}/applications/submissions/${id}/eligible?page=${lenderPage}&limit=${lenderLimit}&search=${debouncedLenderSearch}&filter=${lenderFilter}`,
+        previewApi.eligibleLenders(
+          id,
+          `page=${lenderPage}&limit=${lenderLimit}&search=${debouncedLenderSearch}&filter=${lenderFilter}`,
+        ),
         {
           headers: getAuthHeaders(),
           method: "GET",
@@ -1569,7 +1652,7 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
       setSendingId(lenderProductId);
 
       const res = await fetch(
-        `${lenderApi}/applications/${applicationId}/submissions/${submissionId}/send-to-lenders`,
+        previewApi.sendToLenders(applicationId, submissionId),
         {
           method: "POST",
           headers: getAuthHeaders(),
@@ -1665,7 +1748,10 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
       return;
     }
 
-    fetchSubmittedLenders();
+    if (!isCoBrokerPortal) {
+      fetchSubmittedLenders();
+    }
+
     fetchSubmissionDocuments(
       submissionId,
       page,
@@ -2064,7 +2150,9 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
       monthlyPaymentDisplay={monthlyPaymentDisplay}
       submittedDate={submittedDate}
       showEditHint={submissionDetail?.canEdit !== false}
-      canMarkFunded={Boolean(submissionDetail?.canMarkFunded)}
+      canMarkFunded={
+        previewConfig.showMarkFunded && Boolean(submissionDetail?.canMarkFunded)
+      }
       markFundedBlockedReason={submissionDetail?.markFundedBlockedReason}
       markingFundedId={markingFundedId}
       onMarkFunded={handleMarkFunded}
@@ -2472,7 +2560,7 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
   const renderViewLoi = () => (
     <BrokerLoiPanel
       applicationId={applicationId}
-      apiRole={previewConfig.pipelineApiRoot as "broker" | "loanofficer"}
+      apiRole={previewConfig.loiApiRole}
       getAuthHeaders={getAuthHeaders}
       isActive={activeTab === "view-loi"}
       onLoiCountChange={setLoiCount}
@@ -3005,7 +3093,9 @@ dark:bg-red-900/20 dark:text-red-400"
           Requested Documents
         </h2>
         <p className="mt-1 text-sm text-slate-500">
-          Upload, filter, and send documents to lenders on this application.
+          {isCoBrokerPortal
+            ? "Request documents from your client, upload files, then forward them to the Principal Broker for review."
+            : "Upload, filter, and send documents to lenders on this application."}
         </p>
       </div>
 
@@ -3028,9 +3118,54 @@ dark:bg-red-900/20 dark:text-red-400"
         searchInput={searchInput}
         onSearchInputChange={setSearchInput}
         onResetPage={() => setPage(1)}
+        showSourceFilter={!isCoBrokerPortal}
+        showLenderFilter={!isCoBrokerPortal}
+        showSentFilter={!isCoBrokerPortal}
       />
 
-      {!autoForwardEnabled && selectedRows.length > 0 && (
+      {isCoBrokerPortal && selectedCoBrokerPbSendableIds.length > 0 && (
+        <div className="mb-4 overflow-visible rounded-2xl border border-blue-200 bg-blue-50/70 shadow-sm dark:border-blue-900/40 dark:bg-slate-900">
+          <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-white">
+                <FiSend size={15} />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-slate-800 dark:text-white">
+                  Send to Principal Broker
+                </p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  {selectedCoBrokerPbSendableIds.length} uploaded document
+                  {selectedCoBrokerPbSendableIds.length === 1 ? "" : "s"} ready
+                  for review
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() =>
+                handleSendToPrincipalBroker(selectedCoBrokerPbSendableIds)
+              }
+              disabled={sendingToBroker}
+              className="inline-flex min-w-[170px] items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-600 px-5 py-3 text-sm font-semibold text-white shadow-md transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg active:translate-y-0 disabled:cursor-not-allowed disabled:from-slate-300 disabled:to-slate-300 disabled:text-slate-500"
+            >
+              {sendingToBroker ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                <>
+                  <FiSend size={16} />
+                  Send to PB
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {!isCoBrokerPortal && !autoForwardEnabled && selectedRows.length > 0 && (
         <div className="mb-4 overflow-visible rounded-2xl border border-blue-200 bg-blue-50/70 shadow-sm dark:border-blue-900/40 dark:bg-slate-900">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-blue-200/70 px-5 py-3 dark:border-blue-900/40">
             <div className="flex items-center gap-2">
@@ -3232,7 +3367,7 @@ dark:bg-red-900/20 dark:text-red-400"
         </div>
       )}
 
-      {autoForwardEnabled && selectedClientSendableIds.length > 0 && (
+      {!isCoBrokerPortal && autoForwardEnabled && selectedClientSendableIds.length > 0 && (
         <div className="mb-4 flex items-center justify-between rounded-2xl border border-indigo-200 bg-gradient-to-r from-indigo-50 to-violet-50 px-5 py-3 shadow-sm dark:border-indigo-900/40 dark:from-slate-900 dark:to-slate-800">
           <p className="text-sm font-medium text-indigo-700 dark:text-indigo-300">
             {selectedClientSendableIds.length} document(s) ready to send to
@@ -3318,7 +3453,10 @@ dark:bg-red-900/20 dark:text-red-400"
                   const isOpen = activeAction === doc.rowKey;
                   const isSelected = selectedRows.includes(doc.rowKey);
                   const { label: sourceLabel, className: sourceClass } =
-                    getDocumentSourceDisplay(doc, { brokerSourceLabel: "Me" });
+                    getDocumentSourceDisplay(doc, {
+                      brokerSourceLabel: isCoBrokerPortal ? "Me" : "Me",
+                      subBrokerSourceLabel: "Me",
+                    });
                   const uploadedCount = Number(doc.uploadedCount) || 0;
 
                   return (
@@ -3374,7 +3512,13 @@ dark:bg-red-900/20 dark:text-red-400"
                       </td>
 
                       <td className="px-4 py-3 align-middle">
-                        <DocumentStatusCell doc={doc} hideUploadChip />
+                        <DocumentStatusCell
+                          doc={doc}
+                          hideUploadChip
+                          viewerPortal={
+                            isCoBrokerPortal ? "coBroker" : undefined
+                          }
+                        />
                       </td>
 
                       <td className="px-4 py-3 align-middle">
@@ -3550,7 +3694,10 @@ dark:bg-red-900/20 dark:text-red-400"
                         formData.append("file", file);
 
                         const res = await fetch(
-                          `${pipelineApi}/submissions/${documentsData.submissionId}/documents/${activeActionDoc.requirementId}/upload`,
+                          previewApi.submissionDocumentUpload(
+                            documentsData.submissionId,
+                            activeActionDoc.requirementId,
+                          ),
                           {
                             method: "POST",
                             headers: {
@@ -3579,6 +3726,26 @@ dark:bg-red-900/20 dark:text-red-400"
                 />
               </label>
             ) : null}
+            {isCoBrokerPortal &&
+              activeActionDoc.source === "SUB_BROKER_ADDED" &&
+              Number(activeActionDoc.uploadedCount) > 0 &&
+              !activeActionDoc.isSentToBroker &&
+              activeActionDoc.status !== "SKIPPED" && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await handleSendToPrincipalBroker([
+                      String(activeActionDoc.requirementId),
+                    ]);
+                    closeDocumentActionMenu();
+                  }}
+                  disabled={sendingToBroker}
+                  className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-blue-600 transition hover:bg-blue-50 disabled:opacity-60 dark:text-blue-400 dark:hover:bg-blue-500/10"
+                >
+                  <FiSend size={14} />
+                  Send To PB
+                </button>
+              )}
             <button
               type="button"
               onClick={() => {
@@ -3633,7 +3800,9 @@ dark:bg-red-900/20 dark:text-red-400"
                       try {
                         const token = getPortalToken();
                         const res = await fetch(
-                          `${brokerPipelineApi}/sub-broker-submissions/${activeActionDoc.subBrokerSubmissionId}/skip`,
+                          previewApi.skipSubBrokerSubmission(
+                            String(activeActionDoc.subBrokerSubmissionId),
+                          ),
                           {
                             method: "POST",
                             headers: {
@@ -3806,11 +3975,11 @@ dark:bg-red-900/20 dark:text-red-400"
             <div>
               {/* BACK BUTTON */}
               <button
-                onClick={() => navigate(-1)}
+                onClick={() => navigate(previewConfig.pipelineListPath)}
                 className="mb-3 inline-flex items-center gap-2 text-sm text-slate-500 hover:text-blue-600 transition"
               >
                 <ArrowLeft size={16} />
-                Back to Submitted Applications
+                {previewConfig.backLabel}
               </button>
 
               {/* TITLE */}

@@ -1,3 +1,9 @@
+import {
+  beginSessionLogout,
+  SESSION_EXPIRED_MESSAGE,
+  showSessionExpiredToast,
+} from "./sessionExpiry";
+
 export const CO_BROKER_TOKEN_KEY = "sub_broker_token";
 export const CO_BROKER_USER_KEY = "sub_broker_user";
 export const CO_BROKER_BRANDING_KEY = "co_broker_branding";
@@ -18,10 +24,52 @@ export type CoBrokerBranding = {
   defaultLogoUrl?: string;
 };
 
+export function isCoBrokerTokenExpired(token: string): boolean {
+  try {
+    const base64 = token.split(".")[1];
+    if (!base64) return true;
+    const payload = JSON.parse(
+      atob(base64.replace(/-/g, "+").replace(/_/g, "/")),
+    ) as { exp?: number };
+    if (!payload.exp) return true;
+    return payload.exp * 1000 < Date.now();
+  } catch {
+    return true;
+  }
+}
+
+export function getCoBrokerToken() {
+  const token = sessionStorage.getItem(CO_BROKER_TOKEN_KEY);
+  if (!token || isCoBrokerTokenExpired(token)) return null;
+  return token;
+}
+
+export function handleCoBrokerUnauthorized(_message?: string) {
+  const isFirst = beginSessionLogout("coBroker");
+  clearCoBrokerSession();
+
+  const onSignIn =
+    window.location.pathname === "/sub-broker/login" ||
+    window.location.pathname === "/sub-broker/impersonate";
+
+  if (isFirst && !onSignIn) {
+    showSessionExpiredToast();
+    window.location.href = "/sub-broker/login";
+  }
+
+  return new Error(SESSION_EXPIRED_MESSAGE);
+}
+
+export function checkCoBrokerResponse(res: Response, json?: { message?: string }) {
+  if (res.status === 401 || res.status === 403) {
+    throw handleCoBrokerUnauthorized(json?.message);
+  }
+}
+
 export function getCoBrokerAuthHeaders(
   contentType = "application/json",
 ): HeadersInit {
-  const token = sessionStorage.getItem(CO_BROKER_TOKEN_KEY);
+  const token = getCoBrokerToken();
 
   return {
     ...(contentType ? { "Content-Type": contentType } : {}),

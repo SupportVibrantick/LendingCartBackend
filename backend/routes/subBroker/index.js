@@ -44,6 +44,18 @@ async function subBrokerRoutes(fastify, options) {
   fastify.register(require("./commissions"), {
     prefix: "/commissions",
   });
+
+  fastify.register(require("./applications"), {
+    prefix: "/applications",
+  });
+
+  fastify.register(require("./borrowers"), {
+    prefix: "/borrowers",
+  });
+
+  fastify.register(require("./contacts"), {
+    prefix: "/contacts",
+  });
 }
 
 module.exports = subBrokerRoutes;
