@@ -961,7 +961,7 @@ export default function AllLendersPage() {
       className="inline-flex items-center gap-1.5 rounded-lg bg-[#13538A] px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition-all hover:bg-[#10446f] hover:shadow-md active:scale-95"
     >
       <TiPlus className="h-3.5 w-3.5" />
-      Add Lender
+      Add Lender 
     </button>
 
     {/* Assign */}

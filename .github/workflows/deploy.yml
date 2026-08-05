@@ -47,6 +47,12 @@ jobs:
             echo "🔧 Generating Prisma client..."
             npx prisma generate
 
+            echo "🌱 Seeding loan products..."
+            node prisma/admin/loanProduct.seed.js
+
+            echo "🌱 Seeding product document requirements..."
+            node prisma/admin/productDocuments.seed.js
+
             #################################################
             # Admin Dashboard
             #################################################

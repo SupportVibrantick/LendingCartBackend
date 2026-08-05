@@ -1,6 +1,13 @@
 // routes/admin/lenderProducts/list.js
 
 async function listLenderProductRoutes(fastify) {
+  const {
+    mapLenderDocumentRequirements,
+  } = require("../../../utils/lender/syncLenderProductDocuments");
+  const {
+    normalizeLenderProductForAdminApi,
+  } = require("../../../utils/lender/normalizeLenderProductResponse");
+
   fastify.get(
     "/",
     {
@@ -17,47 +24,30 @@ async function listLenderProductRoutes(fastify) {
           include: {
             lender: true,
             loanProduct: true,
+            lenderDocumentRequirements: {
+              include: {
+                documentType: {
+                  select: {
+                    id: true,
+                    name: true,
+                    code: true,
+                    isCustom: true,
+                  },
+                },
+              },
+              orderBy: { sortOrder: "asc" },
+            },
           },
           orderBy: { createdAt: "desc" },
         });
 
-        // ---------------------------
-        // Normalize response for frontend (Production-safe)
-        // ---------------------------
-const formatted = result.map((item) => ({
-  ...item,
-
-  // JSON object return karo
-businessTypes: Array.isArray(item.businessTypes)
-  ? item.businessTypes.filter(
-      (b) => b && b.name
-    )
-  : [],
-
-propertyTypes: Array.isArray(item.propertyTypes)
-  ? item.propertyTypes.filter(
-      (p) =>
-        p &&
-        p.type &&
-        p.type !== "undefined"
-    )
-  : [],
-
-  // array return karo
-  equipmentTypes: normalizeToArray(item.equipmentTypes),
-
-  statesSupported: normalizeToArray(item.statesSupported),
-
-  maxLtvPercent: item.maxLtvPercent?.toString() ?? null,
-  maxArvPercent: item.maxArvPercent?.toString() ?? null,
-  maxLtcPercent: item.maxLtcPercent?.toString() ?? null,
-  originationPointsPercent: item.originationPointsPercent?.toString() ?? null,
-  minDscr: item.minDscr?.toString() ?? null,
-  minDebtYieldPercent: item.minDebtYieldPercent?.toString() ?? null,
-
-  minLoanAmount: item.minLoanAmount?.toString() ?? null,
-  maxLoanAmount: item.maxLoanAmount?.toString() ?? null,
-}));
+        const formatted = result.map((item) =>
+          normalizeLenderProductForAdminApi(item, {
+            documents: mapLenderDocumentRequirements(
+              item.lenderDocumentRequirements,
+            ),
+          }),
+        );
 
         return reply.send({
           success: true,
@@ -72,32 +62,8 @@ propertyTypes: Array.isArray(item.propertyTypes)
           message: "Server error while listing lender products",
         });
       }
-    }
+    },
   );
-}
-
-/**
- * Utility: Safely normalize any value to array
- * Handles:
- * - comma-separated string
- * - array
- * - null / undefined
- */
-function normalizeToArray(value) {
-  if (!value) return [];
-
-  if (Array.isArray(value)) {
-    return value;
-  }
-
-  if (typeof value === "string") {
-    return value
-      .split(",")
-      .map((v) => v.trim())
-      .filter(Boolean); // remove empty values
-  }
-
-  return [];
 }
 
 module.exports = listLenderProductRoutes;

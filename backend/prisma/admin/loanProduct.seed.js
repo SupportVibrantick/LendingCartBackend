@@ -1,6 +1,7 @@
 const prisma = require("../client");
 const { LOAN_PRODUCTS } = require("../loanProductCatalog");
 
+/** Active catalog codes from loanProductCatalog (includes SBA Express). */
 const ALLOWED_CODES = LOAN_PRODUCTS.map((product) => product.code);
 
 async function seedLoanProducts() {

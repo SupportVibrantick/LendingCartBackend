@@ -4,6 +4,8 @@ import toast from "react-hot-toast";
 import {
   getCriteriaFieldsForProduct,
   getCriteriaFieldInputSuffix,
+  isSba7aBusinessAcquisitionProduct,
+  isSbaExpressProduct,
   type CriteriaField,
 } from "../../../lib/loanProductCriteriaFields";
 import { cleanupOrphanedCustomDocumentTypes } from "../../../lib/documentConfigApi";
@@ -133,6 +135,7 @@ const StepFive = ({
   setValue,
   setHasErrors,
   mode = "create",
+  lenderProductIdByProgramId = {},
 }: any) => {
   const getProductKey = (product: { id: string | number }) =>
     String(product.id);
@@ -167,6 +170,9 @@ const StepFive = ({
       patchDocState(productId, { loading: true });
 
       const token = sessionStorage.getItem("lender_token");
+      const product = products.find(
+        (item: any) => String(item.id) === String(productId),
+      );
 
       const params = new URLSearchParams({
         page: String(page),
@@ -175,6 +181,13 @@ const StepFive = ({
 
       if (search.trim()) {
         params.append("search", search.trim());
+      }
+
+      if (product?.id) {
+        params.append("loanProductId", String(product.id));
+      }
+      if (product?.code) {
+        params.append("loanProductCode", String(product.code));
       }
 
       const res = await fetch(
@@ -200,6 +213,9 @@ const StepFive = ({
         });
       } else {
         patchDocState(productId, { loading: false });
+        if (json.message) {
+          toast.error(json.message);
+        }
       }
     } catch (err) {
       console.error(err);
@@ -227,6 +243,13 @@ const StepFive = ({
   const addCustomDocument = async (productId: string) => {
     const docState = getDocState(productId);
     const customName = docState.customDocumentName.trim();
+    const product = products.find(
+      (item: any) => String(item.id) === String(productId),
+    );
+    const lenderProductId =
+      lenderProductIdByProgramId?.[String(productId)] ||
+      lenderProductIdByProgramId?.[productId] ||
+      "";
 
     if (!customName) {
       toast.error("Please enter custom document name");
@@ -238,39 +261,83 @@ const StepFive = ({
       return;
     }
 
+    if (!product?.id && !product?.code) {
+      toast.error("Please select a loan product first");
+      return;
+    }
+
     try {
       patchDocState(productId, { loading: true });
       const token = sessionStorage.getItem("lender_token");
+      const authHeaders = {
+        "Content-Type": "application/json",
+        ...(token && { Authorization: `Bearer ${token}` }),
+      };
 
-      const res = await fetch(
-        `${API_BASE}/lender/document-config/create-custom-document-type`,
-        {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token && { Authorization: `Bearer ${token}` }),
-        },
-        body: JSON.stringify({
-          name: customName,
-        }),
-      },
-      );
+      let createdDocType: any = null;
 
-      const json = await res.json().catch(() => ({}));
-      if (!res.ok || !json?.success) {
-        throw new Error(json?.message || "Failed to add custom document");
+      if (lenderProductId) {
+        // Persist to lender document config so it appears on Documents page
+        const res = await fetch(`${API_BASE}/lender/document-config/create`, {
+          method: "POST",
+          headers: authHeaders,
+          body: JSON.stringify({
+            lenderProductId,
+            customDocumentName: customName,
+            isRequired: true,
+          }),
+        });
+
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok || !json?.success) {
+          throw new Error(json?.message || "Failed to add custom document");
+        }
+
+        createdDocType = {
+          id: json?.data?.documentTypeId || json?.data?.documentType?.id,
+          name: json?.data?.documentName || customName,
+          isCustom: true,
+        };
+      } else {
+        // Add-product flow: product offering not created yet — link to catalog product
+        const res = await fetch(
+          `${API_BASE}/lender/document-config/create-custom-document-type`,
+          {
+            method: "POST",
+            headers: authHeaders,
+            body: JSON.stringify({
+              name: customName,
+              ...(product?.id ? { loanProductId: String(product.id) } : {}),
+              ...(product?.code
+                ? { loanProductCode: String(product.code) }
+                : {}),
+            }),
+          },
+        );
+
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok || !json?.success) {
+          throw new Error(json?.message || "Failed to add custom document");
+        }
+
+        createdDocType = json?.data;
       }
 
-      const createdDocType = json?.data;
+      if (!createdDocType?.id) {
+        throw new Error("Custom document was created but no id was returned");
+      }
+
       const selectedDocs = value?.[productId]?.documents || [];
       const alreadySelected = selectedDocs.some(
-        (d: any) => d.id === createdDocType?.id || d.documentTypeId === createdDocType?.id,
+        (d: any) =>
+          d.id === createdDocType?.id ||
+          d.documentTypeId === createdDocType?.id,
       );
 
       const customDoc = {
-        id: createdDocType?.id,
-        documentTypeId: createdDocType?.id,
-        name: createdDocType?.name || customName,
+        id: createdDocType.id,
+        documentTypeId: createdDocType.id,
+        name: createdDocType.name || customName,
         isCustom: true,
       };
 
@@ -280,6 +347,7 @@ const StepFive = ({
 
       patchDocState(productId, {
         customDocumentName: "",
+        page: 1,
       });
       await fetchDocuments(productId, 1, docState.search);
       toast.success("Custom document added");
@@ -293,6 +361,9 @@ const StepFive = ({
 
   const selectAllDocuments = async (productId: string) => {
     const { search } = getDocState(productId);
+    const product = products.find(
+      (item: any) => String(item.id) === String(productId),
+    );
 
     try {
       patchDocState(productId, { loading: true });
@@ -305,6 +376,12 @@ const StepFive = ({
 
       if (search.trim()) {
         params.append("search", search.trim());
+      }
+      if (product?.id) {
+        params.append("loanProductId", String(product.id));
+      }
+      if (product?.code) {
+        params.append("loanProductCode", String(product.code));
       }
 
       const res = await fetch(
@@ -324,6 +401,8 @@ const StepFive = ({
       if (json.success) {
         handleChange(productId, "documents", json.data);
         toast.success(`${json.data.length} documents selected`);
+      } else if (json.message) {
+        toast.error(json.message);
       }
     } catch (err) {
       console.error(err);
@@ -632,6 +711,12 @@ const StepFive = ({
       }
     }
 
+    if (key === "preferredDscr") {
+      if (numVal <= 0 || numVal > 10) {
+        return "Preferred DSCR must be between 0 and 10";
+      }
+    }
+
     if (key === "minDebtYield" && numVal > 100) {
       return "Min debt yield cannot exceed 100%";
     }
@@ -656,26 +741,37 @@ const StepFive = ({
       return (
         <div
           key={field.key}
-          className="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-3 py-3"
+          className="flex flex-col gap-1 rounded-lg border border-gray-200 bg-white px-3 py-3"
         >
-          <label className="text-xs text-gray-700 font-medium">
-            {field.label}
-          </label>
-          <button
-            type="button"
-            onClick={() =>
-              handleChange(getProductKey(product), field.key, !Boolean(currentValue))
-            }
-            className={`relative inline-flex h-6 w-11 items-center rounded-full transition ${
-              currentValue ? "bg-blue-600" : "bg-gray-300"
-            }`}
-          >
-            <span
-              className={`inline-block h-4 w-4 transform rounded-full bg-white transition ${
-                currentValue ? "translate-x-6" : "translate-x-1"
+          <div className="flex items-center justify-between gap-3">
+            <label className="text-xs text-gray-700 font-medium">
+              {field.label}
+            </label>
+            <button
+              type="button"
+              onClick={() =>
+                handleChange(
+                  getProductKey(product),
+                  field.key,
+                  !Boolean(currentValue),
+                )
+              }
+              className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition ${
+                currentValue ? "bg-blue-600" : "bg-gray-300"
               }`}
-            />
-          </button>
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition ${
+                  currentValue ? "translate-x-6" : "translate-x-1"
+                }`}
+              />
+            </button>
+          </div>
+          {field.helperText && (
+            <p className="text-[11px] text-gray-500 leading-snug">
+              {field.helperText}
+            </p>
+          )}
         </div>
       );
     }
@@ -685,6 +781,7 @@ const StepFive = ({
         <div key={field.key} className="col-span-2">
           <label className="text-xs text-gray-600 mb-1 block">
             {field.label}
+            {isRequired && <span className="text-red-500"> *</span>}
           </label>
           <textarea
             value={currentValue || ""}
@@ -937,11 +1034,17 @@ const StepFive = ({
                     renderField(product, field),
                   )}
                 </div>
-                {/* STATES SECTION */}
+                {/* STATES / GEOGRAPHIC COVERAGE SECTION */}
                 <div className="mt-6">
                   {/* Header */}
                   <div className="flex justify-between items-center mb-2">
-                    <h3 className="text-sm font-semibold">States</h3>
+                    <h3 className="text-sm font-semibold">
+                      {isSba7aBusinessAcquisitionProduct(product.code) ||
+                      isSbaExpressProduct(product.code)
+                        ? "Geographic Coverage/Location"
+                        : "States"}
+                      <span className="text-red-500">*</span>
+                    </h3>
 
                     <div className="flex gap-3 text-xs">
                       <button
@@ -1198,7 +1301,7 @@ const StepFive = ({
                       <p className="mt-1 text-sm text-gray-500 text-center">
                         {docState.search.trim()
                           ? `No documents found for "${docState.search}".`
-                          : "No document types are available."}
+                          : "No documents configured for this loan product yet. Add a custom document or ask admin to assign document types."}
                       </p>
                     </div>
                   )}

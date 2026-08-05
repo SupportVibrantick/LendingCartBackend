@@ -56,7 +56,7 @@ async function main() {
   await seedLenderUser();
   await seedLenderProfile();
 
-  await seedDocumentTypes();
+  // await seedDocumentTypes();
 
   await seedSubscriptionPackages();
   // await seedLoanApplication();      // demo loan pipeline row + submission fields

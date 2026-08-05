@@ -28,7 +28,8 @@ async function updateDocumentTypeRoutes(fastify) {
           });
         }
 
-        const { id, name, description } = parsed.data;
+        const { id, name, description, loanProductId, isRequired } =
+          parsed.data;
 
         const exists = await prisma.documentType.findUnique({ where: { id } });
         if (!exists) {
@@ -38,15 +39,49 @@ async function updateDocumentTypeRoutes(fastify) {
           });
         }
 
-        const updated = await prisma.documentType.update({
-          where: { id },
-          data: {
-            name,
-            description: description ?? null,
-          },
+        if (loanProductId) {
+          const duplicateOnProduct =
+            await prisma.productDocumentRequirement.findFirst({
+              where: {
+                loanProductId,
+                documentTypeId: { not: id },
+                documentType: {
+                  name: { equals: name.trim(), mode: "insensitive" },
+                },
+              },
+            });
+
+          if (duplicateOnProduct) {
+            return reply.status(409).send({
+              success: false,
+              message: `Another document named "${name.trim()}" is already linked to this product`,
+            });
+          }
+        }
+
+        const updated = await prisma.$transaction(async (tx) => {
+          const documentType = await tx.documentType.update({
+            where: { id },
+            data: {
+              name: name.trim(),
+              description: description?.trim() || null,
+            },
+          });
+
+          if (loanProductId && typeof isRequired === "boolean") {
+            await tx.productDocumentRequirement.updateMany({
+              where: {
+                documentTypeId: id,
+                loanProductId,
+              },
+              data: { isRequired },
+            });
+          }
+
+          return documentType;
         });
 
-        adminLogs.info("Document type updated", { id });
+        adminLogs.info("Document type updated", { id, loanProductId });
 
         return reply.send({
           success: true,
@@ -60,7 +95,7 @@ async function updateDocumentTypeRoutes(fastify) {
           message: "Server error while updating document type",
         });
       }
-    }
+    },
   );
 }
 

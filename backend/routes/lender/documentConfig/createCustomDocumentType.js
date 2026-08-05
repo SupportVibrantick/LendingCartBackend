@@ -7,7 +7,7 @@ async function createCustomDocumentTypeRoutes(fastify) {
     {
       schema: {
         tags: ["Lender -> Document Config"],
-        summary: "Create lender custom document type",
+        summary: "Create lender custom document type (optionally product-linked)",
         body: {
           type: "object",
           required: ["name"],
@@ -15,6 +15,8 @@ async function createCustomDocumentTypeRoutes(fastify) {
           properties: {
             name: { type: "string", minLength: 2, maxLength: 120 },
             description: { type: "string", maxLength: 500 },
+            loanProductId: { type: "string", format: "uuid" },
+            loanProductCode: { type: "string" },
           },
         },
       },
@@ -23,7 +25,11 @@ async function createCustomDocumentTypeRoutes(fastify) {
       const prisma = fastify.prisma;
 
       try {
-        if (!req.user || req.user.orgType !== "LENDER" || !req.user.organizationId) {
+        if (
+          !req.user ||
+          req.user.orgType !== "LENDER" ||
+          !req.user.organizationId
+        ) {
           return reply.code(403).send({
             success: false,
             message: "Lender access only",
@@ -33,6 +39,14 @@ async function createCustomDocumentTypeRoutes(fastify) {
         const lenderOrgId = req.user.organizationId;
         const name = String(req.body?.name || "").trim();
         const description = String(req.body?.description || "").trim();
+        const loanProductId =
+          typeof req.body?.loanProductId === "string"
+            ? req.body.loanProductId.trim()
+            : "";
+        const loanProductCode =
+          typeof req.body?.loanProductCode === "string"
+            ? req.body.loanProductCode.trim()
+            : "";
 
         if (name.length < 2) {
           return reply.code(400).send({
@@ -41,7 +55,27 @@ async function createCustomDocumentTypeRoutes(fastify) {
           });
         }
 
-        const existing = await prisma.documentType.findFirst({
+        let loanProduct = null;
+        if (loanProductId || loanProductCode) {
+          loanProduct = await prisma.loanProduct.findFirst({
+            where: {
+              ...(loanProductId ? { id: loanProductId } : {}),
+              ...(loanProductCode && !loanProductId
+                ? { code: loanProductCode }
+                : {}),
+            },
+            select: { id: true, code: true, name: true },
+          });
+
+          if (!loanProduct) {
+            return reply.code(404).send({
+              success: false,
+              message: "Loan product not found",
+            });
+          }
+        }
+
+        let documentType = await prisma.documentType.findFirst({
           where: {
             isActive: true,
             isCustom: true,
@@ -53,28 +87,55 @@ async function createCustomDocumentTypeRoutes(fastify) {
           },
         });
 
-        if (existing) {
-          return reply.send({
-            success: true,
-            message: "Custom document already exists",
-            data: existing,
+        let createdNew = false;
+        if (!documentType) {
+          documentType = await prisma.documentType.create({
+            data: {
+              name,
+              description: description || null,
+              isCustom: true,
+              createdByOrgId: lenderOrgId,
+              isActive: true,
+            },
           });
+          createdNew = true;
         }
 
-        const created = await prisma.documentType.create({
-          data: {
-            name,
-            description: description || null,
-            isCustom: true,
-            createdByOrgId: lenderOrgId,
-            isActive: true,
-          },
-        });
+        let requirement = null;
+        if (loanProduct) {
+          requirement = await prisma.productDocumentRequirement.findFirst({
+            where: {
+              documentTypeId: documentType.id,
+              OR: [
+                { loanProductId: loanProduct.id },
+                { loanProductCode: loanProduct.code },
+              ],
+            },
+          });
 
-        return reply.code(201).send({
+          if (!requirement) {
+            requirement = await prisma.productDocumentRequirement.create({
+              data: {
+                loanProductId: loanProduct.id,
+                loanProductCode: loanProduct.code,
+                documentTypeId: documentType.id,
+                isRequired: true,
+              },
+            });
+          }
+        }
+
+        return reply.code(createdNew ? 201 : 200).send({
           success: true,
-          message: "Custom document created",
-          data: created,
+          message: createdNew
+            ? "Custom document created"
+            : "Custom document already exists",
+          data: {
+            ...documentType,
+            loanProductId: loanProduct?.id || null,
+            loanProductCode: loanProduct?.code || null,
+            requirementId: requirement?.id || null,
+          },
         });
       } catch (error) {
         fastify.log.error(

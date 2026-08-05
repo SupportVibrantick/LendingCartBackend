@@ -291,6 +291,7 @@ const CURRENCY_FIELD_KEYS = new Set([
   "maxTotalProject",
   "maxSba504Debenture",
   "maxUsdaGuarantee",
+  "maximumDebtService",
 ]);
 
 const formatDetailCurrency = (

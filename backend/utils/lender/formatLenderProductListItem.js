@@ -22,6 +22,8 @@ const DECIMAL_PRODUCT_FIELDS = [
   "maxLtcPercent",
   "originationPointsPercent",
   "minDscr",
+  "preferredDscr",
+  "maximumDebtService",
   "minDebtYieldPercent",
   "minRateSpreadPercent",
   "maxRateSpreadPercent",
@@ -173,6 +175,8 @@ function formatLenderProductListItem(product) {
     minPropertiesInPortfolio: toPositiveNumberOrNull(p.minPropertiesInPortfolio),
     maxPropertiesInPortfolio: toPositiveNumberOrNull(p.maxPropertiesInPortfolio),
     minTimeInBusinessMonths: toPositiveNumberOrNull(p.minTimeInBusinessMonths),
+    maxTermRealEstateMonths: toPositiveNumberOrNull(p.maxTermRealEstateMonths),
+    maxTermEquipmentMonths: toPositiveNumberOrNull(p.maxTermEquipmentMonths),
     maxInvoiceAgeDays: toPositiveNumberOrNull(p.maxInvoiceAgeDays),
     paymentTermsExtensionDays: toPositiveNumberOrNull(
       p.paymentTermsExtensionDays,

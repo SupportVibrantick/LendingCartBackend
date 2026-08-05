@@ -11,6 +11,12 @@ import {
   User,
   X,
 } from "lucide-react";
+import {
+  buildLoanProductDetailFields,
+  formatLoanProductCode,
+  formatLoanProductName,
+} from "../../lib/loanProductListDisplay";
+import { resolveLenderOfferedProductCode } from "../../lib/canonicalLoanProducts";
 
 type LenderSummary = {
   id: string;
@@ -34,26 +40,13 @@ type AssignedProductDetail = {
   loanProduct?: { name?: string; code?: string; description?: string };
   isActive: boolean;
   createdAt?: string;
-  minLoanAmount?: string | null;
-  maxLoanAmount?: string | null;
-  minTermMonths?: number | null;
-  maxTermMonths?: number | null;
-  maxLtvPercent?: string | null;
-  maxLtcPercent?: string | null;
-  maxArvPercent?: string | null;
-  minCreditScore?: number | null;
-  minExperience?: string | null;
-  interestRateRange?: string | null;
-  originationPointsPercent?: string | null;
-  extensionAvailable?: boolean | null;
-  personalGuaranteeRequired?: boolean | null;
-  firstTimeBorrowersAllowed?: boolean | null;
   criteriaNotes?: string | null;
   statesSupported?: string[];
   businessTypes?: Array<{ name?: string; subTypes?: string[] }>;
   propertyTypes?: Array<{ type?: string; subTypes?: string[] }>;
   equipmentTypes?: string[];
   documents?: ProductDocument[];
+  [key: string]: unknown;
 };
 
 type ProductDocument = {
@@ -71,22 +64,6 @@ type LenderDetailsModalProps = {
   lender: LenderSummary | null;
   apiBase: string;
   onClose: () => void;
-};
-
-const PRODUCT_LABELS: Record<string, string> = {
-  FIX_AND_FLIP_LOAN_1_TO_4_UNITS: "Fix & Flip",
-  DSCR_LOAN_1_TO_4_UNITS: "DSCR",
-  CONSTRUCTION_LOAN_1_TO_4_UNITS: "Construction",
-  BRIDGE_LOAN_1_TO_4_UNITS: "Bridge",
-  SBA_504_REAL_ESTATE_AND_EQUIPMENT: "SBA 504",
-  USDA_BI: "USDA B&I",
-  AGENCY_LOAN_MULTIFAMILY: "Agency Multifamily",
-  CRE_PERMANENT_LOAN: "CRE Permanent",
-  RENTAL_PORTFOLIO: "Rental Portfolio",
-  PURCHASE_ORDER_FINANCE: "Purchase Order",
-  ACCOUNTS_PAYABLE_FINANCE: "AP Supply Chain",
-  ACCOUNTS_RECEIVABLE: "Accounts Receivable",
-  INVOICE_FACTORING: "AR Factoring",
 };
 
 function getAuthHeaders(): Record<string, string> {
@@ -108,53 +85,15 @@ function statusClass(status?: string) {
   }
 }
 
-function productCodeLabel(code?: string): string {
-  if (!code) return "—";
-  return PRODUCT_LABELS[code] ?? code.replace(/_/g, " ");
-}
-
-function formatCurrency(val: string | number | null | undefined): string {
-  if (val === null || val === undefined || val === "") return "";
-  const num = Number(val);
-  if (!Number.isFinite(num)) return String(val);
+function formatCurrencyAmount(amount?: number | null): string {
+  if (amount === null || amount === undefined || !Number.isFinite(amount)) {
+    return "—";
+  }
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
     maximumFractionDigits: 0,
-  }).format(num);
-}
-
-function formatLoanRange(
-  min?: string | number | null,
-  max?: string | number | null,
-): string {
-  const minStr = min !== null && min !== undefined && min !== "" ? formatCurrency(min) : "";
-  const maxStr = max !== null && max !== undefined && max !== "" ? formatCurrency(max) : "";
-  if (minStr && maxStr) return `${minStr} – ${maxStr}`;
-  if (minStr) return `${minStr}+`;
-  if (maxStr) return `Up to ${maxStr}`;
-  return "—";
-}
-
-function formatTermRange(min?: number | null, max?: number | null): string {
-  const hasMin = min !== null && min !== undefined;
-  const hasMax = max !== null && max !== undefined;
-  if (hasMin && hasMax) return `${min} – ${max} months`;
-  if (hasMin) return `${min}+ months`;
-  if (hasMax) return `Up to ${max} months`;
-  return "—";
-}
-
-function formatPercent(val: string | number | null | undefined): string {
-  if (val === null || val === undefined || val === "") return "—";
-  const num = Number(val);
-  if (!Number.isFinite(num)) return String(val);
-  return `${num}%`;
-}
-
-function formatBoolean(val: boolean | null | undefined): string {
-  if (val === null || val === undefined) return "—";
-  return val ? "Yes" : "No";
+  }).format(amount);
 }
 
 function normalizeArray(val: unknown): string[] {
@@ -203,26 +142,16 @@ function mapDocuments(raw: unknown): ProductDocument[] {
 
 function mapProductRow(raw: Record<string, unknown>): AssignedProductDetail {
   const loanProduct = raw.loanProduct as AssignedProductDetail["loanProduct"];
+  const loanProductCode =
+    (raw.loanProductCode as string) || loanProduct?.code || "";
+
   return {
+    ...raw,
     id: String(raw.id),
-    loanProductCode: (raw.loanProductCode as string) || loanProduct?.code,
+    loanProductCode: resolveLenderOfferedProductCode(loanProductCode),
     loanProduct,
     isActive: Boolean(raw.isActive),
     createdAt: raw.createdAt as string | undefined,
-    minLoanAmount: raw.minLoanAmount as string | null,
-    maxLoanAmount: raw.maxLoanAmount as string | null,
-    minTermMonths: raw.minTermMonths as number | null,
-    maxTermMonths: raw.maxTermMonths as number | null,
-    maxLtvPercent: raw.maxLtvPercent as string | null,
-    maxLtcPercent: raw.maxLtcPercent as string | null,
-    maxArvPercent: raw.maxArvPercent as string | null,
-    minCreditScore: raw.minCreditScore as number | null,
-    minExperience: raw.minExperience as string | null,
-    interestRateRange: raw.interestRateRange as string | null,
-    originationPointsPercent: raw.originationPointsPercent as string | null,
-    extensionAvailable: raw.extensionAvailable as boolean | null,
-    personalGuaranteeRequired: raw.personalGuaranteeRequired as boolean | null,
-    firstTimeBorrowersAllowed: raw.firstTimeBorrowersAllowed as boolean | null,
     criteriaNotes: raw.criteriaNotes as string | null,
     statesSupported: normalizeArray(raw.statesSupported),
     businessTypes: Array.isArray(raw.businessTypes) ? raw.businessTypes : [],
@@ -232,15 +161,23 @@ function mapProductRow(raw: Record<string, unknown>): AssignedProductDetail {
   };
 }
 
-function FieldCard({ label, value }: { label: string; value: unknown }) {
+function FieldCard({
+  label,
+  value,
+  fullWidth,
+}: {
+  label: string;
+  value: unknown;
+  fullWidth?: boolean;
+}) {
   const display =
     value === null || value === undefined || value === "" ? "—" : String(value);
   return (
-    <div className="space-y-1">
+    <div className={`space-y-1 ${fullWidth ? "sm:col-span-2 lg:col-span-3" : ""}`}>
       <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
         {label}
       </p>
-      <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-800 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+      <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-800 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 whitespace-pre-wrap">
         {display}
       </div>
     </div>
@@ -289,18 +226,22 @@ function DetailRow({
 }
 
 function AssignedProductCard({ product }: { product: AssignedProductDetail }) {
-  const code = product.loanProduct?.code || product.loanProductCode;
-  const programLabel = productCodeLabel(code);
+  const programName = formatLoanProductName(product);
+  const programCode = formatLoanProductCode(product);
+  const criteriaFields = buildLoanProductDetailFields(
+    product,
+    formatCurrencyAmount,
+  );
 
   return (
     <div className="rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800/30">
       <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 px-4 py-3 dark:border-slate-700">
         <div className="min-w-0">
           <p className="font-semibold text-slate-900 dark:text-white">
-            {product.loanProduct?.name || programLabel}
+            {programName !== "-" ? programName : programCode}
           </p>
           <p className="mt-0.5 text-[11px] uppercase tracking-wide text-slate-500">
-            {programLabel}
+            {programCode}
           </p>
           {product.loanProduct?.description ? (
             <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
@@ -308,45 +249,34 @@ function AssignedProductCard({ product }: { product: AssignedProductDetail }) {
             </p>
           ) : null}
         </div>
-        <span
-          className={`shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase ${
-            product.isActive
-              ? "bg-green-100 text-green-700 dark:bg-green-500/15 dark:text-green-400"
-              : "bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-400"
-          }`}
-        >
-          {product.isActive ? "Active" : "Inactive"}
-        </span>
+        <div className="flex shrink-0 flex-col items-end gap-2">
+          <span
+            className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase ${
+              product.isActive
+                ? "bg-green-100 text-green-700 dark:bg-green-500/15 dark:text-green-400"
+                : "bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-400"
+            }`}
+          >
+            {product.isActive ? "Active" : "Inactive"}
+          </span>
+          {product.createdAt ? (
+            <span className="text-[10px] text-slate-400">
+              Assigned {new Date(product.createdAt).toLocaleDateString()}
+            </span>
+          ) : null}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-4 p-4 sm:grid-cols-2 lg:grid-cols-3">
-        <FieldCard label="Loan Amount" value={formatLoanRange(product.minLoanAmount, product.maxLoanAmount)} />
-        <FieldCard label="Term" value={formatTermRange(product.minTermMonths, product.maxTermMonths)} />
-        <FieldCard label="Interest Rate" value={product.interestRateRange || "—"} />
-        <FieldCard label="Max LTV" value={formatPercent(product.maxLtvPercent)} />
-        <FieldCard label="Max LTC" value={formatPercent(product.maxLtcPercent)} />
-        <FieldCard label="Max ARV" value={formatPercent(product.maxArvPercent)} />
-        <FieldCard label="Min FICO" value={product.minCreditScore ?? "—"} />
-        <FieldCard label="Min Experience" value={product.minExperience || "—"} />
-        <FieldCard label="Origination Points" value={formatPercent(product.originationPointsPercent)} />
-        <FieldCard label="Extension Available" value={formatBoolean(product.extensionAvailable)} />
-        <FieldCard label="Personal Guarantee" value={formatBoolean(product.personalGuaranteeRequired)} />
-        <FieldCard label="First-Time Borrowers" value={formatBoolean(product.firstTimeBorrowersAllowed)} />
-        <FieldCard
-          label="Assigned On"
-          value={
-            product.createdAt
-              ? new Date(product.createdAt).toLocaleDateString()
-              : "—"
-          }
-        />
+        {criteriaFields.map((field, index) => (
+          <FieldCard
+            key={`${field.label}-${index}`}
+            label={field.label}
+            value={field.value}
+            fullWidth={field.fullWidth}
+          />
+        ))}
       </div>
-
-      {product.criteriaNotes ? (
-        <div className="border-t border-slate-100 px-4 py-3 dark:border-slate-700">
-          <FieldCard label="Criteria Notes" value={product.criteriaNotes} />
-        </div>
-      ) : null}
 
       {product.statesSupported?.length ? (
         <div className="border-t border-slate-100 px-4 py-3 dark:border-slate-700">
@@ -436,7 +366,7 @@ function AssignedProductCard({ product }: { product: AssignedProductDetail }) {
 
       <div className="border-t border-slate-100 px-4 py-3 dark:border-slate-700">
         <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-          Required Documents ({product.documents?.length || 0})
+          Documents ({product.documents?.length || 0})
         </p>
         {product.documents?.length ? (
           <div className="flex flex-wrap gap-2">
@@ -446,10 +376,16 @@ function AssignedProductCard({ product }: { product: AssignedProductDetail }) {
                 className="inline-flex items-center gap-1.5 rounded-lg border border-amber-100 bg-amber-50 px-3 py-1.5 text-xs text-amber-900 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-200"
               >
                 <FileText size={12} className="shrink-0 opacity-70" />
-                <span>{doc.documentName || doc.name || doc.documentCode || "Document"}</span>
+                <span>
+                  {doc.documentName || doc.name || doc.documentCode || "Document"}
+                </span>
                 {doc.isRequired === false ? (
                   <span className="text-[10px] text-slate-500">(optional)</span>
-                ) : null}
+                ) : (
+                  <span className="text-[10px] text-amber-700/80 dark:text-amber-300/80">
+                    (required)
+                  </span>
+                )}
               </span>
             ))}
           </div>
@@ -616,7 +552,7 @@ export default function LenderDetailsModal({
             </div>
           ) : null}
 
-          <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800/50">
               <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
                 Assigned Products

@@ -1,17 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import StepTwo from "../AddLender/LoanCriteria/StepTwo";
-import StepThree from "../AddLender/LoanCriteria/StepThree";
-import StepFour from "../AddLender/LoanCriteria/StepFour";
-import StepFive from "../AddLender/LoanCriteria/StepFive";
-import EquipmentFinancingStep from "../AddLender/LoanCriteria/EquipmentFinancingStep";
+import StepTwo from "./StepTwo";
+import StepThree from "./StepThree";
+import StepFour from "./StepFour";
+import StepFive from "./StepFive";
+import EquipmentFinancingStep from "./EquipmentFinancingStep";
 import { ChevronRight, ChevronLeft, ArrowLeft } from "lucide-react";
 import toast from "react-hot-toast";
 import {
-  getRequiredCriteriaKeysForProduct,
-  isMezzanineProduct,
-  isNoMinLoanCriteriaProduct,
-  isSba504Product,
+  getLoanCriteriaFooterMessage,
+  validateLoanProductCriteriaStep,
 } from "../../../lib/loanProductCriteriaFields";
 import { mapToAdminProductPayload } from "../../../lib/lenderProductAdminPayload";
 import { mapToCanonicalCatalogId } from "../../../lib/canonicalLoanProducts";
@@ -129,59 +127,8 @@ export default function Main() {
   const loanCriteriaStepIndex = steps.length - 1;
   const isLastStep = step === steps.length - 1;
 
-  const validateStep5 = () => {
-    for (const product of selectedProducts) {
-      const data = form.loanCriteria?.[product.id];
-
-      if (!data) {
-        return `Please fill details for ${product.name}`;
-      }
-
-      const requiredFields = getRequiredCriteriaKeysForProduct(product.code);
-
-      for (const field of requiredFields) {
-        if (!data[field] && data[field] !== 0) {
-          return `${product.name}: ${field} is required`;
-        }
-      }
-
-      if (!data.states || data.states.length === 0) {
-        return `${product.name}: Select at least one state`;
-      }
-
-      if (isSba504Product(product.code)) {
-        const total = Number(data.maxTotalProject);
-        const debenture = Number(data.maxSba504Debenture);
-        if (
-          data.maxTotalProject &&
-          data.maxSba504Debenture &&
-          debenture > total
-        ) {
-          return `${product.name}: SBA 504 debenture cannot exceed total project amount`;
-        }
-      } else if (
-        !isNoMinLoanCriteriaProduct(product.code) &&
-        !isMezzanineProduct(product.code)
-      ) {
-        const minAmount = Number(
-          data.minFacilitySize ?? data.minProgramSize ?? data.minLoan,
-        );
-        const maxAmount = Number(
-          data.maxFacilitySize ?? data.maxProgramSize ?? data.maxLoan,
-        );
-
-        if (
-          Number.isFinite(minAmount) &&
-          Number.isFinite(maxAmount) &&
-          minAmount > maxAmount
-        ) {
-          return `${product.name}: Minimum amount cannot exceed maximum amount`;
-        }
-      }
-    }
-
-    return null;
-  };
+  const validateStep5 = () =>
+    validateLoanProductCriteriaStep(selectedProducts, form.loanCriteria);
 
   const fetchLenders = async (searchValue?: string) => {
     setLoadingLenders(true);
@@ -553,15 +500,21 @@ export default function Main() {
     return null;
   };
 
-  const step5ValidationMessage =
-    step === loanCriteriaStepIndex ? validateStep5() : null;
+  const footerValidationMessage =
+    step === loanCriteriaStepIndex
+      ? getLoanCriteriaFooterMessage(
+          selectedProducts,
+          form.loanCriteria,
+          hasStep5Errors,
+        )
+      : null;
 
   const nextDisabled =
     submitting ||
     (step === 0 && !form.lenderId) ||
     (step === 1 && form.loanPrograms.length === 0) ||
-    (step === loanCriteriaStepIndex && hasStep5Errors) ||
-    (isLastStep && step5ValidationMessage !== null);
+    (step === loanCriteriaStepIndex &&
+      (hasStep5Errors || footerValidationMessage !== null));
 
   return (
     <div className="h-screen flex flex-col bg-gray-50">
@@ -637,8 +590,10 @@ export default function Main() {
             Step <span className="font-semibold text-gray-700">{step + 1}</span>{" "}
             of{" "}
             <span className="font-semibold text-gray-700">{steps.length}</span>
-            {isLastStep && step5ValidationMessage && (
-              <p className="mt-1 text-red-600">{step5ValidationMessage}</p>
+            {isLastStep && footerValidationMessage && (
+              <p className="mt-1 max-w-xl text-sm text-red-600">
+                {footerValidationMessage}
+              </p>
             )}
           </div>
 

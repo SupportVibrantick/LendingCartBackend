@@ -492,6 +492,12 @@ export default function UpdateLoanProduct() {
           key={`update-criteria-${form.loanPrograms.join("-")}`}
           mode="update"
           products={selectedProducts}
+          lenderProductIdByProgramId={Object.fromEntries(
+            Object.entries(lenderProductByProgramId).map(([programId, record]) => [
+              programId,
+              record.id,
+            ]),
+          )}
           value={form.loanCriteria}
           setValue={(val: Record<string, any>) =>
             setForm((prev) => ({ ...prev, loanCriteria: val }))
