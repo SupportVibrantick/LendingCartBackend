@@ -1,6 +1,6 @@
-import { Eye, FileText, User } from "lucide-react";
-import { motion } from "framer-motion";
-import type { ReactNode } from "react";
+import { ChevronRight, Eye, FileText, Search, User, X } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
+import { useMemo, useState, type ReactNode } from "react";
 import ApplicationDetailsDownloadButton from "./ApplicationDetailsDownloadButton";
 import {
   formatSubmissionFieldValue,
@@ -70,13 +70,7 @@ function InfoCard({ label, value }: { label: string; value: ReactNode }) {
   );
 }
 
-function Metric({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
+function Metric({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-xl border border-sky-100/80 bg-white/80 p-4 dark:border-slate-700 dark:bg-slate-900/40">
       <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
@@ -90,19 +84,35 @@ function Metric({
 }
 
 function FieldItem({ field }: { field: SubmissionDetailField }) {
+  const display = formatSubmissionFieldValue(field);
+  const isEmpty = !display || display === "—";
   return (
     <div className="space-y-1">
-      <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
         {getSubmissionFieldLabel(field)}
-      </label>
-      <div
-        aria-readonly="true"
-        className="cursor-default select-none break-words rounded-lg border border-dashed border-slate-300 bg-slate-100 px-3 py-2.5 text-sm text-slate-700 dark:border-slate-600 dark:bg-slate-800/70 dark:text-slate-300"
+      </p>
+      <p
+        className={`text-sm font-semibold leading-snug break-words ${
+          isEmpty
+            ? "text-slate-400 italic"
+            : "text-slate-900 dark:text-slate-100"
+        }`}
       >
-        {formatSubmissionFieldValue(field)}
-      </div>
+        {isEmpty ? "Not provided" : display}
+      </p>
     </div>
   );
+}
+
+function isFieldEmpty(field: SubmissionDetailField): boolean {
+  const raw = parseSubmissionFieldValue(field.value);
+  if (raw === undefined || raw === null) return true;
+  if (typeof raw === "string") {
+    const trimmed = raw.trim();
+    return trimmed === "" || trimmed === "-" || trimmed === "—";
+  }
+  if (Array.isArray(raw)) return raw.length === 0;
+  return false;
 }
 
 function LenderDecisionCard({
@@ -252,25 +262,71 @@ function LenderDecisionCard({
   );
 }
 
-function SectionBlock({
+function AccordionSection({
   title,
   icon,
-  children,
+  fields,
+  defaultOpen = false,
+  filledCount,
 }: {
   title: string;
-  icon?: ReactNode;
-  children: React.ReactNode;
+  icon: ReactNode;
+  fields: SubmissionDetailField[];
+  defaultOpen?: boolean;
+  filledCount: number;
 }) {
+  const [isOpen, setIsOpen] = useState(defaultOpen);
   return (
-    <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950">
-      <div className="flex items-center gap-2 border-b border-slate-100 bg-slate-50/80 px-5 py-3 dark:border-slate-800 dark:bg-slate-900/50">
+    <motion.section
+      layout
+      transition={{ duration: 0.18, ease: "easeOut" }}
+      className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950"
+    >
+      <button
+        type="button"
+        onClick={() => setIsOpen((open) => !open)}
+        aria-expanded={isOpen}
+        className="flex w-full items-center gap-3 px-5 py-3.5 text-left transition hover:bg-slate-50 dark:hover:bg-slate-900/40"
+      >
         {icon}
-        <h3 className="text-sm font-bold uppercase tracking-wide text-slate-700 dark:text-slate-200">
+        <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100">
           {title}
         </h3>
-      </div>
-      <div className="p-5">{children}</div>
-    </section>
+        <span className="ml-auto flex items-center gap-2 text-xs text-slate-400">
+          <span>
+            {filledCount} filled / {fields.length}
+          </span>
+          <motion.span
+            animate={{ rotate: isOpen ? 90 : 0 }}
+            transition={{ duration: 0.18 }}
+            className="inline-flex"
+          >
+            <ChevronRight size={14} />
+          </motion.span>
+        </span>
+      </button>
+      <AnimatePresence initial={false}>
+        {isOpen && (
+          <motion.div
+            key="content"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.22, ease: "easeOut" }}
+            className="overflow-hidden border-t border-slate-100 dark:border-slate-800"
+          >
+            <div className="grid grid-cols-1 gap-x-8 gap-y-4 px-5 py-4 sm:grid-cols-2 lg:grid-cols-3">
+              {fields.map((field) => (
+                <FieldItem
+                  key={`${field.fieldKey}-${field.fieldId || ""}`}
+                  field={field}
+                />
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.section>
   );
 }
 
@@ -337,9 +393,41 @@ export default function SubmissionDetailsView({
   const hasApprovedLender = lenderDecisions.some(
     (item) =>
       resolveLenderDecisionStatus(
-        { lenderStatus: item.lenderStatus, latestReview: item.review, reviews: [item.review] },
+        {
+          lenderStatus: item.lenderStatus,
+          latestReview: item.review,
+          reviews: [item.review],
+        },
         item.review,
       ) === "APPROVED",
+  );
+
+  // Search state + filtering
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const filteredSections = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return sections;
+    return sections
+      .map((section) => {
+        const matchedFields = section.fields.filter((field) => {
+          const label = getSubmissionFieldLabel(field).toLowerCase();
+          const value = formatSubmissionFieldValue(field)
+            .toString()
+            .toLowerCase();
+          const key = (field.fieldKey || "").toLowerCase();
+          return (
+            label.includes(q) || value.includes(q) || key.includes(q)
+          );
+        });
+        return { ...section, fields: matchedFields };
+      })
+      .filter((section) => section.fields.length > 0);
+  }, [sections, searchQuery]);
+
+  const totalMatchedFields = useMemo(
+    () => filteredSections.reduce((sum, s) => sum + s.fields.length, 0),
+    [filteredSections],
   );
 
   return (
@@ -354,27 +442,33 @@ export default function SubmissionDetailsView({
         </div>
       ) : null}
 
-       {lenderDecisions.length > 0 && (
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-        {lenderDecisions.map((item, index) => (
-          <LenderDecisionCard
-            key={`${item.applicationLenderId || item.lenderName}-${index}`}
-            applicationLenderId={item.applicationLenderId}
-            lenderName={item.lenderName}
-            lenderStatus={item.lenderStatus}
-            review={item.review}
-            isFundedLender={item.isFundedLender}
-            canMarkFunded={showMarkFundedActions}
-            markingFundedId={markingFundedId}
-            onMarkFunded={onMarkFunded}
-          />
-        ))}
-      </div>
-    )}
+      {lenderDecisions.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+          {lenderDecisions.map((item, index) => (
+            <LenderDecisionCard
+              key={`${item.applicationLenderId || item.lenderName}-${index}`}
+              applicationLenderId={item.applicationLenderId}
+              lenderName={item.lenderName}
+              lenderStatus={item.lenderStatus}
+              review={item.review}
+              isFundedLender={item.isFundedLender}
+              canMarkFunded={showMarkFundedActions}
+              markingFundedId={markingFundedId}
+              onMarkFunded={onMarkFunded}
+            />
+          ))}
+        </div>
+      )}
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-950">
-        {showPdfDownload ? (
-          <div className="mb-5 flex justify-end">
+      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-950 sm:p-6">
+        <div className="mb-4 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <FileText size={16} className="text-cyan-600" />
+            <h2 className="text-sm font-bold uppercase tracking-wide text-slate-700 dark:text-slate-200">
+              Application Overview
+            </h2>
+          </div>
+          {showPdfDownload ? (
             <ApplicationDetailsDownloadButton
               submissionDetail={submissionDetail}
               fields={fields}
@@ -386,99 +480,95 @@ export default function SubmissionDetailsView({
               monthlyPayment={monthlyPayment}
               monthlyPaymentDisplay={monthlyPaymentDisplay}
               submittedDate={submittedDate}
+              className="shrink-0"
             />
-          </div>
-        ) : null}
+          ) : null}
+        </div>
 
-        <SectionBlock
-          title="Application Overview"
-          icon={<FileText size={16} className="text-cyan-600" />}
-        >
-          <div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            <InfoCard
-              label="Application Number"
-              value={submissionDetail?.applicationNumber}
-            />
-            <InfoCard
-              label="Status"
-              value={
-                <span
-                  className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${getStatusChip(submissionDetail?.status)}`}
-                >
-                  {formatSubmissionStatus(submissionDetail?.status)}
-                </span>
-              }
-            />
-            <InfoCard label="Loan Product" value={loanProductName} />
-            <InfoCard
-              label="Borrower"
-              value={getBorrowerDisplayNameFromFields(
-                fields,
-                submissionDetail?.borrowerName,
-              )}
-            />
-            <InfoCard
-              label="Entity Type"
-              value={getEntityTypeFromFields(fields)}
-            />
-            <InfoCard
-              label="Credit Score"
-              value={
-                fields.find((field) => field.fieldKey === "creditScore")
-                  ? formatSubmissionFieldValue(
-                      fields.find((field) => field.fieldKey === "creditScore")!,
-                    )
-                  : submissionDetail?.creditScore || "—"
-              }
-            />
-            {submittedDate && (
-              <>
-                <InfoCard
-                  label="Submitted Date"
-                  value={submittedDate.toLocaleDateString()}
-                />
-                <InfoCard
-                  label="Submitted Time"
-                  value={submittedDate.toLocaleTimeString()}
-                />
-              </>
+        <div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          <InfoCard
+            label="Application Number"
+            value={submissionDetail?.applicationNumber}
+          />
+          <InfoCard
+            label="Status"
+            value={
+              <span
+                className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${getStatusChip(submissionDetail?.status)}`}
+              >
+                {formatSubmissionStatus(submissionDetail?.status)}
+              </span>
+            }
+          />
+          <InfoCard label="Loan Product" value={loanProductName} />
+          <InfoCard
+            label="Borrower"
+            value={getBorrowerDisplayNameFromFields(
+              fields,
+              submissionDetail?.borrowerName,
             )}
-          </div>
+          />
+          <InfoCard
+            label="Entity Type"
+            value={getEntityTypeFromFields(fields)}
+          />
+          <InfoCard
+            label="Credit Score"
+            value={
+              fields.find((field) => field.fieldKey === "creditScore")
+                ? formatSubmissionFieldValue(
+                    fields.find((field) => field.fieldKey === "creditScore")!,
+                  )
+                : submissionDetail?.creditScore || "—"
+            }
+          />
+          {submittedDate && (
+            <>
+              <InfoCard
+                label="Submitted Date"
+                value={submittedDate.toLocaleDateString()}
+              />
+              <InfoCard
+                label="Submitted Time"
+                value={submittedDate.toLocaleTimeString()}
+              />
+            </>
+          )}
+        </div>
 
-          <div className="rounded-[24px] border border-sky-100 bg-gradient-to-br from-white via-sky-50 to-cyan-50 p-5 dark:border-blue-900/30 dark:bg-blue-950/20">
-            <p className="mb-4 text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Key Loan Metrics
-            </p>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7">
-              <Metric
-                label="Loan Amount"
-                value={formatCompactAmount(Number(loanAmount || 0))}
-              />
-              <Metric
-                label="Monthly Payment"
-                value={
-                  monthlyPaymentDisplay ||
-                  (monthlyPayment > 0
-                    ? `$${monthlyPayment.toLocaleString("en-US", {
-                        maximumFractionDigits: 0,
-                      })}`
-                    : "—")
-                }
-              />
-              <Metric label="LTV %" value={ltv ? `${ltv.toFixed(2)}%` : "—"} />
-              <Metric label="LTC %" value={ltc ? `${ltc.toFixed(2)}%` : "—"} />
-              <Metric label="ARV %" value={arv ? `${arv.toFixed(2)}%` : "—"} />
-              <Metric label="DSCR" value={dscr ? dscr.toFixed(2) : "—"} />
-              <Metric
-                label="Net Worth"
-                value={formatCompactAmount(Number(netWorth || 0))}
-              />
-            </div>
+        <div className="mb-6 rounded-xl border border-sky-100 bg-gradient-to-br from-white via-sky-50 to-cyan-50 p-4 dark:border-blue-900/30 dark:bg-blue-950/20">
+          <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Key Loan Metrics
+          </p>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
+            <Metric
+              label="Loan Amount"
+              value={formatCompactAmount(Number(loanAmount || 0))}
+            />
+            <Metric
+              label="Monthly Payment"
+              value={
+                monthlyPaymentDisplay ||
+                (monthlyPayment > 0
+                  ? `$${monthlyPayment.toLocaleString("en-US", {
+                      maximumFractionDigits: 0,
+                    })}`
+                  : "—")
+              }
+            />
+            <Metric label="LTV %" value={ltv ? `${ltv.toFixed(2)}%` : "—"} />
+            <Metric label="LTC %" value={ltc ? `${ltc.toFixed(2)}%` : "—"} />
+            <Metric label="ARV %" value={arv ? `${arv.toFixed(2)}%` : "—"} />
+            <Metric label="DSCR" value={dscr ? dscr.toFixed(2) : "—"} />
+            <Metric
+              label="Net Worth"
+              value={formatCompactAmount(Number(netWorth || 0))}
+            />
           </div>
-        </SectionBlock>
+        </div>
 
         {showEditHint && submissionDetail?.canEdit !== false && (
-          <div className="mt-5 flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-300">
+          <div className="mb-5 flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-300">
             <Eye className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" />
             <p>
               Read-only preview. To edit application details, open the{" "}
@@ -490,34 +580,71 @@ export default function SubmissionDetailsView({
           </div>
         )}
 
-        <div className="mt-6 space-y-6">
-          {sections.map((section) => (
-            <motion.section
-              key={section.id}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800"
-            >
-              <div className="flex items-center gap-2 border-b border-slate-100 bg-slate-50/80 px-5 py-3 dark:border-slate-800 dark:bg-slate-900/50">
-                <User size={15} className="text-violet-600" />
-                <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100">
-                  {section.title}
-                </h3>
-                <span className="ml-auto text-xs text-slate-400">
-                  {section.fields.length} field
-                  {section.fields.length === 1 ? "" : "s"}
-                </span>
-              </div>
-              <div className="grid gap-5 p-5 md:grid-cols-2">
-                {section.fields.map((field) => (
-                  <FieldItem
-                    key={`${section.id}-${field.fieldKey}-${field.fieldId || ""}`}
-                    field={field}
-                  />
-                ))}
-              </div>
-            </motion.section>
-          ))}
+        <div className="mb-4">
+          <div className="relative">
+            <Search
+              size={15}
+              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+            />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search all fields…"
+              className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-9 text-sm text-slate-900 placeholder:text-slate-400 focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-100 dark:placeholder:text-slate-500"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                aria-label="Clear search"
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+              >
+                <X size={14} />
+              </button>
+            )}
+          </div>
+          {searchQuery && (
+            <p className="mt-2 text-xs text-slate-500">
+              {totalMatchedFields === 0 ? (
+                <>
+                  No fields match{" "}
+                  <span className="font-semibold">"{searchQuery}"</span>
+                </>
+              ) : (
+                <>
+                  {totalMatchedFields} field{totalMatchedFields === 1 ? "" : "s"}{" "}
+                  in {filteredSections.length} section
+                  {filteredSections.length === 1 ? "" : "s"} matching{" "}
+                  <span className="font-semibold">"{searchQuery}"</span>
+                </>
+              )}
+            </p>
+          )}
+        </div>
+
+        <div className="space-y-3">
+          {filteredSections.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-slate-200 px-5 py-8 text-center text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
+              No matching fields.
+            </div>
+          ) : (
+            filteredSections.map((section, index) => {
+              const visibleFields = section.fields.filter(
+                (f) => !isFieldEmpty(f),
+              );
+              return (
+                <AccordionSection
+                  key={section.id}
+                  title={section.title}
+                  icon={<User size={15} className="text-cyan-600" />}
+                  fields={visibleFields}
+                  defaultOpen={index === 0 || Boolean(searchQuery.trim())}
+                  filledCount={visibleFields.length}
+                />
+              );
+            })
+          )}
         </div>
 
         {signatureField && (
