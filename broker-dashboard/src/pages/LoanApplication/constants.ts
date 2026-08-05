@@ -516,6 +516,26 @@ export const LOAN_PURPOSE_MAP: Record<string, string[]> = {
   ],
 };
 
+/* ================= Top-level purpose + sub-purpose maps =================
+ * Some products (currently CONSTRUCTION_LOAN_1_TO_4_UNITS) split loan purpose
+ * into a broad category shown first ("Loan Purpose") and a specific item
+ * shown beneath it ("Sub-Loan Purpose"). For all other products the
+ * LOAN_PURPOSE_MAP above is used directly.
+ */
+
+export const LOAN_TOP_PURPOSE_MAP: Record<string, string[]> = {
+  CONSTRUCTION_LOAN_1_TO_4_UNITS: ["Purchase", "Refinance"],
+};
+
+export const LOAN_SUB_PURPOSE_MAP: Record<string, string[]> = {
+  CONSTRUCTION_LOAN_1_TO_4_UNITS: [
+    "Ground-up Construction",
+    "Major Renovation (>50% of value)",
+    "Tenant Improvements",
+    "Infrastructure Development",
+  ],
+};
+
 /* ================= Property-type / sub-type map ================= */
 
 export const PROPERTY_TYPE_MAP: Record<string, string[]> = {

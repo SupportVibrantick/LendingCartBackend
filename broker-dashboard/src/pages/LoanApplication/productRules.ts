@@ -7,12 +7,19 @@ import {
   isSba7aAcquisitionProduct,
   isSbaRealEstateCollateralProduct,
   isSbaBase44Product,
+  SBA_7A_ACQUISITION_BUSINESS_TYPES,
+  SBA_7A_WORKING_CAPITAL_BUSINESS_TYPES,
+  SBA_7A_EQUIPMENT_BUSINESS_TYPES,
+  SBA_7A_REAL_ESTATE_PROPERTY_TYPES,
+  SBA_504_REAL_ESTATE_PROPERTY_TYPES,
+  USDA_BI_PROPERTY_TYPES,
 } from "../../lib/sba7aAcquisition";
 import {
   isAblBase44Product,
   isEquipmentFinanceProduct,
   showAblBase44PurchasePrice,
   showEquipmentFinanceMarketValue,
+  ABL_PROPERTY_TYPE_OPTIONS_BY_PRODUCT,
 } from "../../lib/ablBase44";
 // (isBase44BusinessCollateralProduct was previously imported here but is
 // only referenced inside LoanApplication.tsx, so the import is no longer
@@ -528,71 +535,46 @@ export const showResidentialPropertyArv = (product: string) =>
 export const showResidentialPropertyRehabCost = (product: string) =>
   FIX_AND_FLIP_LOAN_TYPES.has(product);
 
-/** "Equity / Down Payment" block: visible for purchase-related purposes. */
-export const showEquityDownPaymentBlock = (product: string, purpose: string) => {
-  if (!purpose) return true; // default visible when nothing selected
-  // console.log(product);
-  // console.log(purpose);
-  if ((purpose == "Portfolio Blanket")) {
-    return false
-  }
-  if ((product === "MEZZANINE_FINANCE" && purpose === "Leverage Enhancement") ||
-    (product === "MEZZANINE_FINANCE" && purpose === "JV Equity") ||
-    (product === "MEZZANINE_FINANCE" && purpose === "Construction Project") ||
-    (product === "SBA_7A_WORKING_CAPITAL" && purpose === "Inventory Purchase") ||
-    (product === "SBA_7A_REAL_ESTATE" && purpose === "Purchase (Owner-Occupied)") ||
-    (product === "SBA_504_REAL_ESTATE_AND_EQUIPMENT" && purpose === "Real Estate Acquisition") ||
-    (product === "USDA_BI" && purpose === "Business Acquisition") ||
-    (product === "USDA_BI" && purpose === "Real Estate Purchase") ||
-    (product === "USDA_BI" && purpose === "Equipment Purchase") ||
-    (product === "EQUIPMENT_FINANCE" && purpose === "New Equipment Purchase") ||
-    (product === "EQUIPMENT_FINANCE" && purpose === "Used Equipment Purchase")
+/**
+ * "Equity / Down Payment" block.
+ *
+ * Scoped to the 1-4 Unit Residential category with a Fix & Flip loan type
+ * (i.e. `FIX_AND_FLIP_LOAN_1_TO_4_UNITS`). All other product/category
+ * combinations hide this block.
+ */
+export const showEquityDownPaymentBlock = (
+  product: string,
+  purpose: string,
+  selectedCategory: LoanCategory,
+) => {
+
+  console.log(product);
+  console.log(purpose);
+
+  // Construction loan (1-4 Residential) — show whenever a purpose has been
+  // selected. This block now renders ONLY Construction Cost + ARV fields.
+  if (
+    selectedCategory === "RESIDENTIAL_1_4" &&
+    isConstructionLoanProduct(product) &&
+    Boolean(purpose?.trim())
   ) {
     return true;
   }
 
-  return (
-    RESIDENTIAL_PURCHASE_PRICE_PURPOSES.has(purpose) ||
-    isBridgePurchaseAcquisition(product, purpose) ||
-    isFixAndFlipPurchaseRehab(product, purpose) ||
-    isMezzanineAcquisitionBridge(product, purpose) ||
-    isConstructionLoanProduct(product)
-  );
+  return false;
 };
 
-/** "Valuation & Equity" block: visible for refinance-style purposes. */
+/**
+ * "Valuation, Costs & Equity" block: visible ONLY for Construction loan
+ * types (1-4 Residential or generic), and only when a purpose has been
+ * chosen. Placed before the Use of Funds field in the form.
+ */
 export const showValuationEquityBlock = (product: string, purpose: string) => {
   if (!purpose) return false;
-  // console.log(product);
-  // console.log(purpose);
-  if (
-    (purpose === "Construction Completion") ||
-    (purpose === "Portfolio Blanket") ||
-    (purpose === "Recapitalization") ||
-    (purpose === "Affordable Housing") ||
-    (purpose === "Supplement Loan")
-  ) {
-    return false;
-  }
+  // Only show for Construction loan types.
+  if (!isConstructionLoanProduct(product)) return false;
 
-
-
-
-  return (
-    RESIDENTIAL_MARKET_VALUE_PURPOSES.has(purpose) ||
-    isBridgeOriginalPurchaseDate(product, purpose) ||
-    isFixAndFlipRefinanceRehab(product, purpose) ||
-    (isCrePermanentProduct(product) && purpose === "Recapitalization") ||
-    (isAgencyMultifamilyProduct(product) &&
-      (purpose === "Affordable Housing" || purpose === "Supplement Loan")) ||
-    (isSbaRealEstateCollateralProduct(product) &&
-      (purpose === "Refinance" ||
-        purpose === "Refinance & Rehab" ||
-        purpose === "Refinance (504 Debt)" ||
-        purpose === "Debt Refinancing")) ||
-    (isEquipmentFinanceProduct(product) &&
-      showEquipmentFinanceMarketValue(purpose))
-  );
+  return true;
 };
 
 /* ================= Cross-flow composite predicates ================= */
@@ -630,3 +612,72 @@ const HIDE_EXIT_STRATEGY_CATEGORIES = new Set(["SBA_USDA", "ABL"]);
 export const showExitStrategy = (product: string, category: string) =>
   !HIDE_EXIT_STRATEGY_PRODUCTS.has(product) &&
   !HIDE_EXIT_STRATEGY_CATEGORIES.has(category);
+
+/* ================= SBA/USDA per-product collateral options ================= */
+
+/**
+ * Per-product options for the "Business / Industry Type" / "Property Type"
+ * dropdown on the collateral step (Step 3). Each SBA/USDA product has its
+ * own curated list — see SBA_PROPERTY_TYPE_OPTIONS_BY_PRODUCT in
+ * src/lib/sba7aAcquisition.ts for the canon.
+ */
+export const SBA_COLLATERAL_TYPE_OPTIONS_BY_PRODUCT: Record<string, readonly string[]> = {
+  SBA_7A_BUSINESS_ACQUISITION: SBA_7A_ACQUISITION_BUSINESS_TYPES,
+  SBA_7A_WORKING_CAPITAL: SBA_7A_WORKING_CAPITAL_BUSINESS_TYPES,
+  SBA_7A_EQUIPMENT_PURCHASE: SBA_7A_EQUIPMENT_BUSINESS_TYPES,
+  SBA_7A_REAL_ESTATE: SBA_7A_REAL_ESTATE_PROPERTY_TYPES,
+  SBA_504_REAL_ESTATE_AND_EQUIPMENT: SBA_504_REAL_ESTATE_PROPERTY_TYPES,
+  USDA_BI: USDA_BI_PROPERTY_TYPES,
+};
+
+/**
+ * Per-product label for the collateral step dropdown. Business-style
+ * products (acquisition / working capital / equipment) show
+ * "Business / Industry Type"; real-estate-style products (SBA 7a RE,
+ * SBA 504 RE, USDA B&I) show "Property Type".
+ */
+export const SBA_COLLATERAL_TYPE_LABEL_BY_PRODUCT: Record<
+  string,
+  "Business / Industry Type" | "Property Type"
+> = {
+  SBA_7A_BUSINESS_ACQUISITION: "Business / Industry Type",
+  SBA_7A_WORKING_CAPITAL: "Business / Industry Type",
+  SBA_7A_EQUIPMENT_PURCHASE: "Business / Industry Type",
+  SBA_7A_REAL_ESTATE: "Property Type",
+  SBA_504_REAL_ESTATE_AND_EQUIPMENT: "Property Type",
+  USDA_BI: "Property Type",
+};
+
+export const getSbaCollateralTypeOptions = (product: string) =>
+  SBA_COLLATERAL_TYPE_OPTIONS_BY_PRODUCT[product] || null;
+
+export const getSbaCollateralTypeLabel = (
+  product: string,
+): "Business / Industry Type" | "Property Type" | null =>
+  SBA_COLLATERAL_TYPE_LABEL_BY_PRODUCT[product] || null;
+
+/** Convenience: is this an SBA/USDA product that has its own collateral-type list? */
+export const isSbaUsdaCollateralProduct = (product: string) =>
+  Boolean(getSbaCollateralTypeOptions(product));
+
+/* ================= ABL per-product collateral options ================= */
+
+/**
+ * Per-product options for the "Business / Industry Type" dropdown on the
+ * collateral step (Step 3) for ABL products. All ABL products show
+ * "Business / Industry Type" — the option lists differ per product.
+ */
+export const ABL_COLLATERAL_TYPE_OPTIONS_BY_PRODUCT: Record<string, readonly string[]> =
+  ABL_PROPERTY_TYPE_OPTIONS_BY_PRODUCT;
+
+/** ABL products always use the "Business / Industry Type" label. */
+export const ABL_COLLATERAL_TYPE_LABEL = "Business / Industry Type" as const;
+
+export const getAblCollateralTypeOptions = (product: string) =>
+  ABL_COLLATERAL_TYPE_OPTIONS_BY_PRODUCT[product] || null;
+
+export const isAblCollateralProduct = (product: string) =>
+  Boolean(getAblCollateralTypeOptions(product));
+
+// Re-export isSba7aAcquisitionProduct so consumers can grab it from this module.
+export { isSba7aAcquisitionProduct };

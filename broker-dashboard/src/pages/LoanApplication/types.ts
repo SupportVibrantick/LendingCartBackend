@@ -38,6 +38,7 @@ export interface FormDataType {
   coBorrowers: CoBorrower[];
   loanRequest: {
     purpose: string;
+    subPurpose: string;
     amount: string;
     interestRate: string;
     sellerFinancing: string;
@@ -58,6 +59,11 @@ export interface FormDataType {
 
     propertyType: string;
     subPropertyType: string;
+    collateralType: string;
+    additionalCollateral: string[];
+    privateSale: boolean;
+    vendorName: string;
+    vendorPhone: string;
     recourse: string;
     businessAddress: string;
     city: string;
