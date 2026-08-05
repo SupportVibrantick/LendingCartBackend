@@ -603,8 +603,6 @@ export const isConstructionPurchase = (purpose: string, selectedProduct: string)
 /** "Valuation & Equity" block: visible for refinance-style purposes. */
 export const showValuationEquityBlock = (product: string, purpose: string) => {
   if (!purpose) return false;
-  console.log(purpose);
-  console.log(product);
   if (
     (purpose === "Construction Completion") ||
     (purpose === "Portfolio Blanket") ||

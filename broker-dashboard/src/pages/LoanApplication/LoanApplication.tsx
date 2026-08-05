@@ -1,23 +1,3 @@
-// =============================================================================
-// LoanApplication — top-level orchestrator for the multi-step loan application
-// form. Most of the heavy lifting has been moved into the sibling modules and
-// hooks in this folder; this file now just wires them up and renders the page
-// chrome. The full module map is:
-//   - ./types                              -> shared TS types
-//   - ./constants                          -> static data tables & options
-//   - ./productRules                       -> pure product/purpose predicates
-//   - ./formatters                         -> formatting & number helpers
-//   - ./validation                         -> field & step validation
-//   - ./calculations                       -> derived loan metrics
-//   - ./submission                         -> portal config, payload, submit
-//   - ./hooks/useDerivedFlags              -> flag derivation
-//   - ./hooks/useLoanApplicationForm       -> state, effects, handlers, submit
-//   - ./components/LoanApplicationHeader   -> sticky header + stepper + stats
-//   - ./components/LoanApplicationFooter   -> back / save & next buttons
-//   - ./components/StepRenderers           -> the 7 step JSX blocks
-//   - ./components/RenderField             -> dynamic-section field renderer
-// =============================================================================
-
 import { useEffect, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { useNavigate } from "react-router";
@@ -2575,7 +2555,7 @@ focus:border-blue-500 outline-none text-sm ${
                       )}
                     </div>
                     {/* Sub-Loan Purpose - shown only when the selected product has a
-                        top-level/sub-purpose split (e.g. CONSTRUCTION_LOAN_1_TO_4_UNITS). */}
+                        top-level/sub-purpose split CONSTRUCTION_LOAN_1_TO_4_UNITS & MEZZANINE_FINANCE. */}
                     {subPurposeOptions.length > 0 && (
                       <div className="md:col-span-2">
                         <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">

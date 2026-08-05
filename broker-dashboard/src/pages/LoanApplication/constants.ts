@@ -362,11 +362,7 @@ export const LOAN_PURPOSE_MAP: Record<string, string[]> = {
   FIX_AND_FLIP_LOAN_1_TO_4_UNITS: ["Purchase & Rehab", "Refinance & Rehab"],
 
   MEZZANINE_FINANCE: [
-    "Gap Finance",
-    "Leverage Enhancement",
-    "JV Equity",
-    "Acquisition Bridge",
-    "Construction Project",
+
   ],
 
   PREFERRED_EQUITY: ["Acquisition Bridge", "Recapitalization"],
@@ -525,6 +521,7 @@ export const LOAN_PURPOSE_MAP: Record<string, string[]> = {
 
 export const LOAN_TOP_PURPOSE_MAP: Record<string, string[]> = {
   CONSTRUCTION_LOAN_1_TO_4_UNITS: ["Purchase", "Refinance"],
+  MEZZANINE_FINANCE: ["Purchase", "Refinance"]
 };
 
 export const LOAN_SUB_PURPOSE_MAP: Record<string, string[]> = {
@@ -534,6 +531,14 @@ export const LOAN_SUB_PURPOSE_MAP: Record<string, string[]> = {
     "Tenant Improvements",
     "Infrastructure Development",
   ],
+  MEZZANINE_FINANCE: [
+    "Gap Finance",
+    "Leverage Enhancement",
+    "JV Equity",
+    "Acquisition Bridge",
+    "Construction Project",
+  ]
+
 };
 
 /* ================= Property-type / sub-type map ================= */
