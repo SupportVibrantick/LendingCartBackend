@@ -535,46 +535,111 @@ export const showResidentialPropertyArv = (product: string) =>
 export const showResidentialPropertyRehabCost = (product: string) =>
   FIX_AND_FLIP_LOAN_TYPES.has(product);
 
-/**
- * "Equity / Down Payment" block.
- *
- * Scoped to the 1-4 Unit Residential category with a Fix & Flip loan type
- * (i.e. `FIX_AND_FLIP_LOAN_1_TO_4_UNITS`). All other product/category
- * combinations hide this block.
+
+// Valuation, Costs & Equity
+export const showValuationCostEquity = (
+  product: string,
+  purpose: string
+) => {
+  if (
+    (purpose === "Refinance & Rehab" && product === "FIX_AND_FLIP_LOAN_1_TO_4_UNITS") ||
+    (purpose === "Refinance" && product === "CONSTRUCTION_LOAN_1_TO_4_UNITS")
+  ) {
+    return true
+  }
+
+}
+/*
+  "Equity / Down Payment" block.
  */
 export const showEquityDownPaymentBlock = (
   product: string,
   purpose: string,
   selectedCategory: LoanCategory,
 ) => {
-
-  console.log(product);
-  console.log(purpose);
-
-  // Construction loan (1-4 Residential) — show whenever a purpose has been
-  // selected. This block now renders ONLY Construction Cost + ARV fields.
   if (
-    selectedCategory === "RESIDENTIAL_1_4" &&
-    isConstructionLoanProduct(product) &&
-    Boolean(purpose?.trim())
+    (purpose === "Refinance & Rehab" && product === "FIX_AND_FLIP_LOAN_1_TO_4_UNITS") ||
+    (purpose === "Refinance" && product === "CONSTRUCTION_LOAN_1_TO_4_UNITS")
   ) {
-    return true;
+    return false
   }
 
-  return false;
+  if ((purpose == "Purchase/Acquisition") ||
+    (product === "DSCR_LOAN_1_TO_4_UNITS" && purpose === "Purchase") ||
+    (purpose === "Purchase") ||
+    (purpose === "Franchise Purchase") ||
+    (purpose === "Inventory Purchase") ||
+    (purpose === "Purchase (Owner-Occupied)") ||
+    (purpose === "Purchase & Rehab") ||
+    (purpose === "Real Estate Acquisition") ||
+    (purpose === "Business Acquisition") ||
+    (purpose === "Real Estate Purchase") ||
+    (purpose === "Equipment Purchase") ||
+    (purpose === "New Equipment Purchase") ||
+    (purpose === "Used Equipment Purchase")
+  ) {
+    return true
+  }
+
+  if (!isFixAndFlipProduct(product)) return false;
+  if (selectedCategory !== "RESIDENTIAL_1_4") return false;
+  // When the user has picked Fix & Flip but not yet chosen a purpose,
+  // show the block by default so the totals UI is visible immediately.
+  if (!purpose) return true;
+  return (
+    isFixAndFlipPurchaseRehab(product, purpose) ||
+    isFixAndFlipRefinanceRehab(product, purpose)
+  );
 };
 
-/**
- * "Valuation, Costs & Equity" block: visible ONLY for Construction loan
- * types (1-4 Residential or generic), and only when a purpose has been
- * chosen. Placed before the Use of Funds field in the form.
- */
+export const isConstructionPurchase = (purpose: string, selectedProduct: string) => {
+  if ((selectedProduct === "CONSTRUCTION_LOAN_1_TO_4_UNITS" && purpose === "Purchase")
+  ) {
+    return true
+  }
+  // return true
+}
+
+/** "Valuation & Equity" block: visible for refinance-style purposes. */
 export const showValuationEquityBlock = (product: string, purpose: string) => {
   if (!purpose) return false;
-  // Only show for Construction loan types.
-  if (!isConstructionLoanProduct(product)) return false;
+  console.log(purpose);
+  console.log(product);
+  if (
+    (purpose === "Construction Completion") ||
+    (purpose === "Portfolio Blanket") ||
+    (purpose === "Recapitalization") ||
+    (purpose === "Affordable Housing") ||
+    (purpose === "Supplement Loan") ||
+    (purpose === "Refinance & Rehab") ||
+    (purpose === "Debt Consolidation") ||
+    (purpose === "Refinance Existing Equipment") ||
+    (purpose === "Refinance & Rehab") ||
+    (purpose === "Refinance (504 Debt)") ||
+    (purpose === "CONSTRUCTION_LOAN_1_TO_4_UNITS" && product === "Refinance") ||
+    (purpose === "Refinance" && product === "CONSTRUCTION_LOAN_1_TO_4_UNITS")
+  ) {
+    return false;
+  }
 
-  return true;
+
+
+
+  return (
+    RESIDENTIAL_MARKET_VALUE_PURPOSES.has(purpose) ||
+    isBridgeOriginalPurchaseDate(product, purpose) ||
+    isFixAndFlipRefinanceRehab(product, purpose) ||
+    (isCrePermanentProduct(product) && purpose === "Recapitalization") ||
+    (isAgencyMultifamilyProduct(product) &&
+      (purpose === "Affordable Housing" || purpose === "Supplement Loan")) ||
+    (isSbaRealEstateCollateralProduct(product) &&
+      (purpose === "Refinance" ||
+        purpose === "Refinance & Rehab" ||
+        purpose === "Refinance (504 Debt)" ||
+        purpose === "Debt Refinancing")) ||
+    (isEquipmentFinanceProduct(product) &&
+      showEquipmentFinanceMarketValue(purpose))
+  );
 };
 
 /* ================= Cross-flow composite predicates ================= */
