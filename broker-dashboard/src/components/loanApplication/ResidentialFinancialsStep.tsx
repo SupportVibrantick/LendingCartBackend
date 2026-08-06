@@ -483,32 +483,17 @@ export default function ResidentialFinancialsStep({
           Project Narrative
         </p>
 
-        <div className="space-y-4">
-          <div>
-            <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
-              Project Summary
-            </label>
-            <textarea
-              value={financials.projectSummary}
-              onChange={(e) => patch({ projectSummary: e.target.value })}
-              rows={4}
-              placeholder="Describe the project, property, and use of funds..."
-              className="mt-1 w-full rounded-md border border-slate-300 px-4 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
-            />
-          </div>
-
-          <div>
-            <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
-              Exit Strategy
-            </label>
-            <textarea
-              value={financials.exitStrategy}
-              onChange={(e) => patch({ exitStrategy: e.target.value })}
-              rows={4}
-              placeholder="Describe how you plan to repay or refinance this loan..."
-              className="mt-1 w-full rounded-md border border-slate-300 px-4 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
-            />
-          </div>
+        <div>
+          <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+            Project Summary
+          </label>
+          <textarea
+            value={financials.projectSummary}
+            onChange={(e) => patch({ projectSummary: e.target.value })}
+            rows={4}
+            placeholder="Describe the project, property, and use of funds..."
+            className="mt-1 w-full rounded-md border border-slate-300 px-4 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+          />
         </div>
       </div>
     </div>
