@@ -6,6 +6,7 @@ import { createSbaEntityDefaults } from "./sba7aAcquisition";
 import {
   ANNUAL_FINANCIAL_CALCULATED_ROWS,
   ANNUAL_FINANCIAL_EDITABLE_ROWS,
+  asFinancialAmountFormValue,
   createResidentialFinancialsDefaults,
   detectFinancialYearColumnCount,
   loadFinancialYearValues,
@@ -177,7 +178,7 @@ const mapResidentialFinancialsFromFields = (
       (fieldKey) => getFieldValue(fields, fieldKey),
       `financial_${key}`,
       columnCount,
-      asFormNumber,
+      asFinancialAmountFormValue,
     );
   });
 
@@ -186,7 +187,7 @@ const mapResidentialFinancialsFromFields = (
       (fieldKey) => getFieldValue(fields, fieldKey),
       `financial_${overrideKey}`,
       columnCount,
-      asFormNumber,
+      asFinancialAmountFormValue,
     );
   });
 

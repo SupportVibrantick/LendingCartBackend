@@ -298,6 +298,7 @@ export async function resendBrokerLenderInvite(inviteId: string) {
     {
       method: "POST",
       headers: getBrokerAuthHeaders(),
+      body: JSON.stringify({}),
     },
   );
   const json = await res.json();

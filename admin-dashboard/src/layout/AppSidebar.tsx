@@ -138,16 +138,16 @@ const navItems: NavItem[] = [
     icon: <AdminPanelSettingsOutlinedIcon />,
     name: "Settings",
     subItems: [
-      {
-        name: "Template Builder",
-        subItems: [
-          { name: "Create Templates", path: "/create-template" },
-          { name: "All Templates", path: "/all-templates" },
-          { name: "Add Loan Products", path: "/add-loan-product" },
-          { name: "Add Sections", path: "/add-sections" },
-          { name: "Add Fields", path: "/add-fields" },
-        ],
-      },
+      // {
+      //   name: "Template Builder",
+      //   subItems: [
+      //     { name: "Create Templates", path: "/create-template" },
+      //     { name: "All Templates", path: "/all-templates" },
+      //     { name: "Add Loan Products", path: "/add-loan-product" },
+      //     { name: "Add Sections", path: "/add-sections" },
+      //     { name: "Add Fields", path: "/add-fields" },
+      //   ],
+      // },
       // {
       //   // icon: <FaAppStore />,
       //   name: "Application Builder",
