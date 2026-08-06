@@ -6,6 +6,27 @@ const {
   processSingleReminder,
   REMINDER_TYPE_LABELS,
 } = require("../../../services/documents/documentReminderService");
+const { requireLoOfficerPermission } = require("../../../services/broker/loanOfficerAccess");
+
+async function assertLoDocumentReminderAccess(req, reply, fastify, loan) {
+  if (!req.user?.roles?.includes("BROKER_OFFICER")) {
+    return true;
+  }
+
+  await requireLoOfficerPermission(req, reply, fastify, "SEND_EMAILS");
+  if (reply.sent) return false;
+
+  const userId = req.user.id || req.user.userId;
+  if (loan?.brokerUserId !== userId) {
+    reply.code(403).send({
+      success: false,
+      message: "Access denied - not assigned to you",
+    });
+    return false;
+  }
+
+  return true;
+}
 
 const VALID_INTERVAL_UNITS = ["MINUTES", "HOURS", "DAYS"];
 const VALID_RECIPIENT_TYPES = ["CLIENT", "LENDER"];
@@ -42,6 +63,7 @@ module.exports = async function documentRemindersRoutes(fastify) {
           select: {
             id: true,
             applicationNumber: true,
+            brokerUserId: true,
             applicationLenders: {
               include: {
                 lender: { select: { id: true, name: true, email: true } },
@@ -55,6 +77,10 @@ module.exports = async function documentRemindersRoutes(fastify) {
             success: false,
             message: "Loan application not found",
           });
+        }
+
+        if (!(await assertLoDocumentReminderAccess(req, reply, fastify, loan))) {
+          return;
         }
 
         const reminders = await fastify.prisma.documentReminderSchedule.findMany({
@@ -171,7 +197,7 @@ module.exports = async function documentRemindersRoutes(fastify) {
 
         const loan = await fastify.prisma.loanApplication.findFirst({
           where: { id: loanId, brokerOrgId },
-          select: { id: true, applicationNumber: true },
+          select: { id: true, applicationNumber: true, brokerUserId: true },
         });
 
         if (!loan) {
@@ -179,6 +205,10 @@ module.exports = async function documentRemindersRoutes(fastify) {
             success: false,
             message: "Loan application not found",
           });
+        }
+
+        if (!(await assertLoDocumentReminderAccess(req, reply, fastify, loan))) {
+          return;
         }
 
         if (recipientType === "LENDER") {
@@ -247,6 +277,9 @@ module.exports = async function documentRemindersRoutes(fastify) {
 
         const existing = await fastify.prisma.documentReminderSchedule.findFirst({
           where: { id: reminderId, brokerOrgId },
+          include: {
+            loanApplication: { select: { brokerUserId: true } },
+          },
         });
 
         if (!existing) {
@@ -254,6 +287,17 @@ module.exports = async function documentRemindersRoutes(fastify) {
             success: false,
             message: "Reminder not found",
           });
+        }
+
+        if (
+          !(await assertLoDocumentReminderAccess(
+            req,
+            reply,
+            fastify,
+            existing.loanApplication,
+          ))
+        ) {
+          return;
         }
 
         const data = {};
@@ -340,6 +384,9 @@ module.exports = async function documentRemindersRoutes(fastify) {
             id: req.params.reminderId,
             brokerOrgId: req.user.organizationId,
           },
+          include: {
+            loanApplication: { select: { brokerUserId: true } },
+          },
         });
 
         if (!existing) {
@@ -347,6 +394,17 @@ module.exports = async function documentRemindersRoutes(fastify) {
             success: false,
             message: "Reminder not found",
           });
+        }
+
+        if (
+          !(await assertLoDocumentReminderAccess(
+            req,
+            reply,
+            fastify,
+            existing.loanApplication,
+          ))
+        ) {
+          return;
         }
 
         await fastify.prisma.documentReminderSchedule.delete({
@@ -386,6 +444,9 @@ module.exports = async function documentRemindersRoutes(fastify) {
             id: req.params.reminderId,
             brokerOrgId: req.user.organizationId,
           },
+          include: {
+            loanApplication: { select: { brokerUserId: true } },
+          },
         });
 
         if (!existing) {
@@ -393,6 +454,17 @@ module.exports = async function documentRemindersRoutes(fastify) {
             success: false,
             message: "Reminder not found",
           });
+        }
+
+        if (
+          !(await assertLoDocumentReminderAccess(
+            req,
+            reply,
+            fastify,
+            existing.loanApplication,
+          ))
+        ) {
+          return;
         }
 
         const result = await processSingleReminder(

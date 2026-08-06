@@ -2,6 +2,7 @@ const fs = require("fs");
 const path = require("path");
 const { pipeline } = require("stream/promises");
 const crypto = require("crypto");
+const { extraOfficerPermission } = require("../../../services/broker/loanOfficerAccess");
 const {
   autoForwardDocumentUpload,
 } = require("../../../services/documents/autoForwardDocumentUpload");
@@ -21,6 +22,7 @@ const {
 module.exports = async function uploadSubmissionDocument(fastify) {
   fastify.post(
     "/submissions/:submissionId/documents/:requirementId/upload",
+    { preHandler: extraOfficerPermission(fastify, "UPLOAD_DOCUMENTS") },
     async (req, reply) => {
       try {
         /* ===============================

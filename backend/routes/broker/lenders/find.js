@@ -1,11 +1,18 @@
 /**
  * @param {import("fastify").FastifyInstance} fastify
  */
+const { requireLoMarketplaceView } = require("../../../services/broker/loanOfficerAccess");
+
 async function findBrokerLendersRoutes(fastify) {
   fastify.get(
     "/",
     {
-      preHandler: fastify.authenticate,
+      preHandler: [
+        fastify.authenticate,
+        async (req, reply) => {
+          await requireLoMarketplaceView(req, reply, fastify);
+        },
+      ],
       schema: {
         tags: ["Broker -> Lenders"],
         summary: "Find lenders",

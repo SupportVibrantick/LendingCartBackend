@@ -3,9 +3,11 @@ import {
   PREFERRED_COMMUNICATION,
 } from "./coBrokerForm";
 import {
+  ALL_LO_PERMISSION_KEYS,
+  LO_HIDDEN_PERMISSION_KEYS,
   US_STATES,
   formatPhone,
-  PERMISSIONS,
+  normalizeLoanOfficerPermissions,
 } from "../pages/UserManagement/loanOfficerShared";
 
 export { US_STATES, formatPhone, FINDERS_FEE_OPTIONS, PREFERRED_COMMUNICATION };
@@ -14,39 +16,6 @@ export const STATE_OPTIONS = US_STATES.map((state) => ({
   value: state.code,
   text: state.name,
 }));
-
-export const ALL_PERMISSION_KEYS = PERMISSIONS.flatMap((group) =>
-  group.items.map((item) => item.key),
-);
-
-export const PERMISSION_LEVEL_OPTIONS = [
-  { value: "FULL_ACCESS", label: "Full Access" },
-  { value: "LIMITED_ACCESS", label: "Limited Access" },
-  { value: "VIEW_ONLY", label: "View Only" },
-] as const;
-
-export type PermissionLevel = (typeof PERMISSION_LEVEL_OPTIONS)[number]["value"];
-
-export const PERMISSION_PRESETS: Record<PermissionLevel, string[]> = {
-  FULL_ACCESS: [...ALL_PERMISSION_KEYS],
-  LIMITED_ACCESS: [
-    "VIEW_PIPELINE",
-    "VIEW_APPLICATIONS",
-    "CREATE_APPLICATION",
-    "VIEW_CLIENTS",
-    "MANAGE_CLIENTS",
-    "VIEW_LENDERS",
-    "VIEW_NOTIFICATIONS",
-  ],
-  VIEW_ONLY: [
-    "VIEW_PIPELINE",
-    "VIEW_APPLICATIONS",
-    "VIEW_CLIENTS",
-    "VIEW_LENDERS",
-    "VIEW_STATS",
-    "VIEW_NOTIFICATIONS",
-  ],
-};
 
 export interface LoanOfficerCoBroker {
   id: string;
@@ -87,7 +56,6 @@ export interface LoanOfficerProfile {
   personalStateLicense?: string;
   statesAuthorized?: string[];
   branchIds?: string[];
-  permissionLevel?: PermissionLevel | string;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -138,7 +106,7 @@ export interface LoanOfficerFormState {
   statesAuthorized: string[];
   dre: string;
   branchIds: string[];
-  permissionLevel: PermissionLevel | "";
+  permissions: string[];
   assignedCoBrokerIds: string[];
   avatarFile: File | null;
   avatarPreview: string | null;
@@ -176,28 +144,12 @@ export const INITIAL_LOAN_OFFICER_FORM: LoanOfficerFormState = {
   statesAuthorized: [],
   dre: "",
   branchIds: [],
-  permissionLevel: "",
+  permissions: [],
   assignedCoBrokerIds: [],
   avatarFile: null,
   avatarPreview: null,
   w9File: null,
 };
-
-export function inferPermissionLevel(permissions: string[] = []): PermissionLevel | "" {
-  if (!permissions.length) return "";
-
-  const sorted = [...permissions].sort().join(",");
-  for (const option of PERMISSION_LEVEL_OPTIONS) {
-    const preset = [...PERMISSION_PRESETS[option.value]].sort().join(",");
-    if (sorted === preset) return option.value;
-  }
-
-  if (permissions.length >= ALL_PERMISSION_KEYS.length) return "FULL_ACCESS";
-  if (permissions.some((key) => key.startsWith("MANAGE_") || key === "CREATE_APPLICATION")) {
-    return "LIMITED_ACCESS";
-  }
-  return "VIEW_ONLY";
-}
 
 export function mapDetailToLoanOfficerForm(detail: LoanOfficerDetail): LoanOfficerFormState {
   const profile = detail.profile || {};
@@ -230,9 +182,9 @@ export function mapDetailToLoanOfficerForm(detail: LoanOfficerDetail): LoanOffic
     statesAuthorized: profile.statesAuthorized || [],
     dre: profile.dre || "",
     branchIds: profile.branchIds || [],
-    permissionLevel:
-      (profile.permissionLevel as PermissionLevel) ||
-      inferPermissionLevel(detail.permissions),
+    permissions: normalizeLoanOfficerPermissions(detail.permissions || []).filter(
+      (key) => !LO_HIDDEN_PERMISSION_KEYS.includes(key),
+    ),
     assignedCoBrokerIds:
       detail.assignedCoBrokerIds ||
       detail.assignedCoBrokers?.map((broker) => broker.id) ||
@@ -284,8 +236,9 @@ export function validateLoanOfficerForm(
     }
   }
 
-  if (!form.permissionLevel) {
-    errors.permissionLevel = "Select a permission level";
+  const normalizedPermissions = normalizeLoanOfficerPermissions(form.permissions);
+  if (!normalizedPermissions.length) {
+    errors.permissions = "Select at least one permission";
   }
 
   return errors;
@@ -328,7 +281,6 @@ export function buildLoanOfficerFormData(form: LoanOfficerFormState): FormData {
   append("personalStateLicense", form.personalStateLicense.trim());
   append("findersFee", form.findersFee);
   append("dre", form.dre.trim());
-  append("permissionLevel", form.permissionLevel);
 
   formData.append("statesAuthorized", JSON.stringify(form.statesAuthorized));
   formData.append(
@@ -345,10 +297,11 @@ export function buildLoanOfficerFormData(form: LoanOfficerFormState): FormData {
     JSON.stringify(form.assignedCoBrokerIds),
   );
 
-  const permissions =
-    form.permissionLevel && form.permissionLevel in PERMISSION_PRESETS
-      ? PERMISSION_PRESETS[form.permissionLevel as PermissionLevel]
-      : [];
+  const permissions = normalizeLoanOfficerPermissions(form.permissions).filter(
+    (key) =>
+      ALL_LO_PERMISSION_KEYS.includes(key) &&
+      !LO_HIDDEN_PERMISSION_KEYS.includes(key),
+  );
 
   formData.append("permissions", JSON.stringify(permissions));
 

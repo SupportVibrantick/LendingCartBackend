@@ -35,6 +35,14 @@ const APPLICATION_SELECT = {
       },
     },
   },
+  collaterals: {
+    select: {
+      collateralType: true,
+      description: true,
+      lienPosition: true,
+    },
+    take: 3,
+  },
   documentUploads: {
     select: { id: true },
   },
@@ -58,6 +66,141 @@ function getSubmissionFieldValue(submission, key) {
   }
 
   return String(field.value);
+}
+
+function getSubmissionFieldValues(submission, keys = []) {
+  for (const key of keys) {
+    const value = getSubmissionFieldValue(submission, key);
+    if (value) {
+      return value;
+    }
+  }
+
+  return "";
+}
+
+function formatDisplayText(value) {
+  if (!value) return "";
+  return String(value).replace(/_/g, " ").trim();
+}
+
+function resolveBusinessName(submission) {
+  return formatDisplayText(
+    getSubmissionFieldValues(submission, [
+      "companyName",
+      "entityLegalName",
+      "businessName",
+      "dba",
+    ]),
+  );
+}
+
+function resolvePropertyInfo(submission) {
+  const propertyType = formatDisplayText(
+    getSubmissionFieldValues(submission, ["propertyType", "property_type"]),
+  );
+  const subPropertyType = formatDisplayText(
+    getSubmissionFieldValues(submission, [
+      "subPropertyType",
+      "sub_property_type",
+    ]),
+  );
+  const businessIndustry = formatDisplayText(
+    getSubmissionFieldValues(submission, [
+      "businessIndustry",
+      "business_industry",
+    ]),
+  );
+
+  const parts = [propertyType, subPropertyType].filter(Boolean);
+
+  if (parts.length > 0) {
+    return parts.join(" · ");
+  }
+
+  return businessIndustry;
+}
+
+function resolveCollateralSummary(submission, collaterals = []) {
+  const collateralFromFields = formatDisplayText(
+    getSubmissionFieldValues(submission, [
+      "collateral",
+      "collateralTypes",
+      "collateralType",
+    ]),
+  );
+
+  const collateralFromTable = collaterals
+    .map((item) => {
+      const parts = [
+        item.lienPosition,
+        item.collateralType,
+        item.description,
+      ]
+        .map((part) => formatDisplayText(part))
+        .filter(Boolean);
+
+      return parts.join(" — ");
+    })
+    .filter(Boolean);
+
+  if (collateralFromTable.length > 0) {
+    return collateralFromTable.join("; ");
+  }
+
+  return collateralFromFields;
+}
+
+function resolveApplicationAddress(submission) {
+  const street = getSubmissionFieldValues(submission, [
+    "propertyAddress",
+    "property_address",
+    "businessAddress",
+    "business_address",
+    "address",
+    "mailingAddress",
+  ]);
+  const city = getSubmissionFieldValues(submission, [
+    "propertyCity",
+    "property_city",
+    "borrowerCity",
+    "city",
+  ]);
+  const state = getSubmissionFieldValues(submission, [
+    "propertyState",
+    "property_state",
+    "borrowerState",
+    "state",
+  ]);
+  const zip = getSubmissionFieldValues(submission, [
+    "propertyZip",
+    "property_zip",
+    "zip",
+  ]);
+  const country = getSubmissionFieldValues(submission, [
+    "propertyCountry",
+    "property_country",
+    "borrowerCountry",
+    "country",
+  ]);
+
+  const cityStateZip = [city, state].filter(Boolean).join(", ");
+  const locality = [cityStateZip, zip].filter(Boolean).join(" ").trim();
+  const parts = [street, locality, country].filter(Boolean);
+
+  return parts.join(", ");
+}
+
+function resolveApplicationSummary(app, latestSubmission) {
+  return {
+    businessName: resolveBusinessName(latestSubmission),
+    propertyInfo: resolvePropertyInfo(latestSubmission),
+    collateralSummary: resolveCollateralSummary(
+      latestSubmission,
+      app.collaterals || [],
+    ),
+    address: resolveApplicationAddress(latestSubmission),
+  };
 }
 
 function parseAmountValue(rawValue) {
@@ -101,6 +244,7 @@ function countUploadedRequirements(requirements = []) {
 
 function applicationMatchesSearch(app, search) {
   const latestSubmission = app.submissions?.[0];
+  const summary = resolveApplicationSummary(app, latestSubmission);
   const applicationNumber = String(app.applicationNumber || "").toLowerCase();
   const status = String(app.status || "").toLowerCase();
   const amount = String(
@@ -108,11 +252,25 @@ function applicationMatchesSearch(app, search) {
       app.amountRequested ||
       "",
   ).toLowerCase();
+  const loanProduct = String(
+    getSubmissionFieldValue(latestSubmission, "loanProductCode") ||
+      app.loanProductCode ||
+      "",
+  ).toLowerCase();
+  const businessName = String(summary.businessName || "").toLowerCase();
+  const propertyInfo = String(summary.propertyInfo || "").toLowerCase();
+  const collateralSummary = String(summary.collateralSummary || "").toLowerCase();
+  const address = String(summary.address || "").toLowerCase();
 
   return (
     applicationNumber.includes(search) ||
     status.includes(search) ||
-    amount.includes(search)
+    amount.includes(search) ||
+    loanProduct.includes(search) ||
+    businessName.includes(search) ||
+    propertyInfo.includes(search) ||
+    collateralSummary.includes(search) ||
+    address.includes(search)
   );
 }
 
@@ -126,6 +284,7 @@ function formatClientApplication(app) {
   const visibleRequirements = (app.documentRequirements || []).filter(
     isDocumentVisibleToClient,
   );
+  const summary = resolveApplicationSummary(app, latestSubmission);
 
   return {
     id: app.id,
@@ -134,6 +293,10 @@ function formatClientApplication(app) {
     loanProduct: productFromField || app.loanProductCode || null,
     amountRequested: resolveAmountRequested(app, latestSubmission),
     createdAt: app.createdAt,
+    businessName: summary.businessName || null,
+    propertyInfo: summary.propertyInfo || null,
+    collateralSummary: summary.collateralSummary || null,
+    address: summary.address || null,
     documentProgress: {
       total: visibleRequirements.length,
       uploaded: countUploadedRequirements(visibleRequirements),

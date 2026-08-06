@@ -1,9 +1,7 @@
-const { officerPreHandler } = require("../../../services/broker/loanOfficerAccess");
+const { registerOfficerRouteGuards } = require("../../../services/broker/loanOfficerAccess");
 
 async function loanOfficerLenderDiscoveryRoutes(fastify) {
-  for (const handler of officerPreHandler(fastify)) {
-    fastify.addHook("preHandler", handler);
-  }
+  registerOfficerRouteGuards(fastify, "VIEW_APPLICATIONS");
 
   await fastify.register(require("./findEligible"));
   await fastify.register(require("./sendToLenders"));

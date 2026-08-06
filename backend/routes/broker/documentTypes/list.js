@@ -1,8 +1,19 @@
 /**
  * @param {import("fastify").FastifyInstance} fastify
  */
+const {
+  requireLoCustomDocumentsView,
+} = require("../../../services/broker/loanOfficerAccess");
+
 async function listBrokerCustomDocumentTypes(fastify) {
-  fastify.get("/", async (req, reply) => {
+  fastify.get(
+    "/",
+    {
+      preHandler: async (req, reply) => {
+        await requireLoCustomDocumentsView(req, reply, fastify);
+      },
+    },
+    async (req, reply) => {
     const prisma = fastify.prisma;
 
     try {
@@ -106,7 +117,8 @@ async function listBrokerCustomDocumentTypes(fastify) {
         message: error.message || "Failed to list custom documents",
       });
     }
-  });
+    },
+  );
 }
 
 module.exports = listBrokerCustomDocumentTypes;

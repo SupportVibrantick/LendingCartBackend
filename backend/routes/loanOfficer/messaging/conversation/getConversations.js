@@ -19,12 +19,13 @@ const {
   resolveViewerRole,
   enrichConversationList,
 } = require("../../../../services/messaging/conversationPresentation");
+const { extraOfficerPermission, LOAN_OFFICER_MESSAGING_PERMISSIONS } = require("../../../../services/broker/loanOfficerAccess");
 
 module.exports = async function getConversations(fastify) {
   fastify.get(
     "/loan/:loanId/conversations",
     {
-      preHandler: [fastify.authenticate],
+      preHandler: extraOfficerPermission(fastify, LOAN_OFFICER_MESSAGING_PERMISSIONS),
       schema: {
         tags: ["Messaging"],
         summary: "Get all conversations for a loan",

@@ -15,6 +15,8 @@ const DECIMAL_STRING_FIELDS = [
   "maxLtcPercent",
   "originationPointsPercent",
   "minDscr",
+  "preferredDscr",
+  "maximumDebtService",
   "minDebtYieldPercent",
   "minRateSpreadPercent",
   "maxRateSpreadPercent",

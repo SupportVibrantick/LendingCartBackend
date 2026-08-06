@@ -1,9 +1,17 @@
 import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { createPortal } from "react-dom";
-import { Eye, Loader2, Plus, SearchX } from "lucide-react";
+import { Eye, FileText, Loader2, Plus, SearchX } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
+import {
+  buildLoanProductDetailFields,
+  formatListKeyCriteria,
+  formatListTenure,
+  formatLoanProductCode,
+  formatLoanProductName,
+} from "../../lib/loanProductListDisplay";
+import { resolveLenderOfferedProductCode } from "../../lib/canonicalLoanProducts";
 
 /* ================= API ================= */
 const api = axios.create({
@@ -18,15 +26,22 @@ api.interceptors.request.use((config) => {
 });
 
 /* ================= FORMAT HELPERS ================= */
-function formatCurrency(val: string | number | null | undefined): string {
-  if (val === null || val === undefined || val === "") return "";
-  const num = Number(val);
-  if (!Number.isFinite(num)) return String(val);
+function formatCurrencyAmount(amount?: number | null): string {
+  if (amount === null || amount === undefined || !Number.isFinite(amount)) {
+    return "-";
+  }
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
     maximumFractionDigits: 0,
-  }).format(num);
+  }).format(amount);
+}
+
+function formatCurrency(val: string | number | null | undefined): string {
+  if (val === null || val === undefined || val === "") return "";
+  const num = Number(val);
+  if (!Number.isFinite(num)) return String(val);
+  return formatCurrencyAmount(num);
 }
 
 function formatLoanRange(
@@ -41,48 +56,12 @@ function formatLoanRange(
   return "-";
 }
 
-function formatTermRange(
-  min?: number | null,
-  max?: number | null,
-): string {
-  const hasMin = min !== null && min !== undefined;
-  const hasMax = max !== null && max !== undefined;
-  if (hasMin && hasMax) return `${min} – ${max} mo`;
-  if (hasMin) return `${min}+ mo`;
-  if (hasMax) return `Up to ${max} mo`;
-  return "-";
-}
-
-function formatPercent(val: string | number | null | undefined): string {
-  if (val === null || val === undefined || val === "") return "-";
-  const num = Number(val);
-  if (!Number.isFinite(num)) return String(val);
-  return `${num}%`;
-}
-
-function formatBoolean(val: boolean | null | undefined): string {
-  if (val === null || val === undefined) return "-";
-  return val ? "Yes" : "No";
-}
-
 function formatStatesSummary(states?: string[]): { label: string; title: string } {
   if (!states?.length) return { label: "-", title: "" };
   if (states.length >= 50) return { label: "Nationwide", title: states.join(", ") };
   const preview = states.slice(0, 8).join(", ");
   const suffix = states.length > 8 ? ` +${states.length - 8} more` : "";
   return { label: `${states.length}`, title: preview + suffix };
-}
-
-function formatMetricsSummary(a: {
-  maxLtvPercent?: string;
-  maxLtcPercent?: string;
-  maxArvPercent?: string;
-}): string {
-  const parts: string[] = [];
-  if (a.maxLtvPercent) parts.push(`LTV ${formatPercent(a.maxLtvPercent)}`);
-  if (a.maxLtcPercent) parts.push(`LTC ${formatPercent(a.maxLtcPercent)}`);
-  if (a.maxArvPercent) parts.push(`ARV ${formatPercent(a.maxArvPercent)}`);
-  return parts.length ? parts.join(" · ") : "-";
 }
 
 function normalizeArray(val: unknown): string[] {
@@ -95,10 +74,49 @@ function normalizeArray(val: unknown): string[] {
 
 function productCodeLabel(code?: string): string {
   if (!code) return "-";
-  return PRODUCT_LABELS[code] ?? code.replace(/_/g, " ");
+  return PRODUCT_LABELS[code] ?? formatLoanProductCode({ loanProductCode: code });
+}
+
+function mapDocuments(raw: unknown): ProductDocument[] {
+  if (!Array.isArray(raw)) return [];
+
+  return raw
+    .map((doc: Record<string, unknown>) => {
+      const documentTypeId =
+        (doc.documentTypeId as string) ||
+        (doc.documentType as { id?: string } | undefined)?.id ||
+        (doc.id as string);
+      if (!documentTypeId) return null;
+
+      return {
+        id: documentTypeId,
+        documentTypeId,
+        documentName:
+          (doc.documentName as string) ||
+          (doc.documentType as { name?: string } | undefined)?.name ||
+          (doc.name as string) ||
+          null,
+        documentCode:
+          (doc.documentCode as string) ||
+          (doc.documentType as { code?: string } | undefined)?.code ||
+          null,
+        isRequired: doc.isRequired as boolean | undefined,
+        isCustom: doc.isCustom as boolean | undefined,
+      };
+    })
+    .filter(Boolean) as ProductDocument[];
 }
 
 /* ================= TYPES ================= */
+type ProductDocument = {
+  id?: string;
+  documentTypeId?: string;
+  documentName?: string | null;
+  documentCode?: string | null;
+  isRequired?: boolean;
+  isCustom?: boolean;
+};
+
 type AssignedProduct = {
   id: string;
   lenderOrgId?: string;
@@ -123,18 +141,26 @@ type AssignedProduct = {
   personalGuaranteeRequired?: boolean;
   firstTimeBorrowersAllowed?: boolean;
   criteriaNotes?: string;
-  businessTypes?: string[];
-  propertyTypes?: unknown[];
+  businessTypes?: Array<{ name?: string; subTypes?: string[] }>;
+  propertyTypes?: Array<{ type?: string; subTypes?: string[] }>;
   statesSupported?: string[];
   equipmentTypes?: string[];
+  documents?: ProductDocument[];
+  raw?: Record<string, unknown>;
 };
 
 const PRODUCT_LABELS: Record<string, string> = {
   FIX_AND_FLIP_LOAN_1_TO_4_UNITS: "Fix & Flip",
+  FIX_AND_FLIP: "Fix & Flip",
   DSCR_LOAN_1_TO_4_UNITS: "DSCR",
+  DSCR_LOAN: "DSCR",
   CONSTRUCTION_LOAN_1_TO_4_UNITS: "Construction",
+  CONSTRUCTION_LOAN: "Construction",
   BRIDGE_LOAN_1_TO_4_UNITS: "Bridge",
+  BRIDGE_LOAN: "Bridge",
   SBA_504_REAL_ESTATE_AND_EQUIPMENT: "SBA 504",
+  SBA_7A_BUSINESS_ACQUISITION: "SBA 7(a) Business Acquisition",
+  SBA_EXPRESS: "SBA Express",
   USDA_BI: "USDA B&I",
   AGENCY_LOAN_MULTIFAMILY: "Agency Multifamily",
   CRE_PERMANENT_LOAN: "CRE Permanent",
@@ -143,9 +169,10 @@ const PRODUCT_LABELS: Record<string, string> = {
   ACCOUNTS_PAYABLE_FINANCE: "AP Supply Chain",
   ACCOUNTS_RECEIVABLE: "Accounts Receivable",
   INVOICE_FACTORING: "AR Factoring",
+  EQUIPMENT_FINANCE: "Equipment Finance",
 };
 
-const TABLE_COL_COUNT = 12;
+const TABLE_COL_COUNT = 10;
 
 /* ================= COMPONENT ================= */
 const AssignedProducts: React.FC = () => {
@@ -164,42 +191,51 @@ const AssignedProducts: React.FC = () => {
   const [detail, setDetail] = useState<Record<string, unknown> | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
 
-  const mapApiRow = (a: Record<string, unknown>): AssignedProduct => ({
-    id: String(a.id),
-    lenderOrgId: a.lenderOrgId ? String(a.lenderOrgId) : undefined,
-    lenderName:
-      (a.lender as { name?: string } | undefined)?.name ||
-      (a.lenderName as string) ||
-      "-",
-    productName: (a.loanProduct as { name?: string } | undefined)?.name || "-",
-    productCode:
-      (a.loanProduct as { code?: string } | undefined)?.code ||
-      String(a.loanProductCode || "-"),
+  const mapApiRow = (a: Record<string, unknown>): AssignedProduct => {
+    const loanProduct = a.loanProduct as
+      | { name?: string; code?: string }
+      | undefined;
+    const productCode = resolveLenderOfferedProductCode(
+      loanProduct?.code || String(a.loanProductCode || ""),
+    );
 
-    isActive: Boolean(a.isActive),
-    createdAt: a.createdAt as string | undefined,
+    return {
+      id: String(a.id),
+      lenderOrgId: a.lenderOrgId ? String(a.lenderOrgId) : undefined,
+      lenderName:
+        (a.lender as { name?: string } | undefined)?.name ||
+        (a.lenderName as string) ||
+        "-",
+      productName: loanProduct?.name || "-",
+      productCode: productCode || "-",
 
-    minLoanAmount: a.minLoanAmount as string | undefined,
-    maxLoanAmount: a.maxLoanAmount as string | undefined,
-    minTermMonths: a.minTermMonths as number | undefined,
-    maxTermMonths: a.maxTermMonths as number | undefined,
-    maxLtvPercent: a.maxLtvPercent as string | undefined,
-    maxArvPercent: a.maxArvPercent as string | undefined,
-    maxLtcPercent: a.maxLtcPercent as string | undefined,
-    minCreditScore: a.minCreditScore as number | undefined,
-    minExperience: a.minExperience as string | undefined,
-    interestRateRange: a.interestRateRange as string | undefined,
-    originationPointsPercent: a.originationPointsPercent as string | undefined,
-    extensionAvailable: a.extensionAvailable as boolean | undefined,
-    personalGuaranteeRequired: a.personalGuaranteeRequired as boolean | undefined,
-    firstTimeBorrowersAllowed: a.firstTimeBorrowersAllowed as boolean | undefined,
-    criteriaNotes: a.criteriaNotes as string | undefined,
+      isActive: Boolean(a.isActive),
+      createdAt: a.createdAt as string | undefined,
 
-    businessTypes: Array.isArray(a.businessTypes) ? a.businessTypes : [],
-    propertyTypes: Array.isArray(a.propertyTypes) ? a.propertyTypes : [],
-    equipmentTypes: normalizeArray(a.equipmentTypes),
-    statesSupported: normalizeArray(a.statesSupported),
-  });
+      minLoanAmount: a.minLoanAmount as string | undefined,
+      maxLoanAmount: a.maxLoanAmount as string | undefined,
+      minTermMonths: a.minTermMonths as number | undefined,
+      maxTermMonths: a.maxTermMonths as number | undefined,
+      maxLtvPercent: a.maxLtvPercent as string | undefined,
+      maxArvPercent: a.maxArvPercent as string | undefined,
+      maxLtcPercent: a.maxLtcPercent as string | undefined,
+      minCreditScore: a.minCreditScore as number | undefined,
+      minExperience: a.minExperience as string | undefined,
+      interestRateRange: a.interestRateRange as string | undefined,
+      originationPointsPercent: a.originationPointsPercent as string | undefined,
+      extensionAvailable: a.extensionAvailable as boolean | undefined,
+      personalGuaranteeRequired: a.personalGuaranteeRequired as boolean | undefined,
+      firstTimeBorrowersAllowed: a.firstTimeBorrowersAllowed as boolean | undefined,
+      criteriaNotes: a.criteriaNotes as string | undefined,
+
+      businessTypes: Array.isArray(a.businessTypes) ? a.businessTypes : [],
+      propertyTypes: Array.isArray(a.propertyTypes) ? a.propertyTypes : [],
+      equipmentTypes: normalizeArray(a.equipmentTypes),
+      statesSupported: normalizeArray(a.statesSupported),
+      documents: mapDocuments(a.documents ?? a.lenderDocumentRequirements),
+      raw: a,
+    };
+  };
 
   const fetchAssignments = async () => {
     try {
@@ -243,10 +279,17 @@ const AssignedProducts: React.FC = () => {
 
       setDetail({
         ...found,
+        loanProductCode: resolveLenderOfferedProductCode(
+          (found.loanProduct as { code?: string } | undefined)?.code ||
+            String(found.loanProductCode || ""),
+        ),
         businessTypes: Array.isArray(found.businessTypes) ? found.businessTypes : [],
         propertyTypes: Array.isArray(found.propertyTypes) ? found.propertyTypes : [],
         statesSupported: normalizeArray(found.statesSupported),
         equipmentTypes: normalizeArray(found.equipmentTypes),
+        documents: mapDocuments(
+          found.documents ?? found.lenderDocumentRequirements,
+        ),
       });
     } catch (err) {
       console.error("Failed to fetch detail", err);
@@ -383,10 +426,8 @@ const AssignedProducts: React.FC = () => {
                 <th className="py-2 pr-4 text-left">Product</th>
                 <th className="py-2 pr-4 text-left">Loan Amount</th>
                 <th className="py-2 pr-4 text-left">Term</th>
-                <th className="py-2 pr-4 text-left">Rate</th>
-                <th className="py-2 pr-4 text-left">LTV / LTC / ARV</th>
-                <th className="py-2 pr-4 text-left">FICO</th>
-                <th className="py-2 pr-4 text-left">Orig. Pts</th>
+                <th className="py-2 pr-4 text-left">Key Criteria</th>
+                <th className="py-2 pr-4 text-left">Docs</th>
                 <th className="py-2 pr-4 text-left">States</th>
                 <th className="py-2 pr-4 text-left">Status</th>
                 <th className="py-2 pr-4 text-left">Assigned</th>
@@ -425,6 +466,22 @@ const AssignedProducts: React.FC = () => {
               ) : (
                 paginatedAssignments.map((a) => {
                   const states = formatStatesSummary(a.statesSupported);
+                  const productLike = {
+                    ...(a.raw || {}),
+                    loanProductCode: a.productCode,
+                    minLoanAmount: a.minLoanAmount ? Number(a.minLoanAmount) : null,
+                    maxLoanAmount: a.maxLoanAmount ? Number(a.maxLoanAmount) : null,
+                    minTermMonths: a.minTermMonths,
+                    maxTermMonths: a.maxTermMonths,
+                    maxLtvPercent: a.maxLtvPercent ? Number(a.maxLtvPercent) : null,
+                    maxLtcPercent: a.maxLtcPercent ? Number(a.maxLtcPercent) : null,
+                    maxArvPercent: a.maxArvPercent ? Number(a.maxArvPercent) : null,
+                    interestRateRange: a.interestRateRange,
+                  };
+                  const keyCriteria = formatListKeyCriteria(
+                    productLike,
+                    formatCurrencyAmount,
+                  );
                   return (
                     <tr
                       key={a.id}
@@ -455,26 +512,18 @@ const AssignedProducts: React.FC = () => {
                       </td>
 
                       <td className="py-3 pr-4 text-xs dark:text-slate-100">
-                        {formatTermRange(a.minTermMonths, a.maxTermMonths)}
-                      </td>
-
-                      <td className="py-3 pr-4 text-xs dark:text-slate-100">
-                        {a.interestRateRange?.trim() || "-"}
+                        {formatListTenure(productLike)}
                       </td>
 
                       <td
-                        className="max-w-[180px] py-3 pr-4 text-[11px] leading-relaxed text-slate-700 dark:text-slate-300"
-                        title={formatMetricsSummary(a)}
+                        className="max-w-[220px] py-3 pr-4 text-[11px] leading-relaxed text-slate-700 dark:text-slate-300"
+                        title={keyCriteria}
                       >
-                        {formatMetricsSummary(a)}
+                        {keyCriteria}
                       </td>
 
                       <td className="py-3 pr-4 text-xs dark:text-slate-100">
-                        {a.minCreditScore ?? "-"}
-                      </td>
-
-                      <td className="py-3 pr-4 text-xs dark:text-slate-100">
-                        {formatPercent(a.originationPointsPercent)}
+                        {a.documents?.length || 0}
                       </td>
 
                       <td
@@ -584,7 +633,10 @@ const AssignedProducts: React.FC = () => {
                   {detail && (
                     <p className="text-xs text-slate-500 dark:text-slate-400">
                       {(detail.lender as { name?: string })?.name} ·{" "}
-                      {productCodeLabel((detail.loanProduct as { code?: string })?.code)}
+                      {productCodeLabel(
+                        String(detail.loanProductCode || "") ||
+                          (detail.loanProduct as { code?: string })?.code,
+                      )}
                     </p>
                   )}
                 </div>
@@ -646,81 +698,65 @@ const AssignedProducts: React.FC = () => {
                       <FieldCard
                         label="Program"
                         value={productCodeLabel(
-                          (detail.loanProduct as { code?: string })?.code,
+                          String(detail.loanProductCode || "") ||
+                            (detail.loanProduct as { code?: string })?.code,
                         )}
                       />
                       <FieldCard
                         label="Name"
-                        value={(detail.loanProduct as { name?: string })?.name}
+                        value={formatLoanProductName(detail)}
                       />
                       <FieldCard
-                        label="Description"
-                        value={(detail.loanProduct as { description?: string })?.description}
+                        label="Code"
+                        value={formatLoanProductCode(detail)}
                       />
                       <FieldCard
                         label="Product Active"
                         value={
-                          (detail.loanProduct as { isActive?: boolean })?.isActive ? "Yes" : "No"
+                          (detail.loanProduct as { isActive?: boolean })?.isActive
+                            ? "Yes"
+                            : "No"
                         }
                       />
                     </Section>
 
-                    <Section title="Financial Criteria">
-                      <FieldCard
-                        label="Loan Amount"
-                        value={formatLoanRange(
-                          detail.minLoanAmount as string,
-                          detail.maxLoanAmount as string,
-                        )}
-                      />
-                      <FieldCard
-                        label="Term"
-                        value={formatTermRange(
-                          detail.minTermMonths as number,
-                          detail.maxTermMonths as number,
-                        )}
-                      />
-                      <FieldCard label="Max LTV" value={formatPercent(detail.maxLtvPercent as string)} />
-                      <FieldCard label="Max ARV" value={formatPercent(detail.maxArvPercent as string)} />
-                      <FieldCard label="Max LTC" value={formatPercent(detail.maxLtcPercent as string)} />
-                      <FieldCard label="Min Credit Score" value={detail.minCreditScore} />
-                      <FieldCard label="Experience" value={detail.minExperience} />
-                      <FieldCard label="Interest Rate Range" value={detail.interestRateRange} />
-                      <FieldCard
-                        label="Origination Points"
-                        value={formatPercent(detail.originationPointsPercent as string)}
-                      />
-                    </Section>
-
-                    <Section title="Program Options">
-                      <FieldCard
-                        label="Extension Available"
-                        value={formatBoolean(detail.extensionAvailable as boolean)}
-                      />
-                      <FieldCard
-                        label="Personal Guarantee Required"
-                        value={formatBoolean(detail.personalGuaranteeRequired as boolean)}
-                      />
-                      <FieldCard
-                        label="First-Time Borrowers Allowed"
-                        value={formatBoolean(detail.firstTimeBorrowersAllowed as boolean)}
-                      />
-                      {detail.criteriaNotes ? (
-                        <div className="md:col-span-2">
-                          <FieldCard label="Criteria Notes" value={detail.criteriaNotes} />
+                    <Section title="Loan Criteria">
+                      {buildLoanProductDetailFields(
+                        detail,
+                        formatCurrencyAmount,
+                      ).map((field, index) => (
+                        <div
+                          key={`${field.label}-${index}`}
+                          className={field.fullWidth ? "md:col-span-2" : undefined}
+                        >
+                          <FieldCard label={field.label} value={field.value} />
                         </div>
-                      ) : null}
+                      ))}
                     </Section>
 
                     <TagSection title="Business Types">
-                      {Array.isArray(detail.businessTypes) && detail.businessTypes.length ? (
-                        detail.businessTypes.map((item: { name?: string; subTypes?: string[] }, idx: number) => (
-                          <div key={idx} className="rounded-lg border bg-blue-50 p-3">
-                            <div className="font-medium text-blue-700">{item.name}</div>
+                      {Array.isArray(detail.businessTypes) &&
+                      detail.businessTypes.length ? (
+                        (
+                          detail.businessTypes as Array<{
+                            name?: string;
+                            subTypes?: string[];
+                          }>
+                        ).map((item, idx) => (
+                          <div
+                            key={idx}
+                            className="rounded-lg border border-blue-100 bg-blue-50 p-3 dark:border-blue-500/20 dark:bg-blue-500/10"
+                          >
+                            <div className="font-medium text-blue-700 dark:text-blue-300">
+                              {item.name}
+                            </div>
                             {item.subTypes?.length ? (
                               <div className="mt-2 flex flex-wrap gap-2">
                                 {item.subTypes.map((sub) => (
-                                  <span key={sub} className="rounded-full bg-white px-2 py-1 text-xs">
+                                  <span
+                                    key={sub}
+                                    className="rounded-full bg-white px-2 py-1 text-xs dark:bg-slate-800"
+                                  >
                                     {sub}
                                   </span>
                                 ))}
@@ -729,19 +765,33 @@ const AssignedProducts: React.FC = () => {
                           </div>
                         ))
                       ) : (
-                        <span>-</span>
+                        <span className="text-slate-500">-</span>
                       )}
                     </TagSection>
 
                     <TagSection title="Property Types">
-                      {Array.isArray(detail.propertyTypes) && detail.propertyTypes.length ? (
-                        detail.propertyTypes.map((item: { type?: string; subTypes?: string[] }, idx: number) => (
-                          <div key={idx} className="rounded-lg border bg-green-50 p-3">
-                            <div className="font-medium text-green-700">{item.type}</div>
+                      {Array.isArray(detail.propertyTypes) &&
+                      detail.propertyTypes.length ? (
+                        (
+                          detail.propertyTypes as Array<{
+                            type?: string;
+                            subTypes?: string[];
+                          }>
+                        ).map((item, idx) => (
+                          <div
+                            key={idx}
+                            className="rounded-lg border border-green-100 bg-green-50 p-3 dark:border-green-500/20 dark:bg-green-500/10"
+                          >
+                            <div className="font-medium text-green-700 dark:text-green-300">
+                              {item.type}
+                            </div>
                             {item.subTypes?.length ? (
                               <div className="mt-2 flex flex-wrap gap-2">
                                 {item.subTypes.map((sub) => (
-                                  <span key={sub} className="rounded-full bg-white px-2 py-1 text-xs">
+                                  <span
+                                    key={sub}
+                                    className="rounded-full bg-white px-2 py-1 text-xs dark:bg-slate-800"
+                                  >
                                     {sub}
                                   </span>
                                 ))}
@@ -787,6 +837,47 @@ const AssignedProducts: React.FC = () => {
                           <span className="text-slate-500 dark:text-slate-400">-</span>
                         )}
                       </div>
+                    </div>
+
+                    <div>
+                      <h4 className="mb-3 font-semibold text-slate-900 dark:text-white">
+                        Documents (
+                        {Array.isArray(detail.documents)
+                          ? detail.documents.length
+                          : 0}
+                        )
+                      </h4>
+                      {Array.isArray(detail.documents) &&
+                      detail.documents.length ? (
+                        <div className="flex flex-wrap gap-2">
+                          {(detail.documents as ProductDocument[]).map((doc) => (
+                            <span
+                              key={doc.documentTypeId || doc.id}
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-amber-100 bg-amber-50 px-3 py-1.5 text-xs text-amber-900 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-200"
+                            >
+                              <FileText size={12} className="shrink-0 opacity-70" />
+                              <span>
+                                {doc.documentName ||
+                                  doc.documentCode ||
+                                  "Document"}
+                              </span>
+                              {doc.isRequired === false ? (
+                                <span className="text-[10px] text-slate-500">
+                                  (optional)
+                                </span>
+                              ) : (
+                                <span className="text-[10px] text-amber-700/80 dark:text-amber-300/80">
+                                  (required)
+                                </span>
+                              )}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                          No documents configured for this assignment.
+                        </p>
+                      )}
                     </div>
                   </div>
                 )}

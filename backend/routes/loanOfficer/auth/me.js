@@ -1,4 +1,7 @@
 const { officerPreHandler } = require("../../../services/broker/loanOfficerAccess");
+const {
+  normalizeLoanOfficerPermissions,
+} = require("../../../utils/broker/loanOfficerPermissions");
 
 async function loanOfficerMeRoutes(fastify) {
   fastify.get(
@@ -22,6 +25,9 @@ async function loanOfficerMeRoutes(fastify) {
             organization: true,
             roles: { include: { role: true } },
             brokerProfile: true,
+            userPermissions: {
+              include: { permission: { select: { key: true } } },
+            },
           },
         });
 
@@ -32,6 +38,10 @@ async function loanOfficerMeRoutes(fastify) {
         const assignedCount = await prisma.loanApplication.count({
           where: { brokerUserId: userId, brokerOrgId: organizationId },
         });
+
+        const permissions = normalizeLoanOfficerPermissions(
+          user.userPermissions.map((p) => p.permission.key),
+        );
 
         return reply.send({
           ok: true,
@@ -46,6 +56,7 @@ async function loanOfficerMeRoutes(fastify) {
               profileImage: user.profileImage || null,
               status: user.status,
               roles: user.roles.map((r) => r.role.name),
+              permissions,
               assignedApplications: assignedCount,
               brokerProfile: user.brokerProfile
                 ? {

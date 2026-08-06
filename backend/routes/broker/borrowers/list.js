@@ -19,6 +19,10 @@ function getLatestSubmission(submissions = []) {
 }
 
 module.exports = async function listBorrowersRoute(fastify) {
+  const {
+    requireLoOfficerPermission,
+  } = require("../../../services/broker/loanOfficerAccess");
+
   fastify.get(
     "/list",
     {
@@ -49,6 +53,9 @@ module.exports = async function listBorrowersRoute(fastify) {
             },
           },
         },
+      },
+      preHandler: async (req, reply) => {
+        await requireLoOfficerPermission(req, reply, fastify, "VIEW_BORROWERS");
       },
     },
     async (req, reply) => {

@@ -1,9 +1,8 @@
-const { officerPreHandler } = require("../../../services/broker/loanOfficerAccess");
+const { registerOfficerRouteGuards } = require("../../../services/broker/loanOfficerAccess");
 
 module.exports = async function messagingRoutes(fastify) {
-  for (const handler of officerPreHandler(fastify)) {
-    fastify.addHook("preHandler", handler);
-  }
+  // Auth + role only; per-route permission (read vs send) applied in handlers.
+  registerOfficerRouteGuards(fastify);
 
   await fastify.register(require("./conversation/getConversations"), { prefix: "/" });
   await fastify.register(require("./conversation/getConversationById"), { prefix: "/" });

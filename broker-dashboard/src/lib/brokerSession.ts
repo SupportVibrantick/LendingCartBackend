@@ -1,3 +1,9 @@
+import {
+  SESSION_EXPIRED_MESSAGE,
+  beginSessionLogout,
+  showSessionExpiredToast,
+} from "./sessionExpiry";
+
 export function isBrokerTokenExpired(token: string): boolean {
   try {
     const base64 = token.split(".")[1];
@@ -31,18 +37,29 @@ export function clearBrokerSession() {
   );
 }
 
-export function handleBrokerUnauthorized(message?: string) {
+export function handleBrokerUnauthorized(_message?: string) {
+  const isFirst = beginSessionLogout("broker");
   clearBrokerSession();
 
   const onSignIn =
     window.location.pathname === "/signin" ||
     window.location.pathname === "/impersonate";
 
-  if (!onSignIn) {
+  if (isFirst && !onSignIn) {
+    showSessionExpiredToast();
     window.location.href = "/signin";
   }
 
-  return new Error(message || "Session expired. Please sign in again.");
+  return new Error(SESSION_EXPIRED_MESSAGE);
+}
+
+export function checkBrokerResponse(
+  res: Response,
+  _json?: Record<string, unknown>,
+): void {
+  if (res.status === 401) {
+    throw handleBrokerUnauthorized();
+  }
 }
 
 export async function verifyBrokerSession(token: string): Promise<boolean> {

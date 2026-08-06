@@ -6,13 +6,23 @@ const {
   forwardBrokerLoiToLender,
 } = require("../../../../utils/broker/brokerLoiService");
 
-function createBrokerLoiRoutes({ tagPrefix, requireBrokerUserId = false }) {
+function createBrokerLoiRoutes({
+  tagPrefix,
+  requireBrokerUserId = false,
+  routePermissions = {},
+}) {
   return async function brokerLoiRoutes(fastify) {
     const resolveBrokerUserId = (req) =>
       requireBrokerUserId ? req.user.id || req.user.userId : null;
+
+    const withPerm = (key) =>
+      routePermissions[key]
+        ? { preHandler: [fastify.requirePermission(routePermissions[key])] }
+        : {};
     fastify.get(
       "/:applicationId/broker-loi",
       {
+        ...withPerm("view"),
         schema: {
           tags: [`${tagPrefix} -> Broker LOI`],
           summary: "Get broker LOI status for an application",
@@ -53,6 +63,7 @@ function createBrokerLoiRoutes({ tagPrefix, requireBrokerUserId = false }) {
     fastify.get(
       "/:applicationId/broker-loi/prefill",
       {
+        ...withPerm("view"),
         schema: {
           tags: [`${tagPrefix} -> Broker LOI`],
           summary: "Prefill broker LOI terms from a selected lender LOI",
@@ -101,6 +112,7 @@ function createBrokerLoiRoutes({ tagPrefix, requireBrokerUserId = false }) {
     fastify.post(
       "/:applicationId/broker-loi/generate",
       {
+        ...withPerm("generate"),
         schema: {
           tags: [`${tagPrefix} -> Broker LOI`],
           summary: "Generate broker-branded LOI PDF from selected lender LOI",
@@ -175,6 +187,7 @@ function createBrokerLoiRoutes({ tagPrefix, requireBrokerUserId = false }) {
     fastify.post(
       "/:applicationId/broker-loi/send-to-client",
       {
+        ...withPerm("sendToClient"),
         schema: {
           tags: [`${tagPrefix} -> Broker LOI`],
           summary: "Send broker LOI to client for signature",
@@ -218,6 +231,7 @@ function createBrokerLoiRoutes({ tagPrefix, requireBrokerUserId = false }) {
     fastify.post(
       "/:applicationId/broker-loi/forward-to-lender",
       {
+        ...withPerm("forwardToLender"),
         schema: {
           tags: [`${tagPrefix} -> Broker LOI`],
           summary: "Forward client-signed broker LOI to funding lender",

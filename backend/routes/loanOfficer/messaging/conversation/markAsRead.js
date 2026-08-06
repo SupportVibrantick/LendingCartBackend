@@ -2,11 +2,13 @@
  * Mark conversation as read
  */
 
+const { extraOfficerPermission, LOAN_OFFICER_MESSAGING_PERMISSIONS } = require("../../../../services/broker/loanOfficerAccess");
+
 module.exports = async function markAsRead(fastify) {
   fastify.patch(
     "/conversation/:conversationId/read",
     {
-      preHandler: [fastify.authenticate],
+      preHandler: extraOfficerPermission(fastify, LOAN_OFFICER_MESSAGING_PERMISSIONS),
       schema: {
         tags: ["Messaging"],
         summary: "Mark conversation as read",

@@ -5,6 +5,9 @@ const prisma = require("../../../config/prisma");
 const { loginSchema } = require("../../../schemas/loanOfficer/auth/login.schema");
 
 const jwtSecret = require("../../../utils/auth/jwtSecret");
+const {
+  normalizeLoanOfficerPermissions,
+} = require("../../../utils/broker/loanOfficerPermissions");
 
 async function loginRoute(fastify) {
   fastify.post("/login", async (request, reply) => {
@@ -68,13 +71,16 @@ async function loginRoute(fastify) {
         data: { lastLoginAt: new Date() },
       });
 
-      const permissions = user.userPermissions.map((p) => p.permission.key);
+      const permissions = normalizeLoanOfficerPermissions(
+        user.userPermissions.map((p) => p.permission.key),
+      );
 
       const token = jwt.sign(
         {
           userId: user.id,
           id: user.id,
           roles: ["BROKER_OFFICER"],
+          permissions,
           organizationId: user.organizationId,
           orgType: "BROKER",
           email: user.email,

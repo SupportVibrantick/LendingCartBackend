@@ -1,3 +1,15 @@
+const LO_BRANDING_VIEW_PERMISSIONS = ["VIEW_COMPANY_SETTINGS", "MANAGE_BRANDING"];
+
+async function requireLoanOfficerBrandingView(req, reply, fastify) {
+  if (!req.user?.roles?.includes("BROKER_OFFICER")) return;
+  await fastify.requirePermission(LO_BRANDING_VIEW_PERMISSIONS)(req, reply);
+}
+
+async function requireLoanOfficerBrandingManage(req, reply, fastify) {
+  if (!req.user?.roles?.includes("BROKER_OFFICER")) return;
+  await fastify.requirePermission("MANAGE_BRANDING")(req, reply);
+}
+
 /**
  * @param {import("fastify").FastifyInstance} fastify
  */
@@ -5,6 +17,9 @@ async function getWhiteLabelSettings(fastify) {
   fastify.get(
     "/",
     {
+      preHandler: async (req, reply) => {
+        await requireLoanOfficerBrandingView(req, reply, fastify);
+      },
       schema: {
         tags: ["Broker -> White Label"],
         summary: "Get broker white-label settings",

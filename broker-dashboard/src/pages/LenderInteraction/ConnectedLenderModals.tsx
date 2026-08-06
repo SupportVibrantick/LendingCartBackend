@@ -491,11 +491,13 @@ export function LenderDiscoverProfileModal({
   onClose,
   onInvite,
   inviting,
+  showInvite = true,
 }: {
   lender: DiscoverLender;
   onClose: () => void;
   onInvite: () => void;
   inviting?: boolean;
+  showInvite?: boolean;
 }) {
   const [detail, setDetail] = useState<LenderFullProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -583,24 +585,26 @@ export function LenderDiscoverProfileModal({
       <button
         type="button"
         onClick={onClose}
-        className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800"
+        className={`${showInvite ? "flex-1" : "w-full"} px-4 py-2.5 rounded-xl text-sm font-semibold border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800`}
       >
         Close
       </button>
-      <button
-        type="button"
-        disabled={inviting}
-        onClick={onInvite}
-        className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-50"
-        style={{ backgroundColor: BRAND }}
-      >
-        {inviting ? (
-          <RefreshCcw size={16} className="animate-spin" />
-        ) : (
-          <Handshake size={16} />
-        )}
-        {inviting ? "Connecting..." : "Connect"}
-      </button>
+      {showInvite && (
+        <button
+          type="button"
+          disabled={inviting}
+          onClick={onInvite}
+          className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-50"
+          style={{ backgroundColor: BRAND }}
+        >
+          {inviting ? (
+            <RefreshCcw size={16} className="animate-spin" />
+          ) : (
+            <Handshake size={16} />
+          )}
+          {inviting ? "Connecting..." : "Connect"}
+        </button>
+      )}
     </div>
   );
 

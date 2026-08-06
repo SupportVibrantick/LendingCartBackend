@@ -1,6 +1,8 @@
 /**
  * @param {import("fastify").FastifyInstance} fastify
  */
+const { requireLoAddOwnLender } = require("../../../../services/broker/loanOfficerAccess");
+
 async function checkDuplicateRoutes(fastify) {
   fastify.post(
     "/check-duplicate",
@@ -17,6 +19,9 @@ async function checkDuplicateRoutes(fastify) {
             website: { type: "string" },
           },
         },
+      },
+      preHandler: async (req, reply) => {
+        await requireLoAddOwnLender(req, reply, fastify);
       },
     },
     async (req, reply) => {

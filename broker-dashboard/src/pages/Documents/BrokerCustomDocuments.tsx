@@ -15,6 +15,8 @@ import toast from "react-hot-toast";
 import Swal from "sweetalert2";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
+import { hasPermission } from "../../lib/brokerPermissions";
+import { isLoanOfficerPortalPath } from "../../lib/portalAuth";
 import {
   createBrokerCustomDocument,
   deactivateBrokerCustomDocument,
@@ -33,6 +35,12 @@ const PAGE_SIZE = 10;
 const SEARCH_DEBOUNCE_MS = 400;
 
 export default function BrokerCustomDocuments() {
+  const isLoanOfficerPortal = isLoanOfficerPortalPath();
+  const canManage =
+    !isLoanOfficerPortal ||
+    hasPermission("MANAGE_CUSTOM_DOCUMENTS", "loanOfficer");
+  const readOnly = isLoanOfficerPortal && !canManage;
+
   const [documents, setDocuments] = useState<BrokerCustomDocument[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -120,12 +128,14 @@ export default function BrokerCustomDocuments() {
   const showNoSearchResults = !loading && total === 0 && isSearchActive;
 
   const openCreateModal = () => {
+    if (!canManage) return;
     setEditingDoc(null);
     setForm(emptyForm);
     setModalOpen(true);
   };
 
   const openEditModal = (doc: BrokerCustomDocument) => {
+    if (!canManage) return;
     setEditingDoc(doc);
     setForm({
       name: doc.name,
@@ -141,6 +151,10 @@ export default function BrokerCustomDocuments() {
   };
 
   const handleSave = async () => {
+    if (!canManage) {
+      toast.error("You have view-only access to custom documents");
+      return;
+    }
     const name = form.name.trim();
     const description = form.description.trim();
 
@@ -172,6 +186,7 @@ export default function BrokerCustomDocuments() {
   };
 
   const handleDeactivate = async (doc: BrokerCustomDocument) => {
+    if (!canManage) return;
     if (doc.isProtected) {
       toast.error("This system document cannot be removed");
       return;
@@ -216,8 +231,9 @@ export default function BrokerCustomDocuments() {
                 Custom Documents
               </h1>
               <p className="mt-1 text-sm text-slate-500">
-                Create and manage document types you request from clients during
-                the loan process.
+                {readOnly
+                  ? "View your broker's custom document library. Contact your broker admin to request changes."
+                  : "Create and manage document types you request from clients during the loan process."}
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -233,6 +249,7 @@ export default function BrokerCustomDocuments() {
                 />
                 Refresh
               </button>
+              {canManage && (
               <button
                 type="button"
                 onClick={openCreateModal}
@@ -241,8 +258,15 @@ export default function BrokerCustomDocuments() {
                 <Plus size={16} />
                 Add Document
               </button>
+              )}
             </div>
           </div>
+
+          {readOnly && (
+            <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              View-only access — you cannot add, edit, or remove custom documents.
+            </div>
+          )}
 
           <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="relative w-full max-w-md">
@@ -292,9 +316,11 @@ export default function BrokerCustomDocuments() {
                 No custom documents yet
               </p>
               <p className="mt-1 max-w-md text-sm text-slate-500">
-                Add document types here to reuse them when requesting files from
-                clients on loan applications.
+                {readOnly
+                  ? "No custom documents are available in your library yet."
+                  : "Add document types here to reuse them when requesting files from clients on loan applications."}
               </p>
+              {canManage && (
               <button
                 type="button"
                 onClick={openCreateModal}
@@ -303,6 +329,7 @@ export default function BrokerCustomDocuments() {
                 <Plus size={16} />
                 Add your first document
               </button>
+              )}
             </div>
           ) : showNoSearchResults ? (
             <div className="flex min-h-[280px] flex-col items-center justify-center px-6 py-12 text-center">
@@ -330,9 +357,11 @@ export default function BrokerCustomDocuments() {
                   <th className="px-5 py-3 font-semibold">Description</th>
                   <th className="px-5 py-3 font-semibold">Usage</th>
                   <th className="px-5 py-3 font-semibold">Created</th>
+                  {canManage && (
                   <th className="px-5 py-3 text-right font-semibold">
                     Actions
                   </th>
+                  )}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -358,6 +387,7 @@ export default function BrokerCustomDocuments() {
                     <td className="px-5 py-4 text-slate-600">
                       {new Date(doc.createdAt).toLocaleDateString()}
                     </td>
+                    {canManage && (
                     <td className="px-5 py-4">
                       <div className="flex items-center justify-end gap-2">
                         <button
@@ -380,6 +410,7 @@ export default function BrokerCustomDocuments() {
                         </button>
                       </div>
                     </td>
+                    )}
                   </tr>
                 ))}
               </tbody>

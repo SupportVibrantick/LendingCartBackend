@@ -2,11 +2,13 @@
  * Create conversation (INTERNAL USE)
  */
 
+const { extraOfficerPermission, LOAN_OFFICER_MESSAGING_PERMISSIONS } = require("../../../../services/broker/loanOfficerAccess");
+
 module.exports = async function createConversation(fastify) {
   fastify.post(
     "/conversation",
     {
-      preHandler: [fastify.authenticate],
+      preHandler: extraOfficerPermission(fastify, LOAN_OFFICER_MESSAGING_PERMISSIONS),
       schema: {
         tags: ["Messaging"],
         summary: "Create conversation (internal)",

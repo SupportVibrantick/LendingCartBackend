@@ -11,6 +11,9 @@ module.exports = async function updateSubBrokerRoutes(fastify) {
     parseJsonField,
     validatePrimaryContactFields,
   } = require("../../../utils/broker/subBrokerProfileHelpers");
+  const {
+    requireLoOfficerPermission,
+  } = require("../../../services/broker/loanOfficerAccess");
 
   fastify.patch(
     "/:id/update",
@@ -26,6 +29,9 @@ module.exports = async function updateSubBrokerRoutes(fastify) {
             id: { type: "string", minLength: 1 },
           },
         },
+      },
+      preHandler: async (req, reply) => {
+        await requireLoOfficerPermission(req, reply, fastify, "EDIT_CO_BROKERS");
       },
     },
     async (req, reply) => {

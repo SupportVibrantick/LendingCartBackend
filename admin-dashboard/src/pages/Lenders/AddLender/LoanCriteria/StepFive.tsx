@@ -4,8 +4,8 @@ import toast from "react-hot-toast";
 import {
   getCriteriaFieldsForProduct,
   getCriteriaFieldInputSuffix,
-  getDefaultCriteriaValuesForProduct,
-  getRequiredCriteriaKeysForProduct,
+  isSba7aBusinessAcquisitionProduct,
+  isSbaExpressProduct,
   type CriteriaField,
 } from "../../../../lib/loanProductCriteriaFields";
 import {
@@ -92,12 +92,80 @@ const getColor = (name: string) => {
   return colors[Math.abs(hash) % colors.length];
 };
 
+const DOCUMENT_LIMIT = 12;
+
+type DocumentPagination = {
+  page: number;
+  totalPages: number;
+  total: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+};
+
+type ProductDocumentState = {
+  search: string;
+  debouncedSearch: string;
+  customDocumentName: string;
+  page: number;
+  documents: any[];
+  pagination: DocumentPagination;
+  loading: boolean;
+};
+
 type StepFiveProps = {
   products: any[];
   value: Record<string, any>;
   setValue: (val: Record<string, any>) => void;
   setHasErrors?: (hasErrors: boolean) => void;
+  mode?: "create" | "update";
   authMode?: "admin" | "lender";
+  lenderProductIdByProgramId?: Record<string, string>;
+};
+
+const createDefaultDocumentState = (): ProductDocumentState => ({
+  search: "",
+  debouncedSearch: "",
+  customDocumentName: "",
+  page: 1,
+  documents: [],
+  pagination: {
+    page: 1,
+    totalPages: 1,
+    total: 0,
+    hasNextPage: false,
+    hasPreviousPage: false,
+  },
+  loading: false,
+});
+
+const normalizePagination = (
+  json: any,
+  page: number,
+  limit: number,
+): DocumentPagination => {
+  if (json?.pagination) {
+    return {
+      page: Number(json.pagination.page || page),
+      totalPages: Number(json.pagination.totalPages || 1),
+      total: Number(json.pagination.total || 0),
+      hasNextPage: Boolean(json.pagination.hasNextPage),
+      hasPreviousPage: Boolean(json.pagination.hasPreviousPage),
+    };
+  }
+
+  const meta = json?.meta || {};
+  const total = Number(meta.total || 0);
+  const pageSize = Number(meta.limit || limit);
+  const pageNum = Number(meta.page || page);
+  const totalPages = Math.max(1, Math.ceil(total / Math.max(pageSize, 1)));
+
+  return {
+    page: pageNum,
+    totalPages,
+    total,
+    hasNextPage: pageNum < totalPages,
+    hasPreviousPage: pageNum > 1,
+  };
 };
 
 const StepFive = ({
@@ -105,37 +173,85 @@ const StepFive = ({
   value,
   setValue,
   setHasErrors,
+  mode = "create",
   authMode = "admin",
+  lenderProductIdByProgramId = {},
 }: StepFiveProps) => {
+  const getProductKey = (product: { id: string | number }) =>
+    String(product.id);
   const [openIndex, setOpenIndex] = useState<number | null>(0);
   const [errors, setErrors] = useState<any>({});
-  const [documents, setDocuments] = useState<any[]>([]);
-  const [loadingDocs, setLoadingDocs] = useState(false);
-  const [docSearch, setDocSearch] = useState("");
-  const [docPage, setDocPage] = useState(1);
-  const [customDocumentName, setCustomDocumentName] = useState("");
-  const [addingCustomDoc, setAddingCustomDoc] = useState(false);
-
-  const DOCS_PER_PAGE = 9;
+  const [docStateByProduct, setDocStateByProduct] = useState<
+    Record<string, ProductDocumentState>
+  >({});
 
   const getAuthToken = () => {
     const tokenKey = authMode === "admin" ? "admin_token" : "lender_token";
     return sessionStorage.getItem(tokenKey);
   };
 
-  const fetchDocuments = async () => {
-    try {
-      setLoadingDocs(true);
+  const getDocState = (productId: string): ProductDocumentState =>
+    docStateByProduct[productId] ?? createDefaultDocumentState();
 
+  const patchDocState = (
+    productId: string,
+    patch: Partial<ProductDocumentState>,
+  ) => {
+    setDocStateByProduct((prev) => ({
+      ...prev,
+      [productId]: {
+        ...(prev[productId] ?? createDefaultDocumentState()),
+        ...patch,
+      },
+    }));
+  };
+
+  const fetchDocuments = async (
+    productId: string,
+    page: number,
+    search: string,
+    options?: { all?: boolean },
+  ) => {
+    try {
       const token = getAuthToken();
+      const product = products.find(
+        (item: any) => String(item.id) === String(productId),
+      );
+
+      const params = new URLSearchParams();
+
+      if (options?.all && authMode === "lender") {
+        params.set("all", "true");
+      } else {
+        params.set("page", String(page));
+        params.set(
+          "limit",
+          String(options?.all ? Math.max(DOCUMENT_LIMIT, 500) : DOCUMENT_LIMIT),
+        );
+      }
+
+      if (search.trim()) {
+        params.append("search", search.trim());
+      }
+
+      if (product?.id) {
+        params.append("loanProductId", String(product.id));
+      }
+      if (product?.code) {
+        params.append("loanProductCode", String(product.code));
+      }
+
+      if (authMode === "admin") {
+        params.set("isActive", "true");
+        params.set("source", "admin");
+      }
 
       const endpoint =
         authMode === "admin"
-          ? `${API_BASE}/admin/document-types/read?isActive=true&limit=200`
-          : `${API_BASE}/document-types/active`;
+          ? `${API_BASE}/admin/document-types/read?${params.toString()}`
+          : `${API_BASE}/document-types/active?${params.toString()}`;
 
       const res = await fetch(endpoint, {
-        method: "GET",
         headers: {
           "Content-Type": "application/json",
           ...(token && {
@@ -146,14 +262,40 @@ const StepFive = ({
 
       const json = await res.json();
 
-      if (json?.success) {
-        setDocuments(json.data || []);
+      if (json.success) {
+        return {
+          documents: json.data || [],
+          pagination: normalizePagination(json, page, DOCUMENT_LIMIT),
+        };
       }
+
+      if (json.message) {
+        toast.error(json.message);
+      }
+      return null;
     } catch (err) {
-      console.error("Failed to load documents", err);
+      console.error(err);
       toast.error("Failed to load documents");
-    } finally {
-      setLoadingDocs(false);
+      return null;
+    }
+  };
+
+  const loadDocumentsForProduct = async (
+    productId: string,
+    page: number,
+    search: string,
+  ) => {
+    patchDocState(productId, { loading: true });
+    const result = await fetchDocuments(productId, page, search);
+    if (result) {
+      patchDocState(productId, {
+        documents: result.documents,
+        pagination: result.pagination,
+        page,
+        loading: false,
+      });
+    } else {
+      patchDocState(productId, { loading: false });
     }
   };
 
@@ -174,7 +316,15 @@ const StepFive = ({
   };
 
   const addCustomDocument = async (productId: string) => {
-    const customName = customDocumentName.trim();
+    const docState = getDocState(productId);
+    const customName = docState.customDocumentName.trim();
+    const product = products.find(
+      (item: any) => String(item.id) === String(productId),
+    );
+    const lenderProductId =
+      lenderProductIdByProgramId?.[String(productId)] ||
+      lenderProductIdByProgramId?.[productId] ||
+      "";
 
     if (!customName) {
       toast.error("Please enter custom document name");
@@ -186,43 +336,104 @@ const StepFive = ({
       return;
     }
 
+    if (!product?.id && !product?.code) {
+      toast.error("Please select a loan product first");
+      return;
+    }
+
+    if (authMode === "admin" && !product?.id) {
+      toast.error("Please select a loan product first");
+      return;
+    }
+
     try {
-      setAddingCustomDoc(true);
+      patchDocState(productId, { loading: true });
       const token = getAuthToken();
+      const authHeaders = {
+        "Content-Type": "application/json",
+        ...(token && { Authorization: `Bearer ${token}` }),
+      };
 
-      const endpoint =
-        authMode === "admin"
-          ? `${API_BASE}/admin/document-types/create`
-          : `${API_BASE}/lender/document-config/create-custom-document-type`;
+      let createdDocType: any = null;
 
-      const res = await fetch(endpoint, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token && { Authorization: `Bearer ${token}` }),
-        },
-        body: JSON.stringify({
-          name: customName,
-          ...(authMode === "admin" ? { isActive: true } : {}),
-        }),
-      });
+      if (authMode === "admin") {
+        const res = await fetch(`${API_BASE}/admin/document-types/create`, {
+          method: "POST",
+          headers: authHeaders,
+          body: JSON.stringify({
+            name: customName,
+            loanProductId: String(product.id),
+            isRequired: true,
+            isActive: true,
+          }),
+        });
 
-      const json = await res.json().catch(() => ({}));
-      if (!res.ok || !json?.success) {
-        throw new Error(json?.message || "Failed to add custom document");
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok || !json?.success) {
+          throw new Error(json?.message || "Failed to add custom document");
+        }
+
+        createdDocType = json?.data;
+      } else if (lenderProductId) {
+        const res = await fetch(`${API_BASE}/lender/document-config/create`, {
+          method: "POST",
+          headers: authHeaders,
+          body: JSON.stringify({
+            lenderProductId,
+            customDocumentName: customName,
+            isRequired: true,
+          }),
+        });
+
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok || !json?.success) {
+          throw new Error(json?.message || "Failed to add custom document");
+        }
+
+        createdDocType = {
+          id: json?.data?.documentTypeId || json?.data?.documentType?.id,
+          name: json?.data?.documentName || customName,
+          isCustom: true,
+        };
+      } else {
+        const res = await fetch(
+          `${API_BASE}/lender/document-config/create-custom-document-type`,
+          {
+            method: "POST",
+            headers: authHeaders,
+            body: JSON.stringify({
+              name: customName,
+              ...(product?.id ? { loanProductId: String(product.id) } : {}),
+              ...(product?.code
+                ? { loanProductCode: String(product.code) }
+                : {}),
+            }),
+          },
+        );
+
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok || !json?.success) {
+          throw new Error(json?.message || "Failed to add custom document");
+        }
+
+        createdDocType = json?.data;
       }
 
-      const createdDocType = json?.data;
+      if (!createdDocType?.id) {
+        throw new Error("Custom document was created but no id was returned");
+      }
+
       const selectedDocs = value?.[productId]?.documents || [];
       const alreadySelected = selectedDocs.some(
         (d: any) =>
-          d.id === createdDocType?.id || d.documentTypeId === createdDocType?.id,
+          d.id === createdDocType?.id ||
+          d.documentTypeId === createdDocType?.id,
       );
 
       const customDoc = {
-        id: createdDocType?.id,
-        documentTypeId: createdDocType?.id,
-        name: createdDocType?.name || customName,
+        id: createdDocType.id,
+        documentTypeId: createdDocType.id,
+        name: createdDocType.name || customName,
         isCustom: true,
       };
 
@@ -230,34 +441,38 @@ const StepFive = ({
         handleChange(productId, "documents", [...selectedDocs, customDoc]);
       }
 
-      setCustomDocumentName("");
-      await fetchDocuments();
-      toast.success(json?.message || "Custom document added");
+      patchDocState(productId, {
+        customDocumentName: "",
+        page: 1,
+      });
+      await loadDocumentsForProduct(productId, 1, docState.search);
+      toast.success("Custom document added");
     } catch (error: any) {
       console.error(error);
       toast.error(error?.message || "Failed to add custom document");
     } finally {
-      setAddingCustomDoc(false);
+      patchDocState(productId, { loading: false });
     }
   };
 
-  const filteredDocuments = documents.filter((doc) => {
-    const term = docSearch.trim().toLowerCase();
-    if (!term) return true;
-    return String(doc.name || "")
-      .toLowerCase()
-      .includes(term);
-  });
+  const selectAllDocuments = async (productId: string) => {
+    const { search } = getDocState(productId);
 
-  const docTotalPages = Math.max(1, Math.ceil(filteredDocuments.length / DOCS_PER_PAGE));
-  const safeDocPage = Math.min(docPage, docTotalPages);
-  const paginatedDocuments = filteredDocuments.slice(
-    (safeDocPage - 1) * DOCS_PER_PAGE,
-    safeDocPage * DOCS_PER_PAGE,
-  );
+    try {
+      patchDocState(productId, { loading: true });
 
-  const selectAllDocuments = (productId: string) => {
-    handleChange(productId, "documents", filteredDocuments);
+      const result = await fetchDocuments(productId, 1, search, { all: true });
+
+      if (result) {
+        handleChange(productId, "documents", result.documents);
+        toast.success(`${result.documents.length} documents selected`);
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to select documents");
+    } finally {
+      patchDocState(productId, { loading: false });
+    }
   };
 
   const clearDocuments = (productId: string) => {
@@ -287,7 +502,6 @@ const StepFive = ({
 
     handleChange(productId, "states", updatedStates);
 
-    // IMPORTANT: validation
     setErrors((prev: any) => ({
       ...prev,
       [productId]: {
@@ -336,89 +550,84 @@ const StepFive = ({
     const current = value?.[productId] || {};
     const isRequired = options?.required !== false;
 
-    // ✅ EMPTY CHECK
     if (val === "" || val === null || val === undefined) {
       return isRequired ? "This field is required" : "";
     }
 
     const numVal = parseNumericValue(val);
 
-    // ✅ GENERIC NUMBER VALIDATION
     if (numVal < 0) {
       return "Value cannot be negative";
     }
 
-    // ✅ LOAN AMOUNT
     if (key === "minLoan" && current.maxLoan) {
-      if (numVal > parseNumericValue(current.maxLoan)) {
+      if (numVal > Number(current.maxLoan)) {
         return "Minimum loan amount cannot exceed maximum loan amount";
       }
     }
 
     if (key === "maxLoan" && current.minLoan) {
-      if (numVal < parseNumericValue(current.minLoan)) {
+      if (numVal < Number(current.minLoan)) {
         return "Maximum loan amount cannot be less than minimum loan amount";
       }
     }
 
     if (key === "minFacilitySize" && current.maxFacilitySize) {
-      if (numVal > parseNumericValue(current.maxFacilitySize)) {
+      if (numVal > Number(current.maxFacilitySize)) {
         return "Minimum facility size cannot exceed maximum facility size";
       }
     }
 
     if (key === "maxFacilitySize" && current.minFacilitySize) {
-      if (numVal < parseNumericValue(current.minFacilitySize)) {
+      if (numVal < Number(current.minFacilitySize)) {
         return "Maximum facility size cannot be less than minimum facility size";
       }
     }
 
     if (key === "minProgramSize" && current.maxProgramSize) {
-      if (numVal > parseNumericValue(current.maxProgramSize)) {
+      if (numVal > Number(current.maxProgramSize)) {
         return "Minimum program size cannot exceed maximum program size";
       }
     }
 
     if (key === "maxProgramSize" && current.minProgramSize) {
-      if (numVal < parseNumericValue(current.minProgramSize)) {
+      if (numVal < Number(current.minProgramSize)) {
         return "Maximum program size cannot be less than minimum program size";
       }
     }
 
     if (key === "minProperties" && current.maxProperties) {
-      if (numVal > parseNumericValue(current.maxProperties)) {
+      if (numVal > Number(current.maxProperties)) {
         return "Minimum properties cannot exceed maximum properties";
       }
     }
 
     if (key === "maxProperties" && current.minProperties) {
-      if (numVal < parseNumericValue(current.minProperties)) {
+      if (numVal < Number(current.minProperties)) {
         return "Maximum properties cannot be less than minimum properties";
       }
     }
 
-    // ✅ INTEREST RATE
     if (key === "minRate" && current.maxRate) {
-      if (numVal > parseNumericValue(current.maxRate)) {
+      if (numVal > Number(current.maxRate)) {
         return "Minimum interest rate cannot exceed maximum rate";
       }
     }
 
     if (key === "maxRate" && current.minRate) {
-      if (numVal < parseNumericValue(current.minRate)) {
+      if (numVal < Number(current.minRate)) {
         return "Maximum interest rate cannot be less than minimum rate";
       }
     }
 
-    // ✅ TERM
     if (key === "minTerm" && current.maxTerm) {
-      if (numVal > parseNumericValue(current.maxTerm)) {
+      if (numVal > Number(current.maxTerm)) {
         return "Minimum term cannot exceed maximum term";
       }
     }
 
     if (key === "maxTerm" && current.minTerm) {
-      if (numVal < parseNumericValue(current.minTerm)) {
+      if (numVal < Number(current.minTerm)) {
         return "Maximum term cannot be less than minimum term";
       }
     }
@@ -455,13 +664,13 @@ const StepFive = ({
     }
 
     if (key === "mezzLtvMin" && current.mezzLtvMax) {
-      if (numVal > parseNumericValue(current.mezzLtvMax)) {
+      if (numVal > Number(current.mezzLtvMax)) {
         return "Mezz LTV min cannot exceed max";
       }
     }
 
     if (key === "mezzLtvMax" && current.mezzLtvMin) {
-      if (numVal < parseNumericValue(current.mezzLtvMin)) {
+      if (numVal < Number(current.mezzLtvMin)) {
         return "Mezz LTV max cannot be less than min";
       }
     }
@@ -521,10 +730,7 @@ const StepFive = ({
       return "Max invoice age must be between 1 and 365 days";
     }
 
-    if (
-      key === "paymentTermsExtensionDays" &&
-      (numVal <= 0 || numVal > 365)
-    ) {
+    if (key === "paymentTermsExtensionDays" && (numVal <= 0 || numVal > 365)) {
       return "Payment terms extension must be between 1 and 365 days";
     }
 
@@ -562,6 +768,12 @@ const StepFive = ({
       }
     }
 
+    if (key === "preferredDscr") {
+      if (numVal <= 0 || numVal > 10) {
+        return "Preferred DSCR must be between 0 and 10";
+      }
+    }
+
     if (key === "minDebtYield" && numVal > 100) {
       return "Min debt yield cannot exceed 100%";
     }
@@ -579,28 +791,44 @@ const StepFive = ({
 
   const renderField = (product: any, field: CriteriaField) => {
     const fieldType = field.type || "number";
-    const currentValue = value?.[product.id]?.[field.key];
+    const currentValue = value?.[getProductKey(product)]?.[field.key];
     const isRequired = field.required !== false && fieldType !== "toggle";
 
     if (fieldType === "toggle") {
       return (
-        <div key={field.key} className="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-3 py-3">
-          <label className="text-xs text-gray-700 font-medium">{field.label}</label>
-          <button
-            type="button"
-            onClick={() =>
-              handleChange(product.id, field.key, !Boolean(currentValue))
-            }
-            className={`relative inline-flex h-6 w-11 items-center rounded-full transition ${
-              currentValue ? "bg-blue-600" : "bg-gray-300"
-            }`}
-          >
-            <span
-              className={`inline-block h-4 w-4 transform rounded-full bg-white transition ${
-                currentValue ? "translate-x-6" : "translate-x-1"
+        <div
+          key={field.key}
+          className="flex flex-col gap-1 rounded-lg border border-gray-200 bg-white px-3 py-3"
+        >
+          <div className="flex items-center justify-between gap-3">
+            <label className="text-xs text-gray-700 font-medium">
+              {field.label}
+            </label>
+            <button
+              type="button"
+              onClick={() =>
+                handleChange(
+                  getProductKey(product),
+                  field.key,
+                  !Boolean(currentValue),
+                )
+              }
+              className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition ${
+                currentValue ? "bg-blue-600" : "bg-gray-300"
               }`}
-            />
-          </button>
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition ${
+                  currentValue ? "translate-x-6" : "translate-x-1"
+                }`}
+              />
+            </button>
+          </div>
+          {field.helperText && (
+            <p className="text-[11px] text-gray-500 leading-snug">
+              {field.helperText}
+            </p>
+          )}
         </div>
       );
     }
@@ -608,10 +836,15 @@ const StepFive = ({
     if (fieldType === "textarea") {
       return (
         <div key={field.key} className="col-span-2">
-          <label className="text-xs text-gray-600 mb-1 block">{field.label}</label>
+          <label className="text-xs text-gray-600 mb-1 block">
+            {field.label}
+            {isRequired && <span className="text-red-500"> *</span>}
+          </label>
           <textarea
             value={currentValue || ""}
-            onChange={(e) => handleChange(product.id, field.key, e.target.value)}
+            onChange={(e) =>
+              handleChange(getProductKey(product), field.key, e.target.value)
+            }
             rows={4}
             className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
@@ -629,7 +862,9 @@ const StepFive = ({
           <input
             type="text"
             value={currentValue || ""}
-            onChange={(e) => handleChange(product.id, field.key, e.target.value)}
+            onChange={(e) =>
+              handleChange(getProductKey(product), field.key, e.target.value)
+            }
             className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
@@ -648,21 +883,23 @@ const StepFive = ({
           <input
             type="text"
             inputMode={field.decimal ? "decimal" : "numeric"}
-            value={formatNumberInputValue(currentValue, { decimal: field.decimal })}
+            value={formatNumberInputValue(currentValue, {
+              decimal: field.decimal,
+            })}
             onChange={(e) => {
               const val = sanitizeNumberInput(e.target.value, {
                 decimal: field.decimal,
               });
-              const err = validateField(product.id, field.key, val, {
+              const err = validateField(getProductKey(product), field.key, val, {
                 required: field.required !== false,
               });
 
-              handleChange(product.id, field.key, val);
+              handleChange(getProductKey(product), field.key, val);
 
               setErrors((prev: any) => ({
                 ...prev,
-                [product.id]: {
-                  ...prev?.[product.id],
+                [getProductKey(product)]: {
+                  ...prev?.[getProductKey(product)],
                   [field.key]: err,
                 },
               }));
@@ -671,7 +908,7 @@ const StepFive = ({
               inputSuffix ? "pr-9" : ""
             }
   ${
-    errors?.[product.id]?.[field.key]
+    errors?.[getProductKey(product)]?.[field.key]
       ? "border-red-500 focus:ring-red-500"
       : "border-gray-300 focus:ring-blue-500"
   }`}
@@ -682,18 +919,49 @@ const StepFive = ({
             </span>
           )}
         </div>
-        {errors?.[product.id]?.[field.key] && (
+        {errors?.[getProductKey(product)]?.[field.key] && (
           <p className="text-xs text-red-500 mt-1">
-            {errors[product.id][field.key]}
+            {errors[getProductKey(product)][field.key]}
           </p>
         )}
       </div>
     );
   };
 
+  const openProductId =
+    openIndex !== null && products[openIndex]
+      ? getProductKey(products[openIndex])
+      : undefined;
+  const openProductDocState = openProductId
+    ? getDocState(openProductId)
+    : null;
+
   useEffect(() => {
-    fetchDocuments();
-  }, []);
+    if (!openProductId) return;
+
+    const { search, debouncedSearch } = getDocState(openProductId);
+    if (search === debouncedSearch) return;
+
+    const timeout = setTimeout(() => {
+      patchDocState(openProductId, { debouncedSearch: search, page: 1 });
+    }, 500);
+
+    return () => clearTimeout(timeout);
+  }, [openProductId, openProductDocState?.search]);
+
+  useEffect(() => {
+    if (!openProductId || openProductDocState === null) return;
+
+    loadDocumentsForProduct(
+      openProductId,
+      openProductDocState.page,
+      openProductDocState.debouncedSearch,
+    );
+  }, [
+    openProductId,
+    openProductDocState?.debouncedSearch,
+    openProductDocState?.page,
+  ]);
 
   useEffect(() => {
     const hasErr = Object.values(errors).some((product: any) =>
@@ -704,52 +972,28 @@ const StepFive = ({
   }, [errors]);
 
   useEffect(() => {
-    if (!products.length) return;
+    if (mode === "update" || !products.length) return;
 
     let changed = false;
     const next = { ...(value || {}) };
 
     products.forEach((product: any) => {
-      const defaults = getDefaultCriteriaValuesForProduct(product.code);
-      const existing = next[product.id] || {};
+      const existing = next[getProductKey(product)];
 
-      const hasAnySavedData = Object.entries(existing).some(([key, val]) => {
-        if (key === "states" || key === "documents") return false;
-        return val !== undefined && val !== "" && val !== null;
-      });
-
-      if (!hasAnySavedData) {
-        if (!Object.keys(defaults).length) return;
-
-        next[product.id] = {
-          ...defaults,
+      if (!existing) {
+        next[getProductKey(product)] = {
           states: US_STATES,
-          documents: existing.documents || [],
+          documents: [],
         };
         changed = true;
         return;
       }
 
-      const requiredKeys = getRequiredCriteriaKeysForProduct(product.code);
-      const patch: Record<string, any> = {};
-
-      requiredKeys.forEach((key) => {
-        const current = existing[key];
-        if (
-          (current === undefined || current === "") &&
-          defaults[key] !== undefined &&
-          defaults[key] !== ""
-        ) {
-          patch[key] = defaults[key];
-        }
-      });
-
       if (!existing.states?.length) {
-        patch.states = US_STATES;
-      }
-
-      if (Object.keys(patch).length) {
-        next[product.id] = { ...existing, ...patch };
+        next[getProductKey(product)] = {
+          ...existing,
+          states: US_STATES,
+        };
         changed = true;
       }
     });
@@ -757,23 +1001,24 @@ const StepFive = ({
     if (changed) {
       setValue(next);
     }
-  }, [products]);
+  }, [mode, products]);
 
   useEffect(() => {
     if (!products.length) return;
 
     products.forEach((p: any) => {
-      const hasStates = Boolean(value?.[p.id]?.states?.length);
+      const productKey = getProductKey(p);
+      const hasStates = Boolean(value?.[productKey]?.states?.length);
 
       setErrors((prev: any) => {
-        const currentError = prev?.[p.id]?.states || "";
+        const currentError = prev?.[productKey]?.states || "";
 
         if (hasStates) {
           if (!currentError) return prev;
           return {
             ...prev,
-            [p.id]: {
-              ...prev?.[p.id],
+            [productKey]: {
+              ...prev?.[productKey],
               states: "",
             },
           };
@@ -785,8 +1030,8 @@ const StepFive = ({
 
         return {
           ...prev,
-          [p.id]: {
-            ...prev?.[p.id],
+          [productKey]: {
+            ...prev?.[productKey],
             states: message,
           },
         };
@@ -796,7 +1041,6 @@ const StepFive = ({
 
   return (
     <div className="space-y-4">
-      {/* Header */}
       <div>
         <h2 className="text-lg font-semibold flex items-center gap-2">
           <Settings size={14} /> Loan Criteria
@@ -806,16 +1050,15 @@ const StepFive = ({
         </p>
       </div>
 
-      {/* List */}
       {products.map((product: any, index: number) => {
         const isOpen = openIndex === index;
+        const docState = getDocState(getProductKey(product));
 
         return (
           <div
-            key={product.id}
+            key={getProductKey(product)}
             className="border rounded-xl overflow-hidden transition"
           >
-            {/* Header Row */}
             <div
               onClick={() => setOpenIndex(isOpen ? null : index)}
               className="flex justify-between items-center px-4 py-3 cursor-pointer bg-white hover:bg-gray-50"
@@ -835,7 +1078,6 @@ const StepFive = ({
               />
             </div>
 
-            {/* Form */}
             {isOpen && (
               <div className="p-4 bg-gray-50 border-t">
                 <div className="grid grid-cols-2 gap-4">
@@ -843,22 +1085,27 @@ const StepFive = ({
                     renderField(product, field),
                   )}
                 </div>
-                {/* STATES SECTION */}
+
                 <div className="mt-6">
-                  {/* Header */}
                   <div className="flex justify-between items-center mb-2">
-                    <h3 className="text-sm font-semibold">States</h3>
+                    <h3 className="text-sm font-semibold">
+                      {isSba7aBusinessAcquisitionProduct(product.code) ||
+                      isSbaExpressProduct(product.code)
+                        ? "Geographic Coverage/Location"
+                        : "States"}
+                      <span className="text-red-500">*</span>
+                    </h3>
 
                     <div className="flex gap-3 text-xs">
                       <button
-                        onClick={() => selectAllStates(product.id)}
+                        onClick={() => selectAllStates(getProductKey(product))}
                         className="text-blue-600 font-medium hover:underline"
                       >
                         Select All
                       </button>
 
                       <button
-                        onClick={() => clearStates(product.id)}
+                        onClick={() => clearStates(getProductKey(product))}
                         className="text-red-500 font-medium hover:underline"
                       >
                         Clear All
@@ -866,15 +1113,16 @@ const StepFive = ({
                     </div>
                   </div>
 
-                  {/* States Container */}
                   <div
                     className={`border rounded-xl p-3 max-h-44 overflow-y-auto bg-white
-  ${errors?.[product.id]?.states ? "border-red-500" : "border-gray-300"}`}
+  ${errors?.[getProductKey(product)]?.states ? "border-red-500" : "border-gray-300"}`}
                   >
                     <div className="grid grid-cols-4 gap-2">
                       {US_STATES.map((state) => {
                         const selected =
-                          value?.[product.id]?.states?.includes(state);
+                          value?.[getProductKey(product)]?.states?.includes(
+                            state,
+                          );
 
                         return (
                           <label
@@ -885,7 +1133,9 @@ const StepFive = ({
                             <input
                               type="checkbox"
                               checked={selected || false}
-                              onChange={() => toggleState(product.id, state)}
+                              onChange={() =>
+                                toggleState(getProductKey(product), state)
+                              }
                               className="accent-blue-600 cursor-pointer"
                             />
                             {state}
@@ -895,32 +1145,34 @@ const StepFive = ({
                     </div>
                   </div>
 
-                  {/* Selected Count */}
                   <div className="flex justify-between items-center mt-2">
                     <p className="text-xs text-gray-500">
-                      {value?.[product.id]?.states?.length || 0} states selected
+                      {value?.[getProductKey(product)]?.states?.length || 0}{" "}
+                      states selected
                     </p>
                   </div>
                 </div>
-                {errors?.[product.id]?.states && (
+                {errors?.[getProductKey(product)]?.states && (
                   <p className="text-xs text-red-500 mt-1">
-                    {errors[product.id].states}
+                    {errors[getProductKey(product)].states}
                   </p>
                 )}
 
-                {/* DOCUMENTS */}
                 <div className="mt-6">
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
                       <FileText size={16} className="text-indigo-600" />
 
                       <h3 className="text-sm font-semibold">
-                        Upfront Documents (optional) 
+                        Upfront Documents (optional)
                       </h3>
 
-                      {!!value?.[product.id]?.documents?.length && (
+                      {!!value?.[getProductKey(product)]?.documents?.length && (
                         <span className="text-xs bg-indigo-100 text-indigo-600 px-2 py-0.5 rounded-full">
-                          {value?.[product.id]?.documents?.length} selected
+                          {
+                            value?.[getProductKey(product)]?.documents?.length
+                          }{" "}
+                          selected
                         </span>
                       )}
                     </div>
@@ -928,7 +1180,9 @@ const StepFive = ({
                     <div className="flex gap-3 text-xs">
                       <button
                         type="button"
-                        onClick={() => selectAllDocuments(product.id)}
+                        onClick={() =>
+                          selectAllDocuments(getProductKey(product))
+                        }
                         className="text-indigo-600 font-medium hover:underline"
                       >
                         Select All
@@ -936,61 +1190,58 @@ const StepFive = ({
 
                       <button
                         type="button"
-                        onClick={() => clearDocuments(product.id)}
+                        onClick={() => clearDocuments(getProductKey(product))}
                         className="text-red-500 font-medium hover:underline"
                       >
                         Clear All
                       </button>
                     </div>
                   </div>
-
                   <div className="mb-4">
                     <input
                       type="text"
                       placeholder="Search documents..."
-                      value={docSearch}
-                      onChange={(e) => {
-                        setDocSearch(e.target.value);
-                        setDocPage(1);
-                      }}
+                      value={docState.search}
+                      onChange={(e) =>
+                        patchDocState(getProductKey(product), {
+                          search: e.target.value,
+                        })
+                      }
                       className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
                     />
                   </div>
-
                   <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center">
                     <input
                       type="text"
                       placeholder="Enter custom document name..."
-                      value={customDocumentName}
-                      onChange={(e) => setCustomDocumentName(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          addCustomDocument(product.id);
-                        }
-                      }}
+                      value={docState.customDocumentName}
+                      onChange={(e) =>
+                        patchDocState(getProductKey(product), {
+                          customDocumentName: e.target.value,
+                        })
+                      }
                       className="h-12 flex-1 rounded-xl border border-slate-300 bg-white px-4 text-sm shadow-sm transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none"
                     />
 
                     <button
                       type="button"
-                      onClick={() => addCustomDocument(product.id)}
-                      disabled={addingCustomDoc}
-                      className="flex h-12 shrink-0 items-center justify-center rounded-xl bg-indigo-600 px-6 text-sm font-semibold text-white transition hover:bg-indigo-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 md:w-auto"
+                      onClick={() => addCustomDocument(getProductKey(product))}
+                      className="flex h-12 shrink-0 items-center justify-center rounded-xl bg-indigo-600 px-6 text-sm font-semibold text-white transition hover:bg-indigo-700 active:scale-[0.98] md:w-auto"
                     >
-                      {addingCustomDoc ? "Adding..." : "+ Add Document"}
+                      + Add Document
                     </button>
                   </div>
-
-                  {loadingDocs ? (
+                  {isOpen && docState.loading ? (
                     <div className="flex items-center justify-center py-12 text-sm text-gray-500">
                       Loading documents...
                     </div>
-                  ) : filteredDocuments.length > 0 ? (
+                  ) : docState.documents.length > 0 ? (
                     <>
                       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                        {paginatedDocuments.map((doc) => {
-                          const checked = value?.[product.id]?.documents?.some(
+                        {docState.documents.map((doc) => {
+                          const checked = value?.[
+                            getProductKey(product)
+                          ]?.documents?.some(
                             (d: any) =>
                               d.id === doc.id || d.documentTypeId === doc.id,
                           );
@@ -1008,16 +1259,16 @@ const StepFive = ({
                               <input
                                 type="checkbox"
                                 checked={checked || false}
-                                onChange={() => toggleDocument(product.id, doc)}
+                                onChange={() =>
+                                  toggleDocument(getProductKey(product), doc)
+                                }
                                 className="mt-1 accent-indigo-600 cursor-pointer"
                               />
 
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2">
                                   <div
-                                    className={`w-2.5 h-2.5 rounded-full ${getColor(
-                                      doc.name,
-                                    )}`}
+                                    className={`w-2.5 h-2.5 rounded-full ${getColor(doc.name)}`}
                                   />
 
                                   <p className="text-sm font-medium text-gray-800 leading-tight">
@@ -1037,49 +1288,58 @@ const StepFive = ({
                         })}
                       </div>
 
-                      {docTotalPages > 1 && (
-                        <div className="flex items-center justify-between pt-4">
-                          <p className="text-xs text-gray-500">
-                            Showing {(safeDocPage - 1) * DOCS_PER_PAGE + 1}-
-                            {Math.min(safeDocPage * DOCS_PER_PAGE, filteredDocuments.length)} of{" "}
-                            {filteredDocuments.length}
-                          </p>
+                      {docState.pagination.total > 0 && (
+                        <div className="mt-6 flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
+                          <div className="text-sm text-gray-500">
+                            Showing{" "}
+                            <span className="font-semibold text-gray-700">
+                              {(docState.pagination.page - 1) * DOCUMENT_LIMIT +
+                                1}
+                            </span>
+                            {" - "}
+                            <span className="font-semibold text-gray-700">
+                              {Math.min(
+                                docState.pagination.page * DOCUMENT_LIMIT,
+                                docState.pagination.total,
+                              )}
+                            </span>{" "}
+                            of{" "}
+                            <span className="font-semibold text-gray-700">
+                              {docState.pagination.total}
+                            </span>{" "}
+                            documents
+                          </div>
 
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-3">
                             <button
                               type="button"
-                              onClick={() => setDocPage((p) => Math.max(p - 1, 1))}
-                              disabled={safeDocPage <= 1}
-                              className="px-3 py-1 text-xs rounded-md border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                              disabled={!docState.pagination.hasPreviousPage}
+                              onClick={() =>
+                                patchDocState(getProductKey(product), {
+                                  page: docState.page - 1,
+                                })
+                              }
+                              className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:border-indigo-500 hover:text-indigo-600 disabled:cursor-not-allowed disabled:opacity-50"
                             >
-                              Prev
+                              ← Previous
                             </button>
 
-                            {Array.from({ length: docTotalPages }).map((_, i) => {
-                              const pg = i + 1;
-                              return (
-                                <button
-                                  key={pg}
-                                  type="button"
-                                  onClick={() => setDocPage(pg)}
-                                  className={`px-3 py-1 text-xs rounded-md border ${
-                                    safeDocPage === pg
-                                      ? "bg-indigo-600 text-white border-indigo-600"
-                                      : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
-                                  }`}
-                                >
-                                  {pg}
-                                </button>
-                              );
-                            })}
+                            <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-2 text-sm font-medium text-gray-700">
+                              Page {docState.pagination.page} of{" "}
+                              {docState.pagination.totalPages}
+                            </div>
 
                             <button
                               type="button"
-                              onClick={() => setDocPage((p) => Math.min(p + 1, docTotalPages))}
-                              disabled={safeDocPage >= docTotalPages}
-                              className="px-3 py-1 text-xs rounded-md border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                              disabled={!docState.pagination.hasNextPage}
+                              onClick={() =>
+                                patchDocState(getProductKey(product), {
+                                  page: docState.page + 1,
+                                })
+                              }
+                              className="rounded-lg border border-indigo-600 bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:border-gray-300 disabled:bg-gray-300"
                             >
-                              Next
+                              Next →
                             </button>
                           </div>
                         </div>
@@ -1094,9 +1354,9 @@ const StepFive = ({
                       </h3>
 
                       <p className="mt-1 text-sm text-gray-500 text-center">
-                        {docSearch.trim()
-                          ? `No documents found for "${docSearch}".`
-                          : "No document types are available. Add a custom document above."}
+                        {docState.search.trim()
+                          ? `No documents found for "${docState.search}".`
+                          : "No documents configured for this loan product yet. Add a custom document or ask admin to assign document types."}
                       </p>
                     </div>
                   )}

@@ -4,9 +4,13 @@ module.exports = async function (fastify) {
     buildResolvedFeeAgreementContext,
     refreshDraftFeeAgreementIfNeeded,
   } = require("../../../../services/feeAgreement/refreshDraftFeeAgreement");
+  const { extraOfficerPermission } = require("../../../../services/broker/loanOfficerAccess");
+  const feeAgreementGuard = extraOfficerPermission(fastify, "VIEW_FEE_AGREEMENT");
+
   fastify.get(
     "/:loanId/fee-agreement",
     {
+      preHandler: feeAgreementGuard,
       schema: {
         tags: ["Loan Pipeline → Fee Agreement"],
         summary: "Get Fee Agreement for a loan",

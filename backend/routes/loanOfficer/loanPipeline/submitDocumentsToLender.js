@@ -8,6 +8,7 @@ const {
 const {
   applyDocumentSendStatusUpdates,
 } = require("../../../services/documents/applyDocumentSendStatusUpdates");
+const { extraOfficerPermission } = require("../../../services/broker/loanOfficerAccess");
 
 /**
  * @param {import("fastify").FastifyInstance} fastify
@@ -15,6 +16,7 @@ const {
 module.exports = async function submitDocumentsToLender(fastify) {
   fastify.post(
     "/submissions/:submissionId/documents/submit",
+    { preHandler: extraOfficerPermission(fastify, "SUBMIT_TO_LENDERS") },
     async (req, reply) => {
       try {
         /* ===============================

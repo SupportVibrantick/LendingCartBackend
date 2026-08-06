@@ -493,17 +493,17 @@ export default function AlloanProducts() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
-            <span className="text-[#18B6B4]">Loan</span> Products
+            <span className="text-[#18B6B4]">Loan</span> Programs
           </h1>
           <p className="text-sm text-gray-500 mt-1 dark:text-slate-400">
-            Manage global loan products available on the platform.
+            Manage global loan programs available on the platform.
           </p>
         </div>
 
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
             <input
-              placeholder="Search by loan product name"
+              placeholder="Search by loan program name"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               className="px-3 py-2 border rounded-md w-64 focus:outline-none focus:ring-1 focus:ring-blue-500
@@ -534,7 +534,7 @@ export default function AlloanProducts() {
               aria-label="Add Loan"
             >
               <TiPlus className="mr-2" />
-              Add Loan
+              Add Loan Programs
             </button>
           )}
         </div>
@@ -543,11 +543,11 @@ export default function AlloanProducts() {
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 dark:bg-slate-900 dark:border-slate-700">
         {loading ? (
           <div className="py-16 text-center text-sm text-gray-500 dark:text-slate-400">
-            Loading loan products...
+            Loading loan programs...
           </div>
         ) : pagination.total === 0 ? (
           <div className="py-16 text-center text-sm text-gray-500 dark:text-slate-400">
-            No Loan Products found.
+            No Loan programs found.
           </div>
         ) : (
           <>
@@ -555,7 +555,7 @@ export default function AlloanProducts() {
               <table className="min-w-full text-sm">
                 <thead>
                   <tr className="border-b border-gray-100 text-xs text-gray-500 uppercase tracking-wide dark:border-slate-700 dark:text-slate-400">
-                    <th className="py-2 pr-4 text-left">Loan Product</th>
+                    <th className="py-2 pr-4 text-left">Loan Program</th>
                     <th className="py-2 pr-4 text-left">Key Criteria</th>
                     <th className="py-2 pr-4 text-left">Status</th>
                     <th className="py-2 pr-4 text-right">Actions</th>
@@ -786,7 +786,7 @@ export default function AlloanProducts() {
                 id="loan-product-details-title"
                 className="text-lg font-semibold text-gray-800 dark:text-white"
               >
-                Loan Product Details
+                Loan Program Details
               </h2>
               <button
                 type="button"
@@ -801,11 +801,11 @@ export default function AlloanProducts() {
             {/* CONTENT */}
             <div className="grid grid-cols-2 gap-4 text-sm">
               <Detail
-                label="Product Code"
+                label="Program Code"
                 value={formatLoanProductCode(viewDetails)}
               />
               <Detail
-                label="Product Name"
+                label="Program Name"
                 value={formatLoanProductName(viewDetails)}
               />
 

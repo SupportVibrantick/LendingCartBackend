@@ -91,10 +91,18 @@ async function createLenderDocumentConfigRoutes(fastify) {
         let docType = null;
 
         if (resolvedDocumentTypeId) {
+          // Only shared (non-custom) docs or this lender's own custom docs
           docType = await prisma.documentType.findFirst({
             where: {
               id: resolvedDocumentTypeId,
               isActive: true,
+              OR: [
+                { isCustom: false },
+                {
+                  isCustom: true,
+                  createdByOrgId: lenderOrgId,
+                },
+              ],
             },
           });
         } else {
@@ -129,8 +137,56 @@ async function createLenderDocumentConfigRoutes(fastify) {
         if (!docType) {
           return reply.code(404).send({
             success: false,
-            message: "Document type not found",
+            message:
+              "Document type not found or not accessible for your organization",
           });
+        }
+
+        /* ================= LINK CUSTOM DOC TO CATALOG PRODUCT ================= */
+        if (
+          docType.isCustom &&
+          (lenderProduct.loanProductId || lenderProduct.loanProductCode)
+        ) {
+          const existingProductLink =
+            await prisma.productDocumentRequirement.findFirst({
+              where: {
+                documentTypeId: docType.id,
+                OR: [
+                  ...(lenderProduct.loanProductId
+                    ? [{ loanProductId: lenderProduct.loanProductId }]
+                    : []),
+                  ...(lenderProduct.loanProductCode
+                    ? [{ loanProductCode: lenderProduct.loanProductCode }]
+                    : []),
+                ],
+              },
+            });
+
+          if (!existingProductLink) {
+            let catalogProduct = null;
+            if (lenderProduct.loanProductId) {
+              catalogProduct = await prisma.loanProduct.findUnique({
+                where: { id: lenderProduct.loanProductId },
+                select: { id: true, code: true },
+              });
+            } else if (lenderProduct.loanProductCode) {
+              catalogProduct = await prisma.loanProduct.findFirst({
+                where: { code: lenderProduct.loanProductCode },
+                select: { id: true, code: true },
+              });
+            }
+
+            if (catalogProduct) {
+              await prisma.productDocumentRequirement.create({
+                data: {
+                  loanProductId: catalogProduct.id,
+                  loanProductCode: catalogProduct.code,
+                  documentTypeId: docType.id,
+                  isRequired: isRequired ?? true,
+                },
+              });
+            }
+          }
         }
 
         /* ================= UPSERT ================= */
@@ -158,13 +214,26 @@ async function createLenderDocumentConfigRoutes(fastify) {
               notes: notes ?? null,
               sortOrder: sortOrder ?? null,
             },
+            include: {
+              documentType: {
+                select: {
+                  id: true,
+                  name: true,
+                  isCustom: true,
+                },
+              },
+            },
           });
 
         /* ================= RESPONSE ================= */
         return reply.send({
           success: true,
           message: "Document config saved successfully",
-          data: result,
+          data: {
+            ...result,
+            documentName: result.documentType?.name || null,
+            isCustom: result.documentType?.isCustom || false,
+          },
         });
 
       } catch (error) {

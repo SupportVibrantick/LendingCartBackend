@@ -1,4 +1,7 @@
 const { logAudit } = require("../../../services/logger/auditLogger");
+const {
+  requireLoOfficerPermission,
+} = require("../../../services/broker/loanOfficerAccess");
 
 module.exports = async function deleteContactRoutes(fastify) {
   fastify.delete(
@@ -7,7 +10,10 @@ module.exports = async function deleteContactRoutes(fastify) {
       schema: {
         tags: ["Broker -> Contacts"],
         summary: "Delete contact (soft delete)"
-      }
+      },
+      preHandler: async (req, reply) => {
+        await requireLoOfficerPermission(req, reply, fastify, "DELETE_CONTACTS");
+      },
     },
     async (req, reply) => {
       const prisma = fastify.prisma;
@@ -23,10 +29,12 @@ module.exports = async function deleteContactRoutes(fastify) {
         }
 
         if (!req.user.roles?.includes("BROKER_ADMIN")) {
-          return reply.code(403).send({
-            success: false,
-            message: "Only Broker Admin can delete contacts"
-          });
+          if (!req.user.roles?.includes("BROKER_OFFICER")) {
+            return reply.code(403).send({
+              success: false,
+              message: "Only Broker Admin or Loan Officer can delete contacts",
+            });
+          }
         }
 
         const brokerOrgId = req.user.organizationId;

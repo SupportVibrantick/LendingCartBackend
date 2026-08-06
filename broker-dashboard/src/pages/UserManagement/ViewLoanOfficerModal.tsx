@@ -7,12 +7,12 @@ import {
   formatStateCodes,
   formatYesNo,
 } from "../../lib/coBrokerDisplay";
+import type { LoanOfficerDetail } from "../../lib/loanOfficerForm";
 import {
-  inferPermissionLevel,
-  PERMISSION_LEVEL_OPTIONS,
-  type LoanOfficerDetail,
-} from "../../lib/loanOfficerForm";
-import { formatPhone, getPermissionLabel } from "./loanOfficerShared";
+  formatPhone,
+  groupPermissionsByCategory,
+  normalizeLoanOfficerPermissions,
+} from "./loanOfficerShared";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
@@ -70,18 +70,6 @@ function formatDate(value?: string | null) {
     day: "numeric",
     year: "numeric",
   });
-}
-
-function getPermissionLevelLabel(
-  level: string | undefined,
-  permissions: string[] = [],
-) {
-  const resolved = level || inferPermissionLevel(permissions);
-  if (!resolved) return "—";
-  return (
-    PERMISSION_LEVEL_OPTIONS.find((option) => option.value === resolved)?.label ||
-    resolved.replace(/_/g, " ")
-  );
 }
 
 function getAuthHeaders() {
@@ -144,11 +132,8 @@ export default function ViewLoanOfficerModal({
   const email = data?.email ?? fallback?.email ?? "";
   const avatarUrl = formatFileUrl(API_BASE, profile?.avatarUrl);
   const w9Url = formatFileUrl(API_BASE, profile?.w9Url);
-  const permissions = data?.permissions || [];
-  const permissionLevel = getPermissionLevelLabel(
-    profile?.permissionLevel,
-    permissions,
-  );
+  const permissions = normalizeLoanOfficerPermissions(data?.permissions || []);
+  const permissionGroups = groupPermissionsByCategory(permissions);
 
   return (
     <div
@@ -239,7 +224,10 @@ export default function ViewLoanOfficerModal({
                   label="Login Access"
                   value={data.status === "ACTIVE" ? "Allowed" : "Disabled"}
                 />
-                <Field label="Permission Level" value={permissionLevel} />
+                <Field
+                  label="Permissions Granted"
+                  value={`${permissions.length} permission${permissions.length === 1 ? "" : "s"}`}
+                />
               </div>
             </Section>
 
@@ -437,16 +425,25 @@ export default function ViewLoanOfficerModal({
               </div>
             </Section>
 
-            {permissions.length > 0 ? (
+            {permissionGroups.length > 0 ? (
               <Section title="User Permissions">
-                <div className="flex flex-wrap gap-2">
-                  {permissions.map((key) => (
-                    <span
-                      key={key}
-                      className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-200"
-                    >
-                      {getPermissionLabel(key)}
-                    </span>
+                <div className="space-y-4">
+                  {permissionGroups.map((category) => (
+                    <div key={category.title}>
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        {category.title}
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {category.items.map((item) => (
+                          <span
+                            key={item.key}
+                            className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                          >
+                            {item.label}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
                   ))}
                 </div>
               </Section>

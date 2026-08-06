@@ -1,6 +1,9 @@
 const jwt = require("jsonwebtoken");
 const jwtSecret = require("../../../utils/auth/jwtSecret");
 const { resolveClientDisplayName } = require("../../../utils/applications/resolveClientDisplayName");
+const {
+  requireLoOfficerPermission,
+} = require("../../../services/broker/loanOfficerAccess");
 
 /**
  * @param {import("fastify").FastifyInstance} fastify
@@ -19,6 +22,14 @@ module.exports = async function impersonateBorrowerRoute(fastify) {
             clientId: { type: "string", format: "uuid" },
           },
         },
+      },
+      preHandler: async (req, reply) => {
+        await requireLoOfficerPermission(
+          req,
+          reply,
+          fastify,
+          "ACCESS_BORROWER_PORTAL",
+        );
       },
     },
     async (req, reply) => {

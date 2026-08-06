@@ -1,8 +1,19 @@
 /**
  * @param {import("fastify").FastifyInstance} fastify
  */
+const {
+  requireLoCustomDocumentsManage,
+} = require("../../../services/broker/loanOfficerAccess");
+
 async function updateBrokerCustomDocumentType(fastify) {
-  fastify.put("/:id", async (req, reply) => {
+  fastify.put(
+    "/:id",
+    {
+      preHandler: async (req, reply) => {
+        await requireLoCustomDocumentsManage(req, reply, fastify);
+      },
+    },
+    async (req, reply) => {
     const prisma = fastify.prisma;
 
     try {
@@ -103,7 +114,8 @@ async function updateBrokerCustomDocumentType(fastify) {
         message: error.message || "Failed to update custom document",
       });
     }
-  });
+    },
+  );
 }
 
 module.exports = updateBrokerCustomDocumentType;

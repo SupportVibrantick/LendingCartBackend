@@ -1,23 +1,19 @@
-import { handleBrokerUnauthorized } from "./brokerSession";
+import {
+  getPortalAuthHeaders,
+  getPortalToken,
+  handlePortalUnauthorized,
+} from "./portalAuth";
 
 export const BROKER_API_BASE =
   import.meta.env.VITE_API_BASE?.replace(/\/$/, "") || "http://localhost:4000";
 
 export function getBrokerAuthHeaders(json = false): Record<string, string> {
-  const token = sessionStorage.getItem("broker_token");
-  return {
-    ...(json ? { "Content-Type": "application/json" } : {}),
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-  };
+  return getPortalAuthHeaders(json);
 }
 
-function handleAuthFailure(res: Response, json: Record<string, unknown>) {
+function handleAuthFailure(res: Response, _json: Record<string, unknown>) {
   if (res.status === 401) {
-    throw handleBrokerUnauthorized(
-      typeof json.message === "string"
-        ? json.message
-        : "Session expired. Please sign in again.",
-    );
+    throw handlePortalUnauthorized();
   }
 }
 
@@ -55,7 +51,7 @@ export async function brokerFetchMultipart<T = unknown>(
   formData: FormData,
   method: "POST" | "PATCH" = "POST",
 ): Promise<T> {
-  const token = sessionStorage.getItem("broker_token");
+  const token = getPortalToken();
   const res = await fetch(`${BROKER_API_BASE}${path}`, {
     method,
     headers: {

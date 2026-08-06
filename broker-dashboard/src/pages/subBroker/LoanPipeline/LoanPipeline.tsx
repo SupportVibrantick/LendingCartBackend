@@ -14,6 +14,7 @@ import {
   Eye,
   Users,
   FileText,
+  Plus,
 } from "lucide-react";
 
 import PageMeta from "../../../components/common/PageMeta";
@@ -788,6 +789,15 @@ export default function LoanApplicationsPage() {
                   </button>
                 )}
               </div>
+
+              <button
+                type="button"
+                onClick={() => navigate("/sub-broker/loan-application")}
+                className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#13538A] px-4 text-sm font-medium text-white transition hover:bg-[#1a6aad]"
+              >
+                <Plus className="h-4 w-4" />
+                New Application
+              </button>
 
               <button
                 type="button"

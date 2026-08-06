@@ -1,6 +1,8 @@
 /**
  * @param {import("fastify").FastifyInstance} fastify
  */
+const { requireLoAddOwnLender } = require("../../../../services/broker/loanOfficerAccess");
+
 async function submitCommunityLenderRoutes(fastify) {
   fastify.post(
     "/submit",
@@ -26,6 +28,9 @@ async function submitCommunityLenderRoutes(fastify) {
             notes: { type: "string" },
           },
         },
+      },
+      preHandler: async (req, reply) => {
+        await requireLoAddOwnLender(req, reply, fastify);
       },
     },
     async (req, reply) => {

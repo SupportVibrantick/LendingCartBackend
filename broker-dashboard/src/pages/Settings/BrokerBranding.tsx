@@ -13,15 +13,14 @@ import {
 import toast from "react-hot-toast";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
+import { getBrokerAuthHeaders } from "../../lib/brokerApi";
+import { hasPermission } from "../../lib/brokerPermissions";
+import { isLoanOfficerPortalPath } from "../../lib/portalAuth";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
 function getAuthHeaders(): HeadersInit {
-  const token = sessionStorage.getItem("broker_token");
-  return {
-    "Content-Type": "application/json",
-    ...(token && { Authorization: `Bearer ${token}` }),
-  };
+  return getBrokerAuthHeaders(true);
 }
 
 type BrandingForm = {
@@ -57,6 +56,12 @@ function RequirementItem({
 }
 
 export default function BrokerBranding() {
+  const isLoanOfficerPortal = isLoanOfficerPortalPath();
+  const canManageBranding =
+    !isLoanOfficerPortal ||
+    hasPermission("MANAGE_BRANDING", "loanOfficer");
+  const readOnly = isLoanOfficerPortal && !canManageBranding;
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [fileInputKey, setFileInputKey] = useState(0);
@@ -77,7 +82,7 @@ export default function BrokerBranding() {
     [form, saved],
   );
 
-  const canSave = isFormComplete && hasChanges && !saving;
+  const canSave = canManageBranding && isFormComplete && hasChanges && !saving;
 
   useEffect(() => {
     fetchBranding();
@@ -110,6 +115,7 @@ export default function BrokerBranding() {
   };
 
   const handleLogoUpload = (file?: File) => {
+    if (!canManageBranding) return;
     if (!file) return;
 
     if (!file.type.startsWith("image/")) {
@@ -133,6 +139,10 @@ export default function BrokerBranding() {
   };
 
   const handleSave = async () => {
+    if (!canManageBranding) {
+      toast.error("You have view-only access to branding settings");
+      return;
+    }
     if (!isFormComplete) {
       toast.error("Please upload a logo and enter your brand name");
       return;
@@ -174,6 +184,7 @@ export default function BrokerBranding() {
   };
 
   const handleRemoveLogo = () => {
+    if (!canManageBranding) return;
     setForm((prev) => ({ ...prev, logoUrl: "" }));
     setFileInputKey((key) => key + 1);
   };
@@ -208,12 +219,17 @@ export default function BrokerBranding() {
               </div>
               <h1 className="text-2xl font-bold sm:text-3xl">Broker Branding</h1>
               <p className="mt-2 text-sm leading-relaxed text-blue-50/90 sm:text-base">
-                Set your company identity once. New fee agreements will
-                automatically show your logo and brand name. Signed agreements
-                keep the branding that was active when the client signed.
+                {readOnly
+                  ? "View your company branding used on fee agreements. Contact your broker admin to request changes."
+                  : "Set your company identity once. New fee agreements will automatically show your logo and brand name. Signed agreements keep the branding that was active when the client signed."}
               </p>
             </div>
 
+            {readOnly ? (
+              <div className="rounded-2xl border border-amber-200/40 bg-amber-50/90 px-4 py-3 text-sm text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100">
+                View-only access — branding updates are disabled.
+              </div>
+            ) : (
             <div className="rounded-2xl border border-white/20 bg-white/10 p-4 backdrop-blur-sm">
               <p className="text-xs font-semibold uppercase tracking-wide text-blue-100">
                 Setup progress
@@ -223,6 +239,7 @@ export default function BrokerBranding() {
                 <RequirementItem done={hasBrandName} label="Brand name added" />
               </div>
             </div>
+            )}
           </div>
         </div>
 
@@ -252,7 +269,9 @@ export default function BrokerBranding() {
               </div>
 
               <label
-                className={`group relative flex min-h-[180px] cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed px-6 py-8 transition ${
+                className={`group relative flex min-h-[180px] flex-col items-center justify-center rounded-2xl border-2 border-dashed px-6 py-8 transition ${
+                  readOnly ? "cursor-default" : "cursor-pointer"
+                } ${
                   hasLogo
                     ? "border-emerald-200 bg-emerald-50/40 dark:border-emerald-500/30 dark:bg-emerald-500/5"
                     : "border-slate-300 bg-slate-50 hover:border-[#2C92D5] hover:bg-sky-50/60 dark:border-slate-700 dark:bg-slate-900/40 dark:hover:border-sky-500/40"
@@ -263,6 +282,7 @@ export default function BrokerBranding() {
                   type="file"
                   accept="image/png,image/jpeg,image/jpg,image/webp,image/svg+xml"
                   className="hidden"
+                  disabled={readOnly}
                   onChange={(e) => handleLogoUpload(e.target.files?.[0])}
                 />
 
@@ -276,7 +296,7 @@ export default function BrokerBranding() {
                       />
                     </div>
                     <p className="text-sm font-medium text-slate-600 dark:text-slate-300">
-                      Click to replace logo
+                      {readOnly ? "Company logo" : "Click to replace logo"}
                     </p>
                   </div>
                 ) : (
@@ -296,7 +316,7 @@ export default function BrokerBranding() {
                 )}
               </label>
 
-              {hasLogo && (
+              {hasLogo && canManageBranding && (
                 <div className="mt-4 flex justify-end">
                   <button
                     type="button"
@@ -336,8 +356,9 @@ export default function BrokerBranding() {
                   hasBrandName
                     ? "border-emerald-200 focus:border-emerald-400 focus:ring-emerald-100 dark:border-emerald-500/30 dark:focus:ring-emerald-500/20"
                     : "border-slate-300 focus:border-[#2C92D5] focus:ring-sky-100 dark:border-slate-600 dark:focus:ring-sky-500/20"
-                }`}
+                } ${readOnly ? "cursor-not-allowed opacity-80" : ""}`}
                 value={form.brandName}
+                readOnly={readOnly}
                 onChange={(e) =>
                   setForm((prev) => ({ ...prev, brandName: e.target.value }))
                 }
@@ -425,6 +446,7 @@ export default function BrokerBranding() {
         </div>
 
         {/* Save bar */}
+        {canManageBranding ? (
         <div className="sticky bottom-4 z-20 rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-lg backdrop-blur dark:border-slate-800 dark:bg-slate-950/95">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="text-sm text-slate-500">
@@ -461,6 +483,7 @@ export default function BrokerBranding() {
             </button>
           </div>
         </div>
+        ) : null}
       </div>
     </>
   );

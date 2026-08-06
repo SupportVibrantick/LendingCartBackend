@@ -1,24 +1,32 @@
-import { useState } from "react";
 import { Outlet } from "react-router-dom";
+import { SidebarProvider, useSidebar } from "../context/SidebarContext";
 import Sidebar from "../pages/subBroker/components/Sidebar";
 import CoBrokerHeader from "./CoBrokerHeader";
+import Backdrop from "./Backdrop";
 import {
   exitCoBrokerImpersonation,
   isCoBrokerImpersonationSession,
 } from "../lib/coBrokerPortal";
+import { useCoBrokerSessionMonitor } from "../hooks/useSessionMonitor";
 
-export default function SubBrokerLayout() {
-  const [mobileOpen, setMobileOpen] = useState(false);
+function LayoutContent() {
+  const { isExpanded, isHovered, isMobileOpen } = useSidebar();
   const isImpersonation = isCoBrokerImpersonationSession();
+
+  useCoBrokerSessionMonitor();
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50 dark:bg-gray-950">
-      <Sidebar
-        mobileOpen={mobileOpen}
-        onMobileClose={() => setMobileOpen(false)}
-      />
+      <div className="shrink-0">
+        <Sidebar />
+        <Backdrop />
+      </div>
 
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div
+        className={`flex min-h-0 min-w-0 flex-1 flex-col transition-all duration-300 ease-in-out
+        ${isExpanded || isHovered ? "lg:ml-[290px]" : "lg:ml-[90px]"}
+        ${isMobileOpen ? "ml-0" : ""}`}
+      >
         {isImpersonation && (
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/40 dark:text-amber-200">
             <span>
@@ -34,10 +42,7 @@ export default function SubBrokerLayout() {
           </div>
         )}
 
-        <CoBrokerHeader
-          mobileOpen={mobileOpen}
-          onMenuClick={() => setMobileOpen((open) => !open)}
-        />
+        <CoBrokerHeader />
 
         <main className="min-h-0 flex-1 overflow-y-auto">
           <div className="mx-auto max-w-[1600px] p-4 md:p-6">
@@ -46,5 +51,13 @@ export default function SubBrokerLayout() {
         </main>
       </div>
     </div>
+  );
+}
+
+export default function SubBrokerLayout() {
+  return (
+    <SidebarProvider>
+      <LayoutContent />
+    </SidebarProvider>
   );
 }

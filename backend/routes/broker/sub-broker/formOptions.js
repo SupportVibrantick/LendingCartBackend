@@ -3,12 +3,19 @@
  * @param {import("fastify").FastifyInstance} fastify
  */
 module.exports = async function subBrokerFormOptionsRoutes(fastify) {
+  const {
+    requireLoOfficerPermission,
+  } = require("../../../services/broker/loanOfficerAccess");
+
   fastify.get(
     "/loan-officers",
     {
       schema: {
         tags: ["Broker -> Sub Broker"],
         summary: "List loan officers for co-broker assignment",
+      },
+      preHandler: async (req, reply) => {
+        await requireLoOfficerPermission(req, reply, fastify, "VIEW_CO_BROKERS");
       },
     },
     async (req, reply) => {

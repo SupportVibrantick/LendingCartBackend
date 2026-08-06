@@ -1,12 +1,17 @@
 const fp = require("fastify-plugin");
 const { logAudit } = require("../../../services/logger/auditLogger");
-const { getUserId } = require("../../../services/broker/loanOfficerAccess");
+const {
+  getUserId,
+  officerPreHandler,
+} = require("../../../services/broker/loanOfficerAccess");
 const {
   canBrokerEditSubmittedApplication,
 } = require("../../../utils/applications/resolveApplicationStatus");
 
 async function editSubmittedApplication(fastify) {
-  fastify.put("/:applicationId/edit", async (req, reply) => {
+  fastify.put("/:applicationId/edit", {
+    preHandler: officerPreHandler(fastify, "EDIT_APPLICATION"),
+  }, async (req, reply) => {
     const prisma = fastify.prisma;
 
     try {

@@ -10,6 +10,7 @@ const {
 const {
   setAutoForwardLenderRequestsToClient,
 } = require("../../../services/documents/documentAutoForwardSetting");
+const { requireLoOfficerPermission } = require("../../../services/broker/loanOfficerAccess");
 
 /**
  * Notify client that lender-requested documents were forwarded by the broker.
@@ -245,6 +246,14 @@ async function forwardLenderDocumentsToClientRoutes(fastify) {
           });
         }
 
+        await requireLoOfficerPermission(
+          req,
+          reply,
+          fastify,
+          "AUTO_FORWARD_TO_CLIENT",
+        );
+        if (reply.sent) return;
+
         const brokerOrgId = req.user.organizationId;
         const { submissionId } = req.params;
         const { autoForwardLenderRequestsToClient } = req.body;
@@ -268,6 +277,16 @@ async function forwardLenderDocumentsToClientRoutes(fastify) {
             success: false,
             message: "Access denied for this loan",
           });
+        }
+
+        if (req.user.roles?.includes("BROKER_OFFICER")) {
+          const userId = req.user.id || req.user.userId;
+          if (submission.application.brokerUserId !== userId) {
+            return reply.code(403).send({
+              success: false,
+              message: "Access denied - not assigned to you",
+            });
+          }
         }
 
         const updated = await setAutoForwardLenderRequestsToClient(

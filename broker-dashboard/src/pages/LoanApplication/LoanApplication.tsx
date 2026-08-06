@@ -46,69 +46,1028 @@ import { IoArrowBack } from "react-icons/io5";
 import { IoIosArrowBack } from "react-icons/io";
 import { MdDeleteForever } from "react-icons/md";
 
-import {
-  ALL_LOAN_PURPOSES,
-  API_BASE,
-  CATEGORY_LOAN_TYPES,
-  ENTITY_TYPE_OPTIONS,
-  LOAN_SUB_PURPOSE_MAP,
-  LOAN_TOP_PURPOSE_MAP,
-  OPTIONAL_LOAN_REQUEST_KEYS,
-  PRODUCT_LABELS,
-  RESIDENTIAL_1_4_PROPERTY_TYPES,
-  US_STATES,
-} from "./constants";
-import {
-  isConstructionLoanProduct,
-  isCreBase44Product,
-  isCreResidentialLikeCategoryProduct,
-  isCrePermanentRecapitalization,
-  isAgencyMultifamilyNoPurchaseDate,
-  isResidential14Category,
-  isRentalPortfolioProduct,
-  isFixAndFlipProduct,
-  isBridgeProduct,
-  isRentalUnderwritingProduct,
-  isConstruction14Product,
-  showExitStrategy,
-  showCreBase44EntityEbitda,
-  showEquityDownPaymentBlock,
-  showValuationEquityBlock,
-  showResidentialPropertyConstructionCost,
-  showResidentialPropertyMarketValue,
-  showResidentialPropertyPurchasePrice,
-  showResidentialPropertyRehabCost,
-  showResidentialPropertyArv,
-  getLoanRequestPurchaseDateLabel,
-  isLoanRequestPurchaseDateReplacesAmortization,
-  isLoanRequestOriginalPurchaseDate,
-  isLoanRequestPurchaseDateField,
-  isPurchaseDateWithAmortization,
-  hidesLoanRequestAmortization,
-  shouldHidePropertyPurchaseDate,
-  resolveCategoryLoanProducts,
-  isProductAllowedInCategory,
-  getSbaCollateralTypeOptions,
-  getSbaCollateralTypeLabel,
-  isSbaUsdaCollateralProduct,
-  getAblCollateralTypeOptions,
-  isAblCollateralProduct,
-  isConstructionPurchase,
-  showValuationCostEquity,
-} from "./productRules";
-import {
-  calculateMonthlyPayment,
-  formatSSN,
-  formatUSPhone,
-  formatCurrency,
-  toNumber,
-} from "./formatters";
-import { validateFieldValue } from "./validation";
-import {
-  getPortalConfig,
-  fetchLoanProductCatalog,
-  withBorrowerNameFields,
-} from "./submission";
+export interface Borrower extends ResidentialBorrowerFields {
+  name: string;
+  entityName: string;
+  phone: string;
+  email: string;
+  employer: string;
+  dob: string;
+  ssn: string;
+  creditScore: string;
+  address: string;
+  city: string;
+  state: string;
+  mailingAddress: string;
+}
+
+export interface CoBorrower extends Borrower {
+  id: number;
+
+  // Financial
+  currentMarketValue: string;
+  purchasePrice: string;
+  interestRate: string;
+  noi: string;
+  totalAssets: string;
+  totalLiabilities: string;
+}
+
+export interface FormDataType {
+  borrower: Borrower;
+  coBorrowers: CoBorrower[];
+  loanRequest: {
+    purpose: string;
+    amount: string;
+    interestRate: string;
+    sellerFinancing: string;
+    sellerNoteAmount: string;
+    estimatedClosingDate: string;
+    rateType: string;
+    brokerPoints: string;
+    amortization: string;
+    currentMarketValue: string;
+    purchasePrice: string;
+    purchaseDate: string;
+    totalAssets: string;
+    totalLiabilities: string;
+    afterRepairValue: string;
+    rehabCost: string;
+    constructionCost: string;
+
+    propertyType: string;
+    subPropertyType: string;
+    recourse: string;
+    businessAddress: string;
+    city: string;
+    state: string;
+    zip: string;
+    numberOfUnits: string;
+  };
+  loanTermIncome: {
+    loanTerm: string;
+    monthlyRent: string;
+    grossRevenueActual: string;
+    grossRevenueProforma: string;
+    noiActual: string;
+    noiProforma: string;
+    annualTaxes: string;
+    floodZone: string;
+    insurancePremium: string;
+    hoaDues: string;
+  };
+  entity: {
+    legalName: string;
+    entityType: string;
+    dba: string;
+    formationDate: string;
+    yearsInBusiness: string;
+    ebitdaWithNoi: string;
+    naicsCode: string;
+    goodwillAmount: string;
+    inventoryIncluded: boolean;
+    inventoryValue: string;
+    equipmentIncluded: boolean;
+    equipmentValue: string;
+  };
+  financials: ResidentialFinancials;
+}
+
+export type LoanCategory =
+  | "RESIDENTIAL_1_4"
+  | "CRE_MULTIFAMILY"
+  | "SBA_USDA"
+  | "ABL"
+  | "";
+
+const US_STATES = [
+  "Alabama",
+  "Alaska",
+  "Arizona",
+  "Arkansas",
+  "California",
+  "Colorado",
+  "Connecticut",
+  "Delaware",
+  "Florida",
+  "Georgia",
+  "Hawaii",
+  "Idaho",
+  "Illinois",
+  "Indiana",
+  "Iowa",
+  "Kansas",
+  "Kentucky",
+  "Louisiana",
+  "Maine",
+  "Maryland",
+  "Massachusetts",
+  "Michigan",
+  "Minnesota",
+  "Mississippi",
+  "Missouri",
+  "Montana",
+  "Nebraska",
+  "Nevada",
+  "New Hampshire",
+  "New Jersey",
+  "New Mexico",
+  "New York",
+  "North Carolina",
+  "North Dakota",
+  "Ohio",
+  "Oklahoma",
+  "Oregon",
+  "Pennsylvania",
+  "Rhode Island",
+  "South Carolina",
+  "South Dakota",
+  "Tennessee",
+  "Texas",
+  "Utah",
+  "Vermont",
+  "Virginia",
+  "Washington",
+  "West Virginia",
+  "Wisconsin",
+  "Wyoming",
+];
+
+const ALL_LOAN_PURPOSES = [
+  "Purchase / Acquisition",
+  "Refinance (Rate & Term)",
+  "Cash Out Refinance",
+  "Construction Completion",
+  "Ground-up Construction",
+  "Major Renovation (>50%)",
+  "Tenant Improvements",
+  "Infrastructure Development",
+  "Purchase & Rehab",
+  "Refinance & Rehab",
+  "Portfolio Blanket",
+  "Recapitalization",
+  "Gap Finance",
+  "Leverage Enhancement",
+  "JV Equity",
+  "Acquisition Bridge",
+  "Affordable Housing",
+  "Supplement Loan",
+  "Partner Buyout",
+  "Franchise Purchase",
+  "Business Expansion",
+  "Inventory Purchase",
+  "Marketing / Expansion",
+  "Debt Consolidation",
+  "Seasonal Line",
+  "New Equipment",
+  "Used Equipment",
+  "Refinance Existing Equipment",
+  "Equipment Line",
+  "Real Estate Acquisition",
+  "Real Estate Construction",
+  "Heavy Equipment",
+  "Refinance (504 Debt)",
+  "Business Acquisition",
+  "Real Estate Purchase",
+  "Equipment Purchase",
+  "Working Capital",
+  "Debt Refinancing",
+  "New Equipment Purchase",
+  "Used Equipment Purchase",
+  "Sale-LeaseBack",
+  "Refinance / Consolidation",
+  "Single PO Funding",
+  "PO Line of Credit",
+  "International PO",
+  "Government PO",
+  "Invoice Factoring",
+  "ABL Line",
+  "Selective Receivable Finance",
+  "International Receivables",
+  "Supplier Finance Program",
+  "Dynamic Discounting",
+  "Reverse Factoring",
+  "Supply Chain Finance",
+];
+
+export const CATEGORY_LOAN_TYPES: Record<
+  Exclude<LoanCategory, "">,
+  string[]
+> = {
+  /**
+   * ==========================================
+   * 1-4 Units Residential
+   * ==========================================
+   */
+  RESIDENTIAL_1_4: [
+    "BRIDGE_LOAN_1_TO_4_UNITS",
+    "FIX_AND_FLIP_LOAN_1_TO_4_UNITS",
+    "DSCR_LOAN_1_TO_4_UNITS",
+    "CONSTRUCTION_LOAN_1_TO_4_UNITS",
+    "RENTAL_PORTFOLIO",
+  ],
+
+  /**
+   * ==========================================
+   * CRE & Multifamily
+   * ==========================================
+   */
+  CRE_MULTIFAMILY: [
+    "BRIDGE_LOAN",
+    "CONSTRUCTION_LOAN",
+    "RENTAL_PORTFOLIO",
+    "CRE_PERMANENT_LOAN",
+    "AGENCY_LOAN_MULTIFAMILY",
+    "CMBS",
+    "MEZZANINE_FINANCE",
+  ],
+
+  /**
+   * ==========================================
+   * SBA & USDA
+   * ==========================================
+   */
+  SBA_USDA: [
+    "SBA_7A_BUSINESS_ACQUISITION",
+    "SBA_7A_WORKING_CAPITAL",
+    "SBA_7A_EQUIPMENT_PURCHASE",
+    "SBA_7A_REAL_ESTATE",
+    "SBA_504_REAL_ESTATE_AND_EQUIPMENT",
+    "USDA_BI",
+  ],
+
+  /**
+   * ==========================================
+   * Asset Based Lending
+   * ==========================================
+   */
+  ABL: [
+    "EQUIPMENT_FINANCE",
+    "PURCHASE_ORDER_FINANCE",
+    "ACCOUNTS_RECEIVABLE",
+    "ACCOUNTS_RECEIVABLE_FINANCE",
+    "ACCOUNTS_PAYABLE_FINANCE",
+    "ASSET_BASED_LENDING",
+  ],
+};
+
+/** Shared Bridge / Construction codes across Residential 1-4 and CRE. */
+const LOAN_PRODUCT_CODE_ALIASES: Record<string, string[]> = {
+  BRIDGE_LOAN: ["BRIDGE_LOAN", "BRIDGE_LOAN_1_TO_4_UNITS"],
+  BRIDGE_LOAN_1_TO_4_UNITS: ["BRIDGE_LOAN_1_TO_4_UNITS", "BRIDGE_LOAN"],
+  CONSTRUCTION_LOAN: ["CONSTRUCTION_LOAN", "CONSTRUCTION_LOAN_1_TO_4_UNITS"],
+  CONSTRUCTION_LOAN_1_TO_4_UNITS: [
+    "CONSTRUCTION_LOAN_1_TO_4_UNITS",
+    "CONSTRUCTION_LOAN",
+  ],
+};
+
+export const getLoanProductAliasGroup = (code: string) =>
+  LOAN_PRODUCT_CODE_ALIASES[code] || [code];
+
+const catalogMatchesCategoryProduct = (
+  catalogCode: string,
+  allowedCode: string,
+) => getLoanProductAliasGroup(allowedCode).includes(catalogCode);
+
+/**
+ * Pick one display/submit code per category slot.
+ * Prefer the category's primary code when present in catalog, else an alias.
+ */
+const resolveCategoryLoanProducts = (
+  allowedProducts: string[],
+  catalogCodes: string[],
+) => {
+  const catalogSet = new Set(catalogCodes);
+  const claimed = new Set<string>();
+  const resolved: string[] = [];
+
+  for (const allowedCode of allowedProducts) {
+    const group = getLoanProductAliasGroup(allowedCode);
+    if (group.some((code) => claimed.has(code))) continue;
+
+    const match =
+      group.find((code) => catalogSet.has(code)) ||
+      (catalogCodes.length === 0 ? allowedCode : null);
+
+    if (!match) continue;
+
+    resolved.push(match);
+    group.forEach((code) => claimed.add(code));
+  }
+
+  return resolved;
+};
+
+const isProductAllowedInCategory = (
+  productCode: string,
+  category: Exclude<LoanCategory, "">,
+) => {
+  const allowed = CATEGORY_LOAN_TYPES[category] || [];
+  return allowed.some((allowedCode) =>
+    catalogMatchesCategoryProduct(productCode, allowedCode),
+  );
+};
+
+const PRODUCT_LABELS: Record<string, string> = {
+  // Residential
+  BRIDGE_LOAN_1_TO_4_UNITS: "Bridge",
+  FIX_AND_FLIP_LOAN_1_TO_4_UNITS: "Fix & Flip",
+  DSCR_LOAN_1_TO_4_UNITS: "DSCR",
+  CONSTRUCTION_LOAN_1_TO_4_UNITS: "Construction",
+  RENTAL_PORTFOLIO: "Rental Portfolio",
+
+  // CRE
+  BRIDGE_LOAN: "Bridge",
+  CONSTRUCTION_LOAN: "Construction",
+  CRE_PERMANENT_LOAN: "CRE Permanent",
+  AGENCY_LOAN_MULTIFAMILY: "Agency Multifamily",
+  CMBS: "CMBS",
+  MEZZANINE_FINANCE: "Mezz/Pref Equity",
+  PREFERRED_EQUITY: "Preferred Equity",
+
+  // SBA
+  SBA_7A_BUSINESS_ACQUISITION: "SBA 7a Acquisition",
+  SBA_7A_WORKING_CAPITAL: "SBA 7a Working Capital",
+  SBA_7A_EQUIPMENT_PURCHASE: "SBA 7a Equipment",
+  SBA_7A_REAL_ESTATE: "SBA 7a Real Estate",
+  SBA_504_REAL_ESTATE_AND_EQUIPMENT: "SBA 504 Real Estate",
+  USDA_BI: "USDA B&I",
+
+  // ABL
+  EQUIPMENT_FINANCE: "Equipment Finance",
+
+  PURCHASE_ORDER_FINANCE: "Purchase Order Finance",
+
+  ACCOUNTS_RECEIVABLE_FINANCE: "Accounts Receivable",
+  ACCOUNTS_RECEIVABLE: "Accounts Receivable",
+  ACCOUNTS_PAYABLE_FINANCE: "Accounts Payable",
+};
+
+/* ================= HELPERS ================= */
+const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
+
+const OPTIONAL_LOAN_REQUEST_KEYS = new Set([
+  "sellerFinancing",
+  "sellerNoteAmount",
+  "estimatedClosingDate",
+  "brokerPoints",
+  "amortization",
+  "rateType",
+  "interestRate",
+  "recourse",
+  "numberOfUnits",
+  "subPropertyType",
+  "rehabCost",
+  "constructionCost",
+]);
+
+const BRIDGE_LOAN_TYPES = new Set(["BRIDGE_LOAN", "BRIDGE_LOAN_1_TO_4_UNITS"]);
+const BRIDGE_PURCHASE_PURPOSE = "Purchase/Acquisition";
+const BRIDGE_ORIGINAL_PURCHASE_DATE_PURPOSES = new Set([
+  "Refinance (Rate & Term)",
+  "Cash Out Refinance",
+]);
+const BRIDGE_CONSTRUCTION_COMPLETION_PURPOSE = "Construction Completion";
+
+const FIX_AND_FLIP_LOAN_TYPES = new Set(["FIX_AND_FLIP_LOAN_1_TO_4_UNITS"]);
+const FIX_AND_FLIP_PURCHASE_REHAB_PURPOSE = "Purchase & Rehab";
+const FIX_AND_FLIP_REFINANCE_REHAB_PURPOSE = "Refinance & Rehab";
+
+const PURCHASE_DATE_WITH_AMORTIZATION_LOAN_TYPES = new Set([
+  "DSCR_LOAN_1_TO_4_UNITS",
+  "RENTAL_PORTFOLIO",
+  "CRE_PERMANENT_LOAN",
+  "AGENCY_LOAN_MULTIFAMILY",
+  "CMBS",
+  "SBA_7A_REAL_ESTATE",
+  "SBA_504_REAL_ESTATE_AND_EQUIPMENT",
+  "USDA_BI",
+]);
+const PURCHASE_DATE_WITH_AMORTIZATION_PURPOSES = new Set([
+  "Purchase",
+  "Purchase/Acquisition",
+  "Purchase / Acquisition",
+  "Purchase (Owner-Occupied)",
+  "Purchase & Rehab",
+  "Real Estate Acquisition",
+  "Business Acquisition",
+  "Real Estate Purchase",
+  "Equipment Purchase",
+]);
+const ORIGINAL_PURCHASE_DATE_WITH_AMORTIZATION_PURPOSES = new Set([
+  "Refinance (Rate & Term)",
+  "Cash Out Refinance",
+  "Refinance",
+  "Refinance & Rehab",
+  "Refinance (504 Debt)",
+  "Debt Refinancing",
+]);
+
+const CONSTRUCTION_LOAN_TYPES = new Set([
+  "CONSTRUCTION_LOAN",
+  "CONSTRUCTION_LOAN_1_TO_4_UNITS",
+]);
+
+const MEZZANINE_LOAN_TYPES = new Set(["MEZZANINE_FINANCE"]);
+const MEZZANINE_ACQUISITION_BRIDGE_PURPOSE = "Acquisition Bridge";
+
+const isBridgePurchaseAcquisition = (
+  product: string,
+  purpose: string,
+) =>
+  BRIDGE_LOAN_TYPES.has(product) && purpose === BRIDGE_PURCHASE_PURPOSE;
+
+const isBridgeOriginalPurchaseDate = (product: string, purpose: string) =>
+  BRIDGE_LOAN_TYPES.has(product) &&
+  BRIDGE_ORIGINAL_PURCHASE_DATE_PURPOSES.has(purpose);
+
+const isBridgeConstructionCompletion = (product: string, purpose: string) =>
+  BRIDGE_LOAN_TYPES.has(product) &&
+  purpose === BRIDGE_CONSTRUCTION_COMPLETION_PURPOSE;
+
+const isConstructionLoanType = (product: string) =>
+  CONSTRUCTION_LOAN_TYPES.has(product);
+
+const isMezzanineLoanType = (product: string) =>
+  MEZZANINE_LOAN_TYPES.has(product);
+
+const isMezzanineAcquisitionBridge = (product: string, purpose: string) =>
+  isMezzanineLoanType(product) &&
+  purpose === MEZZANINE_ACQUISITION_BRIDGE_PURPOSE;
+
+const SBA_7A_ACQUISITION_PURCHASE_DATE_PURPOSES = new Set([
+  "Purchase/Acquisition",
+  "Franchise Purchase",
+]);
+
+const isSba7aAcquisitionPurchaseDate = (product: string, purpose: string) =>
+  product === "SBA_7A_BUSINESS_ACQUISITION" &&
+  SBA_7A_ACQUISITION_PURCHASE_DATE_PURPOSES.has(purpose);
+
+const isSba7aAcquisitionNonPurchase = (product: string, purpose: string) =>
+  product === "SBA_7A_BUSINESS_ACQUISITION" &&
+  Boolean(purpose?.trim()) &&
+  !SBA_7A_ACQUISITION_PURCHASE_DATE_PURPOSES.has(purpose);
+
+const SBA_7A_WORKING_CAPITAL_PURCHASE_DATE_PURPOSES = new Set([
+  "Inventory Purchase",
+]);
+
+const SBA_7A_WORKING_CAPITAL_ORIGINAL_PURCHASE_DATE_PURPOSES = new Set([
+  "Debt Consolidation",
+]);
+
+const isSba7aWorkingCapitalOriginalPurchaseDate = (
+  product: string,
+  purpose: string,
+) =>
+  product === "SBA_7A_WORKING_CAPITAL" &&
+  SBA_7A_WORKING_CAPITAL_ORIGINAL_PURCHASE_DATE_PURPOSES.has(purpose);
+
+const isSba7aWorkingCapitalLoanRequestDate = (
+  product: string,
+  purpose: string,
+) =>
+  product === "SBA_7A_WORKING_CAPITAL" &&
+  (SBA_7A_WORKING_CAPITAL_PURCHASE_DATE_PURPOSES.has(purpose) ||
+    SBA_7A_WORKING_CAPITAL_ORIGINAL_PURCHASE_DATE_PURPOSES.has(purpose));
+
+const isSba7aWorkingCapitalNonPurchase = (product: string, purpose: string) =>
+  product === "SBA_7A_WORKING_CAPITAL" &&
+  Boolean(purpose?.trim()) &&
+  !isSba7aWorkingCapitalLoanRequestDate(product, purpose);
+
+const SBA_7A_EQUIPMENT_ORIGINAL_PURCHASE_DATE_PURPOSES = new Set([
+  "Refinance Existing Equipment",
+]);
+
+const isSba7aEquipmentOriginalPurchaseDate = (
+  product: string,
+  purpose: string,
+) =>
+  product === "SBA_7A_EQUIPMENT_PURCHASE" &&
+  SBA_7A_EQUIPMENT_ORIGINAL_PURCHASE_DATE_PURPOSES.has(purpose);
+
+const isSba7aEquipmentLoanRequestDate = (product: string, purpose: string) =>
+  product === "SBA_7A_EQUIPMENT_PURCHASE" &&
+  SBA_7A_EQUIPMENT_ORIGINAL_PURCHASE_DATE_PURPOSES.has(purpose);
+
+const isSba7aEquipmentNonPurchase = (product: string, purpose: string) =>
+  product === "SBA_7A_EQUIPMENT_PURCHASE" &&
+  Boolean(purpose?.trim()) &&
+  !isSba7aEquipmentLoanRequestDate(product, purpose);
+
+const EQUIPMENT_FINANCE_PURCHASE_DATE_PURPOSES = new Set([
+  "New Equipment Purchase",
+  "Used Equipment Purchase",
+]);
+
+const EQUIPMENT_FINANCE_ORIGINAL_PURCHASE_DATE_PURPOSES = new Set([
+  "Refinance/Consolidation",
+]);
+
+const isEquipmentFinanceOriginalPurchaseDate = (
+  product: string,
+  purpose: string,
+) =>
+  product === "EQUIPMENT_FINANCE" &&
+  EQUIPMENT_FINANCE_ORIGINAL_PURCHASE_DATE_PURPOSES.has(purpose);
+
+const isEquipmentFinanceLoanRequestDate = (product: string, purpose: string) =>
+  product === "EQUIPMENT_FINANCE" &&
+  (EQUIPMENT_FINANCE_PURCHASE_DATE_PURPOSES.has(purpose) ||
+    EQUIPMENT_FINANCE_ORIGINAL_PURCHASE_DATE_PURPOSES.has(purpose));
+
+const isEquipmentFinanceNonPurchase = (product: string, purpose: string) =>
+  product === "EQUIPMENT_FINANCE" &&
+  Boolean(purpose?.trim()) &&
+  !isEquipmentFinanceLoanRequestDate(product, purpose);
+
+const PURCHASE_ORDER_FINANCE_PURCHASE_DATE_PURPOSES = new Set<string>([]);
+const PURCHASE_ORDER_FINANCE_ORIGINAL_PURCHASE_DATE_PURPOSES = new Set<string>(
+  [],
+);
+
+const isPurchaseOrderFinanceLoanRequestDate = (
+  product: string,
+  purpose: string,
+) =>
+  product === "PURCHASE_ORDER_FINANCE" &&
+  (PURCHASE_ORDER_FINANCE_PURCHASE_DATE_PURPOSES.has(purpose) ||
+    PURCHASE_ORDER_FINANCE_ORIGINAL_PURCHASE_DATE_PURPOSES.has(purpose));
+
+const isPurchaseOrderFinanceNonPurchase = (product: string, purpose: string) =>
+  product === "PURCHASE_ORDER_FINANCE" &&
+  Boolean(purpose?.trim()) &&
+  !isPurchaseOrderFinanceLoanRequestDate(product, purpose);
+
+const ACCOUNTS_RECEIVABLE_LOAN_TYPES = new Set([
+  "ACCOUNTS_RECEIVABLE_FINANCE",
+  "ACCOUNTS_RECEIVABLE",
+]);
+
+const ACCOUNTS_RECEIVABLE_PURCHASE_DATE_PURPOSES = new Set<string>([]);
+const ACCOUNTS_RECEIVABLE_ORIGINAL_PURCHASE_DATE_PURPOSES = new Set<string>([]);
+
+const isAccountsReceivableLoanRequestDate = (product: string, purpose: string) =>
+  ACCOUNTS_RECEIVABLE_LOAN_TYPES.has(product) &&
+  (ACCOUNTS_RECEIVABLE_PURCHASE_DATE_PURPOSES.has(purpose) ||
+    ACCOUNTS_RECEIVABLE_ORIGINAL_PURCHASE_DATE_PURPOSES.has(purpose));
+
+const isAccountsReceivableNonPurchase = (product: string, purpose: string) =>
+  ACCOUNTS_RECEIVABLE_LOAN_TYPES.has(product) &&
+  Boolean(purpose?.trim()) &&
+  !isAccountsReceivableLoanRequestDate(product, purpose);
+
+const ACCOUNTS_PAYABLE_PURCHASE_DATE_PURPOSES = new Set<string>([]);
+const ACCOUNTS_PAYABLE_ORIGINAL_PURCHASE_DATE_PURPOSES = new Set<string>([]);
+
+const isAccountsPayableLoanRequestDate = (product: string, purpose: string) =>
+  product === "ACCOUNTS_PAYABLE_FINANCE" &&
+  (ACCOUNTS_PAYABLE_PURCHASE_DATE_PURPOSES.has(purpose) ||
+    ACCOUNTS_PAYABLE_ORIGINAL_PURCHASE_DATE_PURPOSES.has(purpose));
+
+const isAccountsPayableNonPurchase = (product: string, purpose: string) =>
+  product === "ACCOUNTS_PAYABLE_FINANCE" &&
+  Boolean(purpose?.trim()) &&
+  !isAccountsPayableLoanRequestDate(product, purpose);
+
+const hidesLoanRequestAmortization = (product: string, purpose: string) =>
+  isBridgeConstructionCompletion(product, purpose) ||
+  isConstructionLoanType(product) ||
+  (isMezzanineLoanType(product) &&
+    !isMezzanineAcquisitionBridge(product, purpose)) ||
+  isSba7aAcquisitionNonPurchase(product, purpose) ||
+  isSba7aWorkingCapitalNonPurchase(product, purpose) ||
+  isSba7aEquipmentNonPurchase(product, purpose) ||
+  isEquipmentFinanceNonPurchase(product, purpose) ||
+  isPurchaseOrderFinanceNonPurchase(product, purpose) ||
+  isAccountsReceivableNonPurchase(product, purpose) ||
+  isAccountsPayableNonPurchase(product, purpose);
+
+const isFixAndFlipPurchaseRehab = (product: string, purpose: string) =>
+  FIX_AND_FLIP_LOAN_TYPES.has(product) &&
+  purpose === FIX_AND_FLIP_PURCHASE_REHAB_PURPOSE;
+
+const isFixAndFlipRefinanceRehab = (product: string, purpose: string) =>
+  FIX_AND_FLIP_LOAN_TYPES.has(product) &&
+  purpose === FIX_AND_FLIP_REFINANCE_REHAB_PURPOSE;
+
+const isCrePermanentRecapitalization = (product: string, purpose: string) =>
+  product === "CRE_PERMANENT_LOAN" && purpose === "Recapitalization";
+
+const AGENCY_MULTIFAMILY_NO_PURCHASE_DATE_PURPOSES = new Set([
+  "Affordable Housing",
+  "Supplement Loan",
+]);
+
+const isAgencyMultifamilyNoPurchaseDate = (product: string, purpose: string) =>
+  product === "AGENCY_LOAN_MULTIFAMILY" &&
+  AGENCY_MULTIFAMILY_NO_PURCHASE_DATE_PURPOSES.has(purpose);
+
+const isPurchaseDateWithAmortization = (product: string, purpose: string) =>
+  PURCHASE_DATE_WITH_AMORTIZATION_LOAN_TYPES.has(product) &&
+  (PURCHASE_DATE_WITH_AMORTIZATION_PURPOSES.has(purpose) ||
+    ORIGINAL_PURCHASE_DATE_WITH_AMORTIZATION_PURPOSES.has(purpose));
+
+const isOriginalPurchaseDateWithAmortization = (
+  product: string,
+  purpose: string,
+) =>
+  PURCHASE_DATE_WITH_AMORTIZATION_LOAN_TYPES.has(product) &&
+  ORIGINAL_PURCHASE_DATE_WITH_AMORTIZATION_PURPOSES.has(purpose);
+
+const isLoanRequestOriginalPurchaseDate = (product: string, purpose: string) =>
+  isBridgeOriginalPurchaseDate(product, purpose) ||
+  isFixAndFlipRefinanceRehab(product, purpose) ||
+  isOriginalPurchaseDateWithAmortization(product, purpose) ||
+  isSba7aWorkingCapitalOriginalPurchaseDate(product, purpose) ||
+  isSba7aEquipmentOriginalPurchaseDate(product, purpose) ||
+  isEquipmentFinanceOriginalPurchaseDate(product, purpose);
+
+const isBridgeLoanRequestDateField = (product: string, purpose: string) =>
+  isBridgePurchaseAcquisition(product, purpose) ||
+  isBridgeOriginalPurchaseDate(product, purpose);
+
+const isLoanRequestPurchaseDateReplacesAmortization = (
+  product: string,
+  purpose: string,
+) =>
+  isBridgeLoanRequestDateField(product, purpose) ||
+  isFixAndFlipPurchaseRehab(product, purpose) ||
+  isFixAndFlipRefinanceRehab(product, purpose) ||
+  isMezzanineAcquisitionBridge(product, purpose) ||
+  isSba7aAcquisitionPurchaseDate(product, purpose) ||
+  isSba7aWorkingCapitalLoanRequestDate(product, purpose) ||
+  isSba7aEquipmentLoanRequestDate(product, purpose) ||
+  isEquipmentFinanceLoanRequestDate(product, purpose);
+
+const isLoanRequestPurchaseDateField = (product: string, purpose: string) =>
+  isLoanRequestPurchaseDateReplacesAmortization(product, purpose) ||
+  isPurchaseDateWithAmortization(product, purpose);
+
+const shouldHidePropertyPurchaseDate = (product: string, purpose: string) =>
+  isLoanRequestPurchaseDateField(product, purpose) ||
+  hidesLoanRequestAmortization(product, purpose) ||
+  isCrePermanentRecapitalization(product, purpose) ||
+  isAgencyMultifamilyNoPurchaseDate(product, purpose);
+
+const getLoanRequestPurchaseDateLabel = (product: string, purpose: string) =>
+  isLoanRequestOriginalPurchaseDate(product, purpose)
+    ? "Original Purchase Date"
+    : "Purchase Date";
+
+const STATIC_FIELD_KEYS = [
+  // Loan Request
+  "purpose",
+  "amount",
+  "interestRate",
+  "sellerFinancing",
+  "sellerNoteAmount",
+  "estimatedClosingDate",
+  "rateType",
+  "brokerPoints",
+  "amortization",
+  "currentMarketValue",
+  "purchasePrice",
+  "purchaseDate",
+  "afterRepairValue",
+  "totalAssets",
+  "totalLiabilities",
+  "propertyType",
+  "subPropertyType",
+  "recourse",
+  "businessAddress",
+  "city",
+  "state",
+  "zip",
+
+  // Loan Term
+  "loanTerm",
+  "monthlyRent",
+  "grossRevenueActual",
+  "grossRevenueProforma",
+  "noiActual",
+  "noiProforma",
+  "annualTaxes",
+  "floodZone",
+  "insurancePremium",
+  "hoaDues",
+
+  // Borrower
+  "name",
+  "entityName",
+  "phone",
+  "email",
+  "employer",
+  "dob",
+  "ssn",
+  "creditScore",
+  "address",
+  "mailingAddress",
+
+  // Entity
+  "legalName",
+  "entityType",
+  "dba",
+  "formationDate",
+  "yearsInBusiness",
+];
+
+const ENTITY_TYPE_OPTIONS = [
+  { value: "C-Corp", label: "C-Corp" },
+  { value: "S-Corp", label: "S-Corp" },
+  { value: "LLC", label: "LLC" },
+  { value: "Partnership", label: "Partnership" },
+  { value: "Sole Proprietorship", label: "Sole Proprietorship" },
+] as const;
+
+const RESIDENTIAL_1_4_PROPERTY_TYPES = [
+  "Single Family (1-Unit)",
+  "Duplex (2-Unit)",
+  "Triplex (3-Unit)",
+  "Fourplex (4-Unit)",
+] as const;
+
+const RENTAL_PORTFOLIO_LOAN_TYPES = new Set(["RENTAL_PORTFOLIO"]);
+const RENTAL_UNDERWRITING_LOAN_TYPES = new Set([
+  "DSCR_LOAN_1_TO_4_UNITS",
+  "RENTAL_PORTFOLIO",
+]);
+
+const RESIDENTIAL_PURCHASE_PRICE_PURPOSES = new Set([
+  "Purchase/Acquisition",
+  "Purchase & Rehab",
+  "Purchase",
+  "Portfolio Blanket",
+]);
+
+const RESIDENTIAL_MARKET_VALUE_PURPOSES = new Set([
+  "Refinance (Rate & Term)",
+  "Cash Out Refinance",
+  "Refinance & Rehab",
+  "Refinance",
+]);
+
+const isResidential14Category = (category: LoanCategory) =>
+  category === "RESIDENTIAL_1_4";
+
+/** CRE & Multifamily products that share the same field rules as 1-4 residential. */
+const CRE_RESIDENTIAL_LIKE_LOAN_TYPES = new Set([
+  "BRIDGE_LOAN",
+  "BRIDGE_LOAN_1_TO_4_UNITS",
+  "FIX_AND_FLIP_LOAN_1_TO_4_UNITS",
+  "DSCR_LOAN_1_TO_4_UNITS",
+  "CONSTRUCTION_LOAN",
+  "CONSTRUCTION_LOAN_1_TO_4_UNITS",
+  "RENTAL_PORTFOLIO",
+]);
+
+const isCreResidentialLikeCategoryProduct = (
+  category: LoanCategory,
+  product: string,
+) =>
+  category === "CRE_MULTIFAMILY" &&
+  CRE_RESIDENTIAL_LIKE_LOAN_TYPES.has(product);
+
+const isBridgeProduct = (product: string) => BRIDGE_LOAN_TYPES.has(product);
+
+const CRE_PERMANENT_LOAN_TYPE = "CRE_PERMANENT_LOAN";
+const AGENCY_MULTIFAMILY_LOAN_TYPE = "AGENCY_LOAN_MULTIFAMILY";
+const CMBS_LOAN_TYPE = "CMBS";
+const MEZZANINE_FINANCE_LOAN_TYPE = "MEZZANINE_FINANCE";
+
+const CRE_BASE44_LOAN_TYPES = new Set([
+  CRE_PERMANENT_LOAN_TYPE,
+  AGENCY_MULTIFAMILY_LOAN_TYPE,
+  CMBS_LOAN_TYPE,
+  MEZZANINE_FINANCE_LOAN_TYPE,
+]);
+
+const CRE_BASE44_EBITDA_LOAN_TYPES = new Set([
+  CRE_PERMANENT_LOAN_TYPE,
+  AGENCY_MULTIFAMILY_LOAN_TYPE,
+  CMBS_LOAN_TYPE,
+]);
+
+const isCrePermanentProduct = (product: string) =>
+  product === CRE_PERMANENT_LOAN_TYPE;
+
+const isAgencyMultifamilyProduct = (product: string) =>
+  product === AGENCY_MULTIFAMILY_LOAN_TYPE;
+
+const isCreBase44Product = (product: string) =>
+  CRE_BASE44_LOAN_TYPES.has(product);
+
+const showCreBase44EntityEbitda = (product: string) =>
+  CRE_BASE44_EBITDA_LOAN_TYPES.has(product);
+
+const isConstructionLoanProduct = (product: string) =>
+  product === "CONSTRUCTION_LOAN_1_TO_4_UNITS" ||
+  product === "CONSTRUCTION_LOAN";
+
+const showResidentialPropertyPurchasePrice = (
+  product: string,
+  purpose: string,
+) =>
+  RESIDENTIAL_PURCHASE_PRICE_PURPOSES.has(purpose) ||
+  isBridgePurchaseAcquisition(product, purpose) ||
+  isFixAndFlipPurchaseRehab(product, purpose) ||
+  isConstructionLoanProduct(product) ||
+  isMezzanineLoanType(product) ||
+  isSba7aAcquisitionProduct(product) ||
+  showAblBase44PurchasePrice(product, purpose) ||
+  isSbaRealEstateCollateralProduct(product) ||
+  (isCreBase44Product(product) && purpose === "Purchase/Acquisition");
+
+const showResidentialPropertyConstructionCost = (product: string) =>
+  isConstructionLoanProduct(product);
+
+const showResidentialPropertyMarketValue = (product: string, purpose: string) =>
+  RESIDENTIAL_MARKET_VALUE_PURPOSES.has(purpose) ||
+  isBridgeOriginalPurchaseDate(product, purpose) ||
+  isBridgeConstructionCompletion(product, purpose) ||
+  isFixAndFlipRefinanceRehab(product, purpose) ||
+  (isCrePermanentProduct(product) && purpose === "Recapitalization") ||
+  (isAgencyMultifamilyProduct(product) &&
+    (purpose === "Affordable Housing" || purpose === "Supplement Loan")) ||
+  (isSbaRealEstateCollateralProduct(product) &&
+    (purpose === "Refinance" ||
+      purpose === "Refinance & Rehab" ||
+      purpose === "Refinance (504 Debt)" ||
+      purpose === "Debt Refinancing")) ||
+  (isEquipmentFinanceProduct(product) &&
+    showEquipmentFinanceMarketValue(purpose));
+
+const showResidentialPropertyArv = (product: string) =>
+  FIX_AND_FLIP_LOAN_TYPES.has(product) ||
+  isConstructionLoanProduct(product);
+
+const showResidentialPropertyRehabCost = (product: string) =>
+  FIX_AND_FLIP_LOAN_TYPES.has(product);
+
+const isFixAndFlipProduct = (product: string) =>
+  FIX_AND_FLIP_LOAN_TYPES.has(product);
+
+const isRentalPortfolioProduct = (product: string) =>
+  RENTAL_PORTFOLIO_LOAN_TYPES.has(product);
+
+const isRentalUnderwritingProduct = (product: string) =>
+  RENTAL_UNDERWRITING_LOAN_TYPES.has(product);
+
+const isConstruction14Product = (product: string) =>
+  isConstructionLoanProduct(product);
+
+export type LoanApplicationMode = "create" | "update";
+
+export type LoanApplicationPortal = "broker" | "loanOfficer" | "coBroker";
+
+export type LoanApplicationDocumentPaths = {
+  requestDocuments: (loanApplicationId: string) => string;
+  listDocuments: (submissionId: string) => string;
+  uploadDocument: (submissionId: string, requirementId: string) => string;
+};
+
+function getPortalConfig(portal: LoanApplicationPortal, apiBase: string) {
+  if (portal === "loanOfficer") {
+    return {
+      tokenKey: "loan_officer_token",
+      submitUrl: `${apiBase}/loanofficer/applications/submit`,
+      editUrl: (applicationId: string) =>
+        `${apiBase}/loanofficer/applications/${applicationId}/edit`,
+      loanProductsUrl: `${apiBase}/common/loan-products/loan-product-code`,
+      loanProductsAuth: false,
+      successPath: "/loan-officer/loan-pipeline",
+      backLabel: "Back to Loan Pipeline",
+      documentPaths: {
+        requestDocuments: (loanApplicationId: string) =>
+          `${apiBase}/broker/loan-pipeline/${loanApplicationId}/request-documents`,
+        listDocuments: (submissionId: string) =>
+          `${apiBase}/broker/loan-pipeline/submissions/${submissionId}/documents?limit=100&documentCategory=upload`,
+        uploadDocument: (submissionId: string, requirementId: string) =>
+          `${apiBase}/broker/loan-pipeline/submissions/${submissionId}/documents/${requirementId}/upload`,
+      } satisfies LoanApplicationDocumentPaths,
+    };
+  }
+
+  if (portal === "coBroker") {
+    return {
+      tokenKey: "sub_broker_token",
+      submitUrl: `${apiBase}/subbroker/applications/submit`,
+      editUrl: (applicationId: string) =>
+        `${apiBase}/subbroker/applications/${applicationId}/edit`,
+      loanProductsUrl: `${apiBase}/common/loan-products/loan-product-code`,
+      loanProductsAuth: false,
+      successPath: "/sub-broker/loan-pipeline",
+      backLabel: "Back to Loan Pipeline",
+      documentPaths: {
+        requestDocuments: (loanApplicationId: string) =>
+          `${apiBase}/subbroker/documents/${loanApplicationId}/request-documents`,
+        listDocuments: (submissionId: string) =>
+          `${apiBase}/subbroker/documents/submissions/${submissionId}/documents?limit=100&documentCategory=upload`,
+        uploadDocument: (submissionId: string, requirementId: string) =>
+          `${apiBase}/subbroker/documents/submissions/${submissionId}/documents/${requirementId}/upload`,
+      } satisfies LoanApplicationDocumentPaths,
+    };
+  }
+
+  return {
+    tokenKey: "broker_token",
+    submitUrl: `${apiBase}/broker/applications/submit`,
+    editUrl: (applicationId: string) =>
+      `${apiBase}/broker/applications/${applicationId}/edit`,
+    loanProductsUrl: `${apiBase}/common/loan-products/loan-product-code`,
+    loanProductsAuth: false,
+    successPath: "/submit-applications",
+    backLabel: "Back to Submit Applications",
+    documentPaths: {
+      requestDocuments: (loanApplicationId: string) =>
+        `${apiBase}/broker/loan-pipeline/${loanApplicationId}/request-documents`,
+      listDocuments: (submissionId: string) =>
+        `${apiBase}/broker/loan-pipeline/submissions/${submissionId}/documents?limit=100&documentCategory=upload`,
+      uploadDocument: (submissionId: string, requirementId: string) =>
+        `${apiBase}/broker/loan-pipeline/submissions/${submissionId}/documents/${requirementId}/upload`,
+    } satisfies LoanApplicationDocumentPaths,
+  };
+}
+
+export type LoanApplicationProps = {
+  mode?: LoanApplicationMode;
+  portal?: LoanApplicationPortal;
+  embedded?: boolean;
+  publicEmbed?: boolean;
+  editApplicationId?: string;
+  initialFormData?: FormDataType;
+  initialSelectedProduct?: string;
+  initialSelectedCategory?: LoanCategory;
+  initialDynamicFormData?: Record<string, any>;
+  initialCreditAuthorizationConsent?: boolean;
+  onUpdateSuccess?: (submissionId?: string) => void;
+  onPublicSubmitSuccess?: (submissionId?: string) => void;
+  reviewCaptchaSlot?: ReactNode;
+  recaptchaToken?: string | null;
+};
+
+async function fetchLoanProductCatalog(
+  portalConfig: ReturnType<typeof getPortalConfig>,
+) {
+  const headers: Record<string, string> = {};
+
+  if (portalConfig.loanProductsAuth) {
+    const token = sessionStorage.getItem(portalConfig.tokenKey);
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+  }
+
+  const response = await fetch(portalConfig.loanProductsUrl, { headers });
+  const result = await response.json();
+
+  if (!response.ok || result.success === false) {
+    throw new Error(result.message || "Failed to load loan products");
+  }
+
+  const products = (result.data || []).map((product: any) => ({
+    productId: product.id,
+    loanProductCode: product.code,
+    name: product.name,
+    sections: [],
+    unsectionedFields: [],
+  }));
+
+  return { products };
+}
+
+function withBorrowerNameFields<
+  T extends { fieldKey: string; value: unknown; fieldId?: string },
+>(fields: T[]): T[] {
+  const next = [...fields];
+
+  const readValue = (...keys: string[]) => {
+    for (const key of keys) {
+      const match = fields.find((field) => field.fieldKey === key);
+      const value = match?.value;
+      if (value != null && String(value).trim()) {
+        return String(value).trim();
+      }
+    }
+    return "";
+  };
+
+  if (!next.some((field) => field.fieldKey === "first_name")) {
+    const firstName = readValue("first_name", "borrowerFirstName", "firstName");
+    if (firstName) {
+      next.push({ fieldKey: "first_name", value: firstName } as T);
+    }
+  }
+
+  if (!next.some((field) => field.fieldKey === "last_name")) {
+    const lastName = readValue("last_name", "borrowerLastName", "lastName");
+    if (lastName) {
+      next.push({ fieldKey: "last_name", value: lastName } as T);
+    }
+  }
 
 import {
   type FormDataType,
@@ -1242,6 +2201,7 @@ const LoanApplication = ({
             loanApplicationId,
             submissionId,
             documents: pendingDocuments,
+            documentPaths: portalConfig.documentPaths,
           });
         } catch (uploadError: any) {
           toast.error(

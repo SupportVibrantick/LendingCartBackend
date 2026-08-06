@@ -14,6 +14,7 @@ import {
 import RichEditor from "./Editor";
 import toast from "react-hot-toast";
 import Swal from "sweetalert2";
+import { getPortalAuthHeaders } from "../../lib/portalAuth";
 
 type Contact = {
   email: string;
@@ -120,7 +121,7 @@ export default function CreateCampaignPage() {
 
   const fetchCampaigns = async () => {
     try {
-      const token = sessionStorage.getItem("broker_token");
+      const token = getPortalAuthHeaders().Authorization;
       if (!token) return;
 
       setLoadingList(true);
@@ -158,7 +159,7 @@ export default function CreateCampaignPage() {
   useEffect(() => {
     const fetchEmails = async () => {
       try {
-        const token = sessionStorage.getItem("broker_token");
+        const token = getPortalAuthHeaders().Authorization;
 
         if (!token) return;
 
@@ -247,7 +248,7 @@ export default function CreateCampaignPage() {
         return toast.error("Please enter name for all recipients");
       }
 
-      const token = sessionStorage.getItem("broker_token");
+      const token = getPortalAuthHeaders().Authorization;
       if (!token) return toast.error("Session expired");
 
       setLoading(true);
@@ -329,7 +330,7 @@ export default function CreateCampaignPage() {
     if (!result.isConfirmed) return;
 
     try {
-      const token = sessionStorage.getItem("broker_token");
+      const token = getPortalAuthHeaders().Authorization;
       if (!token) return toast.error("Session expired");
 
       setStoppingId(id);

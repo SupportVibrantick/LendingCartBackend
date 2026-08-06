@@ -1,9 +1,11 @@
 const { logAudit } = require("../../../services/logger/auditLogger");
+const { officerPreHandler } = require("../../../services/broker/loanOfficerAccess");
 
 module.exports = async function createContactRoutes(fastify) {
   fastify.post(
     "/create",
     {
+      preHandler: officerPreHandler(fastify, "CREATE_CONTACTS"),
       schema: {
         tags: ["Broker -> Contacts"],
         summary: "Create Contact"

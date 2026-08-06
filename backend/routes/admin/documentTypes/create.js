@@ -1,6 +1,5 @@
 const { adminLogs } = require("../../../services/logger/contextLogger");
 
-// Zod schema
 const {
   createDocumentTypeSchema,
 } = require("../../../schemas/admin/documentTypes/create.schema");
@@ -14,18 +13,15 @@ async function createDocumentTypeRoutes(fastify) {
     {
       schema: {
         tags: ["Admin -> Document Types"],
-        summary: "Create Document Type (Master)",
+        summary: "Create Document Type for a Loan Product",
         description:
-          "Super Admin creates global document types used across loan products and lenders",
+          "Creates a document type and links it to the selected loan product",
         body: { type: "object" },
       },
     },
     async (request, reply) => {
       const prisma = fastify.prisma;
       try {
-        // ---------------------------
-        // Validate request body
-        // ---------------------------
         const parsed = createDocumentTypeSchema.safeParse(request.body);
 
         if (!parsed.success) {
@@ -36,44 +32,82 @@ async function createDocumentTypeRoutes(fastify) {
           });
         }
 
-const { name, description, isActive } = parsed.data;
+        const {
+          name,
+          description,
+          isActive,
+          loanProductId,
+          isRequired,
+        } = parsed.data;
 
-        // ---------------------------
-        // Check duplicate (code)
-        // ---------------------------
-        // const existing = await prisma.documentType.findFirst({
-        //   where: {
-        //     code,
-        //   },
-        // });
-
-        // if (existing) {
-        //   return reply.status(409).send({
-        //     success: false,
-        //     message: "Document type with this code already exists",
-        //   });
-        // }
-
-        // ---------------------------
-        // Create document type
-        // ---------------------------
-        const documentType = await prisma.documentType.create({
-          data: {
-            name,
-            description: description ?? null,
-            isActive: isActive ?? true,
-          },
+        const loanProduct = await prisma.loanProduct.findUnique({
+          where: { id: loanProductId },
+          select: { id: true, code: true, name: true, isActive: true },
         });
 
-        adminLogs.info("Document type created", {
-          documentTypeId: documentType.id,
-         name: documentType.name,
+        if (!loanProduct) {
+          return reply.status(404).send({
+            success: false,
+            message: "Loan product not found",
+          });
+        }
+
+        const duplicateOnProduct = await prisma.productDocumentRequirement.findFirst({
+          where: {
+            loanProductId,
+            documentType: {
+              name: { equals: name.trim(), mode: "insensitive" },
+            },
+          },
+          include: { documentType: { select: { id: true, name: true } } },
+        });
+
+        if (duplicateOnProduct) {
+          return reply.status(409).send({
+            success: false,
+            message: `Document "${name.trim()}" is already linked to ${loanProduct.name}`,
+          });
+        }
+
+        const result = await prisma.$transaction(async (tx) => {
+          const documentType = await tx.documentType.create({
+            data: {
+              name: name.trim(),
+              description: description?.trim() || null,
+              isActive: isActive ?? true,
+            },
+          });
+
+          const requirement = await tx.productDocumentRequirement.create({
+            data: {
+              loanProductId: loanProduct.id,
+              loanProductCode: loanProduct.code,
+              documentTypeId: documentType.id,
+              isRequired: isRequired ?? true,
+            },
+          });
+
+          return { documentType, requirement };
+        });
+
+        adminLogs.info("Document type created for loan product", {
+          documentTypeId: result.documentType.id,
+          name: result.documentType.name,
+          loanProductId: loanProduct.id,
+          loanProductCode: loanProduct.code,
         });
 
         return reply.status(201).send({
           success: true,
           message: "Document type created successfully",
-          data: documentType,
+          data: {
+            ...result.documentType,
+            requirementId: result.requirement.id,
+            loanProductId: loanProduct.id,
+            loanProductCode: loanProduct.code,
+            loanProductName: loanProduct.name,
+            isRequired: result.requirement.isRequired,
+          },
         });
       } catch (error) {
         adminLogs.error("DocumentType create failed", error);
@@ -83,7 +117,7 @@ const { name, description, isActive } = parsed.data;
           message: "Server error while creating document type",
         });
       }
-    }
+    },
   );
 }
 

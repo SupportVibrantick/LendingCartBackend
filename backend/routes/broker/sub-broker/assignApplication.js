@@ -11,6 +11,9 @@ const {
 const {
   autoAssignSubBrokerLoanOfficers,
 } = require("../../../services/broker/autoAssignSubBrokerLoanOfficers");
+const {
+  requireLoOfficerPermission,
+} = require("../../../services/broker/loanOfficerAccess");
 
 const SUBBROKER_CHAT_DB_TYPE = "CLIENT_BROKER";
 
@@ -32,6 +35,10 @@ async function assignApplicationRoute(fastify, options) {
           "BROKER_ADMIN",
           "BROKER_OFFICER",
         ]),
+
+        async (req, reply) => {
+          await requireLoOfficerPermission(req, reply, fastify, "EDIT_CO_BROKERS");
+        },
       ],
     },
 

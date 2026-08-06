@@ -58,6 +58,8 @@ const SBA_7A_EQUIPMENT_PURCHASE_LOAN_CODES = new Set([
 
 const SBA_7A_REAL_ESTATE_LOAN_CODES = new Set(["SBA_7A_REAL_ESTATE"]);
 
+const SBA_EXPRESS_LOAN_CODES = new Set(["SBA_EXPRESS"]);
+
 const SBA_504_LOAN_CODES = new Set([
   "SBA_504",
   "SBA_504_REAL_ESTATE_AND_EQUIPMENT",
@@ -90,6 +92,7 @@ const LTC_LOAN_CODES = new Set([
 const supportsLtcPercent = (loanProductCode) =>
   LTC_LOAN_CODES.has(loanProductCode) ||
   isSba7aEquipmentPurchaseProduct(loanProductCode) ||
+  isSbaExpressProduct(loanProductCode) ||
   isSba504Product(loanProductCode);
 
 const isBridgeLoanProduct = (loanProductCode) =>
@@ -137,6 +140,9 @@ const isSba7aEquipmentPurchaseProduct = (loanProductCode) =>
 const isSba7aRealEstateProduct = (loanProductCode) =>
   SBA_7A_REAL_ESTATE_LOAN_CODES.has(loanProductCode);
 
+const isSbaExpressProduct = (loanProductCode) =>
+  SBA_EXPRESS_LOAN_CODES.has(loanProductCode);
+
 const isSba504Product = (loanProductCode) =>
   SBA_504_LOAN_CODES.has(loanProductCode);
 
@@ -160,7 +166,8 @@ const isSba7aMaxLoanOnlyProduct = (loanProductCode) =>
   isSba7aBusinessAcquisitionProduct(loanProductCode) ||
   isSba7aWorkingCapitalProduct(loanProductCode) ||
   isSba7aEquipmentPurchaseProduct(loanProductCode) ||
-  isSba7aRealEstateProduct(loanProductCode);
+  isSba7aRealEstateProduct(loanProductCode) ||
+  isSbaExpressProduct(loanProductCode);
 
 const isNoMinLoanCriteriaProduct = (_loanProductCode) => false;
 
@@ -171,7 +178,9 @@ const isAnySba7aProduct = (loanProductCode) =>
   isSba7aMaxLoanOnlyProduct(loanProductCode);
 
 const isAnySbaProduct = (loanProductCode) =>
-  isAnySba7aProduct(loanProductCode) || isSba504Product(loanProductCode);
+  isAnySba7aProduct(loanProductCode) ||
+  isSba504Product(loanProductCode) ||
+  isSbaExpressProduct(loanProductCode);
 
 const isNoLtvCriteriaProduct = (loanProductCode) =>
   isSba7aGeneralProduct(loanProductCode);
@@ -194,7 +203,6 @@ const usesYearTerms = (loanProductCode) =>
   isCrePermanentProduct(loanProductCode) ||
   isCmbsProduct(loanProductCode) ||
   isAgencyMultifamilyProduct(loanProductCode) ||
-  isSba7aBusinessAcquisitionProduct(loanProductCode) ||
   isSba7aWorkingCapitalProduct(loanProductCode) ||
   isSba7aEquipmentPurchaseProduct(loanProductCode) ||
   isSba7aRealEstateProduct(loanProductCode) ||
@@ -311,6 +319,7 @@ module.exports = {
   SBA_7A_WORKING_CAPITAL_LOAN_CODES,
   SBA_7A_EQUIPMENT_PURCHASE_LOAN_CODES,
   SBA_7A_REAL_ESTATE_LOAN_CODES,
+  SBA_EXPRESS_LOAN_CODES,
   SBA_504_LOAN_CODES,
   USDA_BI_LOAN_CODES,
   PURCHASE_ORDER_FINANCE_LOAN_CODES,
@@ -334,6 +343,7 @@ module.exports = {
   isSba7aWorkingCapitalProduct,
   isSba7aEquipmentPurchaseProduct,
   isSba7aRealEstateProduct,
+  isSbaExpressProduct,
   isSba504Product,
   isUsdaBiProduct,
   isPurchaseOrderFinanceProduct,

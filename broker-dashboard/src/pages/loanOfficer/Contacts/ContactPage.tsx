@@ -4,7 +4,15 @@ import toast from "react-hot-toast";
 import Swal from "sweetalert2";
 import CreateContactModal from "./CreateContactModal";
 import ViewContactModal from "./ViewContactModal";
-import { loAuthHeaders, LO_API_BASE } from "../../../lib/loanOfficerApi";
+import { isSessionExpiredError } from "../../../lib/sessionExpiry";
+import {
+  getContactsPortalConfig,
+  type ContactsPortal,
+} from "../../../lib/contactsPortal";
+
+type ContactPageProps = {
+  portal?: ContactsPortal;
+};
 
 type Contact = {
   id: string;
@@ -30,7 +38,12 @@ type ApiResponse = {
   };
 };
 
-export default function ContactPage() {
+export default function ContactPage({ portal = "loanOfficer" }: ContactPageProps) {
+  const portalConfig = getContactsPortalConfig(portal);
+  const canCreateContacts = portalConfig.canCreate;
+  const canEditContacts = portalConfig.canEdit;
+  const canDeleteContacts = portalConfig.canDelete;
+
   const [open, setOpen] = useState(false);
   const [editContact, setEditContact] = useState<Contact | null>(null);
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -45,15 +58,13 @@ export default function ContactPage() {
     try {
       setLoading(true);
 
-      const res = await fetch(
-        `${LO_API_BASE}/loanofficer/contacts/list?page=${pageNumber}&limit=${limit}`,
-        {
-          method: "GET",
-          headers: loAuthHeaders(false),
-        },
-      );
+      const res = await fetch(portalConfig.listUrl(pageNumber, limit), {
+        method: "GET",
+        headers: portalConfig.getHeaders(false),
+      });
 
       const data: ApiResponse = await res.json();
+      portalConfig.checkResponse(res, data as { message?: string });
 
       if (data.success) {
         setContacts(data.data);
@@ -61,6 +72,7 @@ export default function ContactPage() {
         setPage(data.pagination.page);
       }
     } catch (err) {
+      if (isSessionExpiredError(err)) return;
       console.error("Failed to fetch contacts", err);
     } finally {
       setLoading(false);
@@ -86,6 +98,10 @@ export default function ContactPage() {
   });
 
   const handleDelete = async (contact: Contact) => {
+    if (!canDeleteContacts) {
+      toast.error("You don't have permission to delete contacts");
+      return;
+    }
     const result = await Swal.fire({
       title: "Delete contact?",
       text: `${contact.firstName} ${contact.lastName} will be removed.`,
@@ -98,19 +114,39 @@ export default function ContactPage() {
     if (!result.isConfirmed) return;
 
     try {
-      const res = await fetch(`${LO_API_BASE}/loanofficer/contacts/${contact.id}`, {
+      const res = await fetch(portalConfig.deleteUrl(contact.id), {
         method: "DELETE",
-        headers: loAuthHeaders(false),
+        headers: portalConfig.getHeaders(false),
       });
       const json = await res.json();
+      portalConfig.checkResponse(res, json);
       if (!res.ok || json.success === false) {
         throw new Error(json.message || "Delete failed");
       }
       toast.success("Contact deleted");
       fetchContacts(page);
     } catch (err: unknown) {
+      if (isSessionExpiredError(err)) return;
       toast.error(err instanceof Error ? err.message : "Delete failed");
     }
+  };
+
+  const openCreateModal = () => {
+    if (!canCreateContacts) {
+      toast.error("You don't have permission to create contacts");
+      return;
+    }
+    setEditContact(null);
+    setOpen(true);
+  };
+
+  const openEditModal = (contact: Contact) => {
+    if (!canEditContacts) {
+      toast.error("You don't have permission to edit contacts");
+      return;
+    }
+    setEditContact(contact);
+    setOpen(true);
   };
 
   return (
@@ -120,11 +156,11 @@ export default function ContactPage() {
         <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <p className="text-xs font-semibold uppercase tracking-widest text-white/70">
-              CRM · Directory
+              {portalConfig.heroEyebrow}
             </p>
             <h1 className="mt-1 text-2xl font-bold sm:text-3xl">My Contacts</h1>
             <p className="mt-2 max-w-xl text-sm text-white/80">
-              Manage lenders, partners, and borrowers in your personal contact directory.
+              {portalConfig.heroDescription}
             </p>
           </div>
           <div className="rounded-xl bg-white/10 px-4 py-3 backdrop-blur-sm">
@@ -169,17 +205,16 @@ export default function ContactPage() {
             <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
             Refresh
           </button>
-          <button
-            type="button"
-            onClick={() => {
-              setEditContact(null);
-              setOpen(true);
-            }}
-            className="inline-flex items-center gap-2 rounded-xl bg-[#13538A] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#1a6aad]"
-          >
-            <Plus className="h-4 w-4" />
-            Create Contact
-          </button>
+          {canCreateContacts && (
+            <button
+              type="button"
+              onClick={openCreateModal}
+              className="inline-flex items-center gap-2 rounded-xl bg-[#13538A] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#1a6aad]"
+            >
+              <Plus className="h-4 w-4" />
+              Create Contact
+            </button>
+          )}
         </div>
       </div>
 
@@ -250,24 +285,25 @@ export default function ContactPage() {
                   <Eye size={16} />
                 </button>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEditContact(contact);
-                    setOpen(true);
-                  }}
-                  className="rounded-lg p-2 text-gray-500 transition hover:bg-amber-50 hover:text-amber-600"
-                >
-                  <Pencil size={16} />
-                </button>
+                {canEditContacts && (
+                  <button
+                    type="button"
+                    onClick={() => openEditModal(contact)}
+                    className="rounded-lg p-2 text-gray-500 transition hover:bg-amber-50 hover:text-amber-600"
+                  >
+                    <Pencil size={16} />
+                  </button>
+                )}
 
-                <button
-                  type="button"
-                  onClick={() => handleDelete(contact)}
-                  className="rounded-lg p-2 text-gray-500 transition hover:bg-red-50 hover:text-red-600"
-                >
-                  <Trash2 size={16} />
-                </button>
+                {canDeleteContacts && (
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(contact)}
+                    className="rounded-lg p-2 text-gray-500 transition hover:bg-red-50 hover:text-red-600"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                )}
               </div>            </div>
           ))}
 
@@ -318,10 +354,10 @@ export default function ContactPage() {
                 ? "Try adjusting your search terms."
                 : "Create your first contact to manage lenders, brokers, and partners."}
             </p>
-            {!search && (
+            {!search && canCreateContacts && (
               <button
                 type="button"
-                onClick={() => setOpen(true)}
+                onClick={openCreateModal}
                 className="mt-4 inline-flex items-center gap-2 rounded-xl bg-[#13538A] px-4 py-2 text-sm font-medium text-white hover:bg-[#1a6aad]"
               >
                 <Plus className="h-4 w-4" />
@@ -336,6 +372,7 @@ export default function ContactPage() {
       {/* Modal */}
       {(open || editContact) && (
         <CreateContactModal
+          portal={portal}
           contact={editContact}
           onClose={() => {
             setOpen(false);

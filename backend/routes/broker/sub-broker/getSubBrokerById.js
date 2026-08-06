@@ -3,6 +3,9 @@
  */
 module.exports = async function getSubBrokerByIdRoutes(fastify) {
   const { formatSubBrokerDetail } = require("../../../utils/broker/subBrokerProfileHelpers");
+  const {
+    requireLoOfficerPermission,
+  } = require("../../../services/broker/loanOfficerAccess");
 
   fastify.get(
     "/:id",
@@ -17,6 +20,9 @@ module.exports = async function getSubBrokerByIdRoutes(fastify) {
             id: { type: "string", minLength: 1 },
           },
         },
+      },
+      preHandler: async (req, reply) => {
+        await requireLoOfficerPermission(req, reply, fastify, "VIEW_CO_BROKERS");
       },
     },
     async (req, reply) => {

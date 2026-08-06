@@ -10,7 +10,7 @@ module.exports = async function getLoanOfficerLoanCommissions(fastify) {
   fastify.get(
     "/loan/:loanId",
     {
-      preHandler: officerPreHandler(fastify),
+      preHandler: officerPreHandler(fastify, "VIEW_COMMISSIONS"),
       schema: {
         tags: ["Loan Officer -> Commissions"],
         summary: "Get commission breakdown for an assigned funded loan",

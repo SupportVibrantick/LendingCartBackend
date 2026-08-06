@@ -46,6 +46,8 @@ module.exports = fp(async function dbPlugin(fastify) {
               entityType: model,
               entityId: result?.id || oldValue?.id || "UNKNOWN",
               action: operation.toUpperCase(),
+              dashboard: "PLATFORM",
+              category: "SYSTEM",
               oldValueJson: oldValue ? JSON.stringify(oldValue) : null,
               newValueJson:
                 operation !== "delete" && result

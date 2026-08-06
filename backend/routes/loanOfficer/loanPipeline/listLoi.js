@@ -5,6 +5,7 @@ const {
   buildLoiSearchFilter,
   buildLoiPagination,
 } = require("../../../utils/broker/brokerLoiList");
+const { extraOfficerPermission } = require("../../../services/broker/loanOfficerAccess");
 
 /**
  * @param {import("fastify").FastifyInstance} fastify
@@ -14,6 +15,7 @@ async function listLoiRoute(fastify) {
   fastify.get(
     "/:applicationId/lois",
     {
+      preHandler: extraOfficerPermission(fastify, "VIEW_LOI_TERM_SHEET"),
       schema: {
         tags: ["Loan Officer -> Loan Pipeline"],
         summary: "Fetch LOIs received from lenders",

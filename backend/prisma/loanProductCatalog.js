@@ -64,6 +64,10 @@ const LOAN_PRODUCTS = [
     name: "SBA 7(a) — Working Capital",
   },
   {
+    code: "SBA_EXPRESS",
+    name: "SBA Express",
+  },
+  {
     code: "SBA_504_REAL_ESTATE_AND_EQUIPMENT",
     name: "SBA 504 Real Estate",
   },

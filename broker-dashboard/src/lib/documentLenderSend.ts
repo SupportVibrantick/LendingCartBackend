@@ -23,6 +23,8 @@ export type DocumentSendRow = {
   }>;
   isSentToAnyLender?: boolean;
   hasPendingSendToLender?: boolean;
+  isSentToBroker?: boolean;
+  skipReason?: string | null;
   uploadedCount?: number;
   uploadedFiles?: Array<{
     uploadId?: string;
@@ -230,8 +232,76 @@ function shortenDisplayName(value: string, max = 24) {
   return `${trimmed.slice(0, max - 1)}…`;
 }
 
+export type DocumentStatusViewerPortal = "broker" | "loanOfficer" | "coBroker";
+
+function appendCoBrokerPrincipalBrokerStatusItems(
+  doc: DocumentDisplayRow,
+  items: DocumentStatusSummaryItem[],
+) {
+  const uploadedCount = Number(doc.uploadedCount) || 0;
+  const isSentToBroker = Boolean(doc.isSentToBroker);
+  const skipReason =
+    typeof doc.skipReason === "string" ? doc.skipReason.trim() : "";
+
+  if (doc.status === "SKIPPED") {
+    items.push({
+      key: "broker",
+      label: "Skipped by Principal Broker",
+      detail: skipReason || undefined,
+      tone: "warning",
+    });
+    return;
+  }
+
+  if (doc.status === "SENT_TO_LENDER" || doc.isSentToAnyLender) {
+    items.push({
+      key: "broker",
+      label: "Sent to lender",
+      detail: "Approved by Principal Broker",
+      tone: "success",
+    });
+    return;
+  }
+
+  if (doc.status === "COMPLETE" && isSentToBroker) {
+    items.push({
+      key: "broker",
+      label: "Approved by Principal Broker",
+      tone: "success",
+    });
+    return;
+  }
+
+  if (isSentToBroker) {
+    items.push({
+      key: "broker",
+      label: "With Principal Broker",
+      detail: "Awaiting review",
+      tone: "info",
+    });
+    return;
+  }
+
+  if (uploadedCount > 0) {
+    items.push({
+      key: "broker",
+      label: "Ready for Principal Broker",
+      detail: "Upload complete · not sent yet",
+      tone: "warning",
+    });
+    return;
+  }
+
+  items.push({
+    key: "broker",
+    label: "Awaiting upload",
+    tone: "muted",
+  });
+}
+
 export function getDocumentStatusSummary(
   doc: DocumentDisplayRow,
+  options?: { viewerPortal?: DocumentStatusViewerPortal },
 ): DocumentStatusSummary {
   const uploadedCount = Number(doc.uploadedCount) || 0;
   const lenderId = doc.sourceLender?.applicationLenderId ?? null;
@@ -240,8 +310,13 @@ export function getDocumentStatusSummary(
   );
   const { sentCount, pendingCount } = evaluateLenderSendState(doc, lenderId);
   const items: DocumentStatusSummaryItem[] = [];
+  const isCoBrokerViewer =
+    options?.viewerPortal === "coBroker" &&
+    doc.source === "SUB_BROKER_ADDED";
 
-  if (doc.sourceLender || uploadedCount > 0) {
+  if (isCoBrokerViewer) {
+    appendCoBrokerPrincipalBrokerStatusItems(doc, items);
+  } else if (doc.sourceLender || uploadedCount > 0) {
     const lenderSentAt = getRelevantLenderSentAt(doc);
 
     if (uploadedCount === 0) {
@@ -326,7 +401,32 @@ export function getDocumentStatusSummary(
   };
 }
 
-const BROKER_SENDABLE_SOURCES = new Set(["BROKER_ADDED", "SUB_BROKER_ADDED"]);
+export function canCoBrokerSendDocumentToPrincipalBroker(
+  doc: DocumentDisplayRow,
+): boolean {
+  if (doc.source !== "SUB_BROKER_ADDED") return false;
+  if (doc.status === "SKIPPED") return false;
+  if (Boolean(doc.isSentToBroker)) return false;
+  return Number(doc.uploadedCount) > 0;
+}
+
+export function getCoBrokerSendableToPrincipalBrokerIds(
+  displayDocuments: DocumentDisplayRow[],
+  selectedRowKeys: string[],
+): string[] {
+  const selected = new Set(selectedRowKeys);
+  return [
+    ...new Set(
+      displayDocuments
+        .filter(
+          (doc) =>
+            selected.has(doc.rowKey) &&
+            canCoBrokerSendDocumentToPrincipalBroker(doc),
+        )
+        .map((doc) => String(doc.requirementId)),
+    ),
+  ];
+}
 
 const LENDER_SOURCE_COLORS = [
   "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200",
@@ -715,6 +815,8 @@ export function matchesDocumentSentFilter(
 
   return !isFullySent;
 }
+
+const BROKER_SENDABLE_SOURCES = new Set(["BROKER_ADDED", "SUB_BROKER_ADDED"]);
 
 export function canSendDocumentToLender(
   doc: DocumentSendRow,

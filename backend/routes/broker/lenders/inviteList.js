@@ -1,6 +1,8 @@
 /**
  * @param {import("fastify").FastifyInstance} fastify
  */
+const { requireLoMarketplaceView } = require("../../../services/broker/loanOfficerAccess");
+
 async function listInvitedLendersRoutes(fastify) {
   fastify.get(
     "/list",
@@ -9,6 +11,9 @@ async function listInvitedLendersRoutes(fastify) {
         tags: ["Broker -> Lenders"],
         summary: "List invited lenders",
         description: "Shows lenders invited by broker with invite status",
+      },
+      preHandler: async (req, reply) => {
+        await requireLoMarketplaceView(req, reply, fastify);
       },
     },
     async (req, reply) => {

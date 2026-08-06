@@ -14,13 +14,10 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import {
-  getRequiredCriteriaKeysForProduct,
-  isMezzanineProduct,
-  isNoMinLoanCriteriaProduct,
-  isSba504Product,
+  getLoanCriteriaFooterMessage,
+  validateLoanProductCriteriaStep,
 } from "../../../lib/loanProductCriteriaFields";
 import { mapToAdminProductPayload } from "../../../lib/lenderProductAdminPayload";
-import { stripNumberFormatting } from "../../../lib/numberInputFormat";
 
 type FormType = {
   lenderId: string;
@@ -148,73 +145,8 @@ export default function Main() {
 
   const cleanPhone = (value: string) => value.replace(/\D/g, "");
 
-  const validateStep5 = () => {
-    for (const product of selectedProducts) {
-      const data = form.loanCriteria?.[product.id];
-
-      if (!data) {
-        return `Please fill details for ${product.name}`;
-      }
-
-      const requiredFields = getRequiredCriteriaKeysForProduct(product.code);
-
-      for (const field of requiredFields) {
-        if (!data[field] && data[field] !== 0) {
-          return `${product.name}: ${field} is required`;
-        }
-      }
-
-      if (!data.states || data.states.length === 0) {
-        return `${product.name}: Select at least one state`;
-      }
-
-      if (isSba504Product(product.code)) {
-        const total = Number(stripNumberFormatting(String(data.maxTotalProject ?? "")));
-        const debenture = Number(stripNumberFormatting(String(data.maxSba504Debenture ?? "")));
-        const minLoan = Number(stripNumberFormatting(String(data.minLoan ?? "")));
-        if (
-          data.maxTotalProject &&
-          data.maxSba504Debenture &&
-          debenture > total
-        ) {
-          return `${product.name}: SBA 504 debenture cannot exceed total project amount`;
-        }
-        if (
-          data.minLoan &&
-          data.maxTotalProject &&
-          Number.isFinite(minLoan) &&
-          Number.isFinite(total) &&
-          minLoan > total
-        ) {
-          return `${product.name}: Minimum loan amount cannot exceed total project amount`;
-        }
-      } else if (
-        !isNoMinLoanCriteriaProduct(product.code) &&
-        !isMezzanineProduct(product.code)
-      ) {
-        const minAmount = Number(
-          stripNumberFormatting(
-            String(data.minFacilitySize ?? data.minProgramSize ?? data.minLoan ?? ""),
-          ),
-        );
-        const maxAmount = Number(
-          stripNumberFormatting(
-            String(data.maxFacilitySize ?? data.maxProgramSize ?? data.maxLoan ?? ""),
-          ),
-        );
-
-        if (
-          Number.isFinite(minAmount) &&
-          Number.isFinite(maxAmount) &&
-          minAmount > maxAmount
-        ) {
-          return `${product.name}: Minimum amount cannot exceed maximum amount`;
-        }
-      }
-    }
-
-    return null;
-  };
+  const validateStep5 = () =>
+    validateLoanProductCriteriaStep(selectedProducts, form.loanCriteria);
 
   const createLender = async (): Promise<string> => {
     const payload: Record<string, string> = {
@@ -536,14 +468,20 @@ export default function Main() {
     form.password.length < 8;
 
   const step5ValidationMessage =
-    step === loanCriteriaStepIndex ? validateStep5() : null;
+    step === loanCriteriaStepIndex
+      ? getLoanCriteriaFooterMessage(
+          selectedProducts,
+          form.loanCriteria,
+          hasStep5Errors,
+        )
+      : null;
 
   const nextDisabled =
     submitting ||
     (step === 0 && step0Invalid) ||
     (step === 1 && form.loanPrograms.length === 0) ||
-    (step === loanCriteriaStepIndex && hasStep5Errors) ||
-    (isLastStep && step5ValidationMessage !== null);
+    (step === loanCriteriaStepIndex &&
+      (hasStep5Errors || step5ValidationMessage !== null));
 
   return (
     <div className="h-screen flex flex-col bg-gray-50">

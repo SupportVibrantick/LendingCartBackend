@@ -1,3 +1,5 @@
+import { resolveLenderOfferedProductCode } from "./canonicalLoanProducts";
+
 export const BRIDGE_LOAN_CODES = new Set([
   "BRIDGE_LOAN",
   "BRIDGE_LOAN_1_TO_4_UNITS",
@@ -30,6 +32,8 @@ export type CriteriaField = {
   decimal?: boolean;
   /** Suffix shown inside the input on the right (e.g. %, x) */
   inputSuffix?: string;
+  /** Optional helper text shown under the label */
+  helperText?: string;
   /** Only show for these product codes */
   products?: string[];
   /** Hide for these product codes */
@@ -85,6 +89,8 @@ export const SBA_7A_EQUIPMENT_PURCHASE_LOAN_CODES = new Set([
 
 export const SBA_7A_REAL_ESTATE_LOAN_CODES = new Set(["SBA_7A_REAL_ESTATE"]);
 
+export const SBA_EXPRESS_LOAN_CODES = new Set(["SBA_EXPRESS"]);
+
 export const SBA_504_LOAN_CODES = new Set([
   "SBA_504",
   "SBA_504_REAL_ESTATE_AND_EQUIPMENT",
@@ -109,10 +115,23 @@ export const ACCOUNTS_PAYABLE_FINANCE_LOAN_CODES = new Set([
 export const UNIVERSAL_LOAN_CRITERIA_FIELDS: CriteriaField[] = [
   { label: "Min Loan Amount ($)", key: "minLoan", required: true },
   { label: "Max Loan Amount ($)", key: "maxLoan", required: true },
-  { label: "Min FICO Score", key: "fico", required: true },
   {
-    label: "Min LTV (%)",
-    key: "minLtv",
+    label: "Min Interest Rate (%)",
+    key: "minRate",
+    required: true,
+    decimal: true,
+    inputSuffix: "%",
+  },
+  {
+    label: "Max Interest Rate (%)",
+    key: "maxRate",
+    required: true,
+    decimal: true,
+    inputSuffix: "%",
+  },
+  {
+    label: "Max LTV (%)",
+    key: "maxLtv",
     required: true,
     decimal: true,
     inputSuffix: "%",
@@ -124,6 +143,7 @@ export const UNIVERSAL_LOAN_CRITERIA_FIELDS: CriteriaField[] = [
     decimal: true,
     inputSuffix: "%",
   },
+  { label: "Min FICO Score", key: "fico", required: true },
   {
     label: "Origination Points (%)",
     key: "originationPoints",
@@ -132,7 +152,7 @@ export const UNIVERSAL_LOAN_CRITERIA_FIELDS: CriteriaField[] = [
     inputSuffix: "%",
   },
   {
-    label: "Industry Experience (Years)",
+    label: "Min Industry Experience (Years)",
     key: "experience",
     required: true,
     inputSuffix: "yr",
@@ -178,54 +198,9 @@ const PERCENTAGE_FIELD_KEYS = new Set([
 ]);
 
 export const getProductRateCriteriaFields = (
-  productCode: string,
+  _productCode: string,
 ): CriteriaField[] => {
-  if (isSba7aRateSpreadProduct(productCode)) {
-    return [
-      {
-        label: "Min Rate Spread (%)",
-        key: "minRateSpread",
-        required: true,
-        decimal: true,
-        inputSuffix: "%",
-      },
-      {
-        label: "Max Rate Spread (%)",
-        key: "maxRateSpread",
-        required: true,
-        decimal: true,
-        inputSuffix: "%",
-      },
-    ];
-  }
-
-  if (isSba504Product(productCode)) {
-    return [
-      {
-        label: "Interest Structure",
-        key: "interestRateNote",
-        type: "textarea",
-        required: false,
-      },
-    ];
-  }
-
-  return [
-    {
-      label: "Min Interest Rate (%)",
-      key: "minRate",
-      required: true,
-      decimal: true,
-      inputSuffix: "%",
-    },
-    {
-      label: "Max Interest Rate (%)",
-      key: "maxRate",
-      required: true,
-      decimal: true,
-      inputSuffix: "%",
-    },
-  ];
+  return [];
 };
 
 export const getCriteriaFieldInputSuffix = (
@@ -235,15 +210,11 @@ export const getCriteriaFieldInputSuffix = (
     return field.inputSuffix;
   }
 
-  if (field.key === "minDscr") {
+  if (field.key === "minDscr" || field.key === "preferredDscr") {
     return "x";
   }
 
-  if (
-    PERCENTAGE_FIELD_KEYS.has(field.key) ||
-    field.label.includes("(%)") ||
-    field.label.includes("(%)")
-  ) {
+  if (PERCENTAGE_FIELD_KEYS.has(field.key) || field.label.includes("(%)")) {
     return "%";
   }
 
@@ -251,7 +222,10 @@ export const getCriteriaFieldInputSuffix = (
     return "yr";
   }
 
-  if (field.label.includes("(months)")) {
+  if (
+    field.label.includes("(months)") ||
+    field.label.includes("(Months)")
+  ) {
     return "mo";
   }
 
@@ -262,29 +236,61 @@ export const getCriteriaFieldInputSuffix = (
   return null;
 };
 
+const HIDDEN_CRITERIA_KEYS = new Set(["minLtv", "minRateSpread", "maxRateSpread"]);
+
+const productSkipsUniversalField = (
+  productCode: string,
+  fieldKey: string,
+): boolean => {
+  if (isSba7aGeneralProduct(productCode) && fieldKey === "maxLtv") {
+    return true;
+  }
+
+  if (isArFactoringProduct(productCode)) {
+    if (
+      fieldKey === "minRate" ||
+      fieldKey === "maxRate" ||
+      fieldKey === "maxLtc"
+    ) {
+      return true;
+    }
+  }
+
+  if (
+    isPreferredEquityProduct(productCode) &&
+    (fieldKey === "minRate" || fieldKey === "maxRate")
+  ) {
+    return true;
+  }
+
+  return false;
+};
+
+const getUniversalFieldsForProduct = (productCode: string): CriteriaField[] =>
+  UNIVERSAL_LOAN_CRITERIA_FIELDS.filter(
+    (field) => !productSkipsUniversalField(productCode, field.key),
+  );
+
 const mergeWithUniversalCriteriaFields = (
   productCode: string,
   productFields: CriteriaField[],
 ): CriteriaField[] => {
+  const universalFields = getUniversalFieldsForProduct(productCode);
   const excludedKeys = new Set([
     ...UNIVERSAL_CRITERIA_KEYS,
     ...RATE_CRITERIA_KEYS,
   ]);
 
   const additionalFields = productFields.filter(
-    (field) => !excludedKeys.has(field.key),
+    (field) =>
+      !excludedKeys.has(field.key) && !HIDDEN_CRITERIA_KEYS.has(field.key),
   );
 
-  const rateFields = getProductRateCriteriaFields(productCode);
+  const rateFields = getProductRateCriteriaFields(productCode).filter(
+    (field) => !HIDDEN_CRITERIA_KEYS.has(field.key),
+  );
 
-  return [
-    UNIVERSAL_LOAN_CRITERIA_FIELDS[0],
-    UNIVERSAL_LOAN_CRITERIA_FIELDS[1],
-    UNIVERSAL_LOAN_CRITERIA_FIELDS[2],
-    ...rateFields,
-    ...UNIVERSAL_LOAN_CRITERIA_FIELDS.slice(3),
-    ...additionalFields,
-  ];
+  return [...universalFields, ...rateFields, ...additionalFields];
 };
 
 const DEFAULT_CRITERIA_FIELDS: CriteriaField[] = [
@@ -326,6 +332,7 @@ const DEFAULT_CRITERIA_FIELDS: CriteriaField[] = [
       ...SBA_7A_WORKING_CAPITAL_LOAN_CODES,
       ...SBA_7A_EQUIPMENT_PURCHASE_LOAN_CODES,
       ...SBA_7A_REAL_ESTATE_LOAN_CODES,
+      ...SBA_EXPRESS_LOAN_CODES,
       ...SBA_504_LOAN_CODES,
       ...USDA_BI_LOAN_CODES,
       ...PURCHASE_ORDER_FINANCE_LOAN_CODES,
@@ -391,7 +398,7 @@ const DSCR_RENTAL_CRITERIA_FIELDS: CriteriaField[] = [
   { label: "Min Rate (%)", key: "minRate", required: true },
   { label: "Max Rate (%)", key: "maxRate", required: true },
   { label: "Max LTV (%)", key: "maxLtv", required: true },
-  { label: "Min DSCR", key: "minDscr", required: true, decimal: true },
+  { label: "Min DSCR", key: "minDscr", required: false, decimal: true },
   { label: "Min FICO Score", key: "fico", required: true },
   {
     label: "Min Term (years)",
@@ -443,7 +450,7 @@ const RENTAL_PORTFOLIO_CRITERIA_FIELDS: CriteriaField[] = [
   { label: "Min Rate (%)", key: "minRate", required: true },
   { label: "Max Rate (%)", key: "maxRate", required: true },
   { label: "Max LTV (%)", key: "maxLtv", required: true },
-  { label: "Min DSCR", key: "minDscr", required: true, decimal: true },
+  { label: "Min DSCR", key: "minDscr", required: false, decimal: true },
   { label: "Min FICO Score", key: "fico", required: true },
   {
     label: "Min Term (years)",
@@ -463,12 +470,6 @@ const RENTAL_PORTFOLIO_CRITERIA_FIELDS: CriteriaField[] = [
 const CONSTRUCTION_CRITERIA_FIELDS: CriteriaField[] = [
   { label: "Min Loan Amount ($)", key: "minLoan", required: true },
   { label: "Max Loan Amount ($)", key: "maxLoan", required: true },
-  { label: "Min Rate (%)", key: "minRate", required: true },
-  { label: "Max Rate (%)", key: "maxRate", required: true },
-  { label: "Max LTC (%)", key: "maxLtc", required: true },
-  { label: "Max LTV (%)", key: "maxLtv", required: true },
-  { label: "Origination Points (%)", key: "originationPoints", required: true },
-  { label: "Min FICO Score", key: "fico", required: true },
   { label: "Min Term (months)", key: "minTerm", required: true },
   { label: "Max Term (months)", key: "maxTerm", required: true },
   {
@@ -492,7 +493,7 @@ const CRE_PERMANENT_CRITERIA_FIELDS: CriteriaField[] = [
   { label: "Min Rate (%)", key: "minRate", required: true },
   { label: "Max Rate (%)", key: "maxRate", required: true },
   { label: "Max LTV (%)", key: "maxLtv", required: true },
-  { label: "Min DSCR", key: "minDscr", required: true, decimal: true },
+  { label: "Min DSCR", key: "minDscr", required: false, decimal: true },
   { label: "Min Debt Yield (%)", key: "minDebtYield", required: false },
   { label: "Min FICO Score", key: "fico", required: true },
   {
@@ -522,7 +523,7 @@ const CMBS_CRITERIA_FIELDS: CriteriaField[] = [
   { label: "Min Rate (%)", key: "minRate", required: true },
   { label: "Max Rate (%)", key: "maxRate", required: true },
   { label: "Max LTV (%)", key: "maxLtv", required: true },
-  { label: "Min DSCR", key: "minDscr", required: true, decimal: true },
+  { label: "Min DSCR", key: "minDscr", required: false, decimal: true },
   { label: "Min Debt Yield (%)", key: "minDebtYield", required: false },
   {
     label: "Min Term (years)",
@@ -556,7 +557,7 @@ const AGENCY_MULTIFAMILY_CRITERIA_FIELDS: CriteriaField[] = [
   { label: "Min Rate (%)", key: "minRate", required: true },
   { label: "Max Rate (%)", key: "maxRate", required: true },
   { label: "Max LTV (%)", key: "maxLtv", required: true },
-  { label: "Min DSCR", key: "minDscr", required: true, decimal: true },
+  { label: "Min DSCR", key: "minDscr", required: false, decimal: true },
   {
     label: "Min Term (years)",
     key: "minTerm",
@@ -621,11 +622,8 @@ const SBA_TERM_FIELDS: CriteriaField[] = [
 const SBA_7A_COMMON_FIELDS: CriteriaField[] = [
   { label: "Min Loan Amount ($)", key: "minLoan", required: true },
   { label: "Max Loan Amount ($)", key: "maxLoan", required: true },
-  { label: "Min Rate Spread (%)", key: "minRateSpread", required: true },
-  { label: "Max Rate Spread (%)", key: "maxRateSpread", required: true },
   { label: "SBA Guarantee (%)", key: "sbaGuaranteePercent", required: true },
-  { label: "Min FICO Score", key: "fico", required: true },
-  { label: "Min DSCR", key: "minDscr", required: true, decimal: true },
+  { label: "Min DSCR", key: "minDscr", required: false, decimal: true },
   {
     label: "Personal Guarantee Required",
     key: "personalGuaranteeRequired",
@@ -650,39 +648,283 @@ const SBA_7A_GENERAL_CRITERIA_FIELDS: CriteriaField[] = [
 ];
 
 const SBA_7A_BUSINESS_ACQUISITION_CRITERIA_FIELDS: CriteriaField[] = [
-  ...SBA_7A_COMMON_FIELDS.slice(0, 2),
-  { label: "Max LTV (%)", key: "maxLtv", required: true },
-  ...SBA_7A_COMMON_FIELDS.slice(2, 6),
   {
-    label: "Buyer Equity Injection (%)",
+    label: "Min Time in Business (Months)",
+    key: "minTimeInBusiness",
+    required: true,
+    inputSuffix: "mo",
+  },
+  {
+    label: "Min Term (Months)",
+    key: "minTerm",
+    required: true,
+    termUnit: "months",
+    inputSuffix: "mo",
+  },
+  {
+    label: "Max Term – Business Acquisition (Months)",
+    key: "maxTerm",
+    required: true,
+    termUnit: "months",
+    inputSuffix: "mo",
+  },
+  {
+    label: "Max Term – Real Estate Included (Months)",
+    key: "maxTermRealEstate",
+    required: true,
+    termUnit: "months",
+    inputSuffix: "mo",
+  },
+  { label: "Min DSCR", key: "minDscr", required: true, decimal: true },
+  {
+    label: "Preferred DSCR",
+    key: "preferredDscr",
+    required: true,
+    decimal: true,
+  },
+  {
+    label: "Seller Financing Allowed",
+    key: "sellerFinancingAllowed",
+    type: "toggle",
+  },
+  {
+    label: "Goodwill Financing",
+    key: "goodwillFinancingAllowed",
+    type: "toggle",
+  },
+  {
+    label: "Intangible Assets",
+    key: "intangibleAssetsAllowed",
+    type: "toggle",
+  },
+  {
+    label: "Equipment Included",
+    key: "equipmentIncluded",
+    type: "toggle",
+  },
+  {
+    label: "Real Estate Included",
+    key: "realEstateIncluded",
+    type: "toggle",
+  },
+  {
+    label: "Working Capital Included",
+    key: "workingCapitalEligible",
+    type: "toggle",
+  },
+  {
+    label: "Franchise Acquisition",
+    key: "franchiseAcquisitionAllowed",
+    type: "toggle",
+  },
+  {
+    label: "Startup/Existing Business Acquisition",
+    key: "startupAllowed",
+    type: "toggle",
+  },
+  {
+    label: "Personal Guarantee",
+    key: "personalGuaranteeRequired",
+    type: "toggle",
+  },
+  {
+    label: "Collateral",
+    key: "collateralRequired",
+    type: "toggle",
+  },
+  {
+    label: "Collateral may be used as Down payment",
+    key: "collateralAsDownPaymentAllowed",
+    type: "toggle",
+  },
+  {
+    label: "Lender/SBA requirements apply",
+    key: "criteriaNotes",
+    type: "textarea",
+    required: true,
+  },
+  {
+    label: "Minimum Buyer Equity Injection (%)",
     key: "requiredInjection",
     required: true,
   },
-  ...SBA_7A_COMMON_FIELDS.slice(6, 8),
+];
+
+const SBA_EXPRESS_CRITERIA_FIELDS: CriteriaField[] = [
   {
-    label: "Min Liquidity Requirement",
-    key: "minLiquidityRequirement",
-    type: "textarea",
-    required: false,
+    label: "Min Time in Business (Months)",
+    key: "minTimeInBusiness",
+    required: true,
+    inputSuffix: "mo",
   },
   {
-    label: "Management Experience (Years)",
-    key: "experience",
+    label: "Min Term (Months)",
+    key: "minTerm",
+    required: true,
+    termUnit: "months",
+    inputSuffix: "mo",
+  },
+  {
+    label: "Max Term – Business Acquisition (Months)",
+    key: "maxTerm",
+    required: true,
+    termUnit: "months",
+    inputSuffix: "mo",
+  },
+  {
+    label: "Max Term – Real Estate Included (Months)",
+    key: "maxTermRealEstate",
+    required: true,
+    termUnit: "months",
+    inputSuffix: "mo",
+  },
+  {
+    label: "Max Term – Equipment (Months)",
+    key: "maxTermEquipment",
+    required: true,
+    termUnit: "months",
+    inputSuffix: "mo",
+  },
+  {
+    label: "Amortization (Years)",
+    key: "amortizationYears",
+    required: true,
+    inputSuffix: "yr",
+  },
+  { label: "Min DSCR", key: "minDscr", required: true, decimal: true },
+  {
+    label: "Preferred DSCR",
+    key: "preferredDscr",
+    required: true,
+    decimal: true,
+  },
+  {
+    label: "Maximum Debt Service ($)",
+    key: "maximumDebtService",
     required: true,
   },
   {
-    label: "Goodwill Financing Allowed",
-    key: "goodwillFinancingAllowed",
-    type: "toggle",
-    required: false,
-  },
-  {
-    label: "Seller Note Allowed",
+    label: "Seller Financing Allowed",
     key: "sellerFinancingAllowed",
     type: "toggle",
-    required: false,
   },
-  ...SBA_7A_COMMON_FIELDS.slice(8),
+  {
+    label: "Goodwill Financing",
+    key: "goodwillFinancingAllowed",
+    type: "toggle",
+  },
+  {
+    label: "Intangible Assets",
+    key: "intangibleAssetsAllowed",
+    type: "toggle",
+  },
+  {
+    label: "Equipment Included",
+    key: "equipmentIncluded",
+    type: "toggle",
+  },
+  {
+    label: "Real Estate Included",
+    key: "realEstateIncluded",
+    type: "toggle",
+  },
+  {
+    label: "Sale-Leaseback Available",
+    key: "saleLeasebackAvailable",
+    type: "toggle",
+  },
+  {
+    label: "Owner Occupied Real Estate",
+    key: "ownerOccupiedRequired",
+    type: "toggle",
+  },
+  {
+    label: "Business Acquisition",
+    key: "businessAcquisitionAllowed",
+    type: "toggle",
+  },
+  {
+    label: "Equipment Purchase",
+    key: "equipmentPurchaseAllowed",
+    type: "toggle",
+  },
+  {
+    label: "Debt Refinance",
+    key: "refinanceAllowed",
+    type: "toggle",
+  },
+  {
+    label: "Collateral Required",
+    key: "collateralRequired",
+    type: "toggle",
+    helperText:
+      "SBA generally does not require collateral for SBA Express loans ≤ $50,000",
+  },
+  {
+    label: "Collateral may be used as Down payment",
+    key: "collateralAsDownPaymentAllowed",
+    type: "toggle",
+  },
+  {
+    label: "Personal Guarantee",
+    key: "personalGuaranteeRequired",
+    type: "toggle",
+  },
+  {
+    label: "Business Credit",
+    key: "businessCreditRequired",
+    type: "toggle",
+  },
+  {
+    label: "U.S. Operating Business Required",
+    key: "usOperatingBusinessRequired",
+    type: "toggle",
+  },
+  {
+    label: "Startup Eligible",
+    key: "startupEligible",
+    type: "toggle",
+  },
+  {
+    label: "Franchise Eligible",
+    key: "franchiseEligible",
+    type: "toggle",
+  },
+  {
+    label: "Foreign Ownership",
+    key: "foreignOwnershipAllowed",
+    type: "toggle",
+  },
+  {
+    label: "Bankruptcy Allowed",
+    key: "bankruptcyAllowed",
+    type: "toggle",
+  },
+  {
+    label: "Prepayment Penalty",
+    key: "prepaymentPenalty",
+    type: "toggle",
+  },
+  {
+    label: "Working Capital Included",
+    key: "workingCapitalEligible",
+    type: "toggle",
+  },
+  {
+    label: "Franchise Acquisition",
+    key: "franchiseAcquisitionAllowed",
+    type: "toggle",
+  },
+  {
+    label: "Startup/Existing Business Acquisition",
+    key: "startupAllowed",
+    type: "toggle",
+  },
+  {
+    label: "Minimum Buyer Equity Injection (%)",
+    key: "requiredInjection",
+    required: true,
+  },
 ];
 
 const SBA_7A_WORKING_CAPITAL_CRITERIA_FIELDS: CriteriaField[] = [
@@ -733,9 +975,6 @@ const SBA_7A_WORKING_CAPITAL_CRITERIA_FIELDS: CriteriaField[] = [
 ];
 
 const SBA_7A_EQUIPMENT_PURCHASE_CRITERIA_FIELDS: CriteriaField[] = [
-  ...SBA_7A_COMMON_FIELDS.slice(0, 2),
-  { label: "Max LTV (%)", key: "maxLtv", required: true },
-  { label: "Max LTC (%)", key: "maxLtc", required: true },
   ...SBA_7A_COMMON_FIELDS.slice(2, 8),
   {
     label: "Min Time In Business (months)",
@@ -764,8 +1003,6 @@ const SBA_7A_EQUIPMENT_PURCHASE_CRITERIA_FIELDS: CriteriaField[] = [
 ];
 
 const SBA_7A_REAL_ESTATE_CRITERIA_FIELDS: CriteriaField[] = [
-  ...SBA_7A_COMMON_FIELDS.slice(0, 2),
-  { label: "Max LTV (%)", key: "maxLtv", required: true },
   ...SBA_7A_COMMON_FIELDS.slice(2, 8),
   {
     label: "Owner Occupancy Requirement",
@@ -821,13 +1058,7 @@ const SBA_504_CRITERIA_FIELDS: CriteriaField[] = [
     key: "minTimeInBusiness",
     required: true,
   },
-  { label: "Min DSCR", key: "minDscr", required: true, decimal: true },
-  {
-    label: "Interest Rate",
-    key: "interestRateNote",
-    type: "text",
-    required: false,
-  },
+  { label: "Min DSCR", key: "minDscr", required: false, decimal: true },
   {
     label: "Rate Structure",
     key: "rateStructure",
@@ -952,8 +1183,6 @@ const USDA_BI_CRITERIA_FIELDS: CriteriaField[] = [
 ];
 
 const PURCHASE_ORDER_FINANCE_CRITERIA_FIELDS: CriteriaField[] = [
-  { label: "Min Facility Size ($)", key: "minFacilitySize", required: true },
-  { label: "Max Facility Size ($)", key: "maxFacilitySize", required: true },
   { label: "Advance Rate (%)", key: "advanceRate", required: true },
   { label: "Transaction Fee (%)", key: "transactionFee", required: true },
   { label: "Min Gross Margin (%)", key: "minGrossMargin", required: true },
@@ -967,8 +1196,6 @@ const PURCHASE_ORDER_FINANCE_CRITERIA_FIELDS: CriteriaField[] = [
 ];
 
 const INVOICE_FACTORING_CRITERIA_FIELDS: CriteriaField[] = [
-  { label: "Min Facility Size ($)", key: "minFacilitySize", required: true },
-  { label: "Max Facility Size ($)", key: "maxFacilitySize", required: true },
   { label: "Advance Rate (%)", key: "advanceRate", required: true },
   { label: "Discount Fee (%)", key: "discountFee", required: true },
   { label: "Max Invoice Age (days)", key: "maxInvoiceAgeDays", required: true },
@@ -988,8 +1215,6 @@ const INVOICE_FACTORING_CRITERIA_FIELDS: CriteriaField[] = [
 ];
 
 const ACCOUNTS_PAYABLE_FINANCE_CRITERIA_FIELDS: CriteriaField[] = [
-  { label: "Min Program Size ($)", key: "minProgramSize", required: true },
-  { label: "Max Program Size ($)", key: "maxProgramSize", required: true },
   {
     label: "Early Payment Discount (%)",
     key: "earlyPaymentDiscount",
@@ -1083,6 +1308,9 @@ export const isSba7aEquipmentPurchaseProduct = (productCode?: string | null) =>
 export const isSba7aRealEstateProduct = (productCode?: string | null) =>
   productCode ? SBA_7A_REAL_ESTATE_LOAN_CODES.has(productCode) : false;
 
+export const isSbaExpressProduct = (productCode?: string | null) =>
+  productCode ? SBA_EXPRESS_LOAN_CODES.has(productCode) : false;
+
 export const isSba504Product = (productCode?: string | null) =>
   productCode ? SBA_504_LOAN_CODES.has(productCode) : false;
 
@@ -1106,32 +1334,35 @@ export const isSba7aMaxLoanOnlyProduct = (productCode?: string | null) =>
   isSba7aBusinessAcquisitionProduct(productCode) ||
   isSba7aWorkingCapitalProduct(productCode) ||
   isSba7aEquipmentPurchaseProduct(productCode) ||
-  isSba7aRealEstateProduct(productCode);
+  isSba7aRealEstateProduct(productCode) ||
+  isSbaExpressProduct(productCode);
 
 export const isAnySba7aProduct = (productCode?: string | null) =>
   isSba7aMaxLoanOnlyProduct(productCode);
 
 export const isAnySbaProduct = (productCode?: string | null) =>
-  isAnySba7aProduct(productCode) || isSba504Product(productCode);
+  isAnySba7aProduct(productCode) ||
+  isSba504Product(productCode) ||
+  isSbaExpressProduct(productCode);
 
-export const isNoMinLoanCriteriaProduct = (productCode?: string | null) =>
-  isUsdaBiProduct(productCode);
+export const isNoMinLoanCriteriaProduct = (_productCode?: string | null) =>
+  false;
 
 export const isSba7aNoLtvProduct = (productCode?: string | null) =>
-  isSba7aGeneralProduct(productCode) || isSba7aWorkingCapitalProduct(productCode);
+  isSba7aGeneralProduct(productCode);
 
 export const supportsSbaLtcProduct = (productCode?: string | null) =>
-  isSba7aEquipmentPurchaseProduct(productCode) || isSba504Product(productCode);
+  isSba7aBusinessAcquisitionProduct(productCode) ||
+  isSba7aWorkingCapitalProduct(productCode) ||
+  isSba7aEquipmentPurchaseProduct(productCode) ||
+  isSbaExpressProduct(productCode) ||
+  isSba504Product(productCode);
 
 export const isNoLtvCriteriaProduct = (productCode?: string | null) =>
-  isSba7aNoLtvProduct(productCode) || isUsdaBiProduct(productCode);
+  isSba7aGeneralProduct(productCode);
 
 export const isNoPropertyMetricsProduct = (productCode?: string | null) =>
-  isNoLtvCriteriaProduct(productCode) ||
-  isPurchaseOrderFinanceProduct(productCode) ||
-  isEquipmentFinanceProduct(productCode) ||
-  isArFactoringProduct(productCode) ||
-  isApSupplyChainProduct(productCode);
+  isSba7aGeneralProduct(productCode) || isArFactoringProduct(productCode);
 
 export const isNoTermCriteriaProduct = (productCode?: string | null) =>
   isPurchaseOrderFinanceProduct(productCode) ||
@@ -1147,7 +1378,6 @@ const usesYearTerms = (productCode: string) =>
   isCrePermanentProduct(productCode) ||
   isCmbsProduct(productCode) ||
   isAgencyMultifamilyProduct(productCode) ||
-  isSba7aBusinessAcquisitionProduct(productCode) ||
   isSba7aWorkingCapitalProduct(productCode) ||
   isSba7aEquipmentPurchaseProduct(productCode) ||
   isSba7aRealEstateProduct(productCode) ||
@@ -1223,6 +1453,10 @@ const getProductSpecificCriteriaFields = (
     return SBA_7A_BUSINESS_ACQUISITION_CRITERIA_FIELDS;
   }
 
+  if (isSbaExpressProduct(productCode)) {
+    return SBA_EXPRESS_CRITERIA_FIELDS;
+  }
+
   if (isSba7aWorkingCapitalProduct(productCode)) {
     return SBA_7A_WORKING_CAPITAL_CRITERIA_FIELDS;
   }
@@ -1281,140 +1515,112 @@ export const getRequiredCriteriaKeysForProduct = (
     .filter((field) => field.required !== false && field.type !== "toggle")
     .map((field) => field.key);
 
-export const getDefaultCriteriaValuesForProduct = (
+export const getCriteriaFieldLabel = (
   productCode: string,
-): Record<string, any> => {
-  if (isSba7aBusinessAcquisitionProduct(productCode)) {
-    return {
-      minLoan: "250000",
-      maxLoan: "5000000",
-      maxLtv: "90",
-      requiredInjection: "10",
-      minRateSpread: "2.25",
-      maxRateSpread: "2.75",
-      sbaGuaranteePercent: "75",
-      fico: "680",
-      minDscr: "1.25",
-      maxTerm: "10",
-      personalGuaranteeRequired: true,
-      goodwillFinancingAllowed: true,
-      sellerFinancingAllowed: true,
-      minLiquidityRequirement: "Varies by lender",
-      criteriaNotes:
-        "Amortization up to 10 years (25 years if real estate included).",
-    };
+  fieldKey: string,
+): string => {
+  const field = getCriteriaFieldsForProduct(productCode).find(
+    (entry) => entry.key === fieldKey,
+  );
+
+  if (!field?.label) {
+    return fieldKey;
   }
 
-  if (isSba7aWorkingCapitalProduct(productCode)) {
-    return {
-      minLoan: "50000",
-      maxLoan: "5000000",
-      maxFinancingPercent: "100",
-      minRateSpread: "2.25",
-      maxRateSpread: "3.00",
-      sbaGuaranteePercent: "75",
-      fico: "650",
-      minDscr: "1.20",
-      minTimeInBusiness: "24",
-      minAnnualRevenue: "150000",
-      maxTerm: "10",
-      personalGuaranteeRequired: true,
-      lineOfCreditAvailable: true,
-      startupAllowed: false,
-      prepaymentStructure: "Generally None",
-      useOfFunds:
-        "Payroll, Inventory, Marketing, Expansion, Operating Expenses, Debt Refinance (eligible)",
-      collateralRequirements:
-        "Available Collateral Preferred; May Be Undersecured",
-      criteriaNotes:
-        "Minimum FICO typically 650–680. Amortization up to 10 years.",
-    };
-  }
-
-  if (isSba7aEquipmentPurchaseProduct(productCode)) {
-    return {
-      minLoan: "100000",
-      maxLoan: "5000000",
-      maxLtv: "90",
-      maxLtc: "100",
-      minRateSpread: "2.00",
-      maxRateSpread: "3.00",
-      sbaGuaranteePercent: "75",
-      fico: "680",
-      minDscr: "1.20",
-      minTimeInBusiness: "24",
-      maxTerm: "10",
-      personalGuaranteeRequired: true,
-      startupAllowed: true,
-      usedEquipmentAllowed: true,
-      prepaymentStructure: "None (Generally)",
-      criteriaNotes:
-        "Amortization up to 10 years or useful life of equipment. Personal guarantee required from 20%+ owners.",
-    };
-  }
-
-  if (isSba7aRealEstateProduct(productCode)) {
-    return {
-      minLoan: "250000",
-      maxLoan: "5000000",
-      maxLtv: "90",
-      minRateSpread: "2.00",
-      maxRateSpread: "2.75",
-      sbaGuaranteePercent: "75",
-      fico: "680",
-      minDscr: "1.25",
-      maxTerm: "25",
-      personalGuaranteeRequired: true,
-      ownerOccupiedRequired: true,
-      environmentalReportRequired: true,
-      appraisalRequired: true,
-      ownerOccupancyRequirement:
-        "Minimum 51% Existing Building / 60% New Construction",
-      prepaymentStructure: "None",
-      criteriaNotes:
-        "Property types: Office, Retail, Industrial, Warehouse, Medical, Mixed-Use, Hospitality (subject to lender). Amortization up to 25 years.",
-    };
-  }
-
-  if (isSba504Product(productCode)) {
-    return {
-      minLoan: "250000",
-      maxTotalProject: "20000000",
-      maxSba504Debenture: "5500000",
-      maxLtv: "90",
-      maxLtc: "90",
-      requiredInjection: "10",
-      fico: "680",
-      minTimeInBusiness: "24",
-      minDscr: "1.20",
-      minTerm: "20",
-      maxTerm: "30",
-      avgTurnaroundDays: "90",
-      personalGuaranteeRequired: true,
-      ownerOccupiedRequired: true,
-      environmentalReportRequired: true,
-      appraisalRequired: true,
-      jobCreationRequired: true,
-      startupAllowed: true,
-      refinanceAllowed: true,
-      workingCapitalEligible: false,
-      lifeInsuranceMayBeRequired: true,
-      interestRateNote: "Fixed Rate (CDC/SBA Portion) + Market Rate on Bank Portion",
-      rateStructure: "Bank First Mortgage + SBA 504 Second Mortgage",
-      ownerOccupancyRequirement:
-        "Minimum 51% for Existing Buildings; 60% for New Construction (Occupancy must increase to 80% over time)",
-      useOfFunds:
-        "Purchase, Construction, Expansion, Renovation, Land Acquisition, Building Improvements, Long-Life Equipment",
-      collateralRequirements: "Subject Property (First & Second Mortgage)",
-      prepaymentStructure:
-        "Applies to SBA Debenture Portion (Declining Schedule)",
-      criteriaNotes:
-        "Property types: Office, Retail, Industrial, Warehouse, Manufacturing, Medical, Mixed-Use (Owner-Occupied), Automotive, Self-Storage (lender dependent). Equity injection typically 10% (15% special-purpose, 20% startups). Closing time typically 45–90 days. Investment/passive real estate generally not eligible.",
-    };
-  }
-
-  return {};
+  return field.label
+    .replace(/\s*\([^)]*\)\s*$/g, "")
+    .replace(/\*$/, "")
+    .trim();
 };
+
+type LoanProductCriteriaValidationProduct = {
+  id: string | number;
+  name: string;
+  code: string;
+};
+
+export const validateLoanProductCriteriaStep = (
+  selectedProducts: LoanProductCriteriaValidationProduct[],
+  loanCriteria: Record<string, any>,
+): string | null => {
+  for (const product of selectedProducts) {
+    const data = loanCriteria?.[String(product.id)];
+
+    if (!data) {
+      return `Please fill details for ${product.name}`;
+    }
+
+    const requiredFields = getRequiredCriteriaKeysForProduct(product.code);
+
+    for (const fieldKey of requiredFields) {
+      if (!data[fieldKey] && data[fieldKey] !== 0) {
+        const label = getCriteriaFieldLabel(product.code, fieldKey);
+        return `${product.name}: ${label} is required`;
+      }
+    }
+
+    if (!data.states || data.states.length === 0) {
+      return `${product.name}: Select at least one state`;
+    }
+
+    if (isSba504Product(product.code)) {
+      const total = Number(data.maxTotalProject);
+      const debenture = Number(data.maxSba504Debenture);
+      if (
+        data.maxTotalProject &&
+        data.maxSba504Debenture &&
+        debenture > total
+      ) {
+        return `${product.name}: SBA 504 debenture cannot exceed total project amount`;
+      }
+    } else if (
+      !isNoMinLoanCriteriaProduct(product.code) &&
+      !isMezzanineProduct(product.code)
+    ) {
+      const minAmount = Number(
+        data.minLoan ?? data.minFacilitySize ?? data.minProgramSize,
+      );
+      const maxAmount = Number(
+        data.maxLoan ?? data.maxFacilitySize ?? data.maxProgramSize,
+      );
+
+      if (
+        Number.isFinite(minAmount) &&
+        Number.isFinite(maxAmount) &&
+        minAmount > maxAmount
+      ) {
+        return `${product.name}: Minimum amount cannot exceed maximum amount`;
+      }
+    }
+  }
+
+  return null;
+};
+
+export const getLoanCriteriaFooterMessage = (
+  selectedProducts: LoanProductCriteriaValidationProduct[],
+  loanCriteria: Record<string, any>,
+  hasFieldErrors: boolean,
+): string | null => {
+  const stepError = validateLoanProductCriteriaStep(
+    selectedProducts,
+    loanCriteria,
+  );
+
+  if (stepError) {
+    return stepError;
+  }
+
+  if (hasFieldErrors) {
+    return "Please correct the highlighted errors in the loan criteria form.";
+  }
+
+  return null;
+};
+
+export const getDefaultCriteriaValuesForProduct = (
+  _productCode: string,
+): Record<string, any> => ({});
 
 export const buildLenderProductCriteriaPayload = (
   criteria: Record<string, any>,
@@ -1433,6 +1639,9 @@ export const buildLenderProductCriteriaPayload = (
   const sba7aGeneralProduct = isSba7aGeneralProduct(productCode);
   const sba7aBusinessAcquisitionProduct =
     isSba7aBusinessAcquisitionProduct(productCode);
+  const sbaExpressProduct = isSbaExpressProduct(productCode);
+  const sbaAcquisitionStyleProduct =
+    sba7aBusinessAcquisitionProduct || sbaExpressProduct;
   const sba7aWorkingCapitalProduct =
     isSba7aWorkingCapitalProduct(productCode);
   const sba7aEquipmentPurchaseProduct =
@@ -1450,32 +1659,32 @@ export const buildLenderProductCriteriaPayload = (
 
   const payload = {
     minLoanAmount:
-      (purchaseOrderProduct || arFactoringProduct) &&
-      criteria.minFacilitySize !== undefined &&
-      criteria.minFacilitySize !== ""
-        ? Number(criteria.minFacilitySize)
-        : apSupplyChainProduct &&
-            criteria.minProgramSize !== undefined &&
-            criteria.minProgramSize !== ""
-          ? Number(criteria.minProgramSize)
-          : !noMinLoanProduct &&
-              criteria.minLoan !== undefined &&
-              criteria.minLoan !== ""
-            ? Number(criteria.minLoan)
+      !noMinLoanProduct &&
+      criteria.minLoan !== undefined &&
+      criteria.minLoan !== ""
+        ? Number(criteria.minLoan)
+        : (purchaseOrderProduct || arFactoringProduct) &&
+            criteria.minFacilitySize !== undefined &&
+            criteria.minFacilitySize !== ""
+          ? Number(criteria.minFacilitySize)
+          : apSupplyChainProduct &&
+              criteria.minProgramSize !== undefined &&
+              criteria.minProgramSize !== ""
+            ? Number(criteria.minProgramSize)
             : null,
     maxLoanAmount:
-      (purchaseOrderProduct || arFactoringProduct) &&
-      criteria.maxFacilitySize !== undefined &&
-      criteria.maxFacilitySize !== ""
-        ? Number(criteria.maxFacilitySize)
-        : apSupplyChainProduct &&
-            criteria.maxProgramSize !== undefined &&
-            criteria.maxProgramSize !== ""
-          ? Number(criteria.maxProgramSize)
-          : !sba504Product &&
-              criteria.maxLoan !== undefined &&
-              criteria.maxLoan !== ""
-            ? Number(criteria.maxLoan)
+      !sba504Product &&
+      criteria.maxLoan !== undefined &&
+      criteria.maxLoan !== ""
+        ? Number(criteria.maxLoan)
+        : (purchaseOrderProduct || arFactoringProduct) &&
+            criteria.maxFacilitySize !== undefined &&
+            criteria.maxFacilitySize !== ""
+          ? Number(criteria.maxFacilitySize)
+          : apSupplyChainProduct &&
+              criteria.maxProgramSize !== undefined &&
+              criteria.maxProgramSize !== ""
+            ? Number(criteria.maxProgramSize)
             : null,
     minTermMonths: noTermProduct
       ? null
@@ -1541,16 +1750,85 @@ export const buildLenderProductCriteriaPayload = (
       ? Boolean(criteria.preferredLenderPlp)
       : false,
     requiredInjectionPercent:
-      (sba7aBusinessAcquisitionProduct || sba504Product) &&
+      (sbaAcquisitionStyleProduct || sba504Product) &&
       criteria.requiredInjection !== undefined &&
       criteria.requiredInjection !== ""
         ? Number(criteria.requiredInjection)
         : null,
-    goodwillFinancingAllowed: sba7aBusinessAcquisitionProduct
+    goodwillFinancingAllowed: sbaAcquisitionStyleProduct
       ? Boolean(criteria.goodwillFinancingAllowed)
       : false,
-    sellerFinancingAllowed: sba7aBusinessAcquisitionProduct
+    sellerFinancingAllowed: sbaAcquisitionStyleProduct
       ? Boolean(criteria.sellerFinancingAllowed)
+      : false,
+    intangibleAssetsAllowed: sbaAcquisitionStyleProduct
+      ? Boolean(criteria.intangibleAssetsAllowed)
+      : false,
+    equipmentIncluded: sbaAcquisitionStyleProduct
+      ? Boolean(criteria.equipmentIncluded)
+      : false,
+    realEstateIncluded: sbaAcquisitionStyleProduct
+      ? Boolean(criteria.realEstateIncluded)
+      : false,
+    franchiseAcquisitionAllowed: sbaAcquisitionStyleProduct
+      ? Boolean(criteria.franchiseAcquisitionAllowed)
+      : false,
+    collateralRequired: sbaAcquisitionStyleProduct
+      ? Boolean(criteria.collateralRequired)
+      : false,
+    collateralAsDownPaymentAllowed: sbaAcquisitionStyleProduct
+      ? Boolean(criteria.collateralAsDownPaymentAllowed)
+      : false,
+    preferredDscr:
+      sbaAcquisitionStyleProduct &&
+      criteria.preferredDscr !== undefined &&
+      criteria.preferredDscr !== ""
+        ? Number(criteria.preferredDscr)
+        : null,
+    maxTermRealEstateMonths:
+      sbaAcquisitionStyleProduct &&
+      criteria.maxTermRealEstate !== undefined &&
+      criteria.maxTermRealEstate !== ""
+        ? Number(criteria.maxTermRealEstate)
+        : null,
+    maxTermEquipmentMonths:
+      sbaExpressProduct &&
+      criteria.maxTermEquipment !== undefined &&
+      criteria.maxTermEquipment !== ""
+        ? Number(criteria.maxTermEquipment)
+        : null,
+    maximumDebtService:
+      sbaExpressProduct &&
+      criteria.maximumDebtService !== undefined &&
+      criteria.maximumDebtService !== ""
+        ? Number(criteria.maximumDebtService)
+        : null,
+    businessAcquisitionAllowed: sbaExpressProduct
+      ? Boolean(criteria.businessAcquisitionAllowed)
+      : false,
+    equipmentPurchaseAllowed: sbaExpressProduct
+      ? Boolean(criteria.equipmentPurchaseAllowed)
+      : false,
+    businessCreditRequired: sbaExpressProduct
+      ? Boolean(criteria.businessCreditRequired)
+      : false,
+    usOperatingBusinessRequired: sbaExpressProduct
+      ? Boolean(criteria.usOperatingBusinessRequired)
+      : false,
+    startupEligible: sbaExpressProduct
+      ? Boolean(criteria.startupEligible)
+      : false,
+    franchiseEligible: sbaExpressProduct
+      ? Boolean(criteria.franchiseEligible)
+      : false,
+    foreignOwnershipAllowed: sbaExpressProduct
+      ? Boolean(criteria.foreignOwnershipAllowed)
+      : false,
+    bankruptcyAllowed: sbaExpressProduct
+      ? Boolean(criteria.bankruptcyAllowed)
+      : false,
+    prepaymentPenalty: sbaExpressProduct
+      ? Boolean(criteria.prepaymentPenalty)
       : false,
     minLiquidityRequirement:
       sba7aBusinessAcquisitionProduct &&
@@ -1558,7 +1836,8 @@ export const buildLenderProductCriteriaPayload = (
         ? criteria.minLiquidityRequirement.trim()
         : null,
     minTimeInBusinessMonths:
-      (sba7aWorkingCapitalProduct ||
+      (sbaAcquisitionStyleProduct ||
+        sba7aWorkingCapitalProduct ||
         sba7aEquipmentPurchaseProduct ||
         sba504Product) &&
       criteria.minTimeInBusiness !== undefined &&
@@ -1588,6 +1867,7 @@ export const buildLenderProductCriteriaPayload = (
         ? criteria.collateralRequirements.trim()
         : null,
     startupAllowed:
+      sbaAcquisitionStyleProduct ||
       sba7aWorkingCapitalProduct ||
       sba7aEquipmentPurchaseProduct ||
       sba504Product
@@ -1597,12 +1877,13 @@ export const buildLenderProductCriteriaPayload = (
       sba504Product && criteria.rateStructure?.trim()
         ? criteria.rateStructure.trim()
         : null,
-    refinanceAllowed: sba504Product
+    refinanceAllowed: sbaExpressProduct || sba504Product
       ? Boolean(criteria.refinanceAllowed)
       : false,
-    workingCapitalEligible: sba504Product
-      ? Boolean(criteria.workingCapitalEligible)
-      : false,
+    workingCapitalEligible:
+      sbaAcquisitionStyleProduct || sba504Product
+        ? Boolean(criteria.workingCapitalEligible)
+        : false,
     lifeInsuranceMayBeRequired: sba504Product
       ? Boolean(criteria.lifeInsuranceMayBeRequired)
       : false,
@@ -1613,9 +1894,10 @@ export const buildLenderProductCriteriaPayload = (
       sba7aEquipmentPurchaseProduct || equipmentFinanceProduct
         ? Boolean(criteria.usedEquipmentAllowed)
         : false,
-    saleLeasebackAvailable: equipmentFinanceProduct
-      ? Boolean(criteria.saleLeasebackAvailable)
-      : false,
+    saleLeasebackAvailable:
+      sbaExpressProduct || equipmentFinanceProduct
+        ? Boolean(criteria.saleLeasebackAvailable)
+        : false,
     advanceRatePercent:
       (purchaseOrderProduct || arFactoringProduct) &&
       criteria.advanceRate !== undefined &&
@@ -1674,7 +1956,7 @@ export const buildLenderProductCriteriaPayload = (
       ? Boolean(criteria.reverseFactoringAvailable)
       : false,
     ownerOccupiedRequired:
-      sba7aRealEstateProduct || sba504Product
+      sbaExpressProduct || sba7aRealEstateProduct || sba504Product
         ? Boolean(criteria.ownerOccupiedRequired)
         : false,
     ownerOccupancyRequirement:
@@ -1770,7 +2052,8 @@ export const buildLenderProductCriteriaPayload = (
     amortizationYears:
       (crePermanentProduct ||
         cmbsProduct ||
-        agencyMultifamilyProduct) &&
+        agencyMultifamilyProduct ||
+        sbaExpressProduct) &&
       criteria.amortizationYears !== undefined &&
       criteria.amortizationYears !== ""
         ? Number(criteria.amortizationYears)
@@ -1807,17 +2090,13 @@ export const buildLenderProductCriteriaPayload = (
         ? String(criteria.experience)
         : null,
     interestRateRange:
-      sba504Product && criteria.interestRateNote?.trim()
-        ? criteria.interestRateNote.trim()
-        : !preferredEquityProduct &&
-            !noMinLoanProduct &&
-            !purchaseOrderProduct &&
-            !arFactoringProduct &&
-            !apSupplyChainProduct &&
-            criteria.minRate &&
-            criteria.maxRate
-          ? `${criteria.minRate}-${criteria.maxRate}`
-          : null,
+      !isArFactoringProduct(productCode) &&
+      !isPreferredEquityProduct(productCode) &&
+      !isSba7aRateSpreadProduct(productCode) &&
+      criteria.minRate &&
+      criteria.maxRate
+        ? `${criteria.minRate}-${criteria.maxRate}`
+        : null,
     originationPointsPercent:
       criteria.originationPoints !== undefined &&
       criteria.originationPoints !== ""
@@ -1885,6 +2164,15 @@ const normalizeDocumentsForForm = (product: any) => {
 
 const apiToFormValue = (val: unknown) => {
   if (val === null || val === undefined) return "";
+
+  if (typeof val === "number") {
+    return Number.isFinite(val) ? String(val) : "";
+  }
+
+  if (typeof val === "boolean") {
+    return val ? "true" : "";
+  }
+
   if (typeof val === "object") {
     if (typeof (val as { toString?: () => string }).toString === "function") {
       const str = (val as { toString: () => string }).toString();
@@ -1892,43 +2180,76 @@ const apiToFormValue = (val: unknown) => {
     }
     return "";
   }
+
   return String(val);
 };
 
 const parseInterestRateRange = (range: unknown) => {
-  if (!range || typeof range !== "string") {
+  if (range === null || range === undefined || range === "") {
     return { minRate: "", maxRate: "" };
   }
 
-  const [minPart = "", maxPart = ""] = range.split("-");
+  if (typeof range === "number" && Number.isFinite(range)) {
+    const value = String(range);
+    return { minRate: value, maxRate: value };
+  }
+
+  if (typeof range !== "string") {
+    return { minRate: "", maxRate: "" };
+  }
+
   const clean = (part: string) =>
     part.replace(/,/g, "").replace(/%/g, "").trim();
 
-  return {
-    minRate: clean(minPart),
-    maxRate: clean(maxPart),
-  };
+  const stripped = range.replace(/%/g, "").trim();
+  const numericRange = stripped.match(
+    /^([\d.]+)\s*(?:-|–|—|\sto\s)\s*([\d.]+)$/i,
+  );
+
+  if (numericRange) {
+    return {
+      minRate: clean(numericRange[1]),
+      maxRate: clean(numericRange[2]),
+    };
+  }
+
+  const singleValue = stripped.match(/^([\d.]+)$/);
+  if (singleValue) {
+    return {
+      minRate: clean(singleValue[1]),
+      maxRate: clean(singleValue[1]),
+    };
+  }
+
+  return { minRate: "", maxRate: "" };
+};
+
+const resolveFormInterestRates = (product: any) => {
+  const fromRange = parseInterestRateRange(product.interestRateRange);
+  if (fromRange.minRate || fromRange.maxRate) {
+    return fromRange;
+  }
+
+  const minSpread = apiToFormValue(product.minRateSpreadPercent);
+  const maxSpread = apiToFormValue(product.maxRateSpreadPercent);
+  if (minSpread || maxSpread) {
+    return { minRate: minSpread, maxRate: maxSpread };
+  }
+
+  return { minRate: "", maxRate: "" };
 };
 
 export const mapApiProductToCriteriaForm = (product: any) => {
-  const productCode = product.loanProductCode || product.code || "";
+  const productCode = resolveLenderOfferedProductCode(
+    product.loanProductCode || product.code || product.loanProduct?.code || "",
+  );
   const toFormValue = apiToFormValue;
   const toFormBoolean = (val: unknown) => val === true;
-  const interestRates = parseInterestRateRange(product.interestRateRange);
+  const interestRates = resolveFormInterestRates(product);
 
   return {
-    minLoan: isPurchaseOrderFinanceProduct(productCode) ||
-      isArFactoringProduct(productCode)
-      ? ""
-      : isApSupplyChainProduct(productCode)
-        ? ""
-        : toFormValue(product.minLoanAmount),
-    maxLoan: isPurchaseOrderFinanceProduct(productCode) ||
-      isArFactoringProduct(productCode)
-      ? ""
-      : isApSupplyChainProduct(productCode)
-        ? ""
-        : toFormValue(product.maxLoanAmount),
+    minLoan: toFormValue(product.minLoanAmount),
+    maxLoan: toFormValue(product.maxLoanAmount),
     minFacilitySize:
       isPurchaseOrderFinanceProduct(productCode) ||
       isArFactoringProduct(productCode)
@@ -1955,6 +2276,33 @@ export const mapApiProductToCriteriaForm = (product: any) => {
     requiredInjection: toFormValue(product.requiredInjectionPercent),
     goodwillFinancingAllowed: toFormBoolean(product.goodwillFinancingAllowed),
     sellerFinancingAllowed: toFormBoolean(product.sellerFinancingAllowed),
+    intangibleAssetsAllowed: toFormBoolean(product.intangibleAssetsAllowed),
+    equipmentIncluded: toFormBoolean(product.equipmentIncluded),
+    realEstateIncluded: toFormBoolean(product.realEstateIncluded),
+    franchiseAcquisitionAllowed: toFormBoolean(
+      product.franchiseAcquisitionAllowed,
+    ),
+    collateralRequired: toFormBoolean(product.collateralRequired),
+    collateralAsDownPaymentAllowed: toFormBoolean(
+      product.collateralAsDownPaymentAllowed,
+    ),
+    preferredDscr: toFormValue(product.preferredDscr),
+    maxTermRealEstate: toFormValue(product.maxTermRealEstateMonths),
+    maxTermEquipment: toFormValue(product.maxTermEquipmentMonths),
+    maximumDebtService: toFormValue(product.maximumDebtService),
+    businessAcquisitionAllowed: toFormBoolean(
+      product.businessAcquisitionAllowed,
+    ),
+    equipmentPurchaseAllowed: toFormBoolean(product.equipmentPurchaseAllowed),
+    businessCreditRequired: toFormBoolean(product.businessCreditRequired),
+    usOperatingBusinessRequired: toFormBoolean(
+      product.usOperatingBusinessRequired,
+    ),
+    startupEligible: toFormBoolean(product.startupEligible),
+    franchiseEligible: toFormBoolean(product.franchiseEligible),
+    foreignOwnershipAllowed: toFormBoolean(product.foreignOwnershipAllowed),
+    bankruptcyAllowed: toFormBoolean(product.bankruptcyAllowed),
+    prepaymentPenalty: toFormBoolean(product.prepaymentPenalty),
     minLiquidityRequirement: product.minLiquidityRequirement ?? "",
     minTimeInBusiness: toFormValue(product.minTimeInBusinessMonths),
     minAnnualRevenue: toFormValue(product.minAnnualRevenue),
@@ -2029,13 +2377,7 @@ export const mapApiProductToCriteriaForm = (product: any) => {
         ? String(product.statesSupported).split(",").filter(Boolean)
         : [],
     documents: normalizeDocumentsForForm(product),
-    minRate:
-      isSba504Product(productCode) || isSba7aRateSpreadProduct(productCode)
-        ? ""
-        : interestRates.minRate,
-    maxRate:
-      isSba504Product(productCode) || isSba7aRateSpreadProduct(productCode)
-        ? ""
-        : interestRates.maxRate,
+    minRate: interestRates.minRate,
+    maxRate: interestRates.maxRate,
   };
 };

@@ -114,6 +114,24 @@ export default function EditFullProfile() {
     [products, form.loanPrograms],
   );
 
+  const lockedProgramIds = useMemo(
+    () =>
+      [
+        ...new Set(
+          existingProducts
+            .map((product) =>
+              mapToCanonicalCatalogId(
+                products,
+                product.code,
+                product.loanProductId,
+              ),
+            )
+            .filter(Boolean),
+        ),
+      ] as string[],
+    [existingProducts, products],
+  );
+
   const isEquipmentSelected = selectedProducts.some(
     (product) => product.code === "EQUIPMENT_FINANCE",
   );
@@ -702,8 +720,17 @@ export default function EditFullProfile() {
           mode="lender"
           value={form.loanPrograms}
           setValue={(value) =>
-            setForm((previous) => ({ ...previous, loanPrograms: value }))
+            setForm((previous) => ({
+              ...previous,
+              loanPrograms: [
+                ...new Set([
+                  ...lockedProgramIds,
+                  ...(Array.isArray(value) ? value : []),
+                ]),
+              ],
+            }))
           }
+          lockedIds={lockedProgramIds}
           onProductsLoad={setProducts}
         />
       );

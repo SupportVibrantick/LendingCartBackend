@@ -4,6 +4,7 @@ import { ArrowRight, Eye, EyeOff, LockKeyhole, Mail } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { LO_API_BASE, LO_TOKEN_KEY, LO_USER_KEY, clearLoanOfficerSession, isLoanOfficerTokenExpired, verifyLoanOfficerSession } from "../../../lib/loanOfficerApi";
+import { setSessionPermissions } from "../../../lib/brokerPermissions";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -57,8 +58,7 @@ export default function Login() {
       sessionStorage.setItem(LO_TOKEN_KEY, json.token);
       sessionStorage.setItem(LO_USER_KEY, JSON.stringify(json.user));
       if (json.roles) sessionStorage.setItem("roles", JSON.stringify(json.roles));
-      if (json.permissions)
-        sessionStorage.setItem("permissions", JSON.stringify(json.permissions));
+      if (json.permissions) setSessionPermissions(json.permissions);
 
       const verified = await verifyLoanOfficerSession(json.token);
       if (!verified) {

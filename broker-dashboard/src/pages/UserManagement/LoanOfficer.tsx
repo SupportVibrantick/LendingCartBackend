@@ -12,6 +12,7 @@ import {
   Power,
   RefreshCw,
   Search,
+  Shield,
   Trash2,
   MoreVertical,
   UserCheck,
@@ -29,11 +30,11 @@ import Swal from "sweetalert2";
 // import Select from "react-select";
 import PageMeta from "../../components/common/PageMeta";
 import ViewLoanOfficerModal from "./ViewLoanOfficerModal";
-import { formatPhone } from "./loanOfficerShared";
+import { formatPhone, normalizeLoanOfficerPermissions, LO_HIDDEN_PERMISSION_KEYS, countGrantedLoPermissionUiSlots, getLoPermissionUiSlotTotal } from "./loanOfficerShared";
 import { buildImpersonatePortalUrl } from "../../lib/impersonateUrl";
 import LoanOfficerFormModal from "../../components/loanOfficer/LoanOfficerFormModal";
 
-export { PERMISSIONS } from "./loanOfficerShared";
+export { LO_PERMISSION_CATEGORIES as PERMISSIONS } from "./loanOfficerShared";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 const SEARCH_DEBOUNCE_MS = 400;
@@ -216,6 +217,32 @@ function OfficerStatusBadge({
       />
       {loading ? "Updating..." : active ? "Active" : "Disabled"}
     </button>
+  );
+}
+
+function PermissionsBadge({ permissions }: { permissions?: string[] }) {
+  const visibleGranted = normalizeLoanOfficerPermissions(permissions || []).filter(
+    (key) => !LO_HIDDEN_PERMISSION_KEYS.includes(key),
+  );
+  const slotCount = countGrantedLoPermissionUiSlots(permissions || []);
+  const total = getLoPermissionUiSlotTotal();
+
+  if (!visibleGranted.length) {
+    return (
+      <span className="inline-flex items-center rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700 ring-1 ring-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:ring-amber-500/20">
+        No permissions
+      </span>
+    );
+  }
+
+  return (
+    <span
+      title={`${slotCount} of ${total} permissions granted`}
+      className="inline-flex items-center gap-1 rounded-full bg-[#13538A]/10 px-2.5 py-1 text-xs font-semibold text-[#13538A] ring-1 ring-[#13538A]/15 dark:bg-[#13538A]/20 dark:text-cyan-300"
+    >
+      <Shield className="h-3 w-3" />
+      {slotCount}/{total}
+    </span>
   );
 }
 
@@ -466,7 +493,7 @@ export default function LoanOfficersPage() {
       if (page > (json.totalPages || 1) && (json.totalPages || 1) >= 1) {
         setPage(json.totalPages || 1);
       }
-    } catch (err) {
+    } catch (err) { 
       console.error(err);
       toast.error("Failed to load loan officers");
     } finally {
@@ -926,6 +953,11 @@ export default function LoanOfficersPage() {
                         Co-Brokers
                       </span>
                     </th>
+                    <th className="hidden px-4 py-3 text-left xl:table-cell">
+                      <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                        Permissions
+                      </span>
+                    </th>
                     <th className="hidden px-4 py-3 text-left sm:table-cell">
                       <SortHeader
                         label="Created"
@@ -1029,6 +1061,10 @@ export default function LoanOfficersPage() {
 
                         <td className="hidden px-4 py-3.5 lg:table-cell">
                           <CoBrokerBadge label={coBrokerLabel} title={coBrokerTitle} />
+                        </td>
+
+                        <td className="hidden px-4 py-3.5 xl:table-cell">
+                          <PermissionsBadge permissions={o.permissions} />
                         </td>
 
                         <td className="hidden px-4 py-3.5 sm:table-cell">
@@ -1207,7 +1243,7 @@ export default function LoanOfficersPage() {
                 className="flex w-full items-center gap-2 px-3 py-2 text-xs text-gray-700 transition hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-800"
               >
                 <Pencil className="h-3.5 w-3.5 text-amber-600" />
-                Edit
+                Edit Profile
               </button>
               <button
                 type="button"

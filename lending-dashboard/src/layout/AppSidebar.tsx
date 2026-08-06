@@ -32,7 +32,7 @@ const navItems: NavItem[] = [
   },
   {
     icon: Layers,
-    name: "Loan Products",
+    name: "Loan Programs",
     description: "Programs & criteria",
     path: "/all-loan-products",
     matchPaths: [

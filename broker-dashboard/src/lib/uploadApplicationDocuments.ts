@@ -5,6 +5,21 @@ type DocumentTypeRecord = {
   name: string;
 };
 
+type DocumentUploadPaths = {
+  requestDocuments: (loanApplicationId: string) => string;
+  listDocuments: (submissionId: string) => string;
+  uploadDocument: (submissionId: string, requirementId: string) => string;
+};
+
+const defaultDocumentPaths = (apiBase: string): DocumentUploadPaths => ({
+  requestDocuments: (loanApplicationId: string) =>
+    `${apiBase}/broker/loan-pipeline/${loanApplicationId}/request-documents`,
+  listDocuments: (submissionId: string) =>
+    `${apiBase}/broker/loan-pipeline/submissions/${submissionId}/documents?limit=100&documentCategory=upload`,
+  uploadDocument: (submissionId: string, requirementId: string) =>
+    `${apiBase}/broker/loan-pipeline/submissions/${submissionId}/documents/${requirementId}/upload`,
+});
+
 const resolveDocumentTypeId = (
   label: string,
   documentTypes: DocumentTypeRecord[],
@@ -37,14 +52,18 @@ export async function uploadPendingApplicationDocuments({
   loanApplicationId,
   submissionId,
   documents,
+  documentPaths,
 }: {
   apiBase: string;
   token: string | null;
   loanApplicationId: string;
   submissionId: string;
   documents: PendingApplicationDocument[];
+  documentPaths?: DocumentUploadPaths;
 }) {
   if (documents.length === 0) return;
+
+  const paths = documentPaths || defaultDocumentPaths(apiBase);
 
   const headers = {
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -66,7 +85,7 @@ export async function uploadPendingApplicationDocuments({
 
   if (typeIds.length > 0) {
     const requestRes = await fetch(
-      `${apiBase}/broker/loan-pipeline/${loanApplicationId}/request-documents`,
+      paths.requestDocuments(loanApplicationId),
       {
         method: "POST",
         headers: {
@@ -85,10 +104,7 @@ export async function uploadPendingApplicationDocuments({
     }
   }
 
-  const docsRes = await fetch(
-    `${apiBase}/broker/loan-pipeline/submissions/${submissionId}/documents?limit=100&documentCategory=upload`,
-    { headers },
-  );
+  const docsRes = await fetch(paths.listDocuments(submissionId), { headers });
   const docsJson = await docsRes.json();
 
   if (!docsRes.ok) {
@@ -119,7 +135,7 @@ export async function uploadPendingApplicationDocuments({
     formData.append("file", doc.file);
 
     const uploadRes = await fetch(
-      `${apiBase}/broker/loan-pipeline/submissions/${submissionId}/documents/${requirement.requirementId}/upload`,
+      paths.uploadDocument(submissionId, requirement.requirementId),
       {
         method: "POST",
         headers,
