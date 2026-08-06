@@ -23,22 +23,20 @@ import {
   FiFileText,
   FiMessageCircle,
   FiLogOut,
-  FiCreditCard,
-  FiDollarSign,
-  FiTag,
   FiUser,
   FiX,
   FiSearch,
   FiMapPin,
   FiHome,
   FiLayers,
+  FiBriefcase,
+  FiFilter,
 } from "react-icons/fi";
 import Chat from "./Chat";
 import ClientNotificationDropdown, {
   type ClientNotification,
 } from "./ClientNotificationDropdown";
 import {
-  buildSubmissionFieldMap,
   getLatestSubmission,
   getNumericFieldValue,
   mapSubmissionDetailFields,
@@ -293,6 +291,11 @@ type ApplicationCardSummary = {
   propertyInfo?: string | null;
   collateralSummary?: string | null;
   address?: string | null;
+  broker?: {
+    id?: string;
+    name?: string | null;
+    email?: string | null;
+  } | null;
 };
 
 const ApplicationCardMetaRow = ({
@@ -326,7 +329,8 @@ const hasApplicationCardSummary = (app: ApplicationCardSummary) =>
     app.businessName?.trim() ||
       app.propertyInfo?.trim() ||
       app.collateralSummary?.trim() ||
-      app.address?.trim(),
+      app.address?.trim() ||
+      app.broker?.name?.trim(),
   );
 
 const getStatusAccentClass = (status?: string) => {
@@ -552,7 +556,6 @@ export default function ClientUpload() {
   const [selectedApplication, setSelectedApplication] = useState<any>(null);
   const [applicationDetailsLoading, setApplicationDetailsLoading] =
     useState(false);
-  const [fieldMap, setFieldMap] = useState<Record<string, any>>({});
 
   // const [status, setStatus] = useState("");
   // const [email, setEmail] = useState("");
@@ -562,6 +565,12 @@ export default function ClientUpload() {
   const [applications, setApplications] = useState<any[]>([]);
   const [applicationsLoading, setApplicationsLoading] = useState(false);
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [brokerFilter, setBrokerFilter] = useState("");
+  const [filterBrokers, setFilterBrokers] = useState<
+    Array<{ id: string; name: string; email?: string | null }>
+  >([]);
+  const [filterStatuses, setFilterStatuses] = useState<string[]>([]);
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -574,22 +583,6 @@ export default function ClientUpload() {
   const [clientSignBlockedReason, setClientSignBlockedReason] = useState("");
   const [canClientSign, setCanClientSign] = useState(false);
   const [tabRefreshKey, setTabRefreshKey] = useState(0);
-
-  const PRODUCT_LABELS: Record<string, string> = {
-  FIX_AND_FLIP_LOAN_1_TO_4_UNITS: "FIX & FLIP",
-  DSCR_LOAN_1_TO_4_UNITS: "DSCR / Rental",
-  CONSTRUCTION_LOAN_1_TO_4_UNITS: "CONSTRUCTION",
-  BRIDGE_LOAN_1_TO_4_UNITS: "BRIDGE LOAN",
-  SBA_504_REAL_ESTATE_AND_EQUIPMENT: "SBA 504",
-  USDA_BI: "USDA B&I",
-  AGENCY_LOAN_MULTIFAMILY: "AGENCY MULTIFAMILY",
-  CRE_PERMANENT_LOAN: "CRE PERMANENT",
-  RENTAL_PORTFOLIO: "RENTAL PORTFOLIO",
-  PURCHASE_ORDER_FINANCE: "PURCHASE ORDER FINANCE",
-  ACCOUNTS_PAYABLE_FINANCE: "AP SUPPLY CHAIN",
-  ACCOUNTS_RECEIVABLE: "ACCOUNTS RECEIVABLE",
-  INVOICE_FACTORING: "AR FACTORING",
-};
 
   const getClientPortalAuthConfig = () => {
     const clientToken = sessionStorage.getItem("client_token");
@@ -1029,6 +1022,12 @@ export default function ClientUpload() {
         if (debouncedSearch) {
           url += `&search=${encodeURIComponent(debouncedSearch)}`;
         }
+        if (statusFilter) {
+          url += `&status=${encodeURIComponent(statusFilter)}`;
+        }
+        if (brokerFilter) {
+          url += `&brokerOrgId=${encodeURIComponent(brokerFilter)}`;
+        }
 
         if (token) url += `&token=${token}`;
 
@@ -1043,13 +1042,15 @@ export default function ClientUpload() {
         setPage(resolvedPage);
         setTotalPages(nextTotalPages);
         setTotalApplications(res.data?.meta?.total || 0);
+        setFilterBrokers(res.data?.meta?.filters?.brokers || []);
+        setFilterStatuses(res.data?.meta?.filters?.statuses || []);
       } catch (err) {
         console.error(err);
       } finally {
         setApplicationsLoading(false);
       }
     },
-    [debouncedSearch, token],
+    [debouncedSearch, statusFilter, brokerFilter, token],
   );
 
   const fetchApplicationDetails = async (
@@ -1073,9 +1074,6 @@ export default function ClientUpload() {
 
       setSelectedApplication(data);
       applyDocumentsFromApplication(data);
-
-      const map = buildSubmissionFieldMap(data);
-      setFieldMap(map);
 
       setApplicationData({
         ...data,
@@ -1157,18 +1155,6 @@ export default function ClientUpload() {
     />
   );
 
-  const formatCurrency = (val: any) => {
-    const numeric = parseNumericValue(val);
-    if (numeric === null) return "-";
-    return `$${numeric.toLocaleString("en-US")}`;
-  };
-
-  const formatPercent = (val: any) => {
-    const numeric = parseNumericValue(val);
-    if (numeric === null) return "-";
-    return `${numeric.toFixed(2)}%`;
-  };
-
   const totalUploadedDocuments = documents.filter(
     (doc) => (doc.uploadedFiles?.length || 0) > 0,
   ).length;
@@ -1188,19 +1174,6 @@ export default function ClientUpload() {
     API_BASE,
     currentPreviewFile?.fileUrl,
   );
-
-  const getValue = (key: string) => {
-    if (key === "borrowerName") {
-      return (
-        fieldMap.borrowerName ||
-        `${fieldMap.borrowerFirstName || ""} ${fieldMap.borrowerLastName || ""}`.trim()
-      );
-    }
-
-    const value = fieldMap[key];
-    if (value === undefined || value === null || value === "") return "";
-    return value;
-  };
 
   const latestSubmission = useMemo(
     () =>
@@ -1275,7 +1248,19 @@ export default function ClientUpload() {
     if (activeTab === "applications") {
       fetchApplications(page);
     }
-  }, [activeTab, page, debouncedSearch, fetchApplications]);
+  }, [activeTab, page, debouncedSearch, statusFilter, brokerFilter, fetchApplications]);
+
+  const hasActiveFilters = Boolean(
+    search.trim() || statusFilter || brokerFilter,
+  );
+
+  const clearApplicationFilters = () => {
+    setSearch("");
+    setDebouncedSearch("");
+    setStatusFilter("");
+    setBrokerFilter("");
+    setPage(1);
+  };
 
   useEffect(() => {
     if (activeTab !== "applications" || page <= 1) return;
@@ -1719,27 +1704,86 @@ export default function ClientUpload() {
                   </p>
                 </div>
 
-                <div className="relative w-full lg:max-w-sm">
-                  <FiSearch
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-                    size={16}
-                  />
-                  <input
-                    type="text"
-                    placeholder="Search by ID, product, business, or address..."
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-9 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15"
-                  />
-                  {search && (
-                    <button
-                      type="button"
-                      onClick={() => setSearch("")}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 transition hover:text-slate-600"
-                    >
-                      <FiX size={16} />
-                    </button>
-                  )}
+                <div className="flex w-full flex-col gap-2.5 lg:max-w-xl">
+                  <div className="relative w-full">
+                    <FiSearch
+                      className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                      size={16}
+                    />
+                    <input
+                      type="text"
+                      placeholder="Search by ID, product, business, broker, or address..."
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                      className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-9 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15"
+                    />
+                    {search && (
+                      <button
+                        type="button"
+                        onClick={() => setSearch("")}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 transition hover:text-slate-600"
+                      >
+                        <FiX size={16} />
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                    <div className="relative flex-1">
+                      <FiBriefcase
+                        className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                        size={14}
+                      />
+                      <select
+                        value={brokerFilter}
+                        onChange={(e) => {
+                          setBrokerFilter(e.target.value);
+                          setPage(1);
+                        }}
+                        className="w-full appearance-none rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-8 text-sm text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15"
+                      >
+                        <option value="">All brokers</option>
+                        {filterBrokers.map((broker) => (
+                          <option key={broker.id} value={broker.id}>
+                            {broker.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="relative flex-1">
+                      <FiFilter
+                        className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                        size={14}
+                      />
+                      <select
+                        value={statusFilter}
+                        onChange={(e) => {
+                          setStatusFilter(e.target.value);
+                          setPage(1);
+                        }}
+                        className="w-full appearance-none rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-8 text-sm text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15"
+                      >
+                        <option value="">All statuses</option>
+                        {filterStatuses.map((status) => (
+                          <option key={status} value={status}>
+                            {formatStatusLabel(status)}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {hasActiveFilters && (
+                      <button
+                        type="button"
+                        onClick={clearApplicationFilters}
+                        className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
+                      >
+                        <FiX size={14} />
+                        Clear
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -1771,17 +1815,17 @@ export default function ClientUpload() {
                   No applications found
                 </p>
                 <p className="mx-auto mt-2 max-w-md text-sm text-slate-500">
-                  {search
-                    ? "Try a different search term or clear the filter."
+                  {hasActiveFilters
+                    ? "Try different filters or clear them to see all applications."
                     : "Your loan applications will appear here once they are created."}
                 </p>
-                {search && (
+                {hasActiveFilters && (
                   <button
                     type="button"
-                    onClick={() => setSearch("")}
+                    onClick={clearApplicationFilters}
                     className="mt-4 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
                   >
-                    Clear search
+                    Clear filters
                   </button>
                 )}
               </div>
@@ -1858,6 +1902,11 @@ export default function ClientUpload() {
 
                         {hasApplicationCardSummary(app) && (
                           <div className="mb-4 space-y-2.5 rounded-xl border border-slate-100 bg-white px-3 py-3">
+                            <ApplicationCardMetaRow
+                              icon={<FiBriefcase size={14} />}
+                              label="Broker"
+                              value={app.broker?.name}
+                            />
                             <ApplicationCardMetaRow
                               icon={<FiUser size={14} />}
                               label="Business"
@@ -2024,294 +2073,135 @@ export default function ClientUpload() {
           ) : applicationData ? (
             <>
               {renderApplicationWorkspaceHeader()}
-            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-              {activeTab === "application" && applicationData && (
-                <div>
-                  <div className="mb-6">
-                    {/* CARDS CONTAINER */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                      {/* CLIENT CARD */}
-                      <div className="group relative overflow-hidden rounded-2xl p-4 bg-blue-100 border border-slate-100 transition-all duration-300">
-                        <div className="relative flex items-center gap-3">
-                          {/* Icon with Soft Background */}
-                          <div className="h-10 w-10 shrink-0 rounded-xl bg-blue-400 text-blue-50 flex items-center justify-center transition-all duration-300">
-                            <FiUser size={16} />
-                          </div>
+              <div className="space-y-5">
+                <ClientSubmissionDetailsView
+                  application={applicationData}
+                  fields={submissionDetailFields}
+                  loanAmount={detailLoanAmount}
+                  ltv={detailLtv}
+                  ltc={detailLtc}
+                  arv={detailArv}
+                  dscr={detailDscr}
+                  netWorth={detailNetWorth}
+                  submittedDate={submittedDate}
+                  formatStatusLabel={formatStatusLabel}
+                  getStatusChipClass={getStatusStyles}
+                />
 
-                          <div className="min-w-0">
-                            <p className="text-[10px] text-blue-600 uppercase tracking-[0.05em] font-bold mb-0.5">
-                              Client Name
-                            </p>
-                            <p className="text-[13px] font-semibold text-blue-800 truncate">
-                             {getValue("borrowerName") || "Applicant"}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* PRODUCT CARD */}
-                      <div className="group relative overflow-hidden rounded-2xl p-4 bg-purple-100 border border-slate-100 transition-all duration-300">
-                        <div className="relative flex items-center gap-3">
-                          <div className="h-10 w-10 shrink-0 rounded-xl bg-purple-500 text-purple-50 flex items-center justify-center transition-all duration-300">
-                            <FiTag size={16} />
-                          </div>
-
-                          <div className="min-w-0">
-                            <p className="text-[10px] text-purple-600 uppercase tracking-[0.05em] font-bold mb-0.5">
-                              Product
-                            </p>
-                            <p className="text-[13px] font-semibold text-purple-700 truncate">
-                              {applicationData?.loanProduct?.name ||
-                                PRODUCT_LABELS[getValue("loanProductCode")] ||
-                                getValue("loanProductCode")
-                                  ?.replace(/_/g, " ")
-                                  .toUpperCase()}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* AMOUNT CARD */}
-                      <div className="group relative overflow-hidden rounded-2xl p-4 bg-green-100 border border-slate-100  transition-all duration-300">
-                        <div className="relative flex items-center gap-3">
-                          <div className="h-10 w-10 shrink-0 rounded-xl bg-green-500 text-green-50 flex items-center justify-center transition-all duration-300">
-                            <FiDollarSign size={16} />
-                          </div>
-
-                          <div className="min-w-0">
-                            <p className="text-[10px] text-green-600 uppercase tracking-[0.05em] font-bold mb-0.5">
-                              Loan Amount Requested
-                            </p>
-                            <p className="text-[13px] font-bold text-green-600">
-                              {formatCurrency(getValue("amountRequested"))}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* CREDIT SCORE CARD */}
-                      <div className="group relative overflow-hidden rounded-2xl p-4 bg-[#FEFCE9] border border-slate-100 transition-all duration-300">
-                        <div className="relative flex items-center gap-3">
-                          <div className="h-10 w-10 shrink-0 rounded-xl bg-[#F7A400] text-white flex items-center justify-center transition-all duration-300">
-                            <FiCreditCard size={16} />
-                          </div>
-
-                          <div className="min-w-0">
-                            <p className="text-[10px] text-orange-600 uppercase tracking-[0.05em] font-bold mb-0.5">
-                              Credit Score
-                            </p>
-                            <div className="flex items-baseline gap-1">
-                              <p className="text-[13px] font-bold text-orange-800">
-                                {getValue("creditScore") || "—"}
-                              </p>
-                              <span className="text-[9px] font-medium text-orange-800">
-                                PTS
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
+                {/* Client signature pad / signed state */}
+                <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-5 shadow-[0_8px_30px_-20px_rgba(15,23,42,0.28)] sm:p-6">
+                  <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <h3 className="text-sm font-semibold text-slate-900">
+                        Digital Signature
+                      </h3>
+                      <p className="mt-0.5 text-xs text-slate-500">
+                        Sign to confirm your application details.
+                      </p>
                     </div>
-                  </div>
-
-                  <div className="bg-gradient-to-r from-blue-50 to-cyan-50 border rounded-2xl p-6 mb-6 shadow-sm">
-                    <div className="grid grid-cols-2 md:grid-cols-6 gap-6 text-center">
-                      {/* LOAN AMOUNT */}
-                      <div>
-                        <p className="text-[11px] text-gray-400 uppercase">
-                          Loan Amount
-                        </p>
-                        <p className="text-sm font-semibold text-blue-700 mt-1">
-                          {formatCurrency(getValue("amountRequested"))}
-                        </p>
-                      </div>
-
-                      {/* LTV */}
-                      <div>
-                        <p className="text-[11px] text-gray-400 uppercase">
-                          LTV %
-                        </p>
-                        <p className="text-sm font-semibold text-blue-700 mt-1">
-                          {formatPercent(getValue("ltvPercentage"))}
-                        </p>
-                      </div>
-
-                      {/* LTC */}
-                      <div>
-                        <p className="text-[11px] text-gray-400 uppercase">
-                          LTC %
-                        </p>
-                        <p className="text-sm font-semibold text-blue-700 mt-1">
-                          {formatPercent(getValue("ltcPercentage"))}
-                        </p>
-                      </div>
-
-                      {/* ARV */}
-                      <div>
-                        <p className="text-[11px] text-gray-400 uppercase">
-                          ARV %
-                        </p>
-                        <p className="text-sm font-semibold text-blue-700 mt-1">
-                          {formatPercent(getValue("arvPercentage"))}
-                        </p>
-                      </div>
-
-                      {/* DSCR */}
-                      <div>
-                        <p className="text-[11px] text-gray-400 uppercase">
-                          DSCR
-                        </p>
-                        <p className="text-sm font-semibold text-blue-700 mt-1">
-                          {getValue("dscr") || "-"}
-                        </p>
-                      </div>
-
-                      {/* NET WORTH */}
-                      <div>
-                        <p className="text-[11px] text-gray-400 uppercase">
-                          Net Worth
-                        </p>
-                        <p className="text-sm font-semibold text-blue-700 mt-1">
-                          {formatCurrency(getValue("netWorth"))}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <ClientSubmissionDetailsView
-                    application={applicationData}
-                    fields={submissionDetailFields}
-                    loanAmount={detailLoanAmount}
-                    ltv={detailLtv}
-                    ltc={detailLtc}
-                    arv={detailArv}
-                    dscr={detailDscr}
-                    netWorth={detailNetWorth}
-                    submittedDate={submittedDate}
-                    formatStatusLabel={formatStatusLabel}
-                    getStatusChipClass={getStatusStyles}
-                    sectionsOnly
-                  />
-
-                  {/* SIGNATURE */}
-                  <div className="mt-6">
-                    <h3 className="font-semibold text-gray-700 mb-3">
-                      Digital Signature
-                    </h3>
-
-                    {isSignedFromAPI ? (
-                      <div className="bg-gray-50 border rounded-xl p-4 text-center">
-                        <p className="text-xs text-gray-400 mb-2">
-                          ✔ Signed by client
-                        </p>
-
-                        {signature ? (
-                          <img
-                            src={signature}
-                            className="h-28 mx-auto object-contain"
-                          />
-                        ) : (
-                          <p className="text-sm text-gray-600">
-                            Your application has been submitted.
-                          </p>
-                        )}
-                      </div>
-                    ) : !canClientSign ? (
-                      <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                        {clientSignBlockedReason ||
-                          "Signing is not available for this application right now. Please contact your broker if you need help."}
-                      </div>
-                    ) : (
-                      <>
-                        <div className="bg-gradient-to-br from-white to-gray-50 border rounded-xl p-4 shadow-sm">
-                          <SigCanvas
-                            ref={sigRef}
-                            penColor="black"
-                            onEnd={handleEndSignature}
-                            canvasProps={{
-                              width: 900,
-                              height: 220,
-                              className:
-                                "w-full max-w-full border-2 border-dashed border-gray-300 rounded-lg bg-white",
-                            }}
-                          />
-
-                          <div className="mt-3 flex items-center justify-between gap-3">
-                            <p className="text-xs text-gray-400">Sign above</p>
-
-                            <div className="flex items-center gap-2">
-                              <button
-                                type="button"
-                                onClick={handleUndoSignature}
-                                disabled={!signature}
-                                className={`rounded-md px-3 py-1 text-xs transition ${
-                                  !signature
-                                    ? "cursor-not-allowed bg-slate-100 text-slate-400"
-                                    : "bg-white text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50"
-                                }`}
-                              >
-                                Undo Last Stroke
-                              </button>
-
-                              <button
-                                type="button"
-                                onClick={handleClearSignature}
-                                disabled={!signature}
-                                className={`rounded-md px-3 py-1 text-xs transition ${
-                                  !signature
-                                    ? "cursor-not-allowed bg-slate-100 text-slate-400"
-                                    : "bg-gray-200 text-slate-700 hover:bg-gray-300"
-                                }`}
-                              >
-                                Reset Signature
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Submit */}
-                        <button
-                          onClick={handleSubmitSignature}
-                          disabled={!signature || submittingSign || !canClientSign}
-                          className={`mt-4 w-full rounded-lg py-2 font-medium transition ${
-                            !signature || submittingSign || !canClientSign
-                              ? "cursor-not-allowed bg-slate-200 text-slate-500 shadow-none"
-                              : "bg-emerald-600 text-white shadow-[0_12px_24px_rgba(5,150,105,0.22)] hover:bg-emerald-700"
-                          }`}
-                        >
-                          {submittingSign
-                            ? "Submitting..."
-                            : "Submit Signature"}
-                        </button>
-                      </>
-                    )}
-                  </div>
-
-                  {/* FOOTER */}
-                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mt-6">
-                    {/* Date */}
-                    <span className="text-sm text-gray-500">
-                      {applicationData?.submittedAt
-                        ? `Submitted: ${formatClientPortalSubmittedDate(applicationData)}`
-                        : `Application Created: ${formatClientPortalSubmittedDate(applicationData)}`}
-                    </span>
-
-                    {/* Status Badge */}
                     <span
-                      className={`inline-flex items-center gap-2 px-4 py-1.5 text-xs font-semibold rounded-full shadow-sm
-                      ${getStatusStyles(applicationData.status)}`}
+                      className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold shadow-sm ${getStatusStyles(
+                        applicationData.status,
+                      )}`}
                     >
-                      {/* Dot indicator */}
                       <span
                         className={`h-2 w-2 rounded-full ${getStatusDot(applicationData.status)}`}
                       />
-
                       {formatStatusLabel(applicationData.status)}
                     </span>
                   </div>
+
+                  {isSignedFromAPI ? (
+                    <div className="rounded-xl border border-emerald-100 bg-emerald-50/60 p-4 text-center">
+                      <p className="mb-2 text-xs font-medium text-emerald-700">
+                        Signed by client
+                      </p>
+                      {signature ? (
+                        <img
+                          src={signature}
+                          alt="Client signature"
+                          className="mx-auto h-28 object-contain"
+                        />
+                      ) : (
+                        <p className="text-sm text-slate-600">
+                          Your application has been submitted.
+                        </p>
+                      )}
+                    </div>
+                  ) : !canClientSign ? (
+                    <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                      {clientSignBlockedReason ||
+                        "Signing is not available for this application right now. Please contact your broker if you need help."}
+                    </div>
+                  ) : (
+                    <>
+                      <div className="rounded-xl border border-slate-200 bg-gradient-to-br from-white to-slate-50 p-4 shadow-sm">
+                        <SigCanvas
+                          ref={sigRef}
+                          penColor="black"
+                          onEnd={handleEndSignature}
+                          canvasProps={{
+                            width: 900,
+                            height: 220,
+                            className:
+                              "w-full max-w-full rounded-lg border-2 border-dashed border-slate-300 bg-white",
+                          }}
+                        />
+
+                        <div className="mt-3 flex items-center justify-between gap-3">
+                          <p className="text-xs text-slate-400">Sign above</p>
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={handleUndoSignature}
+                              disabled={!signature}
+                              className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
+                                !signature
+                                  ? "cursor-not-allowed bg-slate-100 text-slate-400"
+                                  : "bg-white text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50"
+                              }`}
+                            >
+                              Undo Last Stroke
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleClearSignature}
+                              disabled={!signature}
+                              className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
+                                !signature
+                                  ? "cursor-not-allowed bg-slate-100 text-slate-400"
+                                  : "bg-slate-200 text-slate-700 hover:bg-slate-300"
+                              }`}
+                            >
+                              Reset Signature
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={handleSubmitSignature}
+                        disabled={!signature || submittingSign || !canClientSign}
+                        className={`mt-4 w-full rounded-xl py-2.5 text-sm font-semibold transition ${
+                          !signature || submittingSign || !canClientSign
+                            ? "cursor-not-allowed bg-slate-200 text-slate-500 shadow-none"
+                            : "bg-emerald-600 text-white shadow-[0_12px_24px_rgba(5,150,105,0.22)] hover:bg-emerald-700"
+                        }`}
+                      >
+                        {submittingSign
+                          ? "Submitting..."
+                          : "Submit Signature"}
+                      </button>
+                    </>
+                  )}
+
+                  <p className="mt-4 text-sm text-slate-500">
+                    {applicationData?.submittedAt
+                      ? `Submitted: ${formatClientPortalSubmittedDate(applicationData)}`
+                      : `Application Created: ${formatClientPortalSubmittedDate(applicationData)}`}
+                  </p>
                 </div>
-              )}
-            </div>
+              </div>
             </>
           ) : null)}
 
