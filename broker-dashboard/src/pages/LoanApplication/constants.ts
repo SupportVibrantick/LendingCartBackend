@@ -1,7 +1,3 @@
-// Static constants used by the LoanApplication form, extracted out of the
-// monolithic LoanApplication.tsx for readability. Nothing here mutates runtime
-// state — these are pure data tables.
-
 import { Building2, HomeIcon, Landmark, Settings } from "lucide-react";
 
 import type { LoanCategory } from "./types";
@@ -606,3 +602,67 @@ export const LOAN_PRODUCT_CODE_ALIASES: Record<string, string[]> = {
 /* ================= API base ================= */
 
 export const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
+
+export const PURCHASE_DATE_WITH_AMORTIZATION_LOAN_TYPES = new Set([
+  "DSCR_LOAN_1_TO_4_UNITS",
+  "RENTAL_PORTFOLIO",
+  "CRE_PERMANENT_LOAN",
+  "AGENCY_LOAN_MULTIFAMILY",
+  "CMBS",
+  "SBA_7A_REAL_ESTATE",
+  "SBA_504_REAL_ESTATE_AND_EQUIPMENT",
+  "USDA_BI",
+]);
+export const PURCHASE_DATE_WITH_AMORTIZATION_PURPOSES = new Set([
+  "Purchase",
+  "Purchase/Acquisition",
+  "Purchase / Acquisition",
+  "Purchase (Owner-Occupied)",
+  "Purchase & Rehab",
+  "Real Estate Acquisition",
+  "Business Acquisition",
+  "Real Estate Purchase",
+  "Equipment Purchase",
+]);
+export const ORIGINAL_PURCHASE_DATE_WITH_AMORTIZATION_PURPOSES = new Set([
+  "Refinance (Rate & Term)",
+  "Cash Out Refinance",
+  "Refinance",
+  "Refinance & Rehab",
+  "Refinance (504 Debt)",
+  "Debt Refinancing",
+]);
+
+export const CONSTRUCTION_LOAN_TYPES = new Set([
+  "CONSTRUCTION_LOAN",
+  "CONSTRUCTION_LOAN_1_TO_4_UNITS",
+]);
+
+export const CRE_RESIDENTIAL_LIKE_LOAN_TYPES = new Set([
+  "BRIDGE_LOAN",
+  "BRIDGE_LOAN_1_TO_4_UNITS",
+  "FIX_AND_FLIP_LOAN_1_TO_4_UNITS",
+  "DSCR_LOAN_1_TO_4_UNITS",
+  "CONSTRUCTION_LOAN",
+  "CONSTRUCTION_LOAN_1_TO_4_UNITS",
+  "RENTAL_PORTFOLIO",
+]);
+
+export const RENTAL_UNDERWRITING_LOAN_TYPES = new Set([
+  "DSCR_LOAN_1_TO_4_UNITS",
+  "RENTAL_PORTFOLIO",
+]);
+
+export const RESIDENTIAL_PURCHASE_PRICE_PURPOSES = new Set([
+  "Purchase/Acquisition",
+  "Purchase & Rehab",
+  "Purchase",
+  "Portfolio Blanket",
+]);
+
+export const RESIDENTIAL_MARKET_VALUE_PURPOSES = new Set([
+  "Refinance (Rate & Term)",
+  "Cash Out Refinance",
+  "Refinance & Rehab",
+  "Refinance",
+]);
