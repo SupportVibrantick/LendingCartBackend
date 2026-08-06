@@ -1,14 +1,21 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import toast from "react-hot-toast";
 import { useNavigate } from "react-router";
 import { Building2, HomeIcon, Landmark, Settings } from "lucide-react";
 
 import {
   createSbaEntityDefaults,
+  isSba7aAcquisitionProduct,
   isSbaRealEstateCollateralProduct,
   isSbaBase44Product,
+  SBA_BUSINESS_INDUSTRY_TYPES,
 } from "../../lib/sba7aAcquisition";
-import { isAblBase44Product } from "../../lib/ablBase44";
+import {
+  isAblBase44Product,
+  isEquipmentFinanceProduct,
+  showAblBase44PurchasePrice,
+  showEquipmentFinanceMarketValue,
+} from "../../lib/ablBase44";
 import { isBase44BusinessCollateralProduct } from "../../lib/base44BusinessCollateral";
 import {
   revokePendingDocumentPreview,
@@ -29,9 +36,9 @@ import {
   sumBorrowerAssets,
   sumBorrowerLiabilities,
   type RealEstateOwnedEntry,
+  type ResidentialBorrowerFields,
 } from "../../lib/residentialBorrower";
 import { buildResidentialReviewSections } from "../../lib/residentialReviewHelpers";
-import { SBA_BUSINESS_INDUSTRY_TYPES } from "../../lib/sba7aAcquisition";
 import LoanDateField from "../../components/form/LoanDateField";
 import LoanApplicationStepper from "../../components/loanApplication/LoanApplicationStepper";
 import ResidentialBorrowerPanel from "../../components/loanApplication/ResidentialBorrowerPanel";
@@ -45,6 +52,32 @@ import SaleDetailsCard from "../../components/loanApplication/SaleDetailsCard";
 import { IoArrowBack } from "react-icons/io5";
 import { IoIosArrowBack } from "react-icons/io";
 import { MdDeleteForever } from "react-icons/md";
+
+import {
+  LOAN_SUB_PURPOSE_MAP,
+  LOAN_TOP_PURPOSE_MAP,
+} from "./constants";
+import {
+  calculateMonthlyPayment,
+  formatCurrency,
+  formatSSN,
+  formatUSPhone,
+  toNumber,
+} from "./formatters";
+import {
+  getAblCollateralTypeOptions,
+  getSbaCollateralTypeLabel,
+  getSbaCollateralTypeOptions,
+  isAblCollateralProduct,
+  isConstructionPurchase,
+  isSbaUsdaCollateralProduct,
+  showEquityDownPaymentBlock,
+  showExitStrategy,
+  showValuationCostEquity,
+  showValuationEquityBlock,
+} from "./productRules";
+import { validateFieldValue } from "./validation";
+import { withBorrowerNameFields } from "./submission";
 
 export interface Borrower extends ResidentialBorrowerFields {
   name: string;
@@ -78,6 +111,7 @@ export interface FormDataType {
   coBorrowers: CoBorrower[];
   loanRequest: {
     purpose: string;
+    subPurpose: string;
     amount: string;
     interestRate: string;
     sellerFinancing: string;
@@ -87,6 +121,7 @@ export interface FormDataType {
     brokerPoints: string;
     amortization: string;
     currentMarketValue: string;
+    currentLoanBalance: string;
     purchasePrice: string;
     purchaseDate: string;
     totalAssets: string;
@@ -97,12 +132,20 @@ export interface FormDataType {
 
     propertyType: string;
     subPropertyType: string;
+    collateralType: string;
+    additionalCollateral: string[];
+    privateSale: boolean;
+    vendorName: string;
+    vendorPhone: string;
     recourse: string;
     businessAddress: string;
     city: string;
     state: string;
     zip: string;
     numberOfUnits: string;
+    downPayment: string;
+    useOfFunds: string;
+    exitStrategy: string;
   };
   loanTermIncome: {
     loanTerm: string;
@@ -718,63 +761,6 @@ const getLoanRequestPurchaseDateLabel = (product: string, purpose: string) =>
     ? "Original Purchase Date"
     : "Purchase Date";
 
-const STATIC_FIELD_KEYS = [
-  // Loan Request
-  "purpose",
-  "amount",
-  "interestRate",
-  "sellerFinancing",
-  "sellerNoteAmount",
-  "estimatedClosingDate",
-  "rateType",
-  "brokerPoints",
-  "amortization",
-  "currentMarketValue",
-  "purchasePrice",
-  "purchaseDate",
-  "afterRepairValue",
-  "totalAssets",
-  "totalLiabilities",
-  "propertyType",
-  "subPropertyType",
-  "recourse",
-  "businessAddress",
-  "city",
-  "state",
-  "zip",
-
-  // Loan Term
-  "loanTerm",
-  "monthlyRent",
-  "grossRevenueActual",
-  "grossRevenueProforma",
-  "noiActual",
-  "noiProforma",
-  "annualTaxes",
-  "floodZone",
-  "insurancePremium",
-  "hoaDues",
-
-  // Borrower
-  "name",
-  "entityName",
-  "phone",
-  "email",
-  "employer",
-  "dob",
-  "ssn",
-  "creditScore",
-  "address",
-  "mailingAddress",
-
-  // Entity
-  "legalName",
-  "entityType",
-  "dba",
-  "formationDate",
-  "yearsInBusiness",
-];
-
 const ENTITY_TYPE_OPTIONS = [
   { value: "C-Corp", label: "C-Corp" },
   { value: "S-Corp", label: "S-Corp" },
@@ -1038,54 +1024,6 @@ async function fetchLoanProductCatalog(
 
   return { products };
 }
-
-function withBorrowerNameFields<
-  T extends { fieldKey: string; value: unknown; fieldId?: string },
->(fields: T[]): T[] {
-  const next = [...fields];
-
-  const readValue = (...keys: string[]) => {
-    for (const key of keys) {
-      const match = fields.find((field) => field.fieldKey === key);
-      const value = match?.value;
-      if (value != null && String(value).trim()) {
-        return String(value).trim();
-      }
-    }
-    return "";
-  };
-
-  if (!next.some((field) => field.fieldKey === "first_name")) {
-    const firstName = readValue("first_name", "borrowerFirstName", "firstName");
-    if (firstName) {
-      next.push({ fieldKey: "first_name", value: firstName } as T);
-    }
-  }
-
-  if (!next.some((field) => field.fieldKey === "last_name")) {
-    const lastName = readValue("last_name", "borrowerLastName", "lastName");
-    if (lastName) {
-      next.push({ fieldKey: "last_name", value: lastName } as T);
-    }
-  }
-
-import {
-  type FormDataType,
-  type LoanCategory,
-  type LoanApplicationProps,
-  type Borrower,
-} from "./types";
-
-// Re-export types so external files can `import { LoanApplicationProps }`
-// from "./LoanApplication" the same way they used to.
-export type {
-  FormDataType,
-  LoanCategory,
-  LoanApplicationMode,
-  LoanApplicationPortal,
-  LoanApplicationProps,
-  Borrower,
-} from "./types";
 
 const LoanApplication = ({
   mode = "create",

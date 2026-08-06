@@ -47,12 +47,6 @@ jobs:
             echo "🔧 Generating Prisma client..."
             npx prisma generate
 
-            echo "🌱 Seeding loan products..."
-            node prisma/admin/loanProduct.seed.js
-
-            echo "🌱 Seeding product document requirements..."
-            node prisma/admin/productDocuments.seed.js
-
             #################################################
             # Admin Dashboard
             #################################################
@@ -153,18 +147,9 @@ jobs:
 
             pm2 save
 
-            echo "⏳ Waiting for backend to become ready..."
-            ready=0
-            for i in $(seq 1 30); do
-              if curl -sf http://127.0.0.1:3008/ >/dev/null; then
-                ready=1
-                echo "✅ Backend is up (attempt $i)"
-                break
-              fi
-              sleep 2
-            done
+            sleep 5
 
-            if [ "$ready" -ne 1 ]; then
+            if ! curl -sf http://127.0.0.1:3008/ >/dev/null; then
               echo "❌ Backend failed to start"
               pm2 logs lendingcart-backend --lines 50 --nostream
               exit 1
