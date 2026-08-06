@@ -1,4 +1,14 @@
-import { ChevronDown, Eye, FileText, Search, X } from "lucide-react";
+import {
+  Building2,
+  ChevronDown,
+  CreditCard,
+  Eye,
+  FileText,
+  Hash,
+  Search,
+  User,
+  X,
+} from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useMemo, useState, type ReactNode } from "react";
 import ApplicationDetailsDownloadButton from "./ApplicationDetailsDownloadButton";
@@ -64,82 +74,127 @@ function statusLabel(status?: string) {
   if (!status)
     return {
       text: "—",
-      cls: "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400",
+      cls: "bg-slate-100 text-slate-600 ring-1 ring-slate-200/80 dark:bg-slate-800 dark:text-slate-300 dark:ring-slate-700",
     };
   const s = status.toUpperCase();
   if (s === "FUNDED")
     return {
       text: "Funded",
-      cls: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:ring-emerald-900",
+      cls: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/80 dark:bg-emerald-950/40 dark:text-emerald-400 dark:ring-emerald-900",
     };
   if (s === "CLIENT_PENDING")
     return {
       text: "Client pending",
-      cls: "bg-amber-50 text-amber-700 ring-1 ring-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:ring-amber-900",
+      cls: "bg-amber-50 text-amber-700 ring-1 ring-amber-200/80 dark:bg-amber-950/40 dark:text-amber-400 dark:ring-amber-900",
     };
-  if (s === "SUBMITTED")
+  if (s === "SUBMITTED" || s === "IN_REVIEW" || s.includes("REVIEW"))
     return {
-      text: "Submitted",
-      cls: "bg-sky-50 text-sky-700 ring-1 ring-sky-200 dark:bg-sky-950/40 dark:text-sky-400 dark:ring-sky-900",
+      text: s === "SUBMITTED" ? "Submitted" : "In review",
+      cls: "bg-sky-50 text-sky-700 ring-1 ring-sky-200/80 dark:bg-sky-950/40 dark:text-sky-400 dark:ring-sky-900",
     };
   if (s.includes("REJECT") || s.includes("DECLIN"))
     return {
       text: "Declined",
-      cls: "bg-red-50 text-red-700 ring-1 ring-red-200 dark:bg-red-950/40 dark:text-red-400 dark:ring-red-900",
+      cls: "bg-red-50 text-red-700 ring-1 ring-red-200/80 dark:bg-red-950/40 dark:text-red-400 dark:ring-red-900",
     };
   return {
     text: status.replace(/_/g, " "),
-    cls: "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400",
+    cls: "bg-slate-100 text-slate-600 ring-1 ring-slate-200/80 dark:bg-slate-800 dark:text-slate-300 dark:ring-slate-700",
   };
 }
 
 // ─── Sub-components ───────
 
-/** A compact label + value pair used in the overview grid */
-function InfoCell({ label, value }: { label: string; value: ReactNode }) {
+function InfoCell({
+  label,
+  value,
+  icon,
+}: {
+  label: string;
+  value: ReactNode;
+  icon?: ReactNode;
+}) {
   return (
-    <div className="flex flex-col gap-0.5 py-3 px-4 border-b border-r border-zinc-100 dark:border-zinc-800 last:border-b-0">
-      <span className="text-[10px] font-medium uppercase tracking-widest text-zinc-400">
-        {label}
-      </span>
-      <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 leading-snug">
+    <div className="group relative rounded-xl border border-slate-200/80 bg-gradient-to-b from-white to-slate-50/80 p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition hover:border-slate-300 hover:shadow-sm dark:border-slate-700/80 dark:from-slate-900 dark:to-slate-950 dark:hover:border-slate-600">
+      <div className="mb-2 flex items-center gap-2">
+        {icon ? (
+          <span className="flex h-6 w-6 items-center justify-center rounded-md bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+            {icon}
+          </span>
+        ) : null}
+        <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+          {label}
+        </span>
+      </div>
+      <div className="text-[15px] font-semibold leading-snug text-slate-900 dark:text-slate-100">
         {value ?? "—"}
-      </span>
+      </div>
     </div>
   );
 }
 
-/** One metric in the KPIs strip — number-forward, label underneath */
-function KpiCell({ label, value }: { label: string; value: string }) {
+function KpiCell({
+  label,
+  value,
+  accent,
+}: {
+  label: string;
+  value: string;
+  accent?: "primary" | "muted";
+}) {
   const isEmpty = !value || value === "—";
   return (
-    <div className="flex flex-col gap-1 px-5 py-3.5 border-r border-zinc-100 dark:border-zinc-800 last:border-r-0">
-      <span
-        className={`text-base font-semibold tabular-nums ${isEmpty ? "text-zinc-400" : "text-zinc-900 dark:text-zinc-100"}`}
+    <div
+      className={`relative overflow-hidden rounded-2xl border p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition hover:shadow-md ${
+        accent === "primary"
+          ? "border-[#0A2540]/15 bg-gradient-to-br from-[#0A2540] to-[#123A5C] text-white"
+          : "border-slate-200/80 bg-white dark:border-slate-700 dark:bg-slate-900"
+      }`}
+    >
+      {accent === "primary" ? (
+        <div className="pointer-events-none absolute -right-6 -top-6 h-20 w-20 rounded-full bg-white/10" />
+      ) : null}
+      <p
+        className={`text-[10px] font-semibold uppercase tracking-[0.14em] ${
+          accent === "primary" ? "text-white/70" : "text-slate-400"
+        }`}
+      >
+        {label}
+      </p>
+      <p
+        className={`mt-2 text-xl font-bold tabular-nums tracking-tight sm:text-2xl ${
+          isEmpty
+            ? accent === "primary"
+              ? "text-white/50"
+              : "text-slate-300"
+            : accent === "primary"
+              ? "text-white"
+              : "text-slate-900 dark:text-slate-50"
+        }`}
       >
         {value || "—"}
-      </span>
-      <span className="text-[10px] font-medium uppercase tracking-widest text-zinc-400">
-        {label}
-      </span>
+      </p>
     </div>
   );
 }
 
-/** A single field in accordion body */
 function FieldItem({ field }: { field: SubmissionDetailField }) {
   const display = formatSubmissionFieldValue(field);
   const isEmpty = !display || display === "—";
   return (
-    <div className="flex flex-col gap-0.5">
-      <span className="text-[10px] font-medium uppercase tracking-widest text-zinc-400">
+    <div className="rounded-lg bg-slate-50/80 px-3 py-2.5 dark:bg-slate-800/40">
+      <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">
         {getSubmissionFieldLabel(field)}
       </span>
-      <span
-        className={`text-sm leading-snug break-words ${isEmpty ? "text-zinc-400 italic" : "text-zinc-900 dark:text-zinc-100 font-medium"}`}
+      <p
+        className={`mt-1 text-sm leading-snug break-words ${
+          isEmpty
+            ? "italic text-slate-400"
+            : "font-medium text-slate-900 dark:text-slate-100"
+        }`}
       >
         {isEmpty ? "Not provided" : display}
-      </span>
+      </p>
     </div>
   );
 }
@@ -155,7 +210,6 @@ function isFieldEmpty(field: SubmissionDetailField): boolean {
   return false;
 }
 
-/** Collapsible accordion section */
 function AccordionSection({
   title,
   fields,
@@ -171,22 +225,23 @@ function AccordionSection({
   const [isOpen, setIsOpen] = useState(defaultOpen);
 
   return (
-    <div className="border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden">
+    <div className="overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.03)] dark:border-slate-700/80 dark:bg-slate-950">
       <button
         type="button"
         onClick={() => setIsOpen((o) => !o)}
         aria-expanded={isOpen}
-        className="flex w-full items-center gap-3 px-4 py-3 text-left bg-white dark:bg-zinc-950 hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors"
+        className="flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors hover:bg-slate-50/80 dark:hover:bg-slate-900/60"
       >
-        <span className="text-sm font-semibold text-zinc-800 dark:text-zinc-200 flex-1">
+        <span className="h-8 w-1 rounded-full bg-[#0A2540]/80 dark:bg-sky-500/70" />
+        <span className="flex-1 text-sm font-semibold text-slate-800 dark:text-slate-100">
           {title}
         </span>
-        <span className="text-xs text-zinc-400 tabular-nums">
+        <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-semibold tabular-nums text-slate-500 dark:bg-slate-800 dark:text-slate-400">
           {filledCount} / {fields.length}
         </span>
         <ChevronDown
-          size={14}
-          className={`text-zinc-400 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
+          size={15}
+          className={`text-slate-400 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
         />
       </button>
 
@@ -198,9 +253,9 @@ function AccordionSection({
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.2, ease: "easeOut" }}
-            className="overflow-hidden border-t border-zinc-100 dark:border-zinc-800"
+            className="overflow-hidden border-t border-slate-100 dark:border-slate-800"
           >
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-4 px-4 py-4 bg-white dark:bg-zinc-950">
+            <div className="grid grid-cols-1 gap-2.5 bg-white p-4 sm:grid-cols-2 lg:grid-cols-3 dark:bg-slate-950">
               {fields.map((field) => (
                 <FieldItem
                   key={`${field.fieldKey}-${field.fieldId || ""}`}
@@ -215,7 +270,6 @@ function AccordionSection({
   );
 }
 
-/** Lender decision card — restrained, professional */
 function LenderDecisionCard({
   applicationLenderId,
   lenderName,
@@ -250,7 +304,7 @@ function LenderDecisionCard({
       ? "bg-amber-500"
       : isRejected
         ? "bg-red-500"
-        : "bg-zinc-300";
+        : "bg-slate-300";
 
   const statusBadgeCls = isApproved
     ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
@@ -258,81 +312,76 @@ function LenderDecisionCard({
       ? "bg-amber-50 text-amber-700 ring-1 ring-amber-200"
       : isRejected
         ? "bg-red-50 text-red-700 ring-1 ring-red-200"
-        : "bg-zinc-100 text-zinc-600";
+        : "bg-slate-100 text-slate-600";
 
   return (
-    <div className="relative flex flex-col border border-zinc-200 dark:border-zinc-800 rounded-lg bg-white dark:bg-zinc-950 overflow-hidden">
-      {/* top accent line */}
-      <div className={`h-0.5 w-full ${accentLine}`} />
+    <div className="relative flex flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-950">
+      <div className={`h-1 w-full ${accentLine}`} />
 
-      <div className="flex flex-col gap-4 p-5 flex-1">
-        {/* Header row */}
+      <div className="flex flex-1 flex-col gap-4 p-5">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="text-[10px] font-medium uppercase tracking-widest text-zinc-400 mb-0.5">
+            <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">
               Lender decision
             </p>
-            <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+            <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
               {lenderName || "Lender"}
             </p>
           </div>
           <span
-            className={`inline-flex items-center rounded px-2 py-0.5 text-xs font-semibold ${statusBadgeCls}`}
+            className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${statusBadgeCls}`}
           >
             {reviewStatus === "DECLINED" ? "Rejected" : reviewStatus}
           </span>
         </div>
 
-        {/* Metrics row */}
         <div className="grid grid-cols-2 gap-3 text-sm">
           {review.approvedAmount != null && review.approvedAmount !== "" && (
-            <div>
-              <p className="text-[10px] font-medium uppercase tracking-widest text-zinc-400 mb-0.5">
+            <div className="rounded-lg bg-slate-50 px-3 py-2 dark:bg-slate-900">
+              <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">
                 Approved amount
               </p>
-              <p className="font-semibold text-zinc-900 dark:text-zinc-100">
+              <p className="font-semibold text-slate-900 dark:text-slate-100">
                 ${Number(review.approvedAmount).toLocaleString()}
               </p>
             </div>
           )}
           {review.interestRate != null && review.interestRate !== "" && (
-            <div>
-              <p className="text-[10px] font-medium uppercase tracking-widest text-zinc-400 mb-0.5">
+            <div className="rounded-lg bg-slate-50 px-3 py-2 dark:bg-slate-900">
+              <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">
                 Rate
               </p>
-              <p className="font-semibold text-zinc-900 dark:text-zinc-100">
+              <p className="font-semibold text-slate-900 dark:text-slate-100">
                 {review.interestRate}%
               </p>
             </div>
           )}
           {review.reviewedAt && (
-            <div className="col-span-2">
-              <p className="text-[10px] font-medium uppercase tracking-widest text-zinc-400 mb-0.5">
+            <div className="col-span-2 rounded-lg bg-slate-50 px-3 py-2 dark:bg-slate-900">
+              <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">
                 Reviewed
               </p>
-              <p className="font-medium text-zinc-700 dark:text-zinc-300">
+              <p className="font-medium text-slate-700 dark:text-slate-300">
                 {new Date(review.reviewedAt).toLocaleString()}
               </p>
             </div>
           )}
         </div>
 
-        {/* Notes */}
         {review.notes && (
-          <div className="border-t border-zinc-100 dark:border-zinc-800 pt-3">
-            <p className="text-[10px] font-medium uppercase tracking-widest text-zinc-400 mb-1">
+          <div className="border-t border-slate-100 pt-3 dark:border-slate-800">
+            <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">
               Notes
             </p>
-            <p className="text-sm leading-relaxed text-zinc-700 dark:text-zinc-300 whitespace-pre-wrap">
+            <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-700 dark:text-slate-300">
               {review.notes}
             </p>
           </div>
         )}
 
-        {/* Funded badge or CTA */}
         {isFundedLender ? (
-          <div className="mt-auto pt-3 border-t border-zinc-100 dark:border-zinc-800">
-            <span className="inline-flex items-center rounded px-2 py-0.5 text-xs font-semibold bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200">
+          <div className="mt-auto border-t border-slate-100 pt-3 dark:border-slate-800">
+            <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200">
               Funded lender
             </span>
           </div>
@@ -340,12 +389,12 @@ function LenderDecisionCard({
           isApproved &&
           applicationLenderId &&
           onMarkFunded ? (
-          <div className="mt-auto pt-3 border-t border-zinc-100 dark:border-zinc-800">
+          <div className="mt-auto border-t border-slate-100 pt-3 dark:border-slate-800">
             <button
               type="button"
               onClick={() => onMarkFunded(applicationLenderId)}
               disabled={markingFundedId === applicationLenderId}
-              className="w-full rounded-md bg-zinc-900 dark:bg-zinc-100 px-4 py-2 text-sm font-semibold text-white dark:text-zinc-900 hover:bg-zinc-700 dark:hover:bg-zinc-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="w-full rounded-xl bg-[#0A2540] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#123A5C] disabled:cursor-not-allowed disabled:opacity-50"
             >
               {markingFundedId === applicationLenderId
                 ? "Marking as funded…"
@@ -456,11 +505,16 @@ export default function SubmissionDetailsView({
   );
 
   const appStatus = statusLabel(submissionDetail?.status);
+  const borrowerName = getBorrowerDisplayNameFromFields(
+    fields,
+    submissionDetail?.borrowerName,
+  );
 
   const kpis = [
     {
       label: "Loan amount",
       value: formatCompactAmount(Number(loanAmount || 0)),
+      accent: "primary" as const,
     },
     {
       label: "Monthly payment",
@@ -478,13 +532,12 @@ export default function SubmissionDetailsView({
   ];
 
   return (
-    <div className="space-y-4">
-      {/* ── Blocked funded warning ───── */}
+    <div className="space-y-5">
       {!showMarkFundedActions &&
         markFundedBlockedReason &&
         hasApprovedLender &&
         !isApplicationFunded && (
-          <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-900/40 dark:bg-amber-950/20">
+          <div className="flex items-start gap-3 rounded-2xl border border-amber-200/80 bg-amber-50 px-4 py-3.5 shadow-sm dark:border-amber-900/40 dark:bg-amber-950/20">
             <span className="mt-0.5 flex-shrink-0 text-amber-500">
               <svg
                 width="14"
@@ -506,9 +559,8 @@ export default function SubmissionDetailsView({
           </div>
         )}
 
-      {/* ── Lender decisions ────── */}
       {lenderDecisions.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           {lenderDecisions.map((item, i) => (
             <LenderDecisionCard
               key={`${item.applicationLenderId || item.lenderName}-${i}`}
@@ -525,59 +577,74 @@ export default function SubmissionDetailsView({
         </div>
       )}
 
-      {/* ── Main panel ────────── */}
-      <div className="border border-zinc-200 dark:border-zinc-800 rounded-lg bg-white dark:bg-zinc-950 overflow-hidden">
-        {/* Panel header */}
-        <div className="flex items-center justify-between gap-4 px-5 py-3.5 border-b border-zinc-100 dark:border-zinc-800">
-          <div className="flex items-center gap-2">
-            <FileText size={14} className="text-zinc-400" />
-            <span className="text-xs font-semibold uppercase tracking-widest text-zinc-500">
-              Application overview
-            </span>
+      {/* Hero overview */}
+      <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[0_8px_30px_-18px_rgba(15,23,42,0.35)] dark:border-slate-700 dark:bg-slate-950">
+        <div className="relative overflow-hidden border-b border-slate-100 bg-gradient-to-r from-[#0A2540] via-[#0F3358] to-[#1B4F7A] px-5 py-5 text-white dark:border-slate-800 sm:px-6">
+          <div className="pointer-events-none absolute -right-10 -top-16 h-40 w-40 rounded-full bg-white/10" />
+          <div className="pointer-events-none absolute -bottom-12 left-24 h-32 w-32 rounded-full bg-cyan-300/10" />
+
+          <div className="relative flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
+              <div className="mb-2 flex flex-wrap items-center gap-2">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/85 ring-1 ring-white/15">
+                  <FileText size={12} />
+                  Application overview
+                </span>
+                <span
+                  className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${appStatus.cls}`}
+                >
+                  {appStatus.text}
+                </span>
+              </div>
+              <h2 className="truncate text-xl font-bold tracking-tight sm:text-2xl">
+                {borrowerName || "Borrower"}
+              </h2>
+              <p className="mt-1 text-sm text-white/75">
+                {submissionDetail?.applicationNumber || "—"}
+                <span className="mx-2 text-white/35">·</span>
+                {loanProductName}
+              </p>
+            </div>
+
+            {showPdfDownload && (
+              <div className="shrink-0 [&_button]:border-white/20 [&_button]:bg-white/10 [&_button]:text-white [&_button]:hover:bg-white/20">
+                <ApplicationDetailsDownloadButton
+                  submissionDetail={submissionDetail}
+                  fields={fields}
+                  formatSubmissionStatus={formatSubmissionStatus}
+                  formatCompactAmount={formatCompactAmount}
+                  loanAmount={loanAmount}
+                  ltv={ltv}
+                  dscr={dscr}
+                  monthlyPayment={monthlyPayment}
+                  monthlyPaymentDisplay={monthlyPaymentDisplay}
+                  submittedDate={submittedDate}
+                  className="shrink-0"
+                />
+              </div>
+            )}
           </div>
-          {showPdfDownload && (
-            <ApplicationDetailsDownloadButton
-              submissionDetail={submissionDetail}
-              fields={fields}
-              formatSubmissionStatus={formatSubmissionStatus}
-              formatCompactAmount={formatCompactAmount}
-              loanAmount={loanAmount}
-              ltv={ltv}
-              dscr={dscr}
-              monthlyPayment={monthlyPayment}
-              monthlyPaymentDisplay={monthlyPaymentDisplay}
-              submittedDate={submittedDate}
-              className="shrink-0"
-            />
-          )}
         </div>
 
-        {/* Info grid — borderless inner table feel */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 border-b border-zinc-100 dark:border-zinc-800">
+        <div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-2 sm:p-5 xl:grid-cols-3">
           <InfoCell
             label="Application number"
+            icon={<Hash size={12} />}
             value={submissionDetail?.applicationNumber}
           />
           <InfoCell
-            label="Status"
-            value={
-              <span
-                className={`inline-flex items-center rounded px-2 py-0.5 text-xs font-semibold ${appStatus.cls}`}
-              >
-                {appStatus.text}
-              </span>
-            }
-          />
-          <InfoCell label="Loan product" value={loanProductName} />
-          <InfoCell
             label="Borrower"
-            value={getBorrowerDisplayNameFromFields(
-              fields,
-              submissionDetail?.borrowerName,
-            )}
+            icon={<User size={12} />}
+            value={borrowerName}
+          />
+          <InfoCell
+            label="Loan product"
+            icon={<CreditCard size={12} />}
+            value={loanProductName}
           />
           <InfoCell
             label="Entity type"
+            icon={<Building2 size={12} />}
             value={getEntityTypeFromFields(fields)}
           />
           <InfoCell
@@ -590,41 +657,52 @@ export default function SubmissionDetailsView({
                 : submissionDetail?.creditScore || "—"
             }
           />
-          {submittedDate && (
-            <>
-              <InfoCell
-                label="Submitted date"
-                value={submittedDate.toLocaleDateString()}
-              />
-              <InfoCell
-                label="Submitted time"
-                value={submittedDate.toLocaleTimeString()}
-              />
-            </>
+          {submittedDate ? (
+            <InfoCell
+              label="Submitted"
+              value={
+                <span>
+                  {submittedDate.toLocaleDateString()}
+                  <span className="mx-1.5 text-slate-300">·</span>
+                  <span className="font-medium text-slate-500 dark:text-slate-400">
+                    {submittedDate.toLocaleTimeString()}
+                  </span>
+                </span>
+              }
+            />
+          ) : (
+            <InfoCell label="Status" value={appStatus.text} />
           )}
         </div>
+      </section>
 
-        {/* KPI strip */}
-        <div className="border-b border-zinc-100 dark:border-zinc-800">
-          <div className="px-5 py-2.5 border-b border-zinc-100 dark:border-zinc-800">
-            <span className="text-[10px] font-medium uppercase tracking-widest text-zinc-400">
-              Key loan metrics
-            </span>
-          </div>
-          <div className="flex flex-wrap divide-x divide-zinc-100 dark:divide-zinc-800">
-            {kpis.map((kpi) => (
-              <KpiCell key={kpi.label} label={kpi.label} value={kpi.value} />
-            ))}
-          </div>
+      {/* KPI metrics */}
+      <section>
+        <div className="mb-3 flex items-center justify-between gap-3 px-0.5">
+          <h3 className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+            Key loan metrics
+          </h3>
         </div>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
+          {kpis.map((kpi) => (
+            <KpiCell
+              key={kpi.label}
+              label={kpi.label}
+              value={kpi.value}
+              accent={kpi.accent}
+            />
+          ))}
+        </div>
+      </section>
 
-        {/* Read-only hint */}
+      {/* Fields panel */}
+      <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[0_8px_30px_-20px_rgba(15,23,42,0.28)] dark:border-slate-700 dark:bg-slate-950">
         {showEditHint && submissionDetail?.canEdit !== false && (
-          <div className="flex items-center gap-2.5 px-5 py-2.5 border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/40">
-            <Eye size={13} className="text-zinc-400 shrink-0" />
-            <p className="text-xs text-zinc-500 dark:text-zinc-400">
+          <div className="flex items-center gap-2.5 border-b border-slate-100 bg-slate-50/80 px-5 py-3 dark:border-slate-800 dark:bg-slate-900/50">
+            <Eye size={14} className="shrink-0 text-slate-400" />
+            <p className="text-xs text-slate-500 dark:text-slate-400">
               Read-only preview. To edit, open the{" "}
-              <span className="font-semibold text-zinc-700 dark:text-zinc-300">
+              <span className="font-semibold text-slate-700 dark:text-slate-200">
                 Update Application
               </span>{" "}
               tab.
@@ -632,35 +710,34 @@ export default function SubmissionDetailsView({
           </div>
         )}
 
-        {/* Search */}
-        <div className="px-5 py-3.5 border-b border-zinc-100 dark:border-zinc-800">
+        <div className="border-b border-slate-100 px-4 py-4 dark:border-slate-800 sm:px-5">
           <div className="relative">
             <Search
-              size={13}
-              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400"
+              size={14}
+              className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
             />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search all fields…"
-              className="w-full rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 py-2 pl-8 pr-8 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:border-zinc-400 dark:focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-200 dark:focus:ring-zinc-700 transition"
+              className="w-full rounded-xl border border-slate-200 bg-slate-50/70 py-2.5 pl-10 pr-10 text-sm text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-[#0A2540]/40 focus:bg-white focus:ring-4 focus:ring-[#0A2540]/10 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-sky-500/40 dark:focus:ring-sky-500/10"
             />
             {searchQuery && (
               <button
                 type="button"
                 onClick={() => setSearchQuery("")}
                 aria-label="Clear search"
-                className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-lg p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
               >
-                <X size={13} />
+                <X size={14} />
               </button>
             )}
           </div>
           {searchQuery && (
-            <p className="mt-1.5 text-xs text-zinc-400">
+            <p className="mt-2 text-xs text-slate-400">
               {totalMatchedFields === 0 ? (
-                <>No fields match "{searchQuery}"</>
+                <>No fields match “{searchQuery}”</>
               ) : (
                 <>
                   {totalMatchedFields} field
@@ -673,10 +750,9 @@ export default function SubmissionDetailsView({
           )}
         </div>
 
-        {/* Accordion sections */}
-        <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
+        <div className="space-y-3 p-4 sm:p-5">
           {filteredSections.length === 0 ? (
-            <div className="px-5 py-8 text-center text-sm text-zinc-400">
+            <div className="rounded-xl border border-dashed border-slate-200 px-5 py-10 text-center text-sm text-slate-400 dark:border-slate-700">
               No matching fields.
             </div>
           ) : (
@@ -697,13 +773,12 @@ export default function SubmissionDetailsView({
           )}
         </div>
 
-        {/* Digital signature */}
         {signatureField && (
-          <div className="border-t border-zinc-100 dark:border-zinc-800 px-5 py-6 text-center">
-            <p className="text-[10px] font-medium uppercase tracking-widest text-zinc-400 mb-4">
+          <div className="border-t border-slate-100 px-5 py-6 text-center dark:border-slate-800">
+            <p className="mb-4 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">
               Digital signature
             </p>
-            <div className="inline-block border border-zinc-200 dark:border-zinc-700 rounded-md p-4 bg-zinc-50 dark:bg-zinc-900">
+            <div className="inline-block rounded-2xl border border-slate-200 bg-slate-50 p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
               <img
                 src={String(parseSubmissionFieldValue(signatureField.value))}
                 alt="Digital Signature"
@@ -712,7 +787,7 @@ export default function SubmissionDetailsView({
             </div>
           </div>
         )}
-      </div>
+      </section>
     </div>
   );
 }

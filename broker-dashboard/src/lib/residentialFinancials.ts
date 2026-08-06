@@ -467,19 +467,21 @@ export const appendResidentialFinancialsSubmission = (
 
   ANNUAL_FINANCIAL_EDITABLE_ROWS.forEach(({ key }) => {
     columnKeys.forEach((column) => {
-      addField(
-        `financial_${key}_${column}`,
-        parseAmount(financials[key][column]),
-      );
+      const raw = String(financials[key][column] || "").trim();
+      if (!raw) return;
+      addField(`financial_${key}_${column}`, parseAmount(raw));
     });
   });
 
   ANNUAL_FINANCIAL_CALCULATED_ROWS.forEach(({ overrideKey }) => {
     columnKeys.forEach((column) => {
-      addField(
-        `financial_${overrideKey}_${column}`,
-        parseAmount(financials[overrideKey][column]),
-      );
+      const rawOverride = String(financials[overrideKey][column] || "").trim();
+      if (rawOverride) {
+        addField(
+          `financial_${overrideKey}_${column}`,
+          parseAmount(rawOverride),
+        );
+      }
       addField(
         `financial_${overrideKey}_${column}_computed`,
         overrideKey === "effectiveGrossIncomeOverride"
@@ -543,6 +545,32 @@ export const loadFinancialYearValues = (
     values[column] = asFormNumber(getFieldValue(`${prefix}_${column}`));
   });
   return values;
+};
+
+/**
+ * Hydrate annual financial amounts. Stored `0` from older submits often meant
+ * "empty" (blank field persisted as 0) — treat as blank so calcs/display work.
+ */
+export const asFinancialAmountFormValue = (val: unknown): string => {
+  if (val === undefined || val === null || val === "") return "";
+  if (typeof val === "number") {
+    if (!Number.isFinite(val) || val === 0) return "";
+    return val.toLocaleString("en-US");
+  }
+  const text = String(val).trim().replace(/,/g, "");
+  if (text === "") return "";
+  const numeric = Number(text);
+  if (!Number.isFinite(numeric) || numeric === 0) return "";
+  return numeric.toLocaleString("en-US");
+};
+
+/** @deprecated Prefer asFinancialAmountFormValue — same behavior for overrides. */
+export const asFinancialOverrideFormValue = asFinancialAmountFormValue;
+
+/** Persist amount only when the user entered something (avoid blank → 0). */
+export const parseOptionalAmount = (value: string) => {
+  if (!String(value || "").trim()) return null;
+  return parseAmount(value);
 };
 
 

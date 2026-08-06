@@ -26,6 +26,63 @@ function getClientFromRequest(req) {
   }
 }
 
+/**
+ * A client portal login is tied to one ClientPortalUser.clientId, but the same
+ * person (email) can have Client records under multiple brokers. Resolve every
+ * client id that should be visible for this portal identity.
+ */
+async function resolvePortalClientIds(
+  prisma,
+  { portalUserId, clientId, email } = {},
+) {
+  const ids = new Set();
+  if (clientId) ids.add(clientId);
+
+  let portalEmail = typeof email === "string" ? email.trim().toLowerCase() : "";
+
+  if (portalUserId) {
+    const user = await prisma.clientPortalUser.findFirst({
+      where: { id: portalUserId, isDeleted: false },
+      select: { email: true, clientId: true },
+    });
+    if (user?.clientId) ids.add(user.clientId);
+    if (!portalEmail && user?.email) {
+      portalEmail = String(user.email).trim().toLowerCase();
+    }
+  }
+
+  if (portalEmail) {
+    const contacts = await prisma.clientContact.findMany({
+      where: {
+        OR: [
+          { email: portalEmail },
+          { email: { equals: portalEmail, mode: "insensitive" } },
+        ],
+      },
+      select: { clientId: true },
+    });
+    for (const contact of contacts) {
+      if (contact.clientId) ids.add(contact.clientId);
+    }
+
+    const portalUsers = await prisma.clientPortalUser.findMany({
+      where: {
+        isDeleted: false,
+        OR: [
+          { email: portalEmail },
+          { email: { equals: portalEmail, mode: "insensitive" } },
+        ],
+      },
+      select: { clientId: true },
+    });
+    for (const user of portalUsers) {
+      if (user.clientId) ids.add(user.clientId);
+    }
+  }
+
+  return Array.from(ids);
+}
+
 async function resolveClientPortalAccess(
   prisma,
   req,
@@ -86,5 +143,6 @@ async function resolveClientPortalAccess(
 
 module.exports = {
   getClientFromRequest,
+  resolvePortalClientIds,
   resolveClientPortalAccess,
 };
