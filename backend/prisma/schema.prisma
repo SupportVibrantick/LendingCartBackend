@@ -500,15 +500,16 @@ model LenderProduct {
 }
 
 model BrokerLenderAccess {
-  id          String             @id @default(uuid()) @db.Uuid
-  brokerOrgId String             @db.Uuid
-  lenderOrgId String             @db.Uuid
-  source      BrokerLenderSource
-  isActive    Boolean            @default(true)
-  createdAt   DateTime           @default(now()) @db.Timestamptz(6)
-  updatedAt   DateTime           @updatedAt @db.Timestamptz(6)
-  broker      Organization       @relation("BrokerAccess_broker", fields: [brokerOrgId], references: [id])
-  lender      Organization       @relation("BrokerAccess_lender", fields: [lenderOrgId], references: [id])
+  id            String             @id @default(uuid()) @db.Uuid
+  brokerOrgId   String             @db.Uuid
+  lenderOrgId   String             @db.Uuid
+  source        BrokerLenderSource
+  isActive      Boolean            @default(true)
+  createdAt     DateTime           @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime           @updatedAt @db.Timestamptz(6)
+  broker        Organization       @relation("BrokerAccess_broker", fields: [brokerOrgId], references: [id])
+  lender        Organization       @relation("BrokerAccess_lender", fields: [lenderOrgId], references: [id])
+  conversations Conversation[]
 
   @@index([brokerOrgId])
   @@index([lenderOrgId])
@@ -1780,22 +1781,26 @@ model LenderLoiTemplate {
 }
 
 model Conversation {
-  id                  String                    @id @default(uuid()) @db.Uuid
-  loanApplicationId   String                    @db.Uuid
-  applicationLenderId String?                   @db.Uuid
-  type                ConversationType
-  lastMessageAt       DateTime?
-  createdAt           DateTime                  @default(now())
-  updatedAt           DateTime                  @updatedAt
-  createdByUserId     String?                   @db.Uuid
-  chatCategory        String?
-  createdBy           UserAccount?              @relation(fields: [createdByUserId], references: [id])
-  participants        ConversationParticipant[]
-  messages            Message[]
+  id                   String                    @id @default(uuid()) @db.Uuid
+  loanApplicationId    String?                   @db.Uuid
+  applicationLenderId  String?                   @db.Uuid
+  brokerLenderAccessId String?                   @db.Uuid
+  type                 ConversationType
+  lastMessageAt        DateTime?
+  createdAt            DateTime                  @default(now())
+  updatedAt            DateTime                  @updatedAt
+  createdByUserId      String?                   @db.Uuid
+  chatCategory         String?
+  brokerLenderAccess   BrokerLenderAccess?       @relation(fields: [brokerLenderAccessId], references: [id])
+  createdBy            UserAccount?              @relation(fields: [createdByUserId], references: [id])
+  participants         ConversationParticipant[]
+  messages             Message[]
 
   @@unique([applicationLenderId, chatCategory])
+  @@unique([brokerLenderAccessId, chatCategory])
   @@index([loanApplicationId])
   @@index([applicationLenderId])
+  @@index([brokerLenderAccessId])
 }
 
 model Permission {

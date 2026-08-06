@@ -98,6 +98,8 @@ socket.on("newMessage", (msg: SocketChatMessage) => {
       errorListeners.forEach((listener) => listener(message));
     }
   });
+
+  bindCustomSocketEvents();
 }
 
 function teardownSocket() {
@@ -116,8 +118,14 @@ function ensureSocket(token: string, options: OrgRoomOptions = {}) {
     if (socket.connected) {
       joinOrgRooms(token);
       syncConversationRooms();
+    } else if (!socket.active) {
+      teardownSocket();
+    } else {
+      return;
     }
-    return;
+    if (socket && activeToken === token) {
+      return;
+    }
   }
 
   teardownSocket();

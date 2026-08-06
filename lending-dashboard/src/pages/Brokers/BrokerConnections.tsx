@@ -2,6 +2,7 @@ import {
   Check,
   Clock,
   Handshake,
+  MessageSquare,
   RefreshCcw,
   Search,
   Send,
@@ -12,6 +13,9 @@ import {
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router";
 import toast from "react-hot-toast";
+import NetworkChatModal, {
+  type NetworkChatPeer,
+} from "../../components/networkChat/NetworkChatModal";
 
 type Invite = {
   inviteId: string;
@@ -85,6 +89,7 @@ export default function BrokerConnections() {
   const [actionId, setActionId] = useState<string | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [chatPeer, setChatPeer] = useState<NetworkChatPeer | null>(null);
 
   useEffect(() => {
     setSearchParams({ tab: mainTab }, { replace: true });
@@ -373,10 +378,25 @@ export default function BrokerConnections() {
               brokers={filteredConnected}
               updatingId={updatingId}
               onToggle={handleConnectionToggle}
+              onChat={(broker) =>
+                setChatPeer({
+                  orgId: broker.id,
+                  name: broker.name,
+                  email: broker.email,
+                })
+              }
             />
           )}
         </div>
       </div>
+
+      <NetworkChatModal
+        open={Boolean(chatPeer)}
+        peer={chatPeer}
+        portal="lender"
+        tokenKey="lender_token"
+        onClose={() => setChatPeer(null)}
+      />
     </div>
   );
 }
@@ -565,26 +585,34 @@ function ConnectedTable({
   brokers,
   updatingId,
   onToggle,
+  onChat,
 }: {
   brokers: ConnectedBroker[];
   updatingId: string | null;
   onToggle: (broker: ConnectedBroker) => void;
+  onChat: (broker: ConnectedBroker) => void;
 }) {
   return (
     <div className="overflow-x-auto">
       <table className="min-w-full text-sm">
         <thead>
           <tr className="border-b border-slate-100 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-800/50">
-            {["Broker", "Email", "Phone", "Broker status", "Connection", "Connected since"].map(
-              (h) => (
-                <th
-                  key={h}
-                  className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wide text-slate-500"
-                >
-                  {h}
-                </th>
-              ),
-            )}
+            {[
+              "Broker",
+              "Email",
+              "Phone",
+              "Broker status",
+              "Connection",
+              "Connected since",
+              "Actions",
+            ].map((h) => (
+              <th
+                key={h}
+                className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wide text-slate-500"
+              >
+                {h}
+              </th>
+            ))}
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -636,6 +664,20 @@ function ConnectedTable({
               </td>
               <td className="px-5 py-4 text-slate-500 text-xs">
                 {formatDateTime(b.assignedAt)}
+              </td>
+              <td className="px-5 py-4">
+                {b.connectionStatus === "CONNECTED" ? (
+                  <button
+                    type="button"
+                    onClick={() => onChat(b)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800"
+                  >
+                    <MessageSquare size={12} />
+                    Chat
+                  </button>
+                ) : (
+                  <span className="text-slate-400 text-xs">—</span>
+                )}
               </td>
             </tr>
           ))}
