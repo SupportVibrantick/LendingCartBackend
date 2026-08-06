@@ -3273,7 +3273,7 @@ rounded-2xl p-6 shadow-sm
         </div>
 
         {/* Body */}
-        <div className="max-w-7xl mx-auto px-8 w-full">
+        <div className="w-full ">
           {/* ================= STEP 0 ================= */}
           {currentStep === 0 && (
             <div className="mt-6 relative z-10 border border-slate-200 dark:border-slate-700 rounded-2xl p-6 bg-white dark:bg-slate-800">
