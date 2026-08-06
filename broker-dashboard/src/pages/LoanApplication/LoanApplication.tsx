@@ -2717,7 +2717,13 @@ rounded-2xl p-6 shadow-sm
         </div>
 
         {/* Body */}
-        <div className="w-full ">
+        <div
+          className={
+            embedded
+              ? "w-full"
+              : "max-w-7xl mx-auto px-8 w-full"
+          }
+        >
           {/* ================= STEP 0 ================= */}
           {currentStep === 0 && (
             <div className="mt-6 relative z-10 border border-slate-200 dark:border-slate-700 rounded-2xl p-6 bg-white dark:bg-slate-800">
