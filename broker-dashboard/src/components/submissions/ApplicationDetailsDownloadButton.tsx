@@ -119,10 +119,10 @@ export default function ApplicationDetailsDownloadButton({
       <button
         type="button"
         disabled
-        className={`inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-4 py-2 text-xs font-semibold text-slate-400 ${className}`}
+        className={`inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-400 ${className}`}
       >
-        <Download size={14} />
-        Loading branding...
+        <Download size={13} />
+        <span className="hidden sm:inline">Loading...</span>
       </button>
     );
   }
@@ -133,10 +133,13 @@ export default function ApplicationDetailsDownloadButton({
         type="button"
         onClick={handleDownload}
         disabled={downloading}
-        className={`inline-flex items-center gap-2 rounded-lg border border-[#13538A]/20 bg-[#13538A]/5 px-4 py-2 text-xs font-semibold text-[#13538A] transition hover:bg-[#13538A]/10 disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
+        title="Download Application PDF"
+        className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-[#13538A]/20 bg-[#13538A]/5 px-3 py-1.5 text-xs font-semibold text-[#13538A] transition hover:bg-[#13538A]/10 disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
       >
-        <Download size={14} />
-        {downloading ? "Preparing PDF..." : "Download Application PDF"}
+        <Download size={13} />
+        <span className="hidden sm:inline">
+          {downloading ? "Preparing..." : "Download PDF"}
+        </span>
       </button>
 
       <div
