@@ -126,11 +126,7 @@ type TabKey =
   | "fee-agreement"
   | "commissions";
 
-type TabSectionId =
-  | "application"
-  | "documents"
-  | "communication"
-  | "lender";
+type TabSectionId = "application" | "documents" | "communication" | "lender";
 
 type TabItem = {
   key: TabKey;
@@ -239,9 +235,7 @@ type FieldLike = {
 };
 
 const getFieldValue = <T extends FieldLike>(fields: T[], key: string) => {
-  const field = fields.find(
-    (f) => f.fieldKey === key || f.fieldId === key,
-  );
+  const field = fields.find((f) => f.fieldKey === key || f.fieldId === key);
 
   return field ? parseValue(field.value) : undefined;
 };
@@ -282,26 +276,29 @@ const Metric = ({
     >
       <div className="absolute inset-0 opacity-0 blur-xl transition duration-300 group-hover:opacity-100 bg-gradient-to-r from-cyan-400/10 to-blue-500/10" />
       <p
-        className={`text-[11px] font-semibold uppercase tracking-widest transition ${isHero
+        className={`text-[11px] font-semibold uppercase tracking-widest transition ${
+          isHero
             ? "text-white/70 group-hover:text-white"
             : "text-slate-500 group-hover:text-slate-700"
-          }`}
+        }`}
       >
         {label}
       </p>
       <p
-        className={`mt-2 text-md font-bold transition-all duration-300 ${isHero
+        className={`mt-2 text-md font-bold transition-all duration-300 ${
+          isHero
             ? "text-white group-hover:scale-105"
             : "bg-gradient-to-r from-cyan-600 to-blue-600 bg-clip-text text-transparent group-hover:from-blue-600 group-hover:to-cyan-500"
-          }`}
+        }`}
       >
         {value}
       </p>
       <div
-        className={`mt-3 h-[3px] w-0 rounded-full transition-all duration-300 group-hover:w-full ${isHero
+        className={`mt-3 h-[3px] w-0 rounded-full transition-all duration-300 group-hover:w-full ${
+          isHero
             ? "bg-gradient-to-r from-white/80 to-cyan-300"
             : "bg-gradient-to-r from-cyan-500 to-blue-500"
-          }`}
+        }`}
       />
     </motion.div>
   );
@@ -510,9 +507,7 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
     });
 
     const sentFilter =
-      documentSentFilter ||
-      documentsData?.activeFilters?.sentFilter ||
-      "all";
+      documentSentFilter || documentsData?.activeFilters?.sentFilter || "all";
 
     if (sentFilter === "all") return expanded;
 
@@ -531,7 +526,9 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
     (doc) => doc.status !== "SKIPPED",
   );
 
-  const autoForwardEnabled = Boolean(documentsData?.autoForwardDocumentsToLender);
+  const autoForwardEnabled = Boolean(
+    documentsData?.autoForwardDocumentsToLender,
+  );
   const autoForwardToClientEnabled = Boolean(
     documentsData?.autoForwardLenderRequestsToClient,
   );
@@ -703,7 +700,10 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
 
       if (successResults.length === 0) {
         const failedMessage =
-          failedResults.map((result: any) => result.message).filter(Boolean).join(" ") ||
+          failedResults
+            .map((result: any) => result.message)
+            .filter(Boolean)
+            .join(" ") ||
           blockedResults.map((result: any) => result.message).join(" ") ||
           "No documents were sent to the selected lenders.";
 
@@ -765,9 +765,9 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
       setDocumentsData((prev: any) =>
         prev
           ? {
-            ...prev,
-            autoForwardDocumentsToLender: nextValue,
-          }
+              ...prev,
+              autoForwardDocumentsToLender: nextValue,
+            }
           : prev,
       );
 
@@ -1488,13 +1488,12 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
     }
   };
 
-
   const handleRequestDocuments = async () => {
     if (!applicationId) return;
     if (!effectiveCanRequestDocuments) {
       toast.error(
         documentRequestBlockedReason ||
-        "Documents cannot be requested for this application.",
+          "Documents cannot be requested for this application.",
       );
       return;
     }
@@ -1539,14 +1538,7 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
       setActiveTab("documents");
 
       if (submissionId) {
-        await fetchSubmissionDocuments(
-          submissionId,
-          1,
-          "",
-          "",
-          "all",
-          "all",
-        );
+        await fetchSubmissionDocuments(submissionId, 1, "", "", "all", "all");
       }
     } catch (err: any) {
       toast.error(err.message || "Something went wrong");
@@ -1740,11 +1732,7 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
   // };
 
   useEffect(() => {
-    if (
-      activeTab !== "documents" ||
-      !submissionId ||
-      !applicationId
-    ) {
+    if (activeTab !== "documents" || !submissionId || !applicationId) {
       return;
     }
 
@@ -1760,11 +1748,7 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
       documentSentFilter,
       documentSourceFilter,
     );
-  }, [
-    activeTab,
-    applicationId,
-    submissionId,
-  ]);
+  }, [activeTab, applicationId, submissionId]);
 
   useEffect(() => {
     setSubmissionDetail(null);
@@ -1867,7 +1851,11 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
     ) {
       return;
     }
-    fetchDocumentTypes(applicationId, requestDocPage, debouncedRequestDocSearch);
+    fetchDocumentTypes(
+      applicationId,
+      requestDocPage,
+      debouncedRequestDocSearch,
+    );
   }, [requestDocPage, debouncedRequestDocSearch]);
 
   useEffect(() => {
@@ -1929,8 +1917,7 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
   const arv = Number(getFieldValue(fields, "arvPercentage") ?? 0) || 0;
   const dscr = Number(getFieldValue(fields, "dscr") ?? 0) || 0;
   const netWorth = Number(getFieldValue(fields, "netWorth") ?? 0) || 0;
-  const interestRate =
-    Number(getFieldValue(fields, "interestRate") ?? 0) || 0;
+  const interestRate = Number(getFieldValue(fields, "interestRate") ?? 0) || 0;
   const amortizationYears =
     Number(getFieldValue(fields, "amortization") ?? 0) || 0;
   const loanTermMonths = Number(getFieldValue(fields, "loanTerm") ?? 0) || 0;
@@ -2225,7 +2212,6 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
     );
   };
 
-
   const renderRequestDocument = () => {
     if (!effectiveCanRequestDocuments) {
       return (
@@ -2312,38 +2298,41 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
                   const aCustom = selectedRequestDocMeta[a]?.isCustom ? 1 : 0;
                   const bCustom = selectedRequestDocMeta[b]?.isCustom ? 1 : 0;
                   if (aCustom !== bCustom) return bCustom - aCustom;
-                  return selectedRequestDocs.indexOf(a) - selectedRequestDocs.indexOf(b);
+                  return (
+                    selectedRequestDocs.indexOf(a) -
+                    selectedRequestDocs.indexOf(b)
+                  );
                 })
                 .map((id) => {
-                const meta = selectedRequestDocMeta[id];
-                const name = meta?.name || "Document";
-                const isCustom = Boolean(meta?.isCustom);
+                  const meta = selectedRequestDocMeta[id];
+                  const name = meta?.name || "Document";
+                  const isCustom = Boolean(meta?.isCustom);
 
-                return (
-                  <span
-                    key={id}
-                    className="inline-flex max-w-full items-center gap-2 rounded-full border border-emerald-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm dark:border-emerald-500/20 dark:bg-slate-900 dark:text-slate-200"
-                  >
+                  return (
                     <span
-                      className={`h-2 w-2 shrink-0 rounded-full ${getRequestDocColor(name)}`}
-                    />
-                    <span className="truncate">{name}</span>
-                    {isCustom ? (
-                      <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-amber-700">
-                        Custom
-                      </span>
-                    ) : null}
-                    <button
-                      type="button"
-                      onClick={() => removeRequestedDocument(id)}
-                      className="rounded-full p-0.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800"
-                      aria-label={`Remove ${name}`}
+                      key={id}
+                      className="inline-flex max-w-full items-center gap-2 rounded-full border border-emerald-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm dark:border-emerald-500/20 dark:bg-slate-900 dark:text-slate-200"
                     >
-                      <X size={12} />
-                    </button>
-                  </span>
-                );
-              })}
+                      <span
+                        className={`h-2 w-2 shrink-0 rounded-full ${getRequestDocColor(name)}`}
+                      />
+                      <span className="truncate">{name}</span>
+                      {isCustom ? (
+                        <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-amber-700">
+                          Custom
+                        </span>
+                      ) : null}
+                      <button
+                        type="button"
+                        onClick={() => removeRequestedDocument(id)}
+                        className="rounded-full p-0.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800"
+                        aria-label={`Remove ${name}`}
+                      >
+                        <X size={12} />
+                      </button>
+                    </span>
+                  );
+                })}
             </div>
           </div>
         ) : null}
@@ -2620,16 +2609,17 @@ dark:border-slate-800 dark:bg-slate-900"
                 scrollToLenders();
               }}
               className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-all
-      ${lenderFilter === type
-                  ? type === "eligible"
-                    ? "bg-green-600 text-white"
-                    : type === "rejected"
-                      ? "bg-red-600 text-white"
-                      : type === "sent"
-                        ? "bg-blue-600 text-white"
-                        : "bg-slate-800 text-white dark:bg-white dark:text-black"
-                  : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
-                }
+      ${
+        lenderFilter === type
+          ? type === "eligible"
+            ? "bg-green-600 text-white"
+            : type === "rejected"
+              ? "bg-red-600 text-white"
+              : type === "sent"
+                ? "bg-blue-600 text-white"
+                : "bg-slate-800 text-white dark:bg-white dark:text-black"
+          : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+      }
 `}
             >
               {type === "all"
@@ -2833,14 +2823,15 @@ dark:border-slate-800 dark:bg-slate-900"
                       </div>
 
                       <span
-                        className={`px-2 py-1 text-xs rounded-full capitalize ${lender.type === "eligible"
+                        className={`px-2 py-1 text-xs rounded-full capitalize ${
+                          lender.type === "eligible"
                             ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
                             : lender.type === "ineligible"
                               ? "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400"
                               : lender.type === "rejected"
                                 ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
                                 : "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
-                          }`}
+                        }`}
                       >
                         {lender.type === "ineligible"
                           ? "Not Eligible"
@@ -2913,16 +2904,17 @@ dark:bg-red-900/20 dark:text-red-400"
                       }
                       className={`w-full py-2 rounded-lg text-white font-semibold transition-all duration-300
 
-     ${sendingId === lender.lenderProductId
-                          ? "bg-slate-400 cursor-wait"
-                          : lender.alreadySent
-                            ? "bg-blue-500 cursor-not-allowed"
-                            : lender.type === "rejected"
-                              ? "bg-red-500 cursor-not-allowed"
-                              : lender.type === "ineligible"
-                                ? "bg-amber-500 cursor-not-allowed"
-                                : "bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-indigo-600 hover:to-blue-500 shadow-md hover:shadow-lg"
-                        }
+     ${
+       sendingId === lender.lenderProductId
+         ? "bg-slate-400 cursor-wait"
+         : lender.alreadySent
+           ? "bg-blue-500 cursor-not-allowed"
+           : lender.type === "rejected"
+             ? "bg-red-500 cursor-not-allowed"
+             : lender.type === "ineligible"
+               ? "bg-amber-500 cursor-not-allowed"
+               : "bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-indigo-600 hover:to-blue-500 shadow-md hover:shadow-lg"
+     }
 
       disabled:opacity-70
       `}
@@ -2967,10 +2959,11 @@ dark:bg-red-900/20 dark:text-red-400"
                   <button
                     key={pageNum}
                     onClick={() => setLenderPage(pageNum)}
-                    className={`h-10 w-10 rounded-xl text-sm font-semibold transition ${lenderPage === pageNum
+                    className={`h-10 w-10 rounded-xl text-sm font-semibold transition ${
+                      lenderPage === pageNum
                         ? "bg-cyan-600 text-white"
                         : "border border-slate-300 bg-white hover:bg-slate-50"
-                      }`}
+                    }`}
                   >
                     {pageNum}
                   </button>
@@ -3527,7 +3520,7 @@ dark:bg-red-900/20 dark:text-red-400"
                             type="button"
                             onClick={() => {
                               setPreviewFiles(
-                                ((doc.uploadedFiles as any[]) || []),
+                                (doc.uploadedFiles as any[]) || [],
                               );
                               setActiveIndex(0);
                             }}
@@ -3613,10 +3606,11 @@ dark:bg-red-900/20 dark:text-red-400"
                         key={pageNum}
                         type="button"
                         onClick={() => setPage(pageNum)}
-                        className={`h-9 min-w-9 rounded-xl px-2.5 text-sm font-semibold transition ${page === pageNum
+                        className={`h-9 min-w-9 rounded-xl px-2.5 text-sm font-semibold transition ${
+                          page === pageNum
                             ? "bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-sm"
                             : "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
-                          }`}
+                        }`}
                       >
                         {pageNum}
                       </button>
@@ -3763,7 +3757,9 @@ dark:bg-red-900/20 dark:text-red-400"
                 <button
                   type="button"
                   onClick={() =>
-                    handleForwardToClient([String(activeActionDoc.requirementId)])
+                    handleForwardToClient([
+                      String(activeActionDoc.requirementId),
+                    ])
                   }
                   disabled={forwardingToClient}
                   className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-indigo-600 transition hover:bg-indigo-50 disabled:opacity-60 dark:text-indigo-400 dark:hover:bg-indigo-950/20"
@@ -3868,14 +3864,14 @@ dark:bg-red-900/20 dark:text-red-400"
       case "request-document":
         return renderRequestDocument();
       case "email-reminders":
-        return (
-          <DocumentReminderPanel loanApplicationId={applicationId} />
-        );
+        return <DocumentReminderPanel loanApplicationId={applicationId} />;
       case "view-loi":
         return renderViewLoi();
       case "documents":
         return (
-          <div key={`documents-${documentsRefreshKey}-${submissionId || "none"}`}>
+          <div
+            key={`documents-${documentsRefreshKey}-${submissionId || "none"}`}
+          >
             {renderDocuments()}
           </div>
         );
@@ -4213,11 +4209,7 @@ dark:bg-red-900/20 dark:text-red-400"
                         >
                           <Icon
                             size={14}
-                            className={
-                              isActive
-                                ? "text-white"
-                                : tab.color
-                            }
+                            className={isActive ? "text-white" : tab.color}
                           />
                           <span className="whitespace-nowrap">{tab.label}</span>
                           {tab.key === "view-loi" && loiCount > 0 && (
@@ -4257,9 +4249,7 @@ dark:bg-red-900/20 dark:text-red-400"
             className="flex h-[90vh] max-h-[90vh] w-full max-w-6xl min-h-0 flex-col overflow-hidden rounded-3xl bg-white shadow-2xl dark:bg-slate-900"
           >
             {/* HEADER */}
-            <div
-              className="flex shrink-0 items-center justify-between bg-gradient-to-r from-blue-600 to-teal-600 px-6 py-4 text-white"
-            >
+            <div className="flex shrink-0 items-center justify-between bg-gradient-to-r from-blue-600 to-teal-600 px-6 py-4 text-white">
               {/* LEFT */}
               <div>
                 <h2 className="text-sm font-semibold truncate max-w-md">
@@ -4268,11 +4258,7 @@ dark:bg-red-900/20 dark:text-red-400"
                 <p className="text-xs text-white/70">
                   {activeIndex + 1} / {previewFiles.length}
                   {currentFile && (
-                    <>
-                      {" "}
-                      ·{" "}
-                      {getUploadFileSentLabel(currentFile).label}
-                    </>
+                    <> · {getUploadFileSentLabel(currentFile).label}</>
                   )}
                 </p>
               </div>
@@ -4372,39 +4358,43 @@ dark:bg-red-900/20 dark:text-red-400"
                 Select file ({activeIndex + 1} of {previewFiles.length})
               </p>
               <div className="flex gap-2 overflow-x-auto px-3 pb-3">
-              {previewFiles.map((file, i) => {
-                const fileSent = getUploadFileSentLabel(file);
+                {previewFiles.map((file, i) => {
+                  const fileSent = getUploadFileSentLabel(file);
 
-                return (
-                  <div
-                    key={file.uploadId || i}
-                    onClick={() => setActiveIndex(i)}
-                    className={`relative h-14 w-20 flex items-center justify-center rounded-lg cursor-pointer border-2 overflow-hidden ${i === activeIndex ? "border-blue-500" : "border-transparent"
+                  return (
+                    <div
+                      key={file.uploadId || i}
+                      onClick={() => setActiveIndex(i)}
+                      className={`relative h-14 w-20 flex items-center justify-center rounded-lg cursor-pointer border-2 overflow-hidden ${
+                        i === activeIndex
+                          ? "border-blue-500"
+                          : "border-transparent"
                       }`}
-                  >
-                    {file.fileMimeType?.includes("image") ? (
-                      <img
-                        src={`${API_BASE}${file.fileUrl}`}
-                        className="h-full w-full object-cover"
-                      />
-                    ) : file.fileMimeType?.includes("pdf") ? (
-                      <div className="flex flex-col items-center justify-center text-[10px] text-red-600 font-semibold">
-                        PDF
-                      </div>
-                    ) : (
-                      <div className="text-xs text-slate-400">FILE</div>
-                    )}
-                    <span
-                      className={`absolute bottom-0 left-0 right-0 px-0.5 py-0.5 text-[8px] font-bold text-center truncate ${fileSent.isSent
-                          ? "bg-emerald-600 text-white"
-                          : "bg-amber-500 text-white"
-                        }`}
                     >
-                      {fileSent.isSent ? "Sent" : "Pending"}
-                    </span>
-                  </div>
-                )
-              })}
+                      {file.fileMimeType?.includes("image") ? (
+                        <img
+                          src={`${API_BASE}${file.fileUrl}`}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : file.fileMimeType?.includes("pdf") ? (
+                        <div className="flex flex-col items-center justify-center text-[10px] text-red-600 font-semibold">
+                          PDF
+                        </div>
+                      ) : (
+                        <div className="text-xs text-slate-400">FILE</div>
+                      )}
+                      <span
+                        className={`absolute bottom-0 left-0 right-0 px-0.5 py-0.5 text-[8px] font-bold text-center truncate ${
+                          fileSent.isSent
+                            ? "bg-emerald-600 text-white"
+                            : "bg-amber-500 text-white"
+                        }`}
+                      >
+                        {fileSent.isSent ? "Sent" : "Pending"}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </motion.div>
