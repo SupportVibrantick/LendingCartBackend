@@ -2,6 +2,10 @@ const {
   mapSubmission,
   resendBrokerLenderInvite,
 } = require("../../../../services/lenderInvites/brokerLenderSubmission");
+const {
+  requireLoMarketplaceView,
+  requireLoAddOwnLender,
+} = require("../../../../services/broker/loanOfficerAccess");
 
 /**
  * @param {import("fastify").FastifyInstance} fastify
@@ -21,6 +25,9 @@ async function communitySubmissionsRoutes(fastify) {
             search: { type: "string" },
           },
         },
+      },
+      preHandler: async (req, reply) => {
+        await requireLoMarketplaceView(req, reply, fastify);
       },
     },
     async (req, reply) => {
@@ -105,6 +112,9 @@ async function communitySubmissionsRoutes(fastify) {
           },
         },
       },
+      preHandler: async (req, reply) => {
+        await requireLoMarketplaceView(req, reply, fastify);
+      },
     },
     async (req, reply) => {
       const prisma = fastify.prisma;
@@ -168,6 +178,9 @@ async function communitySubmissionsRoutes(fastify) {
             inviteId: { type: "string", format: "uuid" },
           },
         },
+      },
+      preHandler: async (req, reply) => {
+        await requireLoAddOwnLender(req, reply, fastify);
       },
     },
     async (req, reply) => {

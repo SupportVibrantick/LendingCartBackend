@@ -1,4 +1,8 @@
 module.exports = async function listContactsRoutes(fastify) {
+  const {
+    requireLoOfficerPermission,
+  } = require("../../../services/broker/loanOfficerAccess");
+
   fastify.get(
     "/list",
     {
@@ -23,7 +27,10 @@ module.exports = async function listContactsRoutes(fastify) {
             },
           },
         }
-      }
+      },
+      preHandler: async (req, reply) => {
+        await requireLoOfficerPermission(req, reply, fastify, "VIEW_CONTACTS");
+      },
     },
     async (req, reply) => {
       const prisma = fastify.prisma;

@@ -1,9 +1,14 @@
 import { useState } from "react";
 import toast from "react-hot-toast";
+import {
+  getContactsPortalConfig,
+  type ContactsPortal,
+} from "../../../lib/contactsPortal";
 
 type Props = {
   onClose: () => void;
   contact?: Contact | null;
+  portal?: ContactsPortal;
 };
 
 type Contact = {
@@ -26,8 +31,6 @@ type Contact = {
   entityType?: string;
   description?: string;
 };
-
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
 export enum ContactType {
   ACCOUNTANT = "ACCOUNTANT",
@@ -188,7 +191,12 @@ const validateField = (name: string, value: string) => {
   return "";
 };
 
-export default function CreateContactModal({ onClose, contact }: Props) {
+export default function CreateContactModal({
+  onClose,
+  contact,
+  portal = "loanOfficer",
+}: Props) {
+  const portalConfig = getContactsPortalConfig(portal);
   const isEdit = Boolean(contact?.id);
   const [loading, setLoading] = useState(false);
 
@@ -262,20 +270,17 @@ export default function CreateContactModal({ onClose, contact }: Props) {
     setLoading(true);
 
     try {
-      const token = sessionStorage.getItem("loan_officer_token");
       const url = isEdit
-        ? `${API_BASE}/loanofficer/contacts/${contact!.id}/update`
-        : `${API_BASE}/loanofficer/contacts/create`;
+        ? portalConfig.updateUrl(contact!.id)
+        : portalConfig.createUrl;
       const res = await fetch(url, {
         method: isEdit ? "PATCH" : "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
+        headers: portalConfig.getHeaders(true),
         body: JSON.stringify(form),
       });
 
       const json = await res.json();
+      portalConfig.checkResponse(res, json);
       if (!res.ok || json.success === false) {
         throw new Error(json.message || "Failed to save contact");
       }

@@ -4,14 +4,23 @@ import toast from "react-hot-toast";
 import {
   ArrowRight,
   BriefcaseBusiness,
+  DollarSign,
+  FilePlus,
+  FileText,
+  UserRound,
+  Contact,
   RefreshCw,
+  TrendingUp,
+  UserPen,
 } from "lucide-react";
 import PageMeta from "../../../components/common/PageMeta";
 import StaffCommissionOverview from "../../../components/commissions/StaffCommissionOverview";
 import {
   CO_BROKER_API_BASE,
+  checkCoBrokerResponse,
   getCoBrokerAuthHeaders,
 } from "../../../lib/coBrokerPortal";
+import { isSessionExpiredError } from "../../../lib/sessionExpiry";
 
 type PipelineStats = {
   totalVolume: number;
@@ -78,6 +87,9 @@ export default function CoBrokerDashboard() {
       const statsJson = await statsRes.json();
       const listJson = await listRes.json();
 
+      checkCoBrokerResponse(statsRes, statsJson);
+      checkCoBrokerResponse(listRes, listJson);
+
       if (statsRes.ok && statsJson.success) {
         setStats(statsJson.data);
       }
@@ -95,7 +107,8 @@ export default function CoBrokerDashboard() {
           })),
         );
       }
-    } catch {
+    } catch (err) {
+      if (isSessionExpiredError(err)) return;
       toast.error("Failed to load dashboard");
     } finally {
       setLoading(false);
@@ -125,6 +138,58 @@ export default function CoBrokerDashboard() {
     },
     { label: "Approved", value: stats.approved, color: "text-emerald-600" },
     { label: "Draft", value: stats.draft, color: "text-gray-600" },
+  ];
+
+  const quickActions = [
+    {
+      label: "New Application",
+      desc: "Start a new loan file",
+      icon: FilePlus,
+      to: "/sub-broker/loan-application",
+      color: "bg-[#13538A]",
+    },
+    {
+      label: "Loan Pipeline",
+      desc: "View all assigned deals",
+      icon: TrendingUp,
+      to: "/sub-broker/loan-pipeline",
+      color: "bg-[#13538A]",
+    },
+    {
+      label: "Commissions",
+      desc: "Track your earnings",
+      icon: DollarSign,
+      to: "/sub-broker/commissions",
+      color: "bg-emerald-600",
+    },
+    {
+      label: "Invoices",
+      desc: "View payment invoices",
+      icon: FileText,
+      to: "/sub-broker/invoices",
+      color: "bg-violet-600",
+    },
+    {
+      label: "Borrowers",
+      desc: "View assigned borrower records",
+      icon: UserRound,
+      to: "/sub-broker/borrowers",
+      color: "bg-orange-600",
+    },
+    {
+      label: "Contacts",
+      desc: "Manage your directory",
+      icon: Contact,
+      to: "/sub-broker/contacts",
+      color: "bg-slate-700",
+    },
+    {
+      label: "Profile",
+      desc: "Update your account",
+      icon: UserPen,
+      to: "/sub-broker/profile",
+      color: "bg-slate-700",
+    },
   ];
 
   return (
@@ -184,6 +249,37 @@ export default function CoBrokerDashboard() {
           invoicesHref="/sub-broker/invoices"
           commissionsHref="/sub-broker/commissions"
         />
+
+        <div>
+          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-500">
+            Quick Actions
+          </h2>
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            {quickActions.map((action) => {
+              const Icon = action.icon;
+              return (
+                <Link
+                  key={action.to}
+                  to={action.to}
+                  className="group flex items-start gap-4 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition hover:border-[#13538A]/30 hover:shadow-md dark:border-gray-800 dark:bg-gray-900"
+                >
+                  <div
+                    className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-white ${action.color}`}
+                  >
+                    <Icon size={20} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold text-gray-900 dark:text-white">
+                      {action.label}
+                    </p>
+                    <p className="mt-0.5 text-xs text-gray-500">{action.desc}</p>
+                  </div>
+                  <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-gray-300 transition group-hover:text-[#13538A]" />
+                </Link>
+              );
+            })}
+          </div>
+        </div>
 
         <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
           <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-800">

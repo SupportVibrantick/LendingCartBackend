@@ -34,12 +34,10 @@ import Select, { components } from "react-select";
 import { FiFolder, FiSend, FiTag, FiUser } from "react-icons/fi";
 import Swal from "sweetalert2";
 import { FaRegCreditCard } from "react-icons/fa6";
-import LoanPreviewChat from "./LoanPreviewChat";
-import FeeAgreement from "./FeeAgreement";
-import LoanApplication from "../LoanApplication/LoanApplication";
 import { mapSubmissionToLoanApplication } from "../../lib/mapSubmissionToLoanApplication";
 import {
   expandDocumentsForDisplay,
+  getCoBrokerSendableToPrincipalBrokerIds,
   getDocumentSourceDisplay,
   getUploadFileSentLabel,
   matchesDocumentSentFilter,
@@ -66,6 +64,13 @@ import {
   getBrokerRequestDocumentsDisabledReason,
 } from "../../lib/brokerDocumentRequest";
 import { buildApiPublicFileUrl } from "../../lib/publicFileUrl";
+import { getPortalToken, getPortalAuthHeaders, assertPortalApiOk } from "../../lib/portalAuth";
+import { isSessionExpiredError } from "../../lib/sessionExpiry";
+import {
+  getLoanPreviewConfig,
+  type LoanPreviewPortal,
+} from "../../lib/loanPreviewConfig";
+import { hasPermission } from "../../lib/brokerPermissions";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
@@ -235,14 +240,6 @@ const getFieldValue = <T extends FieldLike>(fields: T[], key: string) => {
   return field ? parseValue(field.value) : undefined;
 };
 
-function getAuthHeaders(): HeadersInit {
-  const token = sessionStorage.getItem("broker_token");
-  return {
-    "Content-Type": "application/json",
-    ...(token && { Authorization: `Bearer ${token}` }),
-  };
-}
-
 // const formatFieldKey = (key: string | null | undefined) => {
 //   if (!key) return "";
 
@@ -369,7 +366,9 @@ const getRequestDocColor = (name: string) => {
   return colors[Math.abs(hash) % colors.length];
 };
 
-const LoanPreview = () => {
+type LoanPreviewProps = { portal?: LoanPreviewPortal };
+
+const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
   const Location = useLocation();
   const actionMenuRef = useRef<HTMLDivElement | null>(null);
   const actionButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({});
@@ -380,6 +379,14 @@ const LoanPreview = () => {
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const lendersSectionRef = useRef<HTMLDivElement | null>(null);
   const navigate = useNavigate();
+  const previewConfig = getLoanPreviewConfig(portal);
+  const isLoPortal = portal === "loanOfficer";
+  const isCoBrokerPortal = portal === "coBroker";
+  const previewApi = previewConfig.api;
+  const getAuthHeaders = previewConfig.getAuthHeaders;
+  const PreviewChat = previewConfig.Chat;
+  const PreviewFeeAgreement = previewConfig.FeeAgreement;
+  const PreviewLoanApplication = previewConfig.LoanApplication;
 
   const [activeTab, setActiveTab] = useState<TabKey>(
     (Location.state as { activeTab?: TabKey })?.activeTab || "view-details",
@@ -484,6 +491,7 @@ const LoanPreview = () => {
   const [autoForwardToClientSaving, setAutoForwardToClientSaving] =
     useState(false);
   const [forwardingToClient, setForwardingToClient] = useState(false);
+  const [sendingToBroker, setSendingToBroker] = useState(false);
   // const [currentPage, setCurrentPage] = useState(1);
 
   // const [search, setSearch] = useState("");
@@ -544,6 +552,17 @@ const LoanPreview = () => {
     ];
   }, [displayDocuments, selectedRows]);
 
+  const selectedCoBrokerPbSendableIds = useMemo(
+    () =>
+      isCoBrokerPortal
+        ? getCoBrokerSendableToPrincipalBrokerIds(
+            displayDocuments,
+            selectedRows,
+          )
+        : [],
+    [displayDocuments, isCoBrokerPortal, selectedRows],
+  );
+
   const isAllSelected =
     selectableDocuments.length > 0 &&
     selectedRows.length === selectableDocuments.length;
@@ -578,14 +597,10 @@ const LoanPreview = () => {
     try {
       setLenderLoading(true);
 
-      const token = sessionStorage.getItem("broker_token");
-
       const res = await fetch(
-        `${API_BASE}/broker/loan-pipeline/${applicationId}/submitted-lenders`,
+        previewApi.submittedLenders(applicationId),
         {
-          headers: {
-            ...(token && { Authorization: `Bearer ${token}` }),
-          },
+          headers: getAuthHeaders(),
         },
       );
 
@@ -658,16 +673,11 @@ const LoanPreview = () => {
         },
       });
 
-      const token = sessionStorage.getItem("broker_token");
-
       const res = await fetch(
-        `${API_BASE}/broker/loan-pipeline/submissions/${submissionId}/documents/submit`,
+        previewApi.documentsSubmitToLender(submissionId),
         {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token && { Authorization: `Bearer ${token}` }),
-          },
+          headers: getAuthHeaders(),
           body: JSON.stringify({ lenders: payload }),
         },
       );
@@ -735,16 +745,11 @@ const LoanPreview = () => {
 
     try {
       setAutoForwardSaving(true);
-      const token = sessionStorage.getItem("broker_token");
-
       const res = await fetch(
-        `${API_BASE}/broker/loan-pipeline/submissions/${submissionId}/documents/auto-forward`,
+        previewApi.documentsAutoForward(submissionId),
         {
           method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token && { Authorization: `Bearer ${token}` }),
-          },
+          headers: getAuthHeaders(),
           body: JSON.stringify({
             autoForwardDocumentsToLender: nextValue,
           }),
@@ -790,16 +795,11 @@ const LoanPreview = () => {
 
     try {
       setAutoForwardToClientSaving(true);
-      const token = sessionStorage.getItem("broker_token");
-
       const res = await fetch(
-        `${API_BASE}/broker/loan-pipeline/submissions/${submissionId}/documents/auto-forward-to-client`,
+        previewApi.documentsAutoForwardToClient(submissionId),
         {
           method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token && { Authorization: `Bearer ${token}` }),
-          },
+          headers: getAuthHeaders(),
           body: JSON.stringify({
             autoForwardLenderRequestsToClient: nextValue,
           }),
@@ -851,16 +851,11 @@ const LoanPreview = () => {
 
     try {
       setForwardingToClient(true);
-      const token = sessionStorage.getItem("broker_token");
-
       const res = await fetch(
-        `${API_BASE}/broker/loan-pipeline/submissions/${documentsData.submissionId}/documents/forward-to-client`,
+        previewApi.documentsForwardToClient(documentsData.submissionId),
         {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token && { Authorization: `Bearer ${token}` }),
-          },
+          headers: getAuthHeaders(),
           body: JSON.stringify({ requirementIds }),
         },
       );
@@ -885,6 +880,57 @@ const LoanPreview = () => {
     }
   };
 
+  const handleSendToPrincipalBroker = async (requirementIds: string[]) => {
+    if (!documentsData?.submissionId || requirementIds.length === 0) return;
+
+    const result = await Swal.fire({
+      title: "Send to Principal Broker?",
+      html: `${requirementIds.length} document${requirementIds.length === 1 ? "" : "s"} will be forwarded for Principal Broker review.`,
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonText: "Send to PB",
+      confirmButtonColor: "#2563eb",
+    });
+
+    if (!result.isConfirmed) return;
+
+    try {
+      setSendingToBroker(true);
+
+      for (const requirementId of requirementIds) {
+        const sendUrl = previewApi.sendDocumentToBroker(requirementId);
+        if (!sendUrl) continue;
+
+        const res = await fetch(sendUrl, {
+          method: "POST",
+          headers: getPortalAuthHeaders(false),
+        });
+        const json = await res.json();
+
+        if (!res.ok || !json.success) {
+          throw new Error(json.message || "Failed to send document to PB");
+        }
+      }
+
+      toast.success(
+        requirementIds.length === 1
+          ? "Document sent to Principal Broker"
+          : `${requirementIds.length} documents sent to Principal Broker`,
+      );
+      setActiveAction(null);
+      setSelectedRows([]);
+      await fetchSubmissionDocuments(
+        documentsData.submissionId,
+        page,
+        debouncedSearch,
+      );
+    } catch (err: any) {
+      toast.error(err.message || "Failed to send to Principal Broker");
+    } finally {
+      setSendingToBroker(false);
+    }
+  };
+
   const fields = useMemo(
     () => mapSubmissionDetailFields(submissionDetail?.fields || []),
     [submissionDetail?.fields],
@@ -897,13 +943,60 @@ const LoanPreview = () => {
     [submissionDetail],
   );
 
+  const loDocPermissions = useMemo(() => {
+    if (isCoBrokerPortal) {
+      return {
+        upload: true,
+        request: true,
+        sign: false,
+        loi: true,
+        feeAgreement: true,
+        lenderHub: false,
+        autoForwardToLender: false,
+        autoForwardToClient: false,
+        delete: false,
+        sendApplications: false,
+        chat: true,
+        sendEmails: false,
+      };
+    }
+
+    return {
+      upload:
+        !isLoPortal || hasPermission("UPLOAD_DOCUMENTS", "loanOfficer"),
+      request:
+        !isLoPortal || hasPermission("REQUEST_DOCUMENTS", "loanOfficer"),
+      sign:
+        !isLoPortal || hasPermission("DOCUMENTS_TO_SIGN", "loanOfficer"),
+      loi:
+        !isLoPortal || hasPermission("VIEW_LOI_TERM_SHEET", "loanOfficer"),
+      feeAgreement:
+        !isLoPortal || hasPermission("VIEW_FEE_AGREEMENT", "loanOfficer"),
+      lenderHub:
+        !isLoPortal || hasPermission("VIEW_LENDER_HUB", "loanOfficer"),
+      autoForwardToLender:
+        !isLoPortal || hasPermission("AUTO_FORWARD_TO_LENDER", "loanOfficer"),
+      autoForwardToClient:
+        !isLoPortal || hasPermission("AUTO_FORWARD_TO_CLIENT", "loanOfficer"),
+      delete:
+        !isLoPortal || hasPermission("DELETE_DOCUMENTS", "loanOfficer"),
+      sendApplications:
+        !isLoPortal || hasPermission("SEND_APPLICATIONS", "loanOfficer"),
+      chat: !isLoPortal || hasPermission("CHAT", "loanOfficer"),
+      sendEmails: !isLoPortal || hasPermission("SEND_EMAILS", "loanOfficer"),
+    };
+  }, [isLoPortal, isCoBrokerPortal]);
+
+  const effectiveCanRequestDocuments =
+    canRequestDocuments && loDocPermissions.request;
+
   const documentRequestBlockedReason = useMemo(
     () => getBrokerRequestDocumentsDisabledReason(submissionDetail),
     [submissionDetail],
   );
 
   useEffect(() => {
-    if (!applicationId) {
+    if (!applicationId || !loDocPermissions.loi) {
       setLoiCount(0);
       return;
     }
@@ -912,10 +1005,9 @@ const LoanPreview = () => {
 
     (async () => {
       try {
-        const res = await fetch(
-          `${API_BASE}/broker/loan-pipeline/${applicationId}/lois?page=1&limit=1`,
-          { headers: getAuthHeaders() },
-        );
+        const res = await fetch(previewApi.lois(applicationId, "page=1&limit=1"), {
+          headers: getAuthHeaders(),
+        });
         const json = await res.json();
 
         if (!cancelled && res.ok && json.success) {
@@ -929,7 +1021,7 @@ const LoanPreview = () => {
     return () => {
       cancelled = true;
     };
-  }, [applicationId]);
+  }, [applicationId, loDocPermissions.loi, previewApi]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -978,13 +1070,14 @@ const LoanPreview = () => {
     try {
       setLoading(true);
       const res = await fetch(
-        `${API_BASE}/api/public/broker/applications/submissions/${id}`,
+        `${API_BASE}${previewConfig.submissionDetailUrl(id)}`,
+        { headers: getAuthHeaders() },
       );
       const json = await res.json();
-      if (!res.ok || !json.success)
-        throw new Error(json.message || "Failed to fetch submission");
+      assertPortalApiOk(res, json, "Failed to fetch submission");
       setSubmissionDetail(json.data);
     } catch (err: any) {
+      if (isSessionExpiredError(err)) return;
       toast.error(err.message || "Failed to fetch submission details");
     } finally {
       setLoading(false);
@@ -992,6 +1085,8 @@ const LoanPreview = () => {
   };
 
   const handleMarkFunded = async (applicationLenderId: string) => {
+    if (!previewConfig.showMarkFunded) return;
+
     if (!applicationId) {
       Swal.fire({
         title: "Error",
@@ -1035,7 +1130,7 @@ const LoanPreview = () => {
       });
 
       const res = await fetch(
-        `${API_BASE}/broker/loan-pipeline/${applicationId}/mark-funded`,
+        previewApi.markFunded(applicationId),
         {
           method: "POST",
           headers: getAuthHeaders(),
@@ -1354,7 +1449,6 @@ const LoanPreview = () => {
   ) => {
     try {
       setDocumentsLoading(true);
-      const token = sessionStorage.getItem("broker_token");
 
       const params = new URLSearchParams({
         page: String(pageNo),
@@ -1370,11 +1464,9 @@ const LoanPreview = () => {
       }
 
       const res = await fetch(
-        `${API_BASE}/broker/loan-pipeline/submissions/${submissionId}/documents?${params.toString()}`,
+        previewApi.submissionDocuments(submissionId, params.toString()),
         {
-          headers: {
-            ...(token && { Authorization: `Bearer ${token}` }),
-          },
+          headers: getAuthHeaders(),
         },
       );
 
@@ -1398,7 +1490,7 @@ const LoanPreview = () => {
 
   const handleRequestDocuments = async () => {
     if (!applicationId) return;
-    if (!canRequestDocuments) {
+    if (!effectiveCanRequestDocuments) {
       toast.error(
         documentRequestBlockedReason ||
           "Documents cannot be requested for this application.",
@@ -1413,7 +1505,7 @@ const LoanPreview = () => {
     try {
       setRequestSubmitting(true);
       const res = await fetch(
-        `${API_BASE}/broker/loan-pipeline/${applicationId}/request-documents`,
+        previewApi.requestDocuments(applicationId),
         {
           method: "POST",
           headers: getAuthHeaders(),
@@ -1464,7 +1556,10 @@ const LoanPreview = () => {
 
     try {
       const res = await fetch(
-        `${API_BASE}/broker/lender-discovery/applications/submissions/${id}/eligible?page=${lenderPage}&limit=${lenderLimit}&search=${debouncedLenderSearch}&filter=${lenderFilter}`,
+        previewApi.eligibleLenders(
+          id,
+          `page=${lenderPage}&limit=${lenderLimit}&search=${debouncedLenderSearch}&filter=${lenderFilter}`,
+        ),
         {
           headers: getAuthHeaders(),
           method: "GET",
@@ -1549,7 +1644,7 @@ const LoanPreview = () => {
       setSendingId(lenderProductId);
 
       const res = await fetch(
-        `${API_BASE}/broker/lender-discovery/applications/${applicationId}/submissions/${submissionId}/send-to-lenders`,
+        previewApi.sendToLenders(applicationId, submissionId),
         {
           method: "POST",
           headers: getAuthHeaders(),
@@ -1601,7 +1696,7 @@ const LoanPreview = () => {
   //       formData.append("file", file);
 
   //       const res = await fetch(
-  //         `${API_BASE}/broker/loan-pipeline/submissions/${currentSubmissionId}/documents/${requirementId}/upload`,
+  //         `${pipelineApi}/submissions/${currentSubmissionId}/documents/${requirementId}/upload`,
   //         {
   //           method: "POST",
   //           headers: {
@@ -1641,7 +1736,10 @@ const LoanPreview = () => {
       return;
     }
 
-    fetchSubmittedLenders();
+    if (!isCoBrokerPortal) {
+      fetchSubmittedLenders();
+    }
+
     fetchSubmissionDocuments(
       submissionId,
       page,
@@ -1688,10 +1786,10 @@ const LoanPreview = () => {
   }, [submissionDetail?.canEdit, activeTab]);
 
   useEffect(() => {
-    if (!canRequestDocuments && activeTab === "request-document") {
+    if (!effectiveCanRequestDocuments && activeTab === "request-document") {
       setActiveTab("view-details");
     }
-  }, [canRequestDocuments, activeTab]);
+  }, [effectiveCanRequestDocuments, activeTab]);
 
   useEffect(() => {
     setRequestDocs([]);
@@ -1715,7 +1813,7 @@ const LoanPreview = () => {
   useEffect(() => {
     if (
       activeTab === "request-document" &&
-      canRequestDocuments &&
+      effectiveCanRequestDocuments &&
       applicationId &&
       requestDocsLoadedFor !== applicationId
     ) {
@@ -1747,7 +1845,7 @@ const LoanPreview = () => {
   useEffect(() => {
     if (
       activeTab !== "request-document" ||
-      !canRequestDocuments ||
+      !effectiveCanRequestDocuments ||
       !applicationId ||
       requestDocsLoadedFor !== applicationId
     ) {
@@ -1836,114 +1934,170 @@ const LoanPreview = () => {
     ? new Date(submissionDetail.submittedAt)
     : null;
 
-  const tabSections: TabSection[] = [
-    {
-      id: "application",
-      label: "Application",
-      icon: ClipboardList,
-      items: [
-        {
-          key: "view-details",
-          label: "View Details",
-          icon: Eye,
-          color: "text-blue-600",
-        },
-        ...(submissionDetail?.canEdit !== false
-          ? [
-              {
-                key: "update-application" as const,
-                label: "Update Application",
-                icon: Pencil,
-                color: "text-cyan-600",
-              },
-            ]
-          : []),
-        {
-          key: "fee-agreement",
-          label: "Fee Agreement",
-          icon: FileText,
-          color: "text-indigo-600",
-        },
-        ...(isFundedDeal
-          ? [
-              {
-                key: "commissions" as const,
-                label: "Commissions",
-                icon: DollarSign,
-                color: "text-emerald-600",
-              },
-            ]
-          : []),
-      ],
-    },
-    {
-      id: "documents",
-      label: "Documents",
-      icon: FolderOpen,
-      items: [
-        {
-          key: "documents",
-          label: "Upload Documents",
-          icon: Upload,
-          color: "text-amber-600",
-        },
-        {
-          key: "request-document",
-          label: "Request Documents",
-          icon: Send,
-          color: "text-emerald-600",
-          disabled: !canRequestDocuments,
-          disabledReason:
-            documentRequestBlockedReason ||
-            "Documents cannot be requested for this application.",
-        },
-        {
-          key: "sign-documents",
-          label: "Documents to Sign",
-          icon: FileText,
-          color: "text-indigo-600",
-        },
-        {
-          key: "view-loi",
-          label: "LOI / Term Sheets",
-          icon: FileText,
-          color: "text-purple-600",
-        },
-      ],
-    },
-    {
-      id: "communication",
-      label: "Communication",
-      icon: MessageSquare,
-      items: [
-        {
-          key: "chat",
-          label: "Chat",
-          icon: MessageSquare,
-          color: "text-green-600",
-        },
-        {
-          key: "email-reminders",
-          label: "Email Reminders",
-          icon: Mail,
-          color: "text-sky-600",
-        },
-      ],
-    },
-    {
-      id: "lender",
-      label: "Lender Hub",
-      icon: Building2,
-      items: [
-        {
-          key: "find-lenders",
-          label: "Lender Hub",
-          icon: FileSearch,
-          color: "text-blue-600",
-        },
-      ],
-    },
-  ];
+  const tabSections: TabSection[] = useMemo(() => {
+    const documentItems: TabSection["items"] = [];
+
+    if (loDocPermissions.upload) {
+      documentItems.push({
+        key: "documents",
+        label: "Upload Documents",
+        icon: Upload,
+        color: "text-amber-600",
+      });
+    }
+
+    if (loDocPermissions.request) {
+      documentItems.push({
+        key: "request-document",
+        label: "Request Documents",
+        icon: Send,
+        color: "text-emerald-600",
+        disabled: !effectiveCanRequestDocuments,
+        disabledReason:
+          documentRequestBlockedReason ||
+          "Documents cannot be requested for this application.",
+      });
+    }
+
+    if (loDocPermissions.sign) {
+      documentItems.push({
+        key: "sign-documents",
+        label: "Documents to Sign",
+        icon: FileText,
+        color: "text-indigo-600",
+      });
+    }
+
+    if (loDocPermissions.loi) {
+      documentItems.push({
+        key: "view-loi",
+        label: "LOI / Term Sheets",
+        icon: FileText,
+        color: "text-purple-600",
+      });
+    }
+
+    const applicationItems: TabSection["items"] = [
+      {
+        key: "view-details",
+        label: "View Details",
+        icon: Eye,
+        color: "text-blue-600",
+      },
+    ];
+
+    if (submissionDetail?.canEdit !== false) {
+      applicationItems.push({
+        key: "update-application",
+        label: "Update Application",
+        icon: Pencil,
+        color: "text-cyan-600",
+      });
+    }
+
+    if (loDocPermissions.feeAgreement) {
+      applicationItems.push({
+        key: "fee-agreement",
+        label: "Fee Agreement",
+        icon: FileText,
+        color: "text-indigo-600",
+      });
+    }
+
+    if (isFundedDeal) {
+      applicationItems.push({
+        key: "commissions",
+        label: "Commissions",
+        icon: DollarSign,
+        color: "text-emerald-600",
+      });
+    }
+
+    const sections: TabSection[] = [
+      {
+        id: "application",
+        label: "Application",
+        icon: ClipboardList,
+        items: applicationItems,
+      },
+    ];
+
+    if (documentItems.length > 0) {
+      sections.push({
+        id: "documents",
+        label: "Documents",
+        icon: FolderOpen,
+        items: documentItems,
+      });
+    }
+
+    const communicationItems: TabSection["items"] = [];
+
+    if (loDocPermissions.chat) {
+      communicationItems.push({
+        key: "chat",
+        label: "Chat",
+        icon: MessageSquare,
+        color: "text-green-600",
+      });
+    }
+
+    if (loDocPermissions.sendEmails) {
+      communicationItems.push({
+        key: "email-reminders",
+        label: "Email Reminders",
+        icon: Mail,
+        color: "text-sky-600",
+      });
+    }
+
+    if (communicationItems.length > 0) {
+      sections.push({
+        id: "communication",
+        label: "Communication",
+        icon: MessageSquare,
+        items: communicationItems,
+      });
+    }
+
+    if (loDocPermissions.lenderHub) {
+      sections.push({
+        id: "lender",
+        label: "Lender Hub",
+        icon: Building2,
+        items: [
+          {
+            key: "find-lenders",
+            label: "Lender Hub",
+            icon: FileSearch,
+            color: "text-blue-600",
+          },
+        ],
+      });
+    }
+
+    return sections;
+  }, [
+    loDocPermissions,
+    effectiveCanRequestDocuments,
+    documentRequestBlockedReason,
+    submissionDetail?.canEdit,
+    isFundedDeal,
+  ]);
+
+  const visibleTabKeys = useMemo(
+    () =>
+      tabSections.flatMap((section) =>
+        section.items.filter((item) => !item.disabled).map((item) => item.key),
+      ),
+    [tabSections],
+  );
+
+  useEffect(() => {
+    if (!visibleTabKeys.includes(activeTab)) {
+      setActiveTab(visibleTabKeys[0] ?? "view-details");
+    }
+  }, [visibleTabKeys, activeTab]);
 
   const activeSectionId =
     TAB_SECTION_BY_KEY[activeTab] || ("application" as TabSectionId);
@@ -1983,7 +2137,9 @@ const LoanPreview = () => {
       monthlyPaymentDisplay={monthlyPaymentDisplay}
       submittedDate={submittedDate}
       showEditHint={submissionDetail?.canEdit !== false}
-      canMarkFunded={Boolean(submissionDetail?.canMarkFunded)}
+      canMarkFunded={
+        previewConfig.showMarkFunded && Boolean(submissionDetail?.canMarkFunded)
+      }
       markFundedBlockedReason={submissionDetail?.markFundedBlockedReason}
       markingFundedId={markingFundedId}
       onMarkFunded={handleMarkFunded}
@@ -2027,7 +2183,7 @@ const LoanPreview = () => {
     }
 
     return (
-      <LoanApplication
+      <PreviewLoanApplication
         key={`${submissionDetail.submissionId}-${submissionDetail.submittedAt}`}
         mode="update"
         embedded
@@ -2039,10 +2195,10 @@ const LoanPreview = () => {
         initialCreditAuthorizationConsent={
           loanApplicationInitial.creditAuthorizationConsent
         }
-        onUpdateSuccess={(newSubmissionId) => {
+        onUpdateSuccess={(newSubmissionId: string) => {
           const idToLoad = newSubmissionId || submissionId;
           if (newSubmissionId && newSubmissionId !== submissionId) {
-            navigate("/loan-preview", {
+            navigate(previewConfig.previewNavigatePath, {
               state: { submissionId: newSubmissionId },
               replace: true,
             });
@@ -2057,7 +2213,7 @@ const LoanPreview = () => {
   };
 
   const renderRequestDocument = () => {
-    if (!canRequestDocuments) {
+    if (!effectiveCanRequestDocuments) {
       return (
         <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-950">
           <h2 className="text-lg font-semibold text-gray-800 dark:text-slate-100">
@@ -2393,7 +2549,7 @@ const LoanPreview = () => {
   const renderViewLoi = () => (
     <BrokerLoiPanel
       applicationId={applicationId}
-      apiRole="broker"
+      apiRole={previewConfig.loiApiRole}
       getAuthHeaders={getAuthHeaders}
       isActive={activeTab === "view-loi"}
       onLoiCountChange={setLoiCount}
@@ -2740,7 +2896,8 @@ dark:bg-red-900/20 dark:text-red-400"
                       disabled={
                         sendingId === lender.lenderProductId ||
                         lender.alreadySent ||
-                        !lender.canSend
+                        !lender.canSend ||
+                        !loDocPermissions.sendApplications
                       }
                       onClick={() =>
                         sendApplicationToLender(lender.lenderProductId)
@@ -2929,7 +3086,9 @@ dark:bg-red-900/20 dark:text-red-400"
           Requested Documents
         </h2>
         <p className="mt-1 text-sm text-slate-500">
-          Upload, filter, and send documents to lenders on this application.
+          {isCoBrokerPortal
+            ? "Request documents from your client, upload files, then forward them to the Principal Broker for review."
+            : "Upload, filter, and send documents to lenders on this application."}
         </p>
       </div>
 
@@ -2937,7 +3096,8 @@ dark:bg-red-900/20 dark:text-red-400"
         autoForwardEnabled={autoForwardEnabled}
         autoForwardSaving={autoForwardSaving}
         onToggleAutoForward={handleToggleAutoForward}
-        showAutoForwardToClient
+        showAutoForward={loDocPermissions.autoForwardToLender}
+        showAutoForwardToClient={loDocPermissions.autoForwardToClient}
         autoForwardToClientEnabled={autoForwardToClientEnabled}
         autoForwardToClientSaving={autoForwardToClientSaving}
         onToggleAutoForwardToClient={handleToggleAutoForwardToClient}
@@ -2951,9 +3111,54 @@ dark:bg-red-900/20 dark:text-red-400"
         searchInput={searchInput}
         onSearchInputChange={setSearchInput}
         onResetPage={() => setPage(1)}
+        showSourceFilter={!isCoBrokerPortal}
+        showLenderFilter={!isCoBrokerPortal}
+        showSentFilter={!isCoBrokerPortal}
       />
 
-      {!autoForwardEnabled && selectedRows.length > 0 && (
+      {isCoBrokerPortal && selectedCoBrokerPbSendableIds.length > 0 && (
+        <div className="mb-4 overflow-visible rounded-2xl border border-blue-200 bg-blue-50/70 shadow-sm dark:border-blue-900/40 dark:bg-slate-900">
+          <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-white">
+                <FiSend size={15} />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-slate-800 dark:text-white">
+                  Send to Principal Broker
+                </p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  {selectedCoBrokerPbSendableIds.length} uploaded document
+                  {selectedCoBrokerPbSendableIds.length === 1 ? "" : "s"} ready
+                  for review
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() =>
+                handleSendToPrincipalBroker(selectedCoBrokerPbSendableIds)
+              }
+              disabled={sendingToBroker}
+              className="inline-flex min-w-[170px] items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-600 px-5 py-3 text-sm font-semibold text-white shadow-md transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg active:translate-y-0 disabled:cursor-not-allowed disabled:from-slate-300 disabled:to-slate-300 disabled:text-slate-500"
+            >
+              {sendingToBroker ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                <>
+                  <FiSend size={16} />
+                  Send to PB
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {!isCoBrokerPortal && !autoForwardEnabled && selectedRows.length > 0 && (
         <div className="mb-4 overflow-visible rounded-2xl border border-blue-200 bg-blue-50/70 shadow-sm dark:border-blue-900/40 dark:bg-slate-900">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-blue-200/70 px-5 py-3 dark:border-blue-900/40">
             <div className="flex items-center gap-2">
@@ -3155,7 +3360,7 @@ dark:bg-red-900/20 dark:text-red-400"
         </div>
       )}
 
-      {autoForwardEnabled && selectedClientSendableIds.length > 0 && (
+      {!isCoBrokerPortal && autoForwardEnabled && selectedClientSendableIds.length > 0 && (
         <div className="mb-4 flex items-center justify-between rounded-2xl border border-indigo-200 bg-gradient-to-r from-indigo-50 to-violet-50 px-5 py-3 shadow-sm dark:border-indigo-900/40 dark:from-slate-900 dark:to-slate-800">
           <p className="text-sm font-medium text-indigo-700 dark:text-indigo-300">
             {selectedClientSendableIds.length} document(s) ready to send to
@@ -3241,7 +3446,10 @@ dark:bg-red-900/20 dark:text-red-400"
                   const isOpen = activeAction === doc.rowKey;
                   const isSelected = selectedRows.includes(doc.rowKey);
                   const { label: sourceLabel, className: sourceClass } =
-                    getDocumentSourceDisplay(doc, { brokerSourceLabel: "Me" });
+                    getDocumentSourceDisplay(doc, {
+                      brokerSourceLabel: isCoBrokerPortal ? "Me" : "Me",
+                      subBrokerSourceLabel: "Me",
+                    });
                   const uploadedCount = Number(doc.uploadedCount) || 0;
 
                   return (
@@ -3297,7 +3505,13 @@ dark:bg-red-900/20 dark:text-red-400"
                       </td>
 
                       <td className="px-4 py-3 align-middle">
-                        <DocumentStatusCell doc={doc} hideUploadChip />
+                        <DocumentStatusCell
+                          doc={doc}
+                          hideUploadChip
+                          viewerPortal={
+                            isCoBrokerPortal ? "coBroker" : undefined
+                          }
+                        />
                       </td>
 
                       <td className="px-4 py-3 align-middle">
@@ -3454,53 +3668,78 @@ dark:bg-red-900/20 dark:text-red-400"
             }}
             className="w-52 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-900"
           >
-            <label className="flex cursor-pointer items-center gap-2 px-4 py-2.5 text-sm text-amber-700 transition hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950/20">
-              <Upload size={14} />
-              Upload Files
-              <input
-                type="file"
-                multiple
-                className="hidden"
-                onChange={async (e) => {
-                  const files = e.target.files;
-                  if (!files) return;
+            {loDocPermissions.upload ? (
+              <label className="flex cursor-pointer items-center gap-2 px-4 py-2.5 text-sm text-amber-700 transition hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950/20">
+                <Upload size={14} />
+                Upload Files
+                <input
+                  type="file"
+                  multiple
+                  className="hidden"
+                  onChange={async (e) => {
+                    const files = e.target.files;
+                    if (!files) return;
 
-                  try {
-                    const token = sessionStorage.getItem("broker_token");
+                    try {
+                      const token = getPortalToken();
 
-                    for (const file of Array.from(files)) {
-                      const formData = new FormData();
-                      formData.append("file", file);
+                      for (const file of Array.from(files)) {
+                        const formData = new FormData();
+                        formData.append("file", file);
 
-                      const res = await fetch(
-                        `${API_BASE}/broker/loan-pipeline/submissions/${documentsData.submissionId}/documents/${activeActionDoc.requirementId}/upload`,
-                        {
-                          method: "POST",
-                          headers: {
-                            ...(token && {
-                              Authorization: `Bearer ${token}`,
-                            }),
+                        const res = await fetch(
+                          previewApi.submissionDocumentUpload(
+                            documentsData.submissionId,
+                            activeActionDoc.requirementId,
+                          ),
+                          {
+                            method: "POST",
+                            headers: {
+                              ...(token && {
+                                Authorization: `Bearer ${token}`,
+                              }),
+                            },
+                            body: formData,
                           },
-                          body: formData,
-                        },
-                      );
+                        );
 
-                      const json = await res.json();
-                      if (!res.ok || !json.success) {
-                        throw new Error(`${file.name} failed`);
+                        const json = await res.json();
+                        if (!res.ok || !json.success) {
+                          throw new Error(`${file.name} failed`);
+                        }
                       }
-                    }
 
-                    toast.success("Uploaded successfully");
-                    await fetchSubmissionDocuments(documentsData.submissionId);
-                  } catch (err: any) {
-                    toast.error(err.message);
-                  } finally {
+                      toast.success("Uploaded successfully");
+                      await fetchSubmissionDocuments(documentsData.submissionId);
+                    } catch (err: any) {
+                      toast.error(err.message);
+                    } finally {
+                      closeDocumentActionMenu();
+                    }
+                  }}
+                />
+              </label>
+            ) : null}
+            {isCoBrokerPortal &&
+              activeActionDoc.source === "SUB_BROKER_ADDED" &&
+              Number(activeActionDoc.uploadedCount) > 0 &&
+              !activeActionDoc.isSentToBroker &&
+              activeActionDoc.status !== "SKIPPED" && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await handleSendToPrincipalBroker([
+                      String(activeActionDoc.requirementId),
+                    ]);
                     closeDocumentActionMenu();
-                  }
-                }}
-              />
-            </label>
+                  }}
+                  disabled={sendingToBroker}
+                  className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-blue-600 transition hover:bg-blue-50 disabled:opacity-60 dark:text-blue-400 dark:hover:bg-blue-500/10"
+                >
+                  <FiSend size={14} />
+                  Send To PB
+                </button>
+              )}
             <button
               type="button"
               onClick={() => {
@@ -3530,7 +3769,8 @@ dark:bg-red-900/20 dark:text-red-400"
                 </button>
               )}
             {activeActionDoc.source === "SUB_BROKER_ADDED" &&
-              activeActionDoc.status !== "SKIPPED" && (
+              activeActionDoc.status !== "SKIPPED" &&
+              loDocPermissions.delete && (
                 <>
                   <div className="my-1 border-t border-slate-100 dark:border-slate-800" />
                   <button
@@ -3554,10 +3794,11 @@ dark:bg-red-900/20 dark:text-red-400"
                       if (!result.isConfirmed) return;
 
                       try {
-                        const token = sessionStorage.getItem("broker_token");
-
+                        const token = getPortalToken();
                         const res = await fetch(
-                          `${API_BASE}/broker/loan-pipeline/sub-broker-submissions/${activeActionDoc.subBrokerSubmissionId}/skip`,
+                          previewApi.skipSubBrokerSubmission(
+                            String(activeActionDoc.subBrokerSubmissionId),
+                          ),
                           {
                             method: "POST",
                             headers: {
@@ -3638,6 +3879,11 @@ dark:bg-red-900/20 dark:text-red-400"
         return (
           <SignDocumentsPanel
             mode="broker"
+            apiRolePrefix={
+              previewConfig.pipelineApiRoot === "loanofficer"
+                ? "loanofficer"
+                : "broker"
+            }
             apiBase={API_BASE}
             getAuthHeaders={() => {
               const headers = getAuthHeaders() as Record<string, string>;
@@ -3651,16 +3897,20 @@ dark:bg-red-900/20 dark:text-red-400"
       //   return renderSubmittedLenders();
       case "chat":
         return (
-          <LoanPreviewChat
+          <PreviewChat
             applicationId={applicationId}
-            initialConversationId={
-              (Location.state as { conversationId?: string })?.conversationId
-            }
+            {...(previewConfig.portal === "broker"
+              ? {
+                  initialConversationId: (
+                    Location.state as { conversationId?: string }
+                  )?.conversationId,
+                }
+              : {})}
           />
         );
       case "fee-agreement":
         return (
-          <FeeAgreement
+          <PreviewFeeAgreement
             applicationId={applicationId}
             getAuthHeaders={getAuthHeaders}
             applicationBrokerPoints={getFieldValue(fields, "brokerPoints")}
@@ -3671,7 +3921,8 @@ dark:bg-red-900/20 dark:text-red-400"
           <LoanCommissionPanel
             loanApplicationId={applicationId}
             getAuthHeaders={getAuthHeaders}
-            canMarkPaid={isBrokerAdmin}
+            canMarkPaid={previewConfig.canMarkPaidCommission && isBrokerAdmin}
+            portal={previewConfig.commissionPortal}
           />
         );
       default:
@@ -3720,11 +3971,11 @@ dark:bg-red-900/20 dark:text-red-400"
             <div>
               {/* BACK BUTTON */}
               <button
-                onClick={() => navigate(-1)}
+                onClick={() => navigate(previewConfig.pipelineListPath)}
                 className="mb-3 inline-flex items-center gap-2 text-sm text-slate-500 hover:text-blue-600 transition"
               >
                 <ArrowLeft size={16} />
-                Back to Submitted Applications
+                {previewConfig.backLabel}
               </button>
 
               {/* TITLE */}
@@ -4153,4 +4404,5 @@ dark:bg-red-900/20 dark:text-red-400"
   );
 };
 
+export { LoanPreview };
 export default LoanPreview;

@@ -16,6 +16,7 @@ const {
   canLenderReceiveDocuments,
   getLenderDocumentDeliveryBlockMessage,
 } = require("../../../utils/lender/lenderDocumentDelivery");
+const { extraOfficerPermission } = require("../../../services/broker/loanOfficerAccess");
 
 function assertLoanOfficerSubmissionAccess(req, submission) {
   const brokerOrgId = req.user.organizationId;
@@ -36,8 +37,11 @@ function assertLoanOfficerSubmissionAccess(req, submission) {
  * @param {import("fastify").FastifyInstance} fastify
  */
 module.exports = async function loanOfficerSignDocuments(fastify) {
+  const signDocsGuard = extraOfficerPermission(fastify, "DOCUMENTS_TO_SIGN");
+
   fastify.get(
     "/submissions/:submissionId/sign-documents",
+    { preHandler: signDocsGuard },
     async (req, reply) => {
       try {
         if (!req.user || req.user.orgType !== "BROKER") {
@@ -99,6 +103,7 @@ module.exports = async function loanOfficerSignDocuments(fastify) {
 
   fastify.post(
     "/submissions/:submissionId/sign-documents/:requirementId/send-to-client",
+    { preHandler: signDocsGuard },
     async (req, reply) => {
       try {
         if (!req.user || req.user.orgType !== "BROKER") {
@@ -248,6 +253,7 @@ module.exports = async function loanOfficerSignDocuments(fastify) {
 
   fastify.post(
     "/submissions/:submissionId/sign-documents/:requirementId/forward-to-lender",
+    { preHandler: signDocsGuard },
     async (req, reply) => {
       try {
         if (!req.user || req.user.orgType !== "BROKER") {

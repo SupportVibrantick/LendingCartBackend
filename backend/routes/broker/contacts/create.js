@@ -1,4 +1,7 @@
 const { logAudit } = require("../../../services/logger/auditLogger");
+const {
+  requireLoOfficerPermission,
+} = require("../../../services/broker/loanOfficerAccess");
 
 module.exports = async function createContactRoutes(fastify) {
   fastify.post(
@@ -7,7 +10,10 @@ module.exports = async function createContactRoutes(fastify) {
       schema: {
         tags: ["Broker -> Contacts"],
         summary: "Create Contact"
-      }
+      },
+      preHandler: async (req, reply) => {
+        await requireLoOfficerPermission(req, reply, fastify, "CREATE_CONTACTS");
+      },
     },
     async (req, reply) => {
       const prisma = fastify.prisma;

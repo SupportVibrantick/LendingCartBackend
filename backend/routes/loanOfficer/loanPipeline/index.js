@@ -1,9 +1,7 @@
-const { officerPreHandler } = require("../../../services/broker/loanOfficerAccess");
+const { registerOfficerRouteGuards } = require("../../../services/broker/loanOfficerAccess");
 
 async function loanOfficerLoanPipelineRoutes(fastify) {
-  for (const handler of officerPreHandler(fastify)) {
-    fastify.addHook("preHandler", handler);
-  }
+  registerOfficerRouteGuards(fastify, "VIEW_APPLICATIONS");
 
   await fastify.register(require("./getApplications"));
   await fastify.register(require("./listSubmissions"));
@@ -18,6 +16,12 @@ async function loanOfficerLoanPipelineRoutes(fastify) {
     require("../../broker/loanPipeline/brokerLoi")({
       tagPrefix: "Loan Officer",
       requireBrokerUserId: true,
+      routePermissions: {
+        view: "VIEW_LOI_TERM_SHEET",
+        generate: ["GENERATE_LOI", "REGENERATE_LOI"],
+        sendToClient: "SEND_LOI_TO_CLIENT",
+        forwardToLender: "SEND_LOI_TO_LENDER",
+      },
     }),
     { prefix: "" },
   );

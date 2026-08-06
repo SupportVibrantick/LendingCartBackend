@@ -1,9 +1,11 @@
 const { logAudit } = require("../../../services/logger/auditLogger");
+const { officerPreHandler } = require("../../../services/broker/loanOfficerAccess");
 
 module.exports = async function updateContactRoutes(fastify) {
   fastify.patch(
     "/:id/update",
     {
+      preHandler: officerPreHandler(fastify, "EDIT_CONTACTS"),
       schema: {
         tags: ["Broker -> Contacts"],
         summary: "Update contact"

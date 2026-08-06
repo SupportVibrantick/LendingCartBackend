@@ -1,9 +1,11 @@
 const { logAudit } = require("../../../services/logger/auditLogger");
+const { officerPreHandler } = require("../../../services/broker/loanOfficerAccess");
 
 module.exports = async function deleteContactRoutes(fastify) {
   fastify.delete(
     "/:id",
     {
+      preHandler: officerPreHandler(fastify, "DELETE_CONTACTS"),
       schema: {
         tags: ["Broker -> Contacts"],
         summary: "Delete contact (soft delete)"

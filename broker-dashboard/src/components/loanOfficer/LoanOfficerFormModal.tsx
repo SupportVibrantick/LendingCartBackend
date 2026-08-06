@@ -8,7 +8,6 @@ import {
   formatPhone,
   INITIAL_LOAN_OFFICER_FORM,
   mapDetailToLoanOfficerForm,
-  PERMISSION_LEVEL_OPTIONS,
   PREFERRED_COMMUNICATION,
   STATE_OPTIONS,
   validateLoanOfficerForm,
@@ -18,6 +17,7 @@ import {
   type LoanOfficerFormErrors,
   type LoanOfficerFormState,
 } from "../../lib/loanOfficerForm";
+import LoanOfficerPermissionsPanel from "./LoanOfficerPermissionsPanel";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
@@ -246,7 +246,7 @@ export default function LoanOfficerFormModal({
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm dark:bg-black/70">
-      <div className="flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl dark:border-gray-800 dark:bg-gray-900">
+      <div className="flex max-h-[92vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl dark:border-gray-800 dark:bg-gray-900">
         <div className="flex shrink-0 items-center justify-between border-b px-6 py-4 dark:border-gray-800">
           <div>
             <h2 className="text-xl font-bold text-gray-900 dark:text-white">
@@ -654,30 +654,23 @@ export default function LoanOfficerFormModal({
                       : "Create co-brokers under your broker organization to assign them here."}
                   </p>
                 </div>
+              </section>
 
-                <FormField
-                  label="User Permission Settings"
-                  required
-                  error={errors.permissionLevel}
-                >
-                  <select
-                    className={inputClass}
-                    value={form.permissionLevel}
-                    onChange={(e) =>
-                      updateField(
-                        "permissionLevel",
-                        e.target.value as LoanOfficerFormState["permissionLevel"],
-                      )
-                    }
-                  >
-                    <option value="">Select permission level</option>
-                    {PERMISSION_LEVEL_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </FormField>
+              <section className="space-y-4">
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
+                  User Permissions
+                </h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Choose exactly what this loan officer can access. Permissions are
+                  grouped by category so you can grant the smallest level of access
+                  needed.
+                </p>
+                <LoanOfficerPermissionsPanel
+                  value={form.permissions}
+                  onChange={(permissions) => updateField("permissions", permissions)}
+                  error={errors.permissions}
+                  disabled={saving}
+                />
               </section>
             </div>
 

@@ -17,6 +17,7 @@ import {
   FolderOpen,
   Loader2,
   MessageSquare,
+  Plus,
   RotateCcw,
   Search,
   SearchX,
@@ -42,6 +43,30 @@ import {
   getLenderRequestDocumentsDisabledReason,
   normalizeLenderDecision,
 } from "../../lib/loanPipelineUtils";
+import { resolveLenderOfferedProductCode } from "../../lib/lenderLoanProducts";
+import {
+  isAgencyMultifamilyProduct,
+  isApSupplyChainProduct,
+  isArFactoringProduct,
+  isBridgeLoanProduct,
+  isCmbsProduct,
+  isConstructionLoanProduct,
+  isCrePermanentProduct,
+  isDscrRentalProduct,
+  isEquipmentFinanceProduct,
+  isFixAndFlipProduct,
+  isMezzanineProduct,
+  isPreferredEquityProduct,
+  isPurchaseOrderFinanceProduct,
+  isRentalPortfolioProduct,
+  isSba504Product,
+  isSba7aBusinessAcquisitionProduct,
+  isSba7aEquipmentPurchaseProduct,
+  isSba7aRealEstateProduct,
+  isSba7aWorkingCapitalProduct,
+  isSbaExpressProduct,
+  isUsdaBiProduct,
+} from "../../lib/loanProductCriteriaFields";
 import {
   canDecideApplications,
   canGenerateLoi,
@@ -55,6 +80,11 @@ import {
 } from "../../lib/applicationDetailsPdf";
 import SignDocumentsPanel from "../../components/documents/SignDocumentsPanel";
 import { buildApiPublicFileUrl } from "../../lib/publicFileUrl";
+import {
+  formatNumberInputValue,
+  sanitizeNumberInput,
+  stripNumberFormatting,
+} from "../../lib/numberInputFormat";
 import LoiUnderwritingFormModal from "../../components/loi/LoiUnderwritingFormModal";
 import {
   getNumericFieldValue,
@@ -203,6 +233,84 @@ function getAuthHeaders(): HeadersInit {
   };
 }
 
+function isSameLoanProgramCode(a?: string | null, b?: string | null) {
+  if (!a || !b) return false;
+  if (a === b) return true;
+
+  const canonicalA = resolveLenderOfferedProductCode(a);
+  const canonicalB = resolveLenderOfferedProductCode(b);
+  if (canonicalA === canonicalB) return true;
+
+  const familyChecks = [
+    isFixAndFlipProduct,
+    isDscrRentalProduct,
+    isBridgeLoanProduct,
+    isConstructionLoanProduct,
+    isRentalPortfolioProduct,
+    isCrePermanentProduct,
+    isCmbsProduct,
+    isAgencyMultifamilyProduct,
+    isMezzanineProduct,
+    isPreferredEquityProduct,
+    isSba7aBusinessAcquisitionProduct,
+    isSba7aWorkingCapitalProduct,
+    isSba7aEquipmentPurchaseProduct,
+    isSba7aRealEstateProduct,
+    isSbaExpressProduct,
+    isSba504Product,
+    isUsdaBiProduct,
+    isPurchaseOrderFinanceProduct,
+    isEquipmentFinanceProduct,
+    isArFactoringProduct,
+    isApSupplyChainProduct,
+  ];
+
+  return familyChecks.some((check) => check(a) && check(b));
+}
+
+function sanitizeInterestRateInput(value: string): string {
+  const cleaned = sanitizeNumberInput(value, { decimal: true });
+  if (!cleaned) return "";
+  if (cleaned === ".") return "0.";
+
+  const [intPart = "", decPart] = cleaned.split(".");
+  const limitedInt = intPart.slice(0, 3);
+
+  if (decPart !== undefined) {
+    return `${limitedInt}.${decPart.slice(0, 2)}`;
+  }
+
+  return limitedInt;
+}
+
+function getInterestRateValidationError(value: string): string | undefined {
+  const raw = stripNumberFormatting(value).trim();
+
+  if (!raw || raw === ".") {
+    return "Interest rate is required";
+  }
+
+  const num = Number(raw);
+  if (!Number.isFinite(num)) {
+    return "Enter a valid interest rate";
+  }
+
+  if (num <= 0) {
+    return "Interest rate must be greater than 0";
+  }
+
+  if (num > 100) {
+    return "Interest rate cannot exceed 100%";
+  }
+
+  const decimalPart = raw.split(".")[1];
+  if (decimalPart && decimalPart.length > 2) {
+    return "Use up to 2 decimal places (e.g. 7.25)";
+  }
+
+  return undefined;
+}
+
 type DecisionFormErrors = {
   approvedAmount?: string;
   interestRate?: string;
@@ -320,9 +428,10 @@ export default function LoanPreview() {
   const loadedSignedBrokerLoiFileRef = useRef<string | null>(null);
   const [loanProducts, setLoanProducts] = useState<any[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(false);
-  const [customDocs, setCustomDocs] = useState<string[]>([]);
-  const [customInput, setCustomInput] = useState("");
   const [selectedLoanProduct, setSelectedLoanProduct] = useState("");
+  const [newDocName, setNewDocName] = useState("");
+  const [newDocRequired, setNewDocRequired] = useState(true);
+  const [addingDocument, setAddingDocument] = useState(false);
   const [previewFile, setPreviewFile] = useState<{
     url: string;
     type: string;
@@ -359,21 +468,6 @@ export default function LoanPreview() {
     fetchLenderBrandingForPdf().then(setPdfBranding);
   }, []);
 
-  const handleAddCustomDoc = () => {
-    if (!customInput.trim()) return;
-
-    setCustomDocs((prev) => {
-      if (prev.includes(customInput.trim())) return prev; // prevent duplicate
-      return [...prev, customInput.trim()];
-    });
-
-    setCustomInput("");
-  };
-
-  const removeCustomDoc = (index: number) => {
-    setCustomDocs((prev) => prev.filter((_, i) => i !== index));
-  };
-
   useEffect(() => {
     setActiveTab(initialTab);
   }, [initialTab]);
@@ -408,9 +502,12 @@ export default function LoanPreview() {
     try {
       setLoadingProducts(true);
 
-      const res = await fetch(`${API_BASE}/lender/loan-products/list`, {
-        headers: getAuthHeaders(),
-      });
+      const res = await fetch(
+        `${API_BASE}/lender/loan-products/list?limit=100`,
+        {
+          headers: getAuthHeaders(),
+        },
+      );
 
       const json = await res.json();
 
@@ -427,12 +524,82 @@ export default function LoanPreview() {
     }
   };
 
-  const fetchDocumentsByProduct = async (code: string) => {
+  const applicationLoanProductCode = useMemo(
+    () =>
+      String(
+        submissionDetail?.loanApplication?.loanProductCode ||
+          submissionDetail?.loanProduct?.code ||
+          "",
+      ).trim(),
+    [submissionDetail],
+  );
+
+  const defaultLoanProductCode = useMemo(() => {
+    if (!applicationLoanProductCode || !loanProducts.length) return "";
+
+    const matched = loanProducts.find((product) =>
+      isSameLoanProgramCode(
+        applicationLoanProductCode,
+        product.loanProductCode || product.loanProduct?.code || product.code,
+      ),
+    );
+
+    return String(
+      matched?.loanProductCode ||
+        matched?.loanProduct?.code ||
+        matched?.code ||
+        "",
+    );
+  }, [applicationLoanProductCode, loanProducts]);
+
+  const isApplicationDefaultSelected =
+    Boolean(selectedLoanProduct) &&
+    Boolean(defaultLoanProductCode) &&
+    isSameLoanProgramCode(selectedLoanProduct, defaultLoanProductCode);
+
+  const selectedLenderProduct = useMemo(() => {
+    if (!selectedLoanProduct) return null;
+    return (
+      loanProducts.find((product) =>
+        isSameLoanProgramCode(
+          selectedLoanProduct,
+          product.loanProductCode || product.loanProduct?.code || product.code,
+        ),
+      ) || null
+    );
+  }, [loanProducts, selectedLoanProduct]);
+
+  const selectedLenderProductId = selectedLenderProduct?.id
+    ? String(selectedLenderProduct.id)
+    : "";
+
+  const fetchDocumentsByProduct = async (
+    code: string,
+    options?: {
+      preserveSelection?: boolean;
+      selectIds?: string[];
+    },
+  ) => {
     try {
       setDocSelectModal((prev) => ({ ...prev, loading: true }));
 
+      const matchedProduct =
+        loanProducts.find((product) =>
+          isSameLoanProgramCode(
+            code,
+            product.loanProductCode || product.loanProduct?.code || product.code,
+          ),
+        ) || null;
+
+      const params = new URLSearchParams({ limit: "100" });
+      if (matchedProduct?.id) {
+        params.set("lenderProductId", String(matchedProduct.id));
+      } else {
+        params.set("loanProductCode", code);
+      }
+
       const res = await fetch(
-        `${API_BASE}/lender/document-config/list?loanProductCode=${encodeURIComponent(code)}&limit=100`,
+        `${API_BASE}/lender/document-config/list?${params.toString()}`,
         {
           headers: getAuthHeaders(),
         },
@@ -442,18 +609,92 @@ export default function LoanPreview() {
 
       if (!res.ok || !json.success) {
         toast.error("Failed to load documents");
+        setDocSelectModal((prev) => ({ ...prev, loading: false }));
         return;
       }
 
-      setDocSelectModal((prev) => ({
-        ...prev,
-        documents: json.data || [],
-        selectedDocs: [],
-        loading: false,
-      }));
+      const documents = Array.isArray(json.data) ? json.data : [];
+      const availableIds = new Set(
+        documents
+          .map((doc: any) => doc.documentTypeId || doc.id)
+          .filter(Boolean)
+          .map(String),
+      );
+
+      setDocSelectModal((prev) => {
+        const preserved = options?.preserveSelection
+          ? (prev.selectedDocs || []).filter((id) => availableIds.has(String(id)))
+          : [];
+        const extra = (options?.selectIds || []).filter((id) =>
+          availableIds.has(String(id)),
+        );
+
+        return {
+          ...prev,
+          documents,
+          selectedDocs: [...new Set([...preserved, ...extra])],
+          loading: false,
+        };
+      });
     } catch (err) {
       console.error(err);
       setDocSelectModal((prev) => ({ ...prev, loading: false }));
+    }
+  };
+
+  const handleAddProductDocument = async () => {
+    const name = newDocName.trim();
+    if (!selectedLoanProduct) {
+      toast.error("Please select a loan program first");
+      return;
+    }
+    if (!selectedLenderProductId) {
+      toast.error(
+        "This loan program is not available on your account. Assign the product first.",
+      );
+      return;
+    }
+    if (name.length < 2) {
+      toast.error("Document name must be at least 2 characters");
+      return;
+    }
+
+    try {
+      setAddingDocument(true);
+
+      const res = await fetch(`${API_BASE}/lender/document-config/create`, {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          lenderProductId: selectedLenderProductId,
+          customDocumentName: name,
+          isRequired: newDocRequired,
+        }),
+      });
+
+      const json = await res.json().catch(() => ({}));
+
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || "Failed to add document");
+      }
+
+      const createdTypeId = String(
+        json?.data?.documentTypeId || json?.data?.documentType?.id || "",
+      );
+
+      setNewDocName("");
+      setNewDocRequired(true);
+      toast.success("Document added to this loan program");
+
+      await fetchDocumentsByProduct(selectedLoanProduct, {
+        preserveSelection: true,
+        selectIds: createdTypeId ? [createdTypeId] : [],
+      });
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err?.message || "Failed to add document");
+    } finally {
+      setAddingDocument(false);
     }
   };
 
@@ -464,6 +705,8 @@ export default function LoanPreview() {
         selectedDocs: [],
         loading: false,
       });
+      setNewDocName("");
+      setNewDocRequired(true);
     }
   }, [selectedLoanProduct]);
 
@@ -490,6 +733,12 @@ export default function LoanPreview() {
 
   useEffect(() => {
     setSubmissionDetail(null);
+    setSelectedLoanProduct("");
+    setDocSelectModal({
+      documents: [],
+      selectedDocs: [],
+      loading: false,
+    });
     setSignedBrokerLoi(null);
     setLoiViewMode("lender");
     setLoiUrl((prev) => {
@@ -689,41 +938,6 @@ export default function LoanPreview() {
     }
   };
 
-  const fetchDocumentConfig = async () => {
-    try {
-      setDocSelectModal((prev) => ({ ...prev, loading: true }));
-
-      const loanType = submissionDetail?.loanApplication?.loanProductCode;
-
-      if (!loanType) {
-        throw new Error("Loan product not found for this application");
-      }
-
-      const res = await fetch(
-        `${API_BASE}/lender/document-config/list?loanProductCode=${encodeURIComponent(loanType)}&limit=100`,
-        {
-          headers: getAuthHeaders(),
-        },
-      );
-
-      const json = await res.json();
-
-      if (!res.ok || !json.success) {
-        throw new Error("Failed to fetch documents");
-      }
-
-      setDocSelectModal({
-        documents: json.data || [],
-        selectedDocs: [],
-        loading: false,
-      });
-    } catch (err: any) {
-      console.error(err.message);
-      // toast.error(err.message);
-      setDocSelectModal((prev) => ({ ...prev, loading: false }));
-    }
-  };
-
   const handleRequestDocuments = async () => {
     if (!canRequestDocuments) {
       toast.error(
@@ -733,16 +947,23 @@ export default function LoanPreview() {
       return;
     }
 
+    if (!selectedLoanProduct) {
+      toast.error("Please select a loan program");
+      return;
+    }
+
+    if ((docSelectModal.selectedDocs?.length || 0) === 0) {
+      toast.error("Please select at least one document");
+      return;
+    }
+
     try {
       setRequestLoading(true);
 
       const payload = {
         decision: "CONDITIONAL",
         notes: "Please upload required documents",
-
         documentTypeIds: docSelectModal.selectedDocs,
-
-        customDocuments: customDocs,
       };
 
       const res = await fetch(
@@ -762,16 +983,14 @@ export default function LoanPreview() {
 
       toast.success("Documents requested");
 
-      // reset selection
       setDocSelectModal((prev) => ({
         ...prev,
         selectedDocs: [],
       }));
 
-      setCustomDocs([]);
-      setCustomInput("");
+      setNewDocName("");
+      setNewDocRequired(true);
 
-      // IMPORTANT
       setDocumentsData(null);
 
       await fetchDocuments();
@@ -1153,9 +1372,19 @@ export default function LoanPreview() {
 
   const openDecisionModal = (type: "APPROVED" | "DECLINED") => {
     setDecisionModal({ type });
+    const prefilledRate =
+      interestRate !== null &&
+      interestRate !== undefined &&
+      Number.isFinite(Number(interestRate)) &&
+      Number(interestRate) > 0
+        ? sanitizeInterestRateInput(String(interestRate))
+        : "";
+
     setDecisionForm({
-      approvedAmount: loanAmount ? String(loanAmount) : "",
-      interestRate: interestRate ? String(interestRate) : "",
+      approvedAmount: loanAmount
+        ? formatNumberInputValue(String(loanAmount))
+        : "",
+      interestRate: prefilledRate,
       notes: "",
     });
     setDecisionFormErrors({});
@@ -1170,8 +1399,11 @@ export default function LoanPreview() {
     }
 
     if (decisionModal.type === "APPROVED") {
-      const approvedAmountValue = Number(decisionForm.approvedAmount);
-      if (!decisionForm.approvedAmount.trim()) {
+      const approvedAmountRaw = stripNumberFormatting(
+        decisionForm.approvedAmount,
+      );
+      const approvedAmountValue = Number(approvedAmountRaw);
+      if (!approvedAmountRaw) {
         errors.approvedAmount = "Approved amount is required";
       } else if (
         !Number.isFinite(approvedAmountValue) ||
@@ -1181,15 +1413,11 @@ export default function LoanPreview() {
           "Enter a valid approved amount greater than 0";
       }
 
-      const interestRateValue = Number(decisionForm.interestRate);
-      if (!decisionForm.interestRate.trim()) {
-        errors.interestRate = "Interest rate is required";
-      } else if (
-        !Number.isFinite(interestRateValue) ||
-        interestRateValue < 0 ||
-        interestRateValue > 100
-      ) {
-        errors.interestRate = "Enter a valid interest rate between 0 and 100";
+      const interestRateError = getInterestRateValidationError(
+        decisionForm.interestRate,
+      );
+      if (interestRateError) {
+        errors.interestRate = interestRateError;
       }
     }
 
@@ -1234,8 +1462,12 @@ export default function LoanPreview() {
         decisionModal.type === "APPROVED"
           ? {
               decision: "APPROVED",
-              approvedAmount: Number(decisionForm.approvedAmount),
-              interestRate: Number(decisionForm.interestRate),
+              approvedAmount: Number(
+                stripNumberFormatting(decisionForm.approvedAmount),
+              ),
+              interestRate: Number(
+                stripNumberFormatting(decisionForm.interestRate),
+              ),
               notes: decisionForm.notes.trim(),
             }
           : {
@@ -1286,14 +1518,9 @@ export default function LoanPreview() {
   };
 
   useEffect(() => {
-    if (
-      activeTab === "requestDocs" &&
-      canRequestDocuments &&
-      docSelectModal.documents.length === 0
-    ) {
-      fetchDocumentConfig();
-    }
-  }, [activeTab, canRequestDocuments]);
+    if (!defaultLoanProductCode) return;
+    setSelectedLoanProduct((prev) => prev || defaultLoanProductCode);
+  }, [defaultLoanProductCode, applicationLenderId]);
 
   useEffect(() => {
     if (!canRequestDocuments && activeTab === "requestDocs") {
@@ -1311,9 +1538,10 @@ export default function LoanPreview() {
 
   useEffect(() => {
     if (selectedLoanProduct) {
-      fetchDocumentsByProduct(selectedLoanProduct);
+      fetchDocumentsByProduct(selectedLoanProduct, { preserveSelection: true });
     }
-  }, [selectedLoanProduct]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedLoanProduct, loanProducts]);
 
   const resolvedChatApplicationId =
     submissionDetail?.loanApplication?.id ||
@@ -1735,10 +1963,6 @@ export default function LoanPreview() {
       </div>
     );
   };
-  const handleClearCustomDocs = () => {
-    setCustomDocs([]);
-  };
-
   const renderRequestDocs = () => {
     if (!canRequestDocuments) {
       return (
@@ -1763,6 +1987,14 @@ export default function LoanPreview() {
         </div>
       );
     }
+
+    const selectedProductLabel =
+      selectedLenderProduct?.loanProduct?.name ||
+      selectedLenderProduct?.name ||
+      (selectedLoanProduct
+        ? formatLoanProduct(selectedLoanProduct)
+        : "") ||
+      "selected program";
 
     return (
       <div
@@ -1803,66 +2035,135 @@ export default function LoanPreview() {
               </option>
 
               {!loadingProducts &&
-                loanProducts.map((lp) => (
-                  <option key={lp.id} value={lp.loanProductCode}>
-                    {lp.loanProduct?.name || lp.name}
-                  </option>
-                ))}
+                loanProducts.map((lp) => {
+                  const optionCode = String(lp.loanProductCode || "");
+                  const isAppProduct = isSameLoanProgramCode(
+                    applicationLoanProductCode,
+                    optionCode,
+                  );
+                  return (
+                    <option key={lp.id} value={optionCode}>
+                      {lp.loanProduct?.name || lp.name}
+                      {isAppProduct ? " (this application)" : ""}
+                    </option>
+                  );
+                })}
             </select>
 
-            {/* RIGHT ICON */}
             <div className="absolute right-3 top-2.5 text-gray-400 flex items-center gap-2">
               {loadingProducts && (
                 <Loader2 className="w-4 h-4 animate-spin text-[#18B6B4]" />
               )}
             </div>
           </div>
+
+          {isApplicationDefaultSelected ? (
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] text-emerald-800 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300">
+              <span className="font-semibold">Selected by default:</span> this
+              application was submitted for{" "}
+              <span className="font-semibold">
+                {selectedLenderProduct?.loanProduct?.name ||
+                  selectedLenderProduct?.name ||
+                  formatLoanProduct(applicationLoanProductCode)}
+              </span>
+              , so its documents are loaded first. You can switch to another
+              program if needed.
+            </div>
+          ) : applicationLoanProductCode && selectedLoanProduct ? (
+            <p className="text-[11px] text-amber-600 dark:text-amber-400">
+              Application program is{" "}
+              <button
+                type="button"
+                className="underline font-medium"
+                onClick={() => {
+                  if (defaultLoanProductCode) {
+                    setSelectedLoanProduct(defaultLoanProductCode);
+                  }
+                }}
+              >
+                {formatLoanProduct(applicationLoanProductCode)}
+              </button>
+              . Showing documents for a different program.
+            </p>
+          ) : applicationLoanProductCode && !defaultLoanProductCode ? (
+            <p className="text-[11px] text-amber-600 dark:text-amber-400">
+              This application is for{" "}
+              <span className="font-medium">
+                {formatLoanProduct(applicationLoanProductCode)}
+              </span>
+              , but that program is not assigned on your account yet.
+            </p>
+          ) : (
+            <p className="text-[11px] text-slate-500">
+              Choose a loan program to load product-wise documents.
+            </p>
+          )}
         </div>
 
-        {/* HEADER */}
-        {selectedLoanProduct && docSelectModal.documents.length > 0 && (
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold">Select Documents</h2>
-
-            <div className="flex gap-2">
-              <button
-                onClick={() =>
-                  setDocSelectModal((prev) => ({
-                    ...prev,
-                    selectedDocs:
-                      prev.documents?.map(
-                        (d: any) => d.documentTypeId || d.id,
-                      ) || [],
-                  }))
-                }
-                className="px-3 py-1.5 text-xs rounded-lg bg-[#0F766E] text-white dark:bg-[#0F766E]/80 dark:hover:bg-[#0F766E] transition-all"
-              >
-                Select All
-              </button>
-
-              <button
-                onClick={() =>
-                  setDocSelectModal((prev) => ({
-                    ...prev,
-                    selectedDocs: [],
-                  }))
-                }
-                className="px-3 py-1.5 text-xs rounded-lg bg-red-600 text-white"
-              >
-                Clear
-              </button>
+        {!selectedLoanProduct && !docSelectModal.loading && (
+          <div
+            className="flex flex-col items-center justify-center py-12 px-6 text-center 
+  border-2 border-dashed border-slate-200 rounded-2xl 
+  bg-slate-50 dark:border-slate-700 dark:bg-slate-800/40"
+          >
+            <div className="w-14 h-14 rounded-full bg-slate-200/70 dark:bg-slate-700 flex items-center justify-center mb-4">
+              <FileText className="w-6 h-6 text-slate-500" />
             </div>
+            <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+              Select a Loan Program
+            </p>
+            <p className="text-xs text-slate-500 mt-1 max-w-sm">
+              Pick a loan program to view and request its documents.
+            </p>
           </div>
         )}
 
+        {/* HEADER */}
         {selectedLoanProduct && (
-          <p className="text-sm text-slate-500">
-            Select configured documents or add custom document requests.
-          </p>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-semibold">Select Documents</h2>
+              <p className="text-sm text-slate-500">
+                Product-wise documents for {selectedProductLabel}. Add a custom
+                document to this program if needed.
+              </p>
+            </div>
+
+            {docSelectModal.documents.length > 0 && (
+              <div className="flex gap-2">
+                <button
+                  onClick={() =>
+                    setDocSelectModal((prev) => ({
+                      ...prev,
+                      selectedDocs:
+                        prev.documents?.map(
+                          (d: any) => d.documentTypeId || d.id,
+                        ) || [],
+                    }))
+                  }
+                  className="px-3 py-1.5 text-xs rounded-lg bg-[#0F766E] text-white dark:bg-[#0F766E]/80 dark:hover:bg-[#0F766E] transition-all"
+                >
+                  Select All
+                </button>
+
+                <button
+                  onClick={() =>
+                    setDocSelectModal((prev) => ({
+                      ...prev,
+                      selectedDocs: [],
+                    }))
+                  }
+                  className="px-3 py-1.5 text-xs rounded-lg bg-red-600 text-white"
+                >
+                  Clear
+                </button>
+              </div>
+            )}
+          </div>
         )}
 
-        {/* 🔥 LOADING */}
-        {docSelectModal.loading && (
+        {/* LOADING */}
+        {selectedLoanProduct && docSelectModal.loading && (
           <div className="text-center py-10 text-slate-400">
             Loading documents...
           </div>
@@ -1873,24 +2174,20 @@ export default function LoanPreview() {
           selectedLoanProduct &&
           docSelectModal.documents.length === 0 && (
             <div
-              className="flex flex-col items-center justify-center py-12 px-6 text-center 
+              className="flex flex-col items-center justify-center py-10 px-6 text-center 
   border-2 border-dashed border-[#18B6B4]/40 rounded-2xl 
   bg-gradient-to-br from-[#e6f7f7] to-white 
   dark:from-slate-800 dark:to-slate-900"
             >
-              {/* ICON */}
               <div className="w-14 h-14 rounded-full bg-[#18B6B4]/10 flex items-center justify-center mb-4">
                 <FileText className="w-6 h-6 text-[#18B6B4]" />
               </div>
-
-              {/* TITLE */}
               <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-                No Documents Available
+                No Documents Configured
               </p>
-
-              {/* SUBTEXT */}
-              <p className="text-xs text-slate-500 mt-1 max-w-xs">
-                There are no documents configured for the selected loan program.
+              <p className="text-xs text-slate-500 mt-1 max-w-sm">
+                No product documents yet for {selectedProductLabel}. Add one
+                below to request it from the borrower.
               </p>
             </div>
           )}
@@ -1929,67 +2226,42 @@ export default function LoanPreview() {
                     className={`group flex items-center justify-between px-3 py-2 rounded-lg border cursor-pointer transition-all duration-200
           ${
             isChecked
-              ? "border-[#18B6B4] bg-[#e6f7f7]"
-              : "border-gray-200 hover:border-[#18B6B4]"
+              ? "border-[#18B6B4] bg-[#e6f7f7] dark:bg-[#18B6B4]/10"
+              : "border-gray-200 hover:border-[#18B6B4] dark:border-slate-700"
           }`}
                   >
-                    {/* LEFT */}
                     <div className="flex items-center gap-2 min-w-0">
-                      {/* ICON */}
                       <div
                         className={`w-8 h-8 rounded-md flex items-center justify-center shrink-0
               ${
                 isChecked
                   ? "bg-[#18B6B4] text-white"
-                  : "bg-blue-50 text-blue-500"
+                  : "bg-blue-50 text-blue-500 dark:bg-slate-700"
               }`}
                       >
                         <FileText size={16} />
                       </div>
 
-                      {/* TEXT */}
                       <div className="min-w-0">
-                        <div className="min-w-0">
-                          {/* MAIN NAME (DOCUMENT NAME) */}
-                          <p
-                            className={`text-xs font-semibold text-gray-800 truncate dark:text-[#18B6B4]`}
-                          >
-                            {doc.documentName || doc.documentType?.name}
-                          </p>
-
-                          {/* SUB TEXT */}
-                          <p className="text-[10px] text-gray-400 truncate">
-                            {doc.documentType?.name}
-                          </p>
-
-                          {/* REQUIRED / OPTIONAL */}
-                          {/* <p className="text-[9px] text-gray-400">
-                            {doc.isRequired ? "Required" : "Optional"}
-                          </p> */}
-                        </div>
+                        <p className="text-xs font-semibold text-gray-800 truncate dark:text-[#18B6B4]">
+                          {doc.documentName || doc.documentType?.name}
+                        </p>
+                        <p className="text-[10px] text-gray-400 truncate">
+                          {doc.isCustom ? "Custom" : "Standard"}
+                          {doc.isRequired === false ? " · Optional" : " · Required"}
+                        </p>
                       </div>
                     </div>
 
-                    {/* RIGHT */}
-                    <div className="flex items-center gap-2">
-                      {/* {doc.isRequired && (
-                        <span className="text-[9px] px-1.5 py-[2px] rounded bg-red-50 text-red-500 font-semibold">
-                          Req
-                        </span>
-                      )} */}
-
-                      <div
-                        className={`w-4 h-4 rounded border flex items-center justify-center transition
+                    <div
+                      className={`w-4 h-4 rounded border flex items-center justify-center transition
               ${
                 isChecked
                   ? "bg-[#18B6B4] border-[#18B6B4]"
                   : "border-gray-300 group-hover:border-[#18B6B4]"
               }`}
-                      >
-                        {isChecked && (
-                          <Check size={10} className="text-white" />
-                        )}
-                      </div>
+                    >
+                      {isChecked && <Check size={10} className="text-white" />}
                     </div>
                   </div>
                 );
@@ -1997,86 +2269,71 @@ export default function LoanPreview() {
             </div>
           )}
 
-        <div className="space-y-3">
-          {/* HEADER */}
-          <div className="flex items-center justify-between">
+        {/* PRODUCT-WISE ADD DOCUMENT */}
+        {selectedLoanProduct && (
+          <div className="space-y-3">
             <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded-full bg-purple-500 text-white text-xs flex items-center justify-center font-semibold">
-                CD
+              <div className="w-6 h-6 rounded-full bg-[#13538A] text-white text-xs flex items-center justify-center">
+                <Plus size={12} />
               </div>
               <p className="text-xs font-semibold text-gray-500 tracking-wide">
-                CUSTOM DOCUMENTS
+                ADD DOCUMENT TO THIS PROGRAM
               </p>
             </div>
 
-            {/* CLEAR BUTTON (only when 3+ docs) */}
-            {customDocs.length > 2 && (
-              <button
-                onClick={handleClearCustomDocs}
-                className="text-[10px] px-2 py-1 rounded-md bg-red-50 text-red-600 font-semibold hover:bg-red-600 hover:text-white transition flex items-center gap-1"
-              >
-                Clear All
-              </button>
-            )}
-          </div>
-
-          {/* BOX */}
-          <div className="border border-dashed border-gray-300 rounded-xl p-4 space-y-3 dark:border-slate-700">
-            {/* EXISTING CUSTOM DOCS */}
-            {customDocs.length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                {customDocs.map((doc, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center gap-2 bg-gray-100 px-3 py-1 rounded-full text-xs dark:text-slate-200 dark:bg-slate-700/50"
-                  >
-                    <span>{doc}</span>
+            <div className="border border-dashed border-gray-300 rounded-xl p-4 space-y-3 dark:border-slate-700">
+              {!selectedLenderProductId ? (
+                <p className="text-xs text-amber-600 dark:text-amber-400">
+                  This program is not assigned on your account, so new documents
+                  cannot be saved to it. Assign the product first, then add
+                  documents.
+                </p>
+              ) : (
+                <>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                    <input
+                      value={newDocName}
+                      onChange={(e) => setNewDocName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          handleAddProductDocument();
+                        }
+                      }}
+                      placeholder="Enter document name..."
+                      disabled={addingDocument}
+                      className="flex-1 text-sm px-3 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-[#18B6B4] dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200 disabled:opacity-60"
+                    />
 
                     <button
-                      onClick={() => removeCustomDoc(index)}
-                      className="text-red-400 hover:text-red-600"
+                      type="button"
+                      onClick={handleAddProductDocument}
+                      disabled={addingDocument || newDocName.trim().length < 2}
+                      className="inline-flex items-center justify-center gap-1.5 text-sm px-3 py-2 rounded-lg bg-[#13538A] text-white hover:bg-[#0f4270] transition disabled:opacity-40"
                     >
-                      ✕
+                      {addingDocument ? (
+                        <Loader2 size={14} className="animate-spin" />
+                      ) : (
+                        <Plus size={14} />
+                      )}
+                      {addingDocument ? "Adding..." : "Add Document"}
                     </button>
                   </div>
-                ))}
-              </div>
-            )}
 
-            {/* INPUT + ADD */}
-            <div className="flex items-center gap-2">
-              <input
-                value={customInput}
-                onChange={(e) => setCustomInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    handleAddCustomDoc();
-                  }
-                }}
-                placeholder="Enter custom document..."
-                className="flex-1 text-sm px-3 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200"
-              />
-
-              <button
-                onClick={handleAddCustomDoc}
-                className="text-sm px-3 py-2 rounded-lg bg-purple-500 text-white hover:bg-purple-600 transition"
-              >
-                + Add
-              </button>
+                  <label className="inline-flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={newDocRequired}
+                      onChange={(e) => setNewDocRequired(e.target.checked)}
+                      className="rounded border-slate-300 text-[#13538A] focus:ring-[#18B6B4]"
+                    />
+                    Required document for this loan program
+                  </label>
+                </>
+              )}
             </div>
-
-            {/* EMPTY STATE */}
-            {/* {customDocs.length === 0 && (
-              <button
-                onClick={handleAddCustomDoc}
-                className="text-sm text-purple-600 font-medium hover:underline"
-              >
-                + Add Document
-              </button>
-            )} */}
           </div>
-        </div>
+        )}
 
         {/* FOOTER */}
         <div className="flex items-center justify-between pt-4 border-t dark:border-slate-700">
@@ -2088,8 +2345,8 @@ export default function LoanPreview() {
             onClick={handleRequestDocuments}
             disabled={
               requestLoading ||
-              ((docSelectModal.selectedDocs?.length || 0) === 0 &&
-                customDocs.length === 0)
+              !selectedLoanProduct ||
+              (docSelectModal.selectedDocs?.length || 0) === 0
             }
             className="px-5 py-2 rounded-xl bg-[#0F766E] text-white font-medium disabled:opacity-40"
           >
@@ -2482,7 +2739,7 @@ export default function LoanPreview() {
               {/* Title Section */}
               <div>
                 <h1 className="text-xl font-bold text-slate-800 dark:text-white">
-                  Loan Application Preview
+                  Loan Application Preview 
                 </h1>
 
                 {/* Application ID */}
@@ -3006,15 +3263,18 @@ export default function LoanPreview() {
                         <span className="text-red-500">*</span>
                       </label>
                       <input
-                        type="number"
+                        type="text"
+                        inputMode="numeric"
                         required
-                        min="0"
                         placeholder="Enter approved amount"
                         value={decisionForm.approvedAmount}
                         onChange={(e) => {
+                          const next = formatNumberInputValue(
+                            sanitizeNumberInput(e.target.value),
+                          );
                           setDecisionForm({
                             ...decisionForm,
-                            approvedAmount: e.target.value,
+                            approvedAmount: next,
                           });
                           if (decisionFormErrors.approvedAmount) {
                             setDecisionFormErrors((prev) => ({
@@ -3042,34 +3302,49 @@ export default function LoanPreview() {
                         <span className="text-red-500">*</span>
                       </label>
                       <input
-                        type="number"
+                        type="text"
+                        inputMode="decimal"
                         required
-                        step="0.01"
-                        min="0"
-                        max="100"
                         value={decisionForm.interestRate}
                         onChange={(e) => {
+                          const next = sanitizeInterestRateInput(e.target.value);
                           setDecisionForm({
                             ...decisionForm,
-                            interestRate: e.target.value,
+                            interestRate: next,
                           });
-                          if (decisionFormErrors.interestRate) {
-                            setDecisionFormErrors((prev) => ({
-                              ...prev,
-                              interestRate: undefined,
-                            }));
-                          }
+
+                          const liveError = next
+                            ? getInterestRateValidationError(next)
+                            : undefined;
+                          setDecisionFormErrors((prev) => ({
+                            ...prev,
+                            interestRate: liveError,
+                          }));
                         }}
-                        placeholder="Enter interest rate"
+                        onBlur={(e) => {
+                          const error = getInterestRateValidationError(
+                            e.target.value,
+                          );
+                          setDecisionFormErrors((prev) => ({
+                            ...prev,
+                            interestRate: error,
+                          }));
+                        }}
+                        placeholder="e.g. 7.25"
                         className={`w-full px-3 py-2 rounded-xl border bg-white dark:bg-slate-800 focus:ring-2 focus:ring-emerald-500 outline-none ${
                           decisionFormErrors.interestRate
                             ? "border-red-500"
                             : "border-slate-200 dark:border-slate-700"
                         }`}
                       />
-                      {decisionFormErrors.interestRate && (
+                      {decisionFormErrors.interestRate ? (
                         <p className="mt-1 text-xs text-red-500">
                           {decisionFormErrors.interestRate}
+                        </p>
+                      ) : (
+                        <p className="mt-1 text-xs text-slate-500">
+                          Enter a rate greater than 0 and up to 100 (max 2
+                          decimal places).
                         </p>
                       )}
                     </div>
@@ -3127,7 +3402,16 @@ export default function LoanPreview() {
                   <button
                     type="button"
                     onClick={handleDecisionSubmit}
-                    disabled={decisionSubmitting}
+                    disabled={
+                      decisionSubmitting ||
+                      Boolean(decisionFormErrors.approvedAmount) ||
+                      Boolean(decisionFormErrors.interestRate) ||
+                      Boolean(decisionFormErrors.notes) ||
+                      (decisionModal.type === "APPROVED" &&
+                        (!stripNumberFormatting(decisionForm.approvedAmount) ||
+                          !stripNumberFormatting(decisionForm.interestRate))) ||
+                      !decisionForm.notes.trim()
+                    }
                     className={`px-4 py-2 rounded-xl text-white font-semibold disabled:opacity-60 ${
                       decisionModal.type === "APPROVED"
                         ? "bg-emerald-600 hover:bg-emerald-700"

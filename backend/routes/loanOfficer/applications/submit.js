@@ -1,4 +1,5 @@
 const fp = require("fastify-plugin");
+const { officerPreHandler } = require("../../../services/broker/loanOfficerAccess");
 const {
   buildSubmissionFieldsPayload,
   loadProductFieldIdMap,
@@ -17,6 +18,7 @@ async function loanOfficerSubmitApplication(fastify) {
   fastify.post(
     "/submit",
     {
+      preHandler: officerPreHandler(fastify, "CREATE_APPLICATION"),
       schema: {
         tags: ["Loan Officer -> Applications"],
         summary: "Create Loan Application (Client Pending)",

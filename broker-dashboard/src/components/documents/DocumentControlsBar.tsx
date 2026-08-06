@@ -40,6 +40,8 @@ type DocumentControlsBarProps = {
   manualSendSlot?: React.ReactNode;
   showAutoForward?: boolean;
   showSentFilter?: boolean;
+  showSourceFilter?: boolean;
+  showLenderFilter?: boolean;
   brokerSourceFilterLabel?: string;
   coBrokerSourceFilterLabel?: string;
 };
@@ -71,9 +73,13 @@ export default function DocumentControlsBar({
   manualSendSlot,
   showAutoForward = true,
   showSentFilter = true,
+  showSourceFilter = true,
+  showLenderFilter = true,
   brokerSourceFilterLabel = "My documents",
   coBrokerSourceFilterLabel = "Co broker",
 }: DocumentControlsBarProps) {
+  const visibleLenderFilters =
+    showLenderFilter && documentFilterLenders.length > 0;
   const hasActiveFilters =
     Boolean(documentLenderFilter) ||
     documentSentFilter !== "all" ||
@@ -253,7 +259,7 @@ export default function DocumentControlsBar({
           {/* Search — primary, wider */}
           <div
             className={
-              documentFilterLenders.length > 0
+              visibleLenderFilters
                 ? "md:col-span-2 xl:col-span-4"
                 : "md:col-span-2 xl:col-span-5"
             }
@@ -294,44 +300,46 @@ export default function DocumentControlsBar({
           </div>
 
           {/* Source filter */}
-          <div
-            className={
-              documentFilterLenders.length > 0 ? "xl:col-span-2" : "xl:col-span-3"
-            }
-          >
-            <label htmlFor="doc-source-filter" className={labelClass}>
-              Source
-            </label>
-            <div className="relative">
-              <UserRound
-                size={16}
-                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-              />
-              <select
-                id="doc-source-filter"
-                value={documentSourceFilter}
-                onChange={(e) => {
-                  onDocumentSourceFilterChange(
-                    e.target.value as DocumentSourceFilter,
-                  );
-                  onResetPage();
-                }}
-                className={selectClass}
-              >
-                <option value="all">All sources</option>
-                <option value="broker">{brokerSourceFilterLabel}</option>
-                <option value="lender">Lender requested</option>
-                <option value="sub_broker">{coBrokerSourceFilterLabel}</option>
-              </select>
-              <ChevronDown
-                size={16}
-                className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
-              />
+          {showSourceFilter ? (
+            <div
+              className={
+                visibleLenderFilters ? "xl:col-span-2" : "xl:col-span-3"
+              }
+            >
+              <label htmlFor="doc-source-filter" className={labelClass}>
+                Source
+              </label>
+              <div className="relative">
+                <UserRound
+                  size={16}
+                  className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                />
+                <select
+                  id="doc-source-filter"
+                  value={documentSourceFilter}
+                  onChange={(e) => {
+                    onDocumentSourceFilterChange(
+                      e.target.value as DocumentSourceFilter,
+                    );
+                    onResetPage();
+                  }}
+                  className={selectClass}
+                >
+                  <option value="all">All sources</option>
+                  <option value="broker">{brokerSourceFilterLabel}</option>
+                  <option value="lender">Lender requested</option>
+                  <option value="sub_broker">{coBrokerSourceFilterLabel}</option>
+                </select>
+                <ChevronDown
+                  size={16}
+                  className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
+                />
+              </div>
             </div>
-          </div>
+          ) : null}
 
           {/* Lender filter */}
-          {documentFilterLenders.length > 0 && (
+          {visibleLenderFilters && (
             <div className="xl:col-span-3">
               <label htmlFor="doc-lender-filter" className={labelClass}>
                 Lender
@@ -372,9 +380,11 @@ export default function DocumentControlsBar({
           {showSentFilter && (
           <div
             className={
-              documentFilterLenders.length > 0
+              visibleLenderFilters
                 ? "xl:col-span-3"
-                : "md:col-span-2 xl:col-span-4"
+                : showSourceFilter
+                  ? "md:col-span-2 xl:col-span-4"
+                  : "md:col-span-2 xl:col-span-7"
             }
           >
             <label htmlFor="doc-sent-filter" className={labelClass}>

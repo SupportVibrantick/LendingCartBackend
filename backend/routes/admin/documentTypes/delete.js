@@ -12,7 +12,7 @@ async function deleteDocumentTypeRoutes(fastify) {
     {
       schema: {
         tags: ["Admin -> Document Types"],
-        summary: "Delete Document Type",
+        summary: "Delete Document Type / unlink from loan product",
       },
     },
     async (req, reply) => {
@@ -29,13 +29,76 @@ async function deleteDocumentTypeRoutes(fastify) {
           });
         }
 
-        const { id } = parsed.data;
+        const { id, loanProductId } = parsed.data;
 
         const exists = await prisma.documentType.findUnique({ where: { id } });
         if (!exists) {
           return reply.status(404).send({
             success: false,
             message: "Document type not found",
+          });
+        }
+
+        // Product-scoped delete: unlink from product, then delete type if unused.
+        if (loanProductId) {
+          const requirement =
+            await prisma.productDocumentRequirement.findFirst({
+              where: { documentTypeId: id, loanProductId },
+            });
+
+          if (!requirement) {
+            return reply.status(404).send({
+              success: false,
+              message: "Document is not linked to this loan product",
+            });
+          }
+
+          await prisma.productDocumentRequirement.delete({
+            where: { id: requirement.id },
+          });
+
+          const [
+            productRequirementCount,
+            lenderRequirementCount,
+            lenderRequestCount,
+            applicationRequirementCount,
+          ] = await Promise.all([
+            prisma.productDocumentRequirement.count({
+              where: { documentTypeId: id },
+            }),
+            prisma.lenderDocumentRequirement.count({
+              where: { documentTypeId: id },
+            }),
+            prisma.lenderDocumentRequest.count({
+              where: { documentTypeId: id },
+            }),
+            prisma.applicationDocumentRequirement.count({
+              where: { documentTypeId: id },
+            }),
+          ]);
+
+          const stillInUse =
+            productRequirementCount +
+              lenderRequirementCount +
+              lenderRequestCount +
+              applicationRequirementCount >
+            0;
+
+          if (!stillInUse) {
+            await prisma.documentType.delete({ where: { id } });
+          }
+
+          adminLogs.info("Document type unlinked from loan product", {
+            documentTypeId: id,
+            loanProductId,
+            deletedType: !stillInUse,
+          });
+
+          return reply.send({
+            success: true,
+            message: stillInUse
+              ? "Document removed from this loan product"
+              : "Document deleted successfully",
           });
         }
 

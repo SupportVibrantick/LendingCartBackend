@@ -61,6 +61,9 @@ type StepTwoProps = {
   lockedIds?: string[];
   alreadyAddedIds?: string[];
   description?: string;
+  restrictToProductIds?: string[];
+  singleProductMode?: boolean;
+  prefetchedProducts?: LoanProduct[];
 };
 
 const StepTwo = ({
@@ -71,13 +74,22 @@ const StepTwo = ({
   lockedIds = [],
   alreadyAddedIds = [],
   description,
+  restrictToProductIds,
+  singleProductMode = false,
+  prefetchedProducts,
 }: StepTwoProps) => {
   const safeValue = Array.isArray(value) ? value : [];
   const lockedSet = new Set(lockedIds);
   const alreadyAddedSet = new Set(alreadyAddedIds);
   const [products, setProducts] = useState<LoanProduct[]>([]);
 
-  const selectableProducts = products.filter(
+  const restrictSet = new Set(restrictToProductIds || []);
+  const visibleProducts =
+    restrictToProductIds?.length
+      ? products.filter((product) => restrictSet.has(product.id))
+      : products;
+
+  const selectableProducts = visibleProducts.filter(
     (product) => !alreadyAddedSet.has(product.id),
   );
 
@@ -161,8 +173,14 @@ const StepTwo = ({
   };
 
   useEffect(() => {
+    if (prefetchedProducts?.length) {
+      setProducts(prefetchedProducts);
+      onProductsLoad?.(prefetchedProducts);
+      return;
+    }
+
     fetchLoanProducts();
-  }, [mode]);
+  }, [mode, prefetchedProducts]);
 
   return (
     <div className="border border-gray-200 rounded-2xl p-6 shadow-sm bg-white">
@@ -201,38 +219,42 @@ const StepTwo = ({
 
           <p className="text-sm text-gray-500 mt-1">
             {description ||
-              (alreadyAddedIds.length > 0
-                ? "Already added programs are disabled. Select new programs to add."
-                : lockedIds.length > 0
-                  ? "Existing programs stay selected. You can add more programs, but cannot remove current ones."
-                  : "Select which loan programs you want to add.")}
+              (singleProductMode
+                ? "You are updating this loan program only."
+                : alreadyAddedIds.length > 0
+                  ? "Already added programs are disabled. Select new programs to add."
+                  : lockedIds.length > 0
+                    ? "Existing programs stay selected. You can add more programs, but cannot remove current ones."
+                    : "Select which loan programs you want to add.")}
           </p>
         </div>
 
-        <div className="flex items-center gap-4 text-sm mt-1">
-          <button
-            onClick={handleSelectAll}
-            className="text-blue-600 font-medium hover:underline disabled:text-gray-300"
-            disabled={
-              selectableProducts.length === 0 ||
-              selectableProducts.every((p) => safeValue.includes(p.id))
-            }
-          >
-            Select All
-          </button>
+        {!singleProductMode && (
+          <div className="flex items-center gap-4 text-sm mt-1">
+            <button
+              onClick={handleSelectAll}
+              className="text-blue-600 font-medium hover:underline disabled:text-gray-300"
+              disabled={
+                selectableProducts.length === 0 ||
+                selectableProducts.every((p) => safeValue.includes(p.id))
+              }
+            >
+              Select All
+            </button>
 
-          <button
-            onClick={handleClear}
-            className="text-red-500 font-medium hover:underline disabled:text-gray-300"
-            disabled={!value?.length || value.length === lockedIds.length}
-          >
-            Clear
-          </button>
-        </div>
+            <button
+              onClick={handleClear}
+              className="text-red-500 font-medium hover:underline disabled:text-gray-300"
+              disabled={!value?.length || value.length === lockedIds.length}
+            >
+              Clear
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 max-h-[600px] overflow-y-auto pr-2">
-        {products.map((item) => {
+        {visibleProducts.map((item) => {
           const isAlreadyAdded = alreadyAddedSet.has(item.id);
           const isChecked = safeValue.includes(item.id) && !isAlreadyAdded;
           const isLocked = lockedSet.has(item.id) && isChecked;

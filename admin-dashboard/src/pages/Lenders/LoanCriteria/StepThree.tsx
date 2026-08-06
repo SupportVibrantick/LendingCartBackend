@@ -104,26 +104,17 @@ const data = [
 const StepThree = ({ value, setValue }: any) => {
   const [openIndexes, setOpenIndexes] = useState<number[]>([]);
 
-const toggleCategory = (category: string, index: number) => {
-  if (value[category]) {
-    const updated = { ...value };
-    delete updated[category];
-    setValue(updated);
-
-    setOpenIndexes((prev) =>
-      prev.filter((i) => i !== index)
-    );
-  } else {
-    setValue({
-      ...value,
-      [category]: [],
-    });
-
-    setOpenIndexes((prev) =>
-      prev.includes(index) ? prev : [...prev, index]
-    );
-  }
-};
+  const toggleCategory = (category: string, index: number) => {
+    if (value[category]) {
+      const updated = { ...value };
+      delete updated[category];
+      setValue(updated);
+      setOpenIndexes((prev) => prev.filter((i) => i !== index));
+    } else {
+      setValue({ ...value, [category]: [] });
+      setOpenIndexes((prev) => [...prev, index]);
+    }
+  };
 
   const toggleSubType = (category: string, sub: string, index: number) => {
     const existing = value[category] || [];
@@ -166,12 +157,12 @@ const toggleCategory = (category: string, index: number) => {
           Property Types & Sub-Types
         </h2>
         <p className="text-sm text-gray-500 mt-1">
-          Select property categories and their sub-types. 
+          Select property categories and their sub-types.
         </p>
       </div>
 
       {/* LIST */}
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-4 max-h-[500px] overflow-y-auto pr-2">
         {data.map((item, index) => {
           const isSelected = value[item.name];
           const isOpen = openIndexes.includes(index);
@@ -211,29 +202,21 @@ const toggleCategory = (category: string, index: number) => {
                 </div>
 
                 {item.subTypes.length > 0 && (
-                <ChevronDown
-  size={18}
-  className={`cursor-pointer transition ${
-    isOpen ? "rotate-180 text-blue-600" : ""
-  }`}
-  onClick={(e) => {
-    e.stopPropagation();
-
-    if (!isSelected) {
-      setValue({
-        ...value,
-        [item.name]: [],
-      });
-    }
-
-    toggleOpen(index);
-  }}
-/>
+                  <ChevronDown
+                    size={18}
+                    className={`cursor-pointer transition ${
+                      isOpen ? "rotate-180 text-blue-600" : ""
+                    }`}
+                  onClick={(e) => {
+  e.stopPropagation();
+  toggleOpen(index);
+}}
+                  />
                 )}
               </div>
 
               {/* SUB TYPES */}
-              {isOpen && isSelected && item.subTypes.length > 0 && (
+              {isOpen && item.subTypes.length > 0 && (
                 <div className="px-4 pb-4">
                   {/* ACTION BAR */}
                   <div className="flex justify-between items-center mb-3">

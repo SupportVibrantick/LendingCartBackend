@@ -4,6 +4,7 @@
 const {
   getAutoForwardDocumentsToLender,
 } = require("../../../services/documents/documentAutoForwardSetting");
+const { extraOfficerPermission } = require("../../../services/broker/loanOfficerAccess");
 const {
   buildDocumentSentToLenderMap,
 } = require("../../../utils/documents/buildDocumentSentToLenderMap");
@@ -22,7 +23,10 @@ const {
 } = require("../../../utils/documents/mapSubmissionDocumentRow");
 
 module.exports = async function submissionDocuments(fastify) {
-  fastify.get("/submissions/:submissionId/documents", async (req, reply) => {
+  fastify.get(
+    "/submissions/:submissionId/documents",
+    { preHandler: extraOfficerPermission(fastify, "UPLOAD_DOCUMENTS") },
+    async (req, reply) => {
     try {
       if (!req.user || req.user.orgType !== "BROKER") {
         return reply.code(403).send({
@@ -231,5 +235,6 @@ module.exports = async function submissionDocuments(fastify) {
         message: error.message,
       });
     }
-  });
+  },
+  );
 };

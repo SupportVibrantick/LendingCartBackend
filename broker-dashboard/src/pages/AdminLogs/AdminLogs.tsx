@@ -15,6 +15,7 @@ import {
   X,
 } from "lucide-react";
 import PageMeta from "../../components/common/PageMeta";
+import { getBrokerAuthHeaders } from "../../lib/brokerApi";
 
 type BrokerLog = {
   id: string;
@@ -50,11 +51,7 @@ const AVATAR_TONES = [
 ];
 
 function getAuthHeaders(): Record<string, string> {
-  const token = sessionStorage.getItem("broker_token");
-  return {
-    "Content-Type": "application/json",
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-  };
+  return getBrokerAuthHeaders(true);
 }
 
 function getInitials(name?: string) {

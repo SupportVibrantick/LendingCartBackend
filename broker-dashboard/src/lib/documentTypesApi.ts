@@ -1,3 +1,5 @@
+import { getPortalAuthHeaders } from "./portalAuth";
+
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
 export type BrokerCustomDocument = {
@@ -30,8 +32,7 @@ export type BrokerCustomDocumentsResponse = {
 };
 
 function getAuthHeaders(): Record<string, string> {
-  const token = sessionStorage.getItem("broker_token");
-  return token ? { Authorization: `Bearer ${token}` } : {};
+  return getPortalAuthHeaders();
 }
 
 export async function fetchBrokerCustomDocuments(

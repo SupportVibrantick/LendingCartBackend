@@ -1,12 +1,22 @@
 const {
   deactivateBrokerCustomDocumentType,
 } = require("../../../utils/documents/brokerCustomDocumentType");
+const {
+  requireLoCustomDocumentsManage,
+} = require("../../../services/broker/loanOfficerAccess");
 
 /**
  * @param {import("fastify").FastifyInstance} fastify
  */
 async function deactivateBrokerCustomDocumentTypeRoute(fastify) {
-  fastify.patch("/:id/deactivate", async (req, reply) => {
+  fastify.patch(
+    "/:id/deactivate",
+    {
+      preHandler: async (req, reply) => {
+        await requireLoCustomDocumentsManage(req, reply, fastify);
+      },
+    },
+    async (req, reply) => {
     const prisma = fastify.prisma;
 
     try {
@@ -64,7 +74,8 @@ async function deactivateBrokerCustomDocumentTypeRoute(fastify) {
         message: error.message || "Failed to remove custom document",
       });
     }
-  });
+    },
+  );
 }
 
 module.exports = deactivateBrokerCustomDocumentTypeRoute;

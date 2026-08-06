@@ -1,6 +1,8 @@
 /**
  * @param {import("fastify").FastifyInstance} fastify
  */
+const { requireLoConnectLenders } = require("../../../services/broker/loanOfficerAccess");
+
 async function acceptInviteRoutes(fastify) {
   fastify.post(
     "/:inviteId",
@@ -14,6 +16,9 @@ async function acceptInviteRoutes(fastify) {
             inviteId: { type: "string", format: "uuid" },
           },
         },
+      },
+      preHandler: async (req, reply) => {
+        await requireLoConnectLenders(req, reply, fastify);
       },
     },
     async (req, reply) => {

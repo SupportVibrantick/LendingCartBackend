@@ -16,7 +16,6 @@ import {
   isPurchaseOrderFinanceProduct,
   isRentalPortfolioProduct,
   isSba504Product,
-  isSba7aBusinessAcquisitionProduct,
   isSba7aEquipmentPurchaseProduct,
   isSba7aMaxLoanOnlyProduct,
   isSba7aRateSpreadProduct,
@@ -58,7 +57,6 @@ const usesYearTerms = (productCode: string) =>
   isCrePermanentProduct(productCode) ||
   isCmbsProduct(productCode) ||
   isAgencyMultifamilyProduct(productCode) ||
-  isSba7aBusinessAcquisitionProduct(productCode) ||
   isSba7aWorkingCapitalProduct(productCode) ||
   isSba7aEquipmentPurchaseProduct(productCode) ||
   isSba7aRealEstateProduct(productCode) ||

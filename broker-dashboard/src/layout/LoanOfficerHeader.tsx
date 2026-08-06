@@ -1,16 +1,11 @@
-import { Menu, X } from "lucide-react";
+import { Menu } from "lucide-react";
 import { LO_USER_KEY } from "../lib/loanOfficerApi";
 import LoanOfficerNotificationDropdown from "../components/header/LoanOfficerNotificationDropdown";
+import { useSidebar } from "../context/SidebarContext";
+import { hasPermission } from "../lib/brokerPermissions";
 
-type LoanOfficerHeaderProps = {
-  onMenuClick: () => void;
-  mobileOpen: boolean;
-};
-
-export default function LoanOfficerHeader({
-  onMenuClick,
-  mobileOpen,
-}: LoanOfficerHeaderProps) {
+export default function LoanOfficerHeader() {
+  const { isMobileOpen, toggleSidebar, toggleMobileSidebar } = useSidebar();
   const storedUser = JSON.parse(sessionStorage.getItem(LO_USER_KEY) || "{}");
 
   const displayName =
@@ -20,16 +15,24 @@ export default function LoanOfficerHeader({
 
   const orgName = storedUser?.organizationName || storedUser?.organization?.name;
 
+  const handleToggle = () => {
+    if (window.innerWidth >= 1024) {
+      toggleSidebar();
+    } else {
+      toggleMobileSidebar();
+    }
+  };
+
   return (
     <header className="sticky top-0 z-40 border-b border-gray-200/80 bg-white/95 shadow-[0_1px_0_0_rgba(0,0,0,0.03)] backdrop-blur-md dark:border-gray-800 dark:bg-gray-900/95">
-      <div className="flex h-14 items-center gap-3 px-4 lg:px-6">
+      <div className="flex h-14 items-center gap-3 px-4 lg:h-16 lg:px-6">
         <button
           type="button"
-          onClick={onMenuClick}
-          className="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 lg:hidden dark:border-gray-700 dark:hover:bg-gray-800"
-          aria-label={mobileOpen ? "Close menu" : "Open menu"}
+          onClick={handleToggle}
+          className="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 text-gray-500 transition hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800"
+          aria-label={isMobileOpen ? "Close menu" : "Open menu"}
         >
-          {mobileOpen ? <X size={18} /> : <Menu size={18} />}
+          <Menu size={18} />
         </button>
 
         <img
@@ -48,7 +51,9 @@ export default function LoanOfficerHeader({
         </div>
 
         <div className="ml-auto flex items-center gap-2">
-          <LoanOfficerNotificationDropdown />
+          {hasPermission("SEND_NOTIFICATIONS", "loanOfficer") ? (
+            <LoanOfficerNotificationDropdown />
+          ) : null}
         </div>
       </div>
     </header>

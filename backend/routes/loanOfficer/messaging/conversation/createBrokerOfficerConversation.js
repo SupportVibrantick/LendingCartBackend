@@ -6,12 +6,13 @@ const {
   findBrokerAdmin,
   findOrCreateBrokerOfficerConversation,
 } = require("../../../../services/messaging/brokerOfficerConversation");
+const { extraOfficerPermission, LOAN_OFFICER_MESSAGING_PERMISSIONS } = require("../../../../services/broker/loanOfficerAccess");
 
 module.exports = async function createBrokerOfficerConversation(fastify) {
   fastify.post(
     "/conversations/broker-officer",
     {
-      preHandler: [fastify.authenticate],
+      preHandler: extraOfficerPermission(fastify, LOAN_OFFICER_MESSAGING_PERMISSIONS),
       schema: {
         tags: ["Loan Officer -> Messaging"],
         summary: "Create broker admin ↔ loan officer conversation",

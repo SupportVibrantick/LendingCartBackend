@@ -11,6 +11,9 @@ const {
   parseJsonField,
   validatePrimaryContactFields,
 } = require("../../../utils/broker/subBrokerProfileHelpers");
+const {
+  requireLoOfficerPermission,
+} = require("../../../services/broker/loanOfficerAccess");
 
 function buildFreedDeletedEmail(user) {
   const at = user.email.lastIndexOf("@");
@@ -102,6 +105,9 @@ async function createSubBrokerRoutes(fastify) {
         tags: ["Broker -> Sub Broker"],
         summary: "Create Sub Broker with full profile",
         consumes: ["multipart/form-data", "application/json"],
+      },
+      preHandler: async (req, reply) => {
+        await requireLoOfficerPermission(req, reply, fastify, "EDIT_CO_BROKERS");
       },
     },
     async (req, reply) => {
