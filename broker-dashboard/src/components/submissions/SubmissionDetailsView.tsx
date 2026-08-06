@@ -1,4 +1,4 @@
-import { ChevronRight, Eye, FileText, Search, User, X } from "lucide-react";
+import { ChevronDown, Eye, FileText, Search, X } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useMemo, useState, type ReactNode } from "react";
 import ApplicationDetailsDownloadButton from "./ApplicationDetailsDownloadButton";
@@ -16,6 +16,8 @@ import {
   resolveLatestLenderReview,
   resolveLenderDecisionStatus,
 } from "../../lib/lenderReviewUtils";
+
+// ─── Types ─────────────────
 
 type LenderReview = {
   reviewStatus?: string;
@@ -57,49 +59,87 @@ type SubmissionDetailsViewProps = {
   showPdfDownload?: boolean;
 };
 
-function InfoCard({ label, value }: { label: string; value: ReactNode }) {
+// ─── Status helpers ────────
+function statusLabel(status?: string) {
+  if (!status)
+    return {
+      text: "—",
+      cls: "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400",
+    };
+  const s = status.toUpperCase();
+  if (s === "FUNDED")
+    return {
+      text: "Funded",
+      cls: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:ring-emerald-900",
+    };
+  if (s === "CLIENT_PENDING")
+    return {
+      text: "Client pending",
+      cls: "bg-amber-50 text-amber-700 ring-1 ring-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:ring-amber-900",
+    };
+  if (s === "SUBMITTED")
+    return {
+      text: "Submitted",
+      cls: "bg-sky-50 text-sky-700 ring-1 ring-sky-200 dark:bg-sky-950/40 dark:text-sky-400 dark:ring-sky-900",
+    };
+  if (s.includes("REJECT") || s.includes("DECLIN"))
+    return {
+      text: "Declined",
+      cls: "bg-red-50 text-red-700 ring-1 ring-red-200 dark:bg-red-950/40 dark:text-red-400 dark:ring-red-900",
+    };
+  return {
+    text: status.replace(/_/g, " "),
+    cls: "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400",
+  };
+}
+
+// ─── Sub-components ───────
+
+/** A compact label + value pair used in the overview grid */
+function InfoCell({ label, value }: { label: string; value: ReactNode }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-4 dark:border-slate-800 dark:bg-slate-900/50">
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+    <div className="flex flex-col gap-0.5 py-3 px-4 border-b border-r border-zinc-100 dark:border-zinc-800 last:border-b-0">
+      <span className="text-[10px] font-medium uppercase tracking-widest text-zinc-400">
         {label}
-      </p>
-      <p className="mt-1 text-sm font-semibold text-slate-900 dark:text-slate-100">
+      </span>
+      <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 leading-snug">
+        {value ?? "—"}
+      </span>
+    </div>
+  );
+}
+
+/** One metric in the KPIs strip — number-forward, label underneath */
+function KpiCell({ label, value }: { label: string; value: string }) {
+  const isEmpty = !value || value === "—";
+  return (
+    <div className="flex flex-col gap-1 px-5 py-3.5 border-r border-zinc-100 dark:border-zinc-800 last:border-r-0">
+      <span
+        className={`text-base font-semibold tabular-nums ${isEmpty ? "text-zinc-400" : "text-zinc-900 dark:text-zinc-100"}`}
+      >
         {value || "—"}
-      </p>
-    </div>
-  );
-}
-
-function Metric({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-xl border border-sky-100/80 bg-white/80 p-4 dark:border-slate-700 dark:bg-slate-900/40">
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+      </span>
+      <span className="text-[10px] font-medium uppercase tracking-widest text-zinc-400">
         {label}
-      </p>
-      <p className="mt-2 bg-gradient-to-r from-cyan-600 to-blue-600 bg-clip-text text-base font-bold text-transparent">
-        {value}
-      </p>
+      </span>
     </div>
   );
 }
 
+/** A single field in accordion body */
 function FieldItem({ field }: { field: SubmissionDetailField }) {
   const display = formatSubmissionFieldValue(field);
   const isEmpty = !display || display === "—";
   return (
-    <div className="space-y-1">
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+    <div className="flex flex-col gap-0.5">
+      <span className="text-[10px] font-medium uppercase tracking-widest text-zinc-400">
         {getSubmissionFieldLabel(field)}
-      </p>
-      <p
-        className={`text-sm font-semibold leading-snug break-words ${
-          isEmpty
-            ? "text-slate-400 italic"
-            : "text-slate-900 dark:text-slate-100"
-        }`}
+      </span>
+      <span
+        className={`text-sm leading-snug break-words ${isEmpty ? "text-zinc-400 italic" : "text-zinc-900 dark:text-zinc-100 font-medium"}`}
       >
         {isEmpty ? "Not provided" : display}
-      </p>
+      </span>
     </div>
   );
 }
@@ -108,13 +148,74 @@ function isFieldEmpty(field: SubmissionDetailField): boolean {
   const raw = parseSubmissionFieldValue(field.value);
   if (raw === undefined || raw === null) return true;
   if (typeof raw === "string") {
-    const trimmed = raw.trim();
-    return trimmed === "" || trimmed === "-" || trimmed === "—";
+    const t = raw.trim();
+    return t === "" || t === "-" || t === "—";
   }
   if (Array.isArray(raw)) return raw.length === 0;
   return false;
 }
 
+/** Collapsible accordion section */
+function AccordionSection({
+  title,
+  fields,
+  defaultOpen = false,
+  filledCount,
+}: {
+  title: string;
+  icon?: ReactNode;
+  fields: SubmissionDetailField[];
+  defaultOpen?: boolean;
+  filledCount: number;
+}) {
+  const [isOpen, setIsOpen] = useState(defaultOpen);
+
+  return (
+    <div className="border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setIsOpen((o) => !o)}
+        aria-expanded={isOpen}
+        className="flex w-full items-center gap-3 px-4 py-3 text-left bg-white dark:bg-zinc-950 hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors"
+      >
+        <span className="text-sm font-semibold text-zinc-800 dark:text-zinc-200 flex-1">
+          {title}
+        </span>
+        <span className="text-xs text-zinc-400 tabular-nums">
+          {filledCount} / {fields.length}
+        </span>
+        <ChevronDown
+          size={14}
+          className={`text-zinc-400 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
+        />
+      </button>
+
+      <AnimatePresence initial={false}>
+        {isOpen && (
+          <motion.div
+            key="content"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
+            className="overflow-hidden border-t border-zinc-100 dark:border-zinc-800"
+          >
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-4 px-4 py-4 bg-white dark:bg-zinc-950">
+              {fields.map((field) => (
+                <FieldItem
+                  key={`${field.fieldKey}-${field.fieldId || ""}`}
+                  field={field}
+                />
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+/** Lender decision card — restrained, professional */
 function LenderDecisionCard({
   applicationLenderId,
   lenderName,
@@ -143,198 +244,126 @@ function LenderDecisionCard({
   const isConditional =
     reviewStatus === "CONDITIONAL" || reviewStatus === "LENDER_CONDITIONAL";
 
+  const accentLine = isApproved
+    ? "bg-emerald-500"
+    : isConditional
+      ? "bg-amber-500"
+      : isRejected
+        ? "bg-red-500"
+        : "bg-zinc-300";
+
+  const statusBadgeCls = isApproved
+    ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
+    : isConditional
+      ? "bg-amber-50 text-amber-700 ring-1 ring-amber-200"
+      : isRejected
+        ? "bg-red-50 text-red-700 ring-1 ring-red-200"
+        : "bg-zinc-100 text-zinc-600";
+
   return (
-    <div
-      className={`relative flex h-full flex-col overflow-hidden rounded-2xl border p-5 shadow-sm transition-all hover:-translate-y-1 hover:shadow-lg ${
-        isApproved
-          ? "border-emerald-400 bg-emerald-50/60 dark:bg-emerald-500/5"
-          : isConditional
-            ? "border-amber-400 bg-amber-50/60 dark:bg-amber-500/5"
-            : isRejected
-              ? "border-rose-400 bg-rose-50/60 dark:bg-rose-500/5"
-              : "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950"
-      }`}
-    >
-      <div
-        className={`absolute inset-x-0 top-0 h-1 ${
-          isApproved
-            ? "bg-emerald-500"
-            : isConditional
-              ? "bg-amber-500"
-              : isRejected
-                ? "bg-rose-500"
-                : "bg-slate-400"
-        }`}
-      />
+    <div className="relative flex flex-col border border-zinc-200 dark:border-zinc-800 rounded-lg bg-white dark:bg-zinc-950 overflow-hidden">
+      {/* top accent line */}
+      <div className={`h-0.5 w-full ${accentLine}`} />
 
-      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <div
-            className={`flex h-11 w-11 items-center justify-center rounded-xl text-sm font-bold text-white ${
-              isApproved
-                ? "bg-emerald-500"
-                : isConditional
-                  ? "bg-amber-500"
-                  : isRejected
-                    ? "bg-rose-500"
-                    : "bg-slate-500"
-            }`}
-          >
-            {isApproved ? "OK" : isConditional ? "!" : isRejected ? "NO" : "-"}
-          </div>
+      <div className="flex flex-col gap-4 p-5 flex-1">
+        {/* Header row */}
+        <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="text-xs uppercase tracking-wider text-slate-500">
-              Lender Decision
+            <p className="text-[10px] font-medium uppercase tracking-widest text-zinc-400 mb-0.5">
+              Lender decision
             </p>
-            <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
+            <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
               {lenderName || "Lender"}
-            </h3>
-            <p className="text-sm font-semibold text-slate-600 dark:text-slate-300">
-              {reviewStatus === "DECLINED" ? "REJECTED" : reviewStatus}
             </p>
           </div>
-        </div>
-      </div>
-
-      <div className="mt-4 grid grid-cols-2 gap-4 text-sm">
-        {review.approvedAmount != null && review.approvedAmount !== "" && (
-          <div>
-            <p className="mb-1 text-xs text-slate-500">Approved Amount</p>
-            <p className="font-semibold text-slate-900 dark:text-slate-100">
-              ${Number(review.approvedAmount).toLocaleString()}
-            </p>
-          </div>
-        )}
-        {review.interestRate != null && review.interestRate !== "" && (
-          <div>
-            <p className="mb-1 text-xs text-slate-500">Interest Rate</p>
-            <p className="font-semibold text-slate-900 dark:text-slate-100">
-              {review.interestRate}%
-            </p>
-          </div>
-        )}
-        {review.reviewedAt && (
-          <div>
-            <p className="mb-1 text-xs text-slate-500">Reviewed On</p>
-            <p className="font-semibold text-slate-900 dark:text-slate-100">
-              {new Date(review.reviewedAt).toLocaleString()}
-            </p>
-          </div>
-        )}
-      </div>
-
-      {review.notes && (
-        <div className="mt-5 border-t border-slate-200 pt-4 dark:border-slate-700">
-          <p className="mb-1 text-xs text-slate-500">Notes</p>
-          <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-700 dark:text-slate-300">
-            {review.notes}
-          </p>
-        </div>
-      )}
-
-      {isFundedLender ? (
-        <div className="mt-4 border-t border-emerald-200 pt-4 dark:border-emerald-900/40">
-          <span className="inline-flex rounded-full bg-emerald-600 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-white">
-            Funded Lender
+          <span
+            className={`inline-flex items-center rounded px-2 py-0.5 text-xs font-semibold ${statusBadgeCls}`}
+          >
+            {reviewStatus === "DECLINED" ? "Rejected" : reviewStatus}
           </span>
         </div>
-      ) : null}
 
-      {canMarkFunded &&
-      isApproved &&
-      applicationLenderId &&
-      onMarkFunded &&
-      !isFundedLender ? (
-        <div className="mt-auto border-t border-slate-200 pt-4 dark:border-slate-700">
-          <button
-            type="button"
-            onClick={() => onMarkFunded(applicationLenderId)}
-            disabled={markingFundedId === applicationLenderId}
-            className="w-full rounded-xl bg-gradient-to-r from-emerald-600 to-green-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:from-emerald-700 hover:to-green-700 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {markingFundedId === applicationLenderId
-              ? "Marking as Funded..."
-              : "Select & Mark as Funded"}
-          </button>
+        {/* Metrics row */}
+        <div className="grid grid-cols-2 gap-3 text-sm">
+          {review.approvedAmount != null && review.approvedAmount !== "" && (
+            <div>
+              <p className="text-[10px] font-medium uppercase tracking-widest text-zinc-400 mb-0.5">
+                Approved amount
+              </p>
+              <p className="font-semibold text-zinc-900 dark:text-zinc-100">
+                ${Number(review.approvedAmount).toLocaleString()}
+              </p>
+            </div>
+          )}
+          {review.interestRate != null && review.interestRate !== "" && (
+            <div>
+              <p className="text-[10px] font-medium uppercase tracking-widest text-zinc-400 mb-0.5">
+                Rate
+              </p>
+              <p className="font-semibold text-zinc-900 dark:text-zinc-100">
+                {review.interestRate}%
+              </p>
+            </div>
+          )}
+          {review.reviewedAt && (
+            <div className="col-span-2">
+              <p className="text-[10px] font-medium uppercase tracking-widest text-zinc-400 mb-0.5">
+                Reviewed
+              </p>
+              <p className="font-medium text-zinc-700 dark:text-zinc-300">
+                {new Date(review.reviewedAt).toLocaleString()}
+              </p>
+            </div>
+          )}
         </div>
-      ) : null}
+
+        {/* Notes */}
+        {review.notes && (
+          <div className="border-t border-zinc-100 dark:border-zinc-800 pt-3">
+            <p className="text-[10px] font-medium uppercase tracking-widest text-zinc-400 mb-1">
+              Notes
+            </p>
+            <p className="text-sm leading-relaxed text-zinc-700 dark:text-zinc-300 whitespace-pre-wrap">
+              {review.notes}
+            </p>
+          </div>
+        )}
+
+        {/* Funded badge or CTA */}
+        {isFundedLender ? (
+          <div className="mt-auto pt-3 border-t border-zinc-100 dark:border-zinc-800">
+            <span className="inline-flex items-center rounded px-2 py-0.5 text-xs font-semibold bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200">
+              Funded lender
+            </span>
+          </div>
+        ) : canMarkFunded &&
+          isApproved &&
+          applicationLenderId &&
+          onMarkFunded ? (
+          <div className="mt-auto pt-3 border-t border-zinc-100 dark:border-zinc-800">
+            <button
+              type="button"
+              onClick={() => onMarkFunded(applicationLenderId)}
+              disabled={markingFundedId === applicationLenderId}
+              className="w-full rounded-md bg-zinc-900 dark:bg-zinc-100 px-4 py-2 text-sm font-semibold text-white dark:text-zinc-900 hover:bg-zinc-700 dark:hover:bg-zinc-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {markingFundedId === applicationLenderId
+                ? "Marking as funded…"
+                : "Mark as funded"}
+            </button>
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 }
 
-function AccordionSection({
-  title,
-  icon,
-  fields,
-  defaultOpen = false,
-  filledCount,
-}: {
-  title: string;
-  icon: ReactNode;
-  fields: SubmissionDetailField[];
-  defaultOpen?: boolean;
-  filledCount: number;
-}) {
-  const [isOpen, setIsOpen] = useState(defaultOpen);
-  return (
-    <motion.section
-      layout
-      transition={{ duration: 0.18, ease: "easeOut" }}
-      className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950"
-    >
-      <button
-        type="button"
-        onClick={() => setIsOpen((open) => !open)}
-        aria-expanded={isOpen}
-        className="flex w-full items-center gap-3 px-5 py-3.5 text-left transition hover:bg-slate-50 dark:hover:bg-slate-900/40"
-      >
-        {icon}
-        <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100">
-          {title}
-        </h3>
-        <span className="ml-auto flex items-center gap-2 text-xs text-slate-400">
-          <span>
-            {filledCount} filled / {fields.length}
-          </span>
-          <motion.span
-            animate={{ rotate: isOpen ? 90 : 0 }}
-            transition={{ duration: 0.18 }}
-            className="inline-flex"
-          >
-            <ChevronRight size={14} />
-          </motion.span>
-        </span>
-      </button>
-      <AnimatePresence initial={false}>
-        {isOpen && (
-          <motion.div
-            key="content"
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.22, ease: "easeOut" }}
-            className="overflow-hidden border-t border-slate-100 dark:border-slate-800"
-          >
-            <div className="grid grid-cols-1 gap-x-8 gap-y-4 px-5 py-4 sm:grid-cols-2 lg:grid-cols-3">
-              {fields.map((field) => (
-                <FieldItem
-                  key={`${field.fieldKey}-${field.fieldId || ""}`}
-                  field={field}
-                />
-              ))}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </motion.section>
-  );
-}
+// ─── Main component ────
 
 export default function SubmissionDetailsView({
   submissionDetail,
   fields,
   formatSubmissionStatus,
-  getStatusChip,
   formatCompactAmount,
   loanAmount,
   ltv,
@@ -357,9 +386,8 @@ export default function SubmissionDetailsView({
     submissionDetail?.status === "FUNDED";
 
   const { sections, signatureField } = groupSubmissionFieldsForDisplay(fields);
-  const loanProductField = fields.find(
-    (field) => field.fieldKey === "loanProductCode",
-  );
+
+  const loanProductField = fields.find((f) => f.fieldKey === "loanProductCode");
   const loanProductCode = loanProductField
     ? String(parseSubmissionFieldValue(loanProductField.value) ?? "")
     : "";
@@ -402,27 +430,24 @@ export default function SubmissionDetailsView({
       ) === "APPROVED",
   );
 
-  // Search state + filtering
   const [searchQuery, setSearchQuery] = useState("");
 
   const filteredSections = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     if (!q) return sections;
     return sections
-      .map((section) => {
-        const matchedFields = section.fields.filter((field) => {
+      .map((section) => ({
+        ...section,
+        fields: section.fields.filter((field) => {
           const label = getSubmissionFieldLabel(field).toLowerCase();
           const value = formatSubmissionFieldValue(field)
             .toString()
             .toLowerCase();
           const key = (field.fieldKey || "").toLowerCase();
-          return (
-            label.includes(q) || value.includes(q) || key.includes(q)
-          );
-        });
-        return { ...section, fields: matchedFields };
-      })
-      .filter((section) => section.fields.length > 0);
+          return label.includes(q) || value.includes(q) || key.includes(q);
+        }),
+      }))
+      .filter((s) => s.fields.length > 0);
   }, [sections, searchQuery]);
 
   const totalMatchedFields = useMemo(
@@ -430,23 +455,63 @@ export default function SubmissionDetailsView({
     [filteredSections],
   );
 
-  return (
-    <div className="space-y-6">
-      {!showMarkFundedActions &&
-      markFundedBlockedReason &&
-      hasApprovedLender &&
-      !isApplicationFunded ? (
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-300">
-          <p className="font-semibold">Mark as Funded unavailable</p>
-          <p className="mt-1">{markFundedBlockedReason}</p>
-        </div>
-      ) : null}
+  const appStatus = statusLabel(submissionDetail?.status);
 
+  const kpis = [
+    {
+      label: "Loan amount",
+      value: formatCompactAmount(Number(loanAmount || 0)),
+    },
+    {
+      label: "Monthly payment",
+      value:
+        monthlyPaymentDisplay ||
+        (monthlyPayment > 0
+          ? `$${monthlyPayment.toLocaleString("en-US", { maximumFractionDigits: 0 })}`
+          : "—"),
+    },
+    { label: "LTV", value: ltv ? `${ltv.toFixed(2)}%` : "—" },
+    { label: "LTC", value: ltc ? `${ltc.toFixed(2)}%` : "—" },
+    { label: "ARV", value: arv ? `${arv.toFixed(2)}%` : "—" },
+    { label: "DSCR", value: dscr ? dscr.toFixed(2) : "—" },
+    { label: "Net worth", value: formatCompactAmount(Number(netWorth || 0)) },
+  ];
+
+  return (
+    <div className="space-y-4">
+      {/* ── Blocked funded warning ───── */}
+      {!showMarkFundedActions &&
+        markFundedBlockedReason &&
+        hasApprovedLender &&
+        !isApplicationFunded && (
+          <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-900/40 dark:bg-amber-950/20">
+            <span className="mt-0.5 flex-shrink-0 text-amber-500">
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 16 16"
+                fill="currentColor"
+              >
+                <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm0 11a.875.875 0 1 1 0-1.75A.875.875 0 0 1 8 12zm.625-3.5h-1.25l-.375-4.5h2l-.375 4.5z" />
+              </svg>
+            </span>
+            <div>
+              <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">
+                Mark as funded unavailable
+              </p>
+              <p className="mt-0.5 text-sm text-amber-700 dark:text-amber-400">
+                {markFundedBlockedReason}
+              </p>
+            </div>
+          </div>
+        )}
+
+      {/* ── Lender decisions ────── */}
       {lenderDecisions.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-          {lenderDecisions.map((item, index) => (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {lenderDecisions.map((item, i) => (
             <LenderDecisionCard
-              key={`${item.applicationLenderId || item.lenderName}-${index}`}
+              key={`${item.applicationLenderId || item.lenderName}-${i}`}
               applicationLenderId={item.applicationLenderId}
               lenderName={item.lenderName}
               lenderStatus={item.lenderStatus}
@@ -460,15 +525,17 @@ export default function SubmissionDetailsView({
         </div>
       )}
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-950 sm:p-6">
-        <div className="mb-4 flex items-center justify-between gap-4">
+      {/* ── Main panel ────────── */}
+      <div className="border border-zinc-200 dark:border-zinc-800 rounded-lg bg-white dark:bg-zinc-950 overflow-hidden">
+        {/* Panel header */}
+        <div className="flex items-center justify-between gap-4 px-5 py-3.5 border-b border-zinc-100 dark:border-zinc-800">
           <div className="flex items-center gap-2">
-            <FileText size={16} className="text-cyan-600" />
-            <h2 className="text-sm font-bold uppercase tracking-wide text-slate-700 dark:text-slate-200">
-              Application Overview
-            </h2>
+            <FileText size={14} className="text-zinc-400" />
+            <span className="text-xs font-semibold uppercase tracking-widest text-zinc-500">
+              Application overview
+            </span>
           </div>
-          {showPdfDownload ? (
+          {showPdfDownload && (
             <ApplicationDetailsDownloadButton
               submissionDetail={submissionDetail}
               fields={fields}
@@ -482,97 +549,82 @@ export default function SubmissionDetailsView({
               submittedDate={submittedDate}
               className="shrink-0"
             />
-          ) : null}
+          )}
         </div>
 
-        <div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          <InfoCard
-            label="Application Number"
+        {/* Info grid — borderless inner table feel */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 border-b border-zinc-100 dark:border-zinc-800">
+          <InfoCell
+            label="Application number"
             value={submissionDetail?.applicationNumber}
           />
-          <InfoCard
+          <InfoCell
             label="Status"
             value={
               <span
-                className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${getStatusChip(submissionDetail?.status)}`}
+                className={`inline-flex items-center rounded px-2 py-0.5 text-xs font-semibold ${appStatus.cls}`}
               >
-                {formatSubmissionStatus(submissionDetail?.status)}
+                {appStatus.text}
               </span>
             }
           />
-          <InfoCard label="Loan Product" value={loanProductName} />
-          <InfoCard
+          <InfoCell label="Loan product" value={loanProductName} />
+          <InfoCell
             label="Borrower"
             value={getBorrowerDisplayNameFromFields(
               fields,
               submissionDetail?.borrowerName,
             )}
           />
-          <InfoCard
-            label="Entity Type"
+          <InfoCell
+            label="Entity type"
             value={getEntityTypeFromFields(fields)}
           />
-          <InfoCard
-            label="Credit Score"
+          <InfoCell
+            label="Credit score"
             value={
-              fields.find((field) => field.fieldKey === "creditScore")
+              fields.find((f) => f.fieldKey === "creditScore")
                 ? formatSubmissionFieldValue(
-                    fields.find((field) => field.fieldKey === "creditScore")!,
+                    fields.find((f) => f.fieldKey === "creditScore")!,
                   )
                 : submissionDetail?.creditScore || "—"
             }
           />
           {submittedDate && (
             <>
-              <InfoCard
-                label="Submitted Date"
+              <InfoCell
+                label="Submitted date"
                 value={submittedDate.toLocaleDateString()}
               />
-              <InfoCard
-                label="Submitted Time"
+              <InfoCell
+                label="Submitted time"
                 value={submittedDate.toLocaleTimeString()}
               />
             </>
           )}
         </div>
 
-        <div className="mb-6 rounded-xl border border-sky-100 bg-gradient-to-br from-white via-sky-50 to-cyan-50 p-4 dark:border-blue-900/30 dark:bg-blue-950/20">
-          <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Key Loan Metrics
-          </p>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
-            <Metric
-              label="Loan Amount"
-              value={formatCompactAmount(Number(loanAmount || 0))}
-            />
-            <Metric
-              label="Monthly Payment"
-              value={
-                monthlyPaymentDisplay ||
-                (monthlyPayment > 0
-                  ? `$${monthlyPayment.toLocaleString("en-US", {
-                      maximumFractionDigits: 0,
-                    })}`
-                  : "—")
-              }
-            />
-            <Metric label="LTV %" value={ltv ? `${ltv.toFixed(2)}%` : "—"} />
-            <Metric label="LTC %" value={ltc ? `${ltc.toFixed(2)}%` : "—"} />
-            <Metric label="ARV %" value={arv ? `${arv.toFixed(2)}%` : "—"} />
-            <Metric label="DSCR" value={dscr ? dscr.toFixed(2) : "—"} />
-            <Metric
-              label="Net Worth"
-              value={formatCompactAmount(Number(netWorth || 0))}
-            />
+        {/* KPI strip */}
+        <div className="border-b border-zinc-100 dark:border-zinc-800">
+          <div className="px-5 py-2.5 border-b border-zinc-100 dark:border-zinc-800">
+            <span className="text-[10px] font-medium uppercase tracking-widest text-zinc-400">
+              Key loan metrics
+            </span>
+          </div>
+          <div className="flex flex-wrap divide-x divide-zinc-100 dark:divide-zinc-800">
+            {kpis.map((kpi) => (
+              <KpiCell key={kpi.label} label={kpi.label} value={kpi.value} />
+            ))}
           </div>
         </div>
 
+        {/* Read-only hint */}
         {showEditHint && submissionDetail?.canEdit !== false && (
-          <div className="mb-5 flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-300">
-            <Eye className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" />
-            <p>
-              Read-only preview. To edit application details, open the{" "}
-              <span className="font-semibold text-cyan-700 dark:text-cyan-400">
+          <div className="flex items-center gap-2.5 px-5 py-2.5 border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/40">
+            <Eye size={13} className="text-zinc-400 shrink-0" />
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">
+              Read-only preview. To edit, open the{" "}
+              <span className="font-semibold text-zinc-700 dark:text-zinc-300">
                 Update Application
               </span>{" "}
               tab.
@@ -580,52 +632,51 @@ export default function SubmissionDetailsView({
           </div>
         )}
 
-        <div className="mb-4">
+        {/* Search */}
+        <div className="px-5 py-3.5 border-b border-zinc-100 dark:border-zinc-800">
           <div className="relative">
             <Search
-              size={15}
-              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+              size={13}
+              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400"
             />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search all fields…"
-              className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-9 text-sm text-slate-900 placeholder:text-slate-400 focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-100 dark:placeholder:text-slate-500"
+              className="w-full rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 py-2 pl-8 pr-8 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:border-zinc-400 dark:focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-200 dark:focus:ring-zinc-700 transition"
             />
             {searchQuery && (
               <button
                 type="button"
                 onClick={() => setSearchQuery("")}
                 aria-label="Clear search"
-                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition"
               >
-                <X size={14} />
+                <X size={13} />
               </button>
             )}
           </div>
           {searchQuery && (
-            <p className="mt-2 text-xs text-slate-500">
+            <p className="mt-1.5 text-xs text-zinc-400">
               {totalMatchedFields === 0 ? (
-                <>
-                  No fields match{" "}
-                  <span className="font-semibold">"{searchQuery}"</span>
-                </>
+                <>No fields match "{searchQuery}"</>
               ) : (
                 <>
-                  {totalMatchedFields} field{totalMatchedFields === 1 ? "" : "s"}{" "}
-                  in {filteredSections.length} section
-                  {filteredSections.length === 1 ? "" : "s"} matching{" "}
-                  <span className="font-semibold">"{searchQuery}"</span>
+                  {totalMatchedFields} field
+                  {totalMatchedFields === 1 ? "" : "s"} in{" "}
+                  {filteredSections.length} section
+                  {filteredSections.length === 1 ? "" : "s"}
                 </>
               )}
             </p>
           )}
         </div>
 
-        <div className="space-y-3">
+        {/* Accordion sections */}
+        <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
           {filteredSections.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-slate-200 px-5 py-8 text-center text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
+            <div className="px-5 py-8 text-center text-sm text-zinc-400">
               No matching fields.
             </div>
           ) : (
@@ -637,7 +688,6 @@ export default function SubmissionDetailsView({
                 <AccordionSection
                   key={section.id}
                   title={section.title}
-                  icon={<User size={15} className="text-cyan-600" />}
                   fields={visibleFields}
                   defaultOpen={index === 0 || Boolean(searchQuery.trim())}
                   filledCount={visibleFields.length}
@@ -647,19 +697,18 @@ export default function SubmissionDetailsView({
           )}
         </div>
 
+        {/* Digital signature */}
         {signatureField && (
-          <div className="mt-8 space-y-4 text-center">
-            <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
-              Digital Signature
-            </h3>
-            <div className="flex justify-center">
-              <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800/70">
-                <img
-                  src={String(parseSubmissionFieldValue(signatureField.value))}
-                  alt="Digital Signature"
-                  className="h-40 object-contain"
-                />
-              </div>
+          <div className="border-t border-zinc-100 dark:border-zinc-800 px-5 py-6 text-center">
+            <p className="text-[10px] font-medium uppercase tracking-widest text-zinc-400 mb-4">
+              Digital signature
+            </p>
+            <div className="inline-block border border-zinc-200 dark:border-zinc-700 rounded-md p-4 bg-zinc-50 dark:bg-zinc-900">
+              <img
+                src={String(parseSubmissionFieldValue(signatureField.value))}
+                alt="Digital Signature"
+                className="h-28 object-contain"
+              />
             </div>
           </div>
         )}
