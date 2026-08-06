@@ -378,6 +378,9 @@ export function mapSubmissionToLoanApplication(fields: SubmissionField[]) {
     state: asString(getFieldValue(fields, "propertyState")),
     zip: asString(getFieldValue(fields, "propertyZip")),
     numberOfUnits: asString(getFieldValue(fields, "numberOfUnits")),
+    downPayment: asFormNumber(getFieldValue(fields, "downPayment")),
+    useOfFunds: asString(getFieldValue(fields, "useOfFunds")),
+    exitStrategy: asString(getFieldValue(fields, "exitStrategy")),
   };
 
   formData.loanTermIncome = {

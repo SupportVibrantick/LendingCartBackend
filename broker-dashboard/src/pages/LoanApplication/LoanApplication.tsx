@@ -54,8 +54,25 @@ import { IoIosArrowBack } from "react-icons/io";
 import { MdDeleteForever } from "react-icons/md";
 
 import {
+  ALL_LOAN_PURPOSES,
+  CATEGORY_LOAN_TYPES,
+  CONSTRUCTION_LOAN_TYPES,
+  CRE_RESIDENTIAL_LIKE_LOAN_TYPES,
+  ENTITY_TYPE_OPTIONS,
+  LOAN_PURPOSE_MAP,
   LOAN_SUB_PURPOSE_MAP,
   LOAN_TOP_PURPOSE_MAP,
+  OPTIONAL_LOAN_REQUEST_KEYS,
+  ORIGINAL_PURCHASE_DATE_WITH_AMORTIZATION_PURPOSES,
+  PRODUCT_LABELS,
+  PROPERTY_TYPE_MAP,
+  PURCHASE_DATE_WITH_AMORTIZATION_LOAN_TYPES,
+  PURCHASE_DATE_WITH_AMORTIZATION_PURPOSES,
+  RENTAL_UNDERWRITING_LOAN_TYPES,
+  RESIDENTIAL_1_4_PROPERTY_TYPES,
+  RESIDENTIAL_MARKET_VALUE_PURPOSES,
+  RESIDENTIAL_PURCHASE_PRICE_PURPOSES,
+  US_STATES,
 } from "./constants";
 import {
   calculateMonthlyPayment,
@@ -70,7 +87,9 @@ import {
   getSbaCollateralTypeOptions,
   isAblCollateralProduct,
   isConstructionPurchase,
+  isProductAllowedInCategory,
   isSbaUsdaCollateralProduct,
+  resolveCategoryLoanProducts,
   showEquityDownPaymentBlock,
   showExitStrategy,
   showValuationCostEquity,
@@ -183,287 +202,11 @@ export type LoanCategory =
   | "ABL"
   | "";
 
-const US_STATES = [
-  "Alabama",
-  "Alaska",
-  "Arizona",
-  "Arkansas",
-  "California",
-  "Colorado",
-  "Connecticut",
-  "Delaware",
-  "Florida",
-  "Georgia",
-  "Hawaii",
-  "Idaho",
-  "Illinois",
-  "Indiana",
-  "Iowa",
-  "Kansas",
-  "Kentucky",
-  "Louisiana",
-  "Maine",
-  "Maryland",
-  "Massachusetts",
-  "Michigan",
-  "Minnesota",
-  "Mississippi",
-  "Missouri",
-  "Montana",
-  "Nebraska",
-  "Nevada",
-  "New Hampshire",
-  "New Jersey",
-  "New Mexico",
-  "New York",
-  "North Carolina",
-  "North Dakota",
-  "Ohio",
-  "Oklahoma",
-  "Oregon",
-  "Pennsylvania",
-  "Rhode Island",
-  "South Carolina",
-  "South Dakota",
-  "Tennessee",
-  "Texas",
-  "Utah",
-  "Vermont",
-  "Virginia",
-  "Washington",
-  "West Virginia",
-  "Wisconsin",
-  "Wyoming",
-];
-
-const ALL_LOAN_PURPOSES = [
-  "Purchase / Acquisition",
-  "Refinance (Rate & Term)",
-  "Cash Out Refinance",
-  "Construction Completion",
-  "Ground-up Construction",
-  "Major Renovation (>50%)",
-  "Tenant Improvements",
-  "Infrastructure Development",
-  "Purchase & Rehab",
-  "Refinance & Rehab",
-  "Portfolio Blanket",
-  "Recapitalization",
-  "Gap Finance",
-  "Leverage Enhancement",
-  "JV Equity",
-  "Acquisition Bridge",
-  "Affordable Housing",
-  "Supplement Loan",
-  "Partner Buyout",
-  "Franchise Purchase",
-  "Business Expansion",
-  "Inventory Purchase",
-  "Marketing / Expansion",
-  "Debt Consolidation",
-  "Seasonal Line",
-  "New Equipment",
-  "Used Equipment",
-  "Refinance Existing Equipment",
-  "Equipment Line",
-  "Real Estate Acquisition",
-  "Real Estate Construction",
-  "Heavy Equipment",
-  "Refinance (504 Debt)",
-  "Business Acquisition",
-  "Real Estate Purchase",
-  "Equipment Purchase",
-  "Working Capital",
-  "Debt Refinancing",
-  "New Equipment Purchase",
-  "Used Equipment Purchase",
-  "Sale-LeaseBack",
-  "Refinance / Consolidation",
-  "Single PO Funding",
-  "PO Line of Credit",
-  "International PO",
-  "Government PO",
-  "Invoice Factoring",
-  "ABL Line",
-  "Selective Receivable Finance",
-  "International Receivables",
-  "Supplier Finance Program",
-  "Dynamic Discounting",
-  "Reverse Factoring",
-  "Supply Chain Finance",
-];
-
-export const CATEGORY_LOAN_TYPES: Record<
-  Exclude<LoanCategory, "">,
-  string[]
-> = {
-  /**
-   * ==========================================
-   * 1-4 Units Residential
-   * ==========================================
-   */
-  RESIDENTIAL_1_4: [
-    "BRIDGE_LOAN_1_TO_4_UNITS",
-    "FIX_AND_FLIP_LOAN_1_TO_4_UNITS",
-    "DSCR_LOAN_1_TO_4_UNITS",
-    "CONSTRUCTION_LOAN_1_TO_4_UNITS",
-    "RENTAL_PORTFOLIO",
-  ],
-
-  /**
-   * ==========================================
-   * CRE & Multifamily
-   * ==========================================
-   */
-  CRE_MULTIFAMILY: [
-    "BRIDGE_LOAN",
-    "CONSTRUCTION_LOAN",
-    "RENTAL_PORTFOLIO",
-    "CRE_PERMANENT_LOAN",
-    "AGENCY_LOAN_MULTIFAMILY",
-    "CMBS",
-    "MEZZANINE_FINANCE",
-  ],
-
-  /**
-   * ==========================================
-   * SBA & USDA
-   * ==========================================
-   */
-  SBA_USDA: [
-    "SBA_7A_BUSINESS_ACQUISITION",
-    "SBA_7A_WORKING_CAPITAL",
-    "SBA_7A_EQUIPMENT_PURCHASE",
-    "SBA_7A_REAL_ESTATE",
-    "SBA_504_REAL_ESTATE_AND_EQUIPMENT",
-    "USDA_BI",
-  ],
-
-  /**
-   * ==========================================
-   * Asset Based Lending
-   * ==========================================
-   */
-  ABL: [
-    "EQUIPMENT_FINANCE",
-    "PURCHASE_ORDER_FINANCE",
-    "ACCOUNTS_RECEIVABLE",
-    "ACCOUNTS_RECEIVABLE_FINANCE",
-    "ACCOUNTS_PAYABLE_FINANCE",
-    "ASSET_BASED_LENDING",
-  ],
-};
-
-/** Shared Bridge / Construction codes across Residential 1-4 and CRE. */
-const LOAN_PRODUCT_CODE_ALIASES: Record<string, string[]> = {
-  BRIDGE_LOAN: ["BRIDGE_LOAN", "BRIDGE_LOAN_1_TO_4_UNITS"],
-  BRIDGE_LOAN_1_TO_4_UNITS: ["BRIDGE_LOAN_1_TO_4_UNITS", "BRIDGE_LOAN"],
-  CONSTRUCTION_LOAN: ["CONSTRUCTION_LOAN", "CONSTRUCTION_LOAN_1_TO_4_UNITS"],
-  CONSTRUCTION_LOAN_1_TO_4_UNITS: [
-    "CONSTRUCTION_LOAN_1_TO_4_UNITS",
-    "CONSTRUCTION_LOAN",
-  ],
-};
-
-export const getLoanProductAliasGroup = (code: string) =>
-  LOAN_PRODUCT_CODE_ALIASES[code] || [code];
-
-const catalogMatchesCategoryProduct = (
-  catalogCode: string,
-  allowedCode: string,
-) => getLoanProductAliasGroup(allowedCode).includes(catalogCode);
-
-/**
- * Pick one display/submit code per category slot.
- * Prefer the category's primary code when present in catalog, else an alias.
- */
-const resolveCategoryLoanProducts = (
-  allowedProducts: string[],
-  catalogCodes: string[],
-) => {
-  const catalogSet = new Set(catalogCodes);
-  const claimed = new Set<string>();
-  const resolved: string[] = [];
-
-  for (const allowedCode of allowedProducts) {
-    const group = getLoanProductAliasGroup(allowedCode);
-    if (group.some((code) => claimed.has(code))) continue;
-
-    const match =
-      group.find((code) => catalogSet.has(code)) ||
-      (catalogCodes.length === 0 ? allowedCode : null);
-
-    if (!match) continue;
-
-    resolved.push(match);
-    group.forEach((code) => claimed.add(code));
-  }
-
-  return resolved;
-};
-
-const isProductAllowedInCategory = (
-  productCode: string,
-  category: Exclude<LoanCategory, "">,
-) => {
-  const allowed = CATEGORY_LOAN_TYPES[category] || [];
-  return allowed.some((allowedCode) =>
-    catalogMatchesCategoryProduct(productCode, allowedCode),
-  );
-};
-
-const PRODUCT_LABELS: Record<string, string> = {
-  // Residential
-  BRIDGE_LOAN_1_TO_4_UNITS: "Bridge",
-  FIX_AND_FLIP_LOAN_1_TO_4_UNITS: "Fix & Flip",
-  DSCR_LOAN_1_TO_4_UNITS: "DSCR",
-  CONSTRUCTION_LOAN_1_TO_4_UNITS: "Construction",
-  RENTAL_PORTFOLIO: "Rental Portfolio",
-
-  // CRE
-  BRIDGE_LOAN: "Bridge",
-  CONSTRUCTION_LOAN: "Construction",
-  CRE_PERMANENT_LOAN: "CRE Permanent",
-  AGENCY_LOAN_MULTIFAMILY: "Agency Multifamily",
-  CMBS: "CMBS",
-  MEZZANINE_FINANCE: "Mezz/Pref Equity",
-  PREFERRED_EQUITY: "Preferred Equity",
-
-  // SBA
-  SBA_7A_BUSINESS_ACQUISITION: "SBA 7a Acquisition",
-  SBA_7A_WORKING_CAPITAL: "SBA 7a Working Capital",
-  SBA_7A_EQUIPMENT_PURCHASE: "SBA 7a Equipment",
-  SBA_7A_REAL_ESTATE: "SBA 7a Real Estate",
-  SBA_504_REAL_ESTATE_AND_EQUIPMENT: "SBA 504 Real Estate",
-  USDA_BI: "USDA B&I",
-
-  // ABL
-  EQUIPMENT_FINANCE: "Equipment Finance",
-
-  PURCHASE_ORDER_FINANCE: "Purchase Order Finance",
-
-  ACCOUNTS_RECEIVABLE_FINANCE: "Accounts Receivable",
-  ACCOUNTS_RECEIVABLE: "Accounts Receivable",
-  ACCOUNTS_PAYABLE_FINANCE: "Accounts Payable",
-};
 
 /* ================= HELPERS ================= */
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
-const OPTIONAL_LOAN_REQUEST_KEYS = new Set([
-  "sellerFinancing",
-  "sellerNoteAmount",
-  "estimatedClosingDate",
-  "brokerPoints",
-  "amortization",
-  "rateType",
-  "interestRate",
-  "recourse",
-  "numberOfUnits",
-  "subPropertyType",
-  "rehabCost",
-  "constructionCost",
-]);
+
 
 const BRIDGE_LOAN_TYPES = new Set(["BRIDGE_LOAN", "BRIDGE_LOAN_1_TO_4_UNITS"]);
 const BRIDGE_PURCHASE_PURPOSE = "Purchase/Acquisition";
@@ -477,48 +220,10 @@ const FIX_AND_FLIP_LOAN_TYPES = new Set(["FIX_AND_FLIP_LOAN_1_TO_4_UNITS"]);
 const FIX_AND_FLIP_PURCHASE_REHAB_PURPOSE = "Purchase & Rehab";
 const FIX_AND_FLIP_REFINANCE_REHAB_PURPOSE = "Refinance & Rehab";
 
-const PURCHASE_DATE_WITH_AMORTIZATION_LOAN_TYPES = new Set([
-  "DSCR_LOAN_1_TO_4_UNITS",
-  "RENTAL_PORTFOLIO",
-  "CRE_PERMANENT_LOAN",
-  "AGENCY_LOAN_MULTIFAMILY",
-  "CMBS",
-  "SBA_7A_REAL_ESTATE",
-  "SBA_504_REAL_ESTATE_AND_EQUIPMENT",
-  "USDA_BI",
-]);
-const PURCHASE_DATE_WITH_AMORTIZATION_PURPOSES = new Set([
-  "Purchase",
-  "Purchase/Acquisition",
-  "Purchase / Acquisition",
-  "Purchase (Owner-Occupied)",
-  "Purchase & Rehab",
-  "Real Estate Acquisition",
-  "Business Acquisition",
-  "Real Estate Purchase",
-  "Equipment Purchase",
-]);
-const ORIGINAL_PURCHASE_DATE_WITH_AMORTIZATION_PURPOSES = new Set([
-  "Refinance (Rate & Term)",
-  "Cash Out Refinance",
-  "Refinance",
-  "Refinance & Rehab",
-  "Refinance (504 Debt)",
-  "Debt Refinancing",
-]);
-
-const CONSTRUCTION_LOAN_TYPES = new Set([
-  "CONSTRUCTION_LOAN",
-  "CONSTRUCTION_LOAN_1_TO_4_UNITS",
-]);
-
 const MEZZANINE_LOAN_TYPES = new Set(["MEZZANINE_FINANCE"]);
 const MEZZANINE_ACQUISITION_BRIDGE_PURPOSE = "Acquisition Bridge";
 
-const isBridgePurchaseAcquisition = (
-  product: string,
-  purpose: string,
-) =>
+const isBridgePurchaseAcquisition = (product: string, purpose: string) =>
   BRIDGE_LOAN_TYPES.has(product) && purpose === BRIDGE_PURCHASE_PURPOSE;
 
 const isBridgeOriginalPurchaseDate = (product: string, purpose: string) =>
@@ -653,7 +358,10 @@ const ACCOUNTS_RECEIVABLE_LOAN_TYPES = new Set([
 const ACCOUNTS_RECEIVABLE_PURCHASE_DATE_PURPOSES = new Set<string>([]);
 const ACCOUNTS_RECEIVABLE_ORIGINAL_PURCHASE_DATE_PURPOSES = new Set<string>([]);
 
-const isAccountsReceivableLoanRequestDate = (product: string, purpose: string) =>
+const isAccountsReceivableLoanRequestDate = (
+  product: string,
+  purpose: string,
+) =>
   ACCOUNTS_RECEIVABLE_LOAN_TYPES.has(product) &&
   (ACCOUNTS_RECEIVABLE_PURCHASE_DATE_PURPOSES.has(purpose) ||
     ACCOUNTS_RECEIVABLE_ORIGINAL_PURCHASE_DATE_PURPOSES.has(purpose));
@@ -761,54 +469,13 @@ const getLoanRequestPurchaseDateLabel = (product: string, purpose: string) =>
     ? "Original Purchase Date"
     : "Purchase Date";
 
-const ENTITY_TYPE_OPTIONS = [
-  { value: "C-Corp", label: "C-Corp" },
-  { value: "S-Corp", label: "S-Corp" },
-  { value: "LLC", label: "LLC" },
-  { value: "Partnership", label: "Partnership" },
-  { value: "Sole Proprietorship", label: "Sole Proprietorship" },
-] as const;
-
-const RESIDENTIAL_1_4_PROPERTY_TYPES = [
-  "Single Family (1-Unit)",
-  "Duplex (2-Unit)",
-  "Triplex (3-Unit)",
-  "Fourplex (4-Unit)",
-] as const;
 
 const RENTAL_PORTFOLIO_LOAN_TYPES = new Set(["RENTAL_PORTFOLIO"]);
-const RENTAL_UNDERWRITING_LOAN_TYPES = new Set([
-  "DSCR_LOAN_1_TO_4_UNITS",
-  "RENTAL_PORTFOLIO",
-]);
 
-const RESIDENTIAL_PURCHASE_PRICE_PURPOSES = new Set([
-  "Purchase/Acquisition",
-  "Purchase & Rehab",
-  "Purchase",
-  "Portfolio Blanket",
-]);
-
-const RESIDENTIAL_MARKET_VALUE_PURPOSES = new Set([
-  "Refinance (Rate & Term)",
-  "Cash Out Refinance",
-  "Refinance & Rehab",
-  "Refinance",
-]);
 
 const isResidential14Category = (category: LoanCategory) =>
   category === "RESIDENTIAL_1_4";
 
-/** CRE & Multifamily products that share the same field rules as 1-4 residential. */
-const CRE_RESIDENTIAL_LIKE_LOAN_TYPES = new Set([
-  "BRIDGE_LOAN",
-  "BRIDGE_LOAN_1_TO_4_UNITS",
-  "FIX_AND_FLIP_LOAN_1_TO_4_UNITS",
-  "DSCR_LOAN_1_TO_4_UNITS",
-  "CONSTRUCTION_LOAN",
-  "CONSTRUCTION_LOAN_1_TO_4_UNITS",
-  "RENTAL_PORTFOLIO",
-]);
 
 const isCreResidentialLikeCategoryProduct = (
   category: LoanCategory,
@@ -887,8 +554,7 @@ const showResidentialPropertyMarketValue = (product: string, purpose: string) =>
     showEquipmentFinanceMarketValue(purpose));
 
 const showResidentialPropertyArv = (product: string) =>
-  FIX_AND_FLIP_LOAN_TYPES.has(product) ||
-  isConstructionLoanProduct(product);
+  FIX_AND_FLIP_LOAN_TYPES.has(product) || isConstructionLoanProduct(product);
 
 const showResidentialPropertyRehabCost = (product: string) =>
   FIX_AND_FLIP_LOAN_TYPES.has(product);
@@ -1150,8 +816,6 @@ const LoanApplication = ({
 
   const reviewStepIndex = useStandardSevenStepFlow ? baseSteps.length - 1 : -1;
 
-  // formatUSPhone / formatSSN / formatCurrency / toNumber / ZIP_REGEX /
-  // EMAIL_REGEX / PHONE_REGEX / SSN_REGEX are imported from ./formatters.
 
   const handleAmountChange = (
     section: "loanRequest" | "loanTermIncome" | "coBorrower",
@@ -2856,230 +2520,6 @@ const LoanApplication = ({
     updateBorrowerProperty(scope, propertyId, field, formatted, coIndex);
   };
 
-  const PROPERTY_TYPE_MAP: Record<string, string[]> = {
-    MULTIFAMILY: [
-      "Garden",
-      "Mid-Rise",
-      "High-Rise",
-      "Senior Housing",
-      "Student Housing",
-      "Affordable Housing",
-    ],
-
-    OFFICE: [
-      "Central Business District",
-      "Medical",
-      "Creative",
-      "Government",
-      "Suburban",
-    ],
-
-    RETAIL: [
-      "Strip Plaza",
-      "Mall",
-      "Single-Tenant",
-      "Restaurant",
-      "Automotive",
-    ],
-
-    INDUSTRIAL: [
-      "Warehouse",
-      "Manufacturing",
-      "Flex",
-      "Data Center",
-      "Cold Storage",
-    ],
-
-    SPECIAL_PURPOSE: [
-      "Car Wash",
-      "Gas Station",
-      "Self Storage",
-      "Hospital",
-      "School",
-    ],
-
-    LAND: ["Raw", "Entitled", "Developed", "Agriculture"],
-
-    MIXED_USE: ["Horizontal", "Vertical", "Live & Work"],
-  };
-
-  const LOAN_PURPOSE_MAP: Record<string, string[]> = {
-    /* 1️⃣ Bridge Loan */
-    BRIDGE_LOAN: [
-      "Purchase/Acquisition",
-      "Refinance (Rate & Term)",
-      "Cash Out Refinance",
-      "Construction Completion",
-    ],
-
-    /* 2️⃣ Construction Loan */
-    CONSTRUCTION_LOAN: [
-      "Ground-up Construction",
-      "Major Renovation (>50% of value)",
-      "Tenant Improvements",
-      "Infrastructure Development",
-    ],
-
-    /* 3️⃣ Fix & Flip */
-    FIX_AND_FLIP_LOAN_1_TO_4_UNITS: ["Purchase & Rehab", "Refinance & Rehab"],
-
-    MEZZANINE_FINANCE: [
-      "Gap Finance",
-      "Leverage Enhancement",
-      "JV Equity",
-      "Acquisition Bridge",
-      "Construction Project",
-    ],
-
-    PREFERRED_EQUITY: ["Acquisition Bridge", "Recapitalization"],
-
-    /* 4️⃣ DSCR */
-    DSCR_LOAN_1_TO_4_UNITS: [
-      "Purchase",
-      "Refinance (Rate & Term)",
-      "Cash Out Refinance",
-      "Portfolio Blanket",
-    ],
-
-    BRIDGE_LOAN_1_TO_4_UNITS: [
-      "Purchase/Acquisition",
-      "Refinance (Rate & Term)",
-      "Cash Out Refinance",
-      "Construction Completion",
-    ],
-
-    CONSTRUCTION_LOAN_1_TO_4_UNITS: [
-      //  "Purchase",
-      // "Refinance",
-      "Ground-up Construction",
-      "Major Renovation (>50% of value)",
-      "Tenant Improvements",
-      "Infrastructure Development",
-    ],
-
-    /* 5️⃣ CRE Permanent */
-    CRE_PERMANENT_LOAN: ["Purchase", "Refinance", "Recapitalization"],
-
-    RENTAL_PORTFOLIO: [
-      "Purchase",
-      "Refinance (Rate & Term)",
-      "Cash Out Refinance",
-    ],
-
-    /* 6️⃣ Mezz Finance / Pref Equity */
-    // MEZZ_FINANCE_PREF_EQUITY: [
-    //   "Gap Finance",
-    //   "Leverage Enhancement",
-    //   "JV Equity",
-    //   "Acquisition Bridge",
-    // ],
-
-    /* 7️⃣ Agency Loan */
-    AGENCY_LOAN_MULTIFAMILY: [
-      "Purchase/Acquisition",
-      "Cash Out Refinance",
-      "Affordable Housing",
-      "Supplement Loan",
-    ],
-
-    /* 8️⃣ CMBS */
-    CMBS: [
-      "Purchase/Acquisition",
-      "Refinance (Rate & Term)",
-      "Cash Out Refinance",
-    ],
-
-    /* 9️⃣ SBA 7a - Business Acquisition */
-    SBA_7A_BUSINESS_ACQUISITION: [
-      "Purchase/Acquisition",
-      "Partner Buyout",
-      "Franchise Purchase",
-      "Business Expansion",
-    ],
-
-    /* 🔟 SBA 7a - Working Capital */
-    SBA_7A_WORKING_CAPITAL: [
-      "Inventory Purchase",
-      "Marketing/Expansion",
-      "Debt Consolidation",
-      "Seasonal Line",
-    ],
-
-    /* 11️⃣ SBA 7a - Equipment Purchase */
-    SBA_7A_EQUIPMENT_PURCHASE: [
-      "New Equipment",
-      "Used Equipment",
-      "Refinance Existing Equipment",
-      "Equipment Line",
-    ],
-
-    /* 12️⃣ SBA 7a - Real Estate */
-    SBA_7A_REAL_ESTATE: [
-      "Purchase (Owner-Occupied)",
-      "Construction",
-      "Refinance",
-      "New Construction",
-      "Purchase & Rehab",
-      "Refinance & Rehab",
-    ],
-
-    /* 13️⃣ SBA 504 */
-    SBA_504_REAL_ESTATE_AND_EQUIPMENT: [
-      "Real Estate Acquisition",
-      "Real Estate Construction",
-      "Heavy Equipment",
-      "Refinance (504 Debt)",
-    ],
-
-    /* 14️⃣ USDA B&I */
-    USDA_BI: [
-      "Business Acquisition",
-      "Real Estate Purchase",
-      "Equipment Purchase",
-      "Working Capital",
-      "Debt Refinancing",
-    ],
-
-    /* 15️⃣ Equipment Finance */
-    EQUIPMENT_FINANCE: [
-      "New Equipment Purchase",
-      "Used Equipment Purchase",
-      "Sale-Leaseback",
-      "Refinance/Consolidation",
-    ],
-
-    /* 16️⃣ Purchase Order Finance */
-    PURCHASE_ORDER_FINANCE: [
-      "Single PO Funding",
-      "PO Line of Credit",
-      "International PO",
-      "Government PO",
-    ],
-
-    /* 17️⃣ Accounts Receivable Finance */
-    ACCOUNTS_RECEIVABLE_FINANCE: [
-      "Invoice Factoring",
-      "ABL Line",
-      "Selective Receivable Finance",
-      "International Receivables",
-    ],
-
-    ACCOUNTS_RECEIVABLE: [
-      "Invoice Factoring",
-      "ABL Line",
-      "Selective Receivable Finance",
-      "International Receivables",
-    ],
-
-    /* 18️⃣ Accounts Payable Finance */
-    ACCOUNTS_PAYABLE_FINANCE: [
-      "Supplier Finance Program",
-      "Dynamic Discounting",
-      "Reverse Factoring",
-      "Supply Chain Finance",
-    ],
-  };
-
   const loanPurposeOptions = LOAN_PURPOSE_MAP[selectedProduct] || [];
   const topPurposeOptions = LOAN_TOP_PURPOSE_MAP[selectedProduct] || [];
   const subPurposeOptions = LOAN_SUB_PURPOSE_MAP[selectedProduct] || [];
@@ -3277,7 +2717,7 @@ rounded-2xl p-6 shadow-sm
         </div>
 
         {/* Body */}
-        <div className="max-w-7xl mx-auto px-8 w-full">
+        <div className="w-full ">
           {/* ================= STEP 0 ================= */}
           {currentStep === 0 && (
             <div className="mt-6 relative z-10 border border-slate-200 dark:border-slate-700 rounded-2xl p-6 bg-white dark:bg-slate-800">
@@ -4601,7 +4041,7 @@ focus:border-blue-500 outline-none text-sm ${
                   </div>
 
                   {/* ================= SALE DETAILS ================= */}
-                  <div className="md:col-span-2">
+                  {/* <div className="md:col-span-2">
                     <SaleDetailsCard
                       privateSale={formData.loanRequest.privateSale}
                       vendorName={formData.loanRequest.vendorName}
@@ -4617,7 +4057,7 @@ focus:border-blue-500 outline-none text-sm ${
                       }
                       formatUSPhone={formatUSPhone}
                     />
-                  </div>
+                  </div> */}
 
                   <div>
                     {errors["loanRequest.purchasePrice"] && (
@@ -5338,6 +4778,22 @@ focus:border-blue-500 outline-none text-sm ${
                   </div>
                 </div>
               )}
+              {/* ================= SALE DETAILS ================= */}
+              <div className="md:col-span-2">
+                <SaleDetailsCard
+                  privateSale={formData.loanRequest.privateSale}
+                  vendorName={formData.loanRequest.vendorName}
+                  vendorPhone={formData.loanRequest.vendorPhone}
+                  onPrivateSaleChange={(v) =>
+                    updateLoanRequest("privateSale", v)
+                  }
+                  onVendorNameChange={(v) => updateLoanRequest("vendorName", v)}
+                  onVendorPhoneChange={(v) =>
+                    updateLoanRequest("vendorPhone", v)
+                  }
+                  formatUSPhone={formatUSPhone}
+                />
+              </div>
             </div>
           )}
 
