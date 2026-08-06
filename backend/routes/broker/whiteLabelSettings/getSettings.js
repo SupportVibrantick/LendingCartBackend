@@ -5,11 +5,6 @@ async function requireLoanOfficerBrandingView(req, reply, fastify) {
   await fastify.requirePermission(LO_BRANDING_VIEW_PERMISSIONS)(req, reply);
 }
 
-async function requireLoanOfficerBrandingManage(req, reply, fastify) {
-  if (!req.user?.roles?.includes("BROKER_OFFICER")) return;
-  await fastify.requirePermission("MANAGE_BRANDING")(req, reply);
-}
-
 /**
  * @param {import("fastify").FastifyInstance} fastify
  */
@@ -27,7 +22,6 @@ async function getWhiteLabelSettings(fastify) {
       },
     },
     async (req, reply) => {
-      //  Authorization check
       if (!req.user || req.user.orgType !== "BROKER") {
         return reply.code(403).send({
           success: false,
@@ -38,56 +32,58 @@ async function getWhiteLabelSettings(fastify) {
       const brokerOrgId = req.user.organizationId;
       const prisma = fastify.prisma;
 
-      // Fetch settings
       let settings = await prisma.brokerWhiteLabelSetting.findFirst({
         where: { brokerOrgId },
       });
 
-      // Auto-create defaults if not exists (important for UX)
+      const organization = await prisma.organization.findUnique({
+        where: { id: brokerOrgId },
+        select: { name: true },
+      });
+
       if (!settings) {
         settings = await prisma.brokerWhiteLabelSetting.create({
           data: {
             brokerOrgId,
+            brandName: organization?.name || null,
             fullWhiteLabel: false,
             domainVerified: false,
             sslStatus: "PENDING",
           },
         });
+      } else if (!settings.brandName?.trim() && organization?.name) {
+        settings = await prisma.brokerWhiteLabelSetting.update({
+          where: { id: settings.id },
+          data: {
+            brandName: organization.name,
+            updatedAt: new Date(),
+          },
+        });
       }
 
-      // Return SAFE, dashboard-required fields only
       return reply.send({
         success: true,
         data: {
           id: settings.id,
-
-          // Domain
           platformSubdomain: settings.platformSubdomain,
           customDomain: settings.customDomain,
           domainVerified: settings.domainVerified,
           sslStatus: settings.sslStatus,
-
-          // Branding / Theme
-          brandName: settings.brandName,
+          brandName: settings.brandName || organization?.name || null,
           logoUrl: settings.logoUrl,
           faviconUrl: settings.faviconUrl,
           primaryColor: settings.primaryColor,
           secondaryColor: settings.secondaryColor,
           fontFamily: settings.fontFamily,
-
-          // UI / Copy
           footerText: settings.footerText,
           supportEmail: settings.supportEmail,
-
-          // Flags
           fullWhiteLabel: settings.fullWhiteLabel,
           showBrokerBrandOnApproval: settings.showBrokerBrandOnApproval,
-
           createdAt: settings.createdAt,
           updatedAt: settings.updatedAt,
         },
       });
-    }
+    },
   );
 }
 

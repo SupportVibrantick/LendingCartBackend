@@ -245,6 +245,10 @@ export default function UserProfileCard() {
       setProfileImage(null);
 
       const stored = JSON.parse(sessionStorage.getItem("broker_user") || "{}");
+      const nextOrgName =
+        json.data?.organization?.name ||
+        company.trim() ||
+        updatedUser.organizationName;
       sessionStorage.setItem(
         "broker_user",
         JSON.stringify({
@@ -253,6 +257,7 @@ export default function UserProfileCard() {
           lastName: updatedUser.lastName,
           name: updatedUser.name,
           profileImage: updatedUser.profileImage,
+          organizationName: nextOrgName,
         }),
       );
 
@@ -262,6 +267,7 @@ export default function UserProfileCard() {
             firstName: updatedUser.firstName,
             lastName: updatedUser.lastName,
             profileImage: updatedUser.profileImage,
+            organizationName: nextOrgName,
           },
         }),
       );

@@ -89,3 +89,18 @@ export function saveBrokerSession(
     );
   }
 }
+
+/** Patch fields on the cached broker_user session object. */
+export function patchBrokerSessionUser(patch: Record<string, unknown>) {
+  try {
+    const raw = sessionStorage.getItem("broker_user");
+    const user = raw ? JSON.parse(raw) : {};
+    if (!user || typeof user !== "object") return;
+    sessionStorage.setItem(
+      "broker_user",
+      JSON.stringify({ ...user, ...patch }),
+    );
+  } catch {
+    /* ignore */
+  }
+}

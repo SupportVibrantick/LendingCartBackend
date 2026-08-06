@@ -1,6 +1,9 @@
 const path = require("path");
 const fs = require("fs");
 const { pipeline } = require("stream/promises");
+const {
+  syncBrokerCompanyAndBrandName,
+} = require("../../../services/broker/syncBrokerDisplayName");
 
 const PROFILE_FIELDS = [
   "company",
@@ -44,6 +47,7 @@ async function brokerUpdateProfileRoutes(fastify) {
         }
 
         const userId = req.user.userId || req.user.id;
+        const organizationId = req.user.organizationId;
 
         const existingUser = await prisma.userAccount.findUnique({
           where: { id: userId },
@@ -117,6 +121,27 @@ async function brokerUpdateProfileRoutes(fastify) {
             success: false,
             message: "First name is required",
           });
+        }
+
+        // Company on profile also updates org name + branding brand name.
+        if (
+          Object.prototype.hasOwnProperty.call(profileData, "company") &&
+          profileData.company &&
+          organizationId
+        ) {
+          try {
+            await syncBrokerCompanyAndBrandName(
+              prisma,
+              organizationId,
+              profileData.company,
+              { userId },
+            );
+          } catch (syncErr) {
+            return reply.code(syncErr.statusCode || 500).send({
+              success: false,
+              message: syncErr.message || "Failed to update company name",
+            });
+          }
         }
 
         const updatedUser = await prisma.$transaction(async (tx) => {

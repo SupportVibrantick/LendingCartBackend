@@ -16,6 +16,7 @@ const {
   canLenderReceiveDocuments,
   getLenderDocumentDeliveryBlockMessage,
 } = require("../../../utils/lender/lenderDocumentDelivery");
+const { buildClientPortalUrl } = require("../../../utils/email/emailBranding");
 
 /**
  * @param {import("fastify").FastifyInstance} fastify
@@ -192,7 +193,7 @@ module.exports = async function brokerSignDocuments(fastify) {
         }
 
         if (clientEmail) {
-          const portalLink = `${process.env.FRONTEND_URL || "http://localhost:5173"}/client-portal`;
+          const portalLink = buildClientPortalUrl({ path: "/client-portal" });
           const html = loadTemplate(
             "broker/clientLink",
             buildClientLinkEmailData({

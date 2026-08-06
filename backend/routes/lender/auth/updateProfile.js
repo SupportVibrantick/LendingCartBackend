@@ -13,6 +13,9 @@ const {
   syncProfileFundingToProducts,
 } = require("../../../utils/lender/evaluateLenderEligibility");
 const { hasLenderPermission, LENDER_PERMISSION } = require("../../../utils/lender/lenderPermissions");
+const {
+  syncLenderCompanyAndBrandName,
+} = require("../../../services/lender/syncLenderDisplayName");
 
 async function readFieldValue(part) {
   if (part.value === undefined || part.value === null) {
@@ -372,7 +375,10 @@ async function lenderUpdateProfileRoutes(fastify) {
           });
         }
 
-        const organizationData = {};
+        let organization = await prisma.organization.findUnique({
+          where: { id: organizationId },
+        });
+
         if (sentFields.has("organizationName")) {
           const trimmedName = organizationName?.trim() || "";
           if (!trimmedName) {
@@ -382,33 +388,28 @@ async function lenderUpdateProfileRoutes(fastify) {
             });
           }
 
-          const duplicateOrg = await prisma.organization.findFirst({
-            where: {
-              name: trimmedName,
-              id: { not: organizationId },
-              isDeleted: false,
-            },
-          });
-
-          if (duplicateOrg) {
-            return reply.code(409).send({
+          try {
+            const synced = await syncLenderCompanyAndBrandName(
+              prisma,
+              organizationId,
+              trimmedName,
+            );
+            organization = synced.organization;
+          } catch (syncErr) {
+            return reply.code(syncErr.statusCode || 500).send({
               success: false,
-              message: "Another organization already uses this company name",
+              message: syncErr.message || "Failed to update company name",
             });
           }
-
-          organizationData.name = trimmedName;
         }
+
+        const organizationData = {};
         if (sentFields.has("organizationEmail")) {
           organizationData.email = organizationEmail?.trim() || null;
         }
         if (sentFields.has("organizationPhone")) {
           organizationData.phone = organizationPhone?.trim() || null;
         }
-
-        let organization = await prisma.organization.findUnique({
-          where: { id: organizationId },
-        });
 
         if (Object.keys(organizationData).length > 0) {
           organization = await prisma.organization.update({

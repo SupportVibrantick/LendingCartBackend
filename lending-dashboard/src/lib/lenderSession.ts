@@ -64,3 +64,18 @@ export function saveLenderSession(
     }
   }
 }
+
+/** Patch fields on the cached lender_user session object. */
+export function patchLenderSessionUser(patch: Record<string, unknown>) {
+  try {
+    const raw = sessionStorage.getItem("lender_user");
+    const user = raw ? JSON.parse(raw) : {};
+    if (!user || typeof user !== "object") return;
+    sessionStorage.setItem(
+      "lender_user",
+      JSON.stringify({ ...user, ...patch }),
+    );
+  } catch {
+    /* ignore */
+  }
+}

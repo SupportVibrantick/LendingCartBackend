@@ -27,9 +27,25 @@ async function getLenderBrandingSettings(fastify) {
         where: { lenderOrgId },
       });
 
+      const organization = await prisma.organization.findUnique({
+        where: { id: lenderOrgId },
+        select: { name: true },
+      });
+
       if (!settings) {
         settings = await prisma.lenderBrandingSetting.create({
-          data: { lenderOrgId },
+          data: {
+            lenderOrgId,
+            brandName: organization?.name || null,
+          },
+        });
+      } else if (!settings.brandName?.trim() && organization?.name) {
+        settings = await prisma.lenderBrandingSetting.update({
+          where: { id: settings.id },
+          data: {
+            brandName: organization.name,
+            updatedAt: new Date(),
+          },
         });
       }
 
@@ -37,7 +53,7 @@ async function getLenderBrandingSettings(fastify) {
         success: true,
         data: {
           id: settings.id,
-          brandName: settings.brandName,
+          brandName: settings.brandName || organization?.name || null,
           logoUrl: settings.logoUrl,
           createdAt: settings.createdAt,
           updatedAt: settings.updatedAt,

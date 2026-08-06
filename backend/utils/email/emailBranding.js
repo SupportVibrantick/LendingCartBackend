@@ -1,6 +1,10 @@
 const stripTrailingSlash = (value) =>
   value == null ? "" : String(value).replace(/\/$/, "");
 
+/** Legacy broker apps used /customer; client portal now lives at /client-portal. */
+const stripLegacyCustomerPath = (value) =>
+  stripTrailingSlash(value).replace(/\/customer$/i, "");
+
 const firstConfigured = (...values) => {
   for (const value of values) {
     const normalized = stripTrailingSlash(value);
@@ -34,10 +38,12 @@ const getEmailBranding = () => {
     ),
   );
   const frontendUrl = ensureAbsoluteUrl(
-    firstConfigured(
-      process.env.FRONTEND_URL,
-      process.env.VITE_BROKER_URI,
-      "http://localhost:5173",
+    stripLegacyCustomerPath(
+      firstConfigured(
+        process.env.FRONTEND_URL,
+        process.env.VITE_BROKER_URI,
+        "http://localhost:5173",
+      ),
     ),
   );
   const brokerDashboardUrl = firstConfigured(
@@ -173,6 +179,7 @@ async function resolveBrokerEmailBranding(prisma, brokerOrgId) {
 
 module.exports = {
   stripTrailingSlash,
+  stripLegacyCustomerPath,
   getEmailBranding,
   buildBrokerSignInUrl,
   buildLenderSignInUrl,
