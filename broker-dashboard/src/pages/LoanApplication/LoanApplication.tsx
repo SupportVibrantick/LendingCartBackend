@@ -53,10 +53,7 @@ import { IoArrowBack } from "react-icons/io5";
 import { IoIosArrowBack } from "react-icons/io";
 import { MdDeleteForever } from "react-icons/md";
 
-import {
-  LOAN_SUB_PURPOSE_MAP,
-  LOAN_TOP_PURPOSE_MAP,
-} from "./constants";
+import { LOAN_SUB_PURPOSE_MAP, LOAN_TOP_PURPOSE_MAP } from "./constants";
 import {
   calculateMonthlyPayment,
   formatCurrency,
@@ -515,10 +512,7 @@ const CONSTRUCTION_LOAN_TYPES = new Set([
 const MEZZANINE_LOAN_TYPES = new Set(["MEZZANINE_FINANCE"]);
 const MEZZANINE_ACQUISITION_BRIDGE_PURPOSE = "Acquisition Bridge";
 
-const isBridgePurchaseAcquisition = (
-  product: string,
-  purpose: string,
-) =>
+const isBridgePurchaseAcquisition = (product: string, purpose: string) =>
   BRIDGE_LOAN_TYPES.has(product) && purpose === BRIDGE_PURCHASE_PURPOSE;
 
 const isBridgeOriginalPurchaseDate = (product: string, purpose: string) =>
@@ -653,7 +647,10 @@ const ACCOUNTS_RECEIVABLE_LOAN_TYPES = new Set([
 const ACCOUNTS_RECEIVABLE_PURCHASE_DATE_PURPOSES = new Set<string>([]);
 const ACCOUNTS_RECEIVABLE_ORIGINAL_PURCHASE_DATE_PURPOSES = new Set<string>([]);
 
-const isAccountsReceivableLoanRequestDate = (product: string, purpose: string) =>
+const isAccountsReceivableLoanRequestDate = (
+  product: string,
+  purpose: string,
+) =>
   ACCOUNTS_RECEIVABLE_LOAN_TYPES.has(product) &&
   (ACCOUNTS_RECEIVABLE_PURCHASE_DATE_PURPOSES.has(purpose) ||
     ACCOUNTS_RECEIVABLE_ORIGINAL_PURCHASE_DATE_PURPOSES.has(purpose));
@@ -887,8 +884,7 @@ const showResidentialPropertyMarketValue = (product: string, purpose: string) =>
     showEquipmentFinanceMarketValue(purpose));
 
 const showResidentialPropertyArv = (product: string) =>
-  FIX_AND_FLIP_LOAN_TYPES.has(product) ||
-  isConstructionLoanProduct(product);
+  FIX_AND_FLIP_LOAN_TYPES.has(product) || isConstructionLoanProduct(product);
 
 const showResidentialPropertyRehabCost = (product: string) =>
   FIX_AND_FLIP_LOAN_TYPES.has(product);
@@ -4601,7 +4597,7 @@ focus:border-blue-500 outline-none text-sm ${
                   </div>
 
                   {/* ================= SALE DETAILS ================= */}
-                  <div className="md:col-span-2">
+                  {/* <div className="md:col-span-2">
                     <SaleDetailsCard
                       privateSale={formData.loanRequest.privateSale}
                       vendorName={formData.loanRequest.vendorName}
@@ -4617,7 +4613,7 @@ focus:border-blue-500 outline-none text-sm ${
                       }
                       formatUSPhone={formatUSPhone}
                     />
-                  </div>
+                  </div> */}
 
                   <div>
                     {errors["loanRequest.purchasePrice"] && (
@@ -5338,6 +5334,22 @@ focus:border-blue-500 outline-none text-sm ${
                   </div>
                 </div>
               )}
+              {/* ================= SALE DETAILS ================= */}
+              <div className="md:col-span-2">
+                <SaleDetailsCard
+                  privateSale={formData.loanRequest.privateSale}
+                  vendorName={formData.loanRequest.vendorName}
+                  vendorPhone={formData.loanRequest.vendorPhone}
+                  onPrivateSaleChange={(v) =>
+                    updateLoanRequest("privateSale", v)
+                  }
+                  onVendorNameChange={(v) => updateLoanRequest("vendorName", v)}
+                  onVendorPhoneChange={(v) =>
+                    updateLoanRequest("vendorPhone", v)
+                  }
+                  formatUSPhone={formatUSPhone}
+                />
+              </div>
             </div>
           )}
 
