@@ -202,11 +202,8 @@ export type LoanCategory =
   | "ABL"
   | "";
 
-
 /* ================= HELPERS ================= */
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
-
-
 
 const BRIDGE_LOAN_TYPES = new Set(["BRIDGE_LOAN", "BRIDGE_LOAN_1_TO_4_UNITS"]);
 const BRIDGE_PURCHASE_PURPOSE = "Purchase/Acquisition";
@@ -469,13 +466,10 @@ const getLoanRequestPurchaseDateLabel = (product: string, purpose: string) =>
     ? "Original Purchase Date"
     : "Purchase Date";
 
-
 const RENTAL_PORTFOLIO_LOAN_TYPES = new Set(["RENTAL_PORTFOLIO"]);
-
 
 const isResidential14Category = (category: LoanCategory) =>
   category === "RESIDENTIAL_1_4";
-
 
 const isCreResidentialLikeCategoryProduct = (
   category: LoanCategory,
@@ -815,7 +809,6 @@ const LoanApplication = ({
       ];
 
   const reviewStepIndex = useStandardSevenStepFlow ? baseSteps.length - 1 : -1;
-
 
   const handleAmountChange = (
     section: "loanRequest" | "loanTermIncome" | "coBorrower",
@@ -2717,7 +2710,7 @@ rounded-2xl p-6 shadow-sm
         </div>
 
         {/* Body */}
-        <div className="w-full ">
+        <div className={embedded ? "w-full" : "max-w-7xl mx-auto px-8 w-full"}>
           {/* ================= STEP 0 ================= */}
           {currentStep === 0 && (
             <div className="mt-6 relative z-10 border border-slate-200 dark:border-slate-700 rounded-2xl p-6 bg-white dark:bg-slate-800">
