@@ -16,6 +16,7 @@ import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { getBrokerAuthHeaders } from "../../lib/brokerApi";
 import { hasPermission } from "../../lib/brokerPermissions";
 import { isLoanOfficerPortalPath } from "../../lib/portalAuth";
+import { patchBrokerSessionUser } from "../../lib/brokerSession";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
@@ -175,6 +176,14 @@ export default function BrokerBranding() {
 
       setForm(next);
       setSaved(next);
+      if (next.brandName) {
+        patchBrokerSessionUser({ organizationName: next.brandName });
+        window.dispatchEvent(
+          new CustomEvent("broker-profile-updated", {
+            detail: { organizationName: next.brandName },
+          }),
+        );
+      }
       toast.success("Branding saved. New fee agreements will use this logo.");
     } catch (error: any) {
       toast.error(error.message || "Failed to save branding settings");

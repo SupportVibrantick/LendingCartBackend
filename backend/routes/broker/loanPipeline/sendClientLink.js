@@ -3,6 +3,7 @@ const crypto = require("crypto");
 const { loadTemplate } = require("../../../utils/email/loadTemplate");
 const { buildClientLinkEmailData } = require("../../../utils/email/emailTemplateData");
 const sendMail = require("../../../services/emails/mail");
+const { buildClientPortalUrl } = require("../../../utils/email/emailBranding");
 
 /**
  * @param {import("fastify").FastifyInstance} fastify
@@ -161,7 +162,9 @@ async function sendClientLinkRoute(fastify) {
           throw new Error("FRONTEND_URL not configured");
         }
 
-        const uploadLink = `${process.env.FRONTEND_URL}/client-portal/${tokenRecord.token}`;
+        const uploadLink = buildClientPortalUrl({
+          path: `/client-portal/${tokenRecord.token}`,
+        });
 
         /* ===============================
            EMAIL TEMPLATE

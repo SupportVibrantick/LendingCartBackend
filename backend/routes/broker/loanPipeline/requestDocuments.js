@@ -16,6 +16,7 @@ const {
   notifyBroker,
   BROKER_NOTIFICATION_EVENTS,
 } = require("../../../services/notifications/brokerNotifications");
+const { buildClientPortalUrl } = require("../../../utils/email/emailBranding");
 
 /**
  * @param {import("fastify").FastifyInstance} fastify
@@ -217,7 +218,7 @@ async function requestDocumentsRoute(fastify) {
         =============================== */
 
         if (shouldNotifyClient) {
-          const portalLink = `${process.env.FRONTEND_URL || "http://localhost:5173"}/client-portal`;
+          const portalLink = buildClientPortalUrl({ path: "/client-portal" });
 
           const html = loadTemplate(
             "broker/clientLink",

@@ -2,6 +2,12 @@ const { getLenderBranding } = require("../lender/lenderBranding");
 const {
   getBrokerWhiteLabelBranding,
 } = require("../broker/brokerBranding");
+const {
+  syncLenderCompanyAndBrandName,
+} = require("../lender/syncLenderDisplayName");
+const {
+  syncBrokerCompanyAndBrandName,
+} = require("../broker/syncBrokerDisplayName");
 
 function normalizeBrandingInput(branding) {
   if (!branding || typeof branding !== "object") {
@@ -26,23 +32,23 @@ async function persistLenderLoiBranding(prisma, lenderOrgId, branding) {
     );
   }
 
-  await prisma.lenderBrandingSetting.upsert({
+  const { branding: settings } = await syncLenderCompanyAndBrandName(
+    prisma,
+    lenderOrgId,
+    normalized.brandName,
+  );
+
+  const updated = await prisma.lenderBrandingSetting.update({
     where: { lenderOrgId },
-    update: {
-      brandName: normalized.brandName,
+    data: {
       logoUrl: normalized.logoUrl,
       updatedAt: new Date(),
-    },
-    create: {
-      lenderOrgId,
-      brandName: normalized.brandName,
-      logoUrl: normalized.logoUrl,
     },
   });
 
   return {
-    lenderBrandName: normalized.brandName,
-    lenderLogoUrl: normalized.logoUrl,
+    lenderBrandName: updated.brandName || settings.brandName,
+    lenderLogoUrl: updated.logoUrl,
   };
 }
 
@@ -76,25 +82,23 @@ async function persistBrokerLoiBranding(prisma, brokerOrgId, branding) {
     );
   }
 
-  await prisma.brokerWhiteLabelSetting.upsert({
+  const { branding: settings } = await syncBrokerCompanyAndBrandName(
+    prisma,
+    brokerOrgId,
+    normalized.brandName,
+  );
+
+  const updated = await prisma.brokerWhiteLabelSetting.update({
     where: { brokerOrgId },
-    update: {
-      brandName: normalized.brandName,
+    data: {
       logoUrl: normalized.logoUrl,
       updatedAt: new Date(),
-    },
-    create: {
-      brokerOrgId,
-      brandName: normalized.brandName,
-      logoUrl: normalized.logoUrl,
-      domainVerified: false,
-      sslStatus: "PENDING",
     },
   });
 
   return {
-    brokerBrandName: normalized.brandName,
-    brokerLogoUrl: normalized.logoUrl,
+    brokerBrandName: updated.brandName || settings.brandName,
+    brokerLogoUrl: updated.logoUrl,
   };
 }
 

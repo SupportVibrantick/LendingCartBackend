@@ -17,6 +17,7 @@ const {
   getLenderDocumentDeliveryBlockMessage,
 } = require("../../../utils/lender/lenderDocumentDelivery");
 const { extraOfficerPermission } = require("../../../services/broker/loanOfficerAccess");
+const { buildClientPortalUrl } = require("../../../utils/email/emailBranding");
 
 function assertLoanOfficerSubmissionAccess(req, submission) {
   const brokerOrgId = req.user.organizationId;
@@ -212,7 +213,7 @@ module.exports = async function loanOfficerSignDocuments(fastify) {
         }
 
         if (clientEmail) {
-          const portalLink = `${process.env.FRONTEND_URL || "http://localhost:5173"}/client-portal`;
+          const portalLink = buildClientPortalUrl({ path: "/client-portal" });
           const html = loadTemplate(
             "broker/clientLink",
             buildClientLinkEmailData({

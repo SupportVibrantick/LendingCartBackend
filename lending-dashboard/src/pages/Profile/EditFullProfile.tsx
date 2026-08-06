@@ -29,6 +29,7 @@ import {
   normalizeGroupedSelectionFromApi,
 } from "../../lib/lenderProductLenderPayload";
 import { API_BASE, getLenderAuthHeaders } from "../../lib/lenderApi";
+import { patchLenderSessionUser } from "../../lib/lenderSession";
 import {
   buildLoanCriteriaFromLenderProducts,
   filterLenderCatalogProducts,
@@ -510,6 +511,12 @@ export default function EditFullProfile() {
       const json = await response.json();
       if (!response.ok || json.success !== true) {
         throw new Error(json.message || "Profile update failed");
+      }
+
+      const nextCompanyName =
+        json.data?.organization?.name || company.companyName.trim();
+      if (nextCompanyName) {
+        patchLenderSessionUser({ organizationName: nextCompanyName });
       }
 
       if (showToast) {

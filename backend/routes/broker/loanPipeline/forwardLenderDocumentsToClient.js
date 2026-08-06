@@ -11,6 +11,10 @@ const {
   setAutoForwardLenderRequestsToClient,
 } = require("../../../services/documents/documentAutoForwardSetting");
 const { requireLoOfficerPermission } = require("../../../services/broker/loanOfficerAccess");
+const {
+  buildClientPortalUrl,
+  stripLegacyCustomerPath,
+} = require("../../../utils/email/emailBranding");
 
 /**
  * Notify client that lender-requested documents were forwarded by the broker.
@@ -21,9 +25,11 @@ async function notifyClientDocumentsForwarded(prisma, io, loan, logger) {
     loan.client?.contacts?.find((c) => c.email);
 
   const clientEmail = contact?.email;
-  const portalLink = `${
-    process.env.FRONTEND_URL || "http://localhost:5173"
-  }/client-portal`;
+  const portalLink =
+    buildClientPortalUrl({ path: "/client-portal" }) ||
+    `${stripLegacyCustomerPath(
+      process.env.FRONTEND_URL || "http://localhost:5173",
+    )}/client-portal`;
 
   if (clientEmail) {
     try {

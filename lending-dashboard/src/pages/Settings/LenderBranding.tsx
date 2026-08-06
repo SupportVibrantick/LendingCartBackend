@@ -13,6 +13,7 @@ import {
 import toast from "react-hot-toast";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
+import { patchLenderSessionUser } from "../../lib/lenderSession";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
@@ -165,6 +166,9 @@ export default function LenderBranding() {
 
       setForm(next);
       setSaved(next);
+      if (next.brandName) {
+        patchLenderSessionUser({ organizationName: next.brandName });
+      }
       toast.success("Branding saved. New LOI / term sheets will use this logo.");
     } catch (error: any) {
       toast.error(error.message || "Failed to save branding settings");

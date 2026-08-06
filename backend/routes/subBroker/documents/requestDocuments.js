@@ -2,6 +2,7 @@ const { loadTemplate } = require("../../../utils/email/loadTemplate");
 const { buildClientLinkEmailData } = require("../../../utils/email/emailTemplateData");
 
 const sendMail = require("../../../services/emails/mail");
+const { buildClientPortalUrl } = require("../../../utils/email/emailBranding");
 
 /**
  * @param {import("fastify").FastifyInstance} fastify
@@ -240,7 +241,7 @@ async function subBrokerRequestDocumentsRoute(fastify) {
            EMAIL TEMPLATE
         =============================== */
 
-        const portalLink = `${process.env.FRONTEND_URL || "http://localhost:5173"}/client-portal`;
+        const portalLink = buildClientPortalUrl({ path: "/client-portal" });
 
         const html = loadTemplate(
           "broker/clientLink",
