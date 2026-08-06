@@ -10,6 +10,7 @@ import {
   Clock,
   Handshake,
   Layers,
+  MessageSquare,
   Plus,
   RefreshCcw,
   Search,
@@ -21,6 +22,9 @@ import {
   X,
 } from "lucide-react";
 import AddBrokerLenderModal from "./AddBrokerLenderModal";
+import NetworkChatModal, {
+  type NetworkChatPeer,
+} from "../../components/networkChat/NetworkChatModal";
 import {
   acceptIncomingInvite,
   fetchBrokerLenderSubmissions,
@@ -200,6 +204,7 @@ export default function LenderMarketplace() {
   const [productsLender, setProductsLender] = useState<ConnectedLender | null>(
     null,
   );
+  const [chatPeer, setChatPeer] = useState<NetworkChatPeer | null>(null);
   const [sendApplicationLenders, setSendApplicationLenders] = useState<
     ConnectedLender[] | null
   >(null);
@@ -860,6 +865,20 @@ export default function LenderMarketplace() {
                       <div className="flex flex-wrap items-center gap-2">
                         <button
                           type="button"
+                          onClick={() =>
+                            setChatPeer({
+                              orgId: l.lenderId,
+                              name: l.lenderName,
+                              email: l.lenderEmail,
+                            })
+                          }
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800"
+                        >
+                          <MessageSquare size={12} />
+                          Chat
+                        </button>
+                        <button
+                          type="button"
                           onClick={() => setProductsLender(l)}
                           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800"
                         >
@@ -1131,6 +1150,12 @@ export default function LenderMarketplace() {
           onClose={() => setProductsLender(null)}
         />
       )}
+      <NetworkChatModal
+        open={Boolean(chatPeer)}
+        peer={chatPeer}
+        portal="broker"
+        onClose={() => setChatPeer(null)}
+      />
       {sendApplicationLenders && (
         <SendApplicationModal
           lenders={sendApplicationLenders}

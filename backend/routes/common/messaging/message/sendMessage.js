@@ -14,9 +14,12 @@ const {
 const {
   assertCanSendMessage,
   findLenderApplicationAccess,
+  findBrokerLenderNetworkAccess,
   ensureLenderParticipant,
+  ensureBrokerParticipant,
   getOrganizationId,
   isLenderUser,
+  isBrokerSideUser,
   resolveAuditDashboard,
   emitRealtimeMessage,
 } = require("../../../../services/messaging/messagingAccess");
@@ -109,6 +112,7 @@ module.exports = async function sendMessage(fastify) {
             type: true,
             loanApplicationId: true,
             applicationLenderId: true,
+            brokerLenderAccessId: true,
           },
         });
 
@@ -149,12 +153,29 @@ module.exports = async function sendMessage(fastify) {
           });
 
         let hasFallbackAccess = false;
+        const orgId = getOrganizationId(req.user);
 
-        if (!participant && isLenderUser(req)) {
+        if (!participant && conversation.brokerLenderAccessId && orgId) {
+          const networkAccess = await findBrokerLenderNetworkAccess(
+            prisma,
+            conversation,
+            orgId,
+          );
+          hasFallbackAccess = Boolean(networkAccess);
+          if (hasFallbackAccess) {
+            if (isLenderUser(req)) {
+              await ensureLenderParticipant(prisma, conversationId, userId);
+            } else if (isBrokerSideUser(req)) {
+              await ensureBrokerParticipant(prisma, conversationId, userId);
+            }
+          }
+        }
+
+        if (!participant && !hasFallbackAccess && isLenderUser(req)) {
           const lenderAccess = await findLenderApplicationAccess(
             prisma,
             conversation,
-            getOrganizationId(req.user),
+            orgId,
           );
 
           hasFallbackAccess = Boolean(lenderAccess);
@@ -164,19 +185,17 @@ module.exports = async function sendMessage(fastify) {
           }
         }
 
-        const brokerOrgId = getOrganizationId(req.user);
-
         if (
           !participant &&
           !hasFallbackAccess &&
           req.user?.orgType === "BROKER" &&
-          brokerOrgId &&
+          orgId &&
           conversation.loanApplicationId
         ) {
           const brokerAccess = await prisma.loanApplication.findFirst({
             where: {
               id: conversation.loanApplicationId,
-              brokerOrgId,
+              brokerOrgId: orgId,
             },
             select: { id: true },
           });
@@ -282,6 +301,9 @@ if (
         /* ================= REALTIME EMIT ================= */
 
         await emitRealtimeMessage(fastify.io, prisma, message, conversationId);
+        if (!fastify.io) {
+          console.warn("Realtime skipped: Socket.IO not initialized on fastify.io");
+        }
 
         if (
           senderType !== "CLIENT" &&
@@ -390,6 +412,7 @@ if (
           success: true,
           data: {
             id: message.id,
+            conversationId,
             type: message.type,
             text: message.text,
             senderType: message.senderType,

@@ -72,7 +72,15 @@ async function socketPlugin(fastify) {
     transports: ["websocket", "polling"],
   });
 
-  await attachRedisAdapter(io);
+  commonLogs.info("Socket.IO server initialized");
+  console.log("Socket.IO server initialized");
+
+  const redisOk = await attachRedisAdapter(io);
+  if (!redisOk) {
+    console.log(
+      "Socket.IO using default in-memory adapter (realtime works on this process)",
+    );
+  }
 
   fastify.decorate("io", io);
 
@@ -81,8 +89,6 @@ async function socketPlugin(fastify) {
     io.close();
     await shutdownRedisAdapter();
   });
-
-  commonLogs.info("Socket.IO server initialized");
 
   io.use((socket, next) => {
     try {

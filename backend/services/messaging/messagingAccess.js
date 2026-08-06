@@ -51,6 +51,24 @@ async function findLenderApplicationAccess(prisma, conversation, lenderOrgId) {
   return null;
 }
 
+/** Active Marketplace connection access for org-level BROKER_LENDER threads. */
+async function findBrokerLenderNetworkAccess(prisma, conversation, orgId) {
+  if (!orgId || !conversation?.brokerLenderAccessId) return null;
+
+  return prisma.brokerLenderAccess.findFirst({
+    where: {
+      id: conversation.brokerLenderAccessId,
+      isActive: true,
+      OR: [{ brokerOrgId: orgId }, { lenderOrgId: orgId }],
+    },
+    select: {
+      id: true,
+      brokerOrgId: true,
+      lenderOrgId: true,
+    },
+  });
+}
+
 async function ensureLenderParticipant(prisma, conversationId, userId) {
   if (!conversationId || !userId) return;
 
@@ -59,6 +77,21 @@ async function ensureLenderParticipant(prisma, conversationId, userId) {
       {
         conversationId,
         participantType: "LENDER",
+        participantId: userId,
+      },
+    ],
+    skipDuplicates: true,
+  });
+}
+
+async function ensureBrokerParticipant(prisma, conversationId, userId) {
+  if (!conversationId || !userId) return;
+
+  await prisma.conversationParticipant.createMany({
+    data: [
+      {
+        conversationId,
+        participantType: "BROKER",
         participantId: userId,
       },
     ],
@@ -150,6 +183,7 @@ async function assertCanAccessConversation(prisma, user, conversationId) {
       chatCategory: true,
       loanApplicationId: true,
       applicationLenderId: true,
+      brokerLenderAccessId: true,
     },
   });
 
@@ -189,12 +223,30 @@ async function assertCanAccessConversation(prisma, user, conversationId) {
     return { allowed: true, conversation, participant };
   }
 
+  const orgId = getOrganizationId(user);
+
+  if (conversation.brokerLenderAccessId && orgId) {
+    const networkAccess = await findBrokerLenderNetworkAccess(
+      prisma,
+      conversation,
+      orgId,
+    );
+
+    if (networkAccess) {
+      if (isLenderUser(req)) {
+        await ensureLenderParticipant(prisma, conversationId, userId);
+      } else if (isBrokerSideUser(req)) {
+        await ensureBrokerParticipant(prisma, conversationId, userId);
+      }
+      return { allowed: true, conversation };
+    }
+  }
+
   if (isLenderUser(req)) {
-    const lenderOrgId = getOrganizationId(user);
     const lenderAccess = await findLenderApplicationAccess(
       prisma,
       conversation,
-      lenderOrgId,
+      orgId,
     );
 
     if (lenderAccess) {
@@ -203,13 +255,11 @@ async function assertCanAccessConversation(prisma, user, conversationId) {
     }
   }
 
-  const brokerOrgId = getOrganizationId(user);
-
-  if (isBrokerSideUser(req) && brokerOrgId && conversation.loanApplicationId) {
+  if (isBrokerSideUser(req) && orgId && conversation.loanApplicationId) {
     const brokerAccess = await prisma.loanApplication.findFirst({
       where: {
         id: conversation.loanApplicationId,
-        brokerOrgId,
+        brokerOrgId: orgId,
       },
       select: { id: true },
     });
@@ -241,7 +291,10 @@ async function emitRealtimeMessage(io, prisma, message, conversationId) {
     fileName: message.fileName,
     fileSize: message.fileSize,
     mimeType: message.mimeType,
-    createdAt: message.createdAt,
+    createdAt:
+      message.createdAt instanceof Date
+        ? message.createdAt.toISOString()
+        : message.createdAt,
   };
 
   io.to(`conversation_${conversationId}`).emit("newMessage", payload);
@@ -254,28 +307,70 @@ async function emitRealtimeMessage(io, prisma, message, conversationId) {
       select: {
         loanApplicationId: true,
         applicationLenderId: true,
+        brokerLenderAccessId: true,
       },
     });
 
-    if (conversation?.loanApplicationId) {
+    let brokerOrgId = null;
+    let lenderOrgId = null;
+
+    if (conversation?.brokerLenderAccessId) {
+      const access = await prisma.brokerLenderAccess.findUnique({
+        where: { id: conversation.brokerLenderAccessId },
+        select: { brokerOrgId: true, lenderOrgId: true },
+      });
+      brokerOrgId = access?.brokerOrgId || null;
+      lenderOrgId = access?.lenderOrgId || null;
+    }
+
+    if (!brokerOrgId && conversation?.loanApplicationId) {
       const loan = await prisma.loanApplication.findUnique({
         where: { id: conversation.loanApplicationId },
         select: { brokerOrgId: true },
       });
-
-      if (loan?.brokerOrgId) {
-        io.to(`broker_${loan.brokerOrgId}`).emit("newMessage", payload);
-      }
+      brokerOrgId = loan?.brokerOrgId || null;
     }
 
-    if (conversation?.applicationLenderId) {
+    if (!lenderOrgId && conversation?.applicationLenderId) {
       const appLender = await prisma.applicationLender.findUnique({
         where: { id: conversation.applicationLenderId },
         select: { lenderOrgId: true },
       });
+      lenderOrgId = appLender?.lenderOrgId || null;
+    }
 
-      if (appLender?.lenderOrgId) {
-        io.to(`lender_${appLender.lenderOrgId}`).emit("newMessage", payload);
+    if (brokerOrgId) {
+      io.to(`broker_${brokerOrgId}`).emit("newMessage", payload);
+    }
+    if (lenderOrgId) {
+      io.to(`lender_${lenderOrgId}`).emit("newMessage", payload);
+    }
+
+    // Direct delivery fallback — room membership can be stale after Redis failures.
+    if (brokerOrgId || lenderOrgId) {
+      for (const socket of io.sockets.sockets.values()) {
+        const user = socket.user;
+        if (!user) continue;
+        const orgId = user.organizationId || user.orgId;
+        if (!orgId) continue;
+
+        const isBrokerTarget =
+          brokerOrgId &&
+          orgId === brokerOrgId &&
+          (user.orgType === "BROKER" ||
+            (Array.isArray(user.roles) &&
+              user.roles.some((r) =>
+                ["BROKER_ADMIN", "BROKER_OFFICER", "SUB_BROKER", "BROKER"].includes(
+                  String(r),
+                ),
+              )));
+
+        const isLenderTarget =
+          lenderOrgId && orgId === lenderOrgId && user.orgType === "LENDER";
+
+        if (isBrokerTarget || isLenderTarget) {
+          socket.emit("newMessage", payload);
+        }
       }
     }
   } catch (err) {
@@ -353,7 +448,8 @@ function assertLoanOfficerConversationScope(req, conversation) {
   if (
     categorizedTypes.includes(conversation.type) &&
     conversation.chatCategory &&
-    conversation.chatCategory !== "LOAN_OFFICER"
+    conversation.chatCategory !== "LOAN_OFFICER" &&
+    conversation.chatCategory !== "NETWORK"
   ) {
     return {
       code: 403,
@@ -472,7 +568,9 @@ module.exports = {
   getUserId,
   getOrganizationId,
   findLenderApplicationAccess,
+  findBrokerLenderNetworkAccess,
   ensureLenderParticipant,
+  ensureBrokerParticipant,
   normalizeAuthUser,
   resolveMessageSenderType,
   assertCanAccessConversation,

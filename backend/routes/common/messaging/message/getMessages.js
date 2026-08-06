@@ -5,10 +5,13 @@
 const {
   assertConversationTypeAccess,
   findLenderApplicationAccess,
+  findBrokerLenderNetworkAccess,
   ensureLenderParticipant,
+  ensureBrokerParticipant,
   getOrganizationId,
   isClientUser,
   isLenderUser,
+  isBrokerSideUser,
 } = require("../../../../services/messaging/messagingAccess");
 const { resolvePrincipalBrokerDisplay } = require("../../../../services/messaging/brokerOfficerConversation");
 const { resolveClientDisplayName } = require("../../../../services/messaging/resolveClientDisplayName");
@@ -72,6 +75,7 @@ module.exports = async function getMessages(fastify) {
             type: true,
             loanApplicationId: true,
             applicationLenderId: true,
+            brokerLenderAccessId: true,
           },
         });
 
@@ -114,12 +118,29 @@ module.exports = async function getMessages(fastify) {
         });
 
         let hasFallbackAccess = false;
+        const orgId = getOrganizationId(req.user);
 
-        if (!participant && isLenderUser(req)) {
+        if (!participant && conversation.brokerLenderAccessId && orgId) {
+          const networkAccess = await findBrokerLenderNetworkAccess(
+            prisma,
+            conversation,
+            orgId,
+          );
+          hasFallbackAccess = Boolean(networkAccess);
+          if (hasFallbackAccess) {
+            if (isLenderUser(req)) {
+              await ensureLenderParticipant(prisma, conversationId, userId);
+            } else if (isBrokerSideUser(req)) {
+              await ensureBrokerParticipant(prisma, conversationId, userId);
+            }
+          }
+        }
+
+        if (!participant && !hasFallbackAccess && isLenderUser(req)) {
           const lenderAccess = await findLenderApplicationAccess(
             prisma,
             conversation,
-            getOrganizationId(req.user),
+            orgId,
           );
 
           hasFallbackAccess = Boolean(lenderAccess);
@@ -129,19 +150,17 @@ module.exports = async function getMessages(fastify) {
           }
         }
 
-        const brokerOrgId = getOrganizationId(req.user);
-
         if (
           !participant &&
           !hasFallbackAccess &&
           req.user?.orgType === "BROKER" &&
-          brokerOrgId &&
+          orgId &&
           conversation.loanApplicationId
         ) {
           const brokerAccess = await prisma.loanApplication.findFirst({
             where: {
               id: conversation.loanApplicationId,
-              brokerOrgId,
+              brokerOrgId: orgId,
             },
             select: { id: true },
           });

@@ -109,8 +109,16 @@ function ensureSocket(token: string, options: OrgRoomOptions = {}) {
     if (socket.connected) {
       joinOrgRooms(token);
       syncConversationRooms();
+    } else if (!socket.active) {
+      // Socket exists but is fully dead — recreate.
+      teardownSocket();
+    } else {
+      // Still connecting / reconnecting; keep existing instance.
+      return;
     }
-    return;
+    if (socket && activeToken === token) {
+      return;
+    }
   }
 
   teardownSocket();
