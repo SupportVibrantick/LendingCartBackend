@@ -1,6 +1,8 @@
 const jwt = require("jsonwebtoken");
+const jwtSecret = require("../../utils/auth/jwtSecret");
 const { resolveApplicationStatus } = require("../../utils/applications/resolveApplicationStatus");
 const { isDocumentVisibleToClient } = require("../../utils/documents/mapClientPortalDocuments");
+const { resolvePortalClientIds } = require("../../utils/auth/clientPortalAuth");
 
 const APPLICATION_SELECT = {
   id: true,
@@ -9,6 +11,20 @@ const APPLICATION_SELECT = {
   amountRequested: true,
   loanProductCode: true,
   createdAt: true,
+  brokerOrgId: true,
+  brokerOrg: {
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      brokerWhiteLabelSettings: {
+        select: {
+          brandName: true,
+          logoUrl: true,
+        },
+      },
+    },
+  },
   submissions: {
     where: { status: { not: "SUPERSEDED" } },
     orderBy: { createdAt: "desc" },
@@ -242,9 +258,27 @@ function countUploadedRequirements(requirements = []) {
   }).length;
 }
 
+function resolveBrokerInfo(app) {
+  const org = app.brokerOrg;
+  if (!org) return null;
+
+  const brandName = org.brokerWhiteLabelSettings?.brandName?.trim() || "";
+  const name = brandName || org.name || "";
+
+  if (!name && !org.email) return null;
+
+  return {
+    id: org.id,
+    name: name || "Broker",
+    email: org.email || null,
+    logoUrl: org.brokerWhiteLabelSettings?.logoUrl || null,
+  };
+}
+
 function applicationMatchesSearch(app, search) {
   const latestSubmission = app.submissions?.[0];
   const summary = resolveApplicationSummary(app, latestSubmission);
+  const broker = resolveBrokerInfo(app);
   const applicationNumber = String(app.applicationNumber || "").toLowerCase();
   const status = String(app.status || "").toLowerCase();
   const amount = String(
@@ -261,6 +295,8 @@ function applicationMatchesSearch(app, search) {
   const propertyInfo = String(summary.propertyInfo || "").toLowerCase();
   const collateralSummary = String(summary.collateralSummary || "").toLowerCase();
   const address = String(summary.address || "").toLowerCase();
+  const brokerName = String(broker?.name || "").toLowerCase();
+  const brokerEmail = String(broker?.email || "").toLowerCase();
 
   return (
     applicationNumber.includes(search) ||
@@ -270,7 +306,9 @@ function applicationMatchesSearch(app, search) {
     businessName.includes(search) ||
     propertyInfo.includes(search) ||
     collateralSummary.includes(search) ||
-    address.includes(search)
+    address.includes(search) ||
+    brokerName.includes(search) ||
+    brokerEmail.includes(search)
   );
 }
 
@@ -285,6 +323,7 @@ function formatClientApplication(app) {
     isDocumentVisibleToClient,
   );
   const summary = resolveApplicationSummary(app, latestSubmission);
+  const broker = resolveBrokerInfo(app);
 
   return {
     id: app.id,
@@ -297,6 +336,8 @@ function formatClientApplication(app) {
     propertyInfo: summary.propertyInfo || null,
     collateralSummary: summary.collateralSummary || null,
     address: summary.address || null,
+    broker,
+    brokerOrgId: app.brokerOrgId || broker?.id || null,
     documentProgress: {
       total: visibleRequirements.length,
       uploaded: countUploadedRequirements(visibleRequirements),
@@ -324,6 +365,7 @@ async function getClientApplicationsRoute(fastify) {
             page: { type: "integer", minimum: 1, default: 1 },
             limit: { type: "integer", minimum: 1, maximum: 50, default: 12 },
             status: { type: "string" },
+            brokerOrgId: { type: "string", format: "uuid" },
             search: { type: "string" },
           },
         },
@@ -347,7 +389,7 @@ async function getClientApplicationsRoute(fastify) {
 
         let decoded;
         try {
-          decoded = jwt.verify(token, process.env.JWT_SECRET);
+          decoded = jwt.verify(token, jwtSecret);
         } catch {
           return reply.code(401).send({
             success: false,
@@ -367,25 +409,101 @@ async function getClientApplicationsRoute(fastify) {
         const limit = Math.min(parseInt(req.query.limit, 10) || 12, 50);
         const skip = (page - 1) * limit;
         const search = String(req.query.search || "").trim().toLowerCase();
+        const statusFilter = String(req.query.status || "").trim();
+        const brokerOrgIdFilter = String(req.query.brokerOrgId || "").trim();
+
+        // Same portal email can belong to Client rows under different brokers.
+        const clientIds = await resolvePortalClientIds(prisma, {
+          portalUserId: decoded.id,
+          clientId,
+          email: decoded.email || decoded.clientEmail,
+        });
+
+        if (clientIds.length === 0) {
+          return reply.send({
+            success: true,
+            data: [],
+            meta: {
+              page,
+              limit,
+              total: 0,
+              totalPages: 1,
+              filters: { brokers: [], statuses: [] },
+            },
+          });
+        }
+
+        const clientScope = { clientId: { in: clientIds } };
 
         const baseWhere = {
-          clientId,
-          ...(req.query.status && { status: req.query.status }),
+          ...clientScope,
+          ...(brokerOrgIdFilter ? { brokerOrgId: brokerOrgIdFilter } : {}),
+        };
+
+        // Distinct brokers/statuses for filter UI (unfiltered by search/status/broker).
+        const filterSourceApps = await prisma.loanApplication.findMany({
+          where: clientScope,
+          select: {
+            status: true,
+            brokerOrgId: true,
+            brokerOrg: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                brokerWhiteLabelSettings: {
+                  select: { brandName: true, logoUrl: true },
+                },
+              },
+            },
+            applicationLenders: { select: { status: true } },
+          },
+          orderBy: { createdAt: "desc" },
+        });
+
+        const brokerMap = new Map();
+        const statusSet = new Set();
+        for (const app of filterSourceApps) {
+          const resolvedStatus = resolveApplicationStatus(app);
+          if (resolvedStatus) statusSet.add(resolvedStatus);
+
+          const broker = resolveBrokerInfo(app);
+          if (broker?.id && !brokerMap.has(broker.id)) {
+            brokerMap.set(broker.id, broker);
+          }
+        }
+
+        const filterOptions = {
+          brokers: Array.from(brokerMap.values()).sort((a, b) =>
+            a.name.localeCompare(b.name),
+          ),
+          statuses: Array.from(statusSet).sort(),
         };
 
         let applications;
         let total;
+        const needsInMemoryFilter = Boolean(search || statusFilter);
 
-        if (search) {
+        if (needsInMemoryFilter) {
           const allApplications = await prisma.loanApplication.findMany({
             where: baseWhere,
             orderBy: { createdAt: "desc" },
             select: APPLICATION_SELECT,
           });
 
-          const filtered = allApplications.filter((app) =>
-            applicationMatchesSearch(app, search),
-          );
+          let filtered = allApplications;
+
+          if (statusFilter) {
+            filtered = filtered.filter(
+              (app) => resolveApplicationStatus(app) === statusFilter,
+            );
+          }
+
+          if (search) {
+            filtered = filtered.filter((app) =>
+              applicationMatchesSearch(app, search),
+            );
+          }
 
           total = filtered.length;
           applications = filtered.slice(skip, skip + limit);
@@ -412,6 +530,7 @@ async function getClientApplicationsRoute(fastify) {
             limit,
             total,
             totalPages,
+            filters: filterOptions,
           },
         });
       } catch (error) {

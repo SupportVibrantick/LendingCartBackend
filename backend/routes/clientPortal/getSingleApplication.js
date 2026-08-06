@@ -11,6 +11,7 @@ const {
 } = require("../../utils/applications/clientPortalSubmission");
 const {
   resolveClientPortalAccess,
+  resolvePortalClientIds,
 } = require("../../utils/auth/clientPortalAuth");
 
 function findSubmissionFieldValue(fields, keys) {
@@ -41,10 +42,16 @@ async function getClientApplicationDetailsRoute(fastify) {
       const clientId = access.clientId;
       const applicationId = access.applicationId;
 
+      const clientIds = await resolvePortalClientIds(prisma, {
+        portalUserId: access.userId,
+        clientId,
+        email: access.email,
+      });
+
       const application = await prisma.loanApplication.findFirst({
         where: {
           id: applicationId,
-          clientId,
+          clientId: { in: clientIds.length > 0 ? clientIds : [clientId] },
         },
         include: {
           submissions: {
@@ -76,7 +83,16 @@ async function getClientApplicationDetailsRoute(fastify) {
               contacts: true,
             },
           },
-          brokerOrg: true,
+          brokerOrg: {
+            include: {
+              brokerWhiteLabelSettings: {
+                select: {
+                  brandName: true,
+                  logoUrl: true,
+                },
+              },
+            },
+          },
           applicationLenders: true,
         },
       });
@@ -195,6 +211,19 @@ async function getClientApplicationDetailsRoute(fastify) {
           }
         : null;
 
+      const brokerOrg = application.brokerOrg;
+      const broker = brokerOrg
+        ? {
+            id: brokerOrg.id,
+            name:
+              brokerOrg.brokerWhiteLabelSettings?.brandName?.trim() ||
+              brokerOrg.name ||
+              "Broker",
+            email: brokerOrg.email || null,
+            logoUrl: brokerOrg.brokerWhiteLabelSettings?.logoUrl || null,
+          }
+        : null;
+
       return reply.send({
         success: true,
         data: {
@@ -221,6 +250,7 @@ async function getClientApplicationDetailsRoute(fastify) {
           clientSignBlockedReason: signatureState.reason || null,
           alreadySigned: Boolean(signatureState.alreadySigned),
           feeAgreement: feeAgreement || null,
+          broker,
         },
       });
     } catch (error) {
