@@ -10,6 +10,10 @@ const createFeeAgreement = require("../../routes/broker/loanPipeline/feeAgreemen
 const {
   resolveClientSignableSubmission,
 } = require("../../utils/applications/clientPortalSubmission");
+const {
+  resolvePortalClientIds,
+} = require("../../utils/auth/clientPortalAuth");
+const jwtSecret = require("../../utils/auth/jwtSecret");
 
 const submissionInclude = {
   submissions: {
@@ -35,17 +39,22 @@ async function submitClientApplication(fastify) {
           required: ["signature"],
           properties: {
             token: { type: "string" },
-            loanApplicationId: { type: "string" }, //  FIXED
-            signature: { type: "string", minLength: 5 }
-          }
-        }
-      }
+            loanApplicationId: { type: "string" },
+            signature: { type: "string", minLength: 5 },
+          },
+        },
+      },
     },
     async (req, reply) => {
       const prisma = fastify.prisma;
 
       try {
-        const { token, signature, loanApplicationId } = req.body;
+        const { signature, loanApplicationId } = req.body || {};
+        // Frontend magic-link flow sends token as ?token= query; body.token is also accepted.
+        const token =
+          (typeof req.body?.token === "string" && req.body.token) ||
+          (typeof req.query?.token === "string" && req.query.token) ||
+          null;
 
         /* ===============================
            VALIDATION
@@ -54,7 +63,7 @@ async function submitClientApplication(fastify) {
         if (!signature) {
           return reply.code(400).send({
             success: false,
-            message: "Signature is required"
+            message: "Signature is required",
           });
         }
 
@@ -64,7 +73,7 @@ async function submitClientApplication(fastify) {
         ) {
           return reply.code(400).send({
             success: false,
-            message: "Invalid signature format"
+            message: "Invalid signature format",
           });
         }
 
@@ -89,59 +98,84 @@ async function submitClientApplication(fastify) {
           if (!tokenRecord) {
             return reply.code(404).send({
               success: false,
-              message: "Invalid or expired link"
+              message: "Invalid or expired link",
             });
           }
 
           if (tokenRecord.expiresAt < new Date()) {
             return reply.code(400).send({
               success: false,
-              message: "This link has expired"
+              message: "This link has expired",
             });
           }
 
           if (tokenRecord.isUsed) {
             return reply.code(400).send({
               success: false,
-              message: "This link has already been used"
+              message: "This link has already been used",
             });
           }
 
           loan = tokenRecord.loanApplication;
-        }
 
-        /* =========================================
-           JWT FLOW (FIXED)
-        ========================================= */
+          // If body/query also names an application, it must match the token link.
+          if (
+            loanApplicationId &&
+            tokenRecord.loanApplicationId &&
+            loanApplicationId !== tokenRecord.loanApplicationId
+          ) {
+            return reply.code(403).send({
+              success: false,
+              message: "Access denied",
+            });
+          }
+        } else if (req.headers.authorization) {
+          /* =========================================
+             JWT FLOW (multi-broker client ids)
+          ========================================= */
 
-        else if (req.headers.authorization) {
           const authHeader = req.headers.authorization;
           const jwtToken = authHeader.split(" ")[1];
 
           let decoded;
 
           try {
-            decoded = jwt.verify(jwtToken, process.env.JWT_SECRET);
+            decoded = jwt.verify(jwtToken, jwtSecret);
           } catch (err) {
             return reply.code(401).send({
               success: false,
-              message: "Invalid token"
+              message: "Invalid token",
             });
           }
 
-          const { clientId } = decoded;
+          const { clientId, id: portalUserId, email, role } = decoded;
 
-          if (!clientId || !loanApplicationId) {
+          if (!clientId || role !== "CLIENT") {
+            return reply.code(403).send({
+              success: false,
+              message: "Access denied",
+            });
+          }
+
+          if (!loanApplicationId) {
             return reply.code(400).send({
               success: false,
-              message: "Missing loanApplicationId"
+              message: "Missing loanApplicationId",
             });
           }
+
+          const clientIds = await resolvePortalClientIds(prisma, {
+            portalUserId,
+            clientId,
+            email,
+          });
 
           loan = await prisma.loanApplication.findFirst({
             where: {
               id: loanApplicationId,
-              clientId,
+              clientId: {
+                in: clientIds.length > 0 ? clientIds : [clientId],
+              },
             },
             include: submissionInclude,
           });
@@ -149,15 +183,13 @@ async function submitClientApplication(fastify) {
           if (!loan) {
             return reply.code(404).send({
               success: false,
-              message: "Loan not found"
+              message: "Loan not found",
             });
           }
-        }
-
-        else {
+        } else {
           return reply.code(401).send({
             success: false,
-            message: "Unauthorized"
+            message: "Unauthorized",
           });
         }
 
@@ -168,7 +200,7 @@ async function submitClientApplication(fastify) {
         if (!loan) {
           return reply.code(404).send({
             success: false,
-            message: "Loan not found"
+            message: "Loan not found",
           });
         }
 
@@ -199,15 +231,14 @@ async function submitClientApplication(fastify) {
         ========================================= */
 
         await prisma.$transaction(async (tx) => {
-
           /* TOKEN SAFETY */
           if (tokenRecord) {
             const updated = await tx.clientUploadToken.updateMany({
               where: {
                 token,
-                isUsed: false
+                isUsed: false,
               },
-              data: { isUsed: true }
+              data: { isUsed: true },
             });
 
             if (updated.count === 0) {
@@ -219,8 +250,8 @@ async function submitClientApplication(fastify) {
           await tx.applicationSubmissionField.deleteMany({
             where: {
               submissionId: submission.id,
-              fieldKey: "borrowerSignature"
-            }
+              fieldKey: "borrowerSignature",
+            },
           });
 
           /* SAVE SIGNATURE */
@@ -229,8 +260,8 @@ async function submitClientApplication(fastify) {
               submissionId: submission.id,
               fieldKey: "borrowerSignature",
               value: signature,
-              source: "CLIENT"
-            }
+              source: "CLIENT",
+            },
           });
 
           /* UPDATE LOAN */
@@ -238,16 +269,16 @@ async function submitClientApplication(fastify) {
             where: { id: loan.id },
             data: {
               status: "SUBMITTED",
-              submittedAt: new Date()
-            }
+              submittedAt: new Date(),
+            },
           });
 
           /* UPDATE SUBMISSION */
           await tx.applicationSubmission.update({
             where: { id: submission.id },
             data: {
-              status: "COMPLETED"
-            }
+              status: "COMPLETED",
+            },
           });
         });
 
@@ -257,7 +288,7 @@ async function submitClientApplication(fastify) {
         } catch (err) {
           fastify.log.error(
             { error: err.message },
-            "Fee Agreement creation failed (non-blocking)"
+            "Fee Agreement creation failed (non-blocking)",
           );
         }
 
@@ -276,28 +307,27 @@ async function submitClientApplication(fastify) {
 
         return reply.send({
           success: true,
-          message: "Application submitted successfully"
+          message: "Application submitted successfully",
         });
-
       } catch (error) {
         fastify.log.error({
           message: error.message,
-          stack: error.stack
+          stack: error.stack,
         });
 
         if (error.message === "Token already consumed") {
           return reply.code(400).send({
             success: false,
-            message: "This link has already been used"
+            message: "This link has already been used",
           });
         }
 
         return reply.code(500).send({
           success: false,
-          message: "Failed to submit application"
+          message: "Failed to submit application",
         });
       }
-    }
+    },
   );
 }
 
