@@ -31,9 +31,15 @@ export const FIELD_VALIDATION_RULES: Record<string, FieldValidationRule> = {
   },
   "loanRequest.loanTerm": {
     min: 1,
-    max: 360,
-    required: false,
-    errorMessage: "Loan term must be between 1 and 360 months",
+    // max: 360,
+    required: true,
+    errorMessage: "Loan term must be atleast 1 Month.",
+  },
+  "loanTermIncome.loanTerm": {
+    min: 1,
+    // max: 360,
+    required: true,
+    errorMessage: "Loan term must be atleast 1 Month.",
   },
   "loanRequest.estimatedClosingDate": {
     required: false,
@@ -47,8 +53,8 @@ export const FIELD_VALIDATION_RULES: Record<string, FieldValidationRule> = {
     pattern: "currency",
   },
   "loanRequest.selectedProduct": { required: true, errorMessage: "Loan program is required" },
-  "loanRequest.purpose": { required: true, errorMessage: "Loan purpose is required" },
-  "loanRequest.subPurpose": { required: true, errorMessage: "Sub-purpose is required" },
+  "loanRequest.purpose": { required: false, errorMessage: "Loan purpose is required" },
+  "loanRequest.subPurpose": { required: false, errorMessage: "Sub-purpose is required" },
   "loanRequest.recourse": { required: false },
   "loanRequest.rateType": { required: false },
 
@@ -58,7 +64,7 @@ export const FIELD_VALIDATION_RULES: Record<string, FieldValidationRule> = {
   "loanRequest.brokerPoints": {
     min: 0,
     max: 10,
-    required: false,
+    required: true,
     errorMessage: "Broker points must be between 0% and 10%",
     pattern: "percent",
   },
@@ -74,10 +80,10 @@ export const FIELD_VALIDATION_RULES: Record<string, FieldValidationRule> = {
     errorMessage: "Purchase date must be in the past or today",
   },
   "loanRequest.purchasePrice": {
-    min: 1,
-    max: 100000000,
+    min: 10000,
+    // max: 100000000,
     required: true,
-    errorMessage: "Purchase price must be between $1 and $100,000,000",
+    errorMessage: "Purchase price must be atleast $10k.",
     pattern: "currency",
   },
   "loanRequest.downPayment": {
@@ -140,9 +146,9 @@ export const FIELD_VALIDATION_RULES: Record<string, FieldValidationRule> = {
   // ============================================================
   "entity.legalName": {
     minLength: 2,
-    maxLength: 200,
+    maxLength: 50,
     required: true,
-    errorMessage: "Legal name must be between 2 and 200 characters",
+    errorMessage: "Legal name must be between 2 and 50 characters",
   },
   "entity.entityType": {
     required: true,
@@ -154,7 +160,7 @@ export const FIELD_VALIDATION_RULES: Record<string, FieldValidationRule> = {
     errorMessage: "DBA must be at most 100 characters",
   },
   "entity.formationDate": {
-    required: true,
+    required: false,
     pattern: "pastDate",
     errorMessage: "Formation date must be in the past or today",
   },
@@ -242,14 +248,14 @@ export const FIELD_VALIDATION_RULES: Record<string, FieldValidationRule> = {
   "loanRequest.totalAssets": {
     min: 1,
     max: 1000000000,
-    required: true,
+    required: false,
     errorMessage: "Total assets must be between $1 and $1,000,000,000",
     pattern: "currency",
   },
   "loanRequest.totalLiabilities": {
     min: 0,
     max: 1000000000,
-    required: true,
+    required: false,
     errorMessage: "Total liabilities must be between $0 and $1,000,000,000",
     pattern: "currency",
   },
@@ -451,7 +457,7 @@ export const FIELD_VALIDATION_RULES: Record<string, FieldValidationRule> = {
   },
   "coBorrower.lastName": {
     minLength: 1,
-    maxLength: 100,
+    maxLength: 50,
     required: true,
     errorMessage: "Last name is required",
   },
@@ -540,51 +546,45 @@ export const FIELD_VALIDATION_RULES: Record<string, FieldValidationRule> = {
   // ============================================================
   // STEP 5 — Loan Term & Income / Financials
   // ============================================================
-  "loanTermIncome.loanTerm": {
-    min: 12,
-    max: 360,
-    required: true,
-    errorMessage: "Loan term must be between 12 and 360 months",
-  },
   "loanTermIncome.monthlyRent": {
     min: 0,
     max: 100000000,
-    required: true,
+    required: false,
     errorMessage: "Monthly rent must be between $0 and $100,000,000",
     pattern: "currency",
   },
   "loanTermIncome.grossRevenueActual": {
     min: 0,
     max: 100000000,
-    required: true,
+    required: false,
     errorMessage: "Gross revenue actual must be between $0 and $100,000,000",
     pattern: "currency",
   },
   "loanTermIncome.grossRevenueProforma": {
     min: 0,
     max: 100000000,
-    required: true,
+    required: false,
     errorMessage: "Gross revenue proforma must be between $0 and $100,000,000",
     pattern: "currency",
   },
   "loanTermIncome.noiActual": {
     min: 0,
     max: 100000000,
-    required: true,
+    required: false,
     errorMessage: "NOI actual must be between $0 and $100,000,000",
     pattern: "currency",
   },
   "loanTermIncome.noiProforma": {
     min: 0,
     max: 100000000,
-    required: true,
+    required: false,
     errorMessage: "NOI proforma must be between $0 and $100,000,000",
     pattern: "currency",
   },
   "loanTermIncome.annualTaxes": {
     min: 0,
     max: 100000000,
-    required: true,
+    required: false,
     errorMessage: "Annual taxes must be between $0 and $100,000,000",
     pattern: "currency",
   },
@@ -595,7 +595,7 @@ export const FIELD_VALIDATION_RULES: Record<string, FieldValidationRule> = {
   "loanTermIncome.insurancePremium": {
     min: 0,
     max: 100000000,
-    required: true,
+    required: false,
     errorMessage: "Annual insurance must be between $0 and $100,000,000",
     pattern: "currency",
   },
