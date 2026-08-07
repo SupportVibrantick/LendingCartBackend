@@ -4448,6 +4448,7 @@ focus:border-blue-500 outline-none text-sm ${
                   )}
 
                   {/* ================= SALE DETAILS ================= */}
+                  
                   {/* {(isSbaUsdaCollateralFlow || isAblCollateralFlow) && (
                     <div className="md:col-span-2">
                       <SaleDetailsCard
