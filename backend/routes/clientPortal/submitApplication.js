@@ -83,6 +83,9 @@ async function submitClientApplication(fastify) {
 
         /* =========================================
            TOKEN FLOW
+           Magic-link token is for first access / account
+           setup. After set-password it is marked used —
+           if JWT is present, fall through to JWT flow.
         ========================================= */
 
         if (token) {
@@ -96,44 +99,53 @@ async function submitClientApplication(fastify) {
           });
 
           if (!tokenRecord) {
-            return reply.code(404).send({
-              success: false,
-              message: "Invalid or expired link",
-            });
+            // Invalid token: only hard-fail when JWT is also missing
+            if (!req.headers.authorization) {
+              return reply.code(404).send({
+                success: false,
+                message: "Invalid or expired link",
+              });
+            }
+            tokenRecord = null;
+          } else if (tokenRecord.expiresAt < new Date()) {
+            if (!req.headers.authorization) {
+              return reply.code(400).send({
+                success: false,
+                message: "This link has expired",
+              });
+            }
+            tokenRecord = null;
+          } else if (tokenRecord.isUsed) {
+            // Invite already consumed (e.g. after set-password) — use JWT instead
+            if (!req.headers.authorization) {
+              return reply.code(400).send({
+                success: false,
+                message: "This link has already been used",
+              });
+            }
+            tokenRecord = null;
+          } else {
+            loan = tokenRecord.loanApplication;
+
+            // If body/query also names an application, it must match the token link.
+            if (
+              loanApplicationId &&
+              tokenRecord.loanApplicationId &&
+              loanApplicationId !== tokenRecord.loanApplicationId
+            ) {
+              return reply.code(403).send({
+                success: false,
+                message: "Access denied",
+              });
+            }
           }
+        }
 
-          if (tokenRecord.expiresAt < new Date()) {
-            return reply.code(400).send({
-              success: false,
-              message: "This link has expired",
-            });
-          }
+        /* =========================================
+           JWT FLOW (multi-broker client ids)
+        ========================================= */
 
-          if (tokenRecord.isUsed) {
-            return reply.code(400).send({
-              success: false,
-              message: "This link has already been used",
-            });
-          }
-
-          loan = tokenRecord.loanApplication;
-
-          // If body/query also names an application, it must match the token link.
-          if (
-            loanApplicationId &&
-            tokenRecord.loanApplicationId &&
-            loanApplicationId !== tokenRecord.loanApplicationId
-          ) {
-            return reply.code(403).send({
-              success: false,
-              message: "Access denied",
-            });
-          }
-        } else if (req.headers.authorization) {
-          /* =========================================
-             JWT FLOW (multi-broker client ids)
-          ========================================= */
-
+        if (!loan && req.headers.authorization) {
           const authHeader = req.headers.authorization;
           const jwtToken = authHeader.split(" ")[1];
 
@@ -186,10 +198,19 @@ async function submitClientApplication(fastify) {
               message: "Loan not found",
             });
           }
-        } else {
+        }
+
+        if (!loan && !req.headers.authorization && !token) {
           return reply.code(401).send({
             success: false,
             message: "Unauthorized",
+          });
+        }
+
+        if (!loan && token && !req.headers.authorization) {
+          return reply.code(400).send({
+            success: false,
+            message: "This link has already been used",
           });
         }
 

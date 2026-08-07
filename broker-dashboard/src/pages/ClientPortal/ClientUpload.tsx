@@ -875,8 +875,11 @@ export default function ClientUpload() {
         .toDataURL("image/png");
 
       let submitUrl = `${API_BASE}/client-portal/e-sign/submit`;
-      if (token) {
-        submitUrl += `?token=${token}`;
+      // Magic-link tokens are marked used after set-password. Prefer JWT when logged in.
+      const authConfig = getClientPortalAuthConfig();
+      const hasClientJwt = Boolean(authConfig.headers.Authorization);
+      if (token && !hasClientJwt) {
+        submitUrl += `?token=${encodeURIComponent(token)}`;
       }
 
       await axios.post(
@@ -885,7 +888,7 @@ export default function ClientUpload() {
           loanApplicationId: applicationId,
           signature: capturedSignature,
         },
-        getClientPortalAuthConfig(),
+        authConfig,
       );
 
       setSignature(capturedSignature);
@@ -983,7 +986,8 @@ export default function ClientUpload() {
 
         // Do not set Content-Type manually — browser must add multipart boundary.
         let uploadUrl = `${API_BASE}/client-portal/upload`;
-        if (token) {
+        // Prefer JWT when logged in; invite token is often already consumed.
+        if (token && !authConfig.headers.Authorization) {
           uploadUrl += `?token=${encodeURIComponent(token)}`;
         }
 
