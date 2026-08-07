@@ -17,16 +17,15 @@ export const FIELD_VALIDATION_RULES: Record<string, FieldValidationRule> = {
   // STEP 1 — Loan Request
   // ============================================================
   "loanRequest.amount": {
-    min: 1000,
-    max: 100000000,
+    min: 10000,
     required: true,
-    errorMessage: "Loan amount must be between $1,000 and $100,000,000",
+    errorMessage: "Loan amount must be atleast $10k.",
     pattern: "currency",
   },
   "loanRequest.interestRate": {
     min: 0,
     max: 100,
-    required: false,
+    required: true,
     errorMessage: "Interest rate must be between 0% and 100%",
     pattern: "percent",
   },
@@ -84,15 +83,15 @@ export const FIELD_VALIDATION_RULES: Record<string, FieldValidationRule> = {
   "loanRequest.downPayment": {
     min: 0,
     max: 100000000,
-    required: true,
-    errorMessage: "Down payment must be between $0 and $100,000,000",
+    required: false,
+    errorMessage: "Down payment must be between $0 and $1B",
     pattern: "currency",
   },
   "loanRequest.rehabCost": {
     min: 0,
     max: 100000000,
     required: false,
-    errorMessage: "Rehab cost must be between $0 and $100,000,000",
+    errorMessage: "Rehab cost must be between $0 and $1B",
     pattern: "currency",
   },
   "loanRequest.afterRepairValue": {
