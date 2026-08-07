@@ -717,7 +717,7 @@ export default function SignDocumentsPanel({
     const value = (mime || url || "").toLowerCase();
     return (
       value.startsWith("image/") ||
-      /\.(png|jpe?g|webp|gif)(\?|$)/i.test(value)
+      /\.(png|jpe?g|jfif|pjpeg|pjp|webp|gif)(\?|$)/i.test(value)
     );
   };
 
