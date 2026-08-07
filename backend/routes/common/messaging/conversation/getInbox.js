@@ -199,7 +199,11 @@ module.exports = async function getInbox(fastify) {
         const lenderMap = new Map(appLenders.map((al) => [al.id, al]));
 
         const conversationLoanIds = [
-          ...new Set(conversations.map((c) => c.loanApplicationId)),
+          ...new Set(
+            conversations
+              .map((c) => c.loanApplicationId)
+              .filter((id) => typeof id === "string" && id.length > 0),
+          ),
         ];
 
         const submissions = conversationLoanIds.length

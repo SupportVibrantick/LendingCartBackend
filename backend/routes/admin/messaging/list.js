@@ -52,7 +52,11 @@ async function listConversations(fastify) {
       ]);
 
       const appIds = [
-        ...new Set(conversations.map((item) => item.loanApplicationId)),
+        ...new Set(
+          conversations
+            .map((item) => item.loanApplicationId)
+            .filter((id) => typeof id === "string" && id.length > 0),
+        ),
       ];
 
       const applications = appIds.length
