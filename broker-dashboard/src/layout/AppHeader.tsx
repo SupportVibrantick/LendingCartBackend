@@ -16,7 +16,6 @@ import {
 } from "../lib/brokerSession";
 
 const API_BASE = BROKER_API_BASE;
-const ADMIN_URI = import.meta.env.VITE_ADMIN_URI || "http://localhost:5174";
 
 function getAuthHeaders(): Record<string, string> {
   return getBrokerAuthHeaders(true);
@@ -122,24 +121,22 @@ const AppHeader: React.FC = () => {
   const handleExitView = async () => {
     try {
       const impersonationToken = sessionStorage.getItem("broker_token");
-      const res = await fetch(`${API_BASE}/admin/auth/stop-impersonation`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${impersonationToken}` },
-      });
-
-      const json = await res.json();
-      if (!res.ok || !json.success) {
-        throw new Error("Failed to stop impersonation");
+      if (impersonationToken) {
+        await fetch(`${API_BASE}/admin/auth/stop-impersonation`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${impersonationToken}` },
+        });
       }
-
+    } catch (err) {
+      console.error(err);
+    } finally {
       sessionStorage.removeItem("broker_token");
       sessionStorage.removeItem("broker_user");
       sessionStorage.removeItem("roles");
       sessionStorage.removeItem("permissions");
-      sessionStorage.setItem("admin_token", json.token);
-      window.location.href = `${ADMIN_URI}`;
-    } catch (err) {
-      console.error(err);
+      window.close();
+      // Fallback if the browser blocks closing (tab wasn't script-opened)
+      window.location.replace("about:blank");
     }
   };
 

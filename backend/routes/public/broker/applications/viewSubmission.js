@@ -190,6 +190,8 @@ module.exports = async function viewSubmission(fastify) {
 
         applicationProductId: submission.applicationProductId,
         status: displayStatus,
+        submissionStatus: submission.status,
+        pipelineStatus: displayStatus,
         applicationStatus,
         fundedApplicationLenderId: application.fundedApplicationLenderId,
         fundedAt: application.fundedAt,

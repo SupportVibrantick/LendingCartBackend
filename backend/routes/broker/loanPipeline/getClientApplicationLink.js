@@ -14,7 +14,13 @@ module.exports = async function getClientApplicationLink(fastify) {
       const prisma = fastify.prisma;
 
       try {
-        if (!req.user || req.user.orgType !== "BROKER") {
+        const roles = Array.isArray(req.user?.roles) ? req.user.roles : [];
+        const isBrokerPortal =
+          req.user?.orgType === "BROKER" && Boolean(req.user?.organizationId);
+        const isSubBrokerPortal =
+          roles.includes("SUB_BROKER") && Boolean(req.user?.organizationId);
+
+        if (!isBrokerPortal && !isSubBrokerPortal) {
           return reply.code(403).send({
             success: false,
             message: "Broker access only",

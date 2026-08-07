@@ -1,4 +1,4 @@
-// routes/admin/organizations/brokers.js
+// routes/admin/impersonate/broker.js
 
 const { adminLogs } = require("../../../services/logger/contextLogger");
 
@@ -12,6 +12,14 @@ async function listBrokersRoute(fastify) {
       schema: {
         tags: ["Admin -> Organizations"],
         summary: "List brokers for impersonation view",
+        querystring: {
+          type: "object",
+          properties: {
+            page: { type: "string" },
+            limit: { type: "string" },
+            search: { type: "string" },
+          },
+        },
       },
       preHandler: [fastify.authenticate],
     },
@@ -19,7 +27,6 @@ async function listBrokersRoute(fastify) {
       const prisma = fastify.prisma;
 
       try {
-        // ✅ Check PLATFORM_ADMIN role properly
         const platformAdmin = await prisma.userRole.findFirst({
           where: {
             userId: request.user.userId,
@@ -36,48 +43,99 @@ async function listBrokersRoute(fastify) {
           });
         }
 
-        // ✅ Correct relation name = users
-        const brokers = await prisma.organization.findMany({
-          where: {
-            type: "BROKER",
-            isDeleted: false,
-          },
-          select: {
-            id: true,
-            name: true,
-            users: {
-              where: {
-                status: "ACTIVE",
-                roles: {
-                  some: {
-                    role: {
-                      name: "BROKER_ADMIN",
-                    },
-                  },
-                },
+        const q = request.query || {};
+        const page = Math.max(parseInt(q.page || "1", 10) || 1, 1);
+        const limit = Math.min(
+          Math.max(parseInt(q.limit || "10", 10) || 10, 1),
+          100,
+        );
+        const skip = (page - 1) * limit;
+        const search = String(q.search || "").trim();
+
+        const brokerAdminUserFilter = {
+          status: "ACTIVE",
+          email: { not: "" },
+          roles: {
+            some: {
+              role: {
+                name: "BROKER_ADMIN",
               },
-              select: {
-                email: true,
-              },
-              take: 1,
             },
           },
-          orderBy: {
-            createdAt: "desc",
+        };
+
+        const where = {
+          type: "BROKER",
+          isDeleted: false,
+          // Only brokers that can be impersonated (have an admin with email)
+          users: {
+            some: brokerAdminUserFilter,
           },
-        });
+          ...(search
+            ? {
+                AND: [
+                  {
+                    OR: [
+                      { name: { contains: search, mode: "insensitive" } },
+                      {
+                        users: {
+                          some: {
+                            ...brokerAdminUserFilter,
+                            email: {
+                              contains: search,
+                              mode: "insensitive",
+                            },
+                          },
+                        },
+                      },
+                    ],
+                  },
+                ],
+              }
+            : {}),
+        };
+
+        const [brokers, total] = await prisma.$transaction([
+          prisma.organization.findMany({
+            where,
+            skip,
+            take: limit,
+            select: {
+              id: true,
+              name: true,
+              users: {
+                where: brokerAdminUserFilter,
+                select: {
+                  email: true,
+                },
+                take: 1,
+              },
+            },
+            orderBy: {
+              createdAt: "desc",
+            },
+          }),
+          prisma.organization.count({ where }),
+        ]);
 
         const formatted = brokers.map((org) => ({
           organizationId: org.id,
           name: org.name,
-          profileImage: null, // no org profile image in schema
+          profileImage: null,
           adminEmail: org.users?.[0]?.email || null,
         }));
 
+        const totalPages = Math.max(1, Math.ceil(total / limit) || 1);
+
         return reply.send({
           success: true,
-          count: formatted.length,
           data: formatted,
+          meta: {
+            page,
+            limit,
+            total,
+            totalPages,
+          },
         });
       } catch (error) {
         adminLogs.error("Failed to fetch brokers", error);
@@ -87,7 +145,7 @@ async function listBrokersRoute(fastify) {
           message: error.message,
         });
       }
-    }
+    },
   );
 }
 

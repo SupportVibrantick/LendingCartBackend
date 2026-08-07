@@ -8,12 +8,22 @@ import {
   MessageSquare,
   RefreshCw,
 } from "lucide-react";
+import { loAuthHeaders, LO_API_BASE } from "../../lib/loanOfficerApi";
+import {
+  CO_BROKER_API_BASE,
+  getCoBrokerAuthHeaders,
+} from "../../lib/coBrokerPortal";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 const EMBED_APP_URL = (
   import.meta.env.VITE_EMBED_APP_URL ||
   "https://loan-application-lendingcart.vibrantick.org"
 ).replace(/\/$/, "");
+
+export type ShareClientApplicationPortal =
+  | "broker"
+  | "loanOfficer"
+  | "coBroker";
 
 type ShareLinkData = {
   brokerOrgId: string;
@@ -22,7 +32,11 @@ type ShareLinkData = {
   shareUrl: string;
 };
 
-function getAuthHeaders(): Record<string, string> {
+type ShareClientApplicationLinkProps = {
+  portal?: ShareClientApplicationPortal;
+};
+
+function getBrokerAuthHeaders(): Record<string, string> {
   const token = sessionStorage.getItem("broker_token");
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
@@ -31,7 +45,25 @@ function buildFallbackShareUrl(brokerOrgId: string) {
   return `${EMBED_APP_URL}/get-loan?broker=${encodeURIComponent(brokerOrgId)}`;
 }
 
-export default function ShareClientApplicationLink() {
+function resolveShareEndpoint(portal: ShareClientApplicationPortal) {
+  if (portal === "loanOfficer") {
+    return `${LO_API_BASE}/loanofficer/loan-pipeline/client-application-link`;
+  }
+  if (portal === "coBroker") {
+    return `${CO_BROKER_API_BASE.replace(/\/$/, "")}/subbroker/loan-pipeline/client-application-link`;
+  }
+  return `${API_BASE.replace(/\/$/, "")}/broker/loan-pipeline/client-application-link`;
+}
+
+function resolveAuthHeaders(portal: ShareClientApplicationPortal): HeadersInit {
+  if (portal === "loanOfficer") return loAuthHeaders(false);
+  if (portal === "coBroker") return getCoBrokerAuthHeaders("");
+  return getBrokerAuthHeaders();
+}
+
+export default function ShareClientApplicationLink({
+  portal = "broker",
+}: ShareClientApplicationLinkProps) {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<ShareLinkData | null>(null);
 
@@ -39,10 +71,9 @@ export default function ShareClientApplicationLink() {
     try {
       setLoading(true);
 
-      const res = await fetch(
-        `${API_BASE}/broker/loan-pipeline/client-application-link`,
-        { headers: getAuthHeaders() },
-      );
+      const res = await fetch(resolveShareEndpoint(portal), {
+        headers: resolveAuthHeaders(portal),
+      });
 
       const json = await res.json();
 
@@ -73,7 +104,7 @@ export default function ShareClientApplicationLink() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [portal]);
 
   useEffect(() => {
     fetchShareLink();

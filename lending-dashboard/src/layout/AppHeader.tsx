@@ -10,7 +10,6 @@ import { LENDER_API_BASE, getLenderAuthHeaders } from "../lib/lenderApi";
 import { handleLenderUnauthorized } from "../lib/lenderSession";
 
 const API_BASE = LENDER_API_BASE;
-const ADMIN_URI = import.meta.env.VITE_ADMIN_URI || "http://localhost:5173";
 
 function getAuthHeaders(): Record<string, string> {
   return getLenderAuthHeaders(true);
@@ -129,31 +128,24 @@ const AppHeader: React.FC = () => {
   const handleExitView = async () => {
     try {
       const impersonationToken = sessionStorage.getItem("lender_token");
-
-      const res = await fetch(`${API_BASE}/admin/auth/stop-impersonation`, {
-        method: "POST",
-        headers: {
-          // "Content-Type": "application/json",
-          Authorization: `Bearer ${impersonationToken}`,
-        },
-      });
-
-      const json = await res.json();
-
-      if (!res.ok || !json.success) {
-        throw new Error("Failed to stop impersonation");
+      if (impersonationToken) {
+        await fetch(`${API_BASE}/admin/auth/stop-impersonation`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${impersonationToken}`,
+          },
+        });
       }
-
+    } catch (err) {
+      console.error(err);
+    } finally {
       sessionStorage.removeItem("lender_token");
       sessionStorage.removeItem("lender_user");
       sessionStorage.removeItem("roles");
       sessionStorage.removeItem("permissions");
-      sessionStorage.setItem("admin_token", json.token);
-
-      // Redirect to admin dashboard
-      window.location.href = `${ADMIN_URI}`;
-    } catch (err) {
-      console.error(err);
+      window.close();
+      // Fallback if the browser blocks closing (tab wasn't script-opened)
+      window.location.replace("about:blank");
     }
   };
 

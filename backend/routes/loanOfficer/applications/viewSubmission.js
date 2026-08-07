@@ -176,7 +176,8 @@ module.exports = async function viewSubmission(fastify) {
         creditScore,
 
         applicationProductId: submission.applicationProductId,
-        status: submission.status,
+        status: pipelineStatus,
+        submissionStatus: submission.status,
         pipelineStatus,
         applicationStatus,
         canEdit: editCheck.allowed,

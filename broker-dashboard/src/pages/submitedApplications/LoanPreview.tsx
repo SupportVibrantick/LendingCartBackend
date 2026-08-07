@@ -181,6 +181,29 @@ const formatSubmissionStatus = (status?: string) => {
     .replace(/\b\w/g, (c: string) => c.toUpperCase());
 };
 
+/** Prefer loan-application / pipeline status over submission version status (e.g. UPDATED). */
+const getDisplayApplicationStatus = (detail?: {
+  pipelineStatus?: string | null;
+  applicationStatus?: string | null;
+  status?: string | null;
+} | null) => {
+  const submissionVersionStatuses = new Set(["UPDATED", "SUPERSEDED"]);
+  const pipeline = detail?.pipelineStatus?.trim();
+  if (pipeline) return pipeline;
+
+  const application = detail?.applicationStatus?.trim();
+  if (application && !submissionVersionStatuses.has(application)) {
+    return application;
+  }
+
+  const submission = detail?.status?.trim();
+  if (submission && !submissionVersionStatuses.has(submission)) {
+    return submission;
+  }
+
+  return application || submission || undefined;
+};
+
 const getStatusChip = (status?: string) => {
   switch (status) {
     case "DRAFT":
@@ -477,7 +500,8 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
     }
   }, []);
 
-  const isFundedDeal = submissionDetail?.status === "FUNDED";
+  const isFundedDeal =
+    getDisplayApplicationStatus(submissionDetail) === "FUNDED";
 
   const [page, setPage] = useState(1);
   const [limit] = useState(10);
@@ -4092,10 +4116,12 @@ dark:bg-red-900/20 dark:text-red-400"
             <div className="flex gap-3">
               <span
                 className={`rounded-full px-4 py-1.5 text-xs font-semibold tracking-wide shadow-sm ${getStatusChip(
-                  submissionDetail?.status,
+                  getDisplayApplicationStatus(submissionDetail),
                 )}`}
               >
-                {formatSubmissionStatus(submissionDetail?.status)}
+                {formatSubmissionStatus(
+                  getDisplayApplicationStatus(submissionDetail),
+                )}
               </span>
             </div>
           </div>
