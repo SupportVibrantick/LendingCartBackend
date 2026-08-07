@@ -96,6 +96,7 @@ import {
   showValuationEquityBlock,
 } from "./productRules";
 import { validateFieldValue } from "./validation";
+import { getRuleForKey, validateValue } from "./liveValidation";
 import { withBorrowerNameFields } from "./submission";
 
 export interface Borrower extends ResidentialBorrowerFields {
@@ -202,11 +203,8 @@ export type LoanCategory =
   | "ABL"
   | "";
 
-
 /* ================= HELPERS ================= */
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
-
-
 
 const BRIDGE_LOAN_TYPES = new Set(["BRIDGE_LOAN", "BRIDGE_LOAN_1_TO_4_UNITS"]);
 const BRIDGE_PURCHASE_PURPOSE = "Purchase/Acquisition";
@@ -469,13 +467,10 @@ const getLoanRequestPurchaseDateLabel = (product: string, purpose: string) =>
     ? "Original Purchase Date"
     : "Purchase Date";
 
-
 const RENTAL_PORTFOLIO_LOAN_TYPES = new Set(["RENTAL_PORTFOLIO"]);
-
 
 const isResidential14Category = (category: LoanCategory) =>
   category === "RESIDENTIAL_1_4";
-
 
 const isCreResidentialLikeCategoryProduct = (
   category: LoanCategory,
@@ -816,7 +811,6 @@ const LoanApplication = ({
 
   const reviewStepIndex = useStandardSevenStepFlow ? baseSteps.length - 1 : -1;
 
-
   const handleAmountChange = (
     section: "loanRequest" | "loanTermIncome" | "coBorrower",
     field: string,
@@ -982,11 +976,27 @@ const LoanApplication = ({
       },
     }));
 
-    setErrors((prev) => {
-      const updated = { ...prev };
-      delete updated[`loanRequest.${field}`];
-      return updated;
-    });
+    // Live validation: lookup rule for `loanRequest.${field}` and validate
+    const fieldKey = `loanRequest.${field}`;
+    const rule = getRuleForKey(fieldKey);
+    if (rule) {
+      const result = validateValue(value, rule);
+      setErrors((prev) => {
+        const updated = { ...prev };
+        if (result.hasError) {
+          updated[fieldKey] = result.error;
+        } else {
+          delete updated[fieldKey];
+        }
+        return updated;
+      });
+    } else {
+      setErrors((prev) => {
+        const updated = { ...prev };
+        delete updated[`loanRequest.${field}`];
+        return updated;
+      });
+    }
   };
 
   const updateLoanTermIncome = (field: string, value: string) => {
@@ -998,11 +1008,26 @@ const LoanApplication = ({
       },
     }));
 
-    setErrors((prev) => {
-      const updated = { ...prev };
-      delete updated[`loanTermIncome.${field}`];
-      return updated;
-    });
+    const fieldKey = `loanTermIncome.${field}`;
+    const rule = getRuleForKey(fieldKey);
+    if (rule) {
+      const result = validateValue(value, rule);
+      setErrors((prev) => {
+        const updated = { ...prev };
+        if (result.hasError) {
+          updated[fieldKey] = result.error;
+        } else {
+          delete updated[fieldKey];
+        }
+        return updated;
+      });
+    } else {
+      setErrors((prev) => {
+        const updated = { ...prev };
+        delete updated[fieldKey];
+        return updated;
+      });
+    }
   };
 
   const updateFinancials = (financials: ResidentialFinancials) => {
@@ -1363,11 +1388,26 @@ const LoanApplication = ({
       },
     }));
 
-    setErrors((prev) => {
-      const updated = { ...prev };
-      delete updated[`entity.${field}`];
-      return updated;
-    });
+    const fieldKey = `entity.${field}`;
+    const rule = getRuleForKey(fieldKey);
+    if (rule) {
+      const result = validateValue(value, rule);
+      setErrors((prev) => {
+        const updated = { ...prev };
+        if (result.hasError) {
+          updated[fieldKey] = result.error;
+        } else {
+          delete updated[fieldKey];
+        }
+        return updated;
+      });
+    } else {
+      setErrors((prev) => {
+        const updated = { ...prev };
+        delete updated[fieldKey];
+        return updated;
+      });
+    }
   };
 
   const handleSubmitApplication = async () => {
@@ -2317,12 +2357,27 @@ const LoanApplication = ({
       },
     }));
 
-    // Clear error instantly
-    setErrors((prev) => {
-      const updated = { ...prev };
-      delete updated[`borrower.${field}`];
-      return updated;
-    });
+    // Live validation
+    const fieldKey = `borrower.${field}`;
+    const rule = getRuleForKey(fieldKey);
+    if (rule) {
+      const result = validateValue(value, rule);
+      setErrors((prev) => {
+        const updated = { ...prev };
+        if (result.hasError) {
+          updated[fieldKey] = result.error;
+        } else {
+          delete updated[fieldKey];
+        }
+        return updated;
+      });
+    } else {
+      setErrors((prev) => {
+        const updated = { ...prev };
+        delete updated[fieldKey];
+        return updated;
+      });
+    }
   };
 
   const updateCoBorrower = (index: number, field: string, value: string) => {
@@ -2335,12 +2390,27 @@ const LoanApplication = ({
       return { ...prev, coBorrowers: updated };
     });
 
-    // Clear error
-    setErrors((prev) => {
-      const updated = { ...prev };
-      delete updated[`coBorrowers.${index}.${field}`];
-      return updated;
-    });
+    // Live validation - resolve indexed key to rule (e.g. "coBorrowers.0.name" → "coBorrower.name")
+    const indexedKey = `coBorrowers.${index}.${field}`;
+    const rule = getRuleForKey(indexedKey);
+    if (rule) {
+      const result = validateValue(value, rule);
+      setErrors((prev) => {
+        const updated = { ...prev };
+        if (result.hasError) {
+          updated[indexedKey] = result.error;
+        } else {
+          delete updated[indexedKey];
+        }
+        return updated;
+      });
+    } else {
+      setErrors((prev) => {
+        const updated = { ...prev };
+        delete updated[indexedKey];
+        return updated;
+      });
+    }
   };
 
   const updateBorrowerNested = <T extends Record<string, unknown>>(
@@ -2499,6 +2569,27 @@ const LoanApplication = ({
       };
       return { ...prev, coBorrowers: updated };
     });
+
+    // Live validation - field key uses property.${field} for rules lookup
+    const fieldKey = `property.${String(field)}`;
+    const rule = getRuleForKey(fieldKey);
+    if (rule) {
+      const result = validateValue(value, rule);
+      // For properties inside co-borrowers, namespace the error
+      const errorKey =
+        scope === "borrower"
+          ? `borrower.realEstateOwned.${propertyId}.${String(field)}`
+          : `coBorrowers.${coIndex}.realEstateOwned.${propertyId}.${String(field)}`;
+      setErrors((prev) => {
+        const updated = { ...prev };
+        if (result.hasError) {
+          updated[errorKey] = result.error;
+        } else {
+          delete updated[errorKey];
+        }
+        return updated;
+      });
+    }
   };
 
   const updateBorrowerPropertyAmount = (
@@ -2717,13 +2808,7 @@ rounded-2xl p-6 shadow-sm
         </div>
 
         {/* Body */}
-        <div
-          className={
-            embedded
-              ? "w-full"
-              : "max-w-7xl mx-auto px-8 w-full"
-          }
-        >
+        <div className={embedded ? "w-full" : "max-w-7xl mx-auto px-8 w-full"}>
           {/* ================= STEP 0 ================= */}
           {currentStep === 0 && (
             <div className="mt-6 relative z-10 border border-slate-200 dark:border-slate-700 rounded-2xl p-6 bg-white dark:bg-slate-800">
@@ -2785,7 +2870,22 @@ rounded-2xl p-6 shadow-sm
                     value={selectedProduct}
                     disabled={mode === "update" || !selectedCategory}
                     onChange={(e) => {
-                      setSelectedProduct(e.target.value);
+                      const val = e.target.value;
+                      setSelectedProduct(val);
+                      // Live validate selectedProduct
+                      const rule = getRuleForKey("loanRequest.selectedProduct");
+                      if (rule) {
+                        const result = validateValue(val, rule);
+                        setErrors((prev) => {
+                          const updated = { ...prev };
+                          if (result.hasError) {
+                            updated["selectedProduct"] = result.error;
+                          } else {
+                            delete updated["selectedProduct"];
+                          }
+                          return updated;
+                        });
+                      }
                       updateLoanRequest("purpose", "");
                       updateLoanRequest("subPurpose", "");
                       updateLoanRequest("collateralType", "");
@@ -3023,6 +3123,8 @@ focus:border-blue-500 outline-none text-sm ${
                           $
                         </span>
                         <input
+                          min={1000}
+                          max={1000000000}
                           type="text"
                           inputMode="numeric"
                           value={formData.loanRequest.amount}
@@ -3050,6 +3152,7 @@ focus:border-blue-500 outline-none text-sm ${
                         Estimated Closing Date
                       </label>
                       <LoanDateField
+                        disablePastDates
                         value={formData.loanRequest.estimatedClosingDate}
                         onChange={(val) =>
                           updateLoanRequest("estimatedClosingDate", val)
@@ -4046,25 +4149,6 @@ focus:border-blue-500 outline-none text-sm ${
                     )}
                   </div>
 
-                  {/* ================= SALE DETAILS ================= */}
-                  {/* <div className="md:col-span-2">
-                    <SaleDetailsCard
-                      privateSale={formData.loanRequest.privateSale}
-                      vendorName={formData.loanRequest.vendorName}
-                      vendorPhone={formData.loanRequest.vendorPhone}
-                      onPrivateSaleChange={(v) =>
-                        updateLoanRequest("privateSale", v)
-                      }
-                      onVendorNameChange={(v) =>
-                        updateLoanRequest("vendorName", v)
-                      }
-                      onVendorPhoneChange={(v) =>
-                        updateLoanRequest("vendorPhone", v)
-                      }
-                      formatUSPhone={formatUSPhone}
-                    />
-                  </div> */}
-
                   <div>
                     {errors["loanRequest.purchasePrice"] && (
                       <p className="mt-1 text-xs text-red-500">
@@ -4364,7 +4448,7 @@ focus:border-blue-500 outline-none text-sm ${
                   )}
 
                   {/* ================= SALE DETAILS ================= */}
-                  {(isSbaUsdaCollateralFlow || isAblCollateralFlow) && (
+                  {/* {(isSbaUsdaCollateralFlow || isAblCollateralFlow) && (
                     <div className="md:col-span-2">
                       <SaleDetailsCard
                         privateSale={formData.loanRequest.privateSale}
@@ -4382,7 +4466,7 @@ focus:border-blue-500 outline-none text-sm ${
                         formatUSPhone={formatUSPhone}
                       />
                     </div>
-                  )}
+                  )} */}
                 </div>
               ) : (
                 <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-5">
