@@ -981,6 +981,8 @@ const LoanApplication = ({
     const rule = getRuleForKey(fieldKey);
     if (rule) {
       const result = validateValue(value, rule);
+      console.log(result);
+
       setErrors((prev) => {
         const updated = { ...prev };
         if (result.hasError) {
@@ -1012,6 +1014,8 @@ const LoanApplication = ({
     const rule = getRuleForKey(fieldKey);
     if (rule) {
       const result = validateValue(value, rule);
+      console.log(result);
+
       setErrors((prev) => {
         const updated = { ...prev };
         if (result.hasError) {
@@ -3123,8 +3127,6 @@ focus:border-blue-500 outline-none text-sm ${
                           $
                         </span>
                         <input
-                          min={1000}
-                          max={1000000000}
                           type="text"
                           inputMode="numeric"
                           value={formData.loanRequest.amount}
@@ -3172,8 +3174,17 @@ focus:border-blue-500 outline-none text-sm ${
                           updateLoanRequest("interestRate", e.target.value)
                         }
                         placeholder="e.g. 7.5"
-                        className="w-full px-4 py-1 rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 dark:text-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-sm"
+                        className={`w-full px-4 py-1 rounded-md border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
+                          errors["loanRequest.brokerPoints"]
+                            ? "border-red-500 bg-red-50"
+                            : "border-slate-300"
+                        } focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-sm`}
                       />
+                      {errors["loanRequest.interestRate"] && (
+                        <p className="text-xs text-red-500 mt-1">
+                          {errors["loanRequest.interestRate"]}
+                        </p>
+                      )}
                     </div>
                     {/* Recourse */}
                     <div>
@@ -3207,8 +3218,17 @@ focus:border-blue-500 outline-none text-sm ${
                           updateLoanTermIncome("loanTerm", e.target.value)
                         }
                         placeholder="e.g. 12"
-                        className="w-full px-4 py-1 rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 dark:text-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-sm"
+                        className={`w-full px-4 py-1 rounded-md border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
+                          errors["loanTermIncome.loanTerm"]
+                            ? "border-red-500 bg-red-50"
+                            : "border-slate-300"
+                        } focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-sm`}
                       />
+                      {errors["loanTermIncome.loanTerm"] && (
+                        <p className="text-xs text-red-500 mt-1">
+                          {errors["loanTermIncome.loanTerm"]}
+                        </p>
+                      )}
                     </div>
                     {/* Rate Type */}
                     <div>
@@ -3231,7 +3251,8 @@ focus:border-blue-500 outline-none text-sm ${
                     {/* Broker Points */}
                     <div>
                       <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">
-                        Broker Points (%)
+                        Broker Points (%){" "}
+                        <span className="text-red-500">*</span>
                       </label>
                       <input
                         type="number"
@@ -3241,8 +3262,17 @@ focus:border-blue-500 outline-none text-sm ${
                           updateLoanRequest("brokerPoints", e.target.value)
                         }
                         placeholder="e.g. 1.0"
-                        className="w-full px-4 py-1 rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 dark:text-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-sm"
+                        className={`w-full px-4 py-1 rounded-md border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
+                          errors["loanRequest.brokerPoints"]
+                            ? "border-red-500 bg-red-50"
+                            : "border-slate-300"
+                        } focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-sm`}
                       />
+                      {errors["loanRequest.brokerPoints"] && (
+                        <p className="text-xs text-red-500 mt-1">
+                          {errors["loanRequest.brokerPoints"]}
+                        </p>
+                      )}
                     </div>
                     {/* Amortization / purchase date (replaces amortization slot) */}
                     {showLoanRequestPurchaseDateReplacesAmortization ? (
@@ -4448,7 +4478,7 @@ focus:border-blue-500 outline-none text-sm ${
                   )}
 
                   {/* ================= SALE DETAILS ================= */}
-                  
+
                   {/* {(isSbaUsdaCollateralFlow || isAblCollateralFlow) && (
                     <div className="md:col-span-2">
                       <SaleDetailsCard
