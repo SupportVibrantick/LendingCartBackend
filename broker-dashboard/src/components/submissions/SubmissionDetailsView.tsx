@@ -432,6 +432,7 @@ export default function SubmissionDetailsView({
 }: SubmissionDetailsViewProps) {
   const isApplicationFunded =
     submissionDetail?.applicationStatus === "FUNDED" ||
+    submissionDetail?.pipelineStatus === "FUNDED" ||
     submissionDetail?.status === "FUNDED";
 
   const { sections, signatureField } = groupSubmissionFieldsForDisplay(fields);
@@ -504,7 +505,18 @@ export default function SubmissionDetailsView({
     [filteredSections],
   );
 
-  const appStatus = statusLabel(submissionDetail?.status);
+  const displayStatus =
+    submissionDetail?.pipelineStatus ||
+    (submissionDetail?.applicationStatus &&
+    !["UPDATED", "SUPERSEDED"].includes(submissionDetail.applicationStatus)
+      ? submissionDetail.applicationStatus
+      : null) ||
+    (submissionDetail?.status &&
+    !["UPDATED", "SUPERSEDED"].includes(submissionDetail.status)
+      ? submissionDetail.status
+      : submissionDetail?.applicationStatus || submissionDetail?.status);
+
+  const appStatus = statusLabel(displayStatus);
   const borrowerName = getBorrowerDisplayNameFromFields(
     fields,
     submissionDetail?.borrowerName,

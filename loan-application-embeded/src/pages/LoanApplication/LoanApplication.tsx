@@ -13,6 +13,8 @@ import ResidentialReviewStep from "../../components/loanApplication/ResidentialR
 import LoanApplicationStepper from "../../components/loanApplication/LoanApplicationStepper";
 import Sba7aEntityFields from "../../components/loanApplication/Sba7aEntityFields";
 import AblEntityFields from "../../components/loanApplication/AblEntityFields";
+import AddCollateralChips from "../../components/loanApplication/AddCollateralChips";
+import SaleDetailsCard from "../../components/loanApplication/SaleDetailsCard";
 import {
   buildResidentialReviewSections,
   type ReviewValidationIssue,
@@ -23,12 +25,19 @@ import {
   isSbaRealEstateCollateralProduct,
   isSbaBase44Product,
   SBA_BUSINESS_INDUSTRY_TYPES,
+  SBA_7A_ACQUISITION_BUSINESS_TYPES,
+  SBA_7A_WORKING_CAPITAL_BUSINESS_TYPES,
+  SBA_7A_EQUIPMENT_BUSINESS_TYPES,
+  SBA_7A_REAL_ESTATE_PROPERTY_TYPES,
+  SBA_504_REAL_ESTATE_PROPERTY_TYPES,
+  USDA_BI_PROPERTY_TYPES,
 } from "../../lib/sba7aAcquisition";
 import {
   isAblBase44Product,
   isEquipmentFinanceProduct,
   showAblBase44PurchasePrice,
   showEquipmentFinanceMarketValue,
+  ABL_PROPERTY_TYPE_OPTIONS_BY_PRODUCT,
 } from "../../lib/ablBase44";
 import { isBase44BusinessCollateralProduct } from "../../lib/base44BusinessCollateral";
 import {
@@ -85,6 +94,7 @@ export interface FormDataType {
   coBorrowers: CoBorrower[];
   loanRequest: {
     purpose: string;
+    subPurpose: string;
     amount: string;
     interestRate: string;
     sellerFinancing: string;
@@ -94,6 +104,7 @@ export interface FormDataType {
     brokerPoints: string;
     amortization: string;
     currentMarketValue: string;
+    currentLoanBalance: string;
     purchasePrice: string;
     purchaseDate: string;
     totalAssets: string;
@@ -104,12 +115,20 @@ export interface FormDataType {
 
     propertyType: string;
     subPropertyType: string;
+    collateralType: string;
+    additionalCollateral: string[];
+    privateSale: boolean;
+    vendorName: string;
+    vendorPhone: string;
     recourse: string;
     businessAddress: string;
     city: string;
     state: string;
     zip: string;
     numberOfUnits: string;
+    downPayment: string;
+    useOfFunds: string;
+    exitStrategy: string;
   };
   loanTermIncome: {
     loanTerm: string;
@@ -371,6 +390,16 @@ const OPTIONAL_LOAN_REQUEST_KEYS = new Set([
   "subPropertyType",
   "rehabCost",
   "constructionCost",
+  "useOfFunds",
+  "exitStrategy",
+  "currentLoanBalance",
+  "subPurpose",
+  "additionalCollateral",
+  "privateSale",
+  "vendorName",
+  "vendorPhone",
+  "collateralType",
+  "downPayment",
 ]);
 
 const BRIDGE_LOAN_TYPES = new Set(["BRIDGE_LOAN", "BRIDGE_LOAN_1_TO_4_UNITS"]);
@@ -859,6 +888,178 @@ const showResidentialPropertyRehabCost = (product: string) =>
 const isFixAndFlipProduct = (product: string) =>
   FIX_AND_FLIP_LOAN_TYPES.has(product);
 
+// Valuation, Costs & Equity
+const showValuationCostEquity = (product: string, purpose: string) => {
+  if (
+    (purpose === "Refinance & Rehab" &&
+      product === "FIX_AND_FLIP_LOAN_1_TO_4_UNITS") ||
+    (purpose === "Refinance" && product === "CONSTRUCTION_LOAN_1_TO_4_UNITS")
+  ) {
+    return true;
+  }
+  return false;
+};
+
+const showEquityDownPaymentBlock = (
+  product: string,
+  purpose: string,
+  selectedCategory: LoanCategory,
+) => {
+  if (
+    (purpose === "Refinance & Rehab" &&
+      product === "FIX_AND_FLIP_LOAN_1_TO_4_UNITS") ||
+    (purpose === "Refinance" && product === "CONSTRUCTION_LOAN_1_TO_4_UNITS")
+  ) {
+    return false;
+  }
+
+  if (
+    purpose === "Purchase/Acquisition" ||
+    (product === "DSCR_LOAN_1_TO_4_UNITS" && purpose === "Purchase") ||
+    purpose === "Purchase" ||
+    purpose === "Franchise Purchase" ||
+    purpose === "Inventory Purchase" ||
+    purpose === "Purchase (Owner-Occupied)" ||
+    purpose === "Purchase & Rehab" ||
+    purpose === "Real Estate Acquisition" ||
+    purpose === "Business Acquisition" ||
+    purpose === "Real Estate Purchase" ||
+    purpose === "Equipment Purchase" ||
+    purpose === "New Equipment Purchase" ||
+    purpose === "Used Equipment Purchase"
+  ) {
+    return true;
+  }
+
+  if (!isFixAndFlipProduct(product)) return false;
+  if (selectedCategory !== "RESIDENTIAL_1_4") return false;
+  if (!purpose) return true;
+  return (
+    isFixAndFlipPurchaseRehab(product, purpose) ||
+    isFixAndFlipRefinanceRehab(product, purpose)
+  );
+};
+
+const isConstructionPurchase = (purpose: string, selectedProduct: string) => {
+  if (
+    selectedProduct === "CONSTRUCTION_LOAN_1_TO_4_UNITS" &&
+    purpose === "Purchase"
+  ) {
+    return true;
+  }
+  return false;
+};
+
+const showValuationEquityBlock = (product: string, purpose: string) => {
+  if (!purpose) return false;
+  if (
+    purpose === "Construction Completion" ||
+    purpose === "Portfolio Blanket" ||
+    purpose === "Recapitalization" ||
+    purpose === "Affordable Housing" ||
+    purpose === "Supplement Loan" ||
+    purpose === "Refinance & Rehab" ||
+    purpose === "Debt Consolidation" ||
+    purpose === "Refinance Existing Equipment" ||
+    purpose === "Refinance (504 Debt)" ||
+    (purpose === "Refinance" && product === "CONSTRUCTION_LOAN_1_TO_4_UNITS")
+  ) {
+    return false;
+  }
+
+  return (
+    RESIDENTIAL_MARKET_VALUE_PURPOSES.has(purpose) ||
+    isBridgeOriginalPurchaseDate(product, purpose) ||
+    isFixAndFlipRefinanceRehab(product, purpose) ||
+    (isCrePermanentProduct(product) && purpose === "Recapitalization") ||
+    (isAgencyMultifamilyProduct(product) &&
+      (purpose === "Affordable Housing" || purpose === "Supplement Loan")) ||
+    (isSbaRealEstateCollateralProduct(product) &&
+      (purpose === "Refinance" ||
+        purpose === "Refinance & Rehab" ||
+        purpose === "Refinance (504 Debt)" ||
+        purpose === "Debt Refinancing")) ||
+    (isEquipmentFinanceProduct(product) &&
+      showEquipmentFinanceMarketValue(purpose))
+  );
+};
+
+const HIDE_EXIT_STRATEGY_PRODUCTS = new Set([
+  "DSCR_LOAN_1_TO_4_UNITS",
+  "RENTAL_PORTFOLIO",
+  "CRE_PERMANENT_LOAN",
+  "AGENCY_LOAN_MULTIFAMILY",
+  "CMBS",
+]);
+
+const HIDE_EXIT_STRATEGY_CATEGORIES = new Set(["SBA_USDA", "ABL"]);
+
+const showExitStrategy = (product: string, category: string) =>
+  !HIDE_EXIT_STRATEGY_PRODUCTS.has(product) &&
+  !HIDE_EXIT_STRATEGY_CATEGORIES.has(category);
+
+const SBA_COLLATERAL_TYPE_OPTIONS_BY_PRODUCT: Record<
+  string,
+  readonly string[]
+> = {
+  SBA_7A_BUSINESS_ACQUISITION: SBA_7A_ACQUISITION_BUSINESS_TYPES,
+  SBA_7A_WORKING_CAPITAL: SBA_7A_WORKING_CAPITAL_BUSINESS_TYPES,
+  SBA_7A_EQUIPMENT_PURCHASE: SBA_7A_EQUIPMENT_BUSINESS_TYPES,
+  SBA_7A_REAL_ESTATE: SBA_7A_REAL_ESTATE_PROPERTY_TYPES,
+  SBA_504_REAL_ESTATE_AND_EQUIPMENT: SBA_504_REAL_ESTATE_PROPERTY_TYPES,
+  USDA_BI: USDA_BI_PROPERTY_TYPES,
+};
+
+const SBA_COLLATERAL_TYPE_LABEL_BY_PRODUCT: Record<
+  string,
+  "Business / Industry Type" | "Property Type"
+> = {
+  SBA_7A_BUSINESS_ACQUISITION: "Business / Industry Type",
+  SBA_7A_WORKING_CAPITAL: "Business / Industry Type",
+  SBA_7A_EQUIPMENT_PURCHASE: "Business / Industry Type",
+  SBA_7A_REAL_ESTATE: "Property Type",
+  SBA_504_REAL_ESTATE_AND_EQUIPMENT: "Property Type",
+  USDA_BI: "Property Type",
+};
+
+const getSbaCollateralTypeOptions = (product: string) =>
+  SBA_COLLATERAL_TYPE_OPTIONS_BY_PRODUCT[product] || null;
+
+const getSbaCollateralTypeLabel = (
+  product: string,
+): "Business / Industry Type" | "Property Type" | null =>
+  SBA_COLLATERAL_TYPE_LABEL_BY_PRODUCT[product] || null;
+
+const isSbaUsdaCollateralProduct = (product: string) =>
+  Boolean(getSbaCollateralTypeOptions(product));
+
+const getAblCollateralTypeOptions = (product: string) =>
+  ABL_PROPERTY_TYPE_OPTIONS_BY_PRODUCT[product] || null;
+
+const isAblCollateralProduct = (product: string) =>
+  Boolean(getAblCollateralTypeOptions(product));
+
+const LOAN_TOP_PURPOSE_MAP: Record<string, string[]> = {
+  CONSTRUCTION_LOAN_1_TO_4_UNITS: ["Purchase", "Refinance"],
+  MEZZANINE_FINANCE: ["Purchase", "Refinance"],
+};
+
+const LOAN_SUB_PURPOSE_MAP: Record<string, string[]> = {
+  CONSTRUCTION_LOAN_1_TO_4_UNITS: [
+    "Ground-up Construction",
+    "Major Renovation (>50% of value)",
+    "Tenant Improvements",
+    "Infrastructure Development",
+  ],
+  MEZZANINE_FINANCE: [
+    "Gap Finance",
+    "Leverage Enhancement",
+    "JV Equity",
+    "Acquisition Bridge",
+    "Construction Project",
+  ],
+};
+
 const isRentalPortfolioProduct = (product: string) =>
   RENTAL_PORTFOLIO_LOAN_TYPES.has(product);
 
@@ -934,6 +1135,12 @@ const LoanApplication = ({
     selectedCategory === "SBA_USDA" && isSbaBase44Product(selectedProduct);
   const isAblBase44Flow =
     selectedCategory === "ABL" && isAblBase44Product(selectedProduct);
+  /** SBA/USDA products that use the per-product collateral-type dropdown. */
+  const isSbaUsdaCollateralFlow =
+    isSba7aBase44Flow && isSbaUsdaCollateralProduct(selectedProduct);
+  /** ABL products that use the per-product collateral-type dropdown. */
+  const isAblCollateralFlow =
+    isAblBase44Flow && isAblCollateralProduct(selectedProduct);
   const isBase44CollateralStep =
     isResidential14Category(selectedCategory) ||
     isCreResidentialLikeFlow ||
@@ -967,7 +1174,9 @@ const LoanApplication = ({
     ? [
         "Loan Request",
         "Entity Info",
-        "Property Info",
+        selectedCategory === "SBA_USDA" || selectedCategory === "ABL"
+          ? "Collateral Info"
+          : "Property Info",
         "Borrower Info",
         "Financials",
         "Documents",
@@ -976,7 +1185,9 @@ const LoanApplication = ({
     : [
         "Loan Request",
         "Entity Info",
-        "Property Info",
+        selectedCategory === "SBA_USDA" || selectedCategory === "ABL"
+          ? "Collateral Info"
+          : "Property Info",
         "Borrower Info",
         "Loan Term & Income",
       ];
@@ -1074,6 +1285,7 @@ const LoanApplication = ({
       coBorrowers: [],
       loanRequest: {
         purpose: "",
+        subPurpose: "",
         amount: "",
         interestRate: "",
         sellerFinancing: "no",
@@ -1083,6 +1295,7 @@ const LoanApplication = ({
         brokerPoints: "",
         amortization: "",
         currentMarketValue: "",
+        currentLoanBalance: "",
         purchasePrice: "",
         purchaseDate: "",
         totalAssets: "",
@@ -1093,12 +1306,20 @@ const LoanApplication = ({
 
         propertyType: "",
         subPropertyType: "",
+        collateralType: "",
+        additionalCollateral: [],
+        privateSale: false,
+        vendorName: "",
+        vendorPhone: "",
         recourse: "",
         businessAddress: "",
         city: "",
         state: "",
         zip: "",
         numberOfUnits: "",
+        downPayment: "",
+        useOfFunds: "",
+        exitStrategy: "",
       },
       loanTermIncome: {
         loanTerm: "",
@@ -1158,12 +1379,15 @@ const LoanApplication = ({
     }));
   };
 
-  const updateLoanRequest = (field: string, value: string) => {
+  const updateLoanRequest = (
+    field: string,
+    value: string | string[] | boolean,
+  ) => {
     setFormData((prev) => ({
       ...prev,
       loanRequest: {
         ...prev.loanRequest,
-        [field]: value,
+        [field]: value as any,
       },
     }));
 
@@ -1361,6 +1585,34 @@ const LoanApplication = ({
         if (!formData.loanRequest.purpose?.trim()) {
           newErrors["loanRequest.purpose"] = "Loan purpose is required";
         }
+        if (
+          (LOAN_SUB_PURPOSE_MAP[selectedProduct] || []).length > 0 &&
+          !formData.loanRequest.subPurpose?.trim()
+        ) {
+          newErrors["loanRequest.subPurpose"] = "Loan sub-purpose is required";
+        }
+        if (
+          showEquityDownPaymentBlock(
+            selectedProduct,
+            purpose,
+            selectedCategory,
+          )
+        ) {
+          const equityTotal =
+            toNumber(formData.loanRequest.amount) +
+            toNumber(formData.loanRequest.downPayment) +
+            (formData.loanRequest.sellerFinancing === "yes"
+              ? toNumber(formData.loanRequest.sellerNoteAmount)
+              : 0);
+          const purchaseTotal = toNumber(formData.loanRequest.purchasePrice);
+          if (
+            purchaseTotal > 0 &&
+            Math.abs(equityTotal - purchaseTotal) >= 0.01
+          ) {
+            newErrors["loanRequest.downPayment"] =
+              "Loan Amount + Down Payment + Seller Financing must equal Purchase Price";
+          }
+        }
 
         const amount = toNumber(formData.loanRequest.amount);
         if (!amount || amount <= 0) {
@@ -1448,7 +1700,15 @@ const LoanApplication = ({
           newErrors["loanRequest.zip"] = "ZIP is required";
         }
       } else if (isBase44CollateralStep) {
-        if (!formData.loanRequest.propertyType?.trim()) {
+          if (isSbaUsdaCollateralFlow || isAblCollateralFlow) {
+          if (!formData.loanRequest.collateralType?.trim()) {
+            const label = isAblCollateralFlow
+              ? "Business / industry type"
+              : getSbaCollateralTypeLabel(selectedProduct) ||
+                "Business / industry type";
+            newErrors["loanRequest.collateralType"] = `${label} is required`;
+          }
+        } else if (!formData.loanRequest.propertyType?.trim()) {
           newErrors["loanRequest.propertyType"] =
             isBase44BusinessCollateralProduct(selectedProduct)
               ? "Business / industry type is required"
@@ -2033,9 +2293,11 @@ const LoanApplication = ({
       /* ================= LOAN REQUEST ================= */
 
       addField("loanProductCode", selectedProduct);
+      addField("loanCategory", selectedCategory);
       addField("amountRequested", toNumber(formData.loanRequest.amount));
       addField("interestRate", formData.loanRequest.interestRate);
       addField("purpose", formData.loanRequest.purpose);
+      addField("subPurpose", formData.loanRequest.subPurpose);
       addField("propertyType", formData.loanRequest.propertyType);
       addField("subPropertyType", formData.loanRequest.subPropertyType);
       addField("recourse", formData.loanRequest.recourse);
@@ -2078,7 +2340,38 @@ const LoanApplication = ({
       );
       addField("inventoryValue", toNumber(formData.entity.inventoryValue));
       addField("equipmentValue", toNumber(formData.entity.equipmentValue));
-      addField("businessIndustry", formData.loanRequest.propertyType);
+      addField(
+        "businessIndustry",
+        isSbaUsdaCollateralFlow || isAblCollateralFlow
+          ? formData.loanRequest.collateralType
+          : formData.loanRequest.propertyType,
+      );
+
+      if (
+        (isSbaUsdaCollateralFlow || isAblCollateralFlow) &&
+        formData.loanRequest.additionalCollateral.length > 0
+      ) {
+        addField("additionalCollateral", [
+          ...formData.loanRequest.additionalCollateral,
+        ]);
+      }
+
+      if (isSbaUsdaCollateralFlow || isAblCollateralFlow) {
+        addField(
+          "privateSale",
+          formData.loanRequest.privateSale ? "yes" : "no",
+        );
+        addField("vendorName", formData.loanRequest.vendorName);
+        addField("vendorPhone", formData.loanRequest.vendorPhone);
+      }
+
+      addField("downPayment", toNumber(formData.loanRequest.downPayment));
+      addField("useOfFunds", formData.loanRequest.useOfFunds);
+      addField("exitStrategy", formData.loanRequest.exitStrategy);
+      addField(
+        "currentLoanBalance",
+        toNumber(formData.loanRequest.currentLoanBalance),
+      );
 
       addField(
         "currentMarketValue",
@@ -2149,11 +2442,8 @@ const LoanApplication = ({
         const coLtc =
           coPurchasePrice > 0 ? (coLoanAmount / coPurchasePrice) * 100 : 0;
 
-        const coAnnualDebt = calculateAnnualDebtService(
-          coLoanAmount,
-          coInterest,
-          termMonths,
-        );
+        const coAnnualDebt =
+          calculateMonthlyPayment(coLoanAmount, coInterest, termMonths) * 12;
 
         const coDscr = coAnnualDebt > 0 && coNoi > 0 ? coNoi / coAnnualDebt : 0;
 
@@ -2450,25 +2740,36 @@ const LoanApplication = ({
 
   const netWorth = borrowerAssets - borrowerLiabilities;
 
-  const calculateAnnualDebtService = (
-    loanAmount: number,
-    interestRate: number,
-    termMonths: number,
+  // Equity / Down Payment derived values (live validation)
+  const downPaymentTotal = toNumber(formData.loanRequest.downPayment);
+  const hasSellerFinancing = formData.loanRequest.sellerFinancing === "yes";
+  const sellerFinancingTotal = hasSellerFinancing
+    ? toNumber(formData.loanRequest.sellerNoteAmount)
+    : 0;
+  const loanAmountTotal = toNumber(formData.loanRequest.amount);
+  const purchasePriceTotal = toNumber(formData.loanRequest.purchasePrice);
+  const hasPurchasePrice = purchasePriceTotal > 0;
+  const equityGrandTotal =
+    loanAmountTotal + downPaymentTotal + sellerFinancingTotal;
+  const equityMismatchError =
+    hasPurchasePrice &&
+    Math.abs(equityGrandTotal - purchasePriceTotal) >= 0.01;
+
+  const calculateMonthlyPayment = (
+    principal: number,
+    annualRate: number,
+    months: number,
   ) => {
-    if (!loanAmount || !termMonths || termMonths <= 0) return 0;
-    if (interestRate < 0) return 0;
+    if (!principal || !months || months <= 0) return 0;
+    if (annualRate < 0) return 0;
 
-    const monthlyRate = interestRate / 100 / 12;
+    const monthlyRate = annualRate / 100 / 12;
+    if (monthlyRate === 0) return principal / months;
 
-    if (monthlyRate === 0) {
-      return (loanAmount / termMonths) * 12;
-    }
-
-    const emi =
-      (loanAmount * monthlyRate * Math.pow(1 + monthlyRate, termMonths)) /
-      (Math.pow(1 + monthlyRate, termMonths) - 1);
-
-    return emi * 12;
+    return (
+      (principal * monthlyRate * Math.pow(1 + monthlyRate, months)) /
+      (Math.pow(1 + monthlyRate, months) - 1)
+    );
   };
 
   const loanAmount = toNumber(formData.loanRequest.amount);
@@ -2491,8 +2792,11 @@ const LoanApplication = ({
         : purchasePrice
       : marketValue;
 
+  const afterRepairValue = toNumber(formData.loanRequest.afterRepairValue);
+
+  const ltvBaseValue = afterRepairValue > 0 ? afterRepairValue : asIsValue;
   const ltv =
-    asIsValue > 0 ? ((loanAmount / asIsValue) * 100).toFixed(2) : "—";
+    ltvBaseValue > 0 ? ((loanAmount / ltvBaseValue) * 100).toFixed(2) : "—";
 
   const ltc =
     isFixAndFlipProduct(selectedProduct) && totalFlipCost > 0
@@ -2503,15 +2807,31 @@ const LoanApplication = ({
           ? ((loanAmount / purchasePrice) * 100).toFixed(2)
           : "—";
 
-  const afterRepairValue = toNumber(formData.loanRequest.afterRepairValue);
-
   const arv =
     afterRepairValue > 0
       ? ((loanAmount / afterRepairValue) * 100).toFixed(2)
       : "—";
 
   const interestRate = toNumber(formData.loanRequest.interestRate);
-  const termMonths = toNumber(formData.loanTermIncome.loanTerm);
+  const amortizationYears = toNumber(formData.loanRequest.amortization);
+  const fallbackTermMonths = toNumber(formData.loanTermIncome.loanTerm);
+  const termMonths =
+    amortizationYears > 0 ? amortizationYears * 12 : fallbackTermMonths;
+
+  const monthlyPayment = calculateMonthlyPayment(
+    loanAmount,
+    interestRate,
+    termMonths,
+  );
+  const annualPrincipalAndInterest = monthlyPayment * 12;
+  const annualPropertyTaxes = usesBase44Financials
+    ? toNumber(formData.financials.annualPropertyTaxes)
+    : toNumber(formData.loanTermIncome.annualTaxes);
+  const annualInsurance = usesBase44Financials
+    ? toNumber(formData.financials.annualInsurance)
+    : toNumber(formData.loanTermIncome.insurancePremium);
+  const totalAnnualDebtPayment =
+    annualPrincipalAndInterest + annualPropertyTaxes + annualInsurance;
 
   const crePermanentNoi = toNumber(formData.entity.ebitdaWithNoi);
 
@@ -2520,17 +2840,29 @@ const LoanApplication = ({
     : toNumber(formData.loanTermIncome.noiActual) * 12;
 
   const residentialDebtService = usesBase44Financials
-    ? getResidentialDebtServiceForDscr(formData.financials)
+    ? getResidentialDebtServiceForDscr(
+        formData.financials,
+        totalAnnualDebtPayment,
+      )
     : 0;
 
   const annualDebtService =
     residentialDebtService > 0
       ? residentialDebtService
-      : calculateAnnualDebtService(loanAmount, interestRate, termMonths);
+      : totalAnnualDebtPayment;
 
   const dscr =
     annualDebtService > 0 && residentialNoiForDscr > 0
       ? (residentialNoiForDscr / annualDebtService).toFixed(2)
+      : "—";
+
+  const monthlyPaymentDisplay =
+    monthlyPayment > 0
+      ? "$" +
+        monthlyPayment.toLocaleString("en-US", {
+          minimumFractionDigits: 0,
+          maximumFractionDigits: 0,
+        })
       : "—";
 
   const goToStep = (stepIndex: number) => {
@@ -3015,7 +3347,11 @@ const LoanApplication = ({
     ],
   };
 
-  const loanPurposeOptions = LOAN_PURPOSE_MAP[selectedProduct] || [];
+  const loanPurposeOptions =
+    LOAN_TOP_PURPOSE_MAP[selectedProduct] ||
+    LOAN_PURPOSE_MAP[selectedProduct] ||
+    [];
+  const loanSubPurposeOptions = LOAN_SUB_PURPOSE_MAP[selectedProduct] || [];
 
   const purposesToShow =
     loanPurposeOptions && loanPurposeOptions.length > 0
@@ -3198,7 +3534,8 @@ rounded-2xl p-6 shadow-sm
               </div>
             )}
 
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-6 text-center">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6 text-center">
+              <Stat label="Monthly Payment" value={monthlyPaymentDisplay} />
               <Stat label="LTV %" value={ltv !== "—" ? `${ltv}%` : "—"} />
               <Stat label="LTC %" value={ltc !== "—" ? `${ltc}%` : "—"} />
               <Stat label="ARV %" value={arv !== "—" ? `${arv}%` : "—"} />
@@ -3273,8 +3610,13 @@ rounded-2xl p-6 shadow-sm
                     onChange={(e) => {
                       setSelectedProduct(e.target.value);
                       updateLoanRequest("purpose", "");
+                      updateLoanRequest("subPurpose", "");
+                      updateLoanRequest("collateralType", "");
+                      updateLoanRequest("additionalCollateral", []);
+                      updateLoanRequest("privateSale", false);
+                      updateLoanRequest("vendorName", "");
+                      updateLoanRequest("vendorPhone", "");
                       setDynamicSections([]);
-                      // setActiveSectionIndex(null);
                     }}
                     className={`w-full px-4 py-1 rounded-md border
 border-slate-300 dark:border-slate-600
@@ -3324,6 +3666,7 @@ focus:border-blue-500 outline-none text-sm disabled:cursor-not-allowed disabled:
                         onChange={(e) => {
                           const purpose = e.target.value;
                           updateLoanRequest("purpose", purpose);
+                          updateLoanRequest("subPurpose", "");
                           if (
                             isLoanRequestPurchaseDateReplacesAmortization(
                               selectedProduct,
@@ -3377,6 +3720,43 @@ focus:border-blue-500 outline-none text-sm ${
                         </p>
                       )}
                     </div>
+
+                    {loanSubPurposeOptions.length > 0 && (
+                      <div className="md:col-span-2">
+                        <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">
+                          Loan Sub-Purpose{" "}
+                          <span className="text-red-500">*</span>
+                        </label>
+                        <select
+                          value={formData.loanRequest.subPurpose}
+                          onChange={(e) =>
+                            updateLoanRequest("subPurpose", e.target.value)
+                          }
+                          className={`w-full px-4 py-1 rounded-md border
+border-slate-300 dark:border-slate-600
+bg-white dark:bg-slate-900
+text-slate-800 dark:text-slate-200
+focus:ring-2 focus:ring-blue-500/20
+focus:border-blue-500 outline-none text-sm ${
+                            errors["loanRequest.subPurpose"]
+                              ? "border-red-500 bg-red-50"
+                              : "border-slate-300"
+                          }`}
+                        >
+                          <option value="">Select sub-purpose</option>
+                          {loanSubPurposeOptions.map((subPurpose) => (
+                            <option key={subPurpose} value={subPurpose}>
+                              {subPurpose}
+                            </option>
+                          ))}
+                        </select>
+                        {errors["loanRequest.subPurpose"] && (
+                          <p className="text-xs text-red-500 mt-1">
+                            {errors["loanRequest.subPurpose"]}
+                          </p>
+                        )}
+                      </div>
+                    )}
 
                     {/* Seller Financing */}
                     <div
@@ -3644,6 +4024,521 @@ focus:border-blue-500 outline-none text-sm ${
                         )}
                       </div>
                     )}
+                    {/* Purchase, Equity, & Costs (Fix & Flip, 1-4 Unit Residential only) */}
+                    {showEquityDownPaymentBlock(
+                      selectedProduct,
+                      formData.loanRequest.purpose,
+                      selectedCategory,
+                    ) && (
+                      <div className="md:col-span-2 mt-2 rounded-lg border border-slate-200 dark:border-slate-700 p-4">
+                        <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                          Purchase, Equity, &amp; Costs
+                        </p>
+                        <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                          Total Project Cost = Purchase Price + Rehab Cost. Loan
+                          Amount + Down Payment + Seller Financing must equal
+                          the Purchase Price.
+                        </p>
+
+                        <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                              Purchase Price ($){" "}
+                              <span className="text-red-500">*</span>
+                            </label>
+                            <div className="relative mt-1">
+                              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">
+                                $
+                              </span>
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                value={formData.loanRequest.purchasePrice}
+                                onChange={(e) =>
+                                  handleAmountChange(
+                                    "loanRequest",
+                                    "purchasePrice",
+                                    e.target.value,
+                                  )
+                                }
+                                placeholder="0"
+                                className={`w-full rounded-md border py-1 pl-7 pr-4 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
+                                  errors["loanRequest.purchasePrice"] ||
+                                  equityMismatchError
+                                    ? "border-red-500 bg-red-50"
+                                    : "border-slate-300"
+                                }`}
+                              />
+                            </div>
+                            {errors["loanRequest.purchasePrice"] && (
+                              <p className="mt-1 text-xs text-red-500">
+                                {errors["loanRequest.purchasePrice"]}
+                              </p>
+                            )}
+                          </div>
+
+                          <div>
+                            <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                              Down Payment ($){" "}
+                              <span className="text-red-500">*</span>
+                            </label>
+                            <div className="relative mt-1">
+                              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">
+                                $
+                              </span>
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                value={formData.loanRequest.downPayment}
+                                onChange={(e) =>
+                                  handleAmountChange(
+                                    "loanRequest",
+                                    "downPayment",
+                                    e.target.value,
+                                  )
+                                }
+                                placeholder="0"
+                                className={`w-full rounded-md border py-1 pl-7 pr-4 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
+                                  errors["loanRequest.downPayment"] ||
+                                  equityMismatchError
+                                    ? "border-red-500 bg-red-50"
+                                    : "border-slate-300"
+                                }`}
+                              />
+                            </div>
+                            {errors["loanRequest.downPayment"] && (
+                              <p className="mt-1 text-xs text-red-500">
+                                {errors["loanRequest.downPayment"]}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+
+                        {isFixAndFlipProduct(selectedProduct) ||
+                          (isConstructionPurchase(
+                            formData.loanRequest.purpose,
+                            selectedProduct,
+                          ) && (
+                            <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div>
+                                <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                                  Rehab Cost ($)
+                                </label>
+                                <div className="relative mt-1">
+                                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">
+                                    $
+                                  </span>
+                                  <input
+                                    type="text"
+                                    inputMode="numeric"
+                                    value={formData.loanRequest.rehabCost}
+                                    onChange={(e) =>
+                                      handleAmountChange(
+                                        "loanRequest",
+                                        "rehabCost",
+                                        e.target.value,
+                                      )
+                                    }
+                                    placeholder="0"
+                                    className={`w-full rounded-md border py-1 pl-7 pr-4 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
+                                      errors["loanRequest.rehabCost"]
+                                        ? "border-red-500 bg-red-50"
+                                        : "border-slate-300"
+                                    }`}
+                                  />
+                                </div>
+                                {errors["loanRequest.rehabCost"] && (
+                                  <p className="mt-1 text-xs text-red-500">
+                                    {errors["loanRequest.rehabCost"]}
+                                  </p>
+                                )}
+                              </div>
+
+                              <div>
+                                <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                                  After Repair Value (ARV) ($)
+                                </label>
+                                <div className="relative mt-1">
+                                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">
+                                    $
+                                  </span>
+                                  <input
+                                    type="text"
+                                    inputMode="numeric"
+                                    value={
+                                      formData.loanRequest.afterRepairValue
+                                    }
+                                    onChange={(e) =>
+                                      handleAmountChange(
+                                        "loanRequest",
+                                        "afterRepairValue",
+                                        e.target.value,
+                                      )
+                                    }
+                                    placeholder="0"
+                                    className={`w-full rounded-md border py-1 pl-7 pr-4 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
+                                      errors["loanRequest.afterRepairValue"]
+                                        ? "border-red-500 bg-red-50"
+                                        : "border-slate-300"
+                                    }`}
+                                  />
+                                </div>
+                                {errors["loanRequest.afterRepairValue"] && (
+                                  <p className="mt-1 text-xs text-red-500">
+                                    {errors["loanRequest.afterRepairValue"]}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+
+                        {isFixAndFlipProduct(selectedProduct) && (
+                          <div className="mt-3 rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 p-3 text-xs text-slate-600 dark:text-slate-300">
+                            <span className="font-semibold">
+                              Total Project Cost (Auto):
+                            </span>{" "}
+                            ${totalFlipCost.toLocaleString()} &nbsp;|&nbsp;
+                            Purchase Price: $
+                            {purchasePriceTotal.toLocaleString()} + Rehab Cost:
+                            ${rehabCost.toLocaleString()}
+                          </div>
+                        )}
+
+                        <div
+                          className={`mt-3 rounded-md border p-3 text-xs ${
+                            !hasPurchasePrice
+                              ? "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-300"
+                              : equityMismatchError
+                                ? "border-red-300 bg-red-50 text-red-700 dark:border-red-700 dark:bg-red-900/20 dark:text-red-300"
+                                : "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300"
+                          }`}
+                        >
+                          <div>
+                            Loan Amount: ${loanAmountTotal.toLocaleString()} +
+                            Down Payment: ${downPaymentTotal.toLocaleString()}{" "}
+                            {hasSellerFinancing
+                              ? `+ Seller Financing: ${sellerFinancingTotal.toLocaleString()}`
+                              : ""}{" "}
+                            = ${equityGrandTotal.toLocaleString()}
+                          </div>
+                          {!hasPurchasePrice ? (
+                            <div className="mt-1">
+                              Enter a Purchase Price to validate.
+                            </div>
+                          ) : equityMismatchError ? (
+                            <div className="mt-1">
+                              Total must equal the Purchase Price ($
+                              {purchasePriceTotal.toLocaleString()}).
+                            </div>
+                          ) : (
+                            <div className="mt-1">
+                              Total matches Purchase Price.
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    {/* Valuation & Equity */}
+                    {showValuationEquityBlock(
+                      selectedProduct,
+                      formData.loanRequest.purpose,
+                    ) && (
+                      <div className="md:col-span-2 mt-2 rounded-lg border border-slate-200 dark:border-slate-700 p-4">
+                        <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                          Valuation & Equity
+                        </p>
+
+                        <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                              Current As-Is Property Value ($)
+                            </label>
+                            <div className="relative mt-1">
+                              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">
+                                $
+                              </span>
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                value={
+                                  formData.loanRequest.currentMarketValue || ""
+                                }
+                                onChange={(e) =>
+                                  handleAmountChange(
+                                    "loanRequest",
+                                    "currentMarketValue",
+                                    e.target.value,
+                                  )
+                                }
+                                placeholder="0"
+                                className="w-full rounded-md border border-slate-300 py-1 pl-7 pr-4 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+                              />
+                            </div>
+                          </div>
+
+                          <div>
+                            <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                              Current Loan Balance ($)
+                            </label>
+                            <div className="relative mt-1">
+                              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">
+                                $
+                              </span>
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                value={
+                                  formData.loanRequest.currentLoanBalance || ""
+                                }
+                                onChange={(e) =>
+                                  handleAmountChange(
+                                    "loanRequest",
+                                    "currentLoanBalance",
+                                    e.target.value,
+                                  )
+                                }
+                                placeholder="0"
+                                className="w-full rounded-md border border-slate-300 py-1 pl-7 pr-4 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="mt-3 rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 p-3 text-xs text-slate-600 dark:text-slate-300">
+                          <span className="font-semibold">Equity (Auto):</span>{" "}
+                          $
+                          {Math.max(
+                            (Number(
+                              formData.loanRequest.currentMarketValue || 0,
+                            ) || 0) -
+                              (Number(
+                                formData.loanRequest.currentLoanBalance || 0,
+                              ) || 0),
+                            0,
+                          ).toLocaleString()}{" "}
+                          &nbsp;|&nbsp; Current As-Is Value: $
+                          {(
+                            Number(
+                              formData.loanRequest.currentMarketValue || 0,
+                            ) || 0
+                          ).toLocaleString()}{" "}
+                          – Current Loan Balance: $
+                          {(
+                            Number(
+                              formData.loanRequest.currentLoanBalance || 0,
+                            ) || 0
+                          ).toLocaleString()}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Valuation, Costs & Equity */}
+                    {showValuationCostEquity(
+                      selectedProduct,
+                      formData.loanRequest.purpose,
+                    ) && (
+                      <div className="md:col-span-2 mt-2 rounded-lg border border-slate-200 dark:border-slate-700 p-4">
+                        <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                          Valuation, Costs & Equity
+                        </p>
+
+                        {/* Row 1: As-Is Value + Loan Balance */}
+                        <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                              Current As-Is Property Value ($)
+                            </label>
+                            <div className="relative mt-1">
+                              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">
+                                $
+                              </span>
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                value={
+                                  formData.loanRequest.currentMarketValue || ""
+                                }
+                                onChange={(e) =>
+                                  handleAmountChange(
+                                    "loanRequest",
+                                    "currentMarketValue",
+                                    e.target.value,
+                                  )
+                                }
+                                placeholder="0"
+                                className="w-full rounded-md border border-slate-300 py-1 pl-7 pr-4 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+                              />
+                            </div>
+                          </div>
+
+                          <div>
+                            <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                              Current Loan Balance ($)
+                            </label>
+                            <div className="relative mt-1">
+                              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">
+                                $
+                              </span>
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                value={
+                                  formData.loanRequest.currentLoanBalance || ""
+                                }
+                                onChange={(e) =>
+                                  handleAmountChange(
+                                    "loanRequest",
+                                    "currentLoanBalance",
+                                    e.target.value,
+                                  )
+                                }
+                                placeholder="0"
+                                className="w-full rounded-md border border-slate-300 py-1 pl-7 pr-4 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Equity Auto Summary */}
+                        <div className="mt-3 rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 p-3 text-xs text-slate-600 dark:text-slate-300">
+                          <span className="font-semibold">Equity (Auto):</span>{" "}
+                          $
+                          {Math.max(
+                            (Number(
+                              formData.loanRequest.currentMarketValue || 0,
+                            ) || 0) -
+                              (Number(
+                                formData.loanRequest.currentLoanBalance || 0,
+                              ) || 0),
+                            0,
+                          ).toLocaleString()}{" "}
+                          &nbsp;|&nbsp; Current As-Is Value: $
+                          {(
+                            Number(
+                              formData.loanRequest.currentMarketValue || 0,
+                            ) || 0
+                          ).toLocaleString()}{" "}
+                          – Current Loan Balance: $
+                          {(
+                            Number(
+                              formData.loanRequest.currentLoanBalance || 0,
+                            ) || 0
+                          ).toLocaleString()}
+                        </div>
+
+                        {/* Row 2: Rehab Cost + ARV */}
+                        <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                              Rehab Cost ($)
+                            </label>
+                            <div className="relative mt-1">
+                              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">
+                                $
+                              </span>
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                value={formData.loanRequest.rehabCost || ""}
+                                onChange={(e) =>
+                                  handleAmountChange(
+                                    "loanRequest",
+                                    "rehabCost",
+                                    e.target.value,
+                                  )
+                                }
+                                placeholder="0"
+                                className="w-full rounded-md border border-slate-300 py-1 pl-7 pr-4 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+                              />
+                            </div>
+                          </div>
+
+                          <div>
+                            <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                              After Repair Value (ARV) ($)
+                            </label>
+                            <div className="relative mt-1">
+                              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">
+                                $
+                              </span>
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                value={
+                                  formData.loanRequest.afterRepairValue || ""
+                                }
+                                onChange={(e) =>
+                                  handleAmountChange(
+                                    "loanRequest",
+                                    "afterRepairValue",
+                                    e.target.value,
+                                  )
+                                }
+                                placeholder="0"
+                                className="w-full rounded-md border border-slate-300 py-1 pl-7 pr-4 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Total Project Cost Auto Summary */}
+                        <div className="mt-3 rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 p-3 text-xs text-slate-600 dark:text-slate-300">
+                          <span className="font-semibold">
+                            Total Project Cost (Auto):
+                          </span>{" "}
+                          $
+                          {(
+                            (Number(
+                              formData.loanRequest.currentMarketValue || 0,
+                            ) || 0) +
+                            (Number(formData.loanRequest.rehabCost || 0) || 0)
+                          ).toLocaleString()}{" "}
+                          &nbsp;|&nbsp; Current As-Is Value: $
+                          {(
+                            Number(
+                              formData.loanRequest.currentMarketValue || 0,
+                            ) || 0
+                          ).toLocaleString()}{" "}
+                          + Rehab Cost: $
+                          {(
+                            Number(formData.loanRequest.rehabCost || 0) || 0
+                          ).toLocaleString()}
+                        </div>
+                      </div>
+                    )}
+                    {/* Use of Funds */}
+                    <div className="md:col-span-2 mt-2">
+                      <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                        Use of Funds
+                      </label>
+                      <textarea
+                        value={formData.loanRequest.useOfFunds}
+                        onChange={(e) =>
+                          updateLoanRequest("useOfFunds", e.target.value)
+                        }
+                        rows={4}
+                        placeholder="Describe how the loan funds will be used (e.g., acquisition cost, rehab, closing costs, reserves)..."
+                        className="mt-1 w-full rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 dark:text-slate-200 px-4 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                      />
+                    </div>
+                    {/* Exit Strategy */}
+                    {showExitStrategy(selectedProduct, selectedCategory) && (
+                      <div className="md:col-span-2 mt-2">
+                        <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                          Exit Strategy
+                        </label>
+                        <textarea
+                          value={formData.loanRequest.exitStrategy}
+                          onChange={(e) =>
+                            updateLoanRequest("exitStrategy", e.target.value)
+                          }
+                          rows={4}
+                          placeholder="Describe how you plan to repay or refinance this loan..."
+                          className="mt-1 w-full rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 dark:text-slate-200 px-4 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                        />
+                      </div>
+                    )}
+
                   </>
                 )}
               </div>
@@ -3841,7 +4736,10 @@ focus:border-blue-500 outline-none text-sm ${
           {currentStep === 2 && (
             <div className="mt-6 relative z-10 border border-slate-200 dark:border-slate-700 rounded-2xl p-6 bg-white dark:bg-slate-800">
               <h3 className="mb-1 inline-block border-b-2 border-[#2C92D5] pb-2 text-lg font-semibold dark:text-white">
-                Step 3: Property Info
+                Step 3:{" "}
+                {selectedCategory === "SBA_USDA" || selectedCategory === "ABL"
+                  ? "Collateral Info"
+                  : "Property Info"}
               </h3>
 
               {showDefaultPropertyInfoFields ? (
@@ -3997,59 +4895,123 @@ focus:border-blue-500 outline-none text-sm ${
                 </div>
               ) : isBase44CollateralStep ? (
                 <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <div className="md:col-span-2">
-                    <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
-                      {isBase44BusinessCollateralProduct(selectedProduct)
-                        ? "Business / Industry Type"
-                        : "Property Type"}{" "}
-                      <span className="text-red-500">*</span>
-                    </label>
+                  {isSbaUsdaCollateralFlow || isAblCollateralFlow ? (
+                    <div className="md:col-span-2">
+                      <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                        {isAblCollateralFlow
+                          ? "Business / Industry Type"
+                          : getSbaCollateralTypeLabel(selectedProduct) ||
+                            "Business / Industry Type"}{" "}
+                        <span className="text-red-500">*</span>
+                      </label>
 
-                    <select
-                      value={formData.loanRequest.propertyType}
-                      onChange={(e) => {
-                        updateLoanRequest("propertyType", e.target.value);
-                        if (isCreResidentialLikeFlow) {
-                          updateLoanRequest("subPropertyType", "");
+                      <select
+                        value={formData.loanRequest.collateralType}
+                        onChange={(e) =>
+                          updateLoanRequest("collateralType", e.target.value)
                         }
-                      }}
-                      className={`mt-1 w-full rounded-md border px-4 py-1 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
-                        errors["loanRequest.propertyType"]
-                          ? "border-red-500 bg-red-50"
-                          : "border-slate-300"
-                      }`}
-                    >
-                      <option value="">
-                        {isBase44BusinessCollateralProduct(selectedProduct)
-                          ? "Select business type"
-                          : "Select property type"}
-                      </option>
-                      {(isBase44BusinessCollateralProduct(selectedProduct)
-                        ? SBA_BUSINESS_INDUSTRY_TYPES
-                        : isResidential14Category(selectedCategory)
-                          ? RESIDENTIAL_1_4_PROPERTY_TYPES
-                          : Object.keys(PROPERTY_TYPE_MAP)
-                      ).map((type) => (
-                        <option key={type} value={type}>
-                          {isResidential14Category(selectedCategory) ||
-                          isBase44BusinessCollateralProduct(selectedProduct)
-                            ? type
-                            : type.replace(/_/g, " ")}
+                        className={`mt-1 w-full appearance-none rounded-md border bg-white px-4 py-2 text-sm leading-snug outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
+                          errors["loanRequest.collateralType"]
+                            ? "border-red-500 bg-red-50"
+                            : "border-slate-300"
+                        }`}
+                        style={{
+                          backgroundImage:
+                            "url(\"data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%2364748b'%3E%3Cpath fill-rule='evenodd' d='M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.06l3.71-3.83a.75.75 0 1 1 1.08 1.04l-4.25 4.39a.75.75 0 0 1-1.08 0L5.21 8.27a.75.75 0 0 1 .02-1.06z' clip-rule='evenodd'/%3E%3C/svg%3E\")",
+                          backgroundRepeat: "no-repeat",
+                          backgroundPosition: "right 0.75rem center",
+                          backgroundSize: "1.25rem 1.25rem",
+                          paddingRight: "2.5rem",
+                        }}
+                      >
+                        <option value="">
+                          {isAblCollateralFlow ||
+                          (getSbaCollateralTypeLabel(selectedProduct) ||
+                            "Business / Industry Type") ===
+                            "Business / Industry Type"
+                            ? "Select business type"
+                            : "Select property type"}
                         </option>
-                      ))}
-                    </select>
+                        {(isAblCollateralFlow
+                          ? getAblCollateralTypeOptions(selectedProduct)
+                          : getSbaCollateralTypeOptions(selectedProduct) ||
+                            SBA_BUSINESS_INDUSTRY_TYPES)!.map((type) => (
+                          <option key={type} value={type}>
+                            {type}
+                          </option>
+                        ))}
+                      </select>
 
-                    {errors["loanRequest.propertyType"] && (
-                      <p className="mt-1 text-xs text-red-500">
-                        {errors["loanRequest.propertyType"]}
-                      </p>
-                    )}
-                  </div>
+                      {errors["loanRequest.collateralType"] && (
+                        <p className="mt-1 text-xs text-red-500">
+                          {errors["loanRequest.collateralType"]}
+                        </p>
+                      )}
+
+                      {/* ================= ADD COLLATERAL (chip input) ================= */}
+                      <AddCollateralChips
+                        items={formData.loanRequest.additionalCollateral}
+                        onChange={(items) =>
+                          updateLoanRequest("additionalCollateral", items)
+                        }
+                      />
+                    </div>
+                  ) : (
+                    <div className="md:col-span-2">
+                      <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                        {isBase44BusinessCollateralProduct(selectedProduct)
+                          ? "Business / Industry Type"
+                          : "Property Type"}{" "}
+                        <span className="text-red-500">*</span>
+                      </label>
+
+                      <select
+                        value={formData.loanRequest.propertyType}
+                        onChange={(e) => {
+                          updateLoanRequest("propertyType", e.target.value);
+                          if (isCreResidentialLikeFlow) {
+                            updateLoanRequest("subPropertyType", "");
+                          }
+                        }}
+                        className={`mt-1 w-full rounded-md border px-4 py-1 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
+                          errors["loanRequest.propertyType"]
+                            ? "border-red-500 bg-red-50"
+                            : "border-slate-300"
+                        }`}
+                      >
+                        <option value="">
+                          {isBase44BusinessCollateralProduct(selectedProduct)
+                            ? "Select business type"
+                            : "Select property type"}
+                        </option>
+                        {(isBase44BusinessCollateralProduct(selectedProduct)
+                          ? SBA_BUSINESS_INDUSTRY_TYPES
+                          : isResidential14Category(selectedCategory)
+                            ? RESIDENTIAL_1_4_PROPERTY_TYPES
+                            : Object.keys(PROPERTY_TYPE_MAP)
+                        ).map((type) => (
+                          <option key={type} value={type}>
+                            {isResidential14Category(selectedCategory) ||
+                            isBase44BusinessCollateralProduct(selectedProduct)
+                              ? type
+                              : type.replace(/_/g, " ")}
+                          </option>
+                        ))}
+                      </select>
+
+                      {errors["loanRequest.propertyType"] && (
+                        <p className="mt-1 text-xs text-red-500">
+                          {errors["loanRequest.propertyType"]}
+                        </p>
+                      )}
+                    </div>
+                  )}
 
                   {isCreResidentialLikeFlow && (
                     <div className="md:col-span-2">
                       <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
-                        Sub Property Type <span className="text-red-500">*</span>
+                        Sub Property Type{" "}
+                        <span className="text-red-500">*</span>
                       </label>
 
                       <select
@@ -4200,277 +5162,46 @@ focus:border-blue-500 outline-none text-sm ${
                     isCreResidentialLikeFlow ||
                     isCreBase44Flow ||
                     isSbaRealEstateCollateralProduct(selectedProduct)) && (
-                  <div>
-                    <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
-                      Number of Units
-                    </label>
+                    <div>
+                      <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                        Number of Units
+                      </label>
 
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      value={formData.loanRequest.numberOfUnits}
-                      onChange={(e) =>
-                        updateLoanRequest(
-                          "numberOfUnits",
-                          e.target.value.replace(/\D/g, ""),
-                        )
-                      }
-                      placeholder="e.g. 4"
-                      className="mt-1 w-full rounded-md border border-slate-300 px-4 py-1 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
-                    />
-                  </div>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={formData.loanRequest.numberOfUnits}
+                        onChange={(e) =>
+                          updateLoanRequest(
+                            "numberOfUnits",
+                            e.target.value.replace(/\D/g, ""),
+                          )
+                        }
+                        placeholder="e.g. 4"
+                        className="mt-1 w-full rounded-md border border-slate-300 px-4 py-1 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+                      />
+                    </div>
                   )}
 
-                  {(showResidentialPropertyPurchasePrice(
-                    selectedProduct,
-                    formData.loanRequest.purpose,
-                  ) ||
-                    showResidentialPropertyMarketValue(
-                      selectedProduct,
-                      formData.loanRequest.purpose,
-                    ) ||
-                    showResidentialPropertyRehabCost(selectedProduct) ||
-                    showResidentialPropertyConstructionCost(selectedProduct) ||
-                    showResidentialPropertyArv(selectedProduct) ||
-                    showPropertyPurchaseDate) && (
-                    <>
-                      <p className="md:col-span-2 mt-2 text-sm font-semibold text-slate-800 dark:text-slate-100">
-                        Valuation &amp; Costs
-                      </p>
-
-                      {showResidentialPropertyPurchasePrice(
-                        selectedProduct,
-                        formData.loanRequest.purpose,
-                      ) && (
-                        <div>
-                          <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
-                            Purchase Price ($){" "}
-                            <span className="text-red-500">*</span>
-                          </label>
-
-                          <div className="relative mt-1">
-                            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">
-                              $
-                            </span>
-                            <input
-                              type="text"
-                              inputMode="numeric"
-                              value={formData.loanRequest.purchasePrice}
-                              onChange={(e) =>
-                                handleAmountChange(
-                                  "loanRequest",
-                                  "purchasePrice",
-                                  e.target.value,
-                                )
-                              }
-                              placeholder="0"
-                              className={`w-full rounded-md border py-1 pl-7 pr-4 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
-                                errors["loanRequest.purchasePrice"]
-                                  ? "border-red-500 bg-red-50"
-                                  : "border-slate-300"
-                              }`}
-                            />
-                          </div>
-
-                          {errors["loanRequest.purchasePrice"] && (
-                            <p className="mt-1 text-xs text-red-500">
-                              {errors["loanRequest.purchasePrice"]}
-                            </p>
-                          )}
-                        </div>
-                      )}
-
-                      {showResidentialPropertyMarketValue(
-                        selectedProduct,
-                        formData.loanRequest.purpose,
-                      ) && (
-                        <div>
-                          <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
-                            Current Market Value (As-Is){" "}
-                            <span className="text-red-500">*</span>
-                          </label>
-
-                          <div className="relative mt-1">
-                            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">
-                              $
-                            </span>
-                            <input
-                              type="text"
-                              inputMode="numeric"
-                              value={formData.loanRequest.currentMarketValue}
-                              onChange={(e) =>
-                                handleAmountChange(
-                                  "loanRequest",
-                                  "currentMarketValue",
-                                  e.target.value,
-                                )
-                              }
-                              placeholder="0"
-                              className={`w-full rounded-md border py-1 pl-7 pr-4 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
-                                errors["loanRequest.currentMarketValue"]
-                                  ? "border-red-500 bg-red-50"
-                                  : "border-slate-300"
-                              }`}
-                            />
-                          </div>
-
-                          {errors["loanRequest.currentMarketValue"] && (
-                            <p className="mt-1 text-xs text-red-500">
-                              {errors["loanRequest.currentMarketValue"]}
-                            </p>
-                          )}
-                        </div>
-                      )}
-
-                      {showResidentialPropertyRehabCost(selectedProduct) && (
-                        <div>
-                          <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
-                            Rehab Cost ($){" "}
-                            <span className="text-red-500">*</span>
-                          </label>
-
-                          <div className="relative mt-1">
-                            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">
-                              $
-                            </span>
-                            <input
-                              type="text"
-                              inputMode="numeric"
-                              value={formData.loanRequest.rehabCost}
-                              onChange={(e) =>
-                                handleAmountChange(
-                                  "loanRequest",
-                                  "rehabCost",
-                                  e.target.value,
-                                )
-                              }
-                              placeholder="0"
-                              className={`w-full rounded-md border py-1 pl-7 pr-4 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
-                                errors["loanRequest.rehabCost"]
-                                  ? "border-red-500 bg-red-50"
-                                  : "border-slate-300"
-                              }`}
-                            />
-                          </div>
-
-                          {errors["loanRequest.rehabCost"] && (
-                            <p className="mt-1 text-xs text-red-500">
-                              {errors["loanRequest.rehabCost"]}
-                            </p>
-                          )}
-                        </div>
-                      )}
-
-                      {showResidentialPropertyConstructionCost(
-                        selectedProduct,
-                      ) && (
-                        <div>
-                          <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
-                            Construction Cost ($){" "}
-                            <span className="text-red-500">*</span>
-                          </label>
-
-                          <div className="relative mt-1">
-                            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">
-                              $
-                            </span>
-                            <input
-                              type="text"
-                              inputMode="numeric"
-                              value={formData.loanRequest.constructionCost}
-                              onChange={(e) =>
-                                handleAmountChange(
-                                  "loanRequest",
-                                  "constructionCost",
-                                  e.target.value,
-                                )
-                              }
-                              placeholder="0"
-                              className={`w-full rounded-md border py-1 pl-7 pr-4 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
-                                errors["loanRequest.constructionCost"]
-                                  ? "border-red-500 bg-red-50"
-                                  : "border-slate-300"
-                              }`}
-                            />
-                          </div>
-
-                          {errors["loanRequest.constructionCost"] && (
-                            <p className="mt-1 text-xs text-red-500">
-                              {errors["loanRequest.constructionCost"]}
-                            </p>
-                          )}
-                        </div>
-                      )}
-
-                      {showResidentialPropertyArv(selectedProduct) && (
-                        <div>
-                          <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
-                            After Repair Value / ARV ($){" "}
-                            <span className="text-red-500">*</span>
-                          </label>
-
-                          <div className="relative mt-1">
-                            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">
-                              $
-                            </span>
-                            <input
-                              type="text"
-                              inputMode="numeric"
-                              value={formData.loanRequest.afterRepairValue}
-                              onChange={(e) =>
-                                handleAmountChange(
-                                  "loanRequest",
-                                  "afterRepairValue",
-                                  e.target.value,
-                                )
-                              }
-                              placeholder="0"
-                              className={`w-full rounded-md border py-1 pl-7 pr-4 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
-                                errors["loanRequest.afterRepairValue"]
-                                  ? "border-red-500 bg-red-50"
-                                  : "border-slate-300"
-                              }`}
-                            />
-                          </div>
-
-                          {errors["loanRequest.afterRepairValue"] && (
-                            <p className="mt-1 text-xs text-red-500">
-                              {errors["loanRequest.afterRepairValue"]}
-                            </p>
-                          )}
-                        </div>
-                      )}
-
-                      {showPropertyPurchaseDate && (
-                        <div>
-                          <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
-                            {getLoanRequestPurchaseDateLabel(
-                              selectedProduct,
-                              formData.loanRequest.purpose,
-                            )}{" "}
-                            <span className="text-red-500">*</span>
-                          </label>
-
-                          <LoanDateField
-                            value={formData.loanRequest.purchaseDate}
-                            onChange={(val) =>
-                              updateLoanRequest("purchaseDate", val)
-                            }
-                            className={
-                              errors["loanRequest.purchaseDate"]
-                                ? "border-red-500 bg-red-50"
-                                : ""
-                            }
-                          />
-
-                          {errors["loanRequest.purchaseDate"] && (
-                            <p className="mt-1 text-xs text-red-500">
-                              {errors["loanRequest.purchaseDate"]}
-                            </p>
-                          )}
-                        </div>
-                      )}
-                    </>
+                  {/* ================= SALE DETAILS ================= */}
+                  {(isSbaUsdaCollateralFlow || isAblCollateralFlow) && (
+                    <div className="md:col-span-2">
+                      <SaleDetailsCard
+                        privateSale={formData.loanRequest.privateSale}
+                        vendorName={formData.loanRequest.vendorName}
+                        vendorPhone={formData.loanRequest.vendorPhone}
+                        onPrivateSaleChange={(v) =>
+                          updateLoanRequest("privateSale", v)
+                        }
+                        onVendorNameChange={(v) =>
+                          updateLoanRequest("vendorName", v)
+                        }
+                        onVendorPhoneChange={(v) =>
+                          updateLoanRequest("vendorPhone", v)
+                        }
+                        formatUSPhone={formatUSPhone}
+                      />
+                    </div>
                   )}
                 </div>
               ) : (
@@ -5888,6 +6619,7 @@ focus:border-blue-500 outline-none text-sm ${
                 <ResidentialFinancialsStep
                   financials={formData.financials}
                   onChange={updateFinancials}
+                  annualDebtServiceDefault={totalAnnualDebtPayment}
                 />
               </div>
             ) : (

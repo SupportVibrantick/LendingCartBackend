@@ -45,6 +45,96 @@ export const isSba504RealEstateProduct = (product: string) =>
 
 export const isUsdaBiProduct = (product: string) => product === USDA_BI_LOAN_TYPE;
 
+/* ================= Per-product Business / Industry Type options ================= */
+
+/** SBA 7a Business Acquisition */
+export const SBA_7A_ACQUISITION_BUSINESS_TYPES = [
+  "Manufacturing",
+  "Service",
+  "Retail/Wholesale",
+  "Franchises",
+  "Professional Practices",
+  "Hospitality",
+] as const;
+
+/** SBA 7a Working Capital */
+export const SBA_7A_WORKING_CAPITAL_BUSINESS_TYPES = [
+  "Manufacturing",
+  "Service",
+  "Retail/Wholesale",
+  "Seasonal",
+  "Export",
+  "Construction",
+] as const;
+
+/** SBA 7a Equipment Purchase */
+export const SBA_7A_EQUIPMENT_BUSINESS_TYPES = [
+  "Manufacturing",
+  "Construction",
+  "Transportation",
+  "Healthcare",
+  "Restaurant",
+  "Technology",
+  "Agriculture",
+  "Automotive",
+] as const;
+
+/** SBA 7a Real Estate */
+export const SBA_7A_REAL_ESTATE_PROPERTY_TYPES = [
+  "Manufacturing/Industrial",
+  "Retail/Wholesale",
+  "Service",
+  "Hospitality",
+  "Healthcare",
+  "Automotive",
+  "Childcare/Education",
+  "Professional Practices",
+] as const;
+
+/** SBA 504 Real Estate */
+export const SBA_504_REAL_ESTATE_PROPERTY_TYPES = [
+  "Manufacturing/Industrial",
+  "Healthcare",
+  "Hospitality",
+  "Retail/Wholesale",
+  "Childcare/Education",
+  "Energy/Automotive",
+  "Professional Services",
+  "Agriculture",
+] as const;
+
+/** USDA B&I */
+export const USDA_BI_PROPERTY_TYPES = [
+  "Agricultural Processing",
+  "Rural Manufacturing",
+  "Rural Healthcare",
+  "Tourism/Hospitality",
+  "Renewable Energy",
+  "Food Processing",
+  "Rural Warehousing",
+  "Rural Retail",
+  "Education/Training",
+] as const;
+
+/**
+ * Map of loan product code -> business/property-type option list that is
+ * shown in the "Business / Industry Type" select on the collateral step.
+ *
+ * - SBA 7a Acquisition/Working Capital/Equipment: business-style options.
+ * - SBA 7a Real Estate / SBA 504 Real Estate / USDA B&I: property-style options.
+ */
+export const SBA_PROPERTY_TYPE_OPTIONS_BY_PRODUCT: Record<string, readonly string[]> = {
+  [SBA_7A_ACQUISITION_LOAN_TYPE]: SBA_7A_ACQUISITION_BUSINESS_TYPES,
+  [SBA_7A_WORKING_CAPITAL_LOAN_TYPE]: SBA_7A_WORKING_CAPITAL_BUSINESS_TYPES,
+  [SBA_7A_EQUIPMENT_LOAN_TYPE]: SBA_7A_EQUIPMENT_BUSINESS_TYPES,
+  [SBA_7A_REAL_ESTATE_LOAN_TYPE]: SBA_7A_REAL_ESTATE_PROPERTY_TYPES,
+  [SBA_504_REAL_ESTATE_LOAN_TYPE]: SBA_504_REAL_ESTATE_PROPERTY_TYPES,
+  [USDA_BI_LOAN_TYPE]: USDA_BI_PROPERTY_TYPES,
+};
+
+export const getSbaPropertyTypeOptions = (product: string) =>
+  SBA_PROPERTY_TYPE_OPTIONS_BY_PRODUCT[product] || null;
+
 export const isSbaRealEstateCollateralProduct = (product: string) =>
   SBA_REAL_ESTATE_COLLATERAL_LOAN_TYPES.has(product);
 

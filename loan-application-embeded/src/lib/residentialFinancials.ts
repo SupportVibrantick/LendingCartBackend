@@ -13,11 +13,12 @@ export interface ProFormaNoiYear {
 }
 
 export interface ResidentialFinancials {
-  /** Number of annual financial columns (min 3: current YTD + 2 prior years). */
+  /** Number of annual financial columns (min 4: interim + 3 prior years). */
   financialYearColumnCount: number;
   rentalProperty: boolean;
   hasRentalIncome: boolean;
   monthlyRent: string;
+  interimMonthsReported: string;
   grossRevenue: YearValues;
   grossRentalIncome: YearValues;
   vacancyCreditLoss: YearValues;
@@ -36,8 +37,8 @@ export interface ResidentialFinancials {
   exitStrategy: string;
 }
 
-export const DEFAULT_FINANCIAL_YEAR_COLUMN_COUNT = 3;
-export const MIN_FINANCIAL_YEAR_COLUMN_COUNT = 3;
+export const DEFAULT_FINANCIAL_YEAR_COLUMN_COUNT = 4;
+export const MIN_FINANCIAL_YEAR_COLUMN_COUNT = 4;
 
 export function getFinancialYearColumnKeys(
   count = DEFAULT_FINANCIAL_YEAR_COLUMN_COUNT,
@@ -46,12 +47,11 @@ export function getFinancialYearColumnKeys(
   return Array.from({ length: safeCount }, (_, index) => `col${index}`);
 }
 
-/** Default three columns — use getFinancialYearColumnKeys(count) for dynamic tables. */
+/** Default four columns — use getFinancialYearColumnKeys(count) for dynamic tables. */
 export const FINANCIAL_YEAR_COLUMNS: FinancialYearColumn[] =
   getFinancialYearColumnKeys(DEFAULT_FINANCIAL_YEAR_COLUMN_COUNT);
 
 export const ANNUAL_FINANCIAL_EDITABLE_ROWS = [
-  { key: "grossRevenue" as const, label: "Gross Revenue ($)" },
   { key: "grossRentalIncome" as const, label: "Gross Rental Income ($)" },
   { key: "vacancyCreditLoss" as const, label: "Vacancy & Credit Loss ($)" },
   { key: "operatingExpenses" as const, label: "Operating Expenses ($)" },
@@ -100,6 +100,7 @@ export const createResidentialFinancialsDefaults = (): ResidentialFinancials => 
   rentalProperty: false,
   hasRentalIncome: false,
   monthlyRent: "",
+  interimMonthsReported: "",
   grossRevenue: createEmptyYearValues(),
   grossRentalIncome: createEmptyYearValues(),
   vacancyCreditLoss: createEmptyYearValues(),
@@ -193,7 +194,7 @@ export const removeLastFinancialYearColumn = (
   );
 };
 
-/** Calendar year used as the current (YTD) column — always derived from the system date. */
+/** Calendar year used as the current interim column — always derived from the system date. */
 export const getCurrentFinancialReferenceYear = () => new Date().getFullYear();
 
 export type FinancialYearColumnMeta = {
@@ -211,7 +212,7 @@ export const getFinancialYearColumns = (
     return {
       column,
       year,
-      label: index === 0 ? `${year} (YTD)` : String(year),
+      label: index === 0 ? `${year} (Interim)` : String(year),
     };
   });
 
@@ -246,7 +247,6 @@ export const calcEffectiveGrossIncome = (
   financials: ResidentialFinancials,
   column: FinancialYearColumn,
 ) =>
-  parseAmount(financials.grossRevenue[column]) +
   parseAmount(financials.grossRentalIncome[column]) -
   parseAmount(financials.vacancyCreditLoss[column]);
 
@@ -261,9 +261,19 @@ export const calcNoi = (
 export const calcCashFlowAfterDebt = (
   financials: ResidentialFinancials,
   column: FinancialYearColumn,
+  columnIndex = 0,
+  fallbackAnnualDebt = 0,
 ) => {
   const noi = getNoi(financials, column);
-  return noi - parseAmount(financials.mortgageDebtService[column]);
+  return (
+    noi -
+    getMortgageDebtServiceAmount(
+      financials,
+      column,
+      columnIndex,
+      fallbackAnnualDebt,
+    )
+  );
 };
 
 export const getEffectiveGrossIncome = (
@@ -287,21 +297,31 @@ export const getNoi = (
 export const getCashFlowAfterDebt = (
   financials: ResidentialFinancials,
   column: FinancialYearColumn,
+  columnIndex = 0,
+  fallbackAnnualDebt = 0,
 ) => {
   const override = financials.cashFlowAfterDebtOverride[column];
   if (override?.trim()) return parseAmount(override);
-  return calcCashFlowAfterDebt(financials, column);
+  return calcCashFlowAfterDebt(
+    financials,
+    column,
+    columnIndex,
+    fallbackAnnualDebt,
+  );
 };
 
 export const getDisplayCalculatedValue = (
-  _financials: ResidentialFinancials,
+  financials: ResidentialFinancials,
   column: FinancialYearColumn,
   calculated: number,
   override: YearValues,
 ) => {
   const overrideValue = override[column];
   if (overrideValue?.trim()) return overrideValue;
-  return calculated > 0 ? formatCurrencyDisplay(calculated) : "";
+  if (!hasAnnualFinancialYearData(financials, column) && calculated === 0) {
+    return "";
+  }
+  return formatCurrencyDisplay(calculated);
 };
 
 export const getProFormaNoiAverage = (financials: ResidentialFinancials) => {
@@ -312,16 +332,112 @@ export const getProFormaNoiAverage = (financials: ResidentialFinancials) => {
   return amounts.reduce((sum, amount) => sum + amount, 0) / amounts.length;
 };
 
+const averagePositiveOrZero = (values: number[]) => {
+  if (values.length === 0) return 0;
+  return values.reduce((sum, value) => sum + value, 0) / values.length;
+};
+
+/** True when the year column has any annual financial input. */
+export const hasAnnualFinancialYearData = (
+  financials: ResidentialFinancials,
+  column: FinancialYearColumn,
+) =>
+  [
+    financials.grossRentalIncome[column],
+    financials.vacancyCreditLoss[column],
+    financials.operatingExpenses[column],
+    financials.mortgageDebtService[column],
+    financials.effectiveGrossIncomeOverride[column],
+    financials.noiOverride[column],
+    financials.cashFlowAfterDebtOverride[column],
+  ].some((value) => String(value || "").trim() !== "");
+
+/**
+ * Mortgage / debt service for a year. Interim column may show loan P&I default
+ * in the UI without storing it — pass that as fallbackAnnualDebt for col0.
+ */
+export const getMortgageDebtServiceAmount = (
+  financials: ResidentialFinancials,
+  column: FinancialYearColumn,
+  columnIndex = 0,
+  fallbackAnnualDebt = 0,
+) => {
+  const entered = parseAmount(financials.mortgageDebtService[column]);
+  if (entered > 0) return entered;
+  if (columnIndex === 0 && fallbackAnnualDebt > 0) return fallbackAnnualDebt;
+  return 0;
+};
+
+/**
+ * Annualize interim-year NOI when months reported is between 1 and 11.
+ * Full years (and interim with 12 months / blank) stay as-is.
+ */
+export const getAnnualizedNoiForColumn = (
+  financials: ResidentialFinancials,
+  column: FinancialYearColumn,
+  columnIndex = 0,
+) => {
+  const noi = getNoi(financials, column);
+  if (columnIndex !== 0) return noi;
+
+  const monthsReported = parseAmount(financials.interimMonthsReported);
+  if (monthsReported > 0 && monthsReported < 12) {
+    return (noi / monthsReported) * 12;
+  }
+
+  return noi;
+};
+
+/**
+ * DSCR NOI = average of annualized NOI across all entered annual years
+ * (default last 4 years: interim + 3 prior, or more if columns added).
+ */
 export const getResidentialNoiForDscr = (financials: ResidentialFinancials) => {
   if (financials.dscrCalculationMethod === "proForma") {
     return getProFormaNoiAverage(financials);
   }
-  return getNoi(financials, "col0");
+
+  const columnKeys = getFinancialYearColumnKeys(
+    financials.financialYearColumnCount,
+  );
+
+  const yearlyNoi = columnKeys
+    .map((column, index) => {
+      if (!hasAnnualFinancialYearData(financials, column)) return null;
+      return getAnnualizedNoiForColumn(financials, column, index);
+    })
+    .filter((value): value is number => value != null);
+
+  return averagePositiveOrZero(yearlyNoi);
 };
 
+/**
+ * DSCR debt service = average Mortgage / Debt Service across all entered years.
+ * Interim blank field uses fallbackAnnualDebt (loan P&I + taxes + insurance).
+ */
 export const getResidentialDebtServiceForDscr = (
   financials: ResidentialFinancials,
-) => parseAmount(financials.mortgageDebtService.col0);
+  fallbackAnnualDebt = 0,
+) => {
+  const columnKeys = getFinancialYearColumnKeys(
+    financials.financialYearColumnCount,
+  );
+
+  const yearlyDebt = columnKeys
+    .map((column, index) => {
+      if (!hasAnnualFinancialYearData(financials, column)) return null;
+      const debt = getMortgageDebtServiceAmount(
+        financials,
+        column,
+        index,
+        fallbackAnnualDebt,
+      );
+      return debt > 0 ? debt : null;
+    })
+    .filter((value): value is number => value != null);
+
+  return averagePositiveOrZero(yearlyDebt);
+};
 
 type AddFieldFn = (key: string, value: unknown) => void;
 
@@ -346,6 +462,7 @@ export const appendResidentialFinancialsSubmission = (
   addField("rentalProperty", financials.rentalProperty ? "yes" : "no");
   addField("hasRentalIncome", financials.hasRentalIncome ? "yes" : "no");
   addField("monthlyRent", parseAmount(financials.monthlyRent));
+  addField("interimMonthsReported", parseAmount(financials.interimMonthsReported));
   addField("dscrCalculationMethod", financials.dscrCalculationMethod);
 
   ANNUAL_FINANCIAL_EDITABLE_ROWS.forEach(({ key }) => {
@@ -455,3 +572,6 @@ export const parseOptionalAmount = (value: string) => {
   if (!String(value || "").trim()) return null;
   return parseAmount(value);
 };
+
+
+
