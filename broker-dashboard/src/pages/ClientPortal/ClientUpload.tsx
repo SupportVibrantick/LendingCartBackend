@@ -933,11 +933,20 @@ export default function ClientUpload() {
     const fileList = files[id];
     if (!fileList || fileList.length === 0) return;
 
+    if (!applicationId) {
+      toast.error("Application not found. Please reopen the application.");
+      return;
+    }
+
+    const authConfig = getClientPortalAuthConfig();
+    if (!authConfig.headers.Authorization) {
+      toast.error("Please sign in again to upload documents.");
+      return;
+    }
+
     setUploading((prev) => ({ ...prev, [id]: true }));
 
     try {
-      const clientToken = sessionStorage.getItem("client_token");
-
       for (const file of fileList) {
         const formData = new FormData();
 
@@ -945,27 +954,24 @@ export default function ClientUpload() {
         formData.append("documentRequirementId", id);
         formData.append("file", file);
 
-        const res = await axios.post(
-          `${API_BASE}/client-portal/upload`,
-          formData,
-          {
-            headers: {
-              Authorization: `Bearer ${clientToken}`,
-              "Content-Type": "multipart/form-data",
-            },
-          },
-        );
+        // Do not set Content-Type manually — browser must add multipart boundary.
+        let uploadUrl = `${API_BASE}/client-portal/upload`;
+        if (token) {
+          uploadUrl += `?token=${encodeURIComponent(token)}`;
+        }
 
-        console.log("UPLOAD SUCCESS:", res.data);
+        await axios.post(uploadUrl, formData, {
+          headers: {
+            ...authConfig.headers,
+          },
+        });
       }
 
       setFiles((prev) => ({ ...prev, [id]: [] }));
 
       toast.success("Document uploaded successfully");
 
-      if (applicationId) {
-        await fetchApplicationDetails(applicationId, { keepCurrentTab: true });
-      }
+      await fetchApplicationDetails(applicationId, { keepCurrentTab: true });
     } catch (err: any) {
       console.error("UPLOAD ERROR:", err?.response || err);
 

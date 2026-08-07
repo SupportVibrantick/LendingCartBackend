@@ -16,10 +16,18 @@ const {
   markBrokerLoiVersionClientSigned,
   getCurrentBrokerLoiVersion,
 } = require("../../services/loi/loiVersionService");
+const {
+  resolvePortalClientIds,
+} = require("../../utils/auth/clientPortalAuth");
+const jwtSecret = require("../../utils/auth/jwtSecret");
 
-async function resolveClientFromRequest(req, prisma) {
+async function resolveClientFromRequest(req) {
   if (req.client?.clientId) {
-    return { clientId: req.client.clientId };
+    return {
+      clientId: req.client.clientId,
+      portalUserId: req.user?.id || req.client?.id || null,
+      email: req.user?.email || req.client?.email || null,
+    };
   }
 
   const authHeader = req.headers.authorization;
@@ -29,15 +37,28 @@ async function resolveClientFromRequest(req, prisma) {
 
   try {
     const token = authHeader.split(" ")[1];
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, jwtSecret);
     if (decoded.clientId && decoded.role === "CLIENT") {
-      return { clientId: decoded.clientId };
+      return {
+        clientId: decoded.clientId,
+        portalUserId: decoded.id || null,
+        email: decoded.email || decoded.clientEmail || null,
+      };
     }
   } catch {
     return null;
   }
 
   return null;
+}
+
+async function resolveAccessibleClientIds(prisma, auth) {
+  const clientIds = await resolvePortalClientIds(prisma, {
+    portalUserId: auth.portalUserId,
+    clientId: auth.clientId,
+    email: auth.email,
+  });
+  return clientIds.length > 0 ? clientIds : [auth.clientId];
 }
 
 /**
@@ -50,7 +71,7 @@ module.exports = async function clientSignDocuments(fastify) {
       const prisma = fastify.prisma;
 
       try {
-        const auth = await resolveClientFromRequest(req, prisma);
+        const auth = await resolveClientFromRequest(req);
         if (!auth) {
           return reply.code(401).send({
             success: false,
@@ -59,9 +80,13 @@ module.exports = async function clientSignDocuments(fastify) {
         }
 
         const { applicationId } = req.params;
+        const clientIds = await resolveAccessibleClientIds(prisma, auth);
 
         const application = await prisma.loanApplication.findFirst({
-          where: { id: applicationId, clientId: auth.clientId },
+          where: {
+            id: applicationId,
+            clientId: { in: clientIds },
+          },
           select: { id: true, currentBrokerLoiVersionId: true },
         });
 
@@ -207,12 +232,18 @@ module.exports = async function clientSignDocuments(fastify) {
           });
         }
 
+        const clientIds = await resolveAccessibleClientIds(prisma, {
+          clientId: req.client.clientId,
+          portalUserId: req.user?.id || req.client?.id || null,
+          email: req.user?.email || req.client?.email || null,
+        });
+
         const requirement = await prisma.applicationDocumentRequirement.findFirst({
           where: {
             id: requirementId,
             loanApplicationId,
             requiresClientSignature: true,
-            loanApplication: { clientId: req.client.clientId },
+            loanApplication: { clientId: { in: clientIds } },
           },
           include: {
             documentType: true,

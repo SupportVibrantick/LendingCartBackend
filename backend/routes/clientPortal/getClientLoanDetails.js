@@ -84,19 +84,42 @@ async function getClientLoanDetailsRoute(fastify) {
           const authHeader = req.headers.authorization;
 
           const token = authHeader.split(" ")[1];
+          const jwtSecret = require("../../utils/auth/jwtSecret");
+          const {
+            resolvePortalClientIds,
+          } = require("../../utils/auth/clientPortalAuth");
 
-          const decoded = require("jsonwebtoken").verify(
-            token,
-            process.env.JWT_SECRET
-          );
+          const decoded = require("jsonwebtoken").verify(token, jwtSecret);
 
           const clientId = decoded.clientId;
           const { applicationId } = req.query;
 
+          if (!clientId || decoded.role !== "CLIENT") {
+            return reply.code(403).send({
+              success: false,
+              message: "Access denied",
+            });
+          }
+
+          const clientIds = await resolvePortalClientIds(prisma, {
+            portalUserId: decoded.id,
+            clientId,
+            email: decoded.email || decoded.clientEmail,
+          });
+
           const loanRecord = await prisma.loanApplication.findFirst({
             where: applicationId
-              ? { id: applicationId, clientId }
-              : { clientId },
+              ? {
+                  id: applicationId,
+                  clientId: {
+                    in: clientIds.length > 0 ? clientIds : [clientId],
+                  },
+                }
+              : {
+                  clientId: {
+                    in: clientIds.length > 0 ? clientIds : [clientId],
+                  },
+                },
             include: {
               submissions: {
                 include: { fields: true },

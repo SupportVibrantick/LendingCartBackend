@@ -1,4 +1,8 @@
 const jwt = require("jsonwebtoken");
+const jwtSecret = require("../../utils/auth/jwtSecret");
+const {
+  resolvePortalClientIds,
+} = require("../../utils/auth/clientPortalAuth");
 const { normalizeFeeAgreement } = require("../../services/feeAgreement/feeAgreementEnrichment");
 const {
   buildResolvedFeeAgreementContext,
@@ -44,7 +48,7 @@ module.exports = async function getClientFeeAgreement(fastify) {
 
         let decoded;
         try {
-          decoded = jwt.verify(token, process.env.JWT_SECRET);
+          decoded = jwt.verify(token, jwtSecret);
         } catch {
           return reply.code(401).send({
             ok: false,
@@ -65,10 +69,16 @@ module.exports = async function getClientFeeAgreement(fastify) {
         /* ===============================
            VERIFY APPLICATION OWNERSHIP
         =============================== */
+        const clientIds = await resolvePortalClientIds(prisma, {
+          portalUserId: decoded.id,
+          clientId,
+          email: decoded.email || decoded.clientEmail,
+        });
+
         const application = await prisma.loanApplication.findFirst({
           where: {
             id: applicationId,
-            clientId,
+            clientId: { in: clientIds.length > 0 ? clientIds : [clientId] },
           },
           include: {
             brokerOrg: {

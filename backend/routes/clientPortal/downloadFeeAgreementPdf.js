@@ -1,4 +1,8 @@
 const jwt = require("jsonwebtoken");
+const jwtSecret = require("../../utils/auth/jwtSecret");
+const {
+  resolvePortalClientIds,
+} = require("../../utils/auth/clientPortalAuth");
 const {
   buildFeeAgreementPdfFilename,
   generateFeeAgreementPdfBuffer,
@@ -37,7 +41,7 @@ module.exports = async function downloadClientFeeAgreementPdf(fastify) {
 
         let decoded;
         try {
-          decoded = jwt.verify(token, process.env.JWT_SECRET);
+          decoded = jwt.verify(token, jwtSecret);
         } catch {
           return reply.code(401).send({
             ok: false,
@@ -54,10 +58,18 @@ module.exports = async function downloadClientFeeAgreementPdf(fastify) {
 
         const { id: applicationId } = req.params;
 
+        const clientIds = await resolvePortalClientIds(prisma, {
+          portalUserId: decoded.id,
+          clientId: decoded.clientId,
+          email: decoded.email || decoded.clientEmail,
+        });
+
         const loanApplication = await prisma.loanApplication.findFirst({
           where: {
             id: applicationId,
-            clientId: decoded.clientId,
+            clientId: {
+              in: clientIds.length > 0 ? clientIds : [decoded.clientId],
+            },
           },
         });
 

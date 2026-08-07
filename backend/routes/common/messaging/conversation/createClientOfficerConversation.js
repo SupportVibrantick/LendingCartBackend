@@ -10,6 +10,9 @@ const {
   hasRole,
   getUserId,
 } = require("../../../../services/messaging/messagingAccess");
+const {
+  resolvePortalClientIds,
+} = require("../../../../utils/auth/clientPortalAuth");
 
 module.exports = async function createClientOfficerConversation(fastify) {
   fastify.post(
@@ -65,7 +68,20 @@ module.exports = async function createClientOfficerConversation(fastify) {
         }
 
         if (isClientUser(req)) {
-          if (loan.clientId !== req.user.clientId) {
+          const clientIds = await resolvePortalClientIds(prisma, {
+            portalUserId: req.user.id || req.user.userId,
+            clientId: req.user.clientId,
+            email: req.user.email || req.user.clientEmail,
+          });
+          const allowedClientIds =
+            clientIds.length > 0
+              ? clientIds
+              : [req.user.clientId].filter(Boolean);
+
+          if (
+            !loan.clientId ||
+            !allowedClientIds.includes(loan.clientId)
+          ) {
             return reply.code(403).send({
               success: false,
               message: "Access denied",

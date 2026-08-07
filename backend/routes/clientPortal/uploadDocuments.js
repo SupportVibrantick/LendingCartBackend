@@ -22,6 +22,9 @@ const {
 const {
   getAutoForwardDocumentsToLender,
 } = require("../../services/documents/documentAutoForwardSetting");
+const {
+  resolvePortalClientIds,
+} = require("../../utils/auth/clientPortalAuth");
 
 /**
  * @param {import("fastify").FastifyInstance} fastify
@@ -82,14 +85,25 @@ async function uploadDocumentsRoute(fastify) {
         }
 
         /* ============================
-           VALIDATE REQUIREMENT
+           VALIDATE REQUIREMENT + OWNERSHIP
         ============================ */
+
+        const clientIds = await resolvePortalClientIds(prisma, {
+          portalUserId: req.user?.id || req.client?.id || null,
+          clientId,
+          email: req.user?.email || req.client?.email || req.client?.clientEmail,
+        });
 
         const requirement =
           await prisma.applicationDocumentRequirement.findFirst({
             where: {
               id: documentRequirementId,
               loanApplicationId,
+              loanApplication: {
+                clientId: {
+                  in: clientIds.length > 0 ? clientIds : [clientId],
+                },
+              },
             },
           });
 
@@ -100,9 +114,17 @@ async function uploadDocumentsRoute(fastify) {
           });
         }
 
-        const loan = await prisma.loanApplication.findUnique({
-          where: { id: loanApplicationId },
+        const loan = await prisma.loanApplication.findFirst({
+          where: {
+            id: loanApplicationId,
+            clientId: {
+              in: clientIds.length > 0 ? clientIds : [clientId],
+            },
+          },
           include: {
+            client: {
+              select: { legalName: true },
+            },
             brokerOrg: {
               include: {
                 users: true,
