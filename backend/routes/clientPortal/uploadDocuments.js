@@ -147,14 +147,22 @@ async function uploadDocumentsRoute(fastify) {
         const allowedMime = [
           "application/pdf",
           "image/jpeg",
+          "image/pjpeg",
+          "image/jfif",
           "image/png",
           "image/webp",
         ];
 
+        // Some browsers report JFIF as image/jpeg; others use image/jfif / pjpeg.
+        const normalizedMime =
+          file.mimetype === "image/jfif" || file.mimetype === "image/pjpeg"
+            ? "image/jpeg"
+            : file.mimetype;
+
         if (!allowedMime.includes(file.mimetype)) {
           return reply.code(400).send({
             success: false,
-            message: "Only PDF, JPG, PNG, WEBP allowed",
+            message: "Only PDF, JPG/JFIF, PNG, WEBP allowed",
           });
         }
 
@@ -166,7 +174,7 @@ async function uploadDocumentsRoute(fastify) {
 
         const ext =
           path.extname(file.filename) ||
-          getExtensionFromMime(file.mimetype);
+          getExtensionFromMime(normalizedMime);
 
         const safeFileName = `${randomName}${ext}`;
 
@@ -199,7 +207,7 @@ async function uploadDocumentsRoute(fastify) {
             uploadedByClientUserId: req.client.id,
             fileName: file.filename,
             fileUrl,
-            fileMimeType: file.mimetype,
+            fileMimeType: normalizedMime,
           },
         });
 

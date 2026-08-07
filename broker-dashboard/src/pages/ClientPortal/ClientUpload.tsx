@@ -85,14 +85,41 @@ const inferUploadedFileMimeType = (
   fileName?: string,
   fileMimeType?: string,
 ) => {
-  if (fileMimeType) return fileMimeType;
-
   const ext = fileName?.split(".").pop()?.toLowerCase();
-  if (ext === "pdf") return "application/pdf";
-  if (ext === "png") return "image/png";
-  if (ext === "webp") return "image/webp";
-  if (ext === "jpg" || ext === "jpeg") return "image/jpeg";
-  return undefined;
+  const byExt =
+    ext === "pdf"
+      ? "application/pdf"
+      : ext === "png"
+        ? "image/png"
+        : ext === "webp"
+          ? "image/webp"
+          : ext === "gif"
+            ? "image/gif"
+            : ext === "bmp"
+              ? "image/bmp"
+              : ext === "jpg" ||
+                  ext === "jpeg" ||
+                  ext === "jfif" ||
+                  ext === "pjpeg" ||
+                  ext === "pjp"
+                ? "image/jpeg"
+                : undefined;
+
+  const mime = (fileMimeType || "").trim().toLowerCase();
+  // Prefer a known image/pdf extension over generic or missing MIME
+  // (JFIF uploads often arrive as octet-stream or empty mime).
+  if (
+    byExt &&
+    (!mime ||
+      mime === "application/octet-stream" ||
+      mime === "binary/octet-stream" ||
+      (!mime.startsWith("image/") && !mime.includes("pdf")))
+  ) {
+    return byExt;
+  }
+
+  if (mime) return fileMimeType;
+  return byExt;
 };
 
 const normalizeUploadedFiles = (uploadedFiles: any[] = []): UploadedFileItem[] =>
@@ -1583,7 +1610,7 @@ export default function ClientUpload() {
                             <input
                               type="file"
                               multiple
-                              accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/*"
+                              accept=".pdf,.jpg,.jpeg,.jfif,.png,.webp,application/pdf,image/*"
                               disabled={remainingSlots <= 0}
                               id={`file-${doc.id}`}
                               className="hidden"

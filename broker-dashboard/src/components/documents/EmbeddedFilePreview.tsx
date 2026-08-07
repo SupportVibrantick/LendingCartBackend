@@ -27,7 +27,7 @@ export default function EmbeddedFilePreview({
 
   const isImage =
     mimeType?.includes("image") ||
-    /\.(jpe?g|png|gif|webp|bmp|svg)$/i.test(fileName || "");
+    /\.(jpe?g|jfif|pjpeg|pjp|png|gif|webp|bmp|svg)$/i.test(fileName || "");
 
   if (loading) {
     return (
