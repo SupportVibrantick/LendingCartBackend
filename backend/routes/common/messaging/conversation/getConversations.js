@@ -24,6 +24,9 @@ const {
   enrichConversationList,
 } = require("../../../../services/messaging/conversationPresentation");
 const { buildLenderLoanInbox } = require("../../../../services/messaging/lenderBrokerConversation");
+const {
+  resolvePortalClientIds,
+} = require("../../../../utils/auth/clientPortalAuth");
 
 module.exports = async function getConversations(fastify) {
   fastify.get(
@@ -100,15 +103,27 @@ module.exports = async function getConversations(fastify) {
           });
         }
 
-        // Client access (optional depending on your auth)
-        if (
-          (req.user.orgType === "CLIENT" || req.user.role === "CLIENT") &&
-          loan.clientId !== req.user.clientId
-        ) {
-          return reply.code(403).send({
-            success: false,
-            message: "Access denied",
+        // Client access — portal login may map to multiple broker Client records
+        if (req.user.orgType === "CLIENT" || req.user.role === "CLIENT") {
+          const clientIds = await resolvePortalClientIds(prisma, {
+            portalUserId: req.user.id || req.user.userId,
+            clientId: req.user.clientId,
+            email: req.user.email || req.user.clientEmail,
           });
+          const allowedClientIds =
+            clientIds.length > 0
+              ? clientIds
+              : [req.user.clientId].filter(Boolean);
+
+          if (
+            !loan.clientId ||
+            !allowedClientIds.includes(loan.clientId)
+          ) {
+            return reply.code(403).send({
+              success: false,
+              message: "Access denied",
+            });
+          }
         }
 
         let lenderAccess = null;

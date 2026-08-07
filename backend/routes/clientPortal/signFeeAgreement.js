@@ -2,7 +2,11 @@
  * @param {import("fastify").FastifyInstance} fastify
  */
 module.exports = async function signFeeAgreement(fastify) {
-  const jwt = require("jsonwebtoken"); // ✅ REQUIRED
+  const jwt = require("jsonwebtoken");
+  const jwtSecret = require("../../utils/auth/jwtSecret");
+  const {
+    resolvePortalClientIds,
+  } = require("../../utils/auth/clientPortalAuth");
 
   fastify.post(
     "/:id/fee-agreement/sign",
@@ -46,7 +50,7 @@ module.exports = async function signFeeAgreement(fastify) {
 
         let decoded;
         try {
-          decoded = jwt.verify(token, process.env.JWT_SECRET); // ✅ FIXED
+          decoded = jwt.verify(token, jwtSecret);
         } catch {
           return reply.code(401).send({
             ok: false,
@@ -78,10 +82,16 @@ module.exports = async function signFeeAgreement(fastify) {
         /* ===============================
            VERIFY APPLICATION
         =============================== */
+        const clientIds = await resolvePortalClientIds(prisma, {
+          portalUserId: decoded.id,
+          clientId,
+          email: decoded.email || decoded.clientEmail,
+        });
+
         const application = await prisma.loanApplication.findFirst({
           where: {
             id: applicationId,
-            clientId,
+            clientId: { in: clientIds.length > 0 ? clientIds : [clientId] },
           },
         });
 

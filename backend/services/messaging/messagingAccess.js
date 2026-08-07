@@ -269,6 +269,38 @@ async function assertCanAccessConversation(prisma, user, conversationId) {
     }
   }
 
+  // Client portal users may own the loan under a different Client record
+  // (same email, multiple brokers) than the JWT's primary clientId.
+  if (isClientUser(req) && conversation.loanApplicationId) {
+    const {
+      resolvePortalClientIds,
+    } = require("../../utils/auth/clientPortalAuth");
+
+    const clientIds = await resolvePortalClientIds(prisma, {
+      portalUserId: userId,
+      clientId: user?.clientId,
+      email: userEmail,
+    });
+    const allowedClientIds =
+      clientIds.length > 0
+        ? clientIds
+        : [user?.clientId].filter(Boolean);
+
+    if (allowedClientIds.length > 0) {
+      const loanAccess = await prisma.loanApplication.findFirst({
+        where: {
+          id: conversation.loanApplicationId,
+          clientId: { in: allowedClientIds },
+        },
+        select: { id: true },
+      });
+
+      if (loanAccess) {
+        return { allowed: true, conversation };
+      }
+    }
+  }
+
   return {
     allowed: false,
     error: { code: 403, message: "Access denied" },
