@@ -13,9 +13,9 @@ export interface FieldValidationRule {
 }
 
 export const FIELD_VALIDATION_RULES: Record<string, FieldValidationRule> = {
-  // ============================================================
+
   // STEP 1 — Loan Request
-  // ============================================================
+
   "loanRequest.amount": {
     min: 10000,
     required: true,
