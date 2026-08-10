@@ -1,5 +1,5 @@
 const crypto = require("crypto");
-const { loadTemplate } = require("../../utils/email/loadTemplate");
+const { loadTemplateAsync } = require("../../utils/email/loadTemplate");
 const { buildClientPortalUrl } = require("../../utils/email/emailBranding");
 const { buildClientLinkEmailData } = require("../../utils/email/emailTemplateData");
 const sendMail = require("./mail");
@@ -40,21 +40,26 @@ async function sendClientPortalAccessEmail({
   clientName,
   applicationNumber,
   brokerName,
+  brokerOrgId,
   portalToken,
   idempotencyKey,
   message = DEFAULT_PORTAL_MESSAGE,
 }) {
   const uploadLink = buildClientPortalUrl({ token: portalToken });
-  const html = loadTemplate(
+  const { html, logoAttachment } = await loadTemplateAsync(
     "broker/clientLink",
-    buildClientLinkEmailData({
-      clientName,
-      uploadLink,
-      applicationNumber,
-      brokerName: brokerName || "Your Broker",
-      preset: "portalAccess",
-      message,
-    }),
+    {
+      ...buildClientLinkEmailData({
+        clientName,
+        uploadLink,
+        applicationNumber,
+        brokerName: brokerName || "Your Broker",
+        preset: "portalAccess",
+        message,
+      }),
+      prisma,
+      brokerOrgId,
+    },
   );
 
   const subject = "Access Your Loan Application Portal";
@@ -71,6 +76,7 @@ async function sendClientPortalAccessEmail({
     subject,
     text,
     html,
+    logoAttachment,
     idempotencyKey,
   });
 }

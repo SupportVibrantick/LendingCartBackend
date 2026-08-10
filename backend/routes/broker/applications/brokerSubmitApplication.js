@@ -324,6 +324,7 @@ async function brokerSubmitApplication(fastify) {
             clientName: result.clientDisplayName,
             applicationNumber: result.loanApplication.applicationNumber,
             brokerName: brokerOrg?.name,
+            brokerOrgId,
             portalToken: result.portalToken,
             idempotencyKey: `broker-submit-portal:${result.loanApplication.id}`,
             message:

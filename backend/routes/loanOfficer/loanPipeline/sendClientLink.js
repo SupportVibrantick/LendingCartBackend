@@ -1,5 +1,5 @@
 const crypto = require("crypto");
-const { loadTemplate } = require("../../../utils/email/loadTemplate");
+const { loadTemplateAsync } = require("../../../utils/email/loadTemplate");
 const { buildClientLinkEmailData } = require("../../../utils/email/emailTemplateData");
 const sendMail = require("../../../services/emails/mail");
 const { extraOfficerPermission } = require("../../../services/broker/loanOfficerAccess");
@@ -116,22 +116,26 @@ async function sendClientLinkRoute(fastify) {
 
       const uploadLink = buildClientPortalUrl({ token: tokenRecord.token });
 
-      const html = loadTemplate(
+      const { html, logoAttachment } = await loadTemplateAsync(
         "broker/clientLink",
-        buildClientLinkEmailData({
-          clientName: loan.client?.legalName,
-          uploadLink,
-          applicationNumber: loan.applicationNumber,
-          brokerName: req.user?.firstName,
-          preset: "portalAccess",
-        }),
+        {
+          ...buildClientLinkEmailData({
+            clientName: loan.client?.legalName,
+            uploadLink,
+            applicationNumber: loan.applicationNumber,
+            brokerName: req.user?.firstName,
+            preset: "portalAccess",
+          }),
+          prisma,
+          brokerOrgId,
+        },
       );
 
       const subject = "Access Your Loan Application Portal";
       const text = `Access your loan application using this secure link:\n${uploadLink}`;
 
       try {
-        await sendMail({ to: clientEmail, subject, text, html });
+        await sendMail({ to: clientEmail, subject, text, html, logoAttachment });
       } catch (err) {
         fastify.log.error(
           { error: err.message, clientEmail, loanId },
