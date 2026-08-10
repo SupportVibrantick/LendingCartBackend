@@ -109,3 +109,16 @@ export const calculateMonthlyPayment = (
     (Math.pow(1 + monthlyRate, termMonths) - 1)
   );
 };
+
+/**
+ * Compute the interest-only monthly payment for a loan. The borrower
+ * pays only the accrued interest each month; principal is not reduced.
+ * Returns 0 when the inputs are invalid.
+ */
+export const calculateInterestOnlyMonthlyPayment = (
+  loanAmount: number,
+  interestRate: number,
+) => {
+  if (!loanAmount || interestRate < 0) return 0;
+  return (loanAmount * (interestRate / 100)) / 12;
+};

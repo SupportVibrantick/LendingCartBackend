@@ -17,7 +17,11 @@ import {
   getResidentialNoiForDscr,
   getResidentialDebtServiceForDscr,
 } from "../../lib/residentialFinancials";
-import { calculateMonthlyPayment, toNumber } from "./formatters";
+import {
+  calculateInterestOnlyMonthlyPayment,
+  calculateMonthlyPayment,
+  toNumber,
+} from "./formatters";
 import {
   isBridgeProduct,
   isConstruction14Product,
@@ -180,12 +184,16 @@ export function computeLoanMetrics(ctx: LoanMetricsContext): LoanMetrics {
   const fallbackTermMonths = toNumber(formData.loanTermIncome.loanTerm);
   const termMonths =
     amortizationYears > 0 ? amortizationYears * 12 : fallbackTermMonths;
+  const isInterestOnly = formData.loanRequest.rateType === "INTEREST_ONLY";
 
-  const monthlyPayment = calculateMonthlyPayment(
-    loanAmount,
-    interestRate,
-    termMonths,
-  );
+  // For interest-only loans the borrower pays only the accrued interest
+  // each month (no principal amortization), so the term is irrelevant to
+  // the monthly payment. The Loan Term field is hidden on step 0 when the
+  // rate type is "Interest Only", and we fall back to a constant 12-month
+  // term only for DSCR consistency if no amortization/term is provided.
+  const monthlyPayment = isInterestOnly
+    ? calculateInterestOnlyMonthlyPayment(loanAmount, interestRate)
+    : calculateMonthlyPayment(loanAmount, interestRate, termMonths);
   const annualPrincipalAndInterest = monthlyPayment * 12;
   const annualPropertyTaxes = usesBase44Financials
     ? toNumber(formData.financials.annualPropertyTaxes)
