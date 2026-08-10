@@ -2022,12 +2022,14 @@ const LoanApplication = ({
   const fallbackTermMonths = toNumber(formData.loanTermIncome.loanTerm);
   const termMonths =
     amortizationYears > 0 ? amortizationYears * 12 : fallbackTermMonths;
+  const isInterestOnly = formData.loanRequest.rateType === "INTEREST_ONLY";
 
-  const monthlyPayment = calculateMonthlyPayment(
-    loanAmount,
-    interestRate,
-    termMonths,
-  );
+  // Interest-only loans pay only accrued interest each month — the
+  // Loan Term field is hidden on step 0 in that case, so termMonths
+  // does not factor into the payment calculation.
+  const monthlyPayment = isInterestOnly
+    ? (loanAmount * (interestRate / 100)) / 12
+    : calculateMonthlyPayment(loanAmount, interestRate, termMonths);
   const annualPrincipalAndInterest = monthlyPayment * 12;
   const annualPropertyTaxes = usesBase44Financials
     ? toNumber(formData.financials.annualPropertyTaxes)
@@ -3208,30 +3210,32 @@ focus:border-blue-500 outline-none text-sm ${
                         </option>
                       </select>
                     </div>
-                    {/* Loan Term */}
-                    <div>
-                      <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">
-                        Loan Term (in Months)
-                      </label>
-                      <input
-                        type="number"
-                        value={formData.loanTermIncome.loanTerm}
-                        onChange={(e) =>
-                          updateLoanTermIncome("loanTerm", e.target.value)
-                        }
-                        placeholder="e.g. 12"
-                        className={`w-full px-4 py-1 rounded-md border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
-                          errors["loanTermIncome.loanTerm"]
-                            ? "border-red-500 bg-red-50"
-                            : "border-slate-300"
-                        } focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-sm`}
-                      />
-                      {errors["loanTermIncome.loanTerm"] && (
-                        <p className="text-xs text-red-500 mt-1">
-                          {errors["loanTermIncome.loanTerm"]}
-                        </p>
-                      )}
-                    </div>
+                    {/* Loan Term — hidden when rate type is Interest Only */}
+                    {formData.loanRequest.rateType !== "INTEREST_ONLY" && (
+                      <div>
+                        <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">
+                          Loan Term (in Months)
+                        </label>
+                        <input
+                          type="number"
+                          value={formData.loanTermIncome.loanTerm}
+                          onChange={(e) =>
+                            updateLoanTermIncome("loanTerm", e.target.value)
+                          }
+                          placeholder="e.g. 12"
+                          className={`w-full px-4 py-1 rounded-md border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
+                            errors["loanTermIncome.loanTerm"]
+                              ? "border-red-500 bg-red-50"
+                              : "border-slate-300"
+                          } focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-sm`}
+                        />
+                        {errors["loanTermIncome.loanTerm"] && (
+                          <p className="text-xs text-red-500 mt-1">
+                            {errors["loanTermIncome.loanTerm"]}
+                          </p>
+                        )}
+                      </div>
+                    )}
                     {/* Rate Type */}
                     <div>
                       <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">
