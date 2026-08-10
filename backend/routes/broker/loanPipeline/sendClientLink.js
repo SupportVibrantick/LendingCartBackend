@@ -1,6 +1,6 @@
 const crypto = require("crypto");
 
-const { loadTemplate } = require("../../../utils/email/loadTemplate");
+const { loadTemplateAsync } = require("../../../utils/email/loadTemplate");
 const { buildClientLinkEmailData } = require("../../../utils/email/emailTemplateData");
 const sendMail = require("../../../services/emails/mail");
 const { buildClientPortalUrl } = require("../../../utils/email/emailBranding");
@@ -169,15 +169,19 @@ async function sendClientLinkRoute(fastify) {
         /* ===============================
            EMAIL TEMPLATE
         =============================== */
-        const html = loadTemplate(
+        const { html, logoAttachment } = await loadTemplateAsync(
           "broker/clientLink",
-          buildClientLinkEmailData({
-            clientName: loan.client?.legalName,
-            uploadLink,
-            applicationNumber: loan.applicationNumber,
-            brokerName: req.user?.firstName,
-            preset: "portalAccess",
-          }),
+          {
+            ...buildClientLinkEmailData({
+              clientName: loan.client?.legalName,
+              uploadLink,
+              applicationNumber: loan.applicationNumber,
+              brokerName: req.user?.firstName,
+              preset: "portalAccess",
+            }),
+            prisma,
+            brokerOrgId,
+          },
         );
 
         const subject = "Access Your Loan Application Portal";
@@ -193,6 +197,7 @@ async function sendClientLinkRoute(fastify) {
             subject,
             text,
             html,
+            logoAttachment,
           });
 
           fastify.log.info(

@@ -24,7 +24,7 @@ function getTransporter() {
   return transporter;
 }
 
-async function sendViaSmtp({ to, cc, bcc, subject, text, html, from }) {
+async function sendViaSmtp({ to, cc, bcc, subject, text, html, attachments, from }) {
   if (!isEmailEnabled()) {
     return { messageId: "email-disabled", skipped: true };
   }
@@ -40,6 +40,7 @@ async function sendViaSmtp({ to, cc, bcc, subject, text, html, from }) {
     subject,
     text,
     html,
+    attachments: attachments && attachments.length ? attachments : undefined,
   });
 
   return info;

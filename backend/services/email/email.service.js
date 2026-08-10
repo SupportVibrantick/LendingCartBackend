@@ -1,7 +1,54 @@
+const fs = require("fs");
+const path = require("path");
+const os = require("os");
+const crypto = require("crypto");
 const { PrismaClient } = require("@prisma/client");
 const { commonLogs } = require("../logger/contextLogger");
 const { sendViaSmtp } = require("./providers/smtp.provider");
 const { sendViaGhl } = require("./providers/ghl.provider");
+const {
+  DEFAULT_LOGO_PATH,
+  DEFAULT_LOGO_CID,
+} = require("../../utils/email/loadTemplate");
+
+// Postgres JSONB columns corrupt large Buffers through the Prisma
+// serialize/deserialize round-trip, so we never store the binary
+// payload in providerMeta. If an attachment has inline `content`
+// (a Buffer), we write it to a temp file, store the file path in
+// providerMeta, and read the file back at dispatch time.
+const LOGO_TMP_DIR = path.join(os.tmpdir(), "lendingcart-email-logos");
+
+const persistAttachmentContent = (att) => {
+  if (!att || !Buffer.isBuffer(att.content)) return att;
+  try {
+    if (!fs.existsSync(LOGO_TMP_DIR)) {
+      fs.mkdirSync(LOGO_TMP_DIR, { recursive: true });
+    }
+    const id = crypto.randomBytes(8).toString("hex");
+    const ext = (att.filename || "logo.bin").split(".").pop();
+    const tmpPath = path.join(LOGO_TMP_DIR, `${id}.${ext}`);
+    fs.writeFileSync(tmpPath, att.content);
+    return { ...att, content: undefined, path: tmpPath };
+  } catch (err) {
+    // If we can't persist, drop the content to avoid DB corruption
+    return { ...att, content: undefined };
+  }
+};
+
+const restoreAttachmentContent = (att) => {
+  if (!att) return att;
+  // If we stored a path on disk, re-read the Buffer
+  if (att.path && !att.content && /^broker-logo-/.test(att.cid || "")) {
+    try {
+      if (fs.existsSync(att.path)) {
+        return { ...att, content: fs.readFileSync(att.path) };
+      }
+    } catch (err) {
+      // fall through
+    }
+  }
+  return att;
+};
 
 const WORKER_ID = process.env.WORKER_ID || `worker-${process.pid}`;
 const LOCK_MS = 60_000;
@@ -50,6 +97,8 @@ async function enqueueEmail({
   templateData,
   provider = "SMTP",
   providerMeta,
+  attachments,
+  logoAttachment,
   idempotencyKey,
   maxAttempts = 5,
 }) {
@@ -57,6 +106,43 @@ async function enqueueEmail({
 
   if (!to || !subject) {
     throw new Error("enqueueEmail requires to and subject");
+  }
+
+  // Build the final attachment list:
+  //   - any caller-supplied attachments
+  //   - any caller-supplied logoAttachment (from loadTemplateAsync)
+  //   - the platform default logo if the rendered HTML references its cid
+  const finalAttachments = Array.isArray(attachments) ? [...attachments] : [];
+  const htmlStr = typeof html === "string" ? html : "";
+
+  if (
+    logoAttachment &&
+    !finalAttachments.some((a) => a && a.cid === logoAttachment.cid)
+  ) {
+    finalAttachments.push(logoAttachment);
+  }
+
+  if (
+    htmlStr.includes(`cid:${DEFAULT_LOGO_CID}`) &&
+    !finalAttachments.some((a) => a && a.cid === DEFAULT_LOGO_CID) &&
+    fs.existsSync(DEFAULT_LOGO_PATH)
+  ) {
+    finalAttachments.push({
+      filename: path.basename(DEFAULT_LOGO_PATH),
+      path: DEFAULT_LOGO_PATH,
+      cid: DEFAULT_LOGO_CID,
+      contentType: "image/jpeg",
+      contentDisposition: "inline",
+    });
+  }
+
+  // Merge attachments into providerMeta so they survive the outbox round-trip
+  // and are available at dispatch time without a schema change.
+  // Inline Buffer content is written to a temp file first because
+  // Postgres JSONB + Prisma cannot reliably round-trip large Buffers.
+  const meta = { ...(providerMeta || {}) };
+  if (finalAttachments.length) {
+    meta.attachments = finalAttachments.map(persistAttachmentContent);
   }
 
   if (idempotencyKey) {
@@ -81,7 +167,7 @@ async function enqueueEmail({
         templateKey: templateKey || null,
         templateData: templateData || undefined,
         provider,
-        providerMeta: providerMeta || undefined,
+        providerMeta: Object.keys(meta).length ? meta : undefined,
         idempotencyKey: idempotencyKey || null,
         maxAttempts,
       },
@@ -105,13 +191,18 @@ async function enqueueGhlEmail(options) {
 }
 
 async function dispatchOutboxRecord(record) {
+  const providerMeta = record.providerMeta || {};
+  const attachments = Array.isArray(providerMeta.attachments)
+    ? providerMeta.attachments.map(restoreAttachmentContent)
+    : undefined;
+
   if (record.provider === "GHL") {
     return sendViaGhl({
       to: record.to,
       subject: record.subject,
       text: record.text,
       html: record.html,
-      providerMeta: record.providerMeta || {},
+      providerMeta,
     });
   }
 
@@ -122,6 +213,7 @@ async function dispatchOutboxRecord(record) {
     subject: record.subject,
     text: record.text,
     html: record.html,
+    attachments,
   });
 }
 
