@@ -53,6 +53,10 @@ type InputFieldProps = {
   togglePassword?: () => void;
 };
 
+type ApiFieldError = Error & {
+  field?: string;
+};
+
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
 function getAuthHeaders(): Record<string, string> {
@@ -173,10 +177,13 @@ export default function Main() {
 
     if (!res.ok) {
       if (Array.isArray(json?.errors) && json.errors.length > 0) {
-        json.errors.forEach((err: { message?: string }) => {
-          toast.error(err.message || "Validation error");
-        });
-        throw new Error("Validation failed");
+        const messages = json.errors
+          .map((err: { message?: string }) => err.message)
+          .filter(Boolean)
+          .join("\n");
+        const err = new Error(messages || "Validation error") as ApiFieldError;
+        err.field = json.errors[0]?.field;
+        throw err;
       }
 
       if (json?.field) {
@@ -187,8 +194,11 @@ export default function Main() {
           organizationName: "Organization Name",
         };
         const label = fieldLabels[json.field] || json.field;
-        toast.error(`${label}: ${json.message}`);
-        throw new Error(json.message);
+        const err = new Error(
+          `${label}: ${json.message}`,
+        ) as ApiFieldError;
+        err.field = json.field;
+        throw err;
       }
 
       throw new Error(json?.message || "Failed to create lender");
@@ -247,7 +257,7 @@ export default function Main() {
       navigate("/all-lenders-Organization");
     } catch (err: any) {
       console.error(err);
-      if (err?.message && err.message !== "Validation failed") {
+      if (err?.message) {
         toast.error(err.message);
       }
     } finally {
