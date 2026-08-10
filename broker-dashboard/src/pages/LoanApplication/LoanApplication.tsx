@@ -90,8 +90,10 @@ import {
   isProductAllowedInCategory,
   isSbaUsdaCollateralProduct,
   resolveCategoryLoanProducts,
+  showConstructionCostLable,
   showEquityDownPaymentBlock,
   showExitStrategy,
+  showPrivateDetails,
   showValuationCostEquity,
   showValuationEquityBlock,
 } from "./productRules";
@@ -3434,7 +3436,10 @@ focus:border-blue-500 outline-none text-sm ${
                             <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-4">
                               <div>
                                 <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
-                                  Rehab Cost ($)
+                                  {showConstructionCostLable(selectedProduct)
+                                    ? "Construction Cost"
+                                    : "Rehab Cost"}{" "}
+                                  ($)
                                 </label>
                                 <div className="relative mt-1">
                                   <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">
@@ -3742,7 +3747,9 @@ focus:border-blue-500 outline-none text-sm ${
                         <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div>
                             <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
-                              Rehab Cost ($)
+                              {showConstructionCostLable(selectedProduct)
+                                ? "Construction Cost"
+                                : "Rehab Cost"}
                             </label>
                             <div className="relative mt-1">
                               <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">
@@ -4899,22 +4906,29 @@ focus:border-blue-500 outline-none text-sm ${
                   </div>
                 </div>
               )}
-              {/* ================= SALE DETAILS ================= */}
-              <div className="md:col-span-2">
-                <SaleDetailsCard
-                  privateSale={formData.loanRequest.privateSale}
-                  vendorName={formData.loanRequest.vendorName}
-                  vendorPhone={formData.loanRequest.vendorPhone}
-                  onPrivateSaleChange={(v) =>
-                    updateLoanRequest("privateSale", v)
-                  }
-                  onVendorNameChange={(v) => updateLoanRequest("vendorName", v)}
-                  onVendorPhoneChange={(v) =>
-                    updateLoanRequest("vendorPhone", v)
-                  }
-                  formatUSPhone={formatUSPhone}
-                />
-              </div>
+
+              {showPrivateDetails(
+                selectedProduct,
+                formData.loanRequest.purpose,
+              ) ? (
+                <div className="md:col-span-2">
+                  <SaleDetailsCard
+                    privateSale={formData.loanRequest.privateSale}
+                    vendorName={formData.loanRequest.vendorName}
+                    vendorPhone={formData.loanRequest.vendorPhone}
+                    onPrivateSaleChange={(v) =>
+                      updateLoanRequest("privateSale", v)
+                    }
+                    onVendorNameChange={(v) =>
+                      updateLoanRequest("vendorName", v)
+                    }
+                    onVendorPhoneChange={(v) =>
+                      updateLoanRequest("vendorPhone", v)
+                    }
+                    formatUSPhone={formatUSPhone}
+                  />
+                </div>
+              ) : null}
             </div>
           )}
 
