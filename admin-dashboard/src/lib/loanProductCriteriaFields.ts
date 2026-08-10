@@ -246,6 +246,14 @@ const productSkipsUniversalField = (
     return true;
   }
 
+  // Mezzanine stores LTV in minMezzLtvPercent / maxMezzLtvPercent (mezzLtvMin / mezzLtvMax).
+  if (
+    isMezzanineProduct(productCode) &&
+    (fieldKey === "maxLtv" || fieldKey === "maxLtc")
+  ) {
+    return true;
+  }
+
   if (isArFactoringProduct(productCode)) {
     if (
       fieldKey === "minRate" ||
@@ -584,8 +592,20 @@ const MEZZANINE_CRITERIA_FIELDS: CriteriaField[] = [
   { label: "Max Loan Amount ($)", key: "maxLoan", required: true },
   { label: "Min Rate (%)", key: "minRate", required: true },
   { label: "Max Rate (%)", key: "maxRate", required: true },
-  { label: "Mezz LTV Min (%)", key: "mezzLtvMin", required: true },
-  { label: "Mezz LTV Max (%)", key: "mezzLtvMax", required: true },
+  {
+    label: "Mezz LTV Min (%)",
+    key: "mezzLtvMin",
+    required: true,
+    decimal: true,
+    inputSuffix: "%",
+  },
+  {
+    label: "Max LTV (%)",
+    key: "mezzLtvMax",
+    required: true,
+    decimal: true,
+    inputSuffix: "%",
+  },
   { label: "Min Term (months)", key: "minTerm", required: true },
   { label: "Max Term (months)", key: "maxTerm", required: true },
   { label: "Origination Points (%)", key: "originationPoints", required: true },
@@ -1710,9 +1730,13 @@ export const buildLenderProductCriteriaPayload = (
           : null,
     maxMezzLtvPercent:
       mezzanineProduct &&
-      criteria.mezzLtvMax !== undefined &&
-      criteria.mezzLtvMax !== ""
-        ? Number(criteria.mezzLtvMax)
+      ((criteria.mezzLtvMax !== undefined && criteria.mezzLtvMax !== "") ||
+        (criteria.maxLtv !== undefined && criteria.maxLtv !== ""))
+        ? Number(
+            criteria.mezzLtvMax !== undefined && criteria.mezzLtvMax !== ""
+              ? criteria.mezzLtvMax
+              : criteria.maxLtv,
+          )
         : null,
     exitFeePercent:
       (mezzanineProduct || preferredEquityProduct) &&
@@ -2347,7 +2371,9 @@ export const mapApiProductToCriteriaForm = (product: any) => {
     mezzLtvMax: toFormValue(product.maxMezzLtvPercent),
     exitFee: toFormValue(product.exitFeePercent),
     minLtv: toFormValue(product.minMezzLtvPercent),
-    maxLtv: toFormValue(product.maxLtvPercent),
+    maxLtv: toFormValue(
+      product.maxLtvPercent ?? product.maxMezzLtvPercent,
+    ),
     maxArv: toFormValue(product.maxArvPercent),
     maxLtc: toFormValue(product.maxLtcPercent),
     fico: toFormValue(product.minCreditScore),

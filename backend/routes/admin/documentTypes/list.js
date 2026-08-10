@@ -31,12 +31,34 @@ async function listDocumentTypesRoutes(fastify) {
         const sourceFilter =
           typeof source === "string" ? source.trim().toLowerCase() : "all";
 
-        const sourceDocumentFilter =
-          sourceFilter === "admin"
-            ? { isCustom: false }
-            : sourceFilter === "lender"
-              ? { isCustom: true }
-              : {};
+        if (
+          sourceFilter &&
+          !["all", "admin", "lender", "broker"].includes(sourceFilter)
+        ) {
+          return reply.status(400).send({
+            success: false,
+            message: "source must be all, admin, lender, or broker",
+          });
+        }
+
+        let sourceDocumentFilter = {};
+
+        if (sourceFilter === "admin") {
+          sourceDocumentFilter = { isCustom: false };
+        } else if (sourceFilter === "lender" || sourceFilter === "broker") {
+          const orgType = sourceFilter === "lender" ? "LENDER" : "BROKER";
+          const orgs = await prisma.organization.findMany({
+            where: { type: orgType },
+            select: { id: true },
+          });
+          const orgIds = orgs.map((org) => org.id);
+
+          sourceDocumentFilter = {
+            isCustom: true,
+            createdByOrgId:
+              orgIds.length > 0 ? { in: orgIds } : { in: [] },
+          };
+        }
 
         const documentTypeFilter = {
           ...sourceDocumentFilter,
@@ -72,7 +94,7 @@ async function listDocumentTypesRoutes(fastify) {
             orgIds.length > 0
               ? await prisma.organization.findMany({
                   where: { id: { in: orgIds } },
-                  select: { id: true, name: true },
+                  select: { id: true, name: true, type: true },
                 })
               : [];
 
@@ -89,6 +111,12 @@ async function listDocumentTypesRoutes(fastify) {
               ? orgById.get(docType.createdByOrgId)
               : null;
 
+            let sourceLabel = "ADMIN";
+            if (isCustom) {
+              sourceLabel =
+                createdByOrg?.type === "BROKER" ? "BROKER" : "LENDER";
+            }
+
             return {
               id: docType.id,
               name: docType.name,
@@ -96,9 +124,10 @@ async function listDocumentTypesRoutes(fastify) {
               description: docType.description,
               isActive: docType.isActive,
               isCustom,
-              source: isCustom ? "LENDER" : "ADMIN",
+              source: sourceLabel,
               createdByOrgId: docType.createdByOrgId || null,
               createdByOrgName: createdByOrg?.name || null,
+              createdByOrgType: createdByOrg?.type || null,
               createdAt: docType.createdAt,
               updatedAt: docType.updatedAt,
               requirementId: row.id,

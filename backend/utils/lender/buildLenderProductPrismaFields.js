@@ -48,6 +48,7 @@ function toCsv(arr) {
 function buildLenderProductPrismaFields(item) {
   const code = item.loanProductCode;
   const isEquipmentFinance = code === "EQUIPMENT_FINANCE";
+  const usesEquipmentTypes = isEquipmentFinance;
 
   return {
     businessTypes: item.businessTypes ?? null,
@@ -470,14 +471,14 @@ function buildLenderProductPrismaFields(item) {
     statesSupported: toCsv(item.statesSupported),
 
     equipmentTypes:
-      isEquipmentFinance && item.equipmentTypes
+      usesEquipmentTypes && item.equipmentTypes
         ? toCsv(
             Array.isArray(item.equipmentTypes)
               ? item.equipmentTypes
               : String(item.equipmentTypes).split(","),
           )
         : null,
-    otherEquipmentExplanation: isEquipmentFinance
+    otherEquipmentExplanation: usesEquipmentTypes
       ? item.otherEquipmentExplanation ?? null
       : null,
 

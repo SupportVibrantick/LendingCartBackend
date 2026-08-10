@@ -12,20 +12,17 @@ import ProfileCompanyStep, {
   type CompanyForm,
 } from "./ProfileCompanyStep";
 import StepTwo from "../LoanProducts/LoanCriteria/StepTwo";
-import StepThree from "../LoanProducts/LoanCriteria/StepThree";
-import StepFour from "../LoanProducts/LoanCriteria/StepFour";
 import StepFive from "../LoanProducts/LoanCriteria/StepFive";
-import EquipmentFinancingStep from "../LoanProducts/LoanCriteria/EquipmentFinancingStep";
 import {
   getRequiredCriteriaKeysForProduct,
   isMezzanineProduct,
   isNoMinLoanCriteriaProduct,
   isSba504Product,
   mapApiProductToCriteriaForm,
+  productUsesEquipmentTypes,
 } from "../../lib/loanProductCriteriaFields";
 import {
   mapToLenderProductUpdatePayload,
-  mergeGroupedSelections,
   normalizeGroupedSelectionFromApi,
 } from "../../lib/lenderProductLenderPayload";
 import { API_BASE, getLenderAuthHeaders } from "../../lib/lenderApi";
@@ -34,6 +31,7 @@ import {
   buildLoanCriteriaFromLenderProducts,
   filterLenderCatalogProducts,
   mapToCanonicalCatalogId,
+  normalizeLenderProductRecord,
   resolveLenderOfferedProductCode,
 } from "../../lib/lenderLoanProducts";
 import {
@@ -133,18 +131,7 @@ export default function EditFullProfile() {
     [existingProducts, products],
   );
 
-  const isEquipmentSelected = selectedProducts.some(
-    (product) => product.code === "EQUIPMENT_FINANCE",
-  );
-
-  const steps = [
-    "Company Info",
-    "Loan Programs",
-    "Property Types",
-    "Business Types",
-    ...(isEquipmentSelected ? ["Equipment Types"] : []),
-    "Loan Criteria",
-  ];
+  const steps = ["Company Info", "Loan Programs", "Loan Criteria"];
 
   const loanCriteriaStepIndex = steps.length - 1;
   const isLastStep = step === loanCriteriaStepIndex;
@@ -251,66 +238,85 @@ export default function EditFullProfile() {
       return;
     }
 
-    const loanProgramIds = [
-      ...new Set(
-        activeProducts
-          .map((product) =>
-            mapToCanonicalCatalogId(
-              catalogProducts,
-              product.code,
-              product.loanProductId,
-            ),
-          )
-          .filter((id): id is string => Boolean(id))
-          .map(String),
-      ),
-    ];
-
     const loanCriteria = buildLoanCriteriaFromLenderProducts(
       activeProducts,
       catalogProducts,
       mapApiProductToCriteriaForm,
     );
+
+    // Keep criteria cache for configured products; user picks one program at a time.
+    setForm((previous) => ({
+      ...previous,
+      loanPrograms: [],
+      propertyTypes: {},
+      businessTypes: {},
+      loanCriteria,
+      equipmentFinance: [],
+    }));
+  };
+
+  const handlePickProduct = (productId: string) => {
+    const product = products.find((item) => item.id === productId);
+    const existing = product ? resolveExistingProduct(product) : undefined;
+
     let propertyTypes: Record<string, string[]> = {};
     let businessTypes: Record<string, string[]> = {};
     let equipmentFinance: string[] = [];
+    const loanCriteria: Record<string, any> = {
+      ...form.loanCriteria,
+    };
 
-    for (const lenderProduct of activeProducts) {
-      const canonicalId = mapToCanonicalCatalogId(
-        catalogProducts,
-        lenderProduct.code,
-        lenderProduct.loanProductId,
-      );
-      if (!canonicalId) continue;
-
-      propertyTypes = mergeGroupedSelections(
-        propertyTypes,
-        normalizeGroupedSelectionFromApi(lenderProduct.propertyTypes, "type"),
-      );
-
-      businessTypes = mergeGroupedSelections(
-        businessTypes,
-        normalizeGroupedSelectionFromApi(lenderProduct.businessTypes, "name"),
+    if (existing) {
+      const normalized = normalizeLenderProductRecord(existing as any);
+      const code = resolveLenderOfferedProductCode(
+        normalized.loanProductCode ||
+          normalized.code ||
+          product?.code ||
+          "",
       );
 
-      const canonicalCode = resolveLenderOfferedProductCode(
-        lenderProduct.code || "",
+      loanCriteria[productId] =
+        form.loanCriteria?.[productId] ||
+        mapApiProductToCriteriaForm({
+          ...normalized,
+          loanProductCode: code,
+          code,
+        });
+
+      propertyTypes = normalizeGroupedSelectionFromApi(
+        normalized.propertyTypes,
+        "type",
+      );
+      businessTypes = normalizeGroupedSelectionFromApi(
+        normalized.businessTypes,
+        "name",
       );
 
-      if (canonicalCode === "EQUIPMENT_FINANCE") {
-        equipmentFinance = Array.isArray(lenderProduct.equipmentTypes)
-          ? lenderProduct.equipmentTypes
+      if (productUsesEquipmentTypes(code)) {
+        equipmentFinance = Array.isArray(normalized.equipmentTypes)
+          ? normalized.equipmentTypes
           : [];
+      }
+    } else {
+      loanCriteria[productId] = form.loanCriteria?.[productId] || {
+        states: [],
+        documents: [],
+      };
+
+      if (productUsesEquipmentTypes(product?.code)) {
+        equipmentFinance = [];
       }
     }
 
     setForm({
-      loanPrograms: loanProgramIds,
+      loanPrograms: [productId],
       propertyTypes,
       businessTypes,
       loanCriteria,
       equipmentFinance,
     });
+    setHasStep5Errors(false);
+    setStep(loanCriteriaStepIndex);
   };
 
   const resolveExistingProduct = (catalogProduct: Product) =>
@@ -468,15 +474,21 @@ export default function EditFullProfile() {
         formData.append("fundingSpeedDays", company.fundingSpeedDays);
       }
 
-      const selectedCodes = selectedProducts.map((product) => product.code);
+      const programIdsForProfile = [
+        ...new Set([...lockedProgramIds, ...form.loanPrograms]),
+      ];
+      const productsForProfile = products.filter((product) =>
+        programIdsForProfile.includes(product.id),
+      );
+      const selectedCodes = productsForProfile.map((product) => product.code);
       if (selectedCodes.length) {
         formData.append("loanTypes", JSON.stringify(selectedCodes));
       }
 
-      const minValues = selectedProducts
+      const minValues = productsForProfile
         .map((product) => Number(form.loanCriteria?.[product.id]?.minLoan))
         .filter((value) => Number.isFinite(value) && value > 0);
-      const maxValues = selectedProducts
+      const maxValues = productsForProfile
         .map((product) => Number(form.loanCriteria?.[product.id]?.maxLoan))
         .filter((value) => Number.isFinite(value) && value > 0);
 
@@ -488,7 +500,7 @@ export default function EditFullProfile() {
       }
 
       const allStates = new Set<string>();
-      for (const product of selectedProducts) {
+      for (const product of productsForProfile) {
         const states = form.loanCriteria?.[product.id]?.states || [];
         for (const state of states) {
           allStates.add(state);
@@ -595,7 +607,7 @@ export default function EditFullProfile() {
     }
 
     if (!selectedProducts.length) {
-      toast.error("Select at least one loan program");
+      toast.error("Select a loan program");
       return;
     }
 
@@ -668,29 +680,6 @@ export default function EditFullProfile() {
         }
       }
 
-      for (const existing of existingProducts) {
-        const canonicalId = mapToCanonicalCatalogId(
-          products,
-          existing.code,
-          existing.loanProductId,
-        );
-
-        if (
-          canonicalId &&
-          !form.loanPrograms.includes(canonicalId) &&
-          existing.id
-        ) {
-          await fetch(
-            `${API_BASE}/lender/loan-products/update/${existing.id}`,
-            {
-              method: "PUT",
-              headers: getLenderAuthHeaders(true),
-              body: JSON.stringify({ isActive: false }),
-            },
-          );
-        }
-      }
-
       const markedComplete = await saveCompanyProfile(false, true);
       if (!markedComplete) {
         throw new Error("Failed to mark profile as complete");
@@ -716,12 +705,7 @@ export default function EditFullProfile() {
       );
     }
 
-    const loanProgramsIndex = 1;
-    const propertyIndex = 2;
-    const businessIndex = 3;
-    const equipmentIndex = isEquipmentSelected ? 4 : -1;
-
-    if (step === loanProgramsIndex) {
+    if (step === 1) {
       return (
         <StepTwo
           mode="lender"
@@ -729,49 +713,15 @@ export default function EditFullProfile() {
           setValue={(value) =>
             setForm((previous) => ({
               ...previous,
-              loanPrograms: [
-                ...new Set([
-                  ...lockedProgramIds,
-                  ...(Array.isArray(value) ? value : []),
-                ]),
-              ],
+              loanPrograms: Array.isArray(value) ? value.slice(0, 1) : [],
             }))
           }
-          lockedIds={lockedProgramIds}
           onProductsLoad={setProducts}
-        />
-      );
-    }
-
-    if (step === propertyIndex) {
-      return (
-        <StepThree
-          value={form.propertyTypes}
-          setValue={(value: Record<string, string[]>) =>
-            setForm((previous) => ({ ...previous, propertyTypes: value }))
-          }
-        />
-      );
-    }
-
-    if (step === businessIndex) {
-      return (
-        <StepFour
-          value={form.businessTypes}
-          setValue={(value: Record<string, string[]>) =>
-            setForm((previous) => ({ ...previous, businessTypes: value }))
-          }
-        />
-      );
-    }
-
-    if (isEquipmentSelected && step === equipmentIndex) {
-      return (
-        <EquipmentFinancingStep
-          value={form.equipmentFinance}
-          setValue={(value: string[]) =>
-            setForm((previous) => ({ ...previous, equipmentFinance: value }))
-          }
+          alreadyAddedIds={lockedProgramIds}
+          pickOneMode
+          configuredSelectable
+          onPickProduct={handlePickProduct}
+          description="Select one loan program to continue. Configured programs stay available."
         />
       );
     }
@@ -781,11 +731,33 @@ export default function EditFullProfile() {
         <StepFive
           mode="update"
           products={selectedProducts}
+          lenderProductIdByProgramId={Object.fromEntries(
+            selectedProducts
+              .map((product) => {
+                const existing = resolveExistingProduct(product);
+                return existing?.id
+                  ? ([product.id, existing.id] as const)
+                  : null;
+              })
+              .filter(Boolean) as Array<readonly [string, string]>,
+          )}
           value={form.loanCriteria}
           setValue={(value: Record<string, any>) =>
             setForm((previous) => ({ ...previous, loanCriteria: value }))
           }
           setHasErrors={setHasStep5Errors}
+          propertyTypes={form.propertyTypes}
+          setPropertyTypes={(value: Record<string, string[]>) =>
+            setForm((previous) => ({ ...previous, propertyTypes: value }))
+          }
+          businessTypes={form.businessTypes}
+          setBusinessTypes={(value: Record<string, string[]>) =>
+            setForm((previous) => ({ ...previous, businessTypes: value }))
+          }
+          equipmentTypes={form.equipmentFinance}
+          setEquipmentTypes={(value: string[]) =>
+            setForm((previous) => ({ ...previous, equipmentFinance: value }))
+          }
         />
       );
     }
@@ -803,7 +775,7 @@ export default function EditFullProfile() {
     }
 
     if (step === 1 && form.loanPrograms.length === 0) {
-      toast.error("Select at least one loan program");
+      toast.error("Select a loan program");
       return;
     }
 
@@ -828,23 +800,39 @@ export default function EditFullProfile() {
   return (
     <div className="flex h-screen flex-col bg-gray-50">
       <div className="sticky top-0 z-30 bg-gray-50">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <div className="flex items-center gap-3">
+        <div className="mx-auto flex max-w-screen-2xl items-center justify-between px-6 py-4">
+          <div className="flex min-w-0 items-center gap-3">
             <button
               type="button"
               onClick={() => navigate("/profile")}
-              className="flex h-9 w-9 items-center justify-center rounded-full border transition hover:bg-gray-100"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border transition hover:bg-gray-100"
             >
               <ArrowLeft size={18} />
             </button>
 
-            <div>
-              <h1 className="text-lg font-semibold leading-tight">
-                Edit — {company.companyName || "Lender Profile"}
-              </h1>
-              <p className="text-xs text-gray-500">
-                Step {step + 1} of {steps.length} · {steps[step]}
-              </p>
+            <div className="min-w-0">
+              {selectedProducts.length > 0 && step > 0 ? (
+                <>
+                  <h1 className="truncate text-lg font-semibold leading-tight">
+                    {selectedProducts.length === 1
+                      ? selectedProducts[0].name
+                      : `${selectedProducts[0].name} +${selectedProducts.length - 1} more`}
+                  </h1>
+                  <p className="truncate text-xs text-gray-500">
+                    {steps[step]} · Step {step + 1} of {steps.length}
+                    {company.companyName ? ` · ${company.companyName}` : ""}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <h1 className="text-lg font-semibold leading-tight">
+                    Edit — {company.companyName || "Lender Profile"}
+                  </h1>
+                  <p className="text-xs text-gray-500">
+                    Step {step + 1} of {steps.length} · {steps[step]}
+                  </p>
+                </>
+              )}
             </div>
           </div>
 
@@ -863,7 +851,7 @@ export default function EditFullProfile() {
           </button>
         </div>
 
-        <div className="mx-auto max-w-6xl px-6">
+        <div className="mx-auto max-w-screen-2xl px-6">
           <div className="h-[3px] overflow-hidden rounded-full bg-gray-100">
             <div
               className="h-full bg-[#134E4A] transition-all duration-300"
@@ -872,7 +860,7 @@ export default function EditFullProfile() {
           </div>
         </div>
 
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-3 px-6 py-4">
+        <div className="mx-auto flex max-w-screen-2xl flex-wrap items-center gap-3 px-6 py-4">
           {steps.map((label, index) => {
             const isActive = step === index;
             const isCompleted = step > index;
@@ -906,11 +894,11 @@ export default function EditFullProfile() {
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        <div className="mx-auto max-w-6xl p-6">{getStepContent()}</div>
+        <div className="mx-auto max-w-screen-2xl p-6">{getStepContent()}</div>
       </div>
 
       <div className="sticky bottom-0 z-30 border-t bg-white/80 shadow-[0_-2px_10px_rgba(0,0,0,0.04)] backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
+        <div className="mx-auto flex max-w-screen-2xl items-center justify-between px-6 py-4">
           <div className="text-xs text-gray-500">
             Step <span className="font-semibold text-gray-700">{step + 1}</span>{" "}
             of{" "}

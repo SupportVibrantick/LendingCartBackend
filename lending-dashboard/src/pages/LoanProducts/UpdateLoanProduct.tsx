@@ -4,12 +4,10 @@ import { useNavigate } from "react-router-dom";
 import { ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
 import toast from "react-hot-toast";
 import StepTwo from "./LoanCriteria/StepTwo";
-import StepThree from "./LoanCriteria/StepThree";
-import StepFour from "./LoanCriteria/StepFour";
 import StepFive from "./LoanCriteria/StepFive";
-import EquipmentFinancingStep from "./LoanCriteria/EquipmentFinancingStep";
 import {
   getLoanCriteriaFooterMessage,
+  productUsesEquipmentTypes,
   mapApiProductToCriteriaForm,
   validateLoanProductCriteriaStep,
 } from "../../lib/loanProductCriteriaFields";
@@ -265,17 +263,7 @@ export default function UpdateLoanProduct() {
     [form.loanPrograms, lockedProgramIds],
   );
 
-  const isEquipmentSelected = selectedProducts.some(
-    (p) => p.code === "EQUIPMENT_FINANCE",
-  );
-
-  const steps = [
-    "Update Loan Programs",
-    "Update Property Types",
-    "Update Business Types",
-    ...(isEquipmentSelected ? ["Update Equipment Types"] : []),
-    "Update Loan Criteria",
-  ];
+  const steps = ["Update Loan Programs", "Update Loan Criteria"];
 
   const loanCriteriaStepIndex = steps.length - 1;
   const isLastStep = step === steps.length - 1;
@@ -440,45 +428,7 @@ export default function UpdateLoanProduct() {
       );
     }
 
-    const propertyStepIndex = 1;
-    const businessStepIndex = 2;
-    const equipmentStepIndex = isEquipmentSelected ? 3 : -1;
-    const loanCriteriaIndex = steps.length - 1;
-
-    if (step === propertyStepIndex) {
-      return (
-        <StepThree
-          value={form.propertyTypes}
-          setValue={(val: Record<string, string[]>) =>
-            setForm((prev) => ({ ...prev, propertyTypes: val }))
-          }
-        />
-      );
-    }
-
-    if (step === businessStepIndex) {
-      return (
-        <StepFour
-          value={form.businessTypes}
-          setValue={(val: Record<string, string[]>) =>
-            setForm((prev) => ({ ...prev, businessTypes: val }))
-          }
-        />
-      );
-    }
-
-    if (isEquipmentSelected && step === equipmentStepIndex) {
-      return (
-        <EquipmentFinancingStep
-          value={form.equipmentFinance}
-          setValue={(val: string[]) =>
-            setForm((prev) => ({ ...prev, equipmentFinance: val }))
-          }
-        />
-      );
-    }
-
-    if (step === loanCriteriaIndex) {
+    if (step === loanCriteriaStepIndex) {
       if (loadingExisting) {
         return (
           <div className="rounded-2xl border border-gray-200 bg-white p-10 text-center text-sm text-gray-500">
@@ -503,6 +453,18 @@ export default function UpdateLoanProduct() {
             setForm((prev) => ({ ...prev, loanCriteria: val }))
           }
           setHasErrors={setHasStep5Errors}
+          propertyTypes={form.propertyTypes}
+          setPropertyTypes={(val: Record<string, string[]>) =>
+            setForm((prev) => ({ ...prev, propertyTypes: val }))
+          }
+          businessTypes={form.businessTypes}
+          setBusinessTypes={(val: Record<string, string[]>) =>
+            setForm((prev) => ({ ...prev, businessTypes: val }))
+          }
+          equipmentTypes={form.equipmentFinance}
+          setEquipmentTypes={(val: string[]) =>
+            setForm((prev) => ({ ...prev, equipmentFinance: val }))
+          }
         />
       );
     }
@@ -641,7 +603,7 @@ export default function UpdateLoanProduct() {
             "name",
           );
 
-          if (focusedCode === "EQUIPMENT_FINANCE") {
+          if (productUsesEquipmentTypes(focusedCode)) {
             equipmentFinance = Array.isArray(focusedRecord.equipmentTypes)
               ? focusedRecord.equipmentTypes
               : [];
@@ -700,7 +662,7 @@ export default function UpdateLoanProduct() {
               item.loanProductCode || item.code || "",
             );
 
-            if (canonicalCode === "EQUIPMENT_FINANCE") {
+            if (productUsesEquipmentTypes(canonicalCode)) {
               equipmentFinance = Array.isArray(item.equipmentTypes)
                 ? item.equipmentTypes
                 : [];
@@ -769,27 +731,43 @@ export default function UpdateLoanProduct() {
   return (
     <div className="h-[calc(100vh-80px)] flex flex-col bg-gray-50">
       <div className="sticky top-0 z-30 bg-gray-50">
-        <div className="max-w-6xl mx-auto px-6 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-3">
+        <div className="max-w-screen-2xl mx-auto px-6 py-4 flex justify-between items-center">
+          <div className="flex items-center gap-3 min-w-0">
             <button
+              type="button"
               onClick={() => navigate("/all-loan-products")}
-              className="flex items-center justify-center w-9 h-9 rounded-full border hover:bg-gray-100 transition"
+              className="flex items-center justify-center w-9 h-9 shrink-0 rounded-full border hover:bg-gray-100 transition"
             >
               <ArrowLeft size={18} />
             </button>
 
-            <div>
-              <h1 className="text-lg font-semibold leading-tight">
-                {steps[step]}
-              </h1>
-              <p className="text-xs text-gray-500">
-                Step {step + 1} of {steps.length}
-              </p>
+            <div className="min-w-0">
+              {selectedProducts.length > 0 ? (
+                <>
+                  <h1 className="text-lg font-semibold leading-tight truncate">
+                    {selectedProducts.length === 1
+                      ? selectedProducts[0].name
+                      : `${selectedProducts[0].name} +${selectedProducts.length - 1} more`}
+                  </h1>
+                  <p className="text-xs text-gray-500 truncate">
+                    {steps[step]} · Step {step + 1} of {steps.length}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <h1 className="text-lg font-semibold leading-tight">
+                    {steps[step]}
+                  </h1>
+                  <p className="text-xs text-gray-500">
+                    Step {step + 1} of {steps.length}
+                  </p>
+                </>
+              )}
             </div>
           </div>
         </div>
 
-        <div className="max-w-6xl mx-auto px-6">
+        <div className="max-w-screen-2xl mx-auto px-6">
           <div className="w-full h-[3px] bg-gray-100 rounded-full overflow-hidden">
             <div
               className="h-full bg-black transition-all duration-300"
@@ -798,7 +776,7 @@ export default function UpdateLoanProduct() {
           </div>
         </div>
 
-        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center gap-3 flex-wrap">
+        <div className="max-w-screen-2xl mx-auto px-6 py-4 flex items-center gap-3 flex-wrap">
           {steps.map((label, index) => {
             const isActive = step === index;
             const isCompleted = step > index;
@@ -833,11 +811,11 @@ export default function UpdateLoanProduct() {
       </div>
 
       <div className="flex-1 min-h-0 overflow-y-auto">
-        <div className="max-w-6xl mx-auto p-6">{getStepContent()}</div>
+        <div className="max-w-screen-2xl mx-auto p-6">{getStepContent()}</div>
       </div>
 
       <div className="sticky bottom-0 z-30 bg-white/80 backdrop-blur border-t shadow-[0_-2px_10px_rgba(0,0,0,0.04)]">
-        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+        <div className="max-w-screen-2xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="text-xs text-gray-500">
             Step <span className="font-semibold text-gray-700">{step + 1}</span>{" "}
             of{" "}

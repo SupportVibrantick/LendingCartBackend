@@ -1,4 +1,7 @@
-import { buildLenderProductCriteriaPayload } from "./loanProductCriteriaFields";
+import {
+  buildLenderProductCriteriaPayload,
+  productUsesEquipmentTypes,
+} from "./loanProductCriteriaFields";
 
 type ProductRef = {
   id: string;
@@ -97,7 +100,7 @@ export function mapToLenderProductUpdatePayload(
     businessTypes: form.businessTypes,
     propertyTypes: form.propertyTypes,
     ...built,
-    ...(product.code === "EQUIPMENT_FINANCE" &&
+    ...(productUsesEquipmentTypes(product.code) &&
       form.equipmentFinance?.length && {
         equipmentTypes: form.equipmentFinance,
         otherEquipmentExplanation: "",

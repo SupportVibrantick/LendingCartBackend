@@ -13,6 +13,7 @@ import {
   sanitizeNumberInput,
   stripNumberFormatting,
 } from "../../../../lib/numberInputFormat";
+import ProgramEligibilitySection from "./ProgramEligibilitySection";
 
 const US_STATES = [
   "AL",
@@ -120,6 +121,10 @@ type StepFiveProps = {
   mode?: "create" | "update";
   authMode?: "admin" | "lender";
   lenderProductIdByProgramId?: Record<string, string>;
+  propertyTypes?: Record<string, string[]>;
+  setPropertyTypes?: (next: Record<string, string[]>) => void;
+  businessTypes?: Record<string, string[]>;
+  setBusinessTypes?: (next: Record<string, string[]>) => void;
 };
 
 const createDefaultDocumentState = (): ProductDocumentState => ({
@@ -176,6 +181,10 @@ const StepFive = ({
   mode = "create",
   authMode = "admin",
   lenderProductIdByProgramId = {},
+  propertyTypes = {},
+  setPropertyTypes,
+  businessTypes = {},
+  setBusinessTypes,
 }: StepFiveProps) => {
   const getProductKey = (product: { id: string | number }) =>
     String(product.id);
@@ -1157,6 +1166,16 @@ const StepFive = ({
                     {errors[getProductKey(product)].states}
                   </p>
                 )}
+
+                {typeof setPropertyTypes === "function" &&
+                  typeof setBusinessTypes === "function" && (
+                    <ProgramEligibilitySection
+                      propertyTypes={propertyTypes}
+                      setPropertyTypes={setPropertyTypes}
+                      businessTypes={businessTypes}
+                      setBusinessTypes={setBusinessTypes}
+                    />
+                  )}
 
                 <div className="mt-6">
                   <div className="flex items-center justify-between mb-3">

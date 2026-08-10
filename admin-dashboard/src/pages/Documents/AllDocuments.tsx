@@ -30,9 +30,10 @@ type Document = {
   isActive: boolean;
   isRequired?: boolean;
   isCustom?: boolean;
-  source?: "ADMIN" | "LENDER";
+  source?: "ADMIN" | "LENDER" | "BROKER";
   createdByOrgId?: string | null;
   createdByOrgName?: string | null;
+  createdByOrgType?: string | null;
   requirementId?: string | null;
   loanProductId?: string | null;
   loanProductCode?: string | null;
@@ -57,7 +58,7 @@ type PaginationMeta = {
 };
 
 type StatusFilter = "all" | "active" | "inactive";
-type SourceFilter = "all" | "admin" | "lender";
+type SourceFilter = "all" | "admin" | "lender" | "broker";
 
 const EMPTY_FORM: DocumentForm = {
   loanProductId: "",
@@ -121,6 +122,10 @@ export default function AllDocuments() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingSource, setEditingSource] = useState<
+    "ADMIN" | "LENDER" | "BROKER" | null
+  >(null);
+  const [editingOrgName, setEditingOrgName] = useState<string | null>(null);
   const [form, setForm] = useState<DocumentForm>(EMPTY_FORM);
   const [searchInput, setSearchInput] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -154,6 +159,8 @@ export default function AllDocuments() {
   const closeForm = () => {
     setFormOpen(false);
     setEditingId(null);
+    setEditingSource(null);
+    setEditingOrgName(null);
     setForm(EMPTY_FORM);
   };
 
@@ -163,6 +170,8 @@ export default function AllDocuments() {
       return;
     }
     setEditingId(null);
+    setEditingSource(null);
+    setEditingOrgName(null);
     setForm({
       ...EMPTY_FORM,
       loanProductId: selectedProductId || products[0]?.id || "",
@@ -172,6 +181,8 @@ export default function AllDocuments() {
 
   const openEditForm = (doc: Document) => {
     setEditingId(doc.id);
+    setEditingSource(doc.source || "ADMIN");
+    setEditingOrgName(doc.createdByOrgName || null);
     setForm({
       loanProductId: doc.loanProductId || selectedProductId || "",
       name: doc.name,
@@ -184,9 +195,11 @@ export default function AllDocuments() {
   const fetchProducts = useCallback(async () => {
     try {
       setLoadingProducts(true);
-      const res = await fetch(`${API_BASE}/admin/loan-products/list`, {
-        headers: getAuthHeaders({ json: false }),
-      });
+      // Same catalog endpoint + filter as lender Add Loan Product
+      const res = await fetch(
+        `${API_BASE}/common/loan-products/loan-product-code`,
+        { headers: getAuthHeaders({ json: false }) },
+      );
       const json = await res.json().catch(() => ({}));
       if (!res.ok || !json.success) {
         toast.error(json.message || "Failed to load loan programs");
@@ -264,9 +277,16 @@ export default function AllDocuments() {
             isActive: Boolean(item.isActive),
             isRequired: Boolean(item.isRequired ?? true),
             isCustom: Boolean(item.isCustom),
-            source: item.source || (item.isCustom ? "LENDER" : "ADMIN"),
+            source:
+              item.source ||
+              (item.isCustom
+                ? item.createdByOrgType === "BROKER"
+                  ? "BROKER"
+                  : "LENDER"
+                : "ADMIN"),
             createdByOrgId: item.createdByOrgId || null,
             createdByOrgName: item.createdByOrgName || null,
+            createdByOrgType: item.createdByOrgType || null,
             requirementId: item.requirementId || null,
             loanProductId: item.loanProductId || productId || null,
             loanProductCode: item.loanProductCode || null,
@@ -586,6 +606,7 @@ export default function AllDocuments() {
               >
                 <option value="admin">Admin documents</option>
                 <option value="lender">Lender documents</option>
+                <option value="broker">Broker documents</option>
                 <option value="all">All sources</option>
               </select>
             </div>
@@ -640,7 +661,9 @@ export default function AllDocuments() {
               ? "Admin only"
               : sourceFilter === "lender"
                 ? "Lender only"
-                : "All sources"}
+                : sourceFilter === "broker"
+                  ? "Broker only"
+                  : "All sources"}
           </span>
           <span className="inline-flex items-center rounded-full border border-[#13538A]/15 bg-[#13538A]/5 px-3 py-1 text-xs font-medium text-[#13538A] dark:border-indigo-500/20 dark:bg-indigo-500/10 dark:text-indigo-300">
             {pagination.total} total
@@ -669,7 +692,9 @@ export default function AllDocuments() {
                 ? "Showing admin-created documents"
                 : sourceFilter === "lender"
                   ? "Showing lender-created documents"
-                  : "Showing admin and lender documents"}
+                  : sourceFilter === "broker"
+                    ? "Showing broker-created documents"
+                    : "Showing admin, lender, and broker documents"}
             </p>
           </div>
         </div>
@@ -740,8 +765,9 @@ export default function AllDocuments() {
                 </tr>
               ) : (
                 documents.map((doc) => {
-                  const isLenderDoc =
-                    doc.source === "LENDER" || Boolean(doc.isCustom);
+                  const isBrokerDoc = doc.source === "BROKER";
+                  const isLenderDoc = doc.source === "LENDER";
+                  const isExternalDoc = isBrokerDoc || isLenderDoc;
 
                   return (
                   <tr
@@ -791,14 +817,20 @@ export default function AllDocuments() {
                       <div className="space-y-1">
                         <span
                           className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold ${
-                            isLenderDoc
-                              ? "border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-500/30 dark:bg-violet-500/10 dark:text-violet-300"
-                              : "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-500/30 dark:bg-sky-500/10 dark:text-sky-300"
+                            isBrokerDoc
+                              ? "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300"
+                              : isLenderDoc
+                                ? "border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-500/30 dark:bg-violet-500/10 dark:text-violet-300"
+                                : "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-500/30 dark:bg-sky-500/10 dark:text-sky-300"
                           }`}
                         >
-                          {isLenderDoc ? "Lender" : "Admin"}
+                          {isBrokerDoc
+                            ? "Broker"
+                            : isLenderDoc
+                              ? "Lender"
+                              : "Admin"}
                         </span>
-                        {isLenderDoc && doc.createdByOrgName ? (
+                        {isExternalDoc && doc.createdByOrgName ? (
                           <p
                             className="max-w-[160px] truncate text-[11px] text-slate-400"
                             title={doc.createdByOrgName}
@@ -845,22 +877,14 @@ export default function AllDocuments() {
                       <div className="inline-flex items-center gap-2">
                         <button
                           type="button"
-                          onClick={() => {
-                            if (isLenderDoc) {
-                              toast.error(
-                                "This is a lender-created document. Edit it from the lender portal.",
-                              );
-                              return;
-                            }
-                            openEditForm(doc);
-                          }}
-                          className={`inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 ${
-                            isLenderDoc ? "cursor-not-allowed opacity-40" : ""
-                          }`}
+                          onClick={() => openEditForm(doc)}
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
                           title={
-                            isLenderDoc
-                              ? "Lender document (read-only here)"
-                              : "Edit"
+                            isBrokerDoc
+                              ? "Edit broker document"
+                              : isLenderDoc
+                                ? "Edit lender document"
+                                : "Edit"
                           }
                         >
                           <MdModeEdit />
@@ -978,9 +1002,13 @@ export default function AllDocuments() {
                   {editingId ? "Edit Document" : "Add Document"}
                 </h3>
                 <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-                  {formProduct
-                    ? `${editingId ? "Update" : "Create"} document for ${formProduct.name}`
-                    : "Choose a loan program and fill document details"}
+                  {editingId && editingSource === "BROKER"
+                    ? `Updating broker document${editingOrgName ? ` · ${editingOrgName}` : ""}`
+                    : editingId && editingSource === "LENDER"
+                      ? `Updating lender document${editingOrgName ? ` · ${editingOrgName}` : ""}`
+                      : formProduct
+                        ? `${editingId ? "Update" : "Create"} document for ${formProduct.name}`
+                        : "Choose a loan program and fill document details"}
                 </p>
               </div>
               <button

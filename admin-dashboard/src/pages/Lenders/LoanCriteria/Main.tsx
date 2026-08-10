@@ -1,8 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import StepTwo from "./StepTwo";
-import StepThree from "./StepThree";
-import StepFour from "./StepFour";
 import StepFive from "./StepFive";
 import EquipmentFinancingStep from "./EquipmentFinancingStep";
 import { ChevronRight, ChevronLeft, ArrowLeft } from "lucide-react";
@@ -118,8 +116,6 @@ export default function Main() {
   const steps = [
     "Select Lender",
     "Loan Programs",
-    "Property Types",
-    "Business Types",
     ...(isEquipmentSelected ? ["Equipment Types"] : []),
     "Loan Criteria",
   ];
@@ -446,31 +442,7 @@ export default function Main() {
       );
     }
 
-    const propertyStepIndex = 2;
-    const businessStepIndex = 3;
-    const equipmentStepIndex = isEquipmentSelected ? 4 : -1;
-
-    if (step === propertyStepIndex) {
-      return (
-        <StepThree
-          value={form.propertyTypes}
-          setValue={(val: Record<string, string[]>) =>
-            setForm((p) => ({ ...p, propertyTypes: val }))
-          }
-        />
-      );
-    }
-
-    if (step === businessStepIndex) {
-      return (
-        <StepFour
-          value={form.businessTypes}
-          setValue={(val: Record<string, string[]>) =>
-            setForm((p) => ({ ...p, businessTypes: val }))
-          }
-        />
-      );
-    }
+    const equipmentStepIndex = isEquipmentSelected ? 2 : -1;
 
     if (isEquipmentSelected && step === equipmentStepIndex) {
       return (
@@ -493,6 +465,14 @@ export default function Main() {
             setForm((p) => ({ ...p, loanCriteria: val }))
           }
           setHasErrors={setHasStep5Errors}
+          propertyTypes={form.propertyTypes}
+          setPropertyTypes={(val: Record<string, string[]>) =>
+            setForm((p) => ({ ...p, propertyTypes: val }))
+          }
+          businessTypes={form.businessTypes}
+          setBusinessTypes={(val: Record<string, string[]>) =>
+            setForm((p) => ({ ...p, businessTypes: val }))
+          }
         />
       );
     }

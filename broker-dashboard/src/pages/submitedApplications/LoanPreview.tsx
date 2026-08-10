@@ -1202,6 +1202,7 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
     id: string,
     pageNo = requestDocPage,
     searchQuery = debouncedRequestDocSearch,
+    productId = submissionDetail?.loanProduct?.id,
   ) => {
     try {
       setRequestDocsLoading(true);
@@ -1211,6 +1212,9 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
       });
       if (searchQuery.trim()) {
         params.set("search", searchQuery.trim());
+      }
+      if (productId) {
+        params.set("loanProductId", String(productId));
       }
 
       const res = await fetch(
@@ -1262,12 +1266,14 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
     try {
       setSelectingAllRequestDocs(true);
       const search = debouncedRequestDocSearch.trim();
+      const productId = submissionDetail?.loanProduct?.id;
       const collected: Array<{ id: string; name: string; isCustom: boolean }> =
         [];
 
       // Prefer unpaginated fetch when backend supports `all=true`
       const allParams = new URLSearchParams({ all: "true" });
       if (search) allParams.set("search", search);
+      if (productId) allParams.set("loanProductId", String(productId));
 
       const allRes = await fetch(
         `${API_BASE}/document-types/active?${allParams.toString()}`,
@@ -1296,6 +1302,7 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
             limit: "100",
           });
           if (search) params.set("search", search);
+          if (productId) params.set("loanProductId", String(productId));
 
           const res = await fetch(
             `${API_BASE}/document-types/active?${params.toString()}`,
@@ -1429,7 +1436,12 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
       const res = await fetch(`${API_BASE}/document-types/create-custom`, {
         method: "POST",
         headers: getAuthHeaders(),
-        body: JSON.stringify({ name: customName }),
+        body: JSON.stringify({
+          name: customName,
+          ...(submissionDetail?.loanProduct?.id
+            ? { loanProductId: submissionDetail.loanProduct.id }
+            : {}),
+        }),
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok || !json.success) {
@@ -1841,7 +1853,16 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
       applicationId &&
       requestDocsLoadedFor !== applicationId
     ) {
-      fetchDocumentTypes(applicationId, 1, "");
+      // Wait for submission product so list is product-scoped from first load
+      if (!submissionDetail?.loanProduct?.id && submissionDetail == null) {
+        return;
+      }
+      fetchDocumentTypes(
+        applicationId,
+        1,
+        "",
+        submissionDetail?.loanProduct?.id,
+      );
     }
 
     if (
@@ -1857,6 +1878,7 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
     submissionId,
     requestDocsLoadedFor,
     documentsLoadedFor,
+    submissionDetail?.loanProduct?.id,
   ]);
 
   useEffect(() => {
@@ -1879,8 +1901,13 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
       applicationId,
       requestDocPage,
       debouncedRequestDocSearch,
+      submissionDetail?.loanProduct?.id,
     );
-  }, [requestDocPage, debouncedRequestDocSearch]);
+  }, [
+    requestDocPage,
+    debouncedRequestDocSearch,
+    submissionDetail?.loanProduct?.id,
+  ]);
 
   useEffect(() => {
     if (submissionId) {
@@ -2268,7 +2295,11 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
               Select Documents
             </h2>
             <p className="text-sm text-gray-500">
-              Select which documents are required.
+              Select which documents are required
+              {submissionDetail?.loanProduct?.name
+                ? ` for ${submissionDetail.loanProduct.name}`
+                : ""}
+              .
             </p>
           </div>
           <div className="flex gap-2">
@@ -2291,6 +2322,25 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
               Clear All
             </button>
           </div>
+        </div>
+
+        <div className="mb-4">
+          <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Loan product
+          </label>
+          <select
+            value={submissionDetail?.loanProduct?.id || ""}
+            disabled
+            className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-700 outline-none disabled:cursor-not-allowed disabled:opacity-80 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+          >
+            <option value={submissionDetail?.loanProduct?.id || ""}>
+              {submissionDetail?.loanProduct?.name ||
+                "Application loan product"}
+            </option>
+          </select>
+          <p className="mt-1.5 text-xs text-slate-500">
+            Documents are filtered for this application&apos;s loan product.
+          </p>
         </div>
 
         {selectedRequestDocs.length > 0 ? (
@@ -2361,8 +2411,32 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
           </div>
         ) : null}
 
-        <div className="mb-4">
-          <div className="relative">
+        <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center">
+          <input
+            type="text"
+            placeholder="Enter custom document name..."
+            value={customDocumentName}
+            onChange={(e) => setCustomDocumentName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                handleAddCustomDocument();
+              }
+            }}
+            className="h-12 flex-1 rounded-xl border border-slate-300 bg-white px-4 text-sm shadow-sm transition focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+          />
+          <button
+            type="button"
+            onClick={handleAddCustomDocument}
+            disabled={addingCustomDoc}
+            className="flex h-12 shrink-0 items-center justify-center rounded-xl bg-emerald-600 px-6 text-sm font-semibold text-white transition hover:bg-emerald-700 active:scale-[0.98] disabled:opacity-60"
+          >
+            {addingCustomDoc ? "Adding..." : "+ Add Document"}
+          </button>
+        </div>
+
+        <div className="mb-5 flex justify-end">
+          <div className="relative w-full max-w-md">
             <Search
               size={16}
               className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
@@ -2393,30 +2467,6 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
           </div>
         </div>
 
-        <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center">
-          <input
-            type="text"
-            placeholder="Enter custom document name..."
-            value={customDocumentName}
-            onChange={(e) => setCustomDocumentName(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                handleAddCustomDocument();
-              }
-            }}
-            className="h-12 flex-1 rounded-xl border border-slate-300 bg-white px-4 text-sm shadow-sm transition focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-          />
-          <button
-            type="button"
-            onClick={handleAddCustomDocument}
-            disabled={addingCustomDoc}
-            className="flex h-12 shrink-0 items-center justify-center rounded-xl bg-emerald-600 px-6 text-sm font-semibold text-white transition hover:bg-emerald-700 active:scale-[0.98] disabled:opacity-60"
-          >
-            {addingCustomDoc ? "Adding..." : "+ Add Document"}
-          </button>
-        </div>
-
         {requestDocsLoading ? (
           <div className="py-10 text-center text-gray-500">
             Loading documents...
@@ -2430,7 +2480,9 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
             <p className="mt-1 text-center text-sm text-gray-500">
               {requestDocSearch.trim()
                 ? `No documents found for "${requestDocSearch}".`
-                : "No document types are available."}
+                : submissionDetail?.loanProduct?.name
+                  ? `No document types are available for ${submissionDetail.loanProduct.name}.`
+                  : "No document types are available."}
             </p>
           </div>
         ) : (

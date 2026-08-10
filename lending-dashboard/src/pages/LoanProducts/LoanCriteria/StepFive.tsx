@@ -6,6 +6,7 @@ import {
   getCriteriaFieldInputSuffix,
   isSba7aBusinessAcquisitionProduct,
   isSbaExpressProduct,
+  productUsesEquipmentTypes,
   type CriteriaField,
 } from "../../../lib/loanProductCriteriaFields";
 import { cleanupOrphanedCustomDocumentTypes } from "../../../lib/documentConfigApi";
@@ -14,6 +15,7 @@ import {
   sanitizeNumberInput,
   stripNumberFormatting,
 } from "../../../lib/numberInputFormat";
+import ProgramEligibilitySection from "./ProgramEligibilitySection";
 
 const US_STATES = [
   "AL",
@@ -136,6 +138,12 @@ const StepFive = ({
   setHasErrors,
   mode = "create",
   lenderProductIdByProgramId = {},
+  propertyTypes = {},
+  setPropertyTypes,
+  businessTypes = {},
+  setBusinessTypes,
+  equipmentTypes = [],
+  setEquipmentTypes,
 }: any) => {
   const getProductKey = (product: { id: string | number }) =>
     String(product.id);
@@ -1105,6 +1113,21 @@ const StepFive = ({
                   </p>
                 )}
 
+                {typeof setPropertyTypes === "function" &&
+                  typeof setBusinessTypes === "function" && (
+                    <ProgramEligibilitySection
+                      propertyTypes={propertyTypes}
+                      setPropertyTypes={setPropertyTypes}
+                      businessTypes={businessTypes}
+                      setBusinessTypes={setBusinessTypes}
+                      showEquipmentTypes={products.some((product: any) =>
+                        productUsesEquipmentTypes(product?.code),
+                      )}
+                      equipmentTypes={equipmentTypes}
+                      setEquipmentTypes={setEquipmentTypes}
+                    />
+                  )}
+
                 {/* DOCUMENTS */}
                 <div className="mt-6">
                   <div className="flex items-center justify-between mb-3">
@@ -1140,7 +1163,28 @@ const StepFive = ({
                       </button>
                     </div>
                   </div>
-                  <div className="mb-4">
+                  <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center">
+                    <input
+                      type="text"
+                      placeholder="Enter custom document name..."
+                      value={docState.customDocumentName}
+                      onChange={(e) =>
+                        patchDocState(getProductKey(product), {
+                          customDocumentName: e.target.value,
+                        })
+                      }
+                      className="h-12 w-full flex-1 rounded-xl border border-slate-300 bg-white px-4 text-sm shadow-sm transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none"
+                    />
+
+                    <button
+                      type="button"
+                      onClick={() => addCustomDocument(getProductKey(product))}
+                      className="flex h-12 shrink-0 items-center justify-center rounded-xl bg-indigo-600 px-6 text-sm font-semibold text-white transition hover:bg-indigo-700 active:scale-[0.98]"
+                    >
+                      + Add Document
+                    </button>
+                  </div>
+                  <div className="mb-5 flex justify-end">
                     <input
                       type="text"
                       placeholder="Search documents..."
@@ -1150,30 +1194,9 @@ const StepFive = ({
                           search: e.target.value,
                         })
                       }
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+                      className="w-full max-w-md rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
                     />
                   </div>
-                  <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center">
-  <input
-    type="text"
-    placeholder="Enter custom document name..."
-    value={docState.customDocumentName}
-    onChange={(e) =>
-      patchDocState(getProductKey(product), {
-        customDocumentName: e.target.value,
-      })
-    }
-    className="h-12 flex-1 rounded-xl border border-slate-300 bg-white px-4 text-sm shadow-sm transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none"
-  />
-
-  <button
-    type="button"
-    onClick={() => addCustomDocument(getProductKey(product))}
-    className="flex h-12 shrink-0 items-center justify-center rounded-xl bg-indigo-600 px-6 text-sm font-semibold text-white transition hover:bg-indigo-700 active:scale-[0.98] md:w-auto"
-  >
-    + Add Document
-  </button>
-</div>
                   {isOpen && docState.loading ? (
                     <div className="flex items-center justify-center py-12 text-sm text-gray-500">
                       Loading documents...
