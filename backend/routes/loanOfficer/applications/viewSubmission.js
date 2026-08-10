@@ -105,6 +105,7 @@ module.exports = async function viewSubmission(fastify) {
       select: {
         id: true,
         name: true,
+        code: true,
       },
     });
 
@@ -168,6 +169,7 @@ module.exports = async function viewSubmission(fastify) {
           ? {
               id: loanProduct.id,
               name: loanProduct.name,
+              code: loanProduct.code,
             }
           : null,
 

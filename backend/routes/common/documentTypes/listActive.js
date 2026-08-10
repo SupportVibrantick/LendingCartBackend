@@ -56,6 +56,7 @@ module.exports = async function listActiveDocumentTypes(fastify) {
 
       const orgId = req.user?.organizationId || undefined;
       const isLender = req.user?.orgType === "LENDER" && Boolean(orgId);
+      const isBroker = req.user?.orgType === "BROKER" && Boolean(orgId);
 
       let loanProduct = null;
       let productScopedIds = null;
@@ -130,8 +131,8 @@ module.exports = async function listActiveDocumentTypes(fastify) {
             isCustom: false,
           });
 
-          // This lender's custom docs explicitly linked to this product
-          if (isLender) {
+          // This org's custom docs explicitly linked to this product
+          if (isLender || isBroker) {
             productOr.push({
               id: { in: productScopedIds },
               isCustom: true,
@@ -159,11 +160,27 @@ module.exports = async function listActiveDocumentTypes(fastify) {
           });
         }
 
+        // Broker custom docs linked to this product (productRequirements relation)
+        if (isBroker) {
+          productOr.push({
+            isCustom: true,
+            createdByOrgId: orgId,
+            productRequirements: {
+              some: {
+                OR: [
+                  { loanProductId: loanProduct.id },
+                  { loanProductCode: loanProduct.code },
+                ],
+              },
+            },
+          });
+        }
+
         productScopeFilter =
           productOr.length > 0
             ? { OR: productOr }
             : { id: { in: [] } };
-      } else if (isLender) {
+      } else if (isLender || isBroker) {
         productScopeFilter = {
           OR: [
             { isCustom: false },

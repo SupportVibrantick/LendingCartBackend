@@ -1,8 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import StepTwo from "./StepTwo";
-import StepThree from "./StepThree";
-import StepFour from "./StepFour";
 import StepFive from "./StepFive";
 import EquipmentFinancingStep from "./EquipmentFinancingStep";
 import { ChevronRight, ChevronLeft, ArrowLeft } from "lucide-react";
@@ -55,8 +53,6 @@ export default function Main() {
   const steps = [
     "Select Lender",
     "Loan Programs",
-    "Property Types",
-    "Business Types",
     ...(isEquipmentSelected ? ["Equipment Types"] : []),
     "Loan Criteria",
   ];
@@ -329,29 +325,7 @@ export default function Main() {
       );
     }
 
-    if (step === 2) {
-      return (
-        <StepThree
-          value={form.propertyTypes}
-          setValue={(val: any) =>
-            setForm((p) => ({ ...p, propertyTypes: val }))
-          }
-        />
-      );
-    }
-
-    if (step === 3) {
-      return (
-        <StepFour
-          value={form.businessTypes}
-          setValue={(val: any) =>
-            setForm((p) => ({ ...p, businessTypes: val }))
-          }
-        />
-      );
-    }
-
-    if (isEquipmentSelected && step === 4) {
+    if (isEquipmentSelected && step === 2) {
       return (
         <EquipmentFinancingStep
           value={form.equipmentFinance}
@@ -374,6 +348,14 @@ export default function Main() {
           value={form.loanCriteria}
           setValue={(val: any) => setForm((p) => ({ ...p, loanCriteria: val }))}
           setHasErrors={setHasStep5Errors}
+          propertyTypes={form.propertyTypes}
+          setPropertyTypes={(val: any) =>
+            setForm((p) => ({ ...p, propertyTypes: val }))
+          }
+          businessTypes={form.businessTypes}
+          setBusinessTypes={(val: any) =>
+            setForm((p) => ({ ...p, businessTypes: val }))
+          }
         />
       );
     }

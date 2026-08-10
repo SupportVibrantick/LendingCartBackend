@@ -307,6 +307,8 @@ export default function AlloanProducts() {
         maxArvPercent: product.maxArvPercent ?? null,
         maxLtcPercent: product.maxLtcPercent ?? null,
         maxLtvPercent: product.maxLtvPercent ?? null,
+        minMezzLtvPercent: product.minMezzLtvPercent ?? null,
+        maxMezzLtvPercent: product.maxMezzLtvPercent ?? null,
 
         minExperience: product.minExperience ?? "",
 

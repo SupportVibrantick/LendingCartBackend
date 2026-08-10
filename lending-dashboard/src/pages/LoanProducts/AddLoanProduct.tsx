@@ -3,16 +3,22 @@ import { useNavigate } from "react-router-dom";
 import { ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
 import toast from "react-hot-toast";
 import StepTwo from "./LoanCriteria/StepTwo";
-import StepThree from "./LoanCriteria/StepThree";
-import StepFour from "./LoanCriteria/StepFour";
 import StepFive from "./LoanCriteria/StepFive";
-import EquipmentFinancingStep from "./LoanCriteria/EquipmentFinancingStep";
 import {
   getLoanCriteriaFooterMessage,
+  productUsesEquipmentTypes,
+  mapApiProductToCriteriaForm,
   validateLoanProductCriteriaStep,
 } from "../../lib/loanProductCriteriaFields";
-import { mapToLenderProductUpdatePayload } from "../../lib/lenderProductLenderPayload";
-import { mapToCanonicalCatalogId } from "../../lib/lenderLoanProducts";
+import {
+  mapToLenderProductUpdatePayload,
+  normalizeGroupedSelectionFromApi,
+} from "../../lib/lenderProductLenderPayload";
+import {
+  mapToCanonicalCatalogId,
+  normalizeLenderProductRecord,
+  resolveLenderOfferedProductCode,
+} from "../../lib/lenderLoanProducts";
 
 type FormType = {
   loanPrograms: string[];
@@ -33,7 +39,13 @@ type ExistingLenderProduct = {
   loanProductId?: string;
   loanProductCode?: string;
   code?: string;
+  name?: string;
+  documents?: any[];
+  propertyTypes?: unknown;
+  businessTypes?: unknown;
+  equipmentTypes?: string[];
   loanProduct?: { id?: string; code?: string };
+  [key: string]: any;
 };
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
@@ -56,6 +68,66 @@ function getAuthHeaders(): Record<string, string> {
 
 function getProgramId(record: ExistingLenderProduct) {
   return String(record.loanProductId || record.loanProduct?.id || "");
+}
+
+async function syncDocumentConfigs(
+  lenderProductId: string,
+  selectedDocuments: any[],
+  existingDocuments: any[],
+) {
+  for (const existingDoc of existingDocuments) {
+    const stillSelected = selectedDocuments.some(
+      (d: any) =>
+        d.id === existingDoc.documentTypeId ||
+        d.documentTypeId === existingDoc.documentTypeId,
+    );
+
+    if (!stillSelected) {
+      try {
+        await fetch(
+          `${API_BASE}/lender/document-config/delete/${existingDoc.id}`,
+          {
+            method: "DELETE",
+            headers: getAuthHeaders(),
+          },
+        );
+      } catch (err) {
+        console.error("Delete document config failed", err);
+      }
+    }
+  }
+
+  for (const doc of selectedDocuments) {
+    const existingDoc = existingDocuments.find(
+      (d: any) =>
+        d.documentTypeId === doc.id || d.documentTypeId === doc.documentTypeId,
+    );
+
+    const documentTypeId = doc.documentTypeId || doc.id;
+
+    if (existingDoc?.id) {
+      await fetch(
+        `${API_BASE}/lender/document-config/update/${existingDoc.id}`,
+        {
+          method: "PUT",
+          headers: getAuthHeaders(),
+          body: JSON.stringify({
+            lenderProductId,
+            documentTypeId,
+          }),
+        },
+      );
+    } else {
+      await fetch(`${API_BASE}/lender/document-config/create`, {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          lenderProductId,
+          documentTypeId,
+        }),
+      });
+    }
+  }
 }
 
 export default function AddLoanProduct() {
@@ -93,7 +165,9 @@ export default function AddLoanProduct() {
         }
 
         if (!cancelled) {
-          setExistingLenderProducts((json.data || []) as ExistingLenderProduct[]);
+          setExistingLenderProducts(
+            (json.data || []) as ExistingLenderProduct[],
+          );
         }
       } catch (err: any) {
         console.error(err);
@@ -124,37 +198,27 @@ export default function AddLoanProduct() {
     ] as string[];
   }, [products, existingLenderProducts]);
 
-  useEffect(() => {
-    if (!alreadyAddedIds.length) return;
-    setForm((prev) => {
-      const filtered = prev.loanPrograms.filter(
-        (id) => !alreadyAddedIds.includes(id),
+  const lenderProductByProgramId = useMemo(() => {
+    const map: Record<string, ExistingLenderProduct> = {};
+    existingLenderProducts.forEach((item) => {
+      const programId = mapToCanonicalCatalogId(
+        products,
+        item.loanProductCode || item.code || item.loanProduct?.code,
+        getProgramId(item),
       );
-      if (filtered.length === prev.loanPrograms.length) return prev;
-      return { ...prev, loanPrograms: filtered };
+      if (programId) {
+        map[String(programId)] = item;
+      }
     });
-  }, [alreadyAddedIds]);
+    return map;
+  }, [existingLenderProducts, products]);
 
   const selectedProducts = useMemo(
-    () =>
-      products.filter(
-        (p) =>
-          form.loanPrograms.includes(p.id) && !alreadyAddedIds.includes(p.id),
-      ),
-    [products, form.loanPrograms, alreadyAddedIds],
+    () => products.filter((p) => form.loanPrograms.includes(p.id)),
+    [products, form.loanPrograms],
   );
 
-  const isEquipmentSelected = selectedProducts.some(
-    (p) => p.code === "EQUIPMENT_FINANCE",
-  );
-
-  const steps = [
-    "Loan Programs",
-    "Property Types",
-    "Business Types",
-    ...(isEquipmentSelected ? ["Equipment Types"] : []),
-    "Loan Criteria",
-  ];
+  const steps = ["Loan Programs", "Loan Criteria"];
 
   const loanCriteriaStepIndex = steps.length - 1;
   const isLastStep = step === steps.length - 1;
@@ -168,6 +232,59 @@ export default function AddLoanProduct() {
         )
       : null;
 
+  const handlePickProduct = (productId: string) => {
+    const existing = lenderProductByProgramId[productId];
+    const product = products.find((p) => p.id === productId);
+
+    let propertyTypes: Record<string, string[]> = {};
+    let businessTypes: Record<string, string[]> = {};
+    let equipmentFinance: string[] = [];
+    const loanCriteria: Record<string, any> = {};
+
+    if (existing) {
+      const normalized = normalizeLenderProductRecord(existing);
+      const code = resolveLenderOfferedProductCode(
+        normalized.loanProductCode ||
+          normalized.code ||
+          product?.code ||
+          "",
+      );
+
+      loanCriteria[productId] = mapApiProductToCriteriaForm({
+        ...normalized,
+        loanProductCode: code,
+        code,
+      });
+
+      propertyTypes = normalizeGroupedSelectionFromApi(
+        normalized.propertyTypes,
+        "type",
+      );
+      businessTypes = normalizeGroupedSelectionFromApi(
+        normalized.businessTypes,
+        "name",
+      );
+
+      if (productUsesEquipmentTypes(code)) {
+        equipmentFinance = Array.isArray(normalized.equipmentTypes)
+          ? normalized.equipmentTypes
+          : [];
+      }
+    } else if (productUsesEquipmentTypes(product?.code)) {
+      equipmentFinance = [];
+    }
+
+    setForm({
+      loanPrograms: [productId],
+      propertyTypes,
+      businessTypes,
+      loanCriteria,
+      equipmentFinance,
+    });
+    setHasStep5Errors(false);
+    setStep(1);
+  };
+
   const handleSubmit = async () => {
     const step5Error = validateLoanProductCriteriaStep(
       selectedProducts,
@@ -179,7 +296,7 @@ export default function AddLoanProduct() {
     }
 
     if (!selectedProducts.length) {
-      toast.error("Please select at least one loan program");
+      toast.error("Please select a loan program");
       return;
     }
 
@@ -187,12 +304,37 @@ export default function AddLoanProduct() {
 
     try {
       const headers = getAuthHeaders();
+      const product = selectedProducts[0];
+      const criteria = form.loanCriteria?.[String(product.id)] || {};
+      const existing = lenderProductByProgramId[product.id];
+      const payload = mapToLenderProductUpdatePayload(product, form, criteria);
 
-      for (const product of selectedProducts) {
-        const criteria = form.loanCriteria?.[String(product.id)] || {};
+      if (existing?.id) {
+        const res = await fetch(
+          `${API_BASE}/lender/loan-products/update/${existing.id}`,
+          {
+            method: "PUT",
+            headers,
+            body: JSON.stringify(payload),
+          },
+        );
 
-        const payload = mapToLenderProductUpdatePayload(product, form, criteria);
+        const json = await res.json().catch(() => ({}));
 
+        if (!res.ok) {
+          throw new Error(
+            json?.message || `Failed to update ${product.name || product.code}`,
+          );
+        }
+
+        await syncDocumentConfigs(
+          existing.id,
+          criteria.documents || [],
+          existing.documents || [],
+        );
+
+        toast.success("Loan product updated successfully");
+      } else {
         const res = await fetch(`${API_BASE}/lender/loan-products/create`, {
           method: "POST",
           headers,
@@ -210,37 +352,21 @@ export default function AddLoanProduct() {
         }
 
         const lenderProductId = json?.data?.[0]?.id;
-
-        const selectedDocuments = criteria.documents || [];
-
-        for (const doc of selectedDocuments) {
-          const createPayload = {
+        if (lenderProductId) {
+          await syncDocumentConfigs(
             lenderProductId,
-            documentTypeId: doc.id,
-          };
-
-          const docRes = await fetch(
-            `${API_BASE}/lender/document-config/create`,
-            {
-              method: "POST",
-              headers: getAuthHeaders(),
-              body: JSON.stringify(createPayload),
-            },
+            criteria.documents || [],
+            [],
           );
-
-          const docJson = await docRes.json().catch(() => ({}));
-
-          if (!docRes.ok) {
-            console.error("Failed to create document config", docJson);
-          }
         }
+
+        toast.success("Loan product created successfully");
       }
 
-      toast.success("Loan product(s) created successfully");
       navigate("/all-loan-products");
     } catch (err: any) {
       console.error(err);
-      toast.error(err?.message || "Failed to create loan products");
+      toast.error(err?.message || "Failed to save loan product");
     } finally {
       setSubmitting(false);
     }
@@ -255,63 +381,51 @@ export default function AddLoanProduct() {
           setValue={(val) =>
             setForm((prev) => ({
               ...prev,
-              loanPrograms: val.filter((id) => !alreadyAddedIds.includes(id)),
+              loanPrograms: Array.isArray(val) ? val.slice(0, 1) : [],
             }))
           }
           onProductsLoad={setProducts}
           alreadyAddedIds={alreadyAddedIds}
-          description="Already added programs are disabled. Select new programs to add."
+          pickOneMode
+          configuredSelectable
+          onPickProduct={handlePickProduct}
+          description="Select one loan program to continue. Configured programs stay available."
         />
       );
     }
 
-    const propertyStepIndex = 1;
-    const businessStepIndex = 2;
-    const equipmentStepIndex = isEquipmentSelected ? 3 : -1;
-    const loanCriteriaIndex = steps.length - 1;
-
-    if (step === propertyStepIndex) {
-      return (
-        <StepThree
-          value={form.propertyTypes}
-          setValue={(val: Record<string, string[]>) =>
-            setForm((prev) => ({ ...prev, propertyTypes: val }))
-          }
-        />
+    if (step === loanCriteriaStepIndex) {
+      const isUpdatingConfigured = selectedProducts.some(
+        (p) => Boolean(lenderProductByProgramId[p.id]),
       );
-    }
 
-    if (step === businessStepIndex) {
-      return (
-        <StepFour
-          value={form.businessTypes}
-          setValue={(val: Record<string, string[]>) =>
-            setForm((prev) => ({ ...prev, businessTypes: val }))
-          }
-        />
-      );
-    }
-
-    if (isEquipmentSelected && step === equipmentStepIndex) {
-      return (
-        <EquipmentFinancingStep
-          value={form.equipmentFinance}
-          setValue={(val: string[]) =>
-            setForm((prev) => ({ ...prev, equipmentFinance: val }))
-          }
-        />
-      );
-    }
-
-    if (step === loanCriteriaIndex) {
       return (
         <StepFive
+          key={`criteria-${form.loanPrograms.join("-")}`}
+          mode={isUpdatingConfigured ? "update" : "create"}
           products={selectedProducts}
+          lenderProductIdByProgramId={Object.fromEntries(
+            Object.entries(lenderProductByProgramId).map(
+              ([programId, record]) => [programId, record.id],
+            ),
+          )}
           value={form.loanCriteria}
           setValue={(val: Record<string, any>) =>
             setForm((prev) => ({ ...prev, loanCriteria: val }))
           }
           setHasErrors={setHasStep5Errors}
+          propertyTypes={form.propertyTypes}
+          setPropertyTypes={(val: Record<string, string[]>) =>
+            setForm((prev) => ({ ...prev, propertyTypes: val }))
+          }
+          businessTypes={form.businessTypes}
+          setBusinessTypes={(val: Record<string, string[]>) =>
+            setForm((prev) => ({ ...prev, businessTypes: val }))
+          }
+          equipmentTypes={form.equipmentFinance}
+          setEquipmentTypes={(val: string[]) =>
+            setForm((prev) => ({ ...prev, equipmentFinance: val }))
+          }
         />
       );
     }
@@ -328,27 +442,41 @@ export default function AddLoanProduct() {
   return (
     <div className="h-[calc(100vh-80px)] flex flex-col bg-gray-50">
       <div className="sticky top-0 z-30 bg-gray-50">
-        <div className="max-w-6xl mx-auto px-6 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-3">
+        <div className="max-w-screen-2xl mx-auto px-6 py-4 flex justify-between items-center">
+          <div className="flex items-center gap-3 min-w-0">
             <button
+              type="button"
               onClick={() => navigate("/all-loan-products")}
-              className="flex items-center justify-center w-9 h-9 rounded-full border hover:bg-gray-100 transition"
+              className="flex items-center justify-center w-9 h-9 shrink-0 rounded-full border hover:bg-gray-100 transition"
             >
               <ArrowLeft size={18} />
             </button>
 
-            <div>
-              <h1 className="text-lg font-semibold leading-tight">
-                {steps[step]}
-              </h1>
-              <p className="text-xs text-gray-500">
-                Step {step + 1} of {steps.length}
-              </p>
+            <div className="min-w-0">
+              {selectedProducts[0]?.name ? (
+                <>
+                  <h1 className="text-lg font-semibold leading-tight truncate">
+                    {selectedProducts[0].name}
+                  </h1>
+                  <p className="text-xs text-gray-500 truncate">
+                    {steps[step]} · Step {step + 1} of {steps.length}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <h1 className="text-lg font-semibold leading-tight">
+                    {steps[step]}
+                  </h1>
+                  <p className="text-xs text-gray-500">
+                    Step {step + 1} of {steps.length}
+                  </p>
+                </>
+              )}
             </div>
           </div>
         </div>
 
-        <div className="max-w-6xl mx-auto px-6">
+        <div className="max-w-screen-2xl mx-auto px-6">
           <div className="w-full h-[3px] bg-gray-100 rounded-full overflow-hidden">
             <div
               className="h-full bg-black transition-all duration-300"
@@ -357,7 +485,7 @@ export default function AddLoanProduct() {
           </div>
         </div>
 
-        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center gap-3 flex-wrap">
+        <div className="max-w-screen-2xl mx-auto px-6 py-4 flex items-center gap-3 flex-wrap">
           {steps.map((label, index) => {
             const isActive = step === index;
             const isCompleted = step > index;
@@ -392,11 +520,11 @@ export default function AddLoanProduct() {
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        <div className="max-w-6xl mx-auto p-6">{getStepContent()}</div>
+        <div className="max-w-screen-2xl mx-auto p-6">{getStepContent()}</div>
       </div>
 
       <div className="sticky bottom-0 z-30 bg-white/80 backdrop-blur border-t shadow-[0_-2px_10px_rgba(0,0,0,0.04)]">
-        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+        <div className="max-w-screen-2xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="text-xs text-gray-500">
             Step <span className="font-semibold text-gray-700">{step + 1}</span>{" "}
             of{" "}
@@ -410,6 +538,7 @@ export default function AddLoanProduct() {
 
           <div className="flex items-center gap-3">
             <button
+              type="button"
               disabled={step === 0 || submitting}
               onClick={() => setStep((prev) => prev - 1)}
               className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm border border-gray-300 bg-white hover:bg-gray-50 transition disabled:opacity-40"
@@ -419,6 +548,7 @@ export default function AddLoanProduct() {
             </button>
 
             <button
+              type="button"
               onClick={
                 isLastStep ? handleSubmit : () => setStep((prev) => prev + 1)
               }
@@ -428,7 +558,11 @@ export default function AddLoanProduct() {
               {isLastStep
                 ? submitting
                   ? "Submitting..."
-                  : "Submit"
+                  : selectedProducts.some((p) =>
+                        Boolean(lenderProductByProgramId[p.id]),
+                      )
+                    ? "Update"
+                    : "Submit"
                 : "Next Step"}
               {!isLastStep && <ChevronRight size={16} />}
             </button>

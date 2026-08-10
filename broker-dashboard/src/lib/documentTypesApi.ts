@@ -1,6 +1,16 @@
 import { getPortalAuthHeaders } from "./portalAuth";
+import {
+  filterLenderCatalogProducts,
+  resolveLenderOfferedProductCode,
+} from "./canonicalLoanProducts";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
+
+export type BrokerCustomDocumentLoanProduct = {
+  id: string | null;
+  code: string;
+  name: string;
+};
 
 export type BrokerCustomDocument = {
   id: string;
@@ -12,6 +22,8 @@ export type BrokerCustomDocument = {
   updatedAt: string;
   usageCount?: number;
   isProtected?: boolean;
+  loanProducts?: BrokerCustomDocumentLoanProduct[];
+  loanProductIds?: string[];
 };
 
 export type BrokerCustomDocumentsResponse = {
@@ -31,8 +43,146 @@ export type BrokerCustomDocumentsResponse = {
   message?: string;
 };
 
+export type LoanProductOption = {
+  id: string;
+  code: string;
+  name: string;
+};
+
+/**
+ * Residential 1-4 and CRE variants share the same loan type in the UI.
+ * Keep one selectable option, but persist links to every code in the group.
+ */
+const LOAN_PRODUCT_ALIAS_GROUPS: string[][] = [
+  ["BRIDGE_LOAN", "BRIDGE_LOAN_1_TO_4_UNITS"],
+  ["CONSTRUCTION_LOAN", "CONSTRUCTION_LOAN_1_TO_4_UNITS"],
+];
+
+function aliasGroupForCode(code: string): string[] {
+  return (
+    LOAN_PRODUCT_ALIAS_GROUPS.find((group) => group.includes(code)) || [code]
+  );
+}
+
+function aliasGroupKey(code: string): string {
+  return aliasGroupForCode(code)[0];
+}
+
+/**
+ * Same selectable catalog as lender Add Loan Product:
+ * hide residential Bridge/Construction duplicates.
+ */
+export function collapseLoanProductsForSelect(
+  products: LoanProductOption[],
+): LoanProductOption[] {
+  return filterLenderCatalogProducts(products);
+}
+
+/** Expand a selected representative product to all alias product IDs. */
+export function expandLoanProductIds(
+  selectedIds: string[],
+  products: LoanProductOption[],
+): string[] {
+  const byId = new Map(products.map((product) => [product.id, product]));
+  const byCode = new Map(products.map((product) => [product.code, product]));
+  const expanded = new Set<string>();
+
+  for (const id of selectedIds) {
+    const product = byId.get(id);
+    if (!product) {
+      expanded.add(id);
+      continue;
+    }
+
+    for (const code of aliasGroupForCode(product.code)) {
+      const match = byCode.get(code);
+      if (match) expanded.add(match.id);
+    }
+  }
+
+  return [...expanded];
+}
+
+/** Collapse stored product IDs down to the canonical catalog option. */
+export function collapseLoanProductIds(
+  selectedIds: string[],
+  products: LoanProductOption[],
+): string[] {
+  const byId = new Map(products.map((product) => [product.id, product]));
+  const byCode = new Map(products.map((product) => [product.code, product]));
+  const seen = new Set<string>();
+  const collapsed: string[] = [];
+
+  for (const id of selectedIds) {
+    const product = byId.get(id);
+    if (!product) {
+      if (!seen.has(id)) {
+        seen.add(id);
+        collapsed.push(id);
+      }
+      continue;
+    }
+
+    const canonicalCode = resolveLenderOfferedProductCode(product.code);
+    if (seen.has(canonicalCode)) continue;
+    seen.add(canonicalCode);
+
+    const preferred = byCode.get(canonicalCode) || product;
+    collapsed.push(preferred.id);
+  }
+
+  return collapsed;
+}
+
+/** Deduplicate product chips that belong to the same Bridge/Construction family. */
+export function collapseLoanProductLabels(
+  products: BrokerCustomDocumentLoanProduct[] = [],
+): BrokerCustomDocumentLoanProduct[] {
+  const seen = new Set<string>();
+  const collapsed: BrokerCustomDocumentLoanProduct[] = [];
+
+  for (const product of products) {
+    const key = aliasGroupKey(product.code);
+    if (seen.has(key)) continue;
+    seen.add(key);
+
+    const preferred =
+      products.find((row) => row.code === key) || product;
+
+    collapsed.push({
+      ...preferred,
+      code: key,
+      name: preferred.name || preferred.code,
+    });
+  }
+
+  return collapsed;
+}
+
 function getAuthHeaders(): Record<string, string> {
   return getPortalAuthHeaders();
+}
+
+export async function fetchLoanProductOptions(options?: {
+  signal?: AbortSignal;
+}): Promise<LoanProductOption[]> {
+  const res = await fetch(
+    `${API_BASE}/common/loan-products/loan-product-code`,
+    { signal: options?.signal },
+  );
+  const json = await res.json();
+  if (!res.ok || !json.success) {
+    throw new Error(json.message || "Failed to load loan products");
+  }
+
+  const mapped = (json.data || []).map((product: any) => ({
+    id: String(product.id),
+    code: String(product.code || ""),
+    name: String(product.name || product.code || "Loan product"),
+  }));
+
+  // Keep full catalog in memory for alias expansion; callers filter for UI.
+  return mapped;
 }
 
 export async function fetchBrokerCustomDocuments(
@@ -40,6 +190,8 @@ export async function fetchBrokerCustomDocuments(
     page?: number;
     limit?: number;
     search?: string;
+    loanProductId?: string;
+    usage?: "all" | "used" | "unused";
     includeInactive?: boolean;
   },
   options?: { signal?: AbortSignal },
@@ -48,6 +200,8 @@ export async function fetchBrokerCustomDocuments(
   if (params?.page) query.set("page", String(params.page));
   if (params?.limit) query.set("limit", String(params.limit));
   if (params?.search) query.set("search", params.search);
+  if (params?.loanProductId) query.set("loanProductId", params.loanProductId);
+  if (params?.usage && params.usage !== "all") query.set("usage", params.usage);
   if (params?.includeInactive) query.set("includeInactive", "true");
 
   const res = await fetch(
@@ -67,6 +221,7 @@ export async function fetchBrokerCustomDocuments(
 export async function createBrokerCustomDocument(payload: {
   name: string;
   description?: string;
+  loanProductIds: string[];
 }) {
   const res = await fetch(`${API_BASE}/broker/document-types`, {
     method: "POST",
@@ -85,7 +240,11 @@ export async function createBrokerCustomDocument(payload: {
 
 export async function updateBrokerCustomDocument(
   id: string,
-  payload: { name?: string; description?: string },
+  payload: {
+    name?: string;
+    description?: string;
+    loanProductIds?: string[];
+  },
 ) {
   const res = await fetch(`${API_BASE}/broker/document-types/${id}`, {
     method: "PUT",

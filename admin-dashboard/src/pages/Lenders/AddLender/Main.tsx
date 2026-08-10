@@ -1,8 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import StepTwo from "./LoanCriteria/StepTwo";
-import StepThree from "./LoanCriteria/StepThree";
-import StepFour from "./LoanCriteria/StepFour";
 import StepFive from "./LoanCriteria/StepFive";
 import EquipmentFinancingStep from "./LoanCriteria/EquipmentFinancingStep";
 import {
@@ -102,8 +100,6 @@ export default function Main() {
   const steps = [
     "Create Lender",
     "Loan Programs",
-    "Property Types",
-    "Business Types",
     ...(isEquipmentSelected ? ["Equipment Types"] : []),
     "Loan Criteria",
   ];
@@ -403,31 +399,7 @@ export default function Main() {
       );
     }
 
-    const propertyStepIndex = 2;
-    const businessStepIndex = 3;
-    const equipmentStepIndex = isEquipmentSelected ? 4 : -1;
-
-    if (step === propertyStepIndex) {
-      return (
-        <StepThree
-          value={form.propertyTypes}
-          setValue={(val: Record<string, string[]>) =>
-            setForm((p) => ({ ...p, propertyTypes: val }))
-          }
-        />
-      );
-    }
-
-    if (step === businessStepIndex) {
-      return (
-        <StepFour
-          value={form.businessTypes}
-          setValue={(val: Record<string, string[]>) =>
-            setForm((p) => ({ ...p, businessTypes: val }))
-          }
-        />
-      );
-    }
+    const equipmentStepIndex = isEquipmentSelected ? 2 : -1;
 
     if (isEquipmentSelected && step === equipmentStepIndex) {
       return (
@@ -450,6 +422,14 @@ export default function Main() {
             setForm((p) => ({ ...p, loanCriteria: val }))
           }
           setHasErrors={setHasStep5Errors}
+          propertyTypes={form.propertyTypes}
+          setPropertyTypes={(val: Record<string, string[]>) =>
+            setForm((p) => ({ ...p, propertyTypes: val }))
+          }
+          businessTypes={form.businessTypes}
+          setBusinessTypes={(val: Record<string, string[]>) =>
+            setForm((p) => ({ ...p, businessTypes: val }))
+          }
         />
       );
     }
