@@ -541,14 +541,17 @@ export const showValuationCostEquity = (
   product: string,
   purpose: string
 ) => {
+  console.log("product ->", product);
+  console.log("purpose ->", purpose);
   if (
     (purpose === "Refinance & Rehab" && product === "FIX_AND_FLIP_LOAN_1_TO_4_UNITS") ||
-    (purpose === "Refinance" && product === "CONSTRUCTION_LOAN_1_TO_4_UNITS")
+    (purpose === "Refinance" && product === "CONSTRUCTION_LOAN_1_TO_4_UNITS") ||
+    (product === "FIX_AND_FLIP_LOAN_1_TO_4_UNITS")
   ) {
     return true
   }
-
 }
+
 /*
   "Equity / Down Payment" block.
  */
@@ -619,10 +622,6 @@ export const showValuationEquityBlock = (product: string, purpose: string) => {
   ) {
     return false;
   }
-
-
-
-
   return (
     RESIDENTIAL_MARKET_VALUE_PURPOSES.has(purpose) ||
     isBridgeOriginalPurchaseDate(product, purpose) ||
@@ -639,6 +638,25 @@ export const showValuationEquityBlock = (product: string, purpose: string) => {
       showEquipmentFinanceMarketValue(purpose))
   );
 };
+
+
+export const showPrivateDetails = (product: string, purpose: string) => {
+  console.log("purpose ", purpose);
+  console.log("product ", product);
+  if (product === "CONSTRUCTION_LOAN_1_TO_4_UNITS") {
+    return false
+  }
+  return true
+
+}
+
+export const showConstructionCostLable = (product: string) => {
+  if (product === "CONSTRUCTION_LOAN_1_TO_4_UNITS") {
+    return true
+  }
+}
+
+
 
 /* ================= Cross-flow composite predicates ================= */
 
