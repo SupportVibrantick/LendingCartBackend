@@ -20,7 +20,6 @@ import { isBase44BusinessCollateralProduct } from "../../lib/base44BusinessColla
 import {
   revokePendingDocumentPreview,
   type PendingApplicationDocument,
-  type ApplicationDocumentType,
 } from "../../lib/applicationDocumentTypes";
 import { uploadPendingApplicationDocuments } from "../../lib/uploadApplicationDocuments";
 import {
