@@ -3,6 +3,9 @@ const { logAudit } = require("../../../services/logger/auditLogger");
 const {
   canBrokerEditSubmittedApplication,
 } = require("../../../utils/applications/resolveApplicationStatus");
+const {
+  sanitizeRequestedDocumentTypes,
+} = require("../../../utils/applications/sanitizeRequestedDocumentTypes");
 
 async function editSubmittedApplication(fastify) {
   fastify.put(
@@ -28,7 +31,7 @@ async function editSubmittedApplication(fastify) {
 
         const brokerOrgId = req.user.organizationId;
         const { applicationId } = req.params;
-        const { fields } = req.body;
+        const { fields, requestedDocumentTypes } = req.body;
 
         /* ================= VALIDATION ================= */
 
@@ -45,6 +48,14 @@ async function editSubmittedApplication(fastify) {
             message: "Fields array is required"
           });
         }
+
+        // requestedDocumentTypes is optional on edit. Pass `null` or omit
+        // to clear the selection; pass an object to overwrite.
+        const hasRequestedDocumentTypesUpdate =
+          requestedDocumentTypes !== undefined;
+        const sanitizedRequestedDocumentTypes = hasRequestedDocumentTypesUpdate
+          ? sanitizeRequestedDocumentTypes(requestedDocumentTypes)
+          : undefined;
 
         /* ================= FETCH APPLICATION ================= */
 
@@ -127,6 +138,19 @@ async function editSubmittedApplication(fastify) {
             where: { id: latestSubmission.id },
             data: { status: "SUPERSEDED" }
           });
+
+          /* 5️⃣ Persist requestedDocumentTypes on the loan row (only when the
+                caller actually passed a value — passing `null` clears it,
+                omitting it leaves the existing selection in place). */
+
+          if (hasRequestedDocumentTypesUpdate) {
+            await tx.loanApplication.update({
+              where: { id: application.id },
+              data: {
+                requestedDocumentTypes: sanitizedRequestedDocumentTypes ?? null,
+              },
+            });
+          }
 
           return { newSubmission };
         });

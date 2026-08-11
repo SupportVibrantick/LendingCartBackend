@@ -38,7 +38,10 @@ export default function ResidentialDocumentsStep({
     onChange(documents.filter((doc) => doc.id !== id));
   };
 
-  const updateDocumentType = (id: string, documentType: ApplicationDocumentType) => {
+  const updateDocumentType = (
+    id: string,
+    documentType: ApplicationDocumentType,
+  ) => {
     onChange(
       documents.map((doc) =>
         doc.id === id ? { ...doc, documentType } : doc,
@@ -48,6 +51,10 @@ export default function ResidentialDocumentsStep({
 
   return (
     <div className="mt-5 space-y-6">
+      {/* ============================================================
+          FILE UPLOAD — broker drags in sample files and tags each with
+          a category from the full 23-option list.
+      ============================================================= */}
       <div>
         <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
           Upload Documents

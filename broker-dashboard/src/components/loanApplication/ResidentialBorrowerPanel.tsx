@@ -771,7 +771,37 @@ export default function ResidentialBorrowerPanel({
           >
             <p className="mb-3 text-xs text-amber-800 dark:text-amber-200">
               All declarations must be answered (Yes or No) to proceed.
-            </p>                        
+            </p>
+
+            <div className="mb-4 flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() =>
+                  DECLARATION_QUESTIONS.forEach(({ key }) =>
+                    onDeclarationChange(key, "no"),
+                  )
+                }
+                className="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+              >
+                Answer all No
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  DECLARATION_QUESTIONS.forEach(({ key }) =>
+                    onDeclarationChange(key, "yes"),
+                  )
+                }
+                className="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+              >
+                Answer all Yes
+              </button>
+              {unansweredDeclarations > 0 && (
+                <span className="text-xs text-slate-500 dark:text-slate-400">
+                  · {unansweredDeclarations} unanswered
+                </span>
+              )}
+            </div>
 
             {unansweredDeclarations > 0 && (
               <div className="mb-4 flex items-start gap-2 rounded-md border border-amber-300 bg-amber-100 px-3 py-2 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-100">
@@ -788,6 +818,7 @@ export default function ResidentialBorrowerPanel({
               {DECLARATION_QUESTIONS.map(({ key, label }) => {
                 const fieldError = errors[`${errorPrefix}.declarations.${key}`];
                 const unanswered = !isDeclarationAnswered(declarations[key]);
+                const current = declarations[key];
 
                 return (
                   <div
@@ -798,9 +829,21 @@ export default function ResidentialBorrowerPanel({
                         : "border-transparent"
                     }`}
                   >
-                    <p className="text-sm text-slate-700 dark:text-slate-300">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        onDeclarationChange(key, current === "yes" ? "no" : "yes")
+                      }
+                      className="flex-1 text-left text-sm text-slate-700 hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-100"
+                      title="Click to toggle Yes / No"
+                    >
                       <span className="text-red-500">*</span> {label}
-                    </p>
+                      {current && (
+                        <span className="ml-2 text-xs uppercase tracking-wide text-slate-400">
+                          ({current})
+                        </span>
+                      )}
+                    </button>
                     <YesNoToggle
                       value={declarations[key]}
                       onChange={(value) => onDeclarationChange(key, value)}

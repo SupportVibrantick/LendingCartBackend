@@ -1198,6 +1198,14 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
     }
   };
 
+  /**
+   * Fetch the available document types for the loan application.
+   *
+   * Always uses the legacy `GET /document-types/active` endpoint — the
+   * wizard no longer pre-selects a subset of categories (the Step 6
+   * selection panel was removed), so every loan shows the full active
+   * catalog.
+   */
   const fetchDocumentTypes = async (
     id: string,
     pageNo = requestDocPage,
@@ -1206,6 +1214,7 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
   ) => {
     try {
       setRequestDocsLoading(true);
+
       const params = new URLSearchParams({
         page: String(pageNo),
         limit: String(REQUEST_DOC_LIMIT),
@@ -1270,63 +1279,66 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
       const collected: Array<{ id: string; name: string; isCustom: boolean }> =
         [];
 
-      // Prefer unpaginated fetch when backend supports `all=true`
-      const allParams = new URLSearchParams({ all: "true" });
-      if (search) allParams.set("search", search);
-      if (productId) allParams.set("loanProductId", String(productId));
+      // Paginate through the active document-types catalog and collect
+      // every row matching the current search.
+      if (collected.length === 0) {
+        const allParams = new URLSearchParams({ all: "true" });
+        if (search) allParams.set("search", search);
+        if (productId) allParams.set("loanProductId", String(productId));
 
-      const allRes = await fetch(
-        `${API_BASE}/document-types/active?${allParams.toString()}`,
-        {
-          method: "GET",
-          headers: getAuthHeaders(),
-        },
-      );
-      const allJson = await allRes.json().catch(() => ({}));
+        const allRes = await fetch(
+          `${API_BASE}/document-types/active?${allParams.toString()}`,
+          {
+            method: "GET",
+            headers: getAuthHeaders(),
+          },
+        );
+        const allJson = await allRes.json().catch(() => ({}));
 
-      if (allRes.ok && allJson.success && Array.isArray(allJson.data)) {
-        for (const doc of allJson.data) {
-          collected.push({
-            id: String(doc.id),
-            name: doc.name || "Document",
-            isCustom: Boolean(doc.isCustom),
-          });
-        }
-      } else {
-        // Fallback: walk pages (limit max 100 per API schema)
-        let page = 1;
-        let totalPages = 1;
-        do {
-          const params = new URLSearchParams({
-            page: String(page),
-            limit: "100",
-          });
-          if (search) params.set("search", search);
-          if (productId) params.set("loanProductId", String(productId));
-
-          const res = await fetch(
-            `${API_BASE}/document-types/active?${params.toString()}`,
-            {
-              method: "GET",
-              headers: getAuthHeaders(),
-            },
-          );
-          const json = await res.json().catch(() => ({}));
-          if (!res.ok || !json.success) {
-            throw new Error(json.message || "Failed to select documents");
-          }
-
-          for (const doc of json.data || []) {
+        if (allRes.ok && allJson.success && Array.isArray(allJson.data)) {
+          for (const doc of allJson.data) {
             collected.push({
               id: String(doc.id),
               name: doc.name || "Document",
               isCustom: Boolean(doc.isCustom),
             });
           }
+        } else {
+          // Fallback: walk pages (limit max 100 per API schema)
+          let page = 1;
+          let totalPages = 1;
+          do {
+            const params = new URLSearchParams({
+              page: String(page),
+              limit: "100",
+            });
+            if (search) params.set("search", search);
+            if (productId) params.set("loanProductId", String(productId));
 
-          totalPages = Math.max(1, Number(json.pagination?.totalPages) || 1);
-          page += 1;
-        } while (page <= totalPages);
+            const res = await fetch(
+              `${API_BASE}/document-types/active?${params.toString()}`,
+              {
+                method: "GET",
+                headers: getAuthHeaders(),
+              },
+            );
+            const json = await res.json().catch(() => ({}));
+            if (!res.ok || !json.success) {
+              throw new Error(json.message || "Failed to select documents");
+            }
+
+            for (const doc of json.data || []) {
+              collected.push({
+                id: String(doc.id),
+                name: doc.name || "Document",
+                isCustom: Boolean(doc.isCustom),
+              });
+            }
+
+            totalPages = Math.max(1, Number(json.pagination?.totalPages) || 1);
+            page += 1;
+          } while (page <= totalPages);
+        }
       }
 
       // Last resort: current page only
