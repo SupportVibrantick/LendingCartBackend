@@ -13,6 +13,9 @@ const {
 const {
   resolveSubmitLoanProduct,
 } = require("../../../utils/applications/resolveSubmitLoanProduct");
+const {
+  sanitizeRequestedDocumentTypes,
+} = require("../../../utils/applications/sanitizeRequestedDocumentTypes");
 
 async function loanOfficerSubmitApplication(fastify) {
   fastify.post(
@@ -55,7 +58,7 @@ async function loanOfficerSubmitApplication(fastify) {
 
         /* ================= BODY ================= */
 
-        const { applicationProductId, loanProductCode, fields } = req.body;
+        const { applicationProductId, loanProductCode, fields, requestedDocumentTypes } = req.body;
 
         if (!Array.isArray(fields)) {
           return reply.code(400).send({
@@ -63,6 +66,8 @@ async function loanOfficerSubmitApplication(fastify) {
             message: "Invalid payload",
           });
         }
+
+        const sanitizedRequestedDocumentTypes = sanitizeRequestedDocumentTypes(requestedDocumentTypes);
 
         /* ================= VALIDATE PRODUCT ================= */
 
@@ -146,6 +151,9 @@ async function loanOfficerSubmitApplication(fastify) {
               clientId: client.id,
               loanProductCode: resolvedLoanProductCode,
               status: "DRAFT",
+              ...(sanitizedRequestedDocumentTypes
+                ? { requestedDocumentTypes: sanitizedRequestedDocumentTypes }
+                : {}),
             },
           });
 

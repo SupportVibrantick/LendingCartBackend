@@ -20,6 +20,7 @@ import { isBase44BusinessCollateralProduct } from "../../lib/base44BusinessColla
 import {
   revokePendingDocumentPreview,
   type PendingApplicationDocument,
+  type ApplicationDocumentType,
 } from "../../lib/applicationDocumentTypes";
 import { uploadPendingApplicationDocuments } from "../../lib/uploadApplicationDocuments";
 import {
@@ -1715,15 +1716,17 @@ const LoanApplication = ({
 
       /* ================= FINAL PAYLOAD ================= */
 
+      const fields = Array.from(fieldsMap.entries()).map(
+        ([fieldKey, { value, fieldId }]) => ({
+          fieldKey,
+          value,
+          ...(fieldId ? { fieldId } : {}),
+        }),
+      );
+
       const payload = {
         loanProductCode: selectedProduct,
-        fields: Array.from(fieldsMap.entries()).map(
-          ([fieldKey, { value, fieldId }]) => ({
-            fieldKey,
-            value,
-            ...(fieldId ? { fieldId } : {}),
-          }),
-        ),
+        fields,
       };
 
       const token = sessionStorage.getItem(portalConfig.tokenKey);
@@ -1735,13 +1738,41 @@ const LoanApplication = ({
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify({ fields: payload.fields }),
+          body: JSON.stringify({
+            fields: payload.fields,
+          }),
         });
 
         const result = await response.json();
 
         if (!response.ok || result.success !== true) {
           throw new Error(result.message || "Update failed");
+        }
+
+        // Upload any newly added documents in Step 6 — without this the
+        // broker can re-tag and upload files during edit, but they never
+        // reach the backend. Edit endpoint returns the existing
+        // `submissionId` so we can re-use the same requirement/upload flow
+        // as a fresh submission.
+        const submissionId = result?.data?.submissionId;
+        if (pendingDocuments.length > 0 && submissionId) {
+          try {
+            await uploadPendingApplicationDocuments({
+              apiBase: API_BASE,
+              token,
+              loanApplicationId: editApplicationId,
+              submissionId,
+              documents: pendingDocuments,
+              documentPaths: portalConfig.documentPaths,
+            });
+          } catch (uploadError: any) {
+            toast.error(
+              uploadError.message ||
+                "Application updated but some documents failed to upload",
+            );
+            navigate(portalConfig.successPath);
+            return;
+          }
         }
 
         toast.success("Application Updated Successfully");

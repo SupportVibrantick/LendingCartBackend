@@ -23,6 +23,9 @@ const {
   resolveSubmitLoanProduct,
 } = require("../../../utils/applications/resolveSubmitLoanProduct");
 const {
+  sanitizeRequestedDocumentTypes,
+} = require("../../../utils/applications/sanitizeRequestedDocumentTypes");
+const {
   autoAssignSubBrokerLoanOfficers,
 } = require("../../../services/broker/autoAssignSubBrokerLoanOfficers");
 
@@ -88,7 +91,7 @@ async function subBrokerSubmitApplication(fastify) {
           });
         }
 
-        const { applicationProductId, loanProductCode, fields } = req.body;
+        const { applicationProductId, loanProductCode, fields, requestedDocumentTypes } = req.body;
 
         if (!Array.isArray(fields)) {
           return reply.code(400).send({
@@ -96,6 +99,8 @@ async function subBrokerSubmitApplication(fastify) {
             message: "Invalid payload",
           });
         }
+
+        const sanitizedRequestedDocumentTypes = sanitizeRequestedDocumentTypes(requestedDocumentTypes);
 
         const resolvedProduct = await resolveSubmitLoanProduct(prisma, {
           loanProductCode,
@@ -192,6 +197,9 @@ async function subBrokerSubmitApplication(fastify) {
               clientId: client.id,
               loanProductCode: resolvedLoanProductCode,
               status: "CLIENT_PENDING",
+              ...(sanitizedRequestedDocumentTypes
+                ? { requestedDocumentTypes: sanitizedRequestedDocumentTypes }
+                : {}),
             },
           });
 

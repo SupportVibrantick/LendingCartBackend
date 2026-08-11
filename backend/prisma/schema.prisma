@@ -806,6 +806,7 @@ model LoanApplication {
   brokerLoiGeneratedAt       DateTime?                        @map("broker_loi_generated_at") @db.Timestamptz(6)
   brokerLoiGeneratedByUserId String?                          @map("broker_loi_generated_by_user_id") @db.Uuid
   currentBrokerLoiVersionId  String?                          @unique @map("current_broker_loi_version_id") @db.Uuid
+  requestedDocumentTypes     Json?                            @map("requested_document_types")
   clientUploadTokens           ClientUploadToken?
   brokerLoiVersions            BrokerLoiVersion[]
   currentBrokerLoiVersion      BrokerLoiVersion?                @relation("CurrentBrokerLoiVersion", fields: [currentBrokerLoiVersionId], references: [id])
