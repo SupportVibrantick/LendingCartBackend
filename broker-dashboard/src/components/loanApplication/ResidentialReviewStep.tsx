@@ -6,7 +6,9 @@ import {
   Pencil,
   Send,
 } from "lucide-react";
-import type { PendingApplicationDocument } from "../../lib/applicationDocumentTypes";
+import type {
+  PendingApplicationDocument,
+} from "../../lib/applicationDocumentTypes";
 import type {
   ReviewSummarySection,
   ReviewValidationIssue,

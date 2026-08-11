@@ -275,3 +275,74 @@ export async function deactivateBrokerCustomDocument(id: string) {
   }
   return json;
 }
+
+// ===========================================================================
+// Wizard document-type selection
+// ===========================================================================
+
+/**
+ * One row in the loan-application wizard's "Documents to Request from Client"
+ * checkbox grid. Stable across both repos because the wizard vocabulary is
+ * owned by the backend (see backend/prisma/admin/documentTypes.seed.js).
+ */
+export type WizardDocumentTypeOption = {
+  id: string;
+  code: string;
+  label: string;
+  name: string;
+  description: string | null;
+};
+
+/**
+ * Fetches the canonical 23-option document-type list used by Step 6 of the
+ * loan application wizard. Each entry is keyed by `code` and includes both
+ * a friendly `label` (what the wizard UI shows) and the DB row's `name`.
+ */
+export async function fetchWizardDocumentTypeOptions(options?: {
+  signal?: AbortSignal;
+}): Promise<WizardDocumentTypeOption[]> {
+  const res = await fetch(`${API_BASE}/document-types/wizard-options`, {
+    headers: getAuthHeaders(),
+    signal: options?.signal,
+  });
+  const json = await res.json();
+  if (!res.ok || !json.success) {
+    throw new Error(json.message || "Failed to load wizard document types");
+  }
+  return (json.data || []) as WizardDocumentTypeOption[];
+}
+
+export type AvailableDocumentTypesResponse = {
+  fallback: boolean;
+  labels: string[];
+  types: {
+    id: string;
+    code: string;
+    name: string;
+    description: string | null;
+  }[];
+};
+
+/**
+ * Returns the document types the broker pre-selected during the loan
+ * application wizard, scoped to a specific loan. When the loan is legacy
+ * (no selection captured), the backend returns `fallback: true` so the
+ * caller can render today's full-catalog UI without breaking anything.
+ */
+export async function fetchAvailableDocumentTypes(
+  applicationId: string,
+  options?: { signal?: AbortSignal },
+): Promise<AvailableDocumentTypesResponse> {
+  const res = await fetch(
+    `${API_BASE}/broker/applications/${applicationId}/available-document-types`,
+    {
+      headers: getAuthHeaders(),
+      signal: options?.signal,
+    },
+  );
+  const json = await res.json();
+  if (!res.ok || !json.success) {
+    throw new Error(json.message || "Failed to load available document types");
+  }
+  return json.data as AvailableDocumentTypesResponse;
+}

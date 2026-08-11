@@ -7,7 +7,10 @@ import { toNumber, calculateMonthlyPayment } from "./formatters";
 import { appendResidentialBorrowerSubmission } from "../../lib/residentialBorrower";
 import { appendResidentialFinancialsSubmission } from "../../lib/residentialFinancials";
 import { uploadPendingApplicationDocuments } from "../../lib/uploadApplicationDocuments";
-import type { PendingApplicationDocument } from "../../lib/applicationDocumentTypes";
+import type {
+  PendingApplicationDocument,
+  ApplicationDocumentType,
+} from "../../lib/applicationDocumentTypes";
 import type { LoanApplicationPortal } from "./types";
 import type { FormDataType } from "./types";
 
@@ -583,4 +586,43 @@ export async function submitApplication(
   }
 
   opts.onNavigateAfterSuccess?.(opts.portalConfig.successPath);
+}
+
+/**
+ * Build the `requestedDocumentTypes` body for the broker / sub-broker /
+ * loan-officer submit endpoints (and the edit endpoint).
+ *
+ * Returns one of:
+ *   - `{ labels: string[], typeIds: string[] }`  — selection was made
+ *   - `null`                                    — no selection at all (omit
+ *     the key from the payload entirely; the backend treats this as "no
+ *     change" on edit and "no override" on create)
+ *
+ * The wizard's `selectedDocumentTypes` only carries friendly labels (the 23
+ * strings from `APPLICATION_DOCUMENT_TYPE_OPTIONS`). The backend derives
+ * `typeIds` server-side from the labels via the seeded `DocumentType.code`
+ * mapping, but clients MAY also pre-resolve and pass IDs — both shapes are
+ * accepted by `sanitizeRequestedDocumentTypes` on the backend.
+ */
+export function buildRequestedDocumentTypesPayload({
+  labels,
+  typeIds,
+}: {
+  labels: ApplicationDocumentType[];
+  typeIds?: string[];
+}) {
+  const dedup = (values: string[]) => [...new Set(values.filter(Boolean))];
+
+  const cleanLabels = dedup(
+    (labels || []).map((entry) => entry.trim()).filter((entry) => entry.length > 0),
+  );
+
+  if (cleanLabels.length === 0 && (!typeIds || typeIds.length === 0)) {
+    return null;
+  }
+
+  return {
+    labels: cleanLabels,
+    typeIds: dedup(typeIds || []),
+  };
 }
