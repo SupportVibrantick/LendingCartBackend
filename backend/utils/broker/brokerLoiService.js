@@ -98,9 +98,15 @@ function parseTermMonths(label) {
   return Number.isFinite(numeric) && numeric > 0 ? numeric : 12;
 }
 
+function parseFormNumber(value) {
+  if (value == null || value === "") return 0;
+  const numeric = Number(String(value).replace(/[$,\s%]/g, ""));
+  return Number.isFinite(numeric) ? numeric : 0;
+}
+
 function serializeBrokerLoiTerms(formTerms = {}) {
-  const approvedAmount = Number(formTerms.approvedAmount) || 0;
-  const interestRate = Number(formTerms.interestRate) || 0;
+  const approvedAmount = parseFormNumber(formTerms.approvedAmount);
+  const interestRate = parseFormNumber(formTerms.interestRate);
   const originationFeePercent = formTerms.originationFeePercent || "2%";
   const exitFee = formTerms.exitFee || "0%";
   const processingFee = formTerms.processingFee || "$995";
@@ -116,7 +122,7 @@ function serializeBrokerLoiTerms(formTerms = {}) {
 
   const interestOnly = Boolean(formTerms.interestOnly);
   const termMonths = parseTermMonths(formTerms.loanTerm || "12 Months");
-  let monthlyPayment = Number(formTerms.monthlyPayment) || 0;
+  let monthlyPayment = parseFormNumber(formTerms.monthlyPayment);
 
   if (totalLoanAmount && interestRate && termMonths) {
     if (interestOnly) {
@@ -149,15 +155,15 @@ function serializeBrokerLoiTerms(formTerms = {}) {
     interestOnly,
     ltvPercent:
       formTerms.ltvPercent != null && formTerms.ltvPercent !== ""
-        ? Number(formTerms.ltvPercent)
+        ? parseFormNumber(formTerms.ltvPercent)
         : null,
     ltcPercent:
       formTerms.ltcPercent != null && formTerms.ltcPercent !== ""
-        ? Number(formTerms.ltcPercent)
+        ? parseFormNumber(formTerms.ltcPercent)
         : null,
     arvPercent:
       formTerms.arvPercent != null && formTerms.arvPercent !== ""
-        ? Number(formTerms.arvPercent)
+        ? parseFormNumber(formTerms.arvPercent)
         : null,
     monthlyPayment,
     originationFeePercent,
@@ -198,6 +204,35 @@ function parseStoredInterestRate(stored = {}) {
 
   const numeric = Number(display.replace(/%/g, ""));
   return Number.isFinite(numeric) && numeric > 0 ? String(numeric) : display;
+}
+
+function buildEmptyBrokerLoiFormTerms() {
+  return {
+    approvedAmount: "",
+    interestRate: "",
+    ltvPercent: "",
+    ltcPercent: "",
+    arvPercent: "",
+    monthlyPayment: "",
+    interestOnly: true,
+    loanTerm: "",
+    requiredDocuments: [],
+    customDocument: "",
+    originationFeePercent: "",
+    exitFee: "",
+    processingFee: "",
+    underwritingFee: "",
+    legalFee: "",
+    appraisalRequired: "",
+    environmentalReport: "",
+    personalGuarantee: "",
+    prepaymentPenalty: "",
+    recourse: "",
+    amortization: "",
+    paymentFrequency: "",
+    expirationDate: "",
+    specialConditions: [],
+  };
 }
 
 function mapStoredLoiTermsToForm(stored) {
@@ -425,6 +460,41 @@ async function getBrokerLoiPrefill(
     return { error: { status: 404, message: "Application not found" } };
   }
 
+  const submission = getActiveSubmission(application);
+  const whiteLabel = await getBrokerWhiteLabelBranding(prisma, brokerOrgId);
+  const hasSourceId = Boolean(
+    sourceApplicationLenderId && String(sourceApplicationLenderId).trim(),
+  );
+
+  // Standalone broker/LO term sheet — no lender LOI required.
+  // Create form starts blank except brand name / logo (white-label).
+  if (!hasSourceId) {
+    return {
+      data: {
+        applicationId,
+        sourceApplicationLenderId: null,
+        sourceLenderName: "Broker Term Sheet",
+        sourceLoiUrl: null,
+        standalone: true,
+        terms: buildEmptyBrokerLoiFormTerms(),
+        applicationContext: buildApplicationContext(submission, application),
+        brokerBranding: {
+          brandName: whiteLabel.brokerBrandName,
+          logoUrl: whiteLabel.brokerLogoUrl,
+          isComplete: Boolean(
+            whiteLabel.brokerBrandName?.trim() && whiteLabel.brokerLogoUrl,
+          ),
+        },
+        existingBrokerLoi: {
+          brokerLoiUrl: application.brokerLoiUrl,
+          generatedAt: application.brokerLoiGeneratedAt,
+          sourceApplicationLenderId:
+            application.brokerLoiSourceApplicationLenderId,
+        },
+      },
+    };
+  }
+
   const sourceRecord = await prisma.applicationLender.findFirst({
     where: {
       id: sourceApplicationLenderId,
@@ -441,9 +511,6 @@ async function getBrokerLoiPrefill(
     };
   }
 
-  const submission = getActiveSubmission(application);
-
-  const whiteLabel = await getBrokerWhiteLabelBranding(prisma, brokerOrgId);
   const fromStoredBrokerLoi =
     application.brokerLoiSourceApplicationLenderId === sourceApplicationLenderId
       ? mapStoredLoiTermsToForm(application.brokerLoiTerms)
@@ -458,6 +525,7 @@ async function getBrokerLoiPrefill(
       sourceApplicationLenderId,
       sourceLenderName: sourceRecord.lender?.name || "Lender",
       sourceLoiUrl: sourceRecord.loiUrl,
+      standalone: false,
       terms,
       applicationContext: buildApplicationContext(submission, application),
       brokerBranding: {
@@ -525,15 +593,43 @@ async function getBrokerLoiStatus(
         ),
     );
 
+  const canForwardToLender = signRequirement?.signStatus === "CLIENT_SIGNED";
+
+  // Lenders available for forward selection (standalone) or display.
+  let forwardableLenders = [];
+  if (canForwardToLender) {
+    const lendersOnApplication = await prisma.applicationLender.findMany({
+      where: {
+        loanApplicationId: applicationId,
+        status: { notIn: ["DECLINED", "WITHDRAWN"] },
+      },
+      include: { lender: { select: { name: true } } },
+      orderBy: { sentAt: "asc" },
+    });
+    forwardableLenders = lendersOnApplication.map((row) => ({
+      applicationLenderId: row.id,
+      lenderName: row.lender?.name || "Lender",
+      status: row.status,
+    }));
+  }
+
   return {
     data: {
       applicationId,
-      brokerLoiUrl: application.brokerLoiUrl,
+      brokerLoiUrl:
+        application.brokerLoiUrl || currentVersion?.brokerLoiUrl || null,
       brokerLoiGeneratedAt: application.brokerLoiGeneratedAt,
       sourceApplicationLenderId:
         application.brokerLoiSourceApplicationLenderId,
       sourceLenderName,
-      terms: application.brokerLoiTerms || null,
+      forwardableLenders,
+      requiresLenderSelectionForForward:
+        canForwardToLender &&
+        !application.brokerLoiSourceApplicationLenderId,
+      terms:
+        application.brokerLoiTerms ||
+        currentVersion?.brokerLoiTerms ||
+        null,
       currentVersion: currentVersion
         ? {
             id: currentVersion.id,
@@ -699,27 +795,34 @@ async function generateBrokerLoi(
     }
   }
 
-  const sourceRecord = await prisma.applicationLender.findFirst({
-    where: {
-      id: sourceApplicationLenderId,
-      loanApplicationId: applicationId,
-      loiUrl: { not: null },
-      loiSentToBrokerAt: { not: null },
-    },
-    include: {
-      ...APPLICATION_LENDER_LOI_INCLUDE,
-      lender: {
-        include: {
-          lenderProfile: true,
+  const hasSourceId = Boolean(
+    sourceApplicationLenderId && String(sourceApplicationLenderId).trim(),
+  );
+
+  let sourceRecord = null;
+  if (hasSourceId) {
+    sourceRecord = await prisma.applicationLender.findFirst({
+      where: {
+        id: sourceApplicationLenderId,
+        loanApplicationId: applicationId,
+        loiUrl: { not: null },
+        loiSentToBrokerAt: { not: null },
+      },
+      include: {
+        ...APPLICATION_LENDER_LOI_INCLUDE,
+        lender: {
+          include: {
+            lenderProfile: true,
+          },
         },
       },
-    },
-  });
+    });
 
-  if (!sourceRecord) {
-    return {
-      error: { status: 404, message: "Selected lender LOI not found" },
-    };
+    if (!sourceRecord) {
+      return {
+        error: { status: 404, message: "Selected lender LOI not found" },
+      };
+    }
   }
 
   const serializedTerms = serializeBrokerLoiTerms(brokerTerms);
@@ -767,7 +870,7 @@ async function generateBrokerLoi(
     submission,
     loanApplication: application,
     lenderRecord: sourceRecord,
-    applicationLenderId: sourceRecord.id,
+    applicationLenderId: sourceRecord?.id || null,
     collaterals: application.collaterals || [],
     lenderTerms: serializedTerms,
     lenderBranding: null,
@@ -780,6 +883,12 @@ async function generateBrokerLoi(
     select: { supportEmail: true },
   });
 
+  const fundingLenderName = sourceRecord?.lender?.name
+    ? sourceRecord.lender.name
+    : whiteLabel.brokerBrandName?.trim() ||
+      application.brokerOrg?.name ||
+      "Broker Term Sheet";
+
   const loiData = buildBrokerLoiPdfData({
     baseLoiData,
     brokerBranding: {
@@ -788,7 +897,7 @@ async function generateBrokerLoi(
     },
     brokerOrg: application.brokerOrg,
     brokerProfile,
-    fundingLenderName: sourceRecord.lender?.name || "Lender",
+    fundingLenderName,
   });
 
   const pdfBuffer = await generateLoiPdf(loiData);
@@ -804,10 +913,10 @@ async function generateBrokerLoi(
 
   const fileUrl = `/broker/LOI/${fileName}`;
 
-  const sourceLenderVersion = await getCurrentLenderLoiVersion(
-    prisma,
-    sourceApplicationLenderId,
-  );
+  const resolvedSourceApplicationLenderId = sourceRecord?.id || null;
+  const sourceLenderVersion = resolvedSourceApplicationLenderId
+    ? await getCurrentLenderLoiVersion(prisma, resolvedSourceApplicationLenderId)
+    : null;
 
   const isDraftUpdate =
     regenerate &&
@@ -829,7 +938,7 @@ async function generateBrokerLoi(
   } else {
     savedVersion = await createBrokerLoiVersion(prisma, {
       loanApplicationId: applicationId,
-      sourceApplicationLenderId,
+      sourceApplicationLenderId: resolvedSourceApplicationLenderId,
       sourceLenderLoiVersionId: sourceLenderVersion?.id || null,
       brokerLoiUrl: fileUrl,
       brokerLoiTerms: brokerTerms,
@@ -841,7 +950,7 @@ async function generateBrokerLoi(
   try {
     await syncLoiRequiredDocuments(prisma, {
       loanApplicationId: applicationId,
-      applicationLenderId: sourceApplicationLenderId,
+      applicationLenderId: resolvedSourceApplicationLenderId,
       documentNames: serializedTerms.requiredDocuments,
       actor: "BROKER",
       orgId: brokerOrgId,
@@ -858,7 +967,7 @@ async function generateBrokerLoi(
   const signRequirementResult = await upsertBrokerLoiSignRequirement(prisma, {
     applicationId,
     brokerOrgId,
-    sourceApplicationLenderId,
+    sourceApplicationLenderId: resolvedSourceApplicationLenderId,
     brokerLoiUrl: fileUrl,
     fileName,
     isRevised: isRevisedLoi,
@@ -882,8 +991,8 @@ async function generateBrokerLoi(
       applicationId,
       brokerLoiUrl: fileUrl,
       brokerLoiGeneratedAt: new Date(),
-      sourceApplicationLenderId,
-      sourceLenderName: sourceRecord.lender?.name || "Lender",
+      sourceApplicationLenderId: resolvedSourceApplicationLenderId,
+      sourceLenderName: sourceRecord?.lender?.name || "Broker Term Sheet",
       regenerated: Boolean(regenerate && !revised),
       revised: isRevisedLoi,
       versionNumber: savedVersion.versionNumber,

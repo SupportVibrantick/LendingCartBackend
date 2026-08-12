@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import SignatureCanvas from "react-signature-canvas";
 import toast from "react-hot-toast";
+import Swal from "sweetalert2";
 import {
   Building2,
   CheckCircle2,
@@ -68,7 +69,22 @@ export type SignDocumentRow = {
   loiVersionNumber?: number;
   loiVersionLabel?: string;
   isBrokerLoi?: boolean;
+  isStandaloneBrokerLoi?: boolean;
 };
+
+function isBrokerTermSheetDoc(row: SignDocumentRow) {
+  if (row.isBrokerLoi) return true;
+  return /\/broker\/LOI\//i.test(row.templateFileUrl || "");
+}
+
+function isStandaloneBrokerTermSheet(row: SignDocumentRow) {
+  if (row.isStandaloneBrokerLoi) return true;
+  return (
+    isBrokerTermSheetDoc(row) &&
+    !row.requestApplicationLenderId &&
+    !row.lenderName
+  );
+}
 
 type PreviousSignedLoiVersion = {
   versionNumber: number;
@@ -141,8 +157,62 @@ export default function SignDocumentsPanel({
     useState<SignDocumentRow | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [selectedLenderKey, setSelectedLenderKey] = useState<string>("all");
+  const [forwardLenderByRequirement, setForwardLenderByRequirement] = useState<
+    Record<string, string>
+  >({});
+  const [forwardableLenders, setForwardableLenders] = useState<
+    Array<{ applicationLenderId: string; lenderName: string }>
+  >([]);
   const [isSubmittingSignature, setIsSubmittingSignature] = useState(false);
   const sigRef = useRef<SignatureCanvas | null>(null);
+
+  const fetchForwardableLenders = async () => {
+    if (!isBrokerMode || !loanApplicationId) return;
+    try {
+      const res = await fetch(
+        `${apiBase}/${apiRolePrefix}/loan-pipeline/${loanApplicationId}/broker-loi`,
+        { headers: getAuthHeaders() },
+      );
+      const json = await res.json();
+      if (
+        res.ok &&
+        json.success &&
+        Array.isArray(json.data?.forwardableLenders) &&
+        json.data.forwardableLenders.length > 0
+      ) {
+        setForwardableLenders(json.data.forwardableLenders);
+        return;
+      }
+    } catch {
+      /* optional */
+    }
+
+    try {
+      const res = await fetch(
+        `${apiBase}/${apiRolePrefix}/loan-pipeline/${loanApplicationId}/submitted-lenders`,
+        { headers: getAuthHeaders() },
+      );
+      const json = await res.json();
+      const list = Array.isArray(json?.data)
+        ? json.data
+        : Array.isArray(json?.lenders)
+          ? json.lenders
+          : [];
+      setForwardableLenders(
+        list
+          .map((item: any) => ({
+            applicationLenderId:
+              item.applicationLenderId || item.id || "",
+            lenderName: item.lenderName || item.lender?.name || "Lender",
+          }))
+          .filter((item: { applicationLenderId: string }) =>
+            Boolean(item.applicationLenderId),
+          ),
+      );
+    } catch {
+      /* optional */
+    }
+  };
 
   const fetchRows = async () => {
     try {
@@ -180,6 +250,12 @@ export default function SignDocumentsPanel({
   useEffect(() => {
     fetchRows();
   }, [mode, applicationLenderId, submissionId, loanApplicationId]);
+
+  useEffect(() => {
+    if (isBrokerMode && loanApplicationId) {
+      void fetchForwardableLenders();
+    }
+  }, [isBrokerMode, loanApplicationId, apiRolePrefix]);
 
   useEffect(() => {
     if (!activeSigningDoc && !activeSignedViewDoc && !activeTemplateViewDoc) {
@@ -288,7 +364,137 @@ export default function SignDocumentsPanel({
     }
   };
 
-  const forwardToLender = async (requirementId: string) => {
+  const forwardToLender = async (row: SignDocumentRow) => {
+    const requirementId = row.requirementId;
+
+    if (isBrokerTermSheetDoc(row)) {
+      if (!loanApplicationId) {
+        toast.error("Application not found for this term sheet");
+        return;
+      }
+
+      let applicationLenderIdToUse =
+        row.requestApplicationLenderId ||
+        forwardLenderByRequirement[requirementId] ||
+        "";
+
+      if (!applicationLenderIdToUse) {
+        let lenders = [...forwardableLenders];
+        if (!lenders.length) {
+          try {
+            const statusRes = await fetch(
+              `${apiBase}/${apiRolePrefix}/loan-pipeline/${loanApplicationId}/broker-loi`,
+              { headers: getAuthHeaders() },
+            );
+            const statusJson = await statusRes.json();
+            if (
+              statusRes.ok &&
+              Array.isArray(statusJson.data?.forwardableLenders) &&
+              statusJson.data.forwardableLenders.length
+            ) {
+              lenders = statusJson.data.forwardableLenders;
+              setForwardableLenders(lenders);
+            } else if (
+              statusRes.ok &&
+              statusJson.data?.sourceApplicationLenderId
+            ) {
+              applicationLenderIdToUse =
+                statusJson.data.sourceApplicationLenderId;
+            }
+          } catch {
+            /* ignore */
+          }
+        }
+
+        if (!applicationLenderIdToUse && lenders.length === 1) {
+          applicationLenderIdToUse = lenders[0].applicationLenderId;
+        } else if (!applicationLenderIdToUse && lenders.length > 1) {
+          const inputOptions = Object.fromEntries(
+            lenders.map((lender) => [
+              lender.applicationLenderId,
+              lender.lenderName || "Lender",
+            ]),
+          );
+          const pick = await Swal.fire({
+            title: "Select Lender to Forward",
+            text: "Choose which funding lender should receive this signed term sheet.",
+            input: "select",
+            inputOptions,
+            inputPlaceholder: "Select a lender",
+            showCancelButton: true,
+            confirmButtonText: "Forward Signed LOI",
+            cancelButtonText: "Cancel",
+            confirmButtonColor: "#059669",
+            inputValidator: (value) =>
+              !value ? "Please select a lender" : undefined,
+          });
+          if (!pick.isConfirmed || !pick.value) return;
+          applicationLenderIdToUse = String(pick.value);
+          setForwardLenderByRequirement((prev) => ({
+            ...prev,
+            [requirementId]: applicationLenderIdToUse,
+          }));
+        }
+      }
+
+      if (!applicationLenderIdToUse) {
+        toast.error(
+          "Select a funding lender before forwarding the signed term sheet",
+        );
+        return;
+      }
+
+      const lenderLabel =
+        row.lenderName ||
+        forwardableLenders.find(
+          (lender) =>
+            lender.applicationLenderId === applicationLenderIdToUse,
+        )?.lenderName ||
+        "selected lender";
+
+      const confirm = await Swal.fire({
+        title: "Forward signed term sheet?",
+        html: `Send to <strong>${lenderLabel}</strong> only?`,
+        icon: "question",
+        showCancelButton: true,
+        confirmButtonText: "Forward Signed LOI",
+        cancelButtonText: "Cancel",
+        confirmButtonColor: "#059669",
+      });
+      if (!confirm.isConfirmed) return;
+
+      try {
+        setActionId(requirementId);
+        const res = await fetch(
+          `${apiBase}/${apiRolePrefix}/loan-pipeline/${loanApplicationId}/broker-loi/forward-to-lender`,
+          {
+            method: "POST",
+            headers: {
+              ...getAuthHeaders(),
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              applicationLenderId: applicationLenderIdToUse,
+            }),
+          },
+        );
+        const json = await res.json();
+        if (!res.ok || !json.success) {
+          throw new Error(json.message || "Failed to forward to lender");
+        }
+        toast.success(
+          json.message || `Signed term sheet forwarded to ${lenderLabel}`,
+        );
+        await fetchRows();
+        onUpdated?.();
+      } catch (err: any) {
+        toast.error(err.message || "Failed to forward");
+      } finally {
+        setActionId(null);
+      }
+      return;
+    }
+
     if (!submissionId) return;
 
     try {
@@ -350,7 +556,13 @@ export default function SignDocumentsPanel({
         throw new Error(json.message || "Signing failed");
       }
 
-      toast.success("Document signed successfully");
+      toast.success(
+        isBrokerTermSheetDoc(activeSigningDoc)
+          ? isStandaloneBrokerTermSheet(activeSigningDoc)
+            ? "Broker term sheet signed successfully"
+            : "Broker LOI / term sheet signed successfully"
+          : "Document signed successfully",
+      );
       sigRef.current.clear();
       setActiveSigningDoc(null);
       await fetchRows();
@@ -622,19 +834,54 @@ export default function SignDocumentsPanel({
           )}
 
           {row.signStatus === "CLIENT_SIGNED" && (
-            <button
-              type="button"
-              disabled={isActionLoading}
-              onClick={() => forwardToLender(row.requirementId)}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:shadow-md disabled:opacity-60"
-            >
-              {isActionLoading ? (
-                <Loader2 size={16} className="animate-spin" />
-              ) : (
-                <SendHorizonal size={16} />
+            <div className="space-y-2">
+              {isStandaloneBrokerTermSheet(row) && (
+                <label className="block">
+                  <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">
+                    Select Lender to Forward
+                  </span>
+                  <select
+                    value={forwardLenderByRequirement[row.requirementId] || ""}
+                    onChange={(e) =>
+                      setForwardLenderByRequirement((prev) => ({
+                        ...prev,
+                        [row.requirementId]: e.target.value,
+                      }))
+                    }
+                    className="w-full rounded-xl border border-emerald-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 dark:border-emerald-500/30 dark:bg-slate-950 dark:text-slate-100"
+                  >
+                    <option value="">Select a lender</option>
+                    {forwardableLenders.map((lender) => (
+                      <option
+                        key={lender.applicationLenderId}
+                        value={lender.applicationLenderId}
+                      >
+                        {lender.lenderName}
+                      </option>
+                    ))}
+                  </select>
+                </label>
               )}
-              Forward to {row.lenderName || "lender"}
-            </button>
+              <button
+                type="button"
+                disabled={
+                  isActionLoading ||
+                  (isStandaloneBrokerTermSheet(row) &&
+                    !forwardLenderByRequirement[row.requirementId] &&
+                    forwardableLenders.length !== 1)
+                }
+                onClick={() => forwardToLender(row)}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:shadow-md disabled:opacity-60"
+              >
+                {isActionLoading ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <SendHorizonal size={16} />
+                )}
+                Forward Signed LOI
+                {row.lenderName ? ` to ${row.lenderName}` : ""}
+              </button>
+            </div>
           )}
 
           {row.signStatus === "FORWARDED_TO_LENDER" && (
@@ -997,10 +1244,28 @@ export default function SignDocumentsPanel({
                 className="truncate text-lg font-semibold text-slate-900 sm:text-xl"
               >
                 {activeSigningDoc.documentName}
+                {activeSigningDoc.loiVersionLabel ? (
+                  <span className="ml-2 text-sm font-medium text-violet-600">
+                    ({activeSigningDoc.loiVersionLabel})
+                  </span>
+                ) : null}
               </h3>
               <p className="mt-1 text-sm text-slate-600">
-                Read the document, add your signature, then submit.
+                {isBrokerTermSheetDoc(activeSigningDoc)
+                  ? isStandaloneBrokerTermSheet(activeSigningDoc)
+                    ? "Review your broker's term sheet, add your signature, then submit."
+                    : "Review your broker LOI / term sheet, add your signature, then submit."
+                  : "Read the document, add your signature, then submit."}
               </p>
+              {isBrokerTermSheetDoc(activeSigningDoc) && (
+                <p className="mt-1 text-xs font-medium text-violet-700">
+                  {isStandaloneBrokerTermSheet(activeSigningDoc)
+                    ? "Broker Term Sheet"
+                    : activeSigningDoc.lenderName
+                      ? `Based on lender terms from ${activeSigningDoc.lenderName}`
+                      : "Broker LOI / Term Sheet"}
+                </p>
+              )}
             </div>
             <button
               type="button"
@@ -1355,20 +1620,26 @@ export default function SignDocumentsPanel({
   };
 
   const renderClientStatusFooter = (row: SignDocumentRow) => {
+    const standalone = isStandaloneBrokerTermSheet(row);
+    const brokerSheet = isBrokerTermSheetDoc(row);
+
     switch (row.signStatus) {
       case "SENT_TO_CLIENT":
         return (
           <div className="flex items-center gap-2 rounded-xl bg-blue-50 px-3 py-2.5 text-sm text-blue-800">
             <PenLine size={16} className="shrink-0" />
-            Your signature is required
+            {brokerSheet
+              ? "Your signature is required on this term sheet"
+              : "Your signature is required"}
           </div>
         );
       case "CLIENT_SIGNED":
         return (
           <div className="flex items-center gap-2 rounded-xl bg-emerald-50 px-3 py-2.5 text-sm text-emerald-800">
             <CheckCircle2 size={16} className="shrink-0" />
-            Signed — broker will forward to{" "}
-            {row.lenderName || "the lender"}
+            {standalone
+              ? "Signed — your broker has received this term sheet"
+              : `Signed — broker will forward to ${row.lenderName || "the lender"}`}
           </div>
         );
       case "FORWARDED_TO_LENDER":
@@ -1392,17 +1663,25 @@ export default function SignDocumentsPanel({
 
   const renderClientDocumentCard = (row: SignDocumentRow) => {
     const isPending = row.signStatus === "SENT_TO_CLIENT";
+    const brokerSheet = isBrokerTermSheetDoc(row);
+    const standalone = isStandaloneBrokerTermSheet(row);
 
     return (
       <div
         key={row.requirementId}
-        className="flex flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-blue-200 hover:shadow-md"
+        className={`flex flex-col rounded-2xl border bg-white p-5 shadow-sm transition hover:shadow-md ${
+          brokerSheet
+            ? "border-violet-200 hover:border-violet-300"
+            : "border-slate-200 hover:border-blue-200"
+        }`}
       >
         <div className="mb-4 flex items-start gap-3">
           <div
             className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${
               isPending
-                ? "bg-blue-100 text-blue-700"
+                ? brokerSheet
+                  ? "bg-violet-100 text-violet-700"
+                  : "bg-blue-100 text-blue-700"
                 : "bg-emerald-100 text-emerald-700"
             }`}
           >
@@ -1425,12 +1704,23 @@ export default function SignDocumentsPanel({
                 </span>
               ) : null}
             </h3>
-            {row.lenderName && (
+            {brokerSheet ? (
+              <p className="mt-1 flex items-center gap-1 text-xs text-violet-700">
+                <FileText size={12} className="shrink-0" />
+                <span className="truncate">
+                  {standalone
+                    ? "Broker Term Sheet"
+                    : row.lenderName
+                      ? `Broker LOI based on ${row.lenderName}`
+                      : "Broker LOI / Term Sheet"}
+                </span>
+              </p>
+            ) : row.lenderName ? (
               <p className="mt-1 flex items-center gap-1 text-xs text-slate-500">
                 <Building2 size={12} className="shrink-0" />
                 <span className="truncate">Requested by {row.lenderName}</span>
               </p>
-            )}
+            ) : null}
             <div className="mt-2">
               <span
                 className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${statusClass(row.signStatus)}`}
@@ -1450,10 +1740,14 @@ export default function SignDocumentsPanel({
               setActiveSigningDoc(row);
               sigRef.current?.clear();
             }}
-            className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-600 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:shadow-md"
+            className={`mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:shadow-md ${
+              brokerSheet
+                ? "bg-gradient-to-r from-violet-600 to-fuchsia-600"
+                : "bg-gradient-to-r from-blue-600 to-cyan-600"
+            }`}
           >
             <PenLine size={16} />
-            Review & Sign
+            {brokerSheet ? "Review & Sign Term Sheet" : "Review & Sign"}
           </button>
         ) : (
           <div className="mt-4 border-t border-slate-100 pt-4">
@@ -1467,30 +1761,67 @@ export default function SignDocumentsPanel({
   const renderClientView = () => {
     const pendingDocs = rows.filter((row) => row.signStatus === "SENT_TO_CLIENT");
     const completedDocs = rows.filter((row) => row.signStatus !== "SENT_TO_CLIENT");
+    const hasBrokerTermSheet = rows.some((row) => isBrokerTermSheetDoc(row));
+    const hasStandaloneBrokerTermSheet = rows.some((row) =>
+      isStandaloneBrokerTermSheet(row),
+    );
+    const pendingBrokerTermSheets = pendingDocs.filter((row) =>
+      isBrokerTermSheetDoc(row),
+    );
 
     return (
       <div className="space-y-6">
-        <div className="relative overflow-hidden rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50 via-white to-cyan-50 p-6 shadow-sm">
-          <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-cyan-200/30 blur-2xl" />
-          <div className="absolute -bottom-10 -left-10 h-32 w-32 rounded-full bg-blue-200/30 blur-2xl" />
+        <div
+          className={`relative overflow-hidden rounded-2xl border p-6 shadow-sm ${
+            hasBrokerTermSheet
+              ? "border-violet-100 bg-gradient-to-br from-violet-50 via-white to-fuchsia-50"
+              : "border-blue-100 bg-gradient-to-br from-blue-50 via-white to-cyan-50"
+          }`}
+        >
+          <div
+            className={`absolute -right-8 -top-8 h-32 w-32 rounded-full blur-2xl ${
+              hasBrokerTermSheet ? "bg-fuchsia-200/30" : "bg-cyan-200/30"
+            }`}
+          />
+          <div
+            className={`absolute -bottom-10 -left-10 h-32 w-32 rounded-full blur-2xl ${
+              hasBrokerTermSheet ? "bg-violet-200/30" : "bg-blue-200/30"
+            }`}
+          />
 
           <div className="relative flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
-              <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-white/80 px-3 py-1 text-xs font-semibold text-blue-700 shadow-sm">
+              <div
+                className={`mb-2 inline-flex items-center gap-2 rounded-full bg-white/80 px-3 py-1 text-xs font-semibold shadow-sm ${
+                  hasBrokerTermSheet ? "text-violet-700" : "text-blue-700"
+                }`}
+              >
                 <PenLine size={14} />
-                E-Signature Required
+                {hasBrokerTermSheet
+                  ? "Broker Term Sheet"
+                  : "E-Signature Required"}
               </div>
               <h2 className="text-2xl font-bold text-slate-900">
-                Sign Documents
+                {hasBrokerTermSheet ? "Sign Term Sheet" : "Sign Documents"}
               </h2>
               <p className="mt-1 max-w-2xl text-sm text-slate-600">
-                Review each form carefully, add your signature, and submit. Your
-                broker will forward signed copies to the lender.
+                {hasStandaloneBrokerTermSheet
+                  ? "Review your broker's term sheet carefully, add your signature, and submit. Supporting documents listed on the term sheet appear under Upload Documents."
+                  : hasBrokerTermSheet
+                    ? "Review your broker LOI / term sheet carefully, add your signature, and submit. Your broker may forward the signed copy to a lender."
+                    : "Review each form carefully, add your signature, and submit. Your broker will forward signed copies to the lender."}
               </p>
               {clientName && (
                 <p className="mt-2 text-sm font-medium text-slate-700">
                   {clientName}
                   {applicationNumber ? ` · ${applicationNumber}` : ""}
+                </p>
+              )}
+              {pendingBrokerTermSheets.length > 0 && (
+                <p className="mt-2 text-xs font-semibold text-violet-700">
+                  {pendingBrokerTermSheets.length} broker term sheet
+                  {pendingBrokerTermSheets.length === 1 ? "" : "s"} awaiting
+                  your signature
                 </p>
               )}
             </div>
@@ -1525,7 +1856,8 @@ export default function SignDocumentsPanel({
               No documents waiting for signature
             </p>
             <p className="mt-2 text-sm text-slate-500">
-              When your broker sends a form for signing, it will appear here.
+              When your broker sends a term sheet or form for signing, it will
+              appear here.
             </p>
           </div>
         ) : (
@@ -1565,7 +1897,7 @@ export default function SignDocumentsPanel({
                     >
                       <div>
                         <p className="text-sm font-semibold text-slate-800">
-                          Broker LOI / Term Sheet · {version.label}
+                          Broker Term Sheet · {version.label}
                         </p>
                         {version.clientSignedAt && (
                           <p className="text-xs text-slate-500">
