@@ -113,6 +113,11 @@ async function createSubscriptionInvoice(tx, sub, options = {}) {
         dueDate,
         notes: options.notes || null,
         idempotencyKey,
+        ghlInvoiceId: options.ghlInvoiceId || sub.ghlInvoiceId || null,
+        ghlSubscriptionId:
+          options.ghlSubscriptionId || sub.ghlSubscriptionId || null,
+        ghlTransactionId: options.ghlTransactionId || null,
+        externalPaymentRef: options.externalPaymentRef || null,
       },
     });
   } catch (error) {
@@ -233,6 +238,15 @@ async function assignPlanToOrganization(prisma, payload) {
     assignedByAdminId,
     generateInvoice: shouldInvoice = true,
     addOnCodes = [],
+    status: statusOverride,
+    ghlContactId,
+    ghlPriceId,
+    ghlProductId,
+    ghlSubscriptionId,
+    ghlInvoiceId,
+    loanAiUserId,
+    currentPeriodStart,
+    currentPeriodEnd,
   } = payload;
 
   const org = await prisma.organization.findUnique({
@@ -275,9 +289,12 @@ async function assignPlanToOrganization(prisma, payload) {
     );
   }
 
-  const now = new Date();
-  const periodEnd = addPeriod(now, billingCycle);
-  const status = trialDays > 0 ? "TRIAL" : "ACTIVE";
+  const now = currentPeriodStart ? new Date(currentPeriodStart) : new Date();
+  const periodEnd = currentPeriodEnd
+    ? new Date(currentPeriodEnd)
+    : addPeriod(now, billingCycle);
+  const status =
+    statusOverride || (trialDays > 0 ? "TRIAL" : "ACTIVE");
   const trialEndsAt =
     trialDays > 0 ? new Date(now.getTime() + trialDays * 24 * 60 * 60 * 1000) : null;
 
@@ -294,6 +311,12 @@ async function assignPlanToOrganization(prisma, payload) {
         notes: notes || null,
         purchasedAddOns: purchasedAddOns.length > 0 ? purchasedAddOns : null,
         assignedByAdminId: assignedByAdminId || null,
+        ghlContactId: ghlContactId || null,
+        ghlPriceId: ghlPriceId || null,
+        ghlProductId: ghlProductId || null,
+        ghlSubscriptionId: ghlSubscriptionId || null,
+        ghlInvoiceId: ghlInvoiceId || null,
+        loanAiUserId: loanAiUserId || null,
       },
       include: { package: true, organization: true },
     });
@@ -582,16 +605,32 @@ async function assertBrokerSubscriptionAccess(prisma, organizationId) {
   }
 
   if (!BROKER_ACCESS_STATUSES.includes(sub.status)) {
-    const messages = {
-      PAST_DUE: "Your subscription payment is overdue. Please contact platform support.",
-      CANCELLED: "Your subscription has been cancelled.",
-      EXPIRED: "Your subscription has expired.",
+    const byStatus = {
+      PAST_DUE: {
+        code: "SUBSCRIPTION_PAST_DUE",
+        message:
+          "Your subscription payment is overdue. Please contact platform support.",
+      },
+      CANCELLED: {
+        code: "SUBSCRIPTION_CANCELLED",
+        message:
+          "Your subscription was cancelled. Choose a plan to subscribe again.",
+      },
+      EXPIRED: {
+        code: "SUBSCRIPTION_EXPIRED",
+        message:
+          "Your previous subscription has expired. Choose a plan to renew.",
+      },
+    };
+    const mapped = byStatus[sub.status] || {
+      code: "SUBSCRIPTION_INACTIVE",
+      message: "Your subscription is not active.",
     };
     return {
       allowed: false,
       subscription: sub,
-      code: "SUBSCRIPTION_INACTIVE",
-      message: messages[sub.status] || "Your subscription is not active.",
+      code: mapped.code,
+      message: mapped.message,
     };
   }
 

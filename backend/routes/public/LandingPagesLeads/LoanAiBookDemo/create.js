@@ -2,6 +2,14 @@ const {
   notifyPlatform,
   PLATFORM_NOTIFICATION_EVENTS,
 } = require("../../../../services/notifications/platformNotifications");
+const {
+  checkRateLimit,
+  getClientIp,
+} = require("../../../../utils/security/rateLimit");
+const { isGhlEnabled } = require("../../../../config/env");
+const {
+  syncBookDemoLeadToGhlInBackground,
+} = require("../../../../services/ghl/bookDemoLeadSync");
 
 function splitFullName(fullName) {
   const trimmed = (fullName || "").trim();
@@ -18,17 +26,57 @@ function splitFullName(fullName) {
   };
 }
 
+function resolveName(body) {
+  const firstName = body.firstName?.trim() || null;
+  const lastName = body.lastName?.trim() || null;
+
+  if (firstName || lastName) {
+    return { firstName, lastName };
+  }
+
+  if (body.fullName?.trim()) {
+    return splitFullName(body.fullName);
+  }
+
+  return { firstName: null, lastName: null };
+}
+
 module.exports = async function (fastify) {
   fastify.post("/", async (req, reply) => {
     const prisma = fastify.prisma;
 
     try {
-      const { fullName, email, phone, company, message } = req.body;
+      const ip = getClientIp(req);
+      const limit = checkRateLimit(`loan-ai-book-demo:${ip}`, {
+        windowMs: 15 * 60 * 1000,
+        max: 8,
+      });
 
-      if (!fullName?.trim()) {
+      if (!limit.allowed) {
+        return reply.status(429).send({
+          success: false,
+          message: "Too many demo requests. Please try again later.",
+          retryAfterSec: limit.retryAfterSec,
+        });
+      }
+
+      const {
+        email,
+        phone,
+        company,
+        message,
+        interestedPlanCode,
+        interestedPlanName,
+        planCode,
+        planName,
+      } = req.body || {};
+
+      const { firstName, lastName } = resolveName(req.body || {});
+
+      if (!firstName && !lastName) {
         return reply.status(400).send({
           success: false,
-          message: "Full name is required",
+          message: "First name or full name is required",
         });
       }
 
@@ -39,7 +87,10 @@ module.exports = async function (fastify) {
         });
       }
 
-      const { firstName, lastName } = splitFullName(fullName);
+      const resolvedPlanCode =
+        interestedPlanCode?.trim() || planCode?.trim() || null;
+      const resolvedPlanName =
+        interestedPlanName?.trim() || planName?.trim() || null;
 
       const lead = await prisma.loanAiBookDemoLead.create({
         data: {
@@ -49,6 +100,11 @@ module.exports = async function (fastify) {
           phone: phone?.trim() || null,
           company: company?.trim() || null,
           message: message?.trim() || null,
+          interestedPlanCode: resolvedPlanCode,
+          interestedPlanName: resolvedPlanName,
+          source: "loan-ai-book-demo",
+          ghlSyncStatus: isGhlEnabled() ? "PENDING" : "SKIPPED",
+          ghlLastError: isGhlEnabled() ? null : "GHL_ENABLED=false",
         },
       });
 
@@ -69,6 +125,8 @@ module.exports = async function (fastify) {
             phone: lead.phone,
             company: lead.company,
             message: lead.message,
+            interestedPlanCode: lead.interestedPlanCode,
+            interestedPlanName: lead.interestedPlanName,
             source: "loan-ai-book-demo",
           },
         });
@@ -76,10 +134,15 @@ module.exports = async function (fastify) {
         req.log.error({ err: notifyErr }, "Book demo notification failed");
       }
 
+      syncBookDemoLeadToGhlInBackground(prisma, lead, { logger: req.log });
+
       return reply.status(201).send({
         success: true,
         message: "Demo request submitted successfully",
-        data: { id: lead.id },
+        data: {
+          id: lead.id,
+          ghlSyncStatus: lead.ghlSyncStatus,
+        },
       });
     } catch (error) {
       req.log.error(error);

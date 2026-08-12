@@ -34,8 +34,43 @@ const loanAiPurchaseSchema = z.object({
   addOnCodes: z.array(z.string().trim().min(1)).optional().default([]),
 });
 
+/** GHL checkout init — uses project naming `billingCycle` (alias: billingPeriod). */
+const loanAiCheckoutSchema = z
+  .object({
+    packageId: z.string().uuid("packageId must be a valid UUID"),
+    billingCycle: z.enum(["MONTHLY", "YEARLY"]).optional(),
+    billingPeriod: z.enum(["MONTHLY", "YEARLY"]).optional(),
+    successUrl: z.string().url().optional(),
+    cancelUrl: z.string().url().optional(),
+    phone: z
+      .union([z.string(), z.number()])
+      .optional()
+      .transform((val) => (val == null || val === "" ? undefined : String(val))),
+  })
+  .strict()
+  .transform((data) => {
+    const billingCycle = data.billingCycle || data.billingPeriod || "MONTHLY";
+    return {
+      packageId: data.packageId,
+      billingCycle,
+      successUrl: data.successUrl,
+      cancelUrl: data.cancelUrl,
+      phone: data.phone,
+    };
+  })
+  .superRefine((data, ctx) => {
+    if (!["MONTHLY", "YEARLY"].includes(data.billingCycle)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "billingCycle must be MONTHLY or YEARLY",
+        path: ["billingCycle"],
+      });
+    }
+  });
+
 module.exports = {
   loanAiRegisterSchema,
   loanAiLoginSchema,
   loanAiPurchaseSchema,
+  loanAiCheckoutSchema,
 };

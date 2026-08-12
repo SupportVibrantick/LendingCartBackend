@@ -5,6 +5,7 @@ import { Eye, EyeOff } from "lucide-react";
 import AuthPageHeader from "./AuthPageHeader";
 import { useAuth } from "../context/AuthContext";
 import useGuestRedirect from "../hooks/useGuestRedirect";
+import { getAuthUserMessage } from "../lib/authErrors";
 
 const EMPTY_FORM = {
   firstName: "",
@@ -15,15 +16,33 @@ const EMPTY_FORM = {
 };
 
 function validateForm(form, acceptedTerms) {
-  if (!form.firstName.trim() || !form.lastName.trim()) return "Name is required";
-  if (!form.email.includes("@")) return "Valid email is required";
-  if (form.password.length < 8) return "Password must be at least 8 characters";
-  if (!/[A-Z]/.test(form.password)) return "Password needs an uppercase letter";
-  if (!/[a-z]/.test(form.password)) return "Password needs a lowercase letter";
-  if (!/[0-9]/.test(form.password)) return "Password needs a number";
-  if (!/[^A-Za-z0-9]/.test(form.password)) return "Password needs a special character";
-  if (form.password !== form.confirmPassword) return "Passwords do not match";
-  if (!acceptedTerms) return "Please accept the terms";
+  if (!form.firstName.trim() || !form.lastName.trim()) {
+    return "Please enter your first and last name.";
+  }
+  if (!form.email.includes("@")) {
+    return "Please enter a valid email address.";
+  }
+  if (form.password.length < 8) {
+    return "Password must be at least 8 characters.";
+  }
+  if (!/[A-Z]/.test(form.password)) {
+    return "Password must include at least one uppercase letter.";
+  }
+  if (!/[a-z]/.test(form.password)) {
+    return "Password must include at least one lowercase letter.";
+  }
+  if (!/[0-9]/.test(form.password)) {
+    return "Password must include at least one number.";
+  }
+  if (!/[^A-Za-z0-9]/.test(form.password)) {
+    return "Password must include at least one special character.";
+  }
+  if (form.password !== form.confirmPassword) {
+    return "Passwords do not match.";
+  }
+  if (!acceptedTerms) {
+    return "Please accept the Terms of Service and Privacy Policy.";
+  }
   return null;
 }
 
@@ -59,15 +78,15 @@ export default function SignUpPage() {
         email: form.email.trim().toLowerCase(),
         password: form.password,
       });
-      toast.success("Account created!");
+      toast.success("Account created! Continuing to checkout…");
 
       if (planState.packageId) {
-        navigate("/subscribe", { state: planState, replace: true });
+        navigate("/checkout", { state: planState, replace: true });
       } else {
         navigate({ pathname: "/", hash: "#pricing" }, { replace: true });
       }
     } catch (err) {
-      toast.error(err.message || "Registration failed");
+      toast.error(getAuthUserMessage(err, "register"));
     } finally {
       setLoading(false);
     }
@@ -92,8 +111,8 @@ export default function SignUpPage() {
       <div className="relative z-10 max-w-lg mx-auto px-6 py-12">
         <h1 className="text-3xl font-bold mb-2">Create your Loan AI account</h1>
         <p className="text-slate-400 mb-8 text-sm leading-relaxed">
-          Sign up to subscribe to a plan. Your broker dashboard login will be emailed to the same
-          address after successful payment — with a separate password.
+          Sign up to subscribe to a plan. After payment, broker dashboard credentials
+          are emailed separately.
         </p>
 
         {hasPlan && (

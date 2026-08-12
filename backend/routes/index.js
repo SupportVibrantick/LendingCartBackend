@@ -28,6 +28,16 @@ async function indexRoutes(fastify, options) {
     prefix: "/public/loan-ai",
   });
 
+  // Alias for GHL checkout: POST /public/payments/checkout
+  fastify.register(require("./public/payments"), {
+    prefix: "/public/payments",
+  });
+
+  // Inbound GHL webhooks: POST /api/webhooks/ghl
+  fastify.register(require("./api/webhooks"), {
+    prefix: "/api/webhooks",
+  });
+
   fastify.register(publicBrokerApplications, {
     prefix: "/api/public/broker/applications",
   });

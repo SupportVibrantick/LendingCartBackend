@@ -111,7 +111,7 @@ const navItems: NavItem[] = [
   },
   {
     icon: <ContactsOutlinedIcon />,
-    name: "All Leads",
+    name: "Contacts",
     path: "/all-landing-pages-leads",
   },
   // {

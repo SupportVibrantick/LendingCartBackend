@@ -14,22 +14,31 @@ async function loanAiMeRoutes(fastify) {
       let hasBrokerSubscription = false;
       let subscribedPackageId = null;
       let subscribedPackageCode = null;
+      let subscriptionStatus = null;
+      let subscriptionMessage = null;
 
       if (user.brokerOrganizationId) {
         const sub = await fastify.prisma.organizationSubscription.findFirst({
-          where: {
-            organizationId: user.brokerOrganizationId,
-            status: { in: ["TRIAL", "ACTIVE", "PAST_DUE"] },
-          },
+          where: { organizationId: user.brokerOrganizationId },
+          orderBy: { createdAt: "desc" },
           include: {
             package: { select: { id: true, code: true, name: true } },
           },
         });
 
         if (sub) {
-          hasBrokerSubscription = true;
-          subscribedPackageId = sub.packageId;
-          subscribedPackageCode = sub.package?.code ?? null;
+          subscriptionStatus = sub.status;
+          if (["TRIAL", "ACTIVE", "PAST_DUE"].includes(sub.status)) {
+            hasBrokerSubscription = true;
+            subscribedPackageId = sub.packageId;
+            subscribedPackageCode = sub.package?.code ?? null;
+          } else if (sub.status === "EXPIRED") {
+            subscriptionMessage =
+              "Your previous subscription has expired. Choose a plan to renew.";
+          } else if (sub.status === "CANCELLED") {
+            subscriptionMessage =
+              "Your subscription was cancelled. Choose a plan to subscribe again.";
+          }
         }
       }
 
@@ -43,6 +52,8 @@ async function loanAiMeRoutes(fastify) {
           hasBrokerSubscription,
           subscribedPackageId,
           subscribedPackageCode,
+          subscriptionStatus,
+          subscriptionMessage,
         },
       });
     },

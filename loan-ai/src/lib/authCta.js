@@ -18,7 +18,7 @@ export function getPrimaryCta(auth) {
   if (isAuthenticated) {
     return {
       label: "Subscribe now",
-      to: "/subscribe",
+      to: "/#pricing",
     };
   }
 
@@ -83,10 +83,10 @@ export function getExploreDashboardCta(auth) {
  */
 export function getAuthenticatedRedirectPath(user, planState = {}) {
   if (planState.packageId) {
-    return { pathname: "/subscribe", state: planState };
+    return { pathname: "/checkout", state: planState };
   }
   if (user?.hasBrokerSubscription) {
     return { pathname: "/" };
   }
-  return { pathname: "/subscribe" };
+  return { pathname: "/", hash: "#pricing" };
 }
