@@ -11,6 +11,9 @@ const {
   parseJsonField,
   syncLoanOfficerSubBrokers,
 } = require("../../../utils/broker/subBrokerProfileHelpers");
+const {
+  sendLoanOfficerCredentialsEmail,
+} = require("../../../services/emails/loanOfficerCredentialsEmail");
 
 module.exports = async function updateBrokerUser(fastify) {
   fastify.put(
@@ -190,6 +193,8 @@ module.exports = async function updateBrokerUser(fastify) {
           deletePublicFileIfExists(existingUser.brokerProfile.w9Url);
         }
 
+        const passwordWasUpdated = Boolean(password);
+
         await logAudit({
           prisma,
           req,
@@ -201,8 +206,41 @@ module.exports = async function updateBrokerUser(fastify) {
           newValue: {
             ...userUpdateData,
             ...profileUpdateData,
+            passwordChanged: passwordWasUpdated,
           },
         });
+
+        if (passwordWasUpdated) {
+          try {
+            const organization = await prisma.organization.findUnique({
+              where: { id: brokerOrgId },
+              select: { name: true },
+            });
+
+            const resolvedFirstName =
+              firstName !== undefined ? firstName : existingUser.firstName;
+            const resolvedEmail =
+              email !== undefined ? email : existingUser.email;
+
+            await sendLoanOfficerCredentialsEmail({
+              firstName: resolvedFirstName,
+              email: resolvedEmail,
+              password,
+              organizationName: organization?.name,
+              prisma,
+              isPasswordReset: true,
+            });
+          } catch (mailErr) {
+            fastify.log.error(
+              {
+                error: mailErr.message,
+                to: email || existingUser.email,
+                userId: id,
+              },
+              "Loan officer updated but password-reset email failed",
+            );
+          }
+        }
 
         return reply.send({
           success: true,
