@@ -3482,11 +3482,19 @@ focus:border-blue-500 outline-none text-sm ${
                                   <input
                                     type="text"
                                     inputMode="numeric"
-                                    value={formData.loanRequest.rehabCost}
+                                    value={
+                                      showConstructionCostLable(selectedProduct)
+                                        ? formData.loanRequest.constructionCost
+                                        : formData.loanRequest.rehabCost
+                                    }
                                     onChange={(e) =>
                                       handleAmountChange(
                                         "loanRequest",
-                                        "rehabCost",
+                                        showConstructionCostLable(
+                                          selectedProduct,
+                                        )
+                                          ? "constructionCost"
+                                          : "rehabCost",
                                         e.target.value,
                                       )
                                     }
@@ -3792,11 +3800,17 @@ focus:border-blue-500 outline-none text-sm ${
                               <input
                                 type="text"
                                 inputMode="numeric"
-                                value={formData.loanRequest.rehabCost || ""}
+                                value={
+                                  showConstructionCostLable(selectedProduct)
+                                    ? formData.loanRequest.constructionCost
+                                    : formData.loanRequest.rehabCost
+                                }
                                 onChange={(e) =>
                                   handleAmountChange(
                                     "loanRequest",
-                                    "rehabCost",
+                                    showConstructionCostLable(selectedProduct)
+                                      ? "constructionCost"
+                                      : "rehabCost",
                                     e.target.value,
                                   )
                                 }
