@@ -4,31 +4,58 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 90
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Deploy on VPS
-        uses: appleboy/ssh-action@v1.0.3
+      # dial tcp i/o timeout = VPS unreachable from GitHub (firewall/IP/port/down).
+      # Retry a few times before the full deploy script.
+      - name: Check SSH connectivity
+        uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY_LENDINGCART }}
           port: ${{ secrets.SSH_PORT }}
+          protocol: tcp4
+          timeout: 60s
+          command_timeout: 30s
+          script_stop: true
+          script: |
+            set -euo pipefail
+            echo "SSH connectivity OK"
+            hostname
+            whoami
+            pwd
+
+      - name: Deploy on VPS
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY_LENDINGCART }}
+          port: ${{ secrets.SSH_PORT }}
+          protocol: tcp4
+          timeout: 2m
+          command_timeout: 60m
+          script_stop: true
 
           script: |
             set -euo pipefail
 
-            echo "🚀 Starting LendingCart deployment..."
+            echo "Starting LendingCart deployment..."
 
-            cd /root/LendingCartBackend
+            APP_DIR="/root/LendingCartBackend"
+            cd "$APP_DIR"
 
-            echo "📥 Pulling latest code..."
+            echo "Pulling latest code..."
             git fetch origin
             git reset --hard origin/main
 
@@ -38,18 +65,18 @@ jobs:
 
             cd backend
 
-            echo "📦 Installing backend dependencies..."
+            echo "Installing backend dependencies..."
             npm ci
 
-            echo "🧹 Stripping UTF-8 BOM from Prisma migration SQL files..."
+            echo "Stripping UTF-8 BOM from Prisma migration SQL files..."
             node <<'NODE'
             const fs = require("fs");
             const path = require("path");
-            const root = path.join(process.cwd(), "prisma", "migrations");
-            if (!fs.existsSync(root)) process.exit(0);
+            const migrationsDir = path.join(process.cwd(), "prisma", "migrations");
+            if (!fs.existsSync(migrationsDir)) process.exit(0);
             let stripped = 0;
-            for (const dir of fs.readdirSync(root)) {
-              const file = path.join(root, dir, "migration.sql");
+            for (const dir of fs.readdirSync(migrationsDir)) {
+              const file = path.join(migrationsDir, dir, "migration.sql");
               if (!fs.existsSync(file)) continue;
               const buf = fs.readFileSync(file);
               if (
@@ -66,7 +93,7 @@ jobs:
             console.log(`BOM cleanup done (${stripped} file(s) fixed)`);
             NODE
 
-            echo "🛠️ Recovering previously failed Prisma migrations (if any)..."
+            echo "Recovering previously failed Prisma migrations (if any)..."
             node <<'NODE'
             require("dotenv").config();
             const { spawnSync } = require("child_process");
@@ -112,10 +139,10 @@ jobs:
             });
             NODE
 
-            echo "🗄️ Running Prisma migrations..."
+            echo "Running Prisma migrations..."
             npx prisma migrate deploy
 
-            echo "🔧 Generating Prisma client..."
+            echo "Generating Prisma client..."
             npx prisma generate
 
             #################################################
@@ -187,20 +214,20 @@ jobs:
             # Restart Nginx
             #################################################
 
-            echo "🔄 Restarting Nginx..."
+            echo "Restarting Nginx..."
             systemctl restart nginx
 
             #################################################
             # Restart Backend
             #################################################
 
-            cd /root/LendingCartBackend/backend
+            cd "$APP_DIR/backend"
 
             if pm2 describe lendingcart-backend >/dev/null 2>&1; then
-              echo "♻️ Restarting lendingcart-backend..."
+              echo "Restarting lendingcart-backend..."
               pm2 restart lendingcart-backend --update-env
             else
-              echo "🚀 Starting lendingcart-backend..."
+              echo "Starting lendingcart-backend..."
               pm2 start ecosystem.config.cjs --only lendingcart-backend
             fi
 
@@ -209,10 +236,10 @@ jobs:
             #################################################
 
             if pm2 describe lendingcart-worker >/dev/null 2>&1; then
-              echo "♻️ Restarting lendingcart-worker..."
+              echo "Restarting lendingcart-worker..."
               pm2 restart lendingcart-worker --update-env
             else
-              echo "🚀 Starting lendingcart-worker..."
+              echo "Starting lendingcart-worker..."
               pm2 start ecosystem.config.cjs --only lendingcart-worker
             fi
 
@@ -221,9 +248,9 @@ jobs:
             sleep 5
 
             if ! curl -sf http://127.0.0.1:3008/ >/dev/null; then
-              echo "❌ Backend failed to start"
+              echo "Backend failed to start"
               pm2 logs lendingcart-backend --lines 50 --nostream
               exit 1
             fi
 
-            echo "🎉 Deployment completed successfully!"
+            echo "Deployment completed successfully!"
