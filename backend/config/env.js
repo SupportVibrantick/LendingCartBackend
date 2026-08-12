@@ -30,6 +30,35 @@ function isGhlEnabled() {
   return envFlag("GHL_ENABLED", false);
 }
 
+/**
+ * Whether GHL invoice/payment checkout runs in live Stripe mode.
+ * - GHL_PAYMENTS_LIVE_MODE=true  => liveMode true (production)
+ * - GHL_PAYMENTS_LIVE_MODE=false => liveMode false (local/staging test cards)
+ * - Missing/empty => true (production-safe default)
+ */
+function isGhlPaymentsLiveMode() {
+  return envFlag("GHL_PAYMENTS_LIVE_MODE", true);
+}
+
+function canProcessGhlPayments() {
+  try {
+    // Lazy require avoids circular deps with payment service helpers.
+    const {
+      hasAllGhlPriceIdsConfigured,
+    } = require("../services/ghl/ghlPriceMap");
+    return Boolean(
+      isGhlEnabled() &&
+        process.env.GHL_API_KEY &&
+        String(process.env.GHL_API_KEY).trim() &&
+        process.env.GHL_LOCATION_ID &&
+        String(process.env.GHL_LOCATION_ID).trim() &&
+        hasAllGhlPriceIdsConfigured(),
+    );
+  } catch {
+    return false;
+  }
+}
+
 function getJwtSecret() {
   return requireEnv("JWT_SECRET");
 }
@@ -120,7 +149,25 @@ function validateGhlEnvIfEnabled() {
     return;
   }
 
-  requireEnv("GHL_WEBHOOK_URL");
+  // Email provider uses webhook; contact sync uses API key + location.
+  // Require at least one configured path when GHL is enabled.
+  const hasWebhook =
+    Boolean(process.env.GHL_WEBHOOK_URL && String(process.env.GHL_WEBHOOK_URL).trim()) ||
+    Boolean(
+      process.env.GHL_LEAD_WEBHOOK_URL &&
+        String(process.env.GHL_LEAD_WEBHOOK_URL).trim(),
+    );
+  const hasContactApi =
+    Boolean(process.env.GHL_API_KEY && String(process.env.GHL_API_KEY).trim()) &&
+    Boolean(
+      process.env.GHL_LOCATION_ID && String(process.env.GHL_LOCATION_ID).trim(),
+    );
+
+  if (!hasWebhook && !hasContactApi) {
+    throw new Error(
+      "GHL_ENABLED=true requires GHL_WEBHOOK_URL and/or GHL_API_KEY + GHL_LOCATION_ID",
+    );
+  }
 }
 
 function validateApiEnv() {
@@ -153,6 +200,8 @@ module.exports = {
   isEmailEnabled,
   isKafkaEnabled,
   isGhlEnabled,
+  isGhlPaymentsLiveMode,
+  canProcessGhlPayments,
   isRedisEnabled,
   getJwtSecret,
   getSmtpConfig,

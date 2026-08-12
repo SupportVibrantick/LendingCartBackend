@@ -4,6 +4,9 @@ const { resolveClientDisplayName } = require("../../../utils/applications/resolv
 const {
   requireLoOfficerPermission,
 } = require("../../../services/broker/loanOfficerAccess");
+const {
+  ensureClientPortalUserForImpersonation,
+} = require("../../../services/clientPortal/ensureClientPortalUserForImpersonation");
 
 /**
  * @param {import("fastify").FastifyInstance} fastify
@@ -113,12 +116,22 @@ module.exports = async function impersonateBorrowerRoute(fastify) {
           });
         }
 
-        const portalUser = client.portalUsers[0];
+        let portalUser = client.portalUsers[0];
         if (!portalUser) {
-          return reply.code(404).send({
-            success: false,
-            message: "This borrower does not have a client portal account yet",
-          });
+          try {
+            portalUser = await ensureClientPortalUserForImpersonation(prisma, {
+              clientId: client.id,
+              contacts: client.contacts,
+            });
+          } catch (provisionError) {
+            return reply.code(provisionError.statusCode || 400).send({
+              success: false,
+              message:
+                provisionError.clientMessage ||
+                provisionError.message ||
+                "Unable to open client portal for this borrower",
+            });
+          }
         }
 
         const clientName = await resolveClientDisplayName(prisma, {

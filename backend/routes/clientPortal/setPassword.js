@@ -99,13 +99,17 @@ async function setPasswordRoute(fastify) {
 
           let user;
           const isSoftDeleted = Boolean(existingUser?.isDeleted);
+          const sameClient =
+            existingUser && existingUser.clientId === tokenRecord.clientId;
 
-          if (existingUser && !isSoftDeleted) {
+          // Invite link may set/reset password when the account was auto-provisioned
+          // for broker impersonation (or soft-deleted). Block only if email belongs
+          // to a different active client.
+          if (existingUser && !isSoftDeleted && !sameClient) {
             throw new Error("USER_ALREADY_EXISTS");
           }
 
-          if (existingUser && isSoftDeleted) {
-            // Restore soft-deleted portal account for this invite
+          if (existingUser && (isSoftDeleted || sameClient)) {
             user = await tx.clientPortalUser.update({
               where: { id: existingUser.id },
               data: {

@@ -166,18 +166,63 @@ model EmailVerificationToken {
 }
 
 model LoanAiUser {
-  id                   String        @id @default(uuid()) @db.Uuid
-  email                String        @unique
-  passwordHash         String
-  firstName            String?
-  lastName             String?
-  brokerOrganizationId String?       @unique @db.Uuid
-  lastLoginAt          DateTime?     @db.Timestamptz(6)
-  createdAt            DateTime      @default(now()) @db.Timestamptz(6)
-  updatedAt            DateTime      @default(now()) @updatedAt @db.Timestamptz(6)
-  brokerOrganization   Organization? @relation(fields: [brokerOrganizationId], references: [id])
+  id                       String                    @id @default(uuid()) @db.Uuid
+  email                    String                    @unique
+  passwordHash             String
+  firstName                String?
+  lastName                 String?
+  brokerOrganizationId     String?                   @unique @db.Uuid
+  lastLoginAt              DateTime?                 @db.Timestamptz(6)
+  createdAt                DateTime                  @default(now()) @db.Timestamptz(6)
+  updatedAt                DateTime                  @default(now()) @updatedAt @db.Timestamptz(6)
+  brokerOrganization       Organization?             @relation(fields: [brokerOrganizationId], references: [id])
+  ghlCheckouts             LoanAiGhlCheckout[]
+  organizationSubscriptions OrganizationSubscription[]
 
   @@map("loan_ai_users")
+}
+
+/// Pending / completed GHL payment checkouts for Loan AI users.
+/// Checkout/session layer — live entitlement lives on OrganizationSubscription.
+model LoanAiGhlCheckout {
+  id                         String                   @id @default(uuid()) @db.Uuid
+  loanAiUserId               String                   @db.Uuid
+  packageId                  String                   @db.Uuid
+  billingCycle               SubscriptionBillingCycle
+  status                     LoanAiGhlCheckoutStatus  @default(PENDING)
+  paymentStatus              GhlPaymentStatus         @default(PENDING)
+  amount                     Decimal                  @db.Decimal(10, 2)
+  currency                   String                   @default("USD")
+  ghlContactId               String?
+  ghlProductId               String?
+  ghlPriceId                 String
+  ghlInvoiceId               String?
+  ghlSubscriptionId          String?
+  checkoutUrl                String?
+  successUrl                 String?
+  cancelUrl                  String?
+  lastError                  String?
+  metadata                   Json?
+  currentPeriodStart         DateTime?                @db.Timestamptz(6)
+  currentPeriodEnd           DateTime?                @db.Timestamptz(6)
+  cancelledAt                DateTime?                @db.Timestamptz(6)
+  expiresAt                  DateTime?                @db.Timestamptz(6)
+  completedAt                DateTime?                @db.Timestamptz(6)
+  organizationSubscriptionId String?                  @unique @db.Uuid
+  createdAt                  DateTime                 @default(now()) @db.Timestamptz(6)
+  updatedAt                  DateTime                 @updatedAt @db.Timestamptz(6)
+  loanAiUser                 LoanAiUser               @relation(fields: [loanAiUserId], references: [id], onDelete: Cascade)
+  package                    SubscriptionPackage      @relation(fields: [packageId], references: [id])
+  organizationSubscription   OrganizationSubscription? @relation(fields: [organizationSubscriptionId], references: [id])
+
+  @@index([loanAiUserId])
+  @@index([packageId])
+  @@index([status])
+  @@index([paymentStatus])
+  @@index([ghlInvoiceId])
+  @@index([ghlContactId])
+  @@index([ghlSubscriptionId])
+  @@map("loan_ai_ghl_checkouts")
 }
 
 model BrokerUserProfile {
@@ -602,6 +647,7 @@ model SubscriptionPackage {
   createdAt                 DateTime                   @default(now()) @db.Timestamptz(6)
   updatedAt                 DateTime                   @default(now()) @updatedAt @db.Timestamptz(6)
   organizationSubscriptions OrganizationSubscription[]
+  ghlCheckouts              LoanAiGhlCheckout[]
 
   @@map("subscription_packages")
 }
@@ -617,8 +663,15 @@ model OrganizationSubscription {
   trialEndsAt               DateTime?                      @db.Timestamptz(6)
   cancelledAt               DateTime?                      @db.Timestamptz(6)
   cancelAtPeriodEnd         Boolean                        @default(false)
+  /// Legacy Stripe placeholders (unused). Prefer ghl* fields for GHL billing.
   stripeCustomerId          String?
   stripeSubscriptionId      String?
+  ghlContactId              String?
+  ghlPriceId                String?
+  ghlProductId              String?
+  ghlSubscriptionId         String?
+  ghlInvoiceId              String?
+  loanAiUserId              String?                        @db.Uuid
   purchasedAddOns           Json?
   assignedByAdminId         String?                        @db.Uuid
   notes                     String?
@@ -627,12 +680,18 @@ model OrganizationSubscription {
   trialEndingReminderSentAt DateTime?                      @db.Timestamptz(6)
   organization              Organization                   @relation(fields: [organizationId], references: [id])
   package                   SubscriptionPackage            @relation(fields: [packageId], references: [id])
+  loanAiUser                LoanAiUser?                    @relation(fields: [loanAiUserId], references: [id])
   invoices                  SubscriptionInvoice[]
   usageRecords              SubscriptionUsage[]
+  ghlCheckout               LoanAiGhlCheckout?
 
   @@index([organizationId])
   @@index([packageId])
   @@index([status])
+  @@index([loanAiUserId])
+  @@index([ghlContactId])
+  @@index([ghlSubscriptionId])
+  @@index([ghlPriceId])
   @@map("organization_subscriptions")
 }
 
@@ -667,6 +726,9 @@ model SubscriptionInvoice {
   paidAt                     DateTime?                 @db.Timestamptz(6)
   stripeInvoiceId            String?
   externalPaymentRef         String?
+  ghlInvoiceId               String?
+  ghlSubscriptionId          String?
+  ghlTransactionId           String?
   notes                      String?
   idempotencyKey             String?                   @unique
   createdAt                  DateTime                  @default(now()) @db.Timestamptz(6)
@@ -677,6 +739,8 @@ model SubscriptionInvoice {
   @@index([organizationId])
   @@index([organizationSubscriptionId])
   @@index([status])
+  @@index([ghlInvoiceId])
+  @@index([ghlSubscriptionId])
   @@map("subscription_invoices")
 }
 
@@ -1528,40 +1592,52 @@ model ClmLandingPageLead {
 }
 
 model LoanAiBookDemoLead {
-  id        String     @id @default(uuid()) @db.Uuid
-  firstName String?
-  lastName  String?
-  email     String
-  phone     String?
-  company   String?
-  message   String?
-  source    String     @default("loan-ai-book-demo")
-  status    LeadStatus @default(NEW)
-  createdAt DateTime   @default(now()) @db.Timestamptz(6)
-  updatedAt DateTime   @updatedAt @db.Timestamptz(6)
+  id                 String        @id @default(uuid()) @db.Uuid
+  firstName          String?
+  lastName           String?
+  email              String
+  phone              String?
+  company            String?
+  message            String?
+  interestedPlanCode String?
+  interestedPlanName String?
+  source             String        @default("loan-ai-book-demo")
+  status             LeadStatus    @default(NEW)
+  ghlSyncStatus      GhlSyncStatus @default(PENDING)
+  ghlContactId       String?
+  ghlSyncedAt        DateTime?     @db.Timestamptz(6)
+  ghlLastError       String?
+  createdAt          DateTime      @default(now()) @db.Timestamptz(6)
+  updatedAt          DateTime      @updatedAt @db.Timestamptz(6)
 
   @@index([email])
   @@index([source])
   @@index([status])
+  @@index([ghlSyncStatus])
   @@map("loan_ai_book_demo_leads")
 }
 
 model AdminManualLead {
-  id        String     @id @default(uuid()) @db.Uuid
-  firstName String?
-  lastName  String?
-  email     String
-  phone     String?
-  source    String     @default("Admin")
-  status    LeadStatus @default(NEW)
-  campaign  String?
-  metadata  Json?
-  createdAt DateTime   @default(now()) @db.Timestamptz(6)
-  updatedAt DateTime   @updatedAt @db.Timestamptz(6)
+  id            String        @id @default(uuid()) @db.Uuid
+  firstName     String?
+  lastName      String?
+  email         String
+  phone         String?
+  source        String        @default("Admin")
+  status        LeadStatus    @default(NEW)
+  campaign      String?
+  metadata      Json?
+  ghlSyncStatus GhlSyncStatus @default(PENDING)
+  ghlContactId  String?
+  ghlSyncedAt   DateTime?     @db.Timestamptz(6)
+  ghlLastError  String?
+  createdAt     DateTime      @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime      @updatedAt @db.Timestamptz(6)
 
   @@index([email])
   @@index([source])
   @@index([status])
+  @@index([ghlSyncStatus])
   @@map("admin_manual_leads")
 }
 
@@ -1975,6 +2051,57 @@ enum LeadStatus {
   CONVERTED
 }
 
+enum GhlSyncStatus {
+  PENDING
+  SYNCED
+  FAILED
+  SKIPPED
+}
+
+enum LoanAiGhlCheckoutStatus {
+  PENDING
+  CHECKOUT_CREATED
+  PAID
+  FAILED
+  EXPIRED
+  CANCELLED
+}
+
+/// Payment capture state for a GHL checkout / invoice.
+enum GhlPaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+  CANCELLED
+}
+
+/// Idempotent store of inbound GHL webhook deliveries.
+model GhlWebhookEvent {
+  id             String    @id @default(uuid()) @db.Uuid
+  webhookId      String    @unique
+  eventType      String
+  status         String    @default("RECEIVED")
+  ghlContactId   String?
+  ghlInvoiceId   String?
+  ghlSubscriptionId String?
+  checkoutId     String?   @db.Uuid
+  loanAiUserId   String?   @db.Uuid
+  errorMessage   String?
+  /// Sanitized/truncated payload snapshot for debugging (no secrets).
+  payloadSummary Json?
+  processedAt    DateTime? @db.Timestamptz(6)
+  createdAt      DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @db.Timestamptz(6)
+
+  @@index([eventType])
+  @@index([status])
+  @@index([ghlContactId])
+  @@index([ghlInvoiceId])
+  @@index([checkoutId])
+  @@map("ghl_webhook_events")
+}
+
 enum ContactType {
   ACCOUNTANT
   APPRAISER
@@ -2035,9 +2162,11 @@ enum SubscriptionBillingCycle {
 }
 
 enum OrganizationSubscriptionStatus {
+  PENDING
   TRIAL
   ACTIVE
   PAST_DUE
+  FAILED
   CANCELLED
   EXPIRED
 }
