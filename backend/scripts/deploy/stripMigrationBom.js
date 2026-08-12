@@ -1,7 +1,5 @@
-/**
- * Strip UTF-8 BOM from prisma/migrations/*/migration.sql
- * Safe to run on every deploy.
- */
+// Strip UTF-8 BOM from prisma/migrations/<name>/migration.sql
+// Safe to run on every deploy.
 const fs = require("fs");
 const path = require("path");
 
