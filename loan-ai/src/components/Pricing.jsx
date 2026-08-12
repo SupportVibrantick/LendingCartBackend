@@ -493,7 +493,11 @@ const Pricing = () => {
               const savings = billingCycle === "YEARLY" ? getYearlySavingsPercent(pkg) : null;
 
               const checkoutState = buildPlanCheckoutState(pkg, billingCycle, formatPrice);
-              const demoState = { planMessage: planDemoMessage(pkg, billingCycle) };
+              const demoState = {
+                planCode: pkg.code,
+                planName: pkg.name,
+                planMessage: planDemoMessage(pkg, billingCycle),
+              };
 
 
 

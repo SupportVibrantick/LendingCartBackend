@@ -21,7 +21,9 @@
     "db:reset": "prisma migrate reset --force",
     "db:reset:push": "prisma db push --force-reset --accept-data-loss",
     "prisma:studio": "prisma studio",
-    "db:seed": "node prisma/seed.js"
+    "db:seed": "node prisma/seed.js",
+    "test": "node tests/run-ghl-tests.js",
+    "test:ghl": "node tests/run-ghl-tests.js"
   },
   "prisma": {
     "seed": "node prisma/seed.js"

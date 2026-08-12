@@ -5,6 +5,7 @@ import { Eye, EyeOff } from "lucide-react";
 import AuthPageHeader from "./AuthPageHeader";
 import { useAuth } from "../context/AuthContext";
 import useGuestRedirect from "../hooks/useGuestRedirect";
+import { getAuthUserMessage } from "../lib/authErrors";
 
 export default function LoginPage() {
   const location = useLocation();
@@ -31,14 +32,14 @@ export default function LoginPage() {
       toast.success("Signed in successfully");
 
       if (planState.packageId) {
-        navigate("/subscribe", { state: planState, replace: true });
+        navigate("/checkout", { state: planState, replace: true });
       } else if (planState.redirectTo) {
         navigate(planState.redirectTo, { replace: true });
       } else {
         navigate({ pathname: "/", hash: "#pricing" }, { replace: true });
       }
     } catch (err) {
-      toast.error(err.message || "Login failed");
+      toast.error(getAuthUserMessage(err, "login"));
     } finally {
       setLoading(false);
     }
@@ -74,7 +75,7 @@ export default function LoginPage() {
               {planState.planPrice ? ` — ${planState.planPrice}/${planState.billingLabel || "month"}` : ""}
             </p>
             <p className="text-slate-400 mt-2 text-xs">
-              Sign in to continue to checkout for this plan.
+              Sign in to continue to secure checkout for this plan.
             </p>
           </div>
         )}
