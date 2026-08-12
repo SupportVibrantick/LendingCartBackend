@@ -16,7 +16,6 @@ jobs:
         uses: actions/checkout@v4
 
       # dial tcp i/o timeout = VPS unreachable from GitHub (firewall/IP/port/down).
-      # Retry a few times before the full deploy script.
       - name: Check SSH connectivity
         uses: appleboy/ssh-action@v1.2.0
         with:
@@ -27,7 +26,6 @@ jobs:
           protocol: tcp4
           timeout: 60s
           command_timeout: 30s
-          script_stop: true
           script: |
             set -euo pipefail
             echo "SSH connectivity OK"
@@ -45,7 +43,8 @@ jobs:
           protocol: tcp4
           timeout: 2m
           command_timeout: 60m
-          script_stop: true
+          # Do NOT enable script_stop: it injects shell lines between every
+          # script line and breaks multi-line commands. set -e is enough.
 
           script: |
             set -euo pipefail
@@ -69,75 +68,10 @@ jobs:
             npm ci
 
             echo "Stripping UTF-8 BOM from Prisma migration SQL files..."
-            node <<'NODE'
-            const fs = require("fs");
-            const path = require("path");
-            const migrationsDir = path.join(process.cwd(), "prisma", "migrations");
-            if (!fs.existsSync(migrationsDir)) process.exit(0);
-            let stripped = 0;
-            for (const dir of fs.readdirSync(migrationsDir)) {
-              const file = path.join(migrationsDir, dir, "migration.sql");
-              if (!fs.existsSync(file)) continue;
-              const buf = fs.readFileSync(file);
-              if (
-                buf.length >= 3 &&
-                buf[0] === 0xef &&
-                buf[1] === 0xbb &&
-                buf[2] === 0xbf
-              ) {
-                fs.writeFileSync(file, buf.subarray(3));
-                stripped += 1;
-                console.log(`stripped BOM: ${path.join(dir, "migration.sql")}`);
-              }
-            }
-            console.log(`BOM cleanup done (${stripped} file(s) fixed)`);
-            NODE
+            node scripts/deploy/stripMigrationBom.js
 
             echo "Recovering previously failed Prisma migrations (if any)..."
-            node <<'NODE'
-            require("dotenv").config();
-            const { spawnSync } = require("child_process");
-            const { PrismaClient } = require("@prisma/client");
-
-            (async () => {
-              const prisma = new PrismaClient();
-              try {
-                const failed = await prisma.$queryRawUnsafe(`
-                  SELECT migration_name
-                  FROM "_prisma_migrations"
-                  WHERE finished_at IS NULL
-                    AND rolled_back_at IS NULL
-                    AND started_at IS NOT NULL
-                  ORDER BY started_at ASC
-                `);
-
-                if (!failed.length) {
-                  console.log("No failed migrations to recover");
-                  return;
-                }
-
-                for (const row of failed) {
-                  const name = row.migration_name;
-                  console.log(`Marking failed migration as rolled back: ${name}`);
-                  const result = spawnSync(
-                    "npx",
-                    ["prisma", "migrate", "resolve", "--rolled-back", name],
-                    { stdio: "inherit", shell: true },
-                  );
-                  if (result.status !== 0) {
-                    throw new Error(
-                      `Failed to resolve rolled-back migration: ${name}`,
-                    );
-                  }
-                }
-              } finally {
-                await prisma.$disconnect();
-              }
-            })().catch((err) => {
-              console.error(err);
-              process.exit(1);
-            });
-            NODE
+            node scripts/deploy/recoverFailedMigrations.js
 
             echo "Running Prisma migrations..."
             npx prisma migrate deploy
