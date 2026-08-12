@@ -4,57 +4,31 @@ on:
   push:
     branches:
       - main
-  workflow_dispatch:
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      # dial tcp i/o timeout = VPS unreachable from GitHub (firewall/IP/port/down).
-      - name: Check SSH connectivity
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_KEY_LENDINGCART }}
-          port: ${{ secrets.SSH_PORT }}
-          protocol: tcp4
-          timeout: 60s
-          command_timeout: 30s
-          script: |
-            set -euo pipefail
-            echo "SSH connectivity OK"
-            hostname
-            whoami
-            pwd
-
       - name: Deploy on VPS
-        uses: appleboy/ssh-action@v1.2.0
+        uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY_LENDINGCART }}
           port: ${{ secrets.SSH_PORT }}
-          protocol: tcp4
-          timeout: 2m
-          command_timeout: 60m
-          # Do NOT enable script_stop: it injects shell lines between every
-          # script line and breaks multi-line commands. set -e is enough.
 
           script: |
             set -euo pipefail
 
-            echo "Starting LendingCart deployment..."
+            echo "🚀 Starting LendingCart deployment..."
 
-            APP_DIR="/root/LendingCartBackend"
-            cd "$APP_DIR"
+            cd /root/LendingCartBackend
 
-            echo "Pulling latest code..."
+            echo "📥 Pulling latest code..."
             git fetch origin
             git reset --hard origin/main
 
@@ -64,19 +38,13 @@ jobs:
 
             cd backend
 
-            echo "Installing backend dependencies..."
+            echo "📦 Installing backend dependencies..."
             npm ci
 
-            echo "Stripping UTF-8 BOM from Prisma migration SQL files..."
-            node scripts/deploy/stripMigrationBom.js
-
-            echo "Recovering previously failed Prisma migrations (if any)..."
-            node scripts/deploy/recoverFailedMigrations.js
-
-            echo "Running Prisma migrations..."
+            echo "🗄️ Running Prisma migrations..."
             npx prisma migrate deploy
 
-            echo "Generating Prisma client..."
+            echo "🔧 Generating Prisma client..."
             npx prisma generate
 
             #################################################
@@ -148,20 +116,20 @@ jobs:
             # Restart Nginx
             #################################################
 
-            echo "Restarting Nginx..."
+            echo "🔄 Restarting Nginx..."
             systemctl restart nginx
 
             #################################################
             # Restart Backend
             #################################################
 
-            cd "$APP_DIR/backend"
+            cd /root/LendingCartBackend/backend
 
             if pm2 describe lendingcart-backend >/dev/null 2>&1; then
-              echo "Restarting lendingcart-backend..."
+              echo "♻️ Restarting lendingcart-backend..."
               pm2 restart lendingcart-backend --update-env
             else
-              echo "Starting lendingcart-backend..."
+              echo "🚀 Starting lendingcart-backend..."
               pm2 start ecosystem.config.cjs --only lendingcart-backend
             fi
 
@@ -170,10 +138,10 @@ jobs:
             #################################################
 
             if pm2 describe lendingcart-worker >/dev/null 2>&1; then
-              echo "Restarting lendingcart-worker..."
+              echo "♻️ Restarting lendingcart-worker..."
               pm2 restart lendingcart-worker --update-env
             else
-              echo "Starting lendingcart-worker..."
+              echo "🚀 Starting lendingcart-worker..."
               pm2 start ecosystem.config.cjs --only lendingcart-worker
             fi
 
@@ -182,9 +150,9 @@ jobs:
             sleep 5
 
             if ! curl -sf http://127.0.0.1:3008/ >/dev/null; then
-              echo "Backend failed to start"
+              echo "❌ Backend failed to start"
               pm2 logs lendingcart-backend --lines 50 --nostream
               exit 1
             fi
 
-            echo "Deployment completed successfully!"
+            echo "🎉 Deployment completed successfully!"
