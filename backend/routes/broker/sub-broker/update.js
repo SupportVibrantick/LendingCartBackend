@@ -14,6 +14,9 @@ module.exports = async function updateSubBrokerRoutes(fastify) {
   const {
     requireLoOfficerPermission,
   } = require("../../../services/broker/loanOfficerAccess");
+  const {
+    sendSubBrokerCredentialsEmail,
+  } = require("../../../services/emails/subBrokerCredentialsEmail");
 
   fastify.patch(
     "/:id/update",
@@ -184,6 +187,34 @@ module.exports = async function updateSubBrokerRoutes(fastify) {
             },
           },
         });
+
+        const passwordWasUpdated = Boolean(fields.password);
+        if (passwordWasUpdated && detail?.status === "ACTIVE") {
+          try {
+            const organization = await prisma.organization.findUnique({
+              where: { id: brokerOrgId },
+              select: { name: true },
+            });
+
+            await sendSubBrokerCredentialsEmail({
+              firstName: detail.firstName,
+              email: detail.email,
+              password: String(fields.password),
+              organizationName: organization?.name,
+              prisma,
+              isPasswordReset: true,
+            });
+          } catch (mailErr) {
+            fastify.log.error(
+              {
+                error: mailErr.message,
+                to: detail?.email,
+                userId: id,
+              },
+              "Sub broker updated but password-reset email failed",
+            );
+          }
+        }
 
         return reply.send({
           success: true,
