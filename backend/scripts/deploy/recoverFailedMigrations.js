@@ -1,7 +1,5 @@
-/**
- * Mark incomplete/failed Prisma migrations as rolled back so `migrate deploy`
- * can re-apply them (e.g. after a BOM syntax failure at byte 0).
- */
+// Mark incomplete/failed Prisma migrations as rolled back so migrate deploy
+// can re-apply them (for example after a BOM syntax failure at byte 0).
 require("dotenv").config();
 const { spawnSync } = require("child_process");
 const { PrismaClient } = require("@prisma/client");
