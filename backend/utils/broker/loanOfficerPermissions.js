@@ -104,6 +104,15 @@ function normalizeLoanOfficerPermissions(keys = []) {
     normalized.delete("VIEW_CUSTOM_DOCUMENTS");
   }
 
+  if (
+    normalized.has("GENERATE_LOI") ||
+    normalized.has("REGENERATE_LOI") ||
+    normalized.has("SEND_LOI_TO_CLIENT") ||
+    normalized.has("SEND_LOI_TO_LENDER")
+  ) {
+    normalized.add("VIEW_LOI_TERM_SHEET");
+  }
+
   return [...normalized];
 }
 

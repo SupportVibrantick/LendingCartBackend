@@ -460,7 +460,7 @@ const APPLICATION_WORKSPACE_TABS: Array<{
 }> = [
   { key: "application", label: "Overview", icon: LayoutGrid },
   { key: "documents", label: "Upload Documents", icon: FiUploadCloud },
-  { key: "signDocuments", label: "Documents to Sign", icon: FileSignature },
+  { key: "signDocuments", label: "Term Sheet & Sign", icon: FileSignature },
   { key: "feeAgreement", label: "Fee Agreement", icon: Receipt },
 ];
 
@@ -1021,9 +1021,11 @@ export default function ClientUpload() {
 
     if (appId) {
       const metadata = notification.metadata || {};
+      const isBrokerTermSheet =
+        Boolean(metadata.brokerLoi) || Boolean(metadata.signDocument);
       const tabByEvent: Record<string, typeof activeTab> = {
         NEW_MESSAGE: "chat",
-        DOCUMENTS_REQUESTED: metadata.signDocument ? "signDocuments" : "documents",
+        DOCUMENTS_REQUESTED: isBrokerTermSheet ? "signDocuments" : "documents",
         LENDER_CONDITIONAL: "documents",
       };
 
@@ -1040,6 +1042,16 @@ export default function ClientUpload() {
         setApplicationId(appId);
         setTabRefreshKey((key) => key + 1);
         setActiveTab(nextTab);
+        if (
+          nextTab === "signDocuments" &&
+          metadata.brokerLoi &&
+          Number(metadata.forwardedDocumentCount || 0) > 0
+        ) {
+          toast.success(
+            "Term sheet ready to sign. Supporting documents are also under Upload Documents.",
+            { duration: 5000 },
+          );
+        }
         return;
       }
 
@@ -1710,6 +1722,13 @@ export default function ClientUpload() {
               loanApplicationId={applicationId}
               clientName={clientName}
               applicationNumber={applicationNumber}
+              onUpdated={() => {
+                if (applicationId) {
+                  void fetchApplicationDetails(applicationId, {
+                    keepCurrentTab: true,
+                  });
+                }
+              }}
             />
           </div>
         )}

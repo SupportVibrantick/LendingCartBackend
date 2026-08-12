@@ -28,6 +28,8 @@ export type ClientNotification = {
     decision?: string;
     senderName?: string;
     signDocument?: boolean;
+    brokerLoi?: boolean;
+    forwardedDocumentCount?: number;
   };
   createdAt: string;
   isRead: boolean;

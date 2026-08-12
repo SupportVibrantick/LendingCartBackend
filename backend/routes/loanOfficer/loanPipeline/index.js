@@ -18,7 +18,9 @@ async function loanOfficerLoanPipelineRoutes(fastify) {
       requireBrokerUserId: true,
       routePermissions: {
         view: "VIEW_LOI_TERM_SHEET",
-        generate: ["GENERATE_LOI", "REGENERATE_LOI"],
+        prefill: ["GENERATE_LOI", "REGENERATE_LOI"],
+        generate: "GENERATE_LOI",
+        regenerate: "REGENERATE_LOI",
         sendToClient: "SEND_LOI_TO_CLIENT",
         forwardToLender: "SEND_LOI_TO_LENDER",
       },
