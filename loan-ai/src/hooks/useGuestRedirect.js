@@ -25,9 +25,15 @@ export default function useGuestRedirect() {
     }
 
     const redirect = getAuthenticatedRedirectPath(user, planState || {});
-    navigate(redirect.pathname, {
-      state: redirect.state,
-      replace: true,
-    });
+    navigate(
+      {
+        pathname: redirect.pathname,
+        ...(redirect.hash ? { hash: redirect.hash } : {}),
+      },
+      {
+        state: redirect.state,
+        replace: true,
+      },
+    );
   }, [loading, isAuthenticated, user, navigate, packageId, redirectTo, planName, planState]);
 }
