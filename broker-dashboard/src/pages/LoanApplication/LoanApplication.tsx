@@ -33,6 +33,7 @@ import {
   createEmptyRealEstateProperty,
   createResidentialBorrowerDefaults,
   appendResidentialBorrowerSubmission,
+  countUnansweredDeclarations,
   sumBorrowerAssets,
   sumBorrowerLiabilities,
   type RealEstateOwnedEntry,
@@ -1353,6 +1354,42 @@ const LoanApplication = ({
         2,
         !formData.loanRequest.collateralType?.trim(),
       );
+    }
+    if (useResidentialBorrowerPanel) {
+      add(
+        "Borrower Email",
+        3,
+        !formData.borrower.email?.trim(),
+      );
+      const unanswered = countUnansweredDeclarations(
+        formData.borrower.declarations,
+      );
+      if (unanswered > 0) {
+        add(
+          unanswered === 1
+            ? "Declarations (1 unanswered)"
+            : `Declarations (${unanswered} unanswered)`,
+          3,
+          true,
+        );
+      }
+      formData.coBorrowers.forEach((coBorrower, index) => {
+        if (!coBorrower.email?.trim()) {
+          add(`Co-Borrower ${index + 1} Email`, 3, true);
+        }
+        const coUnanswered = countUnansweredDeclarations(
+          coBorrower.declarations,
+        );
+        if (coUnanswered > 0) {
+          add(
+            coUnanswered === 1
+              ? `Co-Borrower ${index + 1} Declarations (1 unanswered)`
+              : `Co-Borrower ${index + 1} Declarations (${coUnanswered} unanswered)`,
+            3,
+            true,
+          );
+        }
+      });
     }
     return issues;
   };
