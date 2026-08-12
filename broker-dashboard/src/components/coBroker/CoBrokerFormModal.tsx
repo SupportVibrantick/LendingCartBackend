@@ -30,7 +30,8 @@ const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 const inputClass =
   "w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-gray-800 outline-none transition focus:border-[#13538A]/40 focus:bg-white focus:ring-2 focus:ring-[#13538A]/10 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100";
 
-const labelClass = "mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300";
+const labelClass =
+  "mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300";
 
 function getAuthHeaders(): Record<string, string> {
   const token = sessionStorage.getItem("broker_token");
@@ -115,7 +116,9 @@ export default function CoBrokerFormModal({
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [loanOfficers, setLoanOfficers] = useState<CoBrokerLoanOfficerOption[]>([]);
+  const [loanOfficers, setLoanOfficers] = useState<CoBrokerLoanOfficerOption[]>(
+    [],
+  );
   const [loanTypeOptions, setLoanTypeOptions] = useState<LoanTypeOption[]>([]);
   const [loadingLoanOfficers, setLoadingLoanOfficers] = useState(false);
   const [loadingLoanTypes, setLoadingLoanTypes] = useState(false);
@@ -162,9 +165,12 @@ export default function CoBrokerFormModal({
       (async () => {
         try {
           setLoading(true);
-          const res = await fetch(`${API_BASE}/broker/sub-broker/${subBrokerId}`, {
-            headers: getAuthHeaders(),
-          });
+          const res = await fetch(
+            `${API_BASE}/broker/sub-broker/${subBrokerId}`,
+            {
+              headers: getAuthHeaders(),
+            },
+          );
           const json = await res.json();
           if (cancelled) return;
           if (!res.ok || !json.success) {
@@ -265,7 +271,10 @@ export default function CoBrokerFormModal({
     const validationErrors = validateCoBrokerForm(form, { isEdit });
     setErrors(validationErrors);
     if (Object.keys(validationErrors).length > 0) {
-      toast.error("Please fix form errors");
+      let firstKey = (
+        Object.keys(validationErrors) as (keyof typeof validationErrors)[]
+      )[0];
+      toast.error(`${validationErrors[firstKey]}`);
       return;
     }
 
@@ -348,7 +357,10 @@ export default function CoBrokerFormModal({
             Loading...
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+          <form
+            onSubmit={handleSubmit}
+            className="flex min-h-0 flex-1 flex-col"
+          >
             <div className="space-y-6 overflow-y-auto p-6">
               <section className="space-y-4">
                 <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
@@ -356,16 +368,22 @@ export default function CoBrokerFormModal({
                 </h3>
                 {!form.useSameContact ? (
                   <p className="text-xs text-gray-500">
-                    These fields represent the business contact shown above the login
-                    contact in Primary Contact.
+                    These fields represent the business contact shown above the
+                    login contact in Primary Contact.
                   </p>
                 ) : null}
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <FormField label="Broker/Partner Type" required error={errors.partnerType}>
+                  <FormField
+                    label="Broker/Partner Type"
+                    required
+                    error={errors.partnerType}
+                  >
                     <select
                       className={inputClass}
                       value={form.partnerType}
-                      onChange={(e) => updateField("partnerType", e.target.value)}
+                      onChange={(e) =>
+                        updateField("partnerType", e.target.value)
+                      }
                     >
                       <option value="">Select partner type</option>
                       {PARTNER_TYPES.map((type) => (
@@ -385,7 +403,11 @@ export default function CoBrokerFormModal({
                     />
                   </FormField>
 
-                  <FormField label="First Name" required error={errors.firstName}>
+                  <FormField
+                    label="First Name"
+                    required
+                    error={errors.firstName}
+                  >
                     <input
                       className={inputClass}
                       value={form.firstName}
@@ -401,7 +423,12 @@ export default function CoBrokerFormModal({
                     />
                   </FormField>
 
-                  <FormField label="Email" required error={errors.email} className="sm:col-span-2">
+                  <FormField
+                    label="Email"
+                    required
+                    error={errors.email}
+                    className="sm:col-span-2"
+                  >
                     <input
                       type="email"
                       className={`${inputClass} ${isEdit ? "cursor-not-allowed opacity-70" : ""}`}
@@ -424,7 +451,10 @@ export default function CoBrokerFormModal({
                       className={inputClass}
                       value={formatPhone(form.phone)}
                       onChange={(e) =>
-                        updateField("phone", e.target.value.replace(/\D/g, "").slice(0, 10))
+                        updateField(
+                          "phone",
+                          e.target.value.replace(/\D/g, "").slice(0, 10),
+                        )
                       }
                       placeholder="(555) 123-4567"
                     />
@@ -435,7 +465,10 @@ export default function CoBrokerFormModal({
                       className={inputClass}
                       value={formatPhone(form.tollFree)}
                       onChange={(e) =>
-                        updateField("tollFree", e.target.value.replace(/\D/g, "").slice(0, 10))
+                        updateField(
+                          "tollFree",
+                          e.target.value.replace(/\D/g, "").slice(0, 10),
+                        )
                       }
                       placeholder="(555) 123-4567"
                     />
@@ -450,7 +483,11 @@ export default function CoBrokerFormModal({
                     />
                   </FormField>
 
-                  <FormField label="Agent Type" required error={errors.agentType}>
+                  <FormField
+                    label="Agent Type"
+                    required
+                    error={errors.agentType}
+                  >
                     <select
                       className={inputClass}
                       value={form.agentType}
@@ -478,7 +515,9 @@ export default function CoBrokerFormModal({
                     <input
                       className={inputClass}
                       value={form.linkedinUrl}
-                      onChange={(e) => updateField("linkedinUrl", e.target.value)}
+                      onChange={(e) =>
+                        updateField("linkedinUrl", e.target.value)
+                      }
                       placeholder="https://linkedin.com/in/..."
                     />
                   </FormField>
@@ -500,7 +539,9 @@ export default function CoBrokerFormModal({
                       <input
                         className={inputClass}
                         value={form.companyNmls}
-                        onChange={(e) => updateField("companyNmls", e.target.value)}
+                        onChange={(e) =>
+                          updateField("companyNmls", e.target.value)
+                        }
                       />
                     </FormField>
                   ) : null}
@@ -515,7 +556,9 @@ export default function CoBrokerFormModal({
                       <input
                         className={inputClass}
                         value={form.personalNmls}
-                        onChange={(e) => updateField("personalNmls", e.target.value)}
+                        onChange={(e) =>
+                          updateField("personalNmls", e.target.value)
+                        }
                       />
                     </FormField>
                   ) : null}
@@ -523,7 +566,9 @@ export default function CoBrokerFormModal({
                   <ToggleRow
                     label="Do you have a Company State License #?"
                     checked={form.hasCompanyStateLicense}
-                    onChange={(value) => updateField("hasCompanyStateLicense", value)}
+                    onChange={(value) =>
+                      updateField("hasCompanyStateLicense", value)
+                    }
                   />
                   {form.hasCompanyStateLicense ? (
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -531,14 +576,18 @@ export default function CoBrokerFormModal({
                         label="Select States"
                         options={STATE_OPTIONS}
                         value={form.companyStateLicenseStates}
-                        onChange={(value) => updateField("companyStateLicenseStates", value)}
+                        onChange={(value) =>
+                          updateField("companyStateLicenseStates", value)
+                        }
                         placeholder="Select states"
                       />
                       <FormField label="Company State License #">
                         <input
                           className={inputClass}
                           value={form.companyStateLicense}
-                          onChange={(e) => updateField("companyStateLicense", e.target.value)}
+                          onChange={(e) =>
+                            updateField("companyStateLicense", e.target.value)
+                          }
                         />
                       </FormField>
                     </div>
@@ -547,7 +596,9 @@ export default function CoBrokerFormModal({
                   <ToggleRow
                     label="Do you have a Personal State License #?"
                     checked={form.hasPersonalStateLicense}
-                    onChange={(value) => updateField("hasPersonalStateLicense", value)}
+                    onChange={(value) =>
+                      updateField("hasPersonalStateLicense", value)
+                    }
                   />
                   {form.hasPersonalStateLicense ? (
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -555,14 +606,18 @@ export default function CoBrokerFormModal({
                         label="Select States"
                         options={STATE_OPTIONS}
                         value={form.personalStateLicenseStates}
-                        onChange={(value) => updateField("personalStateLicenseStates", value)}
+                        onChange={(value) =>
+                          updateField("personalStateLicenseStates", value)
+                        }
                         placeholder="Select states"
                       />
                       <FormField label="Personal State License #">
                         <input
                           className={inputClass}
                           value={form.personalStateLicense}
-                          onChange={(e) => updateField("personalStateLicense", e.target.value)}
+                          onChange={(e) =>
+                            updateField("personalStateLicense", e.target.value)
+                          }
                         />
                       </FormField>
                     </div>
@@ -588,7 +643,9 @@ export default function CoBrokerFormModal({
                     <select
                       className={inputClass}
                       value={form.findersFee}
-                      onChange={(e) => updateField("findersFee", e.target.value)}
+                      onChange={(e) =>
+                        updateField("findersFee", e.target.value)
+                      }
                     >
                       <option value="">Select finders fee</option>
                       {FINDERS_FEE_OPTIONS.map((fee) => (
@@ -612,9 +669,13 @@ export default function CoBrokerFormModal({
                     <select
                       className={inputClass}
                       value={form.preferredComm}
-                      onChange={(e) => updateField("preferredComm", e.target.value)}
+                      onChange={(e) =>
+                        updateField("preferredComm", e.target.value)
+                      }
                     >
-                      <option value="">Please Select Preferred Communication</option>
+                      <option value="">
+                        Please Select Preferred Communication
+                      </option>
                       {PREFERRED_COMMUNICATION.map((item) => (
                         <option key={item} value={item}>
                           {item}
@@ -644,7 +705,9 @@ export default function CoBrokerFormModal({
                     <input
                       className={inputClass}
                       value={form.employeeCount}
-                      onChange={(e) => updateField("employeeCount", e.target.value)}
+                      onChange={(e) =>
+                        updateField("employeeCount", e.target.value)
+                      }
                       placeholder="Number of employees"
                     />
                   </FormField>
@@ -664,7 +727,9 @@ export default function CoBrokerFormModal({
                     <textarea
                       className={`${inputClass} min-h-[100px] resize-y`}
                       value={form.experience}
-                      onChange={(e) => updateField("experience", e.target.value)}
+                      onChange={(e) =>
+                        updateField("experience", e.target.value)
+                      }
                       placeholder="Describe your experience..."
                     />
                   </FormField>
@@ -672,12 +737,15 @@ export default function CoBrokerFormModal({
               </section>
 
               <section className="space-y-4">
-                <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Uploads</h3>
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
+                  Uploads
+                </h3>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <FormField label="Logo">
                     <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-gray-300 bg-gray-50 px-4 py-6 text-sm text-gray-600 hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-950">
                       <Upload className="h-4 w-4" />
-                      {form.logoFile?.name || (form.logoPreview ? "Change logo" : "Upload Logo")}
+                      {form.logoFile?.name ||
+                        (form.logoPreview ? "Change logo" : "Upload Logo")}
                       <input
                         type="file"
                         accept="image/*"
@@ -686,7 +754,10 @@ export default function CoBrokerFormModal({
                           const file = e.target.files?.[0] || null;
                           updateField("logoFile", file);
                           if (file) {
-                            updateField("logoPreview", URL.createObjectURL(file));
+                            updateField(
+                              "logoPreview",
+                              URL.createObjectURL(file),
+                            );
                           }
                         }}
                       />
@@ -701,7 +772,9 @@ export default function CoBrokerFormModal({
                         type="file"
                         accept=".pdf,image/*"
                         className="hidden"
-                        onChange={(e) => updateField("w9File", e.target.files?.[0] || null)}
+                        onChange={(e) =>
+                          updateField("w9File", e.target.files?.[0] || null)
+                        }
                       />
                     </label>
                   </FormField>
@@ -716,7 +789,9 @@ export default function CoBrokerFormModal({
                   <input
                     type="checkbox"
                     checked={form.useSameContact}
-                    onChange={(e) => handleUseSameContactChange(e.target.checked)}
+                    onChange={(e) =>
+                      handleUseSameContactChange(e.target.checked)
+                    }
                   />
                   Use the same contact info as above
                 </label>
@@ -730,7 +805,9 @@ export default function CoBrokerFormModal({
                     <input
                       className={`${inputClass} ${form.useSameContact ? "cursor-not-allowed bg-gray-100 opacity-80 dark:bg-gray-900" : ""}`}
                       value={form.contactFirstName}
-                      onChange={(e) => updateField("contactFirstName", e.target.value)}
+                      onChange={(e) =>
+                        updateField("contactFirstName", e.target.value)
+                      }
                       placeholder="First Name"
                       disabled={form.useSameContact}
                     />
@@ -743,7 +820,9 @@ export default function CoBrokerFormModal({
                     <input
                       className={`${inputClass} ${form.useSameContact ? "cursor-not-allowed bg-gray-100 opacity-80 dark:bg-gray-900" : ""}`}
                       value={form.contactLastName}
-                      onChange={(e) => updateField("contactLastName", e.target.value)}
+                      onChange={(e) =>
+                        updateField("contactLastName", e.target.value)
+                      }
                       placeholder="Last Name"
                       disabled={form.useSameContact}
                     />
@@ -775,7 +854,9 @@ export default function CoBrokerFormModal({
                       type="email"
                       className={`${inputClass} ${form.useSameContact || isEdit ? "cursor-not-allowed bg-gray-100 opacity-80 dark:bg-gray-900" : ""}`}
                       value={form.contactEmail}
-                      onChange={(e) => updateField("contactEmail", e.target.value)}
+                      onChange={(e) =>
+                        updateField("contactEmail", e.target.value)
+                      }
                       placeholder="contact@company.com"
                       disabled={form.useSameContact || isEdit}
                     />
@@ -794,15 +875,29 @@ export default function CoBrokerFormModal({
                           type={showPassword ? "text" : "password"}
                           className={`${inputClass} pr-11`}
                           value={form.password}
-                          onChange={(e) => updateField("password", e.target.value)}
-                          placeholder={isEdit ? "Leave blank to keep current" : "Enter password"}
+                          autoComplete="new-password"
+                          data-lpignore="true"
+                          data-1p-ignore="true"
+                          spellCheck={false}
+                          onChange={(e) =>
+                            updateField("password", e.target.value)
+                          }
+                          placeholder={
+                            isEdit
+                              ? "Leave blank to keep current"
+                              : "Enter password"
+                          }
                         />
                         <button
                           type="button"
                           onClick={() => setShowPassword((v) => !v)}
                           className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
                         >
-                          {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                          {showPassword ? (
+                            <EyeOff size={18} />
+                          ) : (
+                            <Eye size={18} />
+                          )}
                         </button>
                       </div>
                     </FormField>
@@ -817,7 +912,13 @@ export default function CoBrokerFormModal({
                           type={showConfirmPassword ? "text" : "password"}
                           className={`${inputClass} pr-11`}
                           value={form.confirmPassword}
-                          onChange={(e) => updateField("confirmPassword", e.target.value)}
+                          autoComplete="new-password"
+                          data-lpignore="true"
+                          data-1p-ignore="true"
+                          spellCheck={false}
+                          onChange={(e) =>
+                            updateField("confirmPassword", e.target.value)
+                          }
                           placeholder="Confirm password"
                         />
                         <button
@@ -825,7 +926,11 @@ export default function CoBrokerFormModal({
                           onClick={() => setShowConfirmPassword((v) => !v)}
                           className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
                         >
-                          {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                          {showConfirmPassword ? (
+                            <EyeOff size={18} />
+                          ) : (
+                            <Eye size={18} />
+                          )}
                         </button>
                       </div>
                     </FormField>
@@ -839,9 +944,11 @@ export default function CoBrokerFormModal({
                 </h3>
 
                 <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
-                  Assigned to Branch(s): No branches available. Please create a branch first.
+                  Assigned to Branch(s): No branches available. Please create a
+                  branch first.
                   <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">
-                    Branch linking will be available once branches are configured.
+                    Branch linking will be available once branches are
+                    configured.
                   </p>
                 </div>
 
@@ -850,7 +957,9 @@ export default function CoBrokerFormModal({
                     label="Assigned Loan Officer(s)"
                     options={loanOfficerOptions}
                     value={form.assignedLoanOfficerIds}
-                    onChange={(value) => updateField("assignedLoanOfficerIds", value)}
+                    onChange={(value) =>
+                      updateField("assignedLoanOfficerIds", value)
+                    }
                     placeholder={
                       loanOfficerOptions.length
                         ? "Select loan officers"
