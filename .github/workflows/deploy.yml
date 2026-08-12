@@ -106,7 +106,7 @@ jobs:
             cd ../loan-application-embeded
 
             npm ci
-            npm run build
+            npm run build  
 
             mkdir -p /var/www/embed
             rm -rf /var/www/embed/*
