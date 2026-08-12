@@ -164,7 +164,10 @@ module.exports = async function clientSignDocuments(fastify) {
               viewer: "client",
             });
             const isBrokerLoi =
-              item.documentType?.code === "BROKER_LOI_TERM_SHEET";
+              item.documentType?.code === "BROKER_LOI_TERM_SHEET" ||
+              /\/broker\/LOI\//i.test(item.templateFileUrl || "");
+            const isStandaloneBrokerLoi =
+              isBrokerLoi && !item.requestApplicationLenderId;
 
             let loiVersionNumber = null;
             if (isBrokerLoi) {
@@ -186,6 +189,7 @@ module.exports = async function clientSignDocuments(fastify) {
                 ? `Version ${loiVersionNumber}`
                 : null,
               isBrokerLoi,
+              isStandaloneBrokerLoi,
             };
           }),
           previousSignedLoiVersions: previousSignedLoiVersions.map((item) => ({
@@ -348,9 +352,9 @@ module.exports = async function clientSignDocuments(fastify) {
           return { signedUpload, updatedRequirement };
         });
 
-        const isBrokerLoi = /\/broker\/LOI\//i.test(
-          requirement.templateFileUrl || "",
-        );
+        const isBrokerLoi =
+          requirement.documentType?.code === "BROKER_LOI_TERM_SHEET" ||
+          /\/broker\/LOI\//i.test(requirement.templateFileUrl || "");
         if (isBrokerLoi) {
           let version = await prisma.brokerLoiVersion.findFirst({
             where: { documentRequirementId: requirement.id },
@@ -383,23 +387,35 @@ module.exports = async function clientSignDocuments(fastify) {
           brokerOrgId: requirement.loanApplication.brokerOrgId,
           eventType: BROKER_NOTIFICATION_EVENTS.CLIENT_UPLOADED_DOCUMENT,
           category: "DOCUMENTS",
-          subject: "Client signed a document",
-          body: `${requirement.signDocumentTitle || requirement.documentType?.name || "Document"} was signed by the client`,
+          subject: isBrokerLoi
+            ? "Client signed broker term sheet"
+            : "Client signed a document",
+          body: isBrokerLoi
+            ? `${requirement.signDocumentTitle || "Broker LOI / Term Sheet"} was signed by the client`
+            : `${requirement.signDocumentTitle || requirement.documentType?.name || "Document"} was signed by the client`,
           metadata: {
             loanApplicationId: requirement.loanApplicationId,
             requirementId: requirement.id,
             signedUploadId: result.signedUpload.id,
             signedFileUrl: result.signedUpload.fileUrl,
-            brokerLoi: /\/broker\/LOI\//i.test(requirement.templateFileUrl || ""),
+            brokerLoi: isBrokerLoi,
+            standaloneBrokerLoi: isBrokerLoi && !requirement.requestApplicationLenderId,
           },
         });
 
         return reply.send({
           success: true,
-          message: "Document signed successfully",
-          data: formatSignDocumentRequirement(result.updatedRequirement, {
-            viewer: "client",
-          }),
+          message: isBrokerLoi
+            ? "Broker term sheet signed successfully"
+            : "Document signed successfully",
+          data: {
+            ...formatSignDocumentRequirement(result.updatedRequirement, {
+              viewer: "client",
+            }),
+            isBrokerLoi,
+            isStandaloneBrokerLoi:
+              isBrokerLoi && !requirement.requestApplicationLenderId,
+          },
         });
       } catch (error) {
         fastify.log.error(error);

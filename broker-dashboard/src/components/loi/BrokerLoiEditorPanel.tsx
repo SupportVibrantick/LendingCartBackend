@@ -11,6 +11,7 @@ import {
 import {
   BROKER_LOI_TERM_OPTIONS,
   calculateSuggestedBrokerLoiMetrics,
+  formatBrokerLoiNumberInput,
   mergeBrokerLoiDocuments,
   normalizeBrokerLoiTerms,
   validateBrokerLoiTerms,
@@ -35,6 +36,8 @@ type Props = {
   brokerBranding?: BrokerBrandingPreview;
   submitting?: boolean;
   readOnly?: boolean;
+  /** True when broker/LO is creating their own term sheet (no lender LOI source). */
+  standalone?: boolean;
   mode?: "create" | "regenerate" | "revised";
   revisedVersionNumber?: number;
   onCancel: () => void;
@@ -61,6 +64,7 @@ export default function BrokerLoiEditorPanel({
   brokerBranding,
   submitting = false,
   readOnly = false,
+  standalone = false,
   mode = "create",
   revisedVersionNumber,
   onCancel,
@@ -114,12 +118,36 @@ export default function BrokerLoiEditorPanel({
   );
 
   useEffect(() => {
-    if (suggested.monthlyPayment == null) return;
-    setTerms((prev) => ({
-      ...prev,
-      monthlyPayment: String(suggested.monthlyPayment),
-    }));
+    setTerms((prev) => {
+      const nextPayment =
+        suggested.monthlyPayment == null
+          ? ""
+          : formatBrokerLoiNumberInput(String(suggested.monthlyPayment));
+      if (prev.monthlyPayment === nextPayment) return prev;
+      return { ...prev, monthlyPayment: nextPayment };
+    });
   }, [suggested.monthlyPayment]);
+
+  const setNumberField = (
+    key: keyof Pick<
+      BrokerLoiTerms,
+      | "approvedAmount"
+      | "interestRate"
+      | "ltvPercent"
+      | "ltcPercent"
+      | "arvPercent"
+    >,
+    rawValue: string,
+  ) => {
+    const formatted = formatBrokerLoiNumberInput(rawValue);
+    setTerms((prev) => ({ ...prev, [key]: formatted }));
+    setErrors((prev) => {
+      if (!prev[key]) return prev;
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  };
 
   const handleSubmit = () => {
     if (readOnly) return;
@@ -168,18 +196,26 @@ export default function BrokerLoiEditorPanel({
           <p className="text-xs font-semibold uppercase tracking-wide text-violet-600 dark:text-violet-300">
             {mode === "revised"
               ? revisedVersionNumber
-                ? `Create Revised Broker LOI (Version ${revisedVersionNumber})`
-                : "Create Revised Broker LOI"
+                ? `Create Revised Term Sheet (Version ${revisedVersionNumber})`
+                : "Create Revised Term Sheet"
               : mode === "regenerate"
-                ? "Regenerate broker LOI"
-                : "Copied from lender LOI"}
+                ? standalone
+                  ? "Edit your term sheet"
+                  : "Regenerate broker LOI"
+                : standalone
+                  ? "Your broker term sheet"
+                  : "Copied from lender LOI"}
           </p>
           <p className="mt-1 text-sm text-slate-700 dark:text-slate-200">
             {mode === "revised"
               ? "Previous signed versions are preserved. The client must sign this new version."
               : mode === "regenerate"
-                ? `Update terms below and regenerate your branded PDF based on ${sourceLenderName}.`
-                : `Terms pre-filled from ${sourceLenderName}. Edit below — your broker branding will replace the lender branding on the PDF.`}
+                ? standalone
+                  ? "Update your commercial terms below, then regenerate your branded PDF."
+                  : `Update terms below and regenerate your branded PDF based on ${sourceLenderName}.`
+                : standalone
+                  ? "Enter your commercial terms below. Your broker branding will appear on the generated PDF."
+                  : `Terms pre-filled from ${sourceLenderName}. Edit below — your broker branding will replace the lender branding on the PDF.`}
           </p>
         </div>
 
@@ -217,11 +253,10 @@ export default function BrokerLoiEditorPanel({
               <input
                 value={terms.approvedAmount}
                 disabled={readOnly}
-                onChange={(e) =>
-                  setTerms((prev) => ({ ...prev, approvedAmount: e.target.value }))
-                }
+                inputMode="decimal"
+                onChange={(e) => setNumberField("approvedAmount", e.target.value)}
                 className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-950"
-                placeholder="1000000"
+                placeholder="1,000,000"
               />
               {errors.approvedAmount && (
                 <p className="mt-1 text-xs text-rose-600">{errors.approvedAmount}</p>
@@ -235,9 +270,8 @@ export default function BrokerLoiEditorPanel({
               <input
                 value={terms.interestRate}
                 disabled={readOnly}
-                onChange={(e) =>
-                  setTerms((prev) => ({ ...prev, interestRate: e.target.value }))
-                }
+                inputMode="decimal"
+                onChange={(e) => setNumberField("interestRate", e.target.value)}
                 className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-950"
                 placeholder="7"
               />
@@ -253,17 +287,27 @@ export default function BrokerLoiEditorPanel({
               <select
                 value={terms.loanTerm}
                 disabled={readOnly}
-                onChange={(e) =>
-                  setTerms((prev) => ({ ...prev, loanTerm: e.target.value }))
-                }
+                onChange={(e) => {
+                  setTerms((prev) => ({ ...prev, loanTerm: e.target.value }));
+                  setErrors((prev) => {
+                    if (!prev.loanTerm) return prev;
+                    const next = { ...prev };
+                    delete next.loanTerm;
+                    return next;
+                  });
+                }}
                 className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-950"
               >
+                <option value="">Select term</option>
                 {BROKER_LOI_TERM_OPTIONS.map((option) => (
                   <option key={option} value={option}>
                     {option}
                   </option>
                 ))}
               </select>
+              {errors.loanTerm && (
+                <p className="mt-1 text-xs text-rose-600">{errors.loanTerm}</p>
+              )}
             </label>
 
             <label className="block">
@@ -272,13 +316,14 @@ export default function BrokerLoiEditorPanel({
               </span>
               <input
                 value={terms.monthlyPayment}
-                disabled={readOnly}
-                onChange={(e) =>
-                  setTerms((prev) => ({ ...prev, monthlyPayment: e.target.value }))
-                }
-                className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-950"
-                placeholder={suggested.monthlyPayment?.toString() || ""}
+                readOnly
+                tabIndex={-1}
+                className="w-full cursor-not-allowed rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-200"
+                placeholder="Auto-calculated"
               />
+              <p className="mt-1 text-[11px] text-slate-500">
+                Calculated from approved amount, interest rate, and loan term
+              </p>
               {errors.monthlyPayment && (
                 <p className="mt-1 text-xs text-rose-600">{errors.monthlyPayment}</p>
               )}
@@ -291,12 +336,18 @@ export default function BrokerLoiEditorPanel({
               <input
                 value={terms.ltvPercent}
                 disabled={readOnly}
-                onChange={(e) =>
-                  setTerms((prev) => ({ ...prev, ltvPercent: e.target.value }))
-                }
+                inputMode="decimal"
+                onChange={(e) => setNumberField("ltvPercent", e.target.value)}
                 className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-950"
-                placeholder={suggested.ltv?.toString() || ""}
+                placeholder={
+                  suggested.ltv != null
+                    ? formatBrokerLoiNumberInput(String(suggested.ltv))
+                    : ""
+                }
               />
+              {errors.ltvPercent && (
+                <p className="mt-1 text-xs text-rose-600">{errors.ltvPercent}</p>
+              )}
             </label>
 
             <label className="block">
@@ -306,11 +357,14 @@ export default function BrokerLoiEditorPanel({
               <input
                 value={terms.ltcPercent}
                 disabled={readOnly}
-                onChange={(e) =>
-                  setTerms((prev) => ({ ...prev, ltcPercent: e.target.value }))
-                }
+                inputMode="decimal"
+                onChange={(e) => setNumberField("ltcPercent", e.target.value)}
                 className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-950"
-                placeholder={suggested.ltc?.toString() || ""}
+                placeholder={
+                  suggested.ltc != null
+                    ? formatBrokerLoiNumberInput(String(suggested.ltc))
+                    : ""
+                }
               />
             </label>
 
@@ -321,12 +375,18 @@ export default function BrokerLoiEditorPanel({
               <input
                 value={terms.arvPercent}
                 disabled={readOnly}
-                onChange={(e) =>
-                  setTerms((prev) => ({ ...prev, arvPercent: e.target.value }))
-                }
+                inputMode="decimal"
+                onChange={(e) => setNumberField("arvPercent", e.target.value)}
                 className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-950"
-                placeholder={suggested.arvPercent?.toString() || ""}
+                placeholder={
+                  suggested.arvPercent != null
+                    ? formatBrokerLoiNumberInput(String(suggested.arvPercent))
+                    : ""
+                }
               />
+              {errors.arvPercent && (
+                <p className="mt-1 text-xs text-rose-600">{errors.arvPercent}</p>
+              )}
             </label>
           </div>
 
@@ -500,7 +560,7 @@ export default function BrokerLoiEditorPanel({
           onClick={onCancel}
           className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 dark:border-slate-700 dark:text-slate-200"
         >
-          Back to Lender LOI
+          {standalone ? "Back" : "Back to Lender LOI"}
         </button>
         <button
           type="button"
@@ -530,8 +590,12 @@ export default function BrokerLoiEditorPanel({
                   ? `Create Revised LOI (v${revisedVersionNumber})`
                   : "Create Revised LOI"
                 : mode === "regenerate"
-                  ? "Regenerate Broker PDF"
-                  : "Generate Broker PDF"}
+                  ? standalone
+                    ? "Regenerate Term Sheet PDF"
+                    : "Regenerate Broker PDF"
+                  : standalone
+                    ? "Generate Term Sheet PDF"
+                    : "Generate Broker PDF"}
             </>
           )}
         </button>

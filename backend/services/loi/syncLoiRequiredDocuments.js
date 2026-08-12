@@ -39,28 +39,68 @@ function extractStoredBrokerLoiDocumentNames(storedTerms) {
   return [];
 }
 
-async function findDocumentTypeIdsByNames(tx, names = []) {
+/**
+ * Resolve document type IDs by name for a broker/lender org.
+ * Only platform (non-custom) types and this org's custom types are eligible —
+ * never another organization's custom documents.
+ */
+async function findDocumentTypeIdsByNames(tx, names = [], { orgId } = {}) {
   const normalized = normalizeDocumentNames(names);
   if (!normalized.length) {
     return [];
   }
 
+  const nameFilters = normalized.map((name) => ({
+    name: { equals: name, mode: "insensitive" },
+  }));
+
   const documentTypes = await tx.documentType.findMany({
     where: {
       isActive: true,
-      OR: normalized.map((name) => ({
-        name: { equals: name, mode: "insensitive" },
-      })),
+      OR: [
+        {
+          isCustom: false,
+          OR: nameFilters,
+        },
+        ...(orgId
+          ? [
+              {
+                isCustom: true,
+                createdByOrgId: orgId,
+                OR: nameFilters,
+              },
+            ]
+          : []),
+      ],
     },
-    select: { id: true, name: true },
+    select: {
+      id: true,
+      name: true,
+      isCustom: true,
+      createdByOrgId: true,
+    },
   });
 
-  const byKey = new Map(
-    documentTypes.map((row) => [normalizeDocumentNameKey(row.name), row.id]),
-  );
+  // Prefer this org's custom type over a platform type with the same name.
+  const byKey = new Map();
+  for (const row of documentTypes) {
+    const key = normalizeDocumentNameKey(row.name);
+    const existing = byKey.get(key);
+    if (!existing) {
+      byKey.set(key, row);
+      continue;
+    }
+    const rowIsOwnCustom =
+      row.isCustom && orgId && row.createdByOrgId === orgId;
+    const existingIsOwnCustom =
+      existing.isCustom && orgId && existing.createdByOrgId === orgId;
+    if (rowIsOwnCustom && !existingIsOwnCustom) {
+      byKey.set(key, row);
+    }
+  }
 
   return normalized
-    .map((name) => byKey.get(normalizeDocumentNameKey(name)))
+    .map((name) => byKey.get(normalizeDocumentNameKey(name))?.id)
     .filter(Boolean);
 }
 
@@ -71,6 +111,7 @@ async function pruneRemovedBrokerLoiDocuments(
     previousDocumentNames = [],
     currentDocumentNames = [],
     excludeDocumentTypeIds = [],
+    orgId = null,
   },
 ) {
   const previous = normalizeDocumentNames(previousDocumentNames);
@@ -88,6 +129,7 @@ async function pruneRemovedBrokerLoiDocuments(
   const removedDocumentTypeIds = await findDocumentTypeIdsByNames(
     tx,
     removedNames,
+    { orgId },
   );
   const excluded = new Set(excludeDocumentTypeIds.filter(Boolean));
 
@@ -152,13 +194,17 @@ async function pruneRemovedBrokerLoiDocuments(
   return { pruned, clearedFromClient };
 }
 
-async function resolveDocumentTypeIdByName(
-  tx,
-  { name, orgId, actor },
-) {
+/**
+ * Map a required-document name to a DocumentType id.
+ * Custom types are always org-scoped: Broker A never reuses Broker B's custom type.
+ */
+async function resolveDocumentTypeIdByName(tx, { name, orgId }) {
   const trimmed = String(name || "").trim();
   if (!trimmed) {
     throw new Error("Document name is required");
+  }
+  if (!orgId) {
+    throw new Error("Organization is required to resolve custom documents");
   }
 
   const orgCustom = await tx.documentType.findFirst({
@@ -177,19 +223,21 @@ async function resolveDocumentTypeIdByName(
     return orgCustom.id;
   }
 
-  const existing = await tx.documentType.findFirst({
+  // Shared platform catalog only — never another org's custom document.
+  const platform = await tx.documentType.findFirst({
     where: {
       isActive: true,
+      isCustom: false,
       name: {
         equals: trimmed,
         mode: "insensitive",
       },
     },
-    orderBy: [{ isCustom: "asc" }, { createdAt: "asc" }],
+    orderBy: { createdAt: "asc" },
   });
 
-  if (existing) {
-    return existing.id;
+  if (platform) {
+    return platform.id;
   }
 
   const created = await tx.documentType.create({
@@ -259,7 +307,6 @@ async function syncLoiRequiredDocuments(
       const documentTypeId = await resolveDocumentTypeIdByName(tx, {
         name,
         orgId,
-        actor,
       });
 
       documentTypeIds.push(documentTypeId);
@@ -362,6 +409,7 @@ async function syncLoiRequiredDocuments(
         previousDocumentNames,
         currentDocumentNames: names,
         excludeDocumentTypeIds,
+        orgId,
       });
     }
 
@@ -393,10 +441,12 @@ async function forwardBrokerLoiRequiredDocumentsToClient(
 
   return prisma.$transaction(async (tx) => {
     for (const name of names) {
-      await resolveDocumentTypeIdByName(tx, { name, orgId, actor: "BROKER" });
+      await resolveDocumentTypeIdByName(tx, { name, orgId });
     }
 
-    const resolvedTypeIds = await findDocumentTypeIdsByNames(tx, names);
+    const resolvedTypeIds = await findDocumentTypeIdsByNames(tx, names, {
+      orgId,
+    });
     const excluded = new Set(excludeDocumentTypeIds.filter(Boolean));
     const targetTypeIds = resolvedTypeIds.filter((id) => !excluded.has(id));
 
