@@ -24,7 +24,8 @@ const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 const inputClass =
   "w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-gray-800 outline-none transition focus:border-[#13538A]/40 focus:bg-white focus:ring-2 focus:ring-[#13538A]/10 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100";
 
-const labelClass = "mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300";
+const labelClass =
+  "mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300";
 
 function getAuthHeaders(): Record<string, string> {
   const token = sessionStorage.getItem("broker_token");
@@ -103,7 +104,9 @@ export default function LoanOfficerFormModal({
   onSaved,
 }: Props) {
   const isEdit = mode === "edit";
-  const [form, setForm] = useState<LoanOfficerFormState>(INITIAL_LOAN_OFFICER_FORM);
+  const [form, setForm] = useState<LoanOfficerFormState>(
+    INITIAL_LOAN_OFFICER_FORM,
+  );
   const [errors, setErrors] = useState<LoanOfficerFormErrors>({});
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -136,7 +139,10 @@ export default function LoanOfficerFormModal({
 
   const coBrokerOptions = coBrokers.map((broker) => ({
     value: broker.id,
-    text: `${broker.firstName || ""} ${broker.lastName || ""}`.trim() || broker.email || broker.id,
+    text:
+      `${broker.firstName || ""} ${broker.lastName || ""}`.trim() ||
+      broker.email ||
+      broker.id,
   }));
 
   useEffect(() => {
@@ -209,13 +215,19 @@ export default function LoanOfficerFormModal({
     const validationErrors = validateLoanOfficerForm(form, { isEdit });
     setErrors(validationErrors);
     if (Object.keys(validationErrors).length > 0) {
-      toast.error("Please fix the highlighted fields");
+      let firstKey = (
+        Object.keys(validationErrors) as (keyof typeof validationErrors)[]
+      )[0];
+      toast.error(`${validationErrors[firstKey]}`);
       return;
     }
 
     setSaving(true);
     try {
       const formData = buildLoanOfficerFormData(form);
+
+      console.log(form);
+      
       const url = isEdit
         ? `${API_BASE}/broker/users/${officerId}`
         : `${API_BASE}/broker/users`;
@@ -231,7 +243,9 @@ export default function LoanOfficerFormModal({
       }
 
       toast.success(
-        isEdit ? "Loan officer updated successfully" : "Loan officer created successfully",
+        isEdit
+          ? "Loan officer updated successfully"
+          : "Loan officer created successfully",
       );
       await onSaved();
       onClose();
@@ -270,7 +284,10 @@ export default function LoanOfficerFormModal({
             <Loader2 className="h-8 w-8 animate-spin text-[#13538A]" />
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+          <form
+            onSubmit={handleSubmit}
+            className="flex min-h-0 flex-1 flex-col"
+          >
             <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-6 py-5">
               <section className="space-y-4">
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -286,18 +303,28 @@ export default function LoanOfficerFormModal({
                   </FormField>
 
                   {!isEdit ? (
-                    <FormField label="Confirm Email" required error={errors.confirmEmail}>
+                    <FormField
+                      label="Confirm Email"
+                      required
+                      error={errors.confirmEmail}
+                    >
                       <input
                         type="email"
                         className={inputClass}
                         value={form.confirmEmail}
-                        onChange={(e) => updateField("confirmEmail", e.target.value)}
+                        onChange={(e) =>
+                          updateField("confirmEmail", e.target.value)
+                        }
                         placeholder="officer@company.com"
                       />
                     </FormField>
                   ) : null}
 
-                  <FormField label="First Name" required error={errors.firstName}>
+                  <FormField
+                    label="First Name"
+                    required
+                    error={errors.firstName}
+                  >
                     <input
                       className={inputClass}
                       value={form.firstName}
@@ -315,7 +342,12 @@ export default function LoanOfficerFormModal({
                     />
                   </FormField>
 
-                  <FormField label="Company" required error={errors.company} className="sm:col-span-2">
+                  <FormField
+                    label="Company"
+                    required
+                    error={errors.company}
+                    className="sm:col-span-2"
+                  >
                     <input
                       className={inputClass}
                       value={form.company}
@@ -330,7 +362,9 @@ export default function LoanOfficerFormModal({
                       checked={form.allowedToLogin}
                       onChange={(value) => updateField("allowedToLogin", value)}
                     />
-                    <p className="mt-1 text-xs text-gray-500">Enable or disable login access</p>
+                    <p className="mt-1 text-xs text-gray-500">
+                      Enable or disable login access
+                    </p>
                   </div>
 
                   <FormField label="Phone Number" required error={errors.phone}>
@@ -338,7 +372,10 @@ export default function LoanOfficerFormModal({
                       className={inputClass}
                       value={formatPhone(form.phone)}
                       onChange={(e) =>
-                        updateField("phone", e.target.value.replace(/\D/g, "").slice(0, 10))
+                        updateField(
+                          "phone",
+                          e.target.value.replace(/\D/g, "").slice(0, 10),
+                        )
                       }
                       placeholder="(555) 123-4567"
                     />
@@ -357,7 +394,9 @@ export default function LoanOfficerFormModal({
                     <input
                       className={inputClass}
                       value={form.licenseNumber}
-                      onChange={(e) => updateField("licenseNumber", e.target.value)}
+                      onChange={(e) =>
+                        updateField("licenseNumber", e.target.value)
+                      }
                       placeholder="License Number"
                     />
                   </FormField>
@@ -375,9 +414,13 @@ export default function LoanOfficerFormModal({
                     <select
                       className={inputClass}
                       value={form.preferredComm}
-                      onChange={(e) => updateField("preferredComm", e.target.value)}
+                      onChange={(e) =>
+                        updateField("preferredComm", e.target.value)
+                      }
                     >
-                      <option value="">Please Select Preferred Communication</option>
+                      <option value="">
+                        Please Select Preferred Communication
+                      </option>
                       {PREFERRED_COMMUNICATION.map((item) => (
                         <option key={item} value={item}>
                           {item}
@@ -398,7 +441,9 @@ export default function LoanOfficerFormModal({
               </section>
 
               <section className="space-y-4">
-                <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Uploads</h3>
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
+                  Uploads
+                </h3>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <FormField label="Avatar">
                     <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-gray-300 bg-gray-50 px-4 py-6 text-sm text-gray-600 hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-950">
@@ -411,7 +456,10 @@ export default function LoanOfficerFormModal({
                       ) : (
                         <Upload className="h-4 w-4" />
                       )}
-                      {form.avatarFile?.name || (form.avatarPreview ? "Change Avatar" : "Upload Avatar")}
+                      {form.avatarFile?.name ||
+                        (form.avatarPreview
+                          ? "Change Avatar"
+                          : "Upload Avatar")}
                       <input
                         type="file"
                         accept="image/*"
@@ -420,7 +468,10 @@ export default function LoanOfficerFormModal({
                           const file = e.target.files?.[0] || null;
                           updateField("avatarFile", file);
                           if (file) {
-                            updateField("avatarPreview", URL.createObjectURL(file));
+                            updateField(
+                              "avatarPreview",
+                              URL.createObjectURL(file),
+                            );
                           }
                         }}
                       />
@@ -435,7 +486,9 @@ export default function LoanOfficerFormModal({
                         type="file"
                         accept=".pdf,image/*"
                         className="hidden"
-                        onChange={(e) => updateField("w9File", e.target.files?.[0] || null)}
+                        onChange={(e) =>
+                          updateField("w9File", e.target.files?.[0] || null)
+                        }
                       />
                     </label>
                   </FormField>
@@ -451,7 +504,9 @@ export default function LoanOfficerFormModal({
                     <select
                       className={inputClass}
                       value={form.findersFee}
-                      onChange={(e) => updateField("findersFee", e.target.value)}
+                      onChange={(e) =>
+                        updateField("findersFee", e.target.value)
+                      }
                     >
                       <option value="">Select finders fee</option>
                       {FINDERS_FEE_OPTIONS.map((fee) => (
@@ -496,7 +551,9 @@ export default function LoanOfficerFormModal({
                       <input
                         className={inputClass}
                         value={form.companyNmls}
-                        onChange={(e) => updateField("companyNmls", e.target.value)}
+                        onChange={(e) =>
+                          updateField("companyNmls", e.target.value)
+                        }
                         placeholder="Company NMLS Number"
                       />
                     </FormField>
@@ -512,7 +569,9 @@ export default function LoanOfficerFormModal({
                       <input
                         className={inputClass}
                         value={form.personalNmls}
-                        onChange={(e) => updateField("personalNmls", e.target.value)}
+                        onChange={(e) =>
+                          updateField("personalNmls", e.target.value)
+                        }
                         placeholder="Personal NMLS Number"
                       />
                     </FormField>
@@ -521,7 +580,9 @@ export default function LoanOfficerFormModal({
                   <ToggleRow
                     label="Do you have Company State License #?"
                     checked={form.hasCompanyStateLicense}
-                    onChange={(value) => updateField("hasCompanyStateLicense", value)}
+                    onChange={(value) =>
+                      updateField("hasCompanyStateLicense", value)
+                    }
                   />
                   {form.hasCompanyStateLicense ? (
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -529,14 +590,18 @@ export default function LoanOfficerFormModal({
                         label="Select States"
                         options={STATE_OPTIONS}
                         value={form.companyStateLicenseStates}
-                        onChange={(value) => updateField("companyStateLicenseStates", value)}
+                        onChange={(value) =>
+                          updateField("companyStateLicenseStates", value)
+                        }
                         placeholder="Select states"
                       />
                       <FormField label="Company State License #">
                         <input
                           className={inputClass}
                           value={form.companyStateLicense}
-                          onChange={(e) => updateField("companyStateLicense", e.target.value)}
+                          onChange={(e) =>
+                            updateField("companyStateLicense", e.target.value)
+                          }
                           placeholder="License Number"
                         />
                       </FormField>
@@ -546,7 +611,9 @@ export default function LoanOfficerFormModal({
                   <ToggleRow
                     label="Do you have Personal State License #?"
                     checked={form.hasPersonalStateLicense}
-                    onChange={(value) => updateField("hasPersonalStateLicense", value)}
+                    onChange={(value) =>
+                      updateField("hasPersonalStateLicense", value)
+                    }
                   />
                   {form.hasPersonalStateLicense ? (
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -554,14 +621,18 @@ export default function LoanOfficerFormModal({
                         label="Select States"
                         options={STATE_OPTIONS}
                         value={form.personalStateLicenseStates}
-                        onChange={(value) => updateField("personalStateLicenseStates", value)}
+                        onChange={(value) =>
+                          updateField("personalStateLicenseStates", value)
+                        }
                         placeholder="Select states"
                       />
                       <FormField label="Personal State License #">
                         <input
                           className={inputClass}
                           value={form.personalStateLicense}
-                          onChange={(e) => updateField("personalStateLicense", e.target.value)}
+                          onChange={(e) =>
+                            updateField("personalStateLicense", e.target.value)
+                          }
                           placeholder="License Number"
                         />
                       </FormField>
@@ -583,15 +654,29 @@ export default function LoanOfficerFormModal({
                           type={showPassword ? "text" : "password"}
                           className={`${inputClass} pr-11`}
                           value={form.password}
-                          onChange={(e) => updateField("password", e.target.value)}
-                          placeholder={isEdit ? "Leave blank to keep current" : "Enter password"}
+                          autoComplete="new-password"
+                          data-lpignore="true"
+                          data-1p-ignore="true"
+                          spellCheck={false}
+                          onChange={(e) =>
+                            updateField("password", e.target.value)
+                          }
+                          placeholder={
+                            isEdit
+                              ? "Leave blank to keep current"
+                              : "Enter password"
+                          }
                         />
                         <button
                           type="button"
                           onClick={() => setShowPassword((v) => !v)}
                           className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
                         >
-                          {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                          {showPassword ? (
+                            <EyeOff size={18} />
+                          ) : (
+                            <Eye size={18} />
+                          )}
                         </button>
                       </div>
                     </FormField>
@@ -606,7 +691,13 @@ export default function LoanOfficerFormModal({
                           type={showConfirmPassword ? "text" : "password"}
                           className={`${inputClass} pr-11`}
                           value={form.confirmPassword}
-                          onChange={(e) => updateField("confirmPassword", e.target.value)}
+                          autoComplete="new-password"
+                          data-lpignore="true"
+                          data-1p-ignore="true"
+                          spellCheck={false}
+                          onChange={(e) =>
+                            updateField("confirmPassword", e.target.value)
+                          }
                           placeholder="Confirm password"
                         />
                         <button
@@ -614,7 +705,11 @@ export default function LoanOfficerFormModal({
                           onClick={() => setShowConfirmPassword((v) => !v)}
                           className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
                         >
-                          {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                          {showConfirmPassword ? (
+                            <EyeOff size={18} />
+                          ) : (
+                            <Eye size={18} />
+                          )}
                         </button>
                       </div>
                     </FormField>
@@ -628,10 +723,11 @@ export default function LoanOfficerFormModal({
                 </h3>
 
                 <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
-                  Assigned to Branch(s): No branches available. Please create a branch first.
+                  Assigned to Branch(s): No branches available. Please create a
+                  branch first.
                   <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">
-                    You need to link this Loan Officer to at least 1 branch once branches are
-                    configured.
+                    You need to link this Loan Officer to at least 1 branch once
+                    branches are configured.
                   </p>
                 </div>
 
@@ -640,7 +736,9 @@ export default function LoanOfficerFormModal({
                     label="Assigned Co-Broker(s)"
                     options={coBrokerOptions}
                     value={form.assignedCoBrokerIds}
-                    onChange={(value) => updateField("assignedCoBrokerIds", value)}
+                    onChange={(value) =>
+                      updateField("assignedCoBrokerIds", value)
+                    }
                     placeholder={
                       coBrokerOptions.length
                         ? "Select co-brokers"
@@ -661,13 +759,15 @@ export default function LoanOfficerFormModal({
                   User Permissions
                 </h3>
                 <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Choose exactly what this loan officer can access. Permissions are
-                  grouped by category so you can grant the smallest level of access
-                  needed.
+                  Choose exactly what this loan officer can access. Permissions
+                  are grouped by category so you can grant the smallest level of
+                  access needed.
                 </p>
                 <LoanOfficerPermissionsPanel
                   value={form.permissions}
-                  onChange={(permissions) => updateField("permissions", permissions)}
+                  onChange={(permissions) =>
+                    updateField("permissions", permissions)
+                  }
                   error={errors.permissions}
                   disabled={saving}
                 />
