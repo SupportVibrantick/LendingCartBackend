@@ -43,21 +43,21 @@ export const DEFAULT_BROKER_LOI_TERMS: BrokerLoiTerms = {
   arvPercent: "",
   monthlyPayment: "",
   interestOnly: true,
-  loanTerm: "12 Months",
+  loanTerm: "",
   requiredDocuments: [],
   customDocument: "",
-  originationFeePercent: "2%",
-  exitFee: "0%",
-  processingFee: "$995",
-  underwritingFee: "$750",
-  legalFee: "Borrower Pays",
-  appraisalRequired: "Yes",
-  environmentalReport: "Required",
-  personalGuarantee: "Required",
-  prepaymentPenalty: "None",
-  recourse: "Full",
-  amortization: "Interest Only",
-  paymentFrequency: "Interest Only",
+  originationFeePercent: "",
+  exitFee: "",
+  processingFee: "",
+  underwritingFee: "",
+  legalFee: "",
+  appraisalRequired: "",
+  environmentalReport: "",
+  personalGuarantee: "",
+  prepaymentPenalty: "",
+  recourse: "",
+  amortization: "",
+  paymentFrequency: "",
   expirationDate: "",
   specialConditions: [],
 };
@@ -75,6 +75,36 @@ function toNumber(value: unknown): number | null {
   const numeric = Number(String(value).replace(/[$,\s%]/g, ""));
   if (!Number.isFinite(numeric) || numeric < 0) return null;
   return numeric;
+}
+
+/** Format a numeric input with thousand separators for UI display. */
+export function formatBrokerLoiNumberInput(rawValue?: string | null) {
+  const cleaned = String(rawValue ?? "").replace(/[^\d.]/g, "");
+  if (!cleaned) return "";
+
+  const parts = cleaned.split(".");
+  const intPart = parts[0] || "";
+  const hasDecimal = parts.length > 1;
+  const decPart = hasDecimal
+    ? parts.slice(1).join("").replace(/\D/g, "").slice(0, 4)
+    : "";
+
+  const formattedInt = intPart
+    ? Number(intPart).toLocaleString("en-US")
+    : hasDecimal
+      ? "0"
+      : "";
+
+  if (hasDecimal) {
+    return `${formattedInt}.${decPart}`;
+  }
+
+  return formattedInt;
+}
+
+/** Strip formatting so values can be parsed / sent to the API. */
+export function parseBrokerLoiNumberInput(rawValue?: string | null) {
+  return String(rawValue ?? "").replace(/[$,\s%]/g, "").trim();
 }
 
 function parseTermMonths(label?: string) {
@@ -164,7 +194,7 @@ export function validateBrokerLoiTerms(terms: BrokerLoiTerms) {
   }
 
   const rate = toNumber(terms.interestRate);
-  if (!terms.interestRate.trim()) {
+  if (!String(terms.interestRate || "").trim()) {
     errors.interestRate = "Interest rate is required";
   } else if (rate == null || rate <= 0 || rate > 100) {
     errors.interestRate = "Enter a valid rate between 0 and 100";
@@ -175,10 +205,24 @@ export function validateBrokerLoiTerms(terms: BrokerLoiTerms) {
   }
 
   const payment = toNumber(terms.monthlyPayment);
-  if (!terms.monthlyPayment.trim()) {
+  if (!String(terms.monthlyPayment || "").trim()) {
     errors.monthlyPayment = "Monthly payment is required";
   } else if (payment == null || payment <= 0) {
     errors.monthlyPayment = "Enter a valid monthly payment";
+  }
+
+  const ltv = toNumber(terms.ltvPercent);
+  if (!String(terms.ltvPercent || "").trim()) {
+    errors.ltvPercent = "LTV % is required";
+  } else if (ltv == null || ltv < 0 || ltv > 100) {
+    errors.ltvPercent = "Enter a valid LTV between 0 and 100";
+  }
+
+  const arv = toNumber(terms.arvPercent);
+  if (!String(terms.arvPercent || "").trim()) {
+    errors.arvPercent = "ARV % is required";
+  } else if (arv == null || arv < 0 || arv > 100) {
+    errors.arvPercent = "Enter a valid ARV between 0 and 100";
   }
 
   if (!terms.requiredDocuments.length) {
@@ -194,11 +238,21 @@ export function validateBrokerLoiTerms(terms: BrokerLoiTerms) {
 export function normalizeBrokerLoiTerms(
   terms: Partial<BrokerLoiTerms> | null | undefined,
 ): BrokerLoiTerms {
-  return {
+  const merged: BrokerLoiTerms = {
     ...DEFAULT_BROKER_LOI_TERMS,
     ...terms,
     requiredDocuments: terms?.requiredDocuments ?? [],
     specialConditions: terms?.specialConditions ?? [],
+  };
+
+  return {
+    ...merged,
+    approvedAmount: formatBrokerLoiNumberInput(merged.approvedAmount),
+    interestRate: formatBrokerLoiNumberInput(merged.interestRate),
+    monthlyPayment: formatBrokerLoiNumberInput(merged.monthlyPayment),
+    ltvPercent: formatBrokerLoiNumberInput(merged.ltvPercent),
+    ltcPercent: formatBrokerLoiNumberInput(merged.ltcPercent),
+    arvPercent: formatBrokerLoiNumberInput(merged.arvPercent),
   };
 }
 

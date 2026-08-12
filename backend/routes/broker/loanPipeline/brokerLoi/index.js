@@ -19,6 +19,30 @@ function createBrokerLoiRoutes({
       routePermissions[key]
         ? { preHandler: [fastify.requirePermission(routePermissions[key])] }
         : {};
+
+    // Create vs regenerate/revised use different LO permission keys when configured.
+    const withGeneratePerm = () => {
+      if (!routePermissions.generate && !routePermissions.regenerate) {
+        return {};
+      }
+
+      return {
+        preHandler: [
+          async (request, reply) => {
+            const needsRegenerate = Boolean(
+              request.body?.regenerate || request.body?.revised,
+            );
+            const required = needsRegenerate
+              ? routePermissions.regenerate || routePermissions.generate
+              : routePermissions.generate || routePermissions.regenerate;
+
+            if (!required) return;
+            return fastify.requirePermission(required)(request, reply);
+          },
+        ],
+      };
+    };
+
     fastify.get(
       "/:applicationId/broker-loi",
       {
@@ -63,13 +87,13 @@ function createBrokerLoiRoutes({
     fastify.get(
       "/:applicationId/broker-loi/prefill",
       {
-        ...withPerm("view"),
+        ...withPerm(routePermissions.prefill ? "prefill" : "view"),
         schema: {
           tags: [`${tagPrefix} -> Broker LOI`],
-          summary: "Prefill broker LOI terms from a selected lender LOI",
+          summary:
+            "Prefill broker LOI terms from a selected lender LOI, or blank application-based terms for a standalone broker term sheet",
           querystring: {
             type: "object",
-            required: ["sourceApplicationLenderId"],
             properties: {
               sourceApplicationLenderId: { type: "string" },
             },
@@ -84,7 +108,8 @@ function createBrokerLoiRoutes({
 
           const result = await getBrokerLoiPrefill(fastify.prisma, {
             applicationId: req.params.applicationId,
-            sourceApplicationLenderId: req.query.sourceApplicationLenderId,
+            sourceApplicationLenderId:
+              req.query.sourceApplicationLenderId || null,
             brokerOrgId: req.user.organizationId,
             brokerUserId: requireBrokerUserId
               ? req.user.id || req.user.userId
@@ -112,13 +137,14 @@ function createBrokerLoiRoutes({
     fastify.post(
       "/:applicationId/broker-loi/generate",
       {
-        ...withPerm("generate"),
+        ...withGeneratePerm(),
         schema: {
           tags: [`${tagPrefix} -> Broker LOI`],
-          summary: "Generate broker-branded LOI PDF from selected lender LOI",
+          summary:
+            "Generate broker-branded LOI PDF from selected lender LOI or as a standalone broker term sheet",
           body: {
             type: "object",
-            required: ["sourceApplicationLenderId", "brokerTerms"],
+            required: ["brokerTerms"],
             properties: {
               sourceApplicationLenderId: { type: "string" },
               brokerTerms: { type: "object" },
@@ -143,7 +169,8 @@ function createBrokerLoiRoutes({
 
           const result = await generateBrokerLoi(fastify.prisma, {
             applicationId: req.params.applicationId,
-            sourceApplicationLenderId: req.body.sourceApplicationLenderId,
+            sourceApplicationLenderId:
+              req.body.sourceApplicationLenderId || null,
             brokerTerms: req.body.brokerTerms,
             branding: req.body.branding,
             regenerate: Boolean(req.body.regenerate),
@@ -235,6 +262,14 @@ function createBrokerLoiRoutes({
         schema: {
           tags: [`${tagPrefix} -> Broker LOI`],
           summary: "Forward client-signed broker LOI to funding lender",
+          body: {
+            type: "object",
+            additionalProperties: false,
+            required: ["applicationLenderId"],
+            properties: {
+              applicationLenderId: { type: "string", format: "uuid" },
+            },
+          },
         },
       },
       async (req, reply) => {
@@ -250,6 +285,7 @@ function createBrokerLoiRoutes({
               applicationId: req.params.applicationId,
               brokerOrgId: req.user.organizationId,
               brokerUserId: resolveBrokerUserId(req),
+              applicationLenderId: req.body?.applicationLenderId || null,
             },
           );
 
@@ -257,12 +293,15 @@ function createBrokerLoiRoutes({
             return reply.code(result.error.status).send({
               success: false,
               message: result.error.message,
+              code: result.error.code,
             });
           }
 
           return reply.send({
             success: true,
-            message: "Signed broker LOI forwarded to lender",
+            message: result.data?.lenderName
+              ? `Signed broker LOI forwarded to ${result.data.lenderName}`
+              : "Signed broker LOI forwarded to lender",
             data: result.data,
           });
         } catch (error) {

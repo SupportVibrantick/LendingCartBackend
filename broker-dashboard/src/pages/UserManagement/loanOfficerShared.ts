@@ -45,7 +45,7 @@ export const LO_PERMISSION_CATEGORIES: LoanOfficerPermissionCategory[] = [
       { label: "Upload Documents", key: "UPLOAD_DOCUMENTS" },
       { label: "Request Documents", key: "REQUEST_DOCUMENTS" },
       { label: "Documents to Sign", key: "DOCUMENTS_TO_SIGN" },
-      { label: "LOI / Term Sheet", key: "VIEW_LOI_TERM_SHEET" },
+      { label: "LOI / Term Sheet tab", key: "VIEW_LOI_TERM_SHEET" },
       { label: "Fee Agreement", key: "VIEW_FEE_AGREEMENT" },
       { label: "Lender Hub", key: "VIEW_LENDER_HUB" },
       {
@@ -79,10 +79,28 @@ export const LO_PERMISSION_CATEGORIES: LoanOfficerPermissionCategory[] = [
   {
     title: "LOI / Term Sheet",
     items: [
-      { label: "Generate LOI", key: "GENERATE_LOI" },
-      { label: "Regenerate LOI", key: "REGENERATE_LOI" },
-      { label: "Send to Client", key: "SEND_LOI_TO_CLIENT" },
-      { label: "Send to Lender", key: "SEND_LOI_TO_LENDER" },
+      {
+        label: "Create Term Sheet",
+        key: "GENERATE_LOI",
+        description:
+          "Can create and generate a broker term sheet / LOI PDF for an application",
+      },
+      {
+        label: "Edit / Regenerate Term Sheet",
+        key: "REGENERATE_LOI",
+        description:
+          "Can edit, regenerate, or create a revised term sheet after it exists",
+      },
+      {
+        label: "Send Term Sheet to Client",
+        key: "SEND_LOI_TO_CLIENT",
+        description: "Can send the broker term sheet to the client for signature",
+      },
+      {
+        label: "Forward Term Sheet to Lender",
+        key: "SEND_LOI_TO_LENDER",
+        description: "Can forward the client-signed term sheet to a funding lender",
+      },
     ],
   },
   {
@@ -331,6 +349,16 @@ export function normalizeLoanOfficerPermissions(keys: string[] = []): string[] {
   }
 
   applyExclusivePermissionGroups(normalized);
+
+  // Term sheet actions require being able to open the LOI / Term Sheet tab.
+  if (
+    normalized.has("GENERATE_LOI") ||
+    normalized.has("REGENERATE_LOI") ||
+    normalized.has("SEND_LOI_TO_CLIENT") ||
+    normalized.has("SEND_LOI_TO_LENDER")
+  ) {
+    normalized.add("VIEW_LOI_TERM_SHEET");
+  }
 
   return [...normalized];
 }

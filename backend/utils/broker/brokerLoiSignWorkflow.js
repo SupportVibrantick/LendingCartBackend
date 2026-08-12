@@ -17,7 +17,6 @@ const {
   applyDocumentSendStatusUpdates,
 } = require("../../services/documents/applyDocumentSendStatusUpdates");
 const {
-  canLenderReceiveDocuments,
   getLenderDocumentDeliveryBlockMessage,
 } = require("../lender/lenderDocumentDelivery");
 const {
@@ -273,14 +272,9 @@ async function getSignedBrokerLoiForLender(
     orderBy: { versionNumber: "desc" },
   });
 
-  const latestForwardedVersion =
-    brokerLoiVersions.find(
-      (version) => version.sourceApplicationLenderId === applicationLenderId,
-    ) ||
-    (applicationLender.loanApplication.brokerLoiSourceApplicationLenderId ===
-    applicationLenderId
-      ? brokerLoiVersions[0]
-      : null);
+  const latestForwardedVersion = brokerLoiVersions.find(
+    (version) => version.sourceApplicationLenderId === applicationLenderId,
+  );
 
   if (latestForwardedVersion?.signedPdfUrl) {
     return {
@@ -591,7 +585,7 @@ async function sendBrokerLoiToClient(
 async function forwardBrokerLoiToLender(
   prisma,
   io,
-  { applicationId, brokerOrgId, brokerUserId },
+  { applicationId, brokerOrgId, brokerUserId, applicationLenderId: requestedApplicationLenderId },
 ) {
   const context = await loadBrokerLoiSignContext(prisma, {
     applicationId,
@@ -625,41 +619,64 @@ async function forwardBrokerLoiToLender(
     };
   }
 
-  const applicationLenderId =
+  const linkedApplicationLenderId =
+    context.application.brokerLoiSourceApplicationLenderId ||
     requirement.requestApplicationLenderId ||
-    context.application.brokerLoiSourceApplicationLenderId;
+    null;
 
-  if (!applicationLenderId) {
+  const requestedId =
+    requestedApplicationLenderId &&
+    String(requestedApplicationLenderId).trim()
+      ? String(requestedApplicationLenderId).trim()
+      : null;
+
+  let applicationLenderId = null;
+
+  if (linkedApplicationLenderId) {
+    // Term sheet was prepared for a specific lender — always forward only to that lender.
+    if (requestedId && requestedId !== linkedApplicationLenderId) {
+      return {
+        error: {
+          status: 400,
+          message:
+            "This term sheet is linked to a different funding lender. Forward only to the lender selected when the term sheet was created.",
+          code: "LENDER_LOCKED",
+        },
+      };
+    }
+    applicationLenderId = linkedApplicationLenderId;
+  } else if (requestedId) {
+    // Standalone term sheet: broker must explicitly select the funding lender.
+    applicationLenderId = requestedId;
+  } else {
     return {
       error: {
         status: 400,
-        message: "Funding lender not linked to broker LOI",
+        message:
+          "Select a funding lender before forwarding this signed term sheet",
+        code: "LENDER_REQUIRED",
       },
     };
   }
 
-  if (
-    requirement.requestApplicationLenderId !== applicationLenderId &&
-    applicationLenderId
-  ) {
-    await prisma.applicationDocumentRequirement.update({
-      where: { id: requirement.id },
-      data: { requestApplicationLenderId: applicationLenderId },
-    });
-    requirement.requestApplicationLenderId = applicationLenderId;
-  }
-
   const lender = await prisma.applicationLender.findUnique({
     where: { id: applicationLenderId },
+    include: { lender: { select: { name: true } } },
   });
 
   if (!lender || lender.loanApplicationId !== applicationId) {
     return {
-      error: { status: 400, message: "Invalid lender for this application" },
+      error: {
+        status: 400,
+        message:
+          "Selected lender is not associated with this loan application",
+        code: "INVALID_APPLICATION_LENDER",
+      },
     };
   }
 
-  if (!canLenderReceiveDocuments(lender.status)) {
+  // Funding lender may already be APPROVED — still allow receiving the signed term sheet.
+  if (["DECLINED", "WITHDRAWN"].includes(lender.status)) {
     return {
       error: {
         status: 400,
@@ -667,6 +684,40 @@ async function forwardBrokerLoiToLender(
       },
     };
   }
+
+  // Persist lender link for standalone broker term sheets.
+  await prisma.$transaction(async (tx) => {
+    if (requirement.requestApplicationLenderId !== applicationLenderId) {
+      await tx.applicationDocumentRequirement.update({
+        where: { id: requirement.id },
+        data: { requestApplicationLenderId: applicationLenderId },
+      });
+      requirement.requestApplicationLenderId = applicationLenderId;
+    }
+
+    if (
+      context.application.brokerLoiSourceApplicationLenderId !==
+      applicationLenderId
+    ) {
+      await tx.loanApplication.update({
+        where: { id: applicationId },
+        data: {
+          brokerLoiSourceApplicationLenderId: applicationLenderId,
+        },
+      });
+    }
+
+    const currentVersion = await getCurrentBrokerLoiVersion(tx, applicationId);
+    if (
+      currentVersion?.id &&
+      currentVersion.sourceApplicationLenderId !== applicationLenderId
+    ) {
+      await tx.brokerLoiVersion.update({
+        where: { id: currentVersion.id },
+        data: { sourceApplicationLenderId: applicationLenderId },
+      });
+    }
+  });
 
   await prisma.applicationDocumentSubmission.createMany({
     data: [
@@ -691,6 +742,7 @@ async function forwardBrokerLoiToLender(
     data: {
       signStatus: "FORWARDED_TO_LENDER",
       status: "COMPLETE",
+      requestApplicationLenderId: applicationLenderId,
     },
     include: {
       documentType: true,
@@ -726,6 +778,8 @@ async function forwardBrokerLoiToLender(
     data: {
       signWorkflow: buildSignWorkflowPayload(updated, submission?.id || null),
       formatted: formatSignDocumentRequirement(updated, { viewer: "broker" }),
+      applicationLenderId,
+      lenderName: lender.lender?.name || null,
     },
   };
 }

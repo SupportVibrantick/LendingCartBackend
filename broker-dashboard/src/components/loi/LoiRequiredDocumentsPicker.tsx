@@ -108,8 +108,8 @@ export default function LoiRequiredDocumentsPicker({
             Required Documents
           </div>
           <p className="mt-1 text-xs text-slate-500">
-            Choose from platform, admin, and your custom documents. You can select
-            multiple documents or add new ones manually.
+            Choose from platform and your brokerage&apos;s custom documents.
+            Custom documents you add here stay private to your brokerage.
           </p>
         </div>
         {loading ? (
