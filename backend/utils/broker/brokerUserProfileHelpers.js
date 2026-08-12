@@ -171,8 +171,31 @@ async function syncUserPermissions(prisma, userId, permissionKeys = []) {
 
   if (uniqueKeys.length === 0) return;
 
+  const existingRecords = await prisma.permission.findMany({
+    where: { key: { in: uniqueKeys } },
+    select: { id: true, key: true },
+  });
+
+  const existingKeys = new Set(existingRecords.map((p) => p.key));
+  const missingKeys = uniqueKeys.filter((key) => !existingKeys.has(key));
+
+  // Self-heal: ensure every normalized LO permission exists so we don't
+  // silently drop keys when a new permission is added before the seed runs.
+  if (missingKeys.length > 0) {
+    await Promise.all(
+      missingKeys.map((key) =>
+        prisma.permission.upsert({
+          where: { key },
+          create: { key, description: key.replaceAll("_", " ") },
+          update: {},
+        }),
+      ),
+    );
+  }
+
   const permissionRecords = await prisma.permission.findMany({
     where: { key: { in: uniqueKeys } },
+    select: { id: true },
   });
 
   if (permissionRecords.length === 0) return;
