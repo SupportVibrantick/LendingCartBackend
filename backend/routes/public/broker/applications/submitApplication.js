@@ -26,6 +26,9 @@ const {
   touchPublicApplicationLink,
   buildLoanApplicationProvenanceFromLink,
 } = require("../../../../services/applications/publicApplicationLink");
+const {
+  findOrCreateBorrowerClient,
+} = require("../../../../services/clientPortal/findOrCreateBorrowerClient");
 
 async function submitApplication(fastify) {
   fastify.post("/submit", async (req, reply) => {
@@ -216,25 +219,17 @@ async function submitApplication(fastify) {
           throw new Error("Email is required");
         }
 
-        const legalName = displayName || "Individual Applicant";
-
-        const client = await tx.client.create({
-          data: {
-            id: crypto.randomUUID(),
-            legalName,
-            entityType: "INDIVIDUAL",
-            primaryBrokerOrgId: brokerOrgId,
-          },
-        });
-
-        await tx.clientContact.create({
-          data: {
-            clientId: client.id,
-            firstName: firstName || "Applicant",
-            lastName: lastName || "",
-            email: borrowerEmail,
-            isPrimary: true,
-          },
+        const {
+          client,
+          email: normalizedEmail,
+          warnings: clientWarnings,
+        } = await findOrCreateBorrowerClient(tx, {
+          brokerOrgId,
+          email: borrowerEmail,
+          firstName,
+          lastName,
+          displayName,
+          logger: fastify.log,
         });
 
         const loanApplication = await tx.loanApplication.create({
@@ -309,11 +304,13 @@ async function submitApplication(fastify) {
           loanApplication,
           client,
           brokerOrgId,
-          borrowerEmail,
+          borrowerEmail: normalizedEmail,
           portalToken,
           sourcePortal: provenance.publicSourcePortal,
+          warnings: clientWarnings,
           clientDisplayName: resolveClientDisplayName({
             client,
+            contacts: client.contacts,
             fields,
           }),
         };
@@ -382,6 +379,7 @@ async function submitApplication(fastify) {
       data: {
         submissionId: result.submission.id,
         sourcePortal: result.sourcePortal,
+        ...(result.warnings?.length ? { warnings: result.warnings } : {}),
       },
     });
   });

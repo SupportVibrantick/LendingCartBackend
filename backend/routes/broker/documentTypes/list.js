@@ -33,6 +33,7 @@ async function listBrokerCustomDocumentTypes(fastify) {
         const limit = Math.min(Math.max(Number(req.query.limit || 10), 1), 100);
         const search = String(req.query.search || "").trim();
         const loanProductId = String(req.query.loanProductId || "").trim();
+        const loanProductCode = String(req.query.loanProductCode || "").trim();
         const usage = String(req.query.usage || "all").trim().toLowerCase();
         const includeInactive =
           req.query.includeInactive === true ||
@@ -46,9 +47,10 @@ async function listBrokerCustomDocumentTypes(fastify) {
         }
 
         let productFilter = null;
-        if (loanProductId) {
+        if (loanProductId || loanProductCode) {
           const resolved = await resolveLoanProductFilter(prisma, {
-            loanProductId,
+            loanProductId: loanProductId || null,
+            loanProductCode: loanProductCode || null,
           });
           if (!resolved?.ok) {
             return reply.code(resolved?.status || 400).send({
@@ -175,6 +177,7 @@ async function listBrokerCustomDocumentTypes(fastify) {
           meta: {
             search: search || null,
             loanProductId: loanProductId || null,
+            loanProductCode: loanProductCode || null,
             usage,
           },
           pagination: {
