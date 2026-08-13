@@ -1159,7 +1159,7 @@ export default function SubBroker() {
                 </button>
               )}
             </div>
-
+{/* 
             {canDeleteCoBrokers && (
             <div className="border-t border-gray-100 py-0.5 dark:border-gray-800">
               <button
@@ -1172,7 +1172,7 @@ export default function SubBroker() {
                 Delete
               </button>
             </div>
-            )}
+            )} */}
           </div>,
           document.body,
         )}
