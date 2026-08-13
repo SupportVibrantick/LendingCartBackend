@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Building2, FileText, Loader2, User, X } from "lucide-react";
 import toast from "react-hot-toast";
 import {
   LOI_TERM_OPTIONS,
   calculateSuggestedLoiMetrics,
   createEmptyLoiUnderwritingTerms,
+  formatLoiNumberInput,
   mapStoredLoiTermsToForm,
   serializeLoiUnderwritingTerms,
   validateLoiUnderwritingTerms,
@@ -25,6 +26,18 @@ import {
 import LoiRequiredDocumentsPicker from "./LoiRequiredDocumentsPicker";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
+
+const LOI_ERROR_FIELD_ORDER = [
+  "branding",
+  "approvedAmount",
+  "interestRate",
+  "ltvPercent",
+  "ltcPercent",
+  "arvPercent",
+  "monthlyPayment",
+  "loanTerm",
+  "requiredDocuments",
+] as const;
 
 function getAuthHeaders(): Record<string, string> {
   const token = sessionStorage.getItem("lender_token");
@@ -109,10 +122,24 @@ export default function LoiUnderwritingFormModal({
     ltv: false,
     ltc: false,
     arv: false,
-    payment: false,
   });
   const [branding, setBranding] = useState<LoiBrandingValues>(EMPTY_LOI_BRANDING);
   const [brandingLoading, setBrandingLoading] = useState(false);
+  const scrollBodyRef = useRef<HTMLDivElement>(null);
+
+  const scrollToField = useCallback((field: string) => {
+    const root = scrollBodyRef.current;
+    if (!root) return;
+    const target = root.querySelector(
+      `[data-loi-field="${field}"]`,
+    ) as HTMLElement | null;
+    if (!target) return;
+    target.scrollIntoView({ behavior: "smooth", block: "center" });
+    const focusable = target.querySelector(
+      "input:not([readonly]), select, textarea, button",
+    ) as HTMLElement | null;
+    focusable?.focus?.({ preventScroll: true });
+  }, []);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -137,7 +164,6 @@ export default function LoiUnderwritingFormModal({
       ltv: false,
       ltc: false,
       arv: false,
-      payment: false,
     });
   }, [
     isOpen,
@@ -150,14 +176,6 @@ export default function LoiUnderwritingFormModal({
     applicationInterestRate,
     applicationLoanTerm,
   ]);
-
-  const handleProductRequiredLoaded = useCallback((required: string[]) => {
-    if (required.length === 0) return;
-    setTerms((prev) => ({
-      ...prev,
-      requiredDocuments: required,
-    }));
-  }, []);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -220,57 +238,100 @@ export default function LoiUnderwritingFormModal({
   );
 
   useEffect(() => {
-    setTerms((prev) => ({
-      ...prev,
-      ltvPercent:
+    setTerms((prev) => {
+      const nextPayment =
+        suggested.monthlyPayment == null
+          ? ""
+          : formatLoiNumberInput(String(suggested.monthlyPayment));
+      const nextLtv =
         metricsTouched.ltv || prev.ltvPercent
           ? prev.ltvPercent
           : suggested.ltv != null
-            ? String(suggested.ltv)
-            : "",
-      ltcPercent:
+            ? formatLoiNumberInput(String(suggested.ltv))
+            : "";
+      const nextLtc =
         metricsTouched.ltc || prev.ltcPercent
           ? prev.ltcPercent
           : suggested.ltc != null
-            ? String(suggested.ltc)
-            : "",
-      arvPercent:
+            ? formatLoiNumberInput(String(suggested.ltc))
+            : "";
+      const nextArv =
         metricsTouched.arv || prev.arvPercent
           ? prev.arvPercent
           : suggested.arvPercent != null
-            ? String(suggested.arvPercent)
-            : "",
-      monthlyPayment:
-        metricsTouched.payment || prev.monthlyPayment
-          ? prev.monthlyPayment
-          : suggested.monthlyPayment != null
-            ? String(suggested.monthlyPayment)
-            : "",
-    }));
+            ? formatLoiNumberInput(String(suggested.arvPercent))
+            : "";
+
+      if (
+        prev.monthlyPayment === nextPayment &&
+        prev.ltvPercent === nextLtv &&
+        prev.ltcPercent === nextLtc &&
+        prev.arvPercent === nextArv
+      ) {
+        return prev;
+      }
+
+      return {
+        ...prev,
+        ltvPercent: nextLtv,
+        ltcPercent: nextLtc,
+        arvPercent: nextArv,
+        monthlyPayment: nextPayment,
+      };
+    });
   }, [suggested, metricsTouched]);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const result = validateLoiUnderwritingTerms(terms);
+    setErrors(result.errors);
+  }, [terms, isOpen]);
+
   if (!isOpen) return null;
+
+  const setNumberField = (
+    key: keyof Pick<
+      LoiUnderwritingTerms,
+      | "approvedAmount"
+      | "interestRate"
+      | "ltvPercent"
+      | "ltcPercent"
+      | "arvPercent"
+    >,
+    raw: string,
+  ) => {
+    setTerms((prev) => ({
+      ...prev,
+      [key]: formatLoiNumberInput(raw),
+    }));
+  };
 
   const update = <K extends keyof LoiUnderwritingTerms>(
     key: K,
     value: LoiUnderwritingTerms[K],
   ) => {
     setTerms((prev) => ({ ...prev, [key]: value }));
-    if (errors[key]) {
-      setErrors((prev) => ({ ...prev, [key]: undefined }));
-    }
   };
 
   const handleSubmit = () => {
     const brandingMessage = getLoiBrandingValidationMessage(branding);
     if (brandingMessage) {
       toast.error(brandingMessage);
+      requestAnimationFrame(() => scrollToField("branding"));
       return;
     }
 
     const result = validateLoiUnderwritingTerms(terms);
     if (!result.valid) {
       setErrors(result.errors);
+      const firstErrorField = LOI_ERROR_FIELD_ORDER.find(
+        (field) =>
+          field !== "branding" &&
+          Boolean(result.errors[field as keyof LoiUnderwritingTerms]),
+      );
+      if (firstErrorField) {
+        requestAnimationFrame(() => scrollToField(firstErrorField));
+      }
       return;
     }
     onSubmit({
@@ -322,7 +383,7 @@ export default function LoiUnderwritingFormModal({
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-6 py-5">
+        <div ref={scrollBodyRef} className="flex-1 overflow-y-auto px-6 py-5">
           <div className="grid gap-6 lg:grid-cols-5">
             <section className="space-y-4 lg:col-span-2">
               <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950">
@@ -385,11 +446,13 @@ export default function LoiUnderwritingFormModal({
                   Loading saved branding...
                 </div>
               ) : (
-                <LoiBrandingFields
-                  value={branding}
-                  onChange={setBranding}
-                  disabled={submitting}
-                />
+                <div data-loi-field="branding">
+                  <LoiBrandingFields
+                    value={branding}
+                    onChange={setBranding}
+                    disabled={submitting}
+                  />
+                </div>
               )}
 
               <div className="rounded-2xl border border-teal-100 bg-teal-50/60 p-4 text-sm text-teal-900 dark:border-teal-900/40 dark:bg-teal-950/20 dark:text-teal-100">
@@ -412,16 +475,17 @@ export default function LoiUnderwritingFormModal({
                 </p>
 
                 <div className="mt-5 grid gap-4 sm:grid-cols-2">
-                  <div>
+                  <div data-loi-field="approvedAmount">
                     <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
                       1. Loan Amount
                     </label>
                     <input
-                      type="number"
-                      min="0"
+                      inputMode="decimal"
                       value={terms.approvedAmount}
-                      onChange={(e) => update("approvedAmount", e.target.value)}
-                      placeholder="1750000"
+                      onChange={(e) =>
+                        setNumberField("approvedAmount", e.target.value)
+                      }
+                      placeholder="1,750,000"
                       className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#0F766E] focus:ring-2 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-800"
                     />
                     {errors.approvedAmount ? (
@@ -431,17 +495,16 @@ export default function LoiUnderwritingFormModal({
                     ) : null}
                   </div>
 
-                  <div>
+                  <div data-loi-field="interestRate">
                     <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
                       2. Interest Rate (%)
                     </label>
                     <input
-                      type="number"
-                      min="0"
-                      max="100"
-                      step="0.01"
+                      inputMode="decimal"
                       value={terms.interestRate}
-                      onChange={(e) => update("interestRate", e.target.value)}
+                      onChange={(e) =>
+                        setNumberField("interestRate", e.target.value)
+                      }
                       placeholder="10.75"
                       className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#0F766E] focus:ring-2 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-800"
                     />
@@ -452,19 +515,16 @@ export default function LoiUnderwritingFormModal({
                     ) : null}
                   </div>
 
-                  <div>
+                  <div data-loi-field="ltvPercent">
                     <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
                       3. LTV (%)
                     </label>
                     <input
-                      type="number"
-                      min="0"
-                      max="100"
-                      step="0.01"
+                      inputMode="decimal"
                       value={terms.ltvPercent}
                       onChange={(e) => {
                         setMetricsTouched((prev) => ({ ...prev, ltv: true }));
-                        update("ltvPercent", e.target.value);
+                        setNumberField("ltvPercent", e.target.value);
                       }}
                       placeholder="65"
                       className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#0F766E] dark:border-slate-700 dark:bg-slate-800"
@@ -478,19 +538,16 @@ export default function LoiUnderwritingFormModal({
                     )}
                   </div>
 
-                  <div>
+                  <div data-loi-field="ltcPercent">
                     <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
                       3. LTC (%)
                     </label>
                     <input
-                      type="number"
-                      min="0"
-                      max="100"
-                      step="0.01"
+                      inputMode="decimal"
                       value={terms.ltcPercent}
                       onChange={(e) => {
                         setMetricsTouched((prev) => ({ ...prev, ltc: true }));
-                        update("ltcPercent", e.target.value);
+                        setNumberField("ltcPercent", e.target.value);
                       }}
                       placeholder="70"
                       className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#0F766E] dark:border-slate-700 dark:bg-slate-800"
@@ -504,19 +561,16 @@ export default function LoiUnderwritingFormModal({
                     )}
                   </div>
 
-                  <div>
+                  <div data-loi-field="arvPercent">
                     <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
                       3. ARV (%)
                     </label>
                     <input
-                      type="number"
-                      min="0"
-                      max="100"
-                      step="0.01"
+                      inputMode="decimal"
                       value={terms.arvPercent}
                       onChange={(e) => {
                         setMetricsTouched((prev) => ({ ...prev, arv: true }));
-                        update("arvPercent", e.target.value);
+                        setNumberField("arvPercent", e.target.value);
                       }}
                       placeholder="60"
                       className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#0F766E] dark:border-slate-700 dark:bg-slate-800"
@@ -530,21 +584,16 @@ export default function LoiUnderwritingFormModal({
                     )}
                   </div>
 
-                  <div>
+                  <div data-loi-field="monthlyPayment">
                     <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
                       4. Monthly Payment
                     </label>
                     <input
-                      type="number"
-                      min="0"
-                      step="0.01"
                       value={terms.monthlyPayment}
-                      onChange={(e) => {
-                        setMetricsTouched((prev) => ({ ...prev, payment: true }));
-                        update("monthlyPayment", e.target.value);
-                      }}
-                      placeholder="12500"
-                      className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#0F766E] dark:border-slate-700 dark:bg-slate-800"
+                      readOnly
+                      tabIndex={-1}
+                      placeholder="Auto-calculated"
+                      className="w-full cursor-not-allowed rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-200"
                     />
                     {errors.monthlyPayment ? (
                       <p className="mt-1 text-xs text-red-500">
@@ -552,7 +601,10 @@ export default function LoiUnderwritingFormModal({
                       </p>
                     ) : (
                       <p className="mt-1 text-[11px] text-slate-400">
-                        Suggested: {formatMetricCurrency(suggested.monthlyPayment)}
+                        Auto-calculated from amount, rate, and term
+                        {suggested.monthlyPayment != null
+                          ? ` · ${formatMetricCurrency(suggested.monthlyPayment)}`
+                          : ""}
                       </p>
                     )}
                   </div>
@@ -579,7 +631,7 @@ export default function LoiUnderwritingFormModal({
                     </div>
                   </div>
 
-                  <div className="sm:col-span-2">
+                  <div className="sm:col-span-2" data-loi-field="loanTerm">
                     <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500">
                       6. Term
                     </label>
@@ -605,18 +657,26 @@ export default function LoiUnderwritingFormModal({
                   </div>
                 </div>
 
-                <LoiRequiredDocumentsPicker
-                  selectedDocuments={terms.requiredDocuments}
-                  onSelectedDocumentsChange={(requiredDocuments) => {
-                    update("requiredDocuments", requiredDocuments);
-                  }}
-                  customDocument={terms.customDocument}
-                  onCustomDocumentChange={(value) => update("customDocument", value)}
-                  error={errors.requiredDocuments}
-                  getAuthHeaders={getAuthHeaders}
-                  loanProductCode={loanProductCode}
-                  onProductRequiredLoaded={handleProductRequiredLoaded}
-                />
+                <div data-loi-field="requiredDocuments">
+                  <LoiRequiredDocumentsPicker
+                    selectedDocuments={terms.requiredDocuments}
+                    onSelectedDocumentsChange={(requiredDocuments) => {
+                      update("requiredDocuments", requiredDocuments);
+                    }}
+                    customDocument={terms.customDocument}
+                    onCustomDocumentChange={(value) =>
+                      update("customDocument", value)
+                    }
+                    error={errors.requiredDocuments}
+                    getAuthHeaders={getAuthHeaders}
+                    loanProductCode={loanProductCode}
+                    selectionSource={
+                      mode === "revised" || mode === "regenerate"
+                        ? "previous"
+                        : "none"
+                    }
+                  />
+                </div>
               </div>
             </section>
           </div>

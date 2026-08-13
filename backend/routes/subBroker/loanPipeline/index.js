@@ -8,7 +8,9 @@ async function subBrokerLoanPipelineRoutes(fastify, options) {
     scope.addHook("preHandler", scope.authenticate);
     scope.addHook("preHandler", scope.requireRole(["SUB_BROKER"]));
     await scope.register(
-      require("../../broker/loanPipeline/getClientApplicationLink"),
+      require("../../broker/loanPipeline/getClientApplicationLink")({
+        sourcePortal: "CO_BROKER",
+      }),
     );
   });
 }

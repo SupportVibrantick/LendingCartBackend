@@ -19,6 +19,7 @@ model Organization {
   isDeleted                   Boolean?                   @default(false) @map("is_deleted")
   deletedAt                   DateTime?                  @map("deleted_at") @db.Timestamptz(6)
   affiliateLinks              AffiliateLink[]
+  publicApplicationLinks      PublicApplicationLink[]
   lenderApplications          ApplicationLender[]        @relation("LenderApplications")
   auditLogsAsActorOrg         AuditLog[]                 @relation("OrgAuditLogs")
   brokerApplications          BrokerApplication[]
@@ -118,6 +119,10 @@ model UserAccount {
   createdEscrowInstructions     EscrowInstruction[]              @relation("CreatedEscrowInstructions")
   lenderReviews                 LenderReview[]                   @relation("ReviewedByUser")
   brokerLoanApplications        LoanApplication[]                @relation("BrokerUserLoanApplications")
+  publicApplicationLinksCreated PublicApplicationLink[]          @relation("PublicApplicationLinkCreatedBy")
+  publicApplicationLinksAsLoanOfficer PublicApplicationLink[]    @relation("PublicApplicationLinkLoanOfficer")
+  publicApplicationLinksAsCoBroker PublicApplicationLink[]       @relation("PublicApplicationLinkCoBroker")
+  publicApplicationsCreated     LoanApplication[]                @relation("PublicApplicationCreatedBy")
   passwordResetTokens           PasswordResetToken[]
   emailVerificationTokens       EmailVerificationToken[]
   emailVerifiedAt               DateTime?                        @map("email_verified_at") @db.Timestamptz(6)
@@ -845,6 +850,33 @@ model AffiliateLink {
   @@map("affiliate_links")
 }
 
+model PublicApplicationLink {
+  id                   String                            @id @default(uuid()) @db.Uuid
+  token                String                            @unique
+  brokerOrganizationId String                            @map("broker_organization_id") @db.Uuid
+  sourcePortal         PublicApplicationLinkSourcePortal @map("source_portal")
+  createdByUserId      String                            @map("created_by_user_id") @db.Uuid
+  loanOfficerId        String?                           @map("loan_officer_id") @db.Uuid
+  coBrokerId           String?                           @map("co_broker_id") @db.Uuid
+  isActive             Boolean                           @default(true) @map("is_active")
+  expiresAt            DateTime?                         @map("expires_at") @db.Timestamptz(6)
+  revokedAt            DateTime?                         @map("revoked_at") @db.Timestamptz(6)
+  lastUsedAt           DateTime?                         @map("last_used_at") @db.Timestamptz(6)
+  createdAt            DateTime                          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime                          @updatedAt @map("updated_at") @db.Timestamptz(6)
+  brokerOrganization   Organization                      @relation(fields: [brokerOrganizationId], references: [id])
+  createdByUser        UserAccount                       @relation("PublicApplicationLinkCreatedBy", fields: [createdByUserId], references: [id])
+  loanOfficer          UserAccount?                      @relation("PublicApplicationLinkLoanOfficer", fields: [loanOfficerId], references: [id])
+  coBroker             UserAccount?                      @relation("PublicApplicationLinkCoBroker", fields: [coBrokerId], references: [id])
+  loanApplications     LoanApplication[]
+
+  @@index([brokerOrganizationId])
+  @@index([createdByUserId])
+  @@index([sourcePortal])
+  @@index([isActive])
+  @@map("public_application_links")
+}
+
 model LoanApplication {
   id                           String                           @id @default(uuid()) @db.Uuid
   applicationNumber            String                           @unique
@@ -871,6 +903,9 @@ model LoanApplication {
   brokerLoiGeneratedByUserId String?                          @map("broker_loi_generated_by_user_id") @db.Uuid
   currentBrokerLoiVersionId  String?                          @unique @map("current_broker_loi_version_id") @db.Uuid
   requestedDocumentTypes     Json?                            @map("requested_document_types")
+  publicApplicationLinkId    String?                          @map("public_application_link_id") @db.Uuid
+  publicSourcePortal         PublicApplicationSourcePortal?   @map("public_source_portal")
+  publicCreatedByUserId      String?                          @map("public_created_by_user_id") @db.Uuid
   clientUploadTokens           ClientUploadToken?
   brokerLoiVersions            BrokerLoiVersion[]
   currentBrokerLoiVersion      BrokerLoiVersion?                @relation("CurrentBrokerLoiVersion", fields: [currentBrokerLoiVersionId], references: [id])
@@ -892,6 +927,8 @@ model LoanApplication {
   client                       Client                           @relation(fields: [clientId], references: [id])
   fundedApplicationLender      ApplicationLender?               @relation("FundedLenderDeal", fields: [fundedApplicationLenderId], references: [id])
   fundedByUser                 UserAccount?                     @relation("FundedByUser", fields: [fundedByUserId], references: [id])
+  publicApplicationLink        PublicApplicationLink?           @relation(fields: [publicApplicationLinkId], references: [id])
+  publicCreatedByUser          UserAccount?                     @relation("PublicApplicationCreatedBy", fields: [publicCreatedByUserId], references: [id])
   subBrokerAssignments         SubBrokerApplication[]
   dealCommissions              DealCommission[]
   commissionInvoices           CommissionInvoice[]
@@ -902,6 +939,8 @@ model LoanApplication {
   @@index([clientId])
   @@index([loanProductCode])
   @@index([fundedByUserId])
+  @@index([publicApplicationLinkId])
+  @@index([publicSourcePortal])
   @@map("loan_applications")
 }
 
@@ -2498,6 +2537,19 @@ enum RuleSeverity {
 enum AffiliateTargetType {
   BROKER_SIGNUP
   CLIENT_APPLICATION
+}
+
+enum PublicApplicationLinkSourcePortal {
+  BROKER
+  LOAN_OFFICER
+  CO_BROKER
+}
+
+enum PublicApplicationSourcePortal {
+  BROKER
+  LOAN_OFFICER
+  CO_BROKER
+  LEGACY
 }
 
 enum AffiliateCommissionType {
