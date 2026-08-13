@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Loader2, Sparkles, User } from "lucide-react";
 import toast from "react-hot-toast";
 import LoiBrandingFields from "./LoiBrandingFields";
@@ -18,6 +18,17 @@ import {
   type BrokerLoiApplicationContext,
   type BrokerLoiTerms,
 } from "../../lib/brokerLoiTerms";
+
+const BROKER_LOI_ERROR_FIELD_ORDER = [
+  "branding",
+  "approvedAmount",
+  "interestRate",
+  "loanTerm",
+  "monthlyPayment",
+  "ltvPercent",
+  "arvPercent",
+  "requiredDocuments",
+] as const;
 
 function getAuthHeaders(): Record<string, string> {
   const token = sessionStorage.getItem("broker_token");
@@ -80,6 +91,21 @@ export default function BrokerLoiEditorPanel({
   const [errors, setErrors] = useState<
     Partial<Record<keyof BrokerLoiTerms, string>>
   >({});
+  const scrollBodyRef = useRef<HTMLDivElement>(null);
+
+  const scrollToField = useCallback((field: string) => {
+    const root = scrollBodyRef.current;
+    if (!root) return;
+    const target = root.querySelector(
+      `[data-loi-field="${field}"]`,
+    ) as HTMLElement | null;
+    if (!target) return;
+    target.scrollIntoView({ behavior: "smooth", block: "center" });
+    const focusable = target.querySelector(
+      "input:not([readonly]), select, textarea, button",
+    ) as HTMLElement | null;
+    focusable?.focus?.({ preventScroll: true });
+  }, []);
 
   useEffect(() => {
     setTerms(normalizeBrokerLoiTerms(initialTerms));
@@ -155,6 +181,7 @@ export default function BrokerLoiEditorPanel({
     const brandingMessage = getLoiBrandingValidationMessage(branding);
     if (brandingMessage) {
       toast.error(brandingMessage);
+      requestAnimationFrame(() => scrollToField("branding"));
       return;
     }
 
@@ -167,7 +194,17 @@ export default function BrokerLoiEditorPanel({
     };
     const validation = validateBrokerLoiTerms(payload);
     setErrors(validation.errors);
-    if (!validation.valid) return;
+    if (!validation.valid) {
+      const firstErrorField = BROKER_LOI_ERROR_FIELD_ORDER.find(
+        (field) =>
+          field !== "branding" &&
+          Boolean(validation.errors[field as keyof BrokerLoiTerms]),
+      );
+      if (firstErrorField) {
+        requestAnimationFrame(() => scrollToField(firstErrorField));
+      }
+      return;
+    }
     onSubmit(payload, {
       brandName: branding.brandName.trim(),
       logoUrl: branding.logoUrl,
@@ -179,7 +216,7 @@ export default function BrokerLoiEditorPanel({
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden bg-white dark:bg-slate-900">
-      <div className="flex-1 overflow-y-auto p-4 sm:p-5">
+      <div ref={scrollBodyRef} className="flex-1 overflow-y-auto p-4 sm:p-5">
         {readOnly && (
           <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-500/20 dark:bg-amber-500/10">
             <p className="text-sm font-semibold text-amber-900 dark:text-amber-100">
@@ -219,11 +256,13 @@ export default function BrokerLoiEditorPanel({
           </p>
         </div>
 
-        <LoiBrandingFields
-          value={branding}
-          onChange={setBranding}
-          disabled={fieldsDisabled}
-        />
+        <div data-loi-field="branding">
+          <LoiBrandingFields
+            value={branding}
+            onChange={setBranding}
+            disabled={fieldsDisabled}
+          />
+        </div>
 
         {applicationContext && (
           <div className="mb-4 rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
@@ -246,7 +285,7 @@ export default function BrokerLoiEditorPanel({
           </h4>
 
           <div className="grid gap-4 md:grid-cols-2">
-            <label className="block">
+            <label className="block" data-loi-field="approvedAmount">
               <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Approved Amount
               </span>
@@ -263,7 +302,7 @@ export default function BrokerLoiEditorPanel({
               )}
             </label>
 
-            <label className="block">
+            <label className="block" data-loi-field="interestRate">
               <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Interest Rate (%)
               </span>
@@ -280,7 +319,7 @@ export default function BrokerLoiEditorPanel({
               )}
             </label>
 
-            <label className="block">
+            <label className="block" data-loi-field="loanTerm">
               <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Loan Term
               </span>
@@ -310,7 +349,7 @@ export default function BrokerLoiEditorPanel({
               )}
             </label>
 
-            <label className="block">
+            <label className="block" data-loi-field="monthlyPayment">
               <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Monthly Payment
               </span>
@@ -329,7 +368,7 @@ export default function BrokerLoiEditorPanel({
               )}
             </label>
 
-            <label className="block">
+            <label className="block" data-loi-field="ltvPercent">
               <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
                 LTV %
               </span>
@@ -368,7 +407,7 @@ export default function BrokerLoiEditorPanel({
               />
             </label>
 
-            <label className="block">
+            <label className="block" data-loi-field="arvPercent">
               <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
                 ARV %
               </span>
@@ -403,19 +442,21 @@ export default function BrokerLoiEditorPanel({
             Interest only
           </label>
 
-          <LoiRequiredDocumentsPicker
-            selectedDocuments={terms.requiredDocuments}
-            onSelectedDocumentsChange={(requiredDocuments) =>
-              setTerms((prev) => ({ ...prev, requiredDocuments }))
-            }
-            customDocument={terms.customDocument}
-            onCustomDocumentChange={(customDocument) =>
-              setTerms((prev) => ({ ...prev, customDocument }))
-            }
-            error={errors.requiredDocuments}
-            getAuthHeaders={getAuthHeaders}
-            disabled={readOnly}
-          />
+          <div data-loi-field="requiredDocuments">
+            <LoiRequiredDocumentsPicker
+              selectedDocuments={terms.requiredDocuments}
+              onSelectedDocumentsChange={(requiredDocuments) =>
+                setTerms((prev) => ({ ...prev, requiredDocuments }))
+              }
+              customDocument={terms.customDocument}
+              onCustomDocumentChange={(customDocument) =>
+                setTerms((prev) => ({ ...prev, customDocument }))
+              }
+              error={errors.requiredDocuments}
+              getAuthHeaders={getAuthHeaders}
+              disabled={readOnly}
+            />
+          </div>
 
           <div className="mt-6 border-t border-slate-100 pt-5 dark:border-slate-800">
             <h5 className="mb-4 text-sm font-bold text-slate-900 dark:text-white">
