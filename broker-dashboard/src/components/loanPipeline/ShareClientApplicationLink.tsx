@@ -30,6 +30,8 @@ type ShareLinkData = {
   brokerName: string;
   brokerEmail: string | null;
   shareUrl: string;
+  ref?: string | null;
+  sourcePortal?: string | null;
 };
 
 type ShareClientApplicationLinkProps = {
@@ -41,7 +43,10 @@ function getBrokerAuthHeaders(): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
-function buildFallbackShareUrl(brokerOrgId: string) {
+function buildFallbackShareUrl(brokerOrgId: string, ref?: string | null) {
+  if (ref) {
+    return `${EMBED_APP_URL}/get-loan?ref=${encodeURIComponent(ref)}`;
+  }
   return `${EMBED_APP_URL}/get-loan?broker=${encodeURIComponent(brokerOrgId)}`;
 }
 
@@ -86,8 +91,8 @@ export default function ShareClientApplicationLink({
         payload.shareUrl?.startsWith("http") ||
         payload.shareUrl?.startsWith("//")
           ? payload.shareUrl
-          : payload.brokerOrgId
-            ? buildFallbackShareUrl(payload.brokerOrgId)
+          : payload.ref || payload.brokerOrgId
+            ? buildFallbackShareUrl(payload.brokerOrgId, payload.ref)
             : "";
 
       setData({
@@ -95,6 +100,8 @@ export default function ShareClientApplicationLink({
         brokerName: payload.brokerName,
         brokerEmail: payload.brokerEmail,
         shareUrl,
+        ref: payload.ref || null,
+        sourcePortal: payload.sourcePortal || null,
       });
     } catch (error) {
       toast.error(

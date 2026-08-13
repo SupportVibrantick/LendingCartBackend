@@ -101,6 +101,14 @@ export interface FormDataType {
     equipmentValue: string;
   };
   financials: ResidentialFinancials;
+  workingWithMortgageBroker: "" | "yes" | "no";
+  referringBroker: {
+    email: string;
+    firstName: string;
+    lastName: string;
+    companyName: string;
+    phone: string;
+  };
 }
 
 export type LoanCategory =
