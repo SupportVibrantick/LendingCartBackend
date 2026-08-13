@@ -1,6 +1,10 @@
 import { CATEGORY_LOAN_TYPES } from "../pages/LoanApplication/constants";
 import { getLoanProductAliasGroup } from "../pages/LoanApplication/productRules";
 import type { FormDataType, LoanCategory } from "../pages/LoanApplication/types";
+import {
+  createEmptyReferringBrokerFormState,
+  hydrateReferringBrokerFromFields,
+} from "./referringBroker";
 import { createResidentialBorrowerDefaults, hydrateResidentialBorrowerFromFields } from "./residentialBorrower";
 import { createSbaEntityDefaults } from "./sba7aAcquisition";
 import {
@@ -75,6 +79,12 @@ const STATIC_SUBMIT_KEYS = new Set([
   "dscr",
   "netWorth",
   "creditAuthorizationConsent",
+  "workingWithMortgageBroker",
+  "referringBrokerEmail",
+  "referringBrokerFirstName",
+  "referringBrokerLastName",
+  "referringBrokerCompanyName",
+  "referringBrokerPhone",
 ]);
 
 const CO_BORROWER_SKIP_KEYS = new Set(["netWorth", "ltv", "ltc", "dscr"]);
@@ -314,6 +324,7 @@ export function createEmptyFormData(): FormDataType {
       ...createSbaEntityDefaults(),
     },
     financials: createResidentialFinancialsDefaults(),
+    ...createEmptyReferringBrokerFormState(),
   };
 }
 
@@ -322,6 +333,11 @@ export function mapSubmissionToLoanApplication(fields: SubmissionField[]) {
   const dynamicFormData: Record<string, unknown> = {};
 
   const residentialBorrower = hydrateResidentialBorrowerFromFields(fields);
+  const referringBrokerState = hydrateReferringBrokerFromFields(fields);
+
+  formData.workingWithMortgageBroker =
+    referringBrokerState.workingWithMortgageBroker;
+  formData.referringBroker = referringBrokerState.referringBroker;
 
   formData.borrower = {
     ...formData.borrower,
