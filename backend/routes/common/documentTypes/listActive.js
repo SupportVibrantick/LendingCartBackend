@@ -1,3 +1,7 @@
+const {
+  resolveLoanProductFilter,
+} = require("../../../utils/documents/brokerCustomDocumentProducts");
+
 module.exports = async function listActiveDocumentTypes(fastify) {
   fastify.get(
     "/active",
@@ -60,30 +64,31 @@ module.exports = async function listActiveDocumentTypes(fastify) {
 
       let loanProduct = null;
       let productScopedIds = null;
+      let productIds = [];
+      let productCodes = [];
 
       if (loanProductId || loanProductCode) {
-        loanProduct = await prisma.loanProduct.findFirst({
-          where: {
-            ...(loanProductId ? { id: loanProductId } : {}),
-            ...(loanProductCode && !loanProductId
-              ? { code: loanProductCode }
-              : {}),
-          },
-          select: { id: true, code: true },
+        const resolved = await resolveLoanProductFilter(prisma, {
+          loanProductId: loanProductId || null,
+          loanProductCode: loanProductCode || null,
         });
 
-        if (!loanProduct) {
-          return reply.status(404).send({
+        if (!resolved?.ok) {
+          return reply.status(resolved?.status || 404).send({
             success: false,
-            message: "Loan product not found",
+            message: resolved?.message || "Loan product not found",
           });
         }
+
+        loanProduct = resolved.product;
+        productIds = resolved.productIds || [loanProduct.id];
+        productCodes = resolved.productCodes || [loanProduct.code];
 
         const requirements = await prisma.productDocumentRequirement.findMany({
           where: {
             OR: [
-              { loanProductId: loanProduct.id },
-              { loanProductCode: loanProduct.code },
+              { loanProductId: { in: productIds } },
+              { loanProductCode: { in: productCodes } },
             ],
           },
           select: { documentTypeId: true },
@@ -151,8 +156,8 @@ module.exports = async function listActiveDocumentTypes(fastify) {
                 lenderProduct: {
                   lenderOrgId: orgId,
                   OR: [
-                    { loanProductId: loanProduct.id },
-                    { loanProductCode: loanProduct.code },
+                    { loanProductId: { in: productIds } },
+                    { loanProductCode: { in: productCodes } },
                   ],
                 },
               },
@@ -168,8 +173,8 @@ module.exports = async function listActiveDocumentTypes(fastify) {
             productRequirements: {
               some: {
                 OR: [
-                  { loanProductId: loanProduct.id },
-                  { loanProductCode: loanProduct.code },
+                  { loanProductId: { in: productIds } },
+                  { loanProductCode: { in: productCodes } },
                 ],
               },
             },

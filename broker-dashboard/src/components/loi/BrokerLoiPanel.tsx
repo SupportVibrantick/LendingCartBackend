@@ -107,6 +107,7 @@ type BrokerLoiPrefill = {
     propertyAddress?: string;
     propertyType?: string;
     loanProduct?: string;
+    loanProductCode?: string;
     brokerName?: string;
   };
   brokerBranding?: {

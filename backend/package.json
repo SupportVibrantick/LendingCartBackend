@@ -24,7 +24,8 @@
     "db:seed": "node prisma/seed.js",
     "test": "node tests/run-ghl-tests.js",
     "test:ghl": "node tests/run-ghl-tests.js",
-    "test:public-link": "node tests/run-public-application-link-tests.js"
+    "test:public-link": "node tests/run-public-application-link-tests.js",
+    "test:borrower-identity": "node --test tests/borrowerClientPortalIdentity.test.js"
   },
   "prisma": {
     "seed": "node prisma/seed.js"

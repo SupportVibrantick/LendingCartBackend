@@ -221,7 +221,8 @@ export async function fetchBrokerCustomDocuments(
 export async function createBrokerCustomDocument(payload: {
   name: string;
   description?: string;
-  loanProductIds: string[];
+  loanProductIds?: string[];
+  loanProductCode?: string;
 }) {
   const res = await fetch(`${API_BASE}/broker/document-types`, {
     method: "POST",
