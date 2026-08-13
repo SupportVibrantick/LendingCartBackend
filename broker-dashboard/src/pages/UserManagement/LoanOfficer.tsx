@@ -1260,7 +1260,7 @@ export default function LoanOfficersPage() {
               </button>
             </div>
 
-            <div className="border-t border-gray-100 py-0.5 dark:border-gray-800">
+            {/* <div className="border-t border-gray-100 py-0.5 dark:border-gray-800">
               <button
                 type="button"
                 onClick={() => handleDelete(activeMenuUser.id)}
@@ -1269,7 +1269,7 @@ export default function LoanOfficersPage() {
                 <Trash2 className="h-3.5 w-3.5" />
                 Delete
               </button>
-            </div>
+            </div> */}
           </div>,
           document.body,
         )}
