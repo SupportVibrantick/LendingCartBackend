@@ -8,7 +8,7 @@ async function brokerLoginRoutes(fastify) {
     {
       schema: {
         tags: ["Broker -> Auth"],
-        summary: "Broker login (Admin, Officer, Sub Broker)",
+        summary: "Broker admin login",
         body: {
           type: "object",
           required: ["email", "password"],
@@ -76,20 +76,11 @@ async function brokerLoginRoutes(fastify) {
         // ✅ roles extraction
         const roles = user.roles.map((r) => r.role.name);
 
-        const allowedRoles = [
-          "BROKER_ADMIN",
-          "BROKER_OFFICER",
-          "SUB_BROKER",
-        ];
-
-        const hasAccess = roles.some((role) =>
-          allowedRoles.includes(role)
-        );
-
-        if (!hasAccess) {
+        // Only BROKER_ADMIN can login via this endpoint
+        if (!roles.includes("BROKER_ADMIN")) {
           return reply.code(403).send({
             success: false,
-            message: "Access denied",
+            message: "Access denied. Only broker admin can sign in.",
           });
         }
 
