@@ -196,6 +196,14 @@ export interface FormDataType {
     equipmentValue: string;
   };
   financials: ResidentialFinancials;
+  workingWithMortgageBroker?: "" | "yes" | "no";
+  referringBroker?: {
+    email: string;
+    firstName: string;
+    lastName: string;
+    companyName: string;
+    phone: string;
+  };
 }
 
 export type LoanCategory =
@@ -930,6 +938,14 @@ const LoanApplication = ({
         ...createSbaEntityDefaults(),
       },
       financials: createResidentialFinancialsDefaults(),
+      workingWithMortgageBroker: "",
+      referringBroker: {
+        email: "",
+        firstName: "",
+        lastName: "",
+        companyName: "",
+        phone: "",
+      },
     },
   );
 

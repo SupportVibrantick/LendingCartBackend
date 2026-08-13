@@ -6,6 +6,7 @@ import { API_BASE, PRODUCT_LABELS } from "./constants";
 import { toNumber, calculateMonthlyPayment } from "./formatters";
 import { appendResidentialBorrowerSubmission } from "../../lib/residentialBorrower";
 import { appendResidentialFinancialsSubmission } from "../../lib/residentialFinancials";
+import { appendReferringBrokerSubmission } from "../../lib/referringBroker";
 import { uploadPendingApplicationDocuments } from "../../lib/uploadApplicationDocuments";
 import type {
   PendingApplicationDocument,
@@ -213,6 +214,20 @@ export function buildSubmissionPayload(ctx: SubmissionContext): BuildPayloadResu
       ...(resolvedFieldId ? { fieldId: resolvedFieldId } : {}),
     });
   };
+
+  /* ================= REFERRING BROKER (public Broker/LO provenance) ================= */
+  if (formData.workingWithMortgageBroker) {
+    appendReferringBrokerSubmission(addField, {
+      workingWithMortgageBroker: formData.workingWithMortgageBroker,
+      referringBroker: formData.referringBroker || {
+        email: "",
+        firstName: "",
+        lastName: "",
+        companyName: "",
+        phone: "",
+      },
+    });
+  }
 
   /* ================= BORROWER ================= */
   if (usesBase44Financials) {

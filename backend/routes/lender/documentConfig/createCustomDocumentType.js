@@ -102,6 +102,7 @@ async function createCustomDocumentTypeRoutes(fastify) {
         }
 
         let requirement = null;
+        let lenderRequirement = null;
         if (loanProduct) {
           requirement = await prisma.productDocumentRequirement.findFirst({
             where: {
@@ -123,6 +124,42 @@ async function createCustomDocumentTypeRoutes(fastify) {
               },
             });
           }
+
+          // Keep custom docs private to this lender via lender product config.
+          const lenderProduct = await prisma.lenderProduct.findFirst({
+            where: {
+              lenderOrgId,
+              isActive: true,
+              OR: [
+                { loanProductId: loanProduct.id },
+                { loanProductCode: loanProduct.code },
+              ],
+            },
+            select: { id: true },
+          });
+
+          if (lenderProduct) {
+            lenderRequirement =
+              await prisma.lenderDocumentRequirement.findUnique({
+                where: {
+                  lenderProductId_documentTypeId: {
+                    lenderProductId: lenderProduct.id,
+                    documentTypeId: documentType.id,
+                  },
+                },
+              });
+
+            if (!lenderRequirement) {
+              lenderRequirement =
+                await prisma.lenderDocumentRequirement.create({
+                  data: {
+                    lenderProductId: lenderProduct.id,
+                    documentTypeId: documentType.id,
+                    isRequired: true,
+                  },
+                });
+            }
+          }
         }
 
         return reply.code(createdNew ? 201 : 200).send({
@@ -135,6 +172,7 @@ async function createCustomDocumentTypeRoutes(fastify) {
             loanProductId: loanProduct?.id || null,
             loanProductCode: loanProduct?.code || null,
             requirementId: requirement?.id || null,
+            lenderRequirementId: lenderRequirement?.id || null,
           },
         });
       } catch (error) {

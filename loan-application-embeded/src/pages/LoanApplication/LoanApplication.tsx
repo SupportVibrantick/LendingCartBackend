@@ -61,6 +61,16 @@ import {
   type RealEstateOwnedEntry,
   type ResidentialBorrowerFields,
 } from "../../lib/residentialBorrower";
+import {
+  appendReferringBrokerSubmission,
+  createEmptyReferringBroker,
+  createEmptyReferringBrokerFormState,
+  loadReferringBrokerDraft,
+  saveReferringBrokerDraft,
+  validateReferringBrokerStep,
+  type ReferringBrokerFormState,
+  type WorkingWithMortgageBrokerAnswer,
+} from "../../lib/referringBroker";
 
 export interface Borrower extends ResidentialBorrowerFields {
   name: string;
@@ -157,6 +167,14 @@ export interface FormDataType {
     equipmentValue: string;
   };
   financials: ResidentialFinancials;
+  workingWithMortgageBroker: "" | "yes" | "no";
+  referringBroker: {
+    email: string;
+    firstName: string;
+    lastName: string;
+    companyName: string;
+    phone: string;
+  };
 }
 
 export type LoanCategory =
@@ -1084,7 +1102,14 @@ export type LoanApplicationProps = {
   onPublicSubmitSuccess?: (submissionId?: string) => void;
   onPublicSubmitError?: (message: string) => void;
   brokerOrgId?: string | null;
+  /** Opaque public link token from ?ref= */
+  publicLinkRef?: string | null;
+  /** Server-resolved portal provenance */
+  publicSourcePortal?: "BROKER" | "LOAN_OFFICER" | "CO_BROKER" | "LEGACY" | null;
+  showCoBrokerBorrowerInformationTab?: boolean;
 };
+
+const CO_BROKER_BORROWER_INFO_STEP = "Broker / Co-Broker Information";
 
 const LoanApplication = ({
   mode = "create",
@@ -1099,6 +1124,9 @@ const LoanApplication = ({
   onPublicSubmitSuccess,
   onPublicSubmitError,
   brokerOrgId = null,
+  publicLinkRef = null,
+  publicSourcePortal = null,
+  showCoBrokerBorrowerInformationTab = false,
 }: LoanApplicationProps = {}) => {
   const coBorrowerRefs = useRef<Record<number, HTMLDivElement | null>>({});
   const [lastAddedId, setLastAddedId] = useState<number | null>(null);
@@ -1170,6 +1198,11 @@ const LoanApplication = ({
 
   const usesBase44Financials = useStandardSevenStepFlow;
 
+  const includeCoBrokerBorrowerInformationTab =
+    Boolean(publicEmbed) &&
+    Boolean(showCoBrokerBorrowerInformationTab) &&
+    (publicSourcePortal === "BROKER" || publicSourcePortal === "LOAN_OFFICER");
+
   const baseSteps = useStandardSevenStepFlow
     ? [
         "Loan Request",
@@ -1177,6 +1210,9 @@ const LoanApplication = ({
         selectedCategory === "SBA_USDA" || selectedCategory === "ABL"
           ? "Collateral Info"
           : "Property Info",
+        ...(includeCoBrokerBorrowerInformationTab
+          ? [CO_BROKER_BORROWER_INFO_STEP]
+          : []),
         "Borrower Info",
         "Financials",
         "Documents",
@@ -1188,6 +1224,9 @@ const LoanApplication = ({
         selectedCategory === "SBA_USDA" || selectedCategory === "ABL"
           ? "Collateral Info"
           : "Property Info",
+        ...(includeCoBrokerBorrowerInformationTab
+          ? [CO_BROKER_BORROWER_INFO_STEP]
+          : []),
         "Borrower Info",
         "Loan Term & Income",
       ];
@@ -1262,6 +1301,15 @@ const LoanApplication = ({
 
   const allSteps = baseSteps;
 
+  const coBrokerBorrowerInfoStepIndex = includeCoBrokerBorrowerInformationTab
+    ? allSteps.indexOf(CO_BROKER_BORROWER_INFO_STEP)
+    : -1;
+  const borrowerInfoStepIndex = allSteps.indexOf("Borrower Info");
+  const financialsOrTermStepIndex = includeCoBrokerBorrowerInformationTab
+    ? 5
+    : 4;
+  const documentsStepIndex = includeCoBrokerBorrowerInformationTab ? 6 : 5;
+
   const [currentStep, setCurrentStep] = useState(0);
   const createEmptyBorrower = (): Borrower => ({
     ...createResidentialBorrowerDefaults(),
@@ -1279,8 +1327,41 @@ const LoanApplication = ({
     mailingAddress: "",
   });
 
-  const [formData, setFormData] = useState<FormDataType>(
-    initialFormData || {
+  const [formData, setFormData] = useState<FormDataType>(() => {
+    const draft =
+      publicEmbed && (publicLinkRef || brokerOrgId)
+        ? loadReferringBrokerDraft(publicLinkRef || brokerOrgId)
+        : null;
+    const fromInitial: ReferringBrokerFormState | null =
+      initialFormData &&
+      (initialFormData.workingWithMortgageBroker ||
+        initialFormData.referringBroker)
+        ? {
+            workingWithMortgageBroker: (initialFormData.workingWithMortgageBroker ===
+              "yes" ||
+            initialFormData.workingWithMortgageBroker === "no"
+              ? initialFormData.workingWithMortgageBroker
+              : "") as WorkingWithMortgageBrokerAnswer,
+            referringBroker: {
+              ...createEmptyReferringBroker(),
+              ...(initialFormData.referringBroker || {}),
+            },
+          }
+        : null;
+    const referring: ReferringBrokerFormState =
+      fromInitial || draft || createEmptyReferringBrokerFormState();
+
+    if (initialFormData) {
+      return {
+        ...initialFormData,
+        workingWithMortgageBroker: referring.workingWithMortgageBroker,
+        referringBroker: referring.referringBroker,
+        financials:
+          initialFormData.financials || createResidentialFinancialsDefaults(),
+      };
+    }
+
+    return {
       borrower: createEmptyBorrower(),
       coBorrowers: [],
       loanRequest: {
@@ -1343,8 +1424,26 @@ const LoanApplication = ({
         ...createSbaEntityDefaults(),
       },
       financials: createResidentialFinancialsDefaults(),
-    },
-  );
+      workingWithMortgageBroker: referring.workingWithMortgageBroker,
+      referringBroker: referring.referringBroker,
+    };
+  });
+
+  useEffect(() => {
+    if (!publicEmbed) return;
+    const key = publicLinkRef || brokerOrgId;
+    if (!key) return;
+    saveReferringBrokerDraft(key, {
+      workingWithMortgageBroker: formData.workingWithMortgageBroker || "",
+      referringBroker: formData.referringBroker || createEmptyReferringBroker(),
+    });
+  }, [
+    publicEmbed,
+    publicLinkRef,
+    brokerOrgId,
+    formData.workingWithMortgageBroker,
+    formData.referringBroker,
+  ]);
 
   const [loanProducts, setLoanProducts] = useState<string[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(false);
@@ -1833,7 +1932,15 @@ const LoanApplication = ({
       }
     }
 
-    if (stepIndex === 3) {
+    if (baseSteps[stepIndex] === CO_BROKER_BORROWER_INFO_STEP) {
+      return validateReferringBrokerStep({
+        workingWithMortgageBroker: formData.workingWithMortgageBroker || "",
+        referringBroker:
+          formData.referringBroker || createEmptyReferringBroker(),
+      });
+    }
+
+    if (baseSteps[stepIndex] === "Borrower Info") {
       if (useResidentialBorrowerPanel) {
         if (!formData.borrower.firstName?.trim()) {
           newErrors["borrower.firstName"] = "First name is required";
@@ -1921,7 +2028,7 @@ const LoanApplication = ({
       }
     }
 
-    if (stepIndex === 4 && !usesBase44Financials) {
+    if (baseSteps[stepIndex] === "Loan Term & Income") {
       checkObject(formData.loanTermIncome, "loanTermIncome");
 
       const loanTerm = Number(formData.loanTermIncome.loanTerm);
@@ -1969,6 +2076,12 @@ const LoanApplication = ({
     });
 
     return newErrors;
+  };
+
+  const validateCurrentStep = () => {
+    const newErrors = collectStepValidationErrors(currentStep);
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
   const validateAllStepsBeforeSubmit = () => {
@@ -2109,24 +2222,24 @@ const LoanApplication = ({
     }
     }
 
-    add("Borrower First Name", 3, !formData.borrower.firstName?.trim());
-    add("Borrower Last Name", 3, !formData.borrower.lastName?.trim());
+    add("Borrower First Name", borrowerInfoStepIndex, !formData.borrower.firstName?.trim());
+    add("Borrower Last Name", borrowerInfoStepIndex, !formData.borrower.lastName?.trim());
 
     if (!showDefaultBorrowerInfoFields) {
-    add("Borrower Email", 3, !formData.borrower.email?.trim());
-    add("Borrower Phone", 3, !formData.borrower.phone?.trim());
-    add("Borrower Credit Score", 3, !formData.borrower.creditScore?.trim());
+    add("Borrower Email", borrowerInfoStepIndex, !formData.borrower.email?.trim());
+    add("Borrower Phone", borrowerInfoStepIndex, !formData.borrower.phone?.trim());
+    add("Borrower Credit Score", borrowerInfoStepIndex, !formData.borrower.creditScore?.trim());
     }
 
     formData.coBorrowers.forEach((borrower, index) => {
       add(
         `Co-Borrower ${index + 1} First Name`,
-        3,
+        borrowerInfoStepIndex,
         !borrower.firstName?.trim(),
       );
       add(
         `Co-Borrower ${index + 1} Last Name`,
-        3,
+        borrowerInfoStepIndex,
         !borrower.lastName?.trim(),
       );
     });
@@ -2137,7 +2250,7 @@ const LoanApplication = ({
         formData.borrower.email,
         false,
       );
-      if (emailError) add("Borrower Email", 3, true);
+      if (emailError) add("Borrower Email", borrowerInfoStepIndex, true);
     }
 
     if (formData.borrower.phone?.trim()) {
@@ -2146,7 +2259,7 @@ const LoanApplication = ({
         formData.borrower.phone,
         false,
       );
-      if (phoneError) add("Borrower Phone", 3, true);
+      if (phoneError) add("Borrower Phone", borrowerInfoStepIndex, true);
     }
 
     if (formData.borrower.creditScore?.trim()) {
@@ -2155,7 +2268,58 @@ const LoanApplication = ({
         formData.borrower.creditScore,
         false,
       );
-      if (creditError) add("Borrower Credit Score", 3, true);
+      if (creditError) add("Borrower Credit Score", borrowerInfoStepIndex, true);
+    }
+
+    if (includeCoBrokerBorrowerInformationTab) {
+      const referringErrors = validateReferringBrokerStep({
+        workingWithMortgageBroker: formData.workingWithMortgageBroker || "",
+        referringBroker:
+          formData.referringBroker || createEmptyReferringBroker(),
+      });
+
+      if (referringErrors.workingWithMortgageBroker) {
+        add(
+          "Mortgage Broker Question",
+          coBrokerBorrowerInfoStepIndex,
+          true,
+        );
+      }
+      if (referringErrors["referringBroker.email"]) {
+        add(
+          "Referring Broker Email",
+          coBrokerBorrowerInfoStepIndex,
+          true,
+        );
+      }
+      if (referringErrors["referringBroker.firstName"]) {
+        add(
+          "Referring Broker First Name",
+          coBrokerBorrowerInfoStepIndex,
+          true,
+        );
+      }
+      if (referringErrors["referringBroker.lastName"]) {
+        add(
+          "Referring Broker Last Name",
+          coBrokerBorrowerInfoStepIndex,
+          true,
+        );
+      }
+      if (referringErrors["referringBroker.companyName"]) {
+        add(
+          "Referring Broker Company",
+          coBrokerBorrowerInfoStepIndex,
+          true,
+        );
+      }
+      if (referringErrors["referringBroker.phone"]) {
+        add(
+          "Referring Broker Phone",
+          coBrokerBorrowerInfoStepIndex,
+          true,
+        );
+      }
     }
 
     if (
@@ -2255,6 +2419,15 @@ const LoanApplication = ({
           ...(resolvedFieldId ? { fieldId: resolvedFieldId } : {}),
         });
       };
+
+      /* ================= REFERRING BROKER (public Broker/LO only) ================= */
+      if (includeCoBrokerBorrowerInformationTab) {
+        appendReferringBrokerSubmission(addField, {
+          workingWithMortgageBroker: formData.workingWithMortgageBroker || "",
+          referringBroker:
+            formData.referringBroker || createEmptyReferringBroker(),
+        });
+      }
 
       /* ================= BORROWER ================= */
 
@@ -2498,7 +2671,11 @@ const LoanApplication = ({
 
       const payload = {
         loanProductCode: selectedProduct,
-        ...(publicEmbed && brokerOrgId ? { brokerOrgId } : {}),
+        ...(publicEmbed && publicLinkRef
+          ? { ref: publicLinkRef }
+          : publicEmbed && brokerOrgId
+            ? { brokerOrgId }
+            : {}),
         fields: Array.from(fieldsMap.entries()).map(
           ([fieldKey, { value, fieldId }]) => ({
             fieldKey,
@@ -2668,7 +2845,7 @@ const LoanApplication = ({
 
     const fetchLoanProducts = async () => {
       // Public share link needs broker org for submit; still load catalog product codes.
-      if (publicEmbed && !brokerOrgId) {
+      if (publicEmbed && !brokerOrgId && !publicLinkRef) {
         return;
       }
 
@@ -2711,7 +2888,7 @@ const LoanApplication = ({
     };
 
     fetchLoanProducts();
-  }, [publicEmbed, brokerOrgId]);
+  }, [publicEmbed, brokerOrgId, publicLinkRef]);
 
   useEffect(() => {
     if (!lastAddedId) return;
@@ -3397,20 +3574,29 @@ const LoanApplication = ({
   );
 
   const reviewSections = useMemo(
-    () =>
-      useStandardSevenStepFlow
-        ? buildResidentialReviewSections({
-            loanRequest: formData.loanRequest,
-            entity: formData.entity,
-            borrower: formData.borrower,
-            financials: formData.financials,
-            pendingDocuments,
-            productLabel: selectedProductLabel,
-            selectedProduct,
-          })
-        : [],
+    () => {
+      if (!useStandardSevenStepFlow) return [];
+      const sections = buildResidentialReviewSections({
+        loanRequest: formData.loanRequest,
+        entity: formData.entity,
+        borrower: formData.borrower,
+        financials: formData.financials,
+        pendingDocuments,
+        productLabel: selectedProductLabel,
+        selectedProduct,
+      });
+
+      if (!includeCoBrokerBorrowerInformationTab) return sections;
+
+      return sections.map((section) =>
+        section.stepIndex >= 3
+          ? { ...section, stepIndex: section.stepIndex + 1 }
+          : section,
+      );
+    },
     [
       useStandardSevenStepFlow,
+      includeCoBrokerBorrowerInformationTab,
       formData.loanRequest,
       formData.entity,
       formData.borrower,
@@ -5601,8 +5787,8 @@ focus:border-blue-500 outline-none text-sm ${
             </div>
           )}
 
-          {/* step-3 — Borrower Info */}
-          {currentStep === 3 && (
+          {/* step — Borrower Info */}
+          {currentStep === borrowerInfoStepIndex && (
             <>
               {useResidentialBorrowerPanel ? (
                 <div className="mt-6 relative z-10 rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-700 dark:bg-slate-800">
@@ -6608,8 +6794,154 @@ focus:border-blue-500 outline-none text-sm ${
             </>
           )}
 
-          {/* step-4 — Financials / Loan Term */}
-          {currentStep === 4 && (
+          {/* Optional Co-Broker / Borrower Information (before Borrower Info) */}
+          {coBrokerBorrowerInfoStepIndex >= 0 &&
+            currentStep === coBrokerBorrowerInfoStepIndex && (
+              <div className="mt-6 relative z-10 rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-700 dark:bg-slate-800">
+                <h3 className="mb-1 inline-block border-b-2 border-[#2C92D5] pb-2 text-lg font-semibold dark:text-white">
+                  {CO_BROKER_BORROWER_INFO_STEP}
+                </h3>
+
+                <div className="mt-5">
+                  <p className="text-sm font-medium text-slate-800 dark:text-slate-100">
+                    Are you a Mortgage Broker OR working WITH ONE?{" "}
+                    <span className="text-red-500">*</span>
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-3">
+                    {(["yes", "no"] as const).map((value) => {
+                      const selected =
+                        formData.workingWithMortgageBroker === value;
+                      return (
+                        <button
+                          key={value}
+                          type="button"
+                          onClick={() => {
+                            setFormData((prev) => ({
+                              ...prev,
+                              workingWithMortgageBroker: value,
+                              referringBroker:
+                                value === "no"
+                                  ? createEmptyReferringBroker()
+                                  : prev.referringBroker ||
+                                    createEmptyReferringBroker(),
+                            }));
+                            setErrors((prev) => {
+                              const next = { ...prev };
+                              delete next.workingWithMortgageBroker;
+                              if (value === "no") {
+                                delete next["referringBroker.email"];
+                                delete next["referringBroker.firstName"];
+                                delete next["referringBroker.lastName"];
+                                delete next["referringBroker.companyName"];
+                                delete next["referringBroker.phone"];
+                              }
+                              return next;
+                            });
+                          }}
+                          className={`rounded-xl px-4 py-2.5 text-sm font-semibold transition ${
+                            selected
+                              ? "bg-[#2C92D5] text-white"
+                              : "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-900 dark:text-slate-200"
+                          }`}
+                        >
+                          {value === "yes" ? "Yes" : "No"}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {errors.workingWithMortgageBroker ? (
+                    <p className="mt-2 text-xs text-red-500">
+                      {errors.workingWithMortgageBroker}
+                    </p>
+                  ) : null}
+                </div>
+
+                {formData.workingWithMortgageBroker === "yes" ? (
+                  <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                    <p className="sm:col-span-2 text-xs text-slate-500">
+                      Provide the mortgage broker or co-broker details for this
+                      application.
+                    </p>
+
+                    {(
+                      [
+                        {
+                          key: "email" as const,
+                          label: "Email Address",
+                          type: "email",
+                        },
+                        {
+                          key: "firstName" as const,
+                          label: "First Name",
+                          type: "text",
+                        },
+                        {
+                          key: "lastName" as const,
+                          label: "Last Name",
+                          type: "text",
+                        },
+                        {
+                          key: "companyName" as const,
+                          label: "Company Name",
+                          type: "text",
+                        },
+                        {
+                          key: "phone" as const,
+                          label: "Phone Number",
+                          type: "tel",
+                        },
+                      ] as const
+                    ).map((field) => (
+                      <div
+                        key={field.key}
+                        className={field.key === "email" ? "sm:col-span-2" : ""}
+                      >
+                        <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                          {field.label} <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type={field.type}
+                          required
+                          value={formData.referringBroker?.[field.key] || ""}
+                          onChange={(e) => {
+                            const value =
+                              field.key === "phone"
+                                ? formatUSPhone(e.target.value)
+                                : e.target.value;
+                            setFormData((prev) => ({
+                              ...prev,
+                              referringBroker: {
+                                ...(prev.referringBroker ||
+                                  createEmptyReferringBroker()),
+                                [field.key]: value,
+                              },
+                            }));
+                            setErrors((prev) => {
+                              const next = { ...prev };
+                              delete next[`referringBroker.${field.key}`];
+                              return next;
+                            });
+                          }}
+                          className={`w-full rounded-xl border px-3 py-2.5 text-sm outline-none focus:border-[#2C92D5] dark:bg-slate-900 ${
+                            errors[`referringBroker.${field.key}`]
+                              ? "border-red-400"
+                              : "border-slate-200 dark:border-slate-700"
+                          }`}
+                        />
+                        {errors[`referringBroker.${field.key}`] ? (
+                          <p className="mt-1 text-xs text-red-500">
+                            {errors[`referringBroker.${field.key}`]}
+                          </p>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            )}
+
+          {/* Financials / Loan Term */}
+          {currentStep === financialsOrTermStepIndex && (
             useStandardSevenStepFlow ? (
               <div className="mt-6 relative z-10 rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-700 dark:bg-slate-800">
                 <h3 className="mb-1 inline-block border-b-2 border-[#2C92D5] pb-2 text-lg font-semibold dark:text-white">
@@ -6980,8 +7312,8 @@ focus:border-blue-500 outline-none text-sm ${
             )
           )}
 
-          {/* step-5 — Documents */}
-          {currentStep === 5 && useStandardSevenStepFlow && (
+          {/* Documents */}
+          {currentStep === documentsStepIndex && useStandardSevenStepFlow && (
             <div className="mt-6 relative z-10 rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-700 dark:bg-slate-800">
               <h3 className="mb-1 inline-block border-b-2 border-[#2C92D5] pb-2 text-lg font-semibold dark:text-white">
                 Step 6: Documents
@@ -7046,6 +7378,13 @@ focus:border-blue-500 outline-none text-sm ${
                     return;
                   }
                   handleSubmitApplication();
+                  return;
+                }
+
+                if (!validateCurrentStep()) {
+                  toast.error(
+                    "Please complete all required fields before continuing",
+                  );
                   return;
                 }
 

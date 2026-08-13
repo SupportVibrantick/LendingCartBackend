@@ -65,12 +65,15 @@ export default function LoiRequiredDocumentsPicker({
     };
   }, [getAuthHeaders, loanProductCode, includeProductConfig]);
 
-  const visibleOptions = useMemo(() => {
-    const merged = mergeLoiDocumentNames(catalogNames, selectedDocuments);
-    const query = search.trim().toLowerCase();
-    if (!query) return merged;
-    return merged.filter((name) => name.toLowerCase().includes(query));
-  }, [catalogNames, selectedDocuments, search]);
+  const searchQuery = search.trim().toLowerCase();
+
+  const searchResults = useMemo(() => {
+    if (!searchQuery) return [];
+    const catalog = mergeLoiDocumentNames(catalogNames);
+    return catalog.filter((name) =>
+      name.toLowerCase().includes(searchQuery),
+    );
+  }, [catalogNames, searchQuery]);
 
   const toggleDocument = (documentName: string) => {
     if (disabled) return;
@@ -108,8 +111,8 @@ export default function LoiRequiredDocumentsPicker({
             Required Documents
           </div>
           <p className="mt-1 text-xs text-slate-500">
-            Choose from platform and your brokerage&apos;s custom documents.
-            Custom documents you add here stay private to your brokerage.
+            Search to find platform and brokerage custom documents. Custom
+            documents you add here stay private to your brokerage.
           </p>
         </div>
         {loading ? (
@@ -134,33 +137,66 @@ export default function LoiRequiredDocumentsPicker({
         />
       </div>
 
-      {visibleOptions.length > 0 ? (
-        <div className="flex flex-wrap gap-2">
-          {visibleOptions.map((documentName) => {
-            const active = selectedDocuments.includes(documentName);
-            return (
+      {selectedDocuments.length > 0 ? (
+        <div className="mb-3">
+          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+            Selected ({selectedDocuments.length})
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {selectedDocuments.map((documentName) => (
               <button
-                key={documentName}
+                key={`selected-${documentName}`}
                 type="button"
                 disabled={disabled}
                 onClick={() => toggleDocument(documentName)}
-                className={`rounded-full px-3 py-1.5 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${
-                  active ? activeChipClassName : inactiveChipClassName
-                }`}
+                className={`rounded-full px-3 py-1.5 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${activeChipClassName}`}
+                title="Click to remove"
               >
-                {active ? "✓ " : ""}
-                {documentName}
+                ✓ {documentName}
               </button>
-            );
-          })}
+            ))}
+          </div>
         </div>
+      ) : null}
+
+      {searchQuery ? (
+        searchResults.length > 0 ? (
+          <div>
+            <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+              Search results ({searchResults.length})
+            </p>
+            <div className="flex max-h-48 flex-wrap gap-2 overflow-y-auto">
+              {searchResults.map((documentName) => {
+                const active = selectedDocuments.includes(documentName);
+                return (
+                  <button
+                    key={documentName}
+                    type="button"
+                    disabled={disabled}
+                    onClick={() => toggleDocument(documentName)}
+                    className={`rounded-full px-3 py-1.5 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                      active ? activeChipClassName : inactiveChipClassName
+                    }`}
+                  >
+                    {active ? "✓ " : ""}
+                    {documentName}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ) : (
+          <p className="rounded-xl border border-dashed border-slate-200 px-3 py-4 text-xs text-slate-500 dark:border-slate-700">
+            {loading
+              ? "Loading document catalog..."
+              : `No documents match "${search.trim()}".`}
+          </p>
+        )
       ) : (
         <p className="rounded-xl border border-dashed border-slate-200 px-3 py-4 text-xs text-slate-500 dark:border-slate-700">
           {loading
             ? "Loading document catalog..."
-            : search.trim()
-              ? `No documents match "${search.trim()}".`
-              : "No catalog documents found. Add a custom document below."}
+            : "Type in search to find and select documents."}
         </p>
       )}
 

@@ -53,6 +53,36 @@ function toNumber(value: unknown): number | null {
   return numeric;
 }
 
+/** Format a numeric input with thousand separators for UI display. */
+export function formatLoiNumberInput(rawValue?: string | null) {
+  const cleaned = String(rawValue ?? "").replace(/[^\d.]/g, "");
+  if (!cleaned) return "";
+
+  const parts = cleaned.split(".");
+  const intPart = parts[0] || "";
+  const hasDecimal = parts.length > 1;
+  const decPart = hasDecimal
+    ? parts.slice(1).join("").replace(/\D/g, "").slice(0, 4)
+    : "";
+
+  const formattedInt = intPart
+    ? Number(intPart).toLocaleString("en-US")
+    : hasDecimal
+      ? "0"
+      : "";
+
+  if (hasDecimal) {
+    return `${formattedInt}.${decPart}`;
+  }
+
+  return formattedInt;
+}
+
+/** Strip formatting so values can be parsed / sent to the API. */
+export function parseLoiNumberInput(rawValue?: string | null) {
+  return String(rawValue ?? "").replace(/[$,\s%]/g, "").trim();
+}
+
 function parseTermMonths(label?: string) {
   if (!label) return 0;
   const months = String(label).match(/(\d+)\s*Months?/i);
@@ -105,23 +135,23 @@ export function mapStoredLoiTermsToForm(
       : [];
 
   return {
-    approvedAmount: stringifyFormField(approvedAmount),
-    interestRate: parseStoredInterestRate(record),
+    approvedAmount: formatLoiNumberInput(stringifyFormField(approvedAmount)),
+    interestRate: formatLoiNumberInput(parseStoredInterestRate(record)),
     ltvPercent:
       record.ltvPercent != null && record.ltvPercent !== ""
-        ? stringifyFormField(record.ltvPercent)
+        ? formatLoiNumberInput(stringifyFormField(record.ltvPercent))
         : "",
     ltcPercent:
       record.ltcPercent != null && record.ltcPercent !== ""
-        ? stringifyFormField(record.ltcPercent)
+        ? formatLoiNumberInput(stringifyFormField(record.ltcPercent))
         : "",
     arvPercent:
       record.arvPercent != null && record.arvPercent !== ""
-        ? stringifyFormField(record.arvPercent)
+        ? formatLoiNumberInput(stringifyFormField(record.arvPercent))
         : "",
     monthlyPayment:
       record.monthlyPayment != null && record.monthlyPayment !== ""
-        ? stringifyFormField(record.monthlyPayment)
+        ? formatLoiNumberInput(stringifyFormField(record.monthlyPayment))
         : "",
     interestOnly: Boolean(record.interestOnly),
     loanTerm: record.loanTerm ? String(record.loanTerm) : "12 Months",
@@ -221,10 +251,12 @@ export function createEmptyLoiUnderwritingTerms(
 
   const base: LoiUnderwritingTerms = {
     approvedAmount:
-      requested != null && requested > 0 ? String(requested) : "",
+      requested != null && requested > 0
+        ? formatLoiNumberInput(String(requested))
+        : "",
     interestRate:
       seed?.interestRate != null && Number(seed.interestRate) > 0
-        ? String(seed.interestRate)
+        ? formatLoiNumberInput(String(seed.interestRate))
         : "",
     ltvPercent: "",
     ltcPercent: "",
@@ -232,9 +264,7 @@ export function createEmptyLoiUnderwritingTerms(
     monthlyPayment: "",
     interestOnly: true,
     loanTerm,
-    requiredDocuments:
-      seed?.requiredDocuments?.filter(Boolean) ||
-      LOI_DEFAULT_DOCUMENTS.slice(0, 3),
+    requiredDocuments: seed?.requiredDocuments?.filter(Boolean) || [],
     customDocument: "",
   };
 
@@ -250,11 +280,18 @@ export function createEmptyLoiUnderwritingTerms(
 
   return {
     ...base,
-    ltvPercent: suggested.ltv != null ? String(suggested.ltv) : "",
-    ltcPercent: suggested.ltc != null ? String(suggested.ltc) : "",
-    arvPercent: suggested.arvPercent != null ? String(suggested.arvPercent) : "",
+    ltvPercent:
+      suggested.ltv != null ? formatLoiNumberInput(String(suggested.ltv)) : "",
+    ltcPercent:
+      suggested.ltc != null ? formatLoiNumberInput(String(suggested.ltc)) : "",
+    arvPercent:
+      suggested.arvPercent != null
+        ? formatLoiNumberInput(String(suggested.arvPercent))
+        : "",
     monthlyPayment:
-      suggested.monthlyPayment != null ? String(suggested.monthlyPayment) : "",
+      suggested.monthlyPayment != null
+        ? formatLoiNumberInput(String(suggested.monthlyPayment))
+        : "",
   };
 }
 
@@ -262,14 +299,14 @@ export function validateLoiUnderwritingTerms(terms: LoiUnderwritingTerms) {
   const errors: Partial<Record<keyof LoiUnderwritingTerms, string>> = {};
 
   const approvedAmount = toNumber(terms.approvedAmount);
-  if (!terms.approvedAmount.trim()) {
+  if (!String(terms.approvedAmount || "").trim()) {
     errors.approvedAmount = "Loan amount is required";
   } else if (approvedAmount == null || approvedAmount <= 0) {
     errors.approvedAmount = "Enter a valid loan amount";
   }
 
   const rate = toNumber(terms.interestRate);
-  if (!terms.interestRate.trim()) {
+  if (!String(terms.interestRate || "").trim()) {
     errors.interestRate = "Interest rate is required";
   } else if (rate == null || rate <= 0 || rate > 100) {
     errors.interestRate = "Enter a valid rate between 0 and 100";
@@ -280,23 +317,30 @@ export function validateLoiUnderwritingTerms(terms: LoiUnderwritingTerms) {
   }
 
   const ltv = toNumber(terms.ltvPercent);
-  if (terms.ltvPercent.trim() && (ltv == null || ltv <= 0 || ltv > 100)) {
-    errors.ltvPercent = "Enter a valid LTV";
+  if (!String(terms.ltvPercent || "").trim()) {
+    errors.ltvPercent = "LTV % is required";
+  } else if (ltv == null || ltv < 0 || ltv > 100) {
+    errors.ltvPercent = "Enter a valid LTV between 0 and 100";
   }
 
   const ltc = toNumber(terms.ltcPercent);
-  if (terms.ltcPercent.trim() && (ltc == null || ltc <= 0 || ltc > 100)) {
-    errors.ltcPercent = "Enter a valid LTC";
+  if (!String(terms.ltcPercent || "").trim()) {
+    errors.ltcPercent = "LTC % is required";
+  } else if (ltc == null || ltc < 0 || ltc > 100) {
+    errors.ltcPercent = "Enter a valid LTC between 0 and 100";
   }
 
   const arv = toNumber(terms.arvPercent);
-  if (terms.arvPercent.trim() && (arv == null || arv <= 0 || arv > 100)) {
-    errors.arvPercent = "Enter a valid ARV ratio";
+  if (!String(terms.arvPercent || "").trim()) {
+    errors.arvPercent = "ARV % is required";
+  } else if (arv == null || arv < 0 || arv > 100) {
+    errors.arvPercent = "Enter a valid ARV % between 0 and 100";
   }
 
   const payment = toNumber(terms.monthlyPayment);
-  if (!terms.monthlyPayment.trim()) {
-    errors.monthlyPayment = "Monthly payment is required";
+  if (!String(terms.monthlyPayment || "").trim()) {
+    errors.monthlyPayment =
+      "Monthly payment will calculate once amount, rate, and term are set";
   } else if (payment == null || payment <= 0) {
     errors.monthlyPayment = "Enter a valid monthly payment";
   }
