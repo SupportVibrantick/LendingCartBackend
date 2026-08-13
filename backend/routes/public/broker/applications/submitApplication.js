@@ -20,6 +20,12 @@ const {
 const {
   resolveSubmitLoanProduct,
 } = require("../../../../utils/applications/resolveSubmitLoanProduct");
+const {
+  SOURCE_PORTALS,
+  resolvePublicApplicationLinkByToken,
+  touchPublicApplicationLink,
+  buildLoanApplicationProvenanceFromLink,
+} = require("../../../../services/applications/publicApplicationLink");
 
 async function submitApplication(fastify) {
   fastify.post("/submit", async (req, reply) => {
@@ -28,8 +34,9 @@ async function submitApplication(fastify) {
       applicationProductId,
       loanProductCode,
       brokerOrgId: bodyBrokerOrgId,
+      ref: bodyRef,
       fields,
-    } = req.body;
+    } = req.body || {};
 
     if (!Array.isArray(fields)) {
       return reply.code(400).send({
@@ -41,8 +48,81 @@ async function submitApplication(fastify) {
     let resolvedLoanProductCode;
     let resolvedApplicationProductId = null;
     let brokerOrgId;
+    let publicLink = null;
+    let provenance = buildLoanApplicationProvenanceFromLink(null);
 
-    if (loanProductCode && bodyBrokerOrgId) {
+    const refToken = String(bodyRef || "").trim();
+
+    if (refToken) {
+      const resolved = await resolvePublicApplicationLinkByToken(
+        fastify.prisma,
+        refToken,
+      );
+
+      if (!resolved.ok) {
+        return reply.code(resolved.status).send({
+          success: false,
+          code: resolved.code,
+          message: resolved.message,
+        });
+      }
+
+      // Prefer token ownership; never trust body brokerOrgId when ref is present.
+      brokerOrgId = resolved.brokerOrganizationId;
+      publicLink = resolved.link;
+      provenance = buildLoanApplicationProvenanceFromLink(resolved.link);
+
+      if (!loanProductCode && !(brokerApplicationId && applicationProductId)) {
+        return reply.code(400).send({
+          success: false,
+          message:
+            "Provide loanProductCode with ref, or applicationId + applicationProductId",
+        });
+      }
+
+      if (loanProductCode) {
+        const resolvedProduct = await resolveSubmitLoanProduct(fastify.prisma, {
+          loanProductCode,
+        });
+
+        if (resolvedProduct.error) {
+          return reply.code(resolvedProduct.error.status).send({
+            success: false,
+            message: resolvedProduct.error.message,
+          });
+        }
+
+        resolvedLoanProductCode = resolvedProduct.loanProductCode;
+        resolvedApplicationProductId = null;
+      } else {
+        const brokerProduct =
+          await fastify.prisma.brokerApplicationProduct.findFirst({
+            where: {
+              id: applicationProductId,
+              isActive: true,
+              brokerApplication: {
+                id: brokerApplicationId,
+                isActive: true,
+                brokerOrgId,
+              },
+            },
+            select: {
+              id: true,
+              loanProductCode: true,
+            },
+          });
+
+        if (!brokerProduct) {
+          return reply.code(404).send({
+            success: false,
+            message: "Invalid application product",
+          });
+        }
+
+        resolvedLoanProductCode = brokerProduct.loanProductCode;
+        resolvedApplicationProductId = brokerProduct.id;
+      }
+    } else if (loanProductCode && bodyBrokerOrgId) {
       const resolvedProduct = await resolveSubmitLoanProduct(fastify.prisma, {
         loanProductCode,
       });
@@ -72,6 +152,13 @@ async function submitApplication(fastify) {
       resolvedLoanProductCode = resolvedProduct.loanProductCode;
       resolvedApplicationProductId = null;
       brokerOrgId = org.id;
+      provenance = {
+        publicApplicationLinkId: null,
+        publicSourcePortal: SOURCE_PORTALS.LEGACY,
+        publicCreatedByUserId: null,
+        brokerUserId: null,
+        assignCoBrokerId: null,
+      };
     } else if (brokerApplicationId && applicationProductId) {
       // Legacy Application Builder path
       const brokerProduct =
@@ -103,106 +190,141 @@ async function submitApplication(fastify) {
       resolvedLoanProductCode = brokerProduct.loanProductCode;
       resolvedApplicationProductId = brokerProduct.id;
       brokerOrgId = brokerProduct.brokerApplication.brokerOrgId;
+      provenance = {
+        publicApplicationLinkId: null,
+        publicSourcePortal: SOURCE_PORTALS.LEGACY,
+        publicCreatedByUserId: null,
+        brokerUserId: null,
+        assignCoBrokerId: null,
+      };
     } else {
       return reply.code(400).send({
         success: false,
         message:
-          "Provide loanProductCode + brokerOrgId, or applicationId + applicationProductId",
+          "Provide ref + loanProductCode, loanProductCode + brokerOrgId, or applicationId + applicationProductId",
       });
     }
 
-    const result = await fastify.prisma.$transaction(async (tx) => {
-      const borrowerEmail = resolveBorrowerEmail(fields);
-      const { firstName, lastName, displayName } =
-        resolveBorrowerNameParts(fields);
+    let result;
+    try {
+      result = await fastify.prisma.$transaction(async (tx) => {
+        const borrowerEmail = resolveBorrowerEmail(fields);
+        const { firstName, lastName, displayName } =
+          resolveBorrowerNameParts(fields);
 
-      if (!borrowerEmail) {
-        throw new Error("Email is required");
-      }
+        if (!borrowerEmail) {
+          throw new Error("Email is required");
+        }
 
-      const legalName = displayName || "Individual Applicant";
+        const legalName = displayName || "Individual Applicant";
 
-      // 1️⃣ Create Client
-      const client = await tx.client.create({
-        data: {
-          id: crypto.randomUUID(),
-          legalName,
-          entityType: "INDIVIDUAL",
-          primaryBrokerOrgId: brokerOrgId,
-        },
-      });
-
-      // 2️⃣ Create Client Contact
-      await tx.clientContact.create({
-        data: {
-          clientId: client.id,
-          firstName: firstName || "Applicant",
-          lastName: lastName || "",
-          email: borrowerEmail,
-          isPrimary: true,
-        },
-      });
-
-      // 3️⃣ Create Loan Application
-      const loanApplication = await tx.loanApplication.create({
-        data: {
-          id: crypto.randomUUID(),
-          applicationNumber: `APP-${Date.now()}`,
-          brokerOrgId,
-          clientId: client.id,
-          loanProductCode: resolvedLoanProductCode,
-          status: "CLIENT_PENDING",
-        },
-      });
-
-      // 4️⃣ Create Submission
-      const submission = await tx.applicationSubmission.create({
-        data: {
-          applicationId: loanApplication.id,
-          ...(resolvedApplicationProductId
-            ? { applicationProductId: resolvedApplicationProductId }
-            : {}),
-          status: "CLIENT_PENDING",
-        },
-      });
-
-      // 5️⃣ Create Submission Fields
-      const fieldIdByKey = await loadProductFieldIdMap(
-        tx,
-        resolvedApplicationProductId,
-      );
-
-      const normalizedFields = buildSubmissionFieldsPayload(fields, fieldIdByKey);
-
-      const submissionFields = normalizedFields.map((f) => ({
-        submissionId: submission.id,
-        ...f,
-      }));
-
-      if (submissionFields.length > 0) {
-        await tx.applicationSubmissionField.createMany({
-          data: submissionFields,
+        const client = await tx.client.create({
+          data: {
+            id: crypto.randomUUID(),
+            legalName,
+            entityType: "INDIVIDUAL",
+            primaryBrokerOrgId: brokerOrgId,
+          },
         });
-      }
 
-      const portalToken = await createClientPortalToken(tx, {
-        loanApplicationId: loanApplication.id,
-        clientId: client.id,
-      });
+        await tx.clientContact.create({
+          data: {
+            clientId: client.id,
+            firstName: firstName || "Applicant",
+            lastName: lastName || "",
+            email: borrowerEmail,
+            isPrimary: true,
+          },
+        });
 
-      return {
-        submission,
-        loanApplication,
-        client,
-        brokerOrgId,
-        borrowerEmail,
-        portalToken,
-        clientDisplayName: resolveClientDisplayName({
-          client,
+        const loanApplication = await tx.loanApplication.create({
+          data: {
+            id: crypto.randomUUID(),
+            applicationNumber: `APP-${Date.now()}`,
+            brokerOrgId,
+            clientId: client.id,
+            loanProductCode: resolvedLoanProductCode,
+            status: "CLIENT_PENDING",
+            ...(provenance.brokerUserId
+              ? { brokerUserId: provenance.brokerUserId }
+              : {}),
+            publicApplicationLinkId: provenance.publicApplicationLinkId,
+            publicSourcePortal: provenance.publicSourcePortal,
+            publicCreatedByUserId: provenance.publicCreatedByUserId,
+          },
+        });
+
+        const submission = await tx.applicationSubmission.create({
+          data: {
+            applicationId: loanApplication.id,
+            ...(resolvedApplicationProductId
+              ? { applicationProductId: resolvedApplicationProductId }
+              : {}),
+            status: "CLIENT_PENDING",
+          },
+        });
+
+        const fieldIdByKey = await loadProductFieldIdMap(
+          tx,
+          resolvedApplicationProductId,
+        );
+
+        const normalizedFields = buildSubmissionFieldsPayload(
           fields,
-        }),
-      };
-    });
+          fieldIdByKey,
+        );
+
+        const submissionFields = normalizedFields.map((f) => ({
+          submissionId: submission.id,
+          ...f,
+        }));
+
+        if (submissionFields.length > 0) {
+          await tx.applicationSubmissionField.createMany({
+            data: submissionFields,
+          });
+        }
+
+        if (provenance.assignCoBrokerId) {
+          await tx.subBrokerApplication.create({
+            data: {
+              loanApplicationId: loanApplication.id,
+              subBrokerId: provenance.assignCoBrokerId,
+              assignedById: provenance.assignCoBrokerId,
+            },
+          });
+        }
+
+        if (publicLink?.id) {
+          await touchPublicApplicationLink(tx, publicLink.id);
+        }
+
+        const portalToken = await createClientPortalToken(tx, {
+          loanApplicationId: loanApplication.id,
+          clientId: client.id,
+        });
+
+        return {
+          submission,
+          loanApplication,
+          client,
+          brokerOrgId,
+          borrowerEmail,
+          portalToken,
+          sourcePortal: provenance.publicSourcePortal,
+          clientDisplayName: resolveClientDisplayName({
+            client,
+            fields,
+          }),
+        };
+      });
+    } catch (error) {
+      fastify.log.error(error);
+      return reply.code(400).send({
+        success: false,
+        message: error.message || "Failed to submit application",
+      });
+    }
 
     try {
       const brokerOrg = await fastify.prisma.organization.findUnique({
@@ -250,13 +372,17 @@ async function submitApplication(fastify) {
         applicationNumber: result.loanApplication.applicationNumber,
         clientName: result.clientDisplayName,
         source: "PUBLIC_FORM",
+        sourcePortal: result.sourcePortal,
       },
     });
 
     return reply.code(201).send({
       success: true,
       message: "Application submitted successfully",
-      data: { submissionId: result.submission.id },
+      data: {
+        submissionId: result.submission.id,
+        sourcePortal: result.sourcePortal,
+      },
     });
   });
 }

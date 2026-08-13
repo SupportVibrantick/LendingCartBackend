@@ -33,6 +33,32 @@ const STATIC_SUBMISSION_FIELDS = {
   brokerPoints: { label: "Broker Points (%)", fieldType: "NUMBER" },
   amortization: { label: "Amortization (Years)", fieldType: "NUMBER" },
 
+  workingWithMortgageBroker: {
+    label: "Working With Mortgage Broker",
+    fieldType: "SELECT",
+    options: ["yes", "no"],
+  },
+  referringBrokerEmail: {
+    label: "Referring Broker Email",
+    fieldType: "EMAIL",
+  },
+  referringBrokerFirstName: {
+    label: "Referring Broker First Name",
+    fieldType: "TEXT",
+  },
+  referringBrokerLastName: {
+    label: "Referring Broker Last Name",
+    fieldType: "TEXT",
+  },
+  referringBrokerCompanyName: {
+    label: "Referring Broker Company Name",
+    fieldType: "TEXT",
+  },
+  referringBrokerPhone: {
+    label: "Referring Broker Phone",
+    fieldType: "TEXT",
+  },
+
   propertyAddress: { label: "Property Address", fieldType: "TEXT" },
   propertyCity: { label: "Property City", fieldType: "TEXT" },
   propertyState: { label: "Property State", fieldType: "TEXT" },
