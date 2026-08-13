@@ -1,5 +1,8 @@
 const crypto = require("crypto");
 const bcrypt = require("bcrypt");
+const {
+  normalizeClientEmail,
+} = require("./findOrCreateBorrowerClient");
 
 /**
  * Resolve an active ClientPortalUser for broker/co-broker impersonation.
@@ -8,13 +11,19 @@ const bcrypt = require("bcrypt");
  *
  * Client self-login still requires set-password via invite link.
  *
+ * Email uniqueness is preserved: if another ClientPortalUser already owns the
+ * borrower email, that portal user is reused. clientId is never reassigned.
+ *
  * @param {import("@prisma/client").PrismaClient} prisma
  * @param {{
  *   clientId: string,
  *   contacts?: Array<{ email?: string | null, isPrimary?: boolean }>,
  * }} params
  */
-async function ensureClientPortalUserForImpersonation(prisma, { clientId, contacts = [] }) {
+async function ensureClientPortalUserForImpersonation(
+  prisma,
+  { clientId, contacts = [] },
+) {
   const existingActive = await prisma.clientPortalUser.findFirst({
     where: {
       clientId,
@@ -34,15 +43,40 @@ async function ensureClientPortalUserForImpersonation(prisma, { clientId, contac
       select: { email: true, isPrimary: true },
     }));
 
-  const email = primaryContact?.email
-    ? String(primaryContact.email).trim().toLowerCase()
-    : null;
+  const email = normalizeClientEmail(primaryContact?.email);
 
   if (!email) {
     throw Object.assign(new Error("CLIENT_EMAIL_NOT_FOUND"), {
       statusCode: 400,
       clientMessage: "Borrower email is required to open the client portal",
     });
+  }
+
+  // Prefer existing portal identity for this email (any clientId).
+  const emailOwner = await prisma.clientPortalUser.findFirst({
+    where: {
+      OR: [
+        { email },
+        { email: { equals: email, mode: "insensitive" } },
+      ],
+    },
+    orderBy: [{ lastLoginAt: "desc" }, { createdAt: "desc" }],
+  });
+
+  if (emailOwner) {
+    if (emailOwner.isDeleted || !emailOwner.isActive) {
+      return prisma.clientPortalUser.update({
+        where: { id: emailOwner.id },
+        data: {
+          // Preserve original clientId — do not reassign on impersonation.
+          email,
+          isActive: true,
+          isDeleted: false,
+          deletedAt: null,
+        },
+      });
+    }
+    return emailOwner;
   }
 
   const anyForClient = await prisma.clientPortalUser.findFirst({
@@ -62,49 +96,11 @@ async function ensureClientPortalUserForImpersonation(prisma, { clientId, contac
     });
   }
 
-  const emailOwner = await prisma.clientPortalUser.findFirst({
-    where: {
-      OR: [
-        { email },
-        { email: { equals: email, mode: "insensitive" } },
-      ],
-    },
-  });
-
-  if (emailOwner && emailOwner.clientId !== clientId) {
-    if (emailOwner.isDeleted) {
-      return prisma.clientPortalUser.update({
-        where: { id: emailOwner.id },
-        data: {
-          clientId,
-          email,
-          isActive: true,
-          isDeleted: false,
-          deletedAt: null,
-        },
-      });
-    }
-    throw Object.assign(new Error("PORTAL_EMAIL_IN_USE"), {
-      statusCode: 409,
-      clientMessage:
-        "This borrower email is already linked to another client portal account",
-    });
-  }
-
-  if (emailOwner && emailOwner.clientId === clientId) {
-    return prisma.clientPortalUser.update({
-      where: { id: emailOwner.id },
-      data: {
-        email,
-        isActive: true,
-        isDeleted: false,
-        deletedAt: null,
-      },
-    });
-  }
-
   // Unusable password — client must still set password via invite for self-login.
-  const passwordHash = await bcrypt.hash(crypto.randomBytes(32).toString("hex"), 10);
+  const passwordHash = await bcrypt.hash(
+    crypto.randomBytes(32).toString("hex"),
+    10,
+  );
 
   try {
     return await prisma.clientPortalUser.create({
@@ -119,14 +115,19 @@ async function ensureClientPortalUserForImpersonation(prisma, { clientId, contac
     if (err?.code === "P2002") {
       const raced = await prisma.clientPortalUser.findFirst({
         where: {
-          OR: [{ clientId }, { email }, { email: { equals: email, mode: "insensitive" } }],
+          OR: [
+            { email },
+            { email: { equals: email, mode: "insensitive" } },
+            { clientId },
+          ],
         },
-        orderBy: { createdAt: "desc" },
+        orderBy: [{ lastLoginAt: "desc" }, { createdAt: "desc" }],
       });
-      if (raced && raced.clientId === clientId) {
+      if (raced) {
         return prisma.clientPortalUser.update({
           where: { id: raced.id },
           data: {
+            // Keep raced.clientId; only reactivate + normalize email.
             email,
             isActive: true,
             isDeleted: false,

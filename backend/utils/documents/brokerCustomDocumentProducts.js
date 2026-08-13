@@ -1,9 +1,15 @@
 /**
  * Resolve and validate loan products for broker custom document linking.
+ * Accepts loanProductIds and/or loanProductCode(s).
  * @param {import("@prisma/client").PrismaClient | import("@prisma/client").Prisma.TransactionClient} prisma
  * @param {unknown} loanProductIdsRaw
+ * @param {unknown} [loanProductCodesRaw]
  */
-async function resolveLoanProductsForBrokerDoc(prisma, loanProductIdsRaw) {
+async function resolveLoanProductsForBrokerDoc(
+  prisma,
+  loanProductIdsRaw,
+  loanProductCodesRaw,
+) {
   const ids = Array.isArray(loanProductIdsRaw)
     ? [
         ...new Set(
@@ -14,7 +20,18 @@ async function resolveLoanProductsForBrokerDoc(prisma, loanProductIdsRaw) {
       ]
     : [];
 
-  if (ids.length === 0) {
+  const codesFromArray = Array.isArray(loanProductCodesRaw)
+    ? loanProductCodesRaw.map((c) => String(c || "").trim()).filter(Boolean)
+    : [];
+  const singleCode =
+    typeof loanProductCodesRaw === "string"
+      ? String(loanProductCodesRaw).trim()
+      : "";
+  const codes = [
+    ...new Set([...codesFromArray, ...(singleCode ? [singleCode] : [])]),
+  ];
+
+  if (ids.length === 0 && codes.length === 0) {
     return {
       ok: false,
       status: 400,
@@ -24,13 +41,16 @@ async function resolveLoanProductsForBrokerDoc(prisma, loanProductIdsRaw) {
 
   const products = await prisma.loanProduct.findMany({
     where: {
-      id: { in: ids },
       isActive: true,
+      OR: [
+        ...(ids.length ? [{ id: { in: ids } }] : []),
+        ...(codes.length ? [{ code: { in: codes } }] : []),
+      ],
     },
     select: { id: true, code: true, name: true },
   });
 
-  if (products.length !== ids.length) {
+  if (products.length === 0) {
     return {
       ok: false,
       status: 400,
@@ -38,10 +58,18 @@ async function resolveLoanProductsForBrokerDoc(prisma, loanProductIdsRaw) {
     };
   }
 
-  const byId = new Map(products.map((p) => [p.id, p]));
-  const ordered = ids.map((id) => byId.get(id)).filter(Boolean);
+  // Preserve caller order when IDs were provided; otherwise sort by code.
+  if (ids.length > 0) {
+    const byId = new Map(products.map((p) => [p.id, p]));
+    const ordered = ids.map((id) => byId.get(id)).filter(Boolean);
+    const extras = products.filter((p) => !ids.includes(p.id));
+    return { ok: true, products: [...ordered, ...extras] };
+  }
 
-  return { ok: true, products: ordered };
+  return {
+    ok: true,
+    products: products.sort((a, b) => a.code.localeCompare(b.code)),
+  };
 }
 
 /**

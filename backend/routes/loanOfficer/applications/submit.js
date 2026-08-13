@@ -16,6 +16,13 @@ const {
 const {
   sanitizeRequestedDocumentTypes,
 } = require("../../../utils/applications/sanitizeRequestedDocumentTypes");
+const {
+  resolveBorrowerNameParts,
+  resolveBorrowerEmail,
+} = require("../../../utils/applications/resolveBorrowerIdentity");
+const {
+  findOrCreateBorrowerClient,
+} = require("../../../services/clientPortal/findOrCreateBorrowerClient");
 
 async function loanOfficerSubmitApplication(fastify) {
   fastify.post(
@@ -91,52 +98,26 @@ async function loanOfficerSubmitApplication(fastify) {
         /* ================= TRANSACTION ================= */
 
         const result = await prisma.$transaction(async (tx) => {
-          const emailField = fields.find((f) => f.fieldKey === "email");
-          const firstNameField = fields.find(
-            (f) => f.fieldKey === "first_name",
-          );
-          const lastNameField = fields.find((f) => f.fieldKey === "last_name");
+          const email = resolveBorrowerEmail(fields);
 
-          if (!emailField?.value) {
+          if (!email) {
             throw new Error("Email is required");
           }
 
-          const email = emailField.value;
+          const { firstName, lastName, displayName } =
+            resolveBorrowerNameParts(fields);
 
           /* ---------- CLIENT ---------- */
 
-          let client = await tx.client.findFirst({
-            where: {
-              primaryBrokerOrgId: brokerOrgId,
-              contacts: {
-                some: { email },
-              },
-            },
-            include: { contacts: true },
-          });
-
-          if (!client) {
-            client = await tx.client.create({
-              data: {
-                id: randomUUID(),
-                legalName:
-                  `${firstNameField?.value || ""} ${
-                    lastNameField?.value || ""
-                  }`.trim() || "Individual Applicant",
-                entityType: "INDIVIDUAL",
-                primaryBrokerOrgId: brokerOrgId,
-                contacts: {
-                  create: {
-                    firstName: firstNameField?.value || "Applicant",
-                    lastName: lastNameField?.value || "",
-                    email,
-                    isPrimary: true,
-                  },
-                },
-              },
-              include: { contacts: true },
+          const { client, warnings: clientWarnings } =
+            await findOrCreateBorrowerClient(tx, {
+              brokerOrgId,
+              email,
+              firstName,
+              lastName,
+              displayName,
+              logger: fastify.log,
             });
-          }
 
           /* ---------- LOAN APPLICATION ---------- */
 
@@ -192,7 +173,7 @@ async function loanOfficerSubmitApplication(fastify) {
             });
           }
 
-          return { submission, loanApplication, client };
+          return { submission, loanApplication, client, warnings: clientWarnings };
         });
 
         /* ================= AUDIT ================= */
@@ -281,6 +262,7 @@ async function loanOfficerSubmitApplication(fastify) {
           data: {
             submissionId: result.submission.id,
             applicationId: result.loanApplication.id,
+            ...(result.warnings?.length ? { warnings: result.warnings } : {}),
           },
         });
       } catch (error) {

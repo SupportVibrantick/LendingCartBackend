@@ -7,6 +7,7 @@ const {
 const {
   resolveLoanProductsForBrokerDoc,
   syncDocumentTypeLoanProducts,
+  mapLoanProductsFromRequirements,
 } = require("../../../utils/documents/brokerCustomDocumentProducts");
 
 async function createBrokerCustomDocumentType(fastify) {
@@ -42,6 +43,7 @@ async function createBrokerCustomDocumentType(fastify) {
         const productsResult = await resolveLoanProductsForBrokerDoc(
           prisma,
           req.body?.loanProductIds,
+          req.body?.loanProductCode || req.body?.loanProductCodes,
         );
         if (!productsResult.ok) {
           return reply.code(productsResult.status).send({
@@ -57,13 +59,57 @@ async function createBrokerCustomDocumentType(fastify) {
             isActive: true,
             name: { equals: name, mode: "insensitive" },
           },
+          include: {
+            productRequirements: {
+              select: {
+                loanProductId: true,
+                loanProductCode: true,
+                loanProduct: {
+                  select: { id: true, code: true, name: true },
+                },
+              },
+            },
+          },
         });
 
         if (existing) {
-          return reply.code(409).send({
-            success: false,
-            message: "A custom document with this name already exists",
-            data: existing,
+          // Idempotent: keep identity, ensure this product is linked (broker-private).
+          const existingProducts = mapLoanProductsFromRequirements(
+            existing.productRequirements || [],
+          );
+          const byId = new Map();
+          for (const product of [
+            ...existingProducts.filter((p) => p.id && p.code),
+            ...productsResult.products,
+          ]) {
+            byId.set(product.id, {
+              id: product.id,
+              code: product.code,
+              name: product.name || product.code,
+            });
+          }
+          const mergedProducts = [...byId.values()];
+
+          await prisma.$transaction(async (tx) => {
+            await syncDocumentTypeLoanProducts(
+              tx,
+              existing.id,
+              mergedProducts,
+            );
+          });
+
+          return reply.send({
+            success: true,
+            message: "Custom document already exists for your brokerage",
+            data: {
+              ...existing,
+              productRequirements: undefined,
+              usageCount: 0,
+              isProtected: false,
+              loanProducts: mergedProducts,
+              loanProductIds: mergedProducts.map((p) => p.id),
+              reused: true,
+            },
           });
         }
 

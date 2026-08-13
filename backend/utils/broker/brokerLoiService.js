@@ -422,6 +422,7 @@ function buildApplicationContext(submission, application) {
       " ",
     ),
     loanProduct: application?.loanProductCode?.replace(/_/g, " ") || "",
+    loanProductCode: application?.loanProductCode || "",
     brokerName:
       `${application?.brokerUser?.firstName || ""} ${application?.brokerUser?.lastName || ""}`.trim() ||
       application?.brokerOrg?.name ||
