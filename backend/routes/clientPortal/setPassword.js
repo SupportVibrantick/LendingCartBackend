@@ -1,4 +1,7 @@
 const bcrypt = require("bcrypt");
+const {
+  normalizeClientEmail,
+} = require("../../services/clientPortal/findOrCreateBorrowerClient");
 
 /**
  * @param {import("fastify").FastifyInstance} fastify
@@ -74,7 +77,7 @@ async function setPasswordRoute(fastify) {
             throw new Error("EMAIL_NOT_FOUND");
           }
 
-          const clientEmail = contact.email.trim().toLowerCase();
+          const clientEmail = normalizeClientEmail(contact.email);
 
           /* ===============================
              CHECK EXISTING USER
@@ -89,6 +92,7 @@ async function setPasswordRoute(fastify) {
                 { email: { equals: clientEmail, mode: "insensitive" } },
               ],
             },
+            orderBy: [{ lastLoginAt: "desc" }, { createdAt: "desc" }],
           });
 
           /* ===============================
@@ -98,22 +102,15 @@ async function setPasswordRoute(fastify) {
           const hashedPassword = await bcrypt.hash(password, 10);
 
           let user;
-          const isSoftDeleted = Boolean(existingUser?.isDeleted);
-          const sameClient =
-            existingUser && existingUser.clientId === tokenRecord.clientId;
 
-          // Invite link may set/reset password when the account was auto-provisioned
-          // for broker impersonation (or soft-deleted). Block only if email belongs
-          // to a different active client.
-          if (existingUser && !isSoftDeleted && !sameClient) {
-            throw new Error("USER_ALREADY_EXISTS");
-          }
-
-          if (existingUser && (isSoftDeleted || sameClient)) {
+          if (existingUser) {
+            // Reuse existing portal identity. Never create a second account for
+            // the same email, and do not reassign clientId away from the
+            // original portal owner (email-based resolvePortalClientIds still
+            // surfaces applications on other Client rows).
             user = await tx.clientPortalUser.update({
               where: { id: existingUser.id },
               data: {
-                clientId: tokenRecord.clientId,
                 email: clientEmail,
                 passwordHash: hashedPassword,
                 isActive: true,
@@ -131,11 +128,36 @@ async function setPasswordRoute(fastify) {
                 },
               });
             } catch (createError) {
-              // Race / casing mismatch: email already taken
+              // Race / casing mismatch: email already taken — reuse owner.
               if (createError?.code === "P2002") {
-                throw new Error("USER_ALREADY_EXISTS");
+                const raced = await tx.clientPortalUser.findFirst({
+                  where: {
+                    OR: [
+                      { email: clientEmail },
+                      {
+                        email: {
+                          equals: clientEmail,
+                          mode: "insensitive",
+                        },
+                      },
+                    ],
+                  },
+                  orderBy: [{ lastLoginAt: "desc" }, { createdAt: "desc" }],
+                });
+                if (!raced) throw createError;
+                user = await tx.clientPortalUser.update({
+                  where: { id: raced.id },
+                  data: {
+                    email: clientEmail,
+                    passwordHash: hashedPassword,
+                    isActive: true,
+                    isDeleted: false,
+                    deletedAt: null,
+                  },
+                });
+              } else {
+                throw createError;
               }
-              throw createError;
             }
           }
 
@@ -186,6 +208,7 @@ async function setPasswordRoute(fastify) {
           data: {
             userId: result.id,
             email: result.email,
+            clientId: result.clientId,
           },
         });
       } catch (error) {
@@ -197,13 +220,6 @@ async function setPasswordRoute(fastify) {
           },
           "Failed to set client password",
         );
-
-        if (error.message === "USER_ALREADY_EXISTS") {
-          return reply.code(400).send({
-            success: false,
-            message: "User already exists. Please login.",
-          });
-        }
 
         if (error.message === "EMAIL_NOT_FOUND") {
           return reply.code(400).send({

@@ -17,7 +17,6 @@ const {
   resolveBorrowerNameParts,
   resolveClientDisplayName,
   resolveBorrowerEmail,
-  isGenericClientName,
 } = require("../../../utils/applications/resolveBorrowerIdentity");
 const {
   resolveSubmitLoanProduct,
@@ -25,6 +24,9 @@ const {
 const {
   sanitizeRequestedDocumentTypes,
 } = require("../../../utils/applications/sanitizeRequestedDocumentTypes");
+const {
+  findOrCreateBorrowerClient,
+} = require("../../../services/clientPortal/findOrCreateBorrowerClient");
 
 async function brokerSubmitApplication(fastify) {
   fastify.post(
@@ -110,67 +112,21 @@ async function brokerSubmitApplication(fastify) {
 
           const { firstName, lastName, displayName } =
             resolveBorrowerNameParts(fields);
-          const legalName = displayName || "Individual Applicant";
 
           /* ---------- CLIENT ---------- */
 
-          let client = await tx.client.findFirst({
-            where: {
-              primaryBrokerOrgId: brokerOrgId,
-              contacts: {
-                some: { email },
-              },
-            },
-            include: { contacts: true },
+          const {
+            client,
+            email: normalizedEmail,
+            warnings: clientWarnings,
+          } = await findOrCreateBorrowerClient(tx, {
+            brokerOrgId,
+            email,
+            firstName,
+            lastName,
+            displayName,
+            logger: fastify.log,
           });
-
-          if (!client) {
-            client = await tx.client.create({
-              data: {
-                id: randomUUID(),
-                legalName,
-                entityType: "INDIVIDUAL",
-                primaryBrokerOrgId: brokerOrgId,
-                contacts: {
-                  create: {
-                    firstName: firstName || "Applicant",
-                    lastName: lastName || "",
-                    email,
-                    isPrimary: true,
-                  },
-                },
-              },
-              include: { contacts: true },
-            });
-          } else {
-            if (displayName && isGenericClientName(client.legalName)) {
-              client = await tx.client.update({
-                where: { id: client.id },
-                data: { legalName: displayName },
-                include: { contacts: true },
-              });
-            }
-
-            const primaryContact =
-              client.contacts.find((contact) => contact.email === email) ||
-              client.contacts.find((contact) => contact.isPrimary) ||
-              client.contacts[0];
-
-            if (primaryContact && (firstName || lastName)) {
-              await tx.clientContact.update({
-                where: { id: primaryContact.id },
-                data: {
-                  ...(firstName ? { firstName } : {}),
-                  ...(lastName ? { lastName } : {}),
-                },
-              });
-
-              client = await tx.client.findUnique({
-                where: { id: client.id },
-                include: { contacts: true },
-              });
-            }
-          }
 
           /* ---------- LOAN APPLICATION ---------- */
 
@@ -236,8 +192,9 @@ async function brokerSubmitApplication(fastify) {
             submission,
             loanApplication,
             client,
-            borrowerEmail: email,
+            borrowerEmail: normalizedEmail,
             portalToken,
+            warnings: clientWarnings,
             clientDisplayName: resolveClientDisplayName({
               client,
               contacts: client.contacts,
@@ -368,6 +325,7 @@ async function brokerSubmitApplication(fastify) {
           data: {
             submissionId: result.submission.id,
             applicationId: result.loanApplication.id,
+            ...(result.warnings?.length ? { warnings: result.warnings } : {}),
           },
         });
       } catch (error) {

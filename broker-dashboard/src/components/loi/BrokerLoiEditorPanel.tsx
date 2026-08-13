@@ -3,6 +3,7 @@ import { Loader2, Sparkles, User } from "lucide-react";
 import toast from "react-hot-toast";
 import LoiBrandingFields from "./LoiBrandingFields";
 import LoiRequiredDocumentsPicker from "./LoiRequiredDocumentsPicker";
+import LoanDateField from "../form/LoanDateField";
 import {
   getLoiBrandingValidationMessage,
   isLoiBrandingComplete,
@@ -162,6 +163,12 @@ export default function BrokerLoiEditorPanel({
       | "ltvPercent"
       | "ltcPercent"
       | "arvPercent"
+      | "originationFeePercent"
+      | "processingFee"
+      | "underwritingFee"
+      | "prepaymentPenalty"
+      | "exitFee"
+      | "legalFee"
     >,
     rawValue: string,
   ) => {
@@ -454,6 +461,8 @@ export default function BrokerLoiEditorPanel({
               }
               error={errors.requiredDocuments}
               getAuthHeaders={getAuthHeaders}
+              loanProductCode={applicationContext?.loanProductCode || null}
+              includeProductConfig
               disabled={readOnly}
             />
           </div>
@@ -470,12 +479,11 @@ export default function BrokerLoiEditorPanel({
                 <input
                   value={terms.originationFeePercent}
                   disabled={readOnly}
+                  inputMode="decimal"
                   onChange={(e) =>
-                    setTerms((prev) => ({
-                      ...prev,
-                      originationFeePercent: e.target.value,
-                    }))
+                    setNumberField("originationFeePercent", e.target.value)
                   }
+                  placeholder="2,000"
                   className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-950"
                 />
               </label>
@@ -487,9 +495,11 @@ export default function BrokerLoiEditorPanel({
                 <input
                   value={terms.processingFee}
                   disabled={readOnly}
+                  inputMode="decimal"
                   onChange={(e) =>
-                    setTerms((prev) => ({ ...prev, processingFee: e.target.value }))
+                    setNumberField("processingFee", e.target.value)
                   }
+                  placeholder="995"
                   className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-950"
                 />
               </label>
@@ -501,12 +511,11 @@ export default function BrokerLoiEditorPanel({
                 <input
                   value={terms.underwritingFee}
                   disabled={readOnly}
+                  inputMode="decimal"
                   onChange={(e) =>
-                    setTerms((prev) => ({
-                      ...prev,
-                      underwritingFee: e.target.value,
-                    }))
+                    setNumberField("underwritingFee", e.target.value)
                   }
+                  placeholder="1,500"
                   className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-950"
                 />
               </label>
@@ -518,12 +527,11 @@ export default function BrokerLoiEditorPanel({
                 <input
                   value={terms.prepaymentPenalty}
                   disabled={readOnly}
+                  inputMode="decimal"
                   onChange={(e) =>
-                    setTerms((prev) => ({
-                      ...prev,
-                      prepaymentPenalty: e.target.value,
-                    }))
+                    setNumberField("prepaymentPenalty", e.target.value)
                   }
+                  placeholder="0"
                   className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-950"
                 />
               </label>
@@ -538,6 +546,7 @@ export default function BrokerLoiEditorPanel({
                   onChange={(e) =>
                     setTerms((prev) => ({ ...prev, recourse: e.target.value }))
                   }
+                  placeholder="Full / Non-Recourse"
                   className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-950"
                 />
               </label>
@@ -555,6 +564,7 @@ export default function BrokerLoiEditorPanel({
                       personalGuarantee: e.target.value,
                     }))
                   }
+                  placeholder="Yes / No"
                   className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-950"
                 />
               </label>
@@ -569,6 +579,7 @@ export default function BrokerLoiEditorPanel({
                   onChange={(e) =>
                     setTerms((prev) => ({ ...prev, amortization: e.target.value }))
                   }
+                  placeholder="Interest Only / 30 Years"
                   className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-950"
                 />
               </label>
@@ -577,17 +588,18 @@ export default function BrokerLoiEditorPanel({
                 <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
                   Expiration Date
                 </span>
-                <input
-                  type="date"
+                <LoanDateField
                   value={terms.expirationDate}
                   disabled={readOnly}
-                  onChange={(e) =>
+                  disablePastDates
+                  placeholder="dd-mm-yyyy"
+                  onChange={(next) =>
                     setTerms((prev) => ({
                       ...prev,
-                      expirationDate: e.target.value,
+                      expirationDate: next,
                     }))
                   }
-                  className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-950"
+                  className="rounded-xl border-slate-200 px-3 py-2.5 dark:border-slate-700 dark:bg-slate-950"
                 />
               </label>
             </div>

@@ -5,6 +5,8 @@ export type BrokerLoiApplicationContext = {
   propertyAddress?: string;
   propertyType?: string;
   loanProduct?: string;
+  /** Canonical LoanProductCode for document catalog / custom docs. */
+  loanProductCode?: string;
   brokerName?: string;
 };
 
@@ -253,6 +255,14 @@ export function normalizeBrokerLoiTerms(
     ltvPercent: formatBrokerLoiNumberInput(merged.ltvPercent),
     ltcPercent: formatBrokerLoiNumberInput(merged.ltcPercent),
     arvPercent: formatBrokerLoiNumberInput(merged.arvPercent),
+    originationFeePercent: formatBrokerLoiNumberInput(
+      merged.originationFeePercent,
+    ),
+    processingFee: formatBrokerLoiNumberInput(merged.processingFee),
+    underwritingFee: formatBrokerLoiNumberInput(merged.underwritingFee),
+    prepaymentPenalty: formatBrokerLoiNumberInput(merged.prepaymentPenalty),
+    exitFee: formatBrokerLoiNumberInput(merged.exitFee),
+    legalFee: formatBrokerLoiNumberInput(merged.legalFee),
   };
 }
 
