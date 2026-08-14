@@ -1,13 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Building2, FileText, Loader2, User, X } from "lucide-react";
+import { ArrowLeft, Building2, FileText, Loader2, User } from "lucide-react";
 import toast from "react-hot-toast";
 import {
   LOI_TERM_OPTIONS,
+  calculateBindingMaxLoan,
   calculateSuggestedLoiMetrics,
   createEmptyLoiUnderwritingTerms,
   formatLoiNumberInput,
+  getLoiValueFieldLabel,
   mapStoredLoiTermsToForm,
   serializeLoiUnderwritingTerms,
+  usesRehabConstructionLoiMetrics,
   validateLoiUnderwritingTerms,
   type LoiApplicationContext,
   type LoiUnderwritingTerms,
@@ -31,11 +34,20 @@ const LOI_ERROR_FIELD_ORDER = [
   "branding",
   "approvedAmount",
   "interestRate",
-  "ltvPercent",
-  "ltcPercent",
-  "arvPercent",
+  "collateralOrPropertyValue",
+  "rehabConstructionCost",
+  "afterRepairValue",
+  "maximumLtvPercent",
+  "maximumLtcPercent",
+  "maximumArvPercent",
   "monthlyPayment",
   "loanTerm",
+  "originationPoints",
+  "processingFee",
+  "appraisalFee",
+  "brokerPoints",
+  "wireFee",
+  "requiredReservesPercent",
   "requiredDocuments",
 ] as const;
 
@@ -50,7 +62,6 @@ function getAuthHeaders(): Record<string, string> {
 }
 
 type Props = {
-  isOpen: boolean;
   requestedAmount?: number | string | null;
   propertyValue?: number | string | null;
   projectCost?: number | string | null;
@@ -76,6 +87,12 @@ function formatMoney(value?: number | string | null) {
   return `$${numeric.toLocaleString("en-US")}`;
 }
 
+function toSeedNumber(value?: number | string | null) {
+  const numeric = Number(String(value ?? "").replace(/[$,\s]/g, ""));
+  if (!Number.isFinite(numeric)) return null;
+  return numeric;
+}
+
 function InfoRow({ label, value }: { label: string; value?: string }) {
   return (
     <div className="rounded-xl border border-slate-100 bg-slate-50/80 px-3 py-2.5 dark:border-slate-800 dark:bg-slate-900/50">
@@ -89,8 +106,41 @@ function InfoRow({ label, value }: { label: string; value?: string }) {
   );
 }
 
+function ReadOnlyField({
+  field,
+  label,
+  value,
+  error,
+  hint,
+}: {
+  field: string;
+  label: string;
+  value: string;
+  error?: string;
+  hint?: string;
+}) {
+  return (
+    <div data-loi-field={field}>
+      <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+        {label}
+      </label>
+      <input
+        value={value}
+        readOnly
+        tabIndex={-1}
+        placeholder="Auto-calculated"
+        className="w-full cursor-not-allowed rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-200"
+      />
+      {error ? (
+        <p className="mt-1 text-xs text-red-500">{error}</p>
+      ) : hint ? (
+        <p className="mt-1 text-[11px] text-slate-400">{hint}</p>
+      ) : null}
+    </div>
+  );
+}
+
 export default function LoiUnderwritingFormModal({
-  isOpen,
   requestedAmount,
   propertyValue = null,
   projectCost = null,
@@ -106,23 +156,43 @@ export default function LoiUnderwritingFormModal({
   onClose,
   onSubmit,
 }: Props) {
-  const [terms, setTerms] = useState<LoiUnderwritingTerms>(() =>
-    createEmptyLoiUnderwritingTerms(requestedAmount, {
-      interestRate: applicationInterestRate,
-      loanTerm: applicationLoanTerm,
+  const showRehabMetrics = usesRehabConstructionLoiMetrics(loanProductCode);
+  const valueFieldLabel = getLoiValueFieldLabel(loanProductCode);
+
+  const seedEmptyTerms = useCallback(
+    () => {
+      const propertySeed = toSeedNumber(propertyValue);
+      const projectSeed = toSeedNumber(projectCost);
+      const rehabCost =
+        propertySeed != null && projectSeed != null
+          ? Math.max(0, projectSeed - propertySeed)
+          : null;
+
+      return createEmptyLoiUnderwritingTerms(requestedAmount, {
+        interestRate: applicationInterestRate,
+        loanTerm: applicationLoanTerm,
+        propertyValue,
+        projectCost,
+        arv,
+        rehabCost,
+        loanProductCode,
+      });
+    },
+    [
+      requestedAmount,
+      applicationInterestRate,
+      applicationLoanTerm,
       propertyValue,
       projectCost,
       arv,
-    }),
+      loanProductCode,
+    ],
   );
+
+  const [terms, setTerms] = useState<LoiUnderwritingTerms>(() => seedEmptyTerms());
   const [errors, setErrors] = useState<
     Partial<Record<keyof LoiUnderwritingTerms, string>>
   >({});
-  const [metricsTouched, setMetricsTouched] = useState({
-    ltv: false,
-    ltc: false,
-    arv: false,
-  });
   const [branding, setBranding] = useState<LoiBrandingValues>(EMPTY_LOI_BRANDING);
   const [brandingLoading, setBrandingLoading] = useState(false);
   const scrollBodyRef = useRef<HTMLDivElement>(null);
@@ -142,44 +212,41 @@ export default function LoiUnderwritingFormModal({
   }, []);
 
   useEffect(() => {
-    if (!isOpen) return;
-
     const fromStored =
       mode === "revised" || mode === "regenerate"
         ? mapStoredLoiTermsToForm(storedTerms)
         : null;
+    const seeded = seedEmptyTerms();
 
-    setTerms(
-      fromStored ||
-        createEmptyLoiUnderwritingTerms(requestedAmount, {
-          interestRate: applicationInterestRate,
-          loanTerm: applicationLoanTerm,
-          propertyValue,
-          projectCost,
-          arv,
-        }),
-    );
+    if (fromStored) {
+      setTerms({
+        ...seeded,
+        ...fromStored,
+        // Keep application seeds when older saved terms lack the new fillable fields
+        collateralOrPropertyValue:
+          fromStored.collateralOrPropertyValue ||
+          seeded.collateralOrPropertyValue,
+        rehabConstructionCost:
+          fromStored.rehabConstructionCost || seeded.rehabConstructionCost,
+        afterRepairValue:
+          fromStored.afterRepairValue || seeded.afterRepairValue,
+        ltvPercent: fromStored.ltvPercent || seeded.ltvPercent,
+        ltcPercent: fromStored.ltcPercent || seeded.ltcPercent,
+        arvPercent: fromStored.arvPercent || seeded.arvPercent,
+        totalClosingCosts:
+          fromStored.totalClosingCosts || seeded.totalClosingCosts,
+        requiredReservesAmount:
+          fromStored.requiredReservesAmount || seeded.requiredReservesAmount,
+      });
+    } else {
+      setTerms(seeded);
+    }
     setErrors({});
-    setMetricsTouched({
-      ltv: false,
-      ltc: false,
-      arv: false,
-    });
-  }, [
-    isOpen,
-    mode,
-    storedTerms,
-    requestedAmount,
-    propertyValue,
-    projectCost,
-    arv,
-    applicationInterestRate,
-    applicationLoanTerm,
-  ]);
+    // Only re-seed when mode/stored terms change — not when application seed props settle.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, storedTerms]);
 
   useEffect(() => {
-    if (!isOpen) return;
-
     let cancelled = false;
 
     (async () => {
@@ -213,7 +280,7 @@ export default function LoiUnderwritingFormModal({
     return () => {
       cancelled = true;
     };
-  }, [isOpen]);
+  }, []);
 
   const suggested = useMemo(
     () =>
@@ -222,51 +289,91 @@ export default function LoiUnderwritingFormModal({
         interestRate: terms.interestRate,
         interestOnly: terms.interestOnly,
         loanTerm: terms.loanTerm,
-        propertyValue,
-        projectCost,
-        arv,
+        collateralOrPropertyValue: terms.collateralOrPropertyValue,
+        rehabConstructionCost: terms.rehabConstructionCost,
+        afterRepairValue: terms.afterRepairValue,
+        originationPoints: terms.originationPoints,
+        processingFee: terms.processingFee,
+        appraisalFee: terms.appraisalFee,
+        brokerPoints: terms.brokerPoints,
+        wireFee: terms.wireFee,
+        requiredReservesPercent: terms.requiredReservesPercent,
+        showRehabMetrics,
       }),
     [
       terms.approvedAmount,
       terms.interestRate,
       terms.interestOnly,
       terms.loanTerm,
-      propertyValue,
-      projectCost,
-      arv,
+      terms.collateralOrPropertyValue,
+      terms.rehabConstructionCost,
+      terms.afterRepairValue,
+      terms.originationPoints,
+      terms.processingFee,
+      terms.appraisalFee,
+      terms.brokerPoints,
+      terms.wireFee,
+      terms.requiredReservesPercent,
+      showRehabMetrics,
+    ],
+  );
+
+  const bindingMaxLoan = useMemo(
+    () =>
+      calculateBindingMaxLoan({
+        collateralOrPropertyValue: terms.collateralOrPropertyValue,
+        rehabConstructionCost: terms.rehabConstructionCost,
+        afterRepairValue: terms.afterRepairValue,
+        maximumLtvPercent: terms.maximumLtvPercent,
+        maximumLtcPercent: terms.maximumLtcPercent,
+        maximumArvPercent: terms.maximumArvPercent,
+        showRehabMetrics,
+      }),
+    [
+      terms.collateralOrPropertyValue,
+      terms.rehabConstructionCost,
+      terms.afterRepairValue,
+      terms.maximumLtvPercent,
+      terms.maximumLtcPercent,
+      terms.maximumArvPercent,
+      showRehabMetrics,
     ],
   );
 
   useEffect(() => {
     setTerms((prev) => {
+      const nextLtv =
+        suggested.ltv != null
+          ? formatLoiNumberInput(String(suggested.ltv))
+          : "";
+      const nextLtc =
+        showRehabMetrics && suggested.ltc != null
+          ? formatLoiNumberInput(String(suggested.ltc))
+          : "";
+      const nextArv =
+        showRehabMetrics && suggested.arvPercent != null
+          ? formatLoiNumberInput(String(suggested.arvPercent))
+          : "";
       const nextPayment =
         suggested.monthlyPayment == null
           ? ""
           : formatLoiNumberInput(String(suggested.monthlyPayment));
-      const nextLtv =
-        metricsTouched.ltv || prev.ltvPercent
-          ? prev.ltvPercent
-          : suggested.ltv != null
-            ? formatLoiNumberInput(String(suggested.ltv))
-            : "";
-      const nextLtc =
-        metricsTouched.ltc || prev.ltcPercent
-          ? prev.ltcPercent
-          : suggested.ltc != null
-            ? formatLoiNumberInput(String(suggested.ltc))
-            : "";
-      const nextArv =
-        metricsTouched.arv || prev.arvPercent
-          ? prev.arvPercent
-          : suggested.arvPercent != null
-            ? formatLoiNumberInput(String(suggested.arvPercent))
-            : "";
+      const nextClosing =
+        suggested.totalClosingCosts != null
+          ? formatLoiNumberInput(String(suggested.totalClosingCosts))
+          : "";
+      const nextReserves =
+        suggested.requiredReservesAmount != null
+          ? formatLoiNumberInput(String(suggested.requiredReservesAmount))
+          : "";
 
       if (
-        prev.monthlyPayment === nextPayment &&
         prev.ltvPercent === nextLtv &&
         prev.ltcPercent === nextLtc &&
-        prev.arvPercent === nextArv
+        prev.arvPercent === nextArv &&
+        prev.monthlyPayment === nextPayment &&
+        prev.totalClosingCosts === nextClosing &&
+        prev.requiredReservesAmount === nextReserves
       ) {
         return prev;
       }
@@ -277,26 +384,34 @@ export default function LoiUnderwritingFormModal({
         ltcPercent: nextLtc,
         arvPercent: nextArv,
         monthlyPayment: nextPayment,
+        totalClosingCosts: nextClosing,
+        requiredReservesAmount: nextReserves,
       };
     });
-  }, [suggested, metricsTouched]);
+  }, [suggested, showRehabMetrics]);
 
   useEffect(() => {
-    if (!isOpen) return;
-    const result = validateLoiUnderwritingTerms(terms);
+    const result = validateLoiUnderwritingTerms(terms, { loanProductCode });
     setErrors(result.errors);
-  }, [terms, isOpen]);
-
-  if (!isOpen) return null;
+  }, [terms, loanProductCode]);
 
   const setNumberField = (
     key: keyof Pick<
       LoiUnderwritingTerms,
       | "approvedAmount"
       | "interestRate"
-      | "ltvPercent"
-      | "ltcPercent"
-      | "arvPercent"
+      | "collateralOrPropertyValue"
+      | "rehabConstructionCost"
+      | "afterRepairValue"
+      | "maximumLtvPercent"
+      | "maximumLtcPercent"
+      | "maximumArvPercent"
+      | "originationPoints"
+      | "processingFee"
+      | "appraisalFee"
+      | "brokerPoints"
+      | "wireFee"
+      | "requiredReservesPercent"
     >,
     raw: string,
   ) => {
@@ -321,7 +436,7 @@ export default function LoiUnderwritingFormModal({
       return;
     }
 
-    const result = validateLoiUnderwritingTerms(terms);
+    const result = validateLoiUnderwritingTerms(terms, { loanProductCode });
     if (!result.valid) {
       setErrors(result.errors);
       const firstErrorField = LOI_ERROR_FIELD_ORDER.find(
@@ -335,7 +450,7 @@ export default function LoiUnderwritingFormModal({
       return;
     }
     onSubmit({
-      lenderTerms: serializeLoiUnderwritingTerms(terms),
+      lenderTerms: serializeLoiUnderwritingTerms(terms, { loanProductCode }),
       branding: {
         brandName: branding.brandName.trim(),
         logoUrl: branding.logoUrl,
@@ -346,16 +461,25 @@ export default function LoiUnderwritingFormModal({
   const brandingComplete = isLoiBrandingComplete(branding);
 
   return (
-    <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-      <div className="flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-800 dark:bg-slate-900">
+    <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 pb-6">
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <div className="border-b border-slate-200 bg-gradient-to-r from-[#134E4A] to-[#0F766E] px-6 py-5 text-white dark:border-slate-800">
-          <div className="flex items-start justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={submitting}
+              className="mt-0.5 rounded-lg p-2 text-white/80 hover:bg-white/10"
+              aria-label="Back"
+            >
+              <ArrowLeft size={18} />
+            </button>
             <div>
               <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide">
                 <FileText className="h-3.5 w-3.5" />
                 Term Sheet / LOI
               </div>
-              <h2 className="text-xl font-bold">
+              <h1 className="text-xl font-bold">
                 {mode === "revised"
                   ? revisedVersionNumber
                     ? `Create Revised LOI (Version ${revisedVersionNumber})`
@@ -363,8 +487,8 @@ export default function LoiUnderwritingFormModal({
                   : mode === "regenerate"
                     ? "Update LOI Draft"
                     : "Generate Loan Term Sheet"}
-              </h2>
-              <p className="mt-1 max-w-2xl text-sm text-teal-50/90">
+              </h1>
+              <p className="mt-1 max-w-3xl text-sm text-teal-50/90">
                 {mode === "revised"
                   ? "Previous versions are preserved for audit. Enter updated commercial terms below — the broker will receive a new version to review."
                   : mode === "regenerate"
@@ -372,20 +496,12 @@ export default function LoiUnderwritingFormModal({
                     : "Application details are loaded automatically. Enter your final credit terms below to generate the LOI."}
               </p>
             </div>
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={submitting}
-              className="rounded-lg p-2 text-white/80 hover:bg-white/10"
-            >
-              <X size={18} />
-            </button>
           </div>
         </div>
 
-        <div ref={scrollBodyRef} className="flex-1 overflow-y-auto px-6 py-5">
-          <div className="grid gap-6 lg:grid-cols-5">
-            <section className="space-y-4 lg:col-span-2">
+        <div ref={scrollBodyRef} className="px-6 py-5">
+          <div className="grid grid-cols-1 gap-6">
+            <section className="space-y-4">
               <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950">
                 <div className="mb-3 flex items-center gap-2">
                   <User className="h-4 w-4 text-[#0F766E]" />
@@ -393,7 +509,7 @@ export default function LoiUnderwritingFormModal({
                     From Application
                   </h3>
                 </div>
-                <div className="grid gap-2 sm:grid-cols-2">
+                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
                   <InfoRow
                     label="Borrower"
                     value={applicationContext?.borrowerName}
@@ -415,14 +531,18 @@ export default function LoiUnderwritingFormModal({
                     value={formatMoney(requestedAmount)}
                   />
                   <InfoRow
-                    label="Property Value"
+                    label={valueFieldLabel}
                     value={formatMoney(propertyValue)}
                   />
-                  <InfoRow
-                    label="Project Cost"
-                    value={formatMoney(projectCost)}
-                  />
-                  <InfoRow label="ARV" value={formatMoney(arv)} />
+                  {showRehabMetrics ? (
+                    <>
+                      <InfoRow
+                        label="Project Cost"
+                        value={formatMoney(projectCost)}
+                      />
+                      <InfoRow label="ARV" value={formatMoney(arv)} />
+                    </>
+                  ) : null}
                 </div>
                 {applicationContext?.propertyAddress ? (
                   <div className="mt-3 rounded-xl border border-slate-100 bg-slate-50/80 px-3 py-2.5 dark:border-slate-800 dark:bg-slate-900/50">
@@ -457,15 +577,15 @@ export default function LoiUnderwritingFormModal({
 
               <div className="rounded-2xl border border-teal-100 bg-teal-50/60 p-4 text-sm text-teal-900 dark:border-teal-900/40 dark:bg-teal-950/20 dark:text-teal-100">
                 <p className="font-semibold">What happens next</p>
-                <ul className="mt-2 space-y-1.5 text-teal-800/90 dark:text-teal-100/80">
-                  <li>• Your 6 credit terms populate the term sheet PDF.</li>
+                <ul className="mt-2 space-y-1.5 text-teal-800/90 dark:text-teal-100/80 sm:columns-2 sm:gap-6">
+                  <li>• Your credit terms populate the term sheet PDF.</li>
                   <li>• Borrower, property, and broker data come from the application.</li>
                   <li>• Only the borrower signature block appears on the document.</li>
                 </ul>
               </div>
             </section>
 
-            <section className="lg:col-span-3">
+            <section>
               <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-950">
                 <h3 className="text-sm font-bold text-slate-900 dark:text-white">
                   Lender Credit Terms
@@ -474,10 +594,10 @@ export default function LoiUnderwritingFormModal({
                   These values appear prominently on the generated term sheet.
                 </p>
 
-                <div className="mt-5 grid gap-4 sm:grid-cols-2">
+                <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                   <div data-loi-field="approvedAmount">
                     <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                      1. Loan Amount
+                      Loan Amount
                     </label>
                     <input
                       inputMode="decimal"
@@ -497,7 +617,7 @@ export default function LoiUnderwritingFormModal({
 
                   <div data-loi-field="interestRate">
                     <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                      2. Interest Rate (%)
+                      Interest Rate (%)
                     </label>
                     <input
                       inputMode="decimal"
@@ -515,103 +635,187 @@ export default function LoiUnderwritingFormModal({
                     ) : null}
                   </div>
 
-                  <div data-loi-field="ltvPercent">
+                  <div data-loi-field="collateralOrPropertyValue">
                     <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                      3. LTV (%)
+                      {valueFieldLabel}
                     </label>
                     <input
                       inputMode="decimal"
-                      value={terms.ltvPercent}
-                      onChange={(e) => {
-                        setMetricsTouched((prev) => ({ ...prev, ltv: true }));
-                        setNumberField("ltvPercent", e.target.value);
-                      }}
-                      placeholder="65"
-                      className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#0F766E] dark:border-slate-700 dark:bg-slate-800"
+                      value={terms.collateralOrPropertyValue}
+                      onChange={(e) =>
+                        setNumberField(
+                          "collateralOrPropertyValue",
+                          e.target.value,
+                        )
+                      }
+                      placeholder="e.g. 2,500,000"
+                      className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#0F766E] focus:ring-2 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-800"
                     />
-                    {errors.ltvPercent ? (
-                      <p className="mt-1 text-xs text-red-500">{errors.ltvPercent}</p>
-                    ) : (
-                      <p className="mt-1 text-[11px] text-slate-400">
-                        Suggested: {formatMetricPercent(suggested.ltv)}
-                      </p>
-                    )}
-                  </div>
-
-                  <div data-loi-field="ltcPercent">
-                    <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                      3. LTC (%)
-                    </label>
-                    <input
-                      inputMode="decimal"
-                      value={terms.ltcPercent}
-                      onChange={(e) => {
-                        setMetricsTouched((prev) => ({ ...prev, ltc: true }));
-                        setNumberField("ltcPercent", e.target.value);
-                      }}
-                      placeholder="70"
-                      className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#0F766E] dark:border-slate-700 dark:bg-slate-800"
-                    />
-                    {errors.ltcPercent ? (
-                      <p className="mt-1 text-xs text-red-500">{errors.ltcPercent}</p>
-                    ) : (
-                      <p className="mt-1 text-[11px] text-slate-400">
-                        Suggested: {formatMetricPercent(suggested.ltc)}
-                      </p>
-                    )}
-                  </div>
-
-                  <div data-loi-field="arvPercent">
-                    <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                      3. ARV (%)
-                    </label>
-                    <input
-                      inputMode="decimal"
-                      value={terms.arvPercent}
-                      onChange={(e) => {
-                        setMetricsTouched((prev) => ({ ...prev, arv: true }));
-                        setNumberField("arvPercent", e.target.value);
-                      }}
-                      placeholder="60"
-                      className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#0F766E] dark:border-slate-700 dark:bg-slate-800"
-                    />
-                    {errors.arvPercent ? (
-                      <p className="mt-1 text-xs text-red-500">{errors.arvPercent}</p>
-                    ) : (
-                      <p className="mt-1 text-[11px] text-slate-400">
-                        Suggested: {formatMetricPercent(suggested.arvPercent)}
-                      </p>
-                    )}
-                  </div>
-
-                  <div data-loi-field="monthlyPayment">
-                    <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                      4. Monthly Payment
-                    </label>
-                    <input
-                      value={terms.monthlyPayment}
-                      readOnly
-                      tabIndex={-1}
-                      placeholder="Auto-calculated"
-                      className="w-full cursor-not-allowed rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-200"
-                    />
-                    {errors.monthlyPayment ? (
+                    {errors.collateralOrPropertyValue ? (
                       <p className="mt-1 text-xs text-red-500">
-                        {errors.monthlyPayment}
+                        {errors.collateralOrPropertyValue}
                       </p>
-                    ) : (
-                      <p className="mt-1 text-[11px] text-slate-400">
-                        Auto-calculated from amount, rate, and term
-                        {suggested.monthlyPayment != null
-                          ? ` · ${formatMetricCurrency(suggested.monthlyPayment)}`
-                          : ""}
-                      </p>
-                    )}
+                    ) : null}
                   </div>
+
+                  {showRehabMetrics ? (
+                    <>
+                      <div data-loi-field="rehabConstructionCost">
+                        <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                          Rehab/Construction Cost
+                        </label>
+                        <input
+                          inputMode="decimal"
+                          value={terms.rehabConstructionCost}
+                          onChange={(e) =>
+                            setNumberField(
+                              "rehabConstructionCost",
+                              e.target.value,
+                            )
+                          }
+                          placeholder="350,000"
+                          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#0F766E] focus:ring-2 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-800"
+                        />
+                        {errors.rehabConstructionCost ? (
+                          <p className="mt-1 text-xs text-red-500">
+                            {errors.rehabConstructionCost}
+                          </p>
+                        ) : null}
+                      </div>
+
+                      <div data-loi-field="afterRepairValue">
+                        <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                          After Repair Value
+                        </label>
+                        <input
+                          inputMode="decimal"
+                          value={terms.afterRepairValue}
+                          onChange={(e) =>
+                            setNumberField("afterRepairValue", e.target.value)
+                          }
+                          placeholder="3,000,000"
+                          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#0F766E] focus:ring-2 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-800"
+                        />
+                        {errors.afterRepairValue ? (
+                          <p className="mt-1 text-xs text-red-500">
+                            {errors.afterRepairValue}
+                          </p>
+                        ) : null}
+                      </div>
+                    </>
+                  ) : null}
+
+                  <ReadOnlyField
+                    field="ltvPercent"
+                    label="LTV (%)"
+                    value={terms.ltvPercent}
+                    hint={`Auto-calculated · ${formatMetricPercent(suggested.ltv)}`}
+                  />
+
+                  {showRehabMetrics ? (
+                    <>
+                      <ReadOnlyField
+                        field="ltcPercent"
+                        label="LTC (%)"
+                        value={terms.ltcPercent}
+                        hint={`Auto-calculated · ${formatMetricPercent(suggested.ltc)}`}
+                      />
+                      <ReadOnlyField
+                        field="arvPercent"
+                        label="ARV (%)"
+                        value={terms.arvPercent}
+                        hint={`Auto-calculated · ${formatMetricPercent(suggested.arvPercent)}`}
+                      />
+                    </>
+                  ) : null}
+
+                  <div data-loi-field="maximumLtvPercent">
+                    <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      Maximum LTV (%)
+                    </label>
+                    <input
+                      inputMode="decimal"
+                      value={terms.maximumLtvPercent}
+                      onChange={(e) =>
+                        setNumberField("maximumLtvPercent", e.target.value)
+                      }
+                      placeholder="70"
+                      className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#0F766E] focus:ring-2 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-800"
+                    />
+                    {errors.maximumLtvPercent ? (
+                      <p className="mt-1 text-xs text-red-500">
+                        {errors.maximumLtvPercent}
+                      </p>
+                    ) : null}
+                  </div>
+
+                  {showRehabMetrics ? (
+                    <>
+                      <div data-loi-field="maximumLtcPercent">
+                        <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                          Maximum LTC (%)
+                        </label>
+                        <input
+                          inputMode="decimal"
+                          value={terms.maximumLtcPercent}
+                          onChange={(e) =>
+                            setNumberField("maximumLtcPercent", e.target.value)
+                          }
+                          placeholder="75"
+                          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#0F766E] focus:ring-2 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-800"
+                        />
+                        {errors.maximumLtcPercent ? (
+                          <p className="mt-1 text-xs text-red-500">
+                            {errors.maximumLtcPercent}
+                          </p>
+                        ) : null}
+                      </div>
+
+                      <div data-loi-field="maximumArvPercent">
+                        <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                          Maximum ARV (%)
+                        </label>
+                        <input
+                          inputMode="decimal"
+                          value={terms.maximumArvPercent}
+                          onChange={(e) =>
+                            setNumberField("maximumArvPercent", e.target.value)
+                          }
+                          placeholder="65"
+                          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#0F766E] focus:ring-2 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-800"
+                        />
+                        {errors.maximumArvPercent ? (
+                          <p className="mt-1 text-xs text-red-500">
+                            {errors.maximumArvPercent}
+                          </p>
+                        ) : null}
+                      </div>
+                    </>
+                  ) : null}
+
+                  {bindingMaxLoan ? (
+                    <div className="sm:col-span-2 lg:col-span-3 rounded-xl border border-teal-100 bg-teal-50/70 px-3 py-2.5 text-xs text-teal-900 dark:border-teal-900/40 dark:bg-teal-950/20 dark:text-teal-100">
+                      Binding max loan (whichever is lower):{" "}
+                      {formatMetricCurrency(bindingMaxLoan.amount)} via{" "}
+                      {bindingMaxLoan.bindingLabel}
+                    </div>
+                  ) : null}
+
+                  <ReadOnlyField
+                    field="monthlyPayment"
+                    label="Monthly Payment"
+                    value={terms.monthlyPayment}
+                    error={errors.monthlyPayment}
+                    hint={
+                      suggested.monthlyPayment != null
+                        ? `Auto-calculated from amount, rate, and term · ${formatMetricCurrency(suggested.monthlyPayment)}`
+                        : "Auto-calculated from amount, rate, and term"
+                    }
+                  />
 
                   <div>
                     <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                      5. Interest Only
+                      Interest Only
                     </label>
                     <div className="flex gap-2">
                       {[true, false].map((value) => (
@@ -631,9 +835,9 @@ export default function LoiUnderwritingFormModal({
                     </div>
                   </div>
 
-                  <div className="sm:col-span-2" data-loi-field="loanTerm">
+                  <div className="sm:col-span-2 lg:col-span-3" data-loi-field="loanTerm">
                     <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                      6. Term
+                      Term
                     </label>
                     <div className="flex flex-wrap gap-2">
                       {LOI_TERM_OPTIONS.map((option) => (
@@ -654,6 +858,165 @@ export default function LoiUnderwritingFormModal({
                     {errors.loanTerm ? (
                       <p className="mt-1 text-xs text-red-500">{errors.loanTerm}</p>
                     ) : null}
+                  </div>
+                </div>
+
+                <div className="mt-6 border-t border-slate-100 pt-5 dark:border-slate-800">
+                  <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+                    Fees & Closing Costs
+                  </h4>
+                  <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    <div data-loi-field="originationPoints">
+                      <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        Origination Points (%)
+                      </label>
+                      <input
+                        inputMode="decimal"
+                        value={terms.originationPoints}
+                        onChange={(e) =>
+                          setNumberField("originationPoints", e.target.value)
+                        }
+                        placeholder="2"
+                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#0F766E] focus:ring-2 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-800"
+                      />
+                      {errors.originationPoints ? (
+                        <p className="mt-1 text-xs text-red-500">
+                          {errors.originationPoints}
+                        </p>
+                      ) : null}
+                    </div>
+
+                    <div data-loi-field="processingFee">
+                      <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        Processing Fee ($)
+                      </label>
+                      <input
+                        inputMode="decimal"
+                        value={terms.processingFee}
+                        onChange={(e) =>
+                          setNumberField("processingFee", e.target.value)
+                        }
+                        placeholder="995"
+                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#0F766E] focus:ring-2 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-800"
+                      />
+                      {errors.processingFee ? (
+                        <p className="mt-1 text-xs text-red-500">
+                          {errors.processingFee}
+                        </p>
+                      ) : null}
+                    </div>
+
+                    <div data-loi-field="appraisalFee">
+                      <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        Appraisal Fee ($)
+                      </label>
+                      <input
+                        inputMode="decimal"
+                        value={terms.appraisalFee}
+                        onChange={(e) =>
+                          setNumberField("appraisalFee", e.target.value)
+                        }
+                        placeholder="e.g. 750"
+                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#0F766E] focus:ring-2 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-800"
+                      />
+                      {errors.appraisalFee ? (
+                        <p className="mt-1 text-xs text-red-500">
+                          {errors.appraisalFee}
+                        </p>
+                      ) : null}
+                    </div>
+
+                    <div data-loi-field="brokerPoints">
+                      <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        Broker Points (%)
+                      </label>
+                      <input
+                        inputMode="decimal"
+                        value={terms.brokerPoints}
+                        onChange={(e) =>
+                          setNumberField("brokerPoints", e.target.value)
+                        }
+                        placeholder="1"
+                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#0F766E] focus:ring-2 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-800"
+                      />
+                      {errors.brokerPoints ? (
+                        <p className="mt-1 text-xs text-red-500">
+                          {errors.brokerPoints}
+                        </p>
+                      ) : null}
+                    </div>
+
+                    <div data-loi-field="wireFee">
+                      <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        Wire Fee ($)
+                      </label>
+                      <input
+                        inputMode="decimal"
+                        value={terms.wireFee}
+                        onChange={(e) =>
+                          setNumberField("wireFee", e.target.value)
+                        }
+                        placeholder="50"
+                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#0F766E] focus:ring-2 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-800"
+                      />
+                      {errors.wireFee ? (
+                        <p className="mt-1 text-xs text-red-500">
+                          {errors.wireFee}
+                        </p>
+                      ) : null}
+                    </div>
+
+                    <ReadOnlyField
+                      field="totalClosingCosts"
+                      label="Total Closing Costs"
+                      value={terms.totalClosingCosts}
+                      hint={
+                        suggested.totalClosingCosts != null
+                          ? `Auto-calculated · ${formatMetricCurrency(suggested.totalClosingCosts)}`
+                          : "Auto-calculated from fees above"
+                      }
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-6 border-t border-slate-100 pt-5 dark:border-slate-800">
+                  <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+                    Required Reserves
+                  </h4>
+                  <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    <div data-loi-field="requiredReservesPercent">
+                      <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        Required Reserves (%)
+                      </label>
+                      <input
+                        inputMode="decimal"
+                        value={terms.requiredReservesPercent}
+                        onChange={(e) =>
+                          setNumberField(
+                            "requiredReservesPercent",
+                            e.target.value,
+                          )
+                        }
+                        placeholder="3"
+                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#0F766E] focus:ring-2 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-800"
+                      />
+                      {errors.requiredReservesPercent ? (
+                        <p className="mt-1 text-xs text-red-500">
+                          {errors.requiredReservesPercent}
+                        </p>
+                      ) : null}
+                    </div>
+
+                    <ReadOnlyField
+                      field="requiredReservesAmount"
+                      label="Reserve Amount ($)"
+                      value={terms.requiredReservesAmount}
+                      hint={
+                        suggested.requiredReservesAmount != null
+                          ? `Auto-calculated · ${formatMetricCurrency(suggested.requiredReservesAmount)}`
+                          : "Auto-calculated as loan × reserves %"
+                      }
+                    />
                   </div>
                 </div>
 
@@ -682,7 +1045,7 @@ export default function LoiUnderwritingFormModal({
           </div>
         </div>
 
-        <div className="flex items-center justify-end gap-3 border-t border-slate-200 px-6 py-4 dark:border-slate-800">
+        <div className="sticky bottom-0 flex items-center justify-end gap-3 border-t border-slate-200 bg-white/95 px-6 py-4 backdrop-blur dark:border-slate-800 dark:bg-slate-900/95">
           <button
             type="button"
             onClick={onClose}

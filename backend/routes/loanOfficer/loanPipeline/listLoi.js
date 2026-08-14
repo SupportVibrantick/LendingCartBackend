@@ -78,15 +78,21 @@ async function listLoiRoute(fastify) {
           });
         }
 
-        const where = {
+        const baseWhere = {
           loanApplicationId: applicationId,
           loiUrl: { not: null },
           loiSentToBrokerAt: { not: null },
+        };
+        const where = {
+          ...baseWhere,
           ...buildLoiSearchFilter(search),
         };
 
-        const [total, lenders] = await Promise.all([
+        const [totalFiltered, totalLoiReceived, lenders] = await Promise.all([
           prisma.applicationLender.count({ where }),
+          search
+            ? prisma.applicationLender.count({ where: baseWhere })
+            : Promise.resolve(null),
           prisma.applicationLender.findMany({
             where,
             include: APPLICATION_LENDER_LOI_INCLUDE,
@@ -97,7 +103,7 @@ async function listLoiRoute(fastify) {
         ]);
 
         const lois = lenders.map(formatBrokerLoiRecord);
-        const pagination = buildLoiPagination(page, limit, total);
+        const pagination = buildLoiPagination(page, limit, totalFiltered);
 
         return reply.send({
           success: true,
@@ -110,7 +116,8 @@ async function listLoiRoute(fastify) {
                 ? Number(application.amountRequested)
                 : null,
             purpose: application.purpose ?? null,
-            totalLoiReceived: total,
+            totalLoiReceived:
+              totalLoiReceived != null ? totalLoiReceived : totalFiltered,
             lois,
             pagination,
           },

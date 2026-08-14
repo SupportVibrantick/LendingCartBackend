@@ -48,6 +48,7 @@ import ImpersonateLogin from "./pages/ImpersonateLogin";
 import LoiPreview from "./pages/LoanPipeline/LoiPreview";
 import ClientUpload from "./pages/ClientPortal/ClientUpload";
 import LoanPreview from "./pages/LoanPipeline/LoanPreview";
+import LoiUnderwritingFormPage from "./pages/LoanPipeline/LoiUnderwritingFormPage";
 import TeamMembers from "./pages/TeamMembers/TeamMembers";
 import UpdateLoanProduct from "./pages/LoanProducts/UpdateLoanProduct";
 import ChangePassword from "./pages/Account/ChangePassword";
@@ -111,6 +112,7 @@ export default function App() {
             <Route index path="/find-broker" element={<FindBroker />} />
             <Route index path="/loan-pipeline" element={<LoanPipeline />} />
             <Route index path="/loan-preview" element={<LoanPreview />} />
+            <Route index path="/loi-form" element={<LoiUnderwritingFormPage />} />
             <Route index path="/loi-preview" element={<LoiPreview />} />
             <Route path="/team-members" element={<TeamMembers />} />
             <Route path="/account/change-password" element={<ChangePassword />} />

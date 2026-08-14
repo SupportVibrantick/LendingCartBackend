@@ -1,0 +1,15 @@
+{
+    "keep": {
+        "days": true,
+        "amount": 10
+    },
+    "auditLog": "F:\\LendingCartBackend\\storage\\logs\\kafka\\.75e949507d42c2ba4c1ca8e53926372279dfb72f-audit.json",
+    "files": [
+        {
+            "date": 1786694122387,
+            "name": "F:\\LendingCartBackend\\storage\\logs\\kafka\\info-14-08-2026.log",
+            "hash": "983c391c63dee59de09fcf321c5e77ac8e9213709da2af24401d5b2c1643fb53"
+        }
+    ],
+    "hashType": "sha256"
+}
