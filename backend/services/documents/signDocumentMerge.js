@@ -31,16 +31,26 @@ function resolveLoiSignaturePage(pages, anchor) {
 }
 
 function drawLoiClientSignature(page, pngImage, font, anchor, pageHeight, options) {
-  const sigWidth = Math.min(190, Math.round(anchor.boxWidth * 0.48));
-  const sigHeight = 20;
-  const sigX = anchor.margin + 12;
-  const linePdfLibY = pdfKitYToPdfLibY(pageHeight, anchor.lineY);
-  // Place signature above the line (pdf-lib Y grows upward).
-  const sigY = linePdfLibY + 3;
+  const hasExplicitBox = anchor.sigTopY != null;
+  const sigWidth = Math.min(
+    anchor.sigWidth || 190,
+    Math.round((anchor.boxWidth || 500) * 0.48),
+  );
+  // Older LOI templates had a cramped acknowledgement box — keep the ink small.
+  const sigHeight = hasExplicitBox
+    ? Math.min(anchor.sigHeight || 36, 40)
+    : 18;
+  const sigX = anchor.sigX != null ? anchor.sigX : (anchor.margin || 44) + 10;
+
+  const sigTopY = hasExplicitBox
+    ? anchor.sigTopY
+    : (anchor.lineY || pageHeight - 80) - sigHeight - 1;
+  // pdf-lib image y is the bottom-left corner.
+  const sigY = pdfKitYToPdfLibY(pageHeight, sigTopY + sigHeight);
 
   page.drawImage(pngImage, {
     x: sigX,
-    y: sigY,
+    y: Math.max(0, sigY),
     width: sigWidth,
     height: sigHeight,
   });
@@ -57,23 +67,37 @@ function drawLoiClientSignature(page, pngImage, font, anchor, pageHeight, option
         year: "numeric",
       });
 
-  const dateX = anchor.dateX;
-  const dateY = pdfKitYToPdfLibY(pageHeight, anchor.printNameY) - 2;
+  const dateX =
+    hasExplicitBox && anchor.dateX != null
+      ? anchor.dateX
+      : (anchor.margin || 44) + (anchor.boxWidth || 500) * 0.58;
+  // Older anchors used printNameY = lineY + 16 for baseline; new templates use top-of-line.
+  const printNameTop =
+    anchor.printNameY != null
+      ? hasExplicitBox
+        ? anchor.printNameY
+        : anchor.printNameY - 8
+      : (anchor.lineY || 0) + 6;
+  // PDFKit text y is top-of-line; pdf-lib drawText y is baseline (~8pt).
+  const dateBaseline = pdfKitYToPdfLibY(pageHeight, printNameTop + 8);
+  const boxRight = (anchor.margin || 44) + (anchor.boxWidth || 500);
+  const dateMaxWidth = Math.max(60, boxRight - dateX - 8);
 
   page.drawRectangle({
-    x: dateX - 2,
-    y: dateY - 3,
-    width: anchor.boxWidth * 0.34,
+    x: dateX - 1,
+    y: dateBaseline - 2,
+    width: Math.min((anchor.boxWidth || 500) * 0.38, dateMaxWidth),
     height: 11,
     color: rgb(1, 1, 1),
   });
 
   page.drawText(`Date: ${signedDate}`, {
     x: dateX,
-    y: dateY,
+    y: dateBaseline,
     size: 8,
     font,
     color: rgb(0.06, 0.09, 0.17),
+    maxWidth: dateMaxWidth,
   });
 }
 

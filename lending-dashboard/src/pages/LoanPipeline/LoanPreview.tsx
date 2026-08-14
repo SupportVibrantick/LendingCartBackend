@@ -85,7 +85,6 @@ import {
   sanitizeNumberInput,
   stripNumberFormatting,
 } from "../../lib/numberInputFormat";
-import LoiUnderwritingFormModal from "../../components/loi/LoiUnderwritingFormModal";
 import {
   getNumericFieldValue,
   getLatestSubmission,
@@ -93,7 +92,6 @@ import {
   parseSubmissionFieldValue,
   type SubmissionDetailField,
 } from "../../lib/submissionFieldUtils";
-import type { serializeLoiUnderwritingTerms } from "../../lib/loiUnderwritingTerms";
 
 type PreviewTab = "details" | "documents" | "signDocuments" | "requestDocs" | "loi" | "chat";
 type DocumentSourceFilter = "all" | "mine" | "broker";
@@ -379,7 +377,6 @@ export default function LoanPreview() {
     location.state?.initialTab || searchParams.get("tab") || "details";
 
   const isLoi = location.state?.isLoi;
-  const shouldOpenLoiForm = Boolean(location.state?.openLoiForm);
 
   const initialTab: PreviewTab = (() => {
     const allowedTabs = getVisibleTabs().map((tab) => tab.id);
@@ -400,12 +397,7 @@ export default function LoanPreview() {
   const [documentSourceFilter, setDocumentSourceFilter] =
     useState<DocumentSourceFilter>("all");
   const [loiLoading, setLoiLoading] = useState(false);
-  const [loiGenerating, setLoiGenerating] = useState(false);
   const [loiSendingToBroker, setLoiSendingToBroker] = useState(false);
-  const [loiFormOpen, setLoiFormOpen] = useState(shouldOpenLoiForm);
-  const [loiFormMode, setLoiFormMode] = useState<
-    "create" | "regenerate" | "revised"
-  >("create");
   const [loiVersions, setLoiVersions] = useState<
     Array<{
       id: string;
@@ -473,10 +465,16 @@ export default function LoanPreview() {
   }, [initialTab]);
 
   useEffect(() => {
-    if (shouldOpenLoiForm) {
-      setLoiFormOpen(true);
-    }
-  }, [shouldOpenLoiForm, applicationLenderId]);
+    if (!location.state?.openLoiForm || !applicationLenderId) return;
+    navigate("/loi-form", {
+      replace: true,
+      state: {
+        applicationLenderId,
+        mode: location.state?.loiFormMode || "create",
+        revisedVersionNumber: location.state?.revisedVersionNumber,
+      },
+    });
+  }, [location.state, applicationLenderId, navigate]);
 
   useEffect(() => {
     return () => {
@@ -1084,7 +1082,8 @@ export default function LoanPreview() {
         if (nextSignedFileUrl) {
           return;
         }
-        throw new Error("LOI not generated yet");
+        // No LOI file yet — empty generate CTA handles UX; don't toast.
+        return;
       }
 
       if (!force && loiUrl && !signedFileChanged) {
@@ -1112,93 +1111,20 @@ export default function LoanPreview() {
         return blobUrl;
       });
     } catch (err: any) {
-      if (!signedBrokerLoi?.signedUpload?.fileUrl) {
-        toast.error(err.message || "Failed to load LOI");
+      const message = err?.message || "Failed to load LOI";
+      const isExpectedMissing =
+        /not generated yet/i.test(message) ||
+        /LOI not generated/i.test(message) ||
+        /not found/i.test(message);
+
+      if (
+        !isExpectedMissing &&
+        !signedBrokerLoi?.signedUpload?.fileUrl
+      ) {
+        toast.error(message);
       }
     } finally {
       setLoiLoading(false);
-    }
-  };
-
-  const handleGenerateLOI = async (payload: {
-    lenderTerms: ReturnType<typeof serializeLoiUnderwritingTerms>;
-    branding: { brandName: string; logoUrl: string };
-  }) => {
-    if (!applicationLenderId) return;
-
-    const isRegenerate = loiFormMode === "regenerate";
-    const isRevised = loiFormMode === "revised";
-
-    try {
-      setLoiGenerating(true);
-
-      const res = await fetch(
-        `${API_BASE}/lender/loan-pipeline/${applicationLenderId}/generate-loi`,
-        {
-          method: "POST",
-          headers: getAuthHeaders(),
-          body: JSON.stringify({
-            ...payload,
-            regenerate: isRegenerate || isRevised,
-            revised: isRevised,
-          }),
-        },
-      );
-
-      const json = await res.json();
-
-      if (!res.ok || !json.success) {
-        throw new Error(json.message || "Failed to generate LOI");
-      }
-
-      toast.success(
-        isRevised
-          ? `Revised LOI (Version ${json.versionNumber || nextRevisedVersionNumber}) created. Review it, then send to the broker when ready.`
-          : isRegenerate
-            ? "LOI draft updated. Review the updated document, then send it to the broker when ready."
-            : "Term sheet generated. Review it below, then send it to the broker when ready.",
-      );
-      setLoiFormOpen(false);
-      setLoiFormMode("create");
-
-      setSubmissionDetail((prev: any) =>
-        prev
-          ? {
-              ...prev,
-              loiUrl: json.loiUrl,
-              loiSentToBrokerAt: isRevised || isRegenerate ? null : prev.loiSentToBrokerAt,
-              loiTermsJson: payload.lenderTerms,
-            }
-          : prev,
-      );
-
-      if (json.versions) {
-        setLoiVersions(json.versions);
-      } else {
-        void fetchLoiVersions();
-      }
-
-      setLoiUrl((prev) => {
-        if (prev?.startsWith("blob:")) {
-          URL.revokeObjectURL(prev);
-        }
-        return null;
-      });
-
-      await loadLoiPreview(json.loiUrl, true);
-
-      navigate(`/loan-preview/?tab=loi`, {
-        replace: true,
-        state: {
-          applicationLenderId,
-          initialTab: "loi",
-          isLoi: true,
-        },
-      });
-    } catch (err: any) {
-      toast.error(err.message || "Failed to generate LOI");
-    } finally {
-      setLoiGenerating(false);
     }
   };
 
@@ -1242,14 +1168,22 @@ export default function LoanPreview() {
   };
 
   const openCreateLoiForm = () => {
-    setLoiFormMode("create");
-    setLoiFormOpen(true);
+    navigate("/loi-form", {
+      state: {
+        applicationLenderId,
+        mode: "create",
+      },
+    });
   };
 
   const openRegenerateLoiForm = async () => {
     setLoiViewMode("lender");
-    setLoiFormMode("regenerate");
-    setLoiFormOpen(true);
+    navigate("/loi-form", {
+      state: {
+        applicationLenderId,
+        mode: "regenerate",
+      },
+    });
   };
 
   const openRevisedLoiForm = async () => {
@@ -1266,8 +1200,13 @@ export default function LoanPreview() {
     if (!result.isConfirmed) return;
 
     setLoiViewMode("lender");
-    setLoiFormMode("revised");
-    setLoiFormOpen(true);
+    navigate("/loi-form", {
+      state: {
+        applicationLenderId,
+        mode: "revised",
+        revisedVersionNumber: nextRevisedVersionNumber,
+      },
+    });
   };
 
   useEffect(() => {
@@ -1287,7 +1226,21 @@ export default function LoanPreview() {
     }
 
     if (activeTab === "loi" && (loiGenerated || isLoi || hasSignedBrokerLoi)) {
-      loadLoiPreview();
+      // Only force-refresh after a successful generate; cancel/back must not hammer view-loi.
+      void loadLoiPreview(undefined, Boolean(location.state?.refreshLoi));
+    } else if (
+      activeTab === "loi" &&
+      !loiGenerated &&
+      !isLoi &&
+      !hasSignedBrokerLoi
+    ) {
+      // Returning from create form without generating — clear stale blob preview.
+      setLoiUrl((prev) => {
+        if (prev?.startsWith("blob:")) {
+          URL.revokeObjectURL(prev);
+        }
+        return null;
+      });
     }
   }, [
     activeTab,
@@ -1298,7 +1251,37 @@ export default function LoanPreview() {
     loiGenerated,
     isLoi,
     hasSignedBrokerLoi,
+    location.state?.refreshLoi,
   ]);
+
+  useEffect(() => {
+    if (!location.state?.refreshLoi || !applicationLenderId) return;
+
+    let cancelled = false;
+
+    (async () => {
+      await fetchLenderApplicationDetail();
+      if (cancelled) return;
+      await fetchLoiVersions();
+      if (cancelled) return;
+      await loadLoiPreview(undefined, true);
+      if (cancelled) return;
+      navigate("/loan-preview/?tab=loi", {
+        replace: true,
+        state: {
+          applicationLenderId,
+          initialTab: "loi",
+          isLoi: true,
+        },
+      });
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // Intentionally bind to refresh flag only; helpers close over latest render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.state?.refreshLoi, applicationLenderId]);
 
   const latestLenderReview = submissionDetail?.lenderReviews?.[0];
   const latestReviewStatus =
@@ -2367,24 +2350,16 @@ export default function LoanPreview() {
       );
     }
 
-    if (loiGenerating || loiLoading) {
+    if (loiLoading) {
       return (
         <div className="flex flex-col items-center justify-center gap-3 py-20">
           <Loader2 className="animate-spin w-8 h-8 text-blue-500" />
-          <p className="text-sm text-slate-500">
-            {loiGenerating
-              ? loiFormMode === "revised"
-                ? "Creating Revised Term Sheet / LOI..."
-                : loiFormMode === "regenerate"
-                  ? "Updating LOI Draft..."
-                  : "Generating Term Sheet / LOI from application data..."
-              : "Loading LOI preview..."}
-          </p>
+          <p className="text-sm text-slate-500">Loading LOI preview...</p>
         </div>
       );
     }
 
-    if (!loiGenerated && !isLoi && !hasSignedBrokerLoi) {
+    if (!loiGenerated && !hasSignedBrokerLoi && !loiUrl && !signedBrokerLoiUrl) {
       if (!canCreateLoi) {
         return (
           <div className="text-center py-16 text-slate-500">
@@ -2408,7 +2383,7 @@ export default function LoanPreview() {
           <button
             type="button"
             onClick={openCreateLoiForm}
-            disabled={loiGenerating || detailLoading}
+            disabled={detailLoading}
             className="mt-6 inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-purple-600 text-white text-sm font-semibold hover:bg-purple-700 transition disabled:opacity-50"
           >
             <FileText size={16} />
@@ -2419,6 +2394,15 @@ export default function LoanPreview() {
     }
 
     if (!loiUrl && !signedBrokerLoiUrl) {
+      if (loiLoading || detailLoading || location.state?.refreshLoi) {
+        return (
+          <div className="flex flex-col items-center justify-center gap-3 py-20">
+            <Loader2 className="animate-spin w-8 h-8 text-blue-500" />
+            <p className="text-sm text-slate-500">Loading LOI preview...</p>
+          </div>
+        );
+      }
+
       return (
         <div className="text-center py-16 text-slate-500">
           LOI preview not available.
@@ -2555,7 +2539,7 @@ export default function LoanPreview() {
               <button
                 type="button"
                 onClick={openRegenerateLoiForm}
-                disabled={loiGenerating || loiLoading}
+                disabled={loiLoading}
                 className="inline-flex items-center gap-2 rounded-xl border border-purple-200 bg-purple-50 px-4 py-2 text-sm font-semibold text-purple-700 transition hover:bg-purple-100 disabled:opacity-50"
               >
                 <RotateCcw size={16} />
@@ -2565,7 +2549,7 @@ export default function LoanPreview() {
               <button
                 type="button"
                 onClick={openRevisedLoiForm}
-                disabled={loiGenerating || loiLoading}
+                disabled={loiLoading}
                 className="inline-flex items-center gap-2 rounded-xl border border-purple-200 bg-purple-50 px-4 py-2 text-sm font-semibold text-purple-700 transition hover:bg-purple-100 disabled:opacity-50"
               >
                 <RotateCcw size={16} />
@@ -3430,80 +3414,6 @@ export default function LoanPreview() {
           </div>,
           document.body,
         )}
-
-      {createPortal(
-        <LoiUnderwritingFormModal
-          isOpen={loiFormOpen}
-          mode={loiFormMode}
-          revisedVersionNumber={
-            loiFormMode === "revised" ? nextRevisedVersionNumber : undefined
-          }
-          storedTerms={submissionDetail?.loiTermsJson}
-          requestedAmount={loanAmount}
-          propertyValue={
-            getNumericFieldValue(submissionFields, "currentMarketValue") ||
-            getNumericFieldValue(submissionFields, "purchasePrice") ||
-            getNumericFieldValue(submissionFields, "afterRepairValue") ||
-            null
-          }
-          projectCost={
-            (() => {
-              const total =
-                getNumericFieldValue(submissionFields, "totalProjectCost") ||
-                getNumericFieldValue(submissionFields, "projectCost");
-              if (total) return total;
-              const purchase =
-                getNumericFieldValue(submissionFields, "purchasePrice") || 0;
-              const rehab =
-                getNumericFieldValue(submissionFields, "rehabCost") ||
-                getNumericFieldValue(submissionFields, "rehabBudget") ||
-                getNumericFieldValue(submissionFields, "constructionBudget") ||
-                0;
-              const combined = purchase + rehab;
-              return combined > 0 ? combined : null;
-            })()
-          }
-          arv={getNumericFieldValue(submissionFields, "afterRepairValue")}
-          applicationInterestRate={interestRate}
-          applicationLoanTerm={loanTermMonths}
-          loanProductCode={
-            submissionDetail?.loanApplication?.loanProductCode || null
-          }
-          applicationContext={{
-            borrowerName: getBorrowerDisplayName(
-              submissionDetail,
-              submissionFields,
-            ),
-            propertyAddress:
-              getFieldValueFromList(
-                submissionFields,
-                "propertyAddress",
-                "property_address",
-                "address",
-              ) || undefined,
-            propertyType:
-              getFieldValueFromList(
-                submissionFields,
-                "propertyType",
-                "property_type",
-              ) || undefined,
-            loanProduct: resolvedLoanProductName || undefined,
-            brokerName:
-              submissionDetail?.loanApplication?.brokerUser
-                ? `${submissionDetail.loanApplication.brokerUser.firstName || ""} ${submissionDetail.loanApplication.brokerUser.lastName || ""}`.trim() ||
-                  submissionDetail?.loanApplication?.brokerOrg?.name
-                : submissionDetail?.loanApplication?.brokerOrg?.name ||
-                  undefined,
-          }}
-          submitting={loiGenerating}
-          onClose={() => {
-            setLoiFormOpen(false);
-            setLoiFormMode("create");
-          }}
-          onSubmit={handleGenerateLOI}
-        />,
-        document.body,
-      )}
     </div>
   );
 }

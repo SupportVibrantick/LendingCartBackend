@@ -11,10 +11,13 @@ import {
 } from "../../lib/loiBranding";
 import {
   BROKER_LOI_TERM_OPTIONS,
+  calculateBindingMaxLoan,
   calculateSuggestedBrokerLoiMetrics,
   formatBrokerLoiNumberInput,
+  getLoiValueFieldLabel,
   mergeBrokerLoiDocuments,
   normalizeBrokerLoiTerms,
+  usesRehabConstructionLoiMetrics,
   validateBrokerLoiTerms,
   type BrokerLoiApplicationContext,
   type BrokerLoiTerms,
@@ -24,16 +27,32 @@ const BROKER_LOI_ERROR_FIELD_ORDER = [
   "branding",
   "approvedAmount",
   "interestRate",
-  "loanTerm",
+  "collateralOrPropertyValue",
+  "rehabConstructionCost",
+  "afterRepairValue",
+  "maximumLtvPercent",
+  "maximumLtcPercent",
+  "maximumArvPercent",
   "monthlyPayment",
-  "ltvPercent",
-  "arvPercent",
+  "loanTerm",
+  "originationPoints",
+  "processingFee",
+  "appraisalFee",
+  "brokerPoints",
+  "wireFee",
+  "requiredReservesPercent",
   "requiredDocuments",
 ] as const;
 
 function getAuthHeaders(): Record<string, string> {
   const token = sessionStorage.getItem("broker_token");
   return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+function formatMoney(value?: number | string | null) {
+  const numeric = Number(String(value || "").replace(/[$,\s]/g, ""));
+  if (!Number.isFinite(numeric) || numeric <= 0) return "—";
+  return `$${numeric.toLocaleString("en-US")}`;
 }
 
 type BrokerBrandingPreview = {
@@ -69,6 +88,40 @@ function InfoRow({ label, value }: { label: string; value?: string }) {
   );
 }
 
+function ReadOnlyField({
+  field,
+  label,
+  value,
+  error,
+  hint,
+}: {
+  field: string;
+  label: string;
+  value: string;
+  error?: string;
+  hint?: string;
+}) {
+  return (
+    <div data-loi-field={field}>
+      <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+        {label}
+      </label>
+      <input
+        value={value}
+        readOnly
+        tabIndex={-1}
+        placeholder="Auto-calculated"
+        className="w-full cursor-not-allowed rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-200"
+      />
+      {error ? (
+        <p className="mt-1 text-xs text-rose-600">{error}</p>
+      ) : hint ? (
+        <p className="mt-1 text-[11px] text-slate-500">{hint}</p>
+      ) : null}
+    </div>
+  );
+}
+
 export default function BrokerLoiEditorPanel({
   sourceLenderName,
   terms: initialTerms,
@@ -82,8 +135,15 @@ export default function BrokerLoiEditorPanel({
   onCancel,
   onSubmit,
 }: Props) {
+  const showRehabMetrics = usesRehabConstructionLoiMetrics(
+    applicationContext?.loanProductCode,
+  );
+  const valueFieldLabel = getLoiValueFieldLabel(
+    applicationContext?.loanProductCode,
+  );
+
   const [terms, setTerms] = useState<BrokerLoiTerms>(() =>
-    normalizeBrokerLoiTerms(initialTerms),
+    normalizeBrokerLoiTerms(initialTerms, applicationContext),
   );
   const [branding, setBranding] = useState<LoiBrandingValues>(() => ({
     brandName: brokerBranding?.brandName || "",
@@ -109,9 +169,9 @@ export default function BrokerLoiEditorPanel({
   }, []);
 
   useEffect(() => {
-    setTerms(normalizeBrokerLoiTerms(initialTerms));
+    setTerms(normalizeBrokerLoiTerms(initialTerms, applicationContext));
     setErrors({});
-  }, [initialTerms]);
+  }, [initialTerms, applicationContext]);
 
   useEffect(() => {
     setBranding({
@@ -127,45 +187,128 @@ export default function BrokerLoiEditorPanel({
         interestRate: terms.interestRate,
         interestOnly: terms.interestOnly,
         loanTerm: terms.loanTerm,
-        originationFeePercent: terms.originationFeePercent,
-        exitFee: terms.exitFee,
+        collateralOrPropertyValue: terms.collateralOrPropertyValue,
+        rehabConstructionCost: terms.rehabConstructionCost,
+        afterRepairValue: terms.afterRepairValue,
+        originationPoints: terms.originationPoints,
+        appraisalFee: terms.appraisalFee,
+        brokerPoints: terms.brokerPoints,
+        wireFee: terms.wireFee,
         processingFee: terms.processingFee,
         underwritingFee: terms.underwritingFee,
+        requiredReservesPercent: terms.requiredReservesPercent,
+        showRehabMetrics,
       }),
     [
       terms.approvedAmount,
       terms.interestRate,
       terms.interestOnly,
       terms.loanTerm,
-      terms.originationFeePercent,
-      terms.exitFee,
+      terms.collateralOrPropertyValue,
+      terms.rehabConstructionCost,
+      terms.afterRepairValue,
+      terms.originationPoints,
+      terms.appraisalFee,
+      terms.brokerPoints,
+      terms.wireFee,
       terms.processingFee,
       terms.underwritingFee,
+      terms.requiredReservesPercent,
+      showRehabMetrics,
+    ],
+  );
+
+  const bindingMaxLoan = useMemo(
+    () =>
+      calculateBindingMaxLoan({
+        collateralOrPropertyValue: terms.collateralOrPropertyValue,
+        rehabConstructionCost: terms.rehabConstructionCost,
+        afterRepairValue: terms.afterRepairValue,
+        maximumLtvPercent: terms.maximumLtvPercent,
+        maximumLtcPercent: terms.maximumLtcPercent,
+        maximumArvPercent: terms.maximumArvPercent,
+        showRehabMetrics,
+      }),
+    [
+      terms.collateralOrPropertyValue,
+      terms.rehabConstructionCost,
+      terms.afterRepairValue,
+      terms.maximumLtvPercent,
+      terms.maximumLtcPercent,
+      terms.maximumArvPercent,
+      showRehabMetrics,
     ],
   );
 
   useEffect(() => {
     setTerms((prev) => {
+      const nextLtv =
+        suggested.ltv != null
+          ? formatBrokerLoiNumberInput(String(suggested.ltv))
+          : "";
+      const nextLtc =
+        showRehabMetrics && suggested.ltc != null
+          ? formatBrokerLoiNumberInput(String(suggested.ltc))
+          : "";
+      const nextArv =
+        showRehabMetrics && suggested.arvPercent != null
+          ? formatBrokerLoiNumberInput(String(suggested.arvPercent))
+          : "";
       const nextPayment =
         suggested.monthlyPayment == null
           ? ""
           : formatBrokerLoiNumberInput(String(suggested.monthlyPayment));
-      if (prev.monthlyPayment === nextPayment) return prev;
-      return { ...prev, monthlyPayment: nextPayment };
+      const nextClosing =
+        suggested.totalClosingCosts != null
+          ? formatBrokerLoiNumberInput(String(suggested.totalClosingCosts))
+          : "";
+      const nextReserves =
+        suggested.requiredReservesAmount != null
+          ? formatBrokerLoiNumberInput(String(suggested.requiredReservesAmount))
+          : "";
+
+      if (
+        prev.ltvPercent === nextLtv &&
+        prev.ltcPercent === nextLtc &&
+        prev.arvPercent === nextArv &&
+        prev.monthlyPayment === nextPayment &&
+        prev.totalClosingCosts === nextClosing &&
+        prev.requiredReservesAmount === nextReserves
+      ) {
+        return prev;
+      }
+
+      return {
+        ...prev,
+        ltvPercent: nextLtv,
+        ltcPercent: nextLtc,
+        arvPercent: nextArv,
+        monthlyPayment: nextPayment,
+        totalClosingCosts: nextClosing,
+        requiredReservesAmount: nextReserves,
+      };
     });
-  }, [suggested.monthlyPayment]);
+  }, [suggested, showRehabMetrics]);
 
   const setNumberField = (
     key: keyof Pick<
       BrokerLoiTerms,
       | "approvedAmount"
       | "interestRate"
-      | "ltvPercent"
-      | "ltcPercent"
-      | "arvPercent"
+      | "collateralOrPropertyValue"
+      | "rehabConstructionCost"
+      | "afterRepairValue"
+      | "maximumLtvPercent"
+      | "maximumLtcPercent"
+      | "maximumArvPercent"
+      | "originationPoints"
       | "originationFeePercent"
       | "processingFee"
       | "underwritingFee"
+      | "appraisalFee"
+      | "brokerPoints"
+      | "wireFee"
+      | "requiredReservesPercent"
       | "prepaymentPenalty"
       | "exitFee"
       | "legalFee"
@@ -199,7 +342,9 @@ export default function BrokerLoiEditorPanel({
         terms.customDocument,
       ),
     };
-    const validation = validateBrokerLoiTerms(payload);
+    const validation = validateBrokerLoiTerms(payload, {
+      loanProductCode: applicationContext?.loanProductCode,
+    });
     setErrors(validation.errors);
     if (!validation.valid) {
       const firstErrorField = BROKER_LOI_ERROR_FIELD_ORDER.find(
@@ -220,6 +365,8 @@ export default function BrokerLoiEditorPanel({
 
   const brandingComplete = isLoiBrandingComplete(branding);
   const fieldsDisabled = submitting || readOnly;
+  const inputClassName =
+    "w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-950 disabled:cursor-not-allowed disabled:opacity-60";
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden bg-white dark:bg-slate-900">
@@ -279,9 +426,28 @@ export default function BrokerLoiEditorPanel({
             </div>
             <div className="grid gap-2 sm:grid-cols-2">
               <InfoRow label="Borrower" value={applicationContext.borrowerName} />
-              <InfoRow label="Property" value={applicationContext.propertyAddress} />
+              <InfoRow
+                label="Property"
+                value={applicationContext.propertyAddress}
+              />
               <InfoRow label="Product" value={applicationContext.loanProduct} />
               <InfoRow label="Broker" value={applicationContext.brokerName} />
+              <InfoRow
+                label={valueFieldLabel}
+                value={formatMoney(applicationContext.propertyValue)}
+              />
+              {showRehabMetrics ? (
+                <>
+                  <InfoRow
+                    label="Project Cost"
+                    value={formatMoney(applicationContext.projectCost)}
+                  />
+                  <InfoRow
+                    label="ARV"
+                    value={formatMoney(applicationContext.arv)}
+                  />
+                </>
+              ) : null}
             </div>
           </div>
         )}
@@ -294,14 +460,14 @@ export default function BrokerLoiEditorPanel({
           <div className="grid gap-4 md:grid-cols-2">
             <label className="block" data-loi-field="approvedAmount">
               <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Approved Amount
+                Loan Amount
               </span>
               <input
                 value={terms.approvedAmount}
-                disabled={readOnly}
+                disabled={fieldsDisabled}
                 inputMode="decimal"
                 onChange={(e) => setNumberField("approvedAmount", e.target.value)}
-                className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-950"
+                className={inputClassName}
                 placeholder="1,000,000"
               />
               {errors.approvedAmount && (
@@ -315,10 +481,10 @@ export default function BrokerLoiEditorPanel({
               </span>
               <input
                 value={terms.interestRate}
-                disabled={readOnly}
+                disabled={fieldsDisabled}
                 inputMode="decimal"
                 onChange={(e) => setNumberField("interestRate", e.target.value)}
-                className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-950"
+                className={inputClassName}
                 placeholder="7"
               />
               {errors.interestRate && (
@@ -326,128 +492,501 @@ export default function BrokerLoiEditorPanel({
               )}
             </label>
 
-            <label className="block" data-loi-field="loanTerm">
+            <label
+              className="block"
+              data-loi-field="collateralOrPropertyValue"
+            >
               <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                {valueFieldLabel}
+              </span>
+              <input
+                value={terms.collateralOrPropertyValue}
+                disabled={fieldsDisabled}
+                inputMode="decimal"
+                onChange={(e) =>
+                  setNumberField("collateralOrPropertyValue", e.target.value)
+                }
+                className={inputClassName}
+                placeholder="e.g. 2,500,000"
+              />
+              {errors.collateralOrPropertyValue && (
+                <p className="mt-1 text-xs text-rose-600">
+                  {errors.collateralOrPropertyValue}
+                </p>
+              )}
+            </label>
+
+            {showRehabMetrics ? (
+              <>
+                <label className="block" data-loi-field="rehabConstructionCost">
+                  <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Rehab/Construction Cost
+                  </span>
+                  <input
+                    value={terms.rehabConstructionCost}
+                    disabled={fieldsDisabled}
+                    inputMode="decimal"
+                    onChange={(e) =>
+                      setNumberField("rehabConstructionCost", e.target.value)
+                    }
+                    className={inputClassName}
+                    placeholder="350,000"
+                  />
+                  {errors.rehabConstructionCost && (
+                    <p className="mt-1 text-xs text-rose-600">
+                      {errors.rehabConstructionCost}
+                    </p>
+                  )}
+                </label>
+
+                <label className="block" data-loi-field="afterRepairValue">
+                  <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    After Repair Value
+                  </span>
+                  <input
+                    value={terms.afterRepairValue}
+                    disabled={fieldsDisabled}
+                    inputMode="decimal"
+                    onChange={(e) =>
+                      setNumberField("afterRepairValue", e.target.value)
+                    }
+                    className={inputClassName}
+                    placeholder="3,000,000"
+                  />
+                  {errors.afterRepairValue && (
+                    <p className="mt-1 text-xs text-rose-600">
+                      {errors.afterRepairValue}
+                    </p>
+                  )}
+                </label>
+              </>
+            ) : null}
+
+            <ReadOnlyField
+              field="ltvPercent"
+              label="LTV (%)"
+              value={terms.ltvPercent}
+              hint="Auto-calculated from loan amount and value"
+            />
+
+            {showRehabMetrics ? (
+              <>
+                <ReadOnlyField
+                  field="ltcPercent"
+                  label="LTC (%)"
+                  value={terms.ltcPercent}
+                  hint="Auto-calculated from loan amount and project cost"
+                />
+                <ReadOnlyField
+                  field="arvPercent"
+                  label="ARV (%)"
+                  value={terms.arvPercent}
+                  hint="Auto-calculated from loan amount and ARV"
+                />
+              </>
+            ) : null}
+
+            <label className="block" data-loi-field="maximumLtvPercent">
+              <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Maximum LTV (%)
+              </span>
+              <input
+                value={terms.maximumLtvPercent}
+                disabled={fieldsDisabled}
+                inputMode="decimal"
+                onChange={(e) =>
+                  setNumberField("maximumLtvPercent", e.target.value)
+                }
+                className={inputClassName}
+                placeholder="70"
+              />
+              {errors.maximumLtvPercent && (
+                <p className="mt-1 text-xs text-rose-600">
+                  {errors.maximumLtvPercent}
+                </p>
+              )}
+            </label>
+
+            {showRehabMetrics ? (
+              <>
+                <label className="block" data-loi-field="maximumLtcPercent">
+                  <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Maximum LTC (%)
+                  </span>
+                  <input
+                    value={terms.maximumLtcPercent}
+                    disabled={fieldsDisabled}
+                    inputMode="decimal"
+                    onChange={(e) =>
+                      setNumberField("maximumLtcPercent", e.target.value)
+                    }
+                    className={inputClassName}
+                    placeholder="75"
+                  />
+                  {errors.maximumLtcPercent && (
+                    <p className="mt-1 text-xs text-rose-600">
+                      {errors.maximumLtcPercent}
+                    </p>
+                  )}
+                </label>
+
+                <label className="block" data-loi-field="maximumArvPercent">
+                  <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Maximum ARV (%)
+                  </span>
+                  <input
+                    value={terms.maximumArvPercent}
+                    disabled={fieldsDisabled}
+                    inputMode="decimal"
+                    onChange={(e) =>
+                      setNumberField("maximumArvPercent", e.target.value)
+                    }
+                    className={inputClassName}
+                    placeholder="65"
+                  />
+                  {errors.maximumArvPercent && (
+                    <p className="mt-1 text-xs text-rose-600">
+                      {errors.maximumArvPercent}
+                    </p>
+                  )}
+                </label>
+              </>
+            ) : null}
+
+            {bindingMaxLoan ? (
+              <div className="md:col-span-2 rounded-xl border border-violet-100 bg-violet-50/70 px-3 py-2.5 text-xs text-violet-900 dark:border-violet-500/20 dark:bg-violet-500/10 dark:text-violet-100">
+                Binding max loan (whichever is lower):{" "}
+                {formatMoney(bindingMaxLoan.amount)} via{" "}
+                {bindingMaxLoan.bindingLabel}
+              </div>
+            ) : null}
+
+            <ReadOnlyField
+              field="monthlyPayment"
+              label="Monthly Payment"
+              value={terms.monthlyPayment}
+              error={errors.monthlyPayment}
+              hint="Calculated from loan amount, interest rate, and loan term"
+            />
+
+            <div>
+              <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Interest Only
+              </span>
+              <div className="flex gap-2">
+                {[true, false].map((value) => (
+                  <button
+                    key={String(value)}
+                    type="button"
+                    disabled={fieldsDisabled}
+                    onClick={() =>
+                      setTerms((prev) => ({ ...prev, interestOnly: value }))
+                    }
+                    className={`flex-1 rounded-xl px-3 py-2.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                      terms.interestOnly === value
+                        ? "bg-violet-600 text-white"
+                        : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300"
+                    }`}
+                  >
+                    {value ? "Yes" : "No"}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="md:col-span-2" data-loi-field="loanTerm">
+              <span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Loan Term
               </span>
-              <select
-                value={terms.loanTerm}
-                disabled={readOnly}
-                onChange={(e) => {
-                  setTerms((prev) => ({ ...prev, loanTerm: e.target.value }));
-                  setErrors((prev) => {
-                    if (!prev.loanTerm) return prev;
-                    const next = { ...prev };
-                    delete next.loanTerm;
-                    return next;
-                  });
-                }}
-                className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-950"
-              >
-                <option value="">Select term</option>
+              <div className="flex flex-wrap gap-2">
                 {BROKER_LOI_TERM_OPTIONS.map((option) => (
-                  <option key={option} value={option}>
+                  <button
+                    key={option}
+                    type="button"
+                    disabled={fieldsDisabled}
+                    onClick={() => {
+                      setTerms((prev) => ({ ...prev, loanTerm: option }));
+                      setErrors((prev) => {
+                        if (!prev.loanTerm) return prev;
+                        const next = { ...prev };
+                        delete next.loanTerm;
+                        return next;
+                      });
+                    }}
+                    className={`rounded-full px-4 py-2 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                      terms.loanTerm === option
+                        ? "bg-violet-600 text-white"
+                        : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300"
+                    }`}
+                  >
                     {option}
-                  </option>
+                  </button>
                 ))}
-              </select>
+              </div>
               {errors.loanTerm && (
                 <p className="mt-1 text-xs text-rose-600">{errors.loanTerm}</p>
               )}
-            </label>
-
-            <label className="block" data-loi-field="monthlyPayment">
-              <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Monthly Payment
-              </span>
-              <input
-                value={terms.monthlyPayment}
-                readOnly
-                tabIndex={-1}
-                className="w-full cursor-not-allowed rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-200"
-                placeholder="Auto-calculated"
-              />
-              <p className="mt-1 text-[11px] text-slate-500">
-                Calculated from approved amount, interest rate, and loan term
-              </p>
-              {errors.monthlyPayment && (
-                <p className="mt-1 text-xs text-rose-600">{errors.monthlyPayment}</p>
-              )}
-            </label>
-
-            <label className="block" data-loi-field="ltvPercent">
-              <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                LTV %
-              </span>
-              <input
-                value={terms.ltvPercent}
-                disabled={readOnly}
-                inputMode="decimal"
-                onChange={(e) => setNumberField("ltvPercent", e.target.value)}
-                className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-950"
-                placeholder={
-                  suggested.ltv != null
-                    ? formatBrokerLoiNumberInput(String(suggested.ltv))
-                    : ""
-                }
-              />
-              {errors.ltvPercent && (
-                <p className="mt-1 text-xs text-rose-600">{errors.ltvPercent}</p>
-              )}
-            </label>
-
-            <label className="block">
-              <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                LTC %
-              </span>
-              <input
-                value={terms.ltcPercent}
-                disabled={readOnly}
-                inputMode="decimal"
-                onChange={(e) => setNumberField("ltcPercent", e.target.value)}
-                className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-950"
-                placeholder={
-                  suggested.ltc != null
-                    ? formatBrokerLoiNumberInput(String(suggested.ltc))
-                    : ""
-                }
-              />
-            </label>
-
-            <label className="block" data-loi-field="arvPercent">
-              <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                ARV %
-              </span>
-              <input
-                value={terms.arvPercent}
-                disabled={readOnly}
-                inputMode="decimal"
-                onChange={(e) => setNumberField("arvPercent", e.target.value)}
-                className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-950"
-                placeholder={
-                  suggested.arvPercent != null
-                    ? formatBrokerLoiNumberInput(String(suggested.arvPercent))
-                    : ""
-                }
-              />
-              {errors.arvPercent && (
-                <p className="mt-1 text-xs text-rose-600">{errors.arvPercent}</p>
-              )}
-            </label>
+            </div>
           </div>
 
-          <label className="mt-4 flex items-center gap-2 text-sm text-slate-700 dark:text-slate-200">
-            <input
-              type="checkbox"
-              checked={terms.interestOnly}
-              disabled={readOnly}
-              onChange={(e) =>
-                setTerms((prev) => ({ ...prev, interestOnly: e.target.checked }))
-              }
-              className="rounded border-slate-300"
-            />
-            Interest only
-          </label>
+          <div className="mt-6 border-t border-slate-100 pt-5 dark:border-slate-800">
+            <h5 className="mb-4 text-sm font-bold text-slate-900 dark:text-white">
+              Fees & Closing Costs
+            </h5>
+            <div className="grid gap-4 md:grid-cols-2">
+              <label className="block" data-loi-field="originationPoints">
+                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Origination Points (%)
+                </span>
+                <input
+                  value={terms.originationPoints}
+                  disabled={fieldsDisabled}
+                  inputMode="decimal"
+                  onChange={(e) =>
+                    setNumberField("originationPoints", e.target.value)
+                  }
+                  placeholder="2"
+                  className={inputClassName}
+                />
+                {errors.originationPoints && (
+                  <p className="mt-1 text-xs text-rose-600">
+                    {errors.originationPoints}
+                  </p>
+                )}
+              </label>
+
+              <label className="block" data-loi-field="processingFee">
+                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Processing Fee ($)
+                </span>
+                <input
+                  value={terms.processingFee}
+                  disabled={fieldsDisabled}
+                  inputMode="decimal"
+                  onChange={(e) =>
+                    setNumberField("processingFee", e.target.value)
+                  }
+                  placeholder="995"
+                  className={inputClassName}
+                />
+                {errors.processingFee && (
+                  <p className="mt-1 text-xs text-rose-600">
+                    {errors.processingFee}
+                  </p>
+                )}
+              </label>
+
+              <label className="block" data-loi-field="appraisalFee">
+                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Appraisal Fee ($)
+                </span>
+                <input
+                  value={terms.appraisalFee}
+                  disabled={fieldsDisabled}
+                  inputMode="decimal"
+                  onChange={(e) =>
+                    setNumberField("appraisalFee", e.target.value)
+                  }
+                  placeholder="750"
+                  className={inputClassName}
+                />
+                {errors.appraisalFee && (
+                  <p className="mt-1 text-xs text-rose-600">
+                    {errors.appraisalFee}
+                  </p>
+                )}
+              </label>
+
+              <label className="block" data-loi-field="brokerPoints">
+                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Broker Points (%)
+                </span>
+                <input
+                  value={terms.brokerPoints}
+                  disabled={fieldsDisabled}
+                  inputMode="decimal"
+                  onChange={(e) =>
+                    setNumberField("brokerPoints", e.target.value)
+                  }
+                  placeholder="1"
+                  className={inputClassName}
+                />
+                {errors.brokerPoints && (
+                  <p className="mt-1 text-xs text-rose-600">
+                    {errors.brokerPoints}
+                  </p>
+                )}
+              </label>
+
+              <label className="block" data-loi-field="wireFee">
+                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Wire Fee ($)
+                </span>
+                <input
+                  value={terms.wireFee}
+                  disabled={fieldsDisabled}
+                  inputMode="decimal"
+                  onChange={(e) => setNumberField("wireFee", e.target.value)}
+                  placeholder="50"
+                  className={inputClassName}
+                />
+                {errors.wireFee && (
+                  <p className="mt-1 text-xs text-rose-600">{errors.wireFee}</p>
+                )}
+              </label>
+
+              <label className="block">
+                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Underwriting Fee ($)
+                </span>
+                <input
+                  value={terms.underwritingFee}
+                  disabled={fieldsDisabled}
+                  inputMode="decimal"
+                  onChange={(e) =>
+                    setNumberField("underwritingFee", e.target.value)
+                  }
+                  placeholder="1,500"
+                  className={inputClassName}
+                />
+              </label>
+
+              <ReadOnlyField
+                field="totalClosingCosts"
+                label="Total Closing Costs"
+                value={terms.totalClosingCosts}
+                hint="Auto-calculated from fees above"
+              />
+            </div>
+          </div>
+
+          <div className="mt-6 border-t border-slate-100 pt-5 dark:border-slate-800">
+            <h5 className="mb-4 text-sm font-bold text-slate-900 dark:text-white">
+              Required Reserves
+            </h5>
+            <div className="grid gap-4 md:grid-cols-2">
+              <label className="block" data-loi-field="requiredReservesPercent">
+                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Required Reserves (%)
+                </span>
+                <input
+                  value={terms.requiredReservesPercent}
+                  disabled={fieldsDisabled}
+                  inputMode="decimal"
+                  onChange={(e) =>
+                    setNumberField("requiredReservesPercent", e.target.value)
+                  }
+                  placeholder="3"
+                  className={inputClassName}
+                />
+                {errors.requiredReservesPercent && (
+                  <p className="mt-1 text-xs text-rose-600">
+                    {errors.requiredReservesPercent}
+                  </p>
+                )}
+              </label>
+
+              <ReadOnlyField
+                field="requiredReservesAmount"
+                label="Reserve Amount ($)"
+                value={terms.requiredReservesAmount}
+                hint="Auto-calculated as loan × reserves %"
+              />
+            </div>
+          </div>
+
+          <div className="mt-6 border-t border-slate-100 pt-5 dark:border-slate-800">
+            <h5 className="mb-4 text-sm font-bold text-slate-900 dark:text-white">
+              Additional Terms
+            </h5>
+            <div className="grid gap-4 md:grid-cols-2">
+              <label className="block">
+                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Prepayment Penalty
+                </span>
+                <input
+                  value={terms.prepaymentPenalty}
+                  disabled={fieldsDisabled}
+                  inputMode="decimal"
+                  onChange={(e) =>
+                    setNumberField("prepaymentPenalty", e.target.value)
+                  }
+                  placeholder="0"
+                  className={inputClassName}
+                />
+              </label>
+
+              <label className="block">
+                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Recourse
+                </span>
+                <input
+                  value={terms.recourse}
+                  disabled={fieldsDisabled}
+                  onChange={(e) =>
+                    setTerms((prev) => ({ ...prev, recourse: e.target.value }))
+                  }
+                  placeholder="Full / Non-Recourse"
+                  className={inputClassName}
+                />
+              </label>
+
+              <label className="block">
+                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Personal Guarantee
+                </span>
+                <input
+                  value={terms.personalGuarantee}
+                  disabled={fieldsDisabled}
+                  onChange={(e) =>
+                    setTerms((prev) => ({
+                      ...prev,
+                      personalGuarantee: e.target.value,
+                    }))
+                  }
+                  placeholder="Yes / No"
+                  className={inputClassName}
+                />
+              </label>
+
+              <label className="block">
+                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Amortization
+                </span>
+                <input
+                  value={terms.amortization}
+                  disabled={fieldsDisabled}
+                  onChange={(e) =>
+                    setTerms((prev) => ({
+                      ...prev,
+                      amortization: e.target.value,
+                    }))
+                  }
+                  placeholder="Interest Only / 30 Years"
+                  className={inputClassName}
+                />
+              </label>
+
+              <label className="block">
+                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Expiration Date
+                </span>
+                <LoanDateField
+                  value={terms.expirationDate}
+                  disabled={fieldsDisabled}
+                  disablePastDates
+                  placeholder="dd-mm-yyyy"
+                  onChange={(next) =>
+                    setTerms((prev) => ({
+                      ...prev,
+                      expirationDate: next,
+                    }))
+                  }
+                  className="rounded-xl border-slate-200 px-3 py-2.5 dark:border-slate-700 dark:bg-slate-950"
+                />
+              </label>
+            </div>
+          </div>
 
           <div data-loi-field="requiredDocuments">
             <LoiRequiredDocumentsPicker
@@ -465,144 +1004,6 @@ export default function BrokerLoiEditorPanel({
               includeProductConfig
               disabled={readOnly}
             />
-          </div>
-
-          <div className="mt-6 border-t border-slate-100 pt-5 dark:border-slate-800">
-            <h5 className="mb-4 text-sm font-bold text-slate-900 dark:text-white">
-              Additional Terms
-            </h5>
-            <div className="grid gap-4 md:grid-cols-2">
-              <label className="block">
-                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Origination Fee
-                </span>
-                <input
-                  value={terms.originationFeePercent}
-                  disabled={readOnly}
-                  inputMode="decimal"
-                  onChange={(e) =>
-                    setNumberField("originationFeePercent", e.target.value)
-                  }
-                  placeholder="2,000"
-                  className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-950"
-                />
-              </label>
-
-              <label className="block">
-                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Processing Fee
-                </span>
-                <input
-                  value={terms.processingFee}
-                  disabled={readOnly}
-                  inputMode="decimal"
-                  onChange={(e) =>
-                    setNumberField("processingFee", e.target.value)
-                  }
-                  placeholder="995"
-                  className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-950"
-                />
-              </label>
-
-              <label className="block">
-                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Underwriting Fee
-                </span>
-                <input
-                  value={terms.underwritingFee}
-                  disabled={readOnly}
-                  inputMode="decimal"
-                  onChange={(e) =>
-                    setNumberField("underwritingFee", e.target.value)
-                  }
-                  placeholder="1,500"
-                  className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-950"
-                />
-              </label>
-
-              <label className="block">
-                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Prepayment Penalty
-                </span>
-                <input
-                  value={terms.prepaymentPenalty}
-                  disabled={readOnly}
-                  inputMode="decimal"
-                  onChange={(e) =>
-                    setNumberField("prepaymentPenalty", e.target.value)
-                  }
-                  placeholder="0"
-                  className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-950"
-                />
-              </label>
-
-              <label className="block">
-                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Recourse
-                </span>
-                <input
-                  value={terms.recourse}
-                  disabled={readOnly}
-                  onChange={(e) =>
-                    setTerms((prev) => ({ ...prev, recourse: e.target.value }))
-                  }
-                  placeholder="Full / Non-Recourse"
-                  className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-950"
-                />
-              </label>
-
-              <label className="block">
-                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Personal Guarantee
-                </span>
-                <input
-                  value={terms.personalGuarantee}
-                  disabled={readOnly}
-                  onChange={(e) =>
-                    setTerms((prev) => ({
-                      ...prev,
-                      personalGuarantee: e.target.value,
-                    }))
-                  }
-                  placeholder="Yes / No"
-                  className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-950"
-                />
-              </label>
-
-              <label className="block">
-                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Amortization
-                </span>
-                <input
-                  value={terms.amortization}
-                  disabled={readOnly}
-                  onChange={(e) =>
-                    setTerms((prev) => ({ ...prev, amortization: e.target.value }))
-                  }
-                  placeholder="Interest Only / 30 Years"
-                  className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-950"
-                />
-              </label>
-
-              <label className="block">
-                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Expiration Date
-                </span>
-                <LoanDateField
-                  value={terms.expirationDate}
-                  disabled={readOnly}
-                  disablePastDates
-                  placeholder="dd-mm-yyyy"
-                  onChange={(next) =>
-                    setTerms((prev) => ({
-                      ...prev,
-                      expirationDate: next,
-                    }))
-                  }
-                  className="rounded-xl border-slate-200 px-3 py-2.5 dark:border-slate-700 dark:bg-slate-950"
-                />
-              </label>
-            </div>
           </div>
         </div>
       </div>

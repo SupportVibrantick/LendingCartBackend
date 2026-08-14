@@ -139,11 +139,26 @@ function formatBrokerLoiRecord(record) {
 function buildLoiSearchFilter(search) {
   if (!search) return {};
 
+  const normalized = String(search).trim();
+  if (!normalized) return {};
+
   return {
     OR: [
-      { lender: { name: { contains: search, mode: "insensitive" } } },
-      { lender: { email: { contains: search, mode: "insensitive" } } },
-      { status: { equals: search.toUpperCase() } },
+      { lender: { name: { contains: normalized, mode: "insensitive" } } },
+      { lender: { email: { contains: normalized, mode: "insensitive" } } },
+      { lender: { phone: { contains: normalized, mode: "insensitive" } } },
+      {
+        lenderProduct: {
+          loanProduct: {
+            name: { contains: normalized, mode: "insensitive" },
+          },
+        },
+      },
+      {
+        lenderProduct: {
+          interestRateRange: { contains: normalized, mode: "insensitive" },
+        },
+      },
     ],
   };
 }

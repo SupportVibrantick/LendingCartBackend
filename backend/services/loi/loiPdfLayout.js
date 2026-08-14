@@ -14,15 +14,31 @@ function getPdfKitCurrentPageIndex(doc) {
 }
 
 /** Build anchor metadata for client signature placement during PDF merge. */
-function buildLoiSignatureAnchor(doc, boxTop, boxWidth, lineY) {
+function buildLoiSignatureAnchor(doc, options = {}) {
+  const {
+    boxTop,
+    boxWidth,
+    lineY,
+    sigX = LOI_PAGE.margin + 10,
+    sigTopY,
+    sigWidth = Math.min(220, boxWidth * 0.45),
+    sigHeight = 36,
+    dateX = LOI_PAGE.margin + boxWidth * 0.58,
+    printNameY = lineY + 6,
+  } = options;
+
   return {
     page: getPdfKitCurrentPageIndex(doc),
     lineY,
     margin: LOI_PAGE.margin,
     boxWidth,
     boxTop,
-    dateX: LOI_PAGE.margin + 12 + boxWidth * 0.58,
-    printNameY: lineY + 16,
+    sigX,
+    sigTopY: sigTopY != null ? sigTopY : lineY - sigHeight - 2,
+    sigWidth,
+    sigHeight,
+    dateX,
+    printNameY,
   };
 }
 
@@ -30,12 +46,16 @@ function buildLoiSignatureAnchor(doc, boxTop, boxWidth, lineY) {
 function estimateLoiSignatureAnchor(pageHeight, pageWidth) {
   const margin = LOI_PAGE.margin;
   const contentBottom = pageHeight - LOI_PAGE.bottom;
-  const footerHeight = 43;
-  const pinnedFooterY = contentBottom - footerHeight;
-  const contentEndY = pinnedFooterY - 16;
-  const boxTop = contentEndY - 58;
-  const lineY = boxTop + 32;
   const boxWidth = pageWidth - margin * 2;
+  const boxHeight = 110;
+  const boxTop = contentBottom - boxHeight - 8;
+  const padding = 8;
+  const titleH = 14;
+  const disclaimerH = 22;
+  const sigHeight = 36;
+  const sigTopY = boxTop + padding + titleH + 4 + disclaimerH + 8;
+  const lineY = sigTopY + sigHeight + 2;
+  const sigWidth = Math.min(220, boxWidth * 0.45);
 
   return {
     page: -1,
@@ -43,8 +63,12 @@ function estimateLoiSignatureAnchor(pageHeight, pageWidth) {
     margin,
     boxWidth,
     boxTop,
-    dateX: margin + 12 + boxWidth * 0.58,
-    printNameY: lineY + 16,
+    sigX: margin + 10,
+    sigTopY,
+    sigWidth,
+    sigHeight,
+    dateX: margin + boxWidth * 0.58,
+    printNameY: lineY + 6,
   };
 }
 
