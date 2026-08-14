@@ -591,7 +591,7 @@ const isConstruction14Product = (product: string) =>
 
 export type LoanApplicationMode = "create" | "update";
 
-export type LoanApplicationPortal = "broker" | "loanOfficer" | "coBroker";
+export type LoanApplicationPortal = "broker" | "loan_officer" | "coBroker";
 
 export type LoanApplicationDocumentPaths = {
   requestDocuments: (loanApplicationId: string) => string;
@@ -600,7 +600,7 @@ export type LoanApplicationDocumentPaths = {
 };
 
 function getPortalConfig(portal: LoanApplicationPortal, apiBase: string) {
-  if (portal === "loanOfficer") {
+  if (portal === "loan_officer") {
     return {
       tokenKey: "loan_officer_token",
       submitUrl: `${apiBase}/loanofficer/applications/submit`,
@@ -826,11 +826,12 @@ const LoanApplication = ({
 
   // Embedded-only: surface the "are you a broker?" step in the public-embed
   // share flow when the originating portal is BROKER or LOAN_OFFICER.
-  const includeCoBrokerBorrowerInformationTab =
-    Boolean(publicEmbed) &&
-    Boolean(showCoBrokerBorrowerInformationTab) &&
-    (publicSourcePortal === "broker" ||
-      publicSourcePortal === "loanOfficer");
+  const includeCoBrokerBorrowerInformationTab = 
+  Boolean(publicEmbed) &&
+  Boolean(showCoBrokerBorrowerInformationTab) &&
+  (publicSourcePortal === "broker" || publicSourcePortal === "loan_officer");
+
+  // const includeCoBrokerBorrowerInformationTab = true;
 
   const baseSteps = useStandardSevenStepFlow
     ? [
@@ -1453,11 +1454,7 @@ const LoanApplication = ({
       );
     }
     if (useResidentialBorrowerPanel) {
-      add(
-        "Borrower Email",
-        3,
-        !formData.borrower.email?.trim(),
-      );
+      add("Borrower Email", 3, !formData.borrower.email?.trim());
       const unanswered = countUnansweredDeclarations(
         formData.borrower.declarations,
       );
@@ -5183,53 +5180,96 @@ focus:border-blue-500 outline-none text-sm ${
                 </div>
 
                 {formData.workingWithMortgageBroker === "yes" && (
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2 rounded-lg border border-slate-200 dark:border-slate-700 p-4">
-                    {(
-                      [
-                        ["firstName", "First Name", true],
-                        ["lastName", "Last Name", true],
-                        ["companyName", "Company", true],
-                        ["email", "Email", true],
-                        ["phone", "Phone", true],
-                      ] as const
-                    ).map(([field, label, required]) => (
-                      <div
-                        key={field}
-                        className={
-                          field === "email" || field === "phone"
-                            ? "md:col-span-2"
-                            : ""
-                        }
-                      >
-                        <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">
-                          {label}
-                          {required && (
+                  <div className="rounded-lg border border-slate-200 dark:border-slate-700 p-4 mt-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      {/* First Name + Last Name */}
+                      {(["firstName", "lastName"] as const).map((field) => (
+                        <div key={field}>
+                          <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">
+                            {field === "firstName" ? "First Name" : "Last Name"}
                             <span className="text-red-500"> *</span>
-                          )}
+                          </label>
+                          <input
+                            type="text"
+                            value={
+                              (formData.referringBroker as any)?.[field] || ""
+                            }
+                            onChange={(e) =>
+                              setFormData((prev) => ({
+                                ...prev,
+                                referringBroker: {
+                                  ...createEmptyReferringBroker(),
+                                  ...prev.referringBroker,
+                                  [field]: e.target.value,
+                                },
+                              }))
+                            }
+                            className={`w-full px-4 py-1 rounded-md border bg-white dark:bg-slate-900 dark:text-slate-200 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none ${
+                              errors[`referringBroker.${field}`]
+                                ? "border-red-500 bg-red-50"
+                                : "border-slate-300 dark:border-slate-600"
+                            }`}
+                          />
+                        </div>
+                      ))}
+
+                      {/* Company Name + Phone */}
+                      {(["companyName", "phone"] as const).map((field) => (
+                        <div key={field}>
+                          <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">
+                            {field === "companyName" ? "Company Name" : "Phone"}
+                            <span className="text-red-500"> *</span>
+                          </label>
+                          <input
+                            type="text"
+                            value={
+                              (formData.referringBroker as any)?.[field] || ""
+                            }
+                            onChange={(e) =>
+                              setFormData((prev) => ({
+                                ...prev,
+                                referringBroker: {
+                                  ...createEmptyReferringBroker(),
+                                  ...prev.referringBroker,
+                                  [field]: e.target.value,
+                                },
+                              }))
+                            }
+                            className={`w-full px-4 py-1 rounded-md border bg-white dark:bg-slate-900 dark:text-slate-200 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none ${
+                              errors[`referringBroker.${field}`]
+                                ? "border-red-500 bg-red-50"
+                                : "border-slate-300 dark:border-slate-600"
+                            }`}
+                          />
+                        </div>
+                      ))}
+
+                      {/* Email — full width */}
+                      <div>
+                        <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">
+                          Email <span className="text-red-500">*</span>
                         </label>
                         <input
-                          type={field === "email" ? "email" : "text"}
-                          value={
-                            (formData.referringBroker as any)?.[field] || ""
-                          }
+                          type="email"
+                          value={formData.referringBroker?.email || ""}
                           onChange={(e) =>
                             setFormData((prev) => ({
                               ...prev,
                               referringBroker: {
                                 ...createEmptyReferringBroker(),
                                 ...prev.referringBroker,
-                                [field]: e.target.value,
+                                email: e.target.value,
                               },
                             }))
                           }
                           className={`w-full px-4 py-1 rounded-md border bg-white dark:bg-slate-900 dark:text-slate-200 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none ${
-                            errors[`referringBroker.${field}`]
+                            errors[`referringBroker.email`]
                               ? "border-red-500 bg-red-50"
                               : "border-slate-300 dark:border-slate-600"
                           }`}
                         />
                       </div>
-                    ))}
+                    </div>
                   </div>
                 )}
               </div>
@@ -6678,19 +6718,20 @@ focus:border-blue-500 outline-none text-sm ${
             ))}
 
           {/* step — Documents */}
-          {baseSteps[currentStep] === "Documents" && useStandardSevenStepFlow && (
-            <div className="mt-6 relative z-10 rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-700 dark:bg-slate-800">
-              <h3 className="mb-1 inline-block border-b-2 border-[#2C92D5] pb-2 text-lg font-semibold dark:text-white">
-                Step 6: Documents
-              </h3>
+          {baseSteps[currentStep] === "Documents" &&
+            useStandardSevenStepFlow && (
+              <div className="mt-6 relative z-10 rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-700 dark:bg-slate-800">
+                <h3 className="mb-1 inline-block border-b-2 border-[#2C92D5] pb-2 text-lg font-semibold dark:text-white">
+                  Step 6: Documents
+                </h3>
 
-              <ResidentialDocumentsStep
-                documents={pendingDocuments}
-                onChange={setPendingDocuments}
-                uploading={submitting}
-              />
-            </div>
-          )}
+                <ResidentialDocumentsStep
+                  documents={pendingDocuments}
+                  onChange={setPendingDocuments}
+                  uploading={submitting}
+                />
+              </div>
+            )}
 
           {/* step-6 — Review & Submit */}
           {isReviewStep && (
