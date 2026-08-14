@@ -13,7 +13,6 @@ import {
   Power,
   RefreshCw,
   Search,
-  Trash2,
   MoreVertical,
   UserCheck,
   Users,
@@ -24,7 +23,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
 import { createPortal } from "react-dom";
 import toast from "react-hot-toast";
-import Swal from "sweetalert2";
+// import Swal from "sweetalert2";
 import PageMeta from "../../components/common/PageMeta";
 import CoBrokerFormModal from "../../components/coBroker/CoBrokerFormModal";
 import CoBrokerDetailsModal from "../../components/coBroker/CoBrokerDetailsModal";
@@ -263,8 +262,8 @@ export default function SubBroker() {
     !isLoPortal || hasPermission("EDIT_CO_BROKERS", "loanOfficer");
   const canDisableCoBrokers =
     !isLoPortal || hasPermission("DISABLE_CO_BROKERS", "loanOfficer");
-  const canDeleteCoBrokers =
-    !isLoPortal || hasPermission("DELETE_CO_BROKERS", "loanOfficer");
+  // const canDeleteCoBrokers =
+  //   !isLoPortal || hasPermission("DELETE_CO_BROKERS", "loanOfficer");
 
   const [searchParams, setSearchParams] = useSearchParams();
   const initialQuery = searchParams.get("q") || "";
@@ -289,7 +288,7 @@ export default function SubBroker() {
   const [viewSubBroker, setViewSubBroker] = useState<SubBrokerUser | null>(null);
   const [viewLoading, setViewLoading] = useState(false);
   const [impersonatingId, setImpersonatingId] = useState<string | null>(null);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
+  // const [deletingId, setDeletingId] = useState<string | null>(null);
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
   const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
   const menuRef = useRef<HTMLDivElement | null>(null);
@@ -607,69 +606,69 @@ export default function SubBroker() {
     setFormModalOpen(true);
   };
 
-  const handleDelete = async (id: string) => {
-    if (!canDeleteCoBrokers) {
-      toast.error("You don't have permission to delete co-brokers");
-      return;
-    }
-    const isDark = document.documentElement.classList.contains("dark");
+  // const handleDelete = async (id: string) => {
+  //   if (!canDeleteCoBrokers) {
+  //     toast.error("You don't have permission to delete co-brokers");
+  //     return;
+  //   }
+  //   const isDark = document.documentElement.classList.contains("dark");
 
-    const result = await Swal.fire({
-      title: "Delete Co Brokers?",
-      text: "This Co Brokers will be removed and will no longer be able to sign in.",
-      icon: "warning",
-      showCancelButton: true,
-      confirmButtonColor: "#dc2626",
-      cancelButtonColor: "#6b7280",
-      confirmButtonText: "Yes, delete",
-      cancelButtonText: "Cancel",
-      background: isDark ? "#1e293b" : "#ffffff",
-      color: isDark ? "#e2e8f0" : "#1e293b",
-      customClass: {
-        popup: "rounded-2xl",
-        container: "swal-high-zindex",
-      },
-    });
+  //   const result = await Swal.fire({
+  //     title: "Delete Co Brokers?",
+  //     text: "This Co Brokers will be removed and will no longer be able to sign in.",
+  //     icon: "warning",
+  //     showCancelButton: true,
+  //     confirmButtonColor: "#dc2626",
+  //     cancelButtonColor: "#6b7280",
+  //     confirmButtonText: "Yes, delete",
+  //     cancelButtonText: "Cancel",
+  //     background: isDark ? "#1e293b" : "#ffffff",
+  //     color: isDark ? "#e2e8f0" : "#1e293b",
+  //     customClass: {
+  //       popup: "rounded-2xl",
+  //       container: "swal-high-zindex",
+  //     },
+  //   });
 
-    if (!result.isConfirmed) return;
+  //   if (!result.isConfirmed) return;
 
-    try {
-      setDeletingId(id);
-      const res = await fetch(`${API_BASE}/broker/sub-broker/${id}`, {
-        method: "DELETE",
-        headers: getAuthHeaders(),
-      });
-      const json = await res.json();
+  //   try {
+  //     setDeletingId(id);
+  //     const res = await fetch(`${API_BASE}/broker/sub-broker/${id}`, {
+  //       method: "DELETE",
+  //       headers: getAuthHeaders(),
+  //     });
+  //     const json = await res.json();
 
-      if (!res.ok || !json.success) {
-        toast.error(json.message || "Failed to delete Co Brokers");
-        return;
-      }
+  //     if (!res.ok || !json.success) {
+  //       toast.error(json.message || "Failed to delete Co Brokers");
+  //       return;
+  //     }
 
-      if (viewSubBroker?.id === id) setViewSubBroker(null);
-      closeRowMenu();
+  //     if (viewSubBroker?.id === id) setViewSubBroker(null);
+  //     closeRowMenu();
 
-      await Swal.fire({
-        title: "Deleted",
-        text: "Co Brokers has been deleted successfully.",
-        icon: "success",
-        timer: 1500,
-        showConfirmButton: false,
-        background: isDark ? "#1e293b" : "#ffffff",
-        color: isDark ? "#e2e8f0" : "#1e293b",
-        customClass: {
-          popup: "rounded-2xl",
-          container: "swal-high-zindex",
-        },
-      });
+  //     await Swal.fire({
+  //       title: "Deleted",
+  //       text: "Co Brokers has been deleted successfully.",
+  //       icon: "success",
+  //       timer: 1500,
+  //       showConfirmButton: false,
+  //       background: isDark ? "#1e293b" : "#ffffff",
+  //       color: isDark ? "#e2e8f0" : "#1e293b",
+  //       customClass: {
+  //         popup: "rounded-2xl",
+  //         container: "swal-high-zindex",
+  //       },
+  //     });
 
-      fetchOfficers();
-    } catch {
-      toast.error("Something went wrong");
-    } finally {
-      setDeletingId(null);
-    }
-  };
+  //     fetchOfficers();
+  //   } catch {
+  //     toast.error("Something went wrong");
+  //   } finally {
+  //     setDeletingId(null);
+  //   }
+  // };
 
   const openCreateModal = () => {
     if (!canEditCoBrokers) {

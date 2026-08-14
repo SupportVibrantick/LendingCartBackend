@@ -1,31 +1,21 @@
-import { useState, useRef, useEffect, useMemo, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import toast from "react-hot-toast";
-import { IoIosArrowBack } from "react-icons/io";
-import { MdDeleteForever } from "react-icons/md";
 import { useNavigate } from "react-router";
-import { IoArrowBack } from "react-icons/io5";
 import { Building2, HomeIcon, Landmark, Settings } from "lucide-react";
-import LoanDateField from "../../components/form/LoanDateField";
-import ResidentialBorrowerPanel from "../../components/loanApplication/ResidentialBorrowerPanel";
-import ResidentialFinancialsStep from "../../components/loanApplication/ResidentialFinancialsStep";
-import ResidentialDocumentsStep from "../../components/loanApplication/ResidentialDocumentsStep";
-import ResidentialReviewStep from "../../components/loanApplication/ResidentialReviewStep";
-import LoanApplicationStepper from "../../components/loanApplication/LoanApplicationStepper";
-import Sba7aEntityFields from "../../components/loanApplication/Sba7aEntityFields";
-import AblEntityFields from "../../components/loanApplication/AblEntityFields";
-import AddCollateralChips from "../../components/loanApplication/AddCollateralChips";
-import SaleDetailsCard from "../../components/loanApplication/SaleDetailsCard";
-import {
-  buildResidentialReviewSections,
-  type ReviewValidationIssue,
-} from "../../lib/residentialReviewHelpers";
+
 import {
   createSbaEntityDefaults,
+  isSba7aAcquisitionProduct,
   isSbaRealEstateCollateralProduct,
   isSbaBase44Product,
   SBA_BUSINESS_INDUSTRY_TYPES,
 } from "../../lib/sba7aAcquisition";
-import { isAblBase44Product } from "../../lib/ablBase44";
+import {
+  isAblBase44Product,
+  isEquipmentFinanceProduct,
+  showAblBase44PurchasePrice,
+  showEquipmentFinanceMarketValue,
+} from "../../lib/ablBase44";
 import { isBase44BusinessCollateralProduct } from "../../lib/base44BusinessCollateral";
 import {
   revokePendingDocumentPreview,
@@ -43,10 +33,74 @@ import {
   createEmptyRealEstateProperty,
   createResidentialBorrowerDefaults,
   appendResidentialBorrowerSubmission,
+  countUnansweredDeclarations,
   sumBorrowerAssets,
   sumBorrowerLiabilities,
   type RealEstateOwnedEntry,
+  type ResidentialBorrowerFields,
 } from "../../lib/residentialBorrower";
+import { buildResidentialReviewSections } from "../../lib/residentialReviewHelpers";
+import LoanDateField from "../../components/form/LoanDateField";
+import LoanApplicationStepper from "../../components/loanApplication/LoanApplicationStepper";
+import ResidentialBorrowerPanel from "../../components/loanApplication/ResidentialBorrowerPanel";
+import ResidentialFinancialsStep from "../../components/loanApplication/ResidentialFinancialsStep";
+import ResidentialDocumentsStep from "../../components/loanApplication/ResidentialDocumentsStep";
+import ResidentialReviewStep from "../../components/loanApplication/ResidentialReviewStep";
+import Sba7aEntityFields from "../../components/loanApplication/Sba7aEntityFields";
+import AblEntityFields from "../../components/loanApplication/AblEntityFields";
+import AddCollateralChips from "../../components/loanApplication/AddCollateralChips";
+import SaleDetailsCard from "../../components/loanApplication/SaleDetailsCard";
+import { IoArrowBack } from "react-icons/io5";
+import { IoIosArrowBack } from "react-icons/io";
+import { MdDeleteForever } from "react-icons/md";
+
+import {
+  ALL_LOAN_PURPOSES,
+  CATEGORY_LOAN_TYPES,
+  CONSTRUCTION_LOAN_TYPES,
+  CRE_RESIDENTIAL_LIKE_LOAN_TYPES,
+  ENTITY_TYPE_OPTIONS,
+  LOAN_PURPOSE_MAP,
+  LOAN_SUB_PURPOSE_MAP,
+  LOAN_TOP_PURPOSE_MAP,
+  OPTIONAL_LOAN_REQUEST_KEYS,
+  ORIGINAL_PURCHASE_DATE_WITH_AMORTIZATION_PURPOSES,
+  PRODUCT_LABELS,
+  PROPERTY_TYPE_MAP,
+  PURCHASE_DATE_WITH_AMORTIZATION_LOAN_TYPES,
+  PURCHASE_DATE_WITH_AMORTIZATION_PURPOSES,
+  RENTAL_UNDERWRITING_LOAN_TYPES,
+  RESIDENTIAL_1_4_PROPERTY_TYPES,
+  RESIDENTIAL_MARKET_VALUE_PURPOSES,
+  RESIDENTIAL_PURCHASE_PRICE_PURPOSES,
+  US_STATES,
+} from "./constants";
+import {
+  calculateMonthlyPayment,
+  formatCurrency,
+  formatSSN,
+  formatUSPhone,
+  toNumber,
+} from "./formatters";
+import {
+  getAblCollateralTypeOptions,
+  getSbaCollateralTypeLabel,
+  getSbaCollateralTypeOptions,
+  isAblCollateralProduct,
+  isConstructionPurchase,
+  isProductAllowedInCategory,
+  isSbaUsdaCollateralProduct,
+  resolveCategoryLoanProducts,
+  showConstructionCostLable,
+  showEquityDownPaymentBlock,
+  showExitStrategy,
+  showPrivateDetails,
+  showValuationCostEquity,
+  showValuationEquityBlock,
+} from "./productRules";
+import { validateFieldValue, CO_BROKER_BORROWER_INFO_STEP } from "./validation";
+import { getRuleForKey, validateValue } from "./liveValidation";
+import { withBorrowerNameFields } from "./submission";
 import {
   appendReferringBrokerSubmission,
   createEmptyReferringBroker,
@@ -57,65 +111,616 @@ import {
   type ReferringBrokerFormState,
   type WorkingWithMortgageBrokerAnswer,
 } from "../../lib/referringBroker";
-import {
-  ALL_LOAN_PURPOSES,
-  Borrower,
-  CATEGORY_LOAN_TYPES,
-  CO_BROKER_BORROWER_INFO_STEP,
-  ENTITY_TYPE_OPTIONS,
-  FormDataType,
-  getAblCollateralTypeOptions,
-  getLoanRequestPurchaseDateLabel,
-  getSbaCollateralTypeLabel,
-  getSbaCollateralTypeOptions,
-  hidesLoanRequestAmortization,
-  isAblCollateralProduct,
-  isAgencyMultifamilyNoPurchaseDate,
-  isBridgeProduct,
-  isConstruction14Product,
-  isConstructionLoanProduct,
-  isConstructionPurchase,
-  isCreBase44Product,
-  isCrePermanentRecapitalization,
-  isCreResidentialLikeCategoryProduct,
-  isFixAndFlipProduct,
-  isLoanRequestOriginalPurchaseDate,
-  isLoanRequestPurchaseDateField,
-  isLoanRequestPurchaseDateReplacesAmortization,
-  isPurchaseDateWithAmortization,
-  isRentalPortfolioProduct,
-  isRentalUnderwritingProduct,
-  isResidential14Category,
-  isSbaUsdaCollateralProduct,
-  LOAN_PURPOSE_MAP,
-  LOAN_SUB_PURPOSE_MAP,
-  LOAN_TOP_PURPOSE_MAP,
-  LoanApplicationProps,
-  LoanCategory,
-  OPTIONAL_LOAN_REQUEST_KEYS,
-  PRODUCT_LABELS,
-  PROPERTY_TYPE_MAP,
-  RESIDENTIAL_1_4_PROPERTY_TYPES,
-  shouldHidePropertyPurchaseDate,
-  showCreBase44EntityEbitda,
-  showEquityDownPaymentBlock,
-  showExitStrategy,
-  showResidentialPropertyArv,
-  showResidentialPropertyConstructionCost,
-  showResidentialPropertyMarketValue,
-  showResidentialPropertyPurchasePrice,
-  showResidentialPropertyRehabCost,
-  showValuationCostEquity,
-  showValuationEquityBlock,
-  STATIC_FIELD_KEYS,
-  US_STATES,
-} from "./const";
 
-const API_BASE = "https://api-lendingcart.vibrantick.org";
-const LOAN_PRODUCTS_CATALOG_URL = `${API_BASE}/common/loan-products/loan-product-code`;
+export interface Borrower extends ResidentialBorrowerFields {
+  name: string;
+  entityName: string;
+  phone: string;
+  email: string;
+  employer: string;
+  dob: string;
+  ssn: string;
+  creditScore: string;
+  address: string;
+  city: string;
+  state: string;
+  mailingAddress: string;
+}
+
+export interface CoBorrower extends Borrower {
+  id: number;
+
+  // Financial
+  currentMarketValue: string;
+  purchasePrice: string;
+  interestRate: string;
+  noi: string;
+  totalAssets: string;
+  totalLiabilities: string;
+}
+
+export interface FormDataType {
+  borrower: Borrower;
+  coBorrowers: CoBorrower[];
+  loanRequest: {
+    purpose: string;
+    subPurpose: string;
+    amount: string;
+    interestRate: string;
+    sellerFinancing: string;
+    sellerNoteAmount: string;
+    estimatedClosingDate: string;
+    rateType: string;
+    brokerPoints: string;
+    amortization: string;
+    currentMarketValue: string;
+    currentLoanBalance: string;
+    purchasePrice: string;
+    purchaseDate: string;
+    totalAssets: string;
+    totalLiabilities: string;
+    afterRepairValue: string;
+    rehabCost: string;
+    constructionCost: string;
+
+    propertyType: string;
+    subPropertyType: string;
+    collateralType: string;
+    additionalCollateral: string[];
+    privateSale: boolean;
+    vendorName: string;
+    vendorPhone: string;
+    recourse: string;
+    businessAddress: string;
+    city: string;
+    state: string;
+    zip: string;
+    numberOfUnits: string;
+    downPayment: string;
+    useOfFunds: string;
+    exitStrategy: string;
+  };
+  loanTermIncome: {
+    loanTerm: string;
+    monthlyRent: string;
+    grossRevenueActual: string;
+    grossRevenueProforma: string;
+    noiActual: string;
+    noiProforma: string;
+    annualTaxes: string;
+    floodZone: string;
+    insurancePremium: string;
+    hoaDues: string;
+  };
+  entity: {
+    legalName: string;
+    entityType: string;
+    dba: string;
+    formationDate: string;
+    yearsInBusiness: string;
+    ebitdaWithNoi: string;
+    naicsCode: string;
+    goodwillAmount: string;
+    inventoryIncluded: boolean;
+    inventoryValue: string;
+    equipmentIncluded: boolean;
+    equipmentValue: string;
+  };
+  financials: ResidentialFinancials;
+  workingWithMortgageBroker?: "" | "yes" | "no";
+  referringBroker?: {
+    email: string;
+    firstName: string;
+    lastName: string;
+    companyName: string;
+    phone: string;
+  };
+}
+
+export type LoanCategory =
+  | "RESIDENTIAL_1_4"
+  | "CRE_MULTIFAMILY"
+  | "SBA_USDA"
+  | "ABL"
+  | "";
+
+/* ================= HELPERS ================= */
+const API_BASE =
+  (import.meta as any).env?.VITE_API_BASE ||
+  "https://api-lendingcart.vibrantick.org";
+
+const BRIDGE_LOAN_TYPES = new Set(["BRIDGE_LOAN", "BRIDGE_LOAN_1_TO_4_UNITS"]);
+const BRIDGE_PURCHASE_PURPOSE = "Purchase/Acquisition";
+const BRIDGE_ORIGINAL_PURCHASE_DATE_PURPOSES = new Set([
+  "Refinance (Rate & Term)",
+  "Cash Out Refinance",
+]);
+const BRIDGE_CONSTRUCTION_COMPLETION_PURPOSE = "Construction Completion";
+
+const FIX_AND_FLIP_LOAN_TYPES = new Set(["FIX_AND_FLIP_LOAN_1_TO_4_UNITS"]);
+const FIX_AND_FLIP_PURCHASE_REHAB_PURPOSE = "Purchase & Rehab";
+const FIX_AND_FLIP_REFINANCE_REHAB_PURPOSE = "Refinance & Rehab";
+
+const MEZZANINE_LOAN_TYPES = new Set(["MEZZANINE_FINANCE"]);
+const MEZZANINE_ACQUISITION_BRIDGE_PURPOSE = "Acquisition Bridge";
+
+const isBridgePurchaseAcquisition = (product: string, purpose: string) =>
+  BRIDGE_LOAN_TYPES.has(product) && purpose === BRIDGE_PURCHASE_PURPOSE;
+
+const isBridgeOriginalPurchaseDate = (product: string, purpose: string) =>
+  BRIDGE_LOAN_TYPES.has(product) &&
+  BRIDGE_ORIGINAL_PURCHASE_DATE_PURPOSES.has(purpose);
+
+const isBridgeConstructionCompletion = (product: string, purpose: string) =>
+  BRIDGE_LOAN_TYPES.has(product) &&
+  purpose === BRIDGE_CONSTRUCTION_COMPLETION_PURPOSE;
+
+const isConstructionLoanType = (product: string) =>
+  CONSTRUCTION_LOAN_TYPES.has(product);
+
+const isMezzanineLoanType = (product: string) =>
+  MEZZANINE_LOAN_TYPES.has(product);
+
+const isMezzanineAcquisitionBridge = (product: string, purpose: string) =>
+  isMezzanineLoanType(product) &&
+  purpose === MEZZANINE_ACQUISITION_BRIDGE_PURPOSE;
+
+const SBA_7A_ACQUISITION_PURCHASE_DATE_PURPOSES = new Set([
+  "Purchase/Acquisition",
+  "Franchise Purchase",
+]);
+
+const isSba7aAcquisitionPurchaseDate = (product: string, purpose: string) =>
+  product === "SBA_7A_BUSINESS_ACQUISITION" &&
+  SBA_7A_ACQUISITION_PURCHASE_DATE_PURPOSES.has(purpose);
+
+const isSba7aAcquisitionNonPurchase = (product: string, purpose: string) =>
+  product === "SBA_7A_BUSINESS_ACQUISITION" &&
+  Boolean(purpose?.trim()) &&
+  !SBA_7A_ACQUISITION_PURCHASE_DATE_PURPOSES.has(purpose);
+
+const SBA_7A_WORKING_CAPITAL_PURCHASE_DATE_PURPOSES = new Set([
+  "Inventory Purchase",
+]);
+
+const SBA_7A_WORKING_CAPITAL_ORIGINAL_PURCHASE_DATE_PURPOSES = new Set([
+  "Debt Consolidation",
+]);
+
+const isSba7aWorkingCapitalOriginalPurchaseDate = (
+  product: string,
+  purpose: string,
+) =>
+  product === "SBA_7A_WORKING_CAPITAL" &&
+  SBA_7A_WORKING_CAPITAL_ORIGINAL_PURCHASE_DATE_PURPOSES.has(purpose);
+
+const isSba7aWorkingCapitalLoanRequestDate = (
+  product: string,
+  purpose: string,
+) =>
+  product === "SBA_7A_WORKING_CAPITAL" &&
+  (SBA_7A_WORKING_CAPITAL_PURCHASE_DATE_PURPOSES.has(purpose) ||
+    SBA_7A_WORKING_CAPITAL_ORIGINAL_PURCHASE_DATE_PURPOSES.has(purpose));
+
+const isSba7aWorkingCapitalNonPurchase = (product: string, purpose: string) =>
+  product === "SBA_7A_WORKING_CAPITAL" &&
+  Boolean(purpose?.trim()) &&
+  !isSba7aWorkingCapitalLoanRequestDate(product, purpose);
+
+const SBA_7A_EQUIPMENT_ORIGINAL_PURCHASE_DATE_PURPOSES = new Set([
+  "Refinance Existing Equipment",
+]);
+
+const isSba7aEquipmentOriginalPurchaseDate = (
+  product: string,
+  purpose: string,
+) =>
+  product === "SBA_7A_EQUIPMENT_PURCHASE" &&
+  SBA_7A_EQUIPMENT_ORIGINAL_PURCHASE_DATE_PURPOSES.has(purpose);
+
+const isSba7aEquipmentLoanRequestDate = (product: string, purpose: string) =>
+  product === "SBA_7A_EQUIPMENT_PURCHASE" &&
+  SBA_7A_EQUIPMENT_ORIGINAL_PURCHASE_DATE_PURPOSES.has(purpose);
+
+const isSba7aEquipmentNonPurchase = (product: string, purpose: string) =>
+  product === "SBA_7A_EQUIPMENT_PURCHASE" &&
+  Boolean(purpose?.trim()) &&
+  !isSba7aEquipmentLoanRequestDate(product, purpose);
+
+const EQUIPMENT_FINANCE_PURCHASE_DATE_PURPOSES = new Set([
+  "New Equipment Purchase",
+  "Used Equipment Purchase",
+]);
+
+const EQUIPMENT_FINANCE_ORIGINAL_PURCHASE_DATE_PURPOSES = new Set([
+  "Refinance/Consolidation",
+]);
+
+const isEquipmentFinanceOriginalPurchaseDate = (
+  product: string,
+  purpose: string,
+) =>
+  product === "EQUIPMENT_FINANCE" &&
+  EQUIPMENT_FINANCE_ORIGINAL_PURCHASE_DATE_PURPOSES.has(purpose);
+
+const isEquipmentFinanceLoanRequestDate = (product: string, purpose: string) =>
+  product === "EQUIPMENT_FINANCE" &&
+  (EQUIPMENT_FINANCE_PURCHASE_DATE_PURPOSES.has(purpose) ||
+    EQUIPMENT_FINANCE_ORIGINAL_PURCHASE_DATE_PURPOSES.has(purpose));
+
+const isEquipmentFinanceNonPurchase = (product: string, purpose: string) =>
+  product === "EQUIPMENT_FINANCE" &&
+  Boolean(purpose?.trim()) &&
+  !isEquipmentFinanceLoanRequestDate(product, purpose);
+
+const PURCHASE_ORDER_FINANCE_PURCHASE_DATE_PURPOSES = new Set<string>([]);
+const PURCHASE_ORDER_FINANCE_ORIGINAL_PURCHASE_DATE_PURPOSES = new Set<string>(
+  [],
+);
+
+const isPurchaseOrderFinanceLoanRequestDate = (
+  product: string,
+  purpose: string,
+) =>
+  product === "PURCHASE_ORDER_FINANCE" &&
+  (PURCHASE_ORDER_FINANCE_PURCHASE_DATE_PURPOSES.has(purpose) ||
+    PURCHASE_ORDER_FINANCE_ORIGINAL_PURCHASE_DATE_PURPOSES.has(purpose));
+
+const isPurchaseOrderFinanceNonPurchase = (product: string, purpose: string) =>
+  product === "PURCHASE_ORDER_FINANCE" &&
+  Boolean(purpose?.trim()) &&
+  !isPurchaseOrderFinanceLoanRequestDate(product, purpose);
+
+const ACCOUNTS_RECEIVABLE_LOAN_TYPES = new Set([
+  "ACCOUNTS_RECEIVABLE_FINANCE",
+  "ACCOUNTS_RECEIVABLE",
+]);
+
+const ACCOUNTS_RECEIVABLE_PURCHASE_DATE_PURPOSES = new Set<string>([]);
+const ACCOUNTS_RECEIVABLE_ORIGINAL_PURCHASE_DATE_PURPOSES = new Set<string>([]);
+
+const isAccountsReceivableLoanRequestDate = (
+  product: string,
+  purpose: string,
+) =>
+  ACCOUNTS_RECEIVABLE_LOAN_TYPES.has(product) &&
+  (ACCOUNTS_RECEIVABLE_PURCHASE_DATE_PURPOSES.has(purpose) ||
+    ACCOUNTS_RECEIVABLE_ORIGINAL_PURCHASE_DATE_PURPOSES.has(purpose));
+
+const isAccountsReceivableNonPurchase = (product: string, purpose: string) =>
+  ACCOUNTS_RECEIVABLE_LOAN_TYPES.has(product) &&
+  Boolean(purpose?.trim()) &&
+  !isAccountsReceivableLoanRequestDate(product, purpose);
+
+const ACCOUNTS_PAYABLE_PURCHASE_DATE_PURPOSES = new Set<string>([]);
+const ACCOUNTS_PAYABLE_ORIGINAL_PURCHASE_DATE_PURPOSES = new Set<string>([]);
+
+const isAccountsPayableLoanRequestDate = (product: string, purpose: string) =>
+  product === "ACCOUNTS_PAYABLE_FINANCE" &&
+  (ACCOUNTS_PAYABLE_PURCHASE_DATE_PURPOSES.has(purpose) ||
+    ACCOUNTS_PAYABLE_ORIGINAL_PURCHASE_DATE_PURPOSES.has(purpose));
+
+const isAccountsPayableNonPurchase = (product: string, purpose: string) =>
+  product === "ACCOUNTS_PAYABLE_FINANCE" &&
+  Boolean(purpose?.trim()) &&
+  !isAccountsPayableLoanRequestDate(product, purpose);
+
+const hidesLoanRequestAmortization = (product: string, purpose: string) =>
+  isBridgeConstructionCompletion(product, purpose) ||
+  isConstructionLoanType(product) ||
+  (isMezzanineLoanType(product) &&
+    !isMezzanineAcquisitionBridge(product, purpose)) ||
+  isSba7aAcquisitionNonPurchase(product, purpose) ||
+  isSba7aWorkingCapitalNonPurchase(product, purpose) ||
+  isSba7aEquipmentNonPurchase(product, purpose) ||
+  isEquipmentFinanceNonPurchase(product, purpose) ||
+  isPurchaseOrderFinanceNonPurchase(product, purpose) ||
+  isAccountsReceivableNonPurchase(product, purpose) ||
+  isAccountsPayableNonPurchase(product, purpose);
+
+const isFixAndFlipPurchaseRehab = (product: string, purpose: string) =>
+  FIX_AND_FLIP_LOAN_TYPES.has(product) &&
+  purpose === FIX_AND_FLIP_PURCHASE_REHAB_PURPOSE;
+
+const isFixAndFlipRefinanceRehab = (product: string, purpose: string) =>
+  FIX_AND_FLIP_LOAN_TYPES.has(product) &&
+  purpose === FIX_AND_FLIP_REFINANCE_REHAB_PURPOSE;
+
+const isCrePermanentRecapitalization = (product: string, purpose: string) =>
+  product === "CRE_PERMANENT_LOAN" && purpose === "Recapitalization";
+
+const AGENCY_MULTIFAMILY_NO_PURCHASE_DATE_PURPOSES = new Set([
+  "Affordable Housing",
+  "Supplement Loan",
+]);
+
+const isAgencyMultifamilyNoPurchaseDate = (product: string, purpose: string) =>
+  product === "AGENCY_LOAN_MULTIFAMILY" &&
+  AGENCY_MULTIFAMILY_NO_PURCHASE_DATE_PURPOSES.has(purpose);
+
+const isPurchaseDateWithAmortization = (product: string, purpose: string) =>
+  PURCHASE_DATE_WITH_AMORTIZATION_LOAN_TYPES.has(product) &&
+  (PURCHASE_DATE_WITH_AMORTIZATION_PURPOSES.has(purpose) ||
+    ORIGINAL_PURCHASE_DATE_WITH_AMORTIZATION_PURPOSES.has(purpose));
+
+const isOriginalPurchaseDateWithAmortization = (
+  product: string,
+  purpose: string,
+) =>
+  PURCHASE_DATE_WITH_AMORTIZATION_LOAN_TYPES.has(product) &&
+  ORIGINAL_PURCHASE_DATE_WITH_AMORTIZATION_PURPOSES.has(purpose);
+
+const isLoanRequestOriginalPurchaseDate = (product: string, purpose: string) =>
+  isBridgeOriginalPurchaseDate(product, purpose) ||
+  isFixAndFlipRefinanceRehab(product, purpose) ||
+  isOriginalPurchaseDateWithAmortization(product, purpose) ||
+  isSba7aWorkingCapitalOriginalPurchaseDate(product, purpose) ||
+  isSba7aEquipmentOriginalPurchaseDate(product, purpose) ||
+  isEquipmentFinanceOriginalPurchaseDate(product, purpose);
+
+const isBridgeLoanRequestDateField = (product: string, purpose: string) =>
+  isBridgePurchaseAcquisition(product, purpose) ||
+  isBridgeOriginalPurchaseDate(product, purpose);
+
+const isLoanRequestPurchaseDateReplacesAmortization = (
+  product: string,
+  purpose: string,
+) =>
+  isBridgeLoanRequestDateField(product, purpose) ||
+  isFixAndFlipPurchaseRehab(product, purpose) ||
+  isFixAndFlipRefinanceRehab(product, purpose) ||
+  isMezzanineAcquisitionBridge(product, purpose) ||
+  isSba7aAcquisitionPurchaseDate(product, purpose) ||
+  isSba7aWorkingCapitalLoanRequestDate(product, purpose) ||
+  isSba7aEquipmentLoanRequestDate(product, purpose) ||
+  isEquipmentFinanceLoanRequestDate(product, purpose);
+
+const isLoanRequestPurchaseDateField = (product: string, purpose: string) =>
+  isLoanRequestPurchaseDateReplacesAmortization(product, purpose) ||
+  isPurchaseDateWithAmortization(product, purpose);
+
+const shouldHidePropertyPurchaseDate = (product: string, purpose: string) =>
+  isLoanRequestPurchaseDateField(product, purpose) ||
+  hidesLoanRequestAmortization(product, purpose) ||
+  isCrePermanentRecapitalization(product, purpose) ||
+  isAgencyMultifamilyNoPurchaseDate(product, purpose);
+
+const getLoanRequestPurchaseDateLabel = (product: string, purpose: string) =>
+  isLoanRequestOriginalPurchaseDate(product, purpose)
+    ? "Original Purchase Date"
+    : "Purchase Date";
+
+const RENTAL_PORTFOLIO_LOAN_TYPES = new Set(["RENTAL_PORTFOLIO"]);
+
+const isResidential14Category = (category: LoanCategory) =>
+  category === "RESIDENTIAL_1_4";
+
+const isCreResidentialLikeCategoryProduct = (
+  category: LoanCategory,
+  product: string,
+) =>
+  category === "CRE_MULTIFAMILY" &&
+  CRE_RESIDENTIAL_LIKE_LOAN_TYPES.has(product);
+
+const isBridgeProduct = (product: string) => BRIDGE_LOAN_TYPES.has(product);
+
+const CRE_PERMANENT_LOAN_TYPE = "CRE_PERMANENT_LOAN";
+const AGENCY_MULTIFAMILY_LOAN_TYPE = "AGENCY_LOAN_MULTIFAMILY";
+const CMBS_LOAN_TYPE = "CMBS";
+const MEZZANINE_FINANCE_LOAN_TYPE = "MEZZANINE_FINANCE";
+
+const CRE_BASE44_LOAN_TYPES = new Set([
+  CRE_PERMANENT_LOAN_TYPE,
+  AGENCY_MULTIFAMILY_LOAN_TYPE,
+  CMBS_LOAN_TYPE,
+  MEZZANINE_FINANCE_LOAN_TYPE,
+]);
+
+const CRE_BASE44_EBITDA_LOAN_TYPES = new Set([
+  CRE_PERMANENT_LOAN_TYPE,
+  AGENCY_MULTIFAMILY_LOAN_TYPE,
+  CMBS_LOAN_TYPE,
+]);
+
+const isCrePermanentProduct = (product: string) =>
+  product === CRE_PERMANENT_LOAN_TYPE;
+
+const isAgencyMultifamilyProduct = (product: string) =>
+  product === AGENCY_MULTIFAMILY_LOAN_TYPE;
+
+const isCreBase44Product = (product: string) =>
+  CRE_BASE44_LOAN_TYPES.has(product);
+
+const showCreBase44EntityEbitda = (product: string) =>
+  CRE_BASE44_EBITDA_LOAN_TYPES.has(product);
+
+const isConstructionLoanProduct = (product: string) =>
+  product === "CONSTRUCTION_LOAN_1_TO_4_UNITS" ||
+  product === "CONSTRUCTION_LOAN";
+
+const showResidentialPropertyPurchasePrice = (
+  product: string,
+  purpose: string,
+) =>
+  RESIDENTIAL_PURCHASE_PRICE_PURPOSES.has(purpose) ||
+  isBridgePurchaseAcquisition(product, purpose) ||
+  isFixAndFlipPurchaseRehab(product, purpose) ||
+  isConstructionLoanProduct(product) ||
+  isMezzanineLoanType(product) ||
+  isSba7aAcquisitionProduct(product) ||
+  showAblBase44PurchasePrice(product, purpose) ||
+  isSbaRealEstateCollateralProduct(product) ||
+  (isCreBase44Product(product) && purpose === "Purchase/Acquisition");
+
+const showResidentialPropertyConstructionCost = (product: string) =>
+  isConstructionLoanProduct(product);
+
+const showResidentialPropertyMarketValue = (product: string, purpose: string) =>
+  RESIDENTIAL_MARKET_VALUE_PURPOSES.has(purpose) ||
+  isBridgeOriginalPurchaseDate(product, purpose) ||
+  isBridgeConstructionCompletion(product, purpose) ||
+  isFixAndFlipRefinanceRehab(product, purpose) ||
+  (isCrePermanentProduct(product) && purpose === "Recapitalization") ||
+  (isAgencyMultifamilyProduct(product) &&
+    (purpose === "Affordable Housing" || purpose === "Supplement Loan")) ||
+  (isSbaRealEstateCollateralProduct(product) &&
+    (purpose === "Refinance" ||
+      purpose === "Refinance & Rehab" ||
+      purpose === "Refinance (504 Debt)" ||
+      purpose === "Debt Refinancing")) ||
+  (isEquipmentFinanceProduct(product) &&
+    showEquipmentFinanceMarketValue(purpose));
+
+const showResidentialPropertyArv = (product: string) =>
+  FIX_AND_FLIP_LOAN_TYPES.has(product) || isConstructionLoanProduct(product);
+
+const showResidentialPropertyRehabCost = (product: string) =>
+  FIX_AND_FLIP_LOAN_TYPES.has(product);
+
+const isFixAndFlipProduct = (product: string) =>
+  FIX_AND_FLIP_LOAN_TYPES.has(product);
+
+const isRentalPortfolioProduct = (product: string) =>
+  RENTAL_PORTFOLIO_LOAN_TYPES.has(product);
+
+const isRentalUnderwritingProduct = (product: string) =>
+  RENTAL_UNDERWRITING_LOAN_TYPES.has(product);
+
+const isConstruction14Product = (product: string) =>
+  isConstructionLoanProduct(product);
+
+export type LoanApplicationMode = "create" | "update";
+
+export type LoanApplicationPortal = "broker" | "loanOfficer" | "coBroker";
+
+export type LoanApplicationDocumentPaths = {
+  requestDocuments: (loanApplicationId: string) => string;
+  listDocuments: (submissionId: string) => string;
+  uploadDocument: (submissionId: string, requirementId: string) => string;
+};
+
+function getPortalConfig(portal: LoanApplicationPortal, apiBase: string) {
+  if (portal === "loanOfficer") {
+    return {
+      tokenKey: "loan_officer_token",
+      submitUrl: `${apiBase}/loanofficer/applications/submit`,
+      editUrl: (applicationId: string) =>
+        `${apiBase}/loanofficer/applications/${applicationId}/edit`,
+      loanProductsUrl: `${apiBase}/common/loan-products/loan-product-code`,
+      loanProductsAuth: false,
+      successPath: "/loan-officer/loan-pipeline",
+      backLabel: "Back to Loan Pipeline",
+      documentPaths: {
+        requestDocuments: (loanApplicationId: string) =>
+          `${apiBase}/broker/loan-pipeline/${loanApplicationId}/request-documents`,
+        listDocuments: (submissionId: string) =>
+          `${apiBase}/broker/loan-pipeline/submissions/${submissionId}/documents?limit=100&documentCategory=upload`,
+        uploadDocument: (submissionId: string, requirementId: string) =>
+          `${apiBase}/broker/loan-pipeline/submissions/${submissionId}/documents/${requirementId}/upload`,
+      } satisfies LoanApplicationDocumentPaths,
+    };
+  }
+
+  if (portal === "coBroker") {
+    return {
+      tokenKey: "sub_broker_token",
+      submitUrl: `${apiBase}/subbroker/applications/submit`,
+      editUrl: (applicationId: string) =>
+        `${apiBase}/subbroker/applications/${applicationId}/edit`,
+      loanProductsUrl: `${apiBase}/common/loan-products/loan-product-code`,
+      loanProductsAuth: false,
+      successPath: "/sub-broker/loan-pipeline",
+      backLabel: "Back to Loan Pipeline",
+      documentPaths: {
+        requestDocuments: (loanApplicationId: string) =>
+          `${apiBase}/subbroker/documents/${loanApplicationId}/request-documents`,
+        listDocuments: (submissionId: string) =>
+          `${apiBase}/subbroker/documents/submissions/${submissionId}/documents?limit=100&documentCategory=upload`,
+        uploadDocument: (submissionId: string, requirementId: string) =>
+          `${apiBase}/subbroker/documents/submissions/${submissionId}/documents/${requirementId}/upload`,
+      } satisfies LoanApplicationDocumentPaths,
+    };
+  }
+
+  return {
+    tokenKey: "broker_token",
+    submitUrl: `${apiBase}/broker/applications/submit`,
+    editUrl: (applicationId: string) =>
+      `${apiBase}/broker/applications/${applicationId}/edit`,
+    loanProductsUrl: `${apiBase}/common/loan-products/loan-product-code`,
+    loanProductsAuth: false,
+    successPath: "/submit-applications",
+    backLabel: "Back to Submit Applications",
+    documentPaths: {
+      requestDocuments: (loanApplicationId: string) =>
+        `${apiBase}/broker/loan-pipeline/${loanApplicationId}/request-documents`,
+      listDocuments: (submissionId: string) =>
+        `${apiBase}/broker/loan-pipeline/submissions/${submissionId}/documents?limit=100&documentCategory=upload`,
+      uploadDocument: (submissionId: string, requirementId: string) =>
+        `${apiBase}/broker/loan-pipeline/submissions/${submissionId}/documents/${requirementId}/upload`,
+    } satisfies LoanApplicationDocumentPaths,
+  };
+}
+
+export type LoanApplicationProps = {
+  mode?: LoanApplicationMode;
+  portal?: LoanApplicationPortal;
+  embedded?: boolean;
+  publicEmbed?: boolean;
+  editApplicationId?: string;
+  initialFormData?: FormDataType;
+  initialSelectedProduct?: string;
+  initialSelectedCategory?: LoanCategory;
+  initialDynamicFormData?: Record<string, any>;
+  initialCreditAuthorizationConsent?: boolean;
+  onUpdateSuccess?: (submissionId?: string) => void;
+  onPublicSubmitSuccess?: (submissionId?: string) => void;
+  onPublicSubmitError?: (message: string) => void;
+  reviewCaptchaSlot?: ReactNode;
+  recaptchaToken?: string | null;
+  /** Embedded-only: broker org id (used to attach submissions to an org). */
+  brokerOrgId?: string | null;
+  /** Embedded-only: ref token for the public share link. */
+  publicLinkRef?: string | null;
+  /** Embedded-only: portal of the originating broker/LO share. */
+  publicSourcePortal?: LoanApplicationPortal | null;
+  /** Embedded-only: whether to surface the "are you a broker?" step. */
+  showCoBrokerBorrowerInformationTab?: boolean;
+};
+
+async function fetchLoanProductCatalog(
+  portalConfig: ReturnType<typeof getPortalConfig>,
+) {
+  const headers: Record<string, string> = {};
+
+  if (portalConfig.loanProductsAuth) {
+    const token = sessionStorage.getItem(portalConfig.tokenKey);
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+  }
+
+  const response = await fetch(portalConfig.loanProductsUrl, { headers });
+  const result = await response.json();
+
+  if (!response.ok || result.success === false) {
+    throw new Error(result.message || "Failed to load loan products");
+  }
+
+  const products = (result.data || []).map((product: any) => ({
+    productId: product.id,
+    loanProductCode: product.code,
+    name: product.name,
+    sections: [],
+    unsectionedFields: [],
+  }));
+
+  return { products };
+}
 
 const LoanApplication = ({
   mode = "create",
+  portal = "broker",
   embedded = false,
   publicEmbed = false,
   editApplicationId,
@@ -123,9 +728,12 @@ const LoanApplication = ({
   initialSelectedProduct = "",
   initialSelectedCategory = "",
   initialDynamicFormData,
+  initialCreditAuthorizationConsent = false,
   onUpdateSuccess,
   onPublicSubmitSuccess,
   onPublicSubmitError,
+  reviewCaptchaSlot,
+  recaptchaToken = null,
   brokerOrgId = null,
   publicLinkRef = null,
   publicSourcePortal = null,
@@ -137,11 +745,18 @@ const LoanApplication = ({
     initialSelectedProduct,
   );
   const [dynamicSections, setDynamicSections] = useState<any[]>([]);
+  const [activeSectionIndex, setActiveSectionIndex] = useState<number | null>(
+    null,
+  );
   const [dynamicFormData, setDynamicFormData] = useState<Record<string, any>>(
     initialDynamicFormData || {},
   );
+  // const [applicationId, setApplicationId] = useState<string>("");
   const [productsMeta, setProductsMeta] = useState<any[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [creditAuthorizationConsent, setCreditAuthorizationConsent] = useState(
+    Boolean(initialCreditAuthorizationConsent),
+  );
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [pendingDocuments, setPendingDocuments] = useState<
     PendingApplicationDocument[]
@@ -153,6 +768,10 @@ const LoanApplication = ({
     initialSelectedCategory,
   );
   const navigate = useNavigate();
+  const portalConfig = useMemo(
+    () => getPortalConfig(portal, API_BASE),
+    [portal],
+  );
 
   const isResidentialFlow = isResidential14Category(selectedCategory);
   const isCreResidentialLikeFlow = isCreResidentialLikeCategoryProduct(
@@ -166,12 +785,6 @@ const LoanApplication = ({
     selectedCategory === "SBA_USDA" && isSbaBase44Product(selectedProduct);
   const isAblBase44Flow =
     selectedCategory === "ABL" && isAblBase44Product(selectedProduct);
-  /** SBA/USDA products that use the per-product collateral-type dropdown. */
-  const isSbaUsdaCollateralFlow =
-    isSba7aBase44Flow && isSbaUsdaCollateralProduct(selectedProduct);
-  /** ABL products that use the per-product collateral-type dropdown. */
-  const isAblCollateralFlow =
-    isAblBase44Flow && isAblCollateralProduct(selectedProduct);
   const isBase44CollateralStep =
     isResidential14Category(selectedCategory) ||
     isCreResidentialLikeFlow ||
@@ -185,12 +798,22 @@ const LoanApplication = ({
     isSba7aBase44Flow ||
     isAblBase44Flow;
 
-  // Application Builder removed — always use the static catalog form flow.
-  const useStandardSevenStepFlow = true;
+  /** SBA/USDA products that use the per-product collateral-type dropdown
+   *  (Business / Industry Type or Property Type) backed by
+   *  `loanRequest.collateralType`. */
+  const isSbaUsdaCollateralFlow =
+    isSba7aBase44Flow && isSbaUsdaCollateralProduct(selectedProduct);
 
-  // Non-base44 products used to rely on builder sections; show static defaults instead.
-  const showDefaultEntityInfoFields =
-    !isBase44Flow || !selectedCategory || !selectedProduct;
+  /** ABL products that use the per-product collateral-type dropdown
+   *  ("Business / Industry Type") backed by `loanRequest.collateralType`. */
+  const isAblCollateralFlow =
+    isAblBase44Flow && isAblCollateralProduct(selectedProduct);
+
+  /** Show the standard 7-step stepper until category + loan type are both chosen. */
+  const useStandardSevenStepFlow =
+    isBase44Flow || !selectedCategory || !selectedProduct;
+
+  const showDefaultEntityInfoFields = !selectedCategory || !selectedProduct;
 
   const showDefaultPropertyInfoFields = showDefaultEntityInfoFields;
 
@@ -201,10 +824,13 @@ const LoanApplication = ({
 
   const usesBase44Financials = useStandardSevenStepFlow;
 
+  // Embedded-only: surface the "are you a broker?" step in the public-embed
+  // share flow when the originating portal is BROKER or LOAN_OFFICER.
   const includeCoBrokerBorrowerInformationTab =
     Boolean(publicEmbed) &&
     Boolean(showCoBrokerBorrowerInformationTab) &&
-    (publicSourcePortal === "BROKER" || publicSourcePortal === "LOAN_OFFICER");
+    (publicSourcePortal === "broker" ||
+      publicSourcePortal === "loanOfficer");
 
   const baseSteps = useStandardSevenStepFlow
     ? [
@@ -236,51 +862,6 @@ const LoanApplication = ({
 
   const reviewStepIndex = useStandardSevenStepFlow ? baseSteps.length - 1 : -1;
 
-  const formatUSPhone = (value?: string | null) => {
-    // Remove non-digits
-    const cleaned = (value ?? "").replace(/\D/g, "").slice(0, 10);
-
-    const match = cleaned.match(/^(\d{0,3})(\d{0,3})(\d{0,4})$/);
-
-    if (!match) return cleaned;
-
-    let formatted = "";
-
-    if (match[1]) formatted += match[1];
-    if (match[2]) formatted += "-" + match[2];
-    if (match[3]) formatted += "-" + match[3];
-
-    return formatted;
-  };
-
-  const formatSSN = (value?: string | null) => {
-    // Remove non-digits
-    const cleaned = (value ?? "").replace(/\D/g, "").slice(0, 9);
-
-    const match = cleaned.match(/^(\d{0,3})(\d{0,2})(\d{0,4})$/);
-
-    if (!match) return cleaned;
-
-    let formatted = "";
-
-    if (match[1]) formatted += match[1];
-    if (match[2]) formatted += "-" + match[2];
-    if (match[3]) formatted += "-" + match[3];
-
-    return formatted;
-  };
-
-  const ZIP_REGEX = /^\d{5}(-\d{4})?$/;
-
-  const formatCurrency = (value?: string | null) => {
-    // Remove everything except digits
-    const cleaned = (value ?? "").replace(/\D/g, "");
-
-    if (!cleaned) return "";
-
-    return Number(cleaned).toLocaleString("en-US");
-  };
-
   const handleAmountChange = (
     section: "loanRequest" | "loanTermIncome" | "coBorrower",
     field: string,
@@ -302,16 +883,20 @@ const LoanApplication = ({
     }
   };
 
-  const allSteps = baseSteps;
+  const toTitleCase = (text: string) => {
+    return text
+      .toLowerCase()
+      .split(" ")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ");
+  };
 
-  const coBrokerBorrowerInfoStepIndex = includeCoBrokerBorrowerInformationTab
-    ? allSteps.indexOf(CO_BROKER_BORROWER_INFO_STEP)
-    : -1;
-  const borrowerInfoStepIndex = allSteps.indexOf("Borrower Info");
-  const financialsOrTermStepIndex = includeCoBrokerBorrowerInformationTab
-    ? 5
-    : 4;
-  const documentsStepIndex = includeCoBrokerBorrowerInformationTab ? 6 : 5;
+  const allSteps = useStandardSevenStepFlow
+    ? baseSteps
+    : [
+        ...baseSteps,
+        ...dynamicSections.map((section) => toTitleCase(section.sectionName)),
+      ];
 
   const [currentStep, setCurrentStep] = useState(0);
   const createEmptyBorrower = (): Borrower => ({
@@ -331,40 +916,15 @@ const LoanApplication = ({
   });
 
   const [formData, setFormData] = useState<FormDataType>(() => {
+    // Embedded-only: restore the referring-broker draft from local storage on mount.
     const draft =
       publicEmbed && (publicLinkRef || brokerOrgId)
         ? loadReferringBrokerDraft(publicLinkRef || brokerOrgId)
         : null;
-    const fromInitial: ReferringBrokerFormState | null =
-      initialFormData &&
-      (initialFormData.workingWithMortgageBroker ||
-        initialFormData.referringBroker)
-        ? {
-            workingWithMortgageBroker:
-              (initialFormData.workingWithMortgageBroker === "yes" ||
-              initialFormData.workingWithMortgageBroker === "no"
-                ? initialFormData.workingWithMortgageBroker
-                : "") as WorkingWithMortgageBrokerAnswer,
-            referringBroker: {
-              ...createEmptyReferringBroker(),
-              ...(initialFormData.referringBroker || {}),
-            },
-          }
-        : null;
     const referring: ReferringBrokerFormState =
-      fromInitial || draft || createEmptyReferringBrokerFormState();
+      draft || createEmptyReferringBrokerFormState();
 
-    if (initialFormData) {
-      return {
-        ...initialFormData,
-        workingWithMortgageBroker: referring.workingWithMortgageBroker,
-        referringBroker: referring.referringBroker,
-        financials:
-          initialFormData.financials || createResidentialFinancialsDefaults(),
-      };
-    }
-
-    return {
+    const base: FormDataType = initialFormData || {
       borrower: createEmptyBorrower(),
       coBorrowers: [],
       loanRequest: {
@@ -427,17 +987,43 @@ const LoanApplication = ({
         ...createSbaEntityDefaults(),
       },
       financials: createResidentialFinancialsDefaults(),
-      workingWithMortgageBroker: referring.workingWithMortgageBroker,
-      referringBroker: referring.referringBroker,
+      workingWithMortgageBroker: "",
+      referringBroker: {
+        email: "",
+        firstName: "",
+        lastName: "",
+        companyName: "",
+        phone: "",
+      },
+    };
+
+    return {
+      ...base,
+      workingWithMortgageBroker:
+        referring.workingWithMortgageBroker ||
+        (base.workingWithMortgageBroker as WorkingWithMortgageBrokerAnswer) ||
+        "",
+      referringBroker: {
+        ...createEmptyReferringBroker(),
+        ...(base.referringBroker || {}),
+        ...referring.referringBroker,
+      },
     };
   });
 
+  const [loanProducts, setLoanProducts] = useState<string[]>([]);
+  const [loadingProducts, setLoadingProducts] = useState(false);
+
+  // Embedded-only: persist the referring-broker draft to local storage so
+  // refreshing the page doesn't lose the "are you a broker?" answers.
   useEffect(() => {
     if (!publicEmbed) return;
     const key = publicLinkRef || brokerOrgId;
     if (!key) return;
     saveReferringBrokerDraft(key, {
-      workingWithMortgageBroker: formData.workingWithMortgageBroker || "",
+      workingWithMortgageBroker:
+        (formData.workingWithMortgageBroker as WorkingWithMortgageBrokerAnswer) ||
+        "",
       referringBroker: formData.referringBroker || createEmptyReferringBroker(),
     });
   }, [
@@ -447,9 +1033,6 @@ const LoanApplication = ({
     formData.workingWithMortgageBroker,
     formData.referringBroker,
   ]);
-
-  const [loanProducts, setLoanProducts] = useState<string[]>([]);
-  const [loadingProducts, setLoadingProducts] = useState(false);
 
   const handleAddCoBorrower = () => {
     const newId = Date.now();
@@ -493,11 +1076,29 @@ const LoanApplication = ({
       },
     }));
 
-    setErrors((prev) => {
-      const updated = { ...prev };
-      delete updated[`loanRequest.${field}`];
-      return updated;
-    });
+    // Live validation: lookup rule for `loanRequest.${field}` and validate
+    const fieldKey = `loanRequest.${field}`;
+    const rule = getRuleForKey(fieldKey);
+    if (rule) {
+      const result = validateValue(value, rule);
+      console.log(result);
+
+      setErrors((prev) => {
+        const updated = { ...prev };
+        if (result.hasError) {
+          updated[fieldKey] = result.error;
+        } else {
+          delete updated[fieldKey];
+        }
+        return updated;
+      });
+    } else {
+      setErrors((prev) => {
+        const updated = { ...prev };
+        delete updated[`loanRequest.${field}`];
+        return updated;
+      });
+    }
   };
 
   const updateLoanTermIncome = (field: string, value: string) => {
@@ -509,11 +1110,28 @@ const LoanApplication = ({
       },
     }));
 
-    setErrors((prev) => {
-      const updated = { ...prev };
-      delete updated[`loanTermIncome.${field}`];
-      return updated;
-    });
+    const fieldKey = `loanTermIncome.${field}`;
+    const rule = getRuleForKey(fieldKey);
+    if (rule) {
+      const result = validateValue(value, rule);
+      console.log(result);
+
+      setErrors((prev) => {
+        const updated = { ...prev };
+        if (result.hasError) {
+          updated[fieldKey] = result.error;
+        } else {
+          delete updated[fieldKey];
+        }
+        return updated;
+      });
+    } else {
+      setErrors((prev) => {
+        const updated = { ...prev };
+        delete updated[fieldKey];
+        return updated;
+      });
+    }
   };
 
   const updateFinancials = (financials: ResidentialFinancials) => {
@@ -540,107 +1158,17 @@ const LoanApplication = ({
     (p: any) => p.loanProductCode === selectedProduct,
   );
 
-  const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[A-Za-z]{2,}$/;
+  // EMAIL_REGEX / PHONE_REGEX / SSN_REGEX are imported from ./formatters.
+  // ZIP_REGEX is also imported from ./formatters.
+  // validateFieldValue / collectStepValidationErrors / collectDynamicSectionErrors
+  // validateAllStepsBeforeSubmit / getReviewValidationIssues are imported from
+  // ./validation.
 
-  const PHONE_REGEX = /^\d{3}-\d{3}-\d{4}$/;
-
-  const validateFieldValue = (
-    key: string,
-    value: any,
-    required: boolean = true,
-  ) => {
-    const trimmed = typeof value === "string" ? value.trim() : value;
-
-    // Required
-    if (required) {
-      const isEmpty =
-        trimmed === undefined ||
-        trimmed === null ||
-        trimmed === "" ||
-        (Array.isArray(trimmed) && trimmed.length === 0);
-
-      if (isEmpty) return "This field is required";
-    }
-
-    // Email
-    if (key.toLowerCase().includes("email")) {
-      if (trimmed && !EMAIL_REGEX.test(trimmed)) {
-        return "Enter a valid email address";
-      }
-    }
-
-    // Phone
-    if (key.toLowerCase().includes("phone")) {
-      if (trimmed && !PHONE_REGEX.test(trimmed)) {
-        return "Enter a valid US phone number";
-      }
-    }
-
-    // SSN
-    if (key.toLowerCase().includes("ssn")) {
-      const SSN_REGEX = /^\d{3}-\d{2}-\d{4}$/;
-      if (trimmed && !SSN_REGEX.test(trimmed)) {
-        return "Enter valid SSN (XXX-XX-XXXX)";
-      }
-    }
-
-    // ZIP Code
-    if (key.toLowerCase() === "zip") {
-      if (trimmed && !ZIP_REGEX.test(trimmed)) {
-        return "Enter a valid US ZIP Code (12345 or 12345-6789)";
-      }
-    }
-
-    // Amount fields validation
-    const amountKeys = [
-      "amount",
-      "sellerNoteAmount",
-      "currentMarketValue",
-      "purchasePrice",
-      "afterRepairValue",
-      "rehabCost",
-      "constructionCost",
-      "totalAssets",
-      "totalLiabilities",
-      "monthlyRent",
-      "grossRevenueActual",
-      "grossRevenueProforma",
-      "noiActual",
-      "noiProforma",
-      "annualTaxes",
-      "insurancePremium",
-      "hoaDues",
-      "noi",
-    ];
-
-    if (amountKeys.includes(key)) {
-      const numeric = parseFloat(String(trimmed).replace(/,/g, ""));
-
-      if (required && (!numeric || numeric <= 0)) {
-        return "Amount must be greater than 0";
-      }
-
-      if (numeric < 0) {
-        return "Amount cannot be negative";
-      }
-    }
-
-    if (key === "interestRate") {
-      const numeric = parseFloat(trimmed);
-      if (numeric < 0) {
-        return "Interest rate cannot be negative";
-      }
-    }
-
-    if (key === "creditScore") {
-      const score = parseInt(trimmed);
-      if (score < 300 || score > 850) {
-        return "Credit score must be between 300 and 850";
-      }
-    }
-
-    return "";
-  };
+  // -----------------------------------------------------------------
+  // Inline wrappers for validation/submission helpers that need
+  // closure access to local state. They delegate to the imported
+  // pure helpers where possible.
+  // -----------------------------------------------------------------
 
   const collectStepValidationErrors = (stepIndex: number) => {
     const newErrors: Record<string, string> = {};
@@ -665,59 +1193,30 @@ const LoanApplication = ({
           key === "hoaDues"
         )
           return;
-
         const error = validateFieldValue(key, value, true);
-
-        if (error) {
-          newErrors[`${prefix}.${key}`] = error;
-        }
+        if (error) newErrors[`${prefix}.${key}`] = error;
       });
     };
 
     if (stepIndex === 0) {
-      if (!selectedCategory) {
-        newErrors["category"] = "Category is required";
-      }
-
-      if (!selectedProduct) {
+      if (!selectedCategory) newErrors["category"] = "Category is required";
+      if (!selectedProduct)
         newErrors["selectedProduct"] = "Program selection is required";
-      }
-
       if (selectedProduct) {
-        if (!formData.loanRequest.purpose?.trim()) {
+        if (!formData.loanRequest.purpose?.trim())
           newErrors["loanRequest.purpose"] = "Loan purpose is required";
-        }
+        const subPurposeList = LOAN_SUB_PURPOSE_MAP[selectedProduct] || [];
         if (
-          (LOAN_SUB_PURPOSE_MAP[selectedProduct] || []).length > 0 &&
+          subPurposeList.length > 0 &&
+          formData.loanRequest.purpose?.trim() &&
           !formData.loanRequest.subPurpose?.trim()
         ) {
-          newErrors["loanRequest.subPurpose"] = "Loan sub-purpose is required";
+          newErrors["loanRequest.subPurpose"] = "Sub-loan purpose is required";
         }
-        if (
-          showEquityDownPaymentBlock(selectedProduct, purpose, selectedCategory)
-        ) {
-          const equityTotal =
-            toNumber(formData.loanRequest.amount) +
-            toNumber(formData.loanRequest.downPayment) +
-            (formData.loanRequest.sellerFinancing === "yes"
-              ? toNumber(formData.loanRequest.sellerNoteAmount)
-              : 0);
-          const purchaseTotal = toNumber(formData.loanRequest.purchasePrice);
-          if (
-            purchaseTotal > 0 &&
-            Math.abs(equityTotal - purchaseTotal) >= 0.01
-          ) {
-            newErrors["loanRequest.downPayment"] =
-              "Loan Amount + Down Payment + Seller Financing must equal Purchase Price";
-          }
-        }
-
         const amount = toNumber(formData.loanRequest.amount);
-        if (!amount || amount <= 0) {
+        if (!amount || amount <= 0)
           newErrors["loanRequest.amount"] =
             "Requested loan amount must be greater than 0";
-        }
-
         if (
           isLoanRequestPurchaseDateField(selectedProduct, purpose) &&
           !formData.loanRequest.purchaseDate?.trim()
@@ -729,73 +1228,53 @@ const LoanApplication = ({
         }
       }
     }
-
     if (stepIndex === 1) {
       if (showDefaultEntityInfoFields) {
-        if (!formData.entity.legalName?.trim()) {
+        if (!formData.entity.legalName?.trim())
           newErrors["entity.legalName"] =
             "Legal business / entity name is required";
-        }
-        if (!formData.entity.entityType?.trim()) {
+        if (!formData.entity.entityType?.trim())
           newErrors["entity.entityType"] = "Entity type is required";
-        }
-        if (!formData.entity.formationDate?.trim()) {
+        if (!formData.entity.formationDate?.trim())
           newErrors["entity.formationDate"] = "Formation date is required";
-        }
         if (!formData.entity.yearsInBusiness?.trim()) {
           newErrors["entity.yearsInBusiness"] = "Years in business is required";
-        } else {
-          const years = Number(formData.entity.yearsInBusiness);
-          if (years < 0) {
-            newErrors["entity.yearsInBusiness"] =
-              "Years in business cannot be negative";
-          }
-        }
-      } else {
-        checkObject(formData.entity, "entity");
-
-        const years = Number(formData.entity.yearsInBusiness);
-
-        if (years < 0) {
+        } else if (Number(formData.entity.yearsInBusiness) < 0) {
           newErrors["entity.yearsInBusiness"] =
             "Years in business cannot be negative";
         }
-
+      } else {
+        checkObject(formData.entity, "entity");
+        if (Number(formData.entity.yearsInBusiness) < 0)
+          newErrors["entity.yearsInBusiness"] =
+            "Years in business cannot be negative";
         if (
           isSba7aBase44Flow &&
           formData.entity.inventoryIncluded &&
           toNumber(formData.entity.inventoryValue) <= 0
-        ) {
+        )
           newErrors["entity.inventoryValue"] =
             "Inventory value must be greater than 0";
-        }
-
         if (
           isSba7aBase44Flow &&
           formData.entity.equipmentIncluded &&
           toNumber(formData.entity.equipmentValue) <= 0
-        ) {
+        )
           newErrors["entity.equipmentValue"] =
             "Equipment value must be greater than 0";
-        }
       }
     }
-
     if (stepIndex === 2) {
       if (showDefaultPropertyInfoFields) {
-        if (!formData.loanRequest.businessAddress?.trim()) {
+        if (!formData.loanRequest.businessAddress?.trim())
           newErrors["loanRequest.businessAddress"] =
             "Property address is required";
-        }
-        if (!formData.loanRequest.city?.trim()) {
+        if (!formData.loanRequest.city?.trim())
           newErrors["loanRequest.city"] = "City is required";
-        }
-        if (!formData.loanRequest.state?.trim()) {
+        if (!formData.loanRequest.state?.trim())
           newErrors["loanRequest.state"] = "State is required";
-        }
-        if (!formData.loanRequest.zip?.trim()) {
+        if (!formData.loanRequest.zip?.trim())
           newErrors["loanRequest.zip"] = "ZIP is required";
-        }
       } else if (isBase44CollateralStep) {
         if (isSbaUsdaCollateralFlow || isAblCollateralFlow) {
           if (!formData.loanRequest.collateralType?.trim()) {
@@ -811,538 +1290,226 @@ const LoanApplication = ({
               ? "Business / industry type is required"
               : "Property type is required";
         }
-
         if (
           isCreResidentialLikeFlow &&
           !formData.loanRequest.subPropertyType?.trim()
-        ) {
+        )
           newErrors["loanRequest.subPropertyType"] =
             "Sub property type is required";
-        }
-
-        if (!formData.loanRequest.businessAddress?.trim()) {
+        if (!formData.loanRequest.businessAddress?.trim())
           newErrors["loanRequest.businessAddress"] =
             "Property address is required";
-        }
-
-        if (!formData.loanRequest.city?.trim()) {
+        if (!formData.loanRequest.city?.trim())
           newErrors["loanRequest.city"] = "City is required";
-        }
-
-        if (!formData.loanRequest.state?.trim()) {
+        if (!formData.loanRequest.state?.trim())
           newErrors["loanRequest.state"] = "State is required";
-        }
-
-        if (!formData.loanRequest.zip?.trim()) {
+        if (!formData.loanRequest.zip?.trim())
           newErrors["loanRequest.zip"] = "ZIP is required";
-        }
-
         if (
           showResidentialPropertyPurchasePrice(selectedProduct, purpose) &&
           toNumber(formData.loanRequest.purchasePrice) <= 0
-        ) {
+        )
           newErrors["loanRequest.purchasePrice"] =
             "Purchase price must be greater than 0";
-        }
-
+        if (
+          showResidentialPropertyPurchasePrice(selectedProduct, purpose) &&
+          equityMismatchError
+        )
+          newErrors["loanRequest.downPayment"] =
+            "Loan Amount + Down Payment + Seller Financing must equal the Purchase Price";
         if (
           showResidentialPropertyMarketValue(selectedProduct, purpose) &&
           toNumber(formData.loanRequest.currentMarketValue) <= 0
-        ) {
+        )
           newErrors["loanRequest.currentMarketValue"] =
             "Current market value must be greater than 0";
-        }
-
         if (
           showResidentialPropertyArv(selectedProduct) &&
           toNumber(formData.loanRequest.afterRepairValue) <= 0
-        ) {
+        )
           newErrors["loanRequest.afterRepairValue"] =
             "After repair value must be greater than 0";
-        }
-
         if (
           showResidentialPropertyRehabCost(selectedProduct) &&
           toNumber(formData.loanRequest.rehabCost) <= 0
-        ) {
+        )
           newErrors["loanRequest.rehabCost"] =
             "Rehab cost must be greater than 0";
-        }
-
         if (
           showResidentialPropertyConstructionCost(selectedProduct) &&
           toNumber(formData.loanRequest.constructionCost) <= 0
-        ) {
+        )
           newErrors["loanRequest.constructionCost"] =
             "Construction cost must be greater than 0";
-        }
-
         if (
           propertyPurchaseDateVisible &&
           !formData.loanRequest.purchaseDate?.trim()
-        ) {
+        )
           newErrors["loanRequest.purchaseDate"] = "Purchase date is required";
-        }
       } else {
         Object.entries(formData.loanRequest).forEach(([key, value]) => {
           if (OPTIONAL_LOAN_REQUEST_KEYS.has(key)) return;
           if (
             shouldHidePropertyPurchaseDate(selectedProduct, purpose) &&
             key === "purchaseDate"
-          ) {
+          )
             return;
-          }
-
           const error = validateFieldValue(key, value, true);
-          if (error) {
-            newErrors[`loanRequest.${key}`] = error;
-          }
+          if (error) newErrors[`loanRequest.${key}`] = error;
         });
-
-        const assets = toNumber(formData.loanRequest.totalAssets);
-        const liabilities = toNumber(formData.loanRequest.totalLiabilities);
-
-        if (assets <= 0) {
+        if (toNumber(formData.loanRequest.totalAssets) <= 0)
           newErrors["loanRequest.totalAssets"] =
             "Total Assets must be greater than 0";
-        }
-
-        if (liabilities < 0) {
+        if (toNumber(formData.loanRequest.totalLiabilities) < 0)
           newErrors["loanRequest.totalLiabilities"] =
             "Liabilities cannot be negative";
-        }
-
-        if (!formData.loanRequest.businessAddress) {
+        if (!formData.loanRequest.businessAddress)
           newErrors["loanRequest.businessAddress"] = "Address is required";
-        }
-
-        if (!formData.loanRequest.city) {
+        if (!formData.loanRequest.city)
           newErrors["loanRequest.city"] = "City is required";
-        }
-
-        if (!formData.loanRequest.state) {
+        if (!formData.loanRequest.state)
           newErrors["loanRequest.state"] = "State is required";
-        }
-
-        if (!formData.loanRequest.zip) {
+        if (!formData.loanRequest.zip)
           newErrors["loanRequest.zip"] = "ZIP is required";
-        }
       }
     }
-
-    if (baseSteps[stepIndex] === CO_BROKER_BORROWER_INFO_STEP) {
-      return validateReferringBrokerStep({
-        workingWithMortgageBroker: formData.workingWithMortgageBroker || "",
-        referringBroker:
-          formData.referringBroker || createEmptyReferringBroker(),
-      });
-    }
-
-    if (baseSteps[stepIndex] === "Borrower Info") {
+    if (stepIndex === 3) {
       if (useResidentialBorrowerPanel) {
-        if (!formData.borrower.firstName?.trim()) {
+        if (!formData.borrower.firstName?.trim())
           newErrors["borrower.firstName"] = "First name is required";
-        }
-        if (!formData.borrower.lastName?.trim()) {
+        if (!formData.borrower.lastName?.trim())
           newErrors["borrower.lastName"] = "Last name is required";
-        }
-
         if (formData.borrower.phone?.trim()) {
-          const phoneError = validateFieldValue(
-            "phone",
-            formData.borrower.phone,
-            false,
-          );
-          if (phoneError) newErrors["borrower.phone"] = phoneError;
+          const e = validateFieldValue("phone", formData.borrower.phone, false);
+          if (e) newErrors["borrower.phone"] = e;
         }
-
         if (formData.borrower.email?.trim()) {
-          const emailError = validateFieldValue(
-            "email",
-            formData.borrower.email,
-            false,
-          );
-          if (emailError) newErrors["borrower.email"] = emailError;
+          const e = validateFieldValue("email", formData.borrower.email, false);
+          if (e) newErrors["borrower.email"] = e;
         }
-
         if (formData.borrower.ssn?.trim()) {
-          const ssnError = validateFieldValue(
-            "ssn",
-            formData.borrower.ssn,
-            false,
-          );
-          if (ssnError) newErrors["borrower.ssn"] = ssnError;
+          const e = validateFieldValue("ssn", formData.borrower.ssn, false);
+          if (e) newErrors["borrower.ssn"] = e;
         }
-
-        formData.coBorrowers.forEach((b, index) => {
-          if (!b.firstName?.trim()) {
-            newErrors[`coBorrowers.${index}.firstName`] =
-              "First name is required";
-          }
-          if (!b.lastName?.trim()) {
-            newErrors[`coBorrowers.${index}.lastName`] =
-              "Last name is required";
-          }
-        });
       } else {
         checkObject(formData.borrower, "borrower");
-
-        formData.coBorrowers.forEach((b, index) => {
-          checkObject(
-            {
-              name: b.name,
-              entityName: b.entityName,
-              phone: b.phone,
-              email: b.email,
-              employer: b.employer,
-              dob: b.dob,
-              ssn: b.ssn,
-              creditScore: b.creditScore,
-              address: b.address,
-              city: b.city,
-              state: b.state,
-            },
-            `coBorrowers.${index}`,
-          );
-
-          const financialFields = [
-            "currentMarketValue",
-            "purchasePrice",
-            "interestRate",
-            "noi",
-            "totalAssets",
-            "totalLiabilities",
-          ];
-
-          financialFields.forEach((field) => {
-            const value = (b as any)[field];
-            const error = validateFieldValue(field, value, true);
-
-            if (error) {
-              newErrors[`coBorrowers.${index}.${field}`] = error;
-            }
-          });
-        });
       }
     }
-
-    if (baseSteps[stepIndex] === "Loan Term & Income") {
+    if (stepIndex === 4 && !usesBase44Financials) {
       checkObject(formData.loanTermIncome, "loanTermIncome");
-
       const loanTerm = Number(formData.loanTermIncome.loanTerm);
-      if (loanTerm && loanTerm <= 0) {
+      if (loanTerm && loanTerm <= 0)
         newErrors["loanTermIncome.loanTerm"] =
           "Loan term must be greater than 0";
-      }
-
       const noi = Number(formData.loanTermIncome.noiActual);
-      if (noi && noi < 0) {
+      if (noi && noi < 0)
         newErrors["loanTermIncome.noiActual"] = "NOI cannot be negative";
-      }
     }
-
     return newErrors;
   };
 
-  const collectDynamicSectionErrors = (sectionIndex: number) => {
-    const newErrors: Record<string, string> = {};
-    const section = dynamicSections[sectionIndex];
-    if (!section) return newErrors;
-
-    const visibleFields = section.fields.filter((field: any) => {
-      const normalized = (field.fieldKey || field.label || "")
-        .toLowerCase()
-        .replace(/\s+/g, "");
-
-      return !STATIC_FIELD_KEYS.map((k) =>
-        k.toLowerCase().replace(/\s+/g, ""),
-      ).includes(normalized);
-    });
-
-    visibleFields.forEach((field: any) => {
-      const value = dynamicFormData[field.fieldId];
-
-      const error = validateFieldValue(
-        field.label || field.fieldKey,
-        value,
-        field.required,
-      );
-
-      if (error) {
-        newErrors[`dynamic.${field.fieldId}`] = error;
-      }
-    });
-
-    return newErrors;
-  };
-
-  const validateCurrentStep = () => {
-    const newErrors = collectStepValidationErrors(currentStep);
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const validateAllStepsBeforeSubmit = () => {
-    let newErrors: Record<string, string> = {};
-
-    for (let i = 0; i < baseSteps.length; i++) {
-      newErrors = { ...newErrors, ...collectStepValidationErrors(i) };
-    }
-
-    dynamicSections.forEach((_, sectionIndex) => {
-      newErrors = {
-        ...newErrors,
-        ...collectDynamicSectionErrors(sectionIndex),
-      };
-    });
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const getReviewValidationIssues = (): ReviewValidationIssue[] => {
-    if (!useStandardSevenStepFlow) return [];
-
-    const issues: ReviewValidationIssue[] = [];
+  const getReviewValidationIssues = (): any[] => {
+    const issues: any[] = [];
     const add = (label: string, stepIndex: number, missing: boolean) => {
       if (missing) issues.push({ label, stepIndex });
     };
-
     add("Loan Category", 0, !selectedCategory);
     add("Loan Program", 0, !selectedProduct);
     add("Loan Purpose", 0, !formData.loanRequest.purpose?.trim());
     add("Loan Amount", 0, toNumber(formData.loanRequest.amount) <= 0);
     add("Closing Date", 0, !formData.loanRequest.estimatedClosingDate?.trim());
-
+    const purpose = formData.loanRequest.purpose;
     if (
       selectedProduct &&
-      isLoanRequestPurchaseDateField(
-        selectedProduct,
-        formData.loanRequest.purpose,
-      ) &&
+      isLoanRequestPurchaseDateField(selectedProduct, purpose) &&
       !formData.loanRequest.purchaseDate?.trim()
     ) {
       add(
-        isLoanRequestOriginalPurchaseDate(
-          selectedProduct,
-          formData.loanRequest.purpose,
-        )
+        isLoanRequestOriginalPurchaseDate(selectedProduct, purpose)
           ? "Original Purchase Date"
           : "Purchase Date",
         0,
         true,
       );
     }
-
     add("Legal Business / Entity Name", 1, !formData.entity.legalName?.trim());
     add("Entity Type", 1, !formData.entity.entityType?.trim());
     add("Formation Date", 1, !formData.entity.formationDate?.trim());
     add("Years in Business", 1, !formData.entity.yearsInBusiness?.trim());
-
-    const purpose = formData.loanRequest.purpose;
 
     if (showDefaultPropertyInfoFields) {
       add("Property Address", 2, !formData.loanRequest.businessAddress?.trim());
       add("City", 2, !formData.loanRequest.city?.trim());
       add("State", 2, !formData.loanRequest.state?.trim());
       add("ZIP", 2, !formData.loanRequest.zip?.trim());
-    } else {
+    } else if (isSbaUsdaCollateralFlow || isAblCollateralFlow) {
       add(
-        isBase44BusinessCollateralProduct(selectedProduct)
+        isAblCollateralFlow
           ? "Business / Industry Type"
-          : "Property Type",
+          : getSbaCollateralTypeLabel(selectedProduct) ||
+              "Business / Industry Type",
         2,
-        !formData.loanRequest.propertyType?.trim(),
+        !formData.loanRequest.collateralType?.trim(),
       );
-      add(
-        isBase44BusinessCollateralProduct(selectedProduct)
-          ? "Business Address"
-          : "Property Address",
-        2,
-        !formData.loanRequest.businessAddress?.trim(),
-      );
-      add("City", 2, !formData.loanRequest.city?.trim());
-      add("State", 2, !formData.loanRequest.state?.trim());
-      add("ZIP", 2, !formData.loanRequest.zip?.trim());
-
-      if (
-        isCreResidentialLikeFlow &&
-        !formData.loanRequest.subPropertyType?.trim()
-      ) {
-        add("Sub Property Type", 2, true);
-      }
-
-      if (
-        selectedProduct &&
-        !shouldHidePropertyPurchaseDate(selectedProduct, purpose) &&
-        !formData.loanRequest.purchaseDate?.trim()
-      ) {
-        add("Purchase Date", 2, true);
-      }
-
-      if (
-        showResidentialPropertyPurchasePrice(selectedProduct, purpose) &&
-        toNumber(formData.loanRequest.purchasePrice) <= 0
-      ) {
-        add("Purchase Price", 2, true);
-      }
-
-      if (
-        showResidentialPropertyRehabCost(selectedProduct) &&
-        toNumber(formData.loanRequest.rehabCost) <= 0
-      ) {
-        add("Rehab Cost", 2, true);
-      }
-
-      if (
-        showResidentialPropertyConstructionCost(selectedProduct) &&
-        toNumber(formData.loanRequest.constructionCost) <= 0
-      ) {
-        add("Construction Cost", 2, true);
-      }
-
-      if (
-        showResidentialPropertyMarketValue(selectedProduct, purpose) &&
-        toNumber(formData.loanRequest.currentMarketValue) <= 0
-      ) {
-        add("Current Market Value (As-Is)", 2, true);
-      }
-
-      if (
-        showResidentialPropertyArv(selectedProduct) &&
-        toNumber(formData.loanRequest.afterRepairValue) <= 0
-      ) {
-        add("After Repair Value (ARV)", 2, true);
-      }
     }
-
-    add(
-      "Borrower First Name",
-      borrowerInfoStepIndex,
-      !formData.borrower.firstName?.trim(),
-    );
-    add(
-      "Borrower Last Name",
-      borrowerInfoStepIndex,
-      !formData.borrower.lastName?.trim(),
-    );
-
-    if (!showDefaultBorrowerInfoFields) {
+    if (useResidentialBorrowerPanel) {
       add(
         "Borrower Email",
-        borrowerInfoStepIndex,
+        3,
         !formData.borrower.email?.trim(),
       );
-      add(
-        "Borrower Phone",
-        borrowerInfoStepIndex,
-        !formData.borrower.phone?.trim(),
+      const unanswered = countUnansweredDeclarations(
+        formData.borrower.declarations,
       );
-      add(
-        "Borrower Credit Score",
-        borrowerInfoStepIndex,
-        !formData.borrower.creditScore?.trim(),
-      );
-    }
-
-    formData.coBorrowers.forEach((borrower, index) => {
-      add(
-        `Co-Borrower ${index + 1} First Name`,
-        borrowerInfoStepIndex,
-        !borrower.firstName?.trim(),
-      );
-      add(
-        `Co-Borrower ${index + 1} Last Name`,
-        borrowerInfoStepIndex,
-        !borrower.lastName?.trim(),
-      );
-    });
-
-    if (formData.borrower.email?.trim()) {
-      const emailError = validateFieldValue(
-        "email",
-        formData.borrower.email,
-        false,
-      );
-      if (emailError) add("Borrower Email", borrowerInfoStepIndex, true);
-    }
-
-    if (formData.borrower.phone?.trim()) {
-      const phoneError = validateFieldValue(
-        "phone",
-        formData.borrower.phone,
-        false,
-      );
-      if (phoneError) add("Borrower Phone", borrowerInfoStepIndex, true);
-    }
-
-    if (formData.borrower.creditScore?.trim()) {
-      const creditError = validateFieldValue(
-        "creditScore",
-        formData.borrower.creditScore,
-        false,
-      );
-      if (creditError)
-        add("Borrower Credit Score", borrowerInfoStepIndex, true);
-    }
-
-    if (includeCoBrokerBorrowerInformationTab) {
-      const referringErrors = validateReferringBrokerStep({
-        workingWithMortgageBroker: formData.workingWithMortgageBroker || "",
-        referringBroker:
-          formData.referringBroker || createEmptyReferringBroker(),
+      if (unanswered > 0) {
+        add(
+          unanswered === 1
+            ? "Declarations (1 unanswered)"
+            : `Declarations (${unanswered} unanswered)`,
+          3,
+          true,
+        );
+      }
+      formData.coBorrowers.forEach((coBorrower, index) => {
+        if (!coBorrower.email?.trim()) {
+          add(`Co-Borrower ${index + 1} Email`, 3, true);
+        }
+        const coUnanswered = countUnansweredDeclarations(
+          coBorrower.declarations,
+        );
+        if (coUnanswered > 0) {
+          add(
+            coUnanswered === 1
+              ? `Co-Borrower ${index + 1} Declarations (1 unanswered)`
+              : `Co-Borrower ${index + 1} Declarations (${coUnanswered} unanswered)`,
+            3,
+            true,
+          );
+        }
       });
-
-      if (referringErrors.workingWithMortgageBroker) {
-        add("Mortgage Broker Question", coBrokerBorrowerInfoStepIndex, true);
-      }
-      if (referringErrors["referringBroker.email"]) {
-        add("Referring Broker Email", coBrokerBorrowerInfoStepIndex, true);
-      }
-      if (referringErrors["referringBroker.firstName"]) {
-        add("Referring Broker First Name", coBrokerBorrowerInfoStepIndex, true);
-      }
-      if (referringErrors["referringBroker.lastName"]) {
-        add("Referring Broker Last Name", coBrokerBorrowerInfoStepIndex, true);
-      }
-      if (referringErrors["referringBroker.companyName"]) {
-        add("Referring Broker Company", coBrokerBorrowerInfoStepIndex, true);
-      }
-      if (referringErrors["referringBroker.phone"]) {
-        add("Referring Broker Phone", coBrokerBorrowerInfoStepIndex, true);
-      }
     }
-
-    if (
-      !showDefaultEntityInfoFields &&
-      isSba7aBase44Flow &&
-      formData.entity.inventoryIncluded &&
-      toNumber(formData.entity.inventoryValue) <= 0
-    ) {
-      add("Inventory Value", 1, true);
-    }
-
-    if (
-      !showDefaultEntityInfoFields &&
-      isSba7aBase44Flow &&
-      formData.entity.equipmentIncluded &&
-      toNumber(formData.entity.equipmentValue) <= 0
-    ) {
-      add("Equipment Value", 1, true);
-    }
-
-    const yearsInBusiness = Number(formData.entity.yearsInBusiness);
-    if (formData.entity.yearsInBusiness?.trim() && yearsInBusiness < 0) {
-      add("Years in Business", 1, true);
-    }
-
     return issues;
+  };
+
+  const validateAllStepsBeforeSubmit = (): boolean => {
+    let newErrors: Record<string, string> = {};
+    for (let i = 0; i < baseSteps.length; i++) {
+      newErrors = { ...newErrors, ...collectStepValidationErrors(i) };
+    }
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
   const handleReviewSubmit = () => {
     const issues = getReviewValidationIssues();
     if (issues.length > 0) {
       toast.error("Please complete all required fields before submitting");
+      return;
+    }
+    if (!creditAuthorizationConsent) {
+      toast.error(
+        "Please agree to the Credit Authorization Consent before submitting",
+      );
       return;
     }
     handleSubmitApplication();
@@ -1357,17 +1524,39 @@ const LoanApplication = ({
       },
     }));
 
-    setErrors((prev) => {
-      const updated = { ...prev };
-      delete updated[`entity.${field}`];
-      return updated;
-    });
+    const fieldKey = `entity.${field}`;
+    const rule = getRuleForKey(fieldKey);
+    if (rule) {
+      const result = validateValue(value, rule);
+      setErrors((prev) => {
+        const updated = { ...prev };
+        if (result.hasError) {
+          updated[fieldKey] = result.error;
+        } else {
+          delete updated[fieldKey];
+        }
+        return updated;
+      });
+    } else {
+      setErrors((prev) => {
+        const updated = { ...prev };
+        delete updated[fieldKey];
+        return updated;
+      });
+    }
   };
 
   const handleSubmitApplication = async () => {
     try {
       if (useStandardSevenStepFlow && getReviewValidationIssues().length > 0) {
         toast.error("Please complete all required fields before submitting");
+        return;
+      }
+
+      if (useStandardSevenStepFlow && !creditAuthorizationConsent) {
+        toast.error(
+          "Please agree to the Credit Authorization Consent before submitting",
+        );
         return;
       }
 
@@ -1407,15 +1596,6 @@ const LoanApplication = ({
           ...(resolvedFieldId ? { fieldId: resolvedFieldId } : {}),
         });
       };
-
-      /* ================= REFERRING BROKER (public Broker/LO only) ================= */
-      if (includeCoBrokerBorrowerInformationTab) {
-        appendReferringBrokerSubmission(addField, {
-          workingWithMortgageBroker: formData.workingWithMortgageBroker || "",
-          referringBroker:
-            formData.referringBroker || createEmptyReferringBroker(),
-        });
-      }
 
       /* ================= BORROWER ================= */
 
@@ -1514,6 +1694,7 @@ const LoanApplication = ({
           : formData.loanRequest.propertyType,
       );
 
+      // Additional Collateral: emit as a single string[] field
       if (
         (isSbaUsdaCollateralFlow || isAblCollateralFlow) &&
         formData.loanRequest.additionalCollateral.length > 0
@@ -1523,6 +1704,7 @@ const LoanApplication = ({
         ]);
       }
 
+      // Sale Details (SBA/USDA + ABL only)
       if (isSbaUsdaCollateralFlow || isAblCollateralFlow) {
         addField(
           "privateSale",
@@ -1531,14 +1713,6 @@ const LoanApplication = ({
         addField("vendorName", formData.loanRequest.vendorName);
         addField("vendorPhone", formData.loanRequest.vendorPhone);
       }
-
-      addField("downPayment", toNumber(formData.loanRequest.downPayment));
-      addField("useOfFunds", formData.loanRequest.useOfFunds);
-      addField("exitStrategy", formData.loanRequest.exitStrategy);
-      addField(
-        "currentLoanBalance",
-        toNumber(formData.loanRequest.currentLoanBalance),
-      );
 
       addField(
         "currentMarketValue",
@@ -1549,6 +1723,9 @@ const LoanApplication = ({
         toNumber(formData.loanRequest.afterRepairValue),
       );
       addField("purchasePrice", toNumber(formData.loanRequest.purchasePrice));
+      addField("downPayment", toNumber(formData.loanRequest.downPayment));
+      addField("useOfFunds", formData.loanRequest.useOfFunds);
+      addField("exitStrategy", formData.loanRequest.exitStrategy);
       addField("rehabBudget", toNumber(formData.loanRequest.rehabCost));
       addField(
         "constructionBudget",
@@ -1661,39 +1838,68 @@ const LoanApplication = ({
         addField(`applicationDocument_${index}_documentType`, doc.documentType);
       });
       addField("applicationDocumentCount", pendingDocuments.length);
+      addField(
+        "creditAuthorizationConsent",
+        creditAuthorizationConsent ? "yes" : "no",
+      );
 
       /* ================= FINAL PAYLOAD ================= */
 
-      const payload = {
-        loanProductCode: selectedProduct,
-        ...(publicEmbed && publicLinkRef
-          ? { ref: publicLinkRef }
-          : publicEmbed && brokerOrgId
-            ? { brokerOrgId }
-            : {}),
-        fields: Array.from(fieldsMap.entries()).map(
-          ([fieldKey, { value, fieldId }]) => ({
-            fieldKey,
-            value,
-            ...(fieldId ? { fieldId } : {}),
-          }),
-        ),
-      };
+      const fields = Array.from(fieldsMap.entries()).map(
+        ([fieldKey, { value, fieldId }]) => ({
+          fieldKey,
+          value,
+          ...(fieldId ? { fieldId } : {}),
+        }),
+      );
 
-      const token = sessionStorage.getItem("broker_token");
-
-      if (mode === "update" && editApplicationId) {
-        const response = await fetch(
-          `${API_BASE}/broker/applications/${editApplicationId}/edit`,
+      // Embedded-only: when the public-embed flow surfaces the
+      // "are you a broker?" step, append the referring-broker fields
+      // so the originating broker can see them in the dashboard.
+      if (includeCoBrokerBorrowerInformationTab) {
+        appendReferringBrokerSubmission(
+          (key, value) => {
+            if (
+              value === undefined ||
+              value === null ||
+              value === "" ||
+              (Array.isArray(value) && value.length === 0)
+            ) {
+              return;
+            }
+            fields.push({
+              fieldKey: key,
+              value: typeof value === "string" ? value.trim() : value,
+            });
+          },
           {
-            method: "PUT",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({ fields: payload.fields }),
+            workingWithMortgageBroker:
+              (formData.workingWithMortgageBroker as WorkingWithMortgageBrokerAnswer) ||
+              "",
+            referringBroker:
+              formData.referringBroker || createEmptyReferringBroker(),
           },
         );
+      }
+
+      const payload = {
+        loanProductCode: selectedProduct,
+        fields,
+      };
+
+      const token = sessionStorage.getItem(portalConfig.tokenKey);
+
+      if (mode === "update" && editApplicationId) {
+        const response = await fetch(portalConfig.editUrl(editApplicationId), {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            fields: payload.fields,
+          }),
+        });
 
         const result = await response.json();
 
@@ -1701,16 +1907,41 @@ const LoanApplication = ({
           throw new Error(result.message || "Update failed");
         }
 
+        // Upload any newly added documents in Step 6 — without this the
+        // broker can re-tag and upload files during edit, but they never
+        // reach the backend. Edit endpoint returns the existing
+        // `submissionId` so we can re-use the same requirement/upload flow
+        // as a fresh submission.
+        const submissionId = result?.data?.submissionId;
+        if (pendingDocuments.length > 0 && submissionId) {
+          try {
+            await uploadPendingApplicationDocuments({
+              apiBase: API_BASE,
+              token,
+              loanApplicationId: editApplicationId,
+              submissionId,
+              documents: pendingDocuments,
+            });
+          } catch (uploadError: any) {
+            toast.error(
+              uploadError.message ||
+                "Application updated but some documents failed to upload",
+            );
+            navigate(portalConfig.successPath);
+            return;
+          }
+        }
+
         toast.success("Application Updated Successfully");
         onUpdateSuccess?.(result.data?.submissionId);
         if (!embedded) {
-          navigate("/submit-applications");
+          navigate(portalConfig.successPath);
         }
         return;
       }
 
       if (publicEmbed) {
-        const publicFields = [...payload.fields];
+        const publicFields = withBorrowerNameFields([...payload.fields]);
         const hasFirstName = publicFields.some(
           (f) => f.fieldKey === "first_name",
         );
@@ -1746,6 +1977,8 @@ const LoanApplication = ({
             },
             body: JSON.stringify({
               ...payload,
+              ref: publicLinkRef,
+              brokerOrgId,
               fields: publicFields,
             }),
           },
@@ -1759,26 +1992,29 @@ const LoanApplication = ({
 
         if (pendingDocuments.length > 0) {
           toast(
-            "Application submitted. Your broker may request documents through the client portal.",
+            "Application submitted. A client portal access link was sent to the borrower email.",
             { icon: "ℹ️" },
           );
         } else {
-          toast.success("Application submitted successfully");
+          toast.success(
+            "Application submitted. Client portal access link sent to borrower email.",
+          );
         }
 
         onPublicSubmitSuccess?.(result?.data?.submissionId);
         return;
       }
 
-      console.log("Submitting Payload:", payload);
-
-      const response = await fetch(`${API_BASE}/broker/applications/submit`, {
+      const response = await fetch(portalConfig.submitUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          ...payload,
+          fields: withBorrowerNameFields(payload.fields),
+        }),
       });
 
       const result = await response.json();
@@ -1804,71 +2040,68 @@ const LoanApplication = ({
             uploadError.message ||
               "Application saved but some documents failed to upload",
           );
-          navigate("/submit-applications");
+          navigate(portalConfig.successPath);
           return;
         }
       }
 
-      toast.success("Application Submitted Successfully");
-      navigate("/submit-applications");
+      toast.success(
+        "Application submitted. Client portal access link sent to borrower email.",
+      );
+      navigate(portalConfig.successPath);
     } catch (error: any) {
-      const message = error.message || "Something went wrong";
-      toast.error(message);
-      if (publicEmbed) {
-        onPublicSubmitError?.(message);
-      }
+      toast.error(error.message || "Something went wrong");
     } finally {
       setSubmitting(false);
     }
   };
 
   useEffect(() => {
-    const buildFallbackProducts = () => {
-      const allCategoryCodes = Array.from(
-        new Set(Object.values(CATEGORY_LOAN_TYPES).flat()),
-      );
-      return allCategoryCodes.map((code) => ({
-        productId: code,
-        loanProductCode: code,
-        name: PRODUCT_LABELS[code] || code,
-        sections: [],
-        unsectionedFields: [],
-      }));
-    };
-
     const fetchLoanProducts = async () => {
-      // Public share link needs broker org for submit; still load catalog product codes.
-      if (publicEmbed && !brokerOrgId && !publicLinkRef) {
-        return;
-      }
-
       try {
         setLoadingProducts(true);
 
-        const response = await fetch(LOAN_PRODUCTS_CATALOG_URL);
-        const result = await response.json();
+        const data = await fetchLoanProductCatalog(portalConfig);
+        const products = data?.products || [];
 
-        if (!response.ok || !result.success) {
-          throw new Error(result.message || "Failed to load loan products");
+        // If catalog is empty/unreachable codes, still allow category-mapped products.
+        if (products.length === 0) {
+          const allCategoryCodes = Array.from(
+            new Set(Object.values(CATEGORY_LOAN_TYPES).flat()),
+          );
+          setProductsMeta(
+            allCategoryCodes.map((code) => ({
+              productId: code,
+              loanProductCode: code,
+              name: PRODUCT_LABELS[code] || code,
+              sections: [],
+              unsectionedFields: [],
+            })),
+          );
+        } else {
+          setProductsMeta(products);
         }
 
-        const products = (result?.data || []).map((product: any) => ({
-          productId: product.id,
-          loanProductCode: product.code,
-          name: product.name,
-          sections: [],
-          unsectionedFields: [],
-        }));
-
-        setProductsMeta(
-          products.length > 0 ? products : buildFallbackProducts(),
-        );
+        // setApplicationId("");
         setLoanProducts([]);
         setDynamicSections([]);
       } catch (error: any) {
         console.error("Error fetching loan products:", error);
+
         // Local fallback so the form remains usable without Application Builder
-        setProductsMeta(buildFallbackProducts());
+        const allCategoryCodes = Array.from(
+          new Set(Object.values(CATEGORY_LOAN_TYPES).flat()),
+        );
+        setProductsMeta(
+          allCategoryCodes.map((code) => ({
+            productId: code,
+            loanProductCode: code,
+            name: PRODUCT_LABELS[code] || code,
+            sections: [],
+            unsectionedFields: [],
+          })),
+        );
+        // setApplicationId("");
         setLoanProducts([]);
         setDynamicSections([]);
         toast.error(
@@ -1881,7 +2114,12 @@ const LoanApplication = ({
     };
 
     fetchLoanProducts();
-  }, [publicEmbed, brokerOrgId, publicLinkRef]);
+  }, [portal, portalConfig]);
+
+  const fetchSectionsByProduct = async () => {
+    // Application Builder removed — form fields are static per product flow.
+    setDynamicSections([]);
+  };
 
   useEffect(() => {
     if (!lastAddedId) return;
@@ -1896,10 +2134,7 @@ const LoanApplication = ({
     }
   }, [lastAddedId]);
 
-  const toNumber = (value?: string | null) => {
-    const cleaned = (value ?? "").replace(/,/g, "");
-    return parseFloat(cleaned) || 0;
-  };
+  // toNumber / calculateMonthlyPayment are imported from ./formatters.
 
   const borrowerAssets = usesBase44Financials
     ? sumBorrowerAssets(formData.borrower.assets)
@@ -1910,37 +2145,6 @@ const LoanApplication = ({
 
   const netWorth = borrowerAssets - borrowerLiabilities;
 
-  // Equity / Down Payment derived values (live validation)
-  const downPaymentTotal = toNumber(formData.loanRequest.downPayment);
-  const hasSellerFinancing = formData.loanRequest.sellerFinancing === "yes";
-  const sellerFinancingTotal = hasSellerFinancing
-    ? toNumber(formData.loanRequest.sellerNoteAmount)
-    : 0;
-  const loanAmountTotal = toNumber(formData.loanRequest.amount);
-  const purchasePriceTotal = toNumber(formData.loanRequest.purchasePrice);
-  const hasPurchasePrice = purchasePriceTotal > 0;
-  const equityGrandTotal =
-    loanAmountTotal + downPaymentTotal + sellerFinancingTotal;
-  const equityMismatchError =
-    hasPurchasePrice && Math.abs(equityGrandTotal - purchasePriceTotal) >= 0.01;
-
-  const calculateMonthlyPayment = (
-    principal: number,
-    annualRate: number,
-    months: number,
-  ) => {
-    if (!principal || !months || months <= 0) return 0;
-    if (annualRate < 0) return 0;
-
-    const monthlyRate = annualRate / 100 / 12;
-    if (monthlyRate === 0) return principal / months;
-
-    return (
-      (principal * monthlyRate * Math.pow(1 + monthlyRate, months)) /
-      (Math.pow(1 + monthlyRate, months) - 1)
-    );
-  };
-
   const loanAmount = toNumber(formData.loanRequest.amount);
   const purchasePrice = toNumber(formData.loanRequest.purchasePrice);
   const marketValue = toNumber(formData.loanRequest.currentMarketValue);
@@ -1948,6 +2152,22 @@ const LoanApplication = ({
   const constructionCost = toNumber(formData.loanRequest.constructionCost);
   const totalFlipCost = purchasePrice + rehabCost;
   const totalConstructionCost = purchasePrice + constructionCost;
+
+  // Equity / Down Payment derived values (live validation)
+  const downPaymentTotal = toNumber(formData.loanRequest.downPayment);
+  const hasSellerFinancing = formData.loanRequest.sellerFinancing === "yes";
+  const sellerFinancingTotal = hasSellerFinancing
+    ? toNumber(formData.loanRequest.sellerNoteAmount)
+    : 0;
+  const loanAmountTotal = loanAmount;
+  const purchasePriceTotal = purchasePrice;
+  const hasPurchasePrice = purchasePriceTotal > 0;
+  const equityGrandTotal =
+    loanAmountTotal + downPaymentTotal + sellerFinancingTotal;
+  // Use a small tolerance to avoid float-comparison false positives
+  // (e.g. user-entered decimals like 100000.01 vs 100000.005).
+  const equityMismatchError =
+    hasPurchasePrice && Math.abs(equityGrandTotal - purchasePriceTotal) >= 0.01;
 
   const asIsValue =
     isFixAndFlipProduct(selectedProduct) ||
@@ -1965,7 +2185,7 @@ const LoanApplication = ({
 
   const ltvBaseValue = afterRepairValue > 0 ? afterRepairValue : asIsValue;
   const ltv =
-    ltvBaseValue > 0 ? ((loanAmount / ltvBaseValue) * 100).toFixed(2) : "—";
+    ltvBaseValue > 0 ? ((loanAmount / ltvBaseValue) * 100).toFixed(2) : "-";
 
   const ltc =
     isFixAndFlipProduct(selectedProduct) && totalFlipCost > 0
@@ -1974,24 +2194,26 @@ const LoanApplication = ({
         ? ((loanAmount / totalConstructionCost) * 100).toFixed(2)
         : purchasePrice > 0
           ? ((loanAmount / purchasePrice) * 100).toFixed(2)
-          : "—";
+          : "-";
 
   const arv =
     afterRepairValue > 0
       ? ((loanAmount / afterRepairValue) * 100).toFixed(2)
-      : "—";
+      : "-";
 
   const interestRate = toNumber(formData.loanRequest.interestRate);
   const amortizationYears = toNumber(formData.loanRequest.amortization);
   const fallbackTermMonths = toNumber(formData.loanTermIncome.loanTerm);
   const termMonths =
     amortizationYears > 0 ? amortizationYears * 12 : fallbackTermMonths;
+  const isInterestOnly = formData.loanRequest.rateType === "INTEREST_ONLY";
 
-  const monthlyPayment = calculateMonthlyPayment(
-    loanAmount,
-    interestRate,
-    termMonths,
-  );
+  // Interest-only loans pay only accrued interest each month — the
+  // Loan Term field is hidden on step 0 in that case, so termMonths
+  // does not factor into the payment calculation.
+  const monthlyPayment = isInterestOnly
+    ? (loanAmount * (interestRate / 100)) / 12
+    : calculateMonthlyPayment(loanAmount, interestRate, termMonths);
   const annualPrincipalAndInterest = monthlyPayment * 12;
   const annualPropertyTaxes = usesBase44Financials
     ? toNumber(formData.financials.annualPropertyTaxes)
@@ -2023,7 +2245,7 @@ const LoanApplication = ({
   const dscr =
     annualDebtService > 0 && residentialNoiForDscr > 0
       ? (residentialNoiForDscr / annualDebtService).toFixed(2)
-      : "—";
+      : "-";
 
   const monthlyPaymentDisplay =
     monthlyPayment > 0
@@ -2032,11 +2254,233 @@ const LoanApplication = ({
           minimumFractionDigits: 0,
           maximumFractionDigits: 0,
         })
-      : "—";
+      : "-";
+
+  const handleDynamicFieldChange = (fieldId: string, value: any) => {
+    setDynamicFormData((prev) => ({
+      ...prev,
+      [fieldId]: value,
+    }));
+  };
+
+  const renderField = (field: any, hasError?: boolean) => {
+    const commonClasses = `
+  w-full px-4 py-1 text-sm rounded-md border transition
+  ${
+    hasError
+      ? "border-red-500 bg-red-50 dark:bg-red-900/20"
+      : "border-slate-300 dark:border-slate-600"
+  }
+  bg-white dark:bg-slate-900
+  text-slate-800 dark:text-slate-200
+  focus:ring-2 focus:ring-blue-500/20
+  focus:border-blue-500
+  outline-none
+  `;
+
+    switch (field.type) {
+      case "TEXT": {
+        const lowerKey = (field.fieldKey || field.label || "").toLowerCase();
+
+        const isPhone = lowerKey.includes("phone");
+        const isSSN = lowerKey.includes("ssn");
+
+        return (
+          <input
+            type="text"
+            inputMode={isPhone || isSSN ? "numeric" : "text"}
+            placeholder={field.placeholder || ""}
+            required={field.required}
+            value={dynamicFormData[field.fieldId] || ""}
+            onChange={(e) => {
+              let value = e.target.value;
+
+              if (isPhone) {
+                value = formatUSPhone(value);
+              }
+
+              if (isSSN) {
+                value = formatSSN(value);
+              }
+
+              handleDynamicFieldChange(field.fieldId, value);
+            }}
+            className={commonClasses}
+          />
+        );
+      }
+
+      case "TEXTAREA":
+      case "textarea":
+        return (
+          <textarea
+            rows={4}
+            placeholder={field.placeholder || ""}
+            required={field.required}
+            value={dynamicFormData[field.fieldId] || ""}
+            onChange={(e) =>
+              handleDynamicFieldChange(field.fieldId, e.target.value)
+            }
+            className={commonClasses}
+          />
+        );
+
+      case "EMAIL":
+        return (
+          <input
+            type="email"
+            placeholder={field.placeholder || ""}
+            required={field.required}
+            value={dynamicFormData[field.fieldId] || ""}
+            onChange={(e) =>
+              handleDynamicFieldChange(field.fieldId, e.target.value)
+            }
+            className={commonClasses}
+          />
+        );
+
+      case "NUMBER": {
+        const lowerKey = (field.fieldKey || field.label || "").toLowerCase();
+
+        const isPhone = lowerKey.includes("phone");
+        const isSSN = lowerKey.includes("ssn");
+
+        return (
+          <input
+            type="text"
+            inputMode="numeric"
+            placeholder={field.placeholder || ""}
+            required={field.required}
+            value={dynamicFormData[field.fieldId] || ""}
+            onChange={(e) => {
+              let value = e.target.value;
+
+              if (isPhone) {
+                value = formatUSPhone(value);
+              } else if (isSSN) {
+                value = formatSSN(value);
+              }
+              handleDynamicFieldChange(field.fieldId, value);
+            }}
+            className={commonClasses}
+          />
+        );
+      }
+
+      case "DATE":
+        return (
+          <LoanDateField
+            value={dynamicFormData[field.fieldId] || ""}
+            onChange={(val) => handleDynamicFieldChange(field.fieldId, val)}
+            className={commonClasses.replace(/^w-full\s+/, "")}
+          />
+        );
+
+      case "SELECT":
+        return (
+          <select
+            required={field.required}
+            value={dynamicFormData[field.fieldId] || ""}
+            onChange={(e) =>
+              handleDynamicFieldChange(field.fieldId, e.target.value)
+            }
+            className={commonClasses}
+          >
+            <option value="">Select</option>
+            {field.options?.map((opt: string, i: number) => (
+              <option key={i} value={opt}>
+                {opt}
+              </option>
+            ))}
+          </select>
+        );
+
+      case "RADIO":
+        return (
+          <div
+            className={`
+      flex flex-wrap gap-6 mt-2 text-sm p-2 rounded-md border
+      ${
+        hasError
+          ? "border-red-500 bg-red-50 dark:bg-red-900/20"
+          : "border-slate-300 dark:border-slate-600"
+      }
+      bg-white dark:bg-slate-900
+      text-slate-800 dark:text-slate-200
+      `}
+          >
+            {field.options?.map((opt: string, i: number) => (
+              <label key={i} className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name={field.fieldKey}
+                  value={opt}
+                  checked={dynamicFormData[field.fieldId] === opt}
+                  onChange={() => handleDynamicFieldChange(field.fieldId, opt)}
+                />
+                {opt}
+              </label>
+            ))}
+          </div>
+        );
+
+      case "CHECKBOX_GROUP":
+        return (
+          <div
+            className={`
+      flex flex-wrap gap-4 mt-2 text-sm p-2 rounded-md border
+      ${
+        hasError
+          ? "border-red-500 bg-red-50 dark:bg-red-900/20"
+          : "border-slate-300 dark:border-slate-600"
+      }
+      bg-white dark:bg-slate-900
+      text-slate-800 dark:text-slate-200
+      `}
+          >
+            {field.options?.map((opt: string, i: number) => (
+              <label key={i} className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  value={opt}
+                  checked={
+                    dynamicFormData[field.fieldId]?.includes(opt) || false
+                  }
+                  onChange={(e) => {
+                    const prevValues = dynamicFormData[field.fieldId] || [];
+
+                    if (e.target.checked) {
+                      handleDynamicFieldChange(field.fieldId, [
+                        ...prevValues,
+                        opt,
+                      ]);
+                    } else {
+                      handleDynamicFieldChange(
+                        field.fieldId,
+                        prevValues.filter((v: string) => v !== opt),
+                      );
+                    }
+                  }}
+                />
+                {opt}
+              </label>
+            ))}
+          </div>
+        );
+      default:
+        return null;
+    }
+  };
 
   const goToStep = (stepIndex: number) => {
     setErrors({});
     setCurrentStep(stepIndex);
+
+    if (stepIndex >= baseSteps.length) {
+      setActiveSectionIndex(stepIndex - baseSteps.length);
+    } else {
+      setActiveSectionIndex(null);
+    }
   };
 
   const handleStepClick = (index: number) => {
@@ -2046,8 +2490,7 @@ const LoanApplication = ({
 
   useEffect(() => {
     if (selectedProduct) {
-      // Keep any leftover builder section state cleared after product change.
-      setDynamicSections([]);
+      fetchSectionsByProduct();
     }
   }, [selectedProduct]);
 
@@ -2071,24 +2514,23 @@ const LoanApplication = ({
     if (!selectedCategory) return;
 
     const allowedProducts = CATEGORY_LOAN_TYPES[selectedCategory] || [];
+    const catalogCodes = productsMeta.map((p: any) =>
+      String(p.loanProductCode || ""),
+    );
 
-    const filteredProducts = productsMeta
-      .filter((p: any) => allowedProducts.includes(p.loanProductCode))
-      .sort(
-        (a: any, b: any) =>
-          allowedProducts.indexOf(a.loanProductCode) -
-          allowedProducts.indexOf(b.loanProductCode),
-      );
+    const resolvedProducts = resolveCategoryLoanProducts(
+      allowedProducts,
+      catalogCodes,
+    );
 
+    // Prefer catalog matches; if none match category mapping, show category codes.
     setLoanProducts(
-      filteredProducts.length > 0
-        ? filteredProducts.map((p: any) => p.loanProductCode)
-        : allowedProducts,
+      resolvedProducts.length > 0 ? resolvedProducts : allowedProducts,
     );
 
     if (mode === "update" && initialSelectedProduct) {
       setSelectedProduct((prev) =>
-        allowedProducts.includes(initialSelectedProduct)
+        isProductAllowedInCategory(initialSelectedProduct, selectedCategory)
           ? initialSelectedProduct
           : prev,
       );
@@ -2107,12 +2549,27 @@ const LoanApplication = ({
       },
     }));
 
-    // Clear error instantly
-    setErrors((prev) => {
-      const updated = { ...prev };
-      delete updated[`borrower.${field}`];
-      return updated;
-    });
+    // Live validation
+    const fieldKey = `borrower.${field}`;
+    const rule = getRuleForKey(fieldKey);
+    if (rule) {
+      const result = validateValue(value, rule);
+      setErrors((prev) => {
+        const updated = { ...prev };
+        if (result.hasError) {
+          updated[fieldKey] = result.error;
+        } else {
+          delete updated[fieldKey];
+        }
+        return updated;
+      });
+    } else {
+      setErrors((prev) => {
+        const updated = { ...prev };
+        delete updated[fieldKey];
+        return updated;
+      });
+    }
   };
 
   const updateCoBorrower = (index: number, field: string, value: string) => {
@@ -2125,12 +2582,27 @@ const LoanApplication = ({
       return { ...prev, coBorrowers: updated };
     });
 
-    // Clear error
-    setErrors((prev) => {
-      const updated = { ...prev };
-      delete updated[`coBorrowers.${index}.${field}`];
-      return updated;
-    });
+    // Live validation - resolve indexed key to rule (e.g. "coBorrowers.0.name" → "coBorrower.name")
+    const indexedKey = `coBorrowers.${index}.${field}`;
+    const rule = getRuleForKey(indexedKey);
+    if (rule) {
+      const result = validateValue(value, rule);
+      setErrors((prev) => {
+        const updated = { ...prev };
+        if (result.hasError) {
+          updated[indexedKey] = result.error;
+        } else {
+          delete updated[indexedKey];
+        }
+        return updated;
+      });
+    } else {
+      setErrors((prev) => {
+        const updated = { ...prev };
+        delete updated[indexedKey];
+        return updated;
+      });
+    }
   };
 
   const updateBorrowerNested = <T extends Record<string, unknown>>(
@@ -2166,6 +2638,19 @@ const LoanApplication = ({
       };
       return { ...prev, coBorrowers: updated };
     });
+
+    if (nestedKey === "declarations") {
+      const errorKey =
+        scope === "borrower"
+          ? `borrower.declarations.${field}`
+          : `coBorrowers.${coIndex}.declarations.${field}`;
+
+      setErrors((prev) => {
+        const updated = { ...prev };
+        delete updated[errorKey];
+        return updated;
+      });
+    }
   };
 
   const updateBorrowerAmountField = (
@@ -2276,6 +2761,27 @@ const LoanApplication = ({
       };
       return { ...prev, coBorrowers: updated };
     });
+
+    // Live validation - field key uses property.${field} for rules lookup
+    const fieldKey = `property.${String(field)}`;
+    const rule = getRuleForKey(fieldKey);
+    if (rule) {
+      const result = validateValue(value, rule);
+      // For properties inside co-borrowers, namespace the error
+      const errorKey =
+        scope === "borrower"
+          ? `borrower.realEstateOwned.${propertyId}.${String(field)}`
+          : `coBorrowers.${coIndex}.realEstateOwned.${propertyId}.${String(field)}`;
+      setErrors((prev) => {
+        const updated = { ...prev };
+        if (result.hasError) {
+          updated[errorKey] = result.error;
+        } else {
+          delete updated[errorKey];
+        }
+        return updated;
+      });
+    }
   };
 
   const updateBorrowerPropertyAmount = (
@@ -2297,16 +2803,19 @@ const LoanApplication = ({
     updateBorrowerProperty(scope, propertyId, field, formatted, coIndex);
   };
 
-  const loanPurposeOptions =
-    LOAN_TOP_PURPOSE_MAP[selectedProduct] ||
-    LOAN_PURPOSE_MAP[selectedProduct] ||
-    [];
-  const loanSubPurposeOptions = LOAN_SUB_PURPOSE_MAP[selectedProduct] || [];
+  const loanPurposeOptions = LOAN_PURPOSE_MAP[selectedProduct] || [];
+  const topPurposeOptions = LOAN_TOP_PURPOSE_MAP[selectedProduct] || [];
+  const subPurposeOptions = LOAN_SUB_PURPOSE_MAP[selectedProduct] || [];
 
+  // For products that have a top-level purpose + sub-purpose split, use the
+  // top-level list for the "Loan Purpose" dropdown and surface sub-purposes
+  // in a separate "Sub-Loan Purpose" dropdown.
   const purposesToShow =
-    loanPurposeOptions && loanPurposeOptions.length > 0
-      ? loanPurposeOptions
-      : ALL_LOAN_PURPOSES;
+    topPurposeOptions.length > 0
+      ? topPurposeOptions
+      : loanPurposeOptions && loanPurposeOptions.length > 0
+        ? loanPurposeOptions
+        : ALL_LOAN_PURPOSES;
 
   const subPropertyOptions =
     PROPERTY_TYPE_MAP[formData.loanRequest.propertyType] || [];
@@ -2341,36 +2850,30 @@ const LoanApplication = ({
     [useStandardSevenStepFlow, selectedCategory, selectedProduct, formData],
   );
 
-  const reviewSections = useMemo(() => {
-    if (!useStandardSevenStepFlow) return [];
-    const sections = buildResidentialReviewSections({
-      loanRequest: formData.loanRequest,
-      entity: formData.entity,
-      borrower: formData.borrower,
-      financials: formData.financials,
+  const reviewSections = useMemo(
+    () =>
+      useStandardSevenStepFlow
+        ? buildResidentialReviewSections({
+            loanRequest: formData.loanRequest,
+            entity: formData.entity,
+            borrower: formData.borrower,
+            financials: formData.financials,
+            pendingDocuments,
+            productLabel: selectedProductLabel,
+            selectedProduct,
+          })
+        : [],
+    [
+      useStandardSevenStepFlow,
+      formData.loanRequest,
+      formData.entity,
+      formData.borrower,
+      formData.financials,
       pendingDocuments,
-      productLabel: selectedProductLabel,
+      selectedProductLabel,
       selectedProduct,
-    });
-
-    if (!includeCoBrokerBorrowerInformationTab) return sections;
-
-    return sections.map((section) =>
-      section.stepIndex >= 3
-        ? { ...section, stepIndex: section.stepIndex + 1 }
-        : section,
-    );
-  }, [
-    useStandardSevenStepFlow,
-    includeCoBrokerBorrowerInformationTab,
-    formData.loanRequest,
-    formData.entity,
-    formData.borrower,
-    formData.financials,
-    pendingDocuments,
-    selectedProductLabel,
-    selectedProduct,
-  ]);
+    ],
+  );
 
   const isReviewStep =
     useStandardSevenStepFlow && currentStep === reviewStepIndex;
@@ -2425,7 +2928,7 @@ const LoanApplication = ({
           className={
             embedded
               ? "w-full pb-2"
-              : "w-full sticky top-[1px] z-30 bg-slate-50 dark:bg-slate-900 pb-2"
+              : "max-w-7xl mx-auto px-8 w-full sticky top-[1px] z-30 bg-slate-50 dark:bg-slate-900 pb-2"
           }
         >
           {/* HEADER */}
@@ -2443,7 +2946,7 @@ const LoanApplication = ({
     "
               >
                 <IoArrowBack size={16} />
-                Back to Submit Applications
+                {portalConfig.backLabel}
               </button>
             )}
 
@@ -2487,17 +2990,17 @@ rounded-2xl p-6 shadow-sm
 
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6 text-center">
               <Stat label="Monthly Payment" value={monthlyPaymentDisplay} />
-              <Stat label="LTV %" value={ltv !== "—" ? `${ltv}%` : "—"} />
-              <Stat label="LTC %" value={ltc !== "—" ? `${ltc}%` : "—"} />
-              <Stat label="ARV %" value={arv !== "—" ? `${arv}%` : "—"} />
-              <Stat label="DSCR" value={dscr !== "—" ? dscr : "—"} />
+              <Stat label="LTV %" value={ltv !== "-" ? `${ltv}%` : "-"} />
+              <Stat label="LTC %" value={ltc !== "-" ? `${ltc}%` : "-"} />
+              <Stat label="ARV %" value={arv !== "-" ? `${arv}%` : "-"} />
+              <Stat label="DSCR" value={dscr !== "-" ? dscr : "-"} />
               <Stat label="Net Worth" value={`$${netWorth.toLocaleString()}`} />
             </div>
           </div>
         </div>
 
         {/* Body */}
-        <div className="w-full mx-auto">
+        <div className={embedded ? "w-full" : "max-w-7xl mx-auto px-8 w-full"}>
           {/* ================= STEP 0 ================= */}
           {currentStep === 0 && (
             <div className="mt-6 relative z-10 border border-slate-200 dark:border-slate-700 rounded-2xl p-6 bg-white dark:bg-slate-800">
@@ -2559,7 +3062,22 @@ rounded-2xl p-6 shadow-sm
                     value={selectedProduct}
                     disabled={mode === "update" || !selectedCategory}
                     onChange={(e) => {
-                      setSelectedProduct(e.target.value);
+                      const val = e.target.value;
+                      setSelectedProduct(val);
+                      // Live validate selectedProduct
+                      const rule = getRuleForKey("loanRequest.selectedProduct");
+                      if (rule) {
+                        const result = validateValue(val, rule);
+                        setErrors((prev) => {
+                          const updated = { ...prev };
+                          if (result.hasError) {
+                            updated["selectedProduct"] = result.error;
+                          } else {
+                            delete updated["selectedProduct"];
+                          }
+                          return updated;
+                        });
+                      }
                       updateLoanRequest("purpose", "");
                       updateLoanRequest("subPurpose", "");
                       updateLoanRequest("collateralType", "");
@@ -2568,6 +3086,7 @@ rounded-2xl p-6 shadow-sm
                       updateLoanRequest("vendorName", "");
                       updateLoanRequest("vendorPhone", "");
                       setDynamicSections([]);
+                      setActiveSectionIndex(null);
                     }}
                     className={`w-full px-4 py-1 rounded-md border
 border-slate-300 dark:border-slate-600
@@ -2671,11 +3190,12 @@ focus:border-blue-500 outline-none text-sm ${
                         </p>
                       )}
                     </div>
-
-                    {loanSubPurposeOptions.length > 0 && (
+                    {/* Sub-Loan Purpose - shown only when the selected product has a
+                        top-level/sub-purpose split CONSTRUCTION_LOAN_1_TO_4_UNITS & MEZZANINE_FINANCE. */}
+                    {subPurposeOptions.length > 0 && (
                       <div className="md:col-span-2">
                         <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">
-                          Loan Sub-Purpose{" "}
+                          Sub-Loan Purpose{" "}
                           <span className="text-red-500">*</span>
                         </label>
                         <select
@@ -2695,9 +3215,9 @@ focus:border-blue-500 outline-none text-sm ${
                           }`}
                         >
                           <option value="">Select sub-purpose</option>
-                          {loanSubPurposeOptions.map((subPurpose) => (
-                            <option key={subPurpose} value={subPurpose}>
-                              {subPurpose}
+                          {subPurposeOptions.map((sub) => (
+                            <option key={sub} value={sub}>
+                              {sub}
                             </option>
                           ))}
                         </select>
@@ -2708,7 +3228,6 @@ focus:border-blue-500 outline-none text-sm ${
                         )}
                       </div>
                     )}
-
                     {/* Seller Financing */}
                     <div
                       className={`md:col-span-2 ${
@@ -2785,7 +3304,6 @@ focus:border-blue-500 outline-none text-sm ${
                         </div>
                       )}
                     </div>
-
                     {/* Requested Loan Amount */}
                     <div>
                       <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">
@@ -2818,20 +3336,19 @@ focus:border-blue-500 outline-none text-sm ${
                         </p>
                       )}
                     </div>
-
                     {/* Estimated Closing Date */}
                     <div>
                       <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">
                         Estimated Closing Date
                       </label>
                       <LoanDateField
+                        disablePastDates
                         value={formData.loanRequest.estimatedClosingDate}
                         onChange={(val) =>
                           updateLoanRequest("estimatedClosingDate", val)
                         }
                       />
                     </div>
-
                     {/* Expected Interest Rate */}
                     <div>
                       <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">
@@ -2845,10 +3362,18 @@ focus:border-blue-500 outline-none text-sm ${
                           updateLoanRequest("interestRate", e.target.value)
                         }
                         placeholder="e.g. 7.5"
-                        className="w-full px-4 py-1 rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 dark:text-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-sm"
+                        className={`w-full px-4 py-1 rounded-md border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
+                          errors["loanRequest.brokerPoints"]
+                            ? "border-red-500 bg-red-50"
+                            : "border-slate-300"
+                        } focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-sm`}
                       />
+                      {errors["loanRequest.interestRate"] && (
+                        <p className="text-xs text-red-500 mt-1">
+                          {errors["loanRequest.interestRate"]}
+                        </p>
+                      )}
                     </div>
-
                     {/* Recourse */}
                     <div>
                       <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">
@@ -2864,25 +3389,37 @@ focus:border-blue-500 outline-none text-sm ${
                         <option value="">Select</option>
                         <option value="FULL_RECOURSE">Full Recourse</option>
                         <option value="NON_RECOURSE">Non-Recourse</option>
+                        <option value="LIMITED_RECOURSE">
+                          Limited Recourse
+                        </option>
                       </select>
                     </div>
-
-                    {/* Loan Term */}
-                    <div>
-                      <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">
-                        Loan Term (in Months)
-                      </label>
-                      <input
-                        type="number"
-                        value={formData.loanTermIncome.loanTerm}
-                        onChange={(e) =>
-                          updateLoanTermIncome("loanTerm", e.target.value)
-                        }
-                        placeholder="e.g. 12"
-                        className="w-full px-4 py-1 rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 dark:text-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-sm"
-                      />
-                    </div>
-
+                    {/* Loan Term — hidden when rate type is Interest Only */}
+                    {formData.loanRequest.rateType !== "INTEREST_ONLY" && (
+                      <div>
+                        <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">
+                          Loan Term (in Months)
+                        </label>
+                        <input
+                          type="number"
+                          value={formData.loanTermIncome.loanTerm}
+                          onChange={(e) =>
+                            updateLoanTermIncome("loanTerm", e.target.value)
+                          }
+                          placeholder="e.g. 12"
+                          className={`w-full px-4 py-1 rounded-md border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
+                            errors["loanTermIncome.loanTerm"]
+                              ? "border-red-500 bg-red-50"
+                              : "border-slate-300"
+                          } focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-sm`}
+                        />
+                        {errors["loanTermIncome.loanTerm"] && (
+                          <p className="text-xs text-red-500 mt-1">
+                            {errors["loanTermIncome.loanTerm"]}
+                          </p>
+                        )}
+                      </div>
+                    )}
                     {/* Rate Type */}
                     <div>
                       <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">
@@ -2901,11 +3438,11 @@ focus:border-blue-500 outline-none text-sm ${
                         <option value="HYBRID">Hybrid</option>
                       </select>
                     </div>
-
                     {/* Broker Points */}
                     <div>
                       <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">
-                        Broker Points (%)
+                        Broker Points (%){" "}
+                        <span className="text-red-500">*</span>
                       </label>
                       <input
                         type="number"
@@ -2915,10 +3452,18 @@ focus:border-blue-500 outline-none text-sm ${
                           updateLoanRequest("brokerPoints", e.target.value)
                         }
                         placeholder="e.g. 1.0"
-                        className="w-full px-4 py-1 rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 dark:text-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-sm"
+                        className={`w-full px-4 py-1 rounded-md border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
+                          errors["loanRequest.brokerPoints"]
+                            ? "border-red-500 bg-red-50"
+                            : "border-slate-300"
+                        } focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-sm`}
                       />
+                      {errors["loanRequest.brokerPoints"] && (
+                        <p className="text-xs text-red-500 mt-1">
+                          {errors["loanRequest.brokerPoints"]}
+                        </p>
+                      )}
                     </div>
-
                     {/* Amortization / purchase date (replaces amortization slot) */}
                     {showLoanRequestPurchaseDateReplacesAmortization ? (
                       <div>
@@ -2958,7 +3503,6 @@ focus:border-blue-500 outline-none text-sm ${
                         />
                       </div>
                     ) : null}
-
                     {showLoanRequestPurchaseDateWithAmortization && (
                       <div>
                         <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">
@@ -3080,7 +3624,10 @@ focus:border-blue-500 outline-none text-sm ${
                             <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-4">
                               <div>
                                 <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
-                                  Rehab Cost ($)
+                                  {showConstructionCostLable(selectedProduct)
+                                    ? "Construction Cost"
+                                    : "Rehab Cost"}{" "}
+                                  ($)
                                 </label>
                                 <div className="relative mt-1">
                                   <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">
@@ -3089,11 +3636,19 @@ focus:border-blue-500 outline-none text-sm ${
                                   <input
                                     type="text"
                                     inputMode="numeric"
-                                    value={formData.loanRequest.rehabCost}
+                                    value={
+                                      showConstructionCostLable(selectedProduct)
+                                        ? formData.loanRequest.constructionCost
+                                        : formData.loanRequest.rehabCost
+                                    }
                                     onChange={(e) =>
                                       handleAmountChange(
                                         "loanRequest",
-                                        "rehabCost",
+                                        showConstructionCostLable(
+                                          selectedProduct,
+                                        )
+                                          ? "constructionCost"
+                                          : "rehabCost",
                                         e.target.value,
                                       )
                                     }
@@ -3175,7 +3730,7 @@ focus:border-blue-500 outline-none text-sm ${
                             Loan Amount: ${loanAmountTotal.toLocaleString()} +
                             Down Payment: ${downPaymentTotal.toLocaleString()}{" "}
                             {hasSellerFinancing
-                              ? `+ Seller Financing: ${sellerFinancingTotal.toLocaleString()}`
+                              ? `+ Seller Financing: $${sellerFinancingTotal.toLocaleString()}`
                               : ""}{" "}
                             = ${equityGrandTotal.toLocaleString()}
                           </div>
@@ -3388,7 +3943,9 @@ focus:border-blue-500 outline-none text-sm ${
                         <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div>
                             <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
-                              Rehab Cost ($)
+                              {showConstructionCostLable(selectedProduct)
+                                ? "Construction Cost"
+                                : "Rehab Cost"}
                             </label>
                             <div className="relative mt-1">
                               <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">
@@ -3397,11 +3954,17 @@ focus:border-blue-500 outline-none text-sm ${
                               <input
                                 type="text"
                                 inputMode="numeric"
-                                value={formData.loanRequest.rehabCost || ""}
+                                value={
+                                  showConstructionCostLable(selectedProduct)
+                                    ? formData.loanRequest.constructionCost
+                                    : formData.loanRequest.rehabCost
+                                }
                                 onChange={(e) =>
                                   handleAmountChange(
                                     "loanRequest",
-                                    "rehabCost",
+                                    showConstructionCostLable(selectedProduct)
+                                      ? "constructionCost"
+                                      : "rehabCost",
                                     e.target.value,
                                   )
                                 }
@@ -3691,15 +4254,28 @@ focus:border-blue-500 outline-none text-sm ${
             </div>
           )}
 
-          {/* step-2 — Property Info */}
+          {/* step-2 — Property Info / Collateral Info */}
           {currentStep === 2 && (
             <div className="mt-6 relative z-10 border border-slate-200 dark:border-slate-700 rounded-2xl p-6 bg-white dark:bg-slate-800">
-              <h3 className="mb-1 inline-block border-b-2 border-[#2C92D5] pb-2 text-lg font-semibold dark:text-white">
-                Step 3:{" "}
-                {selectedCategory === "SBA_USDA" || selectedCategory === "ABL"
-                  ? "Collateral Info"
-                  : "Property Info"}
-              </h3>
+              <div className="mb-1 flex items-center gap-2">
+                <h3 className="inline-block border-b-2 border-[#2C92D5] pb-2 text-lg font-semibold dark:text-white">
+                  Step 3:{" "}
+                  {selectedCategory === "SBA_USDA" || selectedCategory === "ABL"
+                    ? "Collateral Info"
+                    : "Property Info"}
+                </h3>
+                {selectedCategory &&
+                  (selectedCategory === "SBA_USDA" ||
+                    selectedCategory === "ABL") && (
+                    <span className="inline-flex items-center gap-1 rounded-full border border-[#2C92D5]/30 bg-blue-50 px-2.5 py-1 text-xs font-medium text-[#2C92D5] dark:bg-blue-900/30">
+                      {(() => {
+                        const Icon = CATEGORY_ICONS[selectedCategory];
+                        return Icon ? <Icon className="h-3.5 w-3.5" /> : null;
+                      })()}
+                      {CATEGORY_LABELS[selectedCategory]}
+                    </span>
+                  )}
+              </div>
 
               {showDefaultPropertyInfoFields ? (
                 <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -3812,39 +4388,7 @@ focus:border-blue-500 outline-none text-sm ${
                     )}
                   </div>
 
-                  <p className="md:col-span-2 mt-2 text-sm font-semibold text-slate-800 dark:text-slate-100">
-                    Valuation &amp; Costs
-                  </p>
-
                   <div>
-                    <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
-                      Purchase Price ($)
-                    </label>
-
-                    <div className="relative mt-1">
-                      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">
-                        $
-                      </span>
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        value={formData.loanRequest.purchasePrice}
-                        onChange={(e) =>
-                          handleAmountChange(
-                            "loanRequest",
-                            "purchasePrice",
-                            e.target.value,
-                          )
-                        }
-                        placeholder="0"
-                        className={`w-full rounded-md border py-1 pl-7 pr-4 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
-                          errors["loanRequest.purchasePrice"]
-                            ? "border-red-500 bg-red-50"
-                            : "border-slate-300"
-                        }`}
-                      />
-                    </div>
-
                     {errors["loanRequest.purchasePrice"] && (
                       <p className="mt-1 text-xs text-red-500">
                         {errors["loanRequest.purchasePrice"]}
@@ -4143,7 +4687,8 @@ focus:border-blue-500 outline-none text-sm ${
                   )}
 
                   {/* ================= SALE DETAILS ================= */}
-                  {(isSbaUsdaCollateralFlow || isAblCollateralFlow) && (
+
+                  {/* {(isSbaUsdaCollateralFlow || isAblCollateralFlow) && (
                     <div className="md:col-span-2">
                       <SaleDetailsCard
                         privateSale={formData.loanRequest.privateSale}
@@ -4161,7 +4706,7 @@ focus:border-blue-500 outline-none text-sm ${
                         formatUSPhone={formatUSPhone}
                       />
                     </div>
-                  )}
+                  )} */}
                 </div>
               ) : (
                 <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -4537,7 +5082,7 @@ focus:border-blue-500 outline-none text-sm ${
                       inputMode="numeric"
                       value={formData.loanRequest.zip}
                       onChange={(e) => {
-                        let value = e.target.value
+                        const value = e.target.value
                           .replace(/[^\d-]/g, "")
                           .slice(0, 10);
 
@@ -4563,11 +5108,135 @@ focus:border-blue-500 outline-none text-sm ${
                   </div>
                 </div>
               )}
+
+              {showPrivateDetails(
+                selectedProduct,
+                formData.loanRequest.purpose,
+              ) ? (
+                <div className="md:col-span-2">
+                  <SaleDetailsCard
+                    privateSale={formData.loanRequest.privateSale}
+                    vendorName={formData.loanRequest.vendorName}
+                    vendorPhone={formData.loanRequest.vendorPhone}
+                    onPrivateSaleChange={(v) =>
+                      updateLoanRequest("privateSale", v)
+                    }
+                    onVendorNameChange={(v) =>
+                      updateLoanRequest("vendorName", v)
+                    }
+                    onVendorPhoneChange={(v) =>
+                      updateLoanRequest("vendorPhone", v)
+                    }
+                    formatUSPhone={formatUSPhone}
+                  />
+                </div>
+              ) : null}
             </div>
           )}
 
+          {/* step-3 — Co-Broker (embedded public-embed only) */}
+          {includeCoBrokerBorrowerInformationTab &&
+            baseSteps[currentStep] === CO_BROKER_BORROWER_INFO_STEP && (
+              <div className="mt-6 relative z-10 rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-700 dark:bg-slate-800">
+                <h3 className="mb-1 inline-block border-b-2 border-[#2C92D5] pb-2 text-lg font-semibold dark:text-white">
+                  Step 4: {CO_BROKER_BORROWER_INFO_STEP}
+                </h3>
+                <p className="mb-4 text-xs text-slate-500">
+                  Let us know if you're filling this out on behalf of a broker
+                  or loan officer.
+                </p>
+
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-2">
+                    Are you a broker, or are you working with a mortgage broker
+                    / loan officer? <span className="text-red-500">*</span>
+                  </label>
+                  <div className="flex gap-6">
+                    {[
+                      { value: "yes", label: "Yes" },
+                      { value: "no", label: "No" },
+                    ].map((opt) => (
+                      <label
+                        key={opt.value}
+                        className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300"
+                      >
+                        <input
+                          type="radio"
+                          name="workingWithMortgageBroker"
+                          value={opt.value}
+                          checked={
+                            formData.workingWithMortgageBroker === opt.value
+                          }
+                          onChange={(e) =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              workingWithMortgageBroker: e.target
+                                .value as WorkingWithMortgageBrokerAnswer,
+                            }))
+                          }
+                          className="h-4 w-4 text-[#2C92D5] focus:ring-[#2C92D5]"
+                        />
+                        {opt.label}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {formData.workingWithMortgageBroker === "yes" && (
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2 rounded-lg border border-slate-200 dark:border-slate-700 p-4">
+                    {(
+                      [
+                        ["firstName", "First Name", true],
+                        ["lastName", "Last Name", true],
+                        ["companyName", "Company", true],
+                        ["email", "Email", true],
+                        ["phone", "Phone", true],
+                      ] as const
+                    ).map(([field, label, required]) => (
+                      <div
+                        key={field}
+                        className={
+                          field === "email" || field === "phone"
+                            ? "md:col-span-2"
+                            : ""
+                        }
+                      >
+                        <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">
+                          {label}
+                          {required && (
+                            <span className="text-red-500"> *</span>
+                          )}
+                        </label>
+                        <input
+                          type={field === "email" ? "email" : "text"}
+                          value={
+                            (formData.referringBroker as any)?.[field] || ""
+                          }
+                          onChange={(e) =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              referringBroker: {
+                                ...createEmptyReferringBroker(),
+                                ...prev.referringBroker,
+                                [field]: e.target.value,
+                              },
+                            }))
+                          }
+                          className={`w-full px-4 py-1 rounded-md border bg-white dark:bg-slate-900 dark:text-slate-200 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none ${
+                            errors[`referringBroker.${field}`]
+                              ? "border-red-500 bg-red-50"
+                              : "border-slate-300 dark:border-slate-600"
+                          }`}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
           {/* step — Borrower Info */}
-          {currentStep === borrowerInfoStepIndex && (
+          {baseSteps[currentStep] === "Borrower Info" && (
             <>
               {useResidentialBorrowerPanel ? (
                 <div className="mt-6 relative z-10 rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-700 dark:bg-slate-800">
@@ -5634,154 +6303,9 @@ focus:border-blue-500 outline-none text-sm ${
             </>
           )}
 
-          {/* Optional Co-Broker / Borrower Information (before Borrower Info) */}
-          {coBrokerBorrowerInfoStepIndex >= 0 &&
-            currentStep === coBrokerBorrowerInfoStepIndex && (
-              <div className="mt-6 relative z-10 rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-700 dark:bg-slate-800">
-                <h3 className="mb-1 inline-block border-b-2 border-[#2C92D5] pb-2 text-lg font-semibold dark:text-white">
-                  {CO_BROKER_BORROWER_INFO_STEP}
-                </h3>
-
-                <div className="mt-5">
-                  <p className="text-sm font-medium text-slate-800 dark:text-slate-100">
-                    Are you a Mortgage Broker OR working WITH ONE?{" "}
-                    <span className="text-red-500">*</span>
-                  </p>
-                  <div className="mt-3 flex flex-wrap gap-3">
-                    {(["yes", "no"] as const).map((value) => {
-                      const selected =
-                        formData.workingWithMortgageBroker === value;
-                      return (
-                        <button
-                          key={value}
-                          type="button"
-                          onClick={() => {
-                            setFormData((prev) => ({
-                              ...prev,
-                              workingWithMortgageBroker: value,
-                              referringBroker:
-                                value === "no"
-                                  ? createEmptyReferringBroker()
-                                  : prev.referringBroker ||
-                                    createEmptyReferringBroker(),
-                            }));
-                            setErrors((prev) => {
-                              const next = { ...prev };
-                              delete next.workingWithMortgageBroker;
-                              if (value === "no") {
-                                delete next["referringBroker.email"];
-                                delete next["referringBroker.firstName"];
-                                delete next["referringBroker.lastName"];
-                                delete next["referringBroker.companyName"];
-                                delete next["referringBroker.phone"];
-                              }
-                              return next;
-                            });
-                          }}
-                          className={`rounded-xl px-4 py-2.5 text-sm font-semibold transition ${
-                            selected
-                              ? "bg-[#2C92D5] text-white"
-                              : "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-900 dark:text-slate-200"
-                          }`}
-                        >
-                          {value === "yes" ? "Yes" : "No"}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  {errors.workingWithMortgageBroker ? (
-                    <p className="mt-2 text-xs text-red-500">
-                      {errors.workingWithMortgageBroker}
-                    </p>
-                  ) : null}
-                </div>
-
-                {formData.workingWithMortgageBroker === "yes" ? (
-                  <div className="mt-6 grid gap-4 sm:grid-cols-2">
-                    <p className="sm:col-span-2 text-xs text-slate-500">
-                      Provide the mortgage broker or co-broker details for this
-                      application.
-                    </p>
-
-                    {(
-                      [
-                        {
-                          key: "email" as const,
-                          label: "Email Address",
-                          type: "email",
-                        },
-                        {
-                          key: "firstName" as const,
-                          label: "First Name",
-                          type: "text",
-                        },
-                        {
-                          key: "lastName" as const,
-                          label: "Last Name",
-                          type: "text",
-                        },
-                        {
-                          key: "companyName" as const,
-                          label: "Company Name",
-                          type: "text",
-                        },
-                        {
-                          key: "phone" as const,
-                          label: "Phone Number",
-                          type: "tel",
-                        },
-                      ] as const
-                    ).map((field) => (
-                      <div
-                        key={field.key}
-                        className={field.key === "email" ? "sm:col-span-2" : ""}
-                      >
-                        <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                          {field.label} <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                          type={field.type}
-                          required
-                          value={formData.referringBroker?.[field.key] || ""}
-                          onChange={(e) => {
-                            const value =
-                              field.key === "phone"
-                                ? formatUSPhone(e.target.value)
-                                : e.target.value;
-                            setFormData((prev) => ({
-                              ...prev,
-                              referringBroker: {
-                                ...(prev.referringBroker ||
-                                  createEmptyReferringBroker()),
-                                [field.key]: value,
-                              },
-                            }));
-                            setErrors((prev) => {
-                              const next = { ...prev };
-                              delete next[`referringBroker.${field.key}`];
-                              return next;
-                            });
-                          }}
-                          className={`w-full rounded-xl border px-3 py-2.5 text-sm outline-none focus:border-[#2C92D5] dark:bg-slate-900 ${
-                            errors[`referringBroker.${field.key}`]
-                              ? "border-red-400"
-                              : "border-slate-200 dark:border-slate-700"
-                          }`}
-                        />
-                        {errors[`referringBroker.${field.key}`] ? (
-                          <p className="mt-1 text-xs text-red-500">
-                            {errors[`referringBroker.${field.key}`]}
-                          </p>
-                        ) : null}
-                      </div>
-                    ))}
-                  </div>
-                ) : null}
-              </div>
-            )}
-
-          {/* Financials / Loan Term */}
-          {currentStep === financialsOrTermStepIndex &&
+          {/* step — Financials / Loan Term */}
+          {(baseSteps[currentStep] === "Financials" ||
+            baseSteps[currentStep] === "Loan Term & Income") &&
             (useStandardSevenStepFlow ? (
               <div className="mt-6 relative z-10 rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-700 dark:bg-slate-800">
                 <h3 className="mb-1 inline-block border-b-2 border-[#2C92D5] pb-2 text-lg font-semibold dark:text-white">
@@ -6153,8 +6677,8 @@ focus:border-blue-500 outline-none text-sm ${
               </div>
             ))}
 
-          {/* Documents */}
-          {currentStep === documentsStepIndex && useStandardSevenStepFlow && (
+          {/* step — Documents */}
+          {baseSteps[currentStep] === "Documents" && useStandardSevenStepFlow && (
             <div className="mt-6 relative z-10 rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-700 dark:bg-slate-800">
               <h3 className="mb-1 inline-block border-b-2 border-[#2C92D5] pb-2 text-lg font-semibold dark:text-white">
                 Step 6: Documents
@@ -6182,9 +6706,58 @@ focus:border-blue-500 outline-none text-sm ${
                 onEditStep={goToStep}
                 onSubmit={handleReviewSubmit}
                 submitting={submitting}
+                creditAuthorizationConsent={creditAuthorizationConsent}
+                onCreditAuthorizationConsentChange={
+                  setCreditAuthorizationConsent
+                }
               />
             </div>
           )}
+
+          {!useStandardSevenStepFlow &&
+            activeSectionIndex !== null &&
+            dynamicSections[activeSectionIndex] && (
+              <div
+                className="
+      border border-slate-200 dark:border-slate-700
+      rounded-2xl p-6
+      bg-white dark:bg-slate-800
+      mt-6
+      "
+              >
+                <h3 className="text-lg font-semibold mb-6 text-slate-800 dark:text-slate-200">
+                  {toTitleCase(dynamicSections[activeSectionIndex].sectionName)}
+                </h3>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {dynamicSections[activeSectionIndex].fields.map(
+                    (field: any) => {
+                      const errorKey = `dynamic.${field.fieldId}`;
+                      const hasError = !!errors[errorKey];
+
+                      return (
+                        <div key={field.fieldId}>
+                          <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-2">
+                            {field.label}
+                            {field.required && (
+                              <span className="text-red-500"> *</span>
+                            )}
+                          </label>
+
+                          {renderField(field, hasError)}
+
+                          {hasError && (
+                            <p className="text-xs text-red-500 mt-1">
+                              {errors[errorKey]}
+                            </p>
+                          )}
+                        </div>
+                      );
+                    },
+                  )}
+                </div>
+              </div>
+            )}
 
           {/* Footer */}
           <div className="flex justify-between pt-6 mt-6 border-t border-slate-200 dark:border-slate-700">
@@ -6222,11 +6795,13 @@ focus:border-blue-500 outline-none text-sm ${
                     return;
                   }
 
-                  if (!validateCurrentStep()) {
-                    toast.error(
-                      "Please complete all required fields before continuing",
-                    );
-                    return;
+                  if (
+                    currentStep === 2 &&
+                    selectedProduct &&
+                    dynamicSections.length === 0 &&
+                    !useStandardSevenStepFlow
+                  ) {
+                    fetchSectionsByProduct();
                   }
 
                   goToStep(currentStep + 1);
