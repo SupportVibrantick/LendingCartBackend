@@ -1,0 +1,15 @@
+{
+    "keep": {
+        "days": true,
+        "amount": 20
+    },
+    "auditLog": "F:\\LendingCartBackend\\storage\\logs\\common\\.5c14484437fe864d278b848a14a204f1f76cc3ae-audit.json",
+    "files": [
+        {
+            "date": 1786694122383,
+            "name": "F:\\LendingCartBackend\\storage\\logs\\common\\error-14-08-2026.log",
+            "hash": "9e38f7adef2c1251df9d386cc236d9370dc1ec7f6a707fe7969d6be5b5b5144a"
+        }
+    ],
+    "hashType": "sha256"
+}

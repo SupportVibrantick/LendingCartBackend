@@ -248,6 +248,8 @@ function resolvePropertyValue(fieldMap, loanAmount) {
     pickNumericField(
       fieldMap,
       "currentMarketValue",
+      "collateralValue",
+      "equipmentValue",
       "propertyValue",
       "purchasePrice",
       "appraisedValue",
@@ -341,6 +343,19 @@ function normalizeLenderTerms(lenderTerms = {}) {
         .filter(Boolean)
     : closingConditions;
 
+  const collateralOrPropertyValue =
+    toPositiveNumber(lenderTerms.collateralOrPropertyValue) ??
+    toPositiveNumber(lenderTerms.collateralValue) ??
+    toPositiveNumber(lenderTerms.propertyValue);
+
+  const usesCollateral =
+    String(lenderTerms.valueFieldLabel || "")
+      .toLowerCase()
+      .includes("collateral") ||
+    (lenderTerms.collateralValue != null &&
+      lenderTerms.propertyValue == null &&
+      collateralOrPropertyValue != null);
+
   return {
     approvedAmount,
     interestRateType: lenderTerms.interestRateType || "FIXED",
@@ -357,17 +372,59 @@ function normalizeLenderTerms(lenderTerms = {}) {
         (interestOnly ? "Interest Only" : "Monthly"),
     ).trim(),
     interestOnly,
+    collateralOrPropertyValue,
+    propertyValue: usesCollateral ? null : collateralOrPropertyValue,
+    collateralValue: usesCollateral ? collateralOrPropertyValue : null,
+    valueFieldLabel: String(
+      lenderTerms.valueFieldLabel ||
+        (usesCollateral ? "Collateral Value" : "Property Value"),
+    ).trim(),
+    showRehabMetrics:
+      typeof lenderTerms.showRehabMetrics === "boolean"
+        ? lenderTerms.showRehabMetrics
+        : Boolean(
+            lenderTerms.rehabConstructionCost ||
+              lenderTerms.afterRepairValue ||
+              lenderTerms.ltcPercent ||
+              lenderTerms.arvPercent ||
+              lenderTerms.maximumLtcPercent ||
+              lenderTerms.maximumArvPercent,
+          ),
+    rehabConstructionCost: toPositiveNumber(lenderTerms.rehabConstructionCost),
+    afterRepairValue:
+      toPositiveNumber(lenderTerms.afterRepairValue) ??
+      toPositiveNumber(lenderTerms.arv),
     ltvPercent: toPositiveNumber(lenderTerms.ltvPercent),
     ltcPercent: toPositiveNumber(lenderTerms.ltcPercent),
     arvPercent: toPositiveNumber(lenderTerms.arvPercent),
+    maximumLtvPercent: toPositiveNumber(lenderTerms.maximumLtvPercent),
+    maximumLtcPercent: toPositiveNumber(lenderTerms.maximumLtcPercent),
+    maximumArvPercent: toPositiveNumber(lenderTerms.maximumArvPercent),
     monthlyPayment: toPositiveNumber(lenderTerms.monthlyPayment),
-    originationFeePercent: String(lenderTerms.originationFeePercent || "2%").trim(),
+    totalLoanAmount: toPositiveNumber(lenderTerms.totalLoanAmount),
+    financedFees: toPositiveNumber(lenderTerms.financedFees),
+    originationPoints: toPositiveNumber(lenderTerms.originationPoints),
+    originationFeePercent: String(
+      lenderTerms.originationFeePercent || "2%",
+    ).trim(),
     exitFee: String(lenderTerms.exitFee || "0%").trim(),
     processingFee: String(lenderTerms.processingFee || "$995").trim(),
     underwritingFee: String(lenderTerms.underwritingFee || "$750").trim(),
+    appraisalFee: String(lenderTerms.appraisalFee || "").trim(),
+    brokerPoints: toPositiveNumber(lenderTerms.brokerPoints),
+    wireFee: String(lenderTerms.wireFee || "").trim(),
+    totalClosingCosts: toPositiveNumber(lenderTerms.totalClosingCosts),
+    requiredReservesPercent: toPositiveNumber(
+      lenderTerms.requiredReservesPercent,
+    ),
+    requiredReservesAmount: toPositiveNumber(
+      lenderTerms.requiredReservesAmount,
+    ),
     legalFee: String(lenderTerms.legalFee || "Borrower Pays").trim(),
     appraisalRequired: String(lenderTerms.appraisalRequired || "Yes").trim(),
-    environmentalReport: String(lenderTerms.environmentalReport || "Required").trim(),
+    environmentalReport: String(
+      lenderTerms.environmentalReport || "Required",
+    ).trim(),
     personalGuarantee: String(lenderTerms.personalGuarantee || "Required").trim(),
     prepaymentPenalty: String(lenderTerms.prepaymentPenalty || "None").trim(),
     recourse: String(lenderTerms.recourse || "Full").trim(),
@@ -381,7 +438,9 @@ function normalizeLenderTerms(lenderTerms = {}) {
           .split("\n")
           .map((item) => item.trim())
           .filter(Boolean),
-    expirationDate: String(lenderTerms.expirationDate || defaultExpirationDate()).trim(),
+    expirationDate: String(
+      lenderTerms.expirationDate || defaultExpirationDate(),
+    ).trim(),
   };
 }
 
@@ -446,39 +505,59 @@ function buildLoiTemplateData({
   const loanAmountNumeric =
     lenderTerms?.approvedAmount ??
     resolveLoanAmount(fieldMap, loanApplication, review);
-  const propertyValueNumeric = resolvePropertyValue(
-    fieldMap,
-    loanAmountNumeric || requestedAmountNumeric,
-  );
+  const propertyValueFromTerms =
+    toPositiveNumber(lenderTerms?.collateralOrPropertyValue) ??
+    toPositiveNumber(lenderTerms?.collateralValue) ??
+    toPositiveNumber(lenderTerms?.propertyValue);
+  const propertyValueNumeric =
+    propertyValueFromTerms ??
+    resolvePropertyValue(
+      fieldMap,
+      loanAmountNumeric || requestedAmountNumeric,
+    );
+  const valueFieldLabel =
+    lenderTerms?.valueFieldLabel ||
+    (lenderTerms?.collateralValue != null && lenderTerms?.propertyValue == null
+      ? "Collateral Value"
+      : "Property Value");
+
+  const rehabFromTerms = toPositiveNumber(lenderTerms?.rehabConstructionCost);
+  const arvFromTerms = toPositiveNumber(lenderTerms?.afterRepairValue);
 
   const projectCostNumeric =
-    pickNumericField(
-      fieldMap,
-      "totalProjectCost",
-      "projectCost",
-      "purchasePrice",
-    ) != null
-      ? (() => {
-          const purchase =
-            pickNumericField(fieldMap, "purchasePrice", "totalProjectCost", "projectCost") ||
-            0;
-          const rehab =
-            pickNumericField(
-              fieldMap,
-              "rehabCost",
-              "rehabBudget",
-              "constructionBudget",
-            ) || 0;
-          const fromField = pickNumericField(
+    rehabFromTerms != null || propertyValueFromTerms != null
+      ? (propertyValueFromTerms || 0) + (rehabFromTerms || 0) || null
+      : pickNumericField(
             fieldMap,
             "totalProjectCost",
             "projectCost",
-          );
-          if (fromField) return fromField;
-          const combined = purchase + rehab;
-          return combined > 0 ? combined : purchase || null;
-        })()
-      : null;
+            "purchasePrice",
+          ) != null
+        ? (() => {
+            const purchase =
+              pickNumericField(fieldMap, "purchasePrice", "totalProjectCost", "projectCost") ||
+              0;
+            const rehab =
+              pickNumericField(
+                fieldMap,
+                "rehabCost",
+                "rehabBudget",
+                "constructionBudget",
+              ) || 0;
+            const fromField = pickNumericField(
+              fieldMap,
+              "totalProjectCost",
+              "projectCost",
+            );
+            if (fromField) return fromField;
+            const combined = purchase + rehab;
+            return combined > 0 ? combined : purchase || null;
+          })()
+        : null;
+
+  const afterRepairValueNumeric =
+    arvFromTerms ??
+    pickNumericField(fieldMap, "afterRepairValue", "arv");
 
   const ltvFromFields = pickNumericField(
     fieldMap,
@@ -539,24 +618,34 @@ function buildLoiTemplateData({
   const baseLoanAmountNumeric =
     calculatedMetrics.baseLoanAmount ?? loanAmountNumeric;
 
+  const showRehabMetrics =
+    lenderTerms?.showRehabMetrics === true ||
+    (lenderTerms?.showRehabMetrics !== false &&
+      (lenderTerms?.ltcPercent != null ||
+        lenderTerms?.arvPercent != null ||
+        lenderTerms?.rehabConstructionCost != null ||
+        lenderTerms?.afterRepairValue != null ||
+        lenderTerms?.maximumLtcPercent != null ||
+        lenderTerms?.maximumArvPercent != null));
+
   const ltvNumeric =
     lenderTerms?.ltvPercent ??
     calculatedMetrics.ltv ??
     ltvFromFields ??
-    (totalLoanAmountNumeric && propertyValueNumeric
-      ? (totalLoanAmountNumeric / propertyValueNumeric) * 100
+    (baseLoanAmountNumeric && propertyValueNumeric
+      ? (baseLoanAmountNumeric / propertyValueNumeric) * 100
       : null);
 
-  const ltcNumeric =
-    lenderTerms?.ltcPercent ?? calculatedMetrics.ltc ?? ltcFromFields;
+  const ltcNumeric = showRehabMetrics
+    ? (lenderTerms?.ltcPercent ?? calculatedMetrics.ltc ?? ltcFromFields)
+    : null;
 
-  const arvNumeric =
-    lenderTerms?.arvPercent ??
-    (totalLoanAmountNumeric && pickNumericField(fieldMap, "afterRepairValue", "arv")
-      ? (totalLoanAmountNumeric /
-          pickNumericField(fieldMap, "afterRepairValue", "arv")) *
-        100
-      : pickNumericField(fieldMap, "arvPercentage", "arvPercent"));
+  const arvNumeric = showRehabMetrics
+    ? (lenderTerms?.arvPercent ??
+      (baseLoanAmountNumeric && afterRepairValueNumeric
+        ? (baseLoanAmountNumeric / afterRepairValueNumeric) * 100
+        : pickNumericField(fieldMap, "arvPercentage", "arvPercent")))
+    : null;
 
   const loanTermMonths =
     parseLoanTermMonths(lenderTerms?.loanTerm) ||
@@ -584,10 +673,29 @@ function buildLoiTemplateData({
         ) || "P & I");
 
   const brokerPoints =
-    pickField(fieldMap, "brokerPoints", "brokerFindersFee") ||
-    (lenderProduct?.transactionFeePercent != null
-      ? lenderProduct.transactionFeePercent
-      : "");
+    lenderTerms?.brokerPoints != null
+      ? lenderTerms.brokerPoints
+      : pickField(fieldMap, "brokerPoints", "brokerFindersFee") ||
+        (lenderProduct?.transactionFeePercent != null
+          ? lenderProduct.transactionFeePercent
+          : "");
+
+  const appraisalFeeAmountNumeric = parseFeeAmount(
+    lenderTerms?.appraisalFee,
+    baseLoanAmountNumeric,
+  );
+  const wireFeeAmountNumeric = parseFeeAmount(
+    lenderTerms?.wireFee,
+    baseLoanAmountNumeric,
+  );
+  const requiredReservesPercentNumeric = toPositiveNumber(
+    lenderTerms?.requiredReservesPercent,
+  );
+  const requiredReservesAmountNumeric =
+    toPositiveNumber(lenderTerms?.requiredReservesAmount) ??
+    (baseLoanAmountNumeric && requiredReservesPercentNumeric != null
+      ? (baseLoanAmountNumeric * requiredReservesPercentNumeric) / 100
+      : null);
 
   const loanPurposeTags = extractLoanPurposeTags(fieldMap, loanApplication);
   let collateralTags = extractCollateralTags(
@@ -663,6 +771,17 @@ function buildLoiTemplateData({
     baseLoanAmountNumeric,
     brokerPoints,
   );
+  const totalClosingCostsNumeric =
+    toPositiveNumber(lenderTerms?.totalClosingCosts) ??
+    (() => {
+      const sum =
+        (originationFeeAmountNumeric || 0) +
+        (processingFeeAmountNumeric || 0) +
+        (appraisalFeeAmountNumeric || 0) +
+        (brokerFindersFeeAmount || 0) +
+        (wireFeeAmountNumeric || 0);
+      return sum > 0 ? sum : null;
+    })();
 
   const expirationDateDisplay = lenderTerms?.expirationDate
     ? new Date(`${lenderTerms.expirationDate}T00:00:00`).toLocaleDateString(
@@ -751,14 +870,36 @@ function buildLoiTemplateData({
     originationFeeAmount: formatCurrency(originationFeeAmountNumeric),
     processingFeeAmount: formatCurrency(processingFeeAmountNumeric),
     underwritingFeeAmount: formatCurrency(underwritingFeeAmountNumeric),
+    appraisalFeeAmount: formatCurrency(appraisalFeeAmountNumeric),
+    wireFeeAmount: formatCurrency(wireFeeAmountNumeric),
     propertyValue: formatCurrency(propertyValueNumeric),
-    projectCost: formatCurrency(projectCostNumeric),
+    valueFieldLabel,
+    collateralOrPropertyValue: formatCurrency(propertyValueNumeric),
+    rehabConstructionCost: showRehabMetrics
+      ? formatCurrency(rehabFromTerms)
+      : "",
+    afterRepairValue: showRehabMetrics
+      ? formatCurrency(afterRepairValueNumeric)
+      : "",
+    projectCost: showRehabMetrics ? formatCurrency(projectCostNumeric) : "",
     ltvRatio: formatPercent(ltvNumeric) || formattedMetrics.ltvRatio,
-    ltcRatio: formatPercent(ltcNumeric) || formattedMetrics.ltcRatio,
-    arvRatio: formatPercent(arvNumeric),
+    ltcRatio: showRehabMetrics
+      ? formatPercent(ltcNumeric) || formattedMetrics.ltcRatio
+      : "",
+    arvRatio: showRehabMetrics ? formatPercent(arvNumeric) : "",
     ltvPercentage: formatPercent(ltvNumeric),
-    ltcPercentage: formatPercent(ltcNumeric),
-    arvPercentage: formatPercent(arvNumeric),
+    ltcPercentage: showRehabMetrics ? formatPercent(ltcNumeric) : "",
+    arvPercentage: showRehabMetrics ? formatPercent(arvNumeric) : "",
+    maximumLtvPercent: formatPercent(lenderTerms?.maximumLtvPercent),
+    maximumLtcPercent: showRehabMetrics
+      ? formatPercent(lenderTerms?.maximumLtcPercent)
+      : "",
+    maximumArvPercent: showRehabMetrics
+      ? formatPercent(lenderTerms?.maximumArvPercent)
+      : "",
+    requiredReservesPercent: formatPercent(requiredReservesPercentNumeric),
+    requiredReservesAmount: formatCurrency(requiredReservesAmountNumeric),
+    totalClosingCosts: formatCurrency(totalClosingCostsNumeric),
     interestOnly: lenderTerms?.interestOnly ? "Yes" : "No",
 
     loanProductCode,
@@ -815,12 +956,15 @@ function buildLoiTemplateData({
     brokerFindersFeeAmount,
     rateBuyDown: pickField(fieldMap, "rateBuyDown"),
     prepayBuyDown: pickField(fieldMap, "prepayBuyDown"),
-    appraisalCost: "",
+    appraisalCost: formatCurrency(appraisalFeeAmountNumeric) || "",
+    appraisalFee: lenderTerms?.appraisalFee || "",
+    wireFee: lenderTerms?.wireFee || "",
     appraisalWhenDue:
       lenderTerms?.appraisalRequired === "No" ? "Waived" : "At Cost",
     legalAppraisal: "",
     legalAppraisalWhenDue: lenderTerms?.legalFee || "At Cost",
     totalLoanCosts:
+      formatCurrency(totalClosingCostsNumeric) ||
       formattedMetrics.estimatedClosingCost ||
       pickField(fieldMap, "totalLoanCosts"),
 
