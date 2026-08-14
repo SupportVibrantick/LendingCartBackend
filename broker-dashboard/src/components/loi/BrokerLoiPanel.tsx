@@ -1,8 +1,10 @@
 import {
   ArrowDownUp,
   Calendar,
+  Check,
   ChevronLeft,
   ChevronRight,
+  Circle,
   Download,
   ExternalLink,
   FileText,
@@ -15,7 +17,6 @@ import {
   Sparkles,
   TrendingDown,
   TrendingUp,
-  User,
   X,
 } from "lucide-react";
 import {
@@ -32,9 +33,7 @@ import { hasPermission } from "../../lib/brokerPermissions";
 import {
   buildLoiComparisonSummary,
   formatCurrency,
-  formatLoiApprovedDisplay,
   formatLoiDate,
-  formatLoiGeneratedLabel,
   formatLoiInterestDisplay,
   formatLoiStatusLabel,
   formatPercent,
@@ -109,6 +108,14 @@ type BrokerLoiPrefill = {
     loanProduct?: string;
     loanProductCode?: string;
     brokerName?: string;
+    propertyValue?: number | string | null;
+    projectCost?: number | string | null;
+    arv?: number | string | null;
+    rehabCost?: number | string | null;
+    requestedAmount?: number | string | null;
+    interestRate?: number | string | null;
+    termMonths?: number | string | null;
+    loanTerm?: string | null;
   };
   brokerBranding?: {
     brandName?: string | null;
@@ -117,13 +124,147 @@ type BrokerLoiPrefill = {
   };
 };
 
-const WORKFLOW_STEPS = [
-  "Create or select terms",
-  "Generate branded PDF",
-  "Send to client",
-  "Client signs",
-  "Forward to lender",
-];
+const WORKFLOW_STEP_DEFS = [
+  { key: "terms", label: "Terms Selected" },
+  { key: "pdf", label: "PDF Generated" },
+  { key: "sent", label: "Sent to Client" },
+  { key: "signed", label: "Client Signed" },
+  { key: "forwarded", label: "Forwarded to Lender" },
+] as const;
+
+function resolveBrokerWorkflowProgress(status: BrokerLoiStatus | null | undefined) {
+  const sign = status?.signWorkflow?.signStatus || "";
+  const hasPdf = Boolean(status?.brokerLoiUrl);
+  const hasExisting = hasExistingBrokerLoiRecord(status);
+  const sent =
+    Boolean(status?.signWorkflow?.sentToClientAt) ||
+    ["SENT_TO_CLIENT", "CLIENT_SIGNED", "FORWARDED_TO_LENDER", "LENDER_SEEN"].includes(sign);
+  const signed = ["CLIENT_SIGNED", "FORWARDED_TO_LENDER", "LENDER_SEEN"].includes(sign);
+  const forwarded = ["FORWARDED_TO_LENDER", "LENDER_SEEN"].includes(sign);
+
+  const doneFlags = [hasExisting || hasPdf, hasPdf, sent, signed, forwarded];
+  let currentIndex = doneFlags.findIndex((d) => !d);
+  if (currentIndex < 0) currentIndex = doneFlags.length - 1;
+
+  return WORKFLOW_STEP_DEFS.map((step, i) => ({
+    ...step,
+    done: doneFlags[i],
+    current: i === currentIndex && !doneFlags[i],
+  }));
+}
+
+type NextActionTone = "violet" | "blue" | "amber" | "emerald" | "slate";
+
+function resolveBrokerNextAction({
+  status,
+  canCreate,
+}: {
+  status: BrokerLoiStatus | null | undefined;
+  canCreate: boolean;
+}): { badge: string; title: string; message: string; tone: NextActionTone } | null {
+  const hasExisting = hasExistingBrokerLoiRecord(status);
+  const sign = status?.signWorkflow?.signStatus || "";
+  const sw = status?.signWorkflow;
+
+  if (!hasExisting) {
+    if (!canCreate) return null;
+    return {
+      badge: "ACTION",
+      title: "Create term sheet",
+      message:
+        "No broker LOI yet. Create a term sheet to start the client signature workflow.",
+      tone: "violet",
+    };
+  }
+
+  if (
+    (!sign || sign === "AWAITING_BROKER") &&
+    Boolean(sw?.canSendToClient)
+  ) {
+    return {
+      badge: "ACTION",
+      title: "Ready to send",
+      message:
+        "Your broker LOI PDF is ready. Send it to the client for signature.",
+      tone: "blue",
+    };
+  }
+
+  if (sign === "SENT_TO_CLIENT") {
+    return {
+      badge: "ACTION REQUIRED",
+      title: "Client signature pending",
+      message:
+        "Waiting for the client to review and sign the term sheet in the portal.",
+      tone: "amber",
+    };
+  }
+
+  if (sign === "CLIENT_SIGNED" && Boolean(sw?.canForwardToLender)) {
+    return {
+      badge: "READY TO FORWARD",
+      title: "Client signed",
+      message:
+        "Signed PDF is ready. Forward it to the lender when you’re ready.",
+      tone: "emerald",
+    };
+  }
+
+  if (sign === "FORWARDED_TO_LENDER" || sign === "LENDER_SEEN") {
+    return {
+      badge: "FORWARDED",
+      title: "Already forwarded",
+      message:
+        "This LOI was forwarded to the lender. Create a revised version if terms change.",
+      tone: "slate",
+    };
+  }
+
+  return {
+    badge: (sw?.signStatusLabel || "IN PROGRESS").toUpperCase(),
+    title: "Broker LOI in progress",
+    message: sw?.signStatusLabel
+      ? `Current status: ${sw.signStatusLabel}.`
+      : "Continue the broker LOI workflow from the card below.",
+    tone: "violet",
+  };
+}
+
+function resolveBrokerLoiCardBadge(status: BrokerLoiStatus | null | undefined) {
+  const sign = status?.signWorkflow?.signStatus || "";
+  if (sign === "FORWARDED_TO_LENDER" || sign === "LENDER_SEEN") {
+    return { label: "✓ FORWARDED", tone: "emerald" as const };
+  }
+  if (sign === "CLIENT_SIGNED") {
+    return { label: "✓ SIGNED", tone: "emerald" as const };
+  }
+  if (sign === "SENT_TO_CLIENT") {
+    return { label: "SENT", tone: "blue" as const };
+  }
+  if (sign === "AWAITING_BROKER" || status?.brokerLoiUrl) {
+    return { label: "READY", tone: "violet" as const };
+  }
+  return {
+    label: (status?.signWorkflow?.signStatusLabel || "DRAFT").toUpperCase(),
+    tone: "slate" as const,
+  };
+}
+
+function formatProductTermMonths(loi: BrokerLoiRecord): string {
+  const min = loi.lenderProduct?.minTermMonths;
+  const max = loi.lenderProduct?.maxTermMonths;
+  if (min != null && max != null && min !== max) return `${min}–${max} months`;
+  if (max != null) return `${max} months`;
+  if (min != null) return `${min} months`;
+  return "—";
+}
+
+function formatTermsDisplayValue(value?: string | number | null): string | null {
+  if (value == null) return null;
+  const text = String(value).trim();
+  if (!text) return null;
+  return text;
+}
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 const DEFAULT_LIMIT = 20;
@@ -225,6 +366,128 @@ function DetailItem({
   );
 }
 
+function LoanTermsSummaryCard({
+  items,
+}: {
+  items: Array<{ label: string; value: string }>;
+}) {
+  if (!items.length) return null;
+
+  return (
+    <div className="border-b border-slate-200 bg-white px-4 py-3 dark:border-slate-800 dark:bg-slate-900">
+      <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+        Loan Terms
+      </p>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+        {items.map((item) => (
+          <div
+            key={item.label}
+            className="rounded-lg border border-slate-100 bg-slate-50/80 px-2.5 py-2 dark:border-slate-800 dark:bg-slate-950/60"
+          >
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+              {item.label}
+            </p>
+            <p className="mt-0.5 text-xs font-bold text-slate-800 dark:text-slate-100">
+              {item.value}
+            </p>
+          </div>
+        ))}
+      </div>
+      <p className="mt-3 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+        Document Preview
+      </p>
+    </div>
+  );
+}
+
+function buildLenderLoanTermsItems(loi: BrokerLoiRecord) {
+  const items: Array<{ label: string; value: string }> = [];
+  if (loi.approvedAmount != null && !Number.isNaN(Number(loi.approvedAmount))) {
+    items.push({ label: "Loan Amount", value: formatCurrency(loi.approvedAmount) });
+  }
+  items.push({ label: "Rate", value: formatLoiInterestDisplay(loi) });
+  const term = formatProductTermMonths(loi);
+  if (term !== "—") items.push({ label: "Term", value: term });
+  if (loi.lenderProduct?.maxLtvPercent != null) {
+    items.push({
+      label: "Max LTV",
+      value: formatPercent(loi.lenderProduct.maxLtvPercent),
+    });
+  }
+  if (loi.lenderProduct?.maxLtcPercent != null) {
+    items.push({
+      label: "Max LTC",
+      value: formatPercent(loi.lenderProduct.maxLtcPercent),
+    });
+  }
+  return items;
+}
+
+function buildBrokerLoanTermsItems(terms?: BrokerLoiTerms | null) {
+  if (!terms) return [];
+  const items: Array<{ label: string; value: string }> = [];
+
+  const amount = formatTermsDisplayValue(terms.approvedAmount);
+  if (amount) {
+    const numeric = Number(String(amount).replace(/[^0-9.-]/g, ""));
+    items.push({
+      label: "Loan Amount",
+      value: Number.isFinite(numeric) && numeric > 0 ? formatCurrency(numeric) : amount,
+    });
+  }
+
+  const rate = formatTermsDisplayValue(terms.interestRate);
+  if (rate) {
+    items.push({
+      label: "Rate",
+      value: rate.includes("%") ? rate : `${rate}%`,
+    });
+  }
+
+  const term = formatTermsDisplayValue(terms.loanTerm);
+  if (term) items.push({ label: "Term", value: term });
+
+  const ltv = formatTermsDisplayValue(terms.ltvPercent);
+  if (ltv) {
+    items.push({
+      label: "LTV",
+      value: ltv.includes("%") ? ltv : `${ltv}%`,
+    });
+  } else {
+    const maxLtv = formatTermsDisplayValue(terms.maximumLtvPercent);
+    if (maxLtv) {
+      items.push({
+        label: "Max LTV",
+        value: maxLtv.includes("%") ? maxLtv : `${maxLtv}%`,
+      });
+    }
+  }
+
+  const ltc = formatTermsDisplayValue(terms.ltcPercent);
+  if (ltc) {
+    items.push({
+      label: "LTC",
+      value: ltc.includes("%") ? ltc : `${ltc}%`,
+    });
+  } else {
+    const maxLtc = formatTermsDisplayValue(terms.maximumLtcPercent);
+    if (maxLtc) {
+      items.push({
+        label: "Max LTC",
+        value: maxLtc.includes("%") ? maxLtc : `${maxLtc}%`,
+      });
+    }
+  }
+
+  const prepay = formatTermsDisplayValue(terms.prepaymentPenalty);
+  if (prepay) items.push({ label: "Prepayment", value: prepay });
+
+  const recourse = formatTermsDisplayValue(terms.recourse);
+  if (recourse) items.push({ label: "Recourse", value: recourse });
+
+  return items;
+}
+
 function LoiListItem({
   loi,
   selected,
@@ -236,11 +499,6 @@ function LoiListItem({
 }) {
   const productLabel = getLoiProductLabel(loi);
   const interestDisplay = formatLoiInterestDisplay(loi);
-  const approvedDisplay = formatLoiApprovedDisplay(
-    loi.approvedAmount,
-    loi.reviewStatus || loi.status,
-  );
-  const generatedLabel = formatLoiGeneratedLabel(loi.generatedAt);
   const pdfReady = hasLoiPdf(loi);
   const statusLabel = formatLoiStatusLabel(loi.reviewStatus || loi.status);
 
@@ -254,83 +512,43 @@ function LoiListItem({
           : "border-slate-200 bg-white hover:border-violet-200 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-950 dark:hover:border-violet-500/30 dark:hover:bg-slate-900"
       }`}
     >
-      <div className="flex items-start gap-3">
-        <div
-          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
-            selected
-              ? "bg-violet-600 text-white"
-              : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"
-          }`}
-        >
-          <FileText size={17} />
+      <div className="min-w-0">
+        <p className="line-clamp-2 text-sm font-bold leading-snug text-slate-900 dark:text-white">
+          {loi.lenderName}
+        </p>
+        <p className="mt-1 line-clamp-2 text-[11px] leading-relaxed text-slate-500">
+          {productLabel}
+        </p>
+
+        <div className="mt-2">
+          <span
+            className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${getLoiStatusChipClass(loi.reviewStatus || loi.status)}`}
+          >
+            {statusLabel}
+          </span>
         </div>
 
-        <div className="min-w-0 flex-1">
-          <p className="line-clamp-2 text-sm font-bold leading-snug text-slate-900 dark:text-white">
-            {loi.lenderName}
-          </p>
-          <p className="mt-1 line-clamp-2 text-[11px] leading-relaxed text-slate-500">
-            {productLabel}
-          </p>
-
-          <div className="mt-2 flex flex-wrap items-center gap-1.5">
-            <span
-              className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${getLoiStatusChipClass(loi.reviewStatus || loi.status)}`}
-            >
-              {statusLabel}
+        <div className="mt-3 space-y-1.5 border-t border-slate-100 pt-2.5 dark:border-slate-800">
+          <div className="flex items-center justify-between gap-2 text-xs">
+            <span className="text-slate-400">Interest Rate</span>
+            <span className="font-semibold text-slate-800 dark:text-slate-100">
+              {interestDisplay}
             </span>
-            {pdfReady ? (
-              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                PDF ready
-              </span>
-            ) : (
-              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-400 dark:bg-slate-800 dark:text-slate-500">
-                No PDF yet
-              </span>
-            )}
+          </div>
+          <div className="flex items-center justify-between gap-2 text-xs">
+            <span className="text-slate-400">LOI</span>
+            <span
+              className={`font-semibold ${
+                pdfReady
+                  ? "text-emerald-700 dark:text-emerald-300"
+                  : "text-slate-400"
+              }`}
+            >
+              {pdfReady ? "PDF Ready" : "No PDF"}
+            </span>
           </div>
         </div>
       </div>
-
-      <div className="mt-3 grid grid-cols-2 gap-2 rounded-lg border border-slate-100 bg-slate-50/80 p-2.5 dark:border-slate-800 dark:bg-slate-900/40">
-        <div className="min-w-0">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-            Approved
-          </p>
-          <p
-            className={`mt-0.5 break-words text-xs font-bold leading-snug ${
-              approvedDisplay === "Pending" || approvedDisplay === "Under review"
-                ? "text-amber-600 dark:text-amber-400"
-                : approvedDisplay === "—"
-                  ? "text-slate-400"
-                  : "text-slate-800 dark:text-slate-100"
-            }`}
-          >
-            {approvedDisplay}
-          </p>
-        </div>
-        <div className="min-w-0">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-            Rate
-          </p>
-          <p className="mt-0.5 break-words text-xs font-bold leading-snug text-slate-800 dark:text-slate-100">
-            {interestDisplay}
-          </p>
-        </div>
-      </div>
-
-      <p className="mt-2.5 text-[11px] leading-relaxed text-slate-400">
-        {loi.generatedAt ? (
-          <>
-            Generated{" "}
-            <span className="font-medium text-slate-500 dark:text-slate-400">
-              {generatedLabel}
-            </span>
-          </>
-        ) : (
-          <span className="italic text-slate-400">{generatedLabel}</span>
-        )}
-      </p>
     </button>
   );
 }
@@ -345,6 +563,21 @@ function LoiDetailDrawer({
   onViewPdf: () => void;
 }) {
   const productLabel = getLoiProductLabel(loi);
+  const hasRealAmount =
+    loi.approvedAmount != null && !Number.isNaN(Number(loi.approvedAmount));
+  const termLabel = formatProductTermMonths(loi);
+  const maxLtv =
+    loi.lenderProduct?.maxLtvPercent != null
+      ? formatPercent(loi.lenderProduct.maxLtvPercent)
+      : null;
+  const maxLtc =
+    loi.lenderProduct?.maxLtcPercent != null
+      ? formatPercent(loi.lenderProduct.maxLtcPercent)
+      : null;
+  const maxArv =
+    loi.lenderProduct?.maxArvPercent != null
+      ? formatPercent(loi.lenderProduct.maxArvPercent)
+      : null;
 
   return (
     <div className="fixed inset-0 z-[9998] flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4">
@@ -355,6 +588,11 @@ function LoiDetailDrawer({
               {loi.lenderName}
             </h3>
             <p className="text-sm text-slate-500">{productLabel}</p>
+            <span
+              className={`mt-2 inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${getLoiStatusChipClass(loi.reviewStatus || loi.status)}`}
+            >
+              {formatLoiStatusLabel(loi.reviewStatus || loi.status)}
+            </span>
           </div>
           <button
             type="button"
@@ -368,43 +606,43 @@ function LoiDetailDrawer({
 
         <div className="flex-1 space-y-3 overflow-y-auto p-5">
           <div className="grid gap-2 sm:grid-cols-2">
-            <DetailItem
-              label="Approved Amount"
-              value={formatLoiApprovedDisplay(
-                loi.approvedAmount,
-                loi.reviewStatus || loi.status,
-              )}
-            />
+            <DetailItem label="Loan Program" value={productLabel} />
+            {hasRealAmount && (
+              <DetailItem
+                label="Loan Amount"
+                value={formatCurrency(loi.approvedAmount)}
+              />
+            )}
             <DetailItem
               label="Interest Rate"
               value={formatLoiInterestDisplay(loi)}
             />
-            <DetailItem
-              label="Generated"
-              value={formatLoiGeneratedLabel(loi.generatedAt)}
-              icon={<Calendar size={11} />}
-            />
-            <DetailItem
-              label="Lender Email"
-              value={loi.lenderEmail || "—"}
-              icon={<Mail size={11} />}
-            />
-            <DetailItem
-              label="Lender Phone"
-              value={loi.lenderPhone || "—"}
-              icon={<Phone size={11} />}
-            />
-            <DetailItem
-              label="Reviewed By"
-              value={loi.reviewedBy?.name || loi.reviewedBy?.email || "—"}
-              icon={<User size={11} />}
-            />
+            {termLabel !== "—" && (
+              <DetailItem label="Term" value={termLabel} />
+            )}
+            {maxLtv && <DetailItem label="Max LTV" value={maxLtv} />}
+            {maxLtc && <DetailItem label="Max LTC" value={maxLtc} />}
+            {maxArv && <DetailItem label="Max ARV" value={maxArv} />}
+            {loi.lenderEmail && (
+              <DetailItem
+                label="Lender Email"
+                value={loi.lenderEmail}
+                icon={<Mail size={11} />}
+              />
+            )}
+            {loi.lenderPhone && (
+              <DetailItem
+                label="Lender Phone"
+                value={loi.lenderPhone}
+                icon={<Phone size={11} />}
+              />
+            )}
           </div>
 
           {loi.notes && (
             <div className="rounded-xl bg-slate-50 p-3 dark:bg-slate-900/60">
               <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                Lender Notes
+                Notes
               </p>
               <p className="text-sm leading-relaxed text-slate-700 dark:text-slate-300">
                 {loi.notes}
@@ -438,18 +676,25 @@ function LoiDetailDrawer({
           )}
         </div>
 
-        {loi.loiUrl && (
-          <div className="border-t border-slate-200 px-5 py-3 dark:border-slate-800">
+        <div className="flex gap-2 border-t border-slate-200 px-5 py-3 dark:border-slate-800">
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex flex-1 items-center justify-center rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+          >
+            Close
+          </button>
+          {loi.loiUrl && (
             <button
               type="button"
               onClick={onViewPdf}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-violet-700"
+              className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-violet-700"
             >
               <ExternalLink size={15} />
-              Open PDF Preview
+              View PDF
             </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );
@@ -533,7 +778,7 @@ export default function BrokerLoiPanel({
   }, [searchInput]);
 
   const fetchLois = useCallback(
-    async (pageNo = 1) => {
+    async (pageNo = 1, signal?: AbortSignal) => {
       if (!applicationId) return;
 
       try {
@@ -552,9 +797,12 @@ export default function BrokerLoiPanel({
           {
             method: "GET",
             headers: getAuthHeaders(),
+            signal,
           },
         );
         const json = await res.json();
+
+        if (signal?.aborted) return;
 
         if (!res.ok || !json.success) {
           throw new Error(json.message || "Failed to fetch LOIs");
@@ -562,21 +810,29 @@ export default function BrokerLoiPanel({
 
         setData(json.data);
         setPage(json.data.pagination?.page || pageNo);
-        onLoiCountChange?.(json.data.totalLoiReceived ?? json.data.lois?.length ?? 0);
+        onLoiCountChange?.(
+          json.data.totalLoiReceived ?? json.data.lois?.length ?? 0,
+        );
       } catch (err: any) {
+        if (err?.name === "AbortError") return;
         toast.error(err.message || "Failed to load LOIs");
         onLoiCountChange?.(0);
       } finally {
-        setLoading(false);
+        if (!signal?.aborted) {
+          setLoading(false);
+        }
       }
     },
     [applicationId, apiPath, debouncedSearch, getAuthHeaders, onLoiCountChange],
   );
 
   useEffect(() => {
-    if (isActive && applicationId) {
-      fetchLois(page);
-    }
+    if (!isActive || !applicationId) return;
+
+    const controller = new AbortController();
+    void fetchLois(page, controller.signal);
+
+    return () => controller.abort();
   }, [isActive, applicationId, page, debouncedSearch, fetchLois]);
 
   const fetchBrokerLoiStatus = useCallback(
@@ -671,8 +927,8 @@ export default function BrokerLoiPanel({
         throw new Error(json.message || "Failed to prepare term sheet");
       }
 
-      // New create: blank commercial terms. Edit/regenerate keeps saved terms.
-      // Branding always comes from white-label prefill.
+      // New create: prefill commercial terms from application data.
+      // Edit/regenerate keeps saved terms. Branding always from white-label.
       const terms =
         hasExistingBrokerLoi && brokerLoiStatus?.terms
           ? brokerLoiStatus.terms
@@ -1321,17 +1577,16 @@ export default function BrokerLoiPanel({
     }
   }, [brokerLoiLocked, previewMode, brokerEditorMode]);
 
-  const previewUrl = useMemo(() => {
-    const signedPdfUrl = signWorkflow?.signedPdfUrl;
-    const showSignedPdf =
-      previewMode === "broker-pdf" &&
-      signedPdfUrl &&
+  const hasSignedBrokerPdf = Boolean(
+    signWorkflow?.signedPdfUrl &&
       (signWorkflow?.signStatus === "CLIENT_SIGNED" ||
         signWorkflow?.signStatus === "FORWARDED_TO_LENDER" ||
-        signWorkflow?.signStatus === "LENDER_SEEN");
+        signWorkflow?.signStatus === "LENDER_SEEN"),
+  );
 
-    if (showSignedPdf) {
-      return buildApiPublicFileUrl(API_BASE, signedPdfUrl);
+  const previewUrl = useMemo(() => {
+    if (previewMode === "broker-pdf" && hasSignedBrokerPdf) {
+      return buildApiPublicFileUrl(API_BASE, signWorkflow?.signedPdfUrl);
     }
     if (previewMode === "broker-pdf" && brokerLoiStatus?.brokerLoiUrl) {
       return buildApiPublicFileUrl(API_BASE, brokerLoiStatus.brokerLoiUrl);
@@ -1351,19 +1606,15 @@ export default function BrokerLoiPanel({
     return null;
   }, [
     previewMode,
+    hasSignedBrokerPdf,
     brokerLoiStatus?.brokerLoiUrl,
+    brokerLoiStatus?.currentVersion?.brokerLoiUrl,
     selectedLoi,
     signWorkflow?.signedPdfUrl,
-    signWorkflow?.signStatus,
   ]);
 
-  const previewingSignedLoi = Boolean(
-    previewMode === "broker-pdf" &&
-      signWorkflow?.signedPdfUrl &&
-      (signWorkflow?.signStatus === "CLIENT_SIGNED" ||
-        signWorkflow?.signStatus === "FORWARDED_TO_LENDER" ||
-        signWorkflow?.signStatus === "LENDER_SEEN"),
-  );
+  const previewingSignedLoi =
+    previewMode === "broker-pdf" && hasSignedBrokerPdf;
 
   const previewTitle =
     previewMode === "broker-pdf"
@@ -1390,6 +1641,23 @@ export default function BrokerLoiPanel({
     !brokerLoiLocked;
   const hasStandaloneBrokerLoiOnly =
     hasExistingBrokerLoi && !sortedLois.length;
+  const workflowSteps = resolveBrokerWorkflowProgress(brokerLoiStatus);
+  const nextAction = canManageBrokerLoi
+    ? resolveBrokerNextAction({
+        status: brokerLoiStatus,
+        canCreate: canShowCreateTermSheet || canCreateTermSheet,
+      })
+    : null;
+  const brokerCardBadge = resolveBrokerLoiCardBadge(brokerLoiStatus);
+  const loiReceivedCount = data?.totalLoiReceived ?? comparison.total ?? 0;
+  const currentVersion = brokerLoiStatus?.currentVersion;
+  const currentVersionSign = signWorkflow?.signStatus || currentVersion?.status || "";
+  const loanTermsSummaryItems =
+    previewMode === "broker-pdf" || previewMode === "broker-edit"
+      ? buildBrokerLoanTermsItems(brokerLoiStatus?.terms)
+      : selectedLoi
+        ? buildLenderLoanTermsItems(selectedLoi)
+        : [];
 
   const pagination = data?.pagination;
 
@@ -1426,13 +1694,12 @@ export default function BrokerLoiPanel({
                 LOI / Term Sheets
               </h2>
               <p className="mt-1 text-sm text-slate-500">
-                Review and compare Letters of Intent from multiple lenders.
+                Review and manage lender LOIs for this application.
               </p>
               {data?.applicationNumber && (
                 <p className="mt-1.5 text-xs font-medium text-slate-400">
                   Application #{data.applicationNumber}
-                  {comparison.total > 0 &&
-                    ` · ${comparison.total} received`}
+                  {` • ${loiReceivedCount} LOI${loiReceivedCount === 1 ? "" : "s"} received`}
                 </p>
               )}
             </div>
@@ -1444,12 +1711,28 @@ export default function BrokerLoiPanel({
                   className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
                 />
                 <input
-                  type="text"
+                  type="search"
                   value={searchInput}
                   onChange={(e) => setSearchInput(e.target.value)}
-                  placeholder="Search lender..."
-                  className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-sm outline-none transition focus:border-violet-400 focus:ring-2 focus:ring-violet-100 dark:border-slate-700 dark:bg-slate-900 dark:focus:ring-violet-500/20"
+                  placeholder="Search lender or product..."
+                  className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-9 text-sm outline-none transition focus:border-violet-400 focus:ring-2 focus:ring-violet-100 dark:border-slate-700 dark:bg-slate-900 dark:focus:ring-violet-500/20"
+                  aria-label="Search lender LOIs"
                 />
+                {loading && searchInput.trim() ? (
+                  <Loader2
+                    size={14}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-violet-600"
+                  />
+                ) : searchInput ? (
+                  <button
+                    type="button"
+                    onClick={() => setSearchInput("")}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-slate-400 hover:text-slate-600"
+                    aria-label="Clear search"
+                  >
+                    <X size={14} />
+                  </button>
+                ) : null}
               </div>
 
               <div className="relative sm:w-44">
@@ -1474,20 +1757,39 @@ export default function BrokerLoiPanel({
 
           {canManageBrokerLoi && (
             <div className="mt-4 rounded-xl border border-violet-100 bg-white/80 p-3 dark:border-violet-500/20 dark:bg-slate-900/40">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="min-w-0 flex-1">
                   <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-violet-600 dark:text-violet-300">
                     Broker LOI Workflow
                   </p>
-                  <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
-                    {WORKFLOW_STEPS.map((step, index) => (
-                      <span key={step} className="inline-flex items-center gap-2">
-                        <span className="rounded-full bg-violet-100 px-2 py-0.5 font-semibold text-violet-700 dark:bg-violet-500/20 dark:text-violet-300">
-                          {index + 1}
-                        </span>
-                        {step}
-                        {index < WORKFLOW_STEPS.length - 1 && (
-                          <span className="text-slate-300">→</span>
+                  <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                    {workflowSteps.map((step, index) => (
+                      <span
+                        key={step.key}
+                        className="inline-flex items-center gap-1.5"
+                      >
+                        {step.done ? (
+                          <span className="inline-flex items-center gap-1 font-semibold text-emerald-700 dark:text-emerald-300">
+                            <Check size={13} className="shrink-0" strokeWidth={2.5} />
+                            {step.label}
+                          </span>
+                        ) : step.current ? (
+                          <span className="inline-flex items-center gap-1 font-semibold text-violet-700 dark:text-violet-300">
+                            <span className="inline-flex h-3.5 w-3.5 items-center justify-center">
+                              <span className="h-2.5 w-2.5 rounded-full bg-violet-600 dark:bg-violet-400" />
+                            </span>
+                            {step.label}
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-slate-400">
+                            <Circle size={13} className="shrink-0" strokeWidth={2} />
+                            {step.label}
+                          </span>
+                        )}
+                        {index < workflowSteps.length - 1 && (
+                          <span className="text-slate-300 dark:text-slate-600">
+                            →
+                          </span>
                         )}
                       </span>
                     ))}
@@ -1512,60 +1814,113 @@ export default function BrokerLoiPanel({
             </div>
           )}
 
+          {canManageBrokerLoi && nextAction && (
+            <div
+              className={`mt-3 flex flex-wrap items-start gap-3 rounded-xl border px-3.5 py-2.5 ${
+                nextAction.tone === "emerald"
+                  ? "border-emerald-200 bg-emerald-50/80 dark:border-emerald-500/20 dark:bg-emerald-500/10"
+                  : nextAction.tone === "amber"
+                    ? "border-amber-200 bg-amber-50/80 dark:border-amber-500/20 dark:bg-amber-500/10"
+                    : nextAction.tone === "blue"
+                      ? "border-blue-200 bg-blue-50/80 dark:border-blue-500/20 dark:bg-blue-500/10"
+                      : nextAction.tone === "slate"
+                        ? "border-slate-200 bg-slate-50/80 dark:border-slate-700 dark:bg-slate-900/50"
+                        : "border-violet-200 bg-violet-50/80 dark:border-violet-500/20 dark:bg-violet-500/10"
+              }`}
+            >
+              <span
+                className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+                  nextAction.tone === "emerald"
+                    ? "bg-emerald-600 text-white"
+                    : nextAction.tone === "amber"
+                      ? "bg-amber-500 text-white"
+                      : nextAction.tone === "blue"
+                        ? "bg-blue-600 text-white"
+                        : nextAction.tone === "slate"
+                          ? "bg-slate-600 text-white"
+                          : "bg-violet-600 text-white"
+                }`}
+              >
+                {nextAction.badge}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold text-slate-900 dark:text-white">
+                  {nextAction.title}
+                </p>
+                <p className="mt-0.5 text-xs text-slate-600 dark:text-slate-300">
+                  {nextAction.message}
+                </p>
+              </div>
+            </div>
+          )}
+
           {canManageBrokerLoi && hasExistingBrokerLoi && (
             <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50/80 px-4 py-3 dark:border-emerald-500/20 dark:bg-emerald-500/10">
               <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-200">
-                    Broker LOI generated
-                  </p>
-                  <p className="text-xs text-emerald-700/80 dark:text-emerald-300/80">
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-[11px] font-bold uppercase tracking-wide text-emerald-800 dark:text-emerald-200">
+                      Broker LOI
+                    </p>
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                        brokerCardBadge.tone === "emerald"
+                          ? "bg-emerald-600 text-white"
+                          : brokerCardBadge.tone === "blue"
+                            ? "bg-blue-600 text-white"
+                            : brokerCardBadge.tone === "violet"
+                              ? "bg-violet-600 text-white"
+                              : "bg-slate-600 text-white"
+                      }`}
+                    >
+                      {brokerCardBadge.label}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-xs text-emerald-800/80 dark:text-emerald-200/80">
                     {brokerLoiStatus?.sourceApplicationLenderId
-                      ? `Based on ${brokerLoiStatus?.sourceLenderName || "selected lender"}`
+                      ? brokerLoiStatus?.sourceLenderName || "Selected lender"
                       : "Standalone broker term sheet"}
+                    {currentVersion?.versionNumber != null &&
+                      ` • Version ${currentVersion.versionNumber}`}
                     {brokerLoiStatus?.brokerLoiGeneratedAt &&
-                      ` · ${formatLoiDate(brokerLoiStatus.brokerLoiGeneratedAt)}`}
+                      ` • ${formatLoiDate(brokerLoiStatus.brokerLoiGeneratedAt)}`}
                   </p>
-                  {signWorkflow?.signStatusLabel && (
-                    <p className="mt-1 text-xs font-medium text-emerald-900/80 dark:text-emerald-100/80">
-                      Status: {signWorkflow.signStatusLabel}
-                      {signWorkflow.signStatus === "SENT_TO_CLIENT" &&
-                        " — waiting for client signature in portal"}
-                      {signWorkflow.signStatus === "CLIENT_SIGNED" &&
-                        " — signed PDF ready; forward to lender when ready"}
-                    </p>
-                  )}
-                  {signWorkflow?.signedPdfUrl &&
-                    signWorkflow.signStatus !== "AWAITING_BROKER" &&
-                    signWorkflow.signStatus !== "SENT_TO_CLIENT" && (
-                      <p className="mt-1 text-xs text-emerald-700/90 dark:text-emerald-200/90">
-                        Client signature is embedded in the signed PDF
-                        {signWorkflow.clientSignedAt &&
-                          ` · ${formatLoiDate(signWorkflow.clientSignedAt)}`}
-                      </p>
-                    )}
-                  {brokerLoiLocked && (
-                    <p className="mt-2 text-xs text-amber-800/90 dark:text-amber-200/90">
-                      This LOI is locked after client signature. Create a revised
-                      LOI (Version {nextBrokerRevisedVersion}) if commercial
-                      terms change — the client must sign again.
-                    </p>
-                  )}
-                  {brokerLoiStatus?.versions &&
-                    brokerLoiStatus.versions.length > 0 && (
-                    <div className="mt-2 flex flex-wrap gap-1.5">
-                      {brokerLoiStatus.versions.map((version) => (
-                        <span
-                          key={version.id}
-                          className="rounded-full bg-white/80 px-2 py-0.5 text-[10px] font-semibold text-emerald-900 dark:bg-emerald-950 dark:text-emerald-200"
-                        >
-                          v{version.versionNumber}
-                          {version.status === "CLIENT_SIGNED" && " · Signed"}
-                          {version.status === "FORWARDED_TO_LENDER" && " · Forwarded"}
-                          {version.status === "SUPERSEDED" && " · Superseded"}
+                  <p className="mt-1.5 text-xs text-emerald-900/90 dark:text-emerald-100/90">
+                    {signWorkflow?.signStatus === "FORWARDED_TO_LENDER" ||
+                    signWorkflow?.signStatus === "LENDER_SEEN"
+                      ? "Signed LOI has been forwarded to the lender."
+                      : signWorkflow?.signStatus === "CLIENT_SIGNED"
+                        ? "Client signed. Forward the signed PDF to the lender when ready."
+                        : signWorkflow?.signStatus === "SENT_TO_CLIENT"
+                          ? "Sent to client — awaiting signature in the portal."
+                          : "Broker term sheet is ready for the next workflow step."}
+                  </p>
+                  {currentVersion && (
+                    <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px] font-semibold text-emerald-900 dark:text-emerald-100">
+                      <span className="rounded-full bg-white/80 px-2 py-0.5 dark:bg-emerald-950">
+                        v{currentVersion.versionNumber}
+                      </span>
+                      {["CLIENT_SIGNED", "FORWARDED_TO_LENDER", "LENDER_SEEN"].includes(
+                        currentVersionSign,
+                      ) && (
+                        <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-300">
+                          <Check size={12} strokeWidth={2.5} /> Signed
                         </span>
-                      ))}
+                      )}
+                      {["FORWARDED_TO_LENDER", "LENDER_SEEN"].includes(
+                        currentVersionSign,
+                      ) && (
+                        <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-300">
+                          <Check size={12} strokeWidth={2.5} /> Forwarded
+                        </span>
+                      )}
                     </div>
+                  )}
+                  {brokerLoiLocked && (
+                    <p className="mt-2 text-[11px] text-amber-800/90 dark:text-amber-200/90">
+                      LOI is locked after client signature. Create a revised
+                      version if terms change.
+                    </p>
                   )}
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
@@ -1574,9 +1929,7 @@ export default function BrokerLoiPanel({
                     onClick={handleViewBrokerPdf}
                     className="rounded-lg border border-emerald-300 bg-white px-3 py-1.5 text-xs font-semibold text-emerald-800 hover:bg-emerald-100 dark:border-emerald-500/30 dark:bg-emerald-950 dark:text-emerald-200"
                   >
-                    {signWorkflow?.signedPdfUrl &&
-                    signWorkflow.signStatus !== "AWAITING_BROKER" &&
-                    signWorkflow.signStatus !== "SENT_TO_CLIENT"
+                    {hasSignedBrokerPdf
                       ? "View Signed PDF"
                       : "View Broker PDF"}
                   </button>
@@ -1592,7 +1945,7 @@ export default function BrokerLoiPanel({
                       ) : (
                         <RotateCcw size={13} />
                       )}
-                      Regenerate LOI
+                      Regenerate
                     </button>
                   ) : brokerLoiLocked &&
                     canCreateRevisedBrokerLoi &&
@@ -1601,7 +1954,7 @@ export default function BrokerLoiPanel({
                       type="button"
                       disabled={prefillLoading}
                       onClick={() => void handleCreateRevisedBrokerLoi()}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-purple-200 bg-white px-3 py-1.5 text-xs font-semibold text-purple-700 transition hover:bg-purple-50 disabled:opacity-50 dark:border-purple-500/30 dark:bg-purple-950 dark:text-purple-200"
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-violet-700 disabled:opacity-50"
                     >
                       {prefillLoading ? (
                         <Loader2 size={13} className="animate-spin" />
@@ -1623,7 +1976,7 @@ export default function BrokerLoiPanel({
                       ) : (
                         <SendHorizonal size={13} />
                       )}
-                      Send to Client
+                      Send
                     </button>
                   )}
                   {canForwardBrokerLoiToLender &&
@@ -1673,7 +2026,7 @@ export default function BrokerLoiPanel({
                         ) : (
                           <SendHorizonal size={13} />
                         )}
-                        Forward Signed LOI
+                        Forward
                       </button>
                     </div>
                   )}
@@ -1778,7 +2131,9 @@ export default function BrokerLoiPanel({
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                  Broker LOI / Term Sheet
+                  {previewingSignedLoi
+                    ? "Signed Broker LOI"
+                    : "Your Broker LOI"}
                 </h3>
                 <p className="mt-0.5 text-xs text-slate-500">
                   Standalone broker term sheet
@@ -1788,31 +2143,42 @@ export default function BrokerLoiPanel({
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
-                {canRegenerateTermSheet && !brokerLoiLocked && (
-                  <button
-                    type="button"
-                    disabled={prefillLoading}
-                    onClick={() => void handleEditBrokerLoi()}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-violet-200 px-3 py-1.5 text-xs font-semibold text-violet-700 transition hover:bg-violet-50 disabled:opacity-50 dark:border-violet-500/30 dark:text-violet-300"
-                  >
-                    {prefillLoading ? (
-                      <Loader2 size={13} className="animate-spin" />
-                    ) : (
-                      <RotateCcw size={13} />
-                    )}
-                    Edit Term Sheet
-                  </button>
+                {previewUrl && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={handleDownload}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200"
+                    >
+                      <Download size={13} />
+                      Download
+                    </button>
+                    <a
+                      href={previewUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-slate-700 dark:bg-white dark:text-slate-900"
+                    >
+                      <ExternalLink size={13} />
+                      Open Tab
+                    </a>
+                  </>
                 )}
               </div>
             </div>
             {previewUrl ? (
-              <EmbeddedFilePreview
-                key={previewUrl}
-                remoteUrl={previewUrl}
-                mimeType="application/pdf"
-                fileName={previewTitle}
-                getAuthHeaders={getAuthHeaders}
-              />
+              <>
+                <LoanTermsSummaryCard
+                  items={buildBrokerLoanTermsItems(brokerLoiStatus?.terms)}
+                />
+                <EmbeddedFilePreview
+                  key={previewUrl}
+                  remoteUrl={previewUrl}
+                  mimeType="application/pdf"
+                  fileName={previewTitle}
+                  getAuthHeaders={getAuthHeaders}
+                />
+              </>
             ) : (
               <div className="flex items-center justify-center py-16 text-sm text-slate-500">
                 <Loader2 className="mr-2 h-4 w-4 animate-spin text-violet-600" />
@@ -1881,7 +2247,11 @@ export default function BrokerLoiPanel({
                     key={loi.applicationLenderId}
                     loi={loi}
                     selected={selectedLoi?.applicationLenderId === loi.applicationLenderId}
-                    onSelect={() => setSelectedId(loi.applicationLenderId)}
+                    onSelect={() => {
+                      setSelectedId(loi.applicationLenderId);
+                      setPreviewMode("lender");
+                      scrollToPdfPreview();
+                    }}
                   />
                 ))}
               </div>
@@ -1921,254 +2291,162 @@ export default function BrokerLoiPanel({
             >
               {showRightPanel && (
                 <>
-                  <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3 dark:border-slate-800 dark:bg-slate-900">
-                    <div className="min-w-0 flex-1">
-                      {canManageBrokerLoi && (
-                        <div className="mb-2 flex flex-wrap gap-2">
-                          {selectedLoi && (
-                            <button
-                              type="button"
-                              onClick={() => handleSwitchPreviewMode("lender")}
-                              className={`rounded-lg px-3 py-1 text-xs font-semibold ${
-                                previewMode === "lender"
-                                  ? "bg-violet-600 text-white"
-                                  : "border border-slate-200 text-slate-600 dark:border-slate-700 dark:text-slate-300"
-                              }`}
+                  <div className="border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+                    {/* Preview tabs — navigation only */}
+                    {canManageBrokerLoi &&
+                      (selectedLoi || brokerLoiStatus?.brokerLoiUrl) && (
+                      <div className="flex items-center gap-0 border-b border-slate-100 px-4 dark:border-slate-800">
+                        {selectedLoi && (
+                          <button
+                            type="button"
+                            role="tab"
+                            aria-selected={previewMode === "lender"}
+                            onClick={() => handleSwitchPreviewMode("lender")}
+                            className={`relative px-3 py-2.5 text-xs font-semibold transition ${
+                              previewMode === "lender"
+                                ? "text-violet-700 dark:text-violet-300"
+                                : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
+                            }`}
+                          >
+                            Lender LOI
+                            {previewMode === "lender" && (
+                              <span className="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-violet-600" />
+                            )}
+                          </button>
+                        )}
+                        {brokerLoiStatus?.brokerLoiUrl && (
+                          <button
+                            type="button"
+                            role="tab"
+                            aria-selected={previewMode === "broker-pdf"}
+                            onClick={() => handleSwitchPreviewMode("broker-pdf")}
+                            className={`relative px-3 py-2.5 text-xs font-semibold transition ${
+                              previewMode === "broker-pdf"
+                                ? "text-emerald-700 dark:text-emerald-300"
+                                : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
+                            }`}
+                          >
+                            {hasSignedBrokerPdf
+                              ? "Signed Broker LOI"
+                              : "Your Broker LOI"}
+                            {previewMode === "broker-pdf" && (
+                              <span className="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-emerald-600" />
+                            )}
+                          </button>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+                      <div className="min-w-0 flex-1">
+                        <h3 className="text-base font-bold leading-snug text-slate-900 dark:text-white">
+                          {previewMode === "broker-pdf"
+                            ? previewingSignedLoi
+                              ? "Signed Broker LOI"
+                              : "Your Broker LOI"
+                            : previewMode === "broker-edit"
+                              ? brokerLoiStatus?.brokerLoiUrl
+                                ? "Edit Term Sheet"
+                                : "Create Term Sheet"
+                              : selectedLoi?.lenderName}
+                        </h3>
+                        <p className="mt-0.5 line-clamp-1 text-xs text-slate-500">
+                          {previewMode === "broker-pdf"
+                            ? previewingSignedLoi
+                              ? "Client-signed term sheet PDF"
+                              : brokerLoiStatus?.sourceApplicationLenderId
+                                ? `Based on ${brokerLoiStatus?.sourceLenderName || "selected lender LOI"}`
+                                : "Standalone broker term sheet"
+                            : previewMode === "broker-edit"
+                              ? prefillData
+                                ? prefillData.standalone ||
+                                  !prefillData.sourceApplicationLenderId
+                                  ? brokerLoiStatus?.brokerLoiUrl
+                                    ? "Update your broker terms, then regenerate the branded PDF"
+                                    : "Enter your commercial terms below, then generate a branded PDF"
+                                  : brokerLoiStatus?.brokerLoiUrl
+                                    ? `Update terms from ${prefillData.sourceLenderName}, then regenerate your branded PDF`
+                                    : `Terms from ${prefillData.sourceLenderName} — edit below, then generate your branded PDF`
+                                : "Create your own term sheet, or select a lender LOI to copy terms"
+                              : selectedLoi
+                                ? getLoiProductLabel(selectedLoi)
+                                : ""}
+                        </p>
+                        {previewMode === "lender" && selectedLoi && (
+                          <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs">
+                            <span
+                              className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${getLoiStatusChipClass(selectedLoi.reviewStatus || selectedLoi.status)}`}
                             >
-                              Lender LOI
-                            </button>
-                          )}
-                          {((brokerLoiStatus?.brokerLoiUrl &&
-                            canRegenerateTermSheet) ||
-                            (!brokerLoiStatus?.brokerLoiUrl &&
-                              canCreateTermSheet)) && (
+                              {formatLoiStatusLabel(
+                                selectedLoi.reviewStatus || selectedLoi.status,
+                              )}
+                            </span>
+                            <span className="font-medium text-slate-600 dark:text-slate-300">
+                              {formatLoiInterestDisplay(selectedLoi)}
+                            </span>
+                          </div>
+                        )}
+                        {previewMode === "broker-pdf" &&
+                          signWorkflow?.signStatusLabel && (
+                          <div className="mt-1.5">
+                            <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-200">
+                              {signWorkflow.signStatusLabel}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Action buttons — not tabs */}
+                      <div className="flex flex-wrap items-center gap-2">
+                        {canCreateTermSheet &&
+                          previewMode === "lender" &&
+                          selectedLoi &&
+                          !brokerLoiStatus?.brokerLoiUrl && (
                             <button
                               type="button"
                               disabled={prefillLoading || brokerLoiLocked}
-                              onClick={() =>
-                                handleSwitchPreviewMode("broker-edit")
-                              }
-                              title={
-                                brokerLoiLocked
-                                  ? "Broker LOI was forwarded to the lender and cannot be regenerated"
-                                  : undefined
-                              }
-                              className={`rounded-lg px-3 py-1 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50 ${
-                                previewMode === "broker-edit"
-                                  ? "bg-violet-600 text-white"
-                                  : "border border-slate-200 text-slate-600 dark:border-slate-700 dark:text-slate-300"
-                              }`}
+                              onClick={() => void handleOpenBrokerLoiForm()}
+                              className="inline-flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
                             >
-                              {brokerLoiStatus?.brokerLoiUrl
-                                ? "Regenerate LOI"
-                                : "Create Broker LOI"}
+                              {prefillLoading ? (
+                                <Loader2 size={13} className="animate-spin" />
+                              ) : (
+                                <Sparkles size={13} />
+                              )}
+                              Create Broker LOI
                             </button>
                           )}
-                          {brokerLoiStatus?.brokerLoiUrl && (
+                        {previewMode === "lender" && selectedLoi && (
+                          <button
+                            type="button"
+                            onClick={() => setDetailLoi(selectedLoi)}
+                            className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+                          >
+                            Details
+                          </button>
+                        )}
+                        {previewUrl && previewMode !== "broker-edit" && (
+                          <>
                             <button
                               type="button"
-                              onClick={() => handleSwitchPreviewMode("broker-pdf")}
-                              className={`rounded-lg px-3 py-1 text-xs font-semibold ${
-                                previewMode === "broker-pdf"
-                                  ? "bg-emerald-600 text-white"
-                                  : "border border-slate-200 text-slate-600 dark:border-slate-700 dark:text-slate-300"
-                              }`}
+                              onClick={handleDownload}
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
                             >
-                              Your Broker LOI
+                              <Download size={13} />
+                              Download
                             </button>
-                          )}
-                        </div>
-                      )}
-
-                      <h3 className="text-base font-bold leading-snug text-slate-900 dark:text-white">
-                        {previewMode === "broker-pdf"
-                          ? "Broker LOI / Term Sheet"
-                          : previewMode === "broker-edit"
-                            ? brokerLoiStatus?.brokerLoiUrl
-                              ? "Edit Term Sheet"
-                              : "Create Term Sheet"
-                            : selectedLoi?.lenderName}
-                      </h3>
-                      <p className="mt-0.5 line-clamp-1 text-xs text-slate-500">
-                        {previewMode === "broker-pdf"
-                          ? brokerLoiStatus?.sourceApplicationLenderId
-                            ? `Based on ${brokerLoiStatus?.sourceLenderName || "selected lender LOI"}`
-                            : "Standalone broker term sheet"
-                          : previewMode === "broker-edit"
-                            ? prefillData
-                              ? prefillData.standalone ||
-                                !prefillData.sourceApplicationLenderId
-                                ? brokerLoiStatus?.brokerLoiUrl
-                                  ? "Update your broker terms, then regenerate the branded PDF"
-                                  : "Enter your commercial terms below, then generate a branded PDF"
-                                : brokerLoiStatus?.brokerLoiUrl
-                                  ? `Update terms from ${prefillData.sourceLenderName}, then regenerate your branded PDF`
-                                  : `Terms from ${prefillData.sourceLenderName} — edit below, then generate your branded PDF`
-                              : "Create your own term sheet, or select a lender LOI to copy terms"
-                            : selectedLoi
-                              ? getLoiProductLabel(selectedLoi)
-                              : ""}
-                      </p>
-                      {previewMode === "lender" && selectedLoi && (
-                        <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500">
-                          <span>
-                            {formatLoiApprovedDisplay(
-                              selectedLoi.approvedAmount,
-                              selectedLoi.reviewStatus || selectedLoi.status,
-                            )}
-                          </span>
-                          <span aria-hidden>·</span>
-                          <span>{formatLoiInterestDisplay(selectedLoi)}</span>
-                          <span aria-hidden>·</span>
-                          <span>{formatLoiGeneratedLabel(selectedLoi.generatedAt)}</span>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-2">
-                      {canCreateTermSheet &&
-                        previewMode === "lender" &&
-                        selectedLoi &&
-                        !brokerLoiStatus?.brokerLoiUrl && (
-                          <button
-                            type="button"
-                            disabled={prefillLoading || brokerLoiLocked}
-                            onClick={() => void handleOpenBrokerLoiForm()}
-                            className="inline-flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
-                          >
-                            {prefillLoading ? (
-                              <Loader2 size={13} className="animate-spin" />
-                            ) : (
-                              <Sparkles size={13} />
-                            )}
-                            Create Broker LOI
-                          </button>
-                        )}
-                      {previewMode === "broker-pdf" &&
-                        brokerLoiStatus?.brokerLoiUrl && (
-                          <>
-                            {canSendBrokerLoiToClient &&
-                              signWorkflow?.canSendToClient && (
-                              <button
-                                type="button"
-                                disabled={signActionLoading}
-                                onClick={handleSendBrokerLoiToClient}
-                                className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-blue-700 disabled:opacity-50"
-                              >
-                                {signActionLoading ? (
-                                  <Loader2 size={13} className="animate-spin" />
-                                ) : (
-                                  <SendHorizonal size={13} />
-                                )}
-                                Send to Client
-                              </button>
-                            )}
-                            {canForwardBrokerLoiToLender &&
-                              signWorkflow?.canForwardToLender && (
-                              <div className="flex w-full flex-col gap-2 sm:w-auto sm:min-w-[200px]">
-                                {requiresLenderSelectionForForward ? (
-                                  <label className="block">
-                                    <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-violet-700 dark:text-violet-300">
-                                      Select Lender to Forward
-                                    </span>
-                                    <select
-                                      value={forwardLenderId}
-                                      onChange={(e) =>
-                                        setForwardLenderId(e.target.value)
-                                      }
-                                      className="w-full rounded-lg border border-violet-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-800 outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100 dark:border-violet-500/30 dark:bg-slate-950 dark:text-slate-100"
-                                    >
-                                      <option value="">Select a lender</option>
-                                      {forwardableLenders.map((lender) => (
-                                        <option
-                                          key={lender.applicationLenderId}
-                                          value={lender.applicationLenderId}
-                                        >
-                                          {lender.lenderName}
-                                        </option>
-                                      ))}
-                                    </select>
-                                  </label>
-                                ) : brokerLoiStatus?.sourceLenderName ? (
-                                  <p className="text-[11px] text-emerald-800/90 dark:text-emerald-200/90">
-                                    Will forward to{" "}
-                                    <span className="font-semibold">
-                                      {brokerLoiStatus.sourceLenderName}
-                                    </span>{" "}
-                                    only
-                                  </p>
-                                ) : null}
-                                <button
-                                  type="button"
-                                  disabled={
-                                    signActionLoading ||
-                                    (requiresLenderSelectionForForward &&
-                                      !forwardLenderId)
-                                  }
-                                  onClick={handleForwardBrokerLoiToLender}
-                                  className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-violet-700 disabled:opacity-50"
-                                >
-                                  {signActionLoading ? (
-                                    <Loader2 size={13} className="animate-spin" />
-                                  ) : (
-                                    <SendHorizonal size={13} />
-                                  )}
-                                  Forward Signed LOI
-                                </button>
-                              </div>
-                            )}
-                            {canRegenerateTermSheet && (
-                              <button
-                                type="button"
-                                disabled={prefillLoading || brokerLoiLocked}
-                                onClick={() => void handleEditBrokerLoi()}
-                                title={
-                                  brokerLoiLocked
-                                    ? "Broker LOI was forwarded to the lender and cannot be regenerated"
-                                    : undefined
-                                }
-                                className="inline-flex items-center gap-1.5 rounded-lg border border-violet-200 px-3 py-1.5 text-xs font-semibold text-violet-700 transition hover:bg-violet-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-violet-500/30 dark:text-violet-300 dark:hover:bg-violet-500/10"
-                              >
-                                {prefillLoading ? (
-                                  <Loader2 size={13} className="animate-spin" />
-                                ) : (
-                                  <RotateCcw size={13} />
-                                )}
-                                Regenerate LOI
-                              </button>
-                            )}
+                            <a
+                              href={previewUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-slate-700 dark:bg-white dark:text-slate-900"
+                            >
+                              <ExternalLink size={13} />
+                              Open Tab
+                            </a>
                           </>
                         )}
-                      {previewMode === "lender" && selectedLoi && (
-                        <button
-                          type="button"
-                          onClick={() => setDetailLoi(selectedLoi)}
-                          className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
-                        >
-                          Details
-                        </button>
-                      )}
-                      {previewUrl && previewMode !== "broker-edit" && (
-                        <>
-                          <button
-                            type="button"
-                            onClick={handleDownload}
-                            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
-                          >
-                            <Download size={13} />
-                            Download
-                          </button>
-                          <a
-                            href={previewUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-slate-700 dark:bg-white dark:text-slate-900"
-                          >
-                            <ExternalLink size={13} />
-                            Open Tab
-                          </a>
-                        </>
-                      )}
+                      </div>
                     </div>
                   </div>
 
@@ -2194,13 +2472,18 @@ export default function BrokerLoiPanel({
                       onSubmit={handleGenerateBrokerLoi}
                     />
                   ) : previewUrl ? (
-                    <EmbeddedFilePreview
-                      key={previewUrl}
-                      remoteUrl={previewUrl}
-                      mimeType="application/pdf"
-                      fileName={previewTitle}
-                      getAuthHeaders={getAuthHeaders}
-                    />
+                    <>
+                      {previewMode !== "broker-edit" && (
+                        <LoanTermsSummaryCard items={loanTermsSummaryItems} />
+                      )}
+                      <EmbeddedFilePreview
+                        key={previewUrl}
+                        remoteUrl={previewUrl}
+                        mimeType="application/pdf"
+                        fileName={previewTitle}
+                        getAuthHeaders={getAuthHeaders}
+                      />
+                    </>
                   ) : previewMode === "broker-edit" ? (
                     <div className="flex flex-1 items-center justify-center p-8 text-center text-sm text-slate-500">
                       {prefillLoading ? (
@@ -2232,6 +2515,7 @@ export default function BrokerLoiPanel({
             setSelectedId(detailLoi.applicationLenderId);
             setPreviewMode("lender");
             setDetailLoi(null);
+            scrollToPdfPreview();
           }}
         />
       )}

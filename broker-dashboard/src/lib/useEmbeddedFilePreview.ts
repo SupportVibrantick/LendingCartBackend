@@ -10,8 +10,14 @@ export async function fetchFileAsBlobUrl(
   url: string,
   headers?: HeadersInit,
 ): Promise<string> {
+  // Public static files under /public do not need auth; Authorization can
+  // trigger CORS failures on static asset responses.
+  const isPublicStatic =
+    /\/public\//i.test(url) ||
+    /\/(broker|lender)\/LOI\//i.test(url);
   const res = await fetch(url, {
-    headers: url.startsWith("blob:") ? undefined : headers,
+    headers:
+      url.startsWith("blob:") || isPublicStatic ? undefined : headers,
   });
   if (!res.ok) {
     throw new Error(`Failed to load file (${res.status})`);

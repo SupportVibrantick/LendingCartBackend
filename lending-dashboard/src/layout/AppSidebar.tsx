@@ -28,7 +28,7 @@ const navItems: NavItem[] = [
     name: "Loan Pipeline",
     description: "Applications & decisions",
     path: "/loan-pipeline",
-    matchPaths: ["/loan-pipeline", "/loan-preview", "/loi-preview"],
+    matchPaths: ["/loan-pipeline", "/loan-preview", "/loi-preview", "/loi-form"],
   },
   {
     icon: Layers,

@@ -104,13 +104,87 @@ function parseFormNumber(value) {
   return Number.isFinite(numeric) ? numeric : 0;
 }
 
-function serializeBrokerLoiTerms(formTerms = {}) {
+function parseOptionalFormNumber(value) {
+  if (value == null || value === "") return null;
+  const numeric = Number(String(value).replace(/[$,\s%]/g, ""));
+  return Number.isFinite(numeric) ? numeric : null;
+}
+
+function moneyFormToStored(value, fallback = "") {
+  const numeric = parseOptionalFormNumber(value);
+  if (numeric == null) return fallback;
+  return `$${numeric}`;
+}
+
+function percentFormToStored(value, fallback = "") {
+  const numeric = parseOptionalFormNumber(value);
+  if (numeric == null) return fallback;
+  return `${numeric}%`;
+}
+
+function moneyStoredToForm(value) {
+  if (value == null || value === "") return "";
+  const numeric = parseOptionalFormNumber(value);
+  return numeric != null ? String(numeric) : "";
+}
+
+function percentStoredToForm(value) {
+  if (value == null || value === "") return "";
+  const numeric = parseOptionalFormNumber(value);
+  return numeric != null ? String(numeric) : "";
+}
+
+function usesCollateralValueForLoi(productCode) {
+  if (!productCode) return false;
+  const code = String(productCode).toUpperCase();
+  return (
+    code.includes("SBA") ||
+    code.includes("USDA") ||
+    code.includes("EQUIPMENT") ||
+    code.includes("FACTORING") ||
+    code.includes("SUPPLY_CHAIN") ||
+    code.includes("PURCHASE_ORDER") ||
+    code.includes("ACCOUNTS_RECEIVABLE") ||
+    code === "AR_FACTORING" ||
+    code === "AP_SUPPLY_CHAIN"
+  );
+}
+
+function usesRehabConstructionLoiMetrics(productCode) {
+  if (!productCode) return false;
+  const code = String(productCode).toUpperCase();
+  return (
+    code.includes("FIX_AND_FLIP") ||
+    code.includes("FIX_FLIP") ||
+    code.includes("CONSTRUCTION")
+  );
+}
+
+function getLoiValueFieldLabel(productCode) {
+  return usesCollateralValueForLoi(productCode)
+    ? "Collateral Value"
+    : "Property Value";
+}
+
+function serializeBrokerLoiTerms(formTerms = {}, options = {}) {
+  const loanProductCode = options.loanProductCode || null;
+  const showRehab = usesRehabConstructionLoiMetrics(loanProductCode);
+  const usesCollateral = usesCollateralValueForLoi(loanProductCode);
+  const valueFieldLabel = getLoiValueFieldLabel(loanProductCode);
+
   const approvedAmount = parseFormNumber(formTerms.approvedAmount);
   const interestRate = parseFormNumber(formTerms.interestRate);
-  const originationFeePercent = formTerms.originationFeePercent || "2%";
-  const exitFee = formTerms.exitFee || "0%";
-  const processingFee = formTerms.processingFee || "$995";
-  const underwritingFee = formTerms.underwritingFee || "$750";
+  const originationPoints = parseOptionalFormNumber(formTerms.originationPoints);
+  const originationFeePercent =
+    originationPoints != null
+      ? `${originationPoints}%`
+      : percentFormToStored(formTerms.originationFeePercent, "2%");
+  const exitFee = percentFormToStored(formTerms.exitFee, "0%");
+  const processingFee = moneyFormToStored(formTerms.processingFee, "$995");
+  const underwritingFee = moneyFormToStored(
+    formTerms.underwritingFee,
+    "$750",
+  );
 
   const { totalLoanAmount, financedFees } = getTotalLoanAmountWithFinancedFees({
     approvedAmount,
@@ -122,7 +196,7 @@ function serializeBrokerLoiTerms(formTerms = {}) {
 
   const interestOnly = Boolean(formTerms.interestOnly);
   const termMonths = parseTermMonths(formTerms.loanTerm || "12 Months");
-  let monthlyPayment = parseFormNumber(formTerms.monthlyPayment);
+  let monthlyPayment = parseOptionalFormNumber(formTerms.monthlyPayment);
 
   if (totalLoanAmount && interestRate && termMonths) {
     if (interestOnly) {
@@ -138,6 +212,50 @@ function serializeBrokerLoiTerms(formTerms = {}) {
     monthlyPayment = Number(monthlyPayment.toFixed(2));
   }
 
+  const collateralOrPropertyValue = parseOptionalFormNumber(
+    formTerms.collateralOrPropertyValue,
+  );
+  const rehabConstructionCost = showRehab
+    ? parseOptionalFormNumber(formTerms.rehabConstructionCost)
+    : null;
+  const afterRepairValue = showRehab
+    ? parseOptionalFormNumber(formTerms.afterRepairValue)
+    : null;
+
+  const brokerPoints = parseOptionalFormNumber(formTerms.brokerPoints);
+  const appraisalFee = moneyFormToStored(formTerms.appraisalFee, "");
+  const wireFee = moneyFormToStored(formTerms.wireFee, "");
+
+  const originationAmount =
+    originationPoints != null && approvedAmount
+      ? (approvedAmount * originationPoints) / 100
+      : 0;
+  const brokerAmount =
+    brokerPoints != null && approvedAmount
+      ? (approvedAmount * brokerPoints) / 100
+      : 0;
+  const processingAmount = parseOptionalFormNumber(formTerms.processingFee) || 0;
+  const appraisalAmount = parseOptionalFormNumber(formTerms.appraisalFee) || 0;
+  const wireAmount = parseOptionalFormNumber(formTerms.wireFee) || 0;
+  const computedClosing =
+    originationAmount +
+    processingAmount +
+    appraisalAmount +
+    brokerAmount +
+    wireAmount;
+  const totalClosingCosts =
+    parseOptionalFormNumber(formTerms.totalClosingCosts) ??
+    (computedClosing > 0 ? Number(computedClosing.toFixed(2)) : null);
+
+  const requiredReservesPercent = parseOptionalFormNumber(
+    formTerms.requiredReservesPercent,
+  );
+  const requiredReservesAmount =
+    parseOptionalFormNumber(formTerms.requiredReservesAmount) ??
+    (approvedAmount && requiredReservesPercent != null
+      ? Number(((approvedAmount * requiredReservesPercent) / 100).toFixed(2))
+      : null);
+
   return {
     approvedAmount,
     totalLoanAmount: totalLoanAmount || approvedAmount,
@@ -148,28 +266,46 @@ function serializeBrokerLoiTerms(formTerms = {}) {
     variableRateIndex: null,
     variableRateSpread: null,
     loanTerm: formTerms.loanTerm || "12 Months",
-    amortization: interestOnly ? "Interest Only" : (formTerms.amortization || "30 Years"),
+    amortization: interestOnly
+      ? "Interest Only"
+      : formTerms.amortization || "30 Years",
     paymentFrequency: interestOnly
       ? "Interest Only"
-      : (formTerms.paymentFrequency || "Monthly"),
+      : formTerms.paymentFrequency || "Monthly",
     interestOnly,
-    ltvPercent:
-      formTerms.ltvPercent != null && formTerms.ltvPercent !== ""
-        ? parseFormNumber(formTerms.ltvPercent)
-        : null,
-    ltcPercent:
-      formTerms.ltcPercent != null && formTerms.ltcPercent !== ""
-        ? parseFormNumber(formTerms.ltcPercent)
-        : null,
-    arvPercent:
-      formTerms.arvPercent != null && formTerms.arvPercent !== ""
-        ? parseFormNumber(formTerms.arvPercent)
-        : null,
+    collateralOrPropertyValue,
+    propertyValue: usesCollateral ? null : collateralOrPropertyValue,
+    collateralValue: usesCollateral ? collateralOrPropertyValue : null,
+    valueFieldLabel,
+    showRehabMetrics: showRehab,
+    rehabConstructionCost,
+    afterRepairValue,
+    ltvPercent: parseOptionalFormNumber(formTerms.ltvPercent),
+    ltcPercent: showRehab
+      ? parseOptionalFormNumber(formTerms.ltcPercent)
+      : null,
+    arvPercent: showRehab
+      ? parseOptionalFormNumber(formTerms.arvPercent)
+      : null,
+    maximumLtvPercent: parseOptionalFormNumber(formTerms.maximumLtvPercent),
+    maximumLtcPercent: showRehab
+      ? parseOptionalFormNumber(formTerms.maximumLtcPercent)
+      : null,
+    maximumArvPercent: showRehab
+      ? parseOptionalFormNumber(formTerms.maximumArvPercent)
+      : null,
     monthlyPayment,
+    originationPoints,
     originationFeePercent,
     exitFee,
     processingFee,
     underwritingFee,
+    appraisalFee,
+    brokerPoints,
+    wireFee,
+    totalClosingCosts,
+    requiredReservesPercent,
+    requiredReservesAmount,
     legalFee: formTerms.legalFee || "Borrower Pays",
     appraisalRequired: formTerms.appraisalRequired || "Yes",
     environmentalReport: formTerms.environmentalReport || "Required",
@@ -210,18 +346,31 @@ function buildEmptyBrokerLoiFormTerms() {
   return {
     approvedAmount: "",
     interestRate: "",
+    collateralOrPropertyValue: "",
+    rehabConstructionCost: "",
+    afterRepairValue: "",
     ltvPercent: "",
     ltcPercent: "",
     arvPercent: "",
+    maximumLtvPercent: "",
+    maximumLtcPercent: "",
+    maximumArvPercent: "",
     monthlyPayment: "",
     interestOnly: true,
     loanTerm: "",
     requiredDocuments: [],
     customDocument: "",
+    originationPoints: "",
     originationFeePercent: "",
     exitFee: "",
     processingFee: "",
     underwritingFee: "",
+    appraisalFee: "",
+    brokerPoints: "",
+    wireFee: "",
+    totalClosingCosts: "",
+    requiredReservesPercent: "",
+    requiredReservesAmount: "",
     legalFee: "",
     appraisalRequired: "",
     environmentalReport: "",
@@ -249,9 +398,26 @@ function mapStoredLoiTermsToForm(stored) {
           .filter(Boolean)
       : [];
 
+  const collateralOrPropertyValue =
+    stored.collateralOrPropertyValue ??
+    stored.collateralValue ??
+    stored.propertyValue;
+
   return {
     approvedAmount: stringifyFormField(approvedAmount),
     interestRate: parseStoredInterestRate(stored),
+    collateralOrPropertyValue:
+      collateralOrPropertyValue != null && collateralOrPropertyValue !== ""
+        ? moneyStoredToForm(collateralOrPropertyValue)
+        : "",
+    rehabConstructionCost:
+      stored.rehabConstructionCost != null && stored.rehabConstructionCost !== ""
+        ? moneyStoredToForm(stored.rehabConstructionCost)
+        : "",
+    afterRepairValue:
+      stored.afterRepairValue != null && stored.afterRepairValue !== ""
+        ? moneyStoredToForm(stored.afterRepairValue)
+        : "",
     ltvPercent:
       stored.ltvPercent != null && stored.ltvPercent !== ""
         ? stringifyFormField(stored.ltvPercent)
@@ -264,6 +430,18 @@ function mapStoredLoiTermsToForm(stored) {
       stored.arvPercent != null && stored.arvPercent !== ""
         ? stringifyFormField(stored.arvPercent)
         : "",
+    maximumLtvPercent:
+      stored.maximumLtvPercent != null && stored.maximumLtvPercent !== ""
+        ? stringifyFormField(stored.maximumLtvPercent)
+        : "",
+    maximumLtcPercent:
+      stored.maximumLtcPercent != null && stored.maximumLtcPercent !== ""
+        ? stringifyFormField(stored.maximumLtcPercent)
+        : "",
+    maximumArvPercent:
+      stored.maximumArvPercent != null && stored.maximumArvPercent !== ""
+        ? stringifyFormField(stored.maximumArvPercent)
+        : "",
     monthlyPayment:
       stored.monthlyPayment != null && stored.monthlyPayment !== ""
         ? stringifyFormField(stored.monthlyPayment)
@@ -272,10 +450,36 @@ function mapStoredLoiTermsToForm(stored) {
     loanTerm: stored.loanTerm ? String(stored.loanTerm) : "12 Months",
     requiredDocuments,
     customDocument: "",
-    originationFeePercent: stored.originationFeePercent || "2%",
-    exitFee: stored.exitFee || "0%",
-    processingFee: stored.processingFee || "$995",
-    underwritingFee: stored.underwritingFee || "$750",
+    originationPoints:
+      stored.originationPoints != null && stored.originationPoints !== ""
+        ? stringifyFormField(stored.originationPoints)
+        : percentStoredToForm(stored.originationFeePercent),
+    originationFeePercent: percentStoredToForm(
+      stored.originationFeePercent || "2%",
+    ),
+    exitFee: percentStoredToForm(stored.exitFee || "0%"),
+    processingFee: moneyStoredToForm(stored.processingFee || "$995"),
+    underwritingFee: moneyStoredToForm(stored.underwritingFee || "$750"),
+    appraisalFee: moneyStoredToForm(stored.appraisalFee),
+    brokerPoints:
+      stored.brokerPoints != null && stored.brokerPoints !== ""
+        ? stringifyFormField(stored.brokerPoints)
+        : "",
+    wireFee: moneyStoredToForm(stored.wireFee),
+    totalClosingCosts:
+      stored.totalClosingCosts != null && stored.totalClosingCosts !== ""
+        ? moneyStoredToForm(stored.totalClosingCosts)
+        : "",
+    requiredReservesPercent:
+      stored.requiredReservesPercent != null &&
+      stored.requiredReservesPercent !== ""
+        ? stringifyFormField(stored.requiredReservesPercent)
+        : "",
+    requiredReservesAmount:
+      stored.requiredReservesAmount != null &&
+      stored.requiredReservesAmount !== ""
+        ? moneyStoredToForm(stored.requiredReservesAmount)
+        : "",
     legalFee: stored.legalFee || "Borrower Pays",
     appraisalRequired: stored.appraisalRequired || "Yes",
     environmentalReport: stored.environmentalReport || "Required",
@@ -293,13 +497,9 @@ function mapStoredLoiTermsToForm(stored) {
   };
 }
 
-function buildPrefillTerms(sourceRecord, application, submission) {
-  const fromStored = mapStoredLoiTermsToForm(sourceRecord?.loiTermsJson);
-  if (fromStored) {
-    return fromStored;
-  }
-
-  const review = sourceRecord?.lenderReviews?.[0];
+/** Prefill commercial terms from application / submission (and optional lender review). */
+function buildApplicationPrefillTerms(application, submission, review = null) {
+  const showRehab = usesRehabConstructionLoiMetrics(application?.loanProductCode);
   const fieldMap = buildSubmissionFieldMap(submission?.fields || []);
   const approvedAmount =
     review?.approvedAmount != null
@@ -310,7 +510,9 @@ function buildPrefillTerms(sourceRecord, application, submission) {
           : null);
 
   const interestRate =
-    review?.interestRate != null ? Number(review.interestRate) : null;
+    review?.interestRate != null
+      ? Number(review.interestRate)
+      : pickNumericField(fieldMap, "interestRate", "rate", "interest_rate");
 
   const termMonths =
     application?.termMonthsRequested ||
@@ -341,45 +543,74 @@ function buildPrefillTerms(sourceRecord, application, submission) {
     "propertyValue",
     "asIsValue",
     "purchasePrice",
+    "currentMarketValue",
+    "collateralValue",
+    "appraisedValue",
   );
   const projectCost = pickNumericField(
     fieldMap,
     "totalProjectCost",
     "projectCost",
-    "purchasePrice",
   );
   const arv = pickNumericField(fieldMap, "afterRepairValue", "arv");
+  const rehabCost =
+    pickNumericField(
+      fieldMap,
+      "rehabCost",
+      "rehabBudget",
+      "constructionCost",
+      "constructionBudget",
+    ) ||
+    (propertyValue != null && projectCost != null
+      ? Math.max(0, projectCost - propertyValue)
+      : null);
 
   const requiredDocuments =
     (review?.conditions || [])
       .map((item) => item.description)
       .filter(Boolean) || [];
 
+  const loanForRatio = approvedAmount || totalLoanAmount;
+
   return {
     approvedAmount: approvedAmount ? String(approvedAmount) : "",
     interestRate: interestRate ? String(interestRate) : "",
+    collateralOrPropertyValue: propertyValue ? String(propertyValue) : "",
+    rehabConstructionCost:
+      showRehab && rehabCost != null && rehabCost > 0 ? String(rehabCost) : "",
+    afterRepairValue: showRehab && arv ? String(arv) : "",
     ltvPercent:
-      totalLoanAmount && propertyValue
-        ? String(Number(((totalLoanAmount / propertyValue) * 100).toFixed(2)))
+      loanForRatio && propertyValue
+        ? String(Number(((loanForRatio / propertyValue) * 100).toFixed(2)))
         : "",
     ltcPercent:
-      totalLoanAmount && projectCost
-        ? String(Number(((totalLoanAmount / projectCost) * 100).toFixed(2)))
+      showRehab && loanForRatio && projectCost
+        ? String(Number(((loanForRatio / projectCost) * 100).toFixed(2)))
         : "",
     arvPercent:
-      totalLoanAmount && arv
-        ? String(Number(((totalLoanAmount / arv) * 100).toFixed(2)))
+      showRehab && loanForRatio && arv
+        ? String(Number(((loanForRatio / arv) * 100).toFixed(2)))
         : "",
+    maximumLtvPercent: "",
+    maximumLtcPercent: "",
+    maximumArvPercent: "",
     monthlyPayment:
       monthlyPayment != null ? String(Number(monthlyPayment.toFixed(2))) : "",
     interestOnly,
     loanTerm,
     requiredDocuments,
     customDocument: "",
-    originationFeePercent: "2%",
-    exitFee: "0%",
-    processingFee: "$995",
-    underwritingFee: "$750",
+    originationPoints: "2",
+    originationFeePercent: "2",
+    exitFee: "0",
+    processingFee: "995",
+    underwritingFee: "750",
+    appraisalFee: "",
+    brokerPoints: "",
+    wireFee: "",
+    totalClosingCosts: "",
+    requiredReservesPercent: "",
+    requiredReservesAmount: "",
     legalFee: "Borrower Pays",
     appraisalRequired: "Yes",
     environmentalReport: "Required",
@@ -391,6 +622,19 @@ function buildPrefillTerms(sourceRecord, application, submission) {
     expirationDate: defaultExpirationDate(),
     specialConditions: [],
   };
+}
+
+function buildPrefillTerms(sourceRecord, application, submission) {
+  const fromStored = mapStoredLoiTermsToForm(sourceRecord?.loiTermsJson);
+  if (fromStored) {
+    return fromStored;
+  }
+
+  return buildApplicationPrefillTerms(
+    application,
+    submission,
+    sourceRecord?.lenderReviews?.[0] || null,
+  );
 }
 
 function buildApplicationContext(submission, application) {
@@ -405,6 +649,43 @@ function buildApplicationContext(submission, application) {
     pickField(fieldMap, "borrowerLastName", "lastName") ||
     primaryContact?.lastName ||
     "";
+
+  const propertyValue = pickNumericField(
+    fieldMap,
+    "propertyValue",
+    "asIsValue",
+    "purchasePrice",
+    "currentMarketValue",
+    "collateralValue",
+    "appraisedValue",
+  );
+  const projectCost = pickNumericField(
+    fieldMap,
+    "totalProjectCost",
+    "projectCost",
+  );
+  const arv = pickNumericField(fieldMap, "afterRepairValue", "arv");
+  const rehabCost =
+    pickNumericField(
+      fieldMap,
+      "rehabCost",
+      "rehabBudget",
+      "constructionCost",
+      "constructionBudget",
+    ) ||
+    (propertyValue != null && projectCost != null
+      ? Math.max(0, projectCost - propertyValue)
+      : null);
+  const interestRate = pickNumericField(
+    fieldMap,
+    "interestRate",
+    "rate",
+    "interest_rate",
+  );
+  const termMonths =
+    application?.termMonthsRequested ||
+    parseTermMonths(pickField(fieldMap, "loanTerm", "termMonths")) ||
+    null;
 
   return {
     borrowerName:
@@ -427,6 +708,17 @@ function buildApplicationContext(submission, application) {
       `${application?.brokerUser?.firstName || ""} ${application?.brokerUser?.lastName || ""}`.trim() ||
       application?.brokerOrg?.name ||
       "",
+    propertyValue,
+    projectCost,
+    arv,
+    rehabCost,
+    interestRate,
+    termMonths,
+    loanTerm: termMonths ? `${termMonths} Months` : "",
+    requestedAmount:
+      application?.amountRequested != null
+        ? Number(application.amountRequested)
+        : pickNumericField(fieldMap, "amountRequested", "loanAmount"),
   };
 }
 
@@ -468,8 +760,12 @@ async function getBrokerLoiPrefill(
   );
 
   // Standalone broker/LO term sheet — no lender LOI required.
-  // Create form starts blank except brand name / logo (white-label).
+  // Prefill commercial terms from the application / submission data.
   if (!hasSourceId) {
+    const hasExistingBrokerLoi = Boolean(application.brokerLoiUrl);
+    const fromStoredStandalone = hasExistingBrokerLoi
+      ? mapStoredLoiTermsToForm(application.brokerLoiTerms)
+      : null;
     return {
       data: {
         applicationId,
@@ -477,7 +773,9 @@ async function getBrokerLoiPrefill(
         sourceLenderName: "Broker Term Sheet",
         sourceLoiUrl: null,
         standalone: true,
-        terms: buildEmptyBrokerLoiFormTerms(),
+        terms:
+          fromStoredStandalone ||
+          buildApplicationPrefillTerms(application, submission),
         applicationContext: buildApplicationContext(submission, application),
         brokerBranding: {
           brandName: whiteLabel.brokerBrandName,
@@ -826,7 +1124,9 @@ async function generateBrokerLoi(
     }
   }
 
-  const serializedTerms = serializeBrokerLoiTerms(brokerTerms);
+  const serializedTerms = serializeBrokerLoiTerms(brokerTerms, {
+    loanProductCode: application.loanProductCode,
+  });
   const previousDocumentNames = extractStoredBrokerLoiDocumentNames(
     application.brokerLoiTerms,
   );
