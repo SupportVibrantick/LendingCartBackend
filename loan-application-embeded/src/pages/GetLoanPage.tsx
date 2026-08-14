@@ -162,7 +162,9 @@ export default function GetLoanPage() {
           publicEmbed
           brokerOrgId={resolved.brokerOrgId}
           publicLinkRef={resolved.ref}
-          publicSourcePortal={resolved.sourcePortal}
+          publicSourcePortal={
+            (resolved.sourcePortal?.toLowerCase() as any) || null
+          }
           showCoBrokerBorrowerInformationTab={
             resolved.showCoBrokerBorrowerInformationTab
           }
