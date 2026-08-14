@@ -5,11 +5,8 @@
 
 @source "./**/*.{js,jsx,ts,tsx}";
 
-@custom-variant dark (&:where(.dark, .dark *));
-
 :root {
   --primary-color: #2c92d5;
-  color-scheme: light;
 }
 
 body {

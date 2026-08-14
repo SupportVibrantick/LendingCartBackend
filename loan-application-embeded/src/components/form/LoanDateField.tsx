@@ -11,15 +11,10 @@ type LoanDateFieldProps = {
   className?: string;
   id?: string;
   disabled?: boolean;
-  disablePastDates?: boolean;
-  hasError?: boolean;
 };
 
 const BASE_INPUT_CLASS =
   "w-full px-4 py-1 pr-10 rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-sm";
-
-const ERROR_INPUT_CLASS =
-  "border-red-500 bg-red-50 ring-1 ring-red-200 focus:border-red-500 focus:ring-red-200";
 
 export default function LoanDateField({
   value = "",
@@ -28,8 +23,6 @@ export default function LoanDateField({
   className = "",
   id: idProp,
   disabled = false,
-  disablePastDates = false,
-  hasError = false,
 }: LoanDateFieldProps) {
   const autoId = useId().replace(/:/g, "");
   const id = idProp || `loan-date-${autoId}`;
@@ -37,17 +30,13 @@ export default function LoanDateField({
   const fpRef = useRef<Instance | null>(null);
   const onChangeRef = useRef(onChange);
   const classNameRef = useRef(className);
-  const hasErrorRef = useRef(hasError);
   onChangeRef.current = onChange;
   classNameRef.current = className;
-  hasErrorRef.current = hasError;
 
   const applyAltInputStyles = (instance: Instance) => {
     if (!instance.altInput) return;
     instance.altInput.placeholder = placeholder;
-    const errorClass = hasErrorRef.current ? ERROR_INPUT_CLASS : "";
-    instance.altInput.className =
-      `${BASE_INPUT_CLASS} ${errorClass} ${classNameRef.current}`.trim();
+    instance.altInput.className = `${BASE_INPUT_CLASS} ${classNameRef.current}`.trim();
   };
 
   useEffect(() => {
@@ -60,16 +49,13 @@ export default function LoanDateField({
       allowInput: true,
       disableMobile: true,
       defaultDate: value || undefined,
-      minDate: disablePastDates ? "today" : undefined,
       onChange: (_dates, dateStr) => {
         onChangeRef.current(dateStr || "");
       },
       onReady: (_dates, _dateStr, instance) => {
         applyAltInputStyles(instance);
 
-        if (
-          instance.calendarContainer.querySelector(".flatpickr-footer-actions")
-        ) {
+        if (instance.calendarContainer.querySelector(".flatpickr-footer-actions")) {
           return;
         }
 
@@ -106,13 +92,13 @@ export default function LoanDateField({
       fpRef.current?.destroy();
       fpRef.current = null;
     };
-  }, [id, placeholder, disablePastDates]);
+  }, [id, placeholder]);
 
   useEffect(() => {
     const fp = fpRef.current;
     if (!fp) return;
     applyAltInputStyles(fp);
-  }, [className, placeholder, hasError]);
+  }, [className, placeholder]);
 
   useEffect(() => {
     const fp = fpRef.current;
@@ -120,7 +106,9 @@ export default function LoanDateField({
 
     const next = value || "";
     const selected = fp.selectedDates[0];
-    const selectedIso = selected ? flatpickr.formatDate(selected, "Y-m-d") : "";
+    const selectedIso = selected
+      ? flatpickr.formatDate(selected, "Y-m-d")
+      : "";
 
     if (selectedIso !== next) {
       fp.setDate(next || "", false);

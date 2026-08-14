@@ -13,6 +13,7 @@ import {
   RefreshCw,
   Search,
   Shield,
+  Trash2,
   MoreVertical,
   UserCheck,
   Users,
@@ -25,7 +26,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { createPortal } from "react-dom";
 import toast from "react-hot-toast";
-// import Swal from "sweetalert2";
+import Swal from "sweetalert2";
 // import Select from "react-select";
 import PageMeta from "../../components/common/PageMeta";
 import ViewLoanOfficerModal from "./ViewLoanOfficerModal";
@@ -603,61 +604,61 @@ export default function LoanOfficersPage() {
 
   /* ================= DELETE ================= */
 
-  // const handleDelete = async (id: string) => {
-  //   const isDark = document.documentElement.classList.contains("dark");
+  const handleDelete = async (id: string) => {
+    const isDark = document.documentElement.classList.contains("dark");
 
-  //   const result = await Swal.fire({
-  //     title: "Are you sure?",
-  //     text: "This Loan Officer will be permanently deleted!",
-  //     icon: "warning",
-  //     showCancelButton: true,
-  //     confirmButtonColor: "#dc2626",
-  //     cancelButtonColor: "#6b7280",
-  //     confirmButtonText: "Yes, Delete",
-  //     cancelButtonText: "Cancel",
+    const result = await Swal.fire({
+      title: "Are you sure?",
+      text: "This Loan Officer will be permanently deleted!",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#dc2626",
+      cancelButtonColor: "#6b7280",
+      confirmButtonText: "Yes, Delete",
+      cancelButtonText: "Cancel",
 
-  //     background: isDark ? "#1e293b" : "#ffffff",
-  //     color: isDark ? "#e2e8f0" : "#1e293b",
+      background: isDark ? "#1e293b" : "#ffffff",
+      color: isDark ? "#e2e8f0" : "#1e293b",
 
-  //     customClass: {
-  //       popup: "rounded-2xl",
-  //       container: "swal-high-zindex",
-  //     },
-  //   });
+      customClass: {
+        popup: "rounded-2xl",
+        container: "swal-high-zindex",
+      },
+    });
 
-  //   if (!result.isConfirmed) return;
+    if (!result.isConfirmed) return;
 
-  //   closeRowMenu();
-  //   const token = sessionStorage.getItem("broker_token");
-  //   try {
-  //     await fetch(`${API_BASE}/broker/users/${id}`, {
-  //       method: "DELETE",
-  //       headers: { Authorization: `Bearer ${token}` },
-  //     });
+    closeRowMenu();
+    const token = sessionStorage.getItem("broker_token");
+    try {
+      await fetch(`${API_BASE}/broker/users/${id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
 
-  //     await Swal.fire({
-  //       title: "Deleted!",
-  //       text: "Loan Officer has been deleted successfully.",
-  //       icon: "success",
-  //       timer: 1500,
-  //       showConfirmButton: false,
-  //       background: isDark ? "#1e293b" : "#ffffff",
-  //       color: isDark ? "#e2e8f0" : "#1e293b",
-  //       customClass: {
-  //         popup: "rounded-2xl",
-  //         container: "swal-high-zindex",
-  //       },
-  //     });
+      await Swal.fire({
+        title: "Deleted!",
+        text: "Loan Officer has been deleted successfully.",
+        icon: "success",
+        timer: 1500,
+        showConfirmButton: false,
+        background: isDark ? "#1e293b" : "#ffffff",
+        color: isDark ? "#e2e8f0" : "#1e293b",
+        customClass: {
+          popup: "rounded-2xl",
+          container: "swal-high-zindex",
+        },
+      });
 
-  //     fetchOfficers();
-  //   } catch (error) {
-  //     Swal.fire({
-  //       title: "Error",
-  //       text: "Something went wrong!",
-  //       icon: "error",
-  //     });
-  //   }
-  // };
+      fetchOfficers();
+    } catch (error) {
+      Swal.fire({
+        title: "Error",
+        text: "Something went wrong!",
+        icon: "error",
+      });
+    }
+  };
 
   // const getPermissionLabel = (key: string) => {
   //   for (const group of PERMISSIONS) {
@@ -1259,7 +1260,7 @@ export default function LoanOfficersPage() {
               </button>
             </div>
 
-            {/* <div className="border-t border-gray-100 py-0.5 dark:border-gray-800">
+            <div className="border-t border-gray-100 py-0.5 dark:border-gray-800">
               <button
                 type="button"
                 onClick={() => handleDelete(activeMenuUser.id)}
@@ -1268,7 +1269,7 @@ export default function LoanOfficersPage() {
                 <Trash2 className="h-3.5 w-3.5" />
                 Delete
               </button>
-            </div> */}
+            </div>
           </div>,
           document.body,
         )}

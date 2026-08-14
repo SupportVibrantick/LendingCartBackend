@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useState } from "react";
 import {
   ChevronDown,
   ChevronUp,
@@ -6,9 +6,7 @@ import {
   Pencil,
   Send,
 } from "lucide-react";
-import type {
-  PendingApplicationDocument,
-} from "../../lib/applicationDocumentTypes";
+import type { PendingApplicationDocument } from "../../lib/applicationDocumentTypes";
 import type {
   ReviewSummarySection,
   ReviewValidationIssue,
@@ -21,12 +19,7 @@ type ResidentialReviewStepProps = {
   onEditStep: (stepIndex: number) => void;
   onSubmit: () => void;
   submitting: boolean;
-  creditAuthorizationConsent?: boolean;
-  onCreditAuthorizationConsentChange?: (agreed: boolean) => void;
 };
-
-const CREDIT_AUTHORIZATION_CONSENT_TEXT =
-  "By signing this Loan Application, I/We authorize the Broker, Lender, and their authorized representatives to obtain, verify, and exchange my/our personal, financial, employment, and credit information, including obtaining consumer and/or commercial credit reports, for the purpose of evaluating, processing, underwriting, and administering this loan application. I/We certify that all information provided is true and complete to the best of my/our knowledge.";
 
 const ReviewAccordion = ({
   section,
@@ -132,24 +125,8 @@ export default function ResidentialReviewStep({
   onEditStep,
   onSubmit,
   submitting,
-  creditAuthorizationConsent,
-  onCreditAuthorizationConsentChange,
 }: ResidentialReviewStepProps) {
-  const [localConsent, setLocalConsent] = useState(false);
-  const consentAgreed =
-    creditAuthorizationConsent !== undefined
-      ? creditAuthorizationConsent
-      : localConsent;
-
-  const setConsentAgreed = (agreed: boolean) => {
-    if (onCreditAuthorizationConsentChange) {
-      onCreditAuthorizationConsentChange(agreed);
-      return;
-    }
-    setLocalConsent(agreed);
-  };
-
-  const canSubmit = issues.length === 0 && consentAgreed;
+  const canSubmit = issues.length === 0;
 
   return (
     <div className="mt-5 space-y-5">
@@ -203,41 +180,11 @@ export default function ResidentialReviewStep({
         ))}
       </div>
 
-      <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-4 dark:border-slate-700 dark:bg-slate-900/40">
-        <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">
-          Credit Authorization Consent
-        </p>
-        <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
-          {CREDIT_AUTHORIZATION_CONSENT_TEXT}
-        </p>
-        <label className="mt-4 flex cursor-pointer items-start gap-3">
-          <input
-            type="checkbox"
-            checked={consentAgreed}
-            onChange={(e) => setConsentAgreed(e.target.checked)}
-            className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 text-[#2C92D5] focus:ring-[#2C92D5]"
-          />
-          <span className="text-sm text-slate-700 dark:text-slate-300">
-            I/We agree to the Credit Authorization Consent above.{" "}
-            <span className="text-red-500">*</span>
-          </span>
-        </label>
-      </div>
-
-      {!canSubmit && issues.length > 0 && (
+      {!canSubmit && (
         <p className="text-center text-sm text-slate-500">
           Please complete all required fields to enable submission.
         </p>
       )}
-
-      {!canSubmit &&
-        issues.length === 0 &&
-        !consentAgreed && (
-          <p className="text-center text-sm text-slate-500">
-            Please agree to the Credit Authorization Consent to enable
-            submission.
-          </p>
-        )}
 
       <button
         type="button"
