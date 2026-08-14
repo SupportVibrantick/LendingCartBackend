@@ -826,10 +826,10 @@ const LoanApplication = ({
 
   // Embedded-only: surface the "are you a broker?" step in the public-embed
   // share flow when the originating portal is BROKER or LOAN_OFFICER.
-  const includeCoBrokerBorrowerInformationTab = 
-  Boolean(publicEmbed) &&
-  Boolean(showCoBrokerBorrowerInformationTab) &&
-  (publicSourcePortal === "broker" || publicSourcePortal === "loan_officer");
+  const includeCoBrokerBorrowerInformationTab =
+    Boolean(publicEmbed) &&
+    Boolean(showCoBrokerBorrowerInformationTab) &&
+    (publicSourcePortal === "broker" || publicSourcePortal === "loan_officer");
 
   // const includeCoBrokerBorrowerInformationTab = true;
 
@@ -1374,7 +1374,21 @@ const LoanApplication = ({
           newErrors["loanRequest.zip"] = "ZIP is required";
       }
     }
-    if (stepIndex === 3) {
+    // Embedded-only: "are you a broker?" step. When the public-embed flow
+    // surfaces this step it lives at index 3, so validate it before we
+    // fall through to the borrower step (which is shifted to index 4 in
+    // that case).
+    if (includeCoBrokerBorrowerInformationTab && stepIndex === 3) {
+      const referringErrors = validateReferringBrokerStep({
+        workingWithMortgageBroker: formData.workingWithMortgageBroker || "",
+        referringBroker:
+          formData.referringBroker || createEmptyReferringBroker(),
+      });
+      Object.assign(newErrors, referringErrors);
+    }
+
+    const borrowerStepIndex = includeCoBrokerBorrowerInformationTab ? 4 : 3;
+    if (stepIndex === borrowerStepIndex) {
       if (useResidentialBorrowerPanel) {
         if (!formData.borrower.firstName?.trim())
           newErrors["borrower.firstName"] = "First name is required";
@@ -1396,7 +1410,10 @@ const LoanApplication = ({
         checkObject(formData.borrower, "borrower");
       }
     }
-    if (stepIndex === 4 && !usesBase44Financials) {
+    if (
+      stepIndex === (includeCoBrokerBorrowerInformationTab ? 5 : 4) &&
+      !usesBase44Financials
+    ) {
       checkObject(formData.loanTermIncome, "loanTermIncome");
       const loanTerm = Number(formData.loanTermIncome.loanTerm);
       if (loanTerm && loanTerm <= 0)
@@ -1454,7 +1471,12 @@ const LoanApplication = ({
       );
     }
     if (useResidentialBorrowerPanel) {
-      add("Borrower Email", 3, !formData.borrower.email?.trim());
+      const borrowerStepIndex = includeCoBrokerBorrowerInformationTab ? 4 : 3;
+      add(
+        "Borrower Email",
+        borrowerStepIndex,
+        !formData.borrower.email?.trim(),
+      );
       const unanswered = countUnansweredDeclarations(
         formData.borrower.declarations,
       );
@@ -1463,13 +1485,13 @@ const LoanApplication = ({
           unanswered === 1
             ? "Declarations (1 unanswered)"
             : `Declarations (${unanswered} unanswered)`,
-          3,
+          borrowerStepIndex,
           true,
         );
       }
       formData.coBorrowers.forEach((coBorrower, index) => {
         if (!coBorrower.email?.trim()) {
-          add(`Co-Borrower ${index + 1} Email`, 3, true);
+          add(`Co-Borrower ${index + 1} Email`, borrowerStepIndex, true);
         }
         const coUnanswered = countUnansweredDeclarations(
           coBorrower.declarations,
@@ -1479,11 +1501,42 @@ const LoanApplication = ({
             coUnanswered === 1
               ? `Co-Borrower ${index + 1} Declarations (1 unanswered)`
               : `Co-Borrower ${index + 1} Declarations (${coUnanswered} unanswered)`,
-            3,
+            borrowerStepIndex,
             true,
           );
         }
       });
+    }
+
+    // Embedded-only: surface the "are you a broker?" review issues only
+    // when the originating portal exposes the co-broker tab. When the tab
+    // is hidden, skip these checks entirely so empty fields don't show up
+    // in the review section.
+    if (includeCoBrokerBorrowerInformationTab) {
+      const referringErrors = validateReferringBrokerStep({
+        workingWithMortgageBroker: formData.workingWithMortgageBroker || "",
+        referringBroker:
+          formData.referringBroker || createEmptyReferringBroker(),
+      });
+      const coBrokerStepIndex = 3;
+      if (referringErrors.workingWithMortgageBroker) {
+        add("Mortgage Broker Question", coBrokerStepIndex, true);
+      }
+      if (referringErrors["referringBroker.email"]) {
+        add("Referring Broker Email", coBrokerStepIndex, true);
+      }
+      if (referringErrors["referringBroker.firstName"]) {
+        add("Referring Broker First Name", coBrokerStepIndex, true);
+      }
+      if (referringErrors["referringBroker.lastName"]) {
+        add("Referring Broker Last Name", coBrokerStepIndex, true);
+      }
+      if (referringErrors["referringBroker.companyName"]) {
+        add("Referring Broker Company", coBrokerStepIndex, true);
+      }
+      if (referringErrors["referringBroker.phone"]) {
+        add("Referring Broker Phone", coBrokerStepIndex, true);
+      }
     }
     return issues;
   };
@@ -5142,7 +5195,6 @@ focus:border-blue-500 outline-none text-sm ${
                   Let us know if you're filling this out on behalf of a broker
                   or loan officer.
                 </p>
-
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-2">
                     Are you a broker, or are you working with a mortgage broker
@@ -5177,6 +5229,11 @@ focus:border-blue-500 outline-none text-sm ${
                       </label>
                     ))}
                   </div>
+                  {errors["workingWithMortgageBroker"] && (
+                    <p className="text-xs text-red-500 mt-1">
+                      {errors["workingWithMortgageBroker"]}
+                    </p>
+                  )}
                 </div>
 
                 {formData.workingWithMortgageBroker === "yes" && (
@@ -5194,80 +5251,180 @@ focus:border-blue-500 outline-none text-sm ${
                             value={
                               (formData.referringBroker as any)?.[field] || ""
                             }
-                            onChange={(e) =>
+                            onChange={(e) => {
+                              const value = e.target.value;
                               setFormData((prev) => ({
                                 ...prev,
                                 referringBroker: {
                                   ...createEmptyReferringBroker(),
                                   ...prev.referringBroker,
-                                  [field]: e.target.value,
+                                  [field]: value,
                                 },
-                              }))
-                            }
+                              }));
+                              // validation
+                              setErrors((prev) => {
+                                const updated = { ...prev };
+                                if (!value.trim()) {
+                                  updated[`referringBroker.${field}`] =
+                                    field === "firstName"
+                                      ? "First name is required"
+                                      : "Last name is required";
+                                } else {
+                                  delete updated[`referringBroker.${field}`];
+                                }
+                                return updated;
+                              });
+                            }}
                             className={`w-full px-4 py-1 rounded-md border bg-white dark:bg-slate-900 dark:text-slate-200 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none ${
                               errors[`referringBroker.${field}`]
                                 ? "border-red-500 bg-red-50"
                                 : "border-slate-300 dark:border-slate-600"
                             }`}
                           />
+                          {errors[`referringBroker.${field}`] && (
+                            <p className="text-xs text-red-500 mt-1">
+                              {errors[`referringBroker.${field}`]}
+                            </p>
+                          )}
                         </div>
                       ))}
 
-                      {/* Company Name + Phone */}
-                      {(["companyName", "phone"] as const).map((field) => (
-                        <div key={field}>
-                          <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">
-                            {field === "companyName" ? "Company Name" : "Phone"}
-                            <span className="text-red-500"> *</span>
-                          </label>
-                          <input
-                            type="text"
-                            value={
-                              (formData.referringBroker as any)?.[field] || ""
-                            }
-                            onChange={(e) =>
-                              setFormData((prev) => ({
-                                ...prev,
-                                referringBroker: {
-                                  ...createEmptyReferringBroker(),
-                                  ...prev.referringBroker,
-                                  [field]: e.target.value,
-                                },
-                              }))
-                            }
-                            className={`w-full px-4 py-1 rounded-md border bg-white dark:bg-slate-900 dark:text-slate-200 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none ${
-                              errors[`referringBroker.${field}`]
-                                ? "border-red-500 bg-red-50"
-                                : "border-slate-300 dark:border-slate-600"
-                            }`}
-                          />
-                        </div>
-                      ))}
+                      {/* Company Name */}
+                      <div>
+                        <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">
+                          Company Name <span className="text-red-500"> *</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={formData.referringBroker?.companyName || ""}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            setFormData((prev) => ({
+                              ...prev,
+                              referringBroker: {
+                                ...createEmptyReferringBroker(),
+                                ...prev.referringBroker,
+                                companyName: value,
+                              },
+                            }));
+                            setErrors((prev) => {
+                              const updated = { ...prev };
+                              if (!value.trim()) {
+                                updated["referringBroker.companyName"] =
+                                  "Company name is required";
+                              } else {
+                                delete updated["referringBroker.companyName"];
+                              }
+                              return updated;
+                            });
+                          }}
+                          className={`w-full px-4 py-1 rounded-md border bg-white dark:bg-slate-900 dark:text-slate-200 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none ${
+                            errors["referringBroker.companyName"]
+                              ? "border-red-500 bg-red-50"
+                              : "border-slate-300 dark:border-slate-600"
+                          }`}
+                        />
+                        {errors["referringBroker.companyName"] && (
+                          <p className="text-xs text-red-500 mt-1">
+                            {errors["referringBroker.companyName"]}
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Phone — US formatted */}
+                      <div>
+                        <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">
+                          Phone <span className="text-red-500"> *</span>
+                        </label>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          placeholder="(555) 555-5555"
+                          value={formData.referringBroker?.phone || ""}
+                          onChange={(e) => {
+                            const formatted = formatUSPhone(e.target.value);
+                            setFormData((prev) => ({
+                              ...prev,
+                              referringBroker: {
+                                ...createEmptyReferringBroker(),
+                                ...prev.referringBroker,
+                                phone: formatted,
+                              },
+                            }));
+                            // US phone: (XXX) XXX-XXXX = 14 chars
+                            setErrors((prev) => {
+                              const updated = { ...prev };
+                              if (!formatted.trim()) {
+                                updated["referringBroker.phone"] =
+                                  "Phone is required";
+                              } else if (
+                                formatted.replace(/\D/g, "").length !== 10
+                              ) {
+                                updated["referringBroker.phone"] =
+                                  "Enter a valid 10-digit US phone number";
+                              } else {
+                                delete updated["referringBroker.phone"];
+                              }
+                              return updated;
+                            });
+                          }}
+                          className={`w-full px-4 py-1 rounded-md border bg-white dark:bg-slate-900 dark:text-slate-200 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none ${
+                            errors["referringBroker.phone"]
+                              ? "border-red-500 bg-red-50"
+                              : "border-slate-300 dark:border-slate-600"
+                          }`}
+                        />
+                        {errors["referringBroker.phone"] && (
+                          <p className="text-xs text-red-500 mt-1">
+                            {errors["referringBroker.phone"]}
+                          </p>
+                        )}
+                      </div>
 
                       {/* Email — full width */}
-                      <div>
+                      <div className="col-span-2">
                         <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">
                           Email <span className="text-red-500">*</span>
                         </label>
                         <input
                           type="email"
                           value={formData.referringBroker?.email || ""}
-                          onChange={(e) =>
+                          onChange={(e) => {
+                            const value = e.target.value;
                             setFormData((prev) => ({
                               ...prev,
                               referringBroker: {
                                 ...createEmptyReferringBroker(),
                                 ...prev.referringBroker,
-                                email: e.target.value,
+                                email: value,
                               },
-                            }))
-                          }
+                            }));
+                            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                            setErrors((prev) => {
+                              const updated = { ...prev };
+                              if (!value.trim()) {
+                                updated["referringBroker.email"] =
+                                  "Email is required";
+                              } else if (!emailRegex.test(value)) {
+                                updated["referringBroker.email"] =
+                                  "Enter a valid email address";
+                              } else {
+                                delete updated["referringBroker.email"];
+                              }
+                              return updated;
+                            });
+                          }}
                           className={`w-full px-4 py-1 rounded-md border bg-white dark:bg-slate-900 dark:text-slate-200 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none ${
-                            errors[`referringBroker.email`]
+                            errors["referringBroker.email"]
                               ? "border-red-500 bg-red-50"
                               : "border-slate-300 dark:border-slate-600"
                           }`}
                         />
+                        {errors["referringBroker.email"] && (
+                          <p className="text-xs text-red-500 mt-1">
+                            {errors["referringBroker.email"]}
+                          </p>
+                        )}
                       </div>
                     </div>
                   </div>
