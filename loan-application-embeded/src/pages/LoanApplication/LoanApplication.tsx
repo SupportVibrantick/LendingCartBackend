@@ -988,7 +988,7 @@ const LoanApplication = ({
         ...createSbaEntityDefaults(),
       },
       financials: createResidentialFinancialsDefaults(),
-      workingWithMortgageBroker: "",
+      workingWithMortgageBroker: "no",
       referringBroker: {
         email: "",
         firstName: "",
