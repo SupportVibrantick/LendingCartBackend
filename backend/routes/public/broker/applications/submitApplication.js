@@ -378,6 +378,7 @@ async function submitApplication(fastify) {
       message: "Application submitted successfully",
       data: {
         submissionId: result.submission.id,
+        loanApplicationId: result.loanApplication.id,
         sourcePortal: result.sourcePortal,
         ...(result.warnings?.length ? { warnings: result.warnings } : {}),
       },

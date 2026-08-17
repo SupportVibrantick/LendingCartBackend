@@ -21,7 +21,7 @@ import {
   revokePendingDocumentPreview,
   type PendingApplicationDocument,
 } from "../../lib/applicationDocumentTypes";
-import { uploadPendingApplicationDocuments } from "../../lib/uploadApplicationDocuments";
+import { uploadPendingApplicationDocuments, uploadPublicPendingDocuments } from "../../lib/uploadApplicationDocuments";
 import {
   createResidentialFinancialsDefaults,
   appendResidentialFinancialsSubmission,
@@ -988,7 +988,7 @@ const LoanApplication = ({
         ...createSbaEntityDefaults(),
       },
       financials: createResidentialFinancialsDefaults(),
-      workingWithMortgageBroker: "",
+      workingWithMortgageBroker: "no",
       referringBroker: {
         email: "",
         firstName: "",
@@ -2040,10 +2040,37 @@ const LoanApplication = ({
           throw new Error(result.message || "Submission failed");
         }
 
+        const publicSubmissionId = result?.data?.submissionId;
+        const publicLoanApplicationId = result?.data?.loanApplicationId;
+
+        // Upload any documents the borrower staged in Step 6 — the public
+        // submit endpoint only persists form fields, so without this the
+        // broker dashboard would show zero documents for this submission.
+        if (
+          pendingDocuments.length > 0 &&
+          publicLoanApplicationId &&
+          publicSubmissionId
+        ) {
+          try {
+            await uploadPublicPendingDocuments({
+              apiBase: API_BASE,
+              loanApplicationId: publicLoanApplicationId,
+              submissionId: publicSubmissionId,
+              documents: pendingDocuments,
+            });
+          } catch (uploadError: any) {
+            toast.error(
+              uploadError.message ||
+                "Application submitted but some documents failed to upload",
+            );
+            onPublicSubmitSuccess?.(publicSubmissionId);
+            return;
+          }
+        }
+
         if (pendingDocuments.length > 0) {
-          toast(
-            "Application submitted. A client portal access link was sent to the borrower email.",
-            { icon: "ℹ️" },
+          toast.success(
+            "Application submitted with documents. Client portal access link sent to borrower email.",
           );
         } else {
           toast.success(
@@ -2051,7 +2078,7 @@ const LoanApplication = ({
           );
         }
 
-        onPublicSubmitSuccess?.(result?.data?.submissionId);
+        onPublicSubmitSuccess?.(publicSubmissionId);
         return;
       }
 
