@@ -230,9 +230,10 @@ export default function AllDocuments() {
 
   const fetchDocuments = useCallback(
     async (
-      pageNo = currentPage,
-      searchQuery = debouncedSearch,
-      productId = selectedProductId,
+      pageNo = 1,
+      searchQuery = "",
+      productId = "",
+      signal?: AbortSignal,
     ) => {
       try {
         setLoadingList(true);
@@ -255,8 +256,13 @@ export default function AllDocuments() {
 
         const res = await fetch(
           `${API_BASE}/admin/document-types/read?${params.toString()}`,
-          { headers: getAuthHeaders({ json: false }) },
+          {
+            headers: getAuthHeaders({ json: false }),
+            signal,
+          },
         );
+
+        if (signal?.aborted) return;
 
         const json = await res.json();
         if (!res.ok || !json.success) {
@@ -303,21 +309,18 @@ export default function AllDocuments() {
           hasNextPage: page < totalPages,
           hasPreviousPage: page > 1,
         });
-        setCurrentPage(page);
+        setCurrentPage((prev) => (prev === page ? prev : page));
       } catch (error) {
+        if ((error as { name?: string })?.name === "AbortError") return;
         console.error(error);
         toast.error("Failed to load documents");
       } finally {
-        setLoadingList(false);
+        if (!signal?.aborted) {
+          setLoadingList(false);
+        }
       }
     },
-    [
-      currentPage,
-      debouncedSearch,
-      selectedProductId,
-      statusFilter,
-      sourceFilter,
-    ],
+    [statusFilter, sourceFilter],
   );
 
   useEffect(() => {
@@ -327,26 +330,34 @@ export default function AllDocuments() {
   useEffect(() => {
     const timer = window.setTimeout(() => {
       setDebouncedSearch(searchInput.trim());
+      setCurrentPage(1);
     }, SEARCH_DEBOUNCE_MS);
     return () => window.clearTimeout(timer);
   }, [searchInput]);
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [debouncedSearch, statusFilter, sourceFilter, selectedProductId]);
+  }, [statusFilter, sourceFilter, selectedProductId]);
 
   useEffect(() => {
     closeForm();
   }, [selectedProductId]);
 
   useEffect(() => {
-    fetchDocuments(currentPage, debouncedSearch, selectedProductId);
+    const controller = new AbortController();
+    void fetchDocuments(
+      currentPage,
+      debouncedSearch,
+      selectedProductId,
+      controller.signal,
+    );
+    return () => controller.abort();
   }, [
     currentPage,
     debouncedSearch,
+    selectedProductId,
     statusFilter,
     sourceFilter,
-    selectedProductId,
     fetchDocuments,
   ]);
 
