@@ -9,4 +9,7 @@ module.exports = async function publicBrokerApplications(fastify) {
   fastify.register(require("./submitApplication"));
   fastify.register(require("./viewSubmission"));
   fastify.register(require("./listSubmissions"));
+  fastify.register(require("./requestDocuments"));
+  fastify.register(require("./uploadDocument"));
+  fastify.register(require("./listDocuments"));
 };
