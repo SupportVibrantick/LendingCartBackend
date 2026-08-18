@@ -59,11 +59,15 @@ function formatPhone(value: string) {
 }
 
 function getInitials(first?: string, last?: string) {
-  return `${first?.charAt(0) || ""}${last?.charAt(0) || ""}`.toUpperCase() || "?";
+  return (
+    `${first?.charAt(0) || ""}${last?.charAt(0) || ""}`.toUpperCase() || "?"
+  );
 }
 
 function getAvatarTone(seed: string) {
-  const index = seed.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  const index = seed
+    .split("")
+    .reduce((acc, char) => acc + char.charCodeAt(0), 0);
   return AVATAR_TONES[index % AVATAR_TONES.length];
 }
 
@@ -81,7 +85,9 @@ function formatTeamAssignments(
 ) {
   if (!members?.length) return "—";
   const names = members
-    .map((member) => `${member.firstName || ""} ${member.lastName || ""}`.trim())
+    .map((member) =>
+      `${member.firstName || ""} ${member.lastName || ""}`.trim(),
+    )
     .filter(Boolean);
   if (!names.length) return "—";
   if (names.length === 1) return names[0];
@@ -197,13 +203,7 @@ function CoBrokerStatusBadge({
   );
 }
 
-function LoanOfficerBadge({
-  label,
-  title,
-}: {
-  label: string;
-  title?: string;
-}) {
+function LoanOfficerBadge({ label, title }: { label: string; title?: string }) {
   if (label === "—") {
     return <span className="text-sm text-gray-400">—</span>;
   }
@@ -253,7 +253,6 @@ function StatChip({
   );
 }
 
-
 export default function SubBroker() {
   const isLoPortal = isLoanOfficerPortalPath();
   const canAccessCoBrokerPortal =
@@ -280,12 +279,18 @@ export default function SubBroker() {
   });
   const [search, setSearch] = useState(initialQuery);
   const [debouncedSearch, setDebouncedSearch] = useState(initialQuery);
-  const [statusFilter, setStatusFilter] = useState<"" | "ACTIVE" | "DISABLED">("");
+  const [statusFilter, setStatusFilter] = useState<"" | "ACTIVE" | "DISABLED">(
+    "",
+  );
   const [formModalOpen, setFormModalOpen] = useState(false);
-  const [formModalMode, setFormModalMode] = useState<"create" | "edit">("create");
+  const [formModalMode, setFormModalMode] = useState<"create" | "edit">(
+    "create",
+  );
   const [editSubBrokerId, setEditSubBrokerId] = useState<string | null>(null);
   const [togglingId, setTogglingId] = useState<string | null>(null);
-  const [viewSubBroker, setViewSubBroker] = useState<SubBrokerUser | null>(null);
+  const [viewSubBroker, setViewSubBroker] = useState<SubBrokerUser | null>(
+    null,
+  );
   const [viewLoading, setViewLoading] = useState(false);
   const [impersonatingId, setImpersonatingId] = useState<string | null>(null);
   // const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -430,9 +435,14 @@ export default function SubBroker() {
     };
   }, [activeMenuId]);
 
-  const openRowMenu = (id: string, event: React.MouseEvent<HTMLButtonElement>) => {
+  const openRowMenu = (
+    id: string,
+    event: React.MouseEvent<HTMLButtonElement>,
+  ) => {
     event.stopPropagation();
-    setMenuPos(computeActionMenuPosition(event.currentTarget.getBoundingClientRect()));
+    setMenuPos(
+      computeActionMenuPosition(event.currentTarget.getBoundingClientRect()),
+    );
     setActiveMenuId((current) => (current === id ? null : id));
   };
 
@@ -516,7 +526,9 @@ export default function SubBroker() {
       const newTab = window.open(portalUrl, "_blank", "noopener,noreferrer");
 
       if (!newTab) {
-        toast.error("Pop-up blocked. Allow pop-ups to open the co-broker portal.");
+        toast.error(
+          "Pop-up blocked. Allow pop-ups to open the co-broker portal.",
+        );
         return;
       }
 
@@ -552,7 +564,9 @@ export default function SubBroker() {
         return;
       }
 
-      toast.success(`Co Brokers ${newStatus === "ACTIVE" ? "activated" : "disabled"}`);
+      toast.success(
+        `Co Brokers ${newStatus === "ACTIVE" ? "activated" : "disabled"}`,
+      );
       closeRowMenu();
       fetchOfficers();
     } catch {
@@ -569,9 +583,20 @@ export default function SubBroker() {
     try {
       if (mode === "view") setViewLoading(true);
 
+      const token = sessionStorage.getItem("loan_officer_token");
+
+      if (!token) {
+        toast.error("Unauthorized!");
+        return null;
+      }
+
       const res = await fetch(`${API_BASE}/broker/sub-broker/${id}`, {
-        headers: getAuthHeaders(),
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
       });
+
       const json = await res.json();
 
       if (!res.ok || !json.success) {
@@ -589,6 +614,8 @@ export default function SubBroker() {
   };
 
   const openViewSubBroker = async (id: string) => {
+    console.log("hi");
+
     setViewSubBroker(null);
     setViewLoading(true);
     const data = await fetchSubBrokerDetails(id, "view");
@@ -687,7 +714,10 @@ export default function SubBroker() {
 
   return (
     <>
-      <PageMeta title="Co Brokers | Broker Dashboard" description="Manage Co Brokers" />
+      <PageMeta
+        title="Co Brokers | Broker Dashboard"
+        description="Manage Co Brokers"
+      />
 
       <div className="space-y-5 pb-6">
         {/* Page header */}
@@ -705,7 +735,11 @@ export default function SubBroker() {
           </div>
 
           <div className="flex flex-wrap gap-2 lg:justify-end">
-            <StatChip icon={<Users className="h-3.5 w-3.5" />} label="Total" value={stats.total} />
+            <StatChip
+              icon={<Users className="h-3.5 w-3.5" />}
+              label="Total"
+              value={stats.total}
+            />
             <StatChip
               icon={<UserCheck className="h-3.5 w-3.5" />}
               label="Active"
@@ -757,7 +791,11 @@ export default function SubBroker() {
                           : "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
                       }`}
                     >
-                      {status === "" ? "All" : status === "ACTIVE" ? "Active" : "Disabled"}
+                      {status === ""
+                        ? "All"
+                        : status === "ACTIVE"
+                          ? "Active"
+                          : "Disabled"}
                     </button>
                   ))}
                 </div>
@@ -770,7 +808,9 @@ export default function SubBroker() {
                   disabled={loading || isSearching}
                   className="inline-flex h-10 items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-200"
                 >
-                  <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+                  <RefreshCw
+                    className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
+                  />
                   Refresh
                 </button>
 
@@ -791,7 +831,11 @@ export default function SubBroker() {
           <div className="flex items-center justify-between gap-3 border-b border-gray-100 bg-gray-50/50 px-4 py-2.5 dark:border-gray-800 dark:bg-gray-800/30 sm:px-5">
             <p className="text-xs text-gray-500 dark:text-gray-400">
               {loading || isSearching ? (
-                isSearching ? "Searching..." : "Loading co-brokers..."
+                isSearching ? (
+                  "Searching..."
+                ) : (
+                  "Loading co-brokers..."
+                )
               ) : (
                 <>
                   <span className="font-semibold text-gray-800 dark:text-gray-200">
@@ -846,16 +890,19 @@ export default function SubBroker() {
                   ? "Try adjusting your search or status filter."
                   : "Create your first co-broker to delegate loan pipeline work."}
               </p>
-              {!search && !debouncedSearch && !statusFilter && canEditCoBrokers && (
-                <button
-                  type="button"
-                  onClick={openCreateModal}
-                  className="mt-4 inline-flex items-center gap-2 rounded-xl bg-[#13538A] px-4 py-2 text-sm font-medium text-white hover:bg-[#1a6aad]"
-                >
-                  <Plus className="h-4 w-4" />
-                  Create Co Broker
-                </button>
-              )}
+              {!search &&
+                !debouncedSearch &&
+                !statusFilter &&
+                canEditCoBrokers && (
+                  <button
+                    type="button"
+                    onClick={openCreateModal}
+                    className="mt-4 inline-flex items-center gap-2 rounded-xl bg-[#13538A] px-4 py-2 text-sm font-medium text-white hover:bg-[#1a6aad]"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Create Co Broker
+                  </button>
+                )}
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -921,8 +968,12 @@ export default function SubBroker() {
                   {officers.map((o, index) => {
                     const fullName = `${o.firstName} ${o.lastName}`.trim();
                     const isActive = o.status === "ACTIVE";
-                    const loanOfficerLabel = formatTeamAssignments(o.assignedLoanOfficers);
-                    const loanOfficerTitle = getTeamAssignmentTitle(o.assignedLoanOfficers);
+                    const loanOfficerLabel = formatTeamAssignments(
+                      o.assignedLoanOfficers,
+                    );
+                    const loanOfficerTitle = getTeamAssignmentTitle(
+                      o.assignedLoanOfficers,
+                    );
 
                     return (
                       <tr
@@ -1097,7 +1148,9 @@ export default function SubBroker() {
               <p className="truncate text-[11px] font-semibold text-gray-900 dark:text-white">
                 {activeMenuUser.firstName} {activeMenuUser.lastName}
               </p>
-              <p className="truncate text-[10px] text-gray-500">{activeMenuUser.email}</p>
+              <p className="truncate text-[10px] text-gray-500">
+                {activeMenuUser.email}
+              </p>
             </div>
 
             <div className="py-0.5">
@@ -1146,19 +1199,23 @@ export default function SubBroker() {
                 <button
                   type="button"
                   disabled={togglingId === activeMenuUser.id}
-                  onClick={() => toggleStatus(activeMenuUser.id, activeMenuUser.status)}
+                  onClick={() =>
+                    toggleStatus(activeMenuUser.id, activeMenuUser.status)
+                  }
                   className="flex w-full items-center gap-2 px-3 py-2 text-xs text-gray-700 transition hover:bg-gray-50 disabled:opacity-50 dark:text-gray-200 dark:hover:bg-gray-800"
                 >
                   <Power
                     className={`h-3.5 w-3.5 ${
-                      activeMenuUser.status === "ACTIVE" ? "text-emerald-600" : "text-gray-500"
+                      activeMenuUser.status === "ACTIVE"
+                        ? "text-emerald-600"
+                        : "text-gray-500"
                     }`}
                   />
                   {activeMenuUser.status === "ACTIVE" ? "Disable" : "Enable"}
                 </button>
               )}
             </div>
-{/* 
+            {/* 
             {canDeleteCoBrokers && (
             <div className="border-t border-gray-100 py-0.5 dark:border-gray-800">
               <button
@@ -1197,7 +1254,6 @@ export default function SubBroker() {
           openEditSubBroker(id);
         }}
       />
-
     </>
   );
 }
