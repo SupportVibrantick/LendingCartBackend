@@ -2131,22 +2131,29 @@ export default function LoanPreview() {
                   : "No documents have been requested yet"}
               </p>
             </div>
-            <button
-              type="button"
-              onClick={() =>
-                setIsRequestedDocsCollapsed((current) => !current)
-              }
-              className="inline-flex items-center gap-1.5 rounded-md border border-indigo-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-indigo-700 transition hover:bg-indigo-50 dark:border-indigo-500/30 dark:bg-slate-900 dark:text-indigo-300"
-            >
-              {isRequestedDocsCollapsed ? "Show list" : "Hide list"}
-              <ChevronDown
-                size={14}
-                className={`transition-transform ${isRequestedDocsCollapsed ? "" : "rotate-180"}`}
-              />
-            </button>
+            {requestedDocumentsList.length > 0 ? (
+              <button
+                type="button"
+                onClick={() =>
+                  setIsRequestedDocsCollapsed((current) => !current)
+                }
+                className="inline-flex items-center gap-1.5 rounded-md border border-indigo-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-indigo-700 transition hover:bg-indigo-50 dark:border-indigo-500/30 dark:bg-slate-900 dark:text-indigo-300"
+              >
+                {isRequestedDocsCollapsed ? "Show list" : "Hide list"}
+                <ChevronDown
+                  size={14}
+                  className={`transition-transform ${isRequestedDocsCollapsed ? "" : "rotate-180"}`}
+                />
+              </button>
+            ) : null}
           </div>
 
-          {!isRequestedDocsCollapsed && requestedDocumentsList.length > 0 ? (
+          {requestedDocumentsList.length === 0 ? (
+            <p className="rounded-xl border border-dashed border-indigo-200 bg-white/70 px-4 py-3 text-xs text-slate-500 dark:border-indigo-500/20 dark:bg-slate-900/40 dark:text-slate-400">
+              No document request has been sent for this application yet. Select
+              documents below and submit a request to mark them as requested.
+            </p>
+          ) : !isRequestedDocsCollapsed ? (
             <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">
               {requestedDocumentsList.map((item) => (
                 <div
@@ -2167,11 +2174,6 @@ export default function LoanPreview() {
                 </div>
               ))}
             </div>
-          ) : !isRequestedDocsCollapsed ? (
-            <p className="rounded-xl border border-dashed border-indigo-200 bg-white/70 px-4 py-3 text-xs text-slate-500 dark:border-indigo-500/20 dark:bg-slate-900/40 dark:text-slate-400">
-              Select documents below and submit a request. They will appear here
-              once marked as requested.
-            </p>
           ) : (
             <p className="rounded-xl border border-dashed border-indigo-200 bg-white/70 px-4 py-3 text-xs text-slate-500 dark:border-indigo-500/20 dark:bg-slate-900/40 dark:text-slate-400">
               List collapsed. Click "Show list" to view requested documents.
