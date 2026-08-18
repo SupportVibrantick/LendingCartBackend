@@ -58,9 +58,9 @@ import LoanCriteria from "./pages/Lenders/LoanCriteria/Main";
 import AddLender from "./pages/Lenders/AddLender/Main";
 import UpdateLender from "./pages/Lenders/UpdateLender/Main";
 import EmailMarketing from "./pages/EmailMarketing/EmailMarketing";
-// import AllLoanOfficers from "./pages/Platform/AllLoanOfficers";
-// import AllSubBrokers from "./pages/Platform/AllSubBrokers";
-// import AllClients from "./pages/Platform/AllClients";
+import AllLoanOfficers from "./pages/Platform/AllLoanOfficers";
+import AllSubBrokers from "./pages/Platform/AllSubBrokers";
+import AllClients from "./pages/Platform/AllClients";
 import AllCommunications from "./pages/Platform/AllCommunications";
 import PlatformReports from "./pages/Platform/PlatformReports";
 
@@ -175,9 +175,9 @@ export default function App() {
             />
             <Route path="/super-admin" element={<Navigate to="/" replace />} />
             <Route index path="/platform-reports" element={<PlatformReports />} />
-            {/* <Route index path="/all-loan-officers" element={<AllLoanOfficers />} />
+            <Route index path="/all-loan-officers" element={<AllLoanOfficers />} />
             <Route index path="/all-sub-brokers" element={<AllSubBrokers />} />
-            <Route index path="/all-clients" element={<AllClients />} /> */}
+            <Route index path="/all-clients" element={<AllClients />} />
             <Route index path="/all-communications" element={<AllCommunications />} />
 
             <Route index path="/admin-logs" element={<AdminLogs />} />
