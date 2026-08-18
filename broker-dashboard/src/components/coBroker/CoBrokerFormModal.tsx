@@ -33,10 +33,10 @@ const inputClass =
 const labelClass =
   "mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300";
 
-function getAuthHeaders(): Record<string, string> {
-  const token = sessionStorage.getItem("broker_token");
-  return token ? { Authorization: `Bearer ${token}` } : {};
-}
+// function getAuthHeaders(): Record<string, string> {
+//   const token = sessionStorage.getItem("broker_token");
+//   return token ? { Authorization: `Bearer ${token}` } : {};
+// }
 
 function ToggleRow({
   label,
@@ -165,10 +165,20 @@ export default function CoBrokerFormModal({
       (async () => {
         try {
           setLoading(true);
+
+          const token = sessionStorage.getItem("loan_officer_token");
+          if (!token) {
+            toast.error("Unauthorized!");
+            return;
+          }
+
           const res = await fetch(
             `${API_BASE}/broker/sub-broker/${subBrokerId}`,
             {
-              headers: getAuthHeaders(),
+              headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
+              },
             },
           );
           const json = await res.json();
@@ -271,7 +281,7 @@ export default function CoBrokerFormModal({
     const validationErrors = validateCoBrokerForm(form, { isEdit });
     setErrors(validationErrors);
     if (Object.keys(validationErrors).length > 0) {
-      let firstKey = (
+      const firstKey = (
         Object.keys(validationErrors) as (keyof typeof validationErrors)[]
       )[0];
       toast.error(`${validationErrors[firstKey]}`);
@@ -280,15 +290,42 @@ export default function CoBrokerFormModal({
 
     try {
       setSaving(true);
-      const formData = buildCoBrokerFormData(form);
+      const { body, files } = buildCoBrokerFormData(form);
       const url = isEdit
         ? `${API_BASE}/broker/sub-broker/${subBrokerId}/update`
         : `${API_BASE}/broker/sub-broker/create`;
 
+      const token = sessionStorage.getItem("loan_officer_token");
+      if (!token) {
+        toast.error("Unauthorized!");
+        return null;
+      }
+
+      const hasFiles = Boolean(files.logo || files.w9);
+      console.log("co-broker submit body:", body, "files:", files);
+
+      let requestBody: BodyInit;
+      const headers: Record<string, string> = {
+        Authorization: `Bearer ${token}`,
+      };
+
+      if (hasFiles) {
+        const formData = new FormData();
+        for (const [key, value] of Object.entries(body)) {
+          formData.append(key, String(value));
+        }
+        if (files.logo) formData.append("logo", files.logo);
+        if (files.w9) formData.append("w9", files.w9);
+        requestBody = formData;
+      } else {
+        headers["Content-Type"] = "application/json";
+        requestBody = JSON.stringify(body);
+      }
+
       const res = await fetch(url, {
         method: isEdit ? "PATCH" : "POST",
-        headers: getAuthHeaders(),
-        body: formData,
+        headers,
+        body: requestBody,
       });
 
       const json = await res.json();
@@ -852,13 +889,13 @@ export default function CoBrokerFormModal({
                   >
                     <input
                       type="email"
-                      className={`${inputClass} ${form.useSameContact || isEdit ? "cursor-not-allowed bg-gray-100 opacity-80 dark:bg-gray-900" : ""}`}
+                      className={`${inputClass} ${form.useSameContact ? "cursor-not-allowed bg-gray-100 opacity-80 dark:bg-gray-900" : ""}`}
                       value={form.contactEmail}
                       onChange={(e) =>
                         updateField("contactEmail", e.target.value)
                       }
                       placeholder="contact@company.com"
-                      disabled={form.useSameContact || isEdit}
+                      disabled={form.useSameContact}
                     />
                   </FormField>
                 </div>
