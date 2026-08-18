@@ -278,6 +278,19 @@ export default function LoanPipeline() {
     return matchesSearch && matchesStatus;
   });
 
+  const filteredVolume = filteredRows.reduce(
+    (sum, r) => sum + (r.amount ?? 0),
+    0,
+  );
+
+  const filteredApprovedCount = filteredRows.filter(
+    (r) => r.applicationStatus === "APPROVED",
+  ).length;
+  const filteredInReviewCount = filteredRows.filter(
+    (r) =>
+      r.applicationStatus === "IN_REVIEW" || r.applicationStatus === "SUBMITTED",
+  ).length;
+
   useEffect(() => {
     setCurrentPage(1);
   }, [searchTerm, statusFilter]);
@@ -333,16 +346,16 @@ export default function LoanPipeline() {
             <p className="mt-1 max-w-2xl text-sm text-white/80">
               {filteredRows.length} application{filteredRows.length === 1 ? "" : "s"}
               {statusFilter ? ` · ${formatStatusLabel(statusFilter)}` : ""} ·{" "}
-              {formatCompactAmount(totalVolume)} total volume
+              {formatCompactAmount(filteredVolume)} total volume
             </p>
           </div>
 
           <div className="grid w-full grid-cols-2 gap-3 sm:grid-cols-4 xl:w-[min(100%,520px)] xl:shrink-0">
             {[
               { label: "Total Apps", value: rows.length },
-              { label: "In Review", value: inReviewCount },
-              { label: "Approved", value: approvedCount },
-              { label: "Volume", value: formatCompactAmount(totalVolume) },
+              { label: "In Review", value: filteredInReviewCount },
+              { label: "Approved", value: filteredApprovedCount },
+              { label: "Volume", value: formatCompactAmount(filteredVolume) },
             ].map(({ label, value }) => (
               <div
                 key={label}
