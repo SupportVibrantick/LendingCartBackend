@@ -3,6 +3,7 @@ import {
   Activity,
   Building2,
   CheckCircle2,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   ClipboardList,
@@ -39,9 +40,15 @@ import {
   expandDocumentsForDisplay,
   getCoBrokerSendableToPrincipalBrokerIds,
   getDocumentSourceDisplay,
+  getDocumentRequestDisplay,
   getUploadFileSentLabel,
+  buildDocumentRequestHistoryByTypeId,
+  buildRequestedDocumentsList,
+  formatDocumentTimelineDate,
+  type RequestedDocumentListItem,
   matchesDocumentSentFilter,
   type DocumentDisplayRow,
+  type DocumentRequestHistoryEntry,
   type DocumentSentFilter,
   type DocumentSourceFilter,
 } from "../../lib/documentLenderSend";
@@ -444,6 +451,13 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
   const [customDocumentName, setCustomDocumentName] = useState("");
   const [addingCustomDoc, setAddingCustomDoc] = useState(false);
   const [selectingAllRequestDocs, setSelectingAllRequestDocs] = useState(false);
+  const [requestDocHistoryByTypeId, setRequestDocHistoryByTypeId] = useState<
+    Record<string, DocumentRequestHistoryEntry>
+  >({});
+  const [requestedDocumentsList, setRequestedDocumentsList] = useState<
+    RequestedDocumentListItem[]
+  >([]);
+  const [isRequestedDocsCollapsed, setIsRequestedDocsCollapsed] = useState(true);
 
   const [submittedLenders, setSubmittedLenders] = useState<any[]>([]);
   const [selectedLenders, setSelectedLenders] = useState<string[]>([]);
@@ -1271,6 +1285,31 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
     }
   };
 
+  const fetchExistingDocumentRequestHistory = async (currentSubmissionId: string) => {
+    try {
+      const params = new URLSearchParams({
+        page: "1",
+        limit: "100",
+        documentCategory: "upload",
+      });
+
+      const res = await fetch(
+        previewApi.submissionDocuments(currentSubmissionId, params.toString()),
+        {
+          headers: getAuthHeaders(),
+        },
+      );
+      const json = await res.json();
+      if (!json.success) return;
+
+      const documents = json.data?.documents || [];
+      setRequestDocHistoryByTypeId(buildDocumentRequestHistoryByTypeId(documents));
+      setRequestedDocumentsList(buildRequestedDocumentsList(documents));
+    } catch (err) {
+      console.error("Failed to load document request history", err);
+    }
+  };
+
   const handleSelectAllRequestDocs = async () => {
     try {
       setSelectingAllRequestDocs(true);
@@ -1587,6 +1626,7 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
 
       if (submissionId) {
         await fetchSubmissionDocuments(submissionId, 1, "", "", "all", "all");
+        await fetchExistingDocumentRequestHistory(submissionId);
       }
     } catch (err: any) {
       toast.error(err.message || "Something went wrong");
@@ -1875,6 +1915,9 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
         "",
         submissionDetail?.loanProduct?.id,
       );
+      if (submissionId) {
+        fetchExistingDocumentRequestHistory(submissionId);
+      }
     }
 
     if (
@@ -2355,6 +2398,66 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
           </p>
         </div>
 
+        <div className="mb-5 rounded-2xl border border-indigo-200 bg-indigo-50/70 p-4 dark:border-indigo-500/30 dark:bg-indigo-500/10">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <div>
+              <h3 className="text-sm font-semibold text-indigo-900 dark:text-indigo-200">
+                Requested Documents
+              </h3>
+              <p className="text-xs text-indigo-700/80 dark:text-indigo-300/80">
+                {requestedDocumentsList.length > 0
+                  ? `${requestedDocumentsList.length} document${requestedDocumentsList.length === 1 ? "" : "s"} already requested on this application`
+                  : "No documents have been requested yet"}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() =>
+                setIsRequestedDocsCollapsed((current) => !current)
+              }
+              className="inline-flex items-center gap-1.5 rounded-md border border-indigo-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-indigo-700 transition hover:bg-indigo-50 dark:border-indigo-500/30 dark:bg-slate-900 dark:text-indigo-300"
+            >
+              {isRequestedDocsCollapsed ? "Show list" : "Hide list"}
+              <ChevronDown
+                size={14}
+                className={`transition-transform ${isRequestedDocsCollapsed ? "" : "rotate-180"}`}
+              />
+            </button>
+          </div>
+
+          {!isRequestedDocsCollapsed && requestedDocumentsList.length > 0 ? (
+            <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">
+              {requestedDocumentsList.map((item) => (
+                <div
+                  key={item.documentTypeId}
+                  className="flex h-full flex-col justify-between gap-2 rounded-xl border border-indigo-100 bg-white px-3 py-2.5 dark:border-indigo-500/20 dark:bg-slate-900"
+                >
+                  <p className="min-w-0 text-sm font-medium text-slate-800 dark:text-slate-100">
+                    {item.documentName}
+                  </p>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="rounded-full bg-indigo-100 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300">
+                      Requested
+                    </span>
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                      {formatDocumentTimelineDate(item.requestedAt)}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : !isRequestedDocsCollapsed ? (
+            <p className="rounded-xl border border-dashed border-indigo-200 bg-white/70 px-4 py-3 text-xs text-slate-500 dark:border-indigo-500/20 dark:bg-slate-900/40 dark:text-slate-400">
+              Select documents below and submit a request. They will appear here
+              once marked as requested.
+            </p>
+          ) : (
+            <p className="rounded-xl border border-dashed border-indigo-200 bg-white/70 px-4 py-3 text-xs text-slate-500 dark:border-indigo-500/20 dark:bg-slate-900/40 dark:text-slate-400">
+              List collapsed. Click "Show list" to view requested documents.
+            </p>
+          )}
+        </div>
+
         {selectedRequestDocs.length > 0 ? (
           <div className="mb-5 rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4 dark:border-emerald-500/30 dark:bg-emerald-500/10">
             <div className="mb-3 flex items-center justify-between gap-3">
@@ -2504,13 +2607,18 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
                 const isSelected = selectedRequestDocs.includes(
                   doc.documentTypeId,
                 );
+                const requestHistory =
+                  requestDocHistoryByTypeId[String(doc.documentTypeId)];
+                const isAlreadyRequested = Boolean(requestHistory);
                 return (
                   <label
                     key={doc.documentTypeId}
                     className={`group relative flex cursor-pointer items-start gap-3 rounded-2xl border px-4 py-3 transition-all duration-200 ${
                       isSelected
                         ? "scale-[1.01] border-emerald-500 bg-emerald-50 shadow-sm dark:bg-emerald-500/10"
-                        : "border-gray-200 bg-white hover:border-emerald-300 hover:bg-gray-50 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-emerald-500/40"
+                        : isAlreadyRequested
+                          ? "border-indigo-200 bg-indigo-50/40 dark:border-indigo-500/30 dark:bg-indigo-500/5"
+                          : "border-gray-200 bg-white hover:border-emerald-300 hover:bg-gray-50 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-emerald-500/40"
                     }`}
                   >
                     <input
@@ -2535,7 +2643,17 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
                             Custom
                           </span>
                         ) : null}
+                        {isAlreadyRequested ? (
+                          <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300">
+                            Requested
+                          </span>
+                        ) : null}
                       </div>
+                      {requestHistory ? (
+                        <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                          {formatDocumentTimelineDate(requestHistory.requestedAt)}
+                        </p>
+                      ) : null}
                     </div>
 
                     {isSelected ? (
@@ -3503,10 +3621,11 @@ dark:bg-red-900/20 dark:text-red-400"
             <table className="w-full min-w-[920px] table-fixed text-sm">
               <colgroup>
                 <col className="w-12" />
-                <col className="w-[28%]" />
-                <col className="w-[14%]" />
-                <col className="w-[26%]" />
+                <col className="w-[24%]" />
+                <col className="w-[12%]" />
                 <col className="w-[16%]" />
+                <col className="w-[22%]" />
+                <col className="w-[14%]" />
                 <col className="w-16" />
               </colgroup>
 
@@ -3523,6 +3642,7 @@ dark:bg-red-900/20 dark:text-red-400"
                   </th>
                   <th className="px-4 py-3 text-left">Document</th>
                   <th className="px-4 py-3 text-left">Source</th>
+                  <th className="px-4 py-3 text-left">Requested</th>
                   <th className="px-4 py-3 text-left">Status</th>
                   <th className="px-4 py-3 text-left">Files</th>
                   <th className="px-4 py-3 text-center">Actions</th>
@@ -3538,6 +3658,7 @@ dark:bg-red-900/20 dark:text-red-400"
                       brokerSourceLabel: isCoBrokerPortal ? "Me" : "Me",
                       subBrokerSourceLabel: "Me",
                     });
+                  const requestDisplay = getDocumentRequestDisplay(doc);
                   const uploadedCount = Number(doc.uploadedCount) || 0;
 
                   return (
@@ -3590,6 +3711,16 @@ dark:bg-red-900/20 dark:text-red-400"
                         >
                           {sourceLabel}
                         </span>
+                      </td>
+
+                      <td className="px-4 py-3 align-middle">
+                        {requestDisplay?.date ? (
+                          <span className="text-[11px] font-medium text-slate-700 dark:text-slate-200">
+                            {requestDisplay.date}
+                          </span>
+                        ) : (
+                          <span className="text-[11px] text-slate-400">—</span>
+                        )}
                       </td>
 
                       <td className="px-4 py-3 align-middle">

@@ -77,6 +77,7 @@ interface DocumentItem {
   status: "PENDING" | "UPLOADED" | string;
   uploadedFiles: UploadedFileItem[];
   required: boolean;
+  requestedAt?: string | null;
 }
 
 const MAX_FILES = 4;
@@ -160,6 +161,7 @@ const mapApiDocumentsToItems = (docs: any[] = []): DocumentItem[] =>
     status: doc.status,
     uploadedFiles: normalizeUploadedFiles(doc.uploadedFiles || []),
     required: doc.required ?? doc.isRequired ?? true,
+    requestedAt: doc.requestedAt || doc.lastRequestedAt || null,
   }));
 
 const applyApplicationDocuments = (
@@ -651,6 +653,9 @@ export default function ClientUpload() {
         name: doc.documentType?.name,
         status: doc.status,
         required: doc.isRequired,
+        source: doc.source,
+        requestedAt:
+          doc.lastRequestedAt || doc.sentToClientAt || doc.createdAt || null,
         uploadedFiles: (doc.uploads || []).map((file: any) => ({
           uploadId: file.id,
           fileName: file.fileName,
@@ -1569,6 +1574,12 @@ export default function ClientUpload() {
                         <p className="text-sm font-medium text-gray-800 line-clamp-2">
                           {doc.name}
                         </p>
+
+                        {doc.requestedAt ? (
+                          <p className="mt-1 text-[11px] text-slate-500">
+                            Requested {formatUploadedAt(doc.requestedAt)}
+                          </p>
+                        ) : null}
 
                         <p
                           className={`text-xs mt-1 font-medium ${

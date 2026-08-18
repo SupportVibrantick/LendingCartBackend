@@ -296,9 +296,15 @@ const Pricing = () => {
   const hasYearlyPricing = packages.some((pkg) => pkg.priceYearly != null);
 
   useEffect(() => {
-    if (isAuthenticated) {
-      refreshUser();
+    if (!isAuthenticated) return;
+
+    const checkoutHandled = sessionStorage.getItem("loan_ai_checkout_handled");
+    if (checkoutHandled === "true") {
+      sessionStorage.removeItem("loan_ai_checkout_handled");
+      return;
     }
+
+    refreshUser();
   }, [isAuthenticated, refreshUser]);
 
   useEffect(() => {
@@ -482,9 +488,11 @@ const Pricing = () => {
               const accent = getAccent(pkg.code);
 
               const isPopular = Boolean(pkg.isPopular);
+              const userBillingCycle = user?.subscribedBillingCycle || "MONTHLY";
               const isCurrentPlan =
                 Boolean(user?.hasBrokerSubscription) &&
-                user?.subscribedPackageId === pkg.id;
+                user?.subscribedPackageId === pkg.id &&
+                userBillingCycle === billingCycle;
 
               const features = normalizeFeatures(pkg.features);
 

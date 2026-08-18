@@ -28,8 +28,11 @@ export default function PricingPlanCta({ pkg, checkoutState, demoState }) {
   }
 
   const hasSubscription = Boolean(user?.hasBrokerSubscription);
+  const userBillingCycle = user?.subscribedBillingCycle || "MONTHLY";
   const isCurrentPlan =
-    hasSubscription && user?.subscribedPackageId === pkg.id;
+    hasSubscription &&
+    user?.subscribedPackageId === pkg.id &&
+    userBillingCycle === checkoutState?.billingCycle;
 
   const handleSubscribe = async () => {
     if (checkoutLoading) return;

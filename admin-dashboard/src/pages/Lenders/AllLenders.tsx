@@ -3,6 +3,7 @@ import { MdModeEdit, MdDelete } from "react-icons/md";
 import { TiPlus } from "react-icons/ti";
 import EditLenderModal from "./EditLenderModal";
 import LenderDetailsModal from "./LenderDetailsModal";
+import TransferLenderPortalModal from "./TransferLenderPortalModal";
 import { useNavigate } from "react-router-dom";
 
 import {
@@ -21,6 +22,7 @@ import {
   Phone,
   Upload,
   Link2,
+  ArrowRightLeft,
   // Filter,
 } from "lucide-react";
 import Swal from "sweetalert2";
@@ -50,6 +52,7 @@ type Lender = {
   adminFirstName?: string;
   adminLastName?: string;
   adminEmail?: string;
+  adminPhone?: string;
 };
 
 type Admin = {
@@ -105,6 +108,9 @@ export default function AllLendersPage() {
 
   const [editingLender, setEditingLender] = useState<Lender | null>(null);
   const [viewingLender, setViewingLender] = useState<Lender | null>(null);
+  const [transferringLender, setTransferringLender] = useState<Lender | null>(
+    null,
+  );
 
   const [query, setQuery] = useState("");
   const [pageSize, setPageSize] = useState<number>(6);
@@ -340,6 +346,7 @@ export default function AllLendersPage() {
         adminFirstName: o.adminFirstName,
         adminLastName: o.adminLastName,
         adminEmail: o.adminEmail,
+        adminPhone: o.adminPhone,
         brokerOrgId: o.brokerOrgId,
         brokerName: o.brokerName,
         createdAt: o.createdAt,
@@ -1365,6 +1372,17 @@ export default function AllLendersPage() {
                           disabled={!!rowLoadingId}
                           onClick={(e) => {
                             e.stopPropagation();
+                            setTransferringLender(l);
+                          }}
+                          className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-emerald-50 hover:text-emerald-700 dark:hover:bg-emerald-500/10"
+                          title="Transfer Lender Portal"
+                        >
+                          <ArrowRightLeft size={16} />
+                        </button>
+                        <button
+                          disabled={!!rowLoadingId}
+                          onClick={(e) => {
+                            e.stopPropagation();
                             navigate(`/update-lender/${l.id}`);
                           }}
                           className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-500/10"
@@ -1773,6 +1791,15 @@ dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100`}
               lender={viewingLender}
               apiBase={API_BASE}
               onClose={() => setViewingLender(null)}
+            />
+
+            <TransferLenderPortalModal
+              lender={transferringLender}
+              apiBase={API_BASE}
+              onClose={() => setTransferringLender(null)}
+              onTransferred={() => {
+                fetchLenders();
+              }}
             />
 
             {/* Edit Lender Modal */}

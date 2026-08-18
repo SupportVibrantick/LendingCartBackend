@@ -12,10 +12,22 @@ const {
 } = require("./feeAgreementFieldResolver");
 
 async function loadLatestCompletedSubmission(prisma, loanApplicationId) {
-  return prisma.applicationSubmission.findFirst({
+  const completed = await prisma.applicationSubmission.findFirst({
     where: {
       applicationId: loanApplicationId,
       status: "COMPLETED",
+    },
+    include: { fields: true },
+    orderBy: { createdAt: "desc" },
+  });
+  if (completed) return completed;
+
+  // Broker-created apps stay CLIENT_PENDING until the client signs.
+  // Use the latest submission so a fee agreement still resolves names/terms.
+  return prisma.applicationSubmission.findFirst({
+    where: {
+      applicationId: loanApplicationId,
+      status: { not: "SUPERSEDED" },
     },
     include: { fields: true },
     orderBy: { createdAt: "desc" },
