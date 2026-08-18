@@ -1,5 +1,6 @@
 export type DocumentSendRow = {
   requirementId: string;
+  documentTypeId?: string;
   source?: string;
   status?: string;
   documentName?: string;
@@ -7,9 +8,11 @@ export type DocumentSendRow = {
   subBrokerSourceName?: string | null;
   sentToClientAt?: string | null;
   isForwardedToClient?: boolean;
+  lastRequestedAt?: string | null;
   requestedByLenders?: Array<{
     applicationLenderId?: string | null;
     lenderName?: string | null;
+    requestedAt?: string | null;
   }>;
   sentToLenders?: Array<{
     applicationLenderId: string;
@@ -1109,5 +1112,142 @@ export function buildDocumentActivitySummary(
     lenderActivities,
     totalLenderSentCount: sentCount,
     totalLenderPendingCount: pendingCount,
+  };
+}
+
+export type DocumentRequestHistoryEntry = {
+  requestedAt: string;
+  source: string;
+  lenderName?: string | null;
+  documentName?: string;
+};
+
+export type RequestedDocumentListItem = {
+  documentTypeId: string;
+  documentName: string;
+  requestedAt: string;
+};
+
+export function buildRequestedDocumentsList(
+  documents: Array<
+    Pick<DocumentSendRow, "documentTypeId" | "lastRequestedAt" | "source"> & {
+      documentName?: string | null;
+      requestedByLenders?: DocumentSendRow["requestedByLenders"];
+      createdAt?: string | null;
+    }
+  >,
+): RequestedDocumentListItem[] {
+  const byTypeId = new Map<string, RequestedDocumentListItem>();
+
+  for (const doc of documents) {
+    const typeId = doc.documentTypeId ? String(doc.documentTypeId) : "";
+    if (!typeId) continue;
+
+    const requestedAt = getDocumentRequestedAt(doc);
+    if (!requestedAt) continue;
+
+    const documentName = doc.documentName?.trim() || "Document";
+    const existing = byTypeId.get(typeId);
+
+    if (
+      !existing ||
+      new Date(requestedAt).getTime() > new Date(existing.requestedAt).getTime()
+    ) {
+      byTypeId.set(typeId, {
+        documentTypeId: typeId,
+        documentName,
+        requestedAt,
+      });
+    }
+  }
+
+  return [...byTypeId.values()].sort(
+    (a, b) =>
+      new Date(b.requestedAt).getTime() - new Date(a.requestedAt).getTime(),
+  );
+}
+
+export function formatDocumentRequestSourceLabel(
+  source?: string | null,
+  lenderName?: string | null,
+): string {
+  switch (source) {
+    case "BROKER_ADDED":
+      return "Broker";
+    case "LENDER_ADDED":
+      return lenderName ? `Lender · ${lenderName}` : "Lender";
+    case "SUB_BROKER_ADDED":
+      return "Co-Broker";
+    default:
+      return "Requested";
+  }
+}
+
+export function getDocumentRequestedAt(
+  doc: Pick<DocumentSendRow, "lastRequestedAt"> & {
+    createdAt?: string | null;
+  },
+): string | null {
+  return doc.lastRequestedAt || doc.createdAt || null;
+}
+
+export function buildDocumentRequestHistoryByTypeId(
+  documents: Array<
+    Pick<DocumentSendRow, "documentTypeId" | "lastRequestedAt" | "source"> & {
+      documentName?: string | null;
+      requestedByLenders?: DocumentSendRow["requestedByLenders"];
+      createdAt?: string | null;
+    }
+  >,
+): Record<string, DocumentRequestHistoryEntry> {
+  const history: Record<string, DocumentRequestHistoryEntry> = {};
+
+  for (const doc of documents) {
+    const typeId = doc.documentTypeId ? String(doc.documentTypeId) : "";
+    if (!typeId) continue;
+
+    const requestedAt = getDocumentRequestedAt(doc);
+    if (!requestedAt) continue;
+
+    const lenderName =
+      doc.source === "LENDER_ADDED"
+        ? doc.requestedByLenders?.[0]?.lenderName || null
+        : null;
+
+    const existing = history[typeId];
+    if (
+      !existing ||
+      new Date(requestedAt).getTime() > new Date(existing.requestedAt).getTime()
+    ) {
+      history[typeId] = {
+        requestedAt,
+        source: String(doc.source || ""),
+        lenderName,
+        documentName: doc.documentName?.trim() || existing?.documentName,
+      };
+    }
+  }
+
+  return history;
+}
+
+export function getDocumentRequestDisplay(
+  doc: Pick<DocumentSendRow, "lastRequestedAt" | "source"> & {
+    sourceLender?: DocumentDisplayRow["sourceLender"];
+    requestedByLenders?: DocumentSendRow["requestedByLenders"];
+    createdAt?: string | null;
+  },
+): { label: string; date: string | null } | null {
+  const requestedAt = getDocumentRequestedAt(doc);
+  if (!requestedAt) return null;
+
+  const lenderName =
+    doc.sourceLender?.lenderName ||
+    doc.requestedByLenders?.[0]?.lenderName ||
+    null;
+
+  return {
+    label: formatDocumentRequestSourceLabel(doc.source, lenderName),
+    date: formatDocumentTimelineDate(requestedAt),
   };
 }

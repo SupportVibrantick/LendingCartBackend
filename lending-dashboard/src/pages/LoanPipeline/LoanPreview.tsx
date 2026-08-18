@@ -36,6 +36,12 @@ import { FaDollarSign } from "react-icons/fa6";
 import { formatDocumentStatusLabel } from "../../lib/documentStatus";
 import { getLenderDocumentSourceDisplay } from "../../lib/documentSource";
 import {
+  buildDocumentRequestHistoryByTypeId,
+  buildRequestedDocumentsList,
+  formatDocumentTimelineDate,
+  getDocumentRequestDisplay,
+} from "../../lib/documentRequestMeta";
+import {
   canLenderRequestDocuments,
   canLenderTakeDecision,
   canShowRejectAction,
@@ -442,6 +448,7 @@ export default function LoanPreview() {
     loading: false,
   });
   const [requestLoading, setRequestLoading] = useState(false);
+  const [isRequestedDocsCollapsed, setIsRequestedDocsCollapsed] = useState(true);
   const canDecide = useMemo(() => canDecideApplications(), []);
   const [decisionModal, setDecisionModal] = useState<{
     type: "APPROVED" | "DECLINED" | null;
@@ -893,14 +900,24 @@ export default function LoanPreview() {
     ? new Date(latestSubmission.createdAt)
     : null;
 
-  const fetchDocuments = async () => {
+  const requestDocHistoryByTypeId = useMemo(
+    () => buildDocumentRequestHistoryByTypeId(documentsData?.documents || []),
+    [documentsData?.documents],
+  );
+
+  const requestedDocumentsList = useMemo(
+    () => buildRequestedDocumentsList(documentsData?.documents || []),
+    [documentsData?.documents],
+  );
+
+  const fetchDocuments = async (options?: { limit?: number }) => {
     if (!applicationLenderId) return;
     try {
       setDocumentsLoading(true);
 
       const params = new URLSearchParams({
         page: String(documentPage),
-        limit: "10",
+        limit: String(options?.limit ?? 10),
       });
 
       if (documentSearchInput.trim()) {
@@ -1223,6 +1240,10 @@ export default function LoanPreview() {
 
     if (activeTab === "documents") {
       fetchDocuments();
+    }
+
+    if (activeTab === "requestDocs") {
+      fetchDocuments({ limit: 100 });
     }
 
     if (activeTab === "loi" && (loiGenerated || isLoi || hasSignedBrokerLoi)) {
@@ -1743,13 +1764,17 @@ export default function LoanPreview() {
                 <th className="px-5 py-3">Document</th>
                 <th className="px-5 py-3 text-center">Status</th>
                 <th className="px-5 py-3 text-center">Source</th>
+                <th className="px-5 py-3 text-center">Requested</th>
                 <th className="px-5 py-3 text-center">Uploads</th>
                 <th className="px-5 py-3 text-right">Action</th>
               </tr>
             </thead>
 
             <tbody className="divide-y dark:divide-slate-800">
-              {documentsData.documents?.map((doc: any) => (
+              {documentsData.documents?.map((doc: any) => {
+                const requestDisplay = getDocumentRequestDisplay(doc);
+
+                return (
                 <tr
                   key={doc.requirementId}
                   className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-all"
@@ -1796,6 +1821,16 @@ export default function LoanPreview() {
                         </span>
                       );
                     })()}
+                  </td>
+
+                  <td className="px-5 py-4 text-center">
+                    {requestDisplay?.date ? (
+                      <span className="text-[11px] font-medium text-slate-700 dark:text-slate-200">
+                        {requestDisplay.date}
+                      </span>
+                    ) : (
+                      <span className="text-[11px] text-slate-400">—</span>
+                    )}
                   </td>
 
                   {/* COUNT */}
@@ -1870,7 +1905,8 @@ export default function LoanPreview() {
                     )}
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
           )}
@@ -2083,6 +2119,66 @@ export default function LoanPreview() {
           )}
         </div>
 
+        <div className="rounded-2xl border border-indigo-200 bg-indigo-50/70 p-4 dark:border-indigo-500/30 dark:bg-indigo-500/10">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <div>
+              <h3 className="text-sm font-semibold text-indigo-900 dark:text-indigo-200">
+                Requested Documents
+              </h3>
+              <p className="text-xs text-indigo-700/80 dark:text-indigo-300/80">
+                {requestedDocumentsList.length > 0
+                  ? `${requestedDocumentsList.length} document${requestedDocumentsList.length === 1 ? "" : "s"} already requested on this application`
+                  : "No documents have been requested yet"}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() =>
+                setIsRequestedDocsCollapsed((current) => !current)
+              }
+              className="inline-flex items-center gap-1.5 rounded-md border border-indigo-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-indigo-700 transition hover:bg-indigo-50 dark:border-indigo-500/30 dark:bg-slate-900 dark:text-indigo-300"
+            >
+              {isRequestedDocsCollapsed ? "Show list" : "Hide list"}
+              <ChevronDown
+                size={14}
+                className={`transition-transform ${isRequestedDocsCollapsed ? "" : "rotate-180"}`}
+              />
+            </button>
+          </div>
+
+          {!isRequestedDocsCollapsed && requestedDocumentsList.length > 0 ? (
+            <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">
+              {requestedDocumentsList.map((item) => (
+                <div
+                  key={item.documentTypeId}
+                  className="flex h-full flex-col justify-between gap-2 rounded-xl border border-indigo-100 bg-white px-3 py-2.5 dark:border-indigo-500/20 dark:bg-slate-900"
+                >
+                  <p className="min-w-0 text-sm font-medium text-slate-800 dark:text-slate-100">
+                    {item.documentName}
+                  </p>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="rounded-full bg-indigo-100 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300">
+                      Requested
+                    </span>
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                      {formatDocumentTimelineDate(item.requestedAt)}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : !isRequestedDocsCollapsed ? (
+            <p className="rounded-xl border border-dashed border-indigo-200 bg-white/70 px-4 py-3 text-xs text-slate-500 dark:border-indigo-500/20 dark:bg-slate-900/40 dark:text-slate-400">
+              Select documents below and submit a request. They will appear here
+              once marked as requested.
+            </p>
+          ) : (
+            <p className="rounded-xl border border-dashed border-indigo-200 bg-white/70 px-4 py-3 text-xs text-slate-500 dark:border-indigo-500/20 dark:bg-slate-900/40 dark:text-slate-400">
+              List collapsed. Click "Show list" to view requested documents.
+            </p>
+          )}
+        </div>
+
         {!selectedLoanProduct && !docSelectModal.loading && (
           <div
             className="flex flex-col items-center justify-center py-12 px-6 text-center 
@@ -2185,6 +2281,8 @@ export default function LoanPreview() {
                 if (!docId) return null;
                 const isChecked =
                   docSelectModal.selectedDocs?.includes(docId) ?? false;
+                const requestHistory = requestDocHistoryByTypeId[String(docId)];
+                const isAlreadyRequested = Boolean(requestHistory);
 
                 return (
                   <div
@@ -2210,7 +2308,9 @@ export default function LoanPreview() {
           ${
             isChecked
               ? "border-[#18B6B4] bg-[#e6f7f7] dark:bg-[#18B6B4]/10"
-              : "border-gray-200 hover:border-[#18B6B4] dark:border-slate-700"
+              : isAlreadyRequested
+                ? "border-indigo-200 bg-indigo-50/50 dark:border-indigo-500/30 dark:bg-indigo-500/5"
+                : "border-gray-200 hover:border-[#18B6B4] dark:border-slate-700"
           }`}
                   >
                     <div className="flex items-center gap-2 min-w-0">
@@ -2226,13 +2326,25 @@ export default function LoanPreview() {
                       </div>
 
                       <div className="min-w-0">
-                        <p className="text-xs font-semibold text-gray-800 truncate dark:text-[#18B6B4]">
-                          {doc.documentName || doc.documentType?.name}
-                        </p>
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <p className="text-xs font-semibold text-gray-800 truncate dark:text-[#18B6B4]">
+                            {doc.documentName || doc.documentType?.name}
+                          </p>
+                          {isAlreadyRequested ? (
+                            <span className="rounded-full bg-indigo-100 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300">
+                              Requested
+                            </span>
+                          ) : null}
+                        </div>
                         <p className="text-[10px] text-gray-400 truncate">
                           {doc.isCustom ? "Custom" : "Standard"}
                           {doc.isRequired === false ? " · Optional" : " · Required"}
                         </p>
+                        {requestHistory ? (
+                          <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
+                            {formatDocumentTimelineDate(requestHistory.requestedAt)}
+                          </p>
+                        ) : null}
                       </div>
                     </div>
 

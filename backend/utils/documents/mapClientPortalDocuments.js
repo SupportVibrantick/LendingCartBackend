@@ -31,6 +31,8 @@ function mapClientPortalDocuments(documentRequirements = []) {
       status: doc.status,
       required: doc.isRequired,
       source: doc.source,
+      requestedAt:
+        doc.lastRequestedAt || doc.sentToClientAt || doc.createdAt || null,
       uploadedFiles: (doc.uploads || []).map((file) => ({
         fileName: file.fileName,
         fileUrl: file.fileUrl,

@@ -46,6 +46,11 @@ import ResidentialBorrowerPanel from "../../components/loanApplication/Residenti
 import ResidentialFinancialsStep from "../../components/loanApplication/ResidentialFinancialsStep";
 import ResidentialDocumentsStep from "../../components/loanApplication/ResidentialDocumentsStep";
 import ResidentialReviewStep from "../../components/loanApplication/ResidentialReviewStep";
+import LoanApplicationFeeAgreementStep, {
+  EMPTY_FEE_AGREEMENT_DRAFT,
+  validateOptionalFeeAgreementDraft,
+  type FeeAgreementDraft,
+} from "../../components/loanApplication/LoanApplicationFeeAgreementStep";
 import Sba7aEntityFields from "../../components/loanApplication/Sba7aEntityFields";
 import AblEntityFields from "../../components/loanApplication/AblEntityFields";
 import AddCollateralChips from "../../components/loanApplication/AddCollateralChips";
@@ -787,6 +792,8 @@ const LoanApplication = ({
   const useStandardSevenStepFlow =
     isBase44Flow || !selectedCategory || !selectedProduct;
 
+  const includeFeeAgreementStep = !publicEmbed;
+
   const showDefaultEntityInfoFields = !selectedCategory || !selectedProduct;
 
   const showDefaultPropertyInfoFields = showDefaultEntityInfoFields;
@@ -808,6 +815,7 @@ const LoanApplication = ({
         "Borrower Info",
         "Financials",
         "Documents",
+        ...(includeFeeAgreementStep ? ["Fee Agreement"] : []),
         "Review & Submit",
       ]
     : [
@@ -856,9 +864,15 @@ const LoanApplication = ({
     : [
         ...baseSteps,
         ...dynamicSections.map((section) => toTitleCase(section.sectionName)),
+        ...(includeFeeAgreementStep ? ["Fee Agreement"] : []),
       ];
 
+  const feeAgreementStepIndex = allSteps.indexOf("Fee Agreement");
+
   const [currentStep, setCurrentStep] = useState(0);
+  const [feeAgreementDraft, setFeeAgreementDraft] = useState<FeeAgreementDraft>(
+    EMPTY_FEE_AGREEMENT_DRAFT,
+  );
   const createEmptyBorrower = (): Borrower => ({
     ...createResidentialBorrowerDefaults(),
     name: "",
@@ -1324,6 +1338,15 @@ const LoanApplication = ({
       if (noi && noi < 0)
         newErrors["loanTermIncome.noiActual"] = "NOI cannot be negative";
     }
+    if (stepIndex === feeAgreementStepIndex && feeAgreementDraft.include) {
+      Object.assign(
+        newErrors,
+        validateOptionalFeeAgreementDraft(
+          feeAgreementDraft,
+          formData.loanRequest.brokerPoints,
+        ),
+      );
+    }
     return newErrors;
   };
 
@@ -1425,6 +1448,18 @@ const LoanApplication = ({
       toast.error("Please complete all required fields before submitting");
       return;
     }
+    if (feeAgreementDraft.include) {
+      const feeErrors = validateOptionalFeeAgreementDraft(
+        feeAgreementDraft,
+        formData.loanRequest.brokerPoints,
+      );
+      if (Object.keys(feeErrors).length > 0) {
+        setErrors((prev) => ({ ...prev, ...feeErrors }));
+        toast.error("Please complete the fee agreement fields or skip the step");
+        if (feeAgreementStepIndex >= 0) goToStep(feeAgreementStepIndex);
+        return;
+      }
+    }
     if (!creditAuthorizationConsent) {
       toast.error(
         "Please agree to the Credit Authorization Consent before submitting",
@@ -1481,6 +1516,21 @@ const LoanApplication = ({
           "Please agree to the Credit Authorization Consent before submitting",
         );
         return;
+      }
+
+      if (feeAgreementDraft.include) {
+        const feeErrors = validateOptionalFeeAgreementDraft(
+          feeAgreementDraft,
+          formData.loanRequest.brokerPoints,
+        );
+        if (Object.keys(feeErrors).length > 0) {
+          setErrors((prev) => ({ ...prev, ...feeErrors }));
+          toast.error(
+            "Please complete the fee agreement fields or skip the step",
+          );
+          if (feeAgreementStepIndex >= 0) goToStep(feeAgreementStepIndex);
+          return;
+        }
       }
 
       if (!selectedProduct) {
@@ -1779,6 +1829,14 @@ const LoanApplication = ({
       const payload = {
         loanProductCode: selectedProduct,
         fields,
+        feeAgreement: feeAgreementDraft.include
+          ? {
+              include: true,
+              brokerPoints: toNumber(formData.loanRequest.brokerPoints),
+              upfrontFee: Number(feeAgreementDraft.upfrontFee),
+              exclusivityMonths: Number(feeAgreementDraft.exclusivityMonths),
+            }
+          : { include: false },
       };
 
       const token = sessionStorage.getItem(portalConfig.tokenKey);
@@ -1792,6 +1850,7 @@ const LoanApplication = ({
           },
           body: JSON.stringify({
             fields: payload.fields,
+            feeAgreement: payload.feeAgreement,
           }),
         });
 
@@ -1827,7 +1886,16 @@ const LoanApplication = ({
           }
         }
 
-        toast.success("Application Updated Successfully");
+        if (Array.isArray(result?.data?.warnings)) {
+          result.data.warnings.forEach((warning: string) =>
+            toast.error(warning),
+          );
+        }
+        toast.success(
+          feeAgreementDraft.include
+            ? "Application updated. Fee agreement is available in the client portal."
+            : "Application Updated Successfully",
+        );
         onUpdateSuccess?.(result.data?.submissionId);
         if (!embedded) {
           navigate(portalConfig.successPath);
@@ -1944,8 +2012,13 @@ const LoanApplication = ({
         }
       }
 
+      if (Array.isArray(result?.data?.warnings)) {
+        result.data.warnings.forEach((warning: string) => toast.error(warning));
+      }
       toast.success(
-        "Application submitted. Client portal access link sent to borrower email.",
+        feeAgreementDraft.include
+          ? "Application submitted. Fee agreement is now available in the client portal."
+          : "Application submitted. Client portal access link sent to borrower email.",
       );
       navigate(portalConfig.successPath);
     } catch (error: any) {
@@ -2375,7 +2448,11 @@ const LoanApplication = ({
     setErrors({});
     setCurrentStep(stepIndex);
 
-    if (stepIndex >= baseSteps.length) {
+    if (
+      !useStandardSevenStepFlow &&
+      stepIndex !== feeAgreementStepIndex &&
+      stepIndex >= baseSteps.length
+    ) {
       setActiveSectionIndex(stepIndex - baseSteps.length);
     } else {
       setActiveSectionIndex(null);
@@ -2750,9 +2827,9 @@ const LoanApplication = ({
   );
 
   const reviewSections = useMemo(
-    () =>
-      useStandardSevenStepFlow
-        ? buildResidentialReviewSections({
+    () => {
+      if (!useStandardSevenStepFlow) return [];
+      const sections = buildResidentialReviewSections({
             loanRequest: formData.loanRequest,
             entity: formData.entity,
             borrower: formData.borrower,
@@ -2760,10 +2837,51 @@ const LoanApplication = ({
             pendingDocuments,
             productLabel: selectedProductLabel,
             selectedProduct,
-          })
-        : [],
+          });
+      if (includeFeeAgreementStep) {
+        sections.push({
+          stepIndex: feeAgreementStepIndex,
+          title: "Fee Agreement",
+          rows: feeAgreementDraft.include
+            ? [
+                {
+                  label: "Included",
+                  value: "Yes — will appear in client portal",
+                },
+                {
+                  label: "Broker Points",
+                  value: formData.loanRequest.brokerPoints
+                    ? `${formData.loanRequest.brokerPoints}%`
+                    : "—",
+                },
+                {
+                  label: "Upfront Fee",
+                  value: feeAgreementDraft.upfrontFee
+                    ? `$${feeAgreementDraft.upfrontFee}`
+                    : "—",
+                },
+                {
+                  label: "Exclusivity",
+                  value: feeAgreementDraft.exclusivityMonths
+                    ? `${feeAgreementDraft.exclusivityMonths} months`
+                    : "—",
+                },
+              ]
+            : [
+                {
+                  label: "Included",
+                  value: "Skipped (optional)",
+                },
+              ],
+        });
+      }
+      return sections;
+    },
     [
       useStandardSevenStepFlow,
+      includeFeeAgreementStep,
+      feeAgreementStepIndex,
+      feeAgreementDraft,
       formData.loanRequest,
       formData.entity,
       formData.borrower,
@@ -6478,7 +6596,7 @@ focus:border-blue-500 outline-none text-sm ${
           {currentStep === 5 && useStandardSevenStepFlow && (
             <div className="mt-6 relative z-10 rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-700 dark:bg-slate-800">
               <h3 className="mb-1 inline-block border-b-2 border-[#2C92D5] pb-2 text-lg font-semibold dark:text-white">
-                Step 6: Documents
+                Step {currentStep + 1}: Documents
               </h3>
 
               <ResidentialDocumentsStep
@@ -6489,11 +6607,30 @@ focus:border-blue-500 outline-none text-sm ${
             </div>
           )}
 
+          {currentStep === feeAgreementStepIndex && feeAgreementStepIndex >= 0 && (
+            <LoanApplicationFeeAgreementStep
+              draft={feeAgreementDraft}
+              brokerPoints={formData.loanRequest.brokerPoints}
+              errors={errors}
+              onChange={(next) => {
+                setFeeAgreementDraft(next);
+                setErrors((prev) => {
+                  const updated = { ...prev };
+                  delete updated["feeAgreement.brokerPoints"];
+                  delete updated["feeAgreement.upfrontFee"];
+                  delete updated["feeAgreement.exclusivityMonths"];
+                  return updated;
+                });
+              }}
+              stepNumber={currentStep + 1}
+            />
+          )}
+
           {/* step-6 — Review & Submit */}
           {isReviewStep && (
             <div className="mt-6 relative z-10 rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-700 dark:bg-slate-800">
               <h3 className="mb-1 inline-block border-b-2 border-[#2C92D5] pb-2 text-lg font-semibold dark:text-white">
-                Step 7: Review & Submit
+                Step {currentStep + 1}: Review & Submit
               </h3>
 
               <ResidentialReviewStep
@@ -6593,6 +6730,23 @@ focus:border-blue-500 outline-none text-sm ${
                     }
                     handleSubmitApplication();
                     return;
+                  }
+
+                  if (
+                    currentStep === feeAgreementStepIndex &&
+                    feeAgreementDraft.include
+                  ) {
+                    const feeErrors = validateOptionalFeeAgreementDraft(
+                      feeAgreementDraft,
+                      formData.loanRequest.brokerPoints,
+                    );
+                    if (Object.keys(feeErrors).length > 0) {
+                      setErrors((prev) => ({ ...prev, ...feeErrors }));
+                      toast.error(
+                        "Please complete the fee agreement fields or uncheck include",
+                      );
+                      return;
+                    }
                   }
 
                   if (

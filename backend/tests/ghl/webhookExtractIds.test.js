@@ -261,3 +261,116 @@ describe("GHL webhook extractIds payload compatibility", () => {
     assert.equal(result.message, "No matching checkout");
   });
 });
+
+const GHL_WORKFLOW_WEBHOOK_PAYLOAD = {
+  webhookId: "wh_workflow_invoice_paid",
+  customData: {
+    type: "InvoicePaid",
+    status: "paid",
+  },
+  invoice: {
+    _id: "6a82c6909418c7ce622f5bd2",
+    _data: {},
+  },
+  contact_id: "JCgeDFGyF2dTWqblxLy5",
+  email: "customer@example.com",
+};
+
+describe("GHL Workflow Webhook payload (customData + contact_id)", () => {
+  let restoreEnv;
+  let unstub;
+  let extractIds;
+  let normalizeEventType;
+  let classifyLifecycle;
+  let processGhlWebhook;
+
+  beforeEach(() => {
+    restoreEnv = applyPaymentEnv();
+    unstub = stubFulfillSuccess();
+    ({ extractIds, normalizeEventType, classifyLifecycle, processGhlWebhook } =
+      reload("../../services/ghl/ghlWebhookProcessor"));
+  });
+
+  afterEach(() => {
+    unstub();
+    restoreEnv();
+  });
+
+  it("1. customData.type = InvoicePaid → event type InvoicePaid", () => {
+    assert.equal(
+      normalizeEventType(GHL_WORKFLOW_WEBHOOK_PAYLOAD),
+      "InvoicePaid",
+    );
+  });
+
+  it("2. customData.status = paid → lifecycle paid", () => {
+    const ids = extractIds(GHL_WORKFLOW_WEBHOOK_PAYLOAD);
+    assert.equal(ids.status, "paid");
+    assert.equal(
+      classifyLifecycle({
+        eventType: normalizeEventType(GHL_WORKFLOW_WEBHOOK_PAYLOAD),
+        status: ids.status,
+      }),
+      "paid",
+    );
+  });
+
+  it("3. contact_id → ghlContactId", () => {
+    const ids = extractIds(GHL_WORKFLOW_WEBHOOK_PAYLOAD);
+    assert.equal(ids.ghlContactId, "JCgeDFGyF2dTWqblxLy5");
+  });
+
+  it("4. invoice._id → ghlInvoiceId", () => {
+    const ids = extractIds(GHL_WORKFLOW_WEBHOOK_PAYLOAD);
+    assert.equal(ids.ghlInvoiceId, "6a82c6909418c7ce622f5bd2");
+  });
+
+  it("5. email → email", () => {
+    const ids = extractIds(GHL_WORKFLOW_WEBHOOK_PAYLOAD);
+    assert.equal(ids.email, "customer@example.com");
+  });
+
+  it("6. complete workflow payload reaches paid fulfillment branch", async () => {
+    const checkout = {
+      id: "052fa041-545c-4f22-9427-d6d101951e77",
+      loanAiUserId: "15daae66-7b15-4bb1-8ebd-3c9297021e61",
+      packageId: "pkg_basic",
+      billingCycle: "MONTHLY",
+      status: "CHECKOUT_CREATED",
+      paymentStatus: "PENDING",
+      ghlContactId: "JCgeDFGyF2dTWqblxLy5",
+      ghlInvoiceId: "6a82c6909418c7ce622f5bd2",
+      ghlPriceId: "price_basic_monthly",
+      ghlSubscriptionId: null,
+      organizationSubscriptionId: null,
+    };
+
+    const prisma = {
+      ghlWebhookEvent: {
+        create: async ({ data }) => ({ id: "evt_workflow", ...data }),
+        update: async ({ where, data }) => ({ id: where.id, ...data }),
+      },
+      loanAiGhlCheckout: {
+        findUnique: async () => null,
+        findFirst: async (args) => {
+          if (args?.where?.ghlInvoiceId === checkout.ghlInvoiceId) {
+            return checkout;
+          }
+          return null;
+        },
+      },
+    };
+
+    const result = await processGhlWebhook(
+      prisma,
+      null,
+      GHL_WORKFLOW_WEBHOOK_PAYLOAD,
+    );
+
+    assert.equal(result.duplicate, false);
+    assert.equal(result.status, "PROCESSED");
+    assert.equal(result.action, "payment_success");
+    assert.equal(result.checkoutId, checkout.id);
+    assert.equal(result.organizationSubscriptionId, "org_sub_1");
+  });
+});

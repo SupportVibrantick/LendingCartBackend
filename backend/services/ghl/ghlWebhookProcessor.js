@@ -12,6 +12,7 @@ const {
   logWebhookFailed,
   logWebhookIgnored,
 } = require("./ghlPaymentLogger");
+const { commonLogs } = require("../logger/contextLogger");
 
 const PAID_EVENT_TYPES = new Set([
   "InvoicePaid",
@@ -70,7 +71,16 @@ function pickFirst(...values) {
 }
 
 function normalizeEventType(body = {}) {
-  return pickFirst(body.type, body.event, body.eventType, body.name) || "Unknown";
+  const customData = asObject(body.customData || body.data?.customData);
+  return (
+    pickFirst(
+      body.type,
+      body.event,
+      body.eventType,
+      body.name,
+      customData.type,
+    ) || "Unknown"
+  );
 }
 
 function extractCheckoutIdFromText(text) {
@@ -92,6 +102,7 @@ function firstLineItem(...candidates) {
 
 function extractIds(body = {}) {
   // Nested (invoice/order wrappers) and official root-level InvoicePaid both supported.
+  const customData = asObject(body.customData || body.data?.customData);
   const invoice = asObject(body.invoice || body.data?.invoice || body.data);
   const order = asObject(body.order || body.data?.order);
   const subscription = asObject(
@@ -136,6 +147,8 @@ function extractIds(body = {}) {
     contact._id,
     body.contactId,
     body.data?.contactId,
+    body.contact_id,
+    body.data?.contact_id,
     invoice.contactId,
     order.contactId,
   );
@@ -207,6 +220,7 @@ function extractIds(body = {}) {
     subscription.status,
     body.status,
     body.data?.status,
+    customData.status,
   );
 
   return {
@@ -221,6 +235,128 @@ function extractIds(body = {}) {
     checkoutId,
     status: status ? String(status).toLowerCase() : null,
   };
+}
+
+function maskDebugId(value) {
+  if (value == null || value === "") return null;
+  const str = String(value).trim();
+  if (str.length <= 6) return "***";
+  return `${str.slice(0, 4)}…${str.slice(-4)}`;
+}
+
+function maskDebugEmail(email) {
+  if (!email) return null;
+  const str = String(email).trim();
+  const at = str.indexOf("@");
+  if (at <= 0) return "***";
+  return `${str.slice(0, 1)}***${str.slice(at)}`;
+}
+
+function collectObjectKeyNames(value, maxDepth = 2, depth = 0) {
+  if (Array.isArray(value)) {
+    return [`[array length=${value.length}]`];
+  }
+  if (!value || typeof value !== "object") {
+    return [];
+  }
+  if (depth >= maxDepth) {
+    return ["[nested object]"];
+  }
+  return Object.keys(value);
+}
+
+function summarizeCandidateFields(fieldMap, masker = maskDebugId) {
+  const presentFields = [];
+  const maskedValues = {};
+
+  for (const [field, value] of Object.entries(fieldMap)) {
+    if (value == null || String(value).trim() === "") continue;
+    presentFields.push(field);
+    maskedValues[field] = masker(value);
+  }
+
+  return {
+    presentFields,
+    maskedValues,
+    resolvedField: presentFields[0] || null,
+  };
+}
+
+/**
+ * Temporary structure-only debug logging for inbound GHL webhook payloads.
+ * Enable with GHL_WEBHOOK_PAYLOAD_DEBUG=true — remove after field mapping is confirmed.
+ */
+function logGhlWebhookPayloadStructureDebug(body = {}) {
+  const invoice = asObject(body.invoice || body.data?.invoice || body.data);
+  const order = asObject(body.order || body.data?.order);
+  const contact = asObject(
+    body.contact ||
+      body.contactDetails ||
+      body.data?.contact ||
+      body.data?.contactDetails ||
+      invoice.contactDetails ||
+      invoice.contact ||
+      order.contactSnapshot ||
+      order.contact,
+  );
+  const ids = extractIds(body);
+
+  const contactRelatedTopLevelKeys = Object.keys(body).filter((key) =>
+    /contact|email|phone/i.test(key),
+  );
+
+  const invoiceIdInfo = summarizeCandidateFields({
+    "invoice._id": invoice._id,
+    "invoice.id": invoice.id,
+    _id: body._id,
+    invoiceId: body.invoiceId,
+    "data.invoiceId": body.data?.invoiceId,
+    "order.invoiceId": order.invoiceId,
+  });
+
+  const contactIdInfo = summarizeCandidateFields({
+    "contact.id": body.contact?.id,
+    "contact._id": body.contact?._id,
+    "contactDetails.id": body.contactDetails?.id,
+    "contactDetails._id": body.contactDetails?._id,
+    "contact.id (resolved)": contact.id,
+    "contact._id (resolved)": contact._id,
+    contactId: body.contactId,
+    "data.contactId": body.data?.contactId,
+    "invoice.contactId": invoice.contactId,
+    "order.contactId": order.contactId,
+  });
+
+  const emailInfo = summarizeCandidateFields(
+    {
+      "contact.email": body.contact?.email,
+      "contactDetails.email": body.contactDetails?.email,
+      "contact.email (resolved)": contact.email,
+      "invoice.email": invoice.email,
+      email: body.email,
+      "data.email": body.data?.email,
+    },
+    maskDebugEmail,
+  );
+
+  commonLogs.info("GHL webhook payload structure (debug)", {
+    event: "ghl.webhook.payload_debug",
+    eventType: normalizeEventType(body),
+    topLevelKeys: Object.keys(body),
+    invoiceObjectKeys: collectObjectKeyNames(invoice),
+    contactRelatedTopLevelKeys,
+    contactObjectKeys: collectObjectKeyNames(contact),
+    contactDetailsKeys: collectObjectKeyNames(body.contactDetails),
+    nestedContactKeys: collectObjectKeyNames(body.contact),
+    invoiceId: invoiceIdInfo,
+    contactId: contactIdInfo,
+    email: emailInfo,
+    extractIdsResult: {
+      ghlInvoiceId: maskDebugId(ids.ghlInvoiceId),
+      ghlContactId: maskDebugId(ids.ghlContactId),
+      email: maskDebugEmail(ids.email),
+    },
+  });
 }
 
 function classifyLifecycle({ eventType, status }) {
@@ -578,6 +714,7 @@ module.exports = {
   resolveWebhookId,
   sanitizePayloadSummary,
   classifyLifecycle,
+  logGhlWebhookPayloadStructureDebug,
   PAID_EVENT_TYPES,
   FAILED_EVENT_TYPES,
   CANCELLED_EVENT_TYPES,

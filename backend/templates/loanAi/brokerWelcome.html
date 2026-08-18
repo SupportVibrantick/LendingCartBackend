@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Welcome to your broker dashboard</title>
+    <style>
+      body, html { margin: 0; padding: 0; background: #f3f6f9; font-family: "Segoe UI", Roboto, Arial, sans-serif; color: #243142; }
+      .wrap { padding: 28px 12px; }
+      .card { max-width: 640px; margin: 0 auto; background: #fff; border-radius: 12px; box-shadow: 0 8px 30px rgba(20, 30, 40, 0.06); overflow: hidden; }
+      .header { padding: 28px 36px 18px; text-align: center; border-bottom: 1px solid #eef4fb; }
+      .title { font-size: 22px; color: #0b66d0; font-weight: 700; }
+      .body { padding: 28px 40px; line-height: 1.6; }
+      .panel { background: #f5f9ff; border-left: 4px solid #0b66d0; padding: 14px 18px; border-radius: 8px; margin: 18px 0; }
+      .btn { display: inline-block; background: #0b66d0; color: #fff !important; padding: 12px 20px; border-radius: 8px; font-weight: 600; text-decoration: none; }
+      .cta-wrap { text-align: center; margin-top: 22px; }
+      .note { margin-top: 18px; font-size: 13px; color: #60707b; }
+      .footer { background: #fbfdff; padding: 18px 36px; border-top: 1px solid #eef4fb; text-align: center; color: #7c8a95; font-size: 13px; }
+      .package-badge { display: inline-block; background: #e8f5e9; color: #2e7d32; padding: 6px 12px; border-radius: 20px; font-size: 13px; font-weight: 600; margin-top: 8px; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="card">
+        <div class="header">
+          <div class="title">Welcome to your broker dashboard</div>
+        </div>
+        <div class="body">
+          <p>Hi <strong>{{name}}</strong>,</p>
+          <p>
+            Your subscription for <strong>{{organizationName}}</strong> has been activated with the
+            <span class="package-badge">{{packageName}} plan</span>.
+          </p>
+          <p>
+            Your broker dashboard account is ready. Click the button below to set your password and
+            sign in for the first time. This link expires in {{expiryHours}} hours.
+          </p>
+          <div class="cta-wrap">
+            <a href="{{setPasswordUrl}}" class="btn" target="_blank" rel="noopener">Set password & sign in</a>
+          </div>
+          <p class="note">
+            For security, this link can only be used once. If you need a new link, use the
+            "Forgot password" option on the sign-in page.
+          </p>
+        </div>
+        <div class="footer">&copy; {{currentYear}} LendingCart. All rights reserved.</div>
+      </div>
+    </div>
+  </body>
+</html>
