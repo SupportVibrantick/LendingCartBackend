@@ -390,72 +390,66 @@ export function validateCoBrokerForm(
   return errors;
 }
 
-export function buildCoBrokerFormData(form: CoBrokerFormState): FormData {
+export function buildCoBrokerFormData(
+  form: CoBrokerFormState,
+): { body: Record<string, unknown>; files: { logo?: File; w9?: File } } {
   const resolvedForm = resolvePrimaryContactForSubmit(form);
-  const formData = new FormData();
+  const body: Record<string, unknown> = {};
 
-  const append = (key: string, value: string | boolean) => {
-    formData.append(key, String(value));
+  const set = (key: string, value: string | boolean) => {
+    body[key] = value;
   };
 
-  append("firstName", resolvedForm.firstName.trim());
-  append("lastName", resolvedForm.lastName.trim());
-  append("email", resolvedForm.email.trim().toLowerCase());
-  append("phone", resolvedForm.phone.replace(/\D/g, ""));
-  append("tollFree", resolvedForm.tollFree.replace(/\D/g, ""));
-  append("partnerType", resolvedForm.partnerType);
-  append("company", resolvedForm.company.trim());
-  append("allowedToLogin", resolvedForm.allowedToLogin);
-  append("address", resolvedForm.address.trim());
-  append("agentType", resolvedForm.agentType);
-  append("ssn", resolvedForm.ssn.trim());
-  append("linkedinUrl", resolvedForm.linkedinUrl.trim());
-  append("hasCompanyNmls", resolvedForm.hasCompanyNmls);
-  append("companyNmls", resolvedForm.companyNmls.trim());
-  append("hasPersonalNmls", resolvedForm.hasPersonalNmls);
-  append("personalNmls", resolvedForm.personalNmls.trim());
-  append("hasCompanyStateLicense", resolvedForm.hasCompanyStateLicense);
-  append("companyStateLicense", resolvedForm.companyStateLicense.trim());
-  append("hasPersonalStateLicense", resolvedForm.hasPersonalStateLicense);
-  append("personalStateLicense", resolvedForm.personalStateLicense.trim());
-  append("findersFee", resolvedForm.findersFee);
-  append("ein", resolvedForm.ein.trim());
-  append("preferredComm", resolvedForm.preferredComm);
-  append("website", resolvedForm.website.trim());
-  append("employeeCount", resolvedForm.employeeCount.trim());
-  append("experience", resolvedForm.experience.trim());
-  append("useSameContact", resolvedForm.useSameContact);
-  append("contactFirstName", resolvedForm.contactFirstName.trim());
-  append("contactLastName", resolvedForm.contactLastName.trim());
-  append("contactPhone", resolvedForm.contactPhone.replace(/\D/g, ""));
-  append("contactEmail", resolvedForm.contactEmail.trim().toLowerCase());
+  set("firstName", resolvedForm.firstName.trim());
+  set("lastName", resolvedForm.lastName.trim());
+  set("email", resolvedForm.email.trim().toLowerCase());
+  set("phone", resolvedForm.phone.replace(/\D/g, ""));
+  set("tollFree", resolvedForm.tollFree.replace(/\D/g, ""));
+  set("partnerType", resolvedForm.partnerType);
+  set("company", resolvedForm.company.trim());
+  set("allowedToLogin", resolvedForm.allowedToLogin);
+  set("address", resolvedForm.address.trim());
+  set("agentType", resolvedForm.agentType);
+  set("ssn", resolvedForm.ssn.trim());
+  set("linkedinUrl", resolvedForm.linkedinUrl.trim());
+  set("hasCompanyNmls", resolvedForm.hasCompanyNmls);
+  set("companyNmls", resolvedForm.companyNmls.trim());
+  set("hasPersonalNmls", resolvedForm.hasPersonalNmls);
+  set("personalNmls", resolvedForm.personalNmls.trim());
+  set("hasCompanyStateLicense", resolvedForm.hasCompanyStateLicense);
+  set("companyStateLicense", resolvedForm.companyStateLicense.trim());
+  set("hasPersonalStateLicense", resolvedForm.hasPersonalStateLicense);
+  set("personalStateLicense", resolvedForm.personalStateLicense.trim());
+  set("findersFee", resolvedForm.findersFee);
+  set("ein", resolvedForm.ein.trim());
+  set("preferredComm", resolvedForm.preferredComm);
+  set("website", resolvedForm.website.trim());
+  set("employeeCount", resolvedForm.employeeCount.trim());
+  set("experience", resolvedForm.experience.trim());
+  set("useSameContact", resolvedForm.useSameContact);
+  set("contactFirstName", resolvedForm.contactFirstName.trim());
+  set("contactLastName", resolvedForm.contactLastName.trim());
+  set("contactPhone", resolvedForm.contactPhone.replace(/\D/g, ""));
+  set("contactEmail", resolvedForm.contactEmail.trim().toLowerCase());
 
-  formData.append("loanTypesOffered", JSON.stringify(resolvedForm.loanTypesOffered));
-  formData.append("statesAuthorized", JSON.stringify(resolvedForm.statesAuthorized));
-  formData.append("brokerStates", JSON.stringify(resolvedForm.brokerStates));
-  formData.append(
-    "companyStateLicenseStates",
-    JSON.stringify(resolvedForm.companyStateLicenseStates),
-  );
-  formData.append(
-    "personalStateLicenseStates",
-    JSON.stringify(resolvedForm.personalStateLicenseStates),
-  );
-  formData.append("branchIds", JSON.stringify(resolvedForm.branchIds));
-  formData.append(
-    "assignedLoanOfficerIds",
-    JSON.stringify(resolvedForm.assignedLoanOfficerIds),
-  );
+  body.loanTypesOffered = resolvedForm.loanTypesOffered;
+  body.statesAuthorized = resolvedForm.statesAuthorized;
+  body.brokerStates = resolvedForm.brokerStates;
+  body.companyStateLicenseStates = resolvedForm.companyStateLicenseStates;
+  body.personalStateLicenseStates = resolvedForm.personalStateLicenseStates;
+  body.branchIds = resolvedForm.branchIds;
+  body.assignedLoanOfficerIds = resolvedForm.assignedLoanOfficerIds;
 
   if (resolvedForm.allowedToLogin && resolvedForm.password) {
-    append("password", resolvedForm.password);
-    append("confirmPassword", resolvedForm.confirmPassword || resolvedForm.password);
+    set("password", resolvedForm.password);
+    set("confirmPassword", resolvedForm.confirmPassword || resolvedForm.password);
   }
 
-  if (resolvedForm.logoFile) formData.append("logo", resolvedForm.logoFile);
-  if (resolvedForm.w9File) formData.append("w9", resolvedForm.w9File);
+  const files: { logo?: File; w9?: File } = {};
+  if (resolvedForm.logoFile) files.logo = resolvedForm.logoFile;
+  if (resolvedForm.w9File) files.w9 = resolvedForm.w9File;
 
-  return formData;
+  return { body, files };
 }
 
 export const STATE_OPTIONS = US_STATES.map((state) => ({
