@@ -127,6 +127,7 @@ async function listLendersRoutes(fastify) {
               adminFirstName: adminUser?.firstName || null,
               adminLastName: adminUser?.lastName || null,
               adminEmail: adminUser?.email || null,
+              adminPhone: adminUser?.phone || null,
               adminStatus: adminUser?.status || null,
 
               brokerOrgId: brokerAccess?.brokerOrgId || null,

@@ -12,6 +12,7 @@ function buildLenderRequestMap(lenderRequests) {
       lenderId: reqItem.applicationLender?.lender?.id || null,
       lenderName: reqItem.applicationLender?.lender?.name || null,
       applicationLenderId: reqItem.applicationLenderId,
+      requestedAt: reqItem.requestedAt || null,
     });
   }
 

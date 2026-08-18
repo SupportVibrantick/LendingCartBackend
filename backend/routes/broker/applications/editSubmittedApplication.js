@@ -6,6 +6,10 @@ const {
 const {
   sanitizeRequestedDocumentTypes,
 } = require("../../../utils/applications/sanitizeRequestedDocumentTypes");
+const {
+  getFeeAgreementRequestError,
+  tryAttachFeeAgreementIfRequested,
+} = require("../../../services/feeAgreement/attachFeeAgreementToApplication");
 
 async function editSubmittedApplication(fastify) {
   fastify.put(
@@ -56,6 +60,14 @@ async function editSubmittedApplication(fastify) {
         const sanitizedRequestedDocumentTypes = hasRequestedDocumentTypesUpdate
           ? sanitizeRequestedDocumentTypes(requestedDocumentTypes)
           : undefined;
+
+        const feeAgreementError = getFeeAgreementRequestError(req.body);
+        if (feeAgreementError) {
+          return reply.code(400).send({
+            success: false,
+            message: feeAgreementError,
+          });
+        }
 
         /* ================= FETCH APPLICATION ================= */
 
@@ -170,13 +182,20 @@ async function editSubmittedApplication(fastify) {
           }
         });
 
+        const feeAgreementWarning = await tryAttachFeeAgreementIfRequested(
+          fastify,
+          applicationId,
+          req.body,
+        );
+
         /* ================= SUCCESS ================= */
 
         return reply.send({
           success: true,
           message: "Application edited successfully",
           data: {
-            submissionId: result.newSubmission.id
+            submissionId: result.newSubmission.id,
+            ...(feeAgreementWarning ? { warnings: [feeAgreementWarning] } : {}),
           }
         });
 
