@@ -124,8 +124,12 @@ module.exports = async function lenderViewDocuments(fastify) {
               applicationLenderId,
               loanApplicationId,
             },
-            select: { documentTypeId: true },
+            select: { documentTypeId: true, requestedAt: true },
           });
+
+        const lenderRequestedAtByTypeId = new Map(
+          lenderRequests.map((row) => [row.documentTypeId, row.requestedAt]),
+        );
 
         const lenderRequestedTypeIds = new Set(
           lenderRequests.map((row) => row.documentTypeId),
@@ -315,6 +319,10 @@ module.exports = async function lenderViewDocuments(fastify) {
             source: reqDoc.source,
             sourceLabel,
             isRequired: reqDoc.isRequired,
+            lastRequestedAt:
+              reqDoc.lastRequestedAt || reqDoc.createdAt || null,
+            lenderRequestedAt:
+              lenderRequestedAtByTypeId.get(reqDoc.documentTypeId) || null,
 
             status:
               reqDoc.status === "SKIPPED"

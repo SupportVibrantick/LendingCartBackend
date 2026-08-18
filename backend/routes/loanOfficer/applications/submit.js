@@ -23,6 +23,10 @@ const {
 const {
   findOrCreateBorrowerClient,
 } = require("../../../services/clientPortal/findOrCreateBorrowerClient");
+const {
+  getFeeAgreementRequestError,
+  tryAttachFeeAgreementIfRequested,
+} = require("../../../services/feeAgreement/attachFeeAgreementToApplication");
 
 async function loanOfficerSubmitApplication(fastify) {
   fastify.post(
@@ -71,6 +75,14 @@ async function loanOfficerSubmitApplication(fastify) {
           return reply.code(400).send({
             success: false,
             message: "Invalid payload",
+          });
+        }
+
+        const feeAgreementError = getFeeAgreementRequestError(req.body);
+        if (feeAgreementError) {
+          return reply.code(400).send({
+            success: false,
+            message: feeAgreementError,
           });
         }
 
@@ -254,6 +266,16 @@ async function loanOfficerSubmitApplication(fastify) {
           },
         });
 
+        const feeAgreementWarning = await tryAttachFeeAgreementIfRequested(
+          fastify,
+          result.loanApplication.id,
+          req.body,
+        );
+        const warnings = [
+          ...(result.warnings || []),
+          ...(feeAgreementWarning ? [feeAgreementWarning] : []),
+        ];
+
         /* ================= RESPONSE ================= */
 
         return reply.code(201).send({
@@ -262,7 +284,7 @@ async function loanOfficerSubmitApplication(fastify) {
           data: {
             submissionId: result.submission.id,
             applicationId: result.loanApplication.id,
-            ...(result.warnings?.length ? { warnings: result.warnings } : {}),
+            ...(warnings.length ? { warnings } : {}),
           },
         });
       } catch (error) {

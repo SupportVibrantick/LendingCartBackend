@@ -133,6 +133,8 @@ function mapSubmissionDocumentRow(
     isSentToBroker: requirement.isSentToBroker,
     sentToClientAt: requirement.sentToClientAt || null,
     isForwardedToClient: Boolean(requirement.sentToClientAt),
+    lastRequestedAt:
+      requirement.lastRequestedAt || requirement.createdAt || null,
     status: resolveDocumentDisplayStatus(
       requirement,
       matchedSubmission,
