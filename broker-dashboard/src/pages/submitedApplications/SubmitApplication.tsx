@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { createPortal } from "react-dom";
 import { useNavigate, useSearchParams } from "react-router";
@@ -165,6 +165,16 @@ export default function LoanApplicationsPage() {
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const skipStatusReloadRef = useRef(true);
   const [rows, setRows] = useState<TableRow[]>([]);
+
+  // Strip legacy ?q=… from URL on mount so search stays in local state.
+  useEffect(() => {
+    if (searchParams.has("q")) {
+      const next = new URLSearchParams(searchParams);
+      next.delete("q");
+      setSearchParams(next, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [loading, setLoading] = useState(false);
   // const [roles, setRoles] = useState<string[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
@@ -891,18 +901,43 @@ export default function LoanApplicationsPage() {
     void refreshPipelineData();
   };
 
+  // Client-side search across the already-loaded rows.
+  // Matches against any visible column: borrower, application #, officer,
+  // location, status, loan type, sub-broker, or amount.
+  const filteredRows = useMemo(() => {
+    const q = searchTerm.trim().toLowerCase();
+    if (!q) return rows;
+
+    return rows.filter((row) => {
+      const subBrokerNames = (row.assignedSubBrokers || [])
+        .map((b: any) =>
+          [b.firstName, b.lastName, b.name, b.email].filter(Boolean).join(" "),
+        )
+        .join(" ");
+
+      const haystack = [
+        row.borrowerName,
+        row.applicationNumber,
+        row.assignedOfficerName,
+        row.cityState,
+        row.country,
+        row.company,
+        row.loanType,
+        formatStatusLabel(row.status),
+        subBrokerNames,
+        String(row.amount ?? ""),
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+      return haystack.includes(q);
+    });
+  }, [rows, searchTerm]);
+
   const openPreview = (submissionId: string) => {
     navigate("/loan-preview", { state: { submissionId } });
   };
-
-  useEffect(() => {
-    const q = searchTerm.trim();
-    if (q) {
-      setSearchParams({ q }, { replace: true });
-    } else if (searchParams.has("q")) {
-      setSearchParams({}, { replace: true });
-    }
-  }, [searchTerm]);
 
   useEffect(() => {
     if (viewSubmissionId || findLenderModalOpen) {
@@ -1313,14 +1348,7 @@ export default function LoanApplicationsPage() {
                   placeholder="Search borrower, app no., officer..."
                   value={searchTerm}
                   onChange={(e) => {
-                    const value = e.target.value;
-                    setSearchTerm(value);
-                    if (searchTimeoutRef.current) {
-                      clearTimeout(searchTimeoutRef.current);
-                    }
-                    searchTimeoutRef.current = setTimeout(() => {
-                      loadSubmissions(undefined, value, statusFilter);
-                    }, 500);
+                    setSearchTerm(e.target.value);
                   }}
                   className="h-10 w-full rounded-xl border border-gray-200 bg-gray-50 pl-10 pr-10 text-sm outline-none focus:border-[#13538A]/40 focus:ring-2 focus:ring-[#13538A]/10 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100"
                 />
@@ -1329,7 +1357,6 @@ export default function LoanApplicationsPage() {
                     type="button"
                     onClick={() => {
                       setSearchTerm("");
-                      loadSubmissions(undefined, "", statusFilter);
                     }}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                   >
@@ -1402,7 +1429,9 @@ export default function LoanApplicationsPage() {
               <p className="text-xs text-gray-500">
                 {loading && rows.length === 0
                   ? "Loading..."
-                  : `${rows.length} shown${hasMore ? "+" : ""}`}
+                  : searchTerm
+                    ? `${filteredRows.length} of ${rows.length} shown`
+                    : `${rows.length} shown${hasMore ? "+" : ""}`}
                 {statusFilter ? ` · ${formatStatusLabel(statusFilter)}` : ""}
               </p>
             </div>
@@ -1456,8 +1485,8 @@ export default function LoanApplicationsPage() {
                       </td>
                     </tr>
                   ))
-                ) : Array.isArray(rows) && rows.length > 0 ? (
-                  rows.map((row) => (
+                ) : Array.isArray(filteredRows) && filteredRows.length > 0 ? (
+                  filteredRows.map((row) => (
                     <tr
                       key={row.submissionId}
                       className="group cursor-pointer transition hover:bg-[#13538A]/[0.03] dark:hover:bg-gray-800/50"
