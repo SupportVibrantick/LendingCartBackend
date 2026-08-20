@@ -151,7 +151,7 @@ export default function MyBrokers() {
       <div className="flex flex-col sm:flex-row sm:justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
-            My <span className="text-[#18B6B4]">Brokers</span>
+            My <span className="text-[#3e86b7]">Brokers</span>
           </h1>
           <p className="text-sm text-gray-500 dark:text-slate-400">
             Manage assigned brokers 
@@ -165,7 +165,7 @@ export default function MyBrokers() {
             placeholder="Search broker..."
             className="px-3 border rounded-md text-sm
       bg-white border-gray-300 text-gray-900
-      focus:outline-none focus:ring-2 focus:ring-[#18B6B4]/40 focus:border-[#18B6B4]
+      focus:outline-none focus:ring-2 focus:ring-[#3e86b7]/40 focus:border-[#3e86b7]
       dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100"
           />
 
@@ -174,7 +174,7 @@ export default function MyBrokers() {
             onChange={(e) => setPageSize(Number(e.target.value))}
             className="px-2 border rounded-md text-sm
       bg-white border-gray-300 text-gray-900
-      focus:outline-none focus:ring-2 focus:ring-[#18B6B4]/40 focus:border-[#18B6B4]
+      focus:outline-none focus:ring-2 focus:ring-[#3e86b7]/40 focus:border-[#3e86b7]
       dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100"
           >
             <option value={5}>5 / page</option>
@@ -188,7 +188,7 @@ export default function MyBrokers() {
       <div className="bg-white border rounded-xl p-4 dark:bg-slate-900 dark:border-slate-700">
         {loading ? (
           <div className="py-14 flex flex-col items-center justify-center text-center space-y-3">
-            <Loader2 className="w-8 h-8 animate-spin text-[#18B6B4]" />
+            <Loader2 className="w-8 h-8 animate-spin text-[#3e86b7]" />
             <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
               Loading brokers...
             </p>
@@ -196,7 +196,7 @@ export default function MyBrokers() {
         ) : paginated.length === 0 ? (
           <div className="py-16 flex flex-col items-center justify-center text-center">
             {/* Icon */}
-            <div className="w-14 h-14 flex items-center justify-center rounded-full bg-[#18B6B4]/10 text-[#18B6B4] mb-4">
+            <div className="w-14 h-14 flex items-center justify-center rounded-full bg-[#3e86b7]/10 text-[#3e86b7] mb-4">
               <Users size={26} />
             </div>
 

@@ -82,7 +82,7 @@ export default function VerifyEmail() {
           )}
           <Link
             to={status === "success" ? signInHref : "/signin"}
-            className="mt-8 inline-flex items-center justify-center rounded-xl bg-[#0d3532] px-5 py-3 text-sm font-semibold text-white"
+            className="mt-8 inline-flex items-center justify-center rounded-xl bg-[#264863] px-5 py-3 text-sm font-semibold text-white"
           >
             {status === "success" ? "Continue to sign in" : "Sign in"}
           </Link>
@@ -91,7 +91,7 @@ export default function VerifyEmail() {
               Need a new link?{" "}
               <Link
                 to="/verify-email-pending"
-                className="font-semibold text-teal-800 hover:underline dark:text-teal-300"
+                className="font-semibold text-brand-800 hover:underline dark:text-brand-300"
               >
                 Resend verification
               </Link>

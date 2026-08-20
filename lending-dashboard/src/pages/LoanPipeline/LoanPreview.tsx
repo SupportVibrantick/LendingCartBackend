@@ -1415,7 +1415,7 @@ export default function LoanPreview() {
         title: "Missing required fields",
         text: "Please complete all required fields before continuing.",
         icon: "warning",
-        confirmButtonColor: "#0F766E",
+        confirmButtonColor: "#183b57",
         ...getSwalTheme(),
       });
       return;
@@ -1492,7 +1492,7 @@ export default function LoanPreview() {
         title: isApproval ? "Approval failed" : "Rejection failed",
         text: err.message || "Something went wrong",
         icon: "error",
-        confirmButtonColor: "#0F766E",
+        confirmButtonColor: "#183b57",
         ...getSwalTheme(),
       });
     } finally {
@@ -1567,7 +1567,7 @@ export default function LoanPreview() {
     if (detailLoading) {
       return (
         <div className="flex items-center justify-center py-20">
-          <Loader2 className="animate-spin w-6 h-6 text-blue-500" />
+          <Loader2 className="animate-spin w-6 h-6 text-brand-500" />
         </div>
       );
     }
@@ -1602,7 +1602,7 @@ export default function LoanPreview() {
     if (documentsLoading) {
       return (
         <div className="flex flex-col items-center justify-center py-24 gap-4">
-          <Loader2 className="animate-spin w-10 h-10 text-blue-500" />
+          <Loader2 className="animate-spin w-10 h-10 text-brand-500" />
           <p className="text-sm text-slate-500">Loading documents...</p>
         </div>
       );
@@ -1629,11 +1629,11 @@ export default function LoanPreview() {
             </p>
           </div>
 
-          <div className="rounded-2xl p-5 bg-gradient-to-br from-blue-50 to-white dark:from-slate-800 dark:to-slate-900 border dark:border-slate-700">
+          <div className="rounded-2xl p-5 bg-gradient-to-br from-brand-50 to-white dark:from-slate-800 dark:to-slate-900 border dark:border-slate-700">
             <p className="text-xs uppercase tracking-wider text-slate-400 font-semibold">
               Total Documents
             </p>
-            <p className="text-xl font-bold text-blue-600 mt-1">
+            <p className="text-xl font-bold text-brand-600 mt-1">
               {documentsData.totalDocumentsCount ??
                 documentsPagination?.total ??
                 documentsData.documents?.length ??
@@ -1650,7 +1650,7 @@ export default function LoanPreview() {
                 Documents List
               </h2>
               {(documentSourceFilter !== "all" || documentSearchInput.trim()) && (
-                <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
+                <span className="rounded-full bg-brand-100 px-2 py-0.5 text-[10px] font-semibold text-brand-700 dark:bg-brand-900/40 dark:text-brand-300">
                   Filtered
                 </span>
               )}
@@ -1670,7 +1670,7 @@ export default function LoanPreview() {
                     );
                     setDocumentPage(1);
                   }}
-                  className="w-full appearance-none rounded-xl border border-slate-200 bg-slate-50/80 py-2.5 pl-9 pr-9 text-sm text-slate-800 outline-none transition hover:border-slate-300 focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/15 dark:border-slate-700 dark:bg-slate-800/80 dark:text-white dark:focus:border-blue-400 dark:focus:bg-slate-900"
+                  className="w-full appearance-none rounded-xl border border-slate-200 bg-slate-50/80 py-2.5 pl-9 pr-9 text-sm text-slate-800 outline-none transition hover:border-slate-300 focus:border-brand-500 focus:bg-white focus:ring-2 focus:ring-brand-500/15 dark:border-slate-700 dark:bg-slate-800/80 dark:text-white dark:focus:border-brand-400 dark:focus:bg-slate-900"
                 >
                   <option value="all">All documents</option>
                   <option value="mine">My documents</option>
@@ -1695,7 +1695,7 @@ export default function LoanPreview() {
                   setDocumentPage(1);
                 }}
                 placeholder="Search documents..."
-                className="w-full rounded-xl border border-slate-200 bg-slate-50/80 py-2.5 pl-9 pr-9 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/15 dark:border-slate-700 dark:bg-slate-800/80 dark:text-white dark:focus:border-blue-400 dark:focus:bg-slate-900"
+                className="w-full rounded-xl border border-slate-200 bg-slate-50/80 py-2.5 pl-9 pr-9 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-brand-500 focus:bg-white focus:ring-2 focus:ring-brand-500/15 dark:border-slate-700 dark:bg-slate-800/80 dark:text-white dark:focus:border-brand-400 dark:focus:bg-slate-900"
               />
               {documentSearchInput && (
                 <button
@@ -1730,7 +1730,7 @@ export default function LoanPreview() {
                     setDocumentSourceFilter("all");
                     setDocumentPage(1);
                   }}
-                  className="text-sm font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400"
+                  className="text-sm font-medium text-brand-600 hover:text-brand-700 dark:text-brand-400"
                 >
                   Clear filters
                 </button>
@@ -1827,21 +1827,21 @@ export default function LoanPreview() {
                         }}
                         className="
         group inline-flex items-center gap-2
-        rounded-xl border border-blue-200
-        bg-gradient-to-r from-blue-50 to-indigo-50
+        rounded-xl border border-brand-200
+        bg-gradient-to-r from-brand-50 to-brand-100
         px-3 py-2
-        text-blue-700
+        text-brand-700
         transition-all duration-300
         hover:-translate-y-0.5
-        hover:border-blue-500
-        hover:bg-blue-600
+        hover:border-brand-500
+        hover:bg-brand-600
   
         hover:shadow-md
-        dark:border-blue-500/20
-        dark:from-blue-500/10
-        dark:to-indigo-500/10
-        dark:text-blue-300
-        dark:hover:bg-blue-500
+        dark:border-brand-500/20
+        dark:from-brand-500/10
+        dark:to-brand-500/10
+        dark:text-brand-300
+        dark:hover:bg-brand-500
       "
                       >
                         <Eye
@@ -1920,7 +1920,7 @@ export default function LoanPreview() {
                           onClick={() => setDocumentPage(pageNum)}
                           className={`h-9 min-w-9 rounded-xl px-2.5 text-sm font-semibold transition ${
                             documentPage === pageNum
-                              ? "bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-sm"
+                              ? "bg-gradient-to-r from-brand-600 to-brand-700 text-white shadow-sm"
                               : "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
                           }`}
                         >
@@ -1961,7 +1961,7 @@ export default function LoanPreview() {
             <button
               type="button"
               onClick={() => onTabChange("loi")}
-              className="mt-4 inline-flex items-center gap-2 rounded-xl bg-[#13538A] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#0f4270]"
+              className="mt-4 inline-flex items-center gap-2 rounded-xl bg-[#3e86b7] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#2e6f99]"
             >
               <FileText size={16} />
               Generate Term Sheet / LOI
@@ -2008,7 +2008,7 @@ export default function LoanPreview() {
               }}
               disabled={loadingProducts}
               className="w-full px-4 py-2 text-sm rounded-xl border border-gray-200 bg-white 
-    focus:ring-2 focus:ring-[#18B6B4] outline-none appearance-none
+    focus:ring-2 focus:ring-[#3e86b7] outline-none appearance-none
     disabled:bg-gray-100 disabled:cursor-not-allowed dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200 dark:disabled:bg-slate-700/50"
             >
               <option value="">
@@ -2035,7 +2035,7 @@ export default function LoanPreview() {
 
             <div className="absolute right-3 top-2.5 text-gray-400 flex items-center gap-2">
               {loadingProducts && (
-                <Loader2 className="w-4 h-4 animate-spin text-[#18B6B4]" />
+                <Loader2 className="w-4 h-4 animate-spin text-[#3e86b7]" />
               )}
             </div>
           </div>
@@ -2124,7 +2124,7 @@ export default function LoanPreview() {
                         ) || [],
                     }))
                   }
-                  className="px-3 py-1.5 text-xs rounded-lg bg-[#0F766E] text-white dark:bg-[#0F766E]/80 dark:hover:bg-[#0F766E] transition-all"
+                  className="px-3 py-1.5 text-xs rounded-lg bg-[#183b57] text-white dark:bg-[#183b57]/80 dark:hover:bg-[#183b57] transition-all"
                 >
                   Select All
                 </button>
@@ -2158,12 +2158,12 @@ export default function LoanPreview() {
           docSelectModal.documents.length === 0 && (
             <div
               className="flex flex-col items-center justify-center py-10 px-6 text-center 
-  border-2 border-dashed border-[#18B6B4]/40 rounded-2xl 
-  bg-gradient-to-br from-[#e6f7f7] to-white 
+  border-2 border-dashed border-[#3e86b7]/40 rounded-2xl 
+  bg-gradient-to-br from-[#e8f1f7] to-white
   dark:from-slate-800 dark:to-slate-900"
             >
-              <div className="w-14 h-14 rounded-full bg-[#18B6B4]/10 flex items-center justify-center mb-4">
-                <FileText className="w-6 h-6 text-[#18B6B4]" />
+              <div className="w-14 h-14 rounded-full bg-[#3e86b7]/10 flex items-center justify-center mb-4">
+                <FileText className="w-6 h-6 text-[#3e86b7]" />
               </div>
               <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">
                 No Documents Configured
@@ -2209,8 +2209,8 @@ export default function LoanPreview() {
                     className={`group flex items-center justify-between px-3 py-2 rounded-lg border cursor-pointer transition-all duration-200
           ${
             isChecked
-              ? "border-[#18B6B4] bg-[#e6f7f7] dark:bg-[#18B6B4]/10"
-              : "border-gray-200 hover:border-[#18B6B4] dark:border-slate-700"
+              ? "border-[#3e86b7] bg-[#e8f1f7] dark:bg-[#3e86b7]/10"
+              : "border-gray-200 hover:border-[#3e86b7] dark:border-slate-700"
           }`}
                   >
                     <div className="flex items-center gap-2 min-w-0">
@@ -2218,15 +2218,15 @@ export default function LoanPreview() {
                         className={`w-8 h-8 rounded-md flex items-center justify-center shrink-0
               ${
                 isChecked
-                  ? "bg-[#18B6B4] text-white"
-                  : "bg-blue-50 text-blue-500 dark:bg-slate-700"
+                  ? "bg-[#3e86b7] text-white"
+                  : "bg-brand-50 text-brand-500 dark:bg-slate-700"
               }`}
                       >
                         <FileText size={16} />
                       </div>
 
                       <div className="min-w-0">
-                        <p className="text-xs font-semibold text-gray-800 truncate dark:text-[#18B6B4]">
+                        <p className="text-xs font-semibold text-gray-800 truncate dark:text-[#3e86b7]">
                           {doc.documentName || doc.documentType?.name}
                         </p>
                         <p className="text-[10px] text-gray-400 truncate">
@@ -2240,8 +2240,8 @@ export default function LoanPreview() {
                       className={`w-4 h-4 rounded border flex items-center justify-center transition
               ${
                 isChecked
-                  ? "bg-[#18B6B4] border-[#18B6B4]"
-                  : "border-gray-300 group-hover:border-[#18B6B4]"
+                  ? "bg-[#3e86b7] border-[#3e86b7]"
+                  : "border-gray-300 group-hover:border-[#3e86b7]"
               }`}
                     >
                       {isChecked && <Check size={10} className="text-white" />}
@@ -2256,7 +2256,7 @@ export default function LoanPreview() {
         {selectedLoanProduct && (
           <div className="space-y-3">
             <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded-full bg-[#13538A] text-white text-xs flex items-center justify-center">
+              <div className="w-6 h-6 rounded-full bg-[#3e86b7] text-white text-xs flex items-center justify-center">
                 <Plus size={12} />
               </div>
               <p className="text-xs font-semibold text-gray-500 tracking-wide">
@@ -2285,14 +2285,14 @@ export default function LoanPreview() {
                       }}
                       placeholder="Enter document name..."
                       disabled={addingDocument}
-                      className="flex-1 text-sm px-3 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-[#18B6B4] dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200 disabled:opacity-60"
+                      className="flex-1 text-sm px-3 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-[#3e86b7] dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200 disabled:opacity-60"
                     />
 
                     <button
                       type="button"
                       onClick={handleAddProductDocument}
                       disabled={addingDocument || newDocName.trim().length < 2}
-                      className="inline-flex items-center justify-center gap-1.5 text-sm px-3 py-2 rounded-lg bg-[#13538A] text-white hover:bg-[#0f4270] transition disabled:opacity-40"
+                      className="inline-flex items-center justify-center gap-1.5 text-sm px-3 py-2 rounded-lg bg-[#3e86b7] text-white hover:bg-[#2e6f99] transition disabled:opacity-40"
                     >
                       {addingDocument ? (
                         <Loader2 size={14} className="animate-spin" />
@@ -2308,7 +2308,7 @@ export default function LoanPreview() {
                       type="checkbox"
                       checked={newDocRequired}
                       onChange={(e) => setNewDocRequired(e.target.checked)}
-                      className="rounded border-slate-300 text-[#13538A] focus:ring-[#18B6B4]"
+                      className="rounded border-slate-300 text-[#3e86b7] focus:ring-[#3e86b7]"
                     />
                     Required document for this loan program
                   </label>
@@ -2331,7 +2331,7 @@ export default function LoanPreview() {
               !selectedLoanProduct ||
               (docSelectModal.selectedDocs?.length || 0) === 0
             }
-            className="px-5 py-2 rounded-xl bg-[#0F766E] text-white font-medium disabled:opacity-40"
+            className="px-5 py-2 rounded-xl bg-[#183b57] text-white font-medium disabled:opacity-40"
           >
             {requestLoading ? "Requesting..." : "Request Documents"}
           </button>
@@ -2344,7 +2344,7 @@ export default function LoanPreview() {
     if (detailLoading && (loiGenerated || isLoi)) {
       return (
         <div className="flex flex-col items-center justify-center gap-3 py-20">
-          <Loader2 className="animate-spin w-8 h-8 text-blue-500" />
+          <Loader2 className="animate-spin w-8 h-8 text-brand-500" />
           <p className="text-sm text-slate-500">Loading LOI preview...</p>
         </div>
       );
@@ -2353,7 +2353,7 @@ export default function LoanPreview() {
     if (loiLoading) {
       return (
         <div className="flex flex-col items-center justify-center gap-3 py-20">
-          <Loader2 className="animate-spin w-8 h-8 text-blue-500" />
+          <Loader2 className="animate-spin w-8 h-8 text-brand-500" />
           <p className="text-sm text-slate-500">Loading LOI preview...</p>
         </div>
       );
@@ -2370,7 +2370,7 @@ export default function LoanPreview() {
 
       return (
         <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
-          <div className="w-16 h-16 rounded-2xl bg-purple-50 dark:bg-purple-900/20 text-purple-600 flex items-center justify-center mb-4">
+          <div className="w-16 h-16 rounded-2xl bg-brand-50 dark:bg-brand-900/20 text-brand-600 flex items-center justify-center mb-4">
             <FileText size={28} />
           </div>
           <h3 className="text-lg font-semibold text-slate-800 dark:text-white">
@@ -2384,7 +2384,7 @@ export default function LoanPreview() {
             type="button"
             onClick={openCreateLoiForm}
             disabled={detailLoading}
-            className="mt-6 inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-purple-600 text-white text-sm font-semibold hover:bg-purple-700 transition disabled:opacity-50"
+            className="mt-6 inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-brand-600 text-white text-sm font-semibold hover:bg-brand-700 transition disabled:opacity-50"
           >
             <FileText size={16} />
             Enter Terms & Generate LOI
@@ -2397,7 +2397,7 @@ export default function LoanPreview() {
       if (loiLoading || detailLoading || location.state?.refreshLoi) {
         return (
           <div className="flex flex-col items-center justify-center gap-3 py-20">
-            <Loader2 className="animate-spin w-8 h-8 text-blue-500" />
+            <Loader2 className="animate-spin w-8 h-8 text-brand-500" />
             <p className="text-sm text-slate-500">Loading LOI preview...</p>
           </div>
         );
@@ -2442,7 +2442,7 @@ export default function LoanPreview() {
               type="button"
               onClick={handleSendLoiToBroker}
               disabled={loiSendingToBroker}
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#0F766E] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0d655e] disabled:opacity-50"
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#183b57] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#264863] disabled:opacity-50"
             >
               {loiSendingToBroker ? (
                 <Loader2 size={16} className="animate-spin" />
@@ -2477,7 +2477,7 @@ export default function LoanPreview() {
                   key={version.id}
                   className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium ${
                     version.isCurrent
-                      ? "bg-purple-100 text-purple-800"
+                      ? "bg-brand-100 text-brand-800"
                       : "bg-white text-slate-600 border border-slate-200"
                   }`}
                 >
@@ -2498,7 +2498,7 @@ export default function LoanPreview() {
               onClick={() => setLoiViewMode("lender")}
               className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${
                 loiViewMode === "lender"
-                  ? "bg-purple-600 text-white"
+                  ? "bg-brand-600 text-white"
                   : "bg-slate-100 text-slate-700 hover:bg-slate-200"
               }`}
             >
@@ -2540,7 +2540,7 @@ export default function LoanPreview() {
                 type="button"
                 onClick={openRegenerateLoiForm}
                 disabled={loiLoading}
-                className="inline-flex items-center gap-2 rounded-xl border border-purple-200 bg-purple-50 px-4 py-2 text-sm font-semibold text-purple-700 transition hover:bg-purple-100 disabled:opacity-50"
+                className="inline-flex items-center gap-2 rounded-xl border border-brand-200 bg-brand-50 px-4 py-2 text-sm font-semibold text-brand-700 transition hover:bg-brand-100 disabled:opacity-50"
               >
                 <RotateCcw size={16} />
                 Update Draft
@@ -2550,7 +2550,7 @@ export default function LoanPreview() {
                 type="button"
                 onClick={openRevisedLoiForm}
                 disabled={loiLoading}
-                className="inline-flex items-center gap-2 rounded-xl border border-purple-200 bg-purple-50 px-4 py-2 text-sm font-semibold text-purple-700 transition hover:bg-purple-100 disabled:opacity-50"
+                className="inline-flex items-center gap-2 rounded-xl border border-brand-200 bg-brand-50 px-4 py-2 text-sm font-semibold text-brand-700 transition hover:bg-brand-100 disabled:opacity-50"
               >
                 <RotateCcw size={16} />
                 Create Revised LOI (Version {nextRevisedVersionNumber})
@@ -2632,7 +2632,7 @@ export default function LoanPreview() {
           id: "details",
           label: getVisibleTabLabel("details", "View Details"),
           icon: Eye,
-          color: "text-blue-600",
+          color: "text-[#3e86b7]",
         },
       ],
     },
@@ -2664,7 +2664,7 @@ export default function LoanPreview() {
             "Upload Signable Forms / Documents",
           ),
           icon: FileText,
-          color: "text-indigo-600",
+          color: "text-brand-600",
         },
         ...(showLoiTab
           ? [
@@ -2672,7 +2672,7 @@ export default function LoanPreview() {
                 id: "loi" as const,
                 label: getVisibleTabLabel("loi", "LOI / Term Sheet"),
                 icon: FileText,
-                color: "text-purple-600",
+                color: "text-brand-600",
               },
             ]
           : []),
@@ -2715,7 +2715,7 @@ export default function LoanPreview() {
               {/* Back Button */}
               <button
                 onClick={() => navigate(-1)}
-                className="p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-[#18B6B4] transition-all"
+                className="p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-[#3e86b7] transition-all"
               >
                 <ArrowLeft size={18} />
               </button>
@@ -2740,7 +2740,7 @@ export default function LoanPreview() {
           </div>
 
           <div className="flex flex-col items-end gap-3">
-            <span className="text-xs bg-gray-100 border-2 px-2 py-1 rounded-md text-purple-700 font-semibold">
+            <span className="text-xs bg-brand-100 border-2 border-brand-300 px-2 py-1 rounded-md text-brand-700 font-semibold">
               {submissionDetail && submissionDetail?.status}
             </span>
 
@@ -2777,23 +2777,23 @@ export default function LoanPreview() {
               {/* BROKER NAME CHIP */}
               <div
                 className="flex items-center gap-3 px-4 py-2 rounded-xl border
-    bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200
-    dark:from-blue-900/30 dark:to-blue-800/20 dark:border-blue-800"
+    bg-gradient-to-r from-brand-50 to-brand-100 border-brand-200
+    dark:from-brand-900/30 dark:to-brand-800/20 dark:border-brand-800"
               >
-                <div className="w-7 h-7 rounded-full bg-blue-500 text-white flex items-center justify-center text-xs font-bold">
+                <div className="w-7 h-7 rounded-full bg-brand-500 text-white flex items-center justify-center text-xs font-bold">
                   <User size={14} />
                 </div>
 
                 <div className="flex flex-col leading-tight">
                   <span
                     className="text-[10px] uppercase tracking-wide font-semibold
-        text-blue-500 dark:text-blue-400"
+        text-brand-500 dark:text-brand-400"
                   >
                     Broker Name
                   </span>
                   <span
                     className="text-sm font-semibold
-        text-blue-900 dark:text-blue-100"
+        text-brand-900 dark:text-brand-100"
                   >
                     {submissionDetail.loanApplication.brokerOrg.name}
                   </span>
@@ -2803,23 +2803,23 @@ export default function LoanPreview() {
               {/* EMAIL CHIP */}
               <div
                 className="flex items-center gap-3 px-4 py-2 rounded-xl border
-    bg-gradient-to-r from-emerald-50 to-emerald-100 border-emerald-200
-    dark:from-emerald-900/30 dark:to-emerald-800/20 dark:border-emerald-800"
+    bg-gradient-to-r from-brand-50 to-brand-100 border-brand-200
+    dark:from-brand-900/30 dark:to-brand-800/20 dark:border-brand-800"
               >
-                <div className="w-7 h-7 rounded-full bg-emerald-500 text-white flex items-center justify-center text-xs">
+                <div className="w-7 h-7 rounded-full bg-brand-500 text-white flex items-center justify-center text-xs">
                   <MdEmail />
                 </div>
 
                 <div className="flex flex-col leading-tight">
                   <span
                     className="text-[10px] uppercase tracking-wide font-semibold
-        text-emerald-500 dark:text-emerald-400"
+        text-brand-500 dark:text-brand-400"
                   >
                     Email
                   </span>
                   <span
                     className="text-sm font-medium
-        text-emerald-900 dark:text-emerald-100"
+        text-brand-900 dark:text-brand-100"
                   >
                     {submissionDetail.loanApplication.brokerOrg.email}
                   </span>
@@ -2829,23 +2829,23 @@ export default function LoanPreview() {
               {/* LOAN PRODUCT */}
               <div
                 className="flex items-center gap-3 px-4 py-2 rounded-xl border
-    bg-gradient-to-r from-purple-50 to-purple-100 border-purple-200
-    dark:from-purple-900/30 dark:to-purple-800/20 dark:border-purple-800"
+    bg-gradient-to-r from-brand-50 to-brand-100 border-brand-200
+    dark:from-brand-900/30 dark:to-brand-800/20 dark:border-brand-800"
               >
-                <div className="w-7 h-7 rounded-full bg-purple-500 text-white flex items-center justify-center text-xs font-bold">
+                <div className="w-7 h-7 rounded-full bg-brand-500 text-white flex items-center justify-center text-xs font-bold">
                   <BiLogoProductHunt size={14} />
                 </div>
 
                 <div className="flex flex-col leading-tight">
                   <span
                     className="text-[10px] uppercase tracking-wide font-semibold
-        text-purple-500 dark:text-purple-400"
+        text-brand-500 dark:text-brand-400"
                   >
                     Loan Product
                   </span>
                   <span
                     className="text-sm font-semibold
-        text-purple-900 dark:text-purple-100"
+        text-brand-900 dark:text-brand-100"
                   >
                     {resolvedLoanProductName}
                   </span>
@@ -2855,11 +2855,11 @@ export default function LoanPreview() {
               {/* LOAN AMOUNT */}
               <div
                 className="flex items-center gap-3 px-4 py-2 rounded-xl border
-  bg-gradient-to-r from-orange-50 to-amber-100 border-orange-200
-  dark:from-orange-900/30 dark:to-amber-800/20 dark:border-orange-800"
+  bg-gradient-to-r from-brand-50 to-brand-100 border-brand-200
+  dark:from-brand-900/30 dark:to-brand-800/20 dark:border-brand-800"
               >
                 <div
-                  className="w-7 h-7 rounded-full bg-orange-500 text-white
+                  className="w-7 h-7 rounded-full bg-brand-500 text-white
     flex items-center justify-center text-xs"
                 >
                   <FaDollarSign />
@@ -2868,7 +2868,7 @@ export default function LoanPreview() {
                 <div className="flex flex-col leading-tight">
                   <span
                     className="text-[10px] uppercase tracking-wide font-semibold
-      text-orange-500 dark:text-orange-400"
+      text-brand-500 dark:text-brand-400"
                   >
                     Loan Amount Requested
                   </span>
@@ -2889,8 +2889,8 @@ export default function LoanPreview() {
 
         {submissionDetail && (
           <div
-            className="mb-6 overflow-hidden rounded-[30px] border border-white/30 
-            bg-[radial-gradient(circle_at_top_left,_rgba(255,255,255,0.24),_transparent_28%),linear-gradient(135deg,_#1d4ed8_0%,_#0f766e_55%,_#0891b2_100%)] 
+            className="mb-6 overflow-hidden rounded-[30px] border border-white/30
+            bg-[radial-gradient(circle_at_top_left,_rgba(255,255,255,0.24),_transparent_28%),linear-gradient(135deg,_#0f2a3e_0%,_#183b57_55%,_#3e86b7_100%)]
             px-6 py-8 text-white"
           >
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-6">
@@ -2963,7 +2963,7 @@ export default function LoanPreview() {
                     aria-current={isSectionActive ? "page" : undefined}
                     className={`group relative flex min-w-0 items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-all ${
                       isSectionActive
-                        ? "bg-[#104340] text-white shadow-md shadow-[#104340]/20"
+                        ? "bg-[#183b57] text-white shadow-md shadow-[#183b57]/20"
                         : "text-slate-600 hover:bg-white hover:text-slate-900 hover:shadow-sm dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
                     }`}
                   >
@@ -2971,7 +2971,7 @@ export default function LoanPreview() {
                       className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition ${
                         isSectionActive
                           ? "bg-white/20 text-white"
-                          : "bg-white text-slate-400 shadow-sm group-hover:text-blue-600 dark:bg-slate-900"
+                          : "bg-white text-slate-400 shadow-sm group-hover:text-[#3e86b7] dark:bg-slate-900"
                       }`}
                     >
                       <SectionIcon size={16} />
@@ -3022,7 +3022,7 @@ export default function LoanPreview() {
                       }}
                       className={`group inline-flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold transition-all ${
                         isActive
-                          ? "bg-[#104340] text-white shadow-sm dark:bg-[#104340] dark:text-white"
+                          ? "bg-[#183b57] text-white shadow-sm dark:bg-[#183b57] dark:text-white"
                           : isDisabled
                             ? "cursor-not-allowed text-slate-400 opacity-50"
                             : "text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white"
@@ -3097,7 +3097,7 @@ export default function LoanPreview() {
                   {multiFileModal.doc.uploadedFiles?.map((file: any) => (
                     <div
                       key={file.uploadId}
-                      className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 hover:border-blue-500 transition-all group"
+                      className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 hover:border-brand-500 transition-all group"
                     >
                       <div className="flex items-start gap-3">
                         <div className="p-2 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-400">
@@ -3124,7 +3124,7 @@ export default function LoanPreview() {
                               name: file.fileName,
                             })
                           }
-                          className="flex-1 py-2 text-xs font-bold bg-blue-50 text-blue-600 dark:bg-blue-600/10 dark:text-blue-400 rounded-lg hover:bg-blue-600 hover:text-white transition-all flex items-center justify-center gap-1"
+                          className="flex-1 py-2 text-xs font-bold bg-brand-50 text-brand-600 dark:bg-brand-600/10 dark:text-brand-400 rounded-lg hover:bg-brand-600 hover:text-white transition-all flex items-center justify-center gap-1"
                         >
                           <Eye size={14} /> Preview
                         </button>
@@ -3205,7 +3205,7 @@ export default function LoanPreview() {
                       onClick={() =>
                         handleDownload(previewFile.url, previewFile.name)
                       }
-                      className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-700 transition"
+                      className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-brand-600 text-white font-bold hover:bg-brand-700 transition"
                     >
                       <Download size={18} />
                       Download instead
@@ -3360,7 +3360,7 @@ export default function LoanPreview() {
                         ? "Approval notes..."
                         : "Reason for rejection..."
                     }
-                    className={`w-full px-3 py-2 rounded-xl border bg-white dark:bg-slate-800 focus:ring-2 focus:ring-blue-500 outline-none ${
+                    className={`w-full px-3 py-2 rounded-xl border bg-white dark:bg-slate-800 focus:ring-2 focus:ring-brand-500 outline-none ${
                       decisionFormErrors.notes
                         ? "border-red-500"
                         : "border-slate-200 dark:border-slate-700"

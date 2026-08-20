@@ -199,7 +199,7 @@ export default function AllRuleSets() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
           <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white">
-            All <span className="text-[#18B6B4]">Rules</span>
+            All <span className="text-[#3e86b7]">Rules</span>
           </h1>
           <p className="text-xs sm:text-sm text-gray-500 mt-1 dark:text-slate-400">
             Manage rules
@@ -278,7 +278,7 @@ export default function AllRuleSets() {
               {!selectedLenderProductId && (
                 <>
                   Please{" "}
-                  <span className="text-[#18B6B4] font-semibold">
+                  <span className="text-[#3e86b7] font-semibold">
                     select a rule set
                   </span>{" "}
                   to view eligibility rules.
@@ -398,7 +398,7 @@ export default function AllRuleSets() {
                 onClick={() => setCurrentPage(page)}
                 className={`px-3 py-1 border rounded ${
                   page === currentPage
-                    ? "bg-[#18B6B4] text-white"
+                    ? "bg-[#3e86b7] text-white"
                     : "bg-white text-gray-700"
                 }`}
               >

@@ -550,7 +550,7 @@ function getDefaultLenderBranding(): PdfBranding {
   return {
     brandName: organizationName,
     logoUrl: null,
-    primaryColor: "#13538A",
+    primaryColor: "#3e86b7",
     secondaryColor: "#2C92D5",
   };
 }
@@ -577,7 +577,7 @@ export async function fetchLenderBrandingForPdf(): Promise<PdfBranding> {
     return {
       brandName: savedBrandName || defaults.brandName,
       logoUrl: savedLogoUrl,
-      primaryColor: "#13538A",
+      primaryColor: "#3e86b7",
       secondaryColor: "#2C92D5",
     };
   } catch {

@@ -181,7 +181,7 @@ export default function LenderProfileView() {
   if (loading) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-[#134E4A]" />
+        <Loader2 className="h-8 w-8 animate-spin text-[#183b57]" />
       </div>
     );
   }
@@ -216,7 +216,7 @@ export default function LenderProfileView() {
           {canManageProfile && (
             <Link
               to="/profile/edit"
-              className="inline-flex items-center gap-2 rounded-xl bg-[#134E4A] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0f3f3c]"
+              className="inline-flex items-center gap-2 rounded-xl bg-[#183b57] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#264863]"
             >
               <Pencil size={16} />
               {profileComplete ? "Edit Full Profile" : "Complete Full Profile"}
@@ -239,11 +239,11 @@ export default function LenderProfileView() {
       )}
 
       <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <div className="border-b border-slate-100 bg-gradient-to-r from-[#134E4A] to-[#0f766e] px-6 py-5 dark:border-slate-800">
+        <div className="border-b border-slate-100 bg-gradient-to-r from-[#183b57] to-[#183b57] px-6 py-5 dark:border-slate-800">
           <h2 className="text-lg font-semibold text-white">{orgName}</h2>
-          <p className="mt-1 text-sm text-teal-100">{contactEmail}</p>
+          <p className="mt-1 text-sm text-brand-100">{contactEmail}</p>
           {productSummary && (
-            <p className="mt-2 text-xs text-teal-100/90">
+            <p className="mt-2 text-xs text-brand-100/90">
               {productSummary.programCount} active loan program
               {productSummary.programCount === 1 ? "" : "s"}
             </p>

@@ -792,7 +792,7 @@ export default function EditFullProfile() {
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50">
-        <Loader2 className="h-8 w-8 animate-spin text-[#134E4A]" />
+        <Loader2 className="h-8 w-8 animate-spin text-[#183b57]" />
       </div>
     );
   }
@@ -854,7 +854,7 @@ export default function EditFullProfile() {
         <div className="mx-auto max-w-screen-2xl px-6">
           <div className="h-[3px] overflow-hidden rounded-full bg-gray-100">
             <div
-              className="h-full bg-[#134E4A] transition-all duration-300"
+              className="h-full bg-[#183b57] transition-all duration-300"
               style={{ width: `${((step + 1) / steps.length) * 100}%` }}
             />
           </div>
@@ -870,7 +870,7 @@ export default function EditFullProfile() {
                 <div
                   className={`flex items-center gap-1 rounded-full px-4 py-1.5 text-xs font-medium transition-all duration-200 ${
                     isActive
-                      ? "bg-[#134E4A] text-white shadow"
+                      ? "bg-[#183b57] text-white shadow"
                       : isCompleted
                         ? "bg-emerald-500 text-white"
                         : "bg-gray-100 text-gray-400"
@@ -923,7 +923,7 @@ export default function EditFullProfile() {
               type="button"
               onClick={isLastStep ? handleSubmit : goNext}
               disabled={nextDisabled}
-              className="flex items-center gap-2 rounded-lg bg-[#134E4A] px-6 py-2 text-sm font-medium text-white shadow transition hover:bg-[#0f3f3c] disabled:opacity-40"
+              className="flex items-center gap-2 rounded-lg bg-[#183b57] px-6 py-2 text-sm font-medium text-white shadow transition hover:bg-[#264863] disabled:opacity-40"
             >
               {isLastStep
                 ? submitting

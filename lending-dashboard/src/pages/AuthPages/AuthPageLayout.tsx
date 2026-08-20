@@ -31,10 +31,10 @@ export default function AuthLayout({
         </div>
 
         {/* Brand panel */}
-        <div className="relative hidden overflow-hidden bg-[#0d3532] lg:flex lg:flex-1">
-          <div className="absolute inset-0 bg-[linear-gradient(135deg,#0d3532_0%,#134E4A_50%,#1a6b65_100%)]" />
-          <div className="absolute -top-24 right-0 h-72 w-72 rounded-full bg-emerald-400/20 blur-[100px]" />
-          <div className="absolute bottom-0 left-0 h-64 w-64 rounded-full bg-teal-500/20 blur-[80px]" />
+        <div className="relative hidden overflow-hidden bg-[#264863] lg:flex lg:flex-1">
+          <div className="absolute inset-0 bg-[linear-gradient(135deg,#264863_0%,#183b57_50%,#36536c_100%)]" />
+          <div className="absolute -top-24 right-0 h-72 w-72 rounded-full bg-brand-400/20 blur-[100px]" />
+          <div className="absolute bottom-0 left-0 h-64 w-64 rounded-full bg-sky-500/20 blur-[80px]" />
 
           <GridShape />
 
@@ -52,7 +52,7 @@ export default function AuthLayout({
             <h2 className="text-3xl font-bold tracking-tight text-white xl:text-4xl">
               Lender Portal
             </h2>
-            <p className="mt-3 max-w-sm text-base leading-relaxed text-emerald-100/80">
+            <p className="mt-3 max-w-sm text-base leading-relaxed text-sky-100/80">
               Smart Loans for Smarter Businesses.
             </p>
 
@@ -60,9 +60,9 @@ export default function AuthLayout({
               {FEATURES.map((feature) => (
                 <li
                   key={feature}
-                  className="flex items-center gap-3 text-sm text-emerald-50/90"
+                  className="flex items-center gap-3 text-sm text-sky-50/90"
                 >
-                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/15 text-xs text-emerald-200">
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/15 text-xs text-sky-200">
                     {"\u2713"}
                   </span>
                   {feature}

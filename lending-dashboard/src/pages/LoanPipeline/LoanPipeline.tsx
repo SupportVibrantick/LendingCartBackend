@@ -453,7 +453,7 @@ useEffect(() => {
       <header className="mx-auto mb-8 max-w-7xl">
         <div className="flex flex-col justify-between gap-6 lg:flex-row lg:items-start">
           <div className="space-y-1">
-            <h1 className="text-2xl font-bold tracking-tight text-[#18B6B4] dark:text-[#6ee7e5]">
+            <h1 className="text-2xl font-bold tracking-tight text-[#3e86b7] dark:text-[#5ba8d4]">
               Loan Pipeline
             </h1>
             <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
@@ -465,7 +465,7 @@ useEffect(() => {
                     {stats.totalApplications}
                   </span>{" "}
                   total applications ·{" "}
-                  <span className="font-semibold text-[#18B6B4] dark:text-[#6ee7e5]">
+                  <span className="font-semibold text-[#3e86b7] dark:text-[#5ba8d4]">
                     {pagination.total}
                   </span>{" "}
                   matching current view
@@ -476,12 +476,12 @@ useEffect(() => {
 
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <div className="relative group">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 transition-colors group-focus-within:text-[#18B6B4]" />
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 transition-colors group-focus-within:text-[#3e86b7]" />
               <input
                 value={searchTerm}
                 placeholder="Search application # or borrower..."
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-10 text-sm text-slate-800 outline-none transition-all placeholder:text-slate-400 focus:border-[#18B6B4] focus:ring-2 focus:ring-[#18B6B4]/20 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100 sm:w-80"
+                className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-10 text-sm text-slate-800 outline-none transition-all placeholder:text-slate-400 focus:border-[#3e86b7] focus:ring-2 focus:ring-[#3e86b7]/20 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100 sm:w-80"
               />
               {searchTerm && (
                 <button
@@ -497,7 +497,7 @@ useEffect(() => {
               type="button"
               onClick={refreshPipeline}
               disabled={loading || statsLoading}
-              className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition-all hover:border-[#18B6B4] active:scale-95 disabled:opacity-60 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200"
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition-all hover:border-[#3e86b7] active:scale-95 disabled:opacity-60 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200"
             >
               <RefreshCw
                 size={16}
@@ -532,7 +532,7 @@ useEffect(() => {
               label: "In Pipeline",
               value: stats.totalApplications,
               icon: FileText,
-              tone: "bg-[#18B6B4]",
+              tone: "bg-[#3e86b7]",
             },
           ].map((card) => (
             <div
@@ -582,8 +582,8 @@ useEffect(() => {
                   onClick={() => setDecisionFilter(filter.value)}
                   className={`rounded-full px-3 py-1.5 text-xs font-medium transition-all ${
                     active
-                      ? "bg-[#18B6B4] text-white shadow-sm"
-                      : "border border-slate-200 bg-slate-50 text-slate-600 hover:border-[#18B6B4]/40 hover:text-[#18B6B4] dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                      ? "bg-[#3e86b7] text-white shadow-sm"
+                      : "border border-slate-200 bg-slate-50 text-slate-600 hover:border-[#3e86b7]/40 hover:text-[#3e86b7] dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
                   }`}
                 >
                   {filter.label}
@@ -635,7 +635,7 @@ useEffect(() => {
                     <tr
                       key={row.applicationLenderId}
                       onClick={() => openApplicationPreview(row)}
-                      className="cursor-pointer transition-colors hover:bg-[#18B6B4]/5 dark:hover:bg-[#18B6B4]/10"
+                      className="cursor-pointer transition-colors hover:bg-[#3e86b7]/5 dark:hover:bg-[#3e86b7]/10"
                     >
                       <td className="whitespace-nowrap px-3 py-3 align-middle">
                         <span
@@ -648,7 +648,7 @@ useEffect(() => {
 
                       <td className="whitespace-nowrap px-3 py-3">
                         <div className="flex items-center gap-2">
-                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#18B6B4]/10 text-[10px] font-semibold text-[#134E4A] dark:bg-[#18B6B4]/20 dark:text-[#6ee7e5]">
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#3e86b7]/10 text-[10px] font-semibold text-[#183b57] dark:bg-[#3e86b7]/20 dark:text-[#5ba8d4]">
                             {getBorrowerInitials(row.borrowerName)}
                           </div>
                           <span
@@ -710,7 +710,7 @@ useEffect(() => {
                             type="button"
                             title="View application"
                             onClick={() => openApplicationPreview(row)}
-                            className="inline-flex shrink-0 items-center justify-center rounded-lg border border-slate-200 p-1.5 text-[#18B6B4] transition hover:bg-[#18B6B4]/10 dark:border-slate-700"
+                            className="inline-flex shrink-0 items-center justify-center rounded-lg border border-slate-200 p-1.5 text-[#3e86b7] transition hover:bg-[#3e86b7]/10 dark:border-slate-700"
                           >
                             <Eye size={15} />
                           </button> */}
@@ -777,7 +777,7 @@ useEffect(() => {
                                         openApplicationPreview(row);
                                         setActiveDropdown(null);
                                       }}
-                                      className="mx-1 flex w-full items-center gap-3 rounded-lg px-4 py-2.5 text-sm text-[#0F766E] transition hover:bg-green-100 dark:hover:bg-green-900/20"
+                                      className="mx-1 flex w-full items-center gap-3 rounded-lg px-4 py-2.5 text-sm text-[#183b57] transition hover:bg-green-100 dark:hover:bg-green-900/20"
                                     >
                                       <Eye size={16} />
                                       Open Application
@@ -871,7 +871,7 @@ useEffect(() => {
                     onClick={() => setCurrentPage(page)}
                     className={`rounded-lg px-3 py-1 text-sm transition ${
                       currentPage === page
-                        ? "bg-[#18B6B4] text-white"
+                        ? "bg-[#3e86b7] text-white"
                         : "border border-slate-200 hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"
                     }`}
                   >

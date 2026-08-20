@@ -266,7 +266,7 @@ export default function EditLoanProductModal({
             <button
               type="submit"
               disabled={saving}
-              className="px-4 py-2 bg-[#18B6B4] text-white rounded-md hover:bg-[#159e9c] transition disabled:opacity-60 disabled:cursor-not-allowed"
+              className="px-4 py-2 bg-[#3e86b7] text-white rounded-md hover:bg-[#2e6f99] transition disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {saving ? "Saving..." : "Save Changes"}
             </button>

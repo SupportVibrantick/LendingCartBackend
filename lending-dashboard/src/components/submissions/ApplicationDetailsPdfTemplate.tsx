@@ -36,8 +36,8 @@ export type ApplicationDetailsPdfTemplateProps = {
 };
 
 const SECTION_ACCENTS = [
-  "#13538A",
-  "#0F766E",
+  "#3e86b7",
+  "#183b57",
   "#B45309",
   "#1D4ED8",
   "#6D28D9",
@@ -221,7 +221,7 @@ function LongTextFieldCell({
             style={{
               fontSize: "11px",
               fontWeight: 600,
-              color: highlight ? "#13538A" : "#0F172A",
+              color: highlight ? "#3e86b7" : "#0F172A",
               lineHeight: 1.65,
               whiteSpace: "pre-wrap",
               wordBreak: "break-word",
@@ -263,7 +263,7 @@ function FieldCell({
         style={{
           fontSize: "12px",
           fontWeight: 600,
-          color: highlight ? "#13538A" : "#0F172A",
+          color: highlight ? "#3e86b7" : "#0F172A",
           lineHeight: 1.5,
           wordBreak: "break-word",
         }}

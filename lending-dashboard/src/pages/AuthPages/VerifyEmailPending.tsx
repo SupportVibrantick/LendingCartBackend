@@ -52,7 +52,7 @@ export default function VerifyEmailPending() {
       />
       <AuthLayout>
         <div className="w-full">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-teal-700 dark:text-teal-300">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-brand-700 dark:text-brand-300">
             Almost there
           </p>
           <h1 className="text-2xl font-semibold text-gray-800 dark:text-white sm:text-3xl">
@@ -69,7 +69,7 @@ export default function VerifyEmailPending() {
             . Please verify your email before signing in to the lender dashboard.
           </p>
 
-          <div className="mt-6 rounded-xl border border-teal-100 bg-teal-50/70 px-4 py-3 text-sm text-teal-900 dark:border-teal-900/40 dark:bg-teal-950/30 dark:text-teal-100">
+          <div className="mt-6 rounded-xl border border-brand-100 bg-brand-50/70 px-4 py-3 text-sm text-brand-900 dark:border-brand-900/40 dark:bg-brand-950/30 dark:text-brand-100">
             Check your inbox and spam folder. The link expires in 24 hours.
           </div>
 
@@ -84,7 +84,7 @@ export default function VerifyEmailPending() {
 
           <Link
             to="/signin"
-            className="mt-3 inline-flex w-full items-center justify-center rounded-xl bg-[#0d3532] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#134E4A]"
+            className="mt-3 inline-flex w-full items-center justify-center rounded-xl bg-[#264863] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#183b57]"
           >
             Go to sign in
           </Link>
@@ -93,7 +93,7 @@ export default function VerifyEmailPending() {
             Wrong email?{" "}
             <Link
               to="/partner/signup"
-              className="font-semibold text-teal-800 hover:underline dark:text-teal-300"
+              className="font-semibold text-brand-800 hover:underline dark:text-brand-300"
             >
               Sign up again
             </Link>

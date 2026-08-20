@@ -99,7 +99,7 @@ export default function ResetPasswordForm({ token }: { token: string }) {
   };
 
   const inputWrap =
-    "flex items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3.5 transition focus-within:border-[#134E4A] focus-within:bg-white dark:border-gray-700 dark:bg-gray-900";
+    "flex items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3.5 transition focus-within:border-[#183b57] focus-within:bg-white dark:border-gray-700 dark:bg-gray-900";
 
   if (isValidating) {
     return (
@@ -122,7 +122,7 @@ export default function ResetPasswordForm({ token }: { token: string }) {
         </p>
         <Link
           to="/reset-password"
-          className="mt-8 inline-flex w-full items-center justify-center rounded-xl bg-gradient-to-r from-[#134E4A] to-[#1a6b65] px-5 py-3.5 text-sm font-semibold text-white"
+          className="mt-8 inline-flex w-full items-center justify-center rounded-xl bg-gradient-to-r from-[#183b57] to-[#36536c] px-5 py-3.5 text-sm font-semibold text-white"
         >
           Request new link
         </Link>
@@ -142,7 +142,7 @@ export default function ResetPasswordForm({ token }: { token: string }) {
         </p>
         <Link
           to="/signin"
-          className="mt-8 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#134E4A] to-[#1a6b65] px-5 py-3.5 text-sm font-semibold text-white"
+          className="mt-8 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#183b57] to-[#36536c] px-5 py-3.5 text-sm font-semibold text-white"
         >
           Sign in to dashboard
         </Link>
@@ -231,7 +231,7 @@ export default function ResetPasswordForm({ token }: { token: string }) {
             whileTap={{ scale: 0.98 }}
             type="submit"
             disabled={isSubmitting}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#134E4A] to-[#1a6b65] px-5 py-3.5 text-sm font-semibold text-white shadow-lg shadow-[#134E4A]/25 transition hover:shadow-[#134E4A]/40 disabled:cursor-not-allowed disabled:opacity-70"
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#183b57] to-[#36536c] px-5 py-3.5 text-sm font-semibold text-white shadow-lg shadow-[#183b57]/25 transition hover:shadow-[#183b57]/40 disabled:cursor-not-allowed disabled:opacity-70"
           >
             {isSubmitting ? "Saving..." : "Reset password"}
           </motion.button>
@@ -240,7 +240,7 @@ export default function ResetPasswordForm({ token }: { token: string }) {
         <p className="mt-6 text-center text-sm text-gray-600 dark:text-gray-400">
           <Link
             to="/signin"
-            className="inline-flex items-center gap-1 font-semibold text-[#134E4A] hover:text-[#0d3532] dark:text-emerald-400"
+            className="inline-flex items-center gap-1 font-semibold text-[#183b57] hover:text-[#264863] dark:text-brand-400"
           >
             <ArrowLeft size={14} />
             Back to sign in
