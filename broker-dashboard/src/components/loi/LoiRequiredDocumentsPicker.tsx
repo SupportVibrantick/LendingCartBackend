@@ -13,7 +13,7 @@ type Props = {
   customDocument: string;
   onCustomDocumentChange: (value: string) => void;
   error?: string;
-  getAuthHeaders: () => Record<string, string>;
+  getAuthHeaders: () => HeadersInit | Record<string, string>;
   loanProductCode?: string | null;
   includeProductConfig?: boolean;
   onProductRequiredLoaded?: (requiredNames: string[]) => void;
@@ -78,10 +78,11 @@ export default function LoiRequiredDocumentsPicker({
       try {
         setLoading(true);
         await loadCatalog();
-      } catch {
+      } catch (err: any) {
         if (!cancelled) {
           setCatalogNames([]);
           setCustomNameKeys(new Set());
+          toast.error(err?.message || "Failed to load document catalog");
         }
       } finally {
         if (!cancelled) setLoading(false);
