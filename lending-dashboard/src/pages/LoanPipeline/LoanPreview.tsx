@@ -2215,7 +2215,9 @@ export default function LoanPreview() {
                 const isChecked =
                   docSelectModal.selectedDocs?.includes(docId) ?? false;
                 const requestHistory = requestDocHistoryByTypeId[String(docId)];
-                // const isAlreadyRequested = Boolean(requestHistory);
+                const isAlreadyRequested = Boolean(requestHistory);
+                const documentName =
+                  doc.documentName || doc.documentType?.name || "Document";
 
                 return (
                   <div
@@ -2241,7 +2243,9 @@ export default function LoanPreview() {
           ${
             isChecked
               ? "border-[#3e86b7] bg-[#e8f1f7] dark:bg-[#3e86b7]/10"
-              : "border-gray-200 hover:border-[#3e86b7] dark:border-slate-700"
+              : isAlreadyRequested
+                ? "border-indigo-200 bg-indigo-50/50 dark:border-indigo-500/30 dark:bg-indigo-500/5"
+                : "border-gray-200 hover:border-[#3e86b7] dark:border-slate-700"
           }`}
                   >
                     <div className="flex items-center gap-2 min-w-0">
@@ -2257,9 +2261,21 @@ export default function LoanPreview() {
                       </div>
 
                       <div className="min-w-0">
-                        <p className="text-xs font-semibold text-gray-800 truncate dark:text-[#3e86b7]">
-                          {doc.documentName || doc.documentType?.name}
-                        </p>
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <p className="text-xs font-semibold text-gray-800 truncate dark:text-[#3e86b7]">
+                            {documentName}
+                          </p>
+                          {doc.isCustom ? (
+                            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-amber-700 dark:bg-amber-500/20 dark:text-amber-300">
+                              Custom
+                            </span>
+                          ) : null}
+                          {isAlreadyRequested ? (
+                            <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300">
+                              Requested
+                            </span>
+                          ) : null}
+                        </div>
                         <p className="text-[10px] text-gray-400 truncate">
                           {doc.isCustom ? "Custom" : "Standard"}
                           {doc.isRequired === false ? " · Optional" : " · Required"}
