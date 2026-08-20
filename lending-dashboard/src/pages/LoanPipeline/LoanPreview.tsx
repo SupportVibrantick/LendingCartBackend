@@ -2215,7 +2215,7 @@ export default function LoanPreview() {
                 const isChecked =
                   docSelectModal.selectedDocs?.includes(docId) ?? false;
                 const requestHistory = requestDocHistoryByTypeId[String(docId)];
-                const isAlreadyRequested = Boolean(requestHistory);
+                // const isAlreadyRequested = Boolean(requestHistory);
 
                 return (
                   <div
