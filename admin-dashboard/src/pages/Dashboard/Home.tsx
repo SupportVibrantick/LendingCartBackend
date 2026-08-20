@@ -35,16 +35,16 @@ type Stats = {
   latestApplications?: any[];
 };
 
-const quickLinks = [
-  { name: "Brokers", path: "/all-brokers-database", color: "bg-blue-500/10 text-blue-600" },
-  { name: "Lenders", path: "/all-lenders-Organization", color: "bg-emerald-500/10 text-emerald-600" },
-  { name: "Loan Officers", path: "/all-loan-officers", color: "bg-violet-500/10 text-violet-600" },
-  { name: "Sub-Brokers", path: "/all-sub-brokers", color: "bg-amber-500/10 text-amber-600" },
-  { name: "Clients", path: "/all-clients", color: "bg-cyan-500/10 text-cyan-600" },
-  { name: "All Deals", path: "/loan-pipeline", color: "bg-indigo-500/10 text-indigo-600" },
-  { name: "Communications", path: "/all-communications", color: "bg-fuchsia-500/10 text-fuchsia-600" },
-  { name: "Audit Logs", path: "/admin-logs", color: "bg-slate-500/10 text-slate-600" },
-];
+// const quickLinks = [
+//   { name: "Brokers", path: "/all-brokers-database", color: "bg-blue-500/10 text-blue-600" },
+//   { name: "Lenders", path: "/all-lenders-Organization", color: "bg-emerald-500/10 text-emerald-600" },
+//   { name: "Loan Officers", path: "/all-loan-officers", color: "bg-violet-500/10 text-violet-600" },
+//   { name: "Sub-Brokers", path: "/all-sub-brokers", color: "bg-amber-500/10 text-amber-600" },
+//   { name: "Clients", path: "/all-clients", color: "bg-cyan-500/10 text-cyan-600" },
+//   { name: "All Deals", path: "/loan-pipeline", color: "bg-indigo-500/10 text-indigo-600" },
+//   { name: "Communications", path: "/all-communications", color: "bg-fuchsia-500/10 text-fuchsia-600" },
+//   { name: "Audit Logs", path: "/admin-logs", color: "bg-slate-500/10 text-slate-600" },
+// ];
 
 export default function Home() {
   const [stats, setStats] = useState<Stats | null>(null);
@@ -165,8 +165,8 @@ export default function Home() {
         <ApplicationPipelineChart stats={stats} />
 
         {/* Quick links + snapshot */}
-        <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 xl:col-span-2 dark:border-slate-800 dark:bg-slate-900">
+        {/* <div className="grid grid-cols-1 gap-4 xl:grid-cols-3"> */}
+          {/* <div className="rounded-2xl border border-slate-200 bg-white p-5 xl:col-span-2 dark:border-slate-800 dark:bg-slate-900">
             <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
               Platform Control Center
             </h2>
@@ -181,9 +181,9 @@ export default function Home() {
                 </Link>
               ))}
             </div>
-          </div>
+          </div> */}
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+          {/* <div className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
             <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
               Today&apos;s Snapshot
             </h2>
@@ -205,8 +205,8 @@ export default function Home() {
                 </div>
               ))}
             </div>
-          </div>
-        </div>
+          </div> */}
+        {/* </div> */}
 
         <LatestApplicationsTable applications={stats?.latestApplications || []} />
       </div>
