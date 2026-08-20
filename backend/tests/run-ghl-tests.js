@@ -13,6 +13,12 @@ const files = [
   "tests/ghl/webhookExtractIds.test.js",
   "tests/ghl/checkoutContactsReuse.test.js",
   "tests/ghl/paymentsLiveMode.test.js",
+  "tests/ghl/oauthEncryption.test.js",
+  "tests/ghl/oauthState.test.js",
+  "tests/ghl/oauthConnection.test.js",
+  "tests/ghl/oauthCallback.test.js",
+  "tests/ghl/brokerGhlClient.test.js",
+  "tests/ghl/brokerGhlWebsites.test.js",
 ].map((f) => path.join(__dirname, "..", f));
 
 const result = spawnSync(process.execPath, ["--test", ...files], {

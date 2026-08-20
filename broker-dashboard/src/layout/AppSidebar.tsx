@@ -131,8 +131,8 @@ const AppSidebar: React.FC = () => {
             permission: "VIEW_WEBSITE_BUILDER",
             subItems: [
               {
-                name: "Config Website",
-                path: "/broker-website-dashboard/config-website",
+                name: "My Websites",
+                path: "/website-builder",
               },
             ],
           },
@@ -222,6 +222,10 @@ const AppSidebar: React.FC = () => {
               {
                 name: "Branding",
                 path: "/settings/branding",
+              },
+              {
+                name: "Integrations",
+                path: "/settings/integrations/ghl",
               },
               // {
               //   icon: <FaAppStore />,

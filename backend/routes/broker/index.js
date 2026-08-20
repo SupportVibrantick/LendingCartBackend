@@ -16,6 +16,16 @@ module.exports = async function brokerRoutes(fastify, opts) {
   // -------------------------
   fastify.register(authRoutes, { prefix: "/auth" });
 
+  // Public GHL OAuth callback (GoHighLevel redirect — no Bearer token)
+  fastify.register(require("./integrations/ghl/callback"), {
+    prefix: "/integrations/ghl",
+  });
+
+  // Neutral OAuth callback (GHL Marketplace rejects URLs containing "ghl")
+  fastify.register(require("./integrations/ghl/callback"), {
+    prefix: "/integrations/oauth",
+  });
+
   // -------------------------
   // Protected broker routes
   // -------------------------
@@ -110,6 +120,10 @@ module.exports = async function brokerRoutes(fastify, opts) {
     });
     instance.register(require("./documentTypes"), {
       prefix: "/document-types",
+    });
+
+    instance.register(require("./integrations"), {
+      prefix: "/integrations",
     });
     // Later extensions
     // instance.register(documentRoutes, { prefix: "/documents" });

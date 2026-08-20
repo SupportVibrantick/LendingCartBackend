@@ -37,7 +37,6 @@ import { formatDocumentStatusLabel } from "../../lib/documentStatus";
 import { getLenderDocumentSourceDisplay } from "../../lib/documentSource";
 import {
   buildDocumentRequestHistoryByTypeId,
-  buildRequestedDocumentsList,
   formatDocumentTimelineDate,
   getDocumentRequestDisplay,
 } from "../../lib/documentRequestMeta";
@@ -448,7 +447,6 @@ export default function LoanPreview() {
     loading: false,
   });
   const [requestLoading, setRequestLoading] = useState(false);
-  const [isRequestedDocsCollapsed, setIsRequestedDocsCollapsed] = useState(true);
   const canDecide = useMemo(() => canDecideApplications(), []);
   const [decisionModal, setDecisionModal] = useState<{
     type: "APPROVED" | "DECLINED" | null;
@@ -902,11 +900,6 @@ export default function LoanPreview() {
 
   const requestDocHistoryByTypeId = useMemo(
     () => buildDocumentRequestHistoryByTypeId(documentsData?.documents || []),
-    [documentsData?.documents],
-  );
-
-  const requestedDocumentsList = useMemo(
-    () => buildRequestedDocumentsList(documentsData?.documents || []),
     [documentsData?.documents],
   );
 
@@ -2115,68 +2108,6 @@ export default function LoanPreview() {
           ) : (
             <p className="text-[11px] text-slate-500">
               Choose a loan program to load product-wise documents.
-            </p>
-          )}
-        </div>
-
-        <div className="rounded-2xl border border-indigo-200 bg-indigo-50/70 p-4 dark:border-indigo-500/30 dark:bg-indigo-500/10">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <div>
-              <h3 className="text-sm font-semibold text-indigo-900 dark:text-indigo-200">
-                Requested Documents
-              </h3>
-              <p className="text-xs text-indigo-700/80 dark:text-indigo-300/80">
-                {requestedDocumentsList.length > 0
-                  ? `${requestedDocumentsList.length} document${requestedDocumentsList.length === 1 ? "" : "s"} already requested on this application`
-                  : "No documents have been requested yet"}
-              </p>
-            </div>
-            {requestedDocumentsList.length > 0 ? (
-              <button
-                type="button"
-                onClick={() =>
-                  setIsRequestedDocsCollapsed((current) => !current)
-                }
-                className="inline-flex items-center gap-1.5 rounded-md border border-indigo-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-indigo-700 transition hover:bg-indigo-50 dark:border-indigo-500/30 dark:bg-slate-900 dark:text-indigo-300"
-              >
-                {isRequestedDocsCollapsed ? "Show list" : "Hide list"}
-                <ChevronDown
-                  size={14}
-                  className={`transition-transform ${isRequestedDocsCollapsed ? "" : "rotate-180"}`}
-                />
-              </button>
-            ) : null}
-          </div>
-
-          {requestedDocumentsList.length === 0 ? (
-            <p className="rounded-xl border border-dashed border-indigo-200 bg-white/70 px-4 py-3 text-xs text-slate-500 dark:border-indigo-500/20 dark:bg-slate-900/40 dark:text-slate-400">
-              No document request has been sent for this application yet. Select
-              documents below and submit a request to mark them as requested.
-            </p>
-          ) : !isRequestedDocsCollapsed ? (
-            <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">
-              {requestedDocumentsList.map((item) => (
-                <div
-                  key={item.documentTypeId}
-                  className="flex h-full flex-col justify-between gap-2 rounded-xl border border-indigo-100 bg-white px-3 py-2.5 dark:border-indigo-500/20 dark:bg-slate-900"
-                >
-                  <p className="min-w-0 text-sm font-medium text-slate-800 dark:text-slate-100">
-                    {item.documentName}
-                  </p>
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span className="rounded-full bg-indigo-100 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300">
-                      Requested
-                    </span>
-                    <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                      {formatDocumentTimelineDate(item.requestedAt)}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="rounded-xl border border-dashed border-indigo-200 bg-white/70 px-4 py-3 text-xs text-slate-500 dark:border-indigo-500/20 dark:bg-slate-900/40 dark:text-slate-400">
-              List collapsed. Click "Show list" to view requested documents.
             </p>
           )}
         </div>

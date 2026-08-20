@@ -8,6 +8,9 @@ const {
   extractApplicantEligibilityData,
 } = require("../../../utils/lender/extractApplicantEligibilityData");
 const {
+  expandLoanProductAliasCodes,
+} = require("../../../utils/loanProducts/loanProductAliases");
+const {
   requireLoSendApplications,
 } = require("../../../services/broker/loanOfficerAccess");
 
@@ -199,6 +202,7 @@ module.exports = async function findEligibleLenders(fastify) {
         };
 
         const { loanProductCode } = application;
+        const loanProductCodes = expandLoanProductAliasCodes(loanProductCode);
 
         /* =====================================================
            4️⃣ FETCH ALREADY SENT LENDERS
@@ -231,7 +235,7 @@ module.exports = async function findEligibleLenders(fastify) {
         const lenderProducts = await prisma.lenderProduct.findMany({
           where: {
             isActive: true,
-            loanProductCode,
+            loanProductCode: { in: loanProductCodes },
             lender: {
               type: "LENDER",
               status: "ACTIVE",
