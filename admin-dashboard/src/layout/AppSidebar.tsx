@@ -119,11 +119,11 @@ const navItems: NavItem[] = [
   //   name: "Email Marketing",
   //   path: "/email-marketing",
   // },
-  {
-    icon: <MessageSquare />,
-    name: "Communications",
-    path: "/all-communications",
-  },
+  // {
+  //   icon: <MessageSquare />,
+  //   name: "Communications",
+  //   path: "/all-communications",
+  // },
   {
     icon: <CurrencyExchangeOutlinedIcon />,
     name: "Subscriptions",
