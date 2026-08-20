@@ -36,6 +36,8 @@ import AllSuperadmin from "./pages/SuperAdmin/AllSuperAdmin";
 import LenderProductAssign from "./pages/LoanProducts/LenderAssignProduct";
 import AssignedProducts from "./pages/LoanProducts/AssignedProducts";
 import ConfigWebsite from "./pages/website-builder/ConfigWebsite";
+import WebsiteBuilder from "./pages/WebsiteBuilder/WebsiteBuilder";
+import WebsitePages from "./pages/WebsiteBuilder/WebsitePages";
 import CreateApplication from "./pages/ApplicationBuilder/CreateApplication";
 import Application from "./pages/ApplicationBuilder/Application";
 import LoanApplicationConfig from "./pages/ApplicationBuilder/LoanApplicationConfig";
@@ -86,6 +88,7 @@ import LoanOfficerMessagesPage from "./pages/loanOfficer/Messages/LoanOfficerMes
 import LoanOfficerApplication from "./pages/loanOfficer/LoanApplication/LoanApplication";
 import LoanOfficerContacts from "./pages/loanOfficer/Contacts/ContactPage";
 import BrokerBranding from "./pages/Settings/BrokerBranding";
+import GhlIntegration from "./pages/Settings/Integrations/GHL";
 import BrokerCustomDocuments from "./pages/Documents/BrokerCustomDocuments";
 import CommissionsPage from "./pages/Commissions/CommissionsPage";
 import PaymentsLayout from "./pages/Payments/PaymentsLayout";
@@ -366,6 +369,14 @@ export default function App() {
               </BrokerRequirePermission>
             } />
             <Route
+              path="/settings/integrations/ghl"
+              element={
+                <BrokerRequirePermission permission="VIEW_SETTINGS">
+                  <GhlIntegration />
+                </BrokerRequirePermission>
+              }
+            />
+            <Route
               path="/documents/custom"
               element={
                 <BrokerRequirePermission permission="VIEW_TEMPLATES">
@@ -398,7 +409,25 @@ export default function App() {
             <Route path="/line-chart" element={<LineChart />} />
             <Route path="/bar-chart" element={<BarChart />} />
 
-            {/* Config Website */}
+            {/* GHL Website Builder */}
+            <Route
+              path="/website-builder"
+              element={
+                <BrokerRequirePermission permission="VIEW_WEBSITE_BUILDER">
+                  <WebsiteBuilder />
+                </BrokerRequirePermission>
+              }
+            />
+            <Route
+              path="/website-builder/:websiteId/pages"
+              element={
+                <BrokerRequirePermission permission="VIEW_WEBSITE_BUILDER">
+                  <WebsitePages />
+                </BrokerRequirePermission>
+              }
+            />
+
+            {/* Legacy Config Website */}
             <Route
               index
               path="/broker-website-dashboard/config-website"

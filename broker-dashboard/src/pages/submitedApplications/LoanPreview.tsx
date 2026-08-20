@@ -3,7 +3,6 @@ import {
   Activity,
   Building2,
   CheckCircle2,
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
   ClipboardList,
@@ -22,7 +21,6 @@ import {
   SearchX,
   Send,
   Upload,
-  X,
 } from "lucide-react";
 
 import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
@@ -43,9 +41,7 @@ import {
   getDocumentRequestDisplay,
   getUploadFileSentLabel,
   buildDocumentRequestHistoryByTypeId,
-  buildRequestedDocumentsList,
   formatDocumentTimelineDate,
-  type RequestedDocumentListItem,
   matchesDocumentSentFilter,
   type DocumentDisplayRow,
   type DocumentRequestHistoryEntry,
@@ -154,12 +150,12 @@ type TabSection = {
 const TAB_SECTION_BY_KEY: Record<TabKey, TabSectionId> = {
   "view-details": "application",
   "update-application": "application",
-  "fee-agreement": "application",
   commissions: "application",
   documents: "documents",
   "request-document": "documents",
   "sign-documents": "documents",
   "view-loi": "documents",
+  "fee-agreement": "documents",
   chat: "communication",
   "email-reminders": "communication",
   "find-lenders": "lender",
@@ -431,9 +427,6 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
     string | null
   >(null);
   const [selectedRequestDocs, setSelectedRequestDocs] = useState<string[]>([]);
-  const [selectedRequestDocMeta, setSelectedRequestDocMeta] = useState<
-    Record<string, { name: string; isCustom: boolean }>
-  >({});
   const [requestMessage, setRequestMessage] = useState("");
   const [requestSubmitting, setRequestSubmitting] = useState(false);
   const [requestDocSearch, setRequestDocSearch] = useState("");
@@ -454,11 +447,6 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
   const [requestDocHistoryByTypeId, setRequestDocHistoryByTypeId] = useState<
     Record<string, DocumentRequestHistoryEntry>
   >({});
-  const [requestedDocumentsList, setRequestedDocumentsList] = useState<
-    RequestedDocumentListItem[]
-  >([]);
-  const [isRequestedDocsCollapsed, setIsRequestedDocsCollapsed] = useState(true);
-
   const [submittedLenders, setSubmittedLenders] = useState<any[]>([]);
   const [selectedLenders, setSelectedLenders] = useState<string[]>([]);
 
@@ -1257,16 +1245,6 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
         isCustom: Boolean(doc.isCustom),
       }));
       setRequestDocs(formattedDocs);
-      setSelectedRequestDocMeta((prev) => {
-        const next = { ...prev };
-        for (const doc of formattedDocs) {
-          next[doc.documentTypeId] = {
-            name: doc.documentType.name,
-            isCustom: doc.isCustom,
-          };
-        }
-        return next;
-      });
       setRequestDocPagination(
         json.pagination || {
           page: pageNo,
@@ -1304,7 +1282,6 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
 
       const documents = json.data?.documents || [];
       setRequestDocHistoryByTypeId(buildDocumentRequestHistoryByTypeId(documents));
-      setRequestedDocumentsList(buildRequestedDocumentsList(documents));
     } catch (err) {
       console.error("Failed to load document request history", err);
     }
@@ -1409,13 +1386,6 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
       });
 
       setSelectedRequestDocs(unique.map((doc) => doc.id));
-      setSelectedRequestDocMeta((prev) => {
-        const next = { ...prev };
-        for (const doc of unique) {
-          next[doc.id] = { name: doc.name, isCustom: doc.isCustom };
-        }
-        return next;
-      });
 
       toast.success(
         `Selected ${unique.length} document${unique.length === 1 ? "" : "s"}`,
@@ -1438,36 +1408,11 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
     setSelectedRequestDocs((prev) =>
       isSelected ? prev.filter((item) => item !== id) : [...prev, id],
     );
-
-    setSelectedRequestDocMeta((prev) => {
-      if (isSelected) {
-        const next = { ...prev };
-        delete next[id];
-        return next;
-      }
-      return {
-        ...prev,
-        [id]: {
-          name: doc.documentType?.name || "Document",
-          isCustom: Boolean(doc.isCustom),
-        },
-      };
-    });
-  };
-
-  const removeRequestedDocument = (id: string) => {
-    setSelectedRequestDocs((prev) => prev.filter((item) => item !== id));
-    setSelectedRequestDocMeta((prev) => {
-      const next = { ...prev };
-      delete next[id];
-      return next;
-    });
   };
 
   const clearRequestedDocuments = () => {
     if (selectedRequestDocs.length === 0) return;
     setSelectedRequestDocs([]);
-    setSelectedRequestDocMeta({});
     toast.success("Cleared document selection");
   };
 
@@ -1500,15 +1445,10 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
       }
 
       const createdId = String(json.data?.id || "");
-      const createdName = String(json.data?.name || customName);
       if (createdId) {
         setSelectedRequestDocs((prev) =>
           prev.includes(createdId) ? prev : [createdId, ...prev],
         );
-        setSelectedRequestDocMeta((prev) => ({
-          ...prev,
-          [createdId]: { name: createdName, isCustom: true },
-        }));
       }
 
       setCustomDocumentName("");
@@ -1609,7 +1549,6 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
       toast.success("Documents requested successfully");
 
       setSelectedRequestDocs([]);
-      setSelectedRequestDocMeta({});
       setRequestMessage("");
 
       // Reset upload-documents filters so newly requested docs show up
@@ -1853,7 +1792,6 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
     // setSelectedFiles({});
     setPreviewFiles([]);
     setSelectedRequestDocs([]);
-    setSelectedRequestDocMeta({});
     setRequestMessage("");
     setActiveTab(
       (Location.state as { activeTab?: TabKey })?.activeTab || "view-details",
@@ -1883,7 +1821,6 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
     setRequestDocs([]);
     setRequestDocsLoadedFor(null);
     setSelectedRequestDocs([]);
-    setSelectedRequestDocMeta({});
     setRequestDocSearch("");
     setDebouncedRequestDocSearch("");
     setRequestDocPage(1);
@@ -2083,6 +2020,15 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
       });
     }
 
+    if (loDocPermissions.feeAgreement) {
+      documentItems.push({
+        key: "fee-agreement",
+        label: "Fee Agreement",
+        icon: FileText,
+        color: "text-indigo-600",
+      });
+    }
+
     const applicationItems: TabSection["items"] = [
       {
         key: "view-details",
@@ -2098,15 +2044,6 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
         label: "Update Application",
         icon: Pencil,
         color: "text-cyan-600",
-      });
-    }
-
-    if (loDocPermissions.feeAgreement) {
-      applicationItems.push({
-        key: "fee-agreement",
-        label: "Fee Agreement",
-        icon: FileText,
-        color: "text-indigo-600",
       });
     }
 
@@ -2397,136 +2334,6 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
             Documents are filtered for this application&apos;s loan product.
           </p>
         </div>
-
-        <div className="mb-5 rounded-2xl border border-indigo-200 bg-indigo-50/70 p-4 dark:border-indigo-500/30 dark:bg-indigo-500/10">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <div>
-              <h3 className="text-sm font-semibold text-indigo-900 dark:text-indigo-200">
-                Requested Documents
-              </h3>
-              <p className="text-xs text-indigo-700/80 dark:text-indigo-300/80">
-                {requestedDocumentsList.length > 0
-                  ? `${requestedDocumentsList.length} document${requestedDocumentsList.length === 1 ? "" : "s"} already requested on this application`
-                  : "No documents have been requested yet"}
-              </p>
-            </div>
-            {requestedDocumentsList.length > 0 ? (
-              <button
-                type="button"
-                onClick={() =>
-                  setIsRequestedDocsCollapsed((current) => !current)
-                }
-                className="inline-flex items-center gap-1.5 rounded-md border border-indigo-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-indigo-700 transition hover:bg-indigo-50 dark:border-indigo-500/30 dark:bg-slate-900 dark:text-indigo-300"
-              >
-                {isRequestedDocsCollapsed ? "Show list" : "Hide list"}
-                <ChevronDown
-                  size={14}
-                  className={`transition-transform ${isRequestedDocsCollapsed ? "" : "rotate-180"}`}
-                />
-              </button>
-            ) : null}
-          </div>
-
-          {requestedDocumentsList.length === 0 ? (
-            <p className="rounded-xl border border-dashed border-indigo-200 bg-white/70 px-4 py-3 text-xs text-slate-500 dark:border-indigo-500/20 dark:bg-slate-900/40 dark:text-slate-400">
-              No document request has been sent for this application yet. Select
-              documents below and submit a request to mark them as requested.
-            </p>
-          ) : !isRequestedDocsCollapsed ? (
-            <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">
-              {requestedDocumentsList.map((item) => (
-                <div
-                  key={item.documentTypeId}
-                  className="flex h-full flex-col justify-between gap-2 rounded-xl border border-indigo-100 bg-white px-3 py-2.5 dark:border-indigo-500/20 dark:bg-slate-900"
-                >
-                  <p className="min-w-0 text-sm font-medium text-slate-800 dark:text-slate-100">
-                    {item.documentName}
-                  </p>
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span className="rounded-full bg-indigo-100 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300">
-                      Requested
-                    </span>
-                    <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                      {formatDocumentTimelineDate(item.requestedAt)}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="rounded-xl border border-dashed border-indigo-200 bg-white/70 px-4 py-3 text-xs text-slate-500 dark:border-indigo-500/20 dark:bg-slate-900/40 dark:text-slate-400">
-              List collapsed. Click "Show list" to view requested documents.
-            </p>
-          )}
-        </div>
-
-        {selectedRequestDocs.length > 0 ? (
-          <div className="mb-5 rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4 dark:border-emerald-500/30 dark:bg-emerald-500/10">
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <div>
-                <h3 className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">
-                  Request Documents List
-                </h3>
-                <p className="text-xs text-emerald-700/80 dark:text-emerald-300/80">
-                  {selectedRequestDocs.length} document
-                  {selectedRequestDocs.length === 1 ? "" : "s"} selected to
-                  request
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={clearRequestedDocuments}
-                disabled={selectingAllRequestDocs}
-                className="text-xs font-medium text-emerald-700 hover:underline disabled:opacity-60 dark:text-emerald-300"
-              >
-                Clear all
-              </button>
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              {[...selectedRequestDocs]
-                .sort((a, b) => {
-                  const aCustom = selectedRequestDocMeta[a]?.isCustom ? 1 : 0;
-                  const bCustom = selectedRequestDocMeta[b]?.isCustom ? 1 : 0;
-                  if (aCustom !== bCustom) return bCustom - aCustom;
-                  return (
-                    selectedRequestDocs.indexOf(a) -
-                    selectedRequestDocs.indexOf(b)
-                  );
-                })
-                .map((id) => {
-                  const meta = selectedRequestDocMeta[id];
-                  const name = meta?.name || "Document";
-                  const isCustom = Boolean(meta?.isCustom);
-
-                  return (
-                    <span
-                      key={id}
-                      className="inline-flex max-w-full items-center gap-2 rounded-full border border-emerald-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm dark:border-emerald-500/20 dark:bg-slate-900 dark:text-slate-200"
-                    >
-                      <span
-                        className={`h-2 w-2 shrink-0 rounded-full ${getRequestDocColor(name)}`}
-                      />
-                      <span className="truncate">{name}</span>
-                      {isCustom ? (
-                        <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-amber-700">
-                          Custom
-                        </span>
-                      ) : null}
-                      <button
-                        type="button"
-                        onClick={() => removeRequestedDocument(id)}
-                        className="rounded-full p-0.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800"
-                        aria-label={`Remove ${name}`}
-                      >
-                        <X size={12} />
-                      </button>
-                    </span>
-                  );
-                })}
-            </div>
-          </div>
-        ) : null}
 
         <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center">
           <input

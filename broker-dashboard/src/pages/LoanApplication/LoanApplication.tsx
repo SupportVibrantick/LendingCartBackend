@@ -40,6 +40,7 @@ import {
   type ResidentialBorrowerFields,
 } from "../../lib/residentialBorrower";
 import { buildResidentialReviewSections } from "../../lib/residentialReviewHelpers";
+import { resolveCanonicalLoanProductCode } from "../../lib/canonicalLoanProducts";
 import LoanDateField from "../../components/form/LoanDateField";
 import LoanApplicationStepper from "../../components/loanApplication/LoanApplicationStepper";
 import ResidentialBorrowerPanel from "../../components/loanApplication/ResidentialBorrowerPanel";
@@ -1606,7 +1607,9 @@ const LoanApplication = ({
 
       /* ================= LOAN REQUEST ================= */
 
-      addField("loanProductCode", selectedProduct);
+      const canonicalLoanProductCode =
+        resolveCanonicalLoanProductCode(selectedProduct);
+      addField("loanProductCode", canonicalLoanProductCode);
       addField("loanCategory", selectedCategory);
       addField("amountRequested", toNumber(formData.loanRequest.amount));
       addField("interestRate", formData.loanRequest.interestRate);
@@ -1827,7 +1830,7 @@ const LoanApplication = ({
       );
 
       const payload = {
-        loanProductCode: selectedProduct,
+        loanProductCode: resolveCanonicalLoanProductCode(selectedProduct),
         fields,
         feeAgreement: feeAgreementDraft.include
           ? {

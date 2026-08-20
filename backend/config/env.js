@@ -40,6 +40,18 @@ function isGhlPaymentsLiveMode() {
   return envFlag("GHL_PAYMENTS_LIVE_MODE", true);
 }
 
+function getGhlOAuthConfig() {
+  const clientId = process.env.GHL_OAUTH_CLIENT_ID?.trim() || null;
+  const clientSecret = process.env.GHL_OAUTH_CLIENT_SECRET?.trim() || null;
+  const redirectUri = process.env.GHL_OAUTH_REDIRECT_URI?.trim() || null;
+  return { clientId, clientSecret, redirectUri };
+}
+
+function isGhlOAuthConfigured() {
+  const { clientId, clientSecret, redirectUri } = getGhlOAuthConfig();
+  return Boolean(clientId && clientSecret && redirectUri);
+}
+
 function canProcessGhlPayments() {
   try {
     // Lazy require avoids circular deps with payment service helpers.
@@ -201,6 +213,8 @@ module.exports = {
   isKafkaEnabled,
   isGhlEnabled,
   isGhlPaymentsLiveMode,
+  isGhlOAuthConfigured,
+  getGhlOAuthConfig,
   canProcessGhlPayments,
   isRedisEnabled,
   getJwtSecret,
