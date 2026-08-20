@@ -124,7 +124,7 @@ useEffect(() => {
       toolbar: { show: false },
       zoom: { enabled: false },
     },
-    colors: ["#465FFF", "#10B981"],
+    colors: ["#3e86b7", "#10B981"],
     stroke: {
       curve: "smooth",
       width: [4, 3],

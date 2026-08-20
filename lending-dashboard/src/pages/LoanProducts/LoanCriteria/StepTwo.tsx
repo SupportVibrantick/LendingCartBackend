@@ -23,7 +23,7 @@ const getColor = (name: string) => {
     "bg-pink-500",
     "bg-yellow-500",
     "bg-indigo-500",
-    "bg-teal-500",
+    "bg-brand-500",
     "bg-red-500",
     "bg-cyan-500",
   ];

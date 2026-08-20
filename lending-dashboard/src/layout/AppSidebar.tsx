@@ -1,7 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router";
 import type { LucideIcon } from "lucide-react";
-import { ChevronDown, FileText, Handshake, LayoutDashboard, Layers, Settings, TrendingUp, UserCircle, Users } from "lucide-react";
+import {
+  ChevronDown,
+  FileText,
+  Handshake,
+  LayoutDashboard,
+  Layers,
+  Settings,
+  TrendingUp,
+  UserCircle,
+  Users,
+} from "lucide-react";
 import { HorizontaLDots } from "../icons";
 import { useSidebar } from "../context/SidebarContext";
 import { isLenderAdminUser } from "../lib/lenderTeamMembers";
@@ -28,7 +38,12 @@ const navItems: NavItem[] = [
     name: "Loan Pipeline",
     description: "Applications & decisions",
     path: "/loan-pipeline",
-    matchPaths: ["/loan-pipeline", "/loan-preview", "/loi-preview", "/loi-form"],
+    matchPaths: [
+      "/loan-pipeline",
+      "/loan-preview",
+      "/loi-preview",
+      "/loi-form",
+    ],
   },
   {
     icon: Layers,
@@ -126,7 +141,6 @@ const AppSidebar: React.FC = () => {
   const subMenuRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   const isActive = useCallback(
-    
     (item: NavItem) => isNavItemActive(location.pathname, item),
     [location.pathname],
   );
@@ -164,14 +178,14 @@ const AppSidebar: React.FC = () => {
   const renderNavLink = (nav: NavItem) => {
     const active = isActive(nav);
     const Icon = nav.icon;
-
+    // #183b57
     return (
       <Link
         to={nav.path!}
         className={`group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 ${
           active
-            ? "bg-[#0F766E] text-white shadow-md ring-1 ring-white/15"
-            : "text-white/85 hover:bg-white/10 hover:text-white"
+            ? "bg-[#183b57] text-white shadow-md ring-1 ring-white/15"
+            : "text-white/85 hover:bg-[#36536c] hover:text-white"
         } ${!showLabels ? "lg:justify-center lg:px-2" : ""}`}
       >
         {active && (
@@ -220,8 +234,8 @@ const AppSidebar: React.FC = () => {
                   onClick={() => handleSubmenuToggle(index)}
                   className={`group relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 ${
                     active || isOpen
-                      ? "bg-[#0F766E] text-white shadow-md ring-1 ring-white/15"
-                      : "text-white/85 hover:bg-white/10 hover:text-white"
+                      ? "bg-[#183b57] text-white shadow-md ring-1 ring-white/15"
+                      : "text-white/85 hover:bg-[#36536c] hover:text-white"
                   } ${!showLabels ? "lg:justify-center lg:px-2" : ""}`}
                 >
                   <span
@@ -269,7 +283,7 @@ const AppSidebar: React.FC = () => {
                               className={`block rounded-lg px-3 py-2 text-sm transition-colors ${
                                 subActive
                                   ? "bg-white/15 font-medium text-white"
-                                  : "text-white/70 hover:bg-white/10 hover:text-white"
+                                  : "text-white/70 hover:bg-[#36536c] hover:text-white"
                               }`}
                             >
                               {subItem.name}
@@ -292,7 +306,7 @@ const AppSidebar: React.FC = () => {
 
   return (
     <aside
-      className={`fixed top-0 left-0 z-50 mt-16 flex h-[calc(100vh-4rem)] flex-col border-r border-[#0F766E]/80 bg-gradient-to-b from-[#134E4A] to-[#0f3f3c] text-white shadow-xl transition-all duration-300 ease-in-out lg:mt-0 lg:h-screen dark:border-gray-800 dark:from-gray-900 dark:to-gray-950 ${
+      className={`fixed top-0 left-0 z-50 mt-16 flex h-[calc(100vh-4rem)] flex-col border-r border-[#183b57]/80 bg-gradient-to-b from-[#0F2A3E] to-[#183b57] text-white shadow-xl transition-all duration-300 ease-in-out lg:mt-0 lg:h-screen dark:border-gray-800 dark:from-gray-900 dark:to-gray-950 ${
         isExpanded || isMobileOpen
           ? "w-[280px]"
           : isHovered
@@ -322,7 +336,7 @@ const AppSidebar: React.FC = () => {
                 <p className="truncate text-sm font-semibold leading-tight text-white">
                   Loan Automation
                 </p>
-                <p className="truncate text-[11px] text-teal-100/60">
+                <p className="truncate text-[11px] text-sky-100/60">
                   Lender Portal
                 </p>
               </div>
@@ -369,7 +383,7 @@ const AppSidebar: React.FC = () => {
             className={`flex items-center gap-3 rounded-xl p-3 transition-colors ${
               location.pathname === "/profile"
                 ? "bg-white/12 ring-1 ring-white/15"
-                : "bg-white/5 hover:bg-white/10"
+                : "bg-white/5 hover:bg-[#36536c]"
             }`}
           >
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/10">
@@ -392,7 +406,7 @@ const AppSidebar: React.FC = () => {
             className={`flex h-10 w-10 items-center justify-center rounded-xl transition-colors ${
               location.pathname === "/profile"
                 ? "bg-white/15 text-white"
-                : "bg-white/5 text-white/80 hover:bg-white/10 hover:text-white"
+                : "bg-white/5 text-white/80 hover:bg-[#36536c] hover:text-white"
             }`}
           >
             <UserCircle size={18} />

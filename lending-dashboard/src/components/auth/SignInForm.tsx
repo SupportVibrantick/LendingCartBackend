@@ -114,10 +114,10 @@ export default function SignInForm() {
   };
 
   const inputWrap = (hasError: boolean) =>
-    `flex items-center gap-3 rounded-xl border px-4 py-3.5 transition focus-within:ring-2 focus-within:ring-[#134E4A]/30 ${
+    `flex items-center gap-3 rounded-xl border px-4 py-3.5 transition focus-within:ring-2 focus-within:ring-[#183b57]/30 ${
       hasError
         ? "border-red-300 bg-red-50 dark:border-red-500/50 dark:bg-red-950/20"
-        : "border-gray-200 bg-gray-50 focus-within:border-[#134E4A] focus-within:bg-white dark:border-gray-700 dark:bg-gray-900 dark:focus-within:border-emerald-500 dark:focus-within:bg-gray-900"
+        : "border-gray-200 bg-gray-50 focus-within:border-[#183b57] focus-within:bg-white dark:border-gray-700 dark:bg-gray-900 dark:focus-within:border-brand-500 dark:focus-within:bg-gray-900"
     }`;
 
   return (
@@ -127,10 +127,10 @@ export default function SignInForm() {
         <img
           src="/loanAutomation.jpeg"
           alt="Loan Automation"
-          className="h-12 w-12 rounded-full ring-2 ring-[#134E4A]/20"
+          className="h-12 w-12 rounded-full ring-2 ring-[#183b57]/20"
         />
         <div>
-          <p className="text-lg font-bold text-[#134E4A] dark:text-emerald-400">
+          <p className="text-lg font-bold text-[#183b57] dark:text-brand-400">
             Loan Automation
           </p>
           <p className="text-[10px] font-medium uppercase tracking-wider text-gray-400">
@@ -144,7 +144,7 @@ export default function SignInForm() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.45 }}
       >
-        <span className="mb-4 inline-flex rounded-full border border-[#134E4A]/20 bg-[#134E4A]/5 px-3 py-1 text-xs font-semibold text-[#134E4A] dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300">
+        <span className="mb-4 inline-flex rounded-full border border-[#183b57]/20 bg-[#183b57]/5 px-3 py-1 text-xs font-semibold text-[#183b57] dark:border-brand-500/30 dark:bg-brand-500/10 dark:text-brand-300">
           Lender Portal
         </span>
 
@@ -232,7 +232,7 @@ export default function SignInForm() {
             </label>
             <Link
               to="/reset-password"
-              className="text-sm font-medium text-[#134E4A] hover:text-[#0d3532] dark:text-emerald-400 dark:hover:text-emerald-300"
+              className="text-sm font-medium text-[#183b57] hover:text-[#264863] dark:text-brand-400 dark:hover:text-brand-300"
             >
               Forgot password?
             </Link>
@@ -243,7 +243,7 @@ export default function SignInForm() {
             whileTap={{ scale: 0.98 }}
             type="submit"
             disabled={isSubmitting}
-            className="group flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#134E4A] to-[#1a6b65] px-5 py-3.5 text-sm font-semibold text-white shadow-lg shadow-[#134E4A]/25 transition hover:shadow-[#134E4A]/40 disabled:cursor-not-allowed disabled:opacity-70"
+            className="group flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#183b57] to-[#36536c] px-5 py-3.5 text-sm font-semibold text-white shadow-lg shadow-[#183b57]/25 transition hover:shadow-[#183b57]/40 disabled:cursor-not-allowed disabled:opacity-70"
           >
             {isSubmitting ? (
               <>
@@ -266,7 +266,7 @@ export default function SignInForm() {
           Don&apos;t have an account?{" "}
           <Link
             to="/signup"
-            className="font-semibold text-[#134E4A] hover:text-[#0d3532] dark:text-emerald-400 dark:hover:text-emerald-300"
+            className="font-semibold text-[#183b57] hover:text-[#264863] dark:text-brand-400 dark:hover:text-brand-300"
           >
             Sign up
           </Link>

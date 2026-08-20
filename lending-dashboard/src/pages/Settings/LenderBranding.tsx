@@ -186,7 +186,7 @@ export default function LenderBranding() {
     return (
       <div className="flex min-h-[420px] items-center justify-center">
         <div className="text-center">
-          <Loader2 className="mx-auto h-8 w-8 animate-spin text-[#0F766E]" />
+          <Loader2 className="mx-auto h-8 w-8 animate-spin text-[#183b57]" />
           <p className="mt-3 text-sm text-slate-500">Loading branding settings...</p>
         </div>
       </div>
@@ -202,7 +202,7 @@ export default function LenderBranding() {
       <PageBreadcrumb pageTitle="Branding" />
 
       <div className="mx-auto max-w-6xl space-y-6">
-        <div className="overflow-hidden rounded-3xl border border-slate-200 bg-gradient-to-br from-[#134E4A] via-[#0F766E] to-[#14B8A6] p-6 text-white shadow-lg dark:border-slate-800 sm:p-8">
+        <div className="overflow-hidden rounded-3xl border border-slate-200 bg-gradient-to-br from-[#183b57] via-[#183b57] to-[#3e86b7] p-6 text-white shadow-lg dark:border-slate-800 sm:p-8">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="max-w-2xl">
               <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold uppercase tracking-wide">
@@ -210,14 +210,14 @@ export default function LenderBranding() {
                 LOI / Term Sheet Branding
               </div>
               <h1 className="text-2xl font-bold sm:text-3xl">Lender Branding</h1>
-              <p className="mt-2 text-sm leading-relaxed text-teal-50/90 sm:text-base">
+              <p className="mt-2 text-sm leading-relaxed text-brand-50/90 sm:text-base">
                 Set your company identity once. Generated LOI and term sheet
                 documents will show your logo and brand name in the header.
               </p>
             </div>
 
             <div className="rounded-2xl border border-white/20 bg-white/10 p-4 backdrop-blur-sm">
-              <p className="text-xs font-semibold uppercase tracking-wide text-teal-100">
+              <p className="text-xs font-semibold uppercase tracking-wide text-brand-100">
                 Setup progress
               </p>
               <div className="mt-3 space-y-2">
@@ -255,7 +255,7 @@ export default function LenderBranding() {
                 className={`group relative flex min-h-[180px] cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed px-6 py-8 transition ${
                   hasLogo
                     ? "border-emerald-200 bg-emerald-50/40 dark:border-emerald-500/30 dark:bg-emerald-500/5"
-                    : "border-slate-300 bg-slate-50 hover:border-[#0F766E] hover:bg-teal-50/60 dark:border-slate-700 dark:bg-slate-900/40"
+                    : "border-slate-300 bg-slate-50 hover:border-[#183b57] hover:bg-brand-50/60 dark:border-slate-700 dark:bg-slate-900/40"
                 }`}
               >
                 <input
@@ -281,7 +281,7 @@ export default function LenderBranding() {
                   </div>
                 ) : (
                   <div className="flex flex-col items-center gap-3 text-center">
-                    <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#0F766E]/10 text-[#0F766E] dark:bg-teal-500/15 dark:text-teal-300">
+                    <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#183b57]/10 text-[#183b57] dark:bg-brand-500/15 dark:text-brand-300">
                       <Upload className="h-6 w-6" />
                     </div>
                     <div>
@@ -335,7 +335,7 @@ export default function LenderBranding() {
                 className={`w-full rounded-xl border bg-white px-4 py-3 text-sm text-slate-800 outline-none transition focus:ring-2 dark:bg-slate-900 dark:text-slate-100 ${
                   hasBrandName
                     ? "border-emerald-200 focus:border-emerald-400 focus:ring-emerald-100 dark:border-emerald-500/30"
-                    : "border-slate-300 focus:border-[#0F766E] focus:ring-teal-100 dark:border-slate-600"
+                    : "border-slate-300 focus:border-[#183b57] focus:ring-brand-100 dark:border-slate-600"
                 }`}
                 value={form.brandName}
                 onChange={(e) =>
@@ -345,9 +345,9 @@ export default function LenderBranding() {
               />
             </section>
 
-            <div className="rounded-2xl border border-teal-100 bg-gradient-to-br from-teal-50 to-white p-5 dark:border-teal-900/30 dark:from-teal-950/20 dark:to-slate-950">
+            <div className="rounded-2xl border border-brand-100 bg-gradient-to-br from-brand-50 to-white p-5 dark:border-brand-900/30 dark:from-brand-950/20 dark:to-slate-950">
               <div className="flex items-start gap-3">
-                <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-teal-100 text-teal-700 dark:bg-teal-500/15 dark:text-teal-300">
+                <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-100 text-brand-700 dark:bg-brand-500/15 dark:text-brand-300">
                   <Sparkles className="h-4 w-4" />
                 </div>
                 <div>
@@ -368,14 +368,14 @@ export default function LenderBranding() {
             <div className="sticky top-24 space-y-4">
               <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-950">
                 <div className="mb-4 flex items-center gap-2">
-                  <FileText className="h-4 w-4 text-[#0F766E]" />
+                  <FileText className="h-4 w-4 text-[#183b57]" />
                   <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100">
                     Term Sheet Preview
                   </h3>
                 </div>
 
                 <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-900/50">
-                  <div className="border-b border-[#0F766E] bg-[#134E4A] px-4 py-5 text-center text-white">
+                  <div className="border-b border-[#183b57] bg-[#183b57] px-4 py-5 text-center text-white">
                     <div className="flex justify-center">
                       {hasLogo ? (
                         <img
@@ -392,7 +392,7 @@ export default function LenderBranding() {
                     <p className="mt-3 text-sm font-bold">
                       {hasBrandName ? form.brandName.trim() : "Your brand name"}
                     </p>
-                    <p className="mt-1 text-[11px] text-teal-100/80">
+                    <p className="mt-1 text-[11px] text-brand-100/80">
                       Commercial Lending Term Sheet
                     </p>
                   </div>
@@ -436,7 +436,7 @@ export default function LenderBranding() {
               type="button"
               onClick={handleSave}
               disabled={!canSave}
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#0F766E] px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0d655e] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 dark:disabled:bg-slate-800 dark:disabled:text-slate-500"
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#183b57] px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-[#264863] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 dark:disabled:bg-slate-800 dark:disabled:text-slate-500"
             >
               {saving ? (
                 <Loader2 className="h-4 w-4 animate-spin" />

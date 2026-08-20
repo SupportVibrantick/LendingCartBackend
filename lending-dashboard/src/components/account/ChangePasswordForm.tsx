@@ -32,7 +32,7 @@ export default function ChangePasswordForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const inputWrap =
-    "flex items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3.5 transition focus-within:border-[#134E4A] focus-within:bg-white dark:border-gray-700 dark:bg-gray-900";
+    "flex items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3.5 transition focus-within:border-[#183b57] focus-within:bg-white dark:border-gray-700 dark:bg-gray-900";
 
   const resetForm = () => {
     setCurrentPassword("");
@@ -104,7 +104,7 @@ export default function ChangePasswordForm() {
       >
         <Link
           to="/"
-          className="mb-6 inline-flex items-center gap-2 text-sm font-medium text-[#134E4A] hover:underline dark:text-emerald-400"
+          className="mb-6 inline-flex items-center gap-2 text-sm font-medium text-[#183b57] hover:underline dark:text-brand-400"
         >
           <ArrowLeft size={16} />
           Back to dashboard
@@ -212,7 +212,7 @@ export default function ChangePasswordForm() {
             whileTap={{ scale: 0.98 }}
             type="submit"
             disabled={isSubmitting}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#134E4A] to-[#1a6b65] px-5 py-3.5 text-sm font-semibold text-white shadow-lg shadow-[#134E4A]/25 transition hover:shadow-[#134E4A]/40 disabled:cursor-not-allowed disabled:opacity-70"
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#183b57] to-[#36536c] px-5 py-3.5 text-sm font-semibold text-white shadow-lg shadow-[#183b57]/25 transition hover:shadow-[#183b57]/40 disabled:cursor-not-allowed disabled:opacity-70"
           >
             {isSubmitting ? "Saving..." : "Update password"}
           </motion.button>

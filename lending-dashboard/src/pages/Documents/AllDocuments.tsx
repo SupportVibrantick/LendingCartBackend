@@ -102,7 +102,7 @@ function FieldLabel({
   return (
     <div className="mb-2">
       <div className="flex items-center gap-2.5">
-        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-[#0F766E]/10 text-[11px] font-bold text-[#0F766E] dark:bg-teal-500/15 dark:text-teal-300">
+        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-[#183b57]/10 text-[11px] font-bold text-[#183b57] dark:bg-brand-500/15 dark:text-brand-300">
           {step}
         </span>
         <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">
@@ -119,7 +119,7 @@ function FieldLabel({
 }
 
 const inputClass =
-  "w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-[#0F766E] focus:ring-2 focus:ring-[#0F766E]/15 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:opacity-70 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:ring-teal-500/20 dark:disabled:bg-slate-800/60";
+  "w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-[#183b57] focus:ring-2 focus:ring-[#183b57]/15 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:opacity-70 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:ring-brand-500/20 dark:disabled:bg-slate-800/60";
 
 export default function AllDocuments() {
   const [loanProducts, setLoanProducts] = useState<LenderLoanProduct[]>([]);
@@ -416,7 +416,7 @@ export default function AllDocuments() {
         title: "Delete failed",
         text: error.message || "Failed to delete document",
         icon: "error",
-        confirmButtonColor: "#0F766E",
+        confirmButtonColor: "#183b57",
         ...getSwalTheme(),
       });
     } finally {
@@ -451,10 +451,10 @@ export default function AllDocuments() {
       <div className="space-y-6">
         {/* Page header */}
         <div className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <div className="absolute inset-y-0 left-0 w-1 bg-[#0F766E]" />
+          <div className="absolute inset-y-0 left-0 w-1 bg-[#183b57]" />
           <div className="flex flex-col gap-4 px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-start gap-3">
-              <div className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#0F766E]/10 text-[#0F766E] dark:bg-teal-500/15 dark:text-teal-300">
+              <div className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#183b57]/10 text-[#183b57] dark:bg-brand-500/15 dark:text-brand-300">
                 <FileText className="h-5 w-5" />
               </div>
               <div>
@@ -470,17 +470,17 @@ export default function AllDocuments() {
 
             <div className="flex flex-wrap items-center gap-2 sm:justify-end">
               <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
-                <Lock className="h-3 w-3 text-[#0F766E]" />
+                <Lock className="h-3 w-3 text-[#183b57]" />
                 Private to your portal
               </span>
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-[#0F766E]/10 px-3 py-1.5 text-xs font-semibold text-[#0F766E] dark:bg-teal-500/15 dark:text-teal-300">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-[#183b57]/10 px-3 py-1.5 text-xs font-semibold text-[#183b57] dark:bg-brand-500/15 dark:text-brand-300">
                 {pagination.total} configured
               </span>
               <button
                 type="button"
                 onClick={openCreateForm}
                 disabled={loanProducts.length === 0}
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#0F766E] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[#0d6b64] disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#183b57] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[#264863] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <Plus className="h-4 w-4" />
                 Add Document
@@ -574,7 +574,7 @@ export default function AllDocuments() {
                 {loadingList ? (
                   <tr>
                     <td colSpan={7} className="px-5 py-14 text-center">
-                      <Loader2 className="mx-auto h-6 w-6 animate-spin text-[#0F766E]" />
+                      <Loader2 className="mx-auto h-6 w-6 animate-spin text-[#183b57]" />
                       <p className="mt-2 text-xs text-slate-400">
                         Loading documents...
                       </p>
@@ -583,8 +583,8 @@ export default function AllDocuments() {
                 ) : documentConfigs.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="px-5 py-14 text-center">
-                      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#0F766E]/10 dark:bg-teal-500/10">
-                        <FileText className="h-6 w-6 text-[#0F766E]" />
+                      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#183b57]/10 dark:bg-brand-500/10">
+                        <FileText className="h-6 w-6 text-[#183b57]" />
                       </div>
                       <p className="mt-4 text-sm font-semibold text-slate-700 dark:text-slate-200">
                         No documents yet
@@ -599,7 +599,7 @@ export default function AllDocuments() {
                           type="button"
                           onClick={openCreateForm}
                           disabled={loanProducts.length === 0}
-                          className="mt-4 inline-flex items-center gap-2 rounded-xl bg-[#0F766E] px-4 py-2 text-sm font-semibold text-white hover:bg-[#0d6b64] disabled:opacity-50"
+                          className="mt-4 inline-flex items-center gap-2 rounded-xl bg-[#183b57] px-4 py-2 text-sm font-semibold text-white hover:bg-[#264863] disabled:opacity-50"
                         >
                           <Plus className="h-4 w-4" />
                           Add Document
@@ -704,7 +704,7 @@ export default function AllDocuments() {
                               <button
                                 type="button"
                                 onClick={() => handleEdit(config)}
-                                className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-[#0F766E] transition hover:bg-teal-50 dark:text-teal-300 dark:hover:bg-slate-800"
+                                className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-[#183b57] transition hover:bg-brand-50 dark:text-brand-300 dark:hover:bg-slate-800"
                               >
                                 <MdModeEdit size={15} />
                                 Edit
@@ -780,7 +780,7 @@ export default function AllDocuments() {
                         disabled={loadingList}
                         className={`min-w-8 rounded-lg px-2.5 py-1.5 text-xs font-medium transition ${
                           pageNumber === page
-                            ? "bg-[#0F766E] text-white shadow-sm"
+                            ? "bg-[#183b57] text-white shadow-sm"
                             : "border border-slate-200 text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
                         }`}
                       >
@@ -909,7 +909,7 @@ export default function AllDocuments() {
                       }))
                     }
                     disabled={saving}
-                    className="h-4 w-4 shrink-0 accent-[#0F766E]"
+                    className="h-4 w-4 shrink-0 accent-[#183b57]"
                   />
                 </label>
               </div>
@@ -1014,7 +1014,7 @@ export default function AllDocuments() {
                 <button
                   type="submit"
                   disabled={saving || !canSubmit}
-                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#0F766E] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#0d6b64] disabled:cursor-not-allowed disabled:opacity-50"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#183b57] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#264863] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {saving ? (
                     <>

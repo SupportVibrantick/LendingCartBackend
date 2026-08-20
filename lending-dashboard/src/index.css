@@ -41,18 +41,18 @@ layer(base);
   --color-white: #ffffff;
   --color-black: #101828;
 
-  --color-brand-25: #f2f7ff;
-  --color-brand-50: #ecf3ff;
-  --color-brand-100: #dde9ff;
-  --color-brand-200: #c2d6ff;
-  --color-brand-300: #9cb9ff;
-  --color-brand-400: #7592ff;
-  --color-brand-500: #465fff;
-  --color-brand-600: #3641f5;
-  --color-brand-700: #2a31d8;
-  --color-brand-800: #252dae;
-  --color-brand-900: #262e89;
-  --color-brand-950: #161950;
+  --color-brand-25: #f4f8fb;
+  --color-brand-50: #e8f1f7;
+  --color-brand-100: #cfe0ec;
+  --color-brand-200: #a8c7dc;
+  --color-brand-300: #75a6c7;
+  --color-brand-400: #5b95bc;
+  --color-brand-500: #3e86b7;
+  --color-brand-600: #2e6f99;
+  --color-brand-700: #255778;
+  --color-brand-800: #1b435d;
+  --color-brand-900: #183b57;
+  --color-brand-950: #0f2a3e;
 
   --color-blue-light-25: #f5fbff;
   --color-blue-light-50: #f0f9ff;
@@ -538,13 +538,13 @@ span.flatpickr-weekday,
 .flatpickr-day.selected.nextMonthDay,
 .flatpickr-day.startRange.nextMonthDay,
 .flatpickr-day.endRange.nextMonthDay {
-  background: #465fff;
+  background: #3e86b7;
   @apply !border-brand-500 !bg-brand-500 hover:!border-brand-500 hover:!bg-brand-500;
 }
 .flatpickr-day.selected.startRange + .endRange:not(:nth-child(7n + 1)),
 .flatpickr-day.startRange.startRange + .endRange:not(:nth-child(7n + 1)),
 .flatpickr-day.endRange.startRange + .endRange:not(:nth-child(7n + 1)) {
-  box-shadow: -10px 0 0 #465fff;
+  box-shadow: -10px 0 0 #3e86b7;
 }
 
 .flatpickr-months .flatpickr-prev-month svg,
@@ -815,7 +815,7 @@ body.swal2-shown > *:not(.swal2-container) {
 
 
 .menu-item-active {
-  background-color: #0F766E;
+  background-color: #183b57;
   color: white;
 }
 
@@ -824,11 +824,11 @@ body.swal2-shown > *:not(.swal2-container) {
 }
 
 .menu-item-inactive:hover {
-  background-color: #0F766E;
+  background-color: #36536c;
 }
 
 .menu-dropdown-item-active {
-  background-color: #0F766E;
+  background-color: #183b57;
   color: white;
 }
 
@@ -837,7 +837,7 @@ body.swal2-shown > *:not(.swal2-container) {
 }
 
 .menu-dropdown-item-inactive:hover {
-  background-color: #0F766E;
+  background-color: #36536c;
 }
 
 .menu-item-icon-active {
@@ -894,6 +894,6 @@ body.swal2-shown > *:not(.swal2-container) {
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #134E4A;
+  background: #183b57;
   border-radius: 10px;
 }
