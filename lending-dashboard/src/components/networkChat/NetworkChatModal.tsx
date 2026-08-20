@@ -14,7 +14,7 @@ import { useChatSocket } from "../../lib/useChatSocket";
 import { trackConversationRoom } from "../../lib/chatSocketManager";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
-const BRAND = "#18B6B4";
+const BRAND = "#3e86b7";
 
 export type NetworkChatPeer = {
   /** Counterpart organization id (lenderId or brokerId). */
@@ -484,7 +484,7 @@ export default function NetworkChatModal({
         <div
           className="relative overflow-hidden px-5 pb-4 pt-4 text-white"
           style={{
-            background: `linear-gradient(135deg, ${BRAND} 0%, #0f766e 100%)`,
+            background: `linear-gradient(135deg, ${BRAND} 0%, #183b57 100%)`,
           }}
         >
           <div className="pointer-events-none absolute -right-8 -top-10 h-32 w-32 rounded-full bg-white/10" />
@@ -496,7 +496,7 @@ export default function NetworkChatModal({
                 <div className="flex h-11 w-11 items-center justify-center rounded-full bg-white/20 text-sm font-bold ring-2 ring-white/30">
                   {avatarLabel}
                 </div>
-                <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-teal-600 bg-emerald-400" />
+                <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-brand-600 bg-emerald-400" />
               </div>
               <div className="min-w-0">
                 <p className="truncate text-[15px] font-semibold tracking-tight">
@@ -527,7 +527,7 @@ export default function NetworkChatModal({
           {loading ? (
             <div className="flex h-full flex-col items-center justify-center gap-3 py-16 text-slate-500">
               <div
-                className="h-8 w-8 animate-spin rounded-full border-2 border-slate-200 border-t-teal-500"
+                className="h-8 w-8 animate-spin rounded-full border-2 border-slate-200 border-t-brand-500"
                 style={{ borderTopColor: BRAND }}
               />
               <p className="text-sm">Opening conversation…</p>

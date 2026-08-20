@@ -31,7 +31,7 @@ type Stats = {
 type Tab = "requests" | "sent";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
-const BRAND = "#18B6B4";
+const BRAND = "#3e86b7";
 
 export default function BrokerInvites() {
   const [invites, setInvites] = useState<Invite[]>([]);

@@ -495,7 +495,7 @@ export default function AlloanProducts() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
-            <span className="text-[#18B6B4]">Loan</span> Programs
+            <span className="text-[#3e86b7]">Loan</span> Programs
           </h1>
           <p className="text-sm text-gray-500 mt-1 dark:text-slate-400">
             Manage global loan programs available on the platform.
@@ -531,7 +531,7 @@ export default function AlloanProducts() {
           {canManageProducts && (
             <button
               onClick={() => navigate("/add-loan-product")}
-              className="inline-flex items-center whitespace-nowrap px-4 py-2 bg-[#18B6B4] text-white rounded-md hover:bg-[#159e9c] transition"
+              className="inline-flex items-center whitespace-nowrap px-4 py-2 bg-[#3e87b7] text-white rounded-md hover:bg-[#36536c] transition"
               type="button"
               aria-label="Add Loan"
             >
@@ -734,7 +734,7 @@ export default function AlloanProducts() {
                         onClick={() => gotoPage(page)}
                         className={`px-3 py-1 rounded-md ${
                           page === currentPage
-                            ? "bg-[#18B6B4] text-white"
+                            ? "bg-[#3e86b7] text-white"
                             : "border border-gray-300 bg-white text-gray-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                         }`}
                       >

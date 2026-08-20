@@ -53,7 +53,7 @@ const StatCard = ({
   const iconThemes = {
     blue: "bg-blue-600",
     purple: "bg-purple-600",
-    green: "bg-emerald-600",
+    green: "bg-brand-600",
     orange: "bg-orange-500",
   };
 

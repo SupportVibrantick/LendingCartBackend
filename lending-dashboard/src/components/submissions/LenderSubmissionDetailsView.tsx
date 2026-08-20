@@ -51,8 +51,8 @@ type LenderSubmissionDetailsViewProps = {
   pdfBranding?: PdfBranding | null;
 };
 
-const BRAND = "#0F766E";
-const BRAND_DARK = "#0d655e";
+const BRAND = "#183b57";
+const BRAND_DARK = "#264863";
 
 function InfoCell({
   label,
@@ -67,7 +67,7 @@ function InfoCell({
     <div className="group relative rounded-xl border border-slate-200/80 bg-gradient-to-b from-white to-slate-50/80 p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition hover:border-slate-300 hover:shadow-sm dark:border-slate-700/80 dark:from-slate-900 dark:to-slate-950 dark:hover:border-slate-600">
       <div className="mb-2 flex items-center gap-2">
         {icon ? (
-          <span className="flex h-6 w-6 items-center justify-center rounded-md bg-teal-50 text-teal-700 dark:bg-teal-950/50 dark:text-teal-400">
+          <span className="flex h-6 w-6 items-center justify-center rounded-md bg-brand-50 text-brand-700 dark:bg-brand-950/50 dark:text-brand-400">
             {icon}
           </span>
         ) : null}
@@ -96,7 +96,7 @@ function KpiCell({
     <div
       className={`relative overflow-hidden rounded-2xl border p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition hover:shadow-md ${
         accent === "primary"
-          ? "border-teal-700/20 bg-gradient-to-br from-[#0F766E] to-[#0d655e] text-white"
+          ? "border-brand-700/20 bg-gradient-to-br from-[#183b57] to-[#264863] text-white"
           : "border-slate-200/80 bg-white dark:border-slate-700 dark:bg-slate-900"
       }`}
     >
@@ -428,7 +428,7 @@ export default function LenderSubmissionDetailsView({
         <div
           className="relative overflow-hidden border-b border-slate-100 px-5 py-5 text-white dark:border-slate-800 sm:px-6"
           style={{
-            background: `linear-gradient(135deg, ${BRAND} 0%, ${BRAND_DARK} 55%, #134e4a 100%)`,
+            background: `linear-gradient(135deg, ${BRAND} 0%, ${BRAND_DARK} 55%, #183b57 100%)`,
           }}
         >
           <div className="pointer-events-none absolute -right-10 -top-16 h-40 w-40 rounded-full bg-white/10" />
@@ -571,7 +571,7 @@ export default function LenderSubmissionDetailsView({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search all fields…"
-              className="w-full rounded-xl border border-slate-200 bg-slate-50/70 py-2.5 pl-10 pr-10 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-teal-600/40 focus:bg-white focus:ring-4 focus:ring-teal-600/10 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-teal-500/40 dark:focus:ring-teal-500/10"
+              className="w-full rounded-xl border border-slate-200 bg-slate-50/70 py-2.5 pl-10 pr-10 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-brand-600/40 focus:bg-white focus:ring-4 focus:ring-brand-600/10 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-brand-500/40 dark:focus:ring-brand-500/10"
             />
             {searchQuery && (
               <button

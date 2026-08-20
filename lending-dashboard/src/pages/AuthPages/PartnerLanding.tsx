@@ -19,7 +19,7 @@ export default function PartnerLanding() {
       <AuthLayout>
         <div className="w-full">
           <div className="mb-8">
-            <p className="mb-2 text-sm font-semibold uppercase tracking-wide text-teal-700 dark:text-teal-300">
+            <p className="mb-2 text-sm font-semibold uppercase tracking-wide text-brand-700 dark:text-brand-300">
               Lending partners
             </p>
             <h1 className="text-2xl font-semibold text-gray-800 dark:text-white sm:text-3xl">
@@ -37,7 +37,7 @@ export default function PartnerLanding() {
                 key={item}
                 className="flex items-start gap-3 text-sm text-gray-700 dark:text-gray-200"
               >
-                <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-teal-100 text-xs text-teal-800 dark:bg-teal-900/40 dark:text-teal-200">
+                <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand-100 text-xs text-brand-800 dark:bg-brand-900/40 dark:text-brand-200">
                   {"\u2713"}
                 </span>
                 <span>{item}</span>
@@ -47,7 +47,7 @@ export default function PartnerLanding() {
 
           <Link
             to="/partner/signup"
-            className="inline-flex w-full items-center justify-center rounded-xl bg-[#0d3532] px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-teal-900/20 transition hover:bg-[#134E4A] active:scale-[0.99]"
+            className="inline-flex w-full items-center justify-center rounded-xl bg-[#264863] px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-sky-900/20 transition hover:bg-[#183b57] active:scale-[0.99]"
           >
             Become a Lending Partner
           </Link>
@@ -56,7 +56,7 @@ export default function PartnerLanding() {
             Already have an account?{" "}
             <Link
               to="/signin"
-              className="font-semibold text-teal-800 hover:underline dark:text-teal-300"
+              className="font-semibold text-brand-800 hover:underline dark:text-brand-300"
             >
               Sign in
             </Link>

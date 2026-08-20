@@ -382,7 +382,7 @@ export default function PartnerSignup() {
       <AuthLayout wide>
         <div className="w-full">
           <div className="mb-5">
-            <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-teal-700 dark:text-teal-300">
+            <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-brand-700 dark:text-brand-300">
               Lending partner
             </p>
             <h1 className="text-xl font-semibold text-gray-800 dark:text-white sm:text-2xl">
@@ -527,7 +527,7 @@ export default function PartnerSignup() {
             <button
               type="submit"
               disabled={saving}
-              className="mt-1 inline-flex w-full items-center justify-center rounded-xl bg-[#0d3532] px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-teal-900/20 transition hover:bg-[#134E4A] disabled:cursor-not-allowed disabled:opacity-60"
+              className="mt-1 inline-flex w-full items-center justify-center rounded-xl bg-[#264863] px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-sky-900/20 transition hover:bg-[#183b57] disabled:cursor-not-allowed disabled:opacity-60"
             >
               {saving ? "Creating account..." : "Create account"}
             </button>
@@ -537,14 +537,14 @@ export default function PartnerSignup() {
             Prefer to sign in?{" "}
             <Link
               to="/signin"
-              className="font-semibold text-teal-800 hover:underline dark:text-teal-300"
+              className="font-semibold text-brand-800 hover:underline dark:text-brand-300"
             >
               Sign in
             </Link>
             {" · "}
             <Link
               to="/partner"
-              className="font-semibold text-teal-800 hover:underline dark:text-teal-300"
+              className="font-semibold text-brand-800 hover:underline dark:text-brand-300"
             >
               Back
             </Link>

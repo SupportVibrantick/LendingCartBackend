@@ -331,7 +331,7 @@ export default function AllRuleSets() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
           <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white">
-            All <span className="text-[#18B6B4]">Set Rules</span>
+            All <span className="text-[#3e86b7]">Set Rules</span>
           </h1>
           <p className="text-xs sm:text-sm text-gray-500 mt-1 dark:text-slate-400">
             Manage set rules
@@ -345,7 +345,7 @@ export default function AllRuleSets() {
               className="h-10 px-3 border rounded-md text-sm
     bg-white text-gray-900 border-gray-300
     dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100
-    focus:outline-none focus:ring-2 focus:ring-[#18B6B4]/30 focus:border-[#18B6B4]"
+    focus:outline-none focus:ring-2 focus:ring-[#3e86b7]/30 focus:border-[#3e86b7]"
               value={selectedLenderProductId}
               onChange={(e) => {
                 const id = e.target.value;
@@ -385,7 +385,7 @@ export default function AllRuleSets() {
       bg-white text-gray-900 border-gray-300
       dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100
       placeholder-gray-400 dark:placeholder-slate-400
-      focus:outline-none focus:ring-2 focus:ring-[#18B6B4]/30 focus:border-[#18B6B4]"
+      focus:outline-none focus:ring-2 focus:ring-[#3e86b7]/30 focus:border-[#3e86b7]"
                 aria-label="Search brokers"
               />
             </div>
@@ -397,7 +397,7 @@ export default function AllRuleSets() {
               className="h-10 px-3 border rounded-md text-sm
     bg-white text-gray-900 border-gray-300
     dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100
-    focus:outline-none focus:ring-2 focus:ring-[#18B6B4]/30 focus:border-[#18B6B4]"
+    focus:outline-none focus:ring-2 focus:ring-[#3e86b7]/30 focus:border-[#3e86b7]"
               aria-label="Page size"
             >
               <option value={5}>5 / page</option>
@@ -441,7 +441,7 @@ export default function AllRuleSets() {
               ) : (
                 <>
                   Please{" "}
-                  <span className="text-[#18B6B4] font-semibold">
+                  <span className="text-[#3e86b7] font-semibold">
                     select a loan product
                   </span>{" "}
                   to view rule sets.
@@ -529,7 +529,7 @@ export default function AllRuleSets() {
                 onClick={() => setCurrentPage(page)}
                 className={`px-3 py-1 border rounded ${
                   page === currentPage
-                    ? "bg-[#18B6B4] text-white"
+                    ? "bg-[#3e86b7] text-white"
                     : "bg-white text-gray-700"
                 }`}
               >

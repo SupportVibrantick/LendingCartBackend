@@ -49,7 +49,7 @@ type Stats = {
 type MainTab = "requests" | "sent" | "connected";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
-const BRAND = "#18B6B4";
+const BRAND = "#3e86b7";
 
 function getAuthHeaders(): HeadersInit {
   const token = sessionStorage.getItem("lender_token");
@@ -333,7 +333,7 @@ export default function BrokerConnections() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search connected brokers..."
-                className="w-full pl-9 pr-3 py-2.5 rounded-xl text-sm border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#18B6B4]/30"
+                className="w-full pl-9 pr-3 py-2.5 rounded-xl text-sm border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#3e86b7]/30"
               />
             </div>
           )}
