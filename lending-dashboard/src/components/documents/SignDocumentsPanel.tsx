@@ -83,7 +83,7 @@ const statusClass = (status?: string | null) => {
     case "FORWARDED_TO_LENDER":
       return "bg-violet-100 text-violet-800";
     case "LENDER_SEEN":
-      return "bg-teal-100 text-teal-800";
+      return "bg-brand-100 text-brand-800";
     default:
       return "bg-slate-100 text-slate-700";
   }
@@ -653,9 +653,9 @@ export default function SignDocumentsPanel({
           className="flex max-h-[94vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
           onClick={(event) => event.stopPropagation()}
         >
-          <div className="flex items-start justify-between gap-4 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-teal-50 px-5 py-4 sm:px-6">
+          <div className="flex items-start justify-between gap-4 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-brand-50 px-5 py-4 sm:px-6">
             <div className="min-w-0">
-              <p className="text-xs font-semibold uppercase tracking-wide text-teal-600">
+              <p className="text-xs font-semibold uppercase tracking-wide text-brand-600">
                 Template Preview
               </p>
               <h3
@@ -691,7 +691,7 @@ export default function SignDocumentsPanel({
               type="button"
               onClick={() => downloadTemplate(activeTemplateViewDoc)}
               disabled={downloadingId === `${activeTemplateViewDoc.requirementId}-template`}
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-teal-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-teal-700 disabled:opacity-60"
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:opacity-60"
             >
               {downloadingId === `${activeTemplateViewDoc.requirementId}-template` ? (
                 <Loader2 size={16} className="animate-spin" />
@@ -724,7 +724,7 @@ export default function SignDocumentsPanel({
           className="flex max-h-[94vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
           onClick={(event) => event.stopPropagation()}
         >
-          <div className="flex items-start justify-between gap-4 border-b border-slate-200 bg-gradient-to-r from-emerald-50 to-teal-50 px-5 py-4 sm:px-6">
+          <div className="flex items-start justify-between gap-4 border-b border-slate-200 bg-gradient-to-r from-emerald-50 to-brand-50 px-5 py-4 sm:px-6">
             <div className="min-w-0">
               <p className="text-xs font-semibold uppercase tracking-wide text-emerald-600">
                 Signed Copy
@@ -854,7 +854,7 @@ export default function SignDocumentsPanel({
         );
       case "LENDER_SEEN":
         return (
-          <div className="flex items-center gap-2 rounded-xl bg-teal-50 px-3 py-2.5 text-sm text-teal-800">
+          <div className="flex items-center gap-2 rounded-xl bg-brand-50 px-3 py-2.5 text-sm text-brand-800">
             <CheckCircle2 size={16} className="shrink-0" />
             Seen by lender
           </div>
@@ -883,13 +883,13 @@ export default function SignDocumentsPanel({
 
     return (
       <div className="space-y-6">
-        <div className="relative overflow-hidden rounded-2xl border border-teal-100 bg-gradient-to-br from-teal-50 via-white to-emerald-50 p-6 shadow-sm">
-          <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-teal-200/30 blur-2xl" />
+        <div className="relative overflow-hidden rounded-2xl border border-brand-100 bg-gradient-to-br from-brand-50 via-white to-emerald-50 p-6 shadow-sm">
+          <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-brand-200/30 blur-2xl" />
           <div className="absolute -bottom-10 -left-10 h-32 w-32 rounded-full bg-emerald-200/30 blur-2xl" />
 
           <div className="relative flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
             <div>
-              <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-white/80 px-3 py-1 text-xs font-semibold text-teal-700 shadow-sm">
+              <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-white/80 px-3 py-1 text-xs font-semibold text-brand-700 shadow-sm">
                 <PenLine size={14} />
                 Client E-Signature
               </div>
@@ -934,7 +934,7 @@ export default function SignDocumentsPanel({
         {!readOnly && (
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="mb-4 flex items-start gap-3">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-teal-100 text-teal-700">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-100 text-brand-700">
               <Upload size={20} />
             </div>
             <div>
@@ -953,10 +953,10 @@ export default function SignDocumentsPanel({
               placeholder="Document name (e.g. Authorization Form)"
               value={uploadName}
               onChange={(e) => setUploadName(e.target.value)}
-              className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm transition focus:border-teal-400 focus:outline-none focus:ring-2 focus:ring-teal-100"
+              className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm transition focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100"
             />
-            <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-600 transition hover:border-teal-300 hover:bg-teal-50/50">
-              <FileText size={18} className="shrink-0 text-teal-600" />
+            <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-600 transition hover:border-brand-300 hover:bg-brand-50/50">
+              <FileText size={18} className="shrink-0 text-brand-600" />
               <span className="truncate">
                 {uploadFile ? uploadFile.name : "Choose PDF or image file"}
               </span>
@@ -973,7 +973,7 @@ export default function SignDocumentsPanel({
             type="button"
             onClick={handleLenderUpload}
             disabled={uploading || !uploadFile || !uploadName.trim()}
-            className="mt-4 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-teal-600 to-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50"
+            className="mt-4 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-brand-600 to-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50"
           >
             {uploading ? (
               <Loader2 size={16} className="animate-spin" />
@@ -987,7 +987,7 @@ export default function SignDocumentsPanel({
 
         {rows.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-teal-500 to-emerald-500 text-white shadow-lg">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-500 to-emerald-500 text-white shadow-lg">
               <FileText size={28} />
             </div>
             <p className="text-base font-semibold text-slate-800">
@@ -1013,7 +1013,7 @@ export default function SignDocumentsPanel({
                         row.signStatus === "FORWARDED_TO_LENDER"
                           ? "bg-violet-100 text-violet-700"
                           : row.signStatus === "LENDER_SEEN"
-                            ? "bg-teal-100 text-teal-700"
+                            ? "bg-brand-100 text-brand-700"
                             : row.signStatus === "CLIENT_SIGNED"
                             ? "bg-emerald-100 text-emerald-700"
                             : row.signStatus === "SENT_TO_CLIENT"
@@ -1061,7 +1061,7 @@ export default function SignDocumentsPanel({
     return (
       <div className="flex min-h-[320px] items-center justify-center">
         <div className="text-center">
-          <Loader2 className="mx-auto h-8 w-8 animate-spin text-teal-600" />
+          <Loader2 className="mx-auto h-8 w-8 animate-spin text-brand-600" />
           <p className="mt-3 text-sm text-slate-500">Loading sign documents...</p>
         </div>
       </div>

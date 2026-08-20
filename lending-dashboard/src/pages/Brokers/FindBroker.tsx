@@ -95,7 +95,7 @@ export default function FindBroker() {
       {/* Title */}
       <div className="mb-6">
         <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
-          Find <span className="text-[#18B6B4]">Brokers</span>
+          Find <span className="text-[#3e86b7]">Brokers</span>
         </h1>
         <p className="text-sm text-gray-500 dark:text-slate-400">
           Invite and manage brokers
@@ -119,7 +119,7 @@ export default function FindBroker() {
       border-gray-300 dark:border-slate-600
       text-gray-800 dark:text-slate-100
       placeholder:text-gray-400
-      focus:outline-none focus:ring-2 focus:ring-[#18B6B4]/30 focus:border-[#18B6B4]"
+      focus:outline-none focus:ring-2 focus:ring-[#3e86b7]/30 focus:border-[#3e86b7]"
             />
 
             {/* Search Icon */}
@@ -149,7 +149,7 @@ export default function FindBroker() {
     bg-white dark:bg-slate-800
     border-gray-300 dark:border-slate-600
     text-gray-800 dark:text-slate-100
-    focus:outline-none focus:ring-2 focus:ring-[#18B6B4]/30 focus:border-[#18B6B4]"
+    focus:outline-none focus:ring-2 focus:ring-[#3e86b7]/30 focus:border-[#3e86b7]"
           >
             <option value={5}>5 / page</option>
             <option value={10}>10 / page</option>
@@ -204,7 +204,7 @@ export default function FindBroker() {
                         disabled={invitingId === b.id}
                         className="inline-flex items-center gap-2
     px-4 py-2 rounded-md text-sm font-medium
-    bg-[#18B6B4] text-white hover:bg-[#149e9c]
+    bg-[#3e86b7] text-white hover:bg-[#2e6f99]
     transition disabled:opacity-60 disabled:cursor-not-allowed"
                       >
                         <Send size={16} />
@@ -273,7 +273,7 @@ export default function FindBroker() {
                   className={`px-3 py-1 rounded-md text-sm border
             ${
               page === p
-                ? "bg-[#18B6B4] text-white border-[#18B6B4]"
+                ? "bg-[#3e86b7] text-white border-[#3e86b7]"
                 : "border-gray-300 bg-white text-gray-800 hover:bg-gray-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
             }`}
                 >

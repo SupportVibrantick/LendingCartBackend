@@ -238,7 +238,7 @@ export default function TeamMembers() {
         title: "Delete failed",
         text: error.message || "Failed to remove team member",
         icon: "error",
-        confirmButtonColor: "#0F766E",
+        confirmButtonColor: "#183b57",
         background: isDark ? "#1e293b" : "#ffffff",
         color: isDark ? "#e2e8f0" : "#1e293b",
         customClass: {
@@ -286,7 +286,7 @@ export default function TeamMembers() {
           <button
             type="button"
             onClick={() => setInviteOpen(true)}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#0F766E] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#0d655f]"
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#183b57] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#264863]"
           >
             <Plus size={16} />
             Invite User
@@ -343,7 +343,7 @@ export default function TeamMembers() {
                     >
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-3">
-                          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-teal-100 text-sm font-semibold text-teal-700">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-100 text-sm font-semibold text-brand-700">
                             {getMemberInitials(member)}
                           </div>
                           <div className="min-w-0">
@@ -351,7 +351,7 @@ export default function TeamMembers() {
                               {formatTeamMemberName(member)}
                             </span>
                             {isCurrentUser ? (
-                              <span className="ml-2 inline-flex rounded-full bg-teal-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-teal-700 ring-1 ring-inset ring-teal-200">
+                              <span className="ml-2 inline-flex rounded-full bg-brand-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-brand-700 ring-1 ring-inset ring-brand-200">
                                 You
                               </span>
                             ) : null}
@@ -438,7 +438,7 @@ export default function TeamMembers() {
                     onChange={(e) =>
                       setInviteForm({ ...inviteForm, firstName: e.target.value })
                     }
-                    className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#0F766E] focus:ring-2 focus:ring-teal-100"
+                    className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#183b57] focus:ring-2 focus:ring-brand-100"
                   />
                 </div>
                 <div>
@@ -450,7 +450,7 @@ export default function TeamMembers() {
                     onChange={(e) =>
                       setInviteForm({ ...inviteForm, lastName: e.target.value })
                     }
-                    className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#0F766E] focus:ring-2 focus:ring-teal-100"
+                    className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#183b57] focus:ring-2 focus:ring-brand-100"
                   />
                 </div>
               </div>
@@ -465,7 +465,7 @@ export default function TeamMembers() {
                   onChange={(e) =>
                     setInviteForm({ ...inviteForm, email: e.target.value })
                   }
-                  className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#0F766E] focus:ring-2 focus:ring-teal-100"
+                  className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#183b57] focus:ring-2 focus:ring-brand-100"
                 />
               </div>
 
@@ -481,7 +481,7 @@ export default function TeamMembers() {
                       role: e.target.value as LenderTeamRole,
                     })
                   }
-                  className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#0F766E] focus:ring-2 focus:ring-teal-100"
+                  className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#183b57] focus:ring-2 focus:ring-brand-100"
                 >
                   {LENDER_TEAM_ROLE_OPTIONS.map((option) => (
                     <option key={option.value} value={option.value}>
@@ -509,7 +509,7 @@ export default function TeamMembers() {
                 type="button"
                 disabled={submitting}
                 onClick={handleInvite}
-                className="rounded-xl bg-[#0F766E] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#0d655f] disabled:opacity-60"
+                className="rounded-xl bg-[#183b57] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#264863] disabled:opacity-60"
               >
                 {submitting ? "Sending..." : "Send Invitation"}
               </button>
@@ -545,7 +545,7 @@ export default function TeamMembers() {
                     onChange={(e) =>
                       setEditForm({ ...editForm, firstName: e.target.value })
                     }
-                    className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#0F766E] focus:ring-2 focus:ring-teal-100"
+                    className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#183b57] focus:ring-2 focus:ring-brand-100"
                   />
                 </div>
                 <div>
@@ -557,7 +557,7 @@ export default function TeamMembers() {
                     onChange={(e) =>
                       setEditForm({ ...editForm, lastName: e.target.value })
                     }
-                    className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#0F766E] focus:ring-2 focus:ring-teal-100"
+                    className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#183b57] focus:ring-2 focus:ring-brand-100"
                   />
                 </div>
               </div>
@@ -574,7 +574,7 @@ export default function TeamMembers() {
                       role: e.target.value as LenderTeamRole,
                     })
                   }
-                  className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#0F766E] focus:ring-2 focus:ring-teal-100"
+                  className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#183b57] focus:ring-2 focus:ring-brand-100"
                 >
                   {LENDER_TEAM_ROLE_OPTIONS.map((option) => (
                     <option key={option.value} value={option.value}>
@@ -602,7 +602,7 @@ export default function TeamMembers() {
                 type="button"
                 disabled={submitting}
                 onClick={handleEdit}
-                className="rounded-xl bg-[#0F766E] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#0d655f] disabled:opacity-60"
+                className="rounded-xl bg-[#183b57] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#264863] disabled:opacity-60"
               >
                 {submitting ? "Saving..." : "Save Changes"}
               </button>

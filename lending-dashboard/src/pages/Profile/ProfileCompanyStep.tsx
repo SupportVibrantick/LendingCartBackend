@@ -29,7 +29,7 @@ type ProfileCompanyStepProps = {
 };
 
 const fieldClass =
-  "w-full border border-gray-200 rounded-lg px-3 py-2 mt-1 focus:ring-2 focus:ring-[#134E4A] focus:border-[#134E4A] outline-none transition dark:border-slate-700 dark:bg-slate-800";
+  "w-full border border-gray-200 rounded-lg px-3 py-2 mt-1 focus:ring-2 focus:ring-[#183b57] focus:border-[#183b57] outline-none transition dark:border-slate-700 dark:bg-slate-800";
 
 export default function ProfileCompanyStep({
   form,

@@ -463,7 +463,7 @@ export default function LoiUnderwritingFormModal({
   return (
     <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 pb-6">
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <div className="border-b border-slate-200 bg-gradient-to-r from-[#134E4A] to-[#0F766E] px-6 py-5 text-white dark:border-slate-800">
+        <div className="border-b border-slate-200 bg-gradient-to-r from-[#183b57] to-[#183b57] px-6 py-5 text-white dark:border-slate-800">
           <div className="flex items-start gap-3">
             <button
               type="button"
@@ -488,7 +488,7 @@ export default function LoiUnderwritingFormModal({
                     ? "Update LOI Draft"
                     : "Generate Loan Term Sheet"}
               </h1>
-              <p className="mt-1 max-w-3xl text-sm text-teal-50/90">
+              <p className="mt-1 max-w-3xl text-sm text-brand-50/90">
                 {mode === "revised"
                   ? "Previous versions are preserved for audit. Enter updated commercial terms below — the broker will receive a new version to review."
                   : mode === "regenerate"
@@ -504,7 +504,7 @@ export default function LoiUnderwritingFormModal({
             <section className="space-y-4">
               <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950">
                 <div className="mb-3 flex items-center gap-2">
-                  <User className="h-4 w-4 text-[#0F766E]" />
+                  <User className="h-4 w-4 text-[#183b57]" />
                   <h3 className="text-sm font-bold text-slate-900 dark:text-white">
                     From Application
                   </h3>
@@ -575,9 +575,9 @@ export default function LoiUnderwritingFormModal({
                 </div>
               )}
 
-              <div className="rounded-2xl border border-teal-100 bg-teal-50/60 p-4 text-sm text-teal-900 dark:border-teal-900/40 dark:bg-teal-950/20 dark:text-teal-100">
+              <div className="rounded-2xl border border-brand-100 bg-brand-50/60 p-4 text-sm text-brand-900 dark:border-brand-900/40 dark:bg-brand-950/20 dark:text-brand-100">
                 <p className="font-semibold">What happens next</p>
-                <ul className="mt-2 space-y-1.5 text-teal-800/90 dark:text-teal-100/80 sm:columns-2 sm:gap-6">
+                <ul className="mt-2 space-y-1.5 text-brand-800/90 dark:text-brand-100/80 sm:columns-2 sm:gap-6">
                   <li>• Your credit terms populate the term sheet PDF.</li>
                   <li>• Borrower, property, and broker data come from the application.</li>
                   <li>• Only the borrower signature block appears on the document.</li>
@@ -606,7 +606,7 @@ export default function LoiUnderwritingFormModal({
                         setNumberField("approvedAmount", e.target.value)
                       }
                       placeholder="1,750,000"
-                      className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#0F766E] focus:ring-2 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-800"
+                      className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#183b57] focus:ring-2 focus:ring-brand-100 dark:border-slate-700 dark:bg-slate-800"
                     />
                     {errors.approvedAmount ? (
                       <p className="mt-1 text-xs text-red-500">
@@ -626,7 +626,7 @@ export default function LoiUnderwritingFormModal({
                         setNumberField("interestRate", e.target.value)
                       }
                       placeholder="10.75"
-                      className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#0F766E] focus:ring-2 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-800"
+                      className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#183b57] focus:ring-2 focus:ring-brand-100 dark:border-slate-700 dark:bg-slate-800"
                     />
                     {errors.interestRate ? (
                       <p className="mt-1 text-xs text-red-500">
@@ -649,7 +649,7 @@ export default function LoiUnderwritingFormModal({
                         )
                       }
                       placeholder="e.g. 2,500,000"
-                      className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#0F766E] focus:ring-2 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-800"
+                      className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#183b57] focus:ring-2 focus:ring-brand-100 dark:border-slate-700 dark:bg-slate-800"
                     />
                     {errors.collateralOrPropertyValue ? (
                       <p className="mt-1 text-xs text-red-500">
@@ -674,7 +674,7 @@ export default function LoiUnderwritingFormModal({
                             )
                           }
                           placeholder="350,000"
-                          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#0F766E] focus:ring-2 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-800"
+                          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#183b57] focus:ring-2 focus:ring-brand-100 dark:border-slate-700 dark:bg-slate-800"
                         />
                         {errors.rehabConstructionCost ? (
                           <p className="mt-1 text-xs text-red-500">
@@ -694,7 +694,7 @@ export default function LoiUnderwritingFormModal({
                             setNumberField("afterRepairValue", e.target.value)
                           }
                           placeholder="3,000,000"
-                          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#0F766E] focus:ring-2 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-800"
+                          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#183b57] focus:ring-2 focus:ring-brand-100 dark:border-slate-700 dark:bg-slate-800"
                         />
                         {errors.afterRepairValue ? (
                           <p className="mt-1 text-xs text-red-500">
@@ -740,7 +740,7 @@ export default function LoiUnderwritingFormModal({
                         setNumberField("maximumLtvPercent", e.target.value)
                       }
                       placeholder="70"
-                      className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#0F766E] focus:ring-2 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-800"
+                      className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#183b57] focus:ring-2 focus:ring-brand-100 dark:border-slate-700 dark:bg-slate-800"
                     />
                     {errors.maximumLtvPercent ? (
                       <p className="mt-1 text-xs text-red-500">
@@ -762,7 +762,7 @@ export default function LoiUnderwritingFormModal({
                             setNumberField("maximumLtcPercent", e.target.value)
                           }
                           placeholder="75"
-                          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#0F766E] focus:ring-2 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-800"
+                          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#183b57] focus:ring-2 focus:ring-brand-100 dark:border-slate-700 dark:bg-slate-800"
                         />
                         {errors.maximumLtcPercent ? (
                           <p className="mt-1 text-xs text-red-500">
@@ -782,7 +782,7 @@ export default function LoiUnderwritingFormModal({
                             setNumberField("maximumArvPercent", e.target.value)
                           }
                           placeholder="65"
-                          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#0F766E] focus:ring-2 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-800"
+                          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#183b57] focus:ring-2 focus:ring-brand-100 dark:border-slate-700 dark:bg-slate-800"
                         />
                         {errors.maximumArvPercent ? (
                           <p className="mt-1 text-xs text-red-500">
@@ -794,7 +794,7 @@ export default function LoiUnderwritingFormModal({
                   ) : null}
 
                   {bindingMaxLoan ? (
-                    <div className="sm:col-span-2 lg:col-span-3 rounded-xl border border-teal-100 bg-teal-50/70 px-3 py-2.5 text-xs text-teal-900 dark:border-teal-900/40 dark:bg-teal-950/20 dark:text-teal-100">
+                    <div className="sm:col-span-2 lg:col-span-3 rounded-xl border border-brand-100 bg-brand-50/70 px-3 py-2.5 text-xs text-brand-900 dark:border-brand-900/40 dark:bg-brand-950/20 dark:text-brand-100">
                       Binding max loan (whichever is lower):{" "}
                       {formatMetricCurrency(bindingMaxLoan.amount)} via{" "}
                       {bindingMaxLoan.bindingLabel}
@@ -825,7 +825,7 @@ export default function LoiUnderwritingFormModal({
                           onClick={() => update("interestOnly", value)}
                           className={`flex-1 rounded-xl px-3 py-2.5 text-sm font-semibold transition ${
                             terms.interestOnly === value
-                              ? "bg-[#0F766E] text-white"
+                              ? "bg-[#183b57] text-white"
                               : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300"
                           }`}
                         >
@@ -847,7 +847,7 @@ export default function LoiUnderwritingFormModal({
                           onClick={() => update("loanTerm", option)}
                           className={`rounded-full px-4 py-2 text-xs font-semibold transition ${
                             terms.loanTerm === option
-                              ? "bg-[#0F766E] text-white"
+                              ? "bg-[#183b57] text-white"
                               : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300"
                           }`}
                         >
@@ -877,7 +877,7 @@ export default function LoiUnderwritingFormModal({
                           setNumberField("originationPoints", e.target.value)
                         }
                         placeholder="2"
-                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#0F766E] focus:ring-2 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-800"
+                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#183b57] focus:ring-2 focus:ring-brand-100 dark:border-slate-700 dark:bg-slate-800"
                       />
                       {errors.originationPoints ? (
                         <p className="mt-1 text-xs text-red-500">
@@ -897,7 +897,7 @@ export default function LoiUnderwritingFormModal({
                           setNumberField("processingFee", e.target.value)
                         }
                         placeholder="995"
-                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#0F766E] focus:ring-2 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-800"
+                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#183b57] focus:ring-2 focus:ring-brand-100 dark:border-slate-700 dark:bg-slate-800"
                       />
                       {errors.processingFee ? (
                         <p className="mt-1 text-xs text-red-500">
@@ -917,7 +917,7 @@ export default function LoiUnderwritingFormModal({
                           setNumberField("appraisalFee", e.target.value)
                         }
                         placeholder="e.g. 750"
-                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#0F766E] focus:ring-2 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-800"
+                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#183b57] focus:ring-2 focus:ring-brand-100 dark:border-slate-700 dark:bg-slate-800"
                       />
                       {errors.appraisalFee ? (
                         <p className="mt-1 text-xs text-red-500">
@@ -937,7 +937,7 @@ export default function LoiUnderwritingFormModal({
                           setNumberField("brokerPoints", e.target.value)
                         }
                         placeholder="1"
-                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#0F766E] focus:ring-2 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-800"
+                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#183b57] focus:ring-2 focus:ring-brand-100 dark:border-slate-700 dark:bg-slate-800"
                       />
                       {errors.brokerPoints ? (
                         <p className="mt-1 text-xs text-red-500">
@@ -957,7 +957,7 @@ export default function LoiUnderwritingFormModal({
                           setNumberField("wireFee", e.target.value)
                         }
                         placeholder="50"
-                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#0F766E] focus:ring-2 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-800"
+                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#183b57] focus:ring-2 focus:ring-brand-100 dark:border-slate-700 dark:bg-slate-800"
                       />
                       {errors.wireFee ? (
                         <p className="mt-1 text-xs text-red-500">
@@ -998,7 +998,7 @@ export default function LoiUnderwritingFormModal({
                           )
                         }
                         placeholder="3"
-                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#0F766E] focus:ring-2 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-800"
+                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#183b57] focus:ring-2 focus:ring-brand-100 dark:border-slate-700 dark:bg-slate-800"
                       />
                       {errors.requiredReservesPercent ? (
                         <p className="mt-1 text-xs text-red-500">
@@ -1058,7 +1058,7 @@ export default function LoiUnderwritingFormModal({
             type="button"
             onClick={handleSubmit}
             disabled={submitting || !brandingComplete}
-            className="inline-flex items-center gap-2 rounded-xl bg-[#0F766E] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#0d655e] disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-xl bg-[#183b57] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#264863] disabled:opacity-50"
           >
             {submitting ? (
               <>

@@ -228,7 +228,7 @@ const AppHeader: React.FC = () => {
           <div className="hidden lg:block">
             <h1 className="text-lg font-semibold text-gray-900 dark:text-white">
               Welcome{" "}
-              <span className="text-[#18B6B4] dark:text-[#2dd4d1]">
+              <span className="text-[#3e86b7] dark:text-[#5ba8d4]">
                 {toTitleCase(user?.user?.name)}
               </span>
             </h1>
@@ -250,7 +250,7 @@ const AppHeader: React.FC = () => {
         >
           <div className="flex items-center gap-2 2xsm:gap-3">
             <div className="flex items-center gap-2">
-              <span className="text-sm font-semibold text-[#18B6B4] dark:text-[#2dd4d1]">
+              <span className="text-sm font-semibold text-[#3e86b7] dark:text-[#5ba8d4]">
                 {time}
               </span>
             </div>

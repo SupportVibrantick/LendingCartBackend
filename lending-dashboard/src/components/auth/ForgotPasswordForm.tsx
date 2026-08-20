@@ -72,7 +72,7 @@ export default function ForgotPasswordForm() {
           </p>
           <Link
             to="/signin"
-            className="mt-8 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#134E4A] to-[#1a6b65] px-5 py-3.5 text-sm font-semibold text-white shadow-lg shadow-[#134E4A]/25 transition hover:shadow-[#134E4A]/40"
+            className="mt-8 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#183b57] to-[#36536c] px-5 py-3.5 text-sm font-semibold text-white shadow-lg shadow-[#183b57]/25 transition hover:shadow-[#183b57]/40"
           >
             <ArrowLeft size={18} />
             Back to sign in
@@ -101,7 +101,7 @@ export default function ForgotPasswordForm() {
             <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
               Email address
             </label>
-            <div className="flex items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3.5 focus-within:border-[#134E4A] focus-within:bg-white dark:border-gray-700 dark:bg-gray-900">
+            <div className="flex items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3.5 focus-within:border-[#183b57] focus-within:bg-white dark:border-gray-700 dark:bg-gray-900">
               <Mail size={18} className="text-gray-400" />
               <input
                 type="email"
@@ -118,7 +118,7 @@ export default function ForgotPasswordForm() {
             whileTap={{ scale: 0.98 }}
             type="submit"
             disabled={isSubmitting}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#134E4A] to-[#1a6b65] px-5 py-3.5 text-sm font-semibold text-white shadow-lg shadow-[#134E4A]/25 transition hover:shadow-[#134E4A]/40 disabled:cursor-not-allowed disabled:opacity-70"
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#183b57] to-[#36536c] px-5 py-3.5 text-sm font-semibold text-white shadow-lg shadow-[#183b57]/25 transition hover:shadow-[#183b57]/40 disabled:cursor-not-allowed disabled:opacity-70"
           >
             {isSubmitting ? "Sending..." : "Send reset link"}
           </motion.button>
@@ -128,7 +128,7 @@ export default function ForgotPasswordForm() {
           Remember your password?{" "}
           <Link
             to="/signin"
-            className="font-semibold text-[#134E4A] hover:text-[#0d3532] dark:text-emerald-400"
+            className="font-semibold text-[#183b57] hover:text-[#264863] dark:text-brand-400"
           >
             Sign in
           </Link>
