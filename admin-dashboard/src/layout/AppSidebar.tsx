@@ -31,7 +31,7 @@ import { RiExternalLinkLine } from "react-icons/ri";
 import ContactsOutlinedIcon from "@mui/icons-material/ContactsOutlined";
 import { 
   // Mail, 
-  MessageSquare,
+  // MessageSquare,
    BarChart3,
     TrendingUp,
      } from "lucide-react";
