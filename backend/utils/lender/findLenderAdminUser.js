@@ -10,6 +10,7 @@ async function findLenderAdminUser(prisma, lenderOrgId) {
       user: {
         organizationId: lenderOrgId,
         isDeleted: { not: true },
+        status: { in: ["ACTIVE", "INVITED"] },
       },
     },
     include: { user: true },

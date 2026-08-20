@@ -7,6 +7,7 @@ import { toNumber, calculateMonthlyPayment } from "./formatters";
 import { appendResidentialBorrowerSubmission } from "../../lib/residentialBorrower";
 import { appendResidentialFinancialsSubmission } from "../../lib/residentialFinancials";
 import { appendReferringBrokerSubmission } from "../../lib/referringBroker";
+import { resolveCanonicalLoanProductCode } from "../../lib/canonicalLoanProducts";
 import { uploadPendingApplicationDocuments } from "../../lib/uploadApplicationDocuments";
 import type {
   PendingApplicationDocument,
@@ -263,7 +264,9 @@ export function buildSubmissionPayload(ctx: SubmissionContext): BuildPayloadResu
   }
 
   /* ================= LOAN REQUEST ================= */
-  addField("loanProductCode", selectedProduct);
+  const canonicalLoanProductCode =
+    resolveCanonicalLoanProductCode(selectedProduct);
+  addField("loanProductCode", canonicalLoanProductCode);
   addField("loanCategory", selectedCategory);
   addField("amountRequested", toNumber(formData.loanRequest.amount));
   addField("interestRate", formData.loanRequest.interestRate);
@@ -444,7 +447,7 @@ export function buildSubmissionPayload(ctx: SubmissionContext): BuildPayloadResu
 
   /* ================= FINAL PAYLOAD ================= */
   const payload = {
-    loanProductCode: selectedProduct,
+    loanProductCode: resolveCanonicalLoanProductCode(selectedProduct),
     fields: Array.from(fieldsMap.entries()).map(
       ([fieldKey, { value, fieldId }]) => ({
         fieldKey,

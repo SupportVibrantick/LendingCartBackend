@@ -3,6 +3,7 @@ const {
 } = require("../../../modules/ghl/ghl.webhook.verify");
 const {
   processGhlWebhook,
+  logGhlWebhookPayloadStructureDebug,
 } = require("../../../services/ghl/ghlWebhookProcessor");
 const {
   CHECKOUT_ERROR_CODES,
@@ -18,6 +19,10 @@ const {
 const { commonLogs } = require("../../../services/logger/contextLogger");
 
 async function ghlWebhookRoutes(fastify) {
+  fastify.log.info(
+    `GHL_WEBHOOK_PAYLOAD_DEBUG = ${process.env.GHL_WEBHOOK_PAYLOAD_DEBUG === "true"}`,
+  );
+
   // Signature verification requires the exact raw body bytes.
   fastify.addContentTypeParser(
     "application/json",
@@ -71,6 +76,10 @@ async function ghlWebhookRoutes(fastify) {
       }
 
       const body = req.body || {};
+
+      if (process.env.GHL_WEBHOOK_PAYLOAD_DEBUG === "true") {
+        logGhlWebhookPayloadStructureDebug(body);
+      }
 
       try {
         const result = await processGhlWebhook(

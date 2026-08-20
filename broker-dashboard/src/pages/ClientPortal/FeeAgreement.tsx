@@ -143,7 +143,8 @@ export default function FeeAgreement({
           </p>
 
           <p className="text-sm text-gray-500 max-w-sm">
-            Agreement not generated yet or still under process.
+            Your broker has not included a fee agreement for this application
+            yet. It will appear here once it is added.
           </p>
         </div>
       </>

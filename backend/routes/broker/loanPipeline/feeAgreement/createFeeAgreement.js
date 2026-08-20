@@ -24,13 +24,27 @@ function extractValue(val) {
   return val;
 }
 
-module.exports = async function createFeeAgreement(fastify, loanId) {
+function pickTerm(preferred, fallback = null) {
+  if (preferred === undefined || preferred === null || preferred === "") {
+    return fallback;
+  }
+  return preferred;
+}
+
+module.exports = async function createFeeAgreement(fastify, loanId, terms = null) {
   const prisma = fastify.prisma;
 
   const existing = await prisma.feeAgreement.findUnique({
     where: { loanApplicationId: loanId },
   });
-  if (existing) return existing;
+
+  if (existing?.status === "SIGNED") {
+    return existing;
+  }
+
+  if (existing && !terms) {
+    return existing;
+  }
 
   const loan = await prisma.loanApplication.findUnique({
     where: { id: loanId },
@@ -61,14 +75,13 @@ module.exports = async function createFeeAgreement(fastify, loanId) {
   const submission = await prisma.applicationSubmission.findFirst({
     where: {
       applicationId: loan.id,
-      status: "COMPLETED",
     },
     include: { fields: true },
     orderBy: { createdAt: "desc" },
   });
 
   if (!submission) {
-    throw new Error("No completed submission found");
+    throw new Error("No submission found");
   }
 
   submission.fields.forEach((field) => {
@@ -90,9 +103,12 @@ module.exports = async function createFeeAgreement(fastify, loanId) {
       primaryContact,
       orgBrokerUser,
     }),
-    brokerPoints: null,
-    upfrontFee: null,
-    exclusivityMonths: null,
+    brokerPoints: pickTerm(terms?.brokerPoints, existing?.brokerPoints ?? null),
+    upfrontFee: pickTerm(terms?.upfrontFee, existing?.upfrontFee ?? null),
+    exclusivityMonths: pickTerm(
+      terms?.exclusivityMonths,
+      existing?.exclusivityMonths ?? null,
+    ),
   };
 
   const whiteLabelBranding = await getBrokerWhiteLabelBranding(
@@ -111,7 +127,17 @@ module.exports = async function createFeeAgreement(fastify, loanId) {
 
   const agreementHtml = generateAgreementHtml(agreementPayload);
 
-  const feeAgreement = await prisma.feeAgreement.create({
+  if (existing) {
+    return prisma.feeAgreement.update({
+      where: { id: existing.id },
+      data: {
+        ...agreementPayload,
+        agreementHtml,
+      },
+    });
+  }
+
+  return prisma.feeAgreement.create({
     data: {
       loanApplicationId: loan.id,
       brokerOrgId: loan.brokerOrgId,
@@ -121,6 +147,4 @@ module.exports = async function createFeeAgreement(fastify, loanId) {
       status: "DRAFT",
     },
   });
-
-  return feeAgreement;
 };

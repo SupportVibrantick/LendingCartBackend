@@ -181,7 +181,9 @@ dark:border-slate-700 dark:bg-slate-900"
         </p>
 
         <p className="text-sm text-gray-500 max-w-sm">
-          Agreement not generated yet or still under process.
+          No fee agreement was included with this application yet. You can
+          still add terms here after the application exists, or include them
+          in the loan application wizard next time.
         </p>
       </div>
     );

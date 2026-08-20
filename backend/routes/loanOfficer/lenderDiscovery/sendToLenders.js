@@ -9,6 +9,9 @@ const {
   LENDER_NOTIFICATION_EVENTS,
 } = require("../../../services/notifications/lenderNotifications");
 const { extraOfficerPermission } = require("../../../services/broker/loanOfficerAccess");
+const {
+  expandLoanProductAliasCodes,
+} = require("../../../utils/loanProducts/loanProductAliases");
 
 module.exports = async function sendToLenders(fastify) {
   fastify.post(
@@ -113,7 +116,9 @@ module.exports = async function sendToLenders(fastify) {
           where: {
             id: { in: lenderProductIds },
             isActive: true,
-            loanProductCode: application.loanProductCode,
+            loanProductCode: {
+              in: expandLoanProductAliasCodes(application.loanProductCode),
+            },
           },
           include: { lender: true },
         });

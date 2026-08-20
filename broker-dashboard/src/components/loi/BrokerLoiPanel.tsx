@@ -875,10 +875,17 @@ export default function BrokerLoiPanel({
 
   useEffect(() => {
     setBrokerLoiStatus(null);
-    setBrokerLoiStatusLoaded(false);
-    if (isActive && applicationId && canManageBrokerLoi) {
-      fetchBrokerLoiStatus();
+
+    // Sub-broker (and other roles without broker-LOI manage access) never
+    // call /broker-loi — mark status as loaded so the list empty state can render.
+    if (!isActive || !applicationId || !canManageBrokerLoi) {
+      setBrokerLoiStatusLoaded(true);
+      setBrokerLoiStatusLoading(false);
+      return;
     }
+
+    setBrokerLoiStatusLoaded(false);
+    void fetchBrokerLoiStatus();
   }, [isActive, applicationId, canManageBrokerLoi, fetchBrokerLoiStatus]);
 
   const handleCreateOwnTermSheet = useCallback(async () => {
@@ -2121,6 +2128,7 @@ export default function BrokerLoiPanel({
                   ? nextBrokerRevisedVersion
                   : undefined
               }
+              getAuthHeaders={getAuthHeaders}
               onCancel={handleCancelBrokerEdit}
               onSubmit={handleGenerateBrokerLoi}
             />
@@ -2468,6 +2476,7 @@ export default function BrokerLoiPanel({
                           ? nextBrokerRevisedVersion
                           : undefined
                       }
+                      getAuthHeaders={getAuthHeaders}
                       onCancel={handleCancelBrokerEdit}
                       onSubmit={handleGenerateBrokerLoi}
                     />

@@ -3,6 +3,10 @@ const { logAudit } = require("../../../services/logger/auditLogger");
 const {
   canBrokerEditSubmittedApplication,
 } = require("../../../utils/applications/resolveApplicationStatus");
+const {
+  getFeeAgreementRequestError,
+  tryAttachFeeAgreementIfRequested,
+} = require("../../../services/feeAgreement/attachFeeAgreementToApplication");
 
 async function editSubmittedApplication(fastify) {
   fastify.put("/:applicationId/edit", async (req, reply) => {
@@ -32,6 +36,14 @@ async function editSubmittedApplication(fastify) {
         return reply.code(400).send({
           success: false,
           message: "Fields array is required",
+        });
+      }
+
+      const feeAgreementError = getFeeAgreementRequestError(req.body);
+      if (feeAgreementError) {
+        return reply.code(400).send({
+          success: false,
+          message: feeAgreementError,
         });
       }
 
@@ -128,10 +140,19 @@ async function editSubmittedApplication(fastify) {
         newValue: { submissionId: result.newSubmission.id },
       });
 
+      const feeAgreementWarning = await tryAttachFeeAgreementIfRequested(
+        fastify,
+        applicationId,
+        req.body,
+      );
+
       return reply.send({
         success: true,
         message: "Application edited successfully",
-        data: { submissionId: result.newSubmission.id },
+        data: {
+          submissionId: result.newSubmission.id,
+          ...(feeAgreementWarning ? { warnings: [feeAgreementWarning] } : {}),
+        },
       });
     } catch (error) {
       fastify.log.error({
