@@ -48,6 +48,7 @@ model Organization {
   subscriptionInvoices        SubscriptionInvoice[]
   users                       UserAccount[]
   adminLenderInvites          AdminLenderInvite[]
+  ghlConnection               OrganizationGhlConnection?
 
   @@map("organizations")
 }
@@ -138,6 +139,7 @@ model UserAccount {
   roles                         UserRole[]
   lenderLoiVersionsGenerated    LenderLoiVersion[]               @relation("LenderLoiVersionGeneratedBy")
   brokerLoiVersionsGenerated    BrokerLoiVersion[]               @relation("BrokerLoiVersionGeneratedBy")
+  ghlConnectionsConnected       OrganizationGhlConnection[]      @relation("GhlConnectionConnectedBy")
 
   @@map("user_accounts")
 }
@@ -2095,6 +2097,41 @@ enum GhlSyncStatus {
   SYNCED
   FAILED
   SKIPPED
+}
+
+enum OrganizationGhlConnectionStatus {
+  CONNECTED
+  DISCONNECTED
+  ERROR
+  REVOKED
+}
+
+/// Per-broker GoHighLevel OAuth connection (CRM integration — separate from platform GHL_API_KEY billing).
+model OrganizationGhlConnection {
+  id                String                            @id @default(uuid()) @db.Uuid
+  organizationId    String                            @unique @db.Uuid
+  ghlLocationId     String                            @unique
+  ghlCompanyId      String?
+  /// AES-256-GCM encrypted access token (see utils/security/secretEncryption.js).
+  accessToken       String
+  /// AES-256-GCM encrypted refresh token.
+  refreshToken      String?
+  tokenExpiresAt    DateTime?                         @db.Timestamptz(6)
+  scopes            String[]                          @default([])
+  connectedAt       DateTime?                         @db.Timestamptz(6)
+  connectedByUserId String?                           @db.Uuid
+  status            OrganizationGhlConnectionStatus   @default(CONNECTED)
+  lastError         String?
+  createdAt         DateTime                          @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime                          @updatedAt @db.Timestamptz(6)
+  organization      Organization                      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  connectedBy       UserAccount?                      @relation("GhlConnectionConnectedBy", fields: [connectedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([ghlLocationId])
+  @@index([status])
+  @@index([connectedByUserId])
+  @@index([tokenExpiresAt])
+  @@map("organization_ghl_connections")
 }
 
 enum LoanAiGhlCheckoutStatus {

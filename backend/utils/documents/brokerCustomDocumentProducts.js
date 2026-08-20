@@ -106,10 +106,8 @@ function mapLoanProductsFromRequirements(requirements = []) {
   }));
 }
 
-const LOAN_PRODUCT_ALIAS_GROUPS = [
-  ["BRIDGE_LOAN", "BRIDGE_LOAN_1_TO_4_UNITS"],
-  ["CONSTRUCTION_LOAN", "CONSTRUCTION_LOAN_1_TO_4_UNITS"],
-];
+const LOAN_PRODUCT_ALIAS_GROUPS = require("../loanProducts/loanProductAliases")
+  .LOAN_PRODUCT_ALIAS_GROUPS;
 
 /**
  * Resolve a selected loan product filter to all matching IDs/codes (incl. aliases).

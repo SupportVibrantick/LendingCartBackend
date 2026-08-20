@@ -130,6 +130,35 @@ function getApplicationStatusColor(status: string) {
   }
 }
 
+function getVisiblePageNumbers(
+  currentPage: number,
+  totalPages: number,
+): Array<number | "ellipsis"> {
+  if (totalPages <= 7) {
+    return Array.from({ length: totalPages }, (_, index) => index + 1);
+  }
+
+  const pages: Array<number | "ellipsis"> = [1];
+
+  if (currentPage > 3) {
+    pages.push("ellipsis");
+  }
+
+  const start = Math.max(2, currentPage - 1);
+  const end = Math.min(totalPages - 1, currentPage + 1);
+
+  for (let page = start; page <= end; page += 1) {
+    pages.push(page);
+  }
+
+  if (currentPage < totalPages - 2) {
+    pages.push("ellipsis");
+  }
+
+  pages.push(totalPages);
+  return pages;
+}
+
 function getAuthHeaders(): HeadersInit {
   const token = sessionStorage.getItem("admin_token");
   return {
@@ -653,39 +682,60 @@ export default function LoanPipeline() {
           </table>
 
           {filteredRows.length > rowsPerPage && (
-            <div className="flex flex-col items-center justify-between gap-4 border-t border-slate-200 px-6 py-4 dark:border-slate-800 md:flex-row lg:px-8">
-              <p className="text-sm text-slate-500">
-                Showing {(currentPage - 1) * rowsPerPage + 1} to{" "}
-                {Math.min(currentPage * rowsPerPage, filteredRows.length)} of{" "}
-                {filteredRows.length}
+            <div className="flex flex-col gap-3 border-t border-slate-200 px-6 py-4 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between lg:px-8">
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                Showing{" "}
+                <span className="font-medium text-slate-800 dark:text-slate-100">
+                  {(currentPage - 1) * rowsPerPage + 1}–
+                  {Math.min(currentPage * rowsPerPage, filteredRows.length)}
+                </span>{" "}
+                of{" "}
+                <span className="font-medium text-slate-800 dark:text-slate-100">
+                  {filteredRows.length}
+                </span>
               </p>
               <div className="flex items-center gap-2">
                 <button
                   type="button"
                   disabled={currentPage === 1}
-                  onClick={() => setCurrentPage((p) => p - 1)}
+                  onClick={() => setCurrentPage((page) => Math.max(page - 1, 1))}
+                  aria-label="Previous page"
                   className="rounded-lg border border-slate-200 p-2 transition hover:bg-slate-100 disabled:opacity-40 dark:border-slate-700 dark:hover:bg-slate-800"
                 >
                   <ChevronLeft size={16} />
                 </button>
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                  <button
-                    key={page}
-                    type="button"
-                    onClick={() => setCurrentPage(page)}
-                    className={`rounded-lg px-3 py-1 text-sm transition ${
-                      currentPage === page
-                        ? "bg-[#13538A] text-white"
-                        : "border border-slate-200 hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"
-                    }`}
-                  >
-                    {page}
-                  </button>
-                ))}
+                {getVisiblePageNumbers(currentPage, totalPages).map((page, index) =>
+                  page === "ellipsis" ? (
+                    <span
+                      key={`ellipsis-${index}`}
+                      className="px-1 text-sm text-slate-400 dark:text-slate-500"
+                      aria-hidden
+                    >
+                      …
+                    </span>
+                  ) : (
+                    <button
+                      key={page}
+                      type="button"
+                      onClick={() => setCurrentPage(page)}
+                      aria-current={currentPage === page ? "page" : undefined}
+                      className={`min-w-8 rounded-lg px-2.5 py-1.5 text-sm font-medium transition ${
+                        currentPage === page
+                          ? "bg-[#13538A] text-white dark:bg-indigo-600"
+                          : "border border-slate-200 text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  ),
+                )}
                 <button
                   type="button"
                   disabled={currentPage === totalPages}
-                  onClick={() => setCurrentPage((p) => p + 1)}
+                  onClick={() =>
+                    setCurrentPage((page) => Math.min(page + 1, totalPages))
+                  }
+                  aria-label="Next page"
                   className="rounded-lg border border-slate-200 p-2 transition hover:bg-slate-100 disabled:opacity-40 dark:border-slate-700 dark:hover:bg-slate-800"
                 >
                   <ChevronRight size={16} />

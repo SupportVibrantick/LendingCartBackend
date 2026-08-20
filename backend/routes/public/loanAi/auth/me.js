@@ -14,6 +14,7 @@ async function loanAiMeRoutes(fastify) {
       let hasBrokerSubscription = false;
       let subscribedPackageId = null;
       let subscribedPackageCode = null;
+      let subscribedBillingCycle = null;
       let subscriptionStatus = null;
       let subscriptionMessage = null;
 
@@ -32,6 +33,7 @@ async function loanAiMeRoutes(fastify) {
             hasBrokerSubscription = true;
             subscribedPackageId = sub.packageId;
             subscribedPackageCode = sub.package?.code ?? null;
+            subscribedBillingCycle = sub.billingCycle;
           } else if (sub.status === "EXPIRED") {
             subscriptionMessage =
               "Your previous subscription has expired. Choose a plan to renew.";
@@ -52,6 +54,7 @@ async function loanAiMeRoutes(fastify) {
           hasBrokerSubscription,
           subscribedPackageId,
           subscribedPackageCode,
+          subscribedBillingCycle,
           subscriptionStatus,
           subscriptionMessage,
         },

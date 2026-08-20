@@ -21,7 +21,6 @@ import {
   SearchX,
   Send,
   Upload,
-  X,
 } from "lucide-react";
 
 import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
@@ -39,9 +38,13 @@ import {
   expandDocumentsForDisplay,
   getCoBrokerSendableToPrincipalBrokerIds,
   getDocumentSourceDisplay,
+  getDocumentRequestDisplay,
   getUploadFileSentLabel,
+  buildDocumentRequestHistoryByTypeId,
+  formatDocumentTimelineDate,
   matchesDocumentSentFilter,
   type DocumentDisplayRow,
+  type DocumentRequestHistoryEntry,
   type DocumentSentFilter,
   type DocumentSourceFilter,
 } from "../../lib/documentLenderSend";
@@ -147,12 +150,12 @@ type TabSection = {
 const TAB_SECTION_BY_KEY: Record<TabKey, TabSectionId> = {
   "view-details": "application",
   "update-application": "application",
-  "fee-agreement": "application",
   commissions: "application",
   documents: "documents",
   "request-document": "documents",
   "sign-documents": "documents",
   "view-loi": "documents",
+  "fee-agreement": "documents",
   chat: "communication",
   "email-reminders": "communication",
   "find-lenders": "lender",
@@ -424,9 +427,6 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
     string | null
   >(null);
   const [selectedRequestDocs, setSelectedRequestDocs] = useState<string[]>([]);
-  const [selectedRequestDocMeta, setSelectedRequestDocMeta] = useState<
-    Record<string, { name: string; isCustom: boolean }>
-  >({});
   const [requestMessage, setRequestMessage] = useState("");
   const [requestSubmitting, setRequestSubmitting] = useState(false);
   const [requestDocSearch, setRequestDocSearch] = useState("");
@@ -444,7 +444,9 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
   const [customDocumentName, setCustomDocumentName] = useState("");
   const [addingCustomDoc, setAddingCustomDoc] = useState(false);
   const [selectingAllRequestDocs, setSelectingAllRequestDocs] = useState(false);
-
+  const [requestDocHistoryByTypeId, setRequestDocHistoryByTypeId] = useState<
+    Record<string, DocumentRequestHistoryEntry>
+  >({});
   const [submittedLenders, setSubmittedLenders] = useState<any[]>([]);
   const [selectedLenders, setSelectedLenders] = useState<string[]>([]);
 
@@ -1243,16 +1245,6 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
         isCustom: Boolean(doc.isCustom),
       }));
       setRequestDocs(formattedDocs);
-      setSelectedRequestDocMeta((prev) => {
-        const next = { ...prev };
-        for (const doc of formattedDocs) {
-          next[doc.documentTypeId] = {
-            name: doc.documentType.name,
-            isCustom: doc.isCustom,
-          };
-        }
-        return next;
-      });
       setRequestDocPagination(
         json.pagination || {
           page: pageNo,
@@ -1268,6 +1260,30 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
       toast.error(err.message || "Failed to load documents");
     } finally {
       setRequestDocsLoading(false);
+    }
+  };
+
+  const fetchExistingDocumentRequestHistory = async (currentSubmissionId: string) => {
+    try {
+      const params = new URLSearchParams({
+        page: "1",
+        limit: "100",
+        documentCategory: "upload",
+      });
+
+      const res = await fetch(
+        previewApi.submissionDocuments(currentSubmissionId, params.toString()),
+        {
+          headers: getAuthHeaders(),
+        },
+      );
+      const json = await res.json();
+      if (!json.success) return;
+
+      const documents = json.data?.documents || [];
+      setRequestDocHistoryByTypeId(buildDocumentRequestHistoryByTypeId(documents));
+    } catch (err) {
+      console.error("Failed to load document request history", err);
     }
   };
 
@@ -1370,13 +1386,6 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
       });
 
       setSelectedRequestDocs(unique.map((doc) => doc.id));
-      setSelectedRequestDocMeta((prev) => {
-        const next = { ...prev };
-        for (const doc of unique) {
-          next[doc.id] = { name: doc.name, isCustom: doc.isCustom };
-        }
-        return next;
-      });
 
       toast.success(
         `Selected ${unique.length} document${unique.length === 1 ? "" : "s"}`,
@@ -1399,36 +1408,11 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
     setSelectedRequestDocs((prev) =>
       isSelected ? prev.filter((item) => item !== id) : [...prev, id],
     );
-
-    setSelectedRequestDocMeta((prev) => {
-      if (isSelected) {
-        const next = { ...prev };
-        delete next[id];
-        return next;
-      }
-      return {
-        ...prev,
-        [id]: {
-          name: doc.documentType?.name || "Document",
-          isCustom: Boolean(doc.isCustom),
-        },
-      };
-    });
-  };
-
-  const removeRequestedDocument = (id: string) => {
-    setSelectedRequestDocs((prev) => prev.filter((item) => item !== id));
-    setSelectedRequestDocMeta((prev) => {
-      const next = { ...prev };
-      delete next[id];
-      return next;
-    });
   };
 
   const clearRequestedDocuments = () => {
     if (selectedRequestDocs.length === 0) return;
     setSelectedRequestDocs([]);
-    setSelectedRequestDocMeta({});
     toast.success("Cleared document selection");
   };
 
@@ -1461,15 +1445,10 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
       }
 
       const createdId = String(json.data?.id || "");
-      const createdName = String(json.data?.name || customName);
       if (createdId) {
         setSelectedRequestDocs((prev) =>
           prev.includes(createdId) ? prev : [createdId, ...prev],
         );
-        setSelectedRequestDocMeta((prev) => ({
-          ...prev,
-          [createdId]: { name: createdName, isCustom: true },
-        }));
       }
 
       setCustomDocumentName("");
@@ -1570,7 +1549,6 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
       toast.success("Documents requested successfully");
 
       setSelectedRequestDocs([]);
-      setSelectedRequestDocMeta({});
       setRequestMessage("");
 
       // Reset upload-documents filters so newly requested docs show up
@@ -1587,6 +1565,7 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
 
       if (submissionId) {
         await fetchSubmissionDocuments(submissionId, 1, "", "", "all", "all");
+        await fetchExistingDocumentRequestHistory(submissionId);
       }
     } catch (err: any) {
       toast.error(err.message || "Something went wrong");
@@ -1813,7 +1792,6 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
     // setSelectedFiles({});
     setPreviewFiles([]);
     setSelectedRequestDocs([]);
-    setSelectedRequestDocMeta({});
     setRequestMessage("");
     setActiveTab(
       (Location.state as { activeTab?: TabKey })?.activeTab || "view-details",
@@ -1843,7 +1821,6 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
     setRequestDocs([]);
     setRequestDocsLoadedFor(null);
     setSelectedRequestDocs([]);
-    setSelectedRequestDocMeta({});
     setRequestDocSearch("");
     setDebouncedRequestDocSearch("");
     setRequestDocPage(1);
@@ -1875,6 +1852,9 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
         "",
         submissionDetail?.loanProduct?.id,
       );
+      if (submissionId) {
+        fetchExistingDocumentRequestHistory(submissionId);
+      }
     }
 
     if (
@@ -2040,6 +2020,15 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
       });
     }
 
+    if (loDocPermissions.feeAgreement) {
+      documentItems.push({
+        key: "fee-agreement",
+        label: "Fee Agreement",
+        icon: FileText,
+        color: "text-indigo-600",
+      });
+    }
+
     const applicationItems: TabSection["items"] = [
       {
         key: "view-details",
@@ -2055,15 +2044,6 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
         label: "Update Application",
         icon: Pencil,
         color: "text-cyan-600",
-      });
-    }
-
-    if (loDocPermissions.feeAgreement) {
-      applicationItems.push({
-        key: "fee-agreement",
-        label: "Fee Agreement",
-        icon: FileText,
-        color: "text-indigo-600",
       });
     }
 
@@ -2355,74 +2335,6 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
           </p>
         </div>
 
-        {selectedRequestDocs.length > 0 ? (
-          <div className="mb-5 rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4 dark:border-emerald-500/30 dark:bg-emerald-500/10">
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <div>
-                <h3 className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">
-                  Request Documents List
-                </h3>
-                <p className="text-xs text-emerald-700/80 dark:text-emerald-300/80">
-                  {selectedRequestDocs.length} document
-                  {selectedRequestDocs.length === 1 ? "" : "s"} selected to
-                  request
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={clearRequestedDocuments}
-                disabled={selectingAllRequestDocs}
-                className="text-xs font-medium text-emerald-700 hover:underline disabled:opacity-60 dark:text-emerald-300"
-              >
-                Clear all
-              </button>
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              {[...selectedRequestDocs]
-                .sort((a, b) => {
-                  const aCustom = selectedRequestDocMeta[a]?.isCustom ? 1 : 0;
-                  const bCustom = selectedRequestDocMeta[b]?.isCustom ? 1 : 0;
-                  if (aCustom !== bCustom) return bCustom - aCustom;
-                  return (
-                    selectedRequestDocs.indexOf(a) -
-                    selectedRequestDocs.indexOf(b)
-                  );
-                })
-                .map((id) => {
-                  const meta = selectedRequestDocMeta[id];
-                  const name = meta?.name || "Document";
-                  const isCustom = Boolean(meta?.isCustom);
-
-                  return (
-                    <span
-                      key={id}
-                      className="inline-flex max-w-full items-center gap-2 rounded-full border border-emerald-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm dark:border-emerald-500/20 dark:bg-slate-900 dark:text-slate-200"
-                    >
-                      <span
-                        className={`h-2 w-2 shrink-0 rounded-full ${getRequestDocColor(name)}`}
-                      />
-                      <span className="truncate">{name}</span>
-                      {isCustom ? (
-                        <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-amber-700">
-                          Custom
-                        </span>
-                      ) : null}
-                      <button
-                        type="button"
-                        onClick={() => removeRequestedDocument(id)}
-                        className="rounded-full p-0.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800"
-                        aria-label={`Remove ${name}`}
-                      >
-                        <X size={12} />
-                      </button>
-                    </span>
-                  );
-                })}
-            </div>
-          </div>
-        ) : null}
-
         <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center">
           <input
             type="text"
@@ -2504,13 +2416,18 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
                 const isSelected = selectedRequestDocs.includes(
                   doc.documentTypeId,
                 );
+                const requestHistory =
+                  requestDocHistoryByTypeId[String(doc.documentTypeId)];
+                const isAlreadyRequested = Boolean(requestHistory);
                 return (
                   <label
                     key={doc.documentTypeId}
                     className={`group relative flex cursor-pointer items-start gap-3 rounded-2xl border px-4 py-3 transition-all duration-200 ${
                       isSelected
                         ? "scale-[1.01] border-emerald-500 bg-emerald-50 shadow-sm dark:bg-emerald-500/10"
-                        : "border-gray-200 bg-white hover:border-emerald-300 hover:bg-gray-50 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-emerald-500/40"
+                        : isAlreadyRequested
+                          ? "border-indigo-200 bg-indigo-50/40 dark:border-indigo-500/30 dark:bg-indigo-500/5"
+                          : "border-gray-200 bg-white hover:border-emerald-300 hover:bg-gray-50 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-emerald-500/40"
                     }`}
                   >
                     <input
@@ -2535,7 +2452,17 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
                             Custom
                           </span>
                         ) : null}
+                        {isAlreadyRequested ? (
+                          <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300">
+                            Requested
+                          </span>
+                        ) : null}
                       </div>
+                      {requestHistory ? (
+                        <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                          {formatDocumentTimelineDate(requestHistory.requestedAt)}
+                        </p>
+                      ) : null}
                     </div>
 
                     {isSelected ? (
@@ -3503,10 +3430,11 @@ dark:bg-red-900/20 dark:text-red-400"
             <table className="w-full min-w-[920px] table-fixed text-sm">
               <colgroup>
                 <col className="w-12" />
-                <col className="w-[28%]" />
-                <col className="w-[14%]" />
-                <col className="w-[26%]" />
+                <col className="w-[24%]" />
+                <col className="w-[12%]" />
                 <col className="w-[16%]" />
+                <col className="w-[22%]" />
+                <col className="w-[14%]" />
                 <col className="w-16" />
               </colgroup>
 
@@ -3523,6 +3451,7 @@ dark:bg-red-900/20 dark:text-red-400"
                   </th>
                   <th className="px-4 py-3 text-left">Document</th>
                   <th className="px-4 py-3 text-left">Source</th>
+                  <th className="px-4 py-3 text-left">Requested</th>
                   <th className="px-4 py-3 text-left">Status</th>
                   <th className="px-4 py-3 text-left">Files</th>
                   <th className="px-4 py-3 text-center">Actions</th>
@@ -3538,6 +3467,7 @@ dark:bg-red-900/20 dark:text-red-400"
                       brokerSourceLabel: isCoBrokerPortal ? "Me" : "Me",
                       subBrokerSourceLabel: "Me",
                     });
+                  const requestDisplay = getDocumentRequestDisplay(doc);
                   const uploadedCount = Number(doc.uploadedCount) || 0;
 
                   return (
@@ -3590,6 +3520,16 @@ dark:bg-red-900/20 dark:text-red-400"
                         >
                           {sourceLabel}
                         </span>
+                      </td>
+
+                      <td className="px-4 py-3 align-middle">
+                        {requestDisplay?.date ? (
+                          <span className="text-[11px] font-medium text-slate-700 dark:text-slate-200">
+                            {requestDisplay.date}
+                          </span>
+                        ) : (
+                          <span className="text-[11px] text-slate-400">—</span>
+                        )}
                       </td>
 
                       <td className="px-4 py-3 align-middle">

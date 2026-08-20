@@ -30,6 +30,10 @@ const {
 const {
   findOrCreateBorrowerClient,
 } = require("../../../services/clientPortal/findOrCreateBorrowerClient");
+const {
+  getFeeAgreementRequestError,
+  tryAttachFeeAgreementIfRequested,
+} = require("../../../services/feeAgreement/attachFeeAgreementToApplication");
 
 const SUBBROKER_CHAT_DB_TYPE = "CLIENT_BROKER";
 
@@ -99,6 +103,14 @@ async function subBrokerSubmitApplication(fastify) {
           return reply.code(400).send({
             success: false,
             message: "Invalid payload",
+          });
+        }
+
+        const feeAgreementError = getFeeAgreementRequestError(req.body);
+        if (feeAgreementError) {
+          return reply.code(400).send({
+            success: false,
+            message: feeAgreementError,
           });
         }
 
@@ -324,13 +336,23 @@ async function subBrokerSubmitApplication(fastify) {
           );
         }
 
+        const feeAgreementWarning = await tryAttachFeeAgreementIfRequested(
+          fastify,
+          result.loanApplication.id,
+          req.body,
+        );
+        const warnings = [
+          ...(result.warnings || []),
+          ...(feeAgreementWarning ? [feeAgreementWarning] : []),
+        ];
+
         return reply.code(201).send({
           success: true,
           message: "Application created successfully (awaiting client action)",
           data: {
             submissionId: result.submission.id,
             applicationId: result.loanApplication.id,
-            ...(result.warnings?.length ? { warnings: result.warnings } : {}),
+            ...(warnings.length ? { warnings } : {}),
           },
         });
       } catch (error) {

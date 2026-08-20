@@ -7,6 +7,10 @@ const {
 const {
   canBrokerEditSubmittedApplication,
 } = require("../../../utils/applications/resolveApplicationStatus");
+const {
+  getFeeAgreementRequestError,
+  tryAttachFeeAgreementIfRequested,
+} = require("../../../services/feeAgreement/attachFeeAgreementToApplication");
 
 async function editSubmittedApplication(fastify) {
   fastify.put("/:applicationId/edit", {
@@ -30,6 +34,14 @@ async function editSubmittedApplication(fastify) {
 
       if (!Array.isArray(fields) || fields.length === 0) {
         return reply.code(400).send({ success: false, message: "Fields array is required" });
+      }
+
+      const feeAgreementError = getFeeAgreementRequestError(req.body);
+      if (feeAgreementError) {
+        return reply.code(400).send({
+          success: false,
+          message: feeAgreementError,
+        });
       }
 
       const application = await prisma.loanApplication.findFirst({
@@ -102,10 +114,19 @@ async function editSubmittedApplication(fastify) {
         newValue: { submissionId: result.newSubmission.id },
       });
 
+      const feeAgreementWarning = await tryAttachFeeAgreementIfRequested(
+        fastify,
+        applicationId,
+        req.body,
+      );
+
       return reply.send({
         success: true,
         message: "Application edited successfully",
-        data: { submissionId: result.newSubmission.id },
+        data: {
+          submissionId: result.newSubmission.id,
+          ...(feeAgreementWarning ? { warnings: [feeAgreementWarning] } : {}),
+        },
       });
     } catch (error) {
       fastify.log.error({ message: error.message, stack: error.stack });

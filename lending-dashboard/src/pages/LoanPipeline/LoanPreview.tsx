@@ -36,6 +36,11 @@ import { FaDollarSign } from "react-icons/fa6";
 import { formatDocumentStatusLabel } from "../../lib/documentStatus";
 import { getLenderDocumentSourceDisplay } from "../../lib/documentSource";
 import {
+  buildDocumentRequestHistoryByTypeId,
+  formatDocumentTimelineDate,
+  getDocumentRequestDisplay,
+} from "../../lib/documentRequestMeta";
+import {
   canLenderRequestDocuments,
   canLenderTakeDecision,
   canShowRejectAction,
@@ -893,14 +898,19 @@ export default function LoanPreview() {
     ? new Date(latestSubmission.createdAt)
     : null;
 
-  const fetchDocuments = async () => {
+  const requestDocHistoryByTypeId = useMemo(
+    () => buildDocumentRequestHistoryByTypeId(documentsData?.documents || []),
+    [documentsData?.documents],
+  );
+
+  const fetchDocuments = async (options?: { limit?: number }) => {
     if (!applicationLenderId) return;
     try {
       setDocumentsLoading(true);
 
       const params = new URLSearchParams({
         page: String(documentPage),
-        limit: "10",
+        limit: String(options?.limit ?? 10),
       });
 
       if (documentSearchInput.trim()) {
@@ -1223,6 +1233,10 @@ export default function LoanPreview() {
 
     if (activeTab === "documents") {
       fetchDocuments();
+    }
+
+    if (activeTab === "requestDocs") {
+      fetchDocuments({ limit: 100 });
     }
 
     if (activeTab === "loi" && (loiGenerated || isLoi || hasSignedBrokerLoi)) {
@@ -1743,13 +1757,17 @@ export default function LoanPreview() {
                 <th className="px-5 py-3">Document</th>
                 <th className="px-5 py-3 text-center">Status</th>
                 <th className="px-5 py-3 text-center">Source</th>
+                <th className="px-5 py-3 text-center">Requested</th>
                 <th className="px-5 py-3 text-center">Uploads</th>
                 <th className="px-5 py-3 text-right">Action</th>
               </tr>
             </thead>
 
             <tbody className="divide-y dark:divide-slate-800">
-              {documentsData.documents?.map((doc: any) => (
+              {documentsData.documents?.map((doc: any) => {
+                const requestDisplay = getDocumentRequestDisplay(doc);
+
+                return (
                 <tr
                   key={doc.requirementId}
                   className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-all"
@@ -1796,6 +1814,16 @@ export default function LoanPreview() {
                         </span>
                       );
                     })()}
+                  </td>
+
+                  <td className="px-5 py-4 text-center">
+                    {requestDisplay?.date ? (
+                      <span className="text-[11px] font-medium text-slate-700 dark:text-slate-200">
+                        {requestDisplay.date}
+                      </span>
+                    ) : (
+                      <span className="text-[11px] text-slate-400">—</span>
+                    )}
                   </td>
 
                   {/* COUNT */}
@@ -1870,7 +1898,8 @@ export default function LoanPreview() {
                     )}
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
           )}
@@ -2185,6 +2214,8 @@ export default function LoanPreview() {
                 if (!docId) return null;
                 const isChecked =
                   docSelectModal.selectedDocs?.includes(docId) ?? false;
+                const requestHistory = requestDocHistoryByTypeId[String(docId)];
+                const isAlreadyRequested = Boolean(requestHistory);
 
                 return (
                   <div
@@ -2233,6 +2264,11 @@ export default function LoanPreview() {
                           {doc.isCustom ? "Custom" : "Standard"}
                           {doc.isRequired === false ? " · Optional" : " · Required"}
                         </p>
+                        {requestHistory ? (
+                          <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
+                            {formatDocumentTimelineDate(requestHistory.requestedAt)}
+                          </p>
+                        ) : null}
                       </div>
                     </div>
 

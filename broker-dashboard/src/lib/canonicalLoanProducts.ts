@@ -20,6 +20,11 @@ export function resolveLenderOfferedProductCode(code: string) {
   return LENDER_CANONICAL_PRODUCT_CODE[code] || code;
 }
 
+/** Alias for application submit — same Bridge/Construction canonicalization. */
+export function resolveCanonicalLoanProductCode(code: string) {
+  return resolveLenderOfferedProductCode(String(code || "").trim());
+}
+
 /** Same catalog set as lender Add Loan Product / admin document filters. */
 export function filterLenderCatalogProducts<T extends CatalogProduct>(
   products: T[],
