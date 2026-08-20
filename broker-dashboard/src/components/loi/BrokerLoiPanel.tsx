@@ -2128,6 +2128,7 @@ export default function BrokerLoiPanel({
                   ? nextBrokerRevisedVersion
                   : undefined
               }
+              getAuthHeaders={getAuthHeaders}
               onCancel={handleCancelBrokerEdit}
               onSubmit={handleGenerateBrokerLoi}
             />
@@ -2475,6 +2476,7 @@ export default function BrokerLoiPanel({
                           ? nextBrokerRevisedVersion
                           : undefined
                       }
+                      getAuthHeaders={getAuthHeaders}
                       onCancel={handleCancelBrokerEdit}
                       onSubmit={handleGenerateBrokerLoi}
                     />

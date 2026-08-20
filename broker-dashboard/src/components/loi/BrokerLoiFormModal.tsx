@@ -8,6 +8,7 @@ type Props = {
   terms: BrokerLoiTerms;
   applicationContext?: BrokerLoiApplicationContext;
   submitting?: boolean;
+  getAuthHeaders?: () => Record<string, string>;
   onClose: () => void;
   onSubmit: (terms: BrokerLoiTerms) => void;
 };
@@ -19,6 +20,7 @@ export default function BrokerLoiFormModal({
   terms,
   applicationContext,
   submitting = false,
+  getAuthHeaders,
   onClose,
   onSubmit,
 }: Props) {
@@ -56,6 +58,7 @@ export default function BrokerLoiFormModal({
           terms={terms}
           applicationContext={applicationContext}
           submitting={submitting}
+          getAuthHeaders={getAuthHeaders}
           onCancel={onClose}
           onSubmit={(nextTerms, _branding) => onSubmit(nextTerms)}
         />

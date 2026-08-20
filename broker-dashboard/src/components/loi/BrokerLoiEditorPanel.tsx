@@ -22,6 +22,7 @@ import {
   type BrokerLoiApplicationContext,
   type BrokerLoiTerms,
 } from "../../lib/brokerLoiTerms";
+import { getPortalAuthHeaders } from "../../lib/portalAuth";
 
 const BROKER_LOI_ERROR_FIELD_ORDER = [
   "branding",
@@ -43,11 +44,6 @@ const BROKER_LOI_ERROR_FIELD_ORDER = [
   "requiredReservesPercent",
   "requiredDocuments",
 ] as const;
-
-function getAuthHeaders(): Record<string, string> {
-  const token = sessionStorage.getItem("broker_token");
-  return token ? { Authorization: `Bearer ${token}` } : {};
-}
 
 function formatMoney(value?: number | string | null) {
   const numeric = Number(String(value || "").replace(/[$,\s]/g, ""));
@@ -71,6 +67,7 @@ type Props = {
   standalone?: boolean;
   mode?: "create" | "regenerate" | "revised";
   revisedVersionNumber?: number;
+  getAuthHeaders?: () => HeadersInit | Record<string, string>;
   onCancel: () => void;
   onSubmit: (terms: BrokerLoiTerms, branding: LoiBrandingValues) => void;
 };
@@ -132,6 +129,7 @@ export default function BrokerLoiEditorPanel({
   standalone = false,
   mode = "create",
   revisedVersionNumber,
+  getAuthHeaders = getPortalAuthHeaders,
   onCancel,
   onSubmit,
 }: Props) {

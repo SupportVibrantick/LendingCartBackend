@@ -35,21 +35,13 @@ export function mergeLoiDocumentNames(
   return merged.sort((a, b) => a.localeCompare(b));
 }
 
-/**
- * Fetch document catalog scoped to this broker org + application product.
- * Other brokers' custom docs never appear (enforced by /document-types/active).
- */
-export async function fetchLoiDocumentCatalog(
-  getAuthHeaders: () => Record<string, string>,
-  options?: {
-    loanProductCode?: string | null;
-    includeProductConfig?: boolean;
-  },
-): Promise<LoiDocumentCatalog> {
-  const loanProductCode = options?.loanProductCode?.trim() || "";
+async function fetchActiveDocumentNames(
+  getAuthHeaders: () => HeadersInit | Record<string, string>,
+  options?: { loanProductCode?: string },
+) {
   const params = new URLSearchParams({ all: "true" });
-  if (loanProductCode) {
-    params.set("loanProductCode", loanProductCode);
+  if (options?.loanProductCode) {
+    params.set("loanProductCode", options.loanProductCode);
   }
 
   const res = await fetch(
@@ -62,16 +54,54 @@ export async function fetchLoiDocumentCatalog(
   }
 
   const catalogRows = Array.isArray(json.data) ? json.data : [];
-  const platformAndCustom = mergeLoiDocumentNames(
-    catalogRows.map((doc: { name?: string }) => doc.name || ""),
-  );
-  let customNames = mergeLoiDocumentNames(
-    catalogRows
-      .filter((doc: { isCustom?: boolean }) => Boolean(doc.isCustom))
-      .map((doc: { name?: string }) => doc.name || ""),
-  );
+  return {
+    names: mergeLoiDocumentNames(
+      catalogRows.map((doc: { name?: string }) => doc.name || ""),
+    ),
+    customNames: mergeLoiDocumentNames(
+      catalogRows
+        .filter((doc: { isCustom?: boolean }) => Boolean(doc.isCustom))
+        .map((doc: { name?: string }) => doc.name || ""),
+    ),
+  };
+}
 
+/**
+ * Fetch document catalog scoped to this broker org + application product.
+ * Other brokers' custom docs never appear (enforced by /document-types/active).
+ */
+export async function fetchLoiDocumentCatalog(
+  getAuthHeaders: () => HeadersInit | Record<string, string>,
+  options?: {
+    loanProductCode?: string | null;
+    includeProductConfig?: boolean;
+  },
+): Promise<LoiDocumentCatalog> {
+  const loanProductCode = options?.loanProductCode?.trim() || "";
+
+  // Always load the full org-visible catalog so search works even when a
+  // product has few/no ProductDocumentRequirement rows.
+  const fullCatalog = await fetchActiveDocumentNames(getAuthHeaders);
+
+  let names = fullCatalog.names;
+  let customNames = fullCatalog.customNames;
   let productRequired: string[] = [];
+
+  if (loanProductCode) {
+    try {
+      const productCatalog = await fetchActiveDocumentNames(getAuthHeaders, {
+        loanProductCode,
+      });
+      names = mergeLoiDocumentNames(names, productCatalog.names);
+      customNames = mergeLoiDocumentNames(
+        customNames,
+        productCatalog.customNames,
+      );
+    } catch {
+      /* product-scoped list is optional when full catalog already loaded */
+    }
+  }
+
   if (options?.includeProductConfig && loanProductCode) {
     try {
       // Prefer broker-owned custom docs for this product (org-scoped list).
@@ -87,11 +117,7 @@ export async function fetchLoiDocumentCatalog(
           ),
         );
         customNames = mergeLoiDocumentNames(customNames, brokerCustom);
-        return {
-          names: mergeLoiDocumentNames(platformAndCustom, brokerCustom),
-          customNames,
-          productRequired,
-        };
+        names = mergeLoiDocumentNames(names, brokerCustom);
       }
     } catch {
       /* optional broker custom list */
@@ -113,11 +139,7 @@ export async function fetchLoiDocumentCatalog(
             .filter((doc: { isRequired?: boolean }) => doc.isRequired)
             .map((doc: { documentName?: string }) => doc.documentName || ""),
         );
-        return {
-          names: mergeLoiDocumentNames(platformAndCustom, productNames),
-          customNames,
-          productRequired,
-        };
+        names = mergeLoiDocumentNames(names, productNames);
       }
     } catch {
       /* optional product config */
@@ -125,7 +147,7 @@ export async function fetchLoiDocumentCatalog(
   }
 
   return {
-    names: platformAndCustom,
+    names,
     customNames,
     productRequired,
   };
@@ -136,7 +158,7 @@ export async function fetchLoiDocumentCatalog(
  * Other brokerages cannot see this document type.
  */
 export async function createLoiCustomDocument(
-  getAuthHeaders: () => Record<string, string>,
+  getAuthHeaders: () => HeadersInit | Record<string, string>,
   options: {
     name: string;
     loanProductCode?: string | null;
