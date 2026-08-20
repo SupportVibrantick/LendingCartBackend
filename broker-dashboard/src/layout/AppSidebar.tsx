@@ -127,7 +127,7 @@ const AppSidebar: React.FC = () => {
         ? [
           {
             icon: <MdWeb />,
-            name: "Website Builder",
+            name: "Sites",
             permission: "VIEW_WEBSITE_BUILDER",
             subItems: [
               {
