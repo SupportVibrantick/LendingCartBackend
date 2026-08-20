@@ -36,7 +36,7 @@ export async function fetchCoBrokerLoanTypes(): Promise<LoanTypeOption[]> {
 
 export async function fetchCoBrokerLoanOfficers(): Promise<CoBrokerLoanOfficerOption[]> {
 
-  const token = sessionStorage.getItem("loan_officer_token");
+  const token = sessionStorage.getItem("loan_officer_token") ?? sessionStorage.getItem("broker_token");
 
   if (!token) {
     toast.error("Unauthorized!");

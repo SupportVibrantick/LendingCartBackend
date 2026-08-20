@@ -219,11 +219,11 @@ export default function LoanPipeline() {
     return acc;
   }, {});
 
-  const approvedCount = rows.filter((r) => r.applicationStatus === "APPROVED").length;
-  const inReviewCount = rows.filter(
-    (r) => r.applicationStatus === "IN_REVIEW" || r.applicationStatus === "SUBMITTED",
-  ).length;
-  const totalVolume = rows.reduce((sum, r) => sum + (r.amount ?? 0), 0);
+  // const approvedCount = rows.filter((r) => r.applicationStatus === "APPROVED").length;
+  // const inReviewCount = rows.filter(
+  //   (r) => r.applicationStatus === "IN_REVIEW" || r.applicationStatus === "SUBMITTED",
+  // ).length;
+  // const totalVolume = rows.reduce((sum, r) => sum + (r.amount ?? 0), 0);
 
   const fetchApplicationDetail = async (applicationId: string) => {
     try {

@@ -166,7 +166,9 @@ export default function CoBrokerFormModal({
         try {
           setLoading(true);
 
-          const token = sessionStorage.getItem("loan_officer_token");
+          const token =
+            sessionStorage.getItem("loan_officer_token") ??
+            sessionStorage.getItem("broker_token");
           if (!token) {
             toast.error("Unauthorized!");
             return;
@@ -295,7 +297,9 @@ export default function CoBrokerFormModal({
         ? `${API_BASE}/broker/sub-broker/${subBrokerId}/update`
         : `${API_BASE}/broker/sub-broker/create`;
 
-      const token = sessionStorage.getItem("loan_officer_token");
+      const token =
+        sessionStorage.getItem("loan_officer_token") ??
+        sessionStorage.getItem("broker_token");
       if (!token) {
         toast.error("Unauthorized!");
         return null;

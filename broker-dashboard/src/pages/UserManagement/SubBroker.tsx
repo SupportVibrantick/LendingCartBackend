@@ -582,8 +582,9 @@ export default function SubBroker() {
   ): Promise<SubBrokerUser | null> => {
     try {
       if (mode === "view") setViewLoading(true);
-
-      const token = sessionStorage.getItem("loan_officer_token");
+      const token =
+        sessionStorage.getItem("loan_officer_token") ??
+        sessionStorage.getItem("broker_token");
 
       if (!token) {
         toast.error("Unauthorized!");
