@@ -4,7 +4,7 @@ import {
   clearBrokerSession,
   isBrokerTokenExpired,
 } from "../../lib/brokerSession";
-import { refreshAppSocketToken, disconnectAppSocket } from "../../lib/appSocket";
+// import { refreshAppSocketToken, disconnectAppSocket } from "../../lib/appSocket";
 
 type Props = {
   children: React.ReactElement;
@@ -17,17 +17,20 @@ type Props = {
 export default function RequireAuth({ children }: Props) {
   const location = useLocation();
   const token =
-    typeof window !== "undefined" ? sessionStorage.getItem("broker_token") : null;
+    typeof window !== "undefined"
+      ? sessionStorage.getItem("broker_token")
+      : null;
 
-  useEffect(() => {
-    if (token) {
-      // Rebuild the ws socket with the current token so the server's auth
-      // middleware accepts the handshake.
-      refreshAppSocketToken();
-    } else {
-      disconnectAppSocket();
-    }
-  }, [token]);
+  // new websocket
+  // useEffect(() => {
+  //   if (token) {
+  // Rebuild the ws socket with the current token so the server's auth
+  // middleware accepts the handshake.
+  //     refreshAppSocketToken();
+  //   } else {
+  //     disconnectAppSocket();
+  //   }
+  // }, [token]);
 
   if (!token || isBrokerTokenExpired(token)) {
     if (token) {
