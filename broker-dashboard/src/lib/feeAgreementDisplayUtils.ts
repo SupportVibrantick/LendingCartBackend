@@ -257,10 +257,10 @@ export function validateFeeAgreementForm(form: {
     if (!Number.isFinite(exclusivityMonths) || !Number.isInteger(exclusivityMonths)) {
       errors.exclusivityMonths = "Enter a whole number of months";
     } else if (
-      exclusivityMonths <= 0 ||
+      exclusivityMonths < 0 ||
       exclusivityMonths > FEE_AGREEMENT_LIMITS.exclusivityMonthsMax
     ) {
-      errors.exclusivityMonths = `Exclusivity must be between 1 and ${FEE_AGREEMENT_LIMITS.exclusivityMonthsMax} months`;
+      errors.exclusivityMonths = `Exclusivity must be between 0 and ${FEE_AGREEMENT_LIMITS.exclusivityMonthsMax} months`;
     }
   }
 
