@@ -1,6 +1,5 @@
 // backend/routes/admin/auth/login.js
 const { loginSchema } = require("../../../schemas/admin/login/login.schema.js");
-const { getUserRolesFromFGA } = require("../../../services/auth/fgaService.js");
 const jwt = require("jsonwebtoken");
 const jwtSecret = require("../../../utils/auth/jwtSecret");
 // const prisma = require("../config/prisma.js");
@@ -71,16 +70,6 @@ module.exports = async function adminLoginRoute(fastify, opts) {
           });
         }
 
-        let fgaRoles = [];
-        try {
-          fgaRoles = await getUserRolesFromFGA(user.id);
-        } catch (e) {
-          fastify.log.warn(
-            "FGA roles fetch failed:",
-            e && e.message ? e.message : e
-          );
-        }
-
         const dbRoles = user.roles?.map((r) => r.role.name) ?? [];
 
         let permissions = [];
@@ -115,7 +104,6 @@ module.exports = async function adminLoginRoute(fastify, opts) {
             firstName: user.firstName,
             lastName: user.lastName,
             orgId: user.organizationId,
-            fgaRoles,
             dbRoles,
             permissions,
             hasFullAccess:

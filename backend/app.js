@@ -61,7 +61,6 @@ app.register(fastifyFormbody);
 
 
 const authMiddleware = require("./middleware/authMiddleware");
-const fgaMiddleware = require("./middleware/fgaMiddleware");
 app.register(dbPlugin);
 
 const ghlService = require("./modules/ghl/ghl.service");
@@ -70,7 +69,6 @@ const ghlService = require("./modules/ghl/ghl.service");
 app.decorate("ghlService", ghlService);
 
 app.register(authMiddleware);
-app.register(fgaMiddleware);
 app.register(verifySuperAdmin);
 
 // Serve uploads (profile images)

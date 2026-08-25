@@ -1,7 +1,6 @@
 const fp = require("fastify-plugin");
 const bcrypt = require("bcrypt");
 const { createAdminUserSchema } = require("../../../schemas/admin/adminUsers/create.schema.js");
-const { assignRoleToUser } = require("../../../services/auth/fgaService.js");
 const {
   syncUserPermissions,
   ALL_ADMIN_PERMISSION_KEYS,
@@ -90,12 +89,6 @@ module.exports = fp(async function createAdminUserRoutes(fastify) {
 
         return user;
       });
-
-      try {
-        await assignRoleToUser(newAdmin.id, "PLATFORM_ADMIN");
-      } catch (fgaErr) {
-        request.log.warn("FGA role assign failed:", fgaErr?.message || fgaErr);
-      }
 
       adminLogs.info("Admin user created", {
         userId: newAdmin.id,
