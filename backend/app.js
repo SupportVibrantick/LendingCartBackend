@@ -50,10 +50,18 @@ app.register(rateLimit, {
 
   keyGenerator: (request) => {
     const forwarded = request.headers["x-forwarded-for"];
-    if (typeof forwarded === "string" && forwarded.trim()) {
-      return forwarded.split(",")[0].trim();
-    }
-    return request.ip || request.socket?.remoteAddress || "unknown";
+    const key =
+      (typeof forwarded === "string" && forwarded.trim()
+        ? forwarded.split(",")[0].trim()
+        : null) ||
+      request.ip ||
+      request.socket?.remoteAddress ||
+      "unknown";
+    request.log.warn(
+      { rlKey: key, xff: forwarded, ip: request.ip, sock: request.socket?.remoteAddress },
+      "RATE-LIMIT-DEBUG"
+    );
+    return key;
   },
 });
 
