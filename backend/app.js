@@ -5,6 +5,7 @@ const cors = require("@fastify/cors");
 const cookieParser = require("@fastify/cookie");
 const fastifyStatic = require("@fastify/static");
 const fastifyFormbody = require("@fastify/formbody");
+const rateLimit = require("@fastify/rate-limit");
 const pointOfView = require("@fastify/view");
 const pug = require("pug");
 const {
@@ -41,12 +42,13 @@ runEmailConsumerKafka().catch((error) => {
   console.error("Error starting the email consumer:", error);
 });
 
+app.register(rateLimit);
+
 app.register(cors, {
   origin: "*",
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
   credentials: true,
 });
-
 
 app.register(multipart, {
   limits: {
@@ -54,14 +56,11 @@ app.register(multipart, {
   },
 });
 
-
 app.register(cookieParser);
 
 app.register(fastifyFormbody);
 
-
 const authMiddleware = require("./middleware/authMiddleware");
-const fgaMiddleware = require("./middleware/fgaMiddleware");
 app.register(dbPlugin);
 
 const ghlService = require("./modules/ghl/ghl.service");
@@ -70,7 +69,6 @@ const ghlService = require("./modules/ghl/ghl.service");
 app.decorate("ghlService", ghlService);
 
 app.register(authMiddleware);
-app.register(fgaMiddleware);
 app.register(verifySuperAdmin);
 
 // Serve uploads (profile images)
@@ -99,7 +97,6 @@ app.register(fastifyStatic, {
   prefix: "/lender/",
   decorateReply: false,
 });
-
 
 // View engine setup (Pug)
 app.register(pointOfView, {
@@ -134,6 +131,22 @@ app.setNotFoundHandler((request, reply) => {
 
 // Global error handler
 app.setErrorHandler((error, request, reply) => {
+  // Rate limit errors
+  if (error.statusCode === 429 || error.status === 429) {
+    commonLogs.warn("Rate limit exceeded", {
+      status: 429,
+      message: error.message,
+      url: request.raw.url,
+      method: request.raw.method,
+      ip: request.ip,
+    });
+
+    return reply.code(429).send({
+      success: false,
+      message: error.message || "Too many requests. Please try again later.",
+    });
+  }
+
   // Handle http-errors (from createError)
   if (error.status) {
     commonLogs.warn("Client error", {
@@ -162,7 +175,7 @@ app.setErrorHandler((error, request, reply) => {
       validation: error.validation,
       url: request.raw.url,
       method: request.raw.method,
-    });                                                                    
+    });
 
     return reply.status(400).view("error.pug", {
       message: "Validation Error",

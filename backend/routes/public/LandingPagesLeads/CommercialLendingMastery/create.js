@@ -1,5 +1,21 @@
 module.exports = async function (fastify) {
-  fastify.post("/", async (req, reply) => {
+  fastify.post(
+    "/",
+    {
+      config: {
+        rateLimit: {
+          max: 10,
+          timeWindow: "1 minute",
+          errorResponseBuilder: () => ({
+            statusCode: 429,
+            error: "Too Many Requests",
+            success: false,
+            message: "Too many submissions. Please try again later.",
+          }),
+        },
+      },
+    },
+    async (req, reply) => {
     const prisma = fastify.prisma;
     try {
       const { firstName, lastName, email, phone } = req.body;

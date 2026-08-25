@@ -5,6 +5,21 @@ async function validateResetTokenRoutes(fastify) {
   fastify.get(
     "/",
     {
+      config: {
+        rateLimit: {
+          max: 20,
+          timeWindow: "15 minute",
+          errorResponseBuilder: (request, context) => {
+            return {
+              statusCode: 429,
+              error: "Too Many Requests",
+              success: false,
+              message:
+                "Too many login attempts. Please try again after 20 minutes.",
+            };
+          },
+        },
+      },
       schema: {
         tags: ["Broker -> Auth"],
         summary: "Validate broker password reset token",
@@ -49,7 +64,11 @@ async function validateResetTokenRoutes(fastify) {
           },
         });
 
-        if (!tokenRecord || tokenRecord.user.status !== "ACTIVE" || tokenRecord.user.isDeleted) {
+        if (
+          !tokenRecord ||
+          tokenRecord.user.status !== "ACTIVE" ||
+          tokenRecord.user.isDeleted
+        ) {
           return reply.send({
             success: true,
             data: {
@@ -68,7 +87,7 @@ async function validateResetTokenRoutes(fastify) {
       } catch (error) {
         fastify.log.error(
           { error: error.message },
-          "Broker validate reset token error"
+          "Broker validate reset token error",
         );
 
         return reply.code(500).send({
@@ -76,7 +95,7 @@ async function validateResetTokenRoutes(fastify) {
           message: "Unable to validate reset link",
         });
       }
-    }
+    },
   );
 }
 

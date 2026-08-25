@@ -84,6 +84,18 @@ async function requestDocumentsRoute(fastify) {
   fastify.post(
     "/:loanApplicationId/request-documents",
     {
+      config: {
+        rateLimit: {
+          max: 5,
+          timeWindow: "1 minute",
+          errorResponseBuilder: () => ({
+            statusCode: 429,
+            error: "Too Many Requests",
+            success: false,
+            message: "Too many requests. Please slow down.",
+          }),
+        },
+      },
       schema: {
         tags: ["Public Broker Applications"],
         summary:

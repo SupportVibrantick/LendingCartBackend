@@ -9,6 +9,21 @@ async function impersonateRoute(fastify) {
   fastify.post(
     "/impersonate",
     {
+      config: {
+        rateLimit: {
+          max: 10,
+          timeWindow: "15 minute",
+          errorResponseBuilder: (request, context) => {
+            return {
+              statusCode: 429,
+              error: "Too Many Requests",
+              success: false,
+              message:
+                "Too many login attempts. Please try again after 15 minutes.",
+            };
+          },
+        },
+      },
       schema: {
         tags: ["Admin -> Auth"],
         summary: "Impersonate broker or lender portal",
@@ -86,8 +101,7 @@ async function impersonateRoute(fastify) {
         } else {
           return reply.status(400).send({
             success: false,
-            message:
-              "Impersonation not allowed for this organization type",
+            message: "Impersonation not allowed for this organization type",
           });
         }
 
@@ -115,14 +129,11 @@ async function impersonateRoute(fastify) {
         if (!targetAdmin) {
           return reply.status(404).send({
             success: false,
-            message:
-              "No active admin found for this organization",
+            message: "No active admin found for this organization",
           });
         }
 
-        const roleNames = targetAdmin.roles.map(
-          (r) => r.role.name
-        );
+        const roleNames = targetAdmin.roles.map((r) => r.role.name);
 
         /* ===================================================
       Extra Safety: Prevent impersonating PLATFORM_ADMIN
@@ -150,7 +161,7 @@ async function impersonateRoute(fastify) {
             expiresIn: "2h",
             issuer: "lending-platform",
             audience: "portal",
-          }
+          },
         );
 
         /* ===================================================
@@ -193,9 +204,8 @@ async function impersonateRoute(fastify) {
           message: "Internal server error",
         });
       }
-    }
+    },
   );
 }
 
 module.exports = impersonateRoute;
-
