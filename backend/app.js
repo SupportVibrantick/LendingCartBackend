@@ -42,7 +42,20 @@ runEmailConsumerKafka().catch((error) => {
   console.error("Error starting the email consumer:", error);
 });
 
-app.register(rateLimit);
+app.register(rateLimit, {
+  // Use client IP (honoring X-Forwarded-For) as the rate-limit key so the
+  // limit is applied per real client, not per socket / per proxy.
+
+  // keyGenerator: (request) => request.ip,
+
+  keyGenerator: (request) => {
+    const forwarded = request.headers["x-forwarded-for"];
+    if (typeof forwarded === "string" && forwarded.trim()) {
+      return forwarded.split(",")[0].trim();
+    }
+    return request.ip || request.socket?.remoteAddress || "unknown";
+  },
+});
 
 app.register(cors, {
   origin: "*",
