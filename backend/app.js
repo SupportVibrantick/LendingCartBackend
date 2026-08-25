@@ -42,28 +42,28 @@ runEmailConsumerKafka().catch((error) => {
   console.error("Error starting the email consumer:", error);
 });
 
-app.register(rateLimit, {
-  // Use client IP (honoring X-Forwarded-For) as the rate-limit key so the
-  // limit is applied per real client, not per socket / per proxy.
+// app.register(rateLimit, {
+//   // Use client IP (honoring X-Forwarded-For) as the rate-limit key so the
+//   // limit is applied per real client, not per socket / per proxy.
 
-  // keyGenerator: (request) => request.ip,
+//   // keyGenerator: (request) => request.ip,
 
-  keyGenerator: (request) => {
-    const forwarded = request.headers["x-forwarded-for"];
-    const key =
-      (typeof forwarded === "string" && forwarded.trim()
-        ? forwarded.split(",")[0].trim()
-        : null) ||
-      request.ip ||
-      request.socket?.remoteAddress ||
-      "unknown";
-    request.log.warn(
-      { rlKey: key, xff: forwarded, ip: request.ip, sock: request.socket?.remoteAddress },
-      "RATE-LIMIT-DEBUG"
-    );
-    return key;
-  },
-});
+//   keyGenerator: (request) => {
+//     const forwarded = request.headers["x-forwarded-for"];
+//     const key =
+//       (typeof forwarded === "string" && forwarded.trim()
+//         ? forwarded.split(",")[0].trim()
+//         : null) ||
+//       request.ip ||
+//       request.socket?.remoteAddress ||
+//       "unknown";
+//     request.log.warn(
+//       { rlKey: key, xff: forwarded, ip: request.ip, sock: request.socket?.remoteAddress },
+//       "RATE-LIMIT-DEBUG"
+//     );
+//     return key;
+//   },
+// });
 
 app.register(cors, {
   origin: "*",
