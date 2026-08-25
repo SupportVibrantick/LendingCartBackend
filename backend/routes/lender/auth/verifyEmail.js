@@ -9,6 +9,20 @@ async function lenderVerifyEmailRoutes(fastify) {
   fastify.post(
     "/",
     {
+      config: {
+        rateLimit: {
+          max: 5,
+          timeWindow: "15 minute",
+          errorResponseBuilder: (request, context) => {
+            return {
+              statusCode: 429,
+              error: "Too Many Requests",
+              success: false,
+              message: "Too many login attempts. Please try again after 15 minutes.",
+            };
+          },
+        },
+      },
       schema: {
         tags: ["Lender -> Auth"],
         summary: "Verify lender email with token",

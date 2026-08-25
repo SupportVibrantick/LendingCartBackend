@@ -1,5 +1,7 @@
 const crypto = require("crypto");
-const { findLenderUserByEmail } = require("../../../utils/auth/findLenderUserByEmail");
+const {
+  findLenderUserByEmail,
+} = require("../../../utils/auth/findLenderUserByEmail");
 const {
   lenderForgotPasswordSchema,
 } = require("../../../schemas/lender/auth/resetPassword.schema");
@@ -20,6 +22,20 @@ async function lenderForgotPasswordRoutes(fastify) {
   fastify.post(
     "/",
     {
+      config: {
+        rateLimit: {
+          max: 3,
+          timeWindow: "1 hr",
+          errorResponseBuilder: (request, context) => {
+            return {
+              statusCode: 429,
+              error: "Too Many Requests",
+              success: false,
+              message: "Too many login attempts. Please try again after a hour.",
+            };
+          },
+        },
+      },
       schema: {
         tags: ["Lender -> Auth"],
         summary: "Request lender portal password reset email",
