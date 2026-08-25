@@ -253,9 +253,9 @@ function validateFeeAgreementTerms({ brokerPoints, upfrontFee, exclusivityMonths
     const numeric = parseFeeNumber(exclusivityMonths);
     if (numeric === null || !Number.isInteger(numeric)) {
       errors.push("Exclusivity months must be a whole number.");
-    } else if (numeric <= 0 || numeric > EXCLUSIVITY_MONTHS_MAX) {
+    } else if (numeric < 0 || numeric > EXCLUSIVITY_MONTHS_MAX) {
       errors.push(
-        `Exclusivity months must be between 1 and ${EXCLUSIVITY_MONTHS_MAX}.`,
+        `Exclusivity months must be between 0 and ${EXCLUSIVITY_MONTHS_MAX}.`,
       );
     }
   }

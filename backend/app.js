@@ -15,8 +15,6 @@ const {
 } = require("./services/logger/contextLogger");
 const createError = require("http-errors");
 var { runEmailConsumerKafka } = require("./services/kafka/email/consumer");
-const swagger = require("@fastify/swagger");
-const swaggerUi = require("@fastify/swagger-ui");
 const indexRoutes = require("./routes/index");
 const verifySuperAdmin = require("./plugins/verifySuperAdmin");
 const dbPlugin = require("./plugins/dbPlugin");
