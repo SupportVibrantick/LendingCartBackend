@@ -29,6 +29,18 @@ async function loanAiRegisterRoutes(fastify) {
   fastify.post(
     "/",
     {
+      config: {
+        rateLimit: {
+          max: 5,
+          timeWindow: "1 minute",
+          errorResponseBuilder: () => ({
+            statusCode: 429,
+            error: "Too Many Requests",
+            success: false,
+            message: "Too many registration attempts. Please try again later.",
+          }),
+        },
+      },
       schema: {
         tags: ["Public -> Loan AI Auth"],
         summary: "Register a Loan AI marketing-site account",

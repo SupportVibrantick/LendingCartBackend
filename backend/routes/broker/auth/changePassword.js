@@ -11,6 +11,18 @@ async function changePasswordRoutes(fastify) {
     "/",
     {
       preHandler: fastify.authenticate,
+      config: {
+        rateLimit: {
+          max: 3,
+          timeWindow: "15 minutes",
+          errorResponseBuilder: () => ({
+            statusCode: 429,
+            error: "Too Many Requests",
+            success: false,
+            message: "Too many password change attempts. Please try again later.",
+          }),
+        },
+      },
       schema: {
         tags: ["Broker -> Auth"],
         summary: "Change broker dashboard password (logged in)",

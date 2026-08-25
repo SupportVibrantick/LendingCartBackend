@@ -10,7 +10,23 @@ module.exports = async function viewSubmission(fastify) {
   } = require("../../../../utils/applications/resolveApplicationStatus");
   const { getMarkFundedEligibility } = require("../../../../utils/commission/markFundedHelpers");
 
-  fastify.get("/submissions/:submissionId", async (req, reply) => {
+  fastify.get(
+    "/submissions/:submissionId",
+    {
+      config: {
+        rateLimit: {
+          max: 30,
+          timeWindow: "1 minute",
+          errorResponseBuilder: () => ({
+            statusCode: 429,
+            error: "Too Many Requests",
+            success: false,
+            message: "Too many requests. Please slow down.",
+          }),
+        },
+      },
+    },
+    async (req, reply) => {
     const { submissionId } = req.params;
 
     /* ===============================

@@ -1,6 +1,5 @@
 // backend/routes/admin/auth/me.js
 const prisma = require("../../../config/prisma.js");
-const { getUserRolesFromFGA } = require("../../../services/auth/fgaService.js");
 const { resolveUserPermissions } = require("../../../services/auth/adminUserPermissions.js");
 
 module.exports = async function adminMeRoute(fastify, opts) {
@@ -65,15 +64,6 @@ module.exports = async function adminMeRoute(fastify, opts) {
           where: { userId: user.id },
         });
 
-        // best-effort: fetch FGA roles (may throw, so catch below)
-        let fgaRoles = [];
-        try {
-          fgaRoles = await getUserRolesFromFGA(user.id);
-        } catch (err) {
-          fastify.log.warn("getUserRolesFromFGA failed for /me", { userId: user.id, err: err && err.message ? err.message : err });
-          fgaRoles = [];
-        }
-
         return reply.send({
           ok: true,
           user: {
@@ -86,7 +76,6 @@ module.exports = async function adminMeRoute(fastify, opts) {
             status: user.status,
             organizationId: user.organizationId,
             dbRoles,
-            fgaRoles,
             permissions,
             hasFullAccess: dbRoles.includes("PLATFORM_ADMIN") && customPermCount === 0,
             lastLoginAt: user.lastLoginAt,

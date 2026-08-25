@@ -1,9 +1,13 @@
 const crypto = require("crypto");
-const { findBrokerUserByEmail } = require("../../../utils/auth/findBrokerUserByEmail");
+const {
+  findBrokerUserByEmail,
+} = require("../../../utils/auth/findBrokerUserByEmail");
 const {
   brokerForgotPasswordSchema,
 } = require("../../../schemas/broker/auth/resetPassword.schema");
-const { sendBrokerPasswordResetEmail } = require("../../../services/emails/brokerPasswordResetEmail");
+const {
+  sendBrokerPasswordResetEmail,
+} = require("../../../services/emails/brokerPasswordResetEmail");
 
 const RESET_TOKEN_EXPIRY_MS =
   Number(process.env.PASSWORD_RESET_EXPIRY_HOURS || 1) * 60 * 60 * 1000;
@@ -18,6 +22,20 @@ async function forgotPasswordRoutes(fastify) {
   fastify.post(
     "/",
     {
+      config: {
+        rateLimit: {
+          max: 3,
+          timeWindow: "1 hr",
+          errorResponseBuilder: (request, context) => {
+            return {
+              statusCode: 429,
+              error: "Too Many Requests",
+              success: false,
+              message: "Too many login attempts. Please try again after a hour",
+            };
+          },
+        },
+      },
       schema: {
         tags: ["Broker -> Auth"],
         summary: "Request broker dashboard password reset email",
@@ -84,7 +102,7 @@ async function forgotPasswordRoutes(fastify) {
       } catch (error) {
         fastify.log.error(
           { error: error.message },
-          "Broker forgot password error"
+          "Broker forgot password error",
         );
 
         return reply.code(500).send({
@@ -92,7 +110,7 @@ async function forgotPasswordRoutes(fastify) {
           message: "Unable to process password reset request",
         });
       }
-    }
+    },
   );
 }
 

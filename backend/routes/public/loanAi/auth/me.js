@@ -3,6 +3,18 @@ async function loanAiMeRoutes(fastify) {
     "/",
     {
       preHandler: [fastify.verifyLoanAi],
+      config: {
+        rateLimit: {
+          max: 30,
+          timeWindow: "1 minute",
+          errorResponseBuilder: () => ({
+            statusCode: 429,
+            error: "Too Many Requests",
+            success: false,
+            message: "Too many requests. Please slow down.",
+          }),
+        },
+      },
       schema: {
         tags: ["Public -> Loan AI Auth"],
         summary: "Get current Loan AI user",
