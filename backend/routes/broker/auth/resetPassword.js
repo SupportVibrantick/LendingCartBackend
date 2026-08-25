@@ -10,6 +10,21 @@ async function resetPasswordRoutes(fastify) {
   fastify.post(
     "/",
     {
+      config: {
+        rateLimit: {
+          max: 10,
+          timeWindow: "15 minute",
+          errorResponseBuilder: (request, context) => {
+            return {
+              statusCode: 429,
+              error: "Too Many Requests",
+              success: false,
+              message:
+                "Too many login attempts. Please try again after 15 minutes.",
+            };
+          },
+        },
+      },
       schema: {
         tags: ["Broker -> Auth"],
         summary: "Reset broker dashboard password using token",
@@ -108,7 +123,7 @@ async function resetPasswordRoutes(fastify) {
       } catch (error) {
         fastify.log.error(
           { error: error.message },
-          "Broker reset password error"
+          "Broker reset password error",
         );
 
         return reply.code(500).send({
@@ -116,7 +131,7 @@ async function resetPasswordRoutes(fastify) {
           message: "Unable to reset password",
         });
       }
-    }
+    },
   );
 }
 

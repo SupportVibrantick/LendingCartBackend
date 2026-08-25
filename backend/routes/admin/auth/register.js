@@ -20,13 +20,13 @@ module.exports = async function adminRegisterRoute(fastify, opts) {
       config: {
         rateLimit: {
           max: 10,
-          timeWindow: "1 day",
+          timeWindow: "5 hr",
           errorResponseBuilder: (request, context) => {
             return {
               statusCode: 429,
               error: "Too Many Requests",
               success: false,
-              message: "Too many login attempts. Please try again after a day",
+              message: "Too many login attempts. Please try again after 5 hours.",
             };
           },
         },

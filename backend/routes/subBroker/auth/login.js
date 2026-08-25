@@ -13,6 +13,23 @@ const jwtSecret = require("../../../utils/auth/jwtSecret");
 async function loginRoute(fastify, options) {
   fastify.post(
     "/login",
+    {
+      config: {
+        rateLimit: {
+          max: 5,
+          timeWindow: "15 minute",
+          errorResponseBuilder: (request, context) => {
+            return {
+              statusCode: 429,
+              error: "Too Many Requests",
+              success: false,
+              message:
+                "Too many login attempts. Please try again after 15 minutes.",
+            };
+          },
+        },
+      },
+    },
 
     async (request, reply) => {
       try {

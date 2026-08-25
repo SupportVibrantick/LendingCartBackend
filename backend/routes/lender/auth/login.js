@@ -9,6 +9,20 @@ async function lenderLoginRoutes(fastify) {
   fastify.post(
     "/",
     {
+      config: {
+        rateLimit: {
+          max: 5,
+          timeWindow: "15 minute",
+          errorResponseBuilder: (request, context) => {
+            return {
+              statusCode: 429,
+              error: "Too Many Requests",
+              success: false,
+              message: "Too many login attempts. Please try again after 15 minutes.",
+            };
+          },
+        },
+      },
       schema: {
         tags: ["Lender -> Auth"],
         summary: "Lender login",
@@ -134,7 +148,7 @@ async function lenderLoginRoutes(fastify) {
             expiresIn: "7d",
             issuer: "lendingcart",
             audience: "lender-app",
-          }
+          },
         );
 
         // ---------------------------
@@ -162,7 +176,7 @@ async function lenderLoginRoutes(fastify) {
           message: "Server error during login",
         });
       }
-    }
+    },
   );
 }
 

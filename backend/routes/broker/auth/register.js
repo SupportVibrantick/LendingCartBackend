@@ -5,7 +5,9 @@ const {
 } = require("../../../schemas/broker/auth/register.schema");
 
 const { commonLogs } = require("../../../services/logger/contextLogger");
-const { sendBrokerWelcomeEmail } = require("../../../services/emails/brokerWelcomeEmail");
+const {
+  sendBrokerWelcomeEmail,
+} = require("../../../services/emails/brokerWelcomeEmail");
 const {
   notifyPlatform,
   PLATFORM_NOTIFICATION_EVENTS,
@@ -19,6 +21,20 @@ async function brokerRegisterRoutes(fastify) {
   fastify.post(
     "/",
     {
+      config: {
+        rateLimit: {
+          max: 5,
+          timeWindow: "1 hr",
+          errorResponseBuilder: (request, context) => {
+            return {
+              statusCode: 429,
+              error: "Too Many Requests",
+              success: false,
+              message: "Too many login attempts. Please try after a hour.",
+            };
+          },
+        },
+      },
       schema: {
         tags: ["Broker -> Auth"],
         summary: "Broker self registration",
@@ -139,7 +155,10 @@ async function brokerRegisterRoutes(fastify) {
             prisma,
           });
         } catch (mailErr) {
-          commonLogs.error("Broker registered but welcome email failed", mailErr);
+          commonLogs.error(
+            "Broker registered but welcome email failed",
+            mailErr,
+          );
         }
 
         try {
@@ -176,7 +195,7 @@ async function brokerRegisterRoutes(fastify) {
           message: err.message || "Server error during registration",
         });
       }
-    }
+    },
   );
 }
 
