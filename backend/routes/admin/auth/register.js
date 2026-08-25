@@ -14,12 +14,28 @@ const bodySchema = z.object({
 });
 
 module.exports = async function adminRegisterRoute(fastify, opts) {
-  fastify.post("/register",
+  fastify.post(
+    "/register",
     {
+      config: {
+        rateLimit: {
+          max: 10,
+          timeWindow: "1 day",
+          errorResponseBuilder: (request, context) => {
+            return {
+              statusCode: 429,
+              error: "Too Many Requests",
+              success: false,
+              message: "Too many login attempts. Please try again after a day",
+            };
+          },
+        },
+      },
       schema: {
         tags: ["Admin Auth"],
         summary: "Admin / user registration",
-        description: "Create a new user account (optionally attach to organization and assign a role). Returns a JWT and basic user info.",
+        description:
+          "Create a new user account (optionally attach to organization and assign a role). Returns a JWT and basic user info.",
         body: {
           type: "object",
           required: ["email", "password"],
@@ -36,38 +52,51 @@ module.exports = async function adminRegisterRoute(fastify, opts) {
       },
     },
     async (req, reply) => {
-    try {
-      const data = bodySchema.parse(req.body);
+      try {
+        const data = bodySchema.parse(req.body);
 
-      const existing = await prisma.userAccount.findUnique({ where: { email: data.email } });
-      if (existing) return reply.code(409).send({ ok: false, message: "Email already used" });
+        const existing = await prisma.userAccount.findUnique({
+          where: { email: data.email },
+        });
+        if (existing)
+          return reply
+            .code(409)
+            .send({ ok: false, message: "Email already used" });
 
-      const hashed = await bcrypt.hash(data.password, 12);
+        const hashed = await bcrypt.hash(data.password, 12);
 
-      const user = await prisma.userAccount.create({
-        data: {
-          email: data.email,
-          passwordHash: hashed,
-          firstName: data.firstName ?? null,
-          lastName: data.lastName ?? null,
-          organizationId: data.organizationId ?? null,
-        },
-        select: { id: true, email: true, organizationId: true, firstName: true, lastName: true }
-      });
+        const user = await prisma.userAccount.create({
+          data: {
+            email: data.email,
+            passwordHash: hashed,
+            firstName: data.firstName ?? null,
+            lastName: data.lastName ?? null,
+            organizationId: data.organizationId ?? null,
+          },
+          select: {
+            id: true,
+            email: true,
+            organizationId: true,
+            firstName: true,
+            lastName: true,
+          },
+        });
 
-      const roleToAssign = data.role ?? "CLIENT_USER";
+        const roleToAssign = data.role ?? "CLIENT_USER";
 
-      const token = jwt.sign(
-        { userId: user.id, orgId: user.organizationId ?? null },
-        process.env.JWT_SECRET,
-        { expiresIn: "2h" }
-      );
+        const token = jwt.sign(
+          { userId: user.id, orgId: user.organizationId ?? null },
+          process.env.JWT_SECRET,
+          { expiresIn: "2h" },
+        );
 
-      return reply.code(201).send({ ok: true, token, user });
-    } catch (err) {
-      if (err && err.issues) return reply.code(400).send({ ok: false, errors: err.issues });
-      fastify.log.error(err);
-      return reply.code(500).send({ ok: false, message: "Server error" });
-    }
-  });
+        return reply.code(201).send({ ok: true, token, user });
+      } catch (err) {
+        if (err && err.issues)
+          return reply.code(400).send({ ok: false, errors: err.issues });
+        fastify.log.error(err);
+        return reply.code(500).send({ ok: false, message: "Server error" });
+      }
+    },
+  );
 };
