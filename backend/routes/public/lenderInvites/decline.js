@@ -9,6 +9,18 @@ async function declinePublicLenderInviteRoutes(fastify) {
   fastify.post(
     "/:token/decline",
     {
+      config: {
+        rateLimit: {
+          max: 10,
+          timeWindow: "1 minute",
+          errorResponseBuilder: () => ({
+            statusCode: 429,
+            error: "Too Many Requests",
+            success: false,
+            message: "Too many requests. Please slow down.",
+          }),
+        },
+      },
       schema: {
         tags: ["Public -> Lender Invites"],
         summary: "Decline lender invitation",

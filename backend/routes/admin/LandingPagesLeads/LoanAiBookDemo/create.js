@@ -4,7 +4,24 @@ const {
 } = require("../../../../services/ghl/bookDemoLeadSync");
 
 module.exports = async function (fastify) {
-  fastify.post("/", async (req, reply) => {
+  fastify.post(
+    "/",
+    {
+      config: {
+        rateLimit: {
+          max: 30,
+          timeWindow: "1 minute",
+          keyGenerator: (req) => `admin:${req.user?.userId ?? req.ip}`,
+          errorResponseBuilder: () => ({
+            statusCode: 429,
+            error: "Too Many Requests",
+            success: false,
+            message: "Too many requests. Please slow down.",
+          }),
+        },
+      },
+    },
+    async (req, reply) => {
     const prisma = fastify.prisma;
     const body = req.body || {};
 
