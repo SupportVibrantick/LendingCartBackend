@@ -24,16 +24,6 @@ module.exports = async function adminRoutes(fastify, opts) {
     instance.register(require("../../plugins/verifySuperAdmin"));
     // Combine both middlewares in one preHandler
     instance.addHook("preHandler", async (req, reply) => {
-      // Allow Swagger UI requests to pass without token
-      if (
-        req.url.startsWith("/docs") ||
-        req.url.startsWith("/swagger") ||
-        req.url.includes("/docs") ||
-        req.url.includes("swagger")
-      ) {
-        return;
-      }
-
       await instance.authenticate(req, reply);
       // requireRole returns a handler; invoke it
       const roleChecker = instance.requireRole(["PLATFORM_ADMIN"]);
