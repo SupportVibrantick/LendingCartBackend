@@ -1342,10 +1342,7 @@ const LoanApplication = ({
     if (stepIndex === feeAgreementStepIndex && feeAgreementDraft.include) {
       Object.assign(
         newErrors,
-        validateOptionalFeeAgreementDraft(
-          feeAgreementDraft,
-          formData.loanRequest.brokerPoints,
-        ),
+        validateOptionalFeeAgreementDraft(feeAgreementDraft),
       );
     }
     return newErrors;
@@ -1450,10 +1447,7 @@ const LoanApplication = ({
       return;
     }
     if (feeAgreementDraft.include) {
-      const feeErrors = validateOptionalFeeAgreementDraft(
-        feeAgreementDraft,
-        formData.loanRequest.brokerPoints,
-      );
+      const feeErrors = validateOptionalFeeAgreementDraft(feeAgreementDraft);
       if (Object.keys(feeErrors).length > 0) {
         setErrors((prev) => ({ ...prev, ...feeErrors }));
         toast.error("Please complete the fee agreement fields or skip the step");
@@ -1522,7 +1516,6 @@ const LoanApplication = ({
       if (feeAgreementDraft.include) {
         const feeErrors = validateOptionalFeeAgreementDraft(
           feeAgreementDraft,
-          formData.loanRequest.brokerPoints,
         );
         if (Object.keys(feeErrors).length > 0) {
           setErrors((prev) => ({ ...prev, ...feeErrors }));
@@ -1628,7 +1621,7 @@ const LoanApplication = ({
         formData.loanRequest.estimatedClosingDate,
       );
       addField("rateType", formData.loanRequest.rateType);
-      addField("brokerPoints", formData.loanRequest.brokerPoints);
+      // addField("brokerPoints", formData.loanRequest.brokerPoints);
       addField("amortization", formData.loanRequest.amortization);
 
       /* ================= PROPERTY LOCATION ================= */
@@ -1835,7 +1828,7 @@ const LoanApplication = ({
         feeAgreement: feeAgreementDraft.include
           ? {
               include: true,
-              brokerPoints: toNumber(formData.loanRequest.brokerPoints),
+              brokerPoints: toNumber(feeAgreementDraft.brokerPoints),
               upfrontFee: Number(feeAgreementDraft.upfrontFee),
               exclusivityMonths: Number(feeAgreementDraft.exclusivityMonths),
             }
@@ -2853,8 +2846,8 @@ const LoanApplication = ({
                 },
                 {
                   label: "Broker Points",
-                  value: formData.loanRequest.brokerPoints
-                    ? `${formData.loanRequest.brokerPoints}%`
+                  value: feeAgreementDraft.brokerPoints
+                    ? `${feeAgreementDraft.brokerPoints}%`
                     : "—",
                 },
                 {
@@ -3459,7 +3452,7 @@ focus:border-blue-500 outline-none text-sm ${
                       </select>
                     </div>
                     {/* Broker Points */}
-                    <div>
+                    {/* <div>
                       <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">
                         Broker Points (%){" "}
                         <span className="text-red-500">*</span>
@@ -3483,7 +3476,7 @@ focus:border-blue-500 outline-none text-sm ${
                           {errors["loanRequest.brokerPoints"]}
                         </p>
                       )}
-                    </div>
+                    </div> */}
                     {/* Amortization / purchase date (replaces amortization slot) */}
                     {showLoanRequestPurchaseDateReplacesAmortization ? (
                       <div>
@@ -6613,7 +6606,6 @@ focus:border-blue-500 outline-none text-sm ${
           {currentStep === feeAgreementStepIndex && feeAgreementStepIndex >= 0 && (
             <LoanApplicationFeeAgreementStep
               draft={feeAgreementDraft}
-              brokerPoints={formData.loanRequest.brokerPoints}
               errors={errors}
               onChange={(next) => {
                 setFeeAgreementDraft(next);
@@ -6741,7 +6733,6 @@ focus:border-blue-500 outline-none text-sm ${
                   ) {
                     const feeErrors = validateOptionalFeeAgreementDraft(
                       feeAgreementDraft,
-                      formData.loanRequest.brokerPoints,
                     );
                     if (Object.keys(feeErrors).length > 0) {
                       setErrors((prev) => ({ ...prev, ...feeErrors }));
