@@ -2,7 +2,6 @@
 const { z } = require("zod");
 const bcrypt = require("bcryptjs");
 const prisma = require("../../../config/prisma.js");
-const { assignRoleToUser } = require("../../../services/auth/fgaService.js");
 const jwt = require("jsonwebtoken");
 
 const bodySchema = z.object({
@@ -57,11 +56,6 @@ module.exports = async function adminRegisterRoute(fastify, opts) {
       });
 
       const roleToAssign = data.role ?? "CLIENT_USER";
-      try {
-        await assignRoleToUser(user.id, roleToAssign);
-      } catch (e) {
-        fastify.log.warn("OpenFGA assignRole failed:", e && e.message ? e.message : e);
-      }
 
       const token = jwt.sign(
         { userId: user.id, orgId: user.organizationId ?? null },

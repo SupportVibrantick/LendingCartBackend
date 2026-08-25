@@ -1,5 +1,4 @@
 const fp = require("fastify-plugin");
-const { getUserRolesFromFGA } = require("../../../services/auth/fgaService");
 const { resolveUserPermissions } = require("../../../services/auth/adminUserPermissions.js");
 
 module.exports = fp(async function adminUserReadRoutes(fastify) {
@@ -35,12 +34,6 @@ module.exports = fp(async function adminUserReadRoutes(fastify) {
 
       for (const user of users) {
         const roleNames = user.roles.map((r) => r.role.name);
-        let fgaRoles = [];
-        try {
-          fgaRoles = await getUserRolesFromFGA(user.id);
-        } catch {
-          fgaRoles = [];
-        }
 
         const hasCustomPermissions = user.userPermissions.length > 0;
         const permissions = await resolveUserPermissions(prisma, user.id, roleNames);
@@ -54,7 +47,6 @@ module.exports = fp(async function adminUserReadRoutes(fastify) {
           status: user.status,
           createdAt: user.createdAt,
           roles: roleNames,
-          fgaRoles: fgaRoles.map((r) => r.replace("role:", "")),
           accessLevel: hasCustomPermissions ? "CUSTOM" : "FULL",
           permissions: hasCustomPermissions ? permissions : ["*"],
         });
