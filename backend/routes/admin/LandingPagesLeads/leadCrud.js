@@ -2,6 +2,7 @@ const {
   syncBookDemoLeadToGhl,
   syncAdminManualLeadToGhl,
 } = require("../../../services/ghl/bookDemoLeadSync");
+const { getClientIp } = require("../../../utils/security/rateLimit");
 
 const LEAD_MODELS = {
   COMMERCIAL_LENDING_MASTERY: "commercialLendingMasteryLead",
@@ -106,7 +107,7 @@ module.exports = async function (fastify) {
         rateLimit: {
           max: 30,
           timeWindow: "1 minute",
-          keyGenerator: (req) => `admin:${req.user?.userId ?? req.ip}`,
+          keyGenerator: (req) => `admin-ip:${getClientIp(req)}`,
           errorResponseBuilder: () => ({
             statusCode: 429,
             error: "Too Many Requests",
@@ -209,7 +210,7 @@ module.exports = async function (fastify) {
         rateLimit: {
           max: 30,
           timeWindow: "1 minute",
-          keyGenerator: (req) => `admin:${req.user?.userId ?? req.ip}`,
+          keyGenerator: (req) => `admin-ip:${getClientIp(req)}`,
           errorResponseBuilder: () => ({
             statusCode: 429,
             error: "Too Many Requests",
