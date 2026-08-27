@@ -4,8 +4,9 @@
   "version": "2.0.2",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
+    "copy:pdf-worker": "node ./scripts/copy-pdf-worker.mjs",
+    "dev": "npm run copy:pdf-worker && vite",
+    "build": "npm run copy:pdf-worker && tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview"
   },
