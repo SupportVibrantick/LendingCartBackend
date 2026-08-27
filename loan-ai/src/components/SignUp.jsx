@@ -78,10 +78,10 @@ export default function SignUpPage() {
         email: form.email.trim().toLowerCase(),
         password: form.password,
       });
-      toast.success("Account created! Continuing to checkout…");
+      toast.success("Account created! Continue with organization details…");
 
       if (planState.packageId) {
-        navigate("/checkout", { state: planState, replace: true });
+        navigate("/subscribe", { state: planState, replace: true });
       } else {
         navigate({ pathname: "/", hash: "#pricing" }, { replace: true });
       }

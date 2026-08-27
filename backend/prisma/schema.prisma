@@ -49,6 +49,12 @@ model Organization {
   users                       UserAccount[]
   adminLenderInvites          AdminLenderInvite[]
   ghlConnection               OrganizationGhlConnection?
+  /// Platform-owned Agency Pro/Elite location mapping (separate from broker OAuth).
+  ghlAgencyLocation           OrganizationGhlAgencyLocation?
+  /// LC user ↔ Agency GHL team-user mappings (read-only reconciliation foundation).
+  ghlAgencyUsers              OrganizationGhlAgencyUser[]
+  signFormDefinitions         SignFormDefinition[]
+  signFormLibraryTemplates    SignFormLibraryTemplate[]
 
   @@map("organizations")
 }
@@ -140,6 +146,10 @@ model UserAccount {
   lenderLoiVersionsGenerated    LenderLoiVersion[]               @relation("LenderLoiVersionGeneratedBy")
   brokerLoiVersionsGenerated    BrokerLoiVersion[]               @relation("BrokerLoiVersionGeneratedBy")
   ghlConnectionsConnected       OrganizationGhlConnection[]      @relation("GhlConnectionConnectedBy")
+  ghlAgencyUserMapping          OrganizationGhlAgencyUser?
+  signFormVersionsPublished     SignFormVersion[]                @relation("SignFormVersionPublishedBy")
+  signFormSubmissionValues      SignFormSubmissionValue[]        @relation("SignFormValueFilledByUser")
+  signFormLibraryTemplatesCreated SignFormLibraryTemplate[]      @relation("SignFormLibraryTemplateCreatedBy")
 
   @@map("user_accounts")
 }
@@ -411,8 +421,9 @@ model ClientPortalUser {
   lastLoginAt  DateTime?                   @db.Timestamptz(6)
   isDeleted    Boolean?                    @default(false) @map("is_deleted")
   deletedAt    DateTime?                   @map("deleted_at") @db.Timestamptz(6)
-  uploadedDocs ApplicationDocumentUpload[] @relation("UploadedByClient")
-  client       Client                      @relation(fields: [clientId], references: [id])
+  uploadedDocs         ApplicationDocumentUpload[] @relation("UploadedByClient")
+  signFormSubmissions  SignFormSubmission[]        @relation("SignFormSubmittedByClient")
+  client               Client                      @relation(fields: [clientId], references: [id])
 
   @@map("client_portal_users")
 }
@@ -1200,16 +1211,23 @@ model ApplicationDocumentRequirement {
   signDocumentTitle          String?                     @map("sign_document_title")
   lenderSeenAt               DateTime?                   @map("lender_seen_at") @db.Timestamptz(6)
   requestedBySubBrokerId     String?                     @map("requested_by_sub_broker_id") @db.Uuid
+  signMode                   SignDocumentMode            @default(SIGNATURE_ONLY) @map("sign_mode")
+  formProcessingStatus       SignFormProcessingStatus    @default(NONE) @map("form_processing_status")
+  activeFormVersionId        String?                     @map("active_form_version_id") @db.Uuid
   documentType               DocumentType                @relation(fields: [documentTypeId], references: [id])
   loanApplication            LoanApplication             @relation(fields: [loanApplicationId], references: [id])
   requestedBySubBroker       UserAccount?                @relation("DocumentRequirementRequestedBySubBroker", fields: [requestedBySubBrokerId], references: [id], map: "application_document_requirements_requested_by_sub_broker_id_fk")
   requestApplicationLender   ApplicationLender?          @relation(fields: [requestApplicationLenderId], references: [id])
   uploads                    ApplicationDocumentUpload[]
+  activeFormVersion          SignFormVersion?            @relation("RequirementActiveFormVersion", fields: [activeFormVersionId], references: [id])
+  signFormDefinition         SignFormDefinition?
+  signFormSubmissions        SignFormSubmission[]
 
   @@index([loanApplicationId])
   @@index([documentTypeId])
   @@index([requestApplicationLenderId])
   @@index([requestedBySubBrokerId], map: "application_document_requirements_requested_by_sub_broker_id_id")
+  @@index([activeFormVersionId])
   @@map("application_document_requirements")
 }
 
@@ -2106,6 +2124,67 @@ enum OrganizationGhlConnectionStatus {
   REVOKED
 }
 
+enum OrganizationGhlAgencyLocationStatus {
+  ACTIVE
+  INACTIVE
+}
+
+/// Dedicated Agency GHL sub-account for a broker organization (1 org = 1 location).
+/// Separate from OrganizationGhlConnection (broker OAuth / CRM).
+/// Created under the platform Agency via Private Integration; never a shared Pro/Elite pool.
+model OrganizationGhlAgencyLocation {
+  id             String                                @id @default(uuid()) @db.Uuid
+  organizationId String                                @unique @db.Uuid
+  /// Plan that determined this mapping: PRO | ELITE (BASIC clears to INACTIVE).
+  packageCode    String
+  ghlCompanyId   String
+  ghlLocationId  String
+  status         OrganizationGhlAgencyLocationStatus   @default(ACTIVE)
+  lastError      String?
+  assignedAt     DateTime?                             @db.Timestamptz(6)
+  createdAt      DateTime                              @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime                              @updatedAt @db.Timestamptz(6)
+  organization   Organization                          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([ghlLocationId])
+  @@index([status])
+  @@index([packageCode])
+  @@map("organization_ghl_agency_locations")
+}
+
+enum OrganizationGhlAgencyUserStatus {
+  PENDING
+  ACTIVE
+  INACTIVE
+  ERROR
+}
+
+/// LendingCart UserAccount ↔ Agency GHL team-user mapping.
+/// Used by read-only reconciliation and by Agency team-user provisioning.
+/// Separate from OrganizationGhlAgencyLocation (org→location) and OrganizationGhlConnection (OAuth).
+model OrganizationGhlAgencyUser {
+  id             String                            @id @default(uuid()) @db.Uuid
+  organizationId String                            @db.Uuid
+  userId         String                            @unique @db.Uuid
+  ghlUserId      String                            @unique
+  ghlLocationId  String
+  email          String
+  status         OrganizationGhlAgencyUserStatus   @default(PENDING)
+  lastError      String?
+  matchedAt      DateTime?                         @db.Timestamptz(6)
+  createdAt      DateTime                          @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime                          @updatedAt @db.Timestamptz(6)
+  organization   Organization                      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           UserAccount                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@index([organizationId])
+  @@index([ghlLocationId])
+  @@index([email])
+  @@index([status])
+  @@map("organization_ghl_agency_users")
+}
+
 /// Per-broker GoHighLevel OAuth connection (CRM integration — separate from platform GHL_API_KEY billing).
 model OrganizationGhlConnection {
   id                String                            @id @default(uuid()) @db.Uuid
@@ -2513,6 +2592,133 @@ enum SignDocumentStatus {
   CLIENT_SIGNED
   FORWARDED_TO_LENDER
   LENDER_SEEN
+}
+
+enum SignDocumentMode {
+  SIGNATURE_ONLY
+  DYNAMIC_FORM
+}
+
+enum SignFormStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum SignFormProcessingStatus {
+  NONE
+  PENDING
+  READY
+  FAILED
+}
+
+enum SignFormSubmissionStatus {
+  DRAFT
+  COMPLETE
+}
+
+enum SignFormFillRole {
+  CLIENT
+  BROKER
+}
+
+model SignFormDefinition {
+  id             String                        @id @default(uuid()) @db.Uuid
+  organizationId String                        @db.Uuid
+  requirementId  String                        @unique @db.Uuid
+  title          String
+  status         SignFormStatus                @default(DRAFT)
+  createdAt      DateTime                      @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime                      @updatedAt @db.Timestamptz(6)
+  organization   Organization                  @relation(fields: [organizationId], references: [id])
+  requirement    ApplicationDocumentRequirement @relation(fields: [requirementId], references: [id], onDelete: Cascade)
+  versions       SignFormVersion[]
+
+  @@index([organizationId])
+  @@map("sign_form_definitions")
+}
+
+model SignFormVersion {
+  id                 String                         @id @default(uuid()) @db.Uuid
+  formDefinitionId   String                         @db.Uuid
+  version            Int
+  status             SignFormStatus                 @default(DRAFT)
+  schemaJson         Json                           @map("schema_json")
+  pageManifestJson   Json?                          @map("page_manifest_json")
+  publishedAt        DateTime?                      @map("published_at") @db.Timestamptz(6)
+  publishedByUserId  String?                        @map("published_by_user_id") @db.Uuid
+  createdAt          DateTime                       @default(now()) @db.Timestamptz(6)
+  updatedAt          DateTime                       @updatedAt @db.Timestamptz(6)
+  formDefinition     SignFormDefinition             @relation(fields: [formDefinitionId], references: [id], onDelete: Cascade)
+  publishedBy        UserAccount?                   @relation("SignFormVersionPublishedBy", fields: [publishedByUserId], references: [id])
+  activeOnRequirements ApplicationDocumentRequirement[] @relation("RequirementActiveFormVersion")
+  submissions        SignFormSubmission[]
+
+  @@unique([formDefinitionId, version])
+  @@index([formDefinitionId])
+  @@index([status])
+  @@map("sign_form_versions")
+}
+
+model SignFormSubmission {
+  id                     String                     @id @default(uuid()) @db.Uuid
+  requirementId          String                     @db.Uuid
+  formVersionId          String                     @db.Uuid
+  status                 SignFormSubmissionStatus   @default(DRAFT)
+  submittedByClientUserId String?                   @map("submitted_by_client_user_id") @db.Uuid
+  submittedAt            DateTime?                  @map("submitted_at") @db.Timestamptz(6)
+  createdAt              DateTime                   @default(now()) @db.Timestamptz(6)
+  updatedAt              DateTime                   @updatedAt @db.Timestamptz(6)
+  requirement            ApplicationDocumentRequirement @relation(fields: [requirementId], references: [id], onDelete: Cascade)
+  formVersion            SignFormVersion            @relation(fields: [formVersionId], references: [id])
+  submittedByClientUser  ClientPortalUser?          @relation("SignFormSubmittedByClient", fields: [submittedByClientUserId], references: [id])
+  values                 SignFormSubmissionValue[]
+
+  @@index([requirementId])
+  @@index([formVersionId])
+  @@index([status])
+  @@map("sign_form_submissions")
+}
+
+model SignFormSubmissionValue {
+  id              String            @id @default(uuid()) @db.Uuid
+  submissionId    String            @db.Uuid
+  fieldKey        String            @map("field_key")
+  valueJson       Json              @map("value_json")
+  filledByRole    SignFormFillRole  @map("filled_by_role")
+  filledByUserId  String?           @map("filled_by_user_id") @db.Uuid
+  filledAt        DateTime          @default(now()) @map("filled_at") @db.Timestamptz(6)
+  updatedAt       DateTime          @updatedAt @db.Timestamptz(6)
+  submission      SignFormSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  filledByUser    UserAccount?      @relation("SignFormValueFilledByUser", fields: [filledByUserId], references: [id])
+
+  @@unique([submissionId, fieldKey])
+  @@index([submissionId])
+  @@index([fieldKey])
+  @@map("sign_form_submission_values")
+}
+
+model SignFormLibraryTemplate {
+  id                  String         @id @default(uuid()) @db.Uuid
+  organizationId      String         @db.Uuid
+  name                String
+  description         String?
+  status              SignFormStatus @default(PUBLISHED)
+  templateFileName    String         @map("template_file_name")
+  templateFileUrl     String         @map("template_file_url")
+  templateMimeType    String?        @map("template_mime_type")
+  schemaJson          Json           @map("schema_json")
+  pageManifestJson    Json?          @map("page_manifest_json")
+  sourceRequirementId String?        @map("source_requirement_id") @db.Uuid
+  createdByUserId     String?        @map("created_by_user_id") @db.Uuid
+  createdAt           DateTime       @default(now()) @db.Timestamptz(6)
+  updatedAt           DateTime       @updatedAt @db.Timestamptz(6)
+  organization        Organization   @relation(fields: [organizationId], references: [id])
+  createdBy           UserAccount?   @relation("SignFormLibraryTemplateCreatedBy", fields: [createdByUserId], references: [id])
+
+  @@index([organizationId, status])
+  @@index([createdByUserId])
+  @@map("sign_form_library_templates")
 }
 
 enum ApplicationLenderStatus {

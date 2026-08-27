@@ -16,6 +16,51 @@ const USAGE_METRICS = [
   "LENDER_CONNECTIONS",
 ];
 
+/**
+ * Best-effort Agency GHL location sync after admin assign/change plan.
+ * Lazy-require avoids circular deps. Never throws — plan change must succeed.
+ */
+async function syncAgencyLocationAfterPlanChange(
+  prisma,
+  { organizationId, organizationSubscriptionId, packageCode },
+) {
+  try {
+    const {
+      syncAgencyLocationForSubscription,
+    } = require("../ghl/organizationGhlAgencyLocation.service");
+    return await syncAgencyLocationForSubscription(prisma, {
+      organizationId,
+      organizationSubscriptionId,
+      packageCode,
+    });
+  } catch (err) {
+    // syncAgencyLocationForSubscription already swallows errors; this is for require/load failures.
+    const message = String(err?.message || "Agency location sync failed")
+      .slice(0, 500)
+      .replace(/Bearer\s+\S+/gi, "Bearer [REDACTED]")
+      .replace(/GHL_AGENCY_PRIVATE_TOKEN\s*=\s*\S+/gi, "GHL_AGENCY_PRIVATE_TOKEN=[REDACTED]")
+      .replace(/\bpit-[A-Za-z0-9]+\b/gi, "[REDACTED]");
+    try {
+      const { commonLogs } = require("../logger/contextLogger");
+      commonLogs.error("ghl.agency_location.sync_failed", {
+        organizationId: organizationId || null,
+        organizationSubscriptionId: organizationSubscriptionId || null,
+        packageCode: packageCode || null,
+        code: "AGENCY_LOCATION_SYNC_FAILED",
+        message,
+      });
+    } catch {
+      // ignore logger failures
+    }
+    return {
+      ok: false,
+      action: "error",
+      mapping: null,
+      packageCode: packageCode || null,
+      message,
+    };
+  }
+}
 function addPeriod(date, billingCycle) {
   const d = new Date(date);
   if (billingCycle === "YEARLY") {
@@ -334,9 +379,16 @@ async function assignPlanToOrganization(prisma, payload) {
     return { subscription: created, invoice };
   });
 
+  const agencyLocation = await syncAgencyLocationAfterPlanChange(prisma, {
+    organizationId,
+    organizationSubscriptionId: subscription.subscription.id,
+    packageCode: subscription.subscription.package?.code || pkg.code,
+  });
+
   return {
     subscription: subscription.subscription,
     invoice: subscription.invoice,
+    agencyLocation,
   };
 }
 
@@ -378,7 +430,7 @@ async function changePlan(prisma, payload) {
   const nextCycle = billingCycle || sub.billingCycle;
   const periodEnd = addPeriod(now, nextCycle);
 
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     const updated = await tx.organizationSubscription.update({
       where: { id: sub.id },
       data: {
@@ -410,6 +462,18 @@ async function changePlan(prisma, payload) {
 
     return { subscription: updated, invoice };
   });
+
+  const agencyLocation = await syncAgencyLocationAfterPlanChange(prisma, {
+    organizationId,
+    organizationSubscriptionId: result.subscription.id,
+    packageCode: result.subscription.package?.code || pkg.code,
+  });
+
+  return {
+    subscription: result.subscription,
+    invoice: result.invoice,
+    agencyLocation,
+  };
 }
 
 async function cancelSubscription(prisma, payload) {
@@ -427,7 +491,7 @@ async function cancelSubscription(prisma, payload) {
   }
 
   if (immediate) {
-    return prisma.organizationSubscription.update({
+    const updated = await prisma.organizationSubscription.update({
       where: { id: sub.id },
       data: {
         status: "CANCELLED",
@@ -436,6 +500,14 @@ async function cancelSubscription(prisma, payload) {
       },
       include: { package: true, organization: true },
     });
+
+    await syncAgencyLocationAfterPlanChange(prisma, {
+      organizationId,
+      organizationSubscriptionId: updated.id,
+      packageCode: "BASIC",
+    });
+
+    return updated;
   }
 
   return prisma.organizationSubscription.update({
@@ -655,4 +727,5 @@ module.exports = {
   markPastDueSubscriptions,
   runSubscriptionBillingCycle,
   assertBrokerSubscriptionAccess,
+  syncAgencyLocationAfterPlanChange,
 };

@@ -1,3 +1,5 @@
+const { getSignDocumentWorkflow } = require("./signDocumentWorkflow");
+
 const SIGN_STATUS_LABELS = {
   AWAITING_BROKER: "Awaiting broker",
   SENT_TO_CLIENT: "Sent to client",
@@ -27,6 +29,30 @@ function getSignedUpload(requirement) {
   }
 
   return (requirement.uploads || []).find((upload) => upload.isSignedOutput);
+}
+
+function buildFormProgress(requirement) {
+  if (requirement.signMode !== "DYNAMIC_FORM") return null;
+
+  const schema =
+    requirement.activeFormVersion?.schemaJson ||
+    requirement.signFormDefinition?.versions?.[0]?.schemaJson;
+  if (!schema?.fields?.length) return null;
+
+  const submission = (requirement.signFormSubmissions || [])[0] || null;
+  const values = {};
+  for (const item of submission?.values || []) {
+    values[item.fieldKey] = item.valueJson;
+  }
+
+  try {
+    const {
+      computeProgress,
+    } = require("../../services/documents/signForm/submissionService");
+    return computeProgress(schema, values);
+  } catch {
+    return null;
+  }
 }
 
 function formatSignDocumentRequirement(requirement, options = {}) {
@@ -60,6 +86,24 @@ function formatSignDocumentRequirement(requirement, options = {}) {
     requirement.requestApplicationLender?.lenderProduct?.loanProduct?.code ||
     null;
 
+  const formProgress =
+    options.formProgress || buildFormProgress(requirement);
+  const workflow = getSignDocumentWorkflow(
+    {
+      ...requirement,
+      formProgress,
+    },
+    formProgress,
+  );
+
+  const schemaFields =
+    requirement.activeFormVersion?.schemaJson?.fields ||
+    requirement.signFormDefinition?.versions?.[0]?.schemaJson?.fields ||
+    [];
+  const hasSignatureField = schemaFields.some(
+    (field) => field?.type === "signature" || field?.type === "initial",
+  );
+
   return {
     requirementId: requirement.id,
     documentTypeId: requirement.documentTypeId,
@@ -70,8 +114,18 @@ function formatSignDocumentRequirement(requirement, options = {}) {
     source: requirement.source,
     requiresClientSignature: true,
     signStatus: requirement.signStatus,
-    signStatusLabel:
-      SIGN_STATUS_LABELS[requirement.signStatus] || requirement.signStatus,
+    signStatusLabel: workflow.signStatusLabel,
+    workflowHint: workflow.workflowHint,
+    brokerBucket: workflow.brokerBucket,
+    lenderBucket: workflow.lenderBucket,
+    clientBucket: workflow.clientBucket,
+    signMode: requirement.signMode || "SIGNATURE_ONLY",
+    formProcessingStatus: requirement.formProcessingStatus || "NONE",
+    activeFormVersionId: requirement.activeFormVersionId || null,
+    fieldCount: schemaFields.length || null,
+    hasSignatureField:
+      requirement.signMode === "DYNAMIC_FORM" ? hasSignatureField : null,
+    formProgress,
     templateFileName: requirement.templateFileName,
     templateFileUrl: requirement.templateFileUrl,
     templateMimeType: requirement.templateMimeType,
@@ -105,4 +159,5 @@ module.exports = {
   formatSignDocumentRequirement,
   getSignedUpload,
   ACTIVE_SIGNED_STATUSES,
+  buildFormProgress,
 };

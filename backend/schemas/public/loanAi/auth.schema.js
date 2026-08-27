@@ -34,6 +34,11 @@ const loanAiPurchaseSchema = z.object({
   addOnCodes: z.array(z.string().trim().min(1)).optional().default([]),
 });
 
+const organizationPhoneSchema = z
+  .union([z.string(), z.number()])
+  .transform((val) => String(val).replace(/\D/g, ""))
+  .refine((val) => /^[0-9]{10,15}$/.test(val), "Phone must be 10–15 digits");
+
 /** GHL checkout init — uses project naming `billingCycle` (alias: billingPeriod). */
 const loanAiCheckoutSchema = z
   .object({
@@ -42,10 +47,17 @@ const loanAiCheckoutSchema = z
     billingPeriod: z.enum(["MONTHLY", "YEARLY"]).optional(),
     successUrl: z.string().url().optional(),
     cancelUrl: z.string().url().optional(),
+    /** @deprecated Prefer organizationPhone — kept for older clients. */
     phone: z
       .union([z.string(), z.number()])
       .optional()
       .transform((val) => (val == null || val === "" ? undefined : String(val))),
+    organizationName: z.string().trim().min(3).max(100),
+    organizationEmail: z.string().trim().toLowerCase().email(),
+    organizationPhone: organizationPhoneSchema,
+    firstName: z.string().trim().min(2).max(50),
+    lastName: z.string().trim().min(2).max(50),
+    addOnCodes: z.array(z.string().trim().min(1)).optional().default([]),
   })
   .strict()
   .transform((data) => {
@@ -55,7 +67,13 @@ const loanAiCheckoutSchema = z
       billingCycle,
       successUrl: data.successUrl,
       cancelUrl: data.cancelUrl,
-      phone: data.phone,
+      phone: data.organizationPhone || data.phone,
+      organizationName: data.organizationName,
+      organizationEmail: data.organizationEmail,
+      organizationPhone: data.organizationPhone,
+      firstName: data.firstName,
+      lastName: data.lastName,
+      addOnCodes: data.addOnCodes || [],
     };
   })
   .superRefine((data, ctx) => {

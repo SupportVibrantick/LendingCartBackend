@@ -54,7 +54,7 @@ const USER_MESSAGES = {
   [CHECKOUT_ERROR_CODES.UNAUTHORIZED]:
     "Please sign in to continue to checkout.",
   [CHECKOUT_ERROR_CODES.VALIDATION_FAILED]:
-    "Some checkout details are invalid. Please refresh and try again.",
+    "Some checkout details are invalid. Use a valid phone (10–15 digits) and try again.",
 };
 
 function checkoutError(code, statusCode = 400, details) {

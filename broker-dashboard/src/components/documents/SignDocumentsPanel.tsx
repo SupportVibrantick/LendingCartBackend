@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router";
 import SignatureCanvas from "react-signature-canvas";
 import toast from "react-hot-toast";
 import Swal from "sweetalert2";
@@ -18,6 +19,7 @@ import {
 } from "lucide-react";
 import { buildApiPublicFileUrl } from "../../lib/publicFileUrl";
 import EmbeddedFilePreview from "./EmbeddedFilePreview";
+import SignFormFiller from "./SignFormFiller";
 
 const SigCanvas = SignatureCanvas as unknown as React.FC<any>;
 
@@ -50,6 +52,20 @@ export type SignDocumentRow = {
   documentName: string;
   signStatus?: string | null;
   signStatusLabel?: string | null;
+  signMode?: string | null;
+  formProcessingStatus?: string | null;
+  activeFormVersionId?: string | null;
+  fieldCount?: number | null;
+  hasSignatureField?: boolean | null;
+  formProgress?: {
+    client: { required: number; filled: number; total: number; complete: boolean };
+    broker: { required: number; filled: number; total: number; complete: boolean };
+    all: { required: number; filled: number; total: number; complete: boolean };
+  } | null;
+  workflowHint?: string | null;
+  brokerBucket?: string | null;
+  lenderBucket?: string | null;
+  clientBucket?: string | null;
   templateFileName?: string | null;
   templateFileUrl?: string | null;
   templateMimeType?: string | null;
@@ -136,6 +152,7 @@ export default function SignDocumentsPanel({
   clientName,
   applicationNumber,
 }: SignDocumentsPanelProps) {
+  const navigate = useNavigate();
   const isClientMode = mode === "client";
   const isBrokerMode = mode === "broker";
   const isLenderMode = mode === "lender";
@@ -164,7 +181,35 @@ export default function SignDocumentsPanel({
     Array<{ applicationLenderId: string; lenderName: string }>
   >([]);
   const [isSubmittingSignature, setIsSubmittingSignature] = useState(false);
+  const [fillingDoc, setFillingDoc] = useState<SignDocumentRow | null>(null);
   const sigRef = useRef<SignatureCanvas | null>(null);
+
+  const openClientSignPage = (
+    pageMode: "template" | "sign" | "fill",
+    row: SignDocumentRow,
+  ) => {
+    if (!loanApplicationId) {
+      toast.error("Missing application context");
+      return;
+    }
+    const qs = new URLSearchParams({
+      mode: pageMode,
+      loanApplicationId,
+      requirementId: row.requirementId,
+      documentName: row.documentName || "Document",
+    });
+    navigate(`/client-portal/sign-document?${qs.toString()}`);
+  };
+
+  /** Broker: fillable forms open the editor; signature-only stays view-only preview. */
+  const openBrokerTemplate = (row: SignDocumentRow) => {
+    if (row.signMode === "DYNAMIC_FORM") {
+      setActiveTemplateViewDoc(null);
+      setFillingDoc(row);
+      return;
+    }
+    setActiveTemplateViewDoc(row);
+  };
 
   const fetchForwardableLenders = async () => {
     if (!isBrokerMode || !loanApplicationId) return;
@@ -250,6 +295,19 @@ export default function SignDocumentsPanel({
   useEffect(() => {
     fetchRows();
   }, [mode, applicationLenderId, submissionId, loanApplicationId]);
+
+  useEffect(() => {
+    if (activeSigningDoc?.signMode !== "DYNAMIC_FORM") return;
+    setFillingDoc(activeSigningDoc);
+    setActiveSigningDoc(null);
+    sigRef.current?.clear();
+  }, [activeSigningDoc]);
+
+  useEffect(() => {
+    if (activeTemplateViewDoc?.signMode !== "DYNAMIC_FORM") return;
+    setFillingDoc(activeTemplateViewDoc);
+    setActiveTemplateViewDoc(null);
+  }, [activeTemplateViewDoc]);
 
   useEffect(() => {
     if (isBrokerMode && loanApplicationId) {
@@ -616,6 +674,11 @@ export default function SignDocumentsPanel({
   };
 
   const downloadSignedCopy = async (row: SignDocumentRow) => {
+    if (row.signMode === "DYNAMIC_FORM") {
+      await downloadFilledForm(row);
+      return;
+    }
+
     const signed = row.signedUpload;
     if (!signed?.fileUrl) return;
 
@@ -628,7 +691,63 @@ export default function SignDocumentsPanel({
     await downloadRemoteFile(signed.fileUrl, filename, row.requirementId);
   };
 
+  const downloadFilledForm = async (row: SignDocumentRow) => {
+    const trackId = `${row.requirementId}-filled`;
+    try {
+      setDownloadingId(trackId);
+
+      let url = "";
+      if (isLenderMode && applicationLenderId) {
+        url = `${apiBase}/lender/loan-pipeline/${applicationLenderId}/sign-documents/${row.requirementId}/download-filled`;
+      } else if (isBrokerMode && submissionId) {
+        url = `${apiBase}/${apiRolePrefix}/loan-pipeline/submissions/${submissionId}/sign-documents/${row.requirementId}/download-filled`;
+      } else if (isClientMode && loanApplicationId) {
+        url = `${apiBase}/client-portal/sign-documents/${row.requirementId}/download-filled?loanApplicationId=${encodeURIComponent(loanApplicationId)}`;
+      } else {
+        throw new Error("Missing download context");
+      }
+
+      const res = await fetch(url, { headers: getAuthHeaders() });
+      if (!res.ok) {
+        let message = "Failed to download filled form";
+        try {
+          const json = await res.json();
+          if (json?.message) message = json.message;
+        } catch {
+          // ignore non-JSON error bodies
+        }
+        throw new Error(message);
+      }
+
+      const blob = await res.blob();
+      const disposition = res.headers.get("Content-Disposition") || "";
+      const matched = disposition.match(/filename="?([^"]+)"?/i);
+      const filename =
+        matched?.[1] ||
+        `${sanitizeDownloadName(row.documentName)}-filled.pdf`;
+
+      const blobUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (err: any) {
+      toast.error(err.message || "Download failed");
+    } finally {
+      setDownloadingId(null);
+    }
+  };
+
   const downloadTemplate = async (row: SignDocumentRow) => {
+    // Prefer PDF with current field values for fillable forms.
+    if (row.signMode === "DYNAMIC_FORM") {
+      await downloadFilledForm(row);
+      return;
+    }
+
     if (!row.templateFileUrl) return;
 
     const ext = getDownloadExtension(
@@ -809,27 +928,53 @@ export default function SignDocumentsPanel({
 
         {renderInlineDocumentActions(row)}
 
+        {row.signMode === "DYNAMIC_FORM" && (
+          <div className="mb-3 space-y-1 rounded-lg bg-teal-50 px-3 py-2 text-xs font-medium text-teal-800">
+            <div>
+              Fillable form
+              {typeof row.fieldCount === "number" ? ` · ${row.fieldCount} fields` : ""}
+            </div>
+            {row.formProgress && (
+              <div className="font-normal text-teal-700">
+                Client {row.formProgress.client.complete ? "✓" : "…"} · Broker{" "}
+                {row.formProgress.broker.complete ? "✓" : "…"} ·{" "}
+                {row.formProgress.all.complete
+                  ? "Ready to forward"
+                  : "In progress"}
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="mt-auto border-t border-slate-100 pt-4 dark:border-slate-800">
           {row.signStatus === "AWAITING_BROKER" && (
-            <button
-              type="button"
-              disabled={isActionLoading}
-              onClick={() => sendToClient(row.requirementId)}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:shadow-md disabled:opacity-60"
-            >
-              {isActionLoading ? (
-                <Loader2 size={16} className="animate-spin" />
-              ) : (
-                <SendHorizonal size={16} />
-              )}
-              Send to client
-            </button>
+            <>
+              <div className="mb-2 flex items-center gap-2 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                {row.workflowHint || "Awaiting broker to send to client"}
+              </div>
+              <button
+                type="button"
+                disabled={isActionLoading}
+                onClick={() => sendToClient(row.requirementId)}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:shadow-md disabled:opacity-60"
+              >
+                {isActionLoading ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <SendHorizonal size={16} />
+                )}
+                Send to client
+              </button>
+            </>
           )}
 
           {row.signStatus === "SENT_TO_CLIENT" && (
             <div className="flex items-center gap-2 rounded-xl bg-blue-50 px-3 py-2.5 text-sm text-blue-800 dark:bg-blue-950/40 dark:text-blue-200">
               <Clock size={16} className="shrink-0" />
-              Waiting for client signature
+              {row.workflowHint ||
+                (row.signMode === "DYNAMIC_FORM"
+                  ? "Waiting for client / broker form fields"
+                  : "Waiting for client signature")}
             </div>
           )}
 
@@ -916,12 +1061,22 @@ export default function SignDocumentsPanel({
         {hasTemplate && (
           <button
             type="button"
-            onClick={() => setActiveTemplateViewDoc(row)}
+            onClick={() =>
+              isBrokerMode ? openBrokerTemplate(row) : setActiveTemplateViewDoc(row)
+            }
             className={`${inlineActionClass} border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200`}
-            title="View template"
+            title={
+              row.signMode === "DYNAMIC_FORM"
+                ? "Open fillable form"
+                : "View template"
+            }
           >
-            <Eye size={13} className="shrink-0" />
-            Template
+            {row.signMode === "DYNAMIC_FORM" ? (
+              <PenLine size={13} className="shrink-0" />
+            ) : (
+              <Eye size={13} className="shrink-0" />
+            )}
+            {row.signMode === "DYNAMIC_FORM" ? "Fill form" : "Template"}
           </button>
         )}
         {hasSigned && (
@@ -1219,8 +1374,16 @@ export default function SignDocumentsPanel({
     sigRef.current?.clear();
   };
 
+  const fillFormCtaLabel = (row: SignDocumentRow) =>
+    row.hasSignatureField ? "Fill & sign form" : "Fill & save form";
+
   const renderSigningModal = () => {
     if (!activeSigningDoc) return null;
+
+    // Fillable forms must use SignFormFiller — never the global signature pad.
+    if (activeSigningDoc.signMode === "DYNAMIC_FORM") {
+      return null;
+    }
 
     return (
       <div
@@ -1417,19 +1580,13 @@ export default function SignDocumentsPanel({
 
   const renderBrokerView = () => {
     const awaitingBroker = rows.filter(
-      (row) => row.signStatus === "AWAITING_BROKER",
+      (row) => row.brokerBucket === "awaitingYou",
     );
-    const withClient = rows.filter(
-      (row) => row.signStatus === "SENT_TO_CLIENT",
-    );
+    const withClient = rows.filter((row) => row.brokerBucket === "withClient");
     const readyToForward = rows.filter(
-      (row) => row.signStatus === "CLIENT_SIGNED",
+      (row) => row.brokerBucket === "readyToForward",
     );
-    const forwarded = rows.filter(
-      (row) =>
-        row.signStatus === "FORWARDED_TO_LENDER" ||
-        row.signStatus === "LENDER_SEEN",
-    );
+    const forwarded = rows.filter((row) => row.brokerBucket === "forwarded");
 
     const statCards = [
       {
@@ -1470,8 +1627,8 @@ export default function SignDocumentsPanel({
                 Sign Documents
               </h2>
               <p className="mt-1 max-w-2xl text-sm text-slate-600 dark:text-slate-400">
-                Send lender forms to the client for signing, then forward the
-                signed copies back to the lender who requested each document.
+                Send lender forms to the client, fill any broker fields, then
+                forward completed copies back to the requesting lender.
               </p>
               {lenderGroups.length > 0 && (
                 <p className="mt-2 text-sm font-medium text-slate-700 dark:text-slate-300">
@@ -1560,6 +1717,26 @@ export default function SignDocumentsPanel({
 
         {renderTemplateViewModal()}
         {renderSignedCopyModal()}
+        {fillingDoc && submissionId && (
+          <SignFormFiller
+            open={Boolean(fillingDoc)}
+            mode="broker"
+            onClose={() => setFillingDoc(null)}
+            apiBase={apiBase}
+            getAuthHeaders={getAuthHeaders}
+            loanApplicationId={loanApplicationId || ""}
+            submissionId={submissionId}
+            apiRolePrefix={apiRolePrefix}
+            requirementId={fillingDoc.requirementId}
+            documentName={fillingDoc.documentName}
+            initialSignStatus={fillingDoc.signStatus}
+            onSubmitted={() => {
+              setFillingDoc(null);
+              fetchRows();
+              onUpdated?.();
+            }}
+          />
+        )}
       </div>
     );
   };
@@ -1573,19 +1750,32 @@ export default function SignDocumentsPanel({
     if (!hasTemplate && !hasSigned) return null;
 
     const actionClass =
-      "inline-flex items-center justify-center gap-1.5 rounded-xl border px-3 py-2.5 text-xs font-semibold transition min-w-0";
+      "inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border px-2.5 py-2 text-xs font-semibold transition min-w-0";
 
     return (
       <div className="flex gap-2">
         {hasTemplate && (
           <button
             type="button"
-            onClick={() => setActiveTemplateViewDoc(row)}
-            className={`${actionClass} flex-1 border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100`}
-            title="View template"
+            onClick={() =>
+              isClientMode
+                ? openClientSignPage(
+                    row.signMode === "DYNAMIC_FORM" ? "fill" : "template",
+                    row,
+                  )
+                : openBrokerTemplate(row)
+            }
+            className={`${actionClass} border-slate-200 bg-white text-slate-700 hover:bg-slate-50`}
+            title={
+              row.signMode === "DYNAMIC_FORM"
+                ? "Open fillable form"
+                : "View template"
+            }
           >
-            <Eye size={14} className="shrink-0" />
-            <span className="truncate">Template</span>
+            <Eye size={14} className="shrink-0 text-sky-600" />
+            <span className="truncate">
+              {row.signMode === "DYNAMIC_FORM" ? "Fill form" : "Template"}
+            </span>
           </button>
         )}
         {hasSigned && (
@@ -1593,7 +1783,7 @@ export default function SignDocumentsPanel({
             <button
               type="button"
               onClick={() => setActiveSignedViewDoc(row)}
-              className={`${actionClass} flex-1 border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100`}
+              className={`${actionClass} border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100`}
               title="View signed copy"
             >
               <Eye size={14} className="shrink-0" />
@@ -1603,7 +1793,7 @@ export default function SignDocumentsPanel({
               type="button"
               onClick={() => downloadSignedCopy(row)}
               disabled={downloadingId === row.requirementId}
-              className={`${actionClass} flex-1 border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 disabled:opacity-60`}
+              className={`${actionClass} border-violet-200 bg-violet-50 text-violet-800 hover:bg-violet-100 disabled:opacity-60`}
               title="Download signed copy"
             >
               {downloadingId === row.requirementId ? (
@@ -1626,34 +1816,44 @@ export default function SignDocumentsPanel({
     switch (row.signStatus) {
       case "SENT_TO_CLIENT":
         return (
-          <div className="flex items-center gap-2 rounded-xl bg-blue-50 px-3 py-2.5 text-sm text-blue-800">
-            <PenLine size={16} className="shrink-0" />
-            {brokerSheet
-              ? "Your signature is required on this term sheet"
-              : "Your signature is required"}
+          <div className="flex items-start gap-2 rounded-lg bg-sky-50 px-2.5 py-2 text-xs leading-relaxed text-sky-800">
+            <PenLine size={14} className="mt-0.5 shrink-0" />
+            <span>
+              {row.workflowHint ||
+                (row.signMode === "DYNAMIC_FORM"
+                  ? row.hasSignatureField
+                    ? "Complete your form fields and signature"
+                    : "Complete your assigned form fields"
+                  : brokerSheet
+                    ? "Your signature is required on this term sheet"
+                    : "Your signature is required")}
+            </span>
           </div>
         );
       case "CLIENT_SIGNED":
         return (
-          <div className="flex items-center gap-2 rounded-xl bg-emerald-50 px-3 py-2.5 text-sm text-emerald-800">
-            <CheckCircle2 size={16} className="shrink-0" />
-            {standalone
-              ? "Signed — your broker has received this term sheet"
-              : `Signed — broker will forward to ${row.lenderName || "the lender"}`}
+          <div className="flex items-start gap-2 rounded-lg bg-emerald-50 px-2.5 py-2 text-xs leading-relaxed text-emerald-800">
+            <CheckCircle2 size={14} className="mt-0.5 shrink-0" />
+            <span>
+              {row.workflowHint ||
+                (standalone
+                  ? "Signed — your broker has received this term sheet"
+                  : `Signed — broker will forward to ${row.lenderName || "the lender"}`)}
+            </span>
           </div>
         );
       case "FORWARDED_TO_LENDER":
         return (
-          <div className="flex items-center gap-2 rounded-xl bg-violet-50 px-3 py-2.5 text-sm text-violet-800">
-            <CheckCircle2 size={16} className="shrink-0" />
-            Signed and forwarded to {row.lenderName || "lender"}
+          <div className="flex items-start gap-2 rounded-lg bg-violet-50 px-2.5 py-2 text-xs leading-relaxed text-violet-800">
+            <CheckCircle2 size={14} className="mt-0.5 shrink-0" />
+            <span>Signed and forwarded to {row.lenderName || "lender"}</span>
           </div>
         );
       case "LENDER_SEEN":
         return (
-          <div className="flex items-center gap-2 rounded-xl bg-teal-50 px-3 py-2.5 text-sm text-teal-800">
-            <CheckCircle2 size={16} className="shrink-0" />
-            Reviewed by {row.lenderName || "lender"}
+          <div className="flex items-start gap-2 rounded-lg bg-teal-50 px-2.5 py-2 text-xs leading-relaxed text-teal-800">
+            <CheckCircle2 size={14} className="mt-0.5 shrink-0" />
+            <span>Reviewed by {row.lenderName || "lender"}</span>
           </div>
         );
       default:
@@ -1661,106 +1861,191 @@ export default function SignDocumentsPanel({
     }
   };
 
+  const clientCardAccent = (row: SignDocumentRow) => {
+    if (isBrokerTermSheetDoc(row) && row.signStatus === "SENT_TO_CLIENT") {
+      return "border-t-violet-500";
+    }
+    switch (row.signStatus) {
+      case "SENT_TO_CLIENT":
+        return "border-t-sky-500";
+      case "CLIENT_SIGNED":
+        return "border-t-emerald-500";
+      case "FORWARDED_TO_LENDER":
+        return "border-t-violet-500";
+      case "LENDER_SEEN":
+        return "border-t-teal-500";
+      default:
+        return "border-t-slate-300";
+    }
+  };
+
   const renderClientDocumentCard = (row: SignDocumentRow) => {
-    const isPending = row.signStatus === "SENT_TO_CLIENT";
+    const isPending =
+      row.signStatus === "SENT_TO_CLIENT" &&
+      row.clientBucket !== "waitingOnBroker";
     const brokerSheet = isBrokerTermSheetDoc(row);
     const standalone = isStandaloneBrokerTermSheet(row);
+    const waitingBroker = row.clientBucket === "waitingOnBroker";
 
     return (
-      <div
+      <article
         key={row.requirementId}
-        className={`flex flex-col rounded-2xl border bg-white p-5 shadow-sm transition hover:shadow-md ${
-          brokerSheet
-            ? "border-violet-200 hover:border-violet-300"
-            : "border-slate-200 hover:border-blue-200"
-        }`}
+        className={`flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200 border-t-4 bg-white shadow-sm transition hover:shadow-md ${clientCardAccent(row)}`}
       >
-        <div className="mb-4 flex items-start gap-3">
+        <div className="flex items-start gap-3 border-b border-slate-100 p-4">
           <div
-            className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${
+            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
               isPending
                 ? brokerSheet
                   ? "bg-violet-100 text-violet-700"
-                  : "bg-blue-100 text-blue-700"
-                : "bg-emerald-100 text-emerald-700"
+                  : "bg-sky-100 text-sky-700"
+                : waitingBroker
+                  ? "bg-amber-100 text-amber-700"
+                  : "bg-emerald-100 text-emerald-700"
             }`}
           >
             {isImageTemplate(row.templateMimeType, row.templateFileUrl) ? (
-              <FileImage size={22} />
+              <FileImage size={18} />
             ) : (
-              <FileText size={22} />
+              <FileText size={18} />
             )}
           </div>
 
           <div className="min-w-0 flex-1">
-            <h3
-              className="text-base font-semibold leading-snug text-slate-900"
-              title={row.documentName}
-            >
-              {row.documentName}
-              {row.loiVersionLabel ? (
-                <span className="ml-2 text-xs font-medium text-violet-600">
-                  ({row.loiVersionLabel})
-                </span>
-              ) : null}
-            </h3>
+            <div className="flex items-start justify-between gap-2">
+              <h3
+                className="line-clamp-2 text-sm font-semibold leading-snug text-slate-900"
+                title={row.documentName}
+              >
+                {row.documentName}
+                {row.loiVersionLabel ? (
+                  <span className="ml-1.5 text-[11px] font-medium text-violet-600">
+                    ({row.loiVersionLabel})
+                  </span>
+                ) : null}
+              </h3>
+              <span
+                className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${statusClass(row.signStatus)}`}
+              >
+                {row.signStatusLabel || row.signStatus || "-"}
+              </span>
+            </div>
+
             {brokerSheet ? (
-              <p className="mt-1 flex items-center gap-1 text-xs text-violet-700">
+              <p className="mt-1.5 flex items-center gap-1 text-xs text-violet-700">
                 <FileText size={12} className="shrink-0" />
                 <span className="truncate">
                   {standalone
                     ? "Broker Term Sheet"
                     : row.lenderName
-                      ? `Broker LOI based on ${row.lenderName}`
+                      ? `Broker LOI · ${row.lenderName}`
                       : "Broker LOI / Term Sheet"}
                 </span>
               </p>
             ) : row.lenderName ? (
-              <p className="mt-1 flex items-center gap-1 text-xs text-slate-500">
+              <p className="mt-1.5 flex items-center gap-1 text-xs text-slate-500">
                 <Building2 size={12} className="shrink-0" />
                 <span className="truncate">Requested by {row.lenderName}</span>
               </p>
             ) : null}
-            <div className="mt-2">
-              <span
-                className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${statusClass(row.signStatus)}`}
-              >
-                {row.signStatusLabel || row.signStatus || "-"}
-              </span>
-            </div>
+
+            {row.signMode === "DYNAMIC_FORM" && row.formProgress && (
+              <div className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-slate-50 px-2 py-1 text-[11px] font-medium text-slate-600">
+                Client {row.formProgress.client.complete ? "✓" : "…"}
+                <span className="text-slate-300">·</span>
+                Broker {row.formProgress.broker.complete ? "✓" : "…"}
+              </div>
+            )}
           </div>
         </div>
 
-        {renderClientDocumentActions(row)}
+        <div className="flex flex-1 flex-col gap-3 p-4">
+          {renderClientDocumentActions(row)}
 
-        {isPending ? (
-          <button
-            type="button"
-            onClick={() => {
-              setActiveSigningDoc(row);
-              sigRef.current?.clear();
-            }}
-            className={`mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:shadow-md ${
-              brokerSheet
-                ? "bg-gradient-to-r from-violet-600 to-fuchsia-600"
-                : "bg-gradient-to-r from-blue-600 to-cyan-600"
-            }`}
+          {isPending ? (
+            <button
+              type="button"
+              onClick={() => {
+                if (row.signMode === "DYNAMIC_FORM") {
+                  if (isClientMode) {
+                    openClientSignPage("fill", row);
+                    return;
+                  }
+                  setFillingDoc(row);
+                  return;
+                }
+                if (isClientMode) {
+                  openClientSignPage("sign", row);
+                  return;
+                }
+                setActiveSigningDoc(row);
+                sigRef.current?.clear();
+              }}
+              className={`mt-auto inline-flex w-full items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:brightness-105 ${
+                brokerSheet
+                  ? "bg-gradient-to-r from-violet-600 to-fuchsia-600"
+                  : "bg-gradient-to-r from-sky-600 to-blue-600"
+              }`}
+            >
+              <PenLine size={15} />
+              {row.signMode === "DYNAMIC_FORM"
+                ? fillFormCtaLabel(row)
+                : "Review & Sign"}
+            </button>
+          ) : (
+            <div className="mt-auto">{renderClientStatusFooter(row)}</div>
+          )}
+        </div>
+      </article>
+    );
+  };
+
+  const renderClientSection = (
+    title: string,
+    tone: "amber" | "sky" | "emerald",
+    docs: SignDocumentRow[],
+  ) => {
+    if (!docs.length) return null;
+
+    const toneClass =
+      tone === "amber"
+        ? "bg-amber-100 text-amber-800"
+        : tone === "sky"
+          ? "bg-sky-100 text-sky-800"
+          : "bg-emerald-100 text-emerald-800";
+
+    return (
+      <section className="space-y-3">
+        <div className="flex items-center gap-2">
+          <span
+            className={`rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide ${toneClass}`}
           >
-            <PenLine size={16} />
-            {brokerSheet ? "Review & Sign Term Sheet" : "Review & Sign"}
-          </button>
-        ) : (
-          <div className="mt-4 border-t border-slate-100 pt-4">
-            {renderClientStatusFooter(row)}
-          </div>
-        )}
-      </div>
+            {title}
+          </span>
+          <span className="text-xs text-slate-400">{docs.length}</span>
+          <div className="h-px flex-1 bg-slate-100" />
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {docs.map((row) => renderClientDocumentCard(row))}
+        </div>
+      </section>
     );
   };
 
   const renderClientView = () => {
-    const pendingDocs = rows.filter((row) => row.signStatus === "SENT_TO_CLIENT");
-    const completedDocs = rows.filter((row) => row.signStatus !== "SENT_TO_CLIENT");
+    const pendingDocs = rows.filter(
+      (row) =>
+        row.signStatus === "SENT_TO_CLIENT" &&
+        row.clientBucket !== "waitingOnBroker",
+    );
+    const waitingOnBroker = rows.filter(
+      (row) => row.clientBucket === "waitingOnBroker",
+    );
+    const completedDocs = rows.filter(
+      (row) =>
+        row.signStatus !== "SENT_TO_CLIENT" &&
+        row.clientBucket !== "waitingOnBroker",
+    );
     const hasBrokerTermSheet = rows.some((row) => isBrokerTermSheetDoc(row));
     const hasStandaloneBrokerTermSheet = rows.some((row) =>
       isStandaloneBrokerTermSheet(row),
@@ -1772,44 +2057,44 @@ export default function SignDocumentsPanel({
     return (
       <div className="space-y-6">
         <div
-          className={`relative overflow-hidden rounded-2xl border p-6 shadow-sm ${
+          className={`relative overflow-hidden rounded-2xl border p-5 shadow-sm sm:p-6 ${
             hasBrokerTermSheet
               ? "border-violet-100 bg-gradient-to-br from-violet-50 via-white to-fuchsia-50"
-              : "border-blue-100 bg-gradient-to-br from-blue-50 via-white to-cyan-50"
+              : "border-sky-100 bg-gradient-to-br from-sky-50 via-white to-blue-50"
           }`}
         >
           <div
-            className={`absolute -right-8 -top-8 h-32 w-32 rounded-full blur-2xl ${
-              hasBrokerTermSheet ? "bg-fuchsia-200/30" : "bg-cyan-200/30"
+            className={`absolute -right-8 -top-8 h-28 w-28 rounded-full blur-2xl ${
+              hasBrokerTermSheet ? "bg-fuchsia-200/35" : "bg-sky-200/35"
             }`}
           />
           <div
-            className={`absolute -bottom-10 -left-10 h-32 w-32 rounded-full blur-2xl ${
+            className={`absolute -bottom-10 -left-10 h-28 w-28 rounded-full blur-2xl ${
               hasBrokerTermSheet ? "bg-violet-200/30" : "bg-blue-200/30"
             }`}
           />
 
-          <div className="relative flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <div>
+          <div className="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+            <div className="min-w-0">
               <div
-                className={`mb-2 inline-flex items-center gap-2 rounded-full bg-white/80 px-3 py-1 text-xs font-semibold shadow-sm ${
-                  hasBrokerTermSheet ? "text-violet-700" : "text-blue-700"
+                className={`mb-2 inline-flex items-center gap-1.5 rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-semibold shadow-sm ${
+                  hasBrokerTermSheet ? "text-violet-700" : "text-sky-700"
                 }`}
               >
-                <PenLine size={14} />
+                <PenLine size={12} />
                 {hasBrokerTermSheet
                   ? "Broker Term Sheet"
                   : "E-Signature Required"}
               </div>
-              <h2 className="text-2xl font-bold text-slate-900">
+              <h2 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">
                 {hasBrokerTermSheet ? "Sign Term Sheet" : "Sign Documents"}
               </h2>
-              <p className="mt-1 max-w-2xl text-sm text-slate-600">
+              <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-slate-600">
                 {hasStandaloneBrokerTermSheet
                   ? "Review your broker's term sheet carefully, add your signature, and submit. Supporting documents listed on the term sheet appear under Upload Documents."
                   : hasBrokerTermSheet
                     ? "Review your broker LOI / term sheet carefully, add your signature, and submit. Your broker may forward the signed copy to a lender."
-                    : "Review each form carefully, add your signature, and submit. Your broker will forward signed copies to the lender."}
+                    : "Review each form, complete your fields or signature, and submit. Your broker will finish remaining fields if needed, then forward to the lender."}
               </p>
               {clientName && (
                 <p className="mt-2 text-sm font-medium text-slate-700">
@@ -1826,98 +2111,101 @@ export default function SignDocumentsPanel({
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="rounded-2xl bg-white/90 px-4 py-3 text-center shadow-sm">
-                <p className="text-2xl font-bold text-amber-600">
-                  {pendingDocs.length}
-                </p>
-                <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
-                  Pending
-                </p>
-              </div>
-              <div className="rounded-2xl bg-white/90 px-4 py-3 text-center shadow-sm">
-                <p className="text-2xl font-bold text-emerald-600">
-                  {completedDocs.length}
-                </p>
-                <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
-                  Completed
-                </p>
-              </div>
+            <div className="flex flex-wrap gap-2">
+              {[
+                {
+                  label: "Action needed",
+                  count: pendingDocs.length,
+                  wrap: "bg-amber-50 ring-amber-100",
+                  num: "text-amber-700",
+                },
+                {
+                  label: "With broker",
+                  count: waitingOnBroker.length,
+                  wrap: "bg-sky-50 ring-sky-100",
+                  num: "text-sky-700",
+                },
+                {
+                  label: "Completed",
+                  count: completedDocs.length,
+                  wrap: "bg-emerald-50 ring-emerald-100",
+                  num: "text-emerald-700",
+                },
+              ].map((stat) => (
+                <div
+                  key={stat.label}
+                  className={`min-w-[6.5rem] rounded-xl px-3 py-2 ring-1 ring-inset ${stat.wrap}`}
+                >
+                  <p className={`text-lg font-bold tabular-nums ${stat.num}`}>
+                    {stat.count}
+                  </p>
+                  <p className="text-[11px] font-medium text-slate-600">
+                    {stat.label}
+                  </p>
+                </div>
+              ))}
             </div>
           </div>
         </div>
 
         {rows.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-500 text-white shadow-lg">
-              <CheckCircle2 size={28} />
+          <div className="rounded-2xl border border-dashed border-sky-200 bg-sky-50/40 p-12 text-center">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-500 to-blue-600 text-white shadow-lg">
+              <CheckCircle2 size={26} />
             </div>
             <p className="text-base font-semibold text-slate-800">
               No documents waiting for signature
             </p>
-            <p className="mt-2 text-sm text-slate-500">
+            <p className="mx-auto mt-2 max-w-md text-sm text-slate-500">
               When your broker sends a term sheet or form for signing, it will
               appear here.
             </p>
           </div>
         ) : (
           <>
-            {pendingDocs.length > 0 && (
-              <div className="space-y-3">
-                <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">
-                  Action required
-                </p>
-                <div className="mx-auto grid max-w-2xl gap-4">
-                  {pendingDocs.map((row) => renderClientDocumentCard(row))}
-                </div>
-              </div>
-            )}
-
-            {completedDocs.length > 0 && (
-              <div className="space-y-3">
-                <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">
-                  Completed
-                </p>
-                <div className="mx-auto grid max-w-2xl gap-4">
-                  {completedDocs.map((row) => renderClientDocumentCard(row))}
-                </div>
-              </div>
-            )}
+            {renderClientSection("Action required", "amber", pendingDocs)}
+            {renderClientSection("Waiting on broker", "sky", waitingOnBroker)}
+            {renderClientSection("Completed", "emerald", completedDocs)}
 
             {previousSignedLoiVersions.length > 0 && (
-              <div className="mx-auto max-w-2xl space-y-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Previous signed LOI versions (archive)
-                </p>
-                <div className="space-y-2">
+              <section className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+                    Previous signed LOI versions
+                  </span>
+                  <div className="h-px flex-1 bg-slate-100" />
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                   {previousSignedLoiVersions.map((version) => (
                     <div
                       key={version.versionNumber}
-                      className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3"
+                      className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm"
                     >
-                      <div>
-                        <p className="text-sm font-semibold text-slate-800">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-slate-800">
                           Broker Term Sheet · {version.label}
                         </p>
                         {version.clientSignedAt && (
                           <p className="text-xs text-slate-500">
                             Signed{" "}
-                            {new Date(version.clientSignedAt).toLocaleDateString()}
+                            {new Date(
+                              version.clientSignedAt,
+                            ).toLocaleDateString()}
                           </p>
                         )}
                       </div>
                       <button
                         type="button"
                         onClick={() => openFile(version.signedPdfUrl)}
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-800 hover:bg-emerald-100"
+                        className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-800 hover:bg-emerald-100"
                       >
                         <Eye size={13} />
-                        View archive
+                        View
                       </button>
                     </div>
                   ))}
                 </div>
-              </div>
+              </section>
             )}
 
             {renderSigningModal()}

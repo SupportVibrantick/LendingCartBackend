@@ -22,11 +22,7 @@ export default function WebsitePages() {
   const [website, setWebsite] = useState<GhlWebsite | null>(null);
   const [pages, setPages] = useState<GhlWebsitePage[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [ghlLocationId, setGhlLocationId] = useState<string | null>(null);
-
-  const ghlDashboardUrl = ghlLocationId
-    ? `https://app.gohighlevel.com/v2/location/${encodeURIComponent(ghlLocationId)}/dashboard`
-    : "https://app.gohighlevel.com";
+  const [ghlDashboardUrl, setGhlDashboardUrl] = useState("https://app.gohighlevel.com");
 
   const loadData = useCallback(
     async (silent = false) => {
@@ -45,7 +41,16 @@ export default function WebsitePages() {
 
         setWebsite(websiteData.website);
         setPages(pagesData.pages);
-        setGhlLocationId(connStatus.ghlLocationId ?? null);
+        const locId =
+          connStatus.agencyLocation?.ghlLocationId ??
+          connStatus.ghlLocationId ??
+          null;
+        setGhlDashboardUrl(
+          connStatus.agencyLocation?.dashboardUrl ||
+            (locId
+              ? `https://app.gohighlevel.com/v2/location/${encodeURIComponent(locId)}/dashboard`
+              : "https://app.gohighlevel.com"),
+        );
       } catch (err: unknown) {
         const message = sanitizeGhlWebsiteError(
           err instanceof Error ? err.message : undefined,

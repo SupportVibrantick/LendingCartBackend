@@ -1,4 +1,7 @@
-const { provisionBrokerFromLoanAi } = require("../broker/provisionBrokerFromLoanAi");
+const {
+  provisionBrokerFromLoanAi,
+  ensureBrokerAdminAccess,
+} = require("../broker/provisionBrokerFromLoanAi");
 const {
   assignPlanToOrganization,
   markInvoicePaid,
@@ -7,6 +10,9 @@ const {
 const {
   logPaymentStatusChanged,
 } = require("./ghlPaymentLogger");
+const {
+  syncAgencyLocationForSubscription,
+} = require("./organizationGhlAgencyLocation.service");
 
 function deriveOrgName(user) {
   const name = [user.firstName, user.lastName].filter(Boolean).join(" ").trim();
@@ -17,6 +23,60 @@ function deriveOrgName(user) {
 
 function digitsOnly(value) {
   return String(value || "").replace(/\D/g, "");
+}
+
+function resolveOrganizationDetailsFromCheckout(checkout, user, paymentMeta = {}) {
+  const meta =
+    checkout?.metadata && typeof checkout.metadata === "object"
+      ? checkout.metadata
+      : {};
+
+  const organizationName =
+    String(meta.organizationName || "").trim() || deriveOrgName(user);
+
+  const organizationEmail =
+    String(meta.organizationEmail || "").trim().toLowerCase() || user.email;
+
+  const phoneDigits = digitsOnly(
+    meta.organizationPhone || meta.phone || paymentMeta.phone,
+  );
+  const organizationPhone =
+    phoneDigits.length >= 10
+      ? phoneDigits.slice(0, 15)
+      : `1555${String(Date.now()).slice(-7)}`;
+
+  const firstName =
+    String(meta.firstName || "").trim() || user.firstName || "Loan";
+  const lastName =
+    String(meta.lastName || "").trim() || user.lastName || "AI";
+
+  const addOnCodes = Array.isArray(meta.addOnCodes)
+    ? meta.addOnCodes.filter(Boolean)
+    : [];
+
+  return {
+    organizationName,
+    organizationEmail,
+    organizationPhone,
+    firstName,
+    lastName,
+    addOnCodes,
+  };
+}
+
+/**
+ * Best-effort org → Agency Pro/Elite location mapping.
+ * Never throws — subscription activation must not fail because of mapping errors.
+ */
+async function syncAgencyLocationAfterFulfillment(
+  prisma,
+  { organizationId, organizationSubscriptionId, packageCode },
+) {
+  return syncAgencyLocationForSubscription(prisma, {
+    organizationId,
+    organizationSubscriptionId,
+    packageCode,
+  });
 }
 
 /**
@@ -41,12 +101,23 @@ async function fulfillPaidGhlCheckout(prisma, io, checkout, paymentMeta = {}) {
     throw Object.assign(new Error("Checkout not found"), { statusCode: 404 });
   }
 
+  // Webhook replay: subscription already active — still retry Agency location sync.
   if (fresh.status === "PAID" && fresh.organizationSubscriptionId) {
+    const agencyLocation = await syncAgencyLocationAfterFulfillment(prisma, {
+      organizationId:
+        fresh.organizationSubscription?.organizationId ||
+        fresh.loanAiUser?.brokerOrganizationId ||
+        null,
+      organizationSubscriptionId: fresh.organizationSubscriptionId,
+      packageCode: fresh.package?.code || null,
+    });
+
     return {
       alreadyProcessed: true,
       checkoutId: fresh.id,
       organizationSubscriptionId: fresh.organizationSubscriptionId,
       loanAiUserId: fresh.loanAiUserId,
+      agencyLocation,
     };
   }
 
@@ -71,6 +142,7 @@ async function fulfillPaidGhlCheckout(prisma, io, checkout, paymentMeta = {}) {
     : null;
 
   let organizationSubscriptionId = fresh.organizationSubscriptionId;
+  let organizationId = user.brokerOrganizationId || null;
   let provisioned = false;
 
   if (user.brokerOrganizationId) {
@@ -115,6 +187,7 @@ async function fulfillPaidGhlCheckout(prisma, io, checkout, paymentMeta = {}) {
       });
 
       organizationSubscriptionId = updated.id;
+      organizationId = user.brokerOrganizationId;
 
       const pendingInvoice = await prisma.subscriptionInvoice.findFirst({
         where: {
@@ -157,6 +230,7 @@ async function fulfillPaidGhlCheckout(prisma, io, checkout, paymentMeta = {}) {
         currentPeriodEnd: periodEnd || undefined,
       });
       organizationSubscriptionId = subscription.id;
+      organizationId = user.brokerOrganizationId;
       if (invoice) {
         await markInvoicePaid(prisma, invoice.id);
         await prisma.subscriptionInvoice.update({
@@ -171,25 +245,21 @@ async function fulfillPaidGhlCheckout(prisma, io, checkout, paymentMeta = {}) {
       }
     }
   } else {
-    const phoneDigits = digitsOnly(paymentMeta.phone);
-    const organizationPhone =
-      phoneDigits.length >= 10
-        ? phoneDigits.slice(0, 15)
-        : `1555${String(Date.now()).slice(-7)}`;
+    const orgDetails = resolveOrganizationDetailsFromCheckout(
+      fresh,
+      user,
+      paymentMeta,
+    );
 
     const result = await provisionBrokerFromLoanAi(prisma, io, user, {
       packageId: fresh.packageId,
       billingCycle: fresh.billingCycle,
-      organizationName: deriveOrgName(user),
-      organizationEmail: user.email,
-      organizationPhone,
-      firstName: user.firstName || "Loan",
-      lastName: user.lastName || "AI",
-      addOnCodes: [],
+      ...orgDetails,
     });
 
     provisioned = true;
     organizationSubscriptionId = result.subscriptionId;
+    organizationId = result.organizationId;
 
     if (organizationSubscriptionId) {
       await prisma.organizationSubscription.update({
@@ -236,6 +306,42 @@ async function fulfillPaidGhlCheckout(prisma, io, checkout, paymentMeta = {}) {
     },
   });
 
+  // Existing-org renew / partial provision can leave ACTIVE sub with no UserAccount.
+  // Always ensure broker login; welcome email is idempotent per buyer email.
+  if (organizationId && user) {
+    const orgDetails = resolveOrganizationDetailsFromCheckout(
+      fresh,
+      user,
+      paymentMeta,
+    );
+    try {
+      await ensureBrokerAdminAccess(prisma, {
+        organizationId,
+        loanAiUser: user,
+        firstName: orgDetails.firstName,
+        lastName: orgDetails.lastName,
+        packageName: fresh.package?.name || fresh.package?.code || "Selected Plan",
+        // New provision already sent welcome; still safe via idempotency key.
+        sendWelcome: true,
+        welcomeIdempotencyKey: `broker-welcome:${String(user.email)
+          .trim()
+          .toLowerCase()}`,
+      });
+    } catch (accessErr) {
+      console.error(
+        "ensureBrokerAdminAccess after checkout fulfill failed:",
+        accessErr.message || accessErr,
+      );
+    }
+  }
+
+  // After subscription is ACTIVE / checkout PAID — map Agency location (non-fatal).
+  const agencyLocation = await syncAgencyLocationAfterFulfillment(prisma, {
+    organizationId,
+    organizationSubscriptionId,
+    packageCode: fresh.package?.code || null,
+  });
+
   logPaymentStatusChanged({
     checkoutId: updatedCheckout.id,
     loanAiUserId: user.id,
@@ -258,8 +364,10 @@ async function fulfillPaidGhlCheckout(prisma, io, checkout, paymentMeta = {}) {
     alreadyProcessed: false,
     checkoutId: updatedCheckout.id,
     organizationSubscriptionId,
+    organizationId,
     loanAiUserId: user.id,
     provisioned,
+    agencyLocation,
   };
 }
 
@@ -282,4 +390,5 @@ module.exports = {
   fulfillPaidGhlCheckout,
   markCheckoutPaymentFailed,
   deriveOrgName,
+  syncAgencyLocationAfterFulfillment,
 };

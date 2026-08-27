@@ -1,11 +1,18 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { motion } from "framer-motion";
+import {
+  ArrowRight,
+  CheckCircle2,
+  Eye,
+  EyeOff,
+  LockKeyhole,
+  ShieldCheck,
+} from "lucide-react";
 import toast from "react-hot-toast";
-import { EyeCloseIcon, EyeIcon } from "../../icons";
-import Label from "../form/Label";
-import Input from "../form/input/InputField";
+import { BROKER_API_BASE } from "../../lib/brokerApi";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5000";
+const API_BASE = BROKER_API_BASE;
 
 type Portal = "broker" | "sub-broker" | "loan-officer";
 
@@ -28,6 +35,46 @@ function validatePassword(password: string) {
   return null;
 }
 
+const RULES = [
+  { id: "len", label: "At least 8 characters", test: (p: string) => p.length >= 8 },
+  { id: "upper", label: "One uppercase letter", test: (p: string) => /[A-Z]/.test(p) },
+  { id: "lower", label: "One lowercase letter", test: (p: string) => /[a-z]/.test(p) },
+  { id: "num", label: "One number", test: (p: string) => /[0-9]/.test(p) },
+  {
+    id: "special",
+    label: "One special character",
+    test: (p: string) => /[^A-Za-z0-9]/.test(p),
+  },
+];
+
+function inputWrap(hasError: boolean) {
+  return `flex items-center gap-3 rounded-xl border px-4 py-3.5 transition focus-within:ring-2 focus-within:ring-[#13538A]/30 ${
+    hasError
+      ? "border-red-300 bg-red-50 dark:border-red-500/50 dark:bg-red-950/20"
+      : "border-gray-200 bg-gray-50 focus-within:border-[#13538A] focus-within:bg-white dark:border-gray-700 dark:bg-gray-900 dark:focus-within:border-cyan-500 dark:focus-within:bg-gray-900"
+  }`;
+}
+
+function MobileBrand() {
+  return (
+    <div className="mb-8 flex items-center gap-3 lg:hidden">
+      <img
+        src="/loanAutomation.jpeg"
+        alt="Loan Automation"
+        className="h-12 w-12 rounded-full ring-2 ring-[#13538A]/20"
+      />
+      <div>
+        <p className="text-lg font-bold text-[#13538A] dark:text-cyan-400">
+          Loan Automation
+        </p>
+        <p className="text-[10px] font-medium uppercase tracking-wider text-gray-400">
+          Broker Dashboard
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export default function ResetPasswordForm({
   token,
   portal = "broker",
@@ -44,14 +91,20 @@ export default function ResetPasswordForm({
   const [accountEmail, setAccountEmail] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
+  const [confirmError, setConfirmError] = useState<string | undefined>();
 
   const signInPath = getSignInPath(portal);
+
+  const ruleStatus = useMemo(
+    () => RULES.map((rule) => ({ ...rule, ok: rule.test(password) })),
+    [password],
+  );
 
   useEffect(() => {
     const validateToken = async () => {
       try {
         const res = await fetch(
-          `${API_BASE}/broker/auth/reset-password/validate?token=${encodeURIComponent(token)}`
+          `${API_BASE}/broker/auth/reset-password/validate?token=${encodeURIComponent(token)}`,
         );
         const json = await res.json();
 
@@ -69,7 +122,7 @@ export default function ResetPasswordForm({
       }
     };
 
-    validateToken();
+    void validateToken();
   }, [token]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -82,12 +135,14 @@ export default function ResetPasswordForm({
     }
 
     if (password !== confirmPassword) {
+      setConfirmError("Passwords do not match");
       toast.error("Passwords do not match");
       return;
     }
 
+    setConfirmError(undefined);
     setIsSubmitting(true);
-    const toastId = toast.loading("Resetting password...");
+    const toastId = toast.loading("Saving your password...");
 
     try {
       const res = await fetch(`${API_BASE}/broker/auth/reset-password`, {
@@ -103,11 +158,13 @@ export default function ResetPasswordForm({
       }
 
       setIsComplete(true);
-      toast.success(json.message || "Password reset successfully", {
+      toast.success(json.message || "Password updated successfully", {
         id: toastId,
       });
-    } catch (err: any) {
-      toast.error(err.message || "Unable to reset password", { id: toastId });
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "Unable to reset password";
+      toast.error(message, { id: toastId });
     } finally {
       setIsSubmitting(false);
     }
@@ -115,126 +172,233 @@ export default function ResetPasswordForm({
 
   if (isValidating) {
     return (
-      <div className="flex flex-col flex-1 justify-center w-full max-w-md mx-auto">
-        <p className="text-sm text-gray-500 dark:text-gray-400">
-          Validating reset link...
-        </p>
+      <div className="w-full">
+        <MobileBrand />
+        <div className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-5 dark:border-gray-800 dark:bg-gray-900">
+          <span className="h-5 w-5 animate-spin rounded-full border-2 border-[#13538A] border-t-transparent" />
+          <p className="text-sm text-gray-600 dark:text-gray-300">
+            Validating your secure link…
+          </p>
+        </div>
       </div>
     );
   }
 
   if (!isTokenValid) {
     return (
-      <div className="flex flex-col flex-1 justify-center w-full max-w-md mx-auto">
-        <h1 className="mb-2 font-semibold text-gray-800 text-title-sm dark:text-white/90 sm:text-title-md">
-          Invalid or expired link
-        </h1>
-        <p className="mb-6 text-sm text-gray-500 dark:text-gray-400">
-          This password reset link is invalid or has expired. Request a new one.
-        </p>
-        <Link
-          to={`/reset-password${portal !== "broker" ? `?portal=${portal}` : ""}`}
-          className="inline-flex justify-center w-full px-4 py-2 text-sm text-white rounded-md bg-blue-600 hover:bg-blue-700"
+      <div className="w-full">
+        <MobileBrand />
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="rounded-2xl border border-amber-200 bg-amber-50/80 p-6 dark:border-amber-500/30 dark:bg-amber-950/20"
         >
-          Request new link
-        </Link>
+          <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
+            Link expired or invalid
+          </h1>
+          <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+            This password link can only be used once and expires quickly.
+            Request a fresh link to continue.
+          </p>
+          <div className="mt-6 flex flex-col gap-3">
+            <Link
+              to={`/reset-password${portal !== "broker" ? `?portal=${portal}` : ""}`}
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-linear-to-r from-[#13538A] to-[#1a6aad] px-5 py-3.5 text-sm font-semibold text-white shadow-lg shadow-[#13538A]/25"
+            >
+              Request new link
+              <ArrowRight size={16} />
+            </Link>
+            <Link
+              to={signInPath}
+              className="text-center text-sm font-medium text-[#13538A] dark:text-cyan-400"
+            >
+              Back to sign in
+            </Link>
+          </div>
+        </motion.div>
       </div>
     );
   }
 
   if (isComplete) {
     return (
-      <div className="flex flex-col flex-1 justify-center w-full max-w-md mx-auto">
-        <h1 className="mb-2 font-semibold text-gray-800 text-title-sm dark:text-white/90 sm:text-title-md">
-          Password updated
-        </h1>
-        <p className="mb-6 text-sm text-gray-500 dark:text-gray-400">
-          Your password has been reset. You can now sign in with your new password.
-        </p>
-        <Link
-          to={signInPath}
-          className="inline-flex justify-center w-full px-4 py-2 text-sm text-white rounded-md bg-blue-600 hover:bg-blue-700"
+      <div className="w-full">
+        <MobileBrand />
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-center"
         >
-          Sign in
-        </Link>
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
+            <CheckCircle2 size={32} />
+          </div>
+          <h1 className="mt-5 text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
+            Password ready
+          </h1>
+          <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+            Your broker account password is updated. Sign in to open your
+            dashboard.
+          </p>
+          <Link
+            to={signInPath}
+            className="mt-8 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-linear-to-r from-[#13538A] to-[#1a6aad] px-5 py-3.5 text-sm font-semibold text-white shadow-lg shadow-[#13538A]/25"
+          >
+            Sign in to dashboard
+            <ArrowRight size={16} />
+          </Link>
+        </motion.div>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col flex-1">
-      <div className="flex flex-col justify-center flex-1 w-full max-w-md mx-auto">
-        <div className="mb-5 sm:mb-8">
-          <h1 className="mb-2 font-semibold text-gray-800 text-title-sm dark:text-white/90 sm:text-title-md">
-            Set new password
-          </h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            {accountEmail
-              ? `Create a new password for ${accountEmail}.`
-              : "Create a new password for your account."}
-          </p>
-        </div>
+    <div className="w-full">
+      <MobileBrand />
 
-        <form onSubmit={handleSubmit}>
-          <div className="space-y-6">
-            <div>
-              <Label>
-                New password <span className="text-error-500">*</span>
-              </Label>
-              <div className="relative">
-                <Input
-                  type={showPassword ? "text" : "password"}
-                  placeholder="Enter new password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
-                <span
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute z-30 -translate-y-1/2 cursor-pointer right-4 top-1/2"
-                >
-                  {showPassword ? (
-                    <EyeIcon className="fill-gray-500 dark:fill-gray-400 size-5" />
-                  ) : (
-                    <EyeCloseIcon className="fill-gray-500 dark:fill-gray-400 size-5" />
-                  )}
-                </span>
-              </div>
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4 }}
+      >
+        <span className="mb-4 inline-flex items-center gap-1.5 rounded-full border border-[#13538A]/20 bg-[#13538A]/5 px-3 py-1 text-xs font-semibold text-[#13538A] dark:border-cyan-500/30 dark:bg-cyan-500/10 dark:text-cyan-300">
+          <ShieldCheck size={12} />
+          Secure setup
+        </span>
+
+        <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
+          Set your password
+        </h1>
+        <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+          {accountEmail
+            ? (
+                <>
+                  Create a password for{" "}
+                  <span className="font-medium text-gray-700 dark:text-gray-200">
+                    {accountEmail}
+                  </span>
+                  .
+                </>
+              )
+            : "Create a password for your broker account."}
+        </p>
+
+        <form onSubmit={handleSubmit} className="mt-8 space-y-5">
+          <div>
+            <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+              New password
+            </label>
+            <div className={inputWrap(false)}>
+              <LockKeyhole size={18} className="text-gray-400" />
+              <input
+                type={showPassword ? "text" : "password"}
+                autoComplete="new-password"
+                placeholder="Create a strong password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full bg-transparent text-sm text-gray-900 outline-none placeholder:text-gray-400 dark:text-white"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                className="text-gray-400 transition hover:text-gray-600 dark:hover:text-gray-300"
+                aria-label={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
             </div>
-
-            <div>
-              <Label>
-                Confirm password <span className="text-error-500">*</span>
-              </Label>
-              <div className="relative">
-                <Input
-                  type={showConfirmPassword ? "text" : "password"}
-                  placeholder="Confirm new password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                />
-                <span
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute z-30 -translate-y-1/2 cursor-pointer right-4 top-1/2"
-                >
-                  {showConfirmPassword ? (
-                    <EyeIcon className="fill-gray-500 dark:fill-gray-400 size-5" />
-                  ) : (
-                    <EyeCloseIcon className="fill-gray-500 dark:fill-gray-400 size-5" />
-                  )}
-                </span>
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              className="w-full px-4 py-2 text-sm text-white rounded-md bg-blue-600 disabled:opacity-60"
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? "Saving..." : "Reset password"}
-            </button>
           </div>
+
+          <ul className="grid grid-cols-1 gap-1.5 rounded-xl border border-gray-100 bg-gray-50/80 p-3 sm:grid-cols-2 dark:border-gray-800 dark:bg-gray-900/60">
+            {ruleStatus.map((rule) => (
+              <li
+                key={rule.id}
+                className={`flex items-center gap-2 text-xs ${
+                  rule.ok
+                    ? "text-emerald-600 dark:text-emerald-400"
+                    : "text-gray-400"
+                }`}
+              >
+                <CheckCircle2 size={14} className="shrink-0" />
+                {rule.label}
+              </li>
+            ))}
+          </ul>
+
+          <div>
+            <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+              Confirm password
+            </label>
+            <div className={inputWrap(Boolean(confirmError))}>
+              <LockKeyhole
+                size={18}
+                className={confirmError ? "text-red-400" : "text-gray-400"}
+              />
+              <input
+                type={showConfirmPassword ? "text" : "password"}
+                autoComplete="new-password"
+                placeholder="Re-enter password"
+                value={confirmPassword}
+                onChange={(e) => {
+                  setConfirmPassword(e.target.value);
+                  setConfirmError(undefined);
+                }}
+                className="w-full bg-transparent text-sm text-gray-900 outline-none placeholder:text-gray-400 dark:text-white"
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword((v) => !v)}
+                className="text-gray-400 transition hover:text-gray-600 dark:hover:text-gray-300"
+                aria-label={
+                  showConfirmPassword ? "Hide password" : "Show password"
+                }
+              >
+                {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
+            {confirmError && (
+              <p className="mt-1.5 text-xs font-medium text-red-500">
+                {confirmError}
+              </p>
+            )}
+          </div>
+
+          <motion.button
+            whileTap={{ scale: 0.98 }}
+            type="submit"
+            disabled={isSubmitting}
+            className="group flex w-full items-center justify-center gap-2 rounded-xl bg-linear-to-r from-[#13538A] to-[#1a6aad] px-5 py-3.5 text-sm font-semibold text-white shadow-lg shadow-[#13538A]/25 transition hover:shadow-[#13538A]/40 disabled:cursor-not-allowed disabled:opacity-70"
+          >
+            {isSubmitting ? (
+              <>
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                Saving…
+              </>
+            ) : (
+              <>
+                Save password & continue
+                <ArrowRight
+                  size={18}
+                  className="transition-transform group-hover:translate-x-0.5"
+                />
+              </>
+            )}
+          </motion.button>
         </form>
-      </div>
+
+        <p className="mt-6 text-center text-sm text-gray-500 dark:text-gray-400">
+          Already set up?{" "}
+          <Link
+            to={signInPath}
+            className="font-semibold text-[#13538A] hover:underline dark:text-cyan-400"
+          >
+            Sign in
+          </Link>
+        </p>
+      </motion.div>
+
+      <p className="mt-8 text-center text-xs text-gray-400">
+        Developed by Vibrantick Infotech Solutions
+      </p>
     </div>
   );
 }

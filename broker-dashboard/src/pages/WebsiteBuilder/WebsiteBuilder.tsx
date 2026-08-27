@@ -16,15 +16,19 @@ import WebsiteCard from "./WebsiteCard";
 export default function WebsiteBuilder() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [connected, setConnected] = useState(false);
+  const [oauthConnected, setOauthConnected] = useState(false);
+  const [agencyReady, setAgencyReady] = useState(false);
+  const [agencyDashboardUrl, setAgencyDashboardUrl] = useState<string | null>(null);
   const [websites, setWebsites] = useState<GhlWebsite[]>([]);
   const [, setCapabilities] = useState<GhlWebsiteCapabilities | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [ghlLocationId, setGhlLocationId] = useState<string | null>(null);
 
-  const ghlDashboardUrl = ghlLocationId
-    ? `https://app.gohighlevel.com/v2/location/${encodeURIComponent(ghlLocationId)}/dashboard`
-    : "https://app.gohighlevel.com";
+  const ghlDashboardUrl =
+    agencyDashboardUrl ||
+    (ghlLocationId
+      ? `https://app.gohighlevel.com/v2/location/${encodeURIComponent(ghlLocationId)}/dashboard`
+      : "https://app.gohighlevel.com");
 
   const loadWebsites = useCallback(async (silent = false) => {
     try {
@@ -33,15 +37,24 @@ export default function WebsiteBuilder() {
       setError(null);
 
       const status = await fetchGhlConnectionStatus();
+      const agency = status.agencyLocation;
+      const hasAgency = Boolean(agency?.provisioned && agency?.dashboardUrl);
+      setAgencyReady(hasAgency);
+      setAgencyDashboardUrl(agency?.dashboardUrl ?? null);
+
+      if (hasAgency) {
+        setGhlLocationId(agency?.ghlLocationId ?? null);
+      }
+
       if (!status.connected) {
-        setConnected(false);
+        setOauthConnected(false);
         setWebsites([]);
-        setGhlLocationId(null);
+        if (!hasAgency) setGhlLocationId(null);
         return;
       }
 
-      setConnected(true);
-      setGhlLocationId(status.ghlLocationId ?? null);
+      setOauthConnected(true);
+      setGhlLocationId(status.ghlLocationId ?? agency?.ghlLocationId ?? null);
       const data = await fetchGhlWebsites({ limit: 20, offset: 0 });
       setWebsites(data.websites);
       setCapabilities(data.capabilities);
@@ -74,7 +87,7 @@ export default function WebsiteBuilder() {
           </p>
         </div>
 
-        {connected ? (
+        {oauthConnected || agencyReady ? (
           <button
             type="button"
             onClick={() => void loadWebsites(true)}
@@ -87,28 +100,35 @@ export default function WebsiteBuilder() {
         ) : null}
       </div>
 
-      {connected ? (
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-indigo-200 bg-indigo-50 px-5 py-4 dark:border-indigo-500/20 dark:bg-indigo-500/10">
-          <p className="text-sm text-indigo-800 dark:text-indigo-200">
-            Websites, templates, pages, and publishing are managed directly in GoHighLevel.
+      {agencyReady || oauthConnected ? (
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-[#13538A]/20 bg-[#13538A]/5 px-5 py-4 dark:border-[#13538A]/30 dark:bg-[#13538A]/10">
+          <p className="text-sm text-slate-700 dark:text-slate-200">
+            {agencyReady
+              ? "Your included CRM has the website builder. Create and publish sites in GoHighLevel."
+              : "Websites, templates, pages, and publishing are managed directly in GoHighLevel."}
           </p>
           <a
             href={ghlDashboardUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700"
+            className="inline-flex items-center gap-2 rounded-lg bg-[#13538A] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#0f4270]"
           >
             <ExternalLink className="h-4 w-4" />
-            Open GoHighLevel Dashboard
+            Open CRM dashboard
           </a>
         </div>
       ) : null}
 
       {loading ? (
         <div className="flex min-h-[280px] items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+          <Loader2 className="h-8 w-8 animate-spin text-[#13538A]" />
         </div>
-      ) : !connected ? (
+      ) : !oauthConnected && agencyReady ? (
+        <WebsiteBuilderEmptyState
+          variant="agency-ready"
+          dashboardUrl={agencyDashboardUrl}
+        />
+      ) : !oauthConnected && !agencyReady ? (
         <WebsiteBuilderEmptyState variant="no-connection" />
       ) : error ? (
         <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-center dark:border-red-500/30 dark:bg-red-500/10">

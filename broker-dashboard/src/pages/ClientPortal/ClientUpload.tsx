@@ -1,4 +1,4 @@
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
 import {
@@ -566,6 +566,8 @@ function ApplicationWorkspaceHeader({
 
 export default function ClientUpload() {
   const { token } = useParams<{ token: string }>();
+  const navigate = useNavigate();
+  const location = useLocation();
   const sigRef = useRef<SignatureCanvas | null>(null);
   const applicationsSectionRef = useRef<HTMLDivElement | null>(null);
   const [signature, setSignature] = useState<string>("");
@@ -1181,6 +1183,33 @@ export default function ClientUpload() {
 
     await openApplicationTab(tab);
   };
+
+  useEffect(() => {
+    const resume = location.state as
+      | { resumeApplicationId?: string; resumeTab?: typeof activeTab }
+      | null;
+    if (!resume?.resumeApplicationId) return;
+
+    let cancelled = false;
+    (async () => {
+      await fetchApplicationDetails(resume.resumeApplicationId!, {
+        keepCurrentTab: true,
+      });
+      if (cancelled) return;
+      const nextTab = resume.resumeTab || "signDocuments";
+      setActiveTab(nextTab);
+      if (nextTab === "signDocuments" || nextTab === "feeAgreement") {
+        setTabRefreshKey((key) => key + 1);
+      }
+      navigate(location.pathname, { replace: true, state: {} });
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // Only run when resume state arrives from sign-document pages.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.state]);
 
   const handleBackToApplications = () => {
     setSelectedApplication(null);

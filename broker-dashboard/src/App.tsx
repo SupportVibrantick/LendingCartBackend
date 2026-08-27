@@ -53,6 +53,7 @@ import LoanApplication from "./pages/LoanApplication/LoanApplication";
 import ContactPage from "./pages/Contacts/ContactPage";
 import BorrowersPage from "./pages/CRM/Borrowers";
 import ClientUpload from "./pages/ClientPortal/ClientUpload";
+import ClientSignDocumentPage from "./pages/ClientPortal/ClientSignDocumentPage";
 import ClientProtected from "./pages/ClientPortal/ClientProtected";
 import ClientAuth from "./pages/ClientPortal/ClientAuth";
 import ClientImpersonateLogin from "./pages/ClientPortal/ClientImpersonateLogin";
@@ -456,6 +457,15 @@ export default function App() {
             element={
               <ClientProtected>
                 <ClientUpload />
+              </ClientProtected>
+            }
+          />
+
+          <Route
+            path="/client-portal/sign-document"
+            element={
+              <ClientProtected>
+                <ClientSignDocumentPage />
               </ClientProtected>
             }
           />

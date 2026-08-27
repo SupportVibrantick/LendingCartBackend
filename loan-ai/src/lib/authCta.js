@@ -83,7 +83,7 @@ export function getExploreDashboardCta(auth) {
  */
 export function getAuthenticatedRedirectPath(user, planState = {}) {
   if (planState.packageId) {
-    return { pathname: "/checkout", state: planState };
+    return { pathname: "/subscribe", state: planState };
   }
   if (user?.hasBrokerSubscription) {
     return { pathname: "/" };

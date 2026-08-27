@@ -42,11 +42,48 @@ function resolveCheckoutLiveMode(explicit) {
   if (typeof explicit === "boolean") return explicit;
   return isGhlPaymentsLiveMode();
 }
+
+/**
+ * GHL invoices require E.164 phone (e.g. +15551234567).
+ * Accepts digits / local US numbers and normalizes.
+ */
+function toE164Phone(phone, defaultCountryCode = "1") {
+  if (phone == null || phone === "") return null;
+  const raw = String(phone).trim();
+  if (!raw) return null;
+
+  if (raw.startsWith("+")) {
+    const digits = raw.slice(1).replace(/\D/g, "");
+    return digits ? `+${digits}` : null;
+  }
+
+  const digits = raw.replace(/\D/g, "");
+  if (!digits) return null;
+
+  const cc = String(
+    process.env.GHL_DEFAULT_PHONE_COUNTRY_CODE || defaultCountryCode,
+  ).replace(/\D/g, "") || "1";
+
+  if (digits.length === 10) {
+    return `+${cc}${digits}`;
+  }
+  if (digits.length === 11 && digits.startsWith(cc)) {
+    return `+${digits}`;
+  }
+  if (digits.length >= 10 && digits.length <= 15) {
+    return `+${digits}`;
+  }
+  return null;
+}
+
 function mapPaymentServiceError(err) {
   if (err?.code && Object.values(CHECKOUT_ERROR_CODES).includes(err.code)) {
     return err;
   }
   const message = String(err?.message || "");
+  if (/E\.164|phone number must be/i.test(message)) {
+    return checkoutError(CHECKOUT_ERROR_CODES.VALIDATION_FAILED, 400);
+  }
   if (/unauthorized \(401\)|ghl unauthorized|api key/i.test(message)) {
     return checkoutError(CHECKOUT_ERROR_CODES.GHL_AUTH_FAILED, 502);
   }
@@ -185,13 +222,18 @@ function appendRedirectParams(checkoutUrl, { successUrl, cancelUrl } = {}) {
   try {
     const url = new URL(checkoutUrl);
     if (successUrl) {
+      // GHL FastPay / invoice UIs have used several query names over time.
       url.searchParams.set("redirectUrl", successUrl);
+      url.searchParams.set("redirect_url", successUrl);
+      url.searchParams.set("successUrl", successUrl);
       if (!url.searchParams.has("redirectIn")) {
-        url.searchParams.set("redirectIn", "3");
+        // Seconds before auto-redirect after paid (GHL invoice UI).
+        url.searchParams.set("redirectIn", "2");
       }
     }
     if (cancelUrl) {
       url.searchParams.set("cancelUrl", cancelUrl);
+      url.searchParams.set("cancel_url", cancelUrl);
     }
     return url.toString();
   } catch {
@@ -326,6 +368,8 @@ async function createGhlInvoice({
     ? String(contact.email).trim().toLowerCase()
     : null;
 
+  const phoneE164 = toE164Phone(contact.phone);
+
   const payload = {
     altId: locationId,
     altType: "location",
@@ -339,7 +383,7 @@ async function createGhlInvoice({
       id: contact.ghlContactId || contact.id,
       name: contactName,
       email: contactEmail,
-      ...(contact.phone ? { phoneNo: contact.phone } : {}),
+      ...(phoneE164 ? { phoneNo: phoneE164 } : {}),
       ...(contact.companyName ? { companyName: contact.companyName } : {}),
     },
     items: [
@@ -365,7 +409,7 @@ async function createGhlInvoice({
       email: [contactEmail],
       emailCc: [],
       emailBcc: [],
-      ...(contact.phone ? { phoneNo: [String(contact.phone)] } : {}),
+      ...(phoneE164 ? { phoneNo: [phoneE164] } : {}),
     };
   }
 
@@ -677,4 +721,6 @@ module.exports = {
   resolveCheckoutLiveMode,
   normalizePackageCode,
   normalizeBillingCycle,
+  appendRedirectParams,
+  toE164Phone,
 };

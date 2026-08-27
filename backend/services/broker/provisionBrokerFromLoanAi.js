@@ -11,6 +11,117 @@ const {
   PLATFORM_NOTIFICATION_EVENTS,
 } = require("../notifications/platformNotifications");
 
+async function ensureBrokerAdminRole(prisma, userId) {
+  const role = await prisma.role.findFirst({ where: { name: "BROKER_ADMIN" } });
+  if (!role) throw new Error("BROKER_ADMIN role missing");
+  const existing = await prisma.userRole.findFirst({
+    where: { userId, roleId: role.id },
+  });
+  if (!existing) {
+    await prisma.userRole.create({
+      data: { userId, roleId: role.id },
+    });
+  }
+}
+
+/**
+ * Ensures the Loan AI buyer has a broker dashboard login on the org.
+ * Used when payment fulfillment activates an org that was missing a UserAccount
+ * (e.g. renew path / partial provision). Sends welcome email best-effort.
+ */
+async function ensureBrokerAdminAccess(prisma, {
+  organizationId,
+  loanAiUser,
+  firstName,
+  lastName,
+  packageName = "Selected Plan",
+  sendWelcome = true,
+  welcomeIdempotencyKey,
+} = {}) {
+  if (!organizationId || !loanAiUser?.email) {
+    throw Object.assign(new Error("organizationId and loanAiUser are required"), {
+      statusCode: 400,
+    });
+  }
+
+  const loginEmail = String(loanAiUser.email).trim().toLowerCase();
+  const resolvedFirstName =
+    String(firstName || loanAiUser.firstName || "").trim() || "there";
+  const resolvedLastName =
+    String(lastName || loanAiUser.lastName || "").trim() || "Broker";
+
+  let brokerAdmin = await prisma.userAccount.findFirst({
+    where: { email: { equals: loginEmail, mode: "insensitive" } },
+  });
+
+  let created = false;
+  if (!brokerAdmin) {
+    const passwordHash = await bcrypt.hash(generateTempPassword(), 10);
+    brokerAdmin = await prisma.userAccount.create({
+      data: {
+        organizationId,
+        email: loginEmail,
+        passwordHash,
+        firstName: resolvedFirstName,
+        lastName: resolvedLastName,
+        status: "ACTIVE",
+      },
+    });
+    created = true;
+  } else if (brokerAdmin.organizationId !== organizationId) {
+    brokerAdmin = await prisma.userAccount.update({
+      where: { id: brokerAdmin.id },
+      data: {
+        organizationId,
+        firstName: brokerAdmin.firstName || resolvedFirstName,
+        lastName: brokerAdmin.lastName || resolvedLastName,
+        status: "ACTIVE",
+      },
+    });
+  }
+
+  await ensureBrokerAdminRole(prisma, brokerAdmin.id);
+
+  if (loanAiUser.brokerOrganizationId !== organizationId) {
+    await prisma.loanAiUser.update({
+      where: { id: loanAiUser.id },
+      data: {
+        brokerOrganizationId: organizationId,
+        firstName: loanAiUser.firstName || resolvedFirstName,
+        lastName: loanAiUser.lastName || resolvedLastName,
+      },
+    });
+  }
+
+  let welcomeSent = false;
+  if (sendWelcome) {
+    try {
+      const org = await prisma.organization.findUnique({
+        where: { id: organizationId },
+        select: { name: true },
+      });
+      await sendBrokerWelcomeEmail({
+        firstName: resolvedFirstName,
+        email: loginEmail,
+        organizationName: org?.name || "your brokerage",
+        packageName,
+        prisma,
+        idempotencyKey: welcomeIdempotencyKey,
+      });
+      welcomeSent = true;
+    } catch (mailErr) {
+      commonLogs.error("Broker welcome email failed after ensure admin access", mailErr);
+    }
+  }
+
+  return {
+    userId: brokerAdmin.id,
+    email: loginEmail,
+    created,
+    welcomeSent,
+  };
+}
+
 async function rollbackProvisionedBroker(prisma, { organizationId, loanAiUserId }) {
   try {
     const sub = await prisma.organizationSubscription.findFirst({
@@ -259,8 +370,8 @@ async function provisionBrokerFromLoanAi(prisma, io, loanAiUser, payload) {
     const packageName = pkg?.name || "Selected Plan";
 
     await sendBrokerWelcomeEmail({
-      adminFirstName: firstName,
-      adminEmail: loginEmail,
+      firstName,
+      email: loginEmail,
       organizationName: brokerOrg.name,
       packageName,
       prisma,
@@ -309,4 +420,7 @@ async function provisionBrokerFromLoanAi(prisma, io, loanAiUser, payload) {
   }
 }
 
-module.exports = { provisionBrokerFromLoanAi };
+module.exports = {
+  provisionBrokerFromLoanAi,
+  ensureBrokerAdminAccess,
+};

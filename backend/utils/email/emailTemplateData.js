@@ -44,6 +44,18 @@ const CLIENT_LINK_PRESETS = {
       "Complete your electronic signature",
     ],
   },
+  formFillRequired: {
+    emailTitle: "Form to Complete",
+    headline: "Please complete your fillable form",
+    intro:
+      "A lender form is waiting in the client portal. Fill your assigned fields and submit.",
+    ctaLabel: "Fill Form",
+    bulletItems: [
+      "Open the client portal",
+      "Complete the fields assigned to you",
+      "Submit so your broker can finish remaining fields if needed",
+    ],
+  },
   lenderConditional: {
     emailTitle: "Documents Required",
     headline: "Additional documents requested",
@@ -96,6 +108,7 @@ const buildClientLinkEmailData = ({
     ),
     emailTitle: emailTitle || presetValues.emailTitle,
     headline: headline || presetValues.headline,
+    intro: presetValues.intro,
     ctaLabel: ctaLabel || presetValues.ctaLabel,
     bulletItems: presetValues.bulletItems,
   };

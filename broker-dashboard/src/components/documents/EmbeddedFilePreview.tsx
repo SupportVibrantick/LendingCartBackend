@@ -9,6 +9,8 @@ type EmbeddedFilePreviewProps = {
   className?: string;
   iframeClassName?: string;
   imageClassName?: string;
+  /** When true, block interaction with native PDF AcroForm fields (view only). */
+  viewOnly?: boolean;
 };
 
 export default function EmbeddedFilePreview({
@@ -19,6 +21,7 @@ export default function EmbeddedFilePreview({
   className = "flex h-full w-full flex-1 items-center justify-center bg-white",
   iframeClassName = "h-full min-h-[480px] w-full flex-1 bg-white",
   imageClassName = "max-h-full max-w-full rounded-xl object-contain shadow",
+  viewOnly = false,
 }: EmbeddedFilePreviewProps) {
   const { blobUrl, loading, error } = useEmbeddedFilePreview(
     remoteUrl,
@@ -74,13 +77,22 @@ export default function EmbeddedFilePreview({
     );
   }
 
-  if (mimeType?.includes("pdf")) {
+  if (mimeType?.includes("pdf") || /\.pdf(\?|$)/i.test(fileName || remoteUrl || "")) {
     return (
-      <iframe
-        src={blobUrl}
-        title={fileName || "Document preview"}
-        className={iframeClassName}
-      />
+      <div className="relative h-full min-h-0 w-full flex-1">
+        <iframe
+          src={blobUrl}
+          title={fileName || "Document preview"}
+          className={`${iframeClassName} ${viewOnly ? "pointer-events-none" : ""}`}
+        />
+        {viewOnly && (
+          <div
+            className="absolute inset-0 z-10 cursor-default bg-transparent"
+            aria-hidden
+            title="Preview only — form fields are not editable here"
+          />
+        )}
+      </div>
     );
   }
 

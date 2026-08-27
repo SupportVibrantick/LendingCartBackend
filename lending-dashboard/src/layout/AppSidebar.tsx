@@ -70,7 +70,11 @@ const navItems: NavItem[] = [
     name: "Documents",
     description: "Required docs by product",
     path: "/documents",
-    matchPaths: ["/documents"],
+    matchPaths: ["/documents", "/sign-form-templates"],
+    subItems: [
+      { name: "Product documents", path: "/documents" },
+      { name: "Sign form templates", path: "/sign-form-templates" },
+    ],
   },
   {
     icon: UserCircle,
