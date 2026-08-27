@@ -34,9 +34,30 @@ function checkRateLimit(key, options = {}) {
 }
 
 function getClientIp(request) {
-  const forwarded = request.headers?.["x-forwarded-for"];
+  // request.ip is reliable when Fastify is created with trustProxy: true.
+  // Fall back to common proxy headers explicitly for environments where
+  // trustProxy cannot be enabled but we still need the real client IP.
+  const forwarded =
+    (Array.isArray(request.headers?.["x-forwarded-for"])
+      ? request.headers["x-forwarded-for"][0]
+      : request.headers?.["x-forwarded-for"]) || "";
+  const realIp =
+    (Array.isArray(request.headers?.["x-real-ip"])
+      ? request.headers["x-real-ip"][0]
+      : request.headers?.["x-real-ip"]) || "";
+  const cfIp =
+    (Array.isArray(request.headers?.["cf-connecting-ip"])
+      ? request.headers["cf-connecting-ip"][0]
+      : request.headers?.["cf-connecting-ip"]) || "";
+
   if (typeof forwarded === "string" && forwarded.trim()) {
     return forwarded.split(",")[0].trim();
+  }
+  if (typeof realIp === "string" && realIp.trim()) {
+    return realIp.trim();
+  }
+  if (typeof cfIp === "string" && cfIp.trim()) {
+    return cfIp.trim();
   }
   return request.ip || request.socket?.remoteAddress || "unknown";
 }

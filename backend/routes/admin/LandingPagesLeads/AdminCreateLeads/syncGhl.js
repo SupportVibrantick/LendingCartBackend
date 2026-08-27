@@ -1,6 +1,7 @@
 const {
   syncAdminManualLeadToGhl,
 } = require("../../../../services/ghl/bookDemoLeadSync");
+// const { getClientIp } = require("../../../../utils/security/rateLimit");
 
 module.exports = async function (fastify) {
   fastify.addContentTypeParser(
@@ -21,17 +22,17 @@ module.exports = async function (fastify) {
     "/manual-leads/:id/sync-ghl",
     {
       config: {
-        rateLimit: {
-          max: 30,
-          timeWindow: "1 minute",
-          keyGenerator: (req) => `admin:${req.user?.userId ?? req.ip}`,
-          errorResponseBuilder: () => ({
-            statusCode: 429,
-            error: "Too Many Requests",
-            success: false,
-            message: "Too many requests. Please slow down.",
-          }),
-        },
+        // rateLimit: {
+        //   max: 30,
+        //   timeWindow: "1 minute",
+        //   keyGenerator: (req) => `admin-ip:${getClientIp(req)}`,
+        //   errorResponseBuilder: () => ({
+        //     statusCode: 429,
+        //     error: "Too Many Requests",
+        //     success: false,
+        //     message: "Too many requests. Please slow down.",
+        //   }),
+        // },
       },
     },
     async (req, reply) => {
