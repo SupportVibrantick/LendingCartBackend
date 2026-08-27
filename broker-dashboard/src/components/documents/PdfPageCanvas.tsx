@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import * as pdfjs from "pdfjs-dist";
-import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 
-pdfjs.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
+// Stable public URL (copied by vite copy-pdf-worker plugin). Avoids hashed
+// /assets/pdf.worker.min-*.mjs fetches that fail in production.
+pdfjs.GlobalWorkerOptions.workerSrc = `${import.meta.env.BASE_URL}pdf.worker.min.js`;
 
 type PdfPageCanvasProps = {
   fileUrl: string;
