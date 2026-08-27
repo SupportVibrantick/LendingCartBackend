@@ -1,4 +1,5 @@
 const { LeadStatus } = require("@prisma/client");
+const { getClientIp } = require("../../../../utils/security/rateLimit");
 
 module.exports = async function (fastify) {
   fastify.patch(
@@ -8,7 +9,7 @@ module.exports = async function (fastify) {
         rateLimit: {
           max: 30,
           timeWindow: "1 minute",
-          keyGenerator: (req) => `admin:${req.user?.userId ?? req.ip}`,
+          keyGenerator: (req) => `admin-ip:${getClientIp(req)}`,
           errorResponseBuilder: () => ({
             statusCode: 429,
             error: "Too Many Requests",
