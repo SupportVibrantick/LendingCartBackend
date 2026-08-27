@@ -32,16 +32,6 @@ module.exports = async function lenderRoutes(fastify, opts) {
     instance.register(require("../../plugins/verifyLender"));
 
     instance.addHook("preHandler", async (req, reply) => {
-      // Allow Swagger
-      if (
-        req.url.startsWith("/docs") ||
-        req.url.startsWith("/swagger") ||
-        req.url.includes("/docs") ||
-        req.url.includes("swagger")
-      ) {
-        return;
-      }
-
       // JWT auth
       await instance.authenticate(req, reply);
 

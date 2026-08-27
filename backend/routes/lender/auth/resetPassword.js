@@ -1,5 +1,7 @@
 const bcrypt = require("bcrypt");
-const { LENDER_PORTAL_ROLES } = require("../../../utils/lender/lenderTeamRoles");
+const {
+  LENDER_PORTAL_ROLES,
+} = require("../../../utils/lender/lenderTeamRoles");
 const {
   lenderResetPasswordSchema,
 } = require("../../../schemas/lender/auth/resetPassword.schema");
@@ -11,6 +13,20 @@ async function lenderResetPasswordRoutes(fastify) {
   fastify.post(
     "/",
     {
+      config: {
+        rateLimit: {
+          max: 10,
+          timeWindow: "15 minute",
+          errorResponseBuilder: (request, context) => {
+            return {
+              statusCode: 429,
+              error: "Too Many Requests",
+              success: false,
+              message: "Too many login attempts. Please try again after 15 minutes.",
+            };
+          },
+        },
+      },
       schema: {
         tags: ["Lender -> Auth"],
         summary: "Reset lender portal password using token",

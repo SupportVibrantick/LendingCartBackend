@@ -9,6 +9,18 @@ async function getPublicLenderInviteRoutes(fastify) {
   fastify.get(
     "/:token",
     {
+      config: {
+        rateLimit: {
+          max: 30,
+          timeWindow: "1 minute",
+          errorResponseBuilder: () => ({
+            statusCode: 429,
+            error: "Too Many Requests",
+            success: false,
+            message: "Too many requests. Please slow down.",
+          }),
+        },
+      },
       schema: {
         tags: ["Public -> Lender Invites"],
         summary: "Validate lender invitation token",

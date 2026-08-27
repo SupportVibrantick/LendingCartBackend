@@ -18,6 +18,20 @@ const crypto = require("crypto");
 async function uploadDocumentRoute(fastify) {
   fastify.post(
     "/submissions/:submissionId/documents/:requirementId/upload",
+    {
+      config: {
+        rateLimit: {
+          max: 20,
+          timeWindow: "1 minute",
+          errorResponseBuilder: () => ({
+            statusCode: 429,
+            error: "Too Many Requests",
+            success: false,
+            message: "Too many uploads. Please slow down.",
+          }),
+        },
+      },
+    },
     async (req, reply) => {
       try {
         const { submissionId, requirementId } = req.params;

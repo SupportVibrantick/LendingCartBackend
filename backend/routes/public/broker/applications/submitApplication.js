@@ -31,7 +31,23 @@ const {
 } = require("../../../../services/clientPortal/findOrCreateBorrowerClient");
 
 async function submitApplication(fastify) {
-  fastify.post("/submit", async (req, reply) => {
+  fastify.post(
+    "/submit",
+    {
+      config: {
+        rateLimit: {
+          max: 5,
+          timeWindow: "1 minute",
+          errorResponseBuilder: () => ({
+            statusCode: 429,
+            error: "Too Many Requests",
+            success: false,
+            message: "Too many application submissions. Please slow down.",
+          }),
+        },
+      },
+    },
+    async (req, reply) => {
     const {
       applicationId: brokerApplicationId,
       applicationProductId,

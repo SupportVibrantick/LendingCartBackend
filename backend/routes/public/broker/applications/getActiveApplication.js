@@ -15,7 +15,23 @@ const {
  * @param {import("fastify").FastifyInstance} fastify
  */
 module.exports = async function getPublicActiveApplication(fastify) {
-  fastify.get("/active", async (req, reply) => {
+  fastify.get(
+    "/active",
+    {
+      config: {
+        rateLimit: {
+          max: 30,
+          timeWindow: "1 minute",
+          errorResponseBuilder: () => ({
+            statusCode: 429,
+            error: "Too Many Requests",
+            success: false,
+            message: "Too many requests. Please slow down.",
+          }),
+        },
+      },
+    },
+    async (req, reply) => {
     const ref = String(req.query?.ref || "").trim();
 
     let brokerOrgId = null;

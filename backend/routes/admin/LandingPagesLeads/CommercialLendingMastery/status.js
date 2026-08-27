@@ -1,5 +1,22 @@
 module.exports = async function (fastify) {
-  fastify.patch("/:id/status", async (req, reply) => {
+  fastify.patch(
+    "/:id/status",
+    {
+      config: {
+        rateLimit: {
+          max: 30,
+          timeWindow: "1 minute",
+          keyGenerator: (req) => `admin:${req.user?.userId ?? req.ip}`,
+          errorResponseBuilder: () => ({
+            statusCode: 429,
+            error: "Too Many Requests",
+            success: false,
+            message: "Too many requests. Please slow down.",
+          }),
+        },
+      },
+    },
+    async (req, reply) => {
     const prisma = fastify.prisma;
     const { id } = req.params;
     const { status } = req.body;
