@@ -1,6 +1,5 @@
 // backend/routes/admin/auth/login.js
 const { loginSchema } = require("../../../schemas/admin/login/login.schema.js");
-const { getUserRolesFromFGA } = require("../../../services/auth/fgaService.js");
 const jwt = require("jsonwebtoken");
 const jwtSecret = require("../../../utils/auth/jwtSecret");
 // const prisma = require("../config/prisma.js");
@@ -10,10 +9,25 @@ module.exports = async function adminLoginRoute(fastify, opts) {
   fastify.post(
     "/login",
     {
+      config: {
+        rateLimit: {
+          max: 10,
+          timeWindow: "10 minute",
+          errorResponseBuilder: (request, context) => {
+            return {
+              statusCode: 429,
+              error: "Too Many Requests",
+              success: false,
+              message: "Too many login attempts. try after 10 minutes.",
+            };
+          },
+        },
+      },
       schema: {
         tags: ["Admin Auth"],
         summary: "Admin login",
-        description: "Authenticate an admin user and return a JWT token along with basic user info and roles.",
+        description:
+          "Authenticate an admin user and return a JWT token along with basic user info and roles.",
         body: {
           type: "object",
           required: ["email", "password"],
@@ -71,24 +85,19 @@ module.exports = async function adminLoginRoute(fastify, opts) {
           });
         }
 
-        let fgaRoles = [];
-        try {
-          fgaRoles = await getUserRolesFromFGA(user.id);
-        } catch (e) {
-          fastify.log.warn(
-            "FGA roles fetch failed:",
-            e && e.message ? e.message : e
-          );
-        }
-
         const dbRoles = user.roles?.map((r) => r.role.name) ?? [];
 
         let permissions = [];
         try {
-          const { resolveUserPermissions } = require("../../../services/auth/adminUserPermissions.js");
+          const {
+            resolveUserPermissions,
+          } = require("../../../services/auth/adminUserPermissions.js");
           permissions = await resolveUserPermissions(prisma, user.id, dbRoles);
         } catch (permErr) {
-          fastify.log.warn("Failed to resolve admin permissions:", permErr?.message || permErr);
+          fastify.log.warn(
+            "Failed to resolve admin permissions:",
+            permErr?.message || permErr,
+          );
         }
 
         const token = jwt.sign(
@@ -99,7 +108,7 @@ module.exports = async function adminLoginRoute(fastify, opts) {
             permissions,
           },
           jwtSecret,
-          { expiresIn: "7d" }
+          { expiresIn: "7d" },
         );
 
         const customPermCount = await prisma.userPermission.count({
@@ -115,7 +124,6 @@ module.exports = async function adminLoginRoute(fastify, opts) {
             firstName: user.firstName,
             lastName: user.lastName,
             orgId: user.organizationId,
-            fgaRoles,
             dbRoles,
             permissions,
             hasFullAccess:
@@ -130,6 +138,6 @@ module.exports = async function adminLoginRoute(fastify, opts) {
         fastify.log.error(err);
         return reply.code(500).send({ ok: false, message: "Server error" });
       }
-    }
+    },
   );
 };

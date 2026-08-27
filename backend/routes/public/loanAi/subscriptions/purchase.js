@@ -7,6 +7,18 @@ async function loanAiPurchaseRoutes(fastify) {
     "/",
     {
       preHandler: [fastify.verifyLoanAi],
+      config: {
+        rateLimit: {
+          max: 10,
+          timeWindow: "15 minutes",
+          errorResponseBuilder: () => ({
+            statusCode: 429,
+            error: "Too Many Requests",
+            success: false,
+            message: "Too many purchase attempts. Please try again later.",
+          }),
+        },
+      },
       schema: {
         tags: ["Public -> Loan AI Subscriptions"],
         summary: "Complete subscription purchase (payment placeholder — provisions broker account)",

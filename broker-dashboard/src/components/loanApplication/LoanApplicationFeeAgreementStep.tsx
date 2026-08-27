@@ -3,19 +3,20 @@ import { validateFeeAgreementForm } from "../../lib/feeAgreementDisplayUtils";
 
 export type FeeAgreementDraft = {
   include: boolean;
+  brokerPoints: string;
   upfrontFee: string;
   exclusivityMonths: string;
 };
 
 export const EMPTY_FEE_AGREEMENT_DRAFT: FeeAgreementDraft = {
   include: false,
+  brokerPoints: "",
   upfrontFee: "",
   exclusivityMonths: "",
 };
 
 type LoanApplicationFeeAgreementStepProps = {
   draft: FeeAgreementDraft;
-  brokerPoints: string;
   errors: Record<string, string>;
   onChange: (draft: FeeAgreementDraft) => void;
   stepNumber: number;
@@ -23,12 +24,11 @@ type LoanApplicationFeeAgreementStepProps = {
 
 export function validateOptionalFeeAgreementDraft(
   draft: FeeAgreementDraft,
-  brokerPoints: string,
 ): Record<string, string> {
   if (!draft.include) return {};
 
   const result = validateFeeAgreementForm({
-    brokerPoints,
+    brokerPoints: draft.brokerPoints,
     upfrontFee: draft.upfrontFee,
     exclusivityMonths: draft.exclusivityMonths,
   });
@@ -48,7 +48,6 @@ export function validateOptionalFeeAgreementDraft(
 
 export default function LoanApplicationFeeAgreementStep({
   draft,
-  brokerPoints,
   errors,
   onChange,
   stepNumber,
@@ -88,21 +87,25 @@ export default function LoanApplicationFeeAgreementStep({
         <div className="mt-6 grid grid-cols-1 gap-5 md:grid-cols-2">
           <div>
             <label className="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">
-              Broker Points (%)
+              Broker Points (%){" "}
+              <span className="text-red-500">*</span>
             </label>
             <input
               type="number"
               min={0}
               max={100}
               step="0.01"
-              value={brokerPoints}
-              disabled
-              readOnly
-              className="w-full cursor-not-allowed rounded-md border border-slate-200 bg-slate-100 px-4 py-2 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400"
+              value={draft.brokerPoints}
+              onChange={(event) =>
+                onChange({ ...draft, brokerPoints: event.target.value })
+              }
+              placeholder="e.g. 1.0"
+              className={`w-full rounded-md border px-4 py-2 text-sm outline-none dark:bg-slate-900 dark:text-slate-200 ${
+                errors["feeAgreement.brokerPoints"]
+                  ? "border-red-500 bg-red-50"
+                  : "border-slate-300 dark:border-slate-600"
+              }`}
             />
-            <p className="mt-1 text-xs text-slate-500">
-              Loaded from the Loan Request step.
-            </p>
             {errors["feeAgreement.brokerPoints"] && (
               <p className="mt-1 text-xs text-red-500">
                 {errors["feeAgreement.brokerPoints"]}
@@ -142,7 +145,7 @@ export default function LoanApplicationFeeAgreementStep({
             </label>
             <input
               type="number"
-              min={1}
+              min={0}
               step="1"
               value={draft.exclusivityMonths}
               onChange={(event) =>
