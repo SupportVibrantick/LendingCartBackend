@@ -1,5 +1,13 @@
 import { brokerFetch } from "./brokerApi";
 
+export type GhlAgencyLocationStatus = {
+  provisioned: boolean;
+  status: string;
+  packageCode?: string | null;
+  ghlLocationId?: string | null;
+  dashboardUrl?: string | null;
+};
+
 export type GhlConnectionStatus = {
   connected: boolean;
   status: string;
@@ -11,6 +19,7 @@ export type GhlConnectionStatus = {
   tokenExpiresAt?: string | null;
   lastError?: string | null;
   updatedAt?: string | null;
+  agencyLocation?: GhlAgencyLocationStatus | null;
 };
 
 type StatusResponse = {
@@ -47,6 +56,34 @@ export function isBrokerAdmin(): boolean {
 export async function fetchGhlConnectionStatus(): Promise<GhlConnectionStatus> {
   const json = await brokerFetch<StatusResponse>("/broker/integrations/ghl/status");
   return json.data;
+}
+
+type AgencySyncResponse = {
+  success: boolean;
+  message?: string;
+  code?: string;
+  data?: {
+    agencyLocation?: GhlAgencyLocationStatus | null;
+    action?: string;
+    usersProvisioned?: number | null;
+  };
+};
+
+/**
+ * Retry Agency CRM location create/sync for Pro/Elite orgs.
+ */
+export async function syncAgencyCrmLocation(): Promise<{
+  agencyLocation?: GhlAgencyLocationStatus | null;
+  message?: string;
+}> {
+  const json = await brokerFetch<AgencySyncResponse>(
+    "/broker/integrations/ghl/agency/sync",
+    { method: "POST" },
+  );
+  return {
+    agencyLocation: json.data?.agencyLocation ?? null,
+    message: json.message,
+  };
 }
 
 export async function startGhlOAuthConnect(): Promise<string> {
@@ -102,7 +139,12 @@ export function sanitizeGhlCallbackMessage(message?: string | null): string {
 export function formatGhlConnectionStatusLabel(status?: string | null): string {
   switch (String(status || "").toUpperCase()) {
     case "CONNECTED":
+    case "ACTIVE":
       return "Connected";
+    case "PENDING":
+    case "NONE":
+    case "INACTIVE":
+      return "Pending setup";
     case "DISCONNECTED":
       return "Disconnected";
     case "ERROR":

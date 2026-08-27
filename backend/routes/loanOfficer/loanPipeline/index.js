@@ -31,6 +31,7 @@ async function loanOfficerLoanPipelineRoutes(fastify) {
   await fastify.register(require("./sendClientLink"));
   await fastify.register(require("./feeAgreement"));
   await fastify.register(require("./signDocuments"));
+  await fastify.register(require("../../broker/loanPipeline/signForm"));
   await fastify.register(
     require("../../broker/loanPipeline/getClientApplicationLink")({
       sourcePortal: "LOAN_OFFICER",

@@ -1,14 +1,7 @@
-const sendMail = require("../../../services/emails/mail");
-const { loadTemplate } = require("../../../utils/email/loadTemplate");
-const { buildClientLinkEmailData } = require("../../../utils/email/emailTemplateData");
 const {
   formatSignDocumentRequirement,
   REQUEST_APPLICATION_LENDER_INCLUDE,
 } = require("../../../utils/documents/formatSignDocument");
-const {
-  notifyClient,
-  CLIENT_NOTIFICATION_EVENTS,
-} = require("../../../services/notifications/clientNotifications");
 const {
   applyDocumentSendStatusUpdates,
 } = require("../../../services/documents/applyDocumentSendStatusUpdates");
@@ -17,7 +10,14 @@ const {
   getLenderDocumentDeliveryBlockMessage,
 } = require("../../../utils/lender/lenderDocumentDelivery");
 const { extraOfficerPermission } = require("../../../services/broker/loanOfficerAccess");
-const { buildClientPortalUrl } = require("../../../utils/email/emailBranding");
+const {
+  notifyClientSignDocumentRequested,
+  notifyLenderSignedDocumentForwarded,
+} = require("../../../services/documents/signForm/signDocumentNotify");
+const { isDynamicForm } = require("../../../utils/documents/signDocumentWorkflow");
+const {
+  buildSignDocumentDownload,
+} = require("../../../services/documents/signForm/exportFilledForm.service");
 
 function assertLoanOfficerSubmissionAccess(req, submission) {
   const brokerOrgId = req.user.organizationId;
@@ -81,6 +81,12 @@ module.exports = async function loanOfficerSignDocuments(fastify) {
               },
               requestApplicationLender: {
                 include: REQUEST_APPLICATION_LENDER_INCLUDE,
+              },
+              activeFormVersion: true,
+              signFormSubmissions: {
+                orderBy: { createdAt: "desc" },
+                take: 1,
+                include: { values: true },
               },
             },
             orderBy: { createdAt: "desc" },
@@ -166,12 +172,44 @@ module.exports = async function loanOfficerSignDocuments(fastify) {
         }
 
         if (
-          requirement.signStatus === "CLIENT_SIGNED" ||
-          requirement.signStatus === "FORWARDED_TO_LENDER"
+          requirement.signMode === "DYNAMIC_FORM" &&
+          !requirement.activeFormVersionId
         ) {
           return reply.code(400).send({
             success: false,
-            message: "Document already signed by client",
+            message:
+              "Lender must publish fillable form fields before sending to client",
+          });
+        }
+
+        if (
+          requirement.signStatus === "FORWARDED_TO_LENDER" ||
+          requirement.signStatus === "LENDER_SEEN"
+        ) {
+          return reply.code(400).send({
+            success: false,
+            message: "Document already forwarded to lender",
+          });
+        }
+
+        if (
+          requirement.signStatus === "CLIENT_SIGNED" &&
+          requirement.signMode === "DYNAMIC_FORM"
+        ) {
+          await fastify.prisma.$transaction(async (tx) => {
+            await tx.applicationDocumentUpload.deleteMany({
+              where: {
+                documentRequirementId: requirement.id,
+                isSignedOutput: true,
+              },
+            });
+            await tx.signFormSubmission.updateMany({
+              where: { requirementId: requirement.id },
+              data: {
+                status: "DRAFT",
+                submittedAt: null,
+              },
+            });
           });
         }
 
@@ -181,6 +219,7 @@ module.exports = async function loanOfficerSignDocuments(fastify) {
             signStatus: "SENT_TO_CLIENT",
             sentToClientAt: new Date(),
             status: "PENDING",
+            clientSignedAt: null,
           },
           include: {
             documentType: true,
@@ -188,58 +227,32 @@ module.exports = async function loanOfficerSignDocuments(fastify) {
             requestApplicationLender: {
               include: REQUEST_APPLICATION_LENDER_INCLUDE,
             },
+            activeFormVersion: true,
+            signFormSubmissions: {
+              orderBy: { createdAt: "desc" },
+              take: 1,
+              include: { values: true },
+            },
           },
         });
 
         const client = submission.application.client;
-        const contact =
-          client?.contacts?.find((item) => item.isPrimary && item.email) ||
-          client?.contacts?.find((item) => item.email);
-        const clientEmail = contact?.email;
-
-        if (client?.id) {
-          await notifyClient(fastify.prisma, fastify.io, {
-            clientId: client.id,
-            eventType: CLIENT_NOTIFICATION_EVENTS.DOCUMENTS_REQUESTED,
-            category: "DOCUMENTS",
-            subject: "Document signature required",
-            body: `Please review and sign: ${requirement.documentType?.name || "Document"}`,
-            metadata: {
-              loanApplicationId: submission.application.id,
-              requirementId: requirement.id,
-              signDocument: true,
-            },
-          });
-        }
-
-        if (clientEmail) {
-          const portalLink = buildClientPortalUrl({ path: "/client-portal" });
-          const html = loadTemplate(
-            "broker/clientLink",
-            buildClientLinkEmailData({
-              clientName: client?.legalName,
-              uploadLink: portalLink,
-              applicationNumber: submission.application.applicationNumber,
-              brokerName: req.user.firstName,
-              message: `Please sign the requested document: ${requirement.documentType?.name || "Document"}`,
-              preset: "signatureRequired",
-            }),
-          );
-
-          try {
-            await sendMail({
-              to: clientEmail,
-              subject: "Signature required for your loan documents",
-              html,
-            });
-          } catch (mailErr) {
-            fastify.log.warn({ error: mailErr.message }, "Sign doc email failed");
-          }
-        }
+        await notifyClientSignDocumentRequested({
+          prisma: fastify.prisma,
+          io: fastify.io,
+          requirement,
+          client,
+          application: submission.application,
+          brokerFirstName: req.user.firstName,
+          logger: fastify.log,
+        });
 
         return reply.send({
           success: true,
-          message: "Sign document sent to client",
+          message:
+            requirement.signMode === "DYNAMIC_FORM"
+              ? "Fillable form sent to client"
+              : "Sign document sent to client",
           data: formatSignDocumentRequirement(updated, { viewer: "broker" }),
         });
       } catch (error) {
@@ -303,7 +316,10 @@ module.exports = async function loanOfficerSignDocuments(fastify) {
         if (requirement.signStatus !== "CLIENT_SIGNED") {
           return reply.code(400).send({
             success: false,
-            message: "Client must sign the document before forwarding",
+            message:
+              requirement.signMode === "DYNAMIC_FORM"
+                ? "Form must be fully completed by client and broker before forwarding"
+                : "Client must sign the document before forwarding",
           });
         }
 
@@ -379,9 +395,24 @@ module.exports = async function loanOfficerSignDocuments(fastify) {
           applicationLenderIds: [applicationLenderId],
         });
 
+        await notifyLenderSignedDocumentForwarded({
+          prisma: fastify.prisma,
+          io: fastify.io,
+          applicationLenderId,
+          loanApplicationId: submission.application.id,
+          applicationNumber: submission.application.applicationNumber,
+          documentTypeName:
+            requirement.signDocumentTitle ||
+            requirement.documentType?.name ||
+            "Signed document",
+          isForm: isDynamicForm(requirement),
+        });
+
         return reply.send({
           success: true,
-          message: "Signed document forwarded to lender",
+          message: isDynamicForm(requirement)
+            ? "Completed form forwarded to lender"
+            : "Signed document forwarded to lender",
           data: formatSignDocumentRequirement(updated, { viewer: "broker" }),
         });
       } catch (error) {
@@ -389,6 +420,71 @@ module.exports = async function loanOfficerSignDocuments(fastify) {
         return reply.code(500).send({
           success: false,
           message: error.message || "Failed to forward signed document",
+        });
+      }
+    },
+  );
+
+  fastify.get(
+    "/submissions/:submissionId/sign-documents/:requirementId/download-filled",
+    { preHandler: signDocsGuard },
+    async (req, reply) => {
+      try {
+        if (!req.user || req.user.orgType !== "BROKER") {
+          return reply.code(403).send({
+            success: false,
+            message: "Broker access only",
+          });
+        }
+
+        const { submissionId, requirementId } = req.params;
+        const submission = await fastify.prisma.applicationSubmission.findUnique({
+          where: { id: submissionId },
+          include: { application: true },
+        });
+
+        const accessError = assertLoanOfficerSubmissionAccess(req, submission);
+        if (accessError) {
+          return reply.code(403).send({
+            success: false,
+            message: accessError,
+          });
+        }
+
+        const requirement =
+          await fastify.prisma.applicationDocumentRequirement.findFirst({
+            where: {
+              id: requirementId,
+              loanApplicationId: submission.application.id,
+              requiresClientSignature: true,
+            },
+            select: { id: true },
+          });
+
+        if (!requirement) {
+          return reply.code(404).send({
+            success: false,
+            message: "Sign document not found",
+          });
+        }
+
+        const file = await buildSignDocumentDownload(
+          fastify.prisma,
+          requirementId,
+        );
+
+        return reply
+          .header("Content-Type", file.mimeType)
+          .header(
+            "Content-Disposition",
+            `attachment; filename="${file.fileName.replace(/"/g, "")}"`,
+          )
+          .send(file.buffer);
+      } catch (error) {
+        fastify.log.error(error);
+        return reply.code(error.statusCode || 500).send({
+          success: false,
+          message: error.message || "Failed to download filled form",
         });
       }
     },

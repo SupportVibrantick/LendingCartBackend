@@ -32,7 +32,7 @@ export default function LoginPage() {
       toast.success("Signed in successfully");
 
       if (planState.packageId) {
-        navigate("/checkout", { state: planState, replace: true });
+        navigate("/subscribe", { state: planState, replace: true });
       } else if (planState.redirectTo) {
         navigate(planState.redirectTo, { replace: true });
       } else {

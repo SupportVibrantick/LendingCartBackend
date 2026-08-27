@@ -28,6 +28,11 @@ describe("Checkout auth / validation / GHL failure mapping (7–11)", () => {
     const parsed = loanAiCheckoutSchema.safeParse({
       packageId: "not-a-uuid",
       billingCycle: "MONTHLY",
+      organizationName: "Acme Brokers",
+      organizationEmail: "ops@acme.test",
+      organizationPhone: "15551234567",
+      firstName: "Alex",
+      lastName: "Broker",
     });
     assert.equal(parsed.success, false);
     assert.match(
@@ -38,10 +43,38 @@ describe("Checkout auth / validation / GHL failure mapping (7–11)", () => {
 
   it("9. Invalid billing period via schema", () => {
     const parsed = loanAiCheckoutSchema.safeParse({
-      packageId: "11111111-1111-1111-1111-111111111111",
+      packageId: "550e8400-e29b-41d4-a716-446655440000",
       billingCycle: "WEEKLY",
+      organizationName: "Acme Brokers",
+      organizationEmail: "ops@acme.test",
+      organizationPhone: "15551234567",
+      firstName: "Alex",
+      lastName: "Broker",
     });
     assert.equal(parsed.success, false);
+  });
+
+  it("9b. Organization details are required for checkout", () => {
+    const parsed = loanAiCheckoutSchema.safeParse({
+      packageId: "550e8400-e29b-41d4-a716-446655440000",
+      billingCycle: "MONTHLY",
+    });
+    assert.equal(parsed.success, false);
+  });
+
+  it("9c. Valid checkout payload with organization details", () => {
+    const parsed = loanAiCheckoutSchema.safeParse({
+      packageId: "550e8400-e29b-41d4-a716-446655440000",
+      billingCycle: "MONTHLY",
+      organizationName: "Acme Brokers",
+      organizationEmail: "ops@acme.test",
+      organizationPhone: "15551234567",
+      firstName: "Alex",
+      lastName: "Broker",
+    });
+    assert.equal(parsed.success, true);
+    assert.equal(parsed.data.organizationName, "Acme Brokers");
+    assert.equal(parsed.data.organizationPhone, "15551234567");
   });
 
   it("10. Missing GHL price maps to safe client response", () => {

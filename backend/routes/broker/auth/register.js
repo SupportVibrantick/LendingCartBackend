@@ -131,11 +131,10 @@ async function brokerRegisterRoutes(fastify) {
 
         try {
           await sendBrokerWelcomeEmail({
-            adminFirstName: firstName,
-            adminEmail: email,
+            firstName,
+            email,
             organizationName,
-            organizationEmail,
-            organizationPhone: String(organizationPhone),
+            packageName: "Broker account",
             prisma,
           });
         } catch (mailErr) {

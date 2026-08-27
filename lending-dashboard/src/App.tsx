@@ -38,6 +38,7 @@ import AdminLogs from "./pages/AdminLogs/AdminLogs";
 import AllLoanProducts from "./pages/LoanProducts/AllLoanProducts";
 import AddLoanProduct from "./pages/LoanProducts/AddLoanProduct";
 import AllDocuments from "./pages/Documents/AllDocuments";
+import SignFormTemplates from "./pages/Documents/SignFormTemplates";
 import AllSuperadmin from "./pages/SuperAdmin/AllSuperAdmin";
 import LenderProductAssign from "./pages/LoanProducts/LenderAssignProduct";
 import AssignedProducts from "./pages/LoanProducts/AssignedProducts";
@@ -49,6 +50,7 @@ import LoiPreview from "./pages/LoanPipeline/LoiPreview";
 import ClientUpload from "./pages/ClientPortal/ClientUpload";
 import LoanPreview from "./pages/LoanPipeline/LoanPreview";
 import LoiUnderwritingFormPage from "./pages/LoanPipeline/LoiUnderwritingFormPage";
+import SignFormMapperPage from "./pages/LoanPipeline/SignFormMapperPage";
 import TeamMembers from "./pages/TeamMembers/TeamMembers";
 import UpdateLoanProduct from "./pages/LoanProducts/UpdateLoanProduct";
 import ChangePassword from "./pages/Account/ChangePassword";
@@ -102,6 +104,14 @@ export default function App() {
               element={
                 <RequireLenderAdmin>
                   <AllDocuments />
+                </RequireLenderAdmin>
+              }
+            />
+            <Route
+              path="/sign-form-templates"
+              element={
+                <RequireLenderAdmin>
+                  <SignFormTemplates />
                 </RequireLenderAdmin>
               }
             />
@@ -165,6 +175,14 @@ export default function App() {
           <Route path="/verify-email-pending" element={<VerifyEmailPending />} />
           {/* <Route path="/signup" element={<SignUp />} /> */}
           <Route index path="/client-upload/:token" element={<ClientUpload />} />
+          <Route
+            path="/sign-form-mapper"
+            element={
+              <RequireAuth>
+                <SignFormMapperPage />
+              </RequireAuth>
+            }
+          />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </Router>

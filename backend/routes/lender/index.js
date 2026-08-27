@@ -93,6 +93,10 @@ module.exports = async function lenderRoutes(fastify, opts) {
       prefix: "/branding",
     });
 
+    instance.register(require("./signFormTemplates"), {
+      prefix: "/sign-form-templates",
+    });
+
     // Later:
     // instance.register(brokerRoutes, { prefix: "/brokers" });
     // instance.register(commonRoutes, { prefix: "/common" });

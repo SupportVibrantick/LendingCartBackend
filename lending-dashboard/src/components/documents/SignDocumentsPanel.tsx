@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useLocation, useNavigate } from "react-router";
 import SignatureCanvas from "react-signature-canvas";
 import toast from "react-hot-toast";
 import {
@@ -8,6 +9,7 @@ import {
   Eye,
   FileImage,
   FileText,
+  LayoutGrid,
   Loader2,
   PenLine,
   SendHorizonal,
@@ -16,6 +18,7 @@ import {
 } from "lucide-react";
 import { canMarkSignSeen } from "../../lib/lenderPermissions";
 import { buildApiPublicFileUrl } from "../../lib/publicFileUrl";
+import SignFormFilledViewer from "./SignFormFilledViewer";
 
 const SigCanvas = SignatureCanvas as unknown as React.FC<any>;
 
@@ -48,6 +51,20 @@ export type SignDocumentRow = {
   documentName: string;
   signStatus?: string | null;
   signStatusLabel?: string | null;
+  signMode?: string | null;
+  formProcessingStatus?: string | null;
+  activeFormVersionId?: string | null;
+  fieldCount?: number | null;
+  hasSignatureField?: boolean | null;
+  formProgress?: {
+    client: { required: number; filled: number; total: number; complete: boolean };
+    broker: { required: number; filled: number; total: number; complete: boolean };
+    all: { required: number; filled: number; total: number; complete: boolean };
+  } | null;
+  workflowHint?: string | null;
+  brokerBucket?: string | null;
+  lenderBucket?: string | null;
+  clientBucket?: string | null;
   templateFileName?: string | null;
   templateFileUrl?: string | null;
   templateMimeType?: string | null;
@@ -77,7 +94,7 @@ const statusClass = (status?: string | null) => {
     case "AWAITING_BROKER":
       return "bg-amber-100 text-amber-800";
     case "SENT_TO_CLIENT":
-      return "bg-blue-100 text-blue-800";
+      return "bg-sky-100 text-sky-800";
     case "CLIENT_SIGNED":
       return "bg-emerald-100 text-emerald-800";
     case "FORWARDED_TO_LENDER":
@@ -86,6 +103,40 @@ const statusClass = (status?: string | null) => {
       return "bg-brand-100 text-brand-800";
     default:
       return "bg-slate-100 text-slate-700";
+  }
+};
+
+const statusIconClass = (status?: string | null) => {
+  switch (status) {
+    case "AWAITING_BROKER":
+      return "bg-amber-50 text-amber-600 border-amber-100";
+    case "SENT_TO_CLIENT":
+      return "bg-sky-50 text-sky-600 border-sky-100";
+    case "CLIENT_SIGNED":
+      return "bg-emerald-50 text-emerald-600 border-emerald-100";
+    case "FORWARDED_TO_LENDER":
+      return "bg-violet-50 text-violet-600 border-violet-100";
+    case "LENDER_SEEN":
+      return "bg-brand-50 text-brand-600 border-brand-100";
+    default:
+      return "bg-slate-50 text-slate-500 border-slate-200";
+  }
+};
+
+const statusFooterClass = (status?: string | null) => {
+  switch (status) {
+    case "AWAITING_BROKER":
+      return "bg-amber-50 text-amber-800";
+    case "SENT_TO_CLIENT":
+      return "bg-sky-50 text-sky-800";
+    case "CLIENT_SIGNED":
+      return "bg-emerald-50 text-emerald-800";
+    case "FORWARDED_TO_LENDER":
+      return "bg-violet-50 text-violet-800";
+    case "LENDER_SEEN":
+      return "bg-brand-50 text-brand-800";
+    default:
+      return "bg-slate-50 text-slate-600";
   }
 };
 
@@ -99,6 +150,8 @@ export default function SignDocumentsPanel({
   onUpdated,
   readOnly = false,
 }: SignDocumentsPanelProps) {
+  const navigate = useNavigate();
+  const location = useLocation();
   const isClientMode = mode === "client";
   const isBrokerMode = mode === "broker";
   const isLenderMode = mode === "lender";
@@ -114,7 +167,14 @@ export default function SignDocumentsPanel({
     useState<SignDocumentRow | null>(null);
   const [activeSignedViewDoc, setActiveSignedViewDoc] =
     useState<SignDocumentRow | null>(null);
+  const [viewingFilledDoc, setViewingFilledDoc] =
+    useState<SignDocumentRow | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [libraryTemplates, setLibraryTemplates] = useState<
+    Array<{ id: string; name: string; fieldCount?: number; pageCount?: number }>
+  >([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState("");
+  const [applyingTemplate, setApplyingTemplate] = useState(false);
   const sigRef = useRef<SignatureCanvas | null>(null);
 
   const fetchRows = async () => {
@@ -140,6 +200,17 @@ export default function SignDocumentsPanel({
       }
 
       setRows(json.data || []);
+
+      if (isLenderMode && !readOnly) {
+        const templatesRes = await fetch(
+          `${apiBase}/lender/sign-form-templates`,
+          { headers: getAuthHeaders() },
+        );
+        const templatesJson = await templatesRes.json().catch(() => null);
+        if (templatesRes.ok && templatesJson?.success) {
+          setLibraryTemplates(templatesJson.data || []);
+        }
+      }
     } catch (err: any) {
       toast.error(err.message || "Failed to load sign documents");
     } finally {
@@ -152,7 +223,9 @@ export default function SignDocumentsPanel({
   }, [mode, applicationLenderId, submissionId, loanApplicationId]);
 
   useEffect(() => {
-    if (!activeTemplateViewDoc && !activeSignedViewDoc) return;
+    if (!activeTemplateViewDoc && !activeSignedViewDoc && !viewingFilledDoc) {
+      return;
+    }
 
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -161,6 +234,7 @@ export default function SignDocumentsPanel({
       if (event.key === "Escape") {
         setActiveTemplateViewDoc(null);
         setActiveSignedViewDoc(null);
+        setViewingFilledDoc(null);
       }
     };
 
@@ -170,7 +244,7 @@ export default function SignDocumentsPanel({
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", handleEscape);
     };
-  }, [activeTemplateViewDoc, activeSignedViewDoc]);
+  }, [activeTemplateViewDoc, activeSignedViewDoc, viewingFilledDoc]);
 
   const handleLenderUpload = async () => {
     if (!applicationLenderId || !uploadFile) {
@@ -207,7 +281,16 @@ export default function SignDocumentsPanel({
         throw new Error(json.message || "Upload failed");
       }
 
-      toast.success("Sign document requested");
+      if (json.autoPublish?.published) {
+        const count = json.autoPublish.fieldCount || 0;
+        toast.success(
+          `Fillable form ready (${count} field${count === 1 ? "" : "s"} detected)`,
+        );
+      } else if (json.data?.signMode === "DYNAMIC_FORM") {
+        toast.success("Fillable form ready");
+      } else {
+        toast.success("Signature-only document requested");
+      }
       setUploadName("");
       setUploadFile(null);
       await fetchRows();
@@ -216,6 +299,39 @@ export default function SignDocumentsPanel({
       toast.error(err.message || "Upload failed");
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handleApplyTemplate = async () => {
+    if (!applicationLenderId || !selectedTemplateId) {
+      toast.error("Choose a template");
+      return;
+    }
+    try {
+      setApplyingTemplate(true);
+      const res = await fetch(
+        `${apiBase}/lender/loan-pipeline/${applicationLenderId}/sign-documents/from-template`,
+        {
+          method: "POST",
+          headers: {
+            ...getAuthHeaders(),
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ templateId: selectedTemplateId }),
+        },
+      );
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || "Failed to apply template");
+      }
+      toast.success("Sign document created from template");
+      setSelectedTemplateId("");
+      await fetchRows();
+      onUpdated?.();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to apply template");
+    } finally {
+      setApplyingTemplate(false);
     }
   };
 
@@ -364,6 +480,12 @@ export default function SignDocumentsPanel({
   };
 
   const downloadSignedCopy = async (row: SignDocumentRow) => {
+    // Prefer regenerating filled PDF so latest values are included.
+    if (row.signMode === "DYNAMIC_FORM") {
+      await downloadFilledForm(row);
+      return;
+    }
+
     const signed = row.signedUpload;
     if (!signed?.fileUrl) return;
 
@@ -376,7 +498,62 @@ export default function SignDocumentsPanel({
     await downloadRemoteFile(signed.fileUrl, filename, row.requirementId);
   };
 
+  const downloadFilledForm = async (row: SignDocumentRow) => {
+    const trackId = `${row.requirementId}-filled`;
+    try {
+      setDownloadingId(trackId);
+
+      let url = "";
+      if (isLenderMode && applicationLenderId) {
+        url = `${apiBase}/lender/loan-pipeline/${applicationLenderId}/sign-documents/${row.requirementId}/download-filled`;
+      } else if (isBrokerMode && submissionId) {
+        url = `${apiBase}/broker/loan-pipeline/submissions/${submissionId}/sign-documents/${row.requirementId}/download-filled`;
+      } else if (isClientMode && loanApplicationId) {
+        url = `${apiBase}/client-portal/sign-documents/${row.requirementId}/download-filled?loanApplicationId=${encodeURIComponent(loanApplicationId)}`;
+      } else {
+        throw new Error("Missing download context");
+      }
+
+      const res = await fetch(url, { headers: getAuthHeaders() });
+      if (!res.ok) {
+        let message = "Failed to download filled form";
+        try {
+          const json = await res.json();
+          if (json?.message) message = json.message;
+        } catch {
+          // ignore
+        }
+        throw new Error(message);
+      }
+
+      const blob = await res.blob();
+      const disposition = res.headers.get("Content-Disposition") || "";
+      const matched = disposition.match(/filename="?([^"]+)"?/i);
+      const filename =
+        matched?.[1] ||
+        `${sanitizeDownloadName(row.documentName)}-filled.pdf`;
+
+      const blobUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (err: any) {
+      toast.error(err.message || "Download failed");
+    } finally {
+      setDownloadingId(null);
+    }
+  };
+
   const downloadTemplate = async (row: SignDocumentRow) => {
+    if (row.signMode === "DYNAMIC_FORM") {
+      await downloadFilledForm(row);
+      return;
+    }
+
     if (!row.templateFileUrl) return;
 
     const ext = getDownloadExtension(
@@ -430,6 +607,22 @@ export default function SignDocumentsPanel({
     setActiveSignedViewDoc(row);
   };
 
+  /** Lender: blank template while mapping; after forward show template + filled values. */
+  const openTemplateOrFilled = (row: SignDocumentRow) => {
+    const canSeeFilled =
+      row.signMode === "DYNAMIC_FORM" &&
+      (row.signStatus === "FORWARDED_TO_LENDER" ||
+        row.signStatus === "LENDER_SEEN" ||
+        Boolean(row.signedUpload?.fileUrl) ||
+        Boolean(row.formProgress?.all && row.formProgress.all.filled > 0));
+
+    if (isLenderMode && canSeeFilled && applicationLenderId) {
+      setViewingFilledDoc(row);
+      return;
+    }
+    setActiveTemplateViewDoc(row);
+  };
+
   const renderDocumentTitle = (row: SignDocumentRow) => {
     const showFileName =
       row.templateFileName &&
@@ -438,7 +631,7 @@ export default function SignDocumentsPanel({
     return (
       <div className="min-w-0">
         <h3
-          className="line-clamp-2 text-sm font-semibold text-slate-900"
+          className="line-clamp-2 text-[15px] font-semibold leading-snug text-slate-900"
           title={row.documentName}
         >
           {row.documentName}
@@ -448,7 +641,7 @@ export default function SignDocumentsPanel({
             className="mt-1 truncate text-xs text-slate-500"
             title={row.templateFileName || undefined}
           >
-            File: {row.templateFileName}
+            {row.templateFileName}
           </p>
         )}
       </div>
@@ -456,7 +649,7 @@ export default function SignDocumentsPanel({
   };
 
   const inlineActionClass =
-    "inline-flex flex-1 items-center justify-center gap-1 rounded-lg border px-2 py-2 text-[11px] font-medium transition min-w-0 whitespace-nowrap";
+    "inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border px-2.5 py-2 text-xs font-medium transition min-w-0 whitespace-nowrap";
 
   const renderInlineDocumentActions = (row: SignDocumentRow) => {
     const hasTemplate = Boolean(row.templateFileUrl);
@@ -465,26 +658,36 @@ export default function SignDocumentsPanel({
     if (!hasTemplate && !hasSigned) return null;
 
     return (
-      <div className="mb-4 flex items-stretch gap-1.5">
+      <div className="flex items-stretch gap-2">
         {hasTemplate && (
           <button
             type="button"
-            onClick={() => setActiveTemplateViewDoc(row)}
-            className={`${inlineActionClass} border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100`}
-            title="View template"
+            onClick={() => openTemplateOrFilled(row)}
+            className={`${inlineActionClass} border-slate-200 bg-white text-slate-700 hover:bg-slate-50`}
+            title={
+              row.signMode === "DYNAMIC_FORM" &&
+              (row.signStatus === "FORWARDED_TO_LENDER" ||
+                row.signStatus === "LENDER_SEEN")
+                ? "View template with filled values"
+                : "View template"
+            }
           >
-            <Eye size={13} className="shrink-0" />
-            Template
+            <Eye size={14} className="shrink-0 text-sky-600" />
+            {row.signMode === "DYNAMIC_FORM" &&
+            (row.signStatus === "FORWARDED_TO_LENDER" ||
+              row.signStatus === "LENDER_SEEN")
+              ? "View form"
+              : "Template"}
           </button>
         )}
         {hasSigned && (
           <button
             type="button"
             onClick={() => openSignedCopy(row)}
-            className={`${inlineActionClass} border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100`}
+            className={`${inlineActionClass} border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100`}
             title="View signed copy"
           >
-            <Eye size={13} className="shrink-0" />
+            <CheckCircle2 size={14} className="shrink-0" />
             Signed
           </button>
         )}
@@ -493,13 +696,13 @@ export default function SignDocumentsPanel({
             type="button"
             onClick={() => downloadSignedCopy(row)}
             disabled={downloadingId === row.requirementId}
-            className={`${inlineActionClass} border-emerald-200 bg-white text-emerald-700 hover:bg-emerald-50 disabled:opacity-60`}
+            className={`${inlineActionClass} border-violet-200 bg-violet-50 text-violet-800 hover:bg-violet-100 disabled:opacity-60`}
             title="Download signed copy"
           >
             {downloadingId === row.requirementId ? (
-              <Loader2 size={13} className="shrink-0 animate-spin" />
+              <Loader2 size={14} className="shrink-0 animate-spin" />
             ) : (
-              <Download size={13} className="shrink-0" />
+              <Download size={14} className="shrink-0" />
             )}
             Download
           </button>
@@ -823,236 +1026,377 @@ export default function SignDocumentsPanel({
   };
 
   const renderLenderStatusFooter = (row: SignDocumentRow) => {
-    switch (row.signStatus) {
-      case "AWAITING_BROKER":
-        return (
-          <div className="flex items-center gap-2 rounded-xl bg-amber-50 px-3 py-2.5 text-sm text-amber-800">
-            <Clock size={16} className="shrink-0" />
-            Awaiting broker to send to client
-          </div>
-        );
-      case "SENT_TO_CLIENT":
-        return (
-          <div className="flex items-center gap-2 rounded-xl bg-blue-50 px-3 py-2.5 text-sm text-blue-800">
-            <Clock size={16} className="shrink-0" />
-            With client for signature
-          </div>
-        );
-      case "CLIENT_SIGNED":
-        return (
-          <div className="flex items-center gap-2 rounded-xl bg-emerald-50 px-3 py-2.5 text-sm text-emerald-800">
-            <PenLine size={16} className="shrink-0" />
-            Client signed — awaiting broker forward
-          </div>
-        );
-      case "FORWARDED_TO_LENDER":
-        return (
-          <div className="flex items-center gap-2 rounded-xl bg-violet-50 px-3 py-2.5 text-sm text-violet-800">
-            <CheckCircle2 size={16} className="shrink-0" />
-            Received signed copy
-          </div>
-        );
-      case "LENDER_SEEN":
-        return (
-          <div className="flex items-center gap-2 rounded-xl bg-brand-50 px-3 py-2.5 text-sm text-brand-800">
-            <CheckCircle2 size={16} className="shrink-0" />
-            Seen by lender
-          </div>
-        );
-      default:
-        return (
-          <div className="flex items-center gap-2 rounded-xl bg-slate-50 px-3 py-2.5 text-sm text-slate-600">
-            <Clock size={16} className="shrink-0" />
-            In progress
-          </div>
-        );
-    }
+    const hint =
+      row.workflowHint ||
+      (row.signStatus === "FORWARDED_TO_LENDER"
+        ? "Received signed copy"
+        : row.signStatus === "LENDER_SEEN"
+          ? "Seen by lender"
+          : "In progress");
+
+    return (
+      <div
+        className={`flex items-start gap-2 rounded-lg px-2.5 py-2 text-xs leading-relaxed ${statusFooterClass(row.signStatus)}`}
+      >
+        <Clock size={13} className="mt-0.5 shrink-0 opacity-80" />
+        <span>{hint}</span>
+      </div>
+    );
+  };
+
+  const openMapper = (row: SignDocumentRow) => {
+    if (!applicationLenderId) return;
+    const qs = new URLSearchParams({
+      applicationLenderId,
+      requirementId: row.requirementId,
+      documentName: row.documentName || "Sign document",
+      returnTo: `${location.pathname}${location.search || "?tab=signDocuments"}`,
+    });
+    navigate(`/sign-form-mapper?${qs.toString()}`, {
+      state: location.state,
+    });
   };
 
   const renderLenderView = () => {
-    const inProgress = rows.filter(
+    const awaitingBroker = rows.filter(
       (row) =>
-        row.signStatus !== "FORWARDED_TO_LENDER" &&
-        row.signStatus !== "LENDER_SEEN",
+        row.lenderBucket !== "received" && row.signStatus === "AWAITING_BROKER",
     );
-    const received = rows.filter(
-      (row) =>
-        row.signStatus === "FORWARDED_TO_LENDER" ||
-        row.signStatus === "LENDER_SEEN",
+    const withClient = rows.filter((row) => row.signStatus === "SENT_TO_CLIENT");
+    const readyToForward = rows.filter(
+      (row) => row.signStatus === "CLIENT_SIGNED",
     );
+    const received = rows.filter((row) => row.lenderBucket === "received");
+
+    const stats = [
+      {
+        label: "Awaiting broker",
+        count: awaitingBroker.length,
+        wrap: "bg-amber-50 ring-amber-100",
+        num: "text-amber-700",
+      },
+      {
+        label: "With client",
+        count: withClient.length,
+        wrap: "bg-sky-50 ring-sky-100",
+        num: "text-sky-700",
+      },
+      {
+        label: "Ready",
+        count: readyToForward.length,
+        wrap: "bg-emerald-50 ring-emerald-100",
+        num: "text-emerald-700",
+      },
+      {
+        label: "Received",
+        count: received.length,
+        wrap: "bg-violet-50 ring-violet-100",
+        num: "text-violet-700",
+      },
+    ];
 
     return (
-      <div className="space-y-6">
-        <div className="relative overflow-hidden rounded-2xl border border-brand-100 bg-gradient-to-br from-brand-50 via-white to-emerald-50 p-6 shadow-sm">
-          <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-brand-200/30 blur-2xl" />
-          <div className="absolute -bottom-10 -left-10 h-32 w-32 rounded-full bg-emerald-200/30 blur-2xl" />
-
-          <div className="relative flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-            <div>
-              <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-white/80 px-3 py-1 text-xs font-semibold text-brand-700 shadow-sm">
-                <PenLine size={14} />
-                Client E-Signature
-              </div>
-              <h2 className="text-2xl font-bold text-slate-900">
-                Sign Documents
+      <div className="space-y-5">
+        <div className="rounded-2xl border border-brand-100 bg-gradient-to-br from-brand-50 via-white to-sky-50 px-5 py-5 sm:px-6">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div className="min-w-0">
+              <p className="inline-flex items-center gap-1.5 rounded-full bg-white/80 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-brand-700 shadow-sm">
+                <PenLine size={12} />
+                Client e-signature
+              </p>
+              <h2 className="mt-2 text-xl font-semibold tracking-tight text-slate-900">
+                Signable forms & documents
               </h2>
-              <p className="mt-1 max-w-2xl text-sm text-slate-600">
+              <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-slate-600">
                 {readOnly
-                  ? "View signature requests and signed copies returned by the broker. You cannot upload or request new signatures."
-                  : "Upload PDF or image forms for the client to sign. The broker manages delivery and returns signed copies to you."}
+                  ? "Review signature requests and signed copies. Upload is disabled for your role."
+                  : "Upload a form, optionally map fillable fields, then the broker sends it to the client and returns the completed copy."}
               </p>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="rounded-2xl bg-white/90 px-4 py-3 text-center shadow-sm">
-                <p className="text-2xl font-bold text-blue-600">
-                  {inProgress.length}
-                </p>
-                <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
-                  In progress
-                </p>
-              </div>
-              <div className="rounded-2xl bg-white/90 px-4 py-3 text-center shadow-sm">
-                <p className="text-2xl font-bold text-violet-600">
-                  {received.length}
-                </p>
-                <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
-                  Received
-                </p>
-              </div>
+            <div className="flex flex-wrap gap-2">
+              {stats.map((stat) => (
+                <div
+                  key={stat.label}
+                  className={`min-w-[6.25rem] rounded-xl px-3 py-2 ring-1 ring-inset ${stat.wrap}`}
+                >
+                  <p className={`text-lg font-semibold tabular-nums ${stat.num}`}>
+                    {stat.count}
+                  </p>
+                  <p className="mt-0.5 text-[11px] font-medium text-slate-600">
+                    {stat.label}
+                  </p>
+                </div>
+              ))}
             </div>
           </div>
         </div>
 
         {readOnly && (
-          <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
             Read-only access. You can review templates and signed copies but
             cannot request new signatures.
           </div>
         )}
 
         {!readOnly && (
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="mb-4 flex items-start gap-3">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-100 text-brand-700">
-              <Upload size={20} />
-            </div>
-            <div>
-              <h3 className="text-base font-semibold text-slate-900">
-                Upload signable form
-              </h3>
-              <p className="mt-0.5 text-sm text-slate-500">
-                PDF, PNG, JPEG, or WebP — max one form per request.
-              </p>
-            </div>
-          </div>
-
-          <div className="grid gap-3 md:grid-cols-2">
-            <input
-              type="text"
-              placeholder="Document name (e.g. Authorization Form)"
-              value={uploadName}
-              onChange={(e) => setUploadName(e.target.value)}
-              className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm transition focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100"
-            />
-            <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-600 transition hover:border-brand-300 hover:bg-brand-50/50">
-              <FileText size={18} className="shrink-0 text-brand-600" />
-              <span className="truncate">
-                {uploadFile ? uploadFile.name : "Choose PDF or image file"}
-              </span>
-              <input
-                type="file"
-                accept="application/pdf,image/png,image/jpeg,image/jpg,image/webp"
-                onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
-                className="hidden"
-              />
-            </label>
-          </div>
-
-          <button
-            type="button"
-            onClick={handleLenderUpload}
-            disabled={uploading || !uploadFile || !uploadName.trim()}
-            className="mt-4 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-brand-600 to-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {uploading ? (
-              <Loader2 size={16} className="animate-spin" />
-            ) : (
-              <Upload size={16} />
-            )}
-            Request signature
-          </button>
-        </div>
-        )}
-
-        {rows.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-500 to-emerald-500 text-white shadow-lg">
-              <FileText size={28} />
-            </div>
-            <p className="text-base font-semibold text-slate-800">
-              No sign documents yet
-            </p>
-            <p className="mt-2 text-sm text-slate-500">
-              {readOnly
-                ? "No signature documents have been requested for this application yet."
-                : "Upload a form above to start the client e-signature workflow."}
-            </p>
-          </div>
-        ) : (
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {rows.map((row) => (
-              <div
-                key={row.requirementId}
-                className="flex flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow-md"
-              >
-                <div className="mb-4 flex items-start justify-between gap-3">
-                  <div className="flex min-w-0 items-start gap-3">
-                    <div
-                      className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${
-                        row.signStatus === "FORWARDED_TO_LENDER"
-                          ? "bg-violet-100 text-violet-700"
-                          : row.signStatus === "LENDER_SEEN"
-                            ? "bg-brand-100 text-brand-700"
-                            : row.signStatus === "CLIENT_SIGNED"
-                            ? "bg-emerald-100 text-emerald-700"
-                            : row.signStatus === "SENT_TO_CLIENT"
-                              ? "bg-blue-100 text-blue-700"
-                              : "bg-amber-100 text-amber-700"
-                      }`}
-                    >
-                      {isImageTemplate(
-                        row.templateMimeType,
-                        row.templateFileUrl,
-                      ) ? (
-                        <FileImage size={20} />
-                      ) : (
-                        <FileText size={20} />
-                      )}
-                    </div>
-                    <div className="min-w-0">
-                      {renderDocumentTitle(row)}
-                    </div>
-                  </div>
-                  <span
-                    className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold ${statusClass(row.signStatus)}`}
-                  >
-                    {row.signStatusLabel || row.signStatus || "-"}
-                  </span>
+          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div className="border-b border-slate-100 bg-gradient-to-r from-brand-50/80 to-emerald-50/50 px-5 py-4">
+              <div className="flex items-start gap-3">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-600 text-white shadow-sm">
+                  <Upload size={16} />
                 </div>
-
-                {renderInlineDocumentActions(row)}
-
-                <div className="mt-auto border-t border-slate-100 pt-4">
-                  {renderLenderStatusFooter(row)}
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-900">
+                    Request a signature
+                  </h3>
+                  <p className="mt-0.5 text-xs text-slate-500">
+                    PDF, PNG, JPEG, or WebP · one form per request
+                  </p>
                 </div>
               </div>
-            ))}
+            </div>
+
+            <div className="space-y-4 p-5">
+              <div className="grid gap-4 lg:grid-cols-2">
+                <label className="block">
+                  <span className="mb-1.5 block text-xs font-medium text-slate-600">
+                    Document name
+                  </span>
+                  <input
+                    type="text"
+                    placeholder="e.g. SBA 7(a) Borrower Information"
+                    value={uploadName}
+                    onChange={(e) => setUploadName(e.target.value)}
+                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm transition focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100"
+                  />
+                </label>
+
+                <div>
+                  <span className="mb-1.5 block text-xs font-medium text-slate-600">
+                    File
+                  </span>
+                  <label
+                    className={`flex min-h-[42px] cursor-pointer items-center gap-3 rounded-lg border border-dashed px-3 py-2.5 text-sm transition ${
+                      uploadFile
+                        ? "border-brand-300 bg-brand-50 text-brand-900"
+                        : "border-slate-300 bg-slate-50 text-slate-500 hover:border-brand-300 hover:bg-brand-50/40"
+                    }`}
+                  >
+                    {isImageTemplate(uploadFile?.type, uploadFile?.name) ? (
+                      <FileImage size={16} className="shrink-0 text-brand-600" />
+                    ) : (
+                      <FileText size={16} className="shrink-0 text-brand-600" />
+                    )}
+                    <span className="min-w-0 truncate">
+                      {uploadFile
+                        ? uploadFile.name
+                        : "Choose PDF or image file"}
+                    </span>
+                    <input
+                      type="file"
+                      accept="application/pdf,image/png,image/jpeg,image/jpg,image/webp"
+                      onChange={(e) =>
+                        setUploadFile(e.target.files?.[0] || null)
+                      }
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-3 border-t border-slate-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-xs text-slate-500">
+                  Fillable PDFs are auto-detected and published. You can still
+                  map or adjust fields before the broker sends to the client.
+                </p>
+                <button
+                  type="button"
+                  onClick={handleLenderUpload}
+                  disabled={uploading || !uploadFile || !uploadName.trim()}
+                  className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {uploading ? (
+                    <Loader2 size={15} className="animate-spin" />
+                  ) : (
+                    <SendHorizonal size={15} />
+                  )}
+                  Upload form
+                </button>
+              </div>
+
+              {libraryTemplates.length > 0 && (
+                <div className="rounded-xl border border-teal-100 bg-teal-50/40 p-4">
+                  <h4 className="mb-3 text-xs font-semibold uppercase tracking-wide text-teal-800">
+                    Or apply a saved template
+                  </h4>
+                  <div className="flex flex-col gap-3 sm:flex-row">
+                    <select
+                      value={selectedTemplateId}
+                      onChange={(e) => setSelectedTemplateId(e.target.value)}
+                      className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm focus:border-teal-400 focus:outline-none focus:ring-2 focus:ring-teal-100"
+                    >
+                      <option value="">Select template…</option>
+                      {libraryTemplates.map((template) => (
+                        <option key={template.id} value={template.id}>
+                          {template.name}
+                          {typeof template.fieldCount === "number"
+                            ? ` (${template.fieldCount} fields)`
+                            : ""}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={handleApplyTemplate}
+                      disabled={applyingTemplate || !selectedTemplateId}
+                      className="inline-flex items-center justify-center gap-2 rounded-lg border border-teal-200 bg-white px-4 py-2.5 text-sm font-semibold text-teal-800 hover:bg-teal-50 disabled:opacity-40"
+                    >
+                      {applyingTemplate ? (
+                        <Loader2 size={15} className="animate-spin" />
+                      ) : (
+                        <LayoutGrid size={15} />
+                      )}
+                      Apply template
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         )}
+
+        <div>
+          <div className="mb-3 flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-slate-900">
+              Documents
+              {rows.length > 0 ? (
+                <span className="ml-1.5 font-normal text-slate-400">
+                  ({rows.length})
+                </span>
+              ) : null}
+            </h3>
+          </div>
+
+          {rows.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-brand-200 bg-brand-50/30 px-6 py-12 text-center">
+              <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-lg bg-brand-100 text-brand-600">
+                <FileText size={20} />
+              </div>
+              <p className="text-sm font-medium text-slate-800">
+                No sign documents yet
+              </p>
+              <p className="mx-auto mt-1.5 max-w-md text-xs text-slate-500">
+                {readOnly
+                  ? "No signature documents have been requested for this application yet."
+                  : "Upload a form above to start the client e-signature workflow."}
+              </p>
+            </div>
+          ) : (
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {rows.map((row) => {
+                const canMap =
+                  !readOnly &&
+                  row.signStatus === "AWAITING_BROKER" &&
+                  Boolean(row.templateFileUrl) &&
+                  Boolean(applicationLenderId);
+                const isImage = isImageTemplate(
+                  row.templateMimeType,
+                  row.templateFileUrl,
+                );
+
+                return (
+                  <article
+                    key={row.requirementId}
+                    className="flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition hover:border-slate-300 hover:shadow-md"
+                  >
+                    <div className="flex items-start gap-3 border-b border-slate-100 p-4">
+                      <div
+                        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border ${statusIconClass(row.signStatus)}`}
+                      >
+                        {isImage ? (
+                          <FileImage size={16} />
+                        ) : (
+                          <FileText size={16} />
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        {renderDocumentTitle(row)}
+                      </div>
+                      <span
+                        className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${statusClass(row.signStatus)}`}
+                      >
+                        {row.signStatusLabel || row.signStatus || "-"}
+                      </span>
+                    </div>
+
+                    <div className="flex flex-1 flex-col gap-3 p-4">
+                      {canMap ? (
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => openTemplateOrFilled(row)}
+                            className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-2.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
+                            title="View template"
+                          >
+                            <Eye size={14} className="shrink-0 text-sky-600" />
+                            Template
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => openMapper(row)}
+                            className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-teal-600 px-2.5 py-2.5 text-xs font-semibold text-white shadow-sm transition hover:bg-teal-700"
+                          >
+                            <LayoutGrid size={14} className="shrink-0" />
+                            <span className="truncate">
+                              {row.signMode === "DYNAMIC_FORM"
+                                ? "Edit fillable fields"
+                                : "Map fillable fields"}
+                              {typeof row.fieldCount === "number" &&
+                              row.fieldCount > 0
+                                ? ` · ${row.fieldCount}`
+                                : ""}
+                            </span>
+                          </button>
+                        </div>
+                      ) : (
+                        renderInlineDocumentActions(row)
+                      )}
+
+                      {row.signMode === "DYNAMIC_FORM" && !canMap && (
+                        <div className="inline-flex items-center gap-1.5 rounded-lg bg-teal-50 px-2.5 py-1.5 text-xs font-medium text-teal-800">
+                          <CheckCircle2 size={13} />
+                          Fillable form published
+                          {typeof row.fieldCount === "number"
+                            ? ` · ${row.fieldCount} fields`
+                            : ""}
+                        </div>
+                      )}
+
+                      <div className="mt-auto pt-1">
+                        {renderLenderStatusFooter(row)}
+                      </div>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </div>
 
         {renderTemplateViewModal()}
         {renderSignedCopyModal()}
+        {viewingFilledDoc && applicationLenderId && (
+          <SignFormFilledViewer
+            open={Boolean(viewingFilledDoc)}
+            onClose={() => setViewingFilledDoc(null)}
+            apiBase={apiBase}
+            getAuthHeaders={getAuthHeaders}
+            applicationLenderId={applicationLenderId}
+            requirementId={viewingFilledDoc.requirementId}
+            documentName={viewingFilledDoc.documentName}
+          />
+        )}
       </div>
     );
   };

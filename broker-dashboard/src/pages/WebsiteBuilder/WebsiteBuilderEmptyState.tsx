@@ -1,17 +1,54 @@
 import { Link } from "react-router-dom";
-import { Globe, Plug, RefreshCw } from "lucide-react";
+import { ExternalLink, Globe, Plug, RefreshCw } from "lucide-react";
 
 type WebsiteBuilderEmptyStateProps = {
-  variant: "no-connection" | "no-websites";
+  variant: "no-connection" | "agency-ready" | "no-websites";
   loading?: boolean;
   onRefresh?: () => void;
+  dashboardUrl?: string | null;
 };
 
 export default function WebsiteBuilderEmptyState({
   variant,
   loading = false,
   onRefresh,
+  dashboardUrl,
 }: WebsiteBuilderEmptyStateProps) {
+  if (variant === "agency-ready") {
+    return (
+      <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-white px-6 py-16 text-center dark:border-slate-700 dark:bg-slate-900">
+        <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-[#13538A]/10 text-[#13538A]">
+          <Globe className="h-7 w-7" />
+        </div>
+        <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
+          Manage websites in your CRM
+        </h3>
+        <p className="mt-2 max-w-md text-sm text-slate-500 dark:text-slate-400">
+          Your Pro/Elite CRM includes the website builder. Open your dashboard to
+          create and publish sites — no separate Connect step needed.
+        </p>
+        {dashboardUrl ? (
+          <a
+            href={dashboardUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-6 inline-flex items-center gap-2 rounded-lg bg-[#13538A] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0f4270]"
+          >
+            <ExternalLink className="h-4 w-4" />
+            Open CRM website builder
+          </a>
+        ) : (
+          <Link
+            to="/settings/integrations/ghl"
+            className="mt-6 inline-flex items-center gap-2 rounded-lg bg-[#13538A] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0f4270]"
+          >
+            View CRM status
+          </Link>
+        )}
+      </div>
+    );
+  }
+
   if (variant === "no-connection") {
     return (
       <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-white px-6 py-16 text-center dark:border-slate-700 dark:bg-slate-900">
@@ -19,16 +56,18 @@ export default function WebsiteBuilderEmptyState({
           <Plug className="h-7 w-7" />
         </div>
         <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
-          Connect GoHighLevel
+          CRM not ready yet
         </h3>
         <p className="mt-2 max-w-md text-sm text-slate-500 dark:text-slate-400">
-          Connect your GHL account to manage websites for your broker location.
+          Websites come with your Pro or Elite CRM. After purchase, your dedicated
+          sub-account is created automatically — you do not need to connect GHL
+          manually.
         </p>
         <Link
           to="/settings/integrations/ghl"
-          className="mt-6 inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700"
+          className="mt-6 inline-flex items-center gap-2 rounded-lg bg-[#13538A] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0f4270]"
         >
-          Connect GHL
+          Check CRM status
         </Link>
       </div>
     );

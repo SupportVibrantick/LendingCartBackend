@@ -7,6 +7,7 @@ const {
   getGhlPriceDetails,
   resolveGhlPriceId,
   getGhlProductId,
+  appendRedirectParams,
 } = require("../../../../services/ghl/ghl.payment.service");
 const {
   rejectTrustedClientPriceFields,
@@ -29,8 +30,18 @@ const {
   logCheckoutFailed,
   logPaymentStatusChanged,
 } = require("../../../../services/ghl/ghlPaymentLogger");
+const {
+  syncPaidCheckoutFromGhl,
+} = require("../../../../services/ghl/syncPaidCheckoutFromGhl.service");
+const { z } = require("zod");
 
 const DUPLICATE_WINDOW_MS = 15 * 60 * 1000;
+
+const checkoutSyncSchema = z
+  .object({
+    checkoutId: z.string().uuid().optional(),
+  })
+  .strict();
 
 function packageAmount(pkg, billingCycle) {
   if (billingCycle === "YEARLY") {
@@ -141,7 +152,26 @@ async function loanAiCheckoutRoutes(fastify) {
           throw checkoutError(CHECKOUT_ERROR_CODES.VALIDATION_FAILED, 400);
         }
 
-        const { packageId, billingCycle, phone } = parsed.data;
+        const {
+          packageId,
+          billingCycle,
+          phone,
+          organizationName,
+          organizationEmail,
+          organizationPhone,
+          firstName,
+          lastName,
+          addOnCodes,
+        } = parsed.data;
+
+        const organizationDetails = {
+          organizationName,
+          organizationEmail,
+          organizationPhone: organizationPhone || phone,
+          firstName,
+          lastName,
+          addOnCodes: Array.isArray(addOnCodes) ? addOnCodes : [],
+        };
 
         if (user.brokerOrganizationId) {
           const latestSub = await prisma.organizationSubscription.findFirst({
@@ -190,23 +220,47 @@ async function loanAiCheckoutRoutes(fastify) {
         });
 
         if (existingOpen?.checkoutUrl) {
+          const reusedMeta = {
+            ...(existingOpen.metadata && typeof existingOpen.metadata === "object"
+              ? existingOpen.metadata
+              : {}),
+            packageCode: pkg.code,
+            packageName: pkg.name,
+            ...organizationDetails,
+          };
+          const reused = await prisma.loanAiGhlCheckout.update({
+            where: { id: existingOpen.id },
+            data: {
+              successUrl: successUrl || existingOpen.successUrl,
+              cancelUrl: cancelUrl || existingOpen.cancelUrl,
+              metadata: reusedMeta,
+            },
+          });
           logCheckoutReused({
-            checkoutId: existingOpen.id,
+            checkoutId: reused.id,
             loanAiUserId: user.id,
             packageId: pkg.id,
             packageCode: pkg.code,
             billingPeriod: billingCycle,
-            ghlContactId: existingOpen.ghlContactId,
-            ghlPriceId: existingOpen.ghlPriceId,
-            paymentStatus: existingOpen.paymentStatus,
-            status: existingOpen.status,
+            ghlContactId: reused.ghlContactId,
+            ghlPriceId: reused.ghlPriceId,
+            paymentStatus: reused.paymentStatus,
+            status: reused.status,
             reused: true,
+          });
+          const checkoutUrl = appendRedirectParams(reused.checkoutUrl, {
+            successUrl,
+            cancelUrl,
           });
           return reply.send({
             success: true,
-            checkoutUrl: existingOpen.checkoutUrl,
+            checkoutUrl,
             reused: true,
-            data: toPublicCheckoutPayload(existingOpen, pkg),
+            checkoutId: reused.id,
+            data: toPublicCheckoutPayload(
+              { ...reused, checkoutUrl },
+              pkg,
+            ),
           });
         }
 
@@ -274,6 +328,7 @@ async function loanAiCheckoutRoutes(fastify) {
               ghlPriceName: priceDetails.name || null,
               ghlPriceType: priceDetails.type || null,
               clientIp: ip,
+              ...organizationDetails,
             },
           },
         });
@@ -281,9 +336,10 @@ async function loanAiCheckoutRoutes(fastify) {
         try {
           const session = await createSubscriptionCheckout({
             email: user.email,
-            firstName: user.firstName || "",
-            lastName: user.lastName || "",
-            phone: phone || undefined,
+            firstName: organizationDetails.firstName || user.firstName || "",
+            lastName: organizationDetails.lastName || user.lastName || "",
+            phone: organizationDetails.organizationPhone || phone || undefined,
+            companyName: organizationDetails.organizationName,
             packageCode: pkg.code,
             billingCycle,
             amount,
@@ -295,6 +351,7 @@ async function loanAiCheckoutRoutes(fastify) {
               lendingCartCheckoutId: checkout.id,
               loanAiUserId: user.id,
               packageId: pkg.id,
+              ...organizationDetails,
             },
           });
 
@@ -331,6 +388,7 @@ async function loanAiCheckoutRoutes(fastify) {
           return reply.send({
             success: true,
             checkoutUrl: updated.checkoutUrl,
+            checkoutId: updated.id,
             data: toPublicCheckoutPayload(updated, pkg),
           });
         } catch (err) {
@@ -390,6 +448,85 @@ async function loanAiCheckoutRoutes(fastify) {
           });
         }
 
+        return sendCheckoutError(reply, error);
+      }
+    },
+  );
+
+  /**
+   * Poll GHL invoice and fulfill when paid (local/dev when webhooks cannot reach us).
+   * POST /public/loan-ai/subscriptions/checkout/sync
+   * POST /public/payments/checkout/sync
+   */
+  fastify.post(
+    "/sync",
+    {
+      preHandler: [fastify.verifyLoanAi],
+      schema: {
+        tags: ["Public -> Loan AI Subscriptions"],
+        summary: "Sync checkout payment status from GHL invoice and fulfill if paid",
+      },
+    },
+    async (req, reply) => {
+      try {
+        const parsed = checkoutSyncSchema.safeParse(req.body || {});
+        if (!parsed.success) {
+          throw checkoutError(CHECKOUT_ERROR_CODES.VALIDATION_FAILED, 400);
+        }
+
+        const ip = getClientIp(req);
+        const userLimit = checkRateLimit(
+          `loan-ai-checkout-sync:user:${req.loanAiUser.id}`,
+          { windowMs: 60 * 1000, max: 10 },
+        );
+        if (!userLimit.allowed) {
+          return reply.status(429).send({
+            success: false,
+            code: CHECKOUT_ERROR_CODES.RATE_LIMITED,
+            message: checkoutError(CHECKOUT_ERROR_CODES.RATE_LIMITED).message,
+            retryAfterSec: userLimit.retryAfterSec,
+          });
+        }
+        const ipLimit = checkRateLimit(`loan-ai-checkout-sync:ip:${ip}`, {
+          windowMs: 60 * 1000,
+          max: 30,
+        });
+        if (!ipLimit.allowed) {
+          return reply.status(429).send({
+            success: false,
+            code: CHECKOUT_ERROR_CODES.RATE_LIMITED,
+            message: checkoutError(CHECKOUT_ERROR_CODES.RATE_LIMITED).message,
+            retryAfterSec: ipLimit.retryAfterSec,
+          });
+        }
+
+        if (!canProcessGhlPayments()) {
+          throw checkoutError(CHECKOUT_ERROR_CODES.PAYMENTS_UNAVAILABLE, 503);
+        }
+
+        const result = await syncPaidCheckoutFromGhl(
+          fastify.prisma,
+          fastify.io,
+          req.loanAiUser,
+          { checkoutId: parsed.data.checkoutId },
+        );
+
+        return reply.send({
+          success: true,
+          ...result,
+        });
+      } catch (error) {
+        if (
+          error?.statusCode === 401 ||
+          /authentication required|unauthorized/i.test(
+            String(error?.message || ""),
+          )
+        ) {
+          return sendCheckoutError(
+            reply,
+            checkoutError(CHECKOUT_ERROR_CODES.UNAUTHORIZED, 401),
+          );
+        }
         return sendCheckoutError(reply, error);
       }
     },

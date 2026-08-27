@@ -207,6 +207,12 @@ function validateWorkerEnv() {
   }
 }
 
+function getUploadMaxBytes() {
+  const raw = process.env.UPLOAD_MAX_BYTES || process.env.SIGN_FORM_MAX_UPLOAD_BYTES;
+  const value = raw ? Number(raw) : 25 * 1024 * 1024;
+  return Number.isFinite(value) && value > 0 ? value : 25 * 1024 * 1024;
+}
+
 module.exports = {
   envFlag,
   isEmailEnabled,
@@ -223,6 +229,7 @@ module.exports = {
   getKafkaEmailTopic,
   getSocketCorsOrigins,
   getRedisUrl,
+  getUploadMaxBytes,
   validateApiEnv,
   validateWorkerEnv,
 };

@@ -12,10 +12,22 @@ const RESET_TOKEN_EXPIRY_MS =
 async function sendBrokerWelcomeEmail({
   firstName,
   email,
+  adminFirstName,
+  adminEmail,
   organizationName,
   packageName,
   prisma,
+  idempotencyKey,
 }) {
+  const resolvedEmail = String(email || adminEmail || "")
+    .trim()
+    .toLowerCase();
+  const resolvedFirstName = firstName || adminFirstName || "there";
+
+  if (!resolvedEmail) {
+    throw new Error("Broker email is required for welcome email");
+  }
+
   const { brokerDashboardUrl } = getEmailBranding();
   const baseUrl =
     buildBrokerSignInUrl().replace(/\/signin$/, "") || brokerDashboardUrl;
@@ -24,11 +36,8 @@ async function sendBrokerWelcomeEmail({
   const token = crypto.randomBytes(32).toString("hex");
   const expiresAt = new Date(Date.now() + RESET_TOKEN_EXPIRY_MS);
 
-  // Create user with placeholder password hash (will be set via reset token)
-  // Note: The user should already be created by the caller with a dummy password hash
-  // We just need to create the reset token here
   const user = await prisma.userAccount.findFirst({
-    where: { email: { equals: email, mode: "insensitive" } },
+    where: { email: { equals: resolvedEmail, mode: "insensitive" } },
     select: { id: true },
   });
 
@@ -37,7 +46,6 @@ async function sendBrokerWelcomeEmail({
   }
 
   await prisma.$transaction(async (tx) => {
-    // Invalidate any existing unused reset tokens for this user
     await tx.passwordResetToken.updateMany({
       where: {
         userId: user.id,
@@ -48,7 +56,6 @@ async function sendBrokerWelcomeEmail({
       },
     });
 
-    // Create new reset token for "set password" flow
     await tx.passwordResetToken.create({
       data: {
         userId: user.id,
@@ -60,11 +67,11 @@ async function sendBrokerWelcomeEmail({
 
   const resetUrl = `${baseUrl}/reset-password?token=${encodeURIComponent(token)}`;
   const expiryHours = process.env.PASSWORD_RESET_EXPIRY_HOURS || "1";
-  const name = firstName || "there";
+  const name = resolvedFirstName;
 
   const html = loadTemplate("loanAi/brokerWelcome", {
     name,
-    email,
+    email: resolvedEmail,
     organizationName,
     packageName,
     setPasswordUrl: resetUrl,
@@ -86,11 +93,11 @@ This link can only be used once. If you need a new link, use the "Forgot passwor
 
   return enqueueEmail({
     prisma,
-    to: email,
+    to: resolvedEmail,
     subject,
     text,
     html,
-    idempotencyKey: `broker-welcome:${email}`,
+    idempotencyKey: idempotencyKey || `broker-welcome:${resolvedEmail}`,
     provider: "SMTP",
   });
 }

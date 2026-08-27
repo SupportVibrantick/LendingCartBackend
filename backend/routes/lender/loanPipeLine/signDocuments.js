@@ -1,7 +1,5 @@
-const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
-const { pipeline } = require("stream/promises");
 const {
   formatSignDocumentRequirement,
 } = require("../../../utils/documents/formatSignDocument");
@@ -9,14 +7,22 @@ const {
   notifyBroker,
   BROKER_NOTIFICATION_EVENTS,
 } = require("../../../services/notifications/brokerNotifications");
-
-const ALLOWED_MIME_TYPES = new Set([
-  "application/pdf",
-  "image/png",
-  "image/jpeg",
-  "image/jpg",
-  "image/webp",
-]);
+const {
+  ALLOWED_MIME_TYPES,
+  writeSignAssetFromStream,
+} = require("../../../services/documents/signForm/storage");
+const {
+  applyLibraryTemplateSchema,
+} = require("../../../schemas/documents/signForm.schema");
+const {
+  applyLibraryTemplate,
+} = require("../../../services/documents/signForm/libraryTemplate.service");
+const {
+  autoPublishAcroFormIfPresent,
+} = require("../../../services/documents/signForm/autoPublishAcroForm");
+const {
+  buildSignDocumentDownload,
+} = require("../../../services/documents/signForm/exportFilledForm.service");
 
 /**
  * @param {import("fastify").FastifyInstance} fastify
@@ -66,6 +72,12 @@ module.exports = async function lenderSignDocuments(fastify) {
               },
               requestApplicationLender: {
                 include: { lender: { select: { name: true } } },
+              },
+              activeFormVersion: true,
+              signFormSubmissions: {
+                orderBy: { createdAt: "desc" },
+                take: 1,
+                include: { values: true },
               },
             },
             orderBy: { createdAt: "desc" },
@@ -128,13 +140,6 @@ module.exports = async function lenderSignDocuments(fastify) {
         let uploadedFileMeta = null;
 
         const loanApplicationId = applicationLender.loanApplicationId;
-        const uploadDir = path.join(
-          process.cwd(),
-          "uploads",
-          "loan-documents",
-          loanApplicationId,
-          "sign-templates",
-        );
 
         for await (const part of req.parts()) {
           if (part.type === "field" && part.fieldname === "documentName") {
@@ -161,15 +166,17 @@ module.exports = async function lenderSignDocuments(fastify) {
             path.extname(part.filename || "") ||
             (part.mimetype === "application/pdf" ? ".pdf" : "");
           const safeFileName = `${crypto.randomBytes(16).toString("hex")}${ext}`;
-
-          await fs.promises.mkdir(uploadDir, { recursive: true });
-          const filePath = path.join(uploadDir, safeFileName);
-          await pipeline(part.file, fs.createWriteStream(filePath));
+          const stored = await writeSignAssetFromStream({
+            relativeParts: ["loan-documents", loanApplicationId, "sign-templates"],
+            filename: safeFileName,
+            stream: part.file,
+            mimeType: part.mimetype,
+          });
 
           uploadedFileMeta = {
             filename: part.filename || documentName || "Sign Document",
             mimetype: part.mimetype,
-            templateFileUrl: `/uploads/loan-documents/${loanApplicationId}/sign-templates/${safeFileName}`,
+            templateFileUrl: stored.publicUrl,
           };
         }
 
@@ -253,6 +260,33 @@ module.exports = async function lenderSignDocuments(fastify) {
           return requirement;
         });
 
+        const autoPublish = await autoPublishAcroFormIfPresent(fastify.prisma, {
+          requirement: result,
+          organizationId: lenderOrgId,
+          userId: req.user?.userId || req.user?.id || null,
+          logger: fastify.log,
+        });
+
+        const refreshed = await fastify.prisma.applicationDocumentRequirement.findUnique({
+          where: { id: result.id },
+          include: {
+            documentType: true,
+            uploads: {
+              where: { isSignedOutput: true },
+              orderBy: { uploadedAt: "desc" },
+            },
+            requestApplicationLender: {
+              include: { lender: { select: { name: true } } },
+            },
+            activeFormVersion: true,
+            signFormSubmissions: {
+              orderBy: { createdAt: "desc" },
+              take: 1,
+              include: { values: true },
+            },
+          },
+        });
+
         await notifyBroker(fastify.prisma, fastify.io, {
           brokerOrgId: applicationLender.loanApplication.brokerOrgId,
           eventType: BROKER_NOTIFICATION_EVENTS.LENDER_DECISION_CONDITIONAL,
@@ -264,19 +298,130 @@ module.exports = async function lenderSignDocuments(fastify) {
             requirementId: result.id,
             applicationNumber:
               applicationLender.loanApplication.applicationNumber,
+            signMode: autoPublish.signMode,
+            autoPublished: autoPublish.published,
           },
         });
 
+        const message = autoPublish.published
+          ? `Sign document request created with ${autoPublish.fieldCount} fillable field${autoPublish.fieldCount === 1 ? "" : "s"}`
+          : "Sign document request created";
+
         return reply.send({
           success: true,
-          message: "Sign document request created",
-          data: formatSignDocumentRequirement(result, { viewer: "lender" }),
+          message,
+          data: formatSignDocumentRequirement(refreshed || result, {
+            viewer: "lender",
+          }),
+          autoPublish: {
+            published: autoPublish.published,
+            signMode: autoPublish.signMode,
+            fieldCount: autoPublish.fieldCount,
+            reason: autoPublish.reason,
+          },
         });
       } catch (error) {
         fastify.log.error(error);
         return reply.code(500).send({
           success: false,
           message: error.message || "Failed to create sign document",
+        });
+      }
+    },
+  );
+
+  fastify.post(
+    "/:applicationLenderId/sign-documents/from-template",
+    async (req, reply) => {
+      try {
+        if (!req.user || req.user.orgType !== "LENDER") {
+          return reply.code(403).send({
+            success: false,
+            message: "Lender access only",
+          });
+        }
+
+        const lenderOrgId = req.user.organizationId;
+        const { applicationLenderId } = req.params;
+        const parsed = applyLibraryTemplateSchema.safeParse(req.body || {});
+        if (!parsed.success) {
+          return reply.code(400).send({
+            success: false,
+            message: "Template is required",
+            errors: parsed.error.flatten(),
+          });
+        }
+
+        const applicationLender =
+          await fastify.prisma.applicationLender.findFirst({
+            where: { id: applicationLenderId, lenderOrgId },
+            include: {
+              loanApplication: {
+                select: {
+                  id: true,
+                  applicationNumber: true,
+                  brokerOrgId: true,
+                },
+              },
+              lender: { select: { name: true } },
+            },
+          });
+
+        if (!applicationLender) {
+          return reply.code(404).send({
+            success: false,
+            message: "Application not found",
+          });
+        }
+
+        const template = await fastify.prisma.signFormLibraryTemplate.findFirst({
+          where: {
+            id: parsed.data.templateId,
+            organizationId: lenderOrgId,
+          },
+        });
+
+        if (!template) {
+          return reply.code(404).send({
+            success: false,
+            message: "Template not found",
+          });
+        }
+
+        const result = await applyLibraryTemplate(fastify.prisma, {
+          template,
+          applicationLender,
+          organizationId: lenderOrgId,
+          userId: req.user.userId || req.user.id,
+          documentName: parsed.data.documentName,
+          req,
+        });
+
+        await notifyBroker(fastify.prisma, fastify.io, {
+          brokerOrgId: applicationLender.loanApplication.brokerOrgId,
+          eventType: BROKER_NOTIFICATION_EVENTS.LENDER_DECISION_CONDITIONAL,
+          category: "DOCUMENTS",
+          subject: "Sign document requested",
+          body: `${applicationLender.lender?.name || "Lender"} requested a signable document: ${result.signDocumentTitle || template.name}`,
+          metadata: {
+            loanApplicationId: applicationLender.loanApplicationId,
+            requirementId: result.id,
+            applicationNumber:
+              applicationLender.loanApplication.applicationNumber,
+            fromTemplateId: template.id,
+          },
+        });
+
+        return reply.send({
+          success: true,
+          message: "Sign document created from template",
+          data: formatSignDocumentRequirement(result, { viewer: "lender" }),
+        });
+      } catch (error) {
+        fastify.log.error(error);
+        return reply.code(error.statusCode || 500).send({
+          success: false,
+          message: error.message || "Failed to apply template",
         });
       }
     },
@@ -375,6 +520,72 @@ module.exports = async function lenderSignDocuments(fastify) {
         return reply.code(500).send({
           success: false,
           message: error.message || "Failed to mark document as seen",
+        });
+      }
+    },
+  );
+
+  fastify.get(
+    "/:applicationLenderId/sign-documents/:requirementId/download-filled",
+    async (req, reply) => {
+      try {
+        if (!req.user || req.user.orgType !== "LENDER") {
+          return reply.code(403).send({
+            success: false,
+            message: "Lender access only",
+          });
+        }
+
+        const lenderOrgId = req.user.organizationId;
+        const { applicationLenderId, requirementId } = req.params;
+
+        const applicationLender =
+          await fastify.prisma.applicationLender.findFirst({
+            where: { id: applicationLenderId, lenderOrgId },
+          });
+
+        if (!applicationLender) {
+          return reply.code(404).send({
+            success: false,
+            message: "Application not found",
+          });
+        }
+
+        const requirement =
+          await fastify.prisma.applicationDocumentRequirement.findFirst({
+            where: {
+              id: requirementId,
+              loanApplicationId: applicationLender.loanApplicationId,
+              requiresClientSignature: true,
+              requestApplicationLenderId: applicationLenderId,
+            },
+            select: { id: true, signStatus: true },
+          });
+
+        if (!requirement) {
+          return reply.code(404).send({
+            success: false,
+            message: "Sign document not found",
+          });
+        }
+
+        const file = await buildSignDocumentDownload(
+          fastify.prisma,
+          requirementId,
+        );
+
+        return reply
+          .header("Content-Type", file.mimeType)
+          .header(
+            "Content-Disposition",
+            `attachment; filename="${file.fileName.replace(/"/g, "")}"`,
+          )
+          .send(file.buffer);
+      } catch (error) {
+        fastify.log.error(error);
+        return reply.code(error.statusCode || 500).send({
+          success: false,
+          message: error.message || "Failed to download filled form",
         });
       }
     },

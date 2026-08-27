@@ -111,10 +111,131 @@ async function brokerGhlIntegrationRoutes(fastify) {
         fastify.prisma,
         organizationId,
       );
+      const {
+        getPublicAgencyLocationForOrganization,
+      } = require("../../../../services/ghl/organizationGhlAgencyLocation.service");
+      const agencyLocation = await getPublicAgencyLocationForOrganization(
+        fastify.prisma,
+        organizationId,
+        { roles: req.user.roles || [] },
+      );
 
       return reply.send({
         success: true,
-        data: toPublicConnectionStatus(connection),
+        data: {
+          ...toPublicConnectionStatus(connection),
+          agencyLocation,
+        },
+      });
+    },
+  );
+
+  /**
+   * Retry Agency CRM sub-account create/sync after Pro/Elite purchase.
+   * Used by broker dashboard "Refresh status" when mapping is still pending.
+   */
+  fastify.post(
+    "/agency/sync",
+    {
+      schema: {
+        tags: ["Broker -> Integrations -> GHL"],
+        summary: "Sync / create dedicated Agency CRM location for this organization",
+      },
+    },
+    async (req, reply) => {
+      if (!requireBrokerAdmin(req, reply)) return;
+
+      const organizationId = req.user.organizationId;
+      const ip = getClientIp(req);
+      const limit = checkRateLimit(`ghl-agency-sync:org:${organizationId}`, {
+        windowMs: 60 * 1000,
+        max: 5,
+      });
+      if (!limit.allowed) {
+        return reply.code(429).send({
+          success: false,
+          message: "Too many sync attempts. Please wait a moment.",
+          retryAfterSec: limit.retryAfterSec,
+        });
+      }
+
+      const sub = await fastify.prisma.organizationSubscription.findFirst({
+        where: {
+          organizationId,
+          status: { in: ["TRIAL", "ACTIVE", "PAST_DUE"] },
+        },
+        orderBy: { createdAt: "desc" },
+        include: { package: { select: { code: true } } },
+      });
+
+      if (!sub) {
+        return reply.code(409).send({
+          success: false,
+          code: "NO_ACTIVE_SUBSCRIPTION",
+          message: "An active Pro or Elite subscription is required for CRM setup.",
+        });
+      }
+
+      const packageCode = String(sub.package?.code || "").toUpperCase();
+      if (!["PRO", "ELITE"].includes(packageCode)) {
+        return reply.code(409).send({
+          success: false,
+          code: "PACKAGE_NOT_ELIGIBLE",
+          message: "CRM sub-accounts are included with Pro and Elite plans only.",
+        });
+      }
+
+      const {
+        syncAgencyLocationForSubscription,
+        getPublicAgencyLocationForOrganization,
+      } = require("../../../../services/ghl/organizationGhlAgencyLocation.service");
+
+      const syncResult = await syncAgencyLocationForSubscription(
+        fastify.prisma,
+        {
+          organizationId,
+          organizationSubscriptionId: sub.id,
+          packageCode,
+        },
+        { throwOnError: false, provisionUsers: true },
+      );
+
+      const agencyLocation = await getPublicAgencyLocationForOrganization(
+        fastify.prisma,
+        organizationId,
+        { roles: req.user.roles || [] },
+      );
+
+      req.log.info(
+        {
+          organizationId,
+          ip,
+          ok: syncResult.ok,
+          action: syncResult.action,
+          code: syncResult.code || null,
+        },
+        "Broker Agency CRM sync requested",
+      );
+
+      if (!syncResult.ok || !agencyLocation?.provisioned) {
+        return reply.code(502).send({
+          success: false,
+          code: syncResult.code || "AGENCY_LOCATION_SYNC_FAILED",
+          message:
+            syncResult.message ||
+            "CRM setup is still pending. Please try again shortly or contact support.",
+          data: { agencyLocation },
+        });
+      }
+
+      return reply.send({
+        success: true,
+        message: "CRM sub-account is ready",
+        data: {
+          agencyLocation,
+          action: syncResult.action,
+          usersProvisioned: syncResult.userProvisioning?.eligibleCount ?? null,
+        },
       });
     },
   );

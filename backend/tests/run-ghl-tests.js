@@ -8,6 +8,18 @@ const path = require("node:path");
 
 const files = [
   "tests/ghl/priceMap.test.js",
+  "tests/ghl/accountLocation.test.js",
+  "tests/ghl/agencyLocationMapping.test.js",
+  "tests/ghl/agencyLocationCreate.test.js",
+  "tests/ghl/fulfillAgencyLocation.test.js",
+  "tests/ghl/fulfillAgencyLocationPath.test.js",
+  "tests/ghl/adminPlanChangeAgencyLocation.test.js",
+  "tests/ghl/agencyUserMapping.test.js",
+  "tests/ghl/listOrganizationEligibleGhlUsers.test.js",
+  "tests/ghl/agencyUserProvisioning.test.js",
+  "tests/ghl/agencyOrgUserAudit.test.js",
+  "tests/ghl/organizationGhlSetupDiagnostic.test.js",
+  "tests/ghl/agencyLocationCreateCapability.test.js",
   "tests/ghl/checkoutErrors.test.js",
   "tests/ghl/webhookLifecycle.test.js",
   "tests/ghl/webhookExtractIds.test.js",

@@ -146,6 +146,12 @@ async function fetchPendingItems(prisma, schedule) {
     where: { loanApplicationId },
     include: {
       documentType: { select: { name: true } },
+      activeFormVersion: { select: { schemaJson: true } },
+      signFormSubmissions: {
+        orderBy: { createdAt: "desc" },
+        take: 1,
+        include: { values: { select: { fieldKey: true, valueJson: true } } },
+      },
       uploads: {
         select: {
           id: true,
@@ -173,14 +179,37 @@ async function fetchPendingItems(prisma, schedule) {
 
   if (reminderType === "SIGNATURE_REQUIRED") {
     return requirements
-      .filter(
-        (doc) =>
-          doc.requiresClientSignature &&
-          doc.signStatus &&
-          !["CLIENT_SIGNED", "FORWARDED_TO_LENDER", "LENDER_SEEN"].includes(
+      .filter((doc) => {
+        if (!doc.requiresClientSignature || !doc.signStatus) return false;
+        if (
+          ["CLIENT_SIGNED", "FORWARDED_TO_LENDER", "LENDER_SEEN"].includes(
             doc.signStatus,
-          ),
-      )
+          )
+        ) {
+          return false;
+        }
+        if (doc.signStatus !== "SENT_TO_CLIENT") return false;
+        if (doc.signMode === "DYNAMIC_FORM") {
+          const submission = (doc.signFormSubmissions || [])[0];
+          const values = {};
+          for (const item of submission?.values || []) {
+            values[item.fieldKey] = item.valueJson;
+          }
+          try {
+            const {
+              computeProgress,
+            } = require("../signForm/submissionService");
+            const progress = computeProgress(
+              doc.activeFormVersion?.schemaJson,
+              values,
+            );
+            return !progress.client.complete;
+          } catch {
+            return true;
+          }
+        }
+        return true;
+      })
       .map((doc) => ({
         id: doc.id,
         name: doc.signDocumentTitle || doc.documentType?.name || "Sign document",

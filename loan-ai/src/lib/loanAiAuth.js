@@ -108,8 +108,21 @@ export async function purchaseLoanAiSubscription(token, payload) {
 
 /**
  * Start GHL checkout via LendingCart backend (never call GHL from the browser).
+ * Organization details are required so broker provisioning uses the buyer's org.
  * @param {string} token
- * @param {{ packageId: string, billingCycle: 'MONTHLY'|'YEARLY', successUrl?: string, cancelUrl?: string, phone?: string }} payload
+ * @param {{
+ *   packageId: string,
+ *   billingCycle: 'MONTHLY'|'YEARLY',
+ *   successUrl?: string,
+ *   cancelUrl?: string,
+ *   organizationName: string,
+ *   organizationEmail: string,
+ *   organizationPhone: string,
+ *   firstName: string,
+ *   lastName: string,
+ *   addOnCodes?: string[],
+ *   phone?: string,
+ * }} payload
  */
 export async function startLoanAiCheckout(token, payload) {
   const res = await fetch(`${API_BASE}/public/payments/checkout`, {
@@ -123,8 +136,47 @@ export async function startLoanAiCheckout(token, payload) {
       billingCycle: payload.billingCycle || payload.billingPeriod || "MONTHLY",
       successUrl: payload.successUrl,
       cancelUrl: payload.cancelUrl,
-      phone: payload.phone,
+      organizationName: payload.organizationName,
+      organizationEmail: payload.organizationEmail,
+      organizationPhone: payload.organizationPhone || payload.phone,
+      firstName: payload.firstName,
+      lastName: payload.lastName,
+      addOnCodes: payload.addOnCodes || [],
     }),
   });
+  return parseCheckoutJsonResponse(res);
+}
+
+/**
+ * Poll GHL invoice via backend and fulfill when paid (needed when webhooks
+ * cannot reach localhost).
+ */
+export async function syncLoanAiCheckout(token, checkoutId) {
+  const res = await fetch(`${API_BASE}/public/payments/checkout/sync`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(checkoutId ? { checkoutId } : {}),
+  });
+  return parseCheckoutJsonResponse(res);
+}
+
+/**
+ * After paid checkout: get a one-time broker set-password URL.
+ */
+export async function fetchBrokerSetupLink(token) {
+  const res = await fetch(
+    `${API_BASE}/public/loan-ai/subscriptions/broker-setup-link`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({}),
+    },
+  );
   return parseCheckoutJsonResponse(res);
 }

@@ -9,6 +9,29 @@ const {
   createSignedDocumentFile,
 } = require("../../services/documents/signDocumentMerge");
 const {
+  getFormForRequirement,
+} = require("../../services/documents/signForm/formService");
+const {
+  annotateFieldsForRole,
+  computeProgress,
+  getOrCreateDraftSubmission,
+  missingRequiredFields,
+  saveSubmissionValues,
+  finalizeFormIfComplete,
+  valuesMapFromSubmission,
+  fieldEditableByRole,
+} = require("../../services/documents/signForm/submissionService");
+const {
+  submitSignFormSchema,
+  saveSignFormValuesSchema,
+} = require("../../schemas/documents/signForm.schema");
+const {
+  notifyBrokerFormProgress,
+} = require("../../services/documents/signForm/signDocumentNotify");
+const {
+  buildSignDocumentDownload,
+} = require("../../services/documents/signForm/exportFilledForm.service");
+const {
   notifyBroker,
   BROKER_NOTIFICATION_EVENTS,
 } = require("../../services/notifications/brokerNotifications");
@@ -110,16 +133,22 @@ module.exports = async function clientSignDocuments(fastify) {
               ],
             },
           },
-          include: {
-            documentType: true,
-            uploads: {
-              where: { isSignedOutput: true },
-              orderBy: { uploadedAt: "desc" },
+            include: {
+              documentType: true,
+              uploads: {
+                where: { isSignedOutput: true },
+                orderBy: { uploadedAt: "desc" },
+              },
+              requestApplicationLender: {
+                include: { lender: { select: { name: true } } },
+              },
+              activeFormVersion: true,
+              signFormSubmissions: {
+                orderBy: { createdAt: "desc" },
+                take: 1,
+                include: { values: true },
+              },
             },
-            requestApplicationLender: {
-              include: { lender: { select: { name: true } } },
-            },
-          },
           orderBy: { createdAt: "desc" },
         });
 
@@ -422,6 +451,486 @@ module.exports = async function clientSignDocuments(fastify) {
         return reply.code(500).send({
           success: false,
           message: error.message || "Failed to sign document",
+        });
+      }
+    },
+  );
+
+  fastify.get(
+    "/sign-documents/:requirementId/form",
+    {
+      preHandler: clientAuthMiddleware,
+    },
+    async (req, reply) => {
+      const prisma = fastify.prisma;
+
+      try {
+        if (!req.client?.clientId) {
+          return reply.code(401).send({
+            success: false,
+            message: "Unauthorized",
+          });
+        }
+
+        const { requirementId } = req.params;
+        const loanApplicationId = req.query?.loanApplicationId;
+        if (!loanApplicationId) {
+          return reply.code(400).send({
+            success: false,
+            message: "loanApplicationId is required",
+          });
+        }
+
+        const clientIds = await resolveAccessibleClientIds(prisma, {
+          clientId: req.client.clientId,
+          portalUserId: req.user?.id || req.client?.id || null,
+          email: req.user?.email || req.client?.email || null,
+        });
+
+        const requirement = await prisma.applicationDocumentRequirement.findFirst({
+          where: {
+            id: requirementId,
+            loanApplicationId,
+            requiresClientSignature: true,
+            loanApplication: { clientId: { in: clientIds } },
+            signStatus: {
+              in: ["SENT_TO_CLIENT", "CLIENT_SIGNED", "FORWARDED_TO_LENDER", "LENDER_SEEN"],
+            },
+          },
+        });
+
+        if (!requirement) {
+          return reply.code(404).send({
+            success: false,
+            message: "Sign document not found",
+          });
+        }
+
+        if (requirement.signMode !== "DYNAMIC_FORM") {
+          return reply.code(400).send({
+            success: false,
+            message: "This document is not a fillable form",
+          });
+        }
+
+        const form = await getFormForRequirement(prisma, requirementId, {
+          preferPublished: true,
+        });
+
+        if (!form?.versionId || form.versionStatus !== "PUBLISHED") {
+          return reply.code(400).send({
+            success: false,
+            message: "Published form not found",
+          });
+        }
+
+        const draft = await getOrCreateDraftSubmission(prisma, {
+          requirementId,
+          formVersionId: form.versionId,
+        });
+        const values = valuesMapFromSubmission(draft);
+        const progress = computeProgress(form.schema, values);
+        const fields = annotateFieldsForRole(
+          form.schema?.fields || [],
+          "client",
+          values,
+          form.schema,
+        );
+
+        return reply.send({
+          success: true,
+          data: {
+            ...form,
+            schema: {
+              ...form.schema,
+              fields,
+            },
+            progress,
+            readOnly: requirement.signStatus !== "SENT_TO_CLIENT",
+            submission: {
+              id: draft.id,
+              status: draft.status,
+              values,
+            },
+          },
+        });
+      } catch (error) {
+        fastify.log.error(error);
+        return reply.code(500).send({
+          success: false,
+          message: error.message || "Failed to load form",
+        });
+      }
+    },
+  );
+
+  fastify.put(
+    "/sign-documents/:requirementId/form/values",
+    {
+      preHandler: clientAuthMiddleware,
+    },
+    async (req, reply) => {
+      const prisma = fastify.prisma;
+
+      try {
+        if (!req.client?.clientId) {
+          return reply.code(401).send({
+            success: false,
+            message: "Unauthorized",
+          });
+        }
+
+        const { requirementId } = req.params;
+        const parsed = saveSignFormValuesSchema.safeParse(req.body || {});
+        if (!parsed.success) {
+          return reply.code(400).send({
+            success: false,
+            message: "Invalid values payload",
+            errors: parsed.error.flatten(),
+          });
+        }
+
+        const loanApplicationId = req.body?.loanApplicationId;
+        if (!loanApplicationId) {
+          return reply.code(400).send({
+            success: false,
+            message: "loanApplicationId is required",
+          });
+        }
+
+        const clientIds = await resolveAccessibleClientIds(prisma, {
+          clientId: req.client.clientId,
+          portalUserId: req.user?.id || req.client?.id || null,
+          email: req.user?.email || req.client?.email || null,
+        });
+
+        const requirement = await prisma.applicationDocumentRequirement.findFirst({
+          where: {
+            id: requirementId,
+            loanApplicationId,
+            requiresClientSignature: true,
+            loanApplication: { clientId: { in: clientIds } },
+          },
+          include: {
+            documentType: true,
+            activeFormVersion: true,
+            loanApplication: {
+              select: {
+                id: true,
+                applicationNumber: true,
+                brokerOrgId: true,
+              },
+            },
+          },
+        });
+
+        if (!requirement) {
+          return reply.code(404).send({
+            success: false,
+            message: "Sign document not found",
+          });
+        }
+
+        if (requirement.signStatus !== "SENT_TO_CLIENT") {
+          return reply.code(400).send({
+            success: false,
+            message: "This document is not ready for form editing",
+          });
+        }
+
+        if (
+          requirement.signMode !== "DYNAMIC_FORM" ||
+          !requirement.activeFormVersion
+        ) {
+          return reply.code(400).send({
+            success: false,
+            message: "Published fillable form not found",
+          });
+        }
+
+        const schema = requirement.activeFormVersion.schemaJson;
+        const editableFields = (schema?.fields || []).filter((field) =>
+          fieldEditableByRole(field, "client"),
+        );
+
+        const draft = await getOrCreateDraftSubmission(prisma, {
+          requirementId: requirement.id,
+          formVersionId: requirement.activeFormVersionId,
+        });
+
+        const updatedSubmission = await saveSubmissionValues(prisma, {
+          submissionId: draft.id,
+          values: parsed.data.values,
+          role: "client",
+          editableFields,
+        });
+
+        const values = valuesMapFromSubmission(updatedSubmission);
+        const progress = computeProgress(schema, values);
+
+        return reply.send({
+          success: true,
+          message: "Draft saved",
+          data: {
+            progress,
+            finalized: false,
+            submission: {
+              id: updatedSubmission.id,
+              status: updatedSubmission.status,
+              values,
+            },
+          },
+        });
+      } catch (error) {
+        fastify.log.error(error);
+        return reply.code(500).send({
+          success: false,
+          message: error.message || "Failed to save draft",
+        });
+      }
+    },
+  );
+
+  fastify.post(
+    "/sign-documents/:requirementId/submit-form",
+    {
+      preHandler: clientAuthMiddleware,
+    },
+    async (req, reply) => {
+      const prisma = fastify.prisma;
+
+      try {
+        if (!req.client?.clientId) {
+          return reply.code(401).send({
+            success: false,
+            message: "Unauthorized",
+          });
+        }
+
+        const { requirementId } = req.params;
+        const parsed = submitSignFormSchema.safeParse(req.body || {});
+        if (!parsed.success) {
+          return reply.code(400).send({
+            success: false,
+            message: "Invalid submission payload",
+            errors: parsed.error.flatten(),
+          });
+        }
+
+        const { loanApplicationId, values } = parsed.data;
+        if (!loanApplicationId) {
+          return reply.code(400).send({
+            success: false,
+            message: "loanApplicationId is required",
+          });
+        }
+
+        const clientIds = await resolveAccessibleClientIds(prisma, {
+          clientId: req.client.clientId,
+          portalUserId: req.user?.id || req.client?.id || null,
+          email: req.user?.email || req.client?.email || null,
+        });
+
+        const requirement = await prisma.applicationDocumentRequirement.findFirst({
+          where: {
+            id: requirementId,
+            loanApplicationId,
+            requiresClientSignature: true,
+            loanApplication: { clientId: { in: clientIds } },
+          },
+          include: {
+            documentType: true,
+            activeFormVersion: true,
+            loanApplication: {
+              select: {
+                id: true,
+                applicationNumber: true,
+                brokerOrgId: true,
+                client: { select: { legalName: true } },
+              },
+            },
+          },
+        });
+
+        if (!requirement) {
+          return reply.code(404).send({
+            success: false,
+            message: "Sign document not found",
+          });
+        }
+
+        if (requirement.signStatus !== "SENT_TO_CLIENT") {
+          return reply.code(400).send({
+            success: false,
+            message: "This document is not ready for form submission",
+          });
+        }
+
+        if (
+          requirement.signMode !== "DYNAMIC_FORM" ||
+          !requirement.activeFormVersion
+        ) {
+          return reply.code(400).send({
+            success: false,
+            message: "Published fillable form not found",
+          });
+        }
+
+        const schema = requirement.activeFormVersion.schemaJson;
+        const editableFields = (schema?.fields || []).filter((field) =>
+          fieldEditableByRole(field, "client"),
+        );
+
+        const draft = await getOrCreateDraftSubmission(prisma, {
+          requirementId: requirement.id,
+          formVersionId: requirement.activeFormVersionId,
+        });
+
+        const updatedSubmission = await saveSubmissionValues(prisma, {
+          submissionId: draft.id,
+          values,
+          role: "client",
+          editableFields,
+        });
+
+        const mergedValues = valuesMapFromSubmission(updatedSubmission);
+        const missingClient = missingRequiredFields(
+          schema,
+          mergedValues,
+          "client",
+        );
+        if (missingClient.length) {
+          return reply.code(400).send({
+            success: false,
+            message: `${missingClient[0].label || missingClient[0].key} is required`,
+          });
+        }
+
+        const progress = computeProgress(schema, mergedValues);
+
+        const finalizeResult = await finalizeFormIfComplete(prisma, {
+          requirement,
+          schema,
+          submission: updatedSubmission,
+          clientUserId: req.user?.id || null,
+        });
+
+        await notifyBrokerFormProgress({
+          prisma,
+          io: fastify.io,
+          requirement,
+          brokerOrgId: requirement.loanApplication.brokerOrgId,
+          application: {
+            id: requirement.loanApplication.id,
+            applicationNumber: requirement.loanApplication.applicationNumber,
+            client: requirement.loanApplication.client,
+          },
+          finalized: Boolean(finalizeResult.finalized),
+          awaitingBrokerFields: !finalizeResult.finalized,
+          logger: fastify.log,
+        });
+
+        if (!finalizeResult.finalized) {
+          return reply.send({
+            success: true,
+            message:
+              "Your fields were saved. Waiting for broker to complete remaining fields.",
+            data: {
+              ...formatSignDocumentRequirement(requirement, {
+                viewer: "client",
+              }),
+              progress,
+              finalized: false,
+              awaitingBrokerFields: true,
+            },
+          });
+        }
+
+        return reply.send({
+          success: true,
+          message: "Form submitted successfully",
+          data: {
+            ...formatSignDocumentRequirement(finalizeResult.requirement, {
+              viewer: "client",
+            }),
+            progress: finalizeResult.progress,
+            finalized: true,
+          },
+        });
+      } catch (error) {
+        fastify.log.error(error);
+        return reply.code(500).send({
+          success: false,
+          message: error.message || "Failed to submit form",
+        });
+      }
+    },
+  );
+
+  fastify.get(
+    "/sign-documents/:requirementId/download-filled",
+    {
+      preHandler: clientAuthMiddleware,
+    },
+    async (req, reply) => {
+      const prisma = fastify.prisma;
+
+      try {
+        if (!req.client?.clientId) {
+          return reply.code(401).send({
+            success: false,
+            message: "Unauthorized",
+          });
+        }
+
+        const { requirementId } = req.params;
+        const loanApplicationId =
+          req.query?.loanApplicationId || req.query?.applicationId;
+
+        if (!loanApplicationId) {
+          return reply.code(400).send({
+            success: false,
+            message: "loanApplicationId is required",
+          });
+        }
+
+        const clientIds = await resolveAccessibleClientIds(prisma, {
+          clientId: req.client.clientId,
+          portalUserId: req.user?.id || req.client?.id || null,
+          email: req.user?.email || req.client?.email || null,
+        });
+
+        const requirement = await prisma.applicationDocumentRequirement.findFirst({
+          where: {
+            id: requirementId,
+            loanApplicationId,
+            requiresClientSignature: true,
+            loanApplication: { clientId: { in: clientIds } },
+          },
+          select: { id: true },
+        });
+
+        if (!requirement) {
+          return reply.code(404).send({
+            success: false,
+            message: "Sign document not found",
+          });
+        }
+
+        const file = await buildSignDocumentDownload(prisma, requirementId);
+
+        return reply
+          .header("Content-Type", file.mimeType)
+          .header(
+            "Content-Disposition",
+            `attachment; filename="${file.fileName.replace(/"/g, "")}"`,
+          )
+          .send(file.buffer);
+      } catch (error) {
+        fastify.log.error(error);
+        return reply.code(error.statusCode || 500).send({
+          success: false,
+          message: error.message || "Failed to download filled form",
         });
       }
     },

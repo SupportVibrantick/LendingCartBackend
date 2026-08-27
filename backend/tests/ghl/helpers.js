@@ -68,6 +68,28 @@ function reload(pathFromBackend) {
 }
 
 /**
+ * Replace createAgencyLocation so mapping tests never call live GHL.
+ */
+function stubCreateAgencyLocation(impl) {
+  const resolved = require.resolve("../../services/ghl/ghlAgencyLocationCreate.service");
+  let realExports = {};
+  try {
+    realExports = require("../../services/ghl/ghlAgencyLocationCreate.service");
+  } catch {
+    realExports = {};
+  }
+  require.cache[resolved] = {
+    id: resolved,
+    filename: resolved,
+    loaded: true,
+    exports: {
+      ...realExports,
+      createAgencyLocation: impl,
+    },
+  };
+}
+
+/**
  * Find an open reusable checkout — mirrors checkout route anti-duplicate logic.
  */
 function findReusableOpenCheckout(checkouts, { loanAiUserId, packageId, billingCycle, windowMs = 15 * 60 * 1000 }) {
@@ -95,5 +117,6 @@ module.exports = {
   applyPaymentEnv,
   clearModule,
   reload,
+  stubCreateAgencyLocation,
   findReusableOpenCheckout,
 };
