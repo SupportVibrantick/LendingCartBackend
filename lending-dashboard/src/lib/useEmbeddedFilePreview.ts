@@ -10,8 +10,8 @@ export async function fetchFileAsBlobUrl(
   url: string,
   headers?: HeadersInit,
 ): Promise<string> {
-  // Public static files under /public do not need auth; Authorization can
-  // trigger CORS failures on static asset responses.
+  // Public static files do not need auth; Authorization can trigger CORS
+  // failures on static asset responses (common cause of broken PDF iframes).
   const isPublicStatic =
     /\/public\//i.test(url) ||
     /\/uploads\//i.test(url) ||
@@ -24,6 +24,7 @@ export async function fetchFileAsBlobUrl(
     throw new Error(`Failed to load file (${res.status})`);
   }
   const blob = await res.blob();
+  // Ensure PDF previews get a PDF MIME so Chrome's viewer accepts the blob.
   const typed =
     blob.type && blob.type !== "application/octet-stream"
       ? blob
