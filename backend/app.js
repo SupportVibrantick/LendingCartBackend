@@ -23,6 +23,10 @@ const multipart = require("@fastify/multipart");
 const { getUploadMaxBytes } = require("./config/env");
 // Configure Fastify with built-in logger
 const app = Fastify({
+  // Trust X-Forwarded-* headers so request.ip reflects the real client IP
+  // behind reverse proxies / load balancers (otherwise rate limiting keys
+  // every request to the proxy's IP and is effectively disabled).
+  trustProxy: true,
   logger:
     process.env.NODE_ENV === "production"
       ? { level: "info" }

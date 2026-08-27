@@ -1,6 +1,7 @@
 const {
   syncBookDemoLeadToGhl,
 } = require("../../../../services/ghl/bookDemoLeadSync");
+// const { getClientIp } = require("../../../../utils/security/rateLimit");
 
 module.exports = async function (fastify) {
   // Allow empty POST body when clients send Content-Type: application/json
@@ -21,19 +22,19 @@ module.exports = async function (fastify) {
   fastify.post(
     "/:id/sync-ghl",
     {
-      config: {
-        rateLimit: {
-          max: 30,
-          timeWindow: "1 minute",
-          keyGenerator: (req) => `admin:${req.user?.userId ?? req.ip}`,
-          errorResponseBuilder: () => ({
-            statusCode: 429,
-            error: "Too Many Requests",
-            success: false,
-            message: "Too many requests. Please slow down.",
-          }),
-        },
-      },
+      // config: {
+      //   rateLimit: {
+      //     max: 30,
+      //     timeWindow: "1 minute",
+      //     keyGenerator: (req) => `admin-ip:${getClientIp(req)}`,
+      //     errorResponseBuilder: () => ({
+      //       statusCode: 429,
+      //       error: "Too Many Requests",
+      //       success: false,
+      //       message: "Too many requests. Please slow down.",
+      //     }),
+      //   },
+      // },
     },
     async (req, reply) => {
     const prisma = fastify.prisma;
