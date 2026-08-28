@@ -6,6 +6,7 @@ const cookieParser = require("@fastify/cookie");
 const fastifyStatic = require("@fastify/static");
 const fastifyFormbody = require("@fastify/formbody");
 const rateLimit = require("@fastify/rate-limit");
+const { getClientIp } = require("./utils/security/rateLimit");
 const pointOfView = require("@fastify/view");
 const pug = require("pug");
 const {
@@ -47,7 +48,14 @@ runEmailConsumerKafka().catch((error) => {
   console.error("Error starting the email consumer:", error);
 });
 
-app.register(rateLimit, {});
+app.register(rateLimit, {
+  // Don't auto-limit every route — only routes that set config.rateLimit
+  global: false,
+  // Use the same IP extraction as the custom checkRateLimit helper so
+  // proxy headers (x-forwarded-for, x-real-ip, cf-connecting-ip) are
+  // honored even when trustProxy behavior differs from request.ip.
+  keyGenerator: (request) => getClientIp(request),
+});
 
 app.register(cors, {
   origin: "*",
