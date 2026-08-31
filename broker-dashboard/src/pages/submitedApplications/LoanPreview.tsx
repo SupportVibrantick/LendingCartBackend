@@ -283,7 +283,11 @@ const Metric = ({
       transition={{ duration: 0.25 }}
       className="group relative cursor-pointer overflow-hidden rounded-2xl p-4 transition-all duration-300"
     >
-      <div className="absolute inset-0 opacity-0 blur-xl transition duration-300 group-hover:opacity-100 bg-gradient-to-r from-cyan-400/10 to-blue-500/10" />
+      <div
+        className={`absolute inset-0 opacity-0 blur-xl transition duration-300 group-hover:opacity-100 ${
+          isHero ? "bg-white/10" : "bg-gradient-to-r from-cyan-400/10 to-blue-500/10"
+        }`}
+      />
       <p
         className={`text-[11px] font-semibold uppercase tracking-widest transition ${
           isHero
@@ -305,7 +309,7 @@ const Metric = ({
       <div
         className={`mt-3 h-[3px] w-0 rounded-full transition-all duration-300 group-hover:w-full ${
           isHero
-            ? "bg-gradient-to-r from-white/80 to-cyan-300"
+            ? "bg-white/80"
             : "bg-gradient-to-r from-cyan-500 to-blue-500"
         }`}
       />
@@ -1989,7 +1993,7 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
     if (loDocPermissions.sign) {
       documentItems.push({
         key: "sign-documents",
-        label: "Documents to Sign",
+        label: "Fill & Sign Forms",
         icon: FileText,
         color: "text-indigo-600",
       });
@@ -3984,96 +3988,64 @@ dark:bg-red-900/20 dark:text-red-400"
               {/* EXTRA INFO (Client + Product + Amount) */}
               <div className="mt-4 flex flex-wrap items-center gap-4">
                 {/* BORROWER */}
-                <div
-                  className="flex items-center gap-3 px-4 py-2 rounded-2xl 
-    bg-gradient-to-r from-blue-50 to-cyan-50 
-    dark:from-[#1E293B] dark:to-[#0F172A]
-    shadow-sm hover:shadow-md transition-all"
-                >
-                  <div
-                    className="h-9 w-9 flex items-center justify-center rounded-full 
-      bg-gradient-to-br from-blue-500 to-cyan-500 text-white"
-                  >
+                <div className="flex items-center gap-3 rounded-2xl bg-[#4C76DA]/10 px-4 py-2 shadow-sm transition-all hover:shadow-md dark:bg-[#4C76DA]/15">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#4C76DA] text-white">
                     <FiUser size={16} />
                   </div>
 
                   <div className="flex flex-col leading-tight">
-                    <span className="text-[11px] font-medium text-blue-500 dark:text-blue-400">
+                    <span className="text-[11px] font-medium text-[#4C76DA]">
                       Borrower Name
                     </span>
-                    <span className="text-sm font-semibold text-blue-900 dark:text-white">
+                    <span className="text-sm font-semibold text-slate-900 dark:text-white">
                       {borrowerName}
                     </span>
                   </div>
                 </div>
 
                 {/* PRODUCT */}
-                <div
-                  className="flex items-center gap-3 px-4 py-2 rounded-2xl 
-    bg-gradient-to-r from-purple-50 to-indigo-50 
-    dark:from-[#1E1B4B] dark:to-[#0F172A]
-    shadow-sm hover:shadow-md transition-all"
-                >
-                  <div
-                    className="h-9 w-9 flex items-center justify-center rounded-full 
-      bg-gradient-to-br from-purple-500 to-indigo-500 text-white"
-                  >
+                <div className="flex items-center gap-3 rounded-2xl bg-[#4C76DA]/10 px-4 py-2 shadow-sm transition-all hover:shadow-md dark:bg-[#4C76DA]/15">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#4C76DA] text-white">
                     <FiTag size={16} />
                   </div>
 
                   <div className="flex flex-col leading-tight">
-                    <span className="text-[11px] font-medium text-indigo-500 dark:text-indigo-400">
+                    <span className="text-[11px] font-medium text-[#4C76DA]">
                       Product Name
                     </span>
-                    <span className="text-sm font-semibold text-indigo-900 dark:text-white">
+                    <span className="text-sm font-semibold text-slate-900 dark:text-white">
                       {productCode}
                     </span>
                   </div>
                 </div>
 
                 {/* AMOUNT */}
-                <div
-                  className="flex items-center gap-3 px-4 py-2 rounded-2xl 
-    bg-gradient-to-r from-emerald-50 to-green-50 
-    dark:from-[#022c22] dark:to-[#052e2b]
-    shadow-sm hover:shadow-md transition-all"
-                >
-                  <div
-                    className="h-9 w-9 flex items-center justify-center rounded-full 
-      bg-gradient-to-br from-emerald-500 to-green-500 text-white"
-                  >
+                <div className="flex items-center gap-3 rounded-2xl bg-[#4C76DA]/10 px-4 py-2 shadow-sm transition-all hover:shadow-md dark:bg-[#4C76DA]/15">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#4C76DA] text-white">
                     $
                   </div>
 
                   <div className="flex flex-col leading-tight">
-                    <span className="text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
+                    <span className="text-[11px] font-medium text-[#4C76DA]">
                       Loan Amount Requested
                     </span>
-                    <span className="text-sm font-semibold text-emerald-900 dark:text-white">
+                    <span className="text-sm font-semibold text-slate-900 dark:text-white">
                       ${submissionDetail?.amountRequested || 0}
                     </span>
                   </div>
                 </div>
 
                 {/* CREDIT SCORE */}
-                <div
-                  className="flex items-center gap-3 px-4 py-2 rounded-2xl 
-    bg-gradient-to-r from-amber-50 to-yellow-50 
-    dark:from-[#451a03] dark:to-[#422006]
-    shadow-sm hover:shadow-md transition-all"
-                >
-                  <div
-                    className="h-9 w-9 flex items-center justify-center rounded-full 
-      bg-gradient-to-br from-amber-500 to-yellow-500 text-white font-bold text-sm"
-                  >
+                <div className="flex items-center gap-3 rounded-2xl bg-[#4C76DA]/10 px-4 py-2 shadow-sm transition-all hover:shadow-md dark:bg-[#4C76DA]/15">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#4C76DA] text-sm font-bold text-white">
                     <FaRegCreditCard />
                   </div>
 
                   <div className="flex flex-col leading-tight">
-                    <span className="text-[11px] font-medium text-amber-600 dark:text-amber-400">
+                    <span className="text-[11px] font-medium text-[#4C76DA]">
                       Credit Score
                     </span>
-                    <span className="text-sm font-semibold text-amber-900 dark:text-white">
+                    <span className="text-sm font-semibold text-slate-900 dark:text-white">
                       {submissionDetail?.creditScore || "N/A"}
                     </span>
                   </div>
@@ -4099,7 +4071,7 @@ dark:bg-red-900/20 dark:text-red-400"
             <div className="py-20 text-center text-slate-500">Loading...</div>
           ) : (
             <>
-              <div className="mb-6 overflow-hidden rounded-[30px] border border-white/30 bg-[radial-gradient(circle_at_top_left,_rgba(255,255,255,0.24),_transparent_28%),linear-gradient(135deg,_#1d4ed8_0%,_#0f766e_55%,_#0891b2_100%)] p-6 text-white">
+              <div className="mb-6 overflow-hidden rounded-[30px] border border-[#4C76DA]/20 bg-[#4C76DA] p-6 text-white">
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-6">
                   <Metric
                     label="Monthly Payment"

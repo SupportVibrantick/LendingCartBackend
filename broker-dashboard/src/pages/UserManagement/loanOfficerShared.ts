@@ -44,7 +44,7 @@ export const LO_PERMISSION_CATEGORIES: LoanOfficerPermissionCategory[] = [
     items: [
       { label: "Upload Documents", key: "UPLOAD_DOCUMENTS" },
       { label: "Request Documents", key: "REQUEST_DOCUMENTS" },
-      { label: "Documents to Sign", key: "DOCUMENTS_TO_SIGN" },
+      { label: "Fill & Sign Forms", key: "DOCUMENTS_TO_SIGN" },
       { label: "LOI / Term Sheet tab", key: "VIEW_LOI_TERM_SHEET" },
       { label: "Fee Agreement", key: "VIEW_FEE_AGREEMENT" },
       { label: "Lender Hub", key: "VIEW_LENDER_HUB" },

@@ -29,12 +29,13 @@ type SignMode = "template" | "sign" | "fill";
 function resumeClientPortal(
   navigate: ReturnType<typeof useNavigate>,
   loanApplicationId: string,
+  resumeTab: "termSheet" | "signForms" = "signForms",
 ) {
   navigate("/client-portal", {
     replace: true,
     state: {
       resumeApplicationId: loanApplicationId,
-      resumeTab: "signDocuments",
+      resumeTab,
     },
   });
 }
@@ -68,9 +69,17 @@ export default function ClientSignDocumentPage() {
   const [submitting, setSubmitting] = useState(false);
   const sigRef = useRef<SignatureCanvas | null>(null);
 
+  const resumeTabParam = params.get("resumeTab");
+  const resumeTab: "termSheet" | "signForms" =
+    resumeTabParam === "termSheet" || resumeTabParam === "signForms"
+      ? resumeTabParam
+      : doc && isBrokerTermSheetDoc(doc)
+        ? "termSheet"
+        : "signForms";
+
   const goBack = () => {
     if (loanApplicationId) {
-      resumeClientPortal(navigate, loanApplicationId);
+      resumeClientPortal(navigate, loanApplicationId, resumeTab);
       return;
     }
     navigate("/client-portal", { replace: true });
@@ -238,7 +247,7 @@ export default function ClientSignDocumentPage() {
             Missing document context
           </h1>
           <p className="mt-2 text-sm text-slate-500">
-            Open this page from Term Sheet &amp; Sign.
+            Open this page from Term Sheet or Sign Forms in your client portal.
           </p>
           <button
             type="button"
@@ -394,7 +403,6 @@ export default function ClientSignDocumentPage() {
               mimeType={doc.templateMimeType}
               fileName={doc.templateFileName}
               getAuthHeaders={getClientPortalAuthHeaders}
-              viewOnly
               iframeClassName="h-full min-h-[70vh] w-full bg-white"
             />
           </div>
@@ -419,7 +427,6 @@ export default function ClientSignDocumentPage() {
                     mimeType={doc.templateMimeType}
                     fileName={doc.templateFileName}
                     getAuthHeaders={getClientPortalAuthHeaders}
-                    viewOnly
                     iframeClassName="h-full min-h-[50vh] w-full bg-white"
                   />
                 </div>

@@ -56,7 +56,7 @@ function getSignDocumentWorkflow(requirement, formProgress = requirement?.formPr
       status === "LENDER_SEEN"
         ? "Reviewed by lender"
         : "Forwarded to lender";
-  } else if (status === "CLIENT_SIGNED" || (isForm && allComplete)) {
+  } else if (status === "CLIENT_SIGNED") {
     brokerBucket = WORKFLOW_BUCKETS.READY_TO_FORWARD;
     lenderBucket = WORKFLOW_BUCKETS.IN_PROGRESS;
     clientBucket = WORKFLOW_BUCKETS.COMPLETED;
@@ -120,6 +120,134 @@ function getSignDocumentWorkflow(requirement, formProgress = requirement?.formPr
   };
 }
 
+function getViewerWorkflowCopy(workflow, requirement, viewer = "broker") {
+  const status = requirement?.signStatus || null;
+  const isForm = workflow.isForm;
+  const lenderName =
+    requirement?.requestApplicationLender?.lender?.name ||
+    requirement?.lenderName ||
+    null;
+  const lenderLabel = lenderName || "the lender";
+
+  if (viewer === "client") {
+    if (status === "LENDER_SEEN") {
+      return {
+        signStatusLabel: "Reviewed by lender",
+        workflowHint: `${lenderLabel} has reviewed your submitted form`,
+      };
+    }
+
+    if (status === "FORWARDED_TO_LENDER") {
+      return {
+        signStatusLabel: "With lender",
+        workflowHint: `Your broker sent this completed form to ${lenderLabel}`,
+      };
+    }
+
+    if (status === "CLIENT_SIGNED") {
+      return {
+        signStatusLabel: isForm ? "Submitted" : "Signed",
+        workflowHint: isForm
+          ? `You completed this form — your broker will review and send it to ${lenderLabel}`
+          : `You signed this document — your broker will forward it to ${lenderLabel}`,
+      };
+    }
+
+    if (status === "SENT_TO_CLIENT") {
+      if (workflow.clientBucket === "waitingOnBroker") {
+        return {
+          signStatusLabel: "With broker",
+          workflowHint: isForm
+            ? "You finished your part — your broker is completing the remaining fields"
+            : "Your broker is finishing this before sending it to the lender",
+        };
+      }
+
+      return {
+        signStatusLabel: isForm ? "Action needed" : "Signature needed",
+        workflowHint: isForm
+          ? "Complete your assigned form fields"
+          : "Your signature is required on this document",
+      };
+    }
+
+    return {
+      signStatusLabel: workflow.signStatusLabel,
+      workflowHint: workflow.workflowHint,
+    };
+  }
+
+  if (viewer !== "lender") {
+    return {
+      signStatusLabel: workflow.signStatusLabel,
+      workflowHint: workflow.workflowHint,
+    };
+  }
+
+  const isFormLender = workflow.isForm;
+
+  if (status === "LENDER_SEEN") {
+    return {
+      signStatusLabel: "Reviewed",
+      workflowHint: "You reviewed this completed form",
+    };
+  }
+
+  if (status === "FORWARDED_TO_LENDER") {
+    return {
+      signStatusLabel: "Ready to review",
+      workflowHint: "Completed copy received — review and download",
+    };
+  }
+
+  if (status === "CLIENT_SIGNED") {
+    return {
+      signStatusLabel: isFormLender ? "With broker" : "Client signed",
+      workflowHint: isFormLender
+        ? "Client finished — broker will send the completed copy to you"
+        : "Client signed — waiting for broker to send to you",
+    };
+  }
+
+  if (status === "SENT_TO_CLIENT") {
+    if (isFormLender && !workflow.brokerComplete) {
+      return {
+        signStatusLabel: workflow.clientComplete
+          ? "Broker fields pending"
+          : "With client",
+        workflowHint: workflow.clientComplete
+          ? "Client finished their fields — broker is completing the rest"
+          : "Client and broker are completing the form",
+      };
+    }
+
+    return {
+      signStatusLabel: "With client",
+      workflowHint: isFormLender
+        ? "Client is completing the form"
+        : "Waiting for client signature",
+    };
+  }
+
+  if (status === "AWAITING_BROKER") {
+    return {
+      signStatusLabel: isFormLender
+        ? workflow.brokerComplete
+          ? "Awaiting broker"
+          : "Broker setup"
+        : "Awaiting broker",
+      workflowHint: isFormLender
+        ? "Broker is preparing this form before sending to the client"
+        : "Broker will send this to the client for signature",
+    };
+  }
+
+  return {
+    signStatusLabel: workflow.signStatusLabel,
+    workflowHint: workflow.workflowHint,
+  };
+}
+
 function countWorkflow(rows, viewer = "broker") {
   const key =
     viewer === "lender"
@@ -154,5 +282,6 @@ module.exports = {
   WORKFLOW_BUCKETS,
   isDynamicForm,
   getSignDocumentWorkflow,
+  getViewerWorkflowCopy,
   countWorkflow,
 };
