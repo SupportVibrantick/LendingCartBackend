@@ -88,7 +88,7 @@ module.exports = async function createLenderUser(fastify) {
         }
 
         const temporaryPassword = generateTemporaryPassword();
-        const passwordHash = await bcrypt.hash(temporaryPassword, 10);
+        const passwordHash = await bcrypt.hash(temporaryPassword, 12);
         const trimmedFirstName = String(firstName).trim();
         const trimmedLastName = String(lastName).trim();
         const isReinvite = Boolean(existingUser?.isDeleted);

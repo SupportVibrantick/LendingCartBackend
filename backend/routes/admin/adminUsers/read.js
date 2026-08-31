@@ -8,7 +8,7 @@ module.exports = fp(async function adminUserReadRoutes(fastify) {
     const prisma = fastify.prisma;
 
     try {
-      const { skip, take, page, limit } = require("../../utils/pagination").parsePagination(req.query);
+      const { skip, take, page, limit } = require("../../../utils/pagination").parsePagination(req.query);
 
       const [total, users] = await Promise.all([
         prisma.userAccount.count({

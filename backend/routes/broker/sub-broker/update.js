@@ -115,7 +115,7 @@ module.exports = async function updateSubBrokerRoutes(fastify) {
               message: "Password must be at least 8 characters",
             });
           }
-          updateData.passwordHash = await bcrypt.hash(fields.password, 10);
+          updateData.passwordHash = await bcrypt.hash(fields.password, 12);
         }
 
         if (Object.keys(updateData).length > 0) {
