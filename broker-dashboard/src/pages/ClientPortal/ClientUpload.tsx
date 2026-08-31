@@ -14,6 +14,7 @@ import {
   LayoutGrid,
   FileSignature,
   Receipt,
+  ClipboardList,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import SignatureCanvas from "react-signature-canvas";
@@ -440,9 +441,20 @@ function buildVisiblePages(current: number, totalPages: number) {
 type ApplicationWorkspaceTab =
   | "application"
   | "documents"
-  | "signDocuments"
+  | "termSheet"
+  | "signForms"
   | "feeAgreement"
   | "chat";
+
+type ClientSignWorkspaceTab = "termSheet" | "signForms";
+
+const normalizeClientSignResumeTab = (
+  tab?: string | null,
+): ClientSignWorkspaceTab => {
+  if (tab === "termSheet" || tab === "signForms") return tab;
+  if (tab === "signDocuments") return "signForms";
+  return "signForms";
+};
 
 type ApplicationWorkspaceHeaderProps = {
   activeTab: ApplicationWorkspaceTab;
@@ -462,7 +474,8 @@ const APPLICATION_WORKSPACE_TABS: Array<{
 }> = [
   { key: "application", label: "Overview", icon: LayoutGrid },
   { key: "documents", label: "Upload Documents", icon: FiUploadCloud },
-  { key: "signDocuments", label: "Term Sheet & Sign", icon: FileSignature },
+  { key: "termSheet", label: "Term Sheet", icon: FileSignature },
+  { key: "signForms", label: "Fill & Sign Forms", icon: ClipboardList },
   { key: "feeAgreement", label: "Fee Agreement", icon: Receipt },
 ];
 
@@ -608,7 +621,13 @@ export default function ClientUpload() {
   const [totalApplications, setTotalApplications] = useState(0);
 
   const [activeTab, setActiveTab] = useState<
-    "documents" | "signDocuments" | "application" | "chat" | "applications" | "feeAgreement"
+    | "documents"
+    | "termSheet"
+    | "signForms"
+    | "application"
+    | "chat"
+    | "applications"
+    | "feeAgreement"
   >("applications");
   const [isSignedFromAPI, setIsSignedFromAPI] = useState(false);
   const [clientSignBlockedReason, setClientSignBlockedReason] = useState("");
@@ -1028,11 +1047,16 @@ export default function ClientUpload() {
 
     if (appId) {
       const metadata = notification.metadata || {};
-      const isBrokerTermSheet =
-        Boolean(metadata.brokerLoi) || Boolean(metadata.signDocument);
+      const isBrokerTermSheet = Boolean(metadata.brokerLoi);
+      const isSignForm =
+        Boolean(metadata.signDocument) && !isBrokerTermSheet;
       const tabByEvent: Record<string, typeof activeTab> = {
         NEW_MESSAGE: "chat",
-        DOCUMENTS_REQUESTED: isBrokerTermSheet ? "signDocuments" : "documents",
+        DOCUMENTS_REQUESTED: isBrokerTermSheet
+          ? "termSheet"
+          : isSignForm
+            ? "signForms"
+            : "documents",
         LENDER_CONDITIONAL: "documents",
       };
 
@@ -1044,13 +1068,17 @@ export default function ClientUpload() {
         return;
       }
 
-      if (nextTab === "signDocuments" || nextTab === "feeAgreement") {
+      if (
+        nextTab === "termSheet" ||
+        nextTab === "signForms" ||
+        nextTab === "feeAgreement"
+      ) {
         await fetchApplicationDetails(appId, { keepCurrentTab: true });
         setApplicationId(appId);
         setTabRefreshKey((key) => key + 1);
         setActiveTab(nextTab);
         if (
-          nextTab === "signDocuments" &&
+          nextTab === "termSheet" &&
           metadata.brokerLoi &&
           Number(metadata.forwardedDocumentCount || 0) > 0
         ) {
@@ -1152,14 +1180,14 @@ export default function ClientUpload() {
   };
 
   const openApplicationTab = async (
-    tab: "documents" | "signDocuments" | "feeAgreement",
+    tab: "documents" | "termSheet" | "signForms" | "feeAgreement",
   ) => {
     if (!applicationId) {
       toast.error("Select an application first");
       return;
     }
 
-    if (tab === "signDocuments" || tab === "feeAgreement") {
+    if (tab === "termSheet" || tab === "signForms" || tab === "feeAgreement") {
       setTabRefreshKey((key) => key + 1);
     }
 
@@ -1186,7 +1214,7 @@ export default function ClientUpload() {
 
   useEffect(() => {
     const resume = location.state as
-      | { resumeApplicationId?: string; resumeTab?: typeof activeTab }
+      | { resumeApplicationId?: string; resumeTab?: string }
       | null;
     if (!resume?.resumeApplicationId) return;
 
@@ -1196,11 +1224,9 @@ export default function ClientUpload() {
         keepCurrentTab: true,
       });
       if (cancelled) return;
-      const nextTab = resume.resumeTab || "signDocuments";
+      const nextTab = normalizeClientSignResumeTab(resume.resumeTab);
       setActiveTab(nextTab);
-      if (nextTab === "signDocuments" || nextTab === "feeAgreement") {
-        setTabRefreshKey((key) => key + 1);
-      }
+      setTabRefreshKey((key) => key + 1);
       navigate(location.pathname, { replace: true, state: {} });
     })();
 
@@ -1751,12 +1777,36 @@ export default function ClientUpload() {
           </>
         )}
 
-        {activeTab === "signDocuments" && applicationId && (
+        {activeTab === "termSheet" && applicationId && (
           <div className="space-y-4">
             {renderApplicationWorkspaceHeader()}
             <SignDocumentsPanel
-              key={tabRefreshKey}
+              key={`term-sheet-${tabRefreshKey}`}
               mode="client"
+              clientView="termSheet"
+              apiBase={API_BASE}
+              getAuthHeaders={() => getClientPortalAuthConfig().headers}
+              loanApplicationId={applicationId}
+              clientName={clientName}
+              applicationNumber={applicationNumber}
+              onUpdated={() => {
+                if (applicationId) {
+                  void fetchApplicationDetails(applicationId, {
+                    keepCurrentTab: true,
+                  });
+                }
+              }}
+            />
+          </div>
+        )}
+
+        {activeTab === "signForms" && applicationId && (
+          <div className="space-y-4">
+            {renderApplicationWorkspaceHeader()}
+            <SignDocumentsPanel
+              key={`sign-forms-${tabRefreshKey}`}
+              mode="client"
+              clientView="signForms"
               apiBase={API_BASE}
               getAuthHeaders={() => getClientPortalAuthConfig().headers}
               loanApplicationId={applicationId}

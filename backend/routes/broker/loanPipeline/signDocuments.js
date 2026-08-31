@@ -17,6 +17,9 @@ const { isDynamicForm } = require("../../../utils/documents/signDocumentWorkflow
 const {
   buildSignDocumentDownload,
 } = require("../../../services/documents/signForm/exportFilledForm.service");
+const {
+  listBrokerSignDocuments,
+} = require("../../../utils/documents/listSignDocuments");
 
 /**
  * @param {import("fastify").FastifyInstance} fastify
@@ -35,6 +38,13 @@ module.exports = async function brokerSignDocuments(fastify) {
 
         const brokerOrgId = req.user.organizationId;
         const { submissionId } = req.params;
+        const { page = 1, limit = 9, search = "", lenderId = "" } = req.query;
+        const pageNumber = Math.max(parseInt(page, 10) || 1, 1);
+        const pageSize = Math.min(Math.max(parseInt(limit, 10) || 9, 1), 50);
+        const searchTerm =
+          typeof search === "string" ? search.trim() : "";
+        const lenderFilter =
+          typeof lenderId === "string" ? lenderId.trim() : "";
 
         const submission = await fastify.prisma.applicationSubmission.findUnique({
           where: { id: submissionId },
@@ -48,36 +58,18 @@ module.exports = async function brokerSignDocuments(fastify) {
           });
         }
 
-        const requirements =
-          await fastify.prisma.applicationDocumentRequirement.findMany({
-            where: {
-              loanApplicationId: submission.application.id,
-              requiresClientSignature: true,
-            },
-            include: {
-              documentType: true,
-              uploads: {
-                where: { isSignedOutput: true },
-                orderBy: { uploadedAt: "desc" },
-              },
-              requestApplicationLender: {
-                include: REQUEST_APPLICATION_LENDER_INCLUDE,
-              },
-              activeFormVersion: true,
-              signFormSubmissions: {
-                orderBy: { createdAt: "desc" },
-                take: 1,
-                include: { values: true },
-              },
-            },
-            orderBy: { createdAt: "desc" },
-          });
+        const result = await listBrokerSignDocuments(fastify.prisma, {
+          loanApplicationId: submission.application.id,
+          pageNumber,
+          pageSize,
+          searchTerm,
+          lenderId: lenderFilter,
+          viewer: "broker",
+        });
 
         return reply.send({
           success: true,
-          data: requirements.map((item) =>
-            formatSignDocumentRequirement(item, { viewer: "broker" }),
-          ),
+          ...result,
         });
       } catch (error) {
         fastify.log.error(error);

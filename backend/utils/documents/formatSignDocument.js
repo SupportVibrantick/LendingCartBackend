@@ -1,4 +1,4 @@
-const { getSignDocumentWorkflow } = require("./signDocumentWorkflow");
+const { getSignDocumentWorkflow, getViewerWorkflowCopy } = require("./signDocumentWorkflow");
 
 const SIGN_STATUS_LABELS = {
   AWAITING_BROKER: "Awaiting broker",
@@ -95,6 +95,7 @@ function formatSignDocumentRequirement(requirement, options = {}) {
     },
     formProgress,
   );
+  const viewerCopy = getViewerWorkflowCopy(workflow, requirement, viewer);
 
   const schemaFields =
     requirement.activeFormVersion?.schemaJson?.fields ||
@@ -114,8 +115,8 @@ function formatSignDocumentRequirement(requirement, options = {}) {
     source: requirement.source,
     requiresClientSignature: true,
     signStatus: requirement.signStatus,
-    signStatusLabel: workflow.signStatusLabel,
-    workflowHint: workflow.workflowHint,
+    signStatusLabel: viewerCopy.signStatusLabel,
+    workflowHint: viewerCopy.workflowHint,
     brokerBucket: workflow.brokerBucket,
     lenderBucket: workflow.lenderBucket,
     clientBucket: workflow.clientBucket,
