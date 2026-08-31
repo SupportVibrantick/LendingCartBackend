@@ -128,6 +128,20 @@ jobs:
 
             cd /root/LendingCartBackend/backend
 
+            echo "🔧 Regenerating Prisma client before restart..."
+            npx prisma generate
+
+            echo "✅ Verifying Prisma client..."
+            node -e '
+              const { LoanProductCode, $Enums } = require("@prisma/client");
+              const codes = LoanProductCode || $Enums.LoanProductCode;
+              if (!codes) {
+                console.error("LoanProductCode missing from @prisma/client");
+                process.exit(1);
+              }
+              console.log("LoanProductCode OK:", Object.keys(codes).length, "values");
+            '
+
             if pm2 describe lendingcart-backend >/dev/null 2>&1; then
               echo "♻️ Restarting lendingcart-backend..."
               pm2 restart lendingcart-backend --update-env
@@ -150,11 +164,24 @@ jobs:
 
             pm2 save
 
-            sleep 5
+            APP_PORT="$(sed -n 's/^PORT=//p' .env 2>/dev/null | tail -1 | tr -d ' \"' || true)"
+            APP_PORT="${APP_PORT:-3008}"
 
-            if ! curl -sf http://127.0.0.1:3008/ >/dev/null; then
+            echo "🏥 Waiting for backend on port ${APP_PORT}..."
+            HEALTH_OK=0
+            for attempt in $(seq 1 15); do
+              if curl -sf "http://127.0.0.1:${APP_PORT}/" >/dev/null; then
+                echo "✅ Backend healthy (attempt ${attempt})"
+                HEALTH_OK=1
+                break
+              fi
+              echo "… not ready yet (attempt ${attempt}/15)"
+              sleep 4
+            done
+
+            if [ "$HEALTH_OK" -ne 1 ]; then
               echo "❌ Backend failed to start"
-              pm2 logs lendingcart-backend --lines 50 --nostream
+              pm2 logs lendingcart-backend --lines 80 --nostream
               exit 1
             fi
 

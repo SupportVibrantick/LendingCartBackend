@@ -1,7 +1,9 @@
 const { z } = require("zod");
-const { LoanProductCode } = require("@prisma/client");
+const {
+  loanProductCodeSchema,
+} = require("../../shared/loanProductCodeSchema");
 
-const loanProductEnum = z.nativeEnum(LoanProductCode);
+const loanProductEnum = loanProductCodeSchema;
 const decimalField = z.union([z.string(), z.number()]).optional();
 const numberField = z.union([z.string(), z.number()]).optional();
 
