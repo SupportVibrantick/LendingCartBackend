@@ -82,6 +82,7 @@ import {
   type PdfBranding,
 } from "../../lib/applicationDetailsPdf";
 import SignDocumentsPanel from "../../components/documents/SignDocumentsPanel";
+import EmbeddedFilePreview from "../../components/documents/EmbeddedFilePreview";
 import { buildApiPublicFileUrl } from "../../lib/publicFileUrl";
 import {
   formatNumberInputValue,
@@ -705,8 +706,15 @@ export default function LoanPreview() {
 
   const handleDownload = async (url: string, filename: string) => {
     try {
+      const isPublicStatic =
+        /\/public\//i.test(url) ||
+        /\/uploads\//i.test(url) ||
+        /\/(broker|lender)\/LOI\//i.test(url);
       const res = await fetch(url, {
-        headers: url.startsWith("blob:") ? undefined : getAuthHeaders(),
+        headers:
+          url.startsWith("blob:") || isPublicStatic
+            ? undefined
+            : getAuthHeaders(),
       });
       if (!res.ok) throw new Error("Failed to download file");
 
@@ -723,6 +731,9 @@ export default function LoanPreview() {
       toast.error(err.message || "Download failed");
     }
   };
+
+  const resolveUploadedFileUrl = (fileUrl?: string | null) =>
+    buildApiPublicFileUrl(API_BASE, fileUrl);
 
   useEffect(() => {
     setSubmissionDetail(null);
@@ -1830,9 +1841,13 @@ export default function LoanPreview() {
                         onClick={() => {
                           if (doc.uploadedCount === 1) {
                             const file = doc.uploadedFiles[0];
+                            const resolvedUrl = resolveUploadedFileUrl(
+                              file.fileUrl,
+                            );
+                            if (!resolvedUrl) return;
 
                             setPreviewFile({
-                              url: `${API_BASE}${file.fileUrl}`,
+                              url: resolvedUrl,
                               type: file.fileMimeType,
                               name: file.fileName,
                             });
@@ -3105,24 +3120,29 @@ export default function LoanPreview() {
                       </div>
                       <div className="mt-4 flex gap-2">
                         <button
-                          onClick={() =>
+                          onClick={() => {
+                            const resolvedUrl = resolveUploadedFileUrl(
+                              file.fileUrl,
+                            );
+                            if (!resolvedUrl) return;
                             setPreviewFile({
-                              url: `${API_BASE}${file.fileUrl}`,
+                              url: resolvedUrl,
                               type: file.fileMimeType,
                               name: file.fileName,
-                            })
-                          }
+                            });
+                          }}
                           className="flex-1 py-2 text-xs font-bold bg-brand-50 text-brand-600 dark:bg-brand-600/10 dark:text-brand-400 rounded-lg hover:bg-brand-600 hover:text-white transition-all flex items-center justify-center gap-1"
                         >
                           <Eye size={14} /> Preview
                         </button>
                         <button
-                          onClick={() =>
-                            handleDownload(
-                              `${API_BASE}${file.fileUrl}`,
-                              file.fileName,
-                            )
-                          }
+                          onClick={() => {
+                            const resolvedUrl = resolveUploadedFileUrl(
+                              file.fileUrl,
+                            );
+                            if (!resolvedUrl) return;
+                            handleDownload(resolvedUrl, file.fileName);
+                          }}
                           className="p-2 bg-slate-50 text-slate-600 dark:bg-slate-800 dark:text-slate-400 rounded-lg hover:bg-slate-200 transition-all"
                         >
                           <Download size={14} />
@@ -3168,38 +3188,22 @@ export default function LoanPreview() {
                 </div>
               </div>
 
-              <div className="flex-1 bg-slate-100 dark:bg-slate-950 flex items-center justify-center p-4 overflow-hidden">
-                {previewFile.type.startsWith("image/") ? (
-                  <img
-                    src={previewFile.url}
-                    alt={previewFile.name}
-                    className="max-w-full max-h-full object-contain rounded-lg"
-                  />
-                ) : previewFile.type === "application/pdf" ? (
-                  <iframe
-                    src={previewFile.url}
-                    title={previewFile.name}
-                    className="w-full h-full rounded-lg border-none"
-                  />
-                ) : (
-                  <div className="text-center space-y-4">
-                    <div className="w-20 h-20 bg-slate-200 dark:bg-slate-800 rounded-2xl flex items-center justify-center mx-auto">
-                      <FileIcon size={40} className="text-slate-400" />
-                    </div>
-                    <p className="text-slate-500">
-                      Preview not available for this file type.
-                    </p>
-                    <button
-                      onClick={() =>
-                        handleDownload(previewFile.url, previewFile.name)
-                      }
-                      className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-brand-600 text-white font-bold hover:bg-brand-700 transition"
-                    >
-                      <Download size={18} />
-                      Download instead
-                    </button>
-                  </div>
-                )}
+              <div className="flex min-h-0 flex-1 overflow-hidden bg-slate-100 p-4 dark:bg-slate-950">
+                <EmbeddedFilePreview
+                  remoteUrl={previewFile.url}
+                  mimeType={previewFile.type}
+                  fileName={previewFile.name}
+                  getAuthHeaders={() =>
+                    Object.fromEntries(
+                      Object.entries(
+                        getAuthHeaders() as Record<string, string>,
+                      ),
+                    )
+                  }
+                  className="flex h-full min-h-0 w-full flex-1 items-center justify-center"
+                  iframeClassName="h-full w-full rounded-lg border-none bg-white"
+                  imageClassName="max-h-full max-w-full rounded-lg object-contain"
+                />
               </div>
             </div>
           </div>,
