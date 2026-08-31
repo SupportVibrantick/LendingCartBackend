@@ -268,7 +268,7 @@ async function updateLenderRoutes(fastify) {
           if (body.adminPassword) {
             adminUpdates.passwordHash = await bcrypt.hash(
               body.adminPassword,
-              10
+              12
             );
           }
 

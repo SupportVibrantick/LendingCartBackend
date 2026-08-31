@@ -127,7 +127,7 @@ module.exports = async function updateBrokerUser(fastify) {
         }
 
         if (password) {
-          userUpdateData.passwordHash = await bcrypt.hash(password, 10);
+          userUpdateData.passwordHash = await bcrypt.hash(password, 12);
         }
 
         const profileUpdateData = {};

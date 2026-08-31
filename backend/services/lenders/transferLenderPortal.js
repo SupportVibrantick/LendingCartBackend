@@ -118,7 +118,7 @@ async function transferLenderPortal(
   ]);
 
   const temporaryPassword = generateTemporaryPassword();
-  const passwordHash = await bcrypt.hash(temporaryPassword, 10);
+  const passwordHash = await bcrypt.hash(temporaryPassword, 12);
   const actorUserId = actor.userId || actor.id || null;
   const actorOrgId = actor.organizationId || actor.orgId || null;
 

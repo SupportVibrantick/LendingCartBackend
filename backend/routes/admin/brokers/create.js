@@ -146,7 +146,7 @@ async function createBrokerRoutes(fastify) {
         }
 
         // Create inside a transaction
-        const passwordHash = await bcrypt.hash(adminPassword, 10);
+        const passwordHash = await bcrypt.hash(adminPassword, 12);
         let newOrganization;
         let newAdmin;
 

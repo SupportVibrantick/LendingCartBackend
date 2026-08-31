@@ -187,7 +187,7 @@ async function createSubBrokerRoutes(fastify) {
           });
         }
 
-        const hashedPassword = await bcrypt.hash(password, 10);
+        const hashedPassword = await bcrypt.hash(password, 12);
 
         const role = await prisma.role.findFirst({
           where: { name: "SUB_BROKER" },

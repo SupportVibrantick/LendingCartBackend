@@ -129,7 +129,7 @@ async function listAllApplications(fastify) {
       const prisma = fastify.prisma;
 
       try {
-        const { skip, take, page, limit } = require("../../utils/pagination").parsePagination(req.query);
+        const { skip, take, page, limit } = require("../../../utils/pagination").parsePagination(req.query);
         const brokerOrgId = req.query?.brokerOrgId?.trim();
         const search = req.query?.search?.trim();
 
