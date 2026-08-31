@@ -271,7 +271,7 @@ async function lenderRegisterRoutes(fastify) {
         });
       }
 
-      const passwordHash = await bcrypt.hash(password, 10);
+      const passwordHash = await bcrypt.hash(password, 12);
       const nameParts = splitFullName(
         [adminFirstName, adminLastName].filter(Boolean).join(" ") ||
           invite?.fullName ||

@@ -56,7 +56,7 @@ async function ensureBrokerAdminAccess(prisma, {
 
   let created = false;
   if (!brokerAdmin) {
-    const passwordHash = await bcrypt.hash(generateTempPassword(), 10);
+    const passwordHash = await bcrypt.hash(generateTempPassword(), 12);
     brokerAdmin = await prisma.userAccount.create({
       data: {
         organizationId,
@@ -305,7 +305,7 @@ async function provisionBrokerFromLoanAi(prisma, io, loanAiUser, payload) {
 
     // Generate a dummy password hash (user will set real password via welcome email link)
     const dummyPassword = generateTempPassword();
-    const passwordHash = await bcrypt.hash(dummyPassword, 10);
+    const passwordHash = await bcrypt.hash(dummyPassword, 12);
 
     await prisma.$transaction(async (tx) => {
       brokerOrg = await tx.organization.create({

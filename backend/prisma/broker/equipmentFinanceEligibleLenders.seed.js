@@ -38,7 +38,7 @@ async function createLender({
     return;
   }
 
-  const passwordHash = await bcrypt.hash(password, 10);
+  const passwordHash = await bcrypt.hash(password, 12);
 
   await prisma.$transaction(async (tx) => {
     // ==========================================

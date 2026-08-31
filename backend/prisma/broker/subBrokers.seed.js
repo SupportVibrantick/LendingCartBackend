@@ -1,4 +1,4 @@
-const bcrypt = require("bcryptjs");
+const bcrypt = require("bcrypt");
 const prisma = require("../client");
 const { BROKER_ORG_NAME, BROKER_EMAIL, SUB_BROKER_PASSWORD } = require("../seedConfig");
 
@@ -50,7 +50,7 @@ async function seedSubBrokers() {
     throw new Error("SUB_BROKER role not found");
   }
 
-  const passwordHash = await bcrypt.hash(DEFAULT_PASSWORD, 10);
+  const passwordHash = await bcrypt.hash(DEFAULT_PASSWORD, 12);
   const seededUsers = [];
 
   for (const subBroker of SUB_BROKERS) {

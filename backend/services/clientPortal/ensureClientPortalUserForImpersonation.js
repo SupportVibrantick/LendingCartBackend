@@ -99,7 +99,7 @@ async function ensureClientPortalUserForImpersonation(
   // Unusable password — client must still set password via invite for self-login.
   const passwordHash = await bcrypt.hash(
     crypto.randomBytes(32).toString("hex"),
-    10,
+    12,
   );
 
   try {

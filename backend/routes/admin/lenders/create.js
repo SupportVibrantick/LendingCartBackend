@@ -161,7 +161,7 @@ async function createLenderRoutes(fastify) {
         // ---------------------------
         // PASSWORD HASH
         // ---------------------------
-        const passwordHash = await bcrypt.hash(adminPassword, 10);
+        const passwordHash = await bcrypt.hash(adminPassword, 12);
 
         let newLenderOrg;
         let newAdmin;

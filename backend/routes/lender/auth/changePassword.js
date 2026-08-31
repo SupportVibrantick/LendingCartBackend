@@ -115,7 +115,7 @@ async function lenderChangePasswordRoutes(fastify) {
           });
         }
 
-        const passwordHash = await bcrypt.hash(newPassword, 10);
+        const passwordHash = await bcrypt.hash(newPassword, 12);
 
         await prisma.$transaction(async (tx) => {
           await tx.userAccount.update({

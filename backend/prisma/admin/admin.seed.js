@@ -1,4 +1,4 @@
-const bcrypt = require("bcryptjs");
+const bcrypt = require("bcrypt");
 const prisma = require("../client");
 const {
   ADMIN_EMAIL,
@@ -33,7 +33,7 @@ async function seedAdminUser() {
     throw new Error("PLATFORM_ADMIN role not found");
   }
 
-  const passwordHash = await bcrypt.hash(adminPassword, 10);
+  const passwordHash = await bcrypt.hash(adminPassword, 12);
 
   let admin = await prisma.userAccount.findUnique({
     where: {

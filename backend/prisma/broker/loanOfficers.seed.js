@@ -1,4 +1,4 @@
-const bcrypt = require("bcryptjs");
+const bcrypt = require("bcrypt");
 const prisma = require("../client");
 const { BROKER_ORG_NAME, LOAN_OFFICER_PASSWORD } = require("../seedConfig");
 
@@ -97,7 +97,7 @@ async function seedLoanOfficers() {
     throw new Error("BROKER_OFFICER role not found");
   }
 
-  const passwordHash = await bcrypt.hash(LOAN_OFFICER_PASSWORD, 10);
+  const passwordHash = await bcrypt.hash(LOAN_OFFICER_PASSWORD, 12);
   const seededUsers = [];
 
   for (const officer of LOAN_OFFICERS) {

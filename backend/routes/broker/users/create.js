@@ -131,10 +131,10 @@ module.exports = async function createBrokerUser(fastify) {
         }
 
         const passwordHash = loginEnabled
-          ? await bcrypt.hash(password, 10)
+          ? await bcrypt.hash(password, 12)
           : await bcrypt.hash(
               `disabled-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-              10,
+              12,
             );
         const profileData = buildProfileDataFromFields(fields);
         const assignedCoBrokerIds = parseJsonField(

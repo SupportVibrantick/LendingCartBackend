@@ -1,6 +1,6 @@
 // backend/routes/admin/auth/register.js
 const { z } = require("zod");
-const bcrypt = require("bcryptjs");
+const bcrypt = require("bcrypt");
 const prisma = require("../../../config/prisma.js");
 const jwt = require("jsonwebtoken");
 
