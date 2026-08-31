@@ -1,5 +1,7 @@
 const { z } = require("zod");
-const { LoanProductCode } = require("@prisma/client");
+const {
+  loanProductCodeSchema,
+} = require("../../shared/loanProductCodeSchema");
 const {
   isMinMaxLoanAmountRangeValid,
   getMinMaxLoanAmountRangeError,
@@ -22,7 +24,7 @@ const experienceSchema = z
   });
 
 const baseProductSchema = z.object({
-  loanProductCode: z.nativeEnum(LoanProductCode),
+  loanProductCode: loanProductCodeSchema,
 
   businessTypes: nestedTypeSchema.optional(),
   propertyTypes: nestedTypeSchema.optional(),
@@ -142,7 +144,7 @@ const createLenderLoanProductSchema = z
     products: z.array(baseProductSchema).optional(),
 
     loanProductCodes: z
-      .array(z.nativeEnum(LoanProductCode))
+      .array(loanProductCodeSchema)
       .optional(),
 
     businessTypes: nestedTypeSchema.optional(),
