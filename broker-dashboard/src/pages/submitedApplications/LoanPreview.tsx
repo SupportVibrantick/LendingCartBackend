@@ -3987,7 +3987,7 @@ dark:bg-red-900/20 dark:text-red-400"
 
               {/* TITLE */}
               <h1 className="text-xl font-bold text-slate-900 dark:text-white">
-                Loan Application Preview
+                Loan Application Preview 
               </h1>
 
               {/* SUBTEXT */}

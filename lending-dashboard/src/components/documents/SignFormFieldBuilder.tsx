@@ -11,7 +11,7 @@ import {
   ZoomIn,
   ZoomOut,
   CheckCircle2,
-  ScanSearch,
+  // ScanSearch,
   Table2,
   Bookmark,
   Sparkles,
@@ -510,7 +510,7 @@ export default function SignFormFieldBuilder({
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <button
+            {/* <button
               type="button"
               onClick={() => detectFields(false)}
               disabled={detecting || loading}
@@ -522,7 +522,7 @@ export default function SignFormFieldBuilder({
                 <ScanSearch className="h-4 w-4" />
               )}
               {fields.length ? "Detect more" : "Detect fields"}
-            </button>
+            </button> */}
             <button
               type="button"
               onClick={saveAsTemplate}
