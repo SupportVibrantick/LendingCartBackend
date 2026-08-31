@@ -6,6 +6,10 @@ const {
   formatSignDocumentRequirement,
 } = require("../../utils/documents/formatSignDocument");
 const {
+  listClientSignDocuments,
+  isBrokerLoiRequirement,
+} = require("../../utils/documents/listSignDocuments");
+const {
   createSignedDocumentFile,
 } = require("../../services/documents/signDocumentMerge");
 const {
@@ -103,6 +107,14 @@ module.exports = async function clientSignDocuments(fastify) {
         }
 
         const { applicationId } = req.params;
+        const scope = req.query.scope || "all";
+        const bucket = req.query.bucket || "all";
+        const pageNumber = Math.max(parseInt(req.query.page, 10) || 1, 1);
+        const pageSize = Math.min(
+          Math.max(parseInt(req.query.limit, 10) || 9, 1),
+          50,
+        );
+        const searchTerm = (req.query.search || "").trim();
         const clientIds = await resolveAccessibleClientIds(prisma, auth);
 
         const application = await prisma.loanApplication.findFirst({
@@ -120,37 +132,32 @@ module.exports = async function clientSignDocuments(fastify) {
           });
         }
 
-        const requirements = await prisma.applicationDocumentRequirement.findMany({
-          where: {
-            loanApplicationId: applicationId,
-            requiresClientSignature: true,
-            signStatus: {
-              in: [
-                "SENT_TO_CLIENT",
-                "CLIENT_SIGNED",
-                "FORWARDED_TO_LENDER",
-                "LENDER_SEEN",
-              ],
-            },
-          },
-            include: {
-              documentType: true,
-              uploads: {
-                where: { isSignedOutput: true },
-                orderBy: { uploadedAt: "desc" },
-              },
-              requestApplicationLender: {
-                include: { lender: { select: { name: true } } },
-              },
-              activeFormVersion: true,
-              signFormSubmissions: {
-                orderBy: { createdAt: "desc" },
-                take: 1,
-                include: { values: true },
-              },
-            },
-          orderBy: { createdAt: "desc" },
+        const listResult = await listClientSignDocuments(prisma, {
+          loanApplicationId: applicationId,
+          scope,
+          bucket,
+          pageNumber,
+          pageSize,
+          searchTerm,
+          viewer: "client",
         });
+
+        const requirementsById = new Map(
+          (
+            await prisma.applicationDocumentRequirement.findMany({
+              where: {
+                id: { in: listResult.data.map((row) => row.requirementId) },
+              },
+              select: {
+                id: true,
+                documentType: { select: { code: true } },
+                templateFileUrl: true,
+                requestApplicationLenderId: true,
+                signStatus: true,
+              },
+            })
+          ).map((item) => [item.id, item]),
+        );
 
         const brokerLoiVersions = await prisma.brokerLoiVersion.findMany({
           where: { loanApplicationId: applicationId },
@@ -188,18 +195,14 @@ module.exports = async function clientSignDocuments(fastify) {
 
         return reply.send({
           success: true,
-          data: requirements.map((item) => {
-            const formatted = formatSignDocumentRequirement(item, {
-              viewer: "client",
-            });
-            const isBrokerLoi =
-              item.documentType?.code === "BROKER_LOI_TERM_SHEET" ||
-              /\/broker\/LOI\//i.test(item.templateFileUrl || "");
+          data: listResult.data.map((formatted) => {
+            const item = requirementsById.get(formatted.requirementId);
+            const isBrokerLoi = item ? isBrokerLoiRequirement(item) : false;
             const isStandaloneBrokerLoi =
-              isBrokerLoi && !item.requestApplicationLenderId;
+              isBrokerLoi && !item?.requestApplicationLenderId;
 
             let loiVersionNumber = null;
-            if (isBrokerLoi) {
+            if (isBrokerLoi && item) {
               if (item.signStatus === "SENT_TO_CLIENT" && currentBrokerLoiVersion) {
                 loiVersionNumber = currentBrokerLoiVersion.versionNumber;
               } else {
@@ -221,6 +224,8 @@ module.exports = async function clientSignDocuments(fastify) {
               isStandaloneBrokerLoi,
             };
           }),
+          pagination: listResult.pagination,
+          summary: listResult.summary,
           previousSignedLoiVersions: previousSignedLoiVersions.map((item) => ({
             versionNumber: item.versionNumber,
             label: `Version ${item.versionNumber}`,

@@ -24,6 +24,49 @@ const {
   buildSignDocumentDownload,
 } = require("../../../services/documents/signForm/exportFilledForm.service");
 
+const SIGN_DOCUMENT_LIST_INCLUDE = {
+  documentType: true,
+  uploads: {
+    where: { isSignedOutput: true },
+    orderBy: { uploadedAt: "desc" },
+  },
+  requestApplicationLender: {
+    include: { lender: { select: { name: true } } },
+  },
+  activeFormVersion: true,
+  signFormSubmissions: {
+    orderBy: { createdAt: "desc" },
+    take: 1,
+    include: { values: true },
+  },
+};
+
+function buildLenderSignDocumentWhere(
+  applicationLender,
+  applicationLenderId,
+  searchTerm,
+) {
+  const where = {
+    loanApplicationId: applicationLender.loanApplicationId,
+    requiresClientSignature: true,
+    requestApplicationLenderId: applicationLenderId,
+  };
+
+  if (searchTerm) {
+    where.OR = [
+      { signDocumentTitle: { contains: searchTerm, mode: "insensitive" } },
+      { templateFileName: { contains: searchTerm, mode: "insensitive" } },
+      {
+        documentType: {
+          name: { contains: searchTerm, mode: "insensitive" },
+        },
+      },
+    ];
+  }
+
+  return where;
+}
+
 /**
  * @param {import("fastify").FastifyInstance} fastify
  */
@@ -41,6 +84,11 @@ module.exports = async function lenderSignDocuments(fastify) {
 
         const lenderOrgId = req.user.organizationId;
         const { applicationLenderId } = req.params;
+        const { page = 1, limit = 9, search = "" } = req.query;
+        const pageNumber = Math.max(parseInt(page, 10) || 1, 1);
+        const pageSize = Math.min(Math.max(parseInt(limit, 10) || 9, 1), 50);
+        const searchTerm =
+          typeof search === "string" ? search.trim() : "";
 
         const applicationLender =
           await fastify.prisma.applicationLender.findFirst({
@@ -57,37 +105,64 @@ module.exports = async function lenderSignDocuments(fastify) {
           });
         }
 
-        const requirements =
-          await fastify.prisma.applicationDocumentRequirement.findMany({
-            where: {
-              loanApplicationId: applicationLender.loanApplicationId,
-              requiresClientSignature: true,
-              requestApplicationLenderId: applicationLenderId,
-            },
-            include: {
-              documentType: true,
-              uploads: {
-                where: { isSignedOutput: true },
-                orderBy: { uploadedAt: "desc" },
-              },
-              requestApplicationLender: {
-                include: { lender: { select: { name: true } } },
-              },
-              activeFormVersion: true,
-              signFormSubmissions: {
-                orderBy: { createdAt: "desc" },
-                take: 1,
-                include: { values: true },
-              },
-            },
+        const where = buildLenderSignDocumentWhere(
+          applicationLender,
+          applicationLenderId,
+          searchTerm,
+        );
+
+        const [
+          total,
+          requirements,
+          awaitingBroker,
+          withClient,
+          ready,
+          received,
+        ] = await Promise.all([
+          fastify.prisma.applicationDocumentRequirement.count({ where }),
+          fastify.prisma.applicationDocumentRequirement.findMany({
+            where,
+            include: SIGN_DOCUMENT_LIST_INCLUDE,
             orderBy: { createdAt: "desc" },
-          });
+            skip: (pageNumber - 1) * pageSize,
+            take: pageSize,
+          }),
+          fastify.prisma.applicationDocumentRequirement.count({
+            where: { ...where, signStatus: "AWAITING_BROKER" },
+          }),
+          fastify.prisma.applicationDocumentRequirement.count({
+            where: { ...where, signStatus: "SENT_TO_CLIENT" },
+          }),
+          fastify.prisma.applicationDocumentRequirement.count({
+            where: { ...where, signStatus: "CLIENT_SIGNED" },
+          }),
+          fastify.prisma.applicationDocumentRequirement.count({
+            where: {
+              ...where,
+              signStatus: { in: ["FORWARDED_TO_LENDER", "LENDER_SEEN"] },
+            },
+          }),
+        ]);
+
+        const totalPages = Math.max(Math.ceil(total / pageSize), 1);
 
         return reply.send({
           success: true,
           data: requirements.map((item) =>
             formatSignDocumentRequirement(item, { viewer: "lender" }),
           ),
+          pagination: {
+            page: pageNumber,
+            limit: pageSize,
+            total,
+            totalPages,
+          },
+          summary: {
+            awaitingBroker,
+            withClient,
+            ready,
+            received,
+          },
         });
       } catch (error) {
         fastify.log.error(error);

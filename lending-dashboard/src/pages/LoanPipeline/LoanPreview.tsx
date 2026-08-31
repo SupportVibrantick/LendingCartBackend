@@ -326,7 +326,7 @@ const tabMeta: Array<{ id: PreviewTab; label: string }> = [
   { id: "details", label: "View Details" },
   { id: "requestDocs", label: "Request Documents" },
   { id: "documents", label: "Uploaded Documents" },
-  { id: "signDocuments", label: "Upload Signable Forms/Documents" },
+  { id: "signDocuments", label: "Upload Signable Forms" },
   { id: "loi", label: "View LOI" },
   { id: "chat", label: "Chat" },
 ];
@@ -345,7 +345,7 @@ function getVisibleTabs() {
       }
 
       if (tab.id === "signDocuments" && !canUploadSignDocuments()) {
-        return { ...tab, label: "View Sign Documents" };
+        return { ...tab, label: "View Signable Forms" };
       }
 
       return tab;
@@ -354,6 +354,17 @@ function getVisibleTabs() {
 
 export default function LoanPreview() {
   useLenderSessionMonitor();
+
+  // Full-screen route: ensure page scroll works even if a prior modal left body locked.
+  useEffect(() => {
+    const previousBodyOverflow = document.body.style.overflow;
+    document.body.style.overflow = "";
+
+    return () => {
+      document.body.style.overflow = previousBodyOverflow;
+    };
+  }, []);
+
   const navigate = useNavigate();
   const location = useLocation();
   const visibleTabs = useMemo(() => getVisibleTabs(), []);
@@ -2716,7 +2727,7 @@ export default function LoanPreview() {
           id: "signDocuments",
           label: getVisibleTabLabel(
             "signDocuments",
-            "Upload Signable Forms / Documents",
+            "Upload Signable Forms",
           ),
           icon: FileText,
           color: "text-brand-600",
@@ -2748,7 +2759,7 @@ export default function LoanPreview() {
   ] satisfies PreviewTabSection[]).filter((section) => section.items.length > 0);
 
   return (
-    <div className="min-h-screen w-full overflow-y-auto bg-slate-50 p-4 text-slate-900 dark:bg-[#0b1120] dark:text-slate-100 md:p-6">
+    <div className="h-dvh w-full overflow-x-hidden overflow-y-auto bg-slate-50 p-4 text-slate-900 dark:bg-[#0b1120] dark:text-slate-100 md:p-6">
       <div className="mx-auto w-full max-w-[1600px] space-y-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div className="flex items-start justify-between flex-wrap gap-4">

@@ -30,7 +30,7 @@ export default function SignFormMapperPage() {
             Missing form context
           </h1>
           <p className="mt-2 text-sm text-slate-500">
-            Open this page from Sign Documents → Map fillable fields.
+            Open this page from Upload Signable Forms → Map fillable fields.
           </p>
           <button
             type="button"
