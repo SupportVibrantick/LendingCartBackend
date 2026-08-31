@@ -152,6 +152,7 @@ model UserAccount {
   signFormLibraryTemplatesCreated SignFormLibraryTemplate[]      @relation("SignFormLibraryTemplateCreatedBy")
 
   @@map("user_accounts")
+  @@index([organizationId, isDeleted])
 }
 
 model PasswordResetToken {
@@ -395,6 +396,7 @@ model Client {
   loanApplications   LoanApplication[]
 
   @@map("clients")
+  @@index([primaryBrokerOrgId, isDeleted])
 }
 
 model ClientContact {
@@ -954,6 +956,8 @@ model LoanApplication {
   @@index([fundedByUserId])
   @@index([publicApplicationLinkId])
   @@index([publicSourcePortal])
+  @@index([brokerOrgId, createdAt])
+  @@index([status, createdAt])
   @@map("loan_applications")
 }
 
@@ -1350,6 +1354,7 @@ model ApplicationLender {
   @@unique([loanApplicationId, lenderProductId])
   @@index([loanApplicationId])
   @@index([lenderOrgId])
+  @@index([lenderOrgId, status])
   @@map("application_lenders")
 }
 
@@ -1609,6 +1614,7 @@ model AuditLog {
   @@index([actorOrgId])
   @@index([dashboard])
   @@index([createdAt])
+  @@index([entityType, createdAt])
   @@map("audit_logs")
 }
 
