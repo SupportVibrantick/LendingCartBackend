@@ -8,13 +8,11 @@ import {
   CheckCircle,
   ChevronLeft,
   ChevronRight,
-  ClipboardList,
   Download,
   Eye,
   FileIcon,
   FileText,
   Filter,
-  FolderOpen,
   Loader2,
   MessageSquare,
   Plus,
@@ -97,6 +95,7 @@ import {
   parseSubmissionFieldValue,
   type SubmissionDetailField,
 } from "../../lib/submissionFieldUtils";
+import { useLenderSessionMonitor } from "../../hooks/useSessionMonitor";
 
 type PreviewTab = "details" | "documents" | "signDocuments" | "requestDocs" | "loi" | "chat";
 type DocumentSourceFilter = "all" | "mine" | "broker";
@@ -114,17 +113,7 @@ type PreviewTabItem = {
 type PreviewTabSection = {
   id: PreviewSectionId;
   label: string;
-  icon: LucideIcon;
   items: PreviewTabItem[];
-};
-
-const PREVIEW_SECTION_BY_TAB: Record<PreviewTab, PreviewSectionId> = {
-  details: "application",
-  documents: "documents",
-  requestDocs: "documents",
-  signDocuments: "documents",
-  chat: "communication",
-  loi: "documents",
 };
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
@@ -363,6 +352,7 @@ function getVisibleTabs() {
 }
 
 export default function LoanPreview() {
+  useLenderSessionMonitor();
   const navigate = useNavigate();
   const location = useLocation();
   const visibleTabs = useMemo(() => getVisibleTabs(), []);
@@ -2674,11 +2664,10 @@ export default function LoanPreview() {
   const onlyAvailableTabs = (items: PreviewTabItem[]) =>
     items.filter((item) => availableTabIds.has(item.id));
 
-  const previewTabSections: PreviewTabSection[] = [
+  const previewTabSections = ([
     {
-      id: "application",
+      id: "application" as const,
       label: "Application",
-      icon: ClipboardList,
       items: [
         {
           id: "details",
@@ -2689,9 +2678,8 @@ export default function LoanPreview() {
       ],
     },
     {
-      id: "documents",
+      id: "documents" as const,
       label: "Documents",
-      icon: FolderOpen,
       items: onlyAvailableTabs([
         {
           id: "documents",
@@ -2731,9 +2719,8 @@ export default function LoanPreview() {
       ]),
     },
     {
-      id: "communication",
+      id: "communication" as const,
       label: "Communication",
-      icon: MessageSquare,
       items: [
         {
           id: "chat",
@@ -2743,23 +2730,11 @@ export default function LoanPreview() {
         },
       ],
     },
-  ];
-
-  const activeSectionId =
-    PREVIEW_SECTION_BY_TAB[activeTab] || ("application" as PreviewSectionId);
-  const activeSection =
-    previewTabSections.find((section) => section.id === activeSectionId) ||
-    previewTabSections[0];
-
-  const handleSectionChange = (section: PreviewTabSection) => {
-    const firstEnabled =
-      section.items.find((item) => !item.disabled) || section.items[0];
-    if (firstEnabled) onTabChange(firstEnabled.id);
-  };
+  ] satisfies PreviewTabSection[]).filter((section) => section.items.length > 0);
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#0b1120] p-4 md:p-6 text-slate-900 dark:text-slate-100">
-      <div className="max-w-7xl mx-auto space-y-6">
+    <div className="min-h-screen w-full overflow-y-auto bg-slate-50 p-4 text-slate-900 dark:bg-[#0b1120] dark:text-slate-100 md:p-6">
+      <div className="mx-auto w-full max-w-[1600px] space-y-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div className="flex items-start justify-between flex-wrap gap-4">
             {/* LEFT SIDE */}
@@ -2999,104 +2974,65 @@ export default function LoanPreview() {
           </div>
         )}
 
-        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
-          <nav aria-label="Loan preview sections">
-            {/* Primary sections */}
-            <div className="grid grid-cols-2 gap-1.5 bg-slate-50/80 p-2 sm:grid-cols-3 dark:bg-slate-950/50">
-              {previewTabSections.map((section) => {
-                const SectionIcon = section.icon;
-                const isSectionActive = section.id === activeSectionId;
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
+          <aside className="w-full shrink-0 lg:sticky lg:top-4 lg:w-60">
+            <nav
+              aria-label="Loan preview sections"
+              className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900"
+            >
+              {previewTabSections.map((section, sectionIndex) => (
+                <div
+                  key={section.id}
+                  className={
+                    sectionIndex > 0
+                      ? "border-t border-slate-100 dark:border-slate-800"
+                      : ""
+                  }
+                >
+                  <p className="px-4 pb-2 pt-4 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                    {section.label}
+                  </p>
+                  <div className="space-y-0.5 px-2 pb-3">
+                    {section.items.map((tab: PreviewTabItem) => {
+                      const Icon = tab.icon;
+                      const isActive = activeTab === tab.id;
+                      const isDisabled = Boolean(tab.disabled);
 
-                return (
-                  <button
-                    key={section.id}
-                    type="button"
-                    onClick={() => handleSectionChange(section)}
-                    aria-current={isSectionActive ? "page" : undefined}
-                    className={`group relative flex min-w-0 items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-all ${
-                      isSectionActive
-                        ? "bg-[#183b57] text-white shadow-md shadow-[#183b57]/20"
-                        : "text-slate-600 hover:bg-white hover:text-slate-900 hover:shadow-sm dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
-                    }`}
-                  >
-                    <span
-                      className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition ${
-                        isSectionActive
-                          ? "bg-white/20 text-white"
-                          : "bg-white text-slate-400 shadow-sm group-hover:text-[#3e86b7] dark:bg-slate-900"
-                      }`}
-                    >
-                      <SectionIcon size={16} />
-                    </span>
-                    <span className="min-w-0">
-                      <span className="block truncate text-sm font-semibold">
-                        {section.label}
-                      </span>
-                      <span
-                        className={`block text-[10px] font-medium ${
-                          isSectionActive ? "text-white/75" : "text-slate-400"
-                        }`}
-                      >
-                        {section.items.length}{" "}
-                        {section.items.length === 1 ? "tool" : "tools"}
-                      </span>
-                    </span>
-                    {isSectionActive && (
-                      <span className="absolute inset-x-5 bottom-0 h-0.5 rounded-full bg-white/80" />
-                    )}
-                  </button>
-                );
-              })}
-            </div>
+                      return (
+                        <button
+                          key={tab.id}
+                          type="button"
+                          disabled={isDisabled}
+                          title={isDisabled ? tab.disabledReason : undefined}
+                          aria-current={isActive ? "page" : undefined}
+                          onClick={() => {
+                            if (!isDisabled) onTabChange(tab.id);
+                          }}
+                          className={`flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition ${
+                            isActive
+                              ? "bg-[#183b57] text-white shadow-sm"
+                              : isDisabled
+                                ? "cursor-not-allowed text-slate-400 opacity-50"
+                                : "text-slate-600 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
+                          }`}
+                        >
+                          <Icon
+                            size={16}
+                            className={isActive ? "text-white" : tab.color}
+                          />
+                          <span className="min-w-0 flex-1 truncate">
+                            {tab.label}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </nav>
+          </aside>
 
-            {/* Secondary tabs */}
-            <div className="border-y border-slate-200 px-3 py-2.5 dark:border-slate-800">
-              <div className="flex items-center gap-3 overflow-x-auto">
-                <span className="hidden shrink-0 text-[10px] font-bold uppercase tracking-wider text-slate-400 sm:block">
-                  {activeSection.label}
-                </span>
-                <span className="hidden h-5 w-px shrink-0 bg-slate-200 sm:block dark:bg-slate-700" />
-
-                {activeSection.items.map((tab) => {
-                  const Icon = tab.icon;
-                  const isActive = activeTab === tab.id;
-                  const isDisabled = Boolean(tab.disabled);
-
-                  return (
-                    <button
-                      key={tab.id}
-                      type="button"
-                      disabled={isDisabled}
-                      title={isDisabled ? tab.disabledReason : undefined}
-                      aria-current={isActive ? "page" : undefined}
-                      onClick={() => {
-                        if (!isDisabled) onTabChange(tab.id);
-                      }}
-                      className={`group inline-flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold transition-all ${
-                        isActive
-                          ? "bg-[#183b57] text-white shadow-sm dark:bg-[#183b57] dark:text-white"
-                          : isDisabled
-                            ? "cursor-not-allowed text-slate-400 opacity-50"
-                            : "text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white"
-                      }`}
-                    >
-                      <Icon
-                        size={14}
-                        className={
-                          isActive
-                            ? "text-white"
-                            : tab.color
-                        }
-                      />
-                      <span className="whitespace-nowrap">{tab.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </nav>
-
-          <div className="p-4 md:p-6">
+          <main className="min-w-0 flex-1">
             {activeTab === "details" && renderDetails()}
             {activeTab === "documents" && renderDocuments()}
             {activeTab === "signDocuments" && (
@@ -3115,7 +3051,7 @@ export default function LoanPreview() {
             {activeTab === "requestDocs" && renderRequestDocs()}
             {activeTab === "loi" && renderLoi()}
             {activeTab === "chat" && renderChat()}
-          </div>
+          </main>
         </div>
       </div>
 

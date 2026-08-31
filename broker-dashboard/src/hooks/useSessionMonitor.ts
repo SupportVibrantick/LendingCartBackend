@@ -67,6 +67,39 @@ export function useCoBrokerSessionMonitor() {
   }, []);
 }
 
+export function useLoanPreviewSessionMonitor(
+  portal: "broker" | "loanOfficer" | "coBroker",
+) {
+  useEffect(() => {
+    const check = () => {
+      if (portal === "broker") {
+        const token = getBrokerToken();
+        if (!token || isBrokerTokenExpired(token)) {
+          handleBrokerUnauthorized();
+        }
+        return;
+      }
+
+      if (portal === "loanOfficer") {
+        const token = sessionStorage.getItem(LO_TOKEN_KEY);
+        if (!token || isLoanOfficerTokenExpired(token)) {
+          handleLoanOfficerUnauthorized();
+        }
+        return;
+      }
+
+      const token = sessionStorage.getItem(CO_BROKER_TOKEN_KEY);
+      if (!token || isCoBrokerTokenExpired(token)) {
+        handleCoBrokerUnauthorized();
+      }
+    };
+
+    check();
+    const intervalId = window.setInterval(check, 60_000);
+    return () => window.clearInterval(intervalId);
+  }, [portal]);
+}
+
 export function assertCoBrokerSession(): boolean {
   return getCoBrokerToken() !== null;
 }
