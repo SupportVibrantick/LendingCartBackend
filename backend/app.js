@@ -57,20 +57,24 @@ app.register(rateLimit, {
   keyGenerator: (request) => getClientIp(request),
 });
 
+// app.register(cors, {
+//   origin: (origin, cb) => {
+//     const allowedOrigins = process.env.CORS_ORIGINS
+//       ? process.env.CORS_ORIGINS.split(",").map((o) => o.trim())
+//       : [];
+
+//     if (!origin || allowedOrigins.includes(origin)) {
+//       cb(null, true);
+//     } else {
+//       cb(new Error(`The CORS origin ${origin} is not allowed`), false);
+//     }
+//   },
+//   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+//   credentials: true,
+// });
+
 app.register(cors, {
-  origin: (origin, cb) => {
-    const allowedOrigins = process.env.CORS_ORIGINS
-      ? process.env.CORS_ORIGINS.split(",").map((o) => o.trim())
-      : [];
-
-    console.log("allowedOrigins ->", allowedOrigins);
-
-    if (!origin || allowedOrigins.includes(origin)) {
-      cb(null, true);
-    } else {
-      cb(new Error(`The CORS origin ${origin} is not allowed`), false);
-    }
-  },
+  origin: "*",
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
   credentials: true,
 });
