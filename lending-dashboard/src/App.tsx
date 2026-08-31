@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router";
+import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from "react-router";
 import SignIn from "./pages/AuthPages/SignIn";
 import ResetPassword from "./pages/AuthPages/ResetPassword";
 import AcceptInvite from "./pages/AuthPages/AcceptInvite";
@@ -66,10 +66,14 @@ export default function App() {
           <Route
             element={
               <RequireAuth>
-                <AppLayout />
+                <Outlet />
               </RequireAuth>
             }
           >
+            {/* Full-screen loan preview — no lender sidebar/header */}
+            <Route path="/loan-preview" element={<LoanPreview />} />
+
+            <Route element={<AppLayout />}>
             <Route index path="/" element={<Home />} />
             <Route index path="/add-user" element={<AddUser />} />
             <Route index path="/all-user" element={<AllUsers />} />
@@ -121,7 +125,6 @@ export default function App() {
             <Route path="/my-broker" element={<Navigate to="/brokers?tab=connected" replace />} />
             <Route index path="/find-broker" element={<FindBroker />} />
             <Route index path="/loan-pipeline" element={<LoanPipeline />} />
-            <Route index path="/loan-preview" element={<LoanPreview />} />
             <Route index path="/loi-form" element={<LoiUnderwritingFormPage />} />
             <Route index path="/loi-preview" element={<LoiPreview />} />
             <Route path="/team-members" element={<TeamMembers />} />
@@ -163,6 +166,7 @@ export default function App() {
             <Route path="/videos" element={<Videos />} />
             <Route path="/line-chart" element={<LineChart />} />
             <Route path="/bar-chart" element={<BarChart />} />
+            </Route>
           </Route>
 
           <Route path="/impersonate" element={<ImpersonateLogin />} />

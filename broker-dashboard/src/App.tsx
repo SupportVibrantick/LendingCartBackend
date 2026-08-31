@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route } from "react-router";
+import { BrowserRouter as Router, Routes, Route, Outlet } from "react-router";
 import { Navigate } from "react-router-dom";
 import SignIn from "./pages/AuthPages/SignIn";
 // import SignUp from "./pages/AuthPages/SignUp";
@@ -165,10 +165,14 @@ export default function App() {
           <Route
             element={
               <RequireAuth>
-                <AppLayout />
+                <Outlet />
               </RequireAuth>
             }
           >
+            {/* Full-screen loan preview — no broker sidebar/header */}
+            <Route path="/loan-preview" element={<LoanPreview />} />
+
+            <Route element={<AppLayout />}>
             <Route index path="/" element={<Home />} />
 
             <Route index path="/add-user" element={<AddUser />} />
@@ -320,8 +324,6 @@ export default function App() {
               }
             />
 
-            <Route index path="/loan-preview" element={<LoanPreview />} />
-
             <Route path="/payments" element={<PaymentsLayout />}>
               <Route index element={<Navigate to="invoices" replace />} />
               <Route path="invoices" element={<InvoicesPage />} />
@@ -438,6 +440,7 @@ export default function App() {
                 </BrokerRequirePermission>
               }
             />
+            </Route>
           </Route>
 
           {/* Auth Layout */}
@@ -491,10 +494,16 @@ export default function App() {
             path="/sub-broker"
             element={
               <SubBrokerProtected>
-                <SubBrokerLayout />
+                <Outlet />
               </SubBrokerProtected>
             }
           >
+            <Route
+              path="loan-pipeline-preview"
+              element={<CoBrokerLoanPreview />}
+            />
+
+            <Route element={<SubBrokerLayout />}>
             <Route index element={<Navigate to="dashboard" replace />} />
 
             <Route path="dashboard" element={<CoBrokerDashboard />} />
@@ -511,11 +520,8 @@ export default function App() {
 
             <Route path="contacts" element={<CoBrokerContactsPage />} />
 
-            <Route
-              path="loan-pipeline-preview"
-              element={<CoBrokerLoanPreview />}
-            />
             <Route path="profile" element={<SubBrokerProfile />} />
+            </Route>
           </Route>
 
           {/* LOAN OFFICER PORTAL */}
@@ -530,10 +536,20 @@ export default function App() {
             path="/loan-officer"
             element={
               <LoanOfficerProtected>
-                <LoanOfficerLayout />
+                <Outlet />
               </LoanOfficerProtected>
             }
           >
+            <Route
+              path="loan-pipeline-preview"
+              element={
+                <LoRequirePermission permission="VIEW_APPLICATIONS">
+                  <LoanOfficerLoanPreview />
+                </LoRequirePermission>
+              }
+            />
+
+            <Route element={<LoanOfficerLayout />}>
             <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="dashboard" element={<LoanOfficerDashboard />} />
             <Route
@@ -557,14 +573,6 @@ export default function App() {
               element={
                 <LoRequirePermission permission="VIEW_APPLICATIONS">
                   <LoanOfficerSubmitApplications />
-                </LoRequirePermission>
-              }
-            />
-            <Route
-              path="loan-pipeline-preview"
-              element={
-                <LoRequirePermission permission="VIEW_APPLICATIONS">
-                  <LoanOfficerLoanPreview />
                 </LoRequirePermission>
               }
             />
@@ -653,6 +661,7 @@ export default function App() {
               }
             />
             <Route path="profile" element={<LoanOfficerProfile />} />
+            </Route>
           </Route>
 
           {/* <Route path="/customer" element={<CustomerLogin />} /> */}
