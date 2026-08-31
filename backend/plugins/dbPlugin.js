@@ -3,6 +3,15 @@ const { PrismaClient } = require("@prisma/client");
 
 module.exports = fp(async function dbPlugin(fastify) {
 
+  const AUDITED_MODELS = new Set([
+    "LoanApplication",
+    "UserAccount",
+    "Organization",
+    "ApplicationLender",
+    "Client",
+    "LenderReview"
+  ]);
+
   const prisma = new PrismaClient().$extends({
     query: {
       $allModels: {
@@ -11,7 +20,7 @@ module.exports = fp(async function dbPlugin(fastify) {
           const actionsToLog = ["create", "update", "delete", "upsert"];
 
           // Skip AuditLog itself and non-write operations
-          if (model === "AuditLog" || !actionsToLog.includes(operation)) {
+          if (model === "AuditLog" || !actionsToLog.includes(operation) || !AUDITED_MODELS.has(model)) {
             return query(args);
           }
 
