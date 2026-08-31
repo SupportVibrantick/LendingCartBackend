@@ -11,17 +11,14 @@ async function listClients(fastify) {
     },
     async (req, reply) => {
       const prisma = fastify.prisma;
-      const q = req.query || {};
-      const page = Math.max(parseInt(q.page || "1", 10), 1);
-      const limit = Math.min(Math.max(parseInt(q.limit || "20", 10), 1), 100);
-      const skip = (page - 1) * limit;
-      const search = q.search?.trim();
+      const { skip, take, page, limit } = require("../../utils/pagination").parsePagination(req.query);
+      const search = req.query.search?.trim();
 
       const where = { isDeleted: { not: true } };
 
-      if (q.brokerOrgId) where.primaryBrokerOrgId = q.brokerOrgId;
-      if (q.isActive === "true") where.isActive = true;
-      if (q.isActive === "false") where.isActive = false;
+      if (req.query.brokerOrgId) where.primaryBrokerOrgId = req.query.brokerOrgId;
+      if (req.query.isActive === "true") where.isActive = true;
+      if (req.query.isActive === "false") where.isActive = false;
       if (search) {
         where.OR = [
           { legalName: { contains: search, mode: "insensitive" } },
@@ -39,14 +36,14 @@ async function listClients(fastify) {
         ];
       }
 
-      const brokerOrgId = q.brokerOrgId?.trim();
+      const brokerOrgId = req.query.brokerOrgId?.trim();
       const applicationsCountWhere = brokerOrgId ? { brokerOrgId } : undefined;
 
       const [rows, total] = await prisma.$transaction([
         prisma.client.findMany({
           where,
           skip,
-          take: limit,
+          take,
           orderBy: { createdAt: "desc" },
           select: {
             id: true,
@@ -99,7 +96,13 @@ async function listClients(fastify) {
       return reply.send({
         success: true,
         data: rows.map(formatAdminClientRow),
-        meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
+        pagination: {
+          total,
+          page,
+          limit,
+          totalPages: Math.ceil(total / limit),
+          hasMore: rows.length === limit,
+        },
       });
     },
   );
