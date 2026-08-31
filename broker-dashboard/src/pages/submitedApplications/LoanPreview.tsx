@@ -384,6 +384,16 @@ type LoanPreviewProps = { portal?: LoanPreviewPortal };
 const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
   const Location = useLocation();
   useLoanPreviewSessionMonitor(portal);
+
+  // Full-screen route: ensure page scroll works even if a prior modal left body locked.
+  useEffect(() => {
+    const previousBodyOverflow = document.body.style.overflow;
+    document.body.style.overflow = "";
+
+    return () => {
+      document.body.style.overflow = previousBodyOverflow;
+    };
+  }, []);
   const actionMenuRef = useRef<HTMLDivElement | null>(null);
   const actionButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const [actionMenuPos, setActionMenuPos] = useState<{
@@ -3961,8 +3971,8 @@ dark:bg-red-900/20 dark:text-red-400"
 
   return (
     <>
-      <div className="min-h-screen w-full overflow-y-auto bg-slate-50 dark:bg-[#0b1120] dark:text-slate-100">
-        <div className="mx-auto w-full max-w-[1600px] p-4 md:p-6 lg:px-8">
+      <div className="h-dvh w-full overflow-x-hidden overflow-y-auto bg-slate-50 dark:bg-[#0b1120] dark:text-slate-100">
+        <div className="mx-auto w-full max-w-[1600px] space-y-6 p-4 md:p-6 lg:px-8">
           <div className="mb-6 flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
             {/* LEFT SIDE */}
             <div>
