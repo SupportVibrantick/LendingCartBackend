@@ -4,6 +4,8 @@ import SignatureCanvas from "react-signature-canvas";
 import toast from "react-hot-toast";
 import {
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   Clock,
   Download,
   Eye,
@@ -12,6 +14,7 @@ import {
   LayoutGrid,
   Loader2,
   PenLine,
+  Search,
   SendHorizonal,
   Upload,
   X,
@@ -88,6 +91,22 @@ type SignDocumentsPanelProps = {
   loanApplicationId?: string;
   onUpdated?: () => void;
   readOnly?: boolean;
+};
+
+const LENDER_SIGN_DOCUMENTS_PAGE_SIZE = 9;
+
+type SignDocumentsPagination = {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+};
+
+type SignDocumentsSummary = {
+  awaitingBroker: number;
+  withClient: number;
+  ready: number;
+  received: number;
 };
 
 const statusClass = (status?: string | null) => {
@@ -176,15 +195,35 @@ export default function SignDocumentsPanel({
   >([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const [applyingTemplate, setApplyingTemplate] = useState(false);
+  const [lenderSearchInput, setLenderSearchInput] = useState("");
+  const [debouncedLenderSearch, setDebouncedLenderSearch] = useState("");
+  const [lenderPage, setLenderPage] = useState(1);
+  const [lenderPagination, setLenderPagination] =
+    useState<SignDocumentsPagination | null>(null);
+  const [lenderSummary, setLenderSummary] = useState<SignDocumentsSummary>({
+    awaitingBroker: 0,
+    withClient: 0,
+    ready: 0,
+    received: 0,
+  });
   const sigRef = useRef<SignatureCanvas | null>(null);
 
-  const fetchRows = async () => {
+  const fetchRows = async (options?: { page?: number; search?: string }) => {
     try {
       setLoading(true);
       let url = "";
 
       if (isLenderMode && applicationLenderId) {
-        url = `${apiBase}/lender/loan-pipeline/${applicationLenderId}/sign-documents`;
+        const pageNumber = options?.page ?? lenderPage;
+        const searchValue = options?.search ?? debouncedLenderSearch;
+        const params = new URLSearchParams({
+          page: String(pageNumber),
+          limit: String(LENDER_SIGN_DOCUMENTS_PAGE_SIZE),
+        });
+        if (searchValue.trim()) {
+          params.set("search", searchValue.trim());
+        }
+        url = `${apiBase}/lender/loan-pipeline/${applicationLenderId}/sign-documents?${params.toString()}`;
       } else if (isBrokerMode && submissionId) {
         url = `${apiBase}/broker/loan-pipeline/submissions/${submissionId}/sign-documents`;
       } else if (isClientMode && loanApplicationId) {
@@ -201,6 +240,18 @@ export default function SignDocumentsPanel({
       }
 
       setRows(json.data || []);
+
+      if (isLenderMode) {
+        setLenderPagination(json.pagination || null);
+        setLenderSummary(
+          json.summary || {
+            awaitingBroker: 0,
+            withClient: 0,
+            ready: 0,
+            received: 0,
+          },
+        );
+      }
 
       if (isLenderMode && !readOnly) {
         const templatesRes = await fetch(
@@ -220,8 +271,32 @@ export default function SignDocumentsPanel({
   };
 
   useEffect(() => {
+    if (!isLenderMode) return;
+
+    const timer = window.setTimeout(() => {
+      setDebouncedLenderSearch(lenderSearchInput);
+      setLenderPage(1);
+    }, 500);
+
+    return () => window.clearTimeout(timer);
+  }, [isLenderMode, lenderSearchInput]);
+
+  useEffect(() => {
     fetchRows();
-  }, [mode, applicationLenderId, submissionId, loanApplicationId]);
+  }, [
+    mode,
+    applicationLenderId,
+    submissionId,
+    loanApplicationId,
+    debouncedLenderSearch,
+    lenderPage,
+  ]);
+
+  useEffect(() => {
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, []);
 
   useEffect(() => {
     if (!activeTemplateViewDoc && !activeSignedViewDoc && !viewingFilledDoc) {
@@ -294,7 +369,8 @@ export default function SignDocumentsPanel({
       }
       setUploadName("");
       setUploadFile(null);
-      await fetchRows();
+      setLenderPage(1);
+      await fetchRows({ page: 1, search: debouncedLenderSearch });
       onUpdated?.();
     } catch (err: any) {
       toast.error(err.message || "Upload failed");
@@ -327,7 +403,8 @@ export default function SignDocumentsPanel({
       }
       toast.success("Sign document created from template");
       setSelectedTemplateId("");
-      await fetchRows();
+      setLenderPage(1);
+      await fetchRows({ page: 1, search: debouncedLenderSearch });
       onUpdated?.();
     } catch (err: any) {
       toast.error(err.message || "Failed to apply template");
@@ -681,7 +758,7 @@ export default function SignDocumentsPanel({
               : "Template"}
           </button>
         )}
-        {hasSigned && (
+        {hasSigned && !isLenderMode && (
           <button
             type="button"
             onClick={() => openSignedCopy(row)}
@@ -784,10 +861,9 @@ export default function SignDocumentsPanel({
         )}
         fileName={row.documentName}
         getAuthHeaders={getAuthHeaders}
-        className="flex h-[min(420px,50vh)] items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-50 p-4 lg:h-[min(520px,58vh)]"
-        iframeClassName="h-[min(420px,50vh)] w-full rounded-xl border border-slate-200 bg-white lg:h-[min(520px,58vh)]"
+        className="min-h-[min(70vh,720px)] overflow-hidden rounded-xl border border-slate-200 bg-slate-50"
+        iframeClassName="h-[min(70vh,720px)] w-full rounded-xl border border-slate-200 bg-white"
         imageClassName="max-h-full max-w-full rounded-lg object-contain shadow-sm"
-        viewOnly
       />
     );
   };
@@ -839,10 +915,9 @@ export default function SignDocumentsPanel({
         mimeType={resolvePreviewMimeType(signed.fileMimeType, signed.fileUrl)}
         fileName={`Signed ${row.documentName}`}
         getAuthHeaders={getAuthHeaders}
-        className="flex h-[min(420px,50vh)] items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-50 p-4 lg:h-[min(520px,58vh)]"
-        iframeClassName="h-[min(420px,50vh)] w-full rounded-xl border border-slate-200 bg-white lg:h-[min(520px,58vh)]"
+        className="min-h-[min(70vh,720px)] overflow-hidden rounded-xl border border-slate-200 bg-slate-50"
+        iframeClassName="h-[min(70vh,720px)] w-full rounded-xl border border-slate-200 bg-white"
         imageClassName="max-h-full max-w-full rounded-lg object-contain shadow-sm"
-        viewOnly
       />
     );
   };
@@ -859,7 +934,7 @@ export default function SignDocumentsPanel({
           role="dialog"
           aria-modal="true"
           aria-labelledby="template-view-modal-title"
-          className="flex max-h-[94vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+          className="flex max-h-[94vh] min-h-0 w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
           onClick={(event) => event.stopPropagation()}
         >
           <div className="flex items-start justify-between gap-4 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-brand-50 px-5 py-4 sm:px-6">
@@ -884,7 +959,7 @@ export default function SignDocumentsPanel({
             </button>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-5 sm:p-6">
+          <div className="min-h-0 flex-1 overflow-y-auto p-5 sm:p-6">
             {renderTemplatePreview(activeTemplateViewDoc)}
           </div>
 
@@ -930,7 +1005,7 @@ export default function SignDocumentsPanel({
           role="dialog"
           aria-modal="true"
           aria-labelledby="signed-copy-modal-title"
-          className="flex max-h-[94vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+          className="flex max-h-[94vh] min-h-0 w-full max-w-6xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
           onClick={(event) => event.stopPropagation()}
         >
           <div className="flex items-start justify-between gap-4 border-b border-slate-200 bg-gradient-to-r from-emerald-50 to-brand-50 px-5 py-4 sm:px-6">
@@ -1032,13 +1107,7 @@ export default function SignDocumentsPanel({
   };
 
   const renderLenderStatusFooter = (row: SignDocumentRow) => {
-    const hint =
-      row.workflowHint ||
-      (row.signStatus === "FORWARDED_TO_LENDER"
-        ? "Received signed copy"
-        : row.signStatus === "LENDER_SEEN"
-          ? "Seen by lender"
-          : "In progress");
+    const hint = row.workflowHint || "In progress";
 
     return (
       <div
@@ -1064,42 +1133,35 @@ export default function SignDocumentsPanel({
   };
 
   const renderLenderView = () => {
-    const awaitingBroker = rows.filter(
-      (row) =>
-        row.lenderBucket !== "received" && row.signStatus === "AWAITING_BROKER",
-    );
-    const withClient = rows.filter((row) => row.signStatus === "SENT_TO_CLIENT");
-    const readyToForward = rows.filter(
-      (row) => row.signStatus === "CLIENT_SIGNED",
-    );
-    const received = rows.filter((row) => row.lenderBucket === "received");
-
     const stats = [
       {
         label: "Awaiting broker",
-        count: awaitingBroker.length,
+        count: lenderSummary.awaitingBroker,
         wrap: "bg-amber-50 ring-amber-100",
         num: "text-amber-700",
       },
       {
         label: "With client",
-        count: withClient.length,
+        count: lenderSummary.withClient,
         wrap: "bg-sky-50 ring-sky-100",
         num: "text-sky-700",
       },
       {
         label: "Ready",
-        count: readyToForward.length,
+        count: lenderSummary.ready,
         wrap: "bg-emerald-50 ring-emerald-100",
         num: "text-emerald-700",
       },
       {
         label: "Received",
-        count: received.length,
+        count: lenderSummary.received,
         wrap: "bg-violet-50 ring-violet-100",
         num: "text-violet-700",
       },
     ];
+    const totalDocuments = lenderPagination?.total ?? rows.length;
+    const hasSearchQuery = Boolean(debouncedLenderSearch.trim());
+    const listLoading = loading && rows.length > 0;
 
     return (
       <div className="space-y-5">
@@ -1111,7 +1173,7 @@ export default function SignDocumentsPanel({
                 Client e-signature
               </p>
               <h2 className="mt-2 text-xl font-semibold tracking-tight text-slate-900">
-                Signable forms & documents
+                {readOnly ? "Signable Forms" : "Upload Signable Forms"}
               </h2>
               <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-slate-600">
                 {readOnly
@@ -1154,7 +1216,7 @@ export default function SignDocumentsPanel({
                 </div>
                 <div>
                   <h3 className="text-sm font-semibold text-slate-900">
-                    Request a signature
+                    Upload signable form
                   </h3>
                   <p className="mt-0.5 text-xs text-slate-500">
                     PDF, PNG, JPEG, or WebP · one form per request
@@ -1273,33 +1335,63 @@ export default function SignDocumentsPanel({
         )}
 
         <div>
-          <div className="mb-3 flex items-center justify-between">
+          <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <h3 className="text-sm font-semibold text-slate-900">
               Documents
-              {rows.length > 0 ? (
+              {totalDocuments > 0 ? (
                 <span className="ml-1.5 font-normal text-slate-400">
-                  ({rows.length})
+                  ({totalDocuments}
+                  {hasSearchQuery ? " found" : ""})
                 </span>
               ) : null}
             </h3>
+
+            <label className="relative w-full sm:max-w-xs">
+              <Search
+                size={16}
+                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+              />
+              <input
+                type="search"
+                value={lenderSearchInput}
+                onChange={(event) => setLenderSearchInput(event.target.value)}
+                placeholder="Search documents..."
+                className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm text-slate-700 transition focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100"
+              />
+            </label>
           </div>
 
-          {rows.length === 0 ? (
+          {loading && rows.length === 0 ? (
+            <div className="flex min-h-[240px] items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50/60">
+              <div className="text-center">
+                <Loader2 className="mx-auto h-7 w-7 animate-spin text-brand-600" />
+                <p className="mt-3 text-sm text-slate-500">Loading documents...</p>
+              </div>
+            </div>
+          ) : rows.length === 0 ? (
             <div className="rounded-xl border border-dashed border-brand-200 bg-brand-50/30 px-6 py-12 text-center">
               <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-lg bg-brand-100 text-brand-600">
                 <FileText size={20} />
               </div>
               <p className="text-sm font-medium text-slate-800">
-                No sign documents yet
+                {hasSearchQuery ? "No matching documents" : "No sign documents yet"}
               </p>
               <p className="mx-auto mt-1.5 max-w-md text-xs text-slate-500">
-                {readOnly
-                  ? "No signature documents have been requested for this application yet."
-                  : "Upload a form above to start the client e-signature workflow."}
+                {hasSearchQuery
+                  ? "Try a different document name or clear your search."
+                  : readOnly
+                    ? "No signature documents have been requested for this application yet."
+                    : "Upload a form above to start the client e-signature workflow."}
               </p>
             </div>
           ) : (
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            <div className="relative">
+              {listLoading && (
+                <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-white/70 backdrop-blur-[1px]">
+                  <Loader2 className="h-7 w-7 animate-spin text-brand-600" />
+                </div>
+              )}
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
               {rows.map((row) => {
                 const canMap =
                   !readOnly &&
@@ -1386,6 +1478,77 @@ export default function SignDocumentsPanel({
                   </article>
                 );
               })}
+              </div>
+            </div>
+          )}
+
+          {lenderPagination && lenderPagination.totalPages > 0 && rows.length > 0 && (
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50/80 px-4 py-3">
+              <p className="text-sm text-slate-500">
+                Page{" "}
+                <span className="font-semibold text-slate-700">
+                  {lenderPagination.page}
+                </span>{" "}
+                of{" "}
+                <span className="font-semibold text-slate-700">
+                  {lenderPagination.totalPages}
+                </span>
+                {lenderPagination.total != null && (
+                  <span className="ml-1 text-slate-400">
+                    ({lenderPagination.total} document
+                    {lenderPagination.total === 1 ? "" : "s"}
+                    {hasSearchQuery ? " found" : ""})
+                  </span>
+                )}
+              </p>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  disabled={lenderPage === 1 || loading}
+                  onClick={() => setLenderPage((current) => current - 1)}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
+                >
+                  <ChevronLeft size={16} />
+                  Previous
+                </button>
+
+                {lenderPagination.totalPages > 1 &&
+                  Array.from(
+                    { length: lenderPagination.totalPages },
+                    (_, index) => {
+                      const pageNum = index + 1;
+
+                      return (
+                        <button
+                          key={pageNum}
+                          type="button"
+                          disabled={loading}
+                          onClick={() => setLenderPage(pageNum)}
+                          className={`h-9 min-w-9 rounded-xl px-2.5 text-sm font-semibold transition ${
+                            lenderPage === pageNum
+                              ? "bg-gradient-to-r from-brand-600 to-brand-700 text-white shadow-sm"
+                              : "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                          }`}
+                        >
+                          {pageNum}
+                        </button>
+                      );
+                    },
+                  )}
+
+                <button
+                  type="button"
+                  disabled={
+                    lenderPage === lenderPagination.totalPages || loading
+                  }
+                  onClick={() => setLenderPage((current) => current + 1)}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
+                >
+                  Next
+                  <ChevronRight size={16} />
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -1407,7 +1570,7 @@ export default function SignDocumentsPanel({
     );
   };
 
-  if (loading) {
+  if (loading && !isLenderMode) {
     return (
       <div className="flex min-h-[320px] items-center justify-center">
         <div className="text-center">
