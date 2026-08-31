@@ -4,13 +4,21 @@ const { commonLogs } = require("../services/logger/contextLogger");
 let redisClients = null;
 
 async function attachRedisAdapter(io) {
+  const isProd = process.env.NODE_ENV === "production";
+
   if (!isRedisEnabled()) {
+    if (isProd) {
+      throw new Error("REDIS_ENABLED must be true in production to support multi-instance Socket.IO");
+    }
     commonLogs.info("Socket.IO Redis adapter disabled");
     return false;
   }
 
   const redisUrl = getRedisUrl();
   if (!redisUrl) {
+    if (isProd) {
+      throw new Error("REDIS_URL is missing in production — required for Socket.IO adapter");
+    }
     commonLogs.warn(
       "REDIS_ENABLED=true but REDIS_URL is missing — using in-memory Socket.IO adapter",
     );
@@ -69,6 +77,10 @@ async function attachRedisAdapter(io) {
     console.log("Socket.IO Redis adapter enabled");
     return true;
   } catch (error) {
+    if (isProd) {
+      throw new Error(`CRITICAL: Failed to initialize Socket.IO Redis adapter in production: ${error.message}`);
+    }
+
     commonLogs.error(
       "Failed to initialize Socket.IO Redis adapter — falling back to in-memory adapter",
       { error: error.message },

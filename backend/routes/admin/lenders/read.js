@@ -107,13 +107,35 @@ async function listLendersRoutes(fastify) {
           }),
         ]);
 
+        // Bulk fetch admin users to avoid N+1 query
+        const lenderOrgIds = lenders.map((org) => org.id);
+        const adminRoles = await prisma.userRole.findMany({
+          where: {
+            role: { name: "LENDER_ADMIN" },
+            user: {
+              organizationId: { in: lenderOrgIds },
+              isDeleted: { not: true },
+              status: { in: ["ACTIVE", "INVITED"] },
+            },
+          },
+          include: { user: true },
+          orderBy: { user: { createdAt: "asc" } },
+        });
+
+        const adminMap = {};
+        adminRoles.forEach((role) => {
+          const orgId = role.user.organizationId;
+          if (!adminMap[orgId]) {
+            adminMap[orgId] = role.user;
+          }
+        });
+
         // -----------------------------
         // FORMAT RESPONSE
         // -----------------------------
 
-        const results = await Promise.all(
-          lenders.map(async (org) => {
-            const adminUser = await findLenderAdminUser(prisma, org.id);
+        const results = lenders.map((org) => {
+            const adminUser = adminMap[org.id] || null;
             const brokerAccess = org.brokerLenderAccessAsLender?.[0];
 
             return {
@@ -135,8 +157,7 @@ async function listLendersRoutes(fastify) {
 
               createdAt: org.createdAt,
             };
-          }),
-        );
+        });
 
         return reply.send({
           success: true,

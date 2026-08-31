@@ -5,6 +5,7 @@ const {
   immediateNextRunAt,
   processSingleReminder,
   REMINDER_TYPE_LABELS,
+  fetchPendingItemsForReminders,
 } = require("../../../services/documents/documentReminderService");
 const { requireLoOfficerPermission } = require("../../../services/broker/loanOfficerAccess");
 
@@ -88,12 +89,20 @@ module.exports = async function documentRemindersRoutes(fastify) {
           orderBy: { createdAt: "desc" },
         });
 
-        const enriched = await Promise.all(
-          reminders.map(async (reminder) => {
-            const pendingItems = await fetchPendingItems(fastify.prisma, reminder);
-            return serializeReminder(reminder, pendingItems.length);
-          }),
+        const pendingCountsMap = await fetchPendingItemsForReminders(
+          fastify.prisma,
+          loanId,
+          reminders,
         );
+
+        const countsMap = {};
+        pendingCountsMap.forEach(res => {
+          countsMap[res.reminderId] = res.items.length;
+        });
+
+        const enriched = reminders.map((reminder) => {
+          return serializeReminder(reminder, countsMap[reminder.id] || 0);
+        });
 
         return reply.send({
           success: true,

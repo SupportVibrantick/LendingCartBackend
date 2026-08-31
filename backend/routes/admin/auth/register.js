@@ -17,6 +17,7 @@ module.exports = async function adminRegisterRoute(fastify, opts) {
   fastify.post(
     "/register",
     {
+      preHandler: [fastify.authenticate, fastify.verifySuperAdmin],
       config: {
         rateLimit: {
           max: 10,
