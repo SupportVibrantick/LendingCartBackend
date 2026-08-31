@@ -129,14 +129,9 @@ async function listAllApplications(fastify) {
       const prisma = fastify.prisma;
 
       try {
+        const { skip, take, page, limit } = require("../../utils/pagination").parsePagination(req.query);
         const brokerOrgId = req.query?.brokerOrgId?.trim();
         const search = req.query?.search?.trim();
-        const hasPagination = req.query?.page != null && req.query?.page !== "";
-        const page = hasPagination ? Math.max(parseInt(req.query.page || "1", 10), 1) : 1;
-        const limit = hasPagination
-          ? Math.min(Math.max(parseInt(req.query?.limit || "20", 10), 1), 100)
-          : undefined;
-        const skip = hasPagination && limit ? (page - 1) * limit : undefined;
 
         const where = {
           ...(brokerOrgId ? { brokerOrgId } : { status: { not: "DRAFT" } }),
@@ -150,7 +145,8 @@ async function listAllApplications(fastify) {
           where,
           orderBy: { createdAt: "desc" },
           include: applicationListInclude,
-          ...(hasPagination && limit != null ? { skip, take: limit } : {}),
+          skip,
+          take,
         };
 
         const [applications, total, amountAgg] = await prisma.$transaction([
@@ -168,22 +164,19 @@ async function listAllApplications(fastify) {
           success: true,
           total,
           data: formatted,
-          ...(hasPagination
-            ? {
-                meta: {
-                  page,
-                  limit,
-                  total,
-                  totalPages: Math.max(Math.ceil(total / (limit || 1)), 1),
-                },
-                summary: {
-                  totalAmount:
-                    amountAgg._sum.amountRequested != null
-                      ? Number(amountAgg._sum.amountRequested)
-                      : 0, 
-                },
-              }
-            : {}),
+          pagination: {
+            page,
+            limit,
+            total,
+            totalPages: Math.max(Math.ceil(total / limit), 1),
+            hasMore: applications.length === limit,
+          },
+          summary: {
+            totalAmount:
+              amountAgg._sum.amountRequested != null
+                ? Number(amountAgg._sum.amountRequested)
+                : 0,
+          },
         });
       } catch (error) {
         fastify.log.error(error);

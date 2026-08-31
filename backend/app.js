@@ -65,7 +65,10 @@ app.register(cors, {
 
 
 app.addHook("onRequest", async (request) => {
-  console.log("Client IP:", request.ip);
+  console.log("DEBUG request.ip:", request.ip);
+  console.log("DEBUG x-forwarded-for:", request.headers["x-forwarded-for"]);
+  console.log("DEBUG x-real-ip:", request.headers["x-real-ip"]);
+  console.log("DEBUG cf-connecting-ip:", request.headers["cf-connecting-ip"]);
 });
 
 app.register(multipart, {
