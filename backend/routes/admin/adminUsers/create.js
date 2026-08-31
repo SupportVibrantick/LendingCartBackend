@@ -71,7 +71,7 @@ module.exports = fp(async function createAdminUserRoutes(fastify) {
             firstName,
             lastName,
             email,
-            passwordHash: await bcrypt.hash(password, 10),
+            passwordHash: await bcrypt.hash(password, 12),
             status: "ACTIVE",
           },
         });

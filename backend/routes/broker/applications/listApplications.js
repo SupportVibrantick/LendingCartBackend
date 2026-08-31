@@ -1,5 +1,5 @@
 module.exports = async function listApplications(fastify) {
-  const { parsePagination } = require("../../utils/pagination");
+  const { parsePagination } = require("../../../utils/pagination");
 
   fastify.get("/", async (req, reply) => {
     const { skip, take, page, limit } = parsePagination(req.query);

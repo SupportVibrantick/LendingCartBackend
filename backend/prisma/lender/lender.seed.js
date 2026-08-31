@@ -1,4 +1,4 @@
-const bcrypt = require("bcryptjs");
+const bcrypt = require("bcrypt");
 const prisma = require("../client");
 
 async function seedLenderUser() {
@@ -35,7 +35,7 @@ const lenderPassword =
 
   const passwordHash = await bcrypt.hash(
     lenderPassword,
-    10
+    12
   );
 
   let lenderUser = await prisma.userAccount.findUnique({

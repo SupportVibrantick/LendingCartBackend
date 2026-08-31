@@ -83,7 +83,7 @@ async function changePasswordRoutes(fastify) {
           });
         }
 
-        const passwordHash = await bcrypt.hash(newPassword, 10);
+        const passwordHash = await bcrypt.hash(newPassword, 12);
 
         await prisma.userAccount.update({
           where: { id: user.id },

@@ -100,7 +100,7 @@ async function brokerRegisterRoutes(fastify) {
           });
         }
 
-        const passwordHash = await bcrypt.hash(password, 10);
+        const passwordHash = await bcrypt.hash(password, 12);
         let brokerOrg;
         let brokerAdmin;
 

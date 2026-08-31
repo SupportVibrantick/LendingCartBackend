@@ -377,7 +377,7 @@ async function adminBrokerSubBrokersRoutes(fastify) {
         return reply.status(500).send({ success: false, message: "SUB_BROKER role not found" });
       }
 
-      const hashedPassword = await bcrypt.hash(password, 10);
+      const hashedPassword = await bcrypt.hash(password, 12);
       let user;
 
       if (existingUser?.isDeleted) {

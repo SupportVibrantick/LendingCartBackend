@@ -11,7 +11,7 @@ async function listClients(fastify) {
     },
     async (req, reply) => {
       const prisma = fastify.prisma;
-      const { skip, take, page, limit } = require("../../utils/pagination").parsePagination(req.query);
+      const { skip, take, page, limit } = require("../../../utils/pagination").parsePagination(req.query);
       const search = req.query.search?.trim();
 
       const where = { isDeleted: { not: true } };

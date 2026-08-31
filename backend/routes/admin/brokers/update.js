@@ -231,7 +231,7 @@ async function updateBrokerRoutes(fastify, options) {
             adminUpdate.phone = digits || null;
           }
           if (admin.password) {
-            adminUpdate.passwordHash = await bcrypt.hash(admin.password, 10);
+            adminUpdate.passwordHash = await bcrypt.hash(admin.password, 12);
           }
           if (admin.profile !== undefined) {
             adminProfileUpdate = buildBrokerProfileData(admin.profile);

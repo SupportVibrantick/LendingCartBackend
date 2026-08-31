@@ -350,7 +350,7 @@ async function brokerLoanOfficersRoutes(fastify) {
         return reply.status(500).send({ success: false, message: "Role configuration error" });
       }
 
-      const passwordHash = await bcrypt.hash(password, 10);
+      const passwordHash = await bcrypt.hash(password, 12);
       const status = allowedToLogin === "false" ? "DISABLED" : "ACTIVE";
       const profileData = buildProfileData(fields, avatarPath);
 
@@ -483,7 +483,7 @@ async function brokerLoanOfficersRoutes(fastify) {
       }
 
       if (fields.password?.trim()) {
-        updateData.passwordHash = await bcrypt.hash(fields.password, 10);
+        updateData.passwordHash = await bcrypt.hash(fields.password, 12);
       }
 
       const profileData = buildProfileData(fields, avatarPath);
