@@ -58,14 +58,27 @@ app.register(rateLimit, {
 });
 
 app.register(cors, {
-  origin: "*",
+  origin: (origin, cb) => {
+    const allowedOrigins = process.env.CORS_ORIGINS
+      ? process.env.CORS_ORIGINS.split(",").map((o) => o.trim())
+      : [];
+
+    if (!origin || allowedOrigins.includes(origin)) {
+      cb(null, true);
+    } else {
+      cb(new Error(`The CORS origin ${origin} is not allowed`), false);
+    }
+  },
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
   credentials: true,
 });
 
 
 app.addHook("onRequest", async (request) => {
-  console.log("Client IP:", request.ip);
+  console.log("DEBUG request.ip:", request.ip);
+  console.log("DEBUG x-forwarded-for:", request.headers["x-forwarded-for"]);
+  console.log("DEBUG x-real-ip:", request.headers["x-real-ip"]);
+  console.log("DEBUG cf-connecting-ip:", request.headers["cf-connecting-ip"]);
 });
 
 app.register(multipart, {

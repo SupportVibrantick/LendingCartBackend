@@ -13,6 +13,7 @@ module.exports = async function viewSubmission(fastify) {
   fastify.get(
     "/submissions/:submissionId",
     {
+      preHandler: [fastify.authenticate],
       config: {
         rateLimit: {
           max: 30,
@@ -33,8 +34,15 @@ module.exports = async function viewSubmission(fastify) {
        FETCH SUBMISSION + EXTRA DATA
     =============================== */
     const submission =
-      await fastify.prisma.applicationSubmission.findUnique({
-        where: { id: submissionId },
+      await fastify.prisma.applicationSubmission.findFirst({
+        where: {
+          id: submissionId,
+          application: {
+            brokerOrgId: req.user?.roles?.includes("PLATFORM_ADMIN")
+              ? undefined
+              : req.user.organizationId,
+          },
+        },
         include: {
           fields: {
             include: {

@@ -8,29 +8,45 @@ module.exports = fp(async function adminUserReadRoutes(fastify) {
     const prisma = fastify.prisma;
 
     try {
-      const users = await prisma.userAccount.findMany({
-        where: {
-          roles: {
-            some: {
-              role: { name: "PLATFORM_ADMIN" },
+      const { skip, take, page, limit } = require("../../utils/pagination").parsePagination(req.query);
+
+      const [total, users] = await Promise.all([
+        prisma.userAccount.count({
+          where: {
+            roles: {
+              some: {
+                role: { name: "PLATFORM_ADMIN" },
+              },
             },
           },
-        },
-        select: {
-          id: true,
-          firstName: true,
-          lastName: true,
-          email: true,
-          organizationId: true,
-          status: true,
-          createdAt: true,
-          roles: { include: { role: true } },
-          userPermissions: { include: { permission: true } },
-        },
-        orderBy: { createdAt: "desc" },
-      });
+        }),
+        prisma.userAccount.findMany({
+          where: {
+            roles: {
+              some: {
+                role: { name: "PLATFORM_ADMIN" },
+              },
+            },
+          },
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            organizationId: true,
+            status: true,
+            createdAt: true,
+            roles: { include: { role: true } },
+            userPermissions: { include: { permission: true } },
+          },
+          orderBy: { createdAt: "desc" },
+          skip,
+          take,
+        }),
+      ]);
 
       const mapped = [];
+
 
       for (const user of users) {
         const roleNames = user.roles.map((r) => r.role.name);
@@ -52,7 +68,17 @@ module.exports = fp(async function adminUserReadRoutes(fastify) {
         });
       }
 
-      return reply.send({ success: true, count: mapped.length, data: mapped, users: mapped });
+      return reply.send({
+        success: true,
+        data: mapped,
+        pagination: {
+          total,
+          page,
+          limit,
+          totalPages: Math.ceil(total / limit),
+          hasMore: users.length === limit,
+        },
+      });
     } catch (err) {
       req.log.error(err);
       return reply.code(500).send({

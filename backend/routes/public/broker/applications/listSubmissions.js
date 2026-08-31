@@ -2,7 +2,7 @@
  * @param {import("fastify").FastifyInstance} fastify
  */
 module.exports = async function listSubmissionsTable(fastify) {
-  fastify.get("/submissions", async (req, reply) => {
+  fastify.get("/submissions", { preHandler: [fastify.authenticate] }, async (req, reply) => {
     try {
       const prisma = fastify.prisma;
 
@@ -21,12 +21,22 @@ module.exports = async function listSubmissionsTable(fastify) {
 
       let whereCondition = {};
 
-      if (req.user?.roles?.includes("BROKER_OFFICER")) {
+      // Base filter: scope to the user's organization
+      if (req.user?.organizationId) {
         whereCondition = {
           application: {
-            brokerUserId: {
-              equals: req.user.id, // ✅ STRICT MATCH (FIXED)
-            },
+            brokerOrgId: req.user.organizationId,
+          },
+        };
+      } else if (!req.user?.roles?.includes("PLATFORM_ADMIN")) {
+        return reply.code(403).send({ success: false, message: "Access denied: No organization associated with user" });
+      }
+
+      if (req.user?.roles?.includes("BROKER_OFFICER")) {
+        whereCondition.application = {
+          ...whereCondition.application,
+          brokerUserId: {
+            equals: req.user.id, // ✅ STRICT MATCH (FIXED)
           },
         };
       }
