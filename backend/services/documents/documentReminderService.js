@@ -714,6 +714,116 @@ function serializeReminder(reminder, pendingCount = null) {
   };
 }
 
+async function fetchPendingItemsForReminders(prisma, loanApplicationId, reminders) {
+  const requirements = await prisma.applicationDocumentRequirement.findMany({
+    where: { loanApplicationId },
+    include: {
+      documentType: { select: { name: true } },
+      activeFormVersion: { select: { schemaJson: true } },
+      signFormSubmissions: {
+        orderBy: { createdAt: "desc" },
+        take: 1,
+        include: { values: { select: { fieldKey: true, valueJson: true } } },
+      },
+      uploads: {
+        select: {
+          id: true,
+          fileName: true,
+          isSubmittedToLender: true,
+        },
+      },
+    },
+    orderBy: { createdAt: "asc" },
+  });
+
+  const lenderIds = reminders
+    .filter(r => r.reminderType === "LENDER_REVIEW" && r.applicationLenderId)
+    .map(r => r.applicationLenderId);
+
+  const submissionsMap = {};
+  if (lenderIds.length > 0) {
+    const allSubmissions = await prisma.applicationDocumentSubmission.findMany({
+      where: { applicationLenderId: { in: lenderIds } },
+      include: {
+        documentUpload: {
+          include: {
+            documentRequirement: {
+              include: { documentType: { select: { name: true } } },
+            },
+          },
+        },
+      },
+    });
+
+    for (const s of allSubmissions) {
+      if (!submissionsMap[s.applicationLenderId]) submissionsMap[s.applicationLenderId] = [];
+      submissionsMap[s.applicationLenderId].push(s);
+    }
+  }
+
+  return reminders.map(reminder => {
+    const pending = [];
+
+    if (reminder.reminderType === "PENDING_UPLOAD") {
+      const filtered = requirements
+        .filter(doc => !doc.requiresClientSignature && ["PENDING", "PARTIAL"].includes(doc.status))
+        .map(doc => ({ id: doc.id, name: doc.documentType?.name || doc.signDocumentTitle || "Document", status: doc.status }));
+      return { reminderId: reminder.id, items: filtered };
+    }
+
+    if (reminder.reminderType === "SIGNATURE_REQUIRED") {
+      const filtered = requirements
+        .filter(doc => {
+          if (!doc.requiresClientSignature || !doc.signStatus) return false;
+          if (["CLIENT_SIGNED", "FORWARDED_TO_LENDER", "LENDER_SEEN"].includes(doc.signStatus)) return false;
+          if (doc.signStatus !== "SENT_TO_CLIENT") return false;
+          if (doc.signMode === "DYNAMIC_FORM") {
+            const submission = (doc.signFormSubmissions || [])[0];
+            const values = {};
+            for (const item of submission?.values || []) {
+              values[item.fieldKey] = item.valueJson;
+            }
+            try {
+              const { computeProgress } = require("../signForm/submissionService");
+              const progress = computeProgress(doc.activeFormVersion?.schemaJson, values);
+              return !progress.client.complete;
+            } catch { return true; }
+          }
+          return true;
+        })
+        .map(doc => ({ id: doc.id, name: doc.signDocumentTitle || doc.documentType?.name || "Sign document", status: doc.signStatus || "PENDING" }));
+      return { reminderId: reminder.id, items: filtered };
+    }
+
+    if (reminder.reminderType === "LENDER_REVIEW" && reminder.applicationLenderId) {
+      const submissions = submissionsMap[reminder.applicationLenderId] || [];
+      const signDocs = requirements.filter(doc =>
+        doc.requestApplicationLenderId === reminder.applicationLenderId &&
+        doc.signStatus === "FORWARDED_TO_LENDER" &&
+        !doc.lenderSeenAt
+      );
+      const uploadedDocs = submissions
+        .map(s => s.documentUpload?.documentRequirement)
+        .filter(Boolean)
+        .map(doc => ({ id: doc.id, name: doc.signDocumentTitle || doc.documentType?.name || "Document", status: "SUBMITTED" }));
+
+      const combined = [...signDocs, ...uploadedDocs];
+      const seen = new Set();
+      const filtered = combined
+        .filter(doc => {
+          if (seen.has(doc.id)) return false;
+          seen.add(doc.id);
+          return true;
+        })
+        .map(doc => ({ id: doc.id, name: doc.signDocumentTitle || doc.documentType?.name || "Document", status: doc.signStatus || doc.status || "SUBMITTED" }));
+      return { reminderId: reminder.id, items: filtered };
+    }
+
+    return { reminderId: reminder.id, items: [] };
+  });
+}
+
+
 module.exports = {
   REMINDER_TYPE_LABELS,
   computeNextRunAt,
@@ -721,6 +831,7 @@ module.exports = {
   immediateNextRunAt,
   formatIntervalLabel,
   fetchPendingItems,
+  fetchPendingItemsForReminders,
   processDueDocumentReminders,
   processSingleReminder,
   upsertDocumentReminder,
