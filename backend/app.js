@@ -63,16 +63,17 @@ app.register(cors, {
       ? process.env.CORS_ORIGINS.split(",").map((o) => o.trim())
       : [];
 
+    console.log("allowedOrigins ->", allowedOrigins);
+
     if (!origin || allowedOrigins.includes(origin)) {
       cb(null, true);
     } else {
       cb(new Error(`The CORS origin ${origin} is not allowed`), false);
     }
   },
-  methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
   credentials: true,
 });
-
 
 app.addHook("onRequest", async (request) => {
   console.log("DEBUG request.ip:", request.ip);
