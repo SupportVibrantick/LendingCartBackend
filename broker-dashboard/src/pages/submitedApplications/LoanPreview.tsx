@@ -1,17 +1,14 @@
 import {
   ArrowLeft,
   Activity,
-  Building2,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
-  ClipboardList,
   Download,
   DollarSign,
   Eye,
   FileSearch,
   FileText,
-  FolderOpen,
   Loader2,
   Mail,
   MessageSquare,
@@ -73,6 +70,7 @@ import {
   getLoanPreviewConfig,
   type LoanPreviewPortal,
 } from "../../lib/loanPreviewConfig";
+import { useLoanPreviewSessionMonitor } from "../../hooks/useSessionMonitor";
 import { hasPermission } from "../../lib/brokerPermissions";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
@@ -143,22 +141,7 @@ type TabItem = {
 type TabSection = {
   id: TabSectionId;
   label: string;
-  icon: typeof Eye;
   items: TabItem[];
-};
-
-const TAB_SECTION_BY_KEY: Record<TabKey, TabSectionId> = {
-  "view-details": "application",
-  "update-application": "application",
-  commissions: "application",
-  documents: "documents",
-  "request-document": "documents",
-  "sign-documents": "documents",
-  "view-loi": "documents",
-  "fee-agreement": "documents",
-  chat: "communication",
-  "email-reminders": "communication",
-  "find-lenders": "lender",
 };
 
 const parseValue = (val: unknown): any => {
@@ -396,6 +379,7 @@ type LoanPreviewProps = { portal?: LoanPreviewPortal };
 
 const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
   const Location = useLocation();
+  useLoanPreviewSessionMonitor(portal);
   const actionMenuRef = useRef<HTMLDivElement | null>(null);
   const actionButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const [actionMenuPos, setActionMenuPos] = useState<{
@@ -2060,7 +2044,6 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
       {
         id: "application",
         label: "Application",
-        icon: ClipboardList,
         items: applicationItems,
       },
     ];
@@ -2069,7 +2052,6 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
       sections.push({
         id: "documents",
         label: "Documents",
-        icon: FolderOpen,
         items: documentItems,
       });
     }
@@ -2098,7 +2080,6 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
       sections.push({
         id: "communication",
         label: "Communication",
-        icon: MessageSquare,
         items: communicationItems,
       });
     }
@@ -2107,7 +2088,6 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
       sections.push({
         id: "lender",
         label: "Lender Hub",
-        icon: Building2,
         items: [
           {
             key: "find-lenders",
@@ -2141,21 +2121,6 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
       setActiveTab(visibleTabKeys[0] ?? "view-details");
     }
   }, [visibleTabKeys, activeTab]);
-
-  const activeSectionId =
-    TAB_SECTION_BY_KEY[activeTab] || ("application" as TabSectionId);
-
-  const activeSection =
-    tabSections.find((section) => section.id === activeSectionId) ||
-    tabSections[0];
-
-  const handleSectionClick = (section: TabSection) => {
-    const firstEnabled =
-      section.items.find((item) => !item.disabled) || section.items[0];
-    if (firstEnabled) {
-      setActiveTab(firstEnabled.key);
-    }
-  };
 
   const currentFile = previewFiles[activeIndex];
   const currentPreviewFileUrl = useMemo(
@@ -3992,8 +3957,8 @@ dark:bg-red-900/20 dark:text-red-400"
 
   return (
     <>
-      <div className="min-h-screen w-full max-w-none bg-slate-50 dark:bg-[#0b1120] dark:text-slate-100">
-        <div className="w-full">
+      <div className="min-h-screen w-full overflow-y-auto bg-slate-50 dark:bg-[#0b1120] dark:text-slate-100">
+        <div className="mx-auto w-full max-w-[1600px] p-4 md:p-6 lg:px-8">
           <div className="mb-6 flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
             {/* LEFT SIDE */}
             <div>
@@ -4151,116 +4116,82 @@ dark:bg-red-900/20 dark:text-red-400"
                 </div>
               </div>
 
-              <nav
-                aria-label="Loan application sections"
-                className="mb-6 overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900"
-              >
-                {/* Primary sections */}
-                <div className="grid grid-cols-2 gap-1.5 bg-slate-50/80 p-2 sm:grid-cols-4 dark:bg-slate-950/50">
-                  {tabSections.map((section) => {
-                    const SectionIcon = section.icon;
-                    const isSectionActive = section.id === activeSectionId;
-
-                    return (
-                      <button
+              <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
+                <aside className="w-full shrink-0 lg:sticky lg:top-4 lg:w-60">
+                  <nav
+                    aria-label="Loan application sections"
+                    className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900"
+                  >
+                    {tabSections.map((section, sectionIndex) => (
+                      <div
                         key={section.id}
-                        type="button"
-                        onClick={() => handleSectionClick(section)}
-                        aria-current={isSectionActive ? "page" : undefined}
-                        className={`group relative flex min-w-0 items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-all ${
-                          isSectionActive
-                            ? "bg-[#13538A] text-white shadow-md shadow-[#13538A]/20"
-                            : "text-slate-600 hover:bg-white hover:text-slate-900 hover:shadow-sm dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
-                        }`}
+                        className={
+                          sectionIndex > 0
+                            ? "border-t border-slate-100 dark:border-slate-800"
+                            : ""
+                        }
                       >
-                        <span
-                          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition ${
-                            isSectionActive
-                              ? "bg-white/20 text-white"
-                              : "bg-white text-slate-400 shadow-sm group-hover:text-blue-600 dark:bg-slate-900"
-                          }`}
-                        >
-                          <SectionIcon size={16} />
-                        </span>
-                        <span className="min-w-0">
-                          <span className="block truncate text-sm font-semibold">
-                            {section.label}
-                          </span>
-                          <span
-                            className={`block text-[10px] font-medium ${
-                              isSectionActive
-                                ? "text-white/75"
-                                : "text-slate-400"
-                            }`}
-                          >
-                            {section.items.length}{" "}
-                            {section.items.length === 1 ? "tool" : "tools"}
-                          </span>
-                        </span>
-                        {isSectionActive && (
-                          <span className="absolute inset-x-5 bottom-0 h-0.5 rounded-full bg-white/80" />
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
+                        <p className="px-4 pb-2 pt-4 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                          {section.label}
+                        </p>
+                        <div className="space-y-0.5 px-2 pb-3">
+                          {section.items.map((tab) => {
+                            const Icon = tab.icon;
+                            const isActive = activeTab === tab.key;
+                            const isDisabled = Boolean(tab.disabled);
 
-                {/* Secondary items within active section */}
-                <div className="border-t border-slate-200 px-3 py-2.5 dark:border-slate-700">
-                  <div className="flex items-center gap-3 overflow-x-auto">
-                    <span className="hidden shrink-0 text-[10px] font-bold uppercase tracking-wider text-slate-400 sm:block">
-                      {activeSection.label}
-                    </span>
-                    <span className="hidden h-5 w-px shrink-0 bg-slate-200 sm:block dark:bg-slate-700" />
+                            return (
+                              <button
+                                key={tab.key}
+                                type="button"
+                                disabled={isDisabled}
+                                title={
+                                  isDisabled ? tab.disabledReason : undefined
+                                }
+                                aria-current={isActive ? "page" : undefined}
+                                onClick={() => {
+                                  if (isDisabled) return;
+                                  setActiveTab(tab.key);
+                                }}
+                                className={`flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition ${
+                                  isActive
+                                    ? "bg-[#13538A] text-white shadow-sm"
+                                    : isDisabled
+                                      ? "cursor-not-allowed text-slate-400 opacity-50"
+                                      : "text-slate-600 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
+                                }`}
+                              >
+                                <Icon
+                                  size={16}
+                                  className={
+                                    isActive ? "text-white" : tab.color
+                                  }
+                                />
+                                <span className="min-w-0 flex-1 truncate">
+                                  {tab.label}
+                                </span>
+                                {tab.key === "view-loi" && loiCount > 0 && (
+                                  <span
+                                    className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+                                      isActive
+                                        ? "bg-white/20 text-white"
+                                        : "bg-violet-100 text-violet-700 dark:bg-violet-500/20 dark:text-violet-300"
+                                    }`}
+                                  >
+                                    {loiCount}
+                                  </span>
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </nav>
+                </aside>
 
-                    {activeSection.items.map((tab) => {
-                      const Icon = tab.icon;
-                      const isActive = activeTab === tab.key;
-                      const isDisabled = Boolean(tab.disabled);
-
-                      return (
-                        <button
-                          key={tab.key}
-                          type="button"
-                          disabled={isDisabled}
-                          title={isDisabled ? tab.disabledReason : undefined}
-                          aria-current={isActive ? "page" : undefined}
-                          onClick={() => {
-                            if (isDisabled) return;
-                            setActiveTab(tab.key);
-                          }}
-                          className={`group inline-flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold transition-all ${
-                            isActive
-                              ? "bg-[#13538A] text-white shadow-sm dark:bg-[#13538A] dark:text-white"
-                              : isDisabled
-                                ? "cursor-not-allowed text-slate-400 opacity-50"
-                                : "text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white"
-                          }`}
-                        >
-                          <Icon
-                            size={14}
-                            className={isActive ? "text-white" : tab.color}
-                          />
-                          <span className="whitespace-nowrap">{tab.label}</span>
-                          {tab.key === "view-loi" && loiCount > 0 && (
-                            <span
-                              className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
-                                isActive
-                                  ? "bg-white/20 text-white"
-                                  : "bg-violet-100 text-violet-700 dark:bg-violet-500/20 dark:text-violet-300"
-                              }`}
-                            >
-                              {loiCount}
-                            </span>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              </nav>
-
-              {renderTabContent()}
+                <main className="min-w-0 flex-1">{renderTabContent()}</main>
+              </div>
             </>
           )}
         </div>
