@@ -6,7 +6,7 @@ import {
   getChatSocket,
   subscribeChatErrors,
   subscribeChatMessages,
-  trackConversationRoom,
+  trackConversationRooms,
 } from "./chatSocketManager";
 
 
@@ -28,6 +28,7 @@ type UseChatSocketOptions = {
   getBrokerOrgId?: () => string | null;
   getLenderOrgId?: () => string | null;
   conversationId?: string | null;
+  conversationIds?: string[];
   onMessage?: (msg: SocketChatMessage) => void;
   onError?: (message: string) => void;
 };
@@ -37,6 +38,7 @@ export function useChatSocket({
   getBrokerOrgId,
   getLenderOrgId,
   conversationId,
+  conversationIds = [],
   onMessage,
   onError,
 }: UseChatSocketOptions) {
@@ -86,23 +88,31 @@ const unsubscribeMessage = subscribeChatMessages((msg) => {
   }, [getToken, getBrokerOrgId, getLenderOrgId]);
 
   useEffect(() => {
-    if (!conversationId || isTemporaryConversationId(conversationId)) {
+    const trackedIds = [
+      ...(conversationId ? [conversationId] : []),
+      ...conversationIds,
+    ].filter((id) => id && !isTemporaryConversationId(id));
+
+    if (!trackedIds.length) {
       return;
     }
 
-    trackConversationRoom(conversationId);
+    trackConversationRooms(trackedIds);
 
     const socket = socketRef.current ?? getChatSocket();
     if (!socket) return;
 
-    const rejoin = () => trackConversationRoom(conversationId);
+    const rejoin = () => trackConversationRooms(trackedIds);
 
     socket.io.on("reconnect", rejoin);
+    if (isConnected) {
+      rejoin();
+    }
 
     return () => {
       socket.io.off("reconnect", rejoin);
     };
-  }, [isConnected, conversationId]);
+  }, [isConnected, conversationId, conversationIds]);
 
   return { socketRef, isConnected };
 }

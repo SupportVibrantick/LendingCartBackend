@@ -1,6 +1,7 @@
 import { io, type Socket } from "socket.io-client";
 
 export const CHAT_API_BASE =
+  import.meta.env.VITE_SOCKET_URL?.replace(/\/$/, "") ||
   import.meta.env.VITE_API_BASE?.replace(/\/$/, "") ||
   "http://localhost:4000";
 
@@ -16,11 +17,13 @@ export function isTemporaryConversationId(id?: string | null) {
 export function createChatSocket(token: string): Socket {
   return io(CHAT_API_BASE, {
     auth: { token },
-    transports: ["websocket", "polling"],
+    path: "/socket.io",
+    transports: ["polling", "websocket"],
     withCredentials: true,
     reconnection: true,
     reconnectionAttempts: Infinity,
     reconnectionDelay: 1000,
+    autoConnect: true,
   });
 }
 

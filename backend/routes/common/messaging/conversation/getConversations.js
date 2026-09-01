@@ -25,6 +25,9 @@ const {
 } = require("../../../../services/messaging/conversationPresentation");
 const { buildLenderLoanInbox } = require("../../../../services/messaging/lenderBrokerConversation");
 const {
+  filterLoanConversationsBySearch,
+} = require("../../../../services/messaging/filterLoanConversationsBySearch");
+const {
   resolvePortalClientIds,
 } = require("../../../../utils/auth/clientPortalAuth");
 
@@ -43,11 +46,18 @@ module.exports = async function getConversations(fastify) {
             loanId: { type: "string", format: "uuid" },
           },
         },
+        querystring: {
+          type: "object",
+          properties: {
+            search: { type: "string" },
+          },
+        },
       },
     },
     async (req, reply) => {
       const prisma = fastify.prisma;
       const { loanId } = req.params;
+      const search = (req.query.search || "").trim();
 
       try {
         /* =====================================================
@@ -378,13 +388,20 @@ module.exports = async function getConversations(fastify) {
             brokerOrgId: loan.brokerOrgId,
           });
 
+          const filteredInbox = await filterLoanConversationsBySearch(
+            prisma,
+            loanId,
+            lenderInbox,
+            search,
+          );
+
           return reply.send({
             success: true,
             data: {
               loanId,
-              total: lenderInbox.length,
+              total: filteredInbox.length,
               conversations: enrichConversationList(
-                lenderInbox,
+                filteredInbox,
                 resolveViewerRole(req),
               ),
             },
@@ -429,13 +446,20 @@ module.exports = async function getConversations(fastify) {
             );
           }
 
+          const filteredClientConversations = await filterLoanConversationsBySearch(
+            prisma,
+            loanId,
+            clientConversations,
+            search,
+          );
+
           return reply.send({
             success: true,
             data: {
               loanId,
-              total: clientConversations.length,
+              total: filteredClientConversations.length,
               conversations: enrichConversationList(
-                clientConversations,
+                filteredClientConversations,
                 resolveViewerRole(req),
               ),
             },
@@ -448,12 +472,19 @@ module.exports = async function getConversations(fastify) {
            5️⃣ RESPONSE
         ===================================================== */
 
+        const filteredFormatted = await filterLoanConversationsBySearch(
+          prisma,
+          loanId,
+          formatted,
+          search,
+        );
+
         return reply.send({
           success: true,
           data: {
             loanId,
-            total: formatted.length,
-            conversations: enrichConversationList(formatted, viewerRole),
+            total: filteredFormatted.length,
+            conversations: enrichConversationList(filteredFormatted, viewerRole),
           },
         });
       } catch (error) {

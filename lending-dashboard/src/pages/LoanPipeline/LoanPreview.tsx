@@ -43,6 +43,8 @@ import {
   canLenderTakeDecision,
   canShowRejectAction,
   formatLoanProduct,
+  formatApplicationStatus,
+  getApplicationStatusColor,
   getLenderRequestDocumentsDisabledReason,
   normalizeLenderDecision,
 } from "../../lib/loanPipelineUtils";
@@ -97,6 +99,8 @@ import {
   type SubmissionDetailField,
 } from "../../lib/submissionFieldUtils";
 import { useLenderSessionMonitor } from "../../hooks/useSessionMonitor";
+import { ensureChatSocket } from "../../lib/chatSocketManager";
+import { getOrgIdsFromToken } from "../../lib/chatSocket";
 
 type PreviewTab = "details" | "documents" | "signDocuments" | "requestDocs" | "loi" | "chat";
 type DocumentSourceFilter = "all" | "mine" | "broker";
@@ -354,6 +358,31 @@ function getVisibleTabs() {
 
 export default function LoanPreview() {
   useLenderSessionMonitor();
+
+  useEffect(() => {
+    const token = sessionStorage.getItem("lender_token");
+    if (!token) return;
+
+    let lenderOrgId: string | null = null;
+    try {
+      const user = JSON.parse(
+        sessionStorage.getItem("lender_user") ||
+          sessionStorage.getItem("user") ||
+          "{}",
+      );
+      lenderOrgId = user.organizationId || null;
+    } catch {
+      lenderOrgId = null;
+    }
+
+    if (!lenderOrgId) {
+      lenderOrgId = getOrgIdsFromToken(token).lenderOrgId;
+    }
+
+    ensureChatSocket(token, {
+      getLenderOrgId: () => lenderOrgId,
+    });
+  }, []);
 
   // Full-screen route: ensure page scroll works even if a prior modal left body locked.
   useEffect(() => {
@@ -864,6 +893,10 @@ export default function LoanPreview() {
       Number(submissionDetail?.amountRequested) ||
       0,
     [submissionFields, submissionDetail?.amountRequested],
+  );
+  const borrowerDisplayName = useMemo(
+    () => getBorrowerDisplayName(submissionDetail, submissionFields),
+    [submissionDetail, submissionFields],
   );
   const ltv = useMemo(
     () => getNumericFieldValue(submissionFields, "ltvPercentage"),
@@ -2783,19 +2816,18 @@ export default function LoanPreview() {
                 <p className="text-xs text-slate-500 mt-1">
                   {submissionDetail?.loanApplication?.applicationNumber}
                 </p>
-                <p className="text-md text-slate-800 mt-1 font-bold">
-                  Borrower: {getBorrowerDisplayName(submissionDetail, submissionFields)}
-                  {/* {" • "}
-                  {getBorrowerEntityType(submissionDetail)} */}
-                </p>
               </div>
             </div>
           </div>
 
           <div className="flex flex-col items-end gap-3">
-            <span className="text-xs bg-brand-100 border-2 border-brand-300 px-2 py-1 rounded-md text-brand-700 font-semibold">
-              {submissionDetail && submissionDetail?.status}
-            </span>
+            {submissionDetail?.status ? (
+              <span
+                className={`rounded-md px-2 py-1 text-xs font-semibold ${getApplicationStatusColor(submissionDetail.status)}`}
+              >
+                {formatApplicationStatus(submissionDetail.status)}
+              </span>
+            ) : null}
 
             {(showApproval || showReject) && (
               <div className="flex flex-wrap items-center justify-end gap-2">
@@ -2824,121 +2856,95 @@ export default function LoanPreview() {
           </div>
         </div>
 
-        <div>
-          {submissionDetail?.loanApplication?.brokerOrg && (
-            <div className="flex flex-wrap items-center gap-3 mt-3">
-              {/* BROKER NAME CHIP */}
-              <div
-                className="flex items-center gap-3 px-4 py-2 rounded-xl border
-    bg-gradient-to-r from-brand-50 to-brand-100 border-brand-200
-    dark:from-brand-900/30 dark:to-brand-800/20 dark:border-brand-800"
-              >
-                <div className="w-7 h-7 rounded-full bg-brand-500 text-white flex items-center justify-center text-xs font-bold">
-                  <User size={14} />
-                </div>
-
-                <div className="flex flex-col leading-tight">
-                  <span
-                    className="text-[10px] uppercase tracking-wide font-semibold
-        text-brand-500 dark:text-brand-400"
-                  >
-                    Broker Name
-                  </span>
-                  <span
-                    className="text-sm font-semibold
-        text-brand-900 dark:text-brand-100"
-                  >
-                    {submissionDetail.loanApplication.brokerOrg.name}
-                  </span>
-                </div>
+        {submissionDetail && (
+          <div className="mt-3 flex flex-wrap items-stretch gap-3 sm:gap-4 md:gap-5">
+            {/* BORROWER NAME */}
+            <div className="flex min-w-[200px] flex-1 items-center gap-3 rounded-2xl border border-brand-300 bg-gradient-to-br from-brand-100 to-brand-50 px-5 py-3 shadow-md ring-2 ring-brand-400/40 dark:border-brand-700 dark:from-brand-900/40 dark:to-brand-800/20 dark:ring-brand-500/35 sm:flex-none sm:flex-initial">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-600 text-white shadow-sm">
+                <User size={18} />
               </div>
 
-              {/* EMAIL CHIP */}
-              <div
-                className="flex items-center gap-3 px-4 py-2 rounded-xl border
-    bg-gradient-to-r from-brand-50 to-brand-100 border-brand-200
-    dark:from-brand-900/30 dark:to-brand-800/20 dark:border-brand-800"
-              >
-                <div className="w-7 h-7 rounded-full bg-brand-500 text-white flex items-center justify-center text-xs">
-                  <MdEmail />
-                </div>
-
-                <div className="flex flex-col leading-tight">
-                  <span
-                    className="text-[10px] uppercase tracking-wide font-semibold
-        text-brand-500 dark:text-brand-400"
-                  >
-                    Email
-                  </span>
-                  <span
-                    className="text-sm font-medium
-        text-brand-900 dark:text-brand-100"
-                  >
-                    {submissionDetail.loanApplication.brokerOrg.email}
-                  </span>
-                </div>
-              </div>
-
-              {/* LOAN PRODUCT */}
-              <div
-                className="flex items-center gap-3 px-4 py-2 rounded-xl border
-    bg-gradient-to-r from-brand-50 to-brand-100 border-brand-200
-    dark:from-brand-900/30 dark:to-brand-800/20 dark:border-brand-800"
-              >
-                <div className="w-7 h-7 rounded-full bg-brand-500 text-white flex items-center justify-center text-xs font-bold">
-                  <BiLogoProductHunt size={14} />
-                </div>
-
-                <div className="flex flex-col leading-tight">
-                  <span
-                    className="text-[10px] uppercase tracking-wide font-semibold
-        text-brand-500 dark:text-brand-400"
-                  >
-                    Loan Product
-                  </span>
-                  <span
-                    className="text-sm font-semibold
-        text-brand-900 dark:text-brand-100"
-                  >
-                    {resolvedLoanProductName}
-                  </span>
-                </div>
-              </div>
-
-              {/* LOAN AMOUNT */}
-              <div
-                className="flex items-center gap-3 px-4 py-2 rounded-xl border
-  bg-gradient-to-r from-brand-50 to-brand-100 border-brand-200
-  dark:from-brand-900/30 dark:to-brand-800/20 dark:border-brand-800"
-              >
-                <div
-                  className="w-7 h-7 rounded-full bg-brand-500 text-white
-    flex items-center justify-center text-xs"
-                >
-                  <FaDollarSign />
-                </div>
-
-                <div className="flex flex-col leading-tight">
-                  <span
-                    className="text-[10px] uppercase tracking-wide font-semibold
-      text-brand-500 dark:text-brand-400"
-                  >
-                    Loan Amount Requested
-                  </span>
-
-                  <span
-                    className="text-sm font-medium
-      text-orange-900 dark:text-orange-100"
-                  >
-                    {loanAmount
-                      ? `$${Number(loanAmount).toLocaleString()}`
-                      : "-"}
-                  </span>
-                </div>
+              <div className="flex min-w-0 flex-col leading-tight">
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-brand-700 dark:text-brand-300">
+                  Borrower Name
+                </span>
+                <span className="truncate text-base font-bold text-brand-950 dark:text-white">
+                  {borrowerDisplayName || "-"}
+                </span>
               </div>
             </div>
-          )}
-        </div>
+
+            {submissionDetail.loanApplication?.brokerOrg && (
+              <>
+                {/* BROKER NAME */}
+                <div className="flex min-w-[200px] flex-1 items-center gap-3 rounded-2xl border border-brand-300 bg-gradient-to-br from-brand-100 to-brand-50 px-5 py-3 shadow-md ring-2 ring-brand-400/40 dark:border-brand-700 dark:from-brand-900/40 dark:to-brand-800/20 dark:ring-brand-500/35 sm:flex-none sm:flex-initial">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-600 text-white shadow-sm">
+                    <User size={18} />
+                  </div>
+
+                  <div className="flex min-w-0 flex-col leading-tight">
+                    <span className="text-[10px] font-semibold uppercase tracking-wide text-brand-700 dark:text-brand-300">
+                      Broker Name
+                    </span>
+                    <span className="truncate text-base font-bold text-brand-950 dark:text-white">
+                      {submissionDetail.loanApplication.brokerOrg.name}
+                    </span>
+                  </div>
+                </div>
+
+                {/* EMAIL */}
+                <div className="flex min-w-[220px] flex-1 items-center gap-3 rounded-xl border border-brand-200 bg-gradient-to-r from-brand-50 to-brand-100 px-4 py-2.5 dark:border-brand-800 dark:from-brand-900/30 dark:to-brand-800/20 sm:flex-none sm:flex-initial">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-500 text-white">
+                    <MdEmail />
+                  </div>
+
+                  <div className="flex min-w-0 flex-col leading-tight">
+                    <span className="text-[10px] font-semibold uppercase tracking-wide text-brand-500 dark:text-brand-400">
+                      Email
+                    </span>
+                    <span className="truncate text-sm font-medium text-brand-900 dark:text-brand-100">
+                      {submissionDetail.loanApplication.brokerOrg.email}
+                    </span>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* LOAN PRODUCT */}
+            <div className="flex min-w-[220px] flex-1 items-center gap-3 rounded-xl border border-brand-200 bg-gradient-to-r from-brand-50 to-brand-100 px-4 py-2.5 dark:border-brand-800 dark:from-brand-900/30 dark:to-brand-800/20 sm:flex-none sm:flex-initial">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-500 text-white text-xs font-bold">
+                <BiLogoProductHunt size={14} />
+              </div>
+
+              <div className="flex min-w-0 flex-col leading-tight">
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-brand-500 dark:text-brand-400">
+                  Loan Product
+                </span>
+                <span className="truncate text-sm font-semibold text-brand-900 dark:text-brand-100">
+                  {resolvedLoanProductName}
+                </span>
+              </div>
+            </div>
+
+            {/* LOAN AMOUNT */}
+            <div className="flex min-w-[200px] flex-1 items-center gap-3 rounded-xl border border-brand-200 bg-gradient-to-r from-brand-50 to-brand-100 px-4 py-2.5 dark:border-brand-800 dark:from-brand-900/30 dark:to-brand-800/20 sm:flex-none sm:flex-initial">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-500 text-white">
+                <FaDollarSign />
+              </div>
+
+              <div className="flex min-w-0 flex-col leading-tight">
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-brand-500 dark:text-brand-400">
+                  Loan Amount Requested
+                </span>
+                <span className="text-sm font-bold text-orange-900 dark:text-orange-100">
+                  {loanAmount
+                    ? `$${Number(loanAmount).toLocaleString()}`
+                    : "-"}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
 
         {submissionDetail && (
           <div
