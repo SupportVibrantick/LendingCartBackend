@@ -119,6 +119,7 @@ function normalizeAuthUser(decoded) {
   if (!orgType && role === "CLIENT") orgType = "CLIENT";
   if (!orgType && hasRole({ roles }, "SUB_BROKER")) orgType = "BROKER";
   if (!orgType && hasRole({ roles }, "BROKER_OFFICER")) orgType = "BROKER";
+  if (!orgType && hasRole({ roles }, "LOAN_OFFICER")) orgType = "BROKER";
   if (
     !orgType &&
     (hasRole({ roles }, "LENDER_ADMIN") ||
@@ -392,9 +393,13 @@ async function emitRealtimeMessage(io, prisma, message, conversationId) {
           (user.orgType === "BROKER" ||
             (Array.isArray(user.roles) &&
               user.roles.some((r) =>
-                ["BROKER_ADMIN", "BROKER_OFFICER", "SUB_BROKER", "BROKER"].includes(
-                  String(r),
-                ),
+                [
+                  "BROKER_ADMIN",
+                  "BROKER_OFFICER",
+                  "SUB_BROKER",
+                  "BROKER",
+                  "LOAN_OFFICER",
+                ].includes(String(r)),
               )));
 
         const isLenderTarget =

@@ -1,6 +1,6 @@
 const { Server } = require("socket.io");
-const jwt = require("jsonwebtoken");
-const registerChatGateway = require("../sockets/chat.gateway");
+const fp = require("fastify-plugin");
+const jwt = require("jsonwebtoken");const registerChatGateway = require("../sockets/chat.gateway");
 const { normalizeAuthUser } = require("../services/messaging/messagingAccess");
 const { getJwtSecret, getSocketCorsOrigins } = require("../config/env");
 const { attachRedisAdapter } = require("../config/redis");
@@ -21,6 +21,24 @@ function denyRoomJoin(socket, message, ack) {
   }
 }
 
+function isBrokerSocketUser(user) {
+  if (!user) return false;
+  if (user.orgType === "BROKER") return true;
+
+  const roles = user.roles ?? user.role ?? [];
+  const roleList = Array.isArray(roles) ? roles : [roles];
+
+  return roleList.some((role) =>
+    [
+      "BROKER_ADMIN",
+      "BROKER_OFFICER",
+      "SUB_BROKER",
+      "BROKER",
+      "LOAN_OFFICER",
+    ].includes(String(role)),
+  );
+}
+
 function joinAuthorizedRooms(socket) {
   const user = socket.user;
   const orgId = user.organizationId || user.orgId;
@@ -37,12 +55,13 @@ function joinAuthorizedRooms(socket) {
     return;
   }
 
-  if (user.orgType === "BROKER") {
+  if (isBrokerSocketUser(user)) {
     socket.join(`broker_${orgId}`);
     commonLogs.info("Socket auto-joined broker room", {
       socketId: socket.id,
       brokerOrgId: orgId,
     });
+    return;
   }
 
   if (user.orgType === "LENDER") {
@@ -62,8 +81,7 @@ function joinAuthorizedRooms(socket) {
   }
 }
 
-async function socketPlugin(fastify) {
-  const io = new Server(fastify.server, {
+async function socketPlugin(fastify) {  const io = new Server(fastify.server, {
     cors: {
       origin: getSocketCorsOrigins(),
       methods: ["GET", "POST"],
@@ -123,7 +141,7 @@ async function socketPlugin(fastify) {
     joinAuthorizedRooms(socket);
 
     socket.on("joinBrokerRoom", (_payload, ack) => {
-      if (socket.user.orgType !== "BROKER") {
+      if (!isBrokerSocketUser(socket.user)) {
         return denyRoomJoin(socket, "Forbidden broker room join", ack);
       }
 
@@ -184,4 +202,6 @@ async function socketPlugin(fastify) {
   });
 }
 
-module.exports = socketPlugin;
+module.exports = fp(socketPlugin, {
+  name: "socket-plugin",
+});

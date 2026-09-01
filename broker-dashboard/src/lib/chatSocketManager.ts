@@ -70,6 +70,11 @@ function syncConversationRooms() {
 function bindSocketHandlers(token: string) {
   if (!socket) return;
 
+  socket.off("connect");
+  socket.off("newMessage");
+  socket.off("connect_error");
+  socket.off("error");
+
   socket.on("connect", () => {
     joinOrgRooms(token);
     syncConversationRooms();
@@ -176,6 +181,12 @@ export function trackConversationRoom(conversationId?: string | null) {
   if (socket?.connected) {
     joinConversationRoom(socket, conversationId);
   }
+}
+
+export function trackConversationRooms(conversationIdsToTrack: string[]) {
+  conversationIdsToTrack.forEach((conversationId) => {
+    trackConversationRoom(conversationId);
+  });
 }
 
 export function getChatSocket(): Socket | null {

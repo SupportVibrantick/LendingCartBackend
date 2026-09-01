@@ -107,6 +107,9 @@ app.decorate("ghlService", ghlService);
 app.register(authMiddleware);
 app.register(verifySuperAdmin);
 
+const socketPlugin = require("./plugins/socket");
+app.register(socketPlugin);
+
 // Serve uploads (profile images)
 app.register(fastifyStatic, {
   root: path.join(__dirname, "uploads"),
