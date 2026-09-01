@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import SignatureCanvas from "react-signature-canvas";
 import toast from "react-hot-toast";
@@ -22,6 +22,7 @@ import {
   X,
 } from "lucide-react";
 import { buildApiPublicFileUrl } from "../../lib/publicFileUrl";
+import MultiSelect from "../form/MultiSelect";
 import EmbeddedFilePreview from "./EmbeddedFilePreview";
 import SignFormFiller from "./SignFormFiller";
 
@@ -339,6 +340,14 @@ export default function SignDocumentsPanel({
   const [forwardableLenders, setForwardableLenders] = useState<
     Array<{ applicationLenderId: string; lenderName: string }>
   >([]);
+  const forwardableLenderSelectOptions = useMemo(
+    () =>
+      forwardableLenders.map((lender) => ({
+        value: lender.applicationLenderId,
+        text: lender.lenderName,
+      })),
+    [forwardableLenders],
+  );
   const [forwardLenderIdsByRequirement, setForwardLenderIdsByRequirement] =
     useState<Record<string, string[]>>({});
   const [bulkForwardLenderIds, setBulkForwardLenderIds] = useState<string[]>(
@@ -851,19 +860,6 @@ export default function SignDocumentsPanel({
       return [forwardableLenders[0].applicationLenderId];
     }
     return [];
-  };
-
-  const toggleForwardLenderForRow = (
-    requirementId: string,
-    applicationLenderId: string,
-  ) => {
-    setForwardLenderIdsByRequirement((prev) => {
-      const current = prev[requirementId] || [];
-      const next = current.includes(applicationLenderId)
-        ? current.filter((id) => id !== applicationLenderId)
-        : [...current, applicationLenderId];
-      return { ...prev, [requirementId]: next };
-    });
   };
 
   const bulkSendSelectedToClient = async () => {
@@ -1435,30 +1431,18 @@ export default function SignDocumentsPanel({
 
     return (
       <div className="mb-2 rounded-xl border border-emerald-200 bg-white p-3 dark:border-emerald-500/30 dark:bg-slate-950">
-        <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">
-          Forward to lender{forwardableLenders.length > 1 ? "s" : ""}
-        </p>
-        <div className="max-h-32 space-y-1.5 overflow-y-auto">
-          {forwardableLenders.map((lender) => (
-            <label
-              key={lender.applicationLenderId}
-              className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-slate-700 hover:bg-emerald-50 dark:text-slate-200 dark:hover:bg-emerald-950/30"
-            >
-              <input
-                type="checkbox"
-                checked={selectedIds.includes(lender.applicationLenderId)}
-                onChange={() =>
-                  toggleForwardLenderForRow(
-                    row.requirementId,
-                    lender.applicationLenderId,
-                  )
-                }
-                className="rounded border-emerald-300 text-emerald-600 focus:ring-emerald-500"
-              />
-              <span className="truncate">{lender.lenderName}</span>
-            </label>
-          ))}
-        </div>
+        <MultiSelect
+          label="Forward to lenders"
+          options={forwardableLenderSelectOptions}
+          value={selectedIds}
+          onChange={(next) =>
+            setForwardLenderIdsByRequirement((prev) => ({
+              ...prev,
+              [row.requirementId]: next,
+            }))
+          }
+          placeholder="Select one or more lenders..."
+        />
       </div>
     );
   };
@@ -2709,34 +2693,15 @@ export default function SignDocumentsPanel({
                     </p>
                     {forwardableLenders.length > 0 ? (
                       <>
-                        <div className="mb-3 flex flex-wrap gap-3">
-                          {forwardableLenders.map((lender) => (
-                            <label
-                              key={lender.applicationLenderId}
-                              className="inline-flex items-center gap-2 rounded-lg bg-white px-3 py-1.5 text-sm dark:bg-slate-900"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={bulkForwardLenderIds.includes(
-                                  lender.applicationLenderId,
-                                )}
-                                onChange={() => {
-                                  setBulkForwardLenderIds((prev) =>
-                                    prev.includes(lender.applicationLenderId)
-                                      ? prev.filter(
-                                          (id) =>
-                                            id !== lender.applicationLenderId,
-                                        )
-                                      : [
-                                          ...prev,
-                                          lender.applicationLenderId,
-                                        ],
-                                  );
-                                }}
-                              />
-                              {lender.lenderName}
-                            </label>
-                          ))}
+                        <div className="mb-3 max-w-lg">
+                          <MultiSelect
+                            label="Select lenders"
+                            options={forwardableLenderSelectOptions}
+                            value={bulkForwardLenderIds}
+                            onChange={setBulkForwardLenderIds}
+                            placeholder="Select one or more lenders..."
+                            disabled={actionId === "bulk-forward"}
+                          />
                         </div>
                         <button
                           type="button"
