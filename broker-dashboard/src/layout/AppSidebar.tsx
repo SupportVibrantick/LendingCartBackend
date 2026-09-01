@@ -4,13 +4,14 @@ import { Link, useLocation } from "react-router";
 import { ChevronDownIcon, GridIcon, HorizontaLDots } from "../icons";
 import { useSidebar } from "../context/SidebarContext";
 
-import { MdEmail, MdWeb } from "react-icons/md";
+import { MdEmail } from "react-icons/md";
 // import { FaAppStore } from "react-icons/fa6";
 import { MdOutlineDocumentScanner } from "react-icons/md";
 import { FaUsersBetweenLines, FaUserGroup } from "react-icons/fa6";
 import { PiSecurityCameraFill } from "react-icons/pi";
 import {
   FolderOpen,
+  PlugZap,
   TrendingUp,
   //  MessageSquare
   Wallet,
@@ -126,21 +127,6 @@ const AppSidebar: React.FC = () => {
       ...(!isSubBroker
         ? [
           {
-            icon: <MdWeb />,
-            name: "Sites",
-            permission: "VIEW_WEBSITE_BUILDER",
-            subItems: [
-              {
-                name: "My Websites",
-                path: "/website-builder",
-              },
-            ],
-          },
-        ]
-        : []),
-      ...(!isSubBroker
-        ? [
-          {
             icon: <MdOutlineDocumentScanner />,
             name: "New Loan Application",
             path: "/loan-application",
@@ -148,6 +134,17 @@ const AppSidebar: React.FC = () => {
           },
         ]
         : []),
+      ...(!isSubBroker
+        ? [
+          {
+            icon: <PlugZap size={18} />,
+            name: "GoHighLevel",
+            path: "/settings/integrations/ghl",
+            permission: "VIEW_SETTINGS",
+          },
+        ]
+        : []),
+     
       ...(isBrokerAdmin
         ? [
           {
@@ -222,10 +219,6 @@ const AppSidebar: React.FC = () => {
               {
                 name: "Branding",
                 path: "/settings/branding",
-              },
-              {
-                name: "Integrations",
-                path: "/settings/integrations/ghl",
               },
               // {
               //   icon: <FaAppStore />,
