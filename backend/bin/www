@@ -13,7 +13,6 @@ try {
 
 
 const app = require("../app");
-const socketPlugin = require("../plugins/socket");
 const debug = require("debug")("backend:server");
 
 function normalizePort(val) {
@@ -33,7 +32,6 @@ function normalizePort(val) {
 const port = normalizePort(process.env.PORT || "3002");
 
 async function start() {
-  await app.register(socketPlugin);
   const address = await app.listen({ port, host: "0.0.0.0" });
 
   const bind = typeof port === "string" ? "Pipe " + port : "Port " + port;

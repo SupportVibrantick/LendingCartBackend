@@ -72,6 +72,8 @@ import {
 } from "../../lib/loanPreviewConfig";
 import { useLoanPreviewSessionMonitor } from "../../hooks/useSessionMonitor";
 import { hasPermission } from "../../lib/brokerPermissions";
+import { ensureChatSocket } from "../../lib/chatSocketManager";
+import { getOrgIdsFromToken } from "../../lib/chatSocket";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
@@ -399,6 +401,27 @@ type LoanPreviewProps = { portal?: LoanPreviewPortal };
 const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
   const Location = useLocation();
   useLoanPreviewSessionMonitor(portal);
+
+  useEffect(() => {
+    const token = getPortalToken();
+    if (!token) return;
+
+    let brokerOrgId: string | null = null;
+    try {
+      const user = JSON.parse(sessionStorage.getItem("broker_user") || "{}");
+      brokerOrgId = user.organizationId || null;
+    } catch {
+      brokerOrgId = null;
+    }
+
+    if (!brokerOrgId) {
+      brokerOrgId = getOrgIdsFromToken(token).brokerOrgId;
+    }
+
+    ensureChatSocket(token, {
+      getBrokerOrgId: () => brokerOrgId,
+    });
+  }, []);
 
   // Full-screen route: ensure page scroll works even if a prior modal left body locked.
   useEffect(() => {
@@ -3922,16 +3945,18 @@ dark:bg-red-900/20 dark:text-red-400"
       //   return renderSubmittedLenders();
       case "chat":
         return (
-          <PreviewChat
-            applicationId={applicationId}
-            {...(previewConfig.portal === "broker"
-              ? {
-                  initialConversationId: (
-                    Location.state as { conversationId?: string }
-                  )?.conversationId,
-                }
-              : {})}
-          />
+          <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
+            <PreviewChat
+              applicationId={applicationId}
+              {...(previewConfig.portal === "broker"
+                ? {
+                    initialConversationId: (
+                      Location.state as { conversationId?: string }
+                    )?.conversationId,
+                  }
+                : {})}
+            />
+          </div>
         );
       case "fee-agreement":
         return (
@@ -3954,6 +3979,8 @@ dark:bg-red-900/20 dark:text-red-400"
         return renderViewDetails();
     }
   };
+
+  const isChatTab = activeTab === "chat";
 
   if (!submissionId) {
     return (
@@ -4116,11 +4143,27 @@ dark:bg-red-900/20 dark:text-red-400"
                 </div>
               </div>
 
-              <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
-                <aside className="w-full shrink-0 lg:sticky lg:top-4 lg:w-60">
+              <div
+                className={`flex flex-col gap-6 lg:flex-row ${
+                  isChatTab
+                    ? "lg:h-[calc(100svh-22rem)] lg:max-h-[calc(100svh-14rem)] lg:min-h-[620px] lg:items-stretch lg:overflow-hidden"
+                    : "lg:items-start"
+                }`}
+              >
+                <aside
+                  className={`w-full shrink-0 lg:w-60 ${
+                    isChatTab
+                      ? "lg:flex lg:h-full lg:min-h-0 lg:flex-col lg:overflow-hidden"
+                      : "lg:sticky lg:top-4"
+                  }`}
+                >
                   <nav
                     aria-label="Loan application sections"
-                    className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900"
+                    className={`rounded-2xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900 ${
+                      isChatTab
+                        ? "chat-panel-scrollbar lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:overscroll-y-contain"
+                        : "overflow-hidden"
+                    }`}
                   >
                     {tabSections.map((section, sectionIndex) => (
                       <div
@@ -4190,7 +4233,15 @@ dark:bg-red-900/20 dark:text-red-400"
                   </nav>
                 </aside>
 
-                <main className="min-w-0 flex-1">{renderTabContent()}</main>
+                <main
+                  className={`min-w-0 flex-1 ${
+                    isChatTab
+                      ? "flex h-full min-h-0 flex-col overflow-hidden"
+                      : ""
+                  }`}
+                >
+                  {renderTabContent()}
+                </main>
               </div>
             </>
           )}

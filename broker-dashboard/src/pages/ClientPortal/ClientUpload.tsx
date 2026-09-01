@@ -465,6 +465,7 @@ type ApplicationWorkspaceHeaderProps = {
   formatStatusLabel: (status?: string | null) => string;
   getStatusStyles: (status?: string) => string;
   getStatusDot: (status?: string) => string;
+  compact?: boolean;
 };
 
 const APPLICATION_WORKSPACE_TABS: Array<{
@@ -488,9 +489,14 @@ function ApplicationWorkspaceHeader({
   formatStatusLabel,
   getStatusStyles,
   getStatusDot,
+  compact = false,
 }: ApplicationWorkspaceHeaderProps) {
   return (
-    <div className="mb-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+    <div
+      className={`overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm ${
+        compact ? "mb-0" : "mb-6"
+      }`}
+    >
       <div className="flex flex-col gap-4 border-b border-slate-100 px-4 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
         <div className="min-w-0">
         <button
@@ -1261,6 +1267,7 @@ export default function ClientUpload() {
       formatStatusLabel={formatStatusLabel}
       getStatusStyles={getStatusStyles}
       getStatusDot={getStatusDot}
+      compact={activeTab === "chat"}
     />
   );
 
@@ -2369,15 +2376,19 @@ export default function ClientUpload() {
 
         {activeTab === "chat" && (
           <>
-            {renderApplicationWorkspaceHeader()}
-          <Chat
-            applicationId={
-              selectedApplication?.id ||
-              selectedApplication?.loanApplicationId ||
-              applicationId
-            }
-            onBack={() => setActiveTab("application")}
-          />
+            <div className="mb-3 shrink-0">
+              {renderApplicationWorkspaceHeader()}
+            </div>
+            <div className="flex h-[calc(100svh-15rem)] max-h-[calc(100svh-8rem)] min-h-[620px] flex-col overflow-hidden">
+              <Chat
+                applicationId={
+                  selectedApplication?.id ||
+                  selectedApplication?.loanApplicationId ||
+                  applicationId
+                }
+                onBack={() => setActiveTab("application")}
+              />
+            </div>
           </>
         )}
       </div>
