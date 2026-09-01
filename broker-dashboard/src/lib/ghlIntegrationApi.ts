@@ -6,6 +6,8 @@ export type GhlAgencyLocationStatus = {
   packageCode?: string | null;
   ghlLocationId?: string | null;
   dashboardUrl?: string | null;
+  assignedAt?: string | null;
+  loginUrl?: string | null;
 };
 
 export type GhlConnectionStatus = {
@@ -134,6 +136,19 @@ export function sanitizeGhlCallbackMessage(message?: string | null): string {
     return "Failed to connect GoHighLevel. Please try again.";
   }
   return trimmed.length > 240 ? `${trimmed.slice(0, 240)}…` : trimmed;
+}
+
+export function formatGhlPlanLabel(packageCode?: string | null): string {
+  switch (String(packageCode || "").toUpperCase()) {
+    case "PRO":
+      return "Pro";
+    case "ELITE":
+      return "Elite";
+    case "BASIC":
+      return "Basic";
+    default:
+      return packageCode ? String(packageCode) : "—";
+  }
 }
 
 export function formatGhlConnectionStatusLabel(status?: string | null): string {
