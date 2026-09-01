@@ -289,7 +289,7 @@ export default function GhlIntegration() {
         title="GoHighLevel Integration"
         description="Your included GoHighLevel CRM for LendingCart"
       />
-      <PageBreadcrumb pageTitle="Integrations" />
+      <PageBreadcrumb pageTitle="GoHighLevel" />
 
       <div className="mx-auto max-w-5xl space-y-6">
         {/* Hero */}
