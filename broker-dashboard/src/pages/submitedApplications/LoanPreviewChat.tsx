@@ -1,6 +1,7 @@
-import type { ChangeEvent, KeyboardEvent } from "react";
+import type { KeyboardEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import EmojiPicker, { type EmojiClickData } from "emoji-picker-react";
+import { AnimatePresence, motion } from "framer-motion";
 import toast from "react-hot-toast";
 import {
   isTemporaryConversationId,
@@ -14,9 +15,9 @@ import {
   type ChatConversationListItem,
 } from "../../lib/chatConversation";
 import {
+  FiArrowLeft,
   FiMessageCircle,
   FiMoreVertical,
-  FiPaperclip,
   FiPhone,
   FiSearch,
   FiSend,
@@ -24,7 +25,7 @@ import {
   FiVideo,
   FiX,
 } from "react-icons/fi";
-import { Search } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
@@ -41,27 +42,16 @@ type Conversation = ChatConversationListItem & {
 
 type ChatMessage = {
   id: string;
-
   conversationId?: string;
-
   senderType?: string;
-
   senderUserId?: string;
-
   senderClientUserId?: string;
-
   senderName?: string;
-
   type?: string;
-
   fileUrl?: string;
-
   fileName?: string;
-
   mimeType?: string;
-
   text?: string;
-
   createdAt: string;
 };
 
@@ -111,18 +101,35 @@ const getInitials = (value?: string) => {
 
 const getAvatarTone = (value?: string) => {
   const tones = [
-    "bg-amber-200 text-amber-900",
-    "bg-rose-200 text-rose-900",
-    "bg-sky-200 text-sky-900",
-    "bg-emerald-200 text-emerald-900",
-    "bg-violet-200 text-violet-900",
-    "bg-orange-200 text-orange-900",
+    "bg-amber-100 text-amber-800 ring-amber-200/60",
+    "bg-rose-100 text-rose-800 ring-rose-200/60",
+    "bg-sky-100 text-sky-800 ring-sky-200/60",
+    "bg-emerald-100 text-emerald-800 ring-emerald-200/60",
+    "bg-violet-100 text-violet-800 ring-violet-200/60",
+    "bg-orange-100 text-orange-800 ring-orange-200/60",
   ];
 
   const seed = (value || "client")
     .split("")
     .reduce((acc, char) => acc + char.charCodeAt(0), 0);
   return tones[seed % tones.length];
+};
+
+const isGroupedWithPrevious = (
+  current: ChatMessage,
+  previous: ChatMessage | null,
+) => {
+  if (!previous) return false;
+
+  const sameSender =
+    current.senderType === previous.senderType &&
+    current.senderUserId === previous.senderUserId &&
+    current.senderClientUserId === previous.senderClientUserId;
+
+  return (
+    sameSender &&
+    formatDayLabel(current.createdAt) === formatDayLabel(previous.createdAt)
+  );
 };
 
 const LoanPreviewChat = ({
@@ -132,7 +139,6 @@ const LoanPreviewChat = ({
   const activeConversationRef = useRef<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const emojiPickerRef = useRef<HTMLDivElement | null>(null);
 
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -145,8 +151,9 @@ const LoanPreviewChat = ({
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [typingUser, setTypingUser] = useState<string | null>(null);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [showMobileThread, setShowMobileThread] = useState(false);
 
   const getToken = useCallback(() => sessionStorage.getItem("broker_token"), []);
   const getBrokerOrgId = useCallback(() => {
@@ -160,7 +167,7 @@ const LoanPreviewChat = ({
   }, [getToken]);
 
   const handleRealtimeMessage = useCallback((msg: ChatMessage) => {
-    if (!msg || !msg.id) return;
+    if (!msg?.id) return;
 
     setConversations((prev) =>
       prev.map((item) =>
@@ -186,33 +193,67 @@ const LoanPreviewChat = ({
     });
   }, []);
 
-  useChatSocket({
+  const trackedConversationIds = useMemo(
+    () =>
+      conversations
+        .map((conversation) => conversation.id)
+        .filter((id) => !isTemporaryConversationId(id)),
+    [conversations],
+  );
+
+  const { isConnected } = useChatSocket({
     getToken,
     getBrokerOrgId,
     conversationId: selectedConversation?.id,
+    conversationIds: trackedConversationIds,
     onMessage: handleRealtimeMessage,
     onError: (message) => toast.error(message),
   });
 
-  const filteredConversations = useMemo(() => {
-    const query = searchTerm.trim().toLowerCase();
-    if (!query) return conversations;
+  const isSearching = searchTerm.trim() !== debouncedSearch;
 
-    return conversations.filter((chat) => {
-      const title = chat.title?.toLowerCase() || "";
-      const lastMessage = chat.lastMessage?.toLowerCase() || "";
-      const type = chat.type?.toLowerCase() || "";
-      return (
-        title.includes(query) ||
-        lastMessage.includes(query) ||
-        type.includes(query)
-      );
-    });
-  }, [conversations, searchTerm]);
+  const fetchConversations = useCallback(
+    async (search = debouncedSearch) => {
+      if (!applicationId) return;
 
-  const onlineConversations = useMemo(
-    () => conversations.slice(0, 6),
-    [conversations],
+      try {
+        setChatLoading(true);
+        const token = getToken();
+        const params = new URLSearchParams();
+        if (search) {
+          params.set("search", search);
+        }
+
+        const query = params.toString();
+        const res = await fetch(
+          `${API_BASE}/messaging/loan/${applicationId}/conversations${query ? `?${query}` : ""}`,
+          {
+            method: "GET",
+            headers: { ...(token && { Authorization: `Bearer ${token}` }) },
+          },
+        );
+        const json = await res.json();
+
+        if (!res.ok || !json.success) {
+          throw new Error(json.message || "Failed to load chats");
+        }
+
+        const nextConversations: Conversation[] =
+          json?.data?.conversations || [];
+        setConversations(nextConversations);
+        setSelectedConversation((prev) => {
+          if (!prev) return null;
+          return (
+            nextConversations.find((item) => item.id === prev.id) || null
+          );
+        });
+      } catch (err: any) {
+        toast.error(err.message || "Failed to load chats");
+      } finally {
+        setChatLoading(false);
+      }
+    },
+    [applicationId, debouncedSearch, getToken],
   );
 
   const scrollToBottom = (behavior: ScrollBehavior = "smooth") => {
@@ -222,13 +263,6 @@ const LoanPreviewChat = ({
       top: containerRef.current.scrollHeight,
       behavior,
     });
-  };
-
-  const removeSelectedFile = () => {
-    setSelectedFile(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
   };
 
   const fetchMessages = async (conversationId: string) => {
@@ -255,41 +289,6 @@ const LoanPreviewChat = ({
       toast.error(err.message || "Failed to load messages");
     } finally {
       setMessagesLoading(false);
-    }
-  };
-
-  const fetchConversations = async () => {
-    if (!applicationId) return;
-
-    try {
-      setChatLoading(true);
-      const token = getToken();
-      const res = await fetch(
-        `${API_BASE}/messaging/loan/${applicationId}/conversations`,
-        {
-          method: "GET",
-          headers: { ...(token && { Authorization: `Bearer ${token}` }) },
-        },
-      );
-      const json = await res.json();
-
-      if (!res.ok || !json.success) {
-        throw new Error(json.message || "Failed to load chats");
-      }
-
-      const nextConversations = json?.data?.conversations || [];
-      setConversations(nextConversations);
-      setSelectedConversation((prev) => {
-        if (!prev) return null;
-        return (
-          nextConversations.find((item: Conversation) => item.id === prev.id) ||
-          null
-        );
-      });
-    } catch (err: any) {
-      toast.error(err.message || "Failed to load chats");
-    } finally {
-      setChatLoading(false);
     }
   };
 
@@ -331,15 +330,13 @@ const LoanPreviewChat = ({
           finalConversation = {
             ...conversation,
             id: created.id,
+            isPlaceholder: false,
           };
 
           setConversations((prev) =>
             prev.map((item) =>
               item.id === conversation.id
-                ? {
-                    ...item,
-                    id: created.id,
-                  }
+                ? { ...item, id: created.id, isPlaceholder: false }
                 : item,
             ),
           );
@@ -348,15 +345,12 @@ const LoanPreviewChat = ({
 
       setSelectedConversation(finalConversation);
       setMessages([]);
+      setShowMobileThread(true);
 
       setConversations((prev) =>
         prev.map((item) =>
           item.id === finalConversation.id
-            ? {
-                ...item,
-                unread: false,
-                unreadCount: 0,
-              }
+            ? { ...item, unread: false, unreadCount: 0 }
             : item,
         ),
       );
@@ -369,40 +363,11 @@ const LoanPreviewChat = ({
     setMessageText((prev) => prev + emojiData.emoji);
   };
 
-  const handleFileSelect = (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setSelectedFile(file);
-  };
-
   const handleSendMessage = async () => {
-    if (!selectedConversation?.id) return;
+    if (!selectedConversation?.id || !messageText.trim()) return;
 
     try {
       setSendingMessage(true);
-      let fileUrl: string | null = null;
-      let fileName: string | null = null;
-
-      if (selectedFile) {
-        const formData = new FormData();
-        formData.append("file", selectedFile);
-
-        const token = getToken();
-        const uploadRes = await fetch(`${API_BASE}/upload`, {
-          method: "POST",
-          headers: { ...(token && { Authorization: `Bearer ${token}` }) },
-          body: formData,
-        });
-        const uploadJson = await uploadRes.json();
-
-        if (!uploadRes.ok) {
-          throw new Error(uploadJson.message || "File upload failed");
-        }
-
-        fileUrl = uploadJson.url;
-        fileName = selectedFile.name;
-      }
-
       const token = getToken();
 
       const response = await fetch(
@@ -411,17 +376,11 @@ const LoanPreviewChat = ({
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            ...(token && {
-              Authorization: `Bearer ${token}`,
-            }),
+            ...(token && { Authorization: `Bearer ${token}` }),
           },
           body: JSON.stringify({
-            type: selectedFile ? "FILE" : "TEXT",
+            type: "TEXT",
             text: messageText.trim(),
-            fileUrl,
-            fileName,
-            mimeType: selectedFile?.type,
-            fileSize: selectedFile?.size,
           }),
         },
       );
@@ -435,10 +394,7 @@ const LoanPreviewChat = ({
       const newMessage = json.data?.message || json.data;
 
       setMessages((prev) => {
-        const alreadyExists = prev.some((item) => item.id === newMessage.id);
-
-        if (alreadyExists) return prev;
-
+        if (prev.some((item) => item.id === newMessage.id)) return prev;
         return [...prev, newMessage];
       });
 
@@ -447,15 +403,14 @@ const LoanPreviewChat = ({
           item.id === selectedConversation.id
             ? {
                 ...item,
-                lastMessage: json.data.text || json.data.fileName || "File",
-                lastMessageAt: json.data.createdAt,
+                lastMessage: newMessage.text || newMessage.fileName || "File",
+                lastMessageAt: newMessage.createdAt,
               }
             : item,
         ),
       );
 
       setMessageText("");
-      removeSelectedFile();
       setShowEmojiPicker(false);
     } catch (err: any) {
       toast.error(err.message || "Failed to send");
@@ -467,9 +422,25 @@ const LoanPreviewChat = ({
   const handleMessageInputKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      handleSendMessage();
+      void handleSendMessage();
     }
   };
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setDebouncedSearch(searchTerm.trim());
+    }, 300);
+
+    return () => window.clearTimeout(timer);
+  }, [searchTerm]);
+
+  useEffect(() => {
+    if (!applicationId || !conversations.length || selectedConversation) {
+      return;
+    }
+
+    void handleSelectConversation(conversations[0]);
+  }, [applicationId, conversations, selectedConversation]);
 
   useEffect(() => {
     setConversations([]);
@@ -478,13 +449,15 @@ const LoanPreviewChat = ({
     setMessages([]);
     setShowEmojiPicker(false);
     setTypingUser(null);
-    setSelectedFile(null);
     setSearchTerm("");
-
-    if (applicationId) {
-      fetchConversations();
-    }
+    setDebouncedSearch("");
+    setShowMobileThread(false);
   }, [applicationId]);
+
+  useEffect(() => {
+    if (!applicationId) return;
+    void fetchConversations(debouncedSearch);
+  }, [applicationId, debouncedSearch, fetchConversations]);
 
   useEffect(() => {
     activeConversationRef.current = selectedConversation?.id || null;
@@ -513,18 +486,14 @@ const LoanPreviewChat = ({
       setConversations((prev) =>
         prev.map((item) =>
           item.id === selectedConversation.id
-            ? {
-                ...item,
-                unread: false,
-                unreadCount: 0,
-              }
+            ? { ...item, unread: false, unreadCount: 0 }
             : item,
         ),
       );
     };
 
-    initConversation();
-  }, [selectedConversation?.id]);
+    void initConversation();
+  }, [selectedConversation?.id, getToken]);
 
   useEffect(() => {
     if (!initialConversationId || conversations.length === 0) return;
@@ -533,7 +502,7 @@ const LoanPreviewChat = ({
     if (match && selectedConversation?.id !== match.id) {
       void handleSelectConversation(match);
     }
-  }, [conversations, initialConversationId]);
+  }, [conversations, initialConversationId, selectedConversation?.id]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -552,9 +521,7 @@ const LoanPreviewChat = ({
 
   useEffect(() => {
     if (selectedConversation?.id) {
-      setTimeout(() => {
-        scrollToBottom("auto"); // instant open at bottom
-      }, 100);
+      setTimeout(() => scrollToBottom("auto"), 100);
     }
   }, [selectedConversation?.id]);
 
@@ -565,158 +532,174 @@ const LoanPreviewChat = ({
   }, [messages]);
 
   const brokerUser = JSON.parse(sessionStorage.getItem("broker_user") || "{}");
+  const brokerUserId =
+    brokerUser?.id || brokerUser?.userId || brokerUser?._id;
 
   const isChatSelected = Boolean(selectedConversation);
+  const canSend =
+    Boolean(selectedConversation) &&
+    Boolean(messageText.trim()) &&
+    !sendingMessage;
+
+  const selectedDisplayName = selectedConversation
+    ? getConversationDisplayName(selectedConversation)
+    : "";
+
+  const getOwnSenderLabel = (msg: ChatMessage) =>
+    msg.senderType === "SUB_BROKER" ? "Sub Broker" : "You";
 
   return (
-    <div
-      className="grid h-[calc(100vh-220px)] min-h-0 overflow-hidden rounded-[22px] border border-slate-200 
-bg-slate-50 dark:bg-slate-950 
-dark:border-slate-800 lg:grid-cols-[320px_minmax(0,1fr)]"
-    >
+    <div className="flex h-full min-h-0 flex-col overflow-hidden">
+      <div className="grid h-full min-h-0 flex-1 overflow-hidden rounded-[24px] border border-slate-200/80 bg-white shadow-[0_18px_50px_rgba(14,165,233,0.08)] dark:border-slate-800 dark:bg-slate-950 lg:grid-cols-[330px_minmax(0,1fr)]">
       <aside
-        className="flex h-full min-h-0 flex-col border-b border-slate-200 
-bg-[#fbfbfa] 
-dark:bg-slate-900 dark:border-slate-800 
-lg:border-b-0 lg:border-r"
+        className={`flex h-full min-h-0 flex-col border-b border-slate-200/80 bg-gradient-to-b from-slate-50 to-white dark:from-slate-900 dark:to-slate-950 lg:border-b-0 lg:border-r dark:border-slate-800 ${
+          showMobileThread ? "hidden lg:flex" : "flex"
+        }`}
       >
-        <div className="border-b border-slate-200 dark:border-slate-800 px-5 py-4">
-          <div className="relative">
-            <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+        <div className="shrink-0 border-b border-slate-200/80 px-4 py-4 dark:border-slate-800">
+          <div className="mb-3 flex items-center justify-between">
+            <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+              Loan chat
+            </p>
+            <span
+              className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide ${
+                isConnected
+                  ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:ring-emerald-800"
+                  : "bg-amber-50 text-amber-700 ring-1 ring-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:ring-amber-800"
+              }`}
+            >
+              <span
+                className={`h-1.5 w-1.5 rounded-full ${
+                  isConnected
+                    ? "animate-pulse bg-emerald-500"
+                    : "bg-amber-500"
+                }`}
+              />
+              {isConnected ? "Live" : "Connecting"}
+            </span>
+          </div>
+
+          <div className="group relative">
+            <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 transition-colors group-focus-within:text-sky-500" />
             <input
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Search people or messages"
-              className="h-10 w-full rounded-full border border-slate-200 bg-[#f2f2ef] pl-10 pr-10 text-sm text-slate-700 outline-none placeholder:text-slate-400 focus:border-slate-300 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200 dark:focus:border-slate-600"
+              className="h-11 w-full rounded-2xl border border-slate-200 bg-white pl-10 pr-10 text-sm text-slate-700 outline-none transition-all placeholder:text-slate-400 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/15 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
             />
-            <span className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full border border-slate-200 px-1.5 py-0.5 text-[10px] text-slate-400">
-              <Search size={14} />
-            </span>
+            {searchTerm ? (
+              <button
+                type="button"
+                onClick={() => setSearchTerm("")}
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800"
+                aria-label="Clear search"
+              >
+                <FiX size={14} />
+              </button>
+            ) : isSearching || chatLoading ? (
+              <Loader2
+                size={14}
+                className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-slate-400"
+              />
+            ) : null}
           </div>
         </div>
 
-        <div className="border-b border-slate-200 dark:border-slate-800 px-5 py-5">
-          <p className="mb-3 text-sm font-semibold text-slate-800 dark:text-slate-300">
-            Online
-          </p>
-          <div className="flex items-center gap-3 overflow-x-auto pb-1">
-            {onlineConversations.length === 0 ? (
-              <div className="text-xs text-slate-400">No active users</div>
-            ) : (
-              onlineConversations.map((chat) => (
-                <div key={chat.id} className="relative shrink-0">
-                  <div
-                    className={`flex h-11 w-11 items-center justify-center rounded-full text-xs font-semibold ${getAvatarTone(chat.title)}`}
-                  >
-                    {getInitials(chat.title)}
-                  </div>
-                  <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-[#fbfbfa] bg-lime-500" />
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-
-        <div className="border-b border-slate-200 dark:border-slate-800 px-5 py-4">
-          <p className="text-lg font-semibold text-slate-900 dark:text-slate-300">
+        <div className="flex shrink-0 items-center justify-between border-b border-slate-200/80 px-4 py-3 dark:border-slate-800">
+          <p className="text-sm font-semibold text-slate-900 dark:text-slate-200">
             Messages
           </p>
+          <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-400">
+            {conversations.length}
+          </span>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="chat-panel-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-2 py-2 pb-3">
           {chatLoading ? (
-            <div className="space-y-3 px-4 py-4">
+            <div className="space-y-2 px-2 py-2">
               {[1, 2, 3, 4, 5].map((item) => (
                 <div
                   key={item}
-                  className="h-16 rounded-2xl border border-slate-200 bg-[#f2f2ef]"
+                  className="h-[72px] animate-pulse rounded-2xl bg-slate-100 dark:bg-slate-800"
                 />
               ))}
             </div>
-          ) : filteredConversations.length === 0 ? (
+          ) : conversations.length === 0 ? (
             <div className="flex h-full flex-col items-center justify-center px-6 text-center">
-              <div className="rounded-full border border-slate-200 bg-white p-4 text-slate-500">
+              <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sky-500 shadow-sm dark:border-slate-700 dark:bg-slate-900">
                 <FiMessageCircle size={22} />
               </div>
               <p className="mt-4 text-sm font-medium text-slate-700 dark:text-slate-300">
-                {conversations.length === 0
-                  ? "No conversations yet"
-                  : "No matching chats"}
+                {debouncedSearch ? "No matching chats" : "No conversations yet"}
               </p>
               <p className="mt-2 max-w-[220px] text-xs leading-6 text-slate-400">
-                {conversations.length === 0
-                  ? "Open Loan Officer chat to start messaging."
-                  : "Try another keyword or participant name."}
+                {debouncedSearch
+                  ? "Try another keyword or participant name."
+                  : "Client, lender, and team chats for this loan appear here."}
               </p>
             </div>
           ) : (
-            <div className="px-3 py-3">
-              {filteredConversations.map((chat) => {
+            <div className="space-y-1">
+              {conversations.map((chat) => {
                 const isActive = selectedConversation?.id === chat.id;
                 const displayName = getConversationDisplayName(chat);
                 const badge = getConversationBadge(chat);
                 const avatarTone = getAvatarTone(displayName);
+                const unreadCount = chat.unreadCount || (chat.unread ? 1 : 0);
 
                 return (
-                  <button
+                  <motion.button
                     key={chat.id}
                     type="button"
-                    onClick={() => handleSelectConversation(chat)}
-                    className={`mb-1.5 flex w-full items-center gap-3 rounded-2xl border px-3 py-3 text-left transition ${
+                    layout
+                    whileHover={{ scale: 1.01 }}
+                    whileTap={{ scale: 0.99 }}
+                    onClick={() => void handleSelectConversation(chat)}
+                    className={`flex w-full items-center gap-3 rounded-2xl border px-3 py-3 text-left transition-all ${
                       isActive
-                        ? "border-slate-300 bg-[#efefec] dark:bg-slate-800 dark:border-slate-700"
-                        : "border-transparent bg-transparent hover:border-slate-200 hover:bg-[#f4f4f1] dark:hover:bg-slate-800 dark:hover:border-slate-700"
+                        ? "border-sky-500/30 bg-sky-500/8 shadow-sm ring-1 ring-sky-500/15 dark:bg-sky-500/10"
+                        : "border-transparent hover:border-slate-200 hover:bg-white hover:shadow-sm dark:hover:border-slate-700 dark:hover:bg-slate-900"
                     }`}
                   >
                     <div className="relative shrink-0">
                       <div
-                        className={`flex h-11 w-11 items-center justify-center rounded-full text-xs font-semibold ${avatarTone}`}
+                        className={`flex h-11 w-11 items-center justify-center rounded-full text-xs font-semibold ring-2 ring-white dark:ring-slate-900 ${avatarTone}`}
                       >
                         {getInitials(displayName)}
                       </div>
-                      <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-[#fbfbfa]  bg-lime-500" />
+                      <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white bg-emerald-500 dark:border-slate-900" />
                     </div>
 
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between gap-2">
-                        <p className="truncate text-xs font-semibold text-slate-900 dark:text-slate-300">
-                         {displayName}
+                        <p className="truncate text-sm font-semibold text-slate-900 dark:text-slate-200">
+                          {displayName}
                         </p>
-                        <span className="text-[10px] text-slate-400">
+                        <span className="shrink-0 text-[10px] text-slate-400">
                           {formatTime(chat.lastMessageAt)}
                         </span>
                       </div>
 
-                      {(chat.type === "SUBBROKER_BROKER" ||
-  chat.type === "CLIENT_BROKER" ||
-  chat.type === "CLIENT_OFFICER" ||
-  chat.type === "BROKER_OFFICER" ||
-  chat.type === "BROKER_LENDER") && (
-                        <div className="mt-1 flex items-center gap-1">
-                          <span
-                            className={`rounded-full px-2 py-0.5 text-[9px] font-medium ${badge.className}`}
-                          >
-                           {badge.label}
-                          </span>
-                        </div>
-                      )}
+                      <div className="mt-1 flex items-center gap-2">
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-[9px] font-semibold ${badge.className}`}
+                        >
+                          {badge.label}
+                        </span>
+                      </div>
 
                       <div className="mt-1 flex items-center justify-between gap-2">
-                        <p className="truncate text-xs text-slate-500">
-                          {chat.lastMessage
-                            ? chat.lastMessage.length > 40
-                              ? `${chat.lastMessage.slice(0, 40)}...`
-                              : chat.lastMessage
-                            : "No messages yet"}
+                        <p className="truncate text-xs text-slate-500 dark:text-slate-400">
+                          {chat.lastMessage || "No messages yet"}
                         </p>
-                        {chat.unreadCount ? (
-                          <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-lime-500 px-1 text-[10px] font-semibold text-white">
-                            {chat.unreadCount}
+                        {unreadCount > 0 ? (
+                          <span className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-sky-500 px-1.5 text-[10px] font-semibold text-white">
+                            {unreadCount}
                           </span>
                         ) : null}
                       </div>
                     </div>
-                  </button>
+                  </motion.button>
                 );
               })}
             </div>
@@ -724,63 +707,100 @@ lg:border-b-0 lg:border-r"
         </div>
       </aside>
 
-      <section className="relative flex h-full min-h-0 flex-col bg-[#f8f8f6] dark:bg-slate-950">
+      <section
+        className={`flex h-full min-h-0 flex-col overflow-hidden bg-[linear-gradient(180deg,#f8fafc_0%,#ffffff_42%)] dark:from-slate-950 dark:to-slate-900 ${
+          showMobileThread || selectedConversation
+            ? "flex"
+            : "hidden lg:flex"
+        }`}
+      >
         {!isChatSelected ? (
           <div className="flex h-full items-center justify-center px-6 text-center">
-            <div className="max-w-md">
-              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500">
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="max-w-md"
+            >
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border border-slate-200 bg-white text-sky-500 shadow-sm dark:border-slate-700 dark:bg-slate-900">
                 <FiMessageCircle size={24} />
               </div>
-              <h3 className="mt-5 text-xl font-semibold text-slate-900 dark:text-slate-400">
-                Open a conversation
+              <h3 className="mt-5 text-xl font-semibold text-slate-900 dark:text-slate-200">
+                Select a conversation
               </h3>
               <p className="mt-2 text-sm leading-7 text-slate-500">
-                Open any client, lender, or sub broker conversation from the
-                left panel.
+                Open any client, lender, or team chat from the left panel.
               </p>
-            </div>
+            </motion.div>
           </div>
         ) : (
           <>
-            <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 dark:bg-slate-900 dark:border-slate-800 px-5 py-4">
+            <div className="flex shrink-0 items-center justify-between border-b border-slate-200/80 bg-white/90 px-4 py-3 backdrop-blur dark:border-slate-800 dark:bg-slate-900/90 sm:px-5">
               <div className="flex min-w-0 items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowMobileThread(false)}
+                  className="rounded-xl border border-slate-200 p-2 text-slate-600 transition hover:bg-slate-50 lg:hidden dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                  aria-label="Back to conversations"
+                >
+                  <FiArrowLeft size={16} />
+                </button>
+
                 <div className="relative shrink-0">
                   <div
-                    className={`flex h-11 w-11 items-center justify-center rounded-full text-xs font-semibold ${getAvatarTone(getConversationDisplayName(selectedConversation))}`}
+                    className={`flex h-11 w-11 items-center justify-center rounded-full text-xs font-semibold ring-2 ring-white dark:ring-slate-900 ${getAvatarTone(selectedDisplayName)}`}
                   >
-                    {getInitials(getConversationDisplayName(selectedConversation))}
+                    {getInitials(selectedDisplayName)}
                   </div>
-                  <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-[#fbfbfa] bg-lime-500" />
+                  <span
+                    className={`absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white dark:border-slate-900 ${
+                      isConnected ? "bg-emerald-500" : "bg-amber-400"
+                    }`}
+                  />
                 </div>
 
                 <div className="min-w-0">
-                  <p className="truncate text-lg font-semibold text-slate-900 dark:text-slate-300">
-                    {getConversationDisplayName(selectedConversation)}
+                  <p className="truncate text-base font-semibold text-slate-900 dark:text-slate-200 sm:text-lg">
+                    {selectedDisplayName}
                   </p>
-                  <div className="flex items-center gap-2">
-                    <p className="text-xs text-slate-400">
-                      {typingUser ? "Typing..." : "Online"}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-xs text-slate-500">
+                      {typingUser
+                        ? "Typing..."
+                        : isConnected
+                          ? `Connected \u00b7 real-time`
+                          : "Reconnecting..."}
                     </p>
-
-                    {selectedConversation && (
+                    {selectedConversation ? (
                       <span
-                        className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${getConversationBadge(selectedConversation).className}`}
+                        className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${getConversationBadge(selectedConversation).className}`}
                       >
                         {getConversationBadge(selectedConversation).label}
                       </span>
-                    )}
+                    ) : null}
                   </div>
                 </div>
               </div>
 
-              <div className="flex items-center gap-1.5 text-slate-500">
-                <button className="rounded-full p-2 hover:bg-slate-100">
+              <div className="flex items-center gap-1 text-slate-500">
+                <button
+                  type="button"
+                  className="rounded-xl p-2 transition hover:bg-slate-100 hover:text-sky-500 dark:hover:bg-slate-800"
+                  title="Video call (coming soon)"
+                >
                   <FiVideo size={16} />
                 </button>
-                <button className="rounded-full p-2 hover:bg-slate-100">
+                <button
+                  type="button"
+                  className="rounded-xl p-2 transition hover:bg-slate-100 hover:text-sky-500 dark:hover:bg-slate-800"
+                  title="Phone call (coming soon)"
+                >
                   <FiPhone size={16} />
                 </button>
-                <button className="rounded-full p-2 hover:bg-slate-100">
+                <button
+                  type="button"
+                  className="rounded-xl p-2 transition hover:bg-slate-100 hover:text-sky-500 dark:hover:bg-slate-800"
+                  title="More options"
+                >
                   <FiMoreVertical size={16} />
                 </button>
               </div>
@@ -788,129 +808,181 @@ lg:border-b-0 lg:border-r"
 
             <div
               ref={containerRef}
-              className="h-full min-h-0 flex-1 overflow-y-auto
-bg-[#f8f8f6] dark:bg-slate-950 px-4 py-5 sm:px-7"
+              className="chat-panel-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-3 py-4 sm:px-6 sm:py-5"
             >
               {messagesLoading ? (
-                <div className="space-y-4">
+                <div className="space-y-3">
                   {[1, 2, 3].map((item) => (
                     <div
                       key={item}
-                      className={`h-12 rounded-2xl border border-slate-200 ${item % 2 === 0 ? "ml-auto w-44 bg-sky-100" : "w-56 bg-white"}`}
+                      className={`h-12 animate-pulse rounded-2xl ${
+                        item % 2 === 0
+                          ? "ml-auto w-44 bg-sky-500/15"
+                          : "w-56 bg-slate-100 dark:bg-slate-800"
+                      }`}
                     />
                   ))}
                 </div>
               ) : messages.length === 0 ? (
-                <div className="flex min-h-[300px] items-center justify-center text-center">
-                  <div>
-                    <p className="text-sm font-medium text-slate-400">
-                      Beginning of your conversation
+                <div className="flex h-full items-center justify-center text-center">
+                  <div className="rounded-2xl border border-dashed border-slate-200 bg-white/80 px-6 py-8 dark:border-slate-700 dark:bg-slate-900/80">
+                    <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                      Start the conversation
                     </p>
-                    <p className="mt-2 text-xs text-slate-500">
-                      Send a message to start chatting.
+                    <p className="mt-2 text-xs text-slate-400">
+                      Send a message to begin chatting with this contact.
                     </p>
                   </div>
                 </div>
               ) : (
-                <div className="space-y-5">
-                  {messages.map((msg, index) => {
-                    const isOwnMessage =
-                      msg.senderUserId === brokerUser?.id ||
-                      msg.senderClientUserId === brokerUser?.id;
-                    const previousMessage =
-                      index > 0 ? messages[index - 1] : null;
-                    const currentDay = formatDayLabel(msg.createdAt);
-                    const previousDay = previousMessage
-                      ? formatDayLabel(previousMessage.createdAt)
-                      : null;
-                    const showDayDivider = currentDay !== previousDay;
+                <div className="space-y-1">
+                  <AnimatePresence initial={false}>
+                    {messages.map((msg, index) => {
+                      const isOwnMessage =
+                        msg.senderUserId === brokerUserId ||
+                        msg.senderClientUserId === brokerUserId;
 
-                    return (
-                      <div key={msg.id}>
-                        {showDayDivider && (
-                          <div className="mb-5 flex items-center gap-3 text-[11px] text-slate-400">
-                            <div className="h-px flex-1 bg-slate-200 dark:bg-slate-800" />
-                            <span>{currentDay}</span>
-                            <div className="h-px flex-1 bg-slate-200 dark:bg-slate-800" />
-                          </div>
-                        )}
+                      const previousMessage =
+                        index > 0 ? messages[index - 1] : null;
+                      const currentDay = formatDayLabel(msg.createdAt);
+                      const previousDay = previousMessage
+                        ? formatDayLabel(previousMessage.createdAt)
+                        : null;
+                      const showDayDivider = currentDay !== previousDay;
+                      const grouped = isGroupedWithPrevious(
+                        msg,
+                        previousMessage,
+                      );
 
-                        <div
-                          className={`flex ${isOwnMessage ? "justify-end" : "justify-start"}`}
+                      const peerLabel = selectedDisplayName;
+                      const ownLabel =
+                        msg.senderType === "SUB_BROKER"
+                          ? "Sub Broker"
+                          : "Broker";
+
+                      return (
+                        <motion.div
+                          key={msg.id}
+                          initial={{ opacity: 0, y: 10, scale: 0.98 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          transition={{ duration: 0.18 }}
                         >
+                          {showDayDivider ? (
+                            <div className="my-4 flex items-center gap-3 text-[11px] font-medium text-slate-400">
+                              <div className="h-px flex-1 bg-slate-200 dark:bg-slate-800" />
+                              <span className="rounded-full bg-white px-3 py-1 shadow-sm ring-1 ring-slate-200/80 dark:bg-slate-900 dark:ring-slate-700">
+                                {currentDay}
+                              </span>
+                              <div className="h-px flex-1 bg-slate-200 dark:bg-slate-800" />
+                            </div>
+                          ) : null}
+
                           <div
-                            className={`flex max-w-[80%] items-end gap-2 ${isOwnMessage ? "flex-row-reverse" : "flex-row"}`}
+                            className={`flex py-1 ${isOwnMessage ? "justify-end" : "justify-start"} ${grouped ? "mt-0.5" : "mt-3"}`}
                           >
                             <div
-                              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold ${getAvatarTone(
-                                isOwnMessage
-                                  ? msg.senderType === "SUB_BROKER"
-                                    ? "Sub Broker"
-                                    : "Broker"
-                                  : selectedConversation?.title,
-                              )}`}
+                              className={`flex max-w-[min(88%,520px)] items-end gap-2 ${
+                                isOwnMessage ? "flex-row-reverse" : "flex-row"
+                              }`}
                             >
-                              {getInitials(
-                                isOwnMessage
-                                  ? msg.senderType === "SUB_BROKER"
-                                    ? "Sub Broker"
-                                    : "Broker"
-                                  : selectedConversation?.title,
+                              {!grouped ? (
+                                <div
+                                  className={`mb-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold ring-2 ring-white dark:ring-slate-900 ${getAvatarTone(
+                                    isOwnMessage ? ownLabel : peerLabel,
+                                  )}`}
+                                >
+                                  {getInitials(
+                                    isOwnMessage ? ownLabel : peerLabel,
+                                  )}
+                                </div>
+                              ) : (
+                                <div className="w-8 shrink-0" />
                               )}
-                            </div>
 
-                            <div>
-                              <div className="mb-1 px-1 text-[10px] text-slate-400">
-                                {formatTime(msg.createdAt)}
-                              </div>
-
-                              <div
-                                className={`rounded-[18px] border px-4 py-2.5 text-sm leading-6 ${isOwnMessage ? "border-sky-500 bg-sky-500 text-white" : "border-slate-200 bg-white text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"}`}
-                              >
-                                {msg.type === "FILE" && msg.fileUrl && (
-                                  <div className={msg.text ? "mb-3" : ""}>
-                                    {msg.mimeType?.startsWith("image/") ? (
-                                      <img
-                                        src={msg.fileUrl}
-                                        alt={msg.fileName || "file"}
-                                        className="max-h-56 rounded-[14px] object-cover"
-                                      />
+                              <div className="min-w-0">
+                                {!grouped ? (
+                                  <div
+                                    className={`mb-1 flex items-center gap-2 px-1 text-[10px] text-slate-400 ${
+                                      isOwnMessage ? "justify-end" : ""
+                                    }`}
+                                  >
+                                    {!isOwnMessage ? (
+                                      <span className="font-semibold text-slate-500 dark:text-slate-400">
+                                        {msg.senderName ||
+                                          msg.senderType ||
+                                          "User"}
+                                      </span>
                                     ) : (
-                                      <a
-                                        href={msg.fileUrl}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-sm ${isOwnMessage ? "border-sky-400 bg-sky-400 text-white" : "border-slate-200 bg-slate-50 text-slate-700"}`}
-                                      >
-                                        <FiPaperclip />
-                                        {msg.fileName || "Download file"}
-                                      </a>
+                                      <span className="font-semibold text-sky-600 dark:text-sky-400">
+                                        {getOwnSenderLabel(msg)}
+                                      </span>
                                     )}
+                                    <span>{formatTime(msg.createdAt)}</span>
                                   </div>
-                                )}
+                                ) : null}
 
-                                {msg.text && (
-                                  <p className="whitespace-pre-wrap break-words">
-                                    {msg.text}
-                                  </p>
-                                )}
+                                <div
+                                  className={`rounded-[20px] px-4 py-2.5 text-sm leading-6 shadow-sm ${
+                                    isOwnMessage
+                                      ? "rounded-br-md bg-gradient-to-br from-sky-500 to-sky-700 text-white"
+                                      : "rounded-bl-md border border-slate-200/80 bg-white text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                                  }`}
+                                >
+                                  {msg.type === "FILE" && msg.fileUrl ? (
+                                    <div className={msg.text ? "mb-2" : ""}>
+                                      {msg.mimeType?.startsWith("image/") ? (
+                                        <a
+                                          href={msg.fileUrl}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="block overflow-hidden rounded-xl"
+                                        >
+                                          <img
+                                            src={msg.fileUrl}
+                                            alt={msg.fileName || "file"}
+                                            className="max-h-56 w-full object-cover transition hover:scale-[1.02]"
+                                          />
+                                        </a>
+                                      ) : (
+                                        <a
+                                          href={msg.fileUrl}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className={`block rounded-xl border px-3 py-2 text-sm transition hover:opacity-90 ${
+                                            isOwnMessage
+                                              ? "border-white/20 bg-white/10 text-white"
+                                              : "border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200"
+                                          }`}
+                                        >
+                                          {msg.fileName || "Download file"}
+                                        </a>
+                                      )}
+                                    </div>
+                                  ) : null}
+
+                                  {msg.text ? (
+                                    <p className="whitespace-pre-wrap break-words">
+                                      {msg.text}
+                                    </p>
+                                  ) : null}
+                                </div>
                               </div>
                             </div>
                           </div>
-                        </div>
-                      </div>
-                    );
-                  })}
+                        </motion.div>
+                      );
+                    })}
+                  </AnimatePresence>
                   <div ref={messagesEndRef} />
                 </div>
               )}
             </div>
 
-            <div className="relative z-20 shrink-0 border-t border-slate-200 bg-[#fbfbfa] dark:bg-slate-900 dark:border-slate-800 px-4 py-3 sm:px-5">
-              {showEmojiPicker && (
+            <div className="relative shrink-0 border-t border-slate-200/80 bg-white/95 px-3 py-3 backdrop-blur dark:border-slate-800 dark:bg-slate-900/95 sm:px-5">
+              {showEmojiPicker ? (
                 <div
                   ref={emojiPickerRef}
-                  className="absolute bottom-24 left-4 z-50 overflow-hidden rounded-2xl border border-slate-200 bg-white dark:bg-slate-900 dark:border-slate-700 sm:left-5"
+                  className="absolute bottom-full left-3 z-50 mb-3 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-900 sm:left-4"
                 >
                   <EmojiPicker
                     onEmojiClick={handleEmojiClick}
@@ -918,97 +990,51 @@ bg-[#f8f8f6] dark:bg-slate-950 px-4 py-5 sm:px-7"
                     width={320}
                   />
                 </div>
-              )}
+              ) : null}
 
-              {selectedFile && (
-                <div className="mb-3 flex items-center justify-between rounded-2xl border border-slate-200 bg-white dark:bg-slate-800 dark:border-slate-700 px-4 py-3">
-                  <div className="flex min-w-0 items-center gap-3">
-                    <div className="rounded-full border border-slate-200 bg-slate-50 p-2 text-slate-500">
-                      <FiPaperclip size={15} />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-slate-700">
-                        {selectedFile.name}
-                      </p>
-                      <p className="text-xs text-slate-400">
-                        {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={removeSelectedFile}
-                    className="rounded-full p-2 text-slate-500 hover:bg-slate-100"
-                  >
-                    <FiX size={16} />
-                  </button>
-                </div>
-              )}
-
-              <div
-                className="flex w-full items-center gap-2 border border-slate-200 bg-white 
-  dark:bg-slate-900 dark:border-slate-800
-  px-3 py-2.5 rounded-xl shadow-sm"
-              >
-                {/* ATTACH */}
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="rounded-full p-2 text-slate-500 
-    hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 transition"
-                >
-                  <FiPaperclip size={17} />
-                </button>
-
-                {/* EMOJI */}
+              <div className="flex items-end gap-2 rounded-[22px] border border-slate-200 bg-white px-2 py-2 shadow-sm transition-all focus-within:border-sky-500 focus-within:ring-2 focus-within:ring-sky-500/15 dark:border-slate-700 dark:bg-slate-900">
                 <button
                   type="button"
                   onClick={() => setShowEmojiPicker((prev) => !prev)}
-                  className="rounded-full p-2 text-slate-500 
-    hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 transition"
+                  className={`rounded-xl p-2.5 transition ${
+                    showEmojiPicker
+                      ? "bg-sky-500/10 text-sky-600"
+                      : "text-slate-500 hover:bg-slate-100 hover:text-sky-500 dark:hover:bg-slate-800"
+                  }`}
+                  title="Add emoji"
                 >
-                  <FiSmile size={17} />
+                  <FiSmile size={18} />
                 </button>
-
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  hidden
-                  onChange={handleFileSelect}
-                />
-
-                {/* INPUT */}
                 <input
                   value={messageText}
                   onChange={(e) => setMessageText(e.target.value)}
                   onKeyDown={handleMessageInputKeyDown}
                   placeholder="Write a message..."
-                  className="w-full flex-1 border-none bg-transparent px-2 text-sm
-    text-slate-700 dark:text-slate-200 
-    outline-none placeholder:text-slate-400"
+                  className="min-w-0 flex-1 border-none bg-transparent px-1 py-2.5 text-sm text-slate-700 outline-none placeholder:text-slate-400 dark:text-slate-200"
                 />
-
-                {/* SEND BUTTON */}
                 <button
-                  onClick={handleSendMessage}
-                  disabled={
-                    !selectedConversation ||
-                    (!messageText.trim() && !selectedFile) ||
-                    sendingMessage
-                  }
-                  className="rounded-full p-2 
-    bg-slate-100 text-slate-600 
-    hover:bg-slate-200
-    dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700
-    disabled:cursor-not-allowed disabled:opacity-40
-    transition"
+                  type="button"
+                  onClick={() => void handleSendMessage()}
+                  disabled={!canSend}
+                  className={`rounded-xl p-2.5 transition-all ${
+                    canSend
+                      ? "bg-sky-500 text-white shadow-md hover:bg-sky-600 active:scale-95"
+                      : "cursor-not-allowed text-slate-300"
+                  }`}
+                  title="Send message"
                 >
-                  <FiSend size={17} />
+                  {sendingMessage ? (
+                    <Loader2 size={18} className="animate-spin" />
+                  ) : (
+                    <FiSend size={18} />
+                  )}
                 </button>
               </div>
             </div>
           </>
         )}
-      </section>
+        </section>
+      </div>
     </div>
   );
 };
