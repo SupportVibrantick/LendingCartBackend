@@ -26,6 +26,9 @@ const { logAudit } = require("../../../services/logger/auditLogger");
 const {
   formatSignDocumentRequirement,
 } = require("../../../utils/documents/formatSignDocument");
+const {
+  buildLenderSignDocumentRequirementWhere,
+} = require("../../../utils/documents/lenderSignDocumentAccess");
 
 async function loadLenderRequirement(fastify, {
   applicationLenderId,
@@ -46,12 +49,11 @@ async function loadLenderRequirement(fastify, {
 
   const requirement =
     await fastify.prisma.applicationDocumentRequirement.findFirst({
-      where: {
-        id: requirementId,
+      where: buildLenderSignDocumentRequirementWhere({
         loanApplicationId: applicationLender.loanApplicationId,
-        requiresClientSignature: true,
-        requestApplicationLenderId: applicationLenderId,
-      },
+        applicationLenderId,
+        requirementId,
+      }),
       include: {
         documentType: true,
         signFormDefinition: true,

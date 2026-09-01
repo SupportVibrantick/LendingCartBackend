@@ -10,7 +10,6 @@ import {
   Mail,
   Pencil,
   Phone,
-  ShieldCheck,
   User,
   X,
 } from "lucide-react";
@@ -240,6 +239,13 @@ function validateProfileForm(fields: {
   return errors;
 }
 
+function resolveSavedCompanyName(user: {
+  organizationName?: string;
+  brokerProfile?: { company?: string };
+}): string {
+  return user.organizationName || user.brokerProfile?.company || "";
+}
+
 function getBrokerToken() {
   return sessionStorage.getItem("broker_token");
 }
@@ -295,7 +301,9 @@ export default function UserProfileCard() {
       setLastName(profile.user.lastName || "");
       setPhone(profile.user.phone || "");
       const bp = profile.user.brokerProfile || {};
-      setCompany(bp.company || "");
+      setCompany(
+        profile.organization?.name || profile.user.brokerProfile?.company || "",
+      );
       setLicenseNumber(bp.licenseNumber || "");
       setAddress(bp.address || "");
       setCity(bp.city || "");
@@ -327,7 +335,7 @@ export default function UserProfileCard() {
     firstName !== user.firstName ||
     lastName !== user.lastName ||
     phone !== (user.phone || "") ||
-    company !== (user.brokerProfile?.company || "") ||
+    company !== resolveSavedCompanyName(user) ||
     licenseNumber !== (user.brokerProfile?.licenseNumber || "") ||
     address !== (user.brokerProfile?.address || "") ||
     city !== (user.brokerProfile?.city || "") ||
@@ -530,7 +538,7 @@ export default function UserProfileCard() {
     setLastName(user.lastName || "");
     setPhone(user.phone || "");
     const bp = user.brokerProfile || {};
-    setCompany(bp.company || "");
+    setCompany(resolveSavedCompanyName(user));
     setLicenseNumber(bp.licenseNumber || "");
     setAddress(bp.address || "");
     setCity(bp.city || "");
@@ -652,13 +660,15 @@ export default function UserProfileCard() {
               <Briefcase size={14} className="shrink-0" />
               <span className="truncate">{roleLabel}</span>
             </p>
-            {user.organizationName && (
+            {(editing ? company.trim() : user.organizationName) && (
               <p
                 className="mt-1 flex items-center gap-2 truncate text-sm text-gray-500 dark:text-gray-400"
-                title={user.organizationName}
+                title={editing ? company.trim() : user.organizationName}
               >
                 <Building2 size={14} className="shrink-0" />
-                <span className="truncate">{user.organizationName}</span>
+                <span className="truncate">
+                  {editing ? company.trim() : user.organizationName}
+                </span>
               </p>
             )}
 
@@ -790,23 +800,31 @@ export default function UserProfileCard() {
                 Professional Information
               </h3>
               <div className="grid gap-4 md:grid-cols-2">
-                <ProfileField
-                  label="Company"
-                  value={company}
-                  editing={editing}
-                  onChange={(v) => {
-                    setCompany(v);
-                    if (formErrors.company)
-                      setFormErrors((e) => {
-                        const { company: _drop, ...rest } = e;
-                        return rest;
-                      });
-                  }}
-                  icon={<Building2 size={14} />}
-                  error={formErrors.company}
-                  maxLength={100}
-                  fieldKey="company"
-                />
+                <div className="md:col-span-2">
+                  <ProfileField
+                    label="Company Name"
+                    value={company}
+                    editing={editing}
+                    onChange={(v) => {
+                      setCompany(v);
+                      if (formErrors.company)
+                        setFormErrors((e) => {
+                          const { company: _drop, ...rest } = e;
+                          return rest;
+                        });
+                    }}
+                    icon={<Building2 size={14} />}
+                    error={formErrors.company}
+                    maxLength={100}
+                    fieldKey="company"
+                  />
+                  {editing ? (
+                    <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                      Updates your organization name and fee agreement branding
+                      across the platform.
+                    </p>
+                  ) : null}
+                </div>
                 <ProfileField
                   label="License Number"
                   value={licenseNumber}
@@ -915,18 +933,13 @@ export default function UserProfileCard() {
 
             <section>
               <h3 className="mb-4 text-sm font-semibold text-gray-900 dark:text-white">
-                Contact & Organization
+                Contact
               </h3>
               <div className="grid gap-4 md:grid-cols-2">
                 <InfoCard
                   label="Email"
                   value={user.email}
                   icon={<Mail size={18} />}
-                />
-                <InfoCard
-                  label="Organization"
-                  value={user.organizationName || "—"}
-                  icon={<ShieldCheck size={18} />}
                 />
               </div>
             </section>
@@ -1029,7 +1042,7 @@ export default function UserProfileCard() {
                 Tip
               </p>
               <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
-                Keep your company, license, and contact details updated so
+                Keep your company name, license, and contact details updated so
                 lenders and clients see accurate information across the platform.
               </p>
             </div>

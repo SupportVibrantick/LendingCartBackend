@@ -357,6 +357,21 @@ const formatMonthlyPayment = (value: number) => {
   })}`;
 };
 
+const formatCurrencyValue = (
+  value: number | string | null | undefined,
+  options?: { fallback?: string },
+) => {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return options?.fallback ?? "$0";
+  return `$${num.toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
+};
+
+const formatStatNumber = (value: number | string | null | undefined) => {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return "-";
+  return num.toLocaleString("en-US", { maximumFractionDigits: 2 });
+};
+
 const REQUEST_DOC_LIMIT = 12;
 
 const getRequestDocColor = (name: string) => {
@@ -1970,6 +1985,9 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
     termMonths,
   );
   const monthlyPaymentDisplay = formatMonthlyPayment(monthlyPayment);
+  const netWorthDisplay = netWorth
+    ? formatCurrencyValue(netWorth)
+    : "-";
 
   const submittedDate = submissionDetail?.submittedAt
     ? new Date(submissionDetail.submittedAt)
@@ -3996,25 +4014,25 @@ dark:bg-red-900/20 dark:text-red-400"
               </p>
 
               {/* EXTRA INFO (Client + Product + Amount) */}
-              <div className="mt-4 flex flex-wrap items-center gap-4">
-                {/* BORROWER */}
-                <div className="flex items-center gap-3 rounded-2xl bg-[#4C76DA]/10 px-4 py-2 shadow-sm transition-all hover:shadow-md dark:bg-[#4C76DA]/15">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#4C76DA] text-white">
-                    <FiUser size={16} />
+              <div className="mt-4 flex flex-wrap items-stretch gap-3 sm:gap-4 md:gap-5 lg:gap-6">
+                {/* CLIENT */}
+                <div className="flex min-w-[200px] flex-1 items-center gap-3 rounded-2xl bg-gradient-to-br from-[#4C76DA]/20 to-[#13538A]/15 px-5 py-3 shadow-md ring-2 ring-[#4C76DA]/35 transition-all hover:shadow-lg dark:from-[#4C76DA]/25 dark:to-[#13538A]/20 dark:ring-[#4C76DA]/45 sm:flex-none sm:flex-initial">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#13538A] text-white shadow-sm">
+                    <FiUser size={18} />
                   </div>
 
-                  <div className="flex flex-col leading-tight">
-                    <span className="text-[11px] font-medium text-[#4C76DA]">
-                      Borrower Name
+                  <div className="flex min-w-0 flex-col leading-tight">
+                    <span className="text-[11px] font-semibold uppercase tracking-wide text-[#13538A] dark:text-[#93b4ff]">
+                      Client Name
                     </span>
-                    <span className="text-sm font-semibold text-slate-900 dark:text-white">
+                    <span className="truncate text-base font-bold text-[#0f2d4d] dark:text-white">
                       {borrowerName}
                     </span>
                   </div>
                 </div>
 
                 {/* PRODUCT */}
-                <div className="flex items-center gap-3 rounded-2xl bg-[#4C76DA]/10 px-4 py-2 shadow-sm transition-all hover:shadow-md dark:bg-[#4C76DA]/15">
+                <div className="flex min-w-[180px] flex-1 items-center gap-3 rounded-2xl bg-[#4C76DA]/10 px-4 py-2.5 shadow-sm transition-all hover:shadow-md dark:bg-[#4C76DA]/15 sm:flex-none sm:flex-initial">
                   <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#4C76DA] text-white">
                     <FiTag size={16} />
                   </div>
@@ -4030,7 +4048,7 @@ dark:bg-red-900/20 dark:text-red-400"
                 </div>
 
                 {/* AMOUNT */}
-                <div className="flex items-center gap-3 rounded-2xl bg-[#4C76DA]/10 px-4 py-2 shadow-sm transition-all hover:shadow-md dark:bg-[#4C76DA]/15">
+                <div className="flex min-w-[180px] flex-1 items-center gap-3 rounded-2xl bg-[#4C76DA]/10 px-4 py-2.5 shadow-sm transition-all hover:shadow-md dark:bg-[#4C76DA]/15 sm:flex-none sm:flex-initial">
                   <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#4C76DA] text-white">
                     $
                   </div>
@@ -4040,13 +4058,13 @@ dark:bg-red-900/20 dark:text-red-400"
                       Loan Amount Requested
                     </span>
                     <span className="text-sm font-semibold text-slate-900 dark:text-white">
-                      ${submissionDetail?.amountRequested || 0}
+                      {formatCurrencyValue(submissionDetail?.amountRequested || 0)}
                     </span>
                   </div>
                 </div>
 
                 {/* CREDIT SCORE */}
-                <div className="flex items-center gap-3 rounded-2xl bg-[#4C76DA]/10 px-4 py-2 shadow-sm transition-all hover:shadow-md dark:bg-[#4C76DA]/15">
+                <div className="flex min-w-[140px] flex-1 items-center gap-3 rounded-2xl bg-[#4C76DA]/10 px-4 py-2.5 shadow-sm transition-all hover:shadow-md dark:bg-[#4C76DA]/15 sm:flex-none sm:flex-initial">
                   <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#4C76DA] text-sm font-bold text-white">
                     <FaRegCreditCard />
                   </div>
@@ -4087,13 +4105,13 @@ dark:bg-red-900/20 dark:text-red-400"
                     label="Monthly Payment"
                     value={monthlyPaymentDisplay}
                   />
-                  <Metric label="LTV" value={ltv ? `${ltv}%` : "-"} />
-                  <Metric label="LTC" value={ltc ? `${ltc}%` : "-"} />
-                  <Metric label="ARV %" value={arv ? `${arv}%` : "-"} />
-                  <Metric label="DSCR Ratio" value={dscr ? `${dscr}` : "-"} />
+                  <Metric label="LTV" value={ltv ? `${formatStatNumber(ltv)}%` : "-"} />
+                  <Metric label="LTC" value={ltc ? `${formatStatNumber(ltc)}%` : "-"} />
+                  <Metric label="ARV %" value={arv ? `${formatStatNumber(arv)}%` : "-"} />
+                  <Metric label="DSCR Ratio" value={dscr ? formatStatNumber(dscr) : "-"} />
                   <Metric
                     label="Net Worth"
-                    value={netWorth ? `$${netWorth}` : "-"}
+                    value={netWorthDisplay}
                   />
                 </div>
               </div>
@@ -4116,7 +4134,7 @@ dark:bg-red-900/20 dark:text-red-400"
                         <p className="px-4 pb-2 pt-4 text-[11px] font-bold uppercase tracking-wider text-slate-400">
                           {section.label}
                         </p>
-                        <div className="space-y-0.5 px-2 pb-3">
+                        <div className="space-y-1.5 px-2 pb-3">
                           {section.items.map((tab) => {
                             const Icon = tab.icon;
                             const isActive = activeTab === tab.key;
@@ -4135,7 +4153,7 @@ dark:bg-red-900/20 dark:text-red-400"
                                   if (isDisabled) return;
                                   setActiveTab(tab.key);
                                 }}
-                                className={`flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition ${
+                                className={`flex w-full items-center gap-2.5 rounded-xl px-3 py-3 text-left text-sm font-medium transition ${
                                   isActive
                                     ? "bg-[#13538A] text-white shadow-sm"
                                     : isDisabled

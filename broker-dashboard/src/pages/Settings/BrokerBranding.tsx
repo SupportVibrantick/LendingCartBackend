@@ -145,7 +145,7 @@ export default function BrokerBranding() {
       return;
     }
     if (!isFormComplete) {
-      toast.error("Please upload a logo and enter your brand name");
+      toast.error("Please upload a logo and enter your company name");
       return;
     }
 
@@ -230,7 +230,7 @@ export default function BrokerBranding() {
               <p className="mt-2 text-sm leading-relaxed text-blue-50/90 sm:text-base">
                 {readOnly
                   ? "View your company branding used on fee agreements. Contact your broker admin to request changes."
-                  : "Set your company identity once. New fee agreements will automatically show your logo and brand name. Signed agreements keep the branding that was active when the client signed."}
+                  : "Set your company name and logo once. New fee agreements will automatically use this branding. Signed agreements keep the identity that was active when the client signed. Changes here sync with your profile company name."}
               </p>
             </div>
 
@@ -245,7 +245,7 @@ export default function BrokerBranding() {
               </p>
               <div className="mt-3 space-y-2">
                 <RequirementItem done={hasLogo} label="Company logo uploaded" />
-                <RequirementItem done={hasBrandName} label="Brand name added" />
+                <RequirementItem done={hasBrandName} label="Company name added" />
               </div>
             </div>
             )}
@@ -338,15 +338,16 @@ export default function BrokerBranding() {
               )}
             </section>
 
-            {/* Brand name */}
+            {/* Company name */}
             <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-950">
               <div className="mb-4 flex items-start justify-between gap-3">
                 <div>
                   <h2 className="text-base font-bold text-slate-900 dark:text-white">
-                    Brand Name
+                    Company Name
                   </h2>
                   <p className="mt-1 text-sm text-slate-500">
-                    Your brokerage name shown on agreements and documents.
+                    Your brokerage name on fee agreements, documents, and your
+                    broker profile — kept in sync across the platform.
                   </p>
                 </div>
                 <span
@@ -371,7 +372,7 @@ export default function BrokerBranding() {
                 onChange={(e) =>
                   setForm((prev) => ({ ...prev, brandName: e.target.value }))
                 }
-                placeholder="e.g. LendingCart Broker"
+                placeholder="e.g. Acme Lending Group"
               />
             </section>
 
@@ -386,7 +387,8 @@ export default function BrokerBranding() {
                     How branding works
                   </p>
                   <ul className="mt-2 space-y-1.5 text-sm text-slate-600 dark:text-slate-400">
-                    <li>• New fee agreements use your saved branding.</li>
+                    <li>• New fee agreements use your saved company name and logo.</li>
+                    <li>• Updates here also update your profile company name.</li>
                     <li>• When a client signs, that branding is locked.</li>
                     <li>• Logo updates apply only to new agreements.</li>
                   </ul>
@@ -433,12 +435,12 @@ export default function BrokerBranding() {
                         FINDER & FINANCIAL AGREEMENT
                       </p>
                       <p className="mt-1 text-xs text-slate-500">
-                        {hasBrandName ? form.brandName.trim() : "Your brand name"}
+                        {hasBrandName ? form.brandName.trim() : "Your company name"}
                       </p>
                     </div>
 
                     <div className="rounded-lg border border-dashed border-slate-200 bg-white px-3 py-4 text-left text-[11px] leading-relaxed text-slate-500 dark:border-slate-700 dark:bg-slate-950">
-                      This preview shows how your logo and brand name will appear
+                      This preview shows how your logo and company name will appear
                       at the top of client-facing fee agreements.
                     </div>
                   </div>
@@ -447,7 +449,7 @@ export default function BrokerBranding() {
 
               {!isFormComplete && (
                 <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
-                  Upload a logo and enter your brand name to enable saving.
+                  Upload a logo and enter your company name to enable saving.
                 </p>
               )}
             </div>
@@ -464,7 +466,7 @@ export default function BrokerBranding() {
                   Ready to save your branding settings.
                 </span>
               ) : !isFormComplete ? (
-                <span>Complete logo and brand name to save.</span>
+                <span>Complete logo and company name to save.</span>
               ) : (
                 <span>No changes to save.</span>
               )}
@@ -476,7 +478,7 @@ export default function BrokerBranding() {
               disabled={!canSave}
               title={
                 !isFormComplete
-                  ? "Upload logo and enter brand name first"
+                  ? "Upload logo and enter company name first"
                   : !hasChanges
                     ? "No changes to save"
                     : "Save branding"
