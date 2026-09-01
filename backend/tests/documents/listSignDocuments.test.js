@@ -16,6 +16,18 @@ test("buildBrokerSignDocumentWhere applies lender filter", () => {
   assert.equal(where.requestApplicationLenderId, "lender-app-1");
 });
 
+test("buildBrokerSignDocumentWhere applies broker-uploads filter", () => {
+  const where = buildBrokerSignDocumentWhere("loan-1", {
+    lenderId: "broker-uploads",
+    searchTerm: "",
+  });
+
+  assert.equal(where.loanApplicationId, "loan-1");
+  assert.equal(where.requiresClientSignature, true);
+  assert.equal(where.source, "BROKER_ADDED");
+  assert.equal(where.requestApplicationLenderId, undefined);
+});
+
 test("listClientSignDocuments filters by bucket and scope", async () => {
   const {
     listClientSignDocuments,

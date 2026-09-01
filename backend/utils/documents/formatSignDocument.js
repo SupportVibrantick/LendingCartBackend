@@ -113,6 +113,7 @@ function formatSignDocumentRequirement(requirement, options = {}) {
       requirement.documentType?.name ||
       "Document",
     source: requirement.source,
+    isBrokerUploaded: requirement.source === "BROKER_ADDED",
     requiresClientSignature: true,
     signStatus: requirement.signStatus,
     signStatusLabel: viewerCopy.signStatusLabel,

@@ -23,6 +23,10 @@ const {
 const {
   buildSignDocumentDownload,
 } = require("../../../services/documents/signForm/exportFilledForm.service");
+const {
+  buildLenderSignDocumentWhere,
+  buildLenderSignDocumentRequirementWhere,
+} = require("../../../utils/documents/lenderSignDocumentAccess");
 
 const SIGN_DOCUMENT_LIST_INCLUDE = {
   documentType: true,
@@ -40,32 +44,6 @@ const SIGN_DOCUMENT_LIST_INCLUDE = {
     include: { values: true },
   },
 };
-
-function buildLenderSignDocumentWhere(
-  applicationLender,
-  applicationLenderId,
-  searchTerm,
-) {
-  const where = {
-    loanApplicationId: applicationLender.loanApplicationId,
-    requiresClientSignature: true,
-    requestApplicationLenderId: applicationLenderId,
-  };
-
-  if (searchTerm) {
-    where.OR = [
-      { signDocumentTitle: { contains: searchTerm, mode: "insensitive" } },
-      { templateFileName: { contains: searchTerm, mode: "insensitive" } },
-      {
-        documentType: {
-          name: { contains: searchTerm, mode: "insensitive" },
-        },
-      },
-    ];
-  }
-
-  return where;
-}
 
 /**
  * @param {import("fastify").FastifyInstance} fastify
@@ -530,13 +508,12 @@ module.exports = async function lenderSignDocuments(fastify) {
 
         const requirement =
           await fastify.prisma.applicationDocumentRequirement.findFirst({
-            where: {
-              id: requirementId,
+            where: buildLenderSignDocumentRequirementWhere({
               loanApplicationId: applicationLender.loanApplicationId,
-              requiresClientSignature: true,
-              requestApplicationLenderId: applicationLenderId,
+              applicationLenderId,
+              requirementId,
               signStatus: { in: ["FORWARDED_TO_LENDER", "LENDER_SEEN"] },
-            },
+            }),
             include: {
               documentType: true,
               uploads: {
@@ -628,12 +605,11 @@ module.exports = async function lenderSignDocuments(fastify) {
 
         const requirement =
           await fastify.prisma.applicationDocumentRequirement.findFirst({
-            where: {
-              id: requirementId,
+            where: buildLenderSignDocumentRequirementWhere({
               loanApplicationId: applicationLender.loanApplicationId,
-              requiresClientSignature: true,
-              requestApplicationLenderId: applicationLenderId,
-            },
+              applicationLenderId,
+              requirementId,
+            }),
             select: { id: true, signStatus: true },
           });
 
