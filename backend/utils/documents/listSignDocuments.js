@@ -54,7 +54,11 @@ function buildBrokerSignDocumentWhere(
   };
 
   if (lenderId && lenderId !== "all") {
-    where.requestApplicationLenderId = lenderId;
+    if (lenderId === "broker-uploads") {
+      where.source = "BROKER_ADDED";
+    } else {
+      where.requestApplicationLenderId = lenderId;
+    }
   }
 
   return appendSignDocumentSearch(where, searchTerm);
@@ -65,10 +69,12 @@ function buildLenderGroupSummaries(rows) {
 
   for (const row of rows) {
     const key =
-      row.requestApplicationLenderId ||
-      row.lenderOrgId ||
-      row.lenderName ||
-      "unknown";
+      row.source === "BROKER_ADDED"
+        ? "broker-uploads"
+        : row.requestApplicationLenderId ||
+          row.lenderOrgId ||
+          row.lenderName ||
+          "unknown";
     const existing = map.get(key);
 
     if (existing) {
@@ -78,7 +84,10 @@ function buildLenderGroupSummaries(rows) {
 
     map.set(key, {
       key,
-      lenderName: row.lenderName || "Unknown lender",
+      lenderName:
+        row.source === "BROKER_ADDED"
+          ? "Your uploads"
+          : row.lenderName || "Unknown lender",
       loanProductName: row.loanProductName || row.loanProductCode || null,
       count: 1,
     });

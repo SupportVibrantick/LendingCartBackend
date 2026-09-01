@@ -6,6 +6,7 @@ import Swal from "sweetalert2";
 import {
   Building2,
   CheckCircle2,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Clock,
@@ -28,6 +29,23 @@ const SigCanvas = SignatureCanvas as unknown as React.FC<any>;
 
 const sanitizeDownloadName = (value: string) =>
   value.replace(/[<>:"/\\|?*\n\r]+/g, "-").trim() || "document";
+
+const documentNameFromFile = (file: File) => {
+  const base = file.name.replace(/\.[^.]+$/, "").trim();
+  return base.replace(/[-_]+/g, " ").replace(/\s+/g, " ").trim();
+};
+
+const handleSignDocumentFileSelection = (
+  file: File | null,
+  currentName: string,
+  setFile: (file: File | null) => void,
+  setName: (name: string) => void,
+) => {
+  setFile(file);
+  if (file && !currentName.trim()) {
+    setName(documentNameFromFile(file));
+  }
+};
 
 const getDownloadExtension = (
   mime?: string | null,
@@ -89,6 +107,8 @@ export type SignDocumentRow = {
   loiVersionLabel?: string;
   isBrokerLoi?: boolean;
   isStandaloneBrokerLoi?: boolean;
+  source?: string | null;
+  isBrokerUploaded?: boolean;
 };
 
 function isBrokerTermSheetDoc(row: SignDocumentRow) {
@@ -105,8 +125,28 @@ function isStandaloneBrokerTermSheet(row: SignDocumentRow) {
   );
 }
 
-function getForwardToLenderLabel(row: SignDocumentRow) {
-  const lenderSuffix = row.lenderName ? ` to ${row.lenderName}` : "";
+function isBrokerUploadedDoc(row: SignDocumentRow) {
+  return Boolean(row.isBrokerUploaded || row.source === "BROKER_ADDED");
+}
+
+function isBulkSelectableRow(row: SignDocumentRow) {
+  return (
+    row.signStatus === "AWAITING_BROKER" || row.signStatus === "CLIENT_SIGNED"
+  );
+}
+
+const BROKER_SIGN_DOCUMENTS_FETCH_LIMIT = 50;
+
+function getForwardToLenderLabel(
+  row: SignDocumentRow,
+  selectedLenderCount = 0,
+) {
+  const lenderSuffix =
+    selectedLenderCount > 1
+      ? ` to ${selectedLenderCount} lenders`
+      : row.lenderName
+        ? ` to ${row.lenderName}`
+        : "";
   if (isBrokerTermSheetDoc(row)) {
     return `Forward signed term sheet${lenderSuffix}`;
   }
@@ -279,6 +319,10 @@ export default function SignDocumentsPanel({
   >([]);
   const [uploadName, setUploadName] = useState("");
   const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadDragOver, setUploadDragOver] = useState(false);
+  const [brokerViewTab, setBrokerViewTab] = useState<"upload" | "documents">(
+    "documents",
+  );
   const [uploading, setUploading] = useState(false);
   const [actionId, setActionId] = useState<string | null>(null);
   const [activeSigningDoc, setActiveSigningDoc] =
@@ -295,6 +339,19 @@ export default function SignDocumentsPanel({
   const [forwardableLenders, setForwardableLenders] = useState<
     Array<{ applicationLenderId: string; lenderName: string }>
   >([]);
+  const [forwardLenderIdsByRequirement, setForwardLenderIdsByRequirement] =
+    useState<Record<string, string[]>>({});
+  const [bulkForwardLenderIds, setBulkForwardLenderIds] = useState<string[]>(
+    [],
+  );
+  const [selectedRequirementIds, setSelectedRequirementIds] = useState<
+    Set<string>
+  >(() => new Set());
+  const [selectedRowStatuses, setSelectedRowStatuses] = useState<
+    Record<string, string>
+  >({});
+  const [selectAllLoading, setSelectAllLoading] = useState(false);
+  const [selectAllActive, setSelectAllActive] = useState(false);
   const [isSubmittingSignature, setIsSubmittingSignature] = useState(false);
   const [fillingDoc, setFillingDoc] = useState<SignDocumentRow | null>(null);
   const [brokerSearchInput, setBrokerSearchInput] = useState("");
@@ -326,6 +383,7 @@ export default function SignDocumentsPanel({
     },
   );
   const sigRef = useRef<SignatureCanvas | null>(null);
+  const uploadFileInputRef = useRef<HTMLInputElement | null>(null);
 
   const openClientSignPage = (
     pageMode: "template" | "sign" | "fill",
@@ -467,6 +525,9 @@ export default function SignDocumentsPanel({
           },
         );
         setBrokerLenderGroups(json.lenderGroups || []);
+        if (Array.isArray(json.forwardableLenders)) {
+          setForwardableLenders(json.forwardableLenders);
+        }
       }
       if (isClientMode) {
         setClientPagination(json.pagination || null);
@@ -502,7 +563,27 @@ export default function SignDocumentsPanel({
   useEffect(() => {
     if (!isBrokerMode) return;
     setBrokerPage(1);
+    setSelectedRequirementIds(new Set());
+    setSelectedRowStatuses({});
+    setSelectAllActive(false);
+    setBulkForwardLenderIds([]);
   }, [selectedLenderKey, isBrokerMode]);
+
+  useEffect(() => {
+    if (!isBrokerMode) return;
+    setSelectedRequirementIds(new Set());
+    setSelectedRowStatuses({});
+    setSelectAllActive(false);
+    setBulkForwardLenderIds([]);
+  }, [debouncedBrokerSearch, isBrokerMode]);
+
+  useEffect(() => {
+    if (!isBrokerMode) return;
+    setSelectedRequirementIds(new Set());
+    setSelectedRowStatuses({});
+    setSelectAllActive(false);
+    setBulkForwardLenderIds([]);
+  }, [brokerPage, isBrokerMode]);
 
   useEffect(() => {
     if (!isClientMode) return;
@@ -529,6 +610,7 @@ export default function SignDocumentsPanel({
   }, [clientBucket, isClientMode]);
 
   useEffect(() => {
+    if (isBrokerMode && brokerViewTab !== "documents") return;
     fetchRows();
   }, [
     mode,
@@ -543,6 +625,7 @@ export default function SignDocumentsPanel({
     clientBucket,
     clientPage,
     debouncedClientSearch,
+    brokerViewTab,
   ]);
 
   useEffect(() => {
@@ -593,6 +676,272 @@ export default function SignDocumentsPanel({
     activeTemplateViewDoc,
     isSubmittingSignature,
   ]);
+
+  const handleBrokerUpload = async () => {
+    if (!submissionId || !uploadFile) {
+      toast.error("Select a PDF or image file");
+      return;
+    }
+
+    if (!uploadName.trim()) {
+      toast.error("Enter a document name");
+      return;
+    }
+
+    try {
+      setUploading(true);
+      const formData = new FormData();
+      formData.append("file", uploadFile);
+      formData.append("documentName", uploadName.trim());
+
+      const res = await fetch(
+        `${apiBase}/${apiRolePrefix}/loan-pipeline/submissions/${submissionId}/sign-documents`,
+        {
+          method: "POST",
+          headers: Object.fromEntries(
+            Object.entries(getAuthHeaders() as Record<string, string>).filter(
+              ([key]) => key.toLowerCase() !== "content-type",
+            ),
+          ),
+          body: formData,
+        },
+      );
+
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || "Upload failed");
+      }
+
+      toast.success(json.message || "Form uploaded");
+      setUploadName("");
+      setUploadFile(null);
+      if (uploadFileInputRef.current) {
+        uploadFileInputRef.current.value = "";
+      }
+      setSelectedLenderKey("broker-uploads");
+      setBrokerViewTab("documents");
+      await fetchRows();
+      onUpdated?.();
+    } catch (err: any) {
+      toast.error(err.message || "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const toggleRequirementSelection = (row: SignDocumentRow) => {
+    setSelectAllActive(false);
+    setSelectedRequirementIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(row.requirementId)) {
+        next.delete(row.requirementId);
+        setSelectedRowStatuses((statuses) => {
+          const { [row.requirementId]: _removed, ...rest } = statuses;
+          return rest;
+        });
+      } else {
+        next.add(row.requirementId);
+        setSelectedRowStatuses((statuses) => ({
+          ...statuses,
+          [row.requirementId]: row.signStatus || "",
+        }));
+      }
+      return next;
+    });
+  };
+
+  const clearSelection = () => {
+    setSelectedRequirementIds(new Set());
+    setSelectedRowStatuses({});
+    setSelectAllActive(false);
+    setBulkForwardLenderIds([]);
+  };
+
+  const fetchAllMatchingSignDocuments = async (): Promise<SignDocumentRow[]> => {
+    if (!submissionId) return [];
+
+    const pageSize = BROKER_SIGN_DOCUMENTS_FETCH_LIMIT;
+    let page = 1;
+    let totalPages = 1;
+    const allRows: SignDocumentRow[] = [];
+
+    while (page <= totalPages) {
+      const params = new URLSearchParams({
+        page: String(page),
+        limit: String(pageSize),
+      });
+      if (debouncedBrokerSearch.trim()) {
+        params.set("search", debouncedBrokerSearch.trim());
+      }
+      if (selectedLenderKey && selectedLenderKey !== "all") {
+        params.set("lenderId", selectedLenderKey);
+      }
+
+      const res = await fetch(
+        `${apiBase}/${apiRolePrefix}/loan-pipeline/submissions/${submissionId}/sign-documents?${params.toString()}`,
+        { headers: getAuthHeaders() },
+      );
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || "Failed to load documents");
+      }
+
+      allRows.push(...(json.data || []));
+      totalPages = json.pagination?.totalPages || 1;
+      page += 1;
+    }
+
+    return allRows;
+  };
+
+  const selectAllMatchingFilter = async () => {
+    if (!submissionId) return;
+
+    try {
+      setSelectAllLoading(true);
+      const allRows = await fetchAllMatchingSignDocuments();
+      const eligible = allRows.filter(isBulkSelectableRow);
+
+      if (!eligible.length) {
+        toast.error("No documents are eligible for bulk actions");
+        return;
+      }
+
+      setSelectedRequirementIds(
+        new Set(eligible.map((row) => row.requirementId)),
+      );
+      setSelectedRowStatuses(
+        Object.fromEntries(
+          eligible.map((row) => [row.requirementId, row.signStatus || ""]),
+        ),
+      );
+      setSelectAllActive(true);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to select documents");
+    } finally {
+      setSelectAllLoading(false);
+    }
+  };
+
+  const handleSelectAllToggle = async () => {
+    if (selectAllActive) {
+      clearSelection();
+      return;
+    }
+    await selectAllMatchingFilter();
+  };
+
+  const getSelectedSendIds = () =>
+    Object.entries(selectedRowStatuses)
+      .filter(([, status]) => status === "AWAITING_BROKER")
+      .map(([id]) => id);
+
+  const getSelectedForwardIds = () =>
+    Object.entries(selectedRowStatuses)
+      .filter(([, status]) => status === "CLIENT_SIGNED")
+      .map(([id]) => id);
+
+  const getForwardLenderIdsForRow = (row: SignDocumentRow) => {
+    const selected = forwardLenderIdsByRequirement[row.requirementId];
+    if (selected?.length) return selected;
+    if (row.requestApplicationLenderId) {
+      return [row.requestApplicationLenderId];
+    }
+    if (forwardableLenders.length === 1) {
+      return [forwardableLenders[0].applicationLenderId];
+    }
+    return [];
+  };
+
+  const toggleForwardLenderForRow = (
+    requirementId: string,
+    applicationLenderId: string,
+  ) => {
+    setForwardLenderIdsByRequirement((prev) => {
+      const current = prev[requirementId] || [];
+      const next = current.includes(applicationLenderId)
+        ? current.filter((id) => id !== applicationLenderId)
+        : [...current, applicationLenderId];
+      return { ...prev, [requirementId]: next };
+    });
+  };
+
+  const bulkSendSelectedToClient = async () => {
+    const sendIds = getSelectedSendIds();
+    if (!submissionId || sendIds.length === 0) {
+      toast.error("No selected documents are ready to send to the client");
+      return;
+    }
+    try {
+      setActionId("bulk-send");
+      const res = await fetch(
+        `${apiBase}/${apiRolePrefix}/loan-pipeline/submissions/${submissionId}/sign-documents/bulk-send-to-client`,
+        {
+          method: "POST",
+          headers: {
+            ...getAuthHeaders(),
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            requirementIds: sendIds,
+          }),
+        },
+      );
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || "Failed to send to client");
+      }
+      toast.success(json.message || "Sent to client");
+      clearSelection();
+      await fetchRows();
+      onUpdated?.();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to send to client");
+    } finally {
+      setActionId(null);
+    }
+  };
+
+  const bulkForwardSelectedToLenders = async () => {
+    const forwardIds = getSelectedForwardIds();
+    if (!submissionId || forwardIds.length === 0) {
+      toast.error("No selected documents are ready to forward to lenders");
+      return;
+    }
+    if (!bulkForwardLenderIds.length) {
+      toast.error("Select at least one lender to forward to");
+      return;
+    }
+    try {
+      setActionId("bulk-forward");
+      const res = await fetch(
+        `${apiBase}/${apiRolePrefix}/loan-pipeline/submissions/${submissionId}/sign-documents/bulk-forward-to-lenders`,
+        {
+          method: "POST",
+          headers: {
+            ...getAuthHeaders(),
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            requirementIds: forwardIds,
+            applicationLenderIds: bulkForwardLenderIds,
+          }),
+        },
+      );
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || "Failed to forward to lenders");
+      }
+      toast.success(json.message || "Forwarded to lenders");
+      clearSelection();
+      await fetchRows();
+      onUpdated?.();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to forward");
+    } finally {
+      setActionId(null);
+    }
+  };
 
   const handleLenderUpload = async () => {
     if (!applicationLenderId || !uploadFile) {
@@ -804,6 +1153,12 @@ export default function SignDocumentsPanel({
 
     if (!submissionId) return;
 
+    const applicationLenderIds = getForwardLenderIdsForRow(row);
+    if (!applicationLenderIds.length) {
+      toast.error("Select at least one eligible lender to forward to");
+      return;
+    }
+
     try {
       setActionId(requirementId);
       const res = await fetch(
@@ -814,14 +1169,14 @@ export default function SignDocumentsPanel({
             ...getAuthHeaders(),
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({}),
+          body: JSON.stringify({ applicationLenderIds }),
         },
       );
       const json = await res.json();
       if (!res.ok || !json.success) {
         throw new Error(json.message || "Failed to forward to lender");
       }
-      toast.success("Signed document forwarded to lender");
+      toast.success(json.message || "Signed document forwarded to lender");
       await fetchRows();
       onUpdated?.();
     } catch (err: any) {
@@ -1037,20 +1392,18 @@ export default function SignDocumentsPanel({
     );
   };
 
-  const renderLenderAttribution = (
-    row: SignDocumentRow,
-    options: { prominent?: boolean } = {},
-  ) => {
-    const lenderLabel = row.lenderName || "Unknown lender";
+  const renderDocumentSourceChip = (row: SignDocumentRow) => {
     const productLabel = row.loanProductName || row.loanProductCode;
 
-    if (options.prominent) {
+    if (isBrokerUploadedDoc(row)) {
       return (
-        <div className="mb-3 inline-flex max-w-full flex-wrap items-center gap-2 rounded-xl border border-violet-200 bg-violet-50 px-3 py-2 text-xs font-semibold text-violet-900 dark:border-violet-900/50 dark:bg-violet-950/30 dark:text-violet-200">
-          <Building2 size={14} className="shrink-0" />
-          <span className="truncate">Requested by {lenderLabel}</span>
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <span className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-violet-200 bg-violet-50 px-3 py-1 text-xs font-semibold text-violet-800 dark:border-violet-500/40 dark:bg-violet-950/40 dark:text-violet-200">
+            <Upload size={12} className="shrink-0" />
+            <span className="truncate">Your upload</span>
+          </span>
           {productLabel ? (
-            <span className="rounded-full bg-white/80 px-2 py-0.5 text-[10px] font-medium text-violet-700 dark:bg-slate-900/60 dark:text-violet-300">
+            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
               {productLabel}
             </span>
           ) : null}
@@ -1058,29 +1411,85 @@ export default function SignDocumentsPanel({
       );
     }
 
+    const lenderName = row.lenderName || "Unknown lender";
+
     return (
-      <p className="mt-1 flex flex-wrap items-center gap-1 text-xs text-slate-500">
-        <Building2 size={12} className="shrink-0" />
-        <span>Requested by {lenderLabel}</span>
-        {productLabel ? <span>· {productLabel}</span> : null}
-      </p>
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <span className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-800 dark:border-blue-500/40 dark:bg-blue-950/40 dark:text-blue-200">
+          <Building2 size={12} className="shrink-0" />
+          <span className="truncate">{lenderName}</span>
+        </span>
+        {productLabel ? (
+          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+            {productLabel}
+          </span>
+        ) : null}
+      </div>
+    );
+  };
+
+  const renderForwardLenderPicker = (row: SignDocumentRow) => {
+    if (!forwardableLenders.length) return null;
+
+    const selectedIds = getForwardLenderIdsForRow(row);
+
+    return (
+      <div className="mb-2 rounded-xl border border-emerald-200 bg-white p-3 dark:border-emerald-500/30 dark:bg-slate-950">
+        <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">
+          Forward to lender{forwardableLenders.length > 1 ? "s" : ""}
+        </p>
+        <div className="max-h-32 space-y-1.5 overflow-y-auto">
+          {forwardableLenders.map((lender) => (
+            <label
+              key={lender.applicationLenderId}
+              className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-slate-700 hover:bg-emerald-50 dark:text-slate-200 dark:hover:bg-emerald-950/30"
+            >
+              <input
+                type="checkbox"
+                checked={selectedIds.includes(lender.applicationLenderId)}
+                onChange={() =>
+                  toggleForwardLenderForRow(
+                    row.requirementId,
+                    lender.applicationLenderId,
+                  )
+                }
+                className="rounded border-emerald-300 text-emerald-600 focus:ring-emerald-500"
+              />
+              <span className="truncate">{lender.lenderName}</span>
+            </label>
+          ))}
+        </div>
+      </div>
     );
   };
 
   const renderBrokerDocumentCard = (row: SignDocumentRow) => {
     const isActionLoading = actionId === row.requirementId;
-    const showProminentLender = brokerLenderGroups.length > 1;
+    const isSelected = selectedRequirementIds.has(row.requirementId);
+    const forwardLenderCount = getForwardLenderIdsForRow(row).length;
+    const canBulkSelect = isBulkSelectableRow(row);
 
     return (
       <div
         key={row.requirementId}
-        className="flex flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow-md dark:border-slate-700 dark:bg-slate-900"
+        className={`flex flex-col rounded-2xl border bg-white p-5 shadow-sm transition hover:shadow-md dark:bg-slate-900 ${
+          isSelected
+            ? "border-violet-400 ring-2 ring-violet-200 dark:border-violet-500 dark:ring-violet-500/30"
+            : "border-slate-200 dark:border-slate-700"
+        }`}
       >
-        {showProminentLender
-          ? renderLenderAttribution(row, { prominent: true })
-          : row.lenderName
-            ? renderLenderAttribution(row)
-            : null}
+        {canBulkSelect && (
+          <label className="mb-3 flex cursor-pointer items-center gap-2 text-xs font-medium text-slate-500">
+            <input
+              type="checkbox"
+              checked={isSelected}
+              onChange={() => toggleRequirementSelection(row)}
+              className="rounded border-slate-300 text-violet-600 focus:ring-violet-500"
+            />
+            Select for bulk action
+          </label>
+        )}
+        {renderDocumentSourceChip(row)}
 
         <div className="mb-4 flex items-start justify-between gap-3">
           <div className="flex min-w-0 items-start gap-3">
@@ -1173,12 +1582,25 @@ export default function SignDocumentsPanel({
           )}
 
           {row.signStatus === "SENT_TO_CLIENT" && (
-            <div className="flex items-center gap-2 rounded-xl bg-blue-50 px-3 py-2.5 text-sm text-blue-800 dark:bg-blue-950/40 dark:text-blue-200">
-              <Clock size={16} className="shrink-0" />
-              {row.workflowHint ||
-                (row.signMode === "DYNAMIC_FORM"
-                  ? "Waiting for client / broker form fields"
-                  : "Waiting for client signature")}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 rounded-xl bg-blue-50 px-3 py-2.5 text-sm text-blue-800 dark:bg-blue-950/40 dark:text-blue-200">
+                <Clock size={16} className="shrink-0" />
+                {row.workflowHint ||
+                  (row.signMode === "DYNAMIC_FORM"
+                    ? "Waiting for client / broker form fields"
+                    : "Waiting for client signature")}
+              </div>
+              {row.signMode === "DYNAMIC_FORM" &&
+                !row.formProgress?.broker.complete && (
+                  <button
+                    type="button"
+                    onClick={() => openBrokerTemplate(row)}
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-blue-200 bg-white px-4 py-2.5 text-sm font-semibold text-blue-700 transition hover:bg-blue-50 dark:border-blue-800 dark:bg-slate-950 dark:text-blue-200"
+                  >
+                    <PenLine size={16} />
+                    Fill broker fields
+                  </button>
+                )}
             </div>
           )}
 
@@ -1211,13 +1633,17 @@ export default function SignDocumentsPanel({
                   </select>
                 </label>
               )}
+              {!isStandaloneBrokerTermSheet(row) &&
+                renderForwardLenderPicker(row)}
               <button
                 type="button"
                 disabled={
                   isActionLoading ||
                   (isStandaloneBrokerTermSheet(row) &&
                     !forwardLenderByRequirement[row.requirementId] &&
-                    forwardableLenders.length !== 1)
+                    forwardableLenders.length !== 1) ||
+                  (!isStandaloneBrokerTermSheet(row) &&
+                    forwardLenderCount === 0)
                 }
                 onClick={() => forwardToLender(row)}
                 className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:shadow-md disabled:opacity-60"
@@ -1227,8 +1653,18 @@ export default function SignDocumentsPanel({
                 ) : (
                   <SendHorizonal size={16} />
                 )}
-                {getForwardToLenderLabel(row)}
+                {getForwardToLenderLabel(row, forwardLenderCount)}
               </button>
+              {row.signMode === "DYNAMIC_FORM" && (
+                <button
+                  type="button"
+                  onClick={() => openBrokerTemplate(row)}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-white px-4 py-2 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-50 dark:border-emerald-800 dark:bg-slate-950 dark:text-emerald-200"
+                >
+                  <PenLine size={16} />
+                  Review / edit fields
+                </button>
+              )}
             </div>
           )}
 
@@ -1815,6 +2251,21 @@ export default function SignDocumentsPanel({
       },
     ];
 
+    const allFormsCount = brokerLenderGroups.reduce(
+      (sum, group) => sum + group.count,
+      0,
+    );
+    const selectedSendCount = getSelectedSendIds().length;
+    const selectedForwardCount = getSelectedForwardIds().length;
+    const eligibleOnPage = rows.filter(isBulkSelectableRow);
+    const selectedOnPageCount = eligibleOnPage.filter((row) =>
+      selectedRequirementIds.has(row.requirementId),
+    ).length;
+    const selectAllIndeterminate =
+      !selectAllActive &&
+      selectedRequirementIds.size > 0 &&
+      selectedOnPageCount < eligibleOnPage.length;
+
     return (
       <div className="space-y-6">
         <div className="relative overflow-hidden rounded-2xl border border-violet-100 bg-gradient-to-br from-violet-50 via-white to-blue-50 p-6 shadow-sm dark:border-violet-900/40 dark:from-violet-950/30 dark:via-slate-900 dark:to-slate-900">
@@ -1831,8 +2282,8 @@ export default function SignDocumentsPanel({
                 Fill & Sign Forms
               </h2>
               <p className="mt-1 max-w-2xl text-sm text-slate-600 dark:text-slate-400">
-                Send lender forms to the client, fill any broker fields, then
-                forward completed copies back to the requesting lender.
+                Upload your own PDF forms, send them to the client, review
+                completed fields, then forward to one or more eligible lenders.
               </p>
               {brokerLenderGroups.length > 0 && (
                 <p className="mt-2 text-sm font-medium text-slate-700 dark:text-slate-300">
@@ -1863,7 +2314,201 @@ export default function SignDocumentsPanel({
           </div>
         </div>
 
-        {loading && rows.length === 0 ? (
+        <div className="flex gap-1 rounded-xl border border-slate-200 bg-slate-100/80 p-1 dark:border-slate-700 dark:bg-slate-800/60">
+          <button
+            type="button"
+            onClick={() => setBrokerViewTab("upload")}
+            className={`inline-flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition sm:flex-none ${
+              brokerViewTab === "upload"
+                ? "bg-white text-slate-900 shadow-sm dark:bg-slate-900 dark:text-white"
+                : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200"
+            }`}
+          >
+            <Upload size={16} />
+            Upload form
+          </button>
+          <button
+            type="button"
+            onClick={() => setBrokerViewTab("documents")}
+            className={`inline-flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition sm:flex-none ${
+              brokerViewTab === "documents"
+                ? "bg-white text-slate-900 shadow-sm dark:bg-slate-900 dark:text-white"
+                : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200"
+            }`}
+          >
+            <FileText size={16} />
+            Documents
+            {totalDocuments > 0 ? (
+              <span
+                className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${
+                  brokerViewTab === "documents"
+                    ? "bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-300"
+                    : "bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300"
+                }`}
+              >
+                {totalDocuments}
+              </span>
+            ) : null}
+          </button>
+        </div>
+
+        {brokerViewTab === "upload" ? (
+        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
+          <div className="border-b border-slate-100 bg-gradient-to-r from-slate-50 via-white to-violet-50/60 px-5 py-4 dark:border-slate-800 dark:from-slate-900 dark:via-slate-900 dark:to-violet-950/20">
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#13538A] text-white shadow-sm">
+                <Upload size={18} />
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
+                  Upload a form
+                </h3>
+                <p className="mt-0.5 text-xs text-slate-500">
+                  Add a PDF or image to the e-signature workflow. Fillable
+                  fields are detected automatically when present.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-4 p-5">
+            <label className="block">
+              <span className="mb-1.5 block text-xs font-medium text-slate-600 dark:text-slate-400">
+                Document name
+              </span>
+              <input
+                type="text"
+                value={uploadName}
+                onChange={(e) => setUploadName(e.target.value)}
+                placeholder="e.g. Borrower authorization form"
+                maxLength={160}
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm transition focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-100 dark:border-slate-700 dark:bg-slate-950 dark:focus:ring-violet-500/20"
+              />
+            </label>
+
+            <div>
+              <span className="mb-1.5 block text-xs font-medium text-slate-600 dark:text-slate-400">
+                File
+              </span>
+              <input
+                ref={uploadFileInputRef}
+                type="file"
+                accept="application/pdf,image/png,image/jpeg,image/jpg,image/webp"
+                className="hidden"
+                onChange={(e) =>
+                  handleSignDocumentFileSelection(
+                    e.target.files?.[0] || null,
+                    uploadName,
+                    setUploadFile,
+                    setUploadName,
+                  )
+                }
+              />
+              <button
+                type="button"
+                onClick={() => uploadFileInputRef.current?.click()}
+                onDragOver={(event) => {
+                  event.preventDefault();
+                  setUploadDragOver(true);
+                }}
+                onDragLeave={(event) => {
+                  event.preventDefault();
+                  setUploadDragOver(false);
+                }}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  setUploadDragOver(false);
+                  const file = event.dataTransfer.files?.[0] || null;
+                  handleSignDocumentFileSelection(
+                    file,
+                    uploadName,
+                    setUploadFile,
+                    setUploadName,
+                  );
+                }}
+                className={`flex min-h-[132px] w-full flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-4 py-6 text-center transition ${
+                  uploadFile
+                    ? "border-violet-300 bg-violet-50/50 dark:border-violet-500/40 dark:bg-violet-950/20"
+                    : uploadDragOver
+                      ? "border-violet-400 bg-violet-50/60 dark:border-violet-500/50 dark:bg-violet-950/30"
+                      : "border-slate-200 bg-slate-50/50 hover:border-violet-300 hover:bg-violet-50/30 dark:border-slate-700 dark:bg-slate-900/50 dark:hover:border-violet-500/40"
+                }`}
+              >
+                <div
+                  className={`flex h-12 w-12 items-center justify-center rounded-2xl ${
+                    uploadFile
+                      ? "bg-violet-100 text-violet-700 dark:bg-violet-900/50 dark:text-violet-300"
+                      : "bg-white text-slate-400 shadow-sm dark:bg-slate-800"
+                  }`}
+                >
+                  {uploadFile && uploadFile.type.startsWith("image/") ? (
+                    <FileImage size={22} />
+                  ) : (
+                    <FileText size={22} />
+                  )}
+                </div>
+                {uploadFile ? (
+                  <>
+                    <p className="max-w-full truncate text-sm font-semibold text-slate-800 dark:text-slate-100">
+                      {uploadFile.name}
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      {(uploadFile.size / 1024).toFixed(1)} KB · Click or drop
+                      to replace
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                      Drag & drop your file here
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      or click to browse · PDF, PNG, JPG, WEBP
+                    </p>
+                  </>
+                )}
+              </button>
+            </div>
+
+            <div className="flex flex-col-reverse gap-3 border-t border-slate-100 pt-4 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-xs text-slate-500">
+                {!uploadName.trim() || !uploadFile
+                  ? "Enter a name and choose a file to continue"
+                  : "Ready to add to workflow"}
+              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                {uploadFile ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUploadFile(null);
+                      if (uploadFileInputRef.current) {
+                        uploadFileInputRef.current.value = "";
+                      }
+                    }}
+                    className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+                  >
+                    Clear file
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  disabled={uploading || !uploadName.trim() || !uploadFile}
+                  onClick={() => void handleBrokerUpload()}
+                  className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#13538A] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0f4370] disabled:cursor-not-allowed disabled:opacity-50 sm:flex-none"
+                >
+                  {uploading ? (
+                    <Loader2 size={16} className="animate-spin" />
+                  ) : (
+                    <Upload size={16} />
+                  )}
+                  Upload & add to workflow
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+        ) : loading && rows.length === 0 ? (
           <div className="flex min-h-[240px] items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-white dark:border-slate-700 dark:bg-slate-900">
             <div className="text-center">
               <Loader2 className="mx-auto h-8 w-8 animate-spin text-violet-600" />
@@ -1881,12 +2526,22 @@ export default function SignDocumentsPanel({
             <p className="mt-2 text-sm text-slate-500">
               {hasSearchQuery
                 ? "Try a different document or lender name."
-                : "When a lender uploads a form requiring client signature, it will appear here."}
+                : "Upload a PDF form or wait for a lender to send one requiring client signature."}
             </p>
+            {!hasSearchQuery ? (
+              <button
+                type="button"
+                onClick={() => setBrokerViewTab("upload")}
+                className="mt-5 inline-flex items-center gap-2 rounded-xl bg-[#13538A] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0f4370]"
+              >
+                <Upload size={16} />
+                Upload a form
+              </button>
+            ) : null}
           </div>
         ) : (
           <div className="space-y-6">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
               <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
                 Documents
                 {totalDocuments > 0 ? (
@@ -1897,55 +2552,213 @@ export default function SignDocumentsPanel({
                 ) : null}
               </h3>
 
-              <label className="relative w-full sm:max-w-xs">
-                <Search
-                  size={16}
-                  className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-                />
-                <input
-                  type="search"
-                  value={brokerSearchInput}
-                  onChange={(event) => setBrokerSearchInput(event.target.value)}
-                  placeholder="Search documents..."
-                  className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm text-slate-700 transition focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                />
-              </label>
+              <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-end lg:w-auto">
+                {totalDocuments > 0 && (
+                  <label className="w-full sm:min-w-[220px]">
+                    <span className="mb-1.5 block text-xs font-medium text-slate-600 dark:text-slate-400">
+                      Filter by source
+                    </span>
+                    <div className="relative">
+                      <Building2
+                        size={16}
+                        className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                      />
+                      <select
+                        value={selectedLenderKey}
+                        onChange={(event) =>
+                          setSelectedLenderKey(event.target.value)
+                        }
+                        className="w-full appearance-none rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-9 text-sm text-slate-700 transition focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                      >
+                        <option value="all">
+                          All forms ({allFormsCount || totalDocuments})
+                        </option>
+                        {brokerLenderGroups.map((group) => (
+                          <option key={group.key} value={group.key}>
+                            {group.lenderName} ({group.count})
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown
+                        size={16}
+                        className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
+                      />
+                    </div>
+                  </label>
+                )}
+
+                <label className="w-full sm:max-w-xs">
+                  <span className="mb-1.5 block text-xs font-medium text-slate-600 dark:text-slate-400">
+                    Search
+                  </span>
+                  <div className="relative">
+                    <Search
+                      size={16}
+                      className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                    />
+                    <input
+                      type="search"
+                      value={brokerSearchInput}
+                      onChange={(event) =>
+                        setBrokerSearchInput(event.target.value)
+                      }
+                      placeholder="Search documents..."
+                      className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm text-slate-700 transition focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                    />
+                  </div>
+                </label>
+              </div>
             </div>
 
-            {brokerLenderGroups.length > 1 && (
-              <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
-                <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Filter by requesting lender
-                </p>
-                <div className="flex flex-wrap gap-2">
+            <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-slate-50/80 px-4 py-3 dark:border-slate-700 dark:bg-slate-900/60 sm:flex-row sm:items-center sm:justify-between">
+              <label className="inline-flex cursor-pointer items-center gap-2.5 text-sm font-medium text-slate-700 dark:text-slate-200">
+                <input
+                  type="checkbox"
+                  checked={selectAllActive}
+                  ref={(input) => {
+                    if (input) {
+                      input.indeterminate = selectAllIndeterminate;
+                    }
+                  }}
+                  disabled={selectAllLoading || eligibleOnPage.length === 0}
+                  onChange={() => void handleSelectAllToggle()}
+                  className="rounded border-slate-300 text-violet-600 focus:ring-violet-500 disabled:opacity-50"
+                />
+                {selectAllLoading ? (
+                  <span className="inline-flex items-center gap-2 text-slate-500">
+                    <Loader2 size={14} className="animate-spin" />
+                    Selecting…
+                  </span>
+                ) : (
+                  <span>
+                    Select all eligible matching filter
+                    {eligibleOnPage.length > 0 ? (
+                      <span className="ml-1 font-normal text-slate-500">
+                        ({eligibleOnPage.length} on this page)
+                      </span>
+                    ) : null}
+                  </span>
+                )}
+              </label>
+              {selectedRequirementIds.size > 0 && (
+                <button
+                  type="button"
+                  onClick={clearSelection}
+                  className="text-sm font-medium text-violet-700 hover:text-violet-900 dark:text-violet-300 dark:hover:text-violet-100"
+                >
+                  Clear selection ({selectedRequirementIds.size})
+                </button>
+              )}
+            </div>
+
+            {selectedRequirementIds.size > 0 && (
+              <div className="sticky top-0 z-20 rounded-2xl border border-violet-200 bg-violet-50/95 p-4 shadow-md backdrop-blur-sm dark:border-violet-500/30 dark:bg-violet-950/90">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-violet-900 dark:text-violet-100">
+                      {selectedRequirementIds.size} selected
+                      {selectedSendCount > 0 || selectedForwardCount > 0 ? (
+                        <span className="ml-1 font-normal text-violet-700 dark:text-violet-300">
+                          · {selectedSendCount} ready to send
+                          {selectedForwardCount > 0
+                            ? ` · ${selectedForwardCount} ready to forward`
+                            : ""}
+                        </span>
+                      ) : null}
+                    </p>
+                    {selectedSendCount === 0 && selectedForwardCount === 0 ? (
+                      <p className="mt-1 text-xs text-violet-700 dark:text-violet-300">
+                        Selected documents are not eligible for bulk actions.
+                      </p>
+                    ) : null}
+                  </div>
                   <button
                     type="button"
-                    onClick={() => setSelectedLenderKey("all")}
-                    className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
-                      selectedLenderKey === "all"
-                        ? "bg-violet-600 text-white"
-                        : "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200"
-                    }`}
+                    onClick={clearSelection}
+                    className="shrink-0 text-sm font-medium text-violet-700 hover:text-violet-900 dark:text-violet-300"
                   >
-                    All lenders ({totalDocuments})
+                    Clear
                   </button>
-                  {brokerLenderGroups.map((group) => (
-                    <button
-                      key={group.key}
-                      type="button"
-                      onClick={() => setSelectedLenderKey(group.key)}
-                      className={`inline-flex max-w-full items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
-                        selectedLenderKey === group.key
-                          ? "bg-violet-600 text-white"
-                          : "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200"
-                      }`}
-                    >
-                      <Building2 size={12} className="shrink-0" />
-                      <span className="truncate">{group.lenderName}</span>
-                      <span>({group.count})</span>
-                    </button>
-                  ))}
                 </div>
+
+                {selectedSendCount > 0 && (
+                  <div className="mt-3">
+                    <button
+                      type="button"
+                      disabled={actionId === "bulk-send"}
+                      onClick={() => void bulkSendSelectedToClient()}
+                      className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                    >
+                      {actionId === "bulk-send" ? (
+                        <Loader2 size={14} className="animate-spin" />
+                      ) : (
+                        <SendHorizonal size={14} />
+                      )}
+                      Send {selectedSendCount} to client
+                    </button>
+                  </div>
+                )}
+
+                {selectedForwardCount > 0 && (
+                  <div
+                    className={`${selectedSendCount > 0 ? "mt-4 border-t border-violet-200/80 pt-4 dark:border-violet-500/20" : "mt-3"}`}
+                  >
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-violet-800 dark:text-violet-200">
+                      Forward {selectedForwardCount} completed form
+                      {selectedForwardCount === 1 ? "" : "s"} to lenders
+                    </p>
+                    {forwardableLenders.length > 0 ? (
+                      <>
+                        <div className="mb-3 flex flex-wrap gap-3">
+                          {forwardableLenders.map((lender) => (
+                            <label
+                              key={lender.applicationLenderId}
+                              className="inline-flex items-center gap-2 rounded-lg bg-white px-3 py-1.5 text-sm dark:bg-slate-900"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={bulkForwardLenderIds.includes(
+                                  lender.applicationLenderId,
+                                )}
+                                onChange={() => {
+                                  setBulkForwardLenderIds((prev) =>
+                                    prev.includes(lender.applicationLenderId)
+                                      ? prev.filter(
+                                          (id) =>
+                                            id !== lender.applicationLenderId,
+                                        )
+                                      : [
+                                          ...prev,
+                                          lender.applicationLenderId,
+                                        ],
+                                  );
+                                }}
+                              />
+                              {lender.lenderName}
+                            </label>
+                          ))}
+                        </div>
+                        <button
+                          type="button"
+                          disabled={actionId === "bulk-forward"}
+                          onClick={() => void bulkForwardSelectedToLenders()}
+                          className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                        >
+                          {actionId === "bulk-forward" ? (
+                            <Loader2 size={14} className="animate-spin" />
+                          ) : (
+                            <SendHorizonal size={14} />
+                          )}
+                          Forward to selected lenders
+                        </button>
+                      </>
+                    ) : (
+                      <p className="text-xs text-violet-700 dark:text-violet-300">
+                        No eligible lenders on this application.
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 
@@ -2005,7 +2818,7 @@ export default function SignDocumentsPanel({
                             onClick={() => setBrokerPage(pageNum)}
                             className={`h-9 min-w-9 rounded-xl px-2.5 text-sm font-semibold transition ${
                               brokerPage === pageNum
-                                ? "bg-gradient-to-r from-violet-600 to-blue-600 text-white shadow-sm"
+                                ? "bg-[#13538A] text-white shadow-sm"
                                 : "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
                             }`}
                           >
@@ -2684,7 +3497,14 @@ export default function SignDocumentsPanel({
             <input
               type="file"
               accept="application/pdf,image/png,image/jpeg,image/jpg,image/webp"
-              onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
+              onChange={(e) =>
+                handleSignDocumentFileSelection(
+                  e.target.files?.[0] || null,
+                  uploadName,
+                  setUploadFile,
+                  setUploadName,
+                )
+              }
               className="rounded-xl border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
             />
           </div>

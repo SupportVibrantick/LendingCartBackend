@@ -12,6 +12,7 @@ const {
   getOptionalSnapshotIdForPlan,
   isSharedPoolLocationId,
   buildAgencyLocationDashboardUrl,
+  buildAgencyAppLoginUrl,
   GhlAccountLocationError,
 } = require("./ghlAccountLocation.service");
 const { createAgencyLocation } = require("./ghlAgencyLocationCreate.service");
@@ -102,6 +103,8 @@ async function getPublicAgencyLocationForOrganization(
       packageCode: mapping?.packageCode || null,
       ghlLocationId: null,
       dashboardUrl: null,
+      assignedAt: mapping?.assignedAt || null,
+      loginUrl: buildAgencyAppLoginUrl(),
     };
   }
 
@@ -111,6 +114,8 @@ async function getPublicAgencyLocationForOrganization(
     packageCode: mapping.packageCode,
     ghlLocationId: mapping.ghlLocationId,
     dashboardUrl: buildAgencyLocationDashboardUrl(mapping.ghlLocationId),
+    assignedAt: mapping.assignedAt,
+    loginUrl: buildAgencyAppLoginUrl(),
   };
 }
 

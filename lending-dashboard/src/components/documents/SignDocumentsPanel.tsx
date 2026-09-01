@@ -181,6 +181,9 @@ export default function SignDocumentsPanel({
   const [uploadName, setUploadName] = useState("");
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [lenderViewTab, setLenderViewTab] = useState<"upload" | "documents">(
+    "documents",
+  );
   const [actionId, setActionId] = useState<string | null>(null);
   const [signingId, setSigningId] = useState<string | null>(null);
   const [activeTemplateViewDoc, setActiveTemplateViewDoc] =
@@ -208,23 +211,78 @@ export default function SignDocumentsPanel({
   });
   const sigRef = useRef<SignatureCanvas | null>(null);
 
+  const fetchLibraryTemplates = async () => {
+    if (!isLenderMode || readOnly || !applicationLenderId) return;
+
+    try {
+      const templatesRes = await fetch(`${apiBase}/lender/sign-form-templates`, {
+        headers: getAuthHeaders(),
+      });
+      const templatesJson = await templatesRes.json().catch(() => null);
+      if (templatesRes.ok && templatesJson?.success) {
+        setLibraryTemplates(templatesJson.data || []);
+      }
+    } catch {
+      /* optional */
+    }
+  };
+
+  const fetchLenderDocuments = async (options?: {
+    page?: number;
+    search?: string;
+  }) => {
+    if (!isLenderMode || !applicationLenderId) return;
+
+    try {
+      setLoading(true);
+      const pageNumber = options?.page ?? lenderPage;
+      const searchValue = options?.search ?? debouncedLenderSearch;
+      const params = new URLSearchParams({
+        page: String(pageNumber),
+        limit: String(LENDER_SIGN_DOCUMENTS_PAGE_SIZE),
+      });
+      if (searchValue.trim()) {
+        params.set("search", searchValue.trim());
+      }
+
+      const res = await fetch(
+        `${apiBase}/lender/loan-pipeline/${applicationLenderId}/sign-documents?${params.toString()}`,
+        { headers: getAuthHeaders() },
+      );
+      const json = await res.json();
+
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || "Failed to load sign documents");
+      }
+
+      setRows(json.data || []);
+      setLenderPagination(json.pagination || null);
+      setLenderSummary(
+        json.summary || {
+          awaitingBroker: 0,
+          withClient: 0,
+          ready: 0,
+          received: 0,
+        },
+      );
+    } catch (err: any) {
+      toast.error(err.message || "Failed to load sign documents");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const fetchRows = async (options?: { page?: number; search?: string }) => {
+    if (isLenderMode) {
+      await fetchLenderDocuments(options);
+      return;
+    }
+
     try {
       setLoading(true);
       let url = "";
 
-      if (isLenderMode && applicationLenderId) {
-        const pageNumber = options?.page ?? lenderPage;
-        const searchValue = options?.search ?? debouncedLenderSearch;
-        const params = new URLSearchParams({
-          page: String(pageNumber),
-          limit: String(LENDER_SIGN_DOCUMENTS_PAGE_SIZE),
-        });
-        if (searchValue.trim()) {
-          params.set("search", searchValue.trim());
-        }
-        url = `${apiBase}/lender/loan-pipeline/${applicationLenderId}/sign-documents?${params.toString()}`;
-      } else if (isBrokerMode && submissionId) {
+      if (isBrokerMode && submissionId) {
         url = `${apiBase}/broker/loan-pipeline/submissions/${submissionId}/sign-documents`;
       } else if (isClientMode && loanApplicationId) {
         url = `${apiBase}/client-portal/applications/${loanApplicationId}/sign-documents`;
@@ -240,29 +298,6 @@ export default function SignDocumentsPanel({
       }
 
       setRows(json.data || []);
-
-      if (isLenderMode) {
-        setLenderPagination(json.pagination || null);
-        setLenderSummary(
-          json.summary || {
-            awaitingBroker: 0,
-            withClient: 0,
-            ready: 0,
-            received: 0,
-          },
-        );
-      }
-
-      if (isLenderMode && !readOnly) {
-        const templatesRes = await fetch(
-          `${apiBase}/lender/sign-form-templates`,
-          { headers: getAuthHeaders() },
-        );
-        const templatesJson = await templatesRes.json().catch(() => null);
-        if (templatesRes.ok && templatesJson?.success) {
-          setLibraryTemplates(templatesJson.data || []);
-        }
-      }
     } catch (err: any) {
       toast.error(err.message || "Failed to load sign documents");
     } finally {
@@ -282,15 +317,28 @@ export default function SignDocumentsPanel({
   }, [isLenderMode, lenderSearchInput]);
 
   useEffect(() => {
-    fetchRows();
+    if (!isLenderMode || !applicationLenderId) return;
+    if (!readOnly && lenderViewTab !== "documents") return;
+    void fetchLenderDocuments();
   }, [
-    mode,
+    isLenderMode,
     applicationLenderId,
-    submissionId,
-    loanApplicationId,
+    readOnly,
+    lenderViewTab,
     debouncedLenderSearch,
     lenderPage,
   ]);
+
+  useEffect(() => {
+    if (!isLenderMode || readOnly || !applicationLenderId) return;
+    if (lenderViewTab !== "upload") return;
+    void fetchLibraryTemplates();
+  }, [isLenderMode, readOnly, applicationLenderId, lenderViewTab]);
+
+  useEffect(() => {
+    if (isLenderMode) return;
+    void fetchRows();
+  }, [mode, applicationLenderId, submissionId, loanApplicationId]);
 
   useEffect(() => {
     return () => {
@@ -370,7 +418,8 @@ export default function SignDocumentsPanel({
       setUploadName("");
       setUploadFile(null);
       setLenderPage(1);
-      await fetchRows({ page: 1, search: debouncedLenderSearch });
+      setLenderViewTab("documents");
+      await fetchLenderDocuments({ page: 1, search: debouncedLenderSearch });
       onUpdated?.();
     } catch (err: any) {
       toast.error(err.message || "Upload failed");
@@ -404,7 +453,8 @@ export default function SignDocumentsPanel({
       toast.success("Sign document created from template");
       setSelectedTemplateId("");
       setLenderPage(1);
-      await fetchRows({ page: 1, search: debouncedLenderSearch });
+      setLenderViewTab("documents");
+      await fetchLenderDocuments({ page: 1, search: debouncedLenderSearch });
       onUpdated?.();
     } catch (err: any) {
       toast.error(err.message || "Failed to apply template");
@@ -1208,6 +1258,46 @@ export default function SignDocumentsPanel({
         )}
 
         {!readOnly && (
+          <div className="flex gap-1 rounded-xl border border-slate-200 bg-slate-100/80 p-1">
+            <button
+              type="button"
+              onClick={() => setLenderViewTab("upload")}
+              className={`inline-flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition sm:flex-none ${
+                lenderViewTab === "upload"
+                  ? "bg-white text-slate-900 shadow-sm"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <Upload size={16} />
+              Upload form
+            </button>
+            <button
+              type="button"
+              onClick={() => setLenderViewTab("documents")}
+              className={`inline-flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition sm:flex-none ${
+                lenderViewTab === "documents"
+                  ? "bg-white text-slate-900 shadow-sm"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <FileText size={16} />
+              Documents
+              {totalDocuments > 0 ? (
+                <span
+                  className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${
+                    lenderViewTab === "documents"
+                      ? "bg-brand-100 text-brand-700"
+                      : "bg-slate-200 text-slate-600"
+                  }`}
+                >
+                  {totalDocuments}
+                </span>
+              ) : null}
+            </button>
+          </div>
+        )}
+
+        {!readOnly && lenderViewTab === "upload" ? (
           <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
             <div className="border-b border-slate-100 bg-gradient-to-r from-brand-50/80 to-emerald-50/50 px-5 py-4">
               <div className="flex items-start gap-3">
@@ -1332,8 +1422,9 @@ export default function SignDocumentsPanel({
               )}
             </div>
           </div>
-        )}
+        ) : null}
 
+        {(readOnly || lenderViewTab === "documents") && (
         <div>
           <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <h3 className="text-sm font-semibold text-slate-900">
@@ -1381,8 +1472,18 @@ export default function SignDocumentsPanel({
                   ? "Try a different document name or clear your search."
                   : readOnly
                     ? "No signature documents have been requested for this application yet."
-                    : "Upload a form above to start the client e-signature workflow."}
+                    : "Upload a form to start the client e-signature workflow."}
               </p>
+              {!hasSearchQuery && !readOnly ? (
+                <button
+                  type="button"
+                  onClick={() => setLenderViewTab("upload")}
+                  className="mt-5 inline-flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700"
+                >
+                  <Upload size={16} />
+                  Upload a form
+                </button>
+              ) : null}
             </div>
           ) : (
             <div className="relative">
@@ -1552,6 +1653,7 @@ export default function SignDocumentsPanel({
             </div>
           )}
         </div>
+        )}
 
         {renderTemplateViewModal()}
         {renderSignedCopyModal()}
