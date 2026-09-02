@@ -70,18 +70,18 @@ module.exports = async function adminLoginRoute(fastify, opts) {
         });
 
         if (!user) {
-          return reply.status(404).send({
+          return reply.status(401).send({
             success: false,
-            message: "Invalid email address for authentication",
+            message: "Invalid email or password",
           });
         }
 
         const match = await comparePassword(password, user.passwordHash);
 
         if (!match) {
-          return reply.status(404).send({
+          return reply.status(401).send({
             success: false,
-            message: "Invalid password for authentication",
+            message: "Invalid email or password",
           });
         }
 
