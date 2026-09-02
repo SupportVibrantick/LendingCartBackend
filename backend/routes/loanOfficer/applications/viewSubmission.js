@@ -18,65 +18,29 @@ module.exports = async function viewSubmission(fastify) {
     /* ===============================
        FETCH SUBMISSION + EXTRA DATA
     =============================== */
-    const submission =
-      await fastify.prisma.applicationSubmission.findUnique({
-        where: { id: submissionId },
-        include: {
-          fields: {
-            include: {
-              builderField: {
-                include: {
-                  section: true,
-                },
-              },
-            },
-          },
-          application: {
-            select: {
-              applicationNumber: true,
-              loanProductCode: true,
-              brokerOrgId: true,
-              brokerUserId: true,
-              status: true,
-
-              // ❌ DO NOT TRUST THIS (kept only if needed later)
-              amountRequested: true,
-
-              client: {
-                include: {
-                  contacts: {
-                    where: { isPrimary: true },
-                    take: 1,
-                  },
-                },
-              },
-
-              applicationLenders: {
-                include: {
-                  lender: {
-                    include: {
-                      users: {
-                        select: {
-                          profileImage: true,
-                        },
-                        take: 1,
-                      },
-                    },
-                  },
-                  lenderProduct: true,
-                  lenderReviews: {
-                    orderBy: { createdAt: "desc" },
-                    include: {
-                      reviewedByUser: true,
-                      conditions: true,
-                    },
-                  },
-                },
+    const submission = await fastify.prisma.applicationSubmission.findUnique({
+      where: { id: submissionId },
+      select: {
+        id: true,
+        applicationId: true,
+        applicationProductId: true,
+        status: true,
+        createdAt: true,
+        fields: {
+          select: {
+            id: true,
+            value: true,
+            fieldKey: true,
+            builderField: {
+              select: {
+                fieldKey: true,
+                section: { select: { name: true } },
               },
             },
           },
         },
-      });
+      },
+    });
 
     if (!submission) {
       return reply.code(404).send({
@@ -85,9 +49,44 @@ module.exports = async function viewSubmission(fastify) {
       });
     }
 
+    const application = await fastify.prisma.loanApplication.findUnique({
+      where: { id: submission.applicationId },
+      select: {
+        id: true,
+        applicationNumber: true,
+        loanProductCode: true,
+        brokerOrgId: true,
+        brokerUserId: true,
+        status: true,
+        amountRequested: true,
+        client: {
+          select: {
+            id: true,
+            contacts: {
+              where: { isPrimary: true },
+              take: 1,
+              select: {
+                firstName: true,
+                lastName: true,
+                email: true,
+                phone: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!application) {
+      return reply.code(404).send({
+        success: false,
+        message: "Application not found",
+      });
+    }
+
     if (
-      submission.application.brokerOrgId !== orgId ||
-      submission.application.brokerUserId !== userId
+      application.brokerOrgId !== orgId ||
+      application.brokerUserId !== userId
     ) {
       return reply.code(403).send({
         success: false,
@@ -95,12 +94,67 @@ module.exports = async function viewSubmission(fastify) {
       });
     }
 
+    const appLenders = await fastify.prisma.applicationLender.findMany({
+      where: { loanApplicationId: submission.applicationId },
+      select: {
+        id: true,
+        lenderOrgId: true,
+        status: true,
+        sentAt: true,
+        lastUpdatedAt: true,
+        lender: {
+          select: {
+            name: true,
+            users: {
+              select: { profileImage: true },
+              take: 1,
+            },
+          },
+        },
+        lenderProduct: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+          },
+        },
+        lenderReviews: {
+          orderBy: { createdAt: "desc" },
+          select: {
+            id: true,
+            reviewStatus: true,
+            approvedAmount: true,
+            interestRate: true,
+            notes: true,
+            createdAt: true,
+            updatedAt: true,
+            reviewedByUser: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+              },
+            },
+            conditions: {
+              select: {
+                id: true,
+                description: true,
+                status: true,
+                satisfiedAt: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
     /* ===============================
        FETCH LOAN PRODUCT NAME
     =============================== */
     const loanProduct = await fastify.prisma.loanProduct.findFirst({
       where: {
-        code: submission.application.loanProductCode,
+        code: application.loanProductCode,
       },
       select: {
         id: true,
@@ -113,7 +167,7 @@ module.exports = async function viewSubmission(fastify) {
        BORROWER NAME
     =============================== */
     const primaryContact =
-      submission.application.client?.contacts?.[0] || null;
+      application.client?.contacts?.[0] || null;
 
     const borrowerName = primaryContact
       ? `${primaryContact.firstName ?? ""} ${
@@ -147,7 +201,6 @@ module.exports = async function viewSubmission(fastify) {
 
     const amountRequested = amountField?.value ?? null;
 
-    const application = submission.application;
     const applicationStatus = application?.status ?? null;
     const pipelineStatus = resolveBrokerPipelineDisplayStatus(application);
     const editCheck = canBrokerEditSubmittedApplication(application);
@@ -161,7 +214,7 @@ module.exports = async function viewSubmission(fastify) {
       data: {
         submissionId: submission.id,
         applicationId: submission.applicationId,
-        applicationNumber: submission.application.applicationNumber,
+        applicationNumber: application.applicationNumber,
 
         borrowerName,
 
@@ -194,7 +247,7 @@ module.exports = async function viewSubmission(fastify) {
         fields: submission.fields.map((f) => mapSubmissionFieldResponse(f)),
 
         /* ================= LENDER REVIEWS ================= */
-        lenders: submission.application.applicationLenders
+        lenders: appLenders
           .filter((l) => l.sentAt)
           .map((l) => ({
             applicationLenderId: l.id,
