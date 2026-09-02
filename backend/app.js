@@ -2,11 +2,13 @@ require("dotenv").config();
 const path = require("path");
 const Fastify = require("fastify");
 const cors = require("@fastify/cors");
+const helmet = require("@fastify/helmet");
 const cookieParser = require("@fastify/cookie");
 const fastifyStatic = require("@fastify/static");
 const fastifyFormbody = require("@fastify/formbody");
 const rateLimit = require("@fastify/rate-limit");
 const { getClientIp } = require("./utils/security/rateLimit");
+const { getSharedRedisClient } = require("./config/redis");
 const pointOfView = require("@fastify/view");
 const pug = require("pug");
 const {
@@ -48,14 +50,20 @@ runEmailConsumerKafka().catch((error) => {
   console.error("Error starting the email consumer:", error);
 });
 
-app.register(rateLimit, {
-  // Don't auto-limit every route — only routes that set config.rateLimit
-  global: false,
-  // Use the same IP extraction as the custom checkRateLimit helper so
-  // proxy headers (x-forwarded-for, x-real-ip, cf-connecting-ip) are
-  // honored even when trustProxy behavior differs from request.ip.
-  keyGenerator: (request) => getClientIp(request),
-});
+app.register(helmet);
+
+// app.register(async (instance) => {
+//   const redisClient = await getSharedRedisClient();
+//   instance.register(rateLimit, {
+    // Don't auto-limit every route — only routes that set config.rateLimit
+    // global: false,
+    // redis: redisClient,
+    // Use the same IP extraction as the custom checkRateLimit helper so
+    // proxy headers (x-forwarded-for, x-real-ip, cf-connecting-ip) are
+    // honored even when trustProxy behavior differs from request.ip.
+//     keyGenerator: (request) => getClientIp(request),
+//   });
+// }, { name: 'rate-limit-plugin' });
 
 // app.register(cors, {
 //   origin: (origin, cb) => {

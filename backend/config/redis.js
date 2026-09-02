@@ -1,9 +1,36 @@
 const { isRedisEnabled, getRedisUrl } = require("../config/env");
 const { commonLogs } = require("../services/logger/contextLogger");
+const { Redis } = require("ioredis");
 
 let redisClients = null;
+let sharedRedisClient = null;
+
+async function getSharedRedisClient() {
+  if (sharedRedisClient) return sharedRedisClient;
+
+  const redisUrl = getRedisUrl();
+  if (!redisUrl) {
+    commonLogs.warn(
+      "REDIS_URL is missing — shared Redis client unavailable",
+    );
+    return null;
+  }
+
+  try {
+    sharedRedisClient = new Redis(redisUrl, {
+      maxRetriesPerRequest: null,
+    });
+    return sharedRedisClient;
+  } catch (error) {
+    commonLogs.error("Failed to create shared Redis client", {
+      error: error.message,
+    });
+    return null;
+  }
+}
 
 async function attachRedisAdapter(io) {
+  // ... (rest of the function)
   // const isProd = process.env.NODE_ENV === "production";
 
   // if (!isRedisEnabled()) {
