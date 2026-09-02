@@ -9,6 +9,10 @@ module.exports = async function viewSubmission(fastify) {
     canBrokerRequestDocuments,
   } = require("../../../../utils/applications/resolveApplicationStatus");
   const { getMarkFundedEligibility } = require("../../../../utils/commission/markFundedHelpers");
+  const {
+    APPLICATION_LENDER_SUBMISSION_INCLUDE,
+    formatSubmissionApplicationLenders,
+  } = require("../../../../utils/applications/submissionApplicationLenders");
 
   fastify.get(
     "/submissions/:submissionId",
@@ -74,26 +78,7 @@ module.exports = async function viewSubmission(fastify) {
               },
 
               applicationLenders: {
-                include: {
-                  lender: {
-                    include: {
-                      users: {
-                        select: {
-                          profileImage: true,
-                        },
-                        take: 1,
-                      },
-                    },
-                  },
-                  lenderProduct: true,
-                  lenderReviews: {
-                    orderBy: { createdAt: "desc" },
-                    include: {
-                      reviewedByUser: true,
-                      conditions: true,
-                    },
-                  },
-                },
+                include: APPLICATION_LENDER_SUBMISSION_INCLUDE,
               },
               feeAgreement: {
                 select: {
@@ -247,72 +232,12 @@ module.exports = async function viewSubmission(fastify) {
         fields: mappedFields,
 
         /* ================= LENDER REVIEWS ================= */
-        lenders: submission.application.applicationLenders
-          .filter((l) => l.sentAt)
-          .map((l) => ({
-            applicationLenderId: l.id,
-            lenderOrgId: l.lenderOrgId,
-            lenderName: l.lender?.name ?? null,
-            profileImage: l.lender?.users?.[0]?.profileImage || null,
-            lenderStatus: l.status,
-            isFundedLender:
-              application.fundedApplicationLenderId === l.id,
-            sentAt: l.sentAt,
-            lastUpdatedAt: l.lastUpdatedAt,
-
-            reviews: l.lenderReviews.map((r) => ({
-              reviewId: r.id,
-              reviewStatus: r.reviewStatus,
-              approvedAmount: r.approvedAmount,
-              interestRate: r.interestRate,
-              notes: r.notes,
-              reviewedAt: r.createdAt,
-              updatedAt: r.updatedAt,
-
-              reviewedBy: r.reviewedByUser
-                ? {
-                    userId: r.reviewedByUser.id,
-                    name: `${r.reviewedByUser.firstName ?? ""} ${
-                      r.reviewedByUser.lastName ?? ""
-                    }`.trim(),
-                    email: r.reviewedByUser.email,
-                  }
-                : null,
-
-              conditions: r.conditions.map((c) => ({
-                conditionId: c.id,
-                description: c.description,
-                status: c.status,
-                satisfiedAt: c.satisfiedAt,
-              })),
-            })),
-            latestReview: l.lenderReviews[0]
-              ? {
-                  reviewId: l.lenderReviews[0].id,
-                  reviewStatus: l.lenderReviews[0].reviewStatus,
-                  approvedAmount: l.lenderReviews[0].approvedAmount,
-                  interestRate: l.lenderReviews[0].interestRate,
-                  notes: l.lenderReviews[0].notes,
-                  reviewedAt: l.lenderReviews[0].createdAt,
-                  updatedAt: l.lenderReviews[0].updatedAt,
-                  reviewedBy: l.lenderReviews[0].reviewedByUser
-                    ? {
-                        userId: l.lenderReviews[0].reviewedByUser.id,
-                        name: `${l.lenderReviews[0].reviewedByUser.firstName ?? ""} ${
-                          l.lenderReviews[0].reviewedByUser.lastName ?? ""
-                        }`.trim(),
-                        email: l.lenderReviews[0].reviewedByUser.email,
-                      }
-                    : null,
-                  conditions: l.lenderReviews[0].conditions.map((c) => ({
-                    conditionId: c.id,
-                    description: c.description,
-                    status: c.status,
-                    satisfiedAt: c.satisfiedAt,
-                  })),
-                }
-              : null,
-          })),
+        lenders: formatSubmissionApplicationLenders(
+          submission.application.applicationLenders,
+          {
+            fundedApplicationLenderId: application.fundedApplicationLenderId,
+          },
+        ),
       },
     });
   });

@@ -5,6 +5,10 @@ module.exports = async function viewSubmission(fastify) {
     canBrokerRequestDocuments,
     canBrokerEditSubmittedApplication,
   } = require("../../../utils/applications/resolveApplicationStatus");
+  const {
+    APPLICATION_LENDER_SUBMISSION_INCLUDE,
+    formatSubmissionApplicationLenders,
+  } = require("../../../utils/applications/submissionApplicationLenders");
   fastify.get("/submissions/:submissionId", async (req, reply) => {
     const { submissionId } = req.params;
 
@@ -96,58 +100,13 @@ module.exports = async function viewSubmission(fastify) {
 
     const appLenders = await fastify.prisma.applicationLender.findMany({
       where: { loanApplicationId: submission.applicationId },
-      select: {
-        id: true,
-        lenderOrgId: true,
-        status: true,
-        sentAt: true,
-        lastUpdatedAt: true,
-        lender: {
-          select: {
-            name: true,
-            users: {
-              select: { profileImage: true },
-              take: 1,
-            },
-          },
-        },
-        lenderProduct: {
-          select: {
-            id: true,
-            name: true,
-            code: true,
-          },
-        },
-        lenderReviews: {
-          orderBy: { createdAt: "desc" },
-          select: {
-            id: true,
-            reviewStatus: true,
-            approvedAmount: true,
-            interestRate: true,
-            notes: true,
-            createdAt: true,
-            updatedAt: true,
-            reviewedByUser: {
-              select: {
-                id: true,
-                firstName: true,
-                lastName: true,
-                email: true,
-              },
-            },
-            conditions: {
-              select: {
-                id: true,
-                description: true,
-                status: true,
-                satisfiedAt: true,
-              },
-            },
-          },
-        },
-      },
+      include: APPLICATION_LENDER_SUBMISSION_INCLUDE,
     });
+
+    const applicationWithLenders = {
+      ...application,
+      applicationLenders: appLenders,
+    };
 
     /* ===============================
        FETCH LOAN PRODUCT NAME
@@ -202,9 +161,13 @@ module.exports = async function viewSubmission(fastify) {
     const amountRequested = amountField?.value ?? null;
 
     const applicationStatus = application?.status ?? null;
-    const pipelineStatus = resolveBrokerPipelineDisplayStatus(application);
-    const editCheck = canBrokerEditSubmittedApplication(application);
-    const documentRequestCheck = canBrokerRequestDocuments(application);
+    const pipelineStatus = resolveBrokerPipelineDisplayStatus(
+      applicationWithLenders,
+    );
+    const editCheck = canBrokerEditSubmittedApplication(applicationWithLenders);
+    const documentRequestCheck = canBrokerRequestDocuments(
+      applicationWithLenders,
+    );
 
     /* ===============================
        RESPONSE
@@ -247,70 +210,7 @@ module.exports = async function viewSubmission(fastify) {
         fields: submission.fields.map((f) => mapSubmissionFieldResponse(f)),
 
         /* ================= LENDER REVIEWS ================= */
-        lenders: appLenders
-          .filter((l) => l.sentAt)
-          .map((l) => ({
-            applicationLenderId: l.id,
-            lenderOrgId: l.lenderOrgId,
-            lenderName: l.lender?.name ?? null,
-            profileImage: l.lender?.users?.[0]?.profileImage || null,
-            lenderStatus: l.status,
-            sentAt: l.sentAt,
-            lastUpdatedAt: l.lastUpdatedAt,
-
-            reviews: l.lenderReviews.map((r) => ({
-              reviewId: r.id,
-              reviewStatus: r.reviewStatus,
-              approvedAmount: r.approvedAmount,
-              interestRate: r.interestRate,
-              notes: r.notes,
-              reviewedAt: r.createdAt,
-              updatedAt: r.updatedAt,
-
-              reviewedBy: r.reviewedByUser
-                ? {
-                    userId: r.reviewedByUser.id,
-                    name: `${r.reviewedByUser.firstName ?? ""} ${
-                      r.reviewedByUser.lastName ?? ""
-                    }`.trim(),
-                    email: r.reviewedByUser.email,
-                  }
-                : null,
-
-              conditions: r.conditions.map((c) => ({
-                conditionId: c.id,
-                description: c.description,
-                status: c.status,
-                satisfiedAt: c.satisfiedAt,
-              })),
-            })),
-            latestReview: l.lenderReviews[0]
-              ? {
-                  reviewId: l.lenderReviews[0].id,
-                  reviewStatus: l.lenderReviews[0].reviewStatus,
-                  approvedAmount: l.lenderReviews[0].approvedAmount,
-                  interestRate: l.lenderReviews[0].interestRate,
-                  notes: l.lenderReviews[0].notes,
-                  reviewedAt: l.lenderReviews[0].createdAt,
-                  updatedAt: l.lenderReviews[0].updatedAt,
-                  reviewedBy: l.lenderReviews[0].reviewedByUser
-                    ? {
-                        userId: l.lenderReviews[0].reviewedByUser.id,
-                        name: `${l.lenderReviews[0].reviewedByUser.firstName ?? ""} ${
-                          l.lenderReviews[0].reviewedByUser.lastName ?? ""
-                        }`.trim(),
-                        email: l.lenderReviews[0].reviewedByUser.email,
-                      }
-                    : null,
-                  conditions: l.lenderReviews[0].conditions.map((c) => ({
-                    conditionId: c.id,
-                    description: c.description,
-                    status: c.status,
-                    satisfiedAt: c.satisfiedAt,
-                  })),
-                }
-              : null,
-          })),
+        lenders: formatSubmissionApplicationLenders(appLenders),
       },
     });
   });
