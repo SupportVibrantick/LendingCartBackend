@@ -183,7 +183,33 @@ app.setErrorHandler((error, request, reply) => {
     });
   }
 
-  // Handle http-errors (from createError)
+    // Determine if we should return JSON or HTML
+    const isApiRequest =
+      request.url.startsWith("/api") ||
+      request.headers["accept"]?.includes("application/json") ||
+      request.url.includes("/auth") ||
+      request.url.includes("/login");
+
+    if (isApiRequest) {
+      const statusCode = error.statusCode || error.status || 500;
+      const isProduction = process.env.NODE_ENV === "production";
+
+      const response = {
+        success: false,
+        message:
+          statusCode === 500 && isProduction
+            ? "An internal server error occurred"
+            : error.message || "Internal Server Error",
+      };
+
+      if (!isProduction && error.stack) {
+        response.stack = error.stack;
+      }
+
+      return reply.status(statusCode).send(response);
+    }
+
+    // Handle http-errors (from createError)
   if (error.status) {
     commonLogs.warn("Client error", {
       status: error.status,
@@ -232,7 +258,9 @@ app.setErrorHandler((error, request, reply) => {
   });
 
   return reply.status(error.statusCode || 500).view("error.pug", {
-    message: error.message || "Internal Server Error",
+    message: error.statusCode === 500 && process.env.NODE_ENV === "production"
+      ? "An internal server error occurred"
+      : error.message || "Internal Server Error",
     error: {
       status: error.statusCode || 500,
       stack:
