@@ -1600,7 +1600,11 @@ export default function LoanPreview() {
       );
     }
 
-    return <Chat applicationId={resolvedChatApplicationId} />;
+    return (
+      <div className="h-[min(80vh,760px)] min-h-0">
+        <Chat applicationId={resolvedChatApplicationId} />
+      </div>
+    );
   };
 
   const onTabChange = (tab: PreviewTab) => {

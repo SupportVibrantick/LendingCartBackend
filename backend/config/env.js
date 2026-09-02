@@ -96,13 +96,80 @@ function getKafkaEmailTopic() {
   return process.env.KAFKA_EMAIL_TOPIC || "email-sending";
 }
 
+function parseOriginList(raw) {
+  if (!raw) {
+    return [];
+  }
+
+  return String(raw)
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+}
+
+function collectSocketCorsOrigins() {
+  const origins = new Set();
+
+  for (const raw of [
+    process.env.SOCKET_CORS_ORIGINS,
+    process.env.CORS_ORIGINS,
+    process.env.FRONTEND_URL,
+    process.env.BROKER_DASHBOARD_URL,
+    process.env.LENDER_DASHBOARD_URL,
+    process.env.LOAN_AI_URL,
+    process.env.EMBED_APP_URL,
+  ]) {
+    for (const origin of parseOriginList(raw)) {
+      origins.add(origin.replace(/\/$/, ""));
+    }
+  }
+
+  return [...origins];
+}
+
+function getSocketCorsDomainSuffixes() {
+  const raw =
+    process.env.SOCKET_CORS_DOMAIN_SUFFIX || process.env.CORS_DOMAIN_SUFFIX;
+  return parseOriginList(raw).map((suffix) => suffix.replace(/^\./, ""));
+}
+
+function isSocketOriginAllowed(origin) {
+  if (!origin) {
+    return true;
+  }
+
+  const normalized = origin.replace(/\/$/, "");
+  if (collectSocketCorsOrigins().includes(normalized)) {
+    return true;
+  }
+
+  const suffixes = getSocketCorsDomainSuffixes();
+  if (suffixes.length === 0) {
+    return false;
+  }
+
+  try {
+    const { hostname, protocol } = new URL(normalized);
+    if (protocol !== "https:" && protocol !== "http:") {
+      return false;
+    }
+
+    return suffixes.some(
+      (suffix) => hostname === suffix || hostname.endsWith(`.${suffix}`),
+    );
+  } catch {
+    return false;
+  }
+}
+
 function getSocketCorsOrigins() {
-  const raw = process.env.SOCKET_CORS_ORIGINS || process.env.CORS_ORIGINS;
-  if (raw) {
-    return raw
-      .split(",")
-      .map((origin) => origin.trim())
-      .filter(Boolean);
+  const origins = collectSocketCorsOrigins();
+  if (origins.length > 0) {
+    return origins;
+  }
+
+  if (getSocketCorsDomainSuffixes().length > 0) {
+    return origins;
   }
 
   if (process.env.NODE_ENV !== "production") {
@@ -110,8 +177,34 @@ function getSocketCorsOrigins() {
   }
 
   throw new Error(
-    "SOCKET_CORS_ORIGINS or CORS_ORIGINS is required in production",
+    "SOCKET_CORS_ORIGINS, CORS_ORIGINS, or SOCKET_CORS_DOMAIN_SUFFIX is required in production",
   );
+}
+
+function getSocketIoCorsOptions() {
+  if (process.env.NODE_ENV !== "production") {
+    const origins = collectSocketCorsOrigins();
+    if (origins.length === 0 && getSocketCorsDomainSuffixes().length === 0) {
+      return {
+        origin: "*",
+        methods: ["GET", "POST"],
+        credentials: true,
+      };
+    }
+  }
+
+  return {
+    origin: (origin, callback) => {
+      if (isSocketOriginAllowed(origin)) {
+        callback(null, true);
+        return;
+      }
+
+      callback(new Error(`Socket CORS blocked for origin: ${origin || "(none)"}`));
+    },
+    methods: ["GET", "POST"],
+    credentials: true,
+  };
 }
 
 function isRedisEnabled() {
@@ -228,6 +321,10 @@ module.exports = {
   getKafkaBrokers,
   getKafkaEmailTopic,
   getSocketCorsOrigins,
+  getSocketIoCorsOptions,
+  isSocketOriginAllowed,
+  collectSocketCorsOrigins,
+  getSocketCorsDomainSuffixes,
   getRedisUrl,
   getUploadMaxBytes,
   validateApiEnv,

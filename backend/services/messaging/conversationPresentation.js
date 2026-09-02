@@ -1,4 +1,8 @@
 const { isClientUser, isLenderUser, hasRole } = require("./messagingAccess");
+const {
+  isCoBrokerClientChannel,
+  isPrincipalClientBrokerChannel,
+} = require("./brokerOfficerConversation");
 
 function resolveViewerRole(req) {
   if (isClientUser(req)) return "CLIENT";
@@ -11,7 +15,9 @@ function resolveViewerRole(req) {
 function isPlaceholderConversationId(id) {
   return (
     typeof id === "string" &&
-    (id.startsWith("broker-") || id.startsWith("officer-"))
+    (id.startsWith("broker-") ||
+      id.startsWith("officer-") ||
+      id.startsWith("co-broker-"))
   );
 }
 
@@ -22,7 +28,9 @@ function stripKnownPrefix(title, pattern) {
 }
 
 function enrichConversationItem(item, viewerRole) {
-  const isPlaceholder = isPlaceholderConversationId(item.id);
+  const isPlaceholder = Boolean(
+    item.isPlaceholder || isPlaceholderConversationId(item.id),
+  );
   const base = {
     ...item,
     isPlaceholder,
@@ -42,16 +50,15 @@ function enrichConversationItem(item, viewerRole) {
         const contactName =
           item.brokerName ||
           item.participant?.name ||
-          stripKnownPrefix(item.title, /^Loan Officer\s•\s*(.+)$/i) ||
-          stripKnownPrefix(item.title, /^Client\s[•-]\s*(.+)$/i) ||
-          "Broker";
+          stripKnownPrefix(item.title, /^Your Broker Team\s•\s*(.+)$/i) ||
+          stripKnownPrefix(item.title, /^Principal Broker\s•\s*(.+)$/i) ||
+          "Your Broker Team";
 
         return {
           ...base,
           displayName: contactName,
-          badgeLabel:
-            item.type === "CLIENT_OFFICER" ? "Loan Officer" : "Principal Broker",
-          badgeTone: item.type === "CLIENT_OFFICER" ? "violet" : "amber",
+          badgeLabel: "Your Broker Team",
+          badgeTone: "emerald",
         };
       }
 
@@ -65,12 +72,29 @@ function enrichConversationItem(item, viewerRole) {
         };
       }
 
+      const isPrincipalTeamChannel =
+        item.type === "CLIENT_BROKER" &&
+        isPrincipalClientBrokerChannel(item.chatCategory);
+
+      if (
+        isPrincipalTeamChannel &&
+        (viewerRole === "LOAN_OFFICER" || viewerRole === "SUB_BROKER")
+      ) {
+        return {
+          ...base,
+          displayName: clientName,
+          badgeLabel: "Client Team",
+          badgeTone: "emerald",
+          clientName,
+        };
+      }
+
       return {
         ...base,
         displayName: clientName,
         badgeLabel:
           viewerRole === "LOAN_OFFICER" && item.type === "CLIENT_BROKER"
-            ? "Client (Broker)"
+            ? "Client Team"
             : "Client",
         badgeTone: "emerald",
         clientName,
@@ -106,28 +130,46 @@ function enrichConversationItem(item, viewerRole) {
         };
       }
 
+      if (viewerRole === "LOAN_OFFICER") {
+        return {
+          ...base,
+          displayName: lenderName,
+          badgeLabel: "Lender",
+          badgeTone: "indigo",
+          lenderName,
+        };
+      }
+
       const isLoanOfficerChannel = item.chatCategory === "LOAN_OFFICER";
 
       return {
         ...base,
         displayName: lenderName,
-        badgeLabel: isLoanOfficerChannel ? "Loan Officer Channel" : "Lender",
+        badgeLabel: isLoanOfficerChannel ? "Lender · LO Channel" : "Lender",
         badgeTone: isLoanOfficerChannel ? "violet" : "indigo",
         lenderName,
       };
     }
 
     case "SUBBROKER_BROKER": {
-      const contactName =
+      const subBrokerName =
+        item.subBrokerName ||
         item.participant?.name ||
-        stripKnownPrefix(item.title, /^Sub Broker\s•\s*(.+?)(\s\(.+\))?$/i) ||
+        stripKnownPrefix(item.title, /^Sub Broker\s•\s*(.+?)(\s→.+)?$/i) ||
         stripKnownPrefix(item.title, /^Principal Broker\s•\s*(.+)$/i) ||
         stripKnownPrefix(item.title, /^Loan Officer\s•\s*(.+)$/i) ||
         "Contact";
 
+      const loanOfficerName = item.loanOfficerName || null;
       const isLoanOfficerChannel = item.chatCategory === "LOAN_OFFICER";
 
       if (viewerRole === "SUB_BROKER") {
+        const contactName =
+          item.participant?.name ||
+          stripKnownPrefix(item.title, /^Principal Broker\s•\s*(.+)$/i) ||
+          stripKnownPrefix(item.title, /^Loan Officer\s•\s*(.+)$/i) ||
+          subBrokerName;
+
         return {
           ...base,
           displayName: contactName,
@@ -139,16 +181,23 @@ function enrichConversationItem(item, viewerRole) {
       if (viewerRole === "LOAN_OFFICER") {
         return {
           ...base,
-          displayName: contactName,
-          badgeLabel: "Sub Broker",
+          displayName: subBrokerName,
+          badgeLabel: "Co-Broker",
           badgeTone: "sky",
         };
       }
 
+      let displayName = subBrokerName;
+      if (isLoanOfficerChannel && loanOfficerName) {
+        displayName = `${subBrokerName} → ${loanOfficerName}`;
+      } else if (isLoanOfficerChannel) {
+        displayName = `${subBrokerName} (LO Channel)`;
+      }
+
       return {
         ...base,
-        displayName: contactName,
-        badgeLabel: isLoanOfficerChannel ? "Loan Officer Channel" : "Sub Broker",
+        displayName,
+        badgeLabel: isLoanOfficerChannel ? "Co-Broker · LO" : "Co-Broker",
         badgeTone: isLoanOfficerChannel ? "violet" : "sky",
       };
     }

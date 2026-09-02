@@ -2,7 +2,7 @@ const { Server } = require("socket.io");
 const fp = require("fastify-plugin");
 const jwt = require("jsonwebtoken");const registerChatGateway = require("../sockets/chat.gateway");
 const { normalizeAuthUser } = require("../services/messaging/messagingAccess");
-const { getJwtSecret, getSocketCorsOrigins } = require("../config/env");
+const { getJwtSecret, getSocketIoCorsOptions } = require("../config/env");
 const { attachRedisAdapter } = require("../config/redis");
 const { commonLogs } = require("../services/logger/contextLogger");
 
@@ -81,12 +81,10 @@ function joinAuthorizedRooms(socket) {
   }
 }
 
-async function socketPlugin(fastify) {  const io = new Server(fastify.server, {
-    cors: {
-      origin: getSocketCorsOrigins(),
-      methods: ["GET", "POST"],
-      credentials: true,
-    },
+async function socketPlugin(fastify) {
+  const socketCors = getSocketIoCorsOptions();
+  const io = new Server(fastify.server, {
+    cors: socketCors,
     transports: ["websocket", "polling"],
   });
 

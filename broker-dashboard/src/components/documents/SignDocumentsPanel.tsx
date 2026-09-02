@@ -1412,7 +1412,7 @@ export default function SignDocumentsPanel({
     return (
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <span className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-800 dark:border-blue-500/40 dark:bg-blue-950/40 dark:text-blue-200">
-          <Building2 size={12} className="shrink-0" />
+        <Building2 size={12} className="shrink-0" />
           <span className="truncate">{lenderName}</span>
         </span>
         {productLabel ? (
@@ -1533,9 +1533,9 @@ export default function SignDocumentsPanel({
                       ? "✓"
                       : "…"}{" "}
                     · Broker {row.formProgress.broker.complete ? "✓" : "…"} ·{" "}
-                    {row.formProgress.all.complete
-                      ? "Ready to forward"
-                      : "In progress"}
+                {row.formProgress.all.complete
+                  ? "Ready to forward"
+                  : "In progress"}
                   </>
                 )}
               </div>
@@ -1567,12 +1567,12 @@ export default function SignDocumentsPanel({
 
           {row.signStatus === "SENT_TO_CLIENT" && (
             <div className="space-y-2">
-              <div className="flex items-center gap-2 rounded-xl bg-blue-50 px-3 py-2.5 text-sm text-blue-800 dark:bg-blue-950/40 dark:text-blue-200">
-                <Clock size={16} className="shrink-0" />
-                {row.workflowHint ||
-                  (row.signMode === "DYNAMIC_FORM"
-                    ? "Waiting for client / broker form fields"
-                    : "Waiting for client signature")}
+            <div className="flex items-center gap-2 rounded-xl bg-blue-50 px-3 py-2.5 text-sm text-blue-800 dark:bg-blue-950/40 dark:text-blue-200">
+              <Clock size={16} className="shrink-0" />
+              {row.workflowHint ||
+                (row.signMode === "DYNAMIC_FORM"
+                  ? "Waiting for client / broker form fields"
+                  : "Waiting for client signature")}
               </div>
               {row.signMode === "DYNAMIC_FORM" &&
                 !row.formProgress?.broker.complete && (
@@ -1698,7 +1698,7 @@ export default function SignDocumentsPanel({
           >
             {row.signMode === "DYNAMIC_FORM" ? (
               isBrokerFormForwardedToLender(row) ? (
-                <Eye size={13} className="shrink-0" />
+            <Eye size={13} className="shrink-0" />
               ) : (
                 <PenLine size={13} className="shrink-0" />
               )
@@ -2680,7 +2680,7 @@ export default function SignDocumentsPanel({
                       )}
                       Send {selectedSendCount} to client
                     </button>
-                  </div>
+                </div>
                 )}
 
                 {selectedForwardCount > 0 && (
@@ -2733,10 +2733,10 @@ export default function SignDocumentsPanel({
                   <Loader2 className="h-7 w-7 animate-spin text-violet-600" />
                 </div>
               )}
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {rows.map((row) => renderBrokerDocumentCard(row))}
-              </div>
             </div>
+          </div>
 
             {brokerPagination && brokerPagination.totalPages > 0 && (
               <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50/80 px-4 py-3 dark:border-slate-700 dark:bg-slate-900/60">
@@ -2936,7 +2936,7 @@ export default function SignDocumentsPanel({
                 (row.signMode === "DYNAMIC_FORM"
                   ? `You completed this form — your broker will review and send it to ${row.lenderName || "the lender"}`
                   : standalone
-                    ? "Signed — your broker has received this term sheet"
+                  ? "Signed — your broker has received this term sheet"
                     : `You signed this document — your broker will forward it to ${row.lenderName || "the lender"}`)}
             </span>
           </div>
@@ -3095,7 +3095,7 @@ export default function SignDocumentsPanel({
               <PenLine size={15} />
               {row.signMode === "DYNAMIC_FORM"
                 ? fillFormCtaLabel(row)
-                : "Review & Sign"}
+                  : "Review & Sign"}
             </button>
           ) : (
             <div className="mt-auto">{renderClientStatusFooter(row)}</div>
@@ -3227,16 +3227,16 @@ export default function SignDocumentsPanel({
                   >
                     <p className={`text-lg font-bold tabular-nums ${filter.num}`}>
                       {count}
-                    </p>
-                    <p className="text-[11px] font-medium text-slate-600">
+                  </p>
+                  <p className="text-[11px] font-medium text-slate-600">
                       {filter.label}
-                    </p>
+                  </p>
                   </button>
                 );
               })}
+                </div>
             </div>
           </div>
-        </div>
 
         {isSignFormsView && (
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
@@ -3253,7 +3253,7 @@ export default function SignDocumentsPanel({
                 className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-sm text-slate-700 shadow-sm transition focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100"
               />
             </label>
-          </div>
+        </div>
         )}
 
         {rows.length === 0 ? (
