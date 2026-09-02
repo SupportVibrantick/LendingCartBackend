@@ -55,7 +55,7 @@ async function loginRoute(fastify, options) {
 
         // USER NOT FOUND
         if (!user) {
-          return reply.code(404).send({
+          return reply.code(401).send({
             success: false,
             message: "Invalid credentials",
           });
@@ -80,7 +80,7 @@ async function loginRoute(fastify, options) {
         );
 
         if (!isPasswordValid) {
-          return reply.code(400).send({
+          return reply.code(401).send({
             success: false,
             message: "Invalid credentials",
           });
