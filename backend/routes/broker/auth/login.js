@@ -179,10 +179,7 @@ async function brokerLoginRoutes(fastify) {
           "Broker login error"
         );
 
-        return reply.code(500).send({
-          success: false,
-          message: error.message,
-        });
+        throw error;
       }
     }
   );

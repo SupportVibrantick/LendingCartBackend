@@ -159,10 +159,7 @@ const token = jwt.sign(
           "Client login failed"
         );
 
-        return reply.code(500).send({
-          success: false,
-          message: "Unexpected server error",
-        });
+      throw error;
       }
     }
   );

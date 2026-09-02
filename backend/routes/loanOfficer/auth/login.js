@@ -134,10 +134,7 @@ async function loginRoute(fastify) {
       }
 
       console.error(err);
-      return reply.code(500).send({
-        success: false,
-        message: err.message || "Something went wrong",
-      });
+      throw err;
     }
   });
 }
