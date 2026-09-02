@@ -8,6 +8,8 @@ import {
   clearLoanOfficerSession,
   verifyLoanOfficerSession,
 } from "../../../lib/loanOfficerApi";
+import { ensureChatSocket } from "../../../lib/chatSocketManager";
+import { getOrgIdsFromToken } from "../../../lib/chatSocket";
 
 export default function LoanOfficerImpersonateLogin() {
   const navigate = useNavigate();
@@ -38,6 +40,12 @@ export default function LoanOfficerImpersonateLogin() {
           sessionStorage.setItem(LO_USER_KEY, JSON.stringify(user));
         }
         sessionStorage.setItem("roles", JSON.stringify(["BROKER_OFFICER"]));
+
+        const orgIds = getOrgIdsFromToken(token);
+        ensureChatSocket(token, {
+          getBrokerOrgId: () =>
+            (user?.organizationId as string | undefined) || orgIds.brokerOrgId,
+        });
 
         if (permissionsParam) {
           const permissions = JSON.parse(permissionsParam);

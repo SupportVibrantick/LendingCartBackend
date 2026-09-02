@@ -3,7 +3,7 @@
  * All threads route through the broker (CLIENT_BROKER, BROKER_LENDER, etc.).
  */
 
-const CLIENT_CONVERSATION_TYPES = ["CLIENT_BROKER", "CLIENT_OFFICER"];
+const CLIENT_CONVERSATION_TYPES = ["CLIENT_BROKER"];
 
 function normalizeEmail(email) {
   return email?.trim().toLowerCase();
@@ -455,7 +455,9 @@ function isLoanOfficerUser(req) {
 function getLoanOfficerConversationListFilters() {
   return {
     OR: [
-      { type: { in: ["CLIENT_OFFICER", "BROKER_OFFICER"] } },
+      {
+        type: { in: ["CLIENT_BROKER", "CLIENT_OFFICER", "BROKER_OFFICER"] },
+      },
       {
         type: { in: ["BROKER_LENDER", "SUBBROKER_BROKER"] },
         chatCategory: "LOAN_OFFICER",
@@ -467,21 +469,18 @@ function getLoanOfficerConversationListFilters() {
 function assertLoanOfficerConversationScope(req, conversation) {
   if (!isLoanOfficerUser(req)) return null;
 
-  if (conversation.chatCategory === "PRINCIPAL_BROKER") {
+  const categorizedTypes = ["BROKER_LENDER", "SUBBROKER_BROKER"];
+
+  if (
+    conversation.chatCategory === "PRINCIPAL_BROKER" &&
+    categorizedTypes.includes(conversation.type)
+  ) {
     return {
       code: 403,
       message: "Loan officers cannot access principal broker channels",
     };
   }
 
-  if (conversation.type === "CLIENT_BROKER") {
-    return {
-      code: 403,
-      message: "Loan officers use the dedicated client officer channel",
-    };
-  }
-
-  const categorizedTypes = ["BROKER_LENDER", "SUBBROKER_BROKER"];
   if (
     categorizedTypes.includes(conversation.type) &&
     conversation.chatCategory &&
@@ -515,10 +514,14 @@ function getConversationListFilters(req, { userId, userEmail, lenderAccessId }) 
       ].filter(Boolean),
     };
 
-    // Query only CLIENT_BROKER here; CLIENT_OFFICER is merged in getConversations
-    // after fetch so this works even before the enum migration is applied.
+    // Clients only use the principal CLIENT_BROKER team channel.
     return {
       type: "CLIENT_BROKER",
+      OR: [
+        { chatCategory: null },
+        { chatCategory: "PRINCIPAL" },
+        { chatCategory: "PRINCIPAL_BROKER" },
+      ],
       participants: {
         some: participantMatch,
       },

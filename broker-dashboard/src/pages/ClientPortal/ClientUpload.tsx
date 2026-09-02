@@ -2386,6 +2386,9 @@ export default function ClientUpload() {
                   selectedApplication?.loanApplicationId ||
                   applicationId
                 }
+                applicationNumber={
+                  selectedApplication?.applicationNumber || applicationNumber
+                }
                 onBack={() => setActiveTab("application")}
               />
             </div>

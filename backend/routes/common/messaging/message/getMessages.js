@@ -3,17 +3,9 @@
  */
 
 const {
-  assertConversationTypeAccess,
-  findLenderApplicationAccess,
-  findBrokerLenderNetworkAccess,
-  ensureLenderParticipant,
-  ensureBrokerParticipant,
-  getOrganizationId,
+  assertCanAccessConversation,
   isClientUser,
-  isLenderUser,
-  isBrokerSideUser,
 } = require("../../../../services/messaging/messagingAccess");
-const { resolvePrincipalBrokerDisplay } = require("../../../../services/messaging/brokerOfficerConversation");
 const { resolveClientDisplayName } = require("../../../../services/messaging/resolveClientDisplayName");
 
 module.exports = async function getMessages(fastify) {
@@ -44,7 +36,6 @@ module.exports = async function getMessages(fastify) {
       const prisma = fastify.prisma;
       const { conversationId } = req.params;
       const { page = 1, limit = 20 } = req.query;
-      const normalize = (str) => str?.trim().toLowerCase();
 
       try {
         /* ================= AUTH CHECK ================= */
@@ -68,112 +59,20 @@ module.exports = async function getMessages(fastify) {
 
         /* ================= VERIFY CONVERSATION ================= */
 
-        const conversation = await prisma.conversation.findUnique({
-          where: { id: conversationId },
-          select: {
-            id: true,
-            type: true,
-            loanApplicationId: true,
-            applicationLenderId: true,
-            brokerLenderAccessId: true,
-          },
-        });
-
-        if (!conversation) {
-          return reply.code(404).send({
-            success: false,
-            message: "Conversation not found",
-          });
-        }
-
-        const typeAccessError = assertConversationTypeAccess(
-          req,
-          conversation.type,
+        const access = await assertCanAccessConversation(
+          prisma,
+          req.user,
+          conversationId,
         );
-        if (typeAccessError) {
-          return reply.code(typeAccessError.code).send({
+
+        if (!access.allowed) {
+          return reply.code(access.error?.code || 403).send({
             success: false,
-            message: typeAccessError.message,
+            message: access.error?.message || "Access denied",
           });
         }
 
-        /* ================= CHECK PARTICIPATION ================= */
-
-        const userEmail = req.user?.email;
-
-        const participant = await prisma.conversationParticipant.findFirst({
-          where: {
-            conversationId,
-
-            OR: [
-              { participantId: userId },
-
-              userEmail
-                ? {
-                    participantEmail: normalize(userEmail),
-                  }
-                : undefined,
-            ].filter(Boolean),
-          },
-        });
-
-        let hasFallbackAccess = false;
-        const orgId = getOrganizationId(req.user);
-
-        if (!participant && conversation.brokerLenderAccessId && orgId) {
-          const networkAccess = await findBrokerLenderNetworkAccess(
-            prisma,
-            conversation,
-            orgId,
-          );
-          hasFallbackAccess = Boolean(networkAccess);
-          if (hasFallbackAccess) {
-            if (isLenderUser(req)) {
-              await ensureLenderParticipant(prisma, conversationId, userId);
-            } else if (isBrokerSideUser(req)) {
-              await ensureBrokerParticipant(prisma, conversationId, userId);
-            }
-          }
-        }
-
-        if (!participant && !hasFallbackAccess && isLenderUser(req)) {
-          const lenderAccess = await findLenderApplicationAccess(
-            prisma,
-            conversation,
-            orgId,
-          );
-
-          hasFallbackAccess = Boolean(lenderAccess);
-
-          if (hasFallbackAccess) {
-            await ensureLenderParticipant(prisma, conversationId, userId);
-          }
-        }
-
-        if (
-          !participant &&
-          !hasFallbackAccess &&
-          req.user?.orgType === "BROKER" &&
-          orgId &&
-          conversation.loanApplicationId
-        ) {
-          const brokerAccess = await prisma.loanApplication.findFirst({
-            where: {
-              id: conversation.loanApplicationId,
-              brokerOrgId: orgId,
-            },
-            select: { id: true },
-          });
-
-          hasFallbackAccess = Boolean(brokerAccess);
-        }
-
-        if (!participant && !hasFallbackAccess) {
-          return reply.code(403).send({
-            success: false,
-            message: "Access denied",
-          });
-        }
+        const conversation = access.conversation;
 
         /* ================= PAGINATION ================= */
 
@@ -191,7 +90,11 @@ module.exports = async function getMessages(fastify) {
         const brokerUserIds = [
           ...new Set(
             messages
-              .filter((m) => m.senderType === "BROKER" && m.senderUserId)
+              .filter(
+                (m) =>
+                  (m.senderType === "BROKER" || m.senderType === "SUB_BROKER") &&
+                  m.senderUserId,
+              )
               .map((m) => m.senderUserId),
           ),
         ];
@@ -250,22 +153,7 @@ module.exports = async function getMessages(fastify) {
           where: { conversationId },
         });
 
-        let clientBrokerDisplayName = null;
         let resolvedClientDisplayName = null;
-
-        if (isClientUser(req) && conversation.type === "CLIENT_BROKER") {
-          const loan = await prisma.loanApplication.findUnique({
-            where: { id: conversation.loanApplicationId },
-            select: { brokerOrgId: true },
-          });
-
-          const principalBroker = await resolvePrincipalBrokerDisplay(
-            prisma,
-            loan?.brokerOrgId,
-          );
-
-          clientBrokerDisplayName = principalBroker.name;
-        }
 
         if (conversation.loanApplicationId) {
           const loan = await prisma.loanApplication.findUnique({
@@ -306,21 +194,28 @@ module.exports = async function getMessages(fastify) {
 
           senderClientUserId: msg.senderClientUserId,
 
-          senderName: (() => {
-            // Broker — clients always see principal broker / org name
-            if (msg.senderType === "BROKER") {
-              if (clientBrokerDisplayName) {
-                return clientBrokerDisplayName;
-              }
+          senderRoleLabel: (() => {
+            if (!isClientUser(req)) return null;
+            if (msg.senderType === "SUB_BROKER") return "Co-Broker";
+            if (msg.senderType === "BROKER") return "Loan Officer";
+            return null;
+          })(),
 
+          senderName: (() => {
+            if (msg.senderType === "SUB_BROKER" && msg.senderUserId) {
+              const broker = brokerMap.get(msg.senderUserId);
+              const name =
+                `${broker?.firstName || ""} ${broker?.lastName || ""}`.trim();
+              return name || msg.senderName || "Co-Broker";
+            }
+
+            if (msg.senderType === "BROKER") {
               if (msg.senderUserId) {
                 const broker = brokerMap.get(msg.senderUserId);
+                const name =
+                  `${broker?.firstName || ""} ${broker?.lastName || ""}`.trim();
 
-                return (
-                  broker?.organization?.name ||
-                  `${broker?.firstName || ""} ${broker?.lastName || ""}`.trim() ||
-                  "Broker"
-                );
+                return name || msg.senderName || "Broker";
               }
             }
 

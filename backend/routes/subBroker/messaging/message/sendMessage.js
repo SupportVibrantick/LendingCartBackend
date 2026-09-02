@@ -2,7 +2,9 @@
  * Send message in a sub-broker conversation
  */
 
-const { emitRealtimeMessage } = require("../../../../services/messaging/messagingAccess");
+const {
+  sendConversationMessage,
+} = require("../../../../services/messaging/sendConversationMessage");
 
 module.exports = async function sendMessage(fastify) {
   fastify.post(
@@ -40,110 +42,34 @@ module.exports = async function sendMessage(fastify) {
     async (req, reply) => {
       const prisma = fastify.prisma;
       const { conversationId } = req.params;
-      const { type, text, fileUrl, fileName, fileSize, mimeType, metadata } = req.body;
-      const userId = req.user?.userId;
 
       try {
-        if (type === "TEXT" && !text?.trim()) {
-          return reply.code(400).send({
-            success: false,
-            message: "Text message cannot be empty",
-          });
-        }
-
-        if (type === "FILE" && !fileUrl) {
-          return reply.code(400).send({
-            success: false,
-            message: "File URL is required",
-          });
-        }
-
-        const participant = await prisma.conversationParticipant.findFirst({
-          where: {
+        const result = await sendConversationMessage(
+          prisma,
+          fastify.io,
+          req,
+          {
             conversationId,
-            participantId: userId,
-            participantType: "SUB_BROKER",
+            ...req.body,
           },
-        });
+        );
 
-        if (!participant) {
-          return reply.code(403).send({
-            success: false,
-            message: "Access denied",
-          });
-        }
-
-        const sender = await prisma.userAccount.findUnique({
-          where: {
-            id: userId,
-          },
-          select: {
-            firstName: true,
-            lastName: true,
-          },
-        });
-
-        const message = await prisma.message.create({
-          data: {
-            conversationId,
-            senderType: "SUB_BROKER",
-            senderUserId: userId,
-            senderName:
-              `${sender?.firstName || ""} ${sender?.lastName || ""}`.trim() ||
-              "Sub Broker",
-            type,
-            text: type === "TEXT" ? text.trim() : null,
-            fileUrl: type === "FILE" ? fileUrl : null,
-            fileName: type === "FILE" ? fileName : null,
-            fileSize: type === "FILE" ? Math.round(fileSize || 0) : null,
-            mimeType: type === "FILE" ? mimeType : null,
-            metadata: metadata || null,
-          },
-        });
-
-        await prisma.conversation.update({
-          where: {
-            id: conversationId,
-          },
-          data: {
-            lastMessageAt: message.createdAt,
-          },
-        });
-
-        await emitRealtimeMessage(fastify.io, prisma, { ...message, conversationId }, conversationId);
-
-        return reply.send({
-          success: true,
-          data: {
-            id: message.id,
-            type: message.type,
-            text: message.text,
-            fileUrl: message.fileUrl,
-            fileName: message.fileName,
-            fileSize: message.fileSize,
-            mimeType: message.mimeType,
-            metadata: message.metadata,
-            senderType: message.senderType,
-            senderUserId: message.senderUserId,
-            senderName: message.senderName,
-            createdAt: message.createdAt,
-          },
-        });
+        return reply.code(result.statusCode).send(result.body);
       } catch (error) {
         fastify.log.error(
           {
             error: error.message,
             conversationId,
-            userId,
+            userId: req.user?.userId,
           },
-          "Failed to send sub-broker message"
+          "Failed to send sub-broker message",
         );
 
         return reply.code(500).send({
           success: false,
-         message: error.message,
+          message: "Internal server error",
         });
       }
-    }
+    },
   );
 };

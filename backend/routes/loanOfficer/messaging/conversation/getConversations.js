@@ -9,6 +9,7 @@ const {
   filterLoanOfficerClientThreads,
   formatBrokerOfficerInboxEntry,
   resolvePrincipalBrokerDisplay,
+  syncClientBrokerTeamParticipants,
 } = require("../../../../services/messaging/brokerOfficerConversation");
 const { resolveClientDisplayName } = require("../../../../services/messaging/resolveClientDisplayName");
 const {
@@ -20,6 +21,9 @@ const {
   enrichConversationList,
 } = require("../../../../services/messaging/conversationPresentation");
 const { extraOfficerPermission, LOAN_OFFICER_MESSAGING_PERMISSIONS } = require("../../../../services/broker/loanOfficerAccess");
+const {
+  enrichLoanConversationItems,
+} = require("../../../../services/messaging/conversationUnread");
 
 module.exports = async function getConversations(fastify) {
   fastify.get(
@@ -154,6 +158,13 @@ module.exports = async function getConversations(fastify) {
 
         const userId = req.user?.id || req.user?.userId || req.user?.clientId;
         const userEmail = req.user?.email || req.user?.clientEmail;
+
+        if (req.user.roles?.includes("BROKER_OFFICER")) {
+          await syncClientBrokerTeamParticipants(prisma, {
+            loanApplicationId: loanId,
+            brokerOrgId: loan.brokerOrgId,
+          });
+        }
 
         let conversations = await prisma.conversation.findMany({
           where: {
@@ -330,6 +341,13 @@ module.exports = async function getConversations(fastify) {
           formatted.unshift(buildOfficerSideEntry(null, brokerAdmin));
         }
 
+        const formattedWithUnread = await enrichLoanConversationItems(prisma, {
+          items: formatted,
+          conversations,
+          userId,
+          userEmail,
+        });
+
         /* =====================================================
            5️⃣ RESPONSE
         ===================================================== */
@@ -338,9 +356,9 @@ module.exports = async function getConversations(fastify) {
           success: true,
           data: {
             loanId,
-            total: formatted.length,
+            total: formattedWithUnread.length,
             conversations: enrichConversationList(
-              formatted,
+              formattedWithUnread,
               resolveViewerRole(req),
             ),
           },
