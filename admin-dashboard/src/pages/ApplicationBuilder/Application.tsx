@@ -112,7 +112,7 @@ export default function ApplicationBuilder() {
 
   const loadApplications = async (brokerId: string) => {
     try {
-      const res = await fetch(`${API_BASE}/admin/applications?brokerOrgId=${brokerId}`, {
+      const res = await fetch(`${API_BASE}/admin/applications?brokerOrgId=${brokerId}&limit=100`, {
         headers: getAuthHeaders(),
       });
       const json = await safeJson(res);

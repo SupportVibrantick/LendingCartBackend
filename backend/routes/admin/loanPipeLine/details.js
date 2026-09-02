@@ -44,23 +44,34 @@ async function getAdminApplicationDetails(fastify) {
           },
           brokerOrg: true,
           submissions: {
-            include: {
-              fields: true,
+            select: {
+              id: true,
+              createdAt: true,
+              fields: {
+                select: {
+                  id: true,
+                  value: true,
+                  fieldKey: true,
+                  builderField: { select: { fieldKey: true } },
+                },
+              },
             },
           },
           financials: true,
           collaterals: true,
           documentUploads: true,
           applicationLenders: {
-            include: {
-              lender: true,
-              lenderProduct: {
-                select: { loanProductCode: true },
-              },
+            select: {
+              id: true,
+              lenderOrgId: true,
+              status: true,
+              sentAt: true,
+              lender: { select: { name: true } },
+              lenderProduct: { select: { loanProductCode: true } },
               lenderReviews: {
-                include: {
-                  conditions: true,
-                },
+                orderBy: { createdAt: "desc" },
+                select: { decision: true },
+                take: 1,
               },
             },
           },
