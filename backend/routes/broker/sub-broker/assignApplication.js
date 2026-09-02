@@ -12,6 +12,9 @@ const {
   autoAssignSubBrokerLoanOfficers,
 } = require("../../../services/broker/autoAssignSubBrokerLoanOfficers");
 const {
+  syncClientBrokerTeamParticipants,
+} = require("../../../services/messaging/brokerOfficerConversation");
+const {
   requireLoOfficerPermission,
 } = require("../../../services/broker/loanOfficerAccess");
 
@@ -384,6 +387,11 @@ async function assignApplicationRoute(fastify, options) {
         await prisma.conversationParticipant.createMany({
           data: participantRows,
           skipDuplicates: true,
+        });
+
+        await syncClientBrokerTeamParticipants(prisma, {
+          loanApplicationId,
+          brokerOrgId,
         });
 
         /* ===============================

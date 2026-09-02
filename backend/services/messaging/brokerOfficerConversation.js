@@ -126,6 +126,7 @@ async function syncLoanOfficerForApplication(
   }
 
   if (!newOfficerId) {
+    await syncClientBrokerTeamParticipants(prisma, { loanApplicationId });
     return;
   }
 
@@ -159,6 +160,167 @@ async function syncLoanOfficerForApplication(
       skipDuplicates: true,
     });
   }
+
+  await syncClientBrokerTeamParticipants(prisma, { loanApplicationId });
+}
+
+/**
+ * Keep CLIENT_BROKER participants in sync with the broker team assigned to a loan.
+ * Clients see one team thread; admin, LO, and co-brokers participate here.
+ */
+async function syncClientBrokerTeamParticipants(
+  prisma,
+  { loanApplicationId, brokerOrgId: brokerOrgIdOverride } = {},
+) {
+  if (!loanApplicationId) return;
+
+  const conversation = await prisma.conversation.findFirst({
+    where: {
+      loanApplicationId,
+      type: "CLIENT_BROKER",
+      OR: [
+        { chatCategory: null },
+        { chatCategory: "PRINCIPAL" },
+        { chatCategory: "PRINCIPAL_BROKER" },
+      ],
+    },
+    select: { id: true },
+  });
+
+  if (!conversation) return;
+
+  const loan = await prisma.loanApplication.findUnique({
+    where: { id: loanApplicationId },
+    select: {
+      brokerOrgId: true,
+      brokerUserId: true,
+    },
+  });
+
+  const brokerOrgId = brokerOrgIdOverride || loan?.brokerOrgId;
+  if (!brokerOrgId) return;
+
+  const brokerAdmin = await findBrokerAdmin(prisma, brokerOrgId);
+
+  const subBrokerAssignments = await prisma.subBrokerApplication.findMany({
+    where: { loanApplicationId },
+    select: { subBrokerId: true },
+  });
+
+  const participantRows = [];
+
+  if (brokerAdmin?.id) {
+    participantRows.push({
+      conversationId: conversation.id,
+      participantType: "BROKER",
+      participantId: brokerAdmin.id,
+    });
+  }
+
+  if (loan?.brokerUserId) {
+    participantRows.push({
+      conversationId: conversation.id,
+      participantType: "BROKER",
+      participantId: loan.brokerUserId,
+    });
+  }
+
+  for (const assignment of subBrokerAssignments) {
+    participantRows.push({
+      conversationId: conversation.id,
+      participantType: "SUB_BROKER",
+      participantId: assignment.subBrokerId,
+    });
+  }
+
+  const allowedBrokerIds = new Set(
+    participantRows
+      .filter((row) => row.participantType === "BROKER")
+      .map((row) => row.participantId),
+  );
+  const allowedSubBrokerIds = new Set(
+    participantRows
+      .filter((row) => row.participantType === "SUB_BROKER")
+      .map((row) => row.participantId),
+  );
+
+  const existingParticipants = await prisma.conversationParticipant.findMany({
+    where: {
+      conversationId: conversation.id,
+      participantType: { in: ["BROKER", "SUB_BROKER"] },
+    },
+    select: { id: true, participantType: true, participantId: true },
+  });
+
+  for (const participant of existingParticipants) {
+    const isAllowed =
+      (participant.participantType === "BROKER" &&
+        allowedBrokerIds.has(participant.participantId)) ||
+      (participant.participantType === "SUB_BROKER" &&
+        allowedSubBrokerIds.has(participant.participantId));
+
+    if (!isAllowed) {
+      await prisma.conversationParticipant.delete({
+        where: { id: participant.id },
+      });
+    }
+  }
+
+  if (participantRows.length > 0) {
+    await prisma.conversationParticipant.createMany({
+      data: participantRows,
+      skipDuplicates: true,
+    });
+  }
+}
+
+async function findOrCreateClientCoBrokerConversation(
+  prisma,
+  { loanApplicationId, clientId, subBrokerId },
+) {
+  if (!loanApplicationId || !clientId || !subBrokerId) {
+    return null;
+  }
+
+  const chatCategory = buildClientCoBrokerCategory(subBrokerId);
+
+  const existingConversation = await prisma.conversation.findFirst({
+    where: {
+      loanApplicationId,
+      type: "CLIENT_BROKER",
+      chatCategory,
+    },
+  });
+
+  if (existingConversation) {
+    return existingConversation;
+  }
+
+  const conversation = await prisma.conversation.create({
+    data: {
+      loanApplicationId,
+      type: "CLIENT_BROKER",
+      chatCategory,
+    },
+  });
+
+  await prisma.conversationParticipant.createMany({
+    data: [
+      {
+        conversationId: conversation.id,
+        participantType: "SUB_BROKER",
+        participantId: subBrokerId,
+      },
+    ],
+    skipDuplicates: true,
+  });
+
+  await appendClientPortalParticipants(prisma, {
+    conversationId: conversation.id,
+    clientId,
+  });
+
+  return conversation;
 }
 
 async function findOrCreateClientOfficerConversation(
@@ -190,13 +352,54 @@ async function findOrCreateClientOfficerConversation(
     },
   });
 
-  const participants = [
-    {
-      conversationId: conversation.id,
-      participantType: "BROKER",
-      participantId: loanOfficerId,
-    },
-  ];
+  await prisma.conversationParticipant.createMany({
+    data: [
+      {
+        conversationId: conversation.id,
+        participantType: "BROKER",
+        participantId: loanOfficerId,
+      },
+    ],
+    skipDuplicates: true,
+  });
+
+  await appendClientPortalParticipants(prisma, {
+    conversationId: conversation.id,
+    clientId,
+  });
+
+  return conversation;
+}
+
+function formatUserName(user, fallback = "User") {
+  return (
+    `${user?.firstName || ""} ${user?.lastName || ""}`.trim() || fallback
+  );
+}
+
+const CO_BROKER_CLIENT_CATEGORY_PREFIX = "CO_BROKER:";
+
+function buildClientCoBrokerCategory(subBrokerId) {
+  return `${CO_BROKER_CLIENT_CATEGORY_PREFIX}${subBrokerId}`;
+}
+
+function isCoBrokerClientChannel(chatCategory) {
+  return (
+    typeof chatCategory === "string" &&
+    chatCategory.startsWith(CO_BROKER_CLIENT_CATEGORY_PREFIX)
+  );
+}
+
+function isPrincipalClientBrokerChannel(chatCategory) {
+  return (
+    !chatCategory ||
+    chatCategory === "PRINCIPAL" ||
+    chatCategory === "PRINCIPAL_BROKER"
+  );
+}
+
+async function appendClientPortalParticipants(prisma, { conversationId, clientId }) {
+  const participants = [];
 
   const clientUsers = await prisma.clientPortalUser.findMany({
     where: {
@@ -208,7 +411,7 @@ async function findOrCreateClientOfficerConversation(
 
   clientUsers.forEach((user) => {
     participants.push({
-      conversationId: conversation.id,
+      conversationId,
       participantType: "CLIENT",
       participantId: user.id,
     });
@@ -227,7 +430,7 @@ async function findOrCreateClientOfficerConversation(
   const clientEmail = client?.contacts?.[0]?.email;
   if (clientEmail) {
     participants.push({
-      conversationId: conversation.id,
+      conversationId,
       participantType: "CLIENT",
       participantEmail: clientEmail.trim().toLowerCase(),
     });
@@ -239,14 +442,6 @@ async function findOrCreateClientOfficerConversation(
       skipDuplicates: true,
     });
   }
-
-  return conversation;
-}
-
-function formatUserName(user, fallback = "User") {
-  return (
-    `${user?.firstName || ""} ${user?.lastName || ""}`.trim() || fallback
-  );
 }
 
 async function resolvePrincipalBrokerDisplay(prisma, brokerOrgId) {
@@ -304,11 +499,61 @@ function buildClientSideOfficerEntry(formattedConversation, loanOfficer) {
     lastMessage: formattedConversation?.lastMessage || null,
     lastMessageAt: formattedConversation?.lastMessageAt || null,
     unread: false,
+    isPlaceholder: !formattedConversation?.id,
     participant: {
       id: loanOfficer.id,
       role: "BROKER_OFFICER",
       name: officerName,
       profileImage: loanOfficer.profileImage || null,
+    },
+  };
+}
+
+function buildClientSideCoBrokerEntry(formattedConversation, subBroker) {
+  const coBrokerName = formatUserName(subBroker, "Co-Broker");
+  const chatCategory = buildClientCoBrokerCategory(subBroker.id);
+
+  return {
+    id: formattedConversation?.id || `co-broker-${subBroker.id}`,
+    type: "CLIENT_BROKER",
+    chatCategory,
+    title: `Co-Broker • ${coBrokerName}`,
+    brokerName: coBrokerName,
+    lastMessage: formattedConversation?.lastMessage || null,
+    lastMessageAt: formattedConversation?.lastMessageAt || null,
+    unread: false,
+    isPlaceholder: !formattedConversation?.id,
+    participant: {
+      id: subBroker.id,
+      role: "SUB_BROKER",
+      name: coBrokerName,
+      profileImage: subBroker.profileImage || null,
+    },
+  };
+}
+
+function buildClientSidePrincipalBrokerEntry(
+  formattedConversation,
+  principalBroker,
+) {
+  const contactName =
+    principalBroker.adminName || principalBroker.name || "Principal Broker";
+
+  return {
+    id: formattedConversation?.id || `broker-${principalBroker.id || "org"}`,
+    type: "CLIENT_BROKER",
+    chatCategory: null,
+    title: `Principal Broker • ${contactName}`,
+    brokerName: contactName,
+    lastMessage: formattedConversation?.lastMessage || null,
+    lastMessageAt: formattedConversation?.lastMessageAt || null,
+    unread: false,
+    isPlaceholder: !formattedConversation?.id,
+    participant: {
+      id: principalBroker.id,
+      role: "BROKER_ADMIN",
+      name: contactName,
+      profileImage: principalBroker.profileImage || null,
     },
   };
 }
@@ -359,19 +604,23 @@ const LO_INBOX_PLACEHOLDER_TYPES = [
 ];
 
 /**
- * Loan officers use CLIENT_OFFICER for direct client chat. Hide CLIENT_BROKER
- * when a dedicated LO thread exists on the same loan to avoid duplicate rows.
+ * Prefer the principal CLIENT_BROKER team thread over legacy CLIENT_OFFICER
+ * one-on-one lanes when both exist on the same loan.
  */
 function filterLoanOfficerClientThreads(conversations) {
-  const loansWithOfficerThread = new Set(
+  const loansWithTeamThread = new Set(
     conversations
-      .filter((conv) => conv.type === "CLIENT_OFFICER")
+      .filter(
+        (conv) =>
+          conv.type === "CLIENT_BROKER" &&
+          isPrincipalClientBrokerChannel(conv.chatCategory),
+      )
       .map((conv) => conv.loanApplicationId),
   );
 
   return conversations.filter((conv) => {
-    if (conv.type !== "CLIENT_BROKER") return true;
-    return !loansWithOfficerThread.has(conv.loanApplicationId);
+    if (conv.type !== "CLIENT_OFFICER") return true;
+    return !loansWithTeamThread.has(conv.loanApplicationId);
   });
 }
 
@@ -530,10 +779,17 @@ module.exports = {
   findBrokerAdmin,
   findOrCreateBrokerOfficerConversation,
   findOrCreateClientOfficerConversation,
+  findOrCreateClientCoBrokerConversation,
   syncLoanOfficerForApplication,
+  syncClientBrokerTeamParticipants,
+  buildClientCoBrokerCategory,
+  isCoBrokerClientChannel,
+  isPrincipalClientBrokerChannel,
   buildBrokerSideEntry,
   buildOfficerSideEntry,
   buildClientSideOfficerEntry,
+  buildClientSideCoBrokerEntry,
+  buildClientSidePrincipalBrokerEntry,
   buildInboxPlaceholderForLoan,
   buildLoanOfficerInboxPlaceholders,
   filterLoanOfficerClientThreads,

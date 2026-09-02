@@ -7,6 +7,14 @@ const {
   resolveViewerRole,
   enrichConversationList,
 } = require("../../../../services/messaging/conversationPresentation");
+const {
+  syncClientBrokerTeamParticipants,
+  isPrincipalClientBrokerChannel,
+} = require("../../../../services/messaging/brokerOfficerConversation");
+const { resolveClientDisplayName } = require("../../../../services/messaging/resolveClientDisplayName");
+const {
+  enrichLoanConversationItems,
+} = require("../../../../services/messaging/conversationUnread");
 
 module.exports = async function getConversations(fastify) {
   fastify.get(
@@ -76,6 +84,10 @@ module.exports = async function getConversations(fastify) {
           });
         }
 
+        await syncClientBrokerTeamParticipants(prisma, {
+          loanApplicationId: loanId,
+        });
+
         /* ======================================
            EXISTING CONVERSATIONS
         ====================================== */
@@ -111,6 +123,60 @@ module.exports = async function getConversations(fastify) {
         });
 
         const formatted = [];
+
+        /* ======================================
+           CLIENT TEAM GROUP CHAT
+        ====================================== */
+
+        let teamConversation = existingConversations.find(
+          (c) =>
+            c.type === "CLIENT_BROKER" &&
+            isPrincipalClientBrokerChannel(c.chatCategory),
+        );
+
+        if (!teamConversation) {
+          teamConversation = await prisma.conversation.findFirst({
+            where: {
+              loanApplicationId: loanId,
+              type: "CLIENT_BROKER",
+              OR: [
+                { chatCategory: null },
+                { chatCategory: "PRINCIPAL" },
+                { chatCategory: "PRINCIPAL_BROKER" },
+              ],
+              participants: {
+                some: {
+                  participantId: userId,
+                  participantType: "SUB_BROKER",
+                },
+              },
+            },
+            include: {
+              participants: true,
+              messages: {
+                orderBy: { createdAt: "desc" },
+                take: 1,
+              },
+            },
+          });
+        }
+
+        if (teamConversation) {
+          const clientName = await resolveClientDisplayName(prisma, {
+            loanApplicationId: loanId,
+          });
+
+          formatted.push({
+            id: teamConversation.id,
+            type: "CLIENT_BROKER",
+            chatCategory: teamConversation.chatCategory || "PRINCIPAL_BROKER",
+            title: `Client • ${clientName}`,
+            clientName,
+            lastMessage: teamConversation.messages?.[0]?.text || null,
+            lastMessageAt: teamConversation.lastMessageAt || null,
+            unreadCount: 0,
+          });
+        }
 
         /* ======================================
            PRINCIPAL BROKER CHAT
@@ -231,16 +297,26 @@ module.exports = async function getConversations(fastify) {
            SUCCESS RESPONSE
         ====================================== */
 
+        const formattedWithUnread = await enrichLoanConversationItems(prisma, {
+          items: formatted,
+          conversations: [
+            ...existingConversations,
+            teamConversation,
+          ].filter(Boolean),
+          userId,
+          userEmail: req.user?.email,
+        });
+
         return reply.send({
           success: true,
 
           data: {
             loanId,
 
-            total: formatted.length,
+            total: formattedWithUnread.length,
 
             conversations: enrichConversationList(
-              formatted,
+              formattedWithUnread,
               resolveViewerRole(req),
             ),
           },

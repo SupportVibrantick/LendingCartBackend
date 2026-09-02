@@ -5,6 +5,8 @@ import { Link, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { LO_API_BASE, LO_TOKEN_KEY, LO_USER_KEY, clearLoanOfficerSession, isLoanOfficerTokenExpired, verifyLoanOfficerSession } from "../../../lib/loanOfficerApi";
 import { setSessionPermissions } from "../../../lib/brokerPermissions";
+import { ensureChatSocket } from "../../../lib/chatSocketManager";
+import { getOrgIdsFromToken } from "../../../lib/chatSocket";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -59,6 +61,12 @@ export default function Login() {
       sessionStorage.setItem(LO_USER_KEY, JSON.stringify(json.user));
       if (json.roles) sessionStorage.setItem("roles", JSON.stringify(json.roles));
       if (json.permissions) setSessionPermissions(json.permissions);
+
+      const orgIds = getOrgIdsFromToken(json.token);
+      ensureChatSocket(json.token, {
+        getBrokerOrgId: () =>
+          json.user?.organizationId || orgIds.brokerOrgId,
+      });
 
       const verified = await verifyLoanOfficerSession(json.token);
       if (!verified) {

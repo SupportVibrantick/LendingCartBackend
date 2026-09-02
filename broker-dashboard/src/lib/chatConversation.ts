@@ -61,11 +61,10 @@ function inferBadgeTone(chat: ChatConversationListItem): ChatBadgeTone {
 }
 
 function inferBadgeLabel(chat: ChatConversationListItem): string {
-  if (isLenderLoanOfficerChannel(chat)) return "Loan Officer Channel";
+  if (chat.badgeLabel) return chat.badgeLabel;
   if (chat.type === "BROKER_LENDER" && chat.chatCategory === "PRINCIPAL_BROKER") {
     return "Lender";
   }
-  if (chat.badgeLabel) return chat.badgeLabel;
   if (chat.type === "CLIENT_BROKER" || chat.type === "CLIENT_OFFICER") {
     return "Client";
   }
@@ -103,10 +102,7 @@ export function getConversationDisplayName(
 }
 
 export function getConversationBadge(chat: ChatConversationListItem) {
-  const tone =
-    chat.type === "BROKER_LENDER" && chat.chatCategory
-      ? inferBadgeTone(chat)
-      : chat.badgeTone || inferBadgeTone(chat);
+  const tone = chat.badgeTone || inferBadgeTone(chat);
 
   return {
     label: inferBadgeLabel(chat),
@@ -119,6 +115,18 @@ export function isPlaceholderConversation(
 ): boolean {
   if (!chat?.id) return false;
   return Boolean(chat.isPlaceholder || isTemporaryConversationId(chat.id));
+}
+
+/** Principal team channel — not legacy per-co-broker lanes (CO_BROKER:*). */
+export function isPrincipalClientBrokerChannel(
+  chat?: ChatConversationListItem | null,
+): boolean {
+  if (!chat || chat.type !== "CLIENT_BROKER") return false;
+  const category = chat.chatCategory;
+  if (!category) return true;
+  if (category === "PRINCIPAL" || category === "PRINCIPAL_BROKER") return true;
+  if (category.startsWith("CO_BROKER:")) return false;
+  return false;
 }
 
 export function getMessageSenderLabel(

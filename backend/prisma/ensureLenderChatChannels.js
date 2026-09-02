@@ -1,10 +1,12 @@
 const prisma = require("./client");
 
+let channelsReadyPromise = null;
+
 /**
  * Allows one PRINCIPAL_BROKER and one LOAN_OFFICER thread per applicationLender.
- * Safe to run multiple times.
+ * Safe to run multiple times (migration may already have created the unique index).
  */
-async function ensureLenderChatChannels() {
+async function runEnsureLenderChatChannels() {
   await prisma.$executeRawUnsafe(`
     UPDATE "Conversation"
     SET "chatCategory" = 'PRINCIPAL_BROKER'
@@ -22,20 +24,22 @@ async function ensureLenderChatChannels() {
     DROP INDEX IF EXISTS "Conversation_applicationLenderId_key"
   `);
 
+  // Migration creates this as a UNIQUE INDEX; ADD CONSTRAINT fails if the index exists.
   await prisma.$executeRawUnsafe(`
-    DO $$
-    BEGIN
-      IF NOT EXISTS (
-        SELECT 1
-        FROM pg_constraint
-        WHERE conname = 'Conversation_applicationLenderId_chatCategory_key'
-      ) THEN
-        ALTER TABLE "Conversation"
-        ADD CONSTRAINT "Conversation_applicationLenderId_chatCategory_key"
-        UNIQUE ("applicationLenderId", "chatCategory");
-      END IF;
-    END $$;
+    CREATE UNIQUE INDEX IF NOT EXISTS "Conversation_applicationLenderId_chatCategory_key"
+    ON "Conversation" ("applicationLenderId", "chatCategory")
   `);
+}
+
+async function ensureLenderChatChannels() {
+  if (!channelsReadyPromise) {
+    channelsReadyPromise = runEnsureLenderChatChannels().catch((error) => {
+      channelsReadyPromise = null;
+      throw error;
+    });
+  }
+
+  return channelsReadyPromise;
 }
 
 module.exports = { ensureLenderChatChannels };

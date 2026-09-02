@@ -9,6 +9,8 @@ import {
   verifyCoBrokerSession,
   type CoBrokerBranding,
 } from "../../../lib/coBrokerPortal";
+import { ensureChatSocket } from "../../../lib/chatSocketManager";
+import { getOrgIdsFromToken } from "../../../lib/chatSocket";
 
 export default function CoBrokerImpersonateLogin() {
   const navigate = useNavigate();
@@ -49,6 +51,12 @@ export default function CoBrokerImpersonateLogin() {
           const branding = JSON.parse(brandingParam) as CoBrokerBranding;
           storeCoBrokerBranding(branding);
         }
+
+        const orgIds = getOrgIdsFromToken(token);
+        ensureChatSocket(token, {
+          getBrokerOrgId: () =>
+            (user?.organizationId as string | undefined) || orgIds.brokerOrgId,
+        });
 
         const verified = await verifyCoBrokerSession(token);
         if (!verified) {
