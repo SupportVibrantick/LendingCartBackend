@@ -18,7 +18,8 @@ import {
   getMessageSenderLabel,
 } from "../../../lib/chatConversation";
 import { useChatSocket } from "../../../lib/useChatSocket";
-import { LO_TOKEN_KEY } from "../../../lib/loanOfficerApi";
+import { LO_TOKEN_KEY, LO_USER_KEY } from "../../../lib/loanOfficerApi";
+import { getOrgIdsFromToken, isTemporaryConversationId } from "../../../lib/chatSocket";
 import {
   ensureLoanOfficerConversation,
   fetchLoanOfficerInbox,
@@ -209,9 +210,27 @@ export default function LoanOfficerMessagesPage() {
     navigate("/loan-officer/loan-pipeline");
   };
 
+  const trackedConversationIds = useMemo(
+    () =>
+      inbox
+        .map((item) => item.id)
+        .filter((id) => !isTemporaryConversationId(id)),
+    [inbox],
+  );
+
   useChatSocket({
     getToken: () => sessionStorage.getItem(LO_TOKEN_KEY),
+    getBrokerOrgId: () => {
+      try {
+        const user = JSON.parse(sessionStorage.getItem(LO_USER_KEY) || "{}");
+        if (user.organizationId) return user.organizationId;
+      } catch {
+        /* ignore */
+      }
+      return getOrgIdsFromToken(sessionStorage.getItem(LO_TOKEN_KEY)).brokerOrgId;
+    },
     conversationId: selected?.id,
+    conversationIds: trackedConversationIds,
     onMessage: (msg) => {
       if (msg.conversationId !== activeConversationRef.current) {
         setInbox((prev) =>

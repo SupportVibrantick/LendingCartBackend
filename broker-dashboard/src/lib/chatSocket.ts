@@ -10,6 +10,7 @@ export function isTemporaryConversationId(id?: string | null) {
     id &&
       (id.startsWith("broker-") ||
         id.startsWith("officer-") ||
+        id.startsWith("co-broker-") ||
         id.startsWith("client-")),
   );
 }

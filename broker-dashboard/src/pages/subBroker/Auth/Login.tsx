@@ -12,6 +12,8 @@ import {
   resolveCoBrokerLogoUrl,
   storeCoBrokerBranding,
 } from "../../../lib/coBrokerPortal";
+import { ensureChatSocket } from "../../../lib/chatSocketManager";
+import { getOrgIdsFromToken } from "../../../lib/chatSocket";
 
 const API_BASE = CO_BROKER_API_BASE;
 
@@ -111,6 +113,12 @@ export default function Login() {
       if (json.branding) {
         storeCoBrokerBranding(json.branding);
       }
+
+      const orgIds = getOrgIdsFromToken(json.token);
+      ensureChatSocket(json.token, {
+        getBrokerOrgId: () =>
+          json.user?.organizationId || orgIds.brokerOrgId,
+      });
 
       toast.success("Login successful");
 

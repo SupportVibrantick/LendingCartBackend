@@ -263,6 +263,7 @@ async function buildLenderLoanInbox(
         type: "BROKER_LENDER",
       },
       include: {
+        participants: true,
         messages: {
           orderBy: { createdAt: "desc" },
           take: 1,
@@ -335,7 +336,7 @@ async function buildLenderLoanInbox(
     });
   }
 
-  return inbox;
+  return { inbox, conversations };
 }
 
 module.exports = {

@@ -3,6 +3,8 @@ import {
   SESSION_EXPIRED_MESSAGE,
   showSessionExpiredToast,
 } from "./sessionExpiry";
+import { getOrgIdsFromToken } from "./chatSocket";
+import { ensureChatSocket } from "./chatSocketManager";
 
 export const CO_BROKER_TOKEN_KEY = "sub_broker_token";
 export const CO_BROKER_USER_KEY = "sub_broker_user";
@@ -258,6 +260,12 @@ export function startCoBrokerImpersonationSession(
   if (payload.branding) {
     storeCoBrokerBranding(payload.branding);
   }
+
+  const orgIds = getOrgIdsFromToken(payload.token);
+  ensureChatSocket(payload.token, {
+    getBrokerOrgId: () =>
+      payload.user?.organizationId || orgIds.brokerOrgId,
+  });
 
   window.location.href = payload.redirectTo || "/sub-broker/loan-pipeline";
 }

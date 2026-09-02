@@ -5,7 +5,9 @@
 
 const {
   buildBrokerSideEntry,
-  buildClientSideOfficerEntry,
+  syncClientBrokerTeamParticipants,
+  isCoBrokerClientChannel,
+  isPrincipalClientBrokerChannel,
   resolvePrincipalBrokerDisplay,
   formatBrokerOfficerInboxEntry,
   filterLoanOfficerClientThreads,
@@ -27,6 +29,9 @@ const { buildLenderLoanInbox } = require("../../../../services/messaging/lenderB
 const {
   filterLoanConversationsBySearch,
 } = require("../../../../services/messaging/filterLoanConversationsBySearch");
+const {
+  enrichLoanConversationItems,
+} = require("../../../../services/messaging/conversationUnread");
 const {
   resolvePortalClientIds,
 } = require("../../../../utils/auth/clientPortalAuth");
@@ -164,6 +169,123 @@ module.exports = async function getConversations(fastify) {
         const userId = req.user?.id || req.user?.userId || req.user?.clientId;
         const userEmail = req.user?.email || req.user?.clientEmail;
 
+        if (isClientUser(req)) {
+          const principalBroker = await resolvePrincipalBrokerDisplay(
+            prisma,
+            loan.brokerOrgId,
+          );
+
+          await syncClientBrokerTeamParticipants(prisma, {
+            loanApplicationId: loanId,
+            brokerOrgId: loan.brokerOrgId,
+          });
+
+          const [brokerConversation, officerConversation] = await Promise.all([
+            prisma.conversation.findFirst({
+              where: {
+                loanApplicationId: loanId,
+                type: "CLIENT_BROKER",
+                OR: [
+                  { chatCategory: null },
+                  { chatCategory: "PRINCIPAL" },
+                  { chatCategory: "PRINCIPAL_BROKER" },
+                ],
+              },
+              include: {
+                messages: {
+                  orderBy: { createdAt: "desc" },
+                  take: 1,
+                },
+              },
+            }),
+            prisma.conversation.findFirst({
+              where: {
+                loanApplicationId: loanId,
+                type: "CLIENT_OFFICER",
+              },
+              include: {
+                messages: {
+                  orderBy: { createdAt: "desc" },
+                  take: 1,
+                },
+              },
+            }),
+          ]);
+
+          const teamDisplayName =
+            principalBroker.orgName ||
+            principalBroker.adminName ||
+            principalBroker.name ||
+            "Your Broker Team";
+
+          const clientConversations = [];
+
+          if (brokerConversation || officerConversation) {
+            const brokerLastAt = brokerConversation?.lastMessageAt
+              ? new Date(brokerConversation.lastMessageAt).getTime()
+              : 0;
+            const officerLastAt = officerConversation?.lastMessageAt
+              ? new Date(officerConversation.lastMessageAt).getTime()
+              : 0;
+
+            clientConversations.push({
+              id: brokerConversation?.id || `broker-${loanId}`,
+              type: "CLIENT_BROKER",
+              chatCategory: null,
+              title: `Your Broker Team • ${teamDisplayName}`,
+              brokerName: teamDisplayName,
+              lastMessage:
+                officerLastAt > brokerLastAt
+                  ? officerConversation?.messages?.[0]?.text ||
+                    brokerConversation?.messages?.[0]?.text ||
+                    null
+                  : brokerConversation?.messages?.[0]?.text ||
+                    officerConversation?.messages?.[0]?.text ||
+                    null,
+              lastMessageAt:
+                officerLastAt > brokerLastAt
+                  ? officerConversation?.lastMessageAt ||
+                    brokerConversation?.lastMessageAt ||
+                    null
+                  : brokerConversation?.lastMessageAt ||
+                    officerConversation?.lastMessageAt ||
+                    null,
+              unread: false,
+              participant: {
+                id: principalBroker.id,
+                role: "BROKER_ADMIN",
+                name: principalBroker.adminName || teamDisplayName,
+                profileImage: principalBroker.profileImage,
+              },
+              isPlaceholder: !brokerConversation?.id,
+            });
+          }
+
+          const filteredClientConversations = await filterLoanConversationsBySearch(
+            prisma,
+            loanId,
+            await enrichLoanConversationItems(prisma, {
+              items: clientConversations,
+              conversations: [brokerConversation, officerConversation].filter(Boolean),
+              userId,
+              userEmail,
+            }),
+            search,
+          );
+
+          return reply.send({
+            success: true,
+            data: {
+              loanId,
+              total: filteredClientConversations.length,
+              conversations: enrichConversationList(
+                filteredClientConversations,
+                resolveViewerRole(req),
+              ),
+            },
+          });
+        }
+
         let conversations = await prisma.conversation.findMany({
           where: {
             loanApplicationId: loanId,
@@ -220,6 +342,7 @@ module.exports = async function getConversations(fastify) {
             id: true,
             firstName: true,
             lastName: true,
+            profileImage: true,
           },
         });
 
@@ -236,6 +359,38 @@ module.exports = async function getConversations(fastify) {
                 clientId: loan.clientId,
                 loanApplicationId: loanId,
               });
+
+              if (isCoBrokerClientChannel(conv.chatCategory)) {
+                const subBrokerParticipant = conv.participants.find(
+                  (p) => p.participantType === "SUB_BROKER",
+                );
+                const subBroker = subBrokerMap.get(
+                  subBrokerParticipant?.participantId,
+                );
+                const coBrokerName =
+                  `${subBroker?.firstName || ""} ${
+                    subBroker?.lastName || ""
+                  }`.trim() || "Co-Broker";
+
+                title = `Co-Broker • ${coBrokerName}`;
+
+                return {
+                  id: conv.id,
+                  type: conv.type,
+                  chatCategory: conv.chatCategory,
+                  title,
+                  subBrokerName: coBrokerName,
+                  participant: {
+                    id: subBroker?.id,
+                    role: "SUB_BROKER",
+                    name: coBrokerName,
+                    profileImage: subBroker?.profileImage || null,
+                  },
+                  lastMessage: conv.messages[0]?.text || null,
+                  lastMessageAt: conv.lastMessageAt,
+                  unread: false,
+                };
+              }
 
               title = `Client - ${clientName}`;
 
@@ -316,11 +471,40 @@ module.exports = async function getConversations(fastify) {
               const subBrokerName =
                 `${subBroker?.firstName || ""} ${
                   subBroker?.lastName || ""
-                }`.trim() || "Sub Broker";
-              title =
-                conv.chatCategory === "LOAN_OFFICER"
-                  ? `Sub Broker • ${subBrokerName} (Loan Officer Chat)`
-                  : `Sub Broker • ${subBrokerName}`;
+                }`.trim() || "Co-Broker";
+
+              const loanOfficerName = loan.brokerUser
+                ? `${loan.brokerUser.firstName || ""} ${
+                    loan.brokerUser.lastName || ""
+                  }`.trim() || null
+                : null;
+
+              const isLoanOfficerChannel =
+                conv.chatCategory === "LOAN_OFFICER";
+
+              participant = {
+                id: subBroker?.id,
+                role: "SUB_BROKER",
+                name: subBrokerName,
+                profileImage: subBroker?.profileImage || null,
+              };
+
+              title = isLoanOfficerChannel
+                ? `Sub Broker • ${subBrokerName} → ${loanOfficerName || "Loan Officer"}`
+                : `Sub Broker • ${subBrokerName}`;
+
+              return {
+                id: conv.id,
+                type: conv.type,
+                chatCategory: conv.chatCategory || null,
+                title,
+                participant,
+                subBrokerName,
+                loanOfficerName: isLoanOfficerChannel ? loanOfficerName : null,
+                lastMessage: conv.messages[0]?.text || null,
+                lastMessageAt: conv.lastMessageAt,
+                unread: false,
+              };
             }
 
             if (conv.type === "BROKER_OFFICER") {
@@ -381,7 +565,8 @@ module.exports = async function getConversations(fastify) {
         }
 
         if (isLenderUser(req) && lenderAccess) {
-          const lenderInbox = await buildLenderLoanInbox(prisma, {
+          const { inbox: lenderInbox, conversations: lenderConversations } =
+            await buildLenderLoanInbox(prisma, {
             loanId,
             lenderAccessId: lenderAccess.id,
             lenderOrgId: req.user.organizationId || req.user.orgId,
@@ -391,7 +576,12 @@ module.exports = async function getConversations(fastify) {
           const filteredInbox = await filterLoanConversationsBySearch(
             prisma,
             loanId,
-            lenderInbox,
+            await enrichLoanConversationItems(prisma, {
+              items: lenderInbox,
+              conversations: lenderConversations,
+              userId,
+              userEmail,
+            }),
             search,
           );
 
@@ -408,65 +598,28 @@ module.exports = async function getConversations(fastify) {
           });
         }
 
-        if (isClientUser(req)) {
-          const principalBroker = await resolvePrincipalBrokerDisplay(
-            prisma,
-            loan.brokerOrgId,
-          );
-
-          const clientConversations = [];
-
-          const brokerConversation = formatted.find(
-            (item) => item.type === "CLIENT_BROKER",
-          );
-
-          if (brokerConversation) {
-            clientConversations.push({
-              ...brokerConversation,
-              brokerName: principalBroker.name,
-              participant: {
-                id: principalBroker.id,
-                role: "BROKER_ADMIN",
-                name: principalBroker.name,
-                profileImage: principalBroker.profileImage,
-              },
-            });
-          }
-
-          if (loan.brokerUser) {
-            const officerConversation = formatted.find(
-              (item) => item.type === "CLIENT_OFFICER",
-            );
-
-            clientConversations.push(
-              buildClientSideOfficerEntry(
-                officerConversation || null,
-                loan.brokerUser,
-              ),
-            );
-          }
-
-          const filteredClientConversations = await filterLoanConversationsBySearch(
-            prisma,
-            loanId,
-            clientConversations,
-            search,
-          );
-
-          return reply.send({
-            success: true,
-            data: {
-              loanId,
-              total: filteredClientConversations.length,
-              conversations: enrichConversationList(
-                filteredClientConversations,
-                resolveViewerRole(req),
-              ),
-            },
-          });
-        }
-
         const viewerRole = resolveViewerRole(req);
+
+        const dedupedFormatted = formatted.filter((item) => {
+          if (
+            viewerRole === "BROKER" &&
+            item.type === "SUBBROKER_BROKER" &&
+            item.chatCategory === "LOAN_OFFICER" &&
+            item.participant?.id &&
+            loan.brokerUserId &&
+            item.participant.id === loan.brokerUserId
+          ) {
+            return false;
+          }
+          return true;
+        });
+
+        const dedupedWithUnread = await enrichLoanConversationItems(prisma, {
+          items: dedupedFormatted,
+          conversations,
+          userId,
+          userEmail,
+        });
 
         /* =====================================================
            5️⃣ RESPONSE
@@ -475,7 +628,7 @@ module.exports = async function getConversations(fastify) {
         const filteredFormatted = await filterLoanConversationsBySearch(
           prisma,
           loanId,
-          formatted,
+          dedupedWithUnread,
           search,
         );
 
