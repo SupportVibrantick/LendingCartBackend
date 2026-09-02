@@ -10,7 +10,23 @@ const {
 } = require("../../../utils/broker/loanOfficerPermissions");
 
 async function loginRoute(fastify) {
-  fastify.post("/login", async (request, reply) => {
+  fastify.post(
+    "/login",
+    {
+      config: {
+        rateLimit: {
+          max: 10,
+          timeWindow: "15 minutes",
+          errorResponseBuilder: () => ({
+            statusCode: 429,
+            error: "Too Many Requests",
+            success: false,
+            message: "Too many login attempts. Please try again after 15 minutes.",
+          }),
+        },
+      },
+    },
+    async (request, reply) => {
     try {
       const { email, password } = loginSchema.parse(request.body);
 
