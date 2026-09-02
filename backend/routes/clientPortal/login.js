@@ -10,6 +10,18 @@ async function clientLoginRoute(fastify) {
   fastify.post(
     "/login",
     {
+      config: {
+        rateLimit: {
+          max: 10,
+          timeWindow: "15 minutes",
+          errorResponseBuilder: () => ({
+            statusCode: 429,
+            error: "Too Many Requests",
+            success: false,
+            message: "Too many login attempts. Please try again after 15 minutes.",
+          }),
+        },
+      },
       schema: {
         tags: ["Client Portal"],
         summary: "Client login",
@@ -147,10 +159,7 @@ const token = jwt.sign(
           "Client login failed"
         );
 
-        return reply.code(500).send({
-          success: false,
-          message: "Unexpected server error",
-        });
+      throw error;
       }
     }
   );

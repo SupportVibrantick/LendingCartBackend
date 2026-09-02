@@ -10,7 +10,23 @@ const {
 } = require("../../../utils/broker/loanOfficerPermissions");
 
 async function loginRoute(fastify) {
-  fastify.post("/login", async (request, reply) => {
+  fastify.post(
+    "/login",
+    {
+      config: {
+        rateLimit: {
+          max: 10,
+          timeWindow: "15 minutes",
+          errorResponseBuilder: () => ({
+            statusCode: 429,
+            error: "Too Many Requests",
+            success: false,
+            message: "Too many login attempts. Please try again after 15 minutes.",
+          }),
+        },
+      },
+    },
+    async (request, reply) => {
     try {
       const { email, password } = loginSchema.parse(request.body);
 
@@ -26,7 +42,7 @@ async function loginRoute(fastify) {
       });
 
       if (!user) {
-        return reply.code(404).send({
+        return reply.code(401).send({
           success: false,
           message: "Invalid credentials",
         });
@@ -60,7 +76,7 @@ async function loginRoute(fastify) {
 
       const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
       if (!isPasswordValid) {
-        return reply.code(400).send({
+        return reply.code(401).send({
           success: false,
           message: "Invalid credentials",
         });
@@ -118,10 +134,7 @@ async function loginRoute(fastify) {
       }
 
       console.error(err);
-      return reply.code(500).send({
-        success: false,
-        message: err.message || "Something went wrong",
-      });
+      throw err;
     }
   });
 }
