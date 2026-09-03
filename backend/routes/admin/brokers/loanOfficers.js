@@ -2,6 +2,7 @@ const bcrypt = require("bcrypt");
 const path = require("path");
 const fs = require("fs");
 const { pipeline } = require("stream/promises");
+const { validateFileMimetype } = require("../../../utils/security/fileValidator");
 const { adminLogs } = require("../../../services/logger/contextLogger.js");
 const {
   sendLoanOfficerCredentialsEmail,
@@ -141,11 +142,13 @@ async function parseMultipartRequest(request) {
       if (part.fieldname !== "avatar") continue;
 
       const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
-      if (!allowedTypes.includes(part.mimetype)) {
-        const error = new Error("Invalid image type. Only jpg, png, gif, webp allowed.");
+      const validation = await validateFileMimetype(part.file, allowedTypes);
+      if (!validation.isValid) {
+        const error = new Error(`Invalid image type. Detected: ${validation.detectedMime || "unknown"}. Only jpg, png, gif, webp allowed.`);
         error.statusCode = 400;
         throw error;
       }
+      const validatedStream = validation.stream;
 
       const uploadDir = path.join(process.cwd(), "public/broker/loanofficer");
       if (!fs.existsSync(uploadDir)) {
@@ -154,7 +157,7 @@ async function parseMultipartRequest(request) {
 
       const fileName = `${Date.now()}-${part.filename.replace(/\s+/g, "_")}`;
       const filePath = path.join(uploadDir, fileName);
-      await pipeline(part.file, fs.createWriteStream(filePath));
+      await pipeline(validatedStream, fs.createWriteStream(filePath));
       avatarPath = `/public/broker/loanofficer/${fileName}`;
     } else {
       fields[part.fieldname] = part.value;

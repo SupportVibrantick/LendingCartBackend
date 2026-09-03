@@ -1,6 +1,7 @@
 const path = require("path");
 const fs = require("fs");
 const { pipeline } = require("stream/promises");
+const { validateFileMimetype } = require("../../../utils/security/fileValidator");
 const {
   ensureLenderProfileFields,
 } = require("../../../prisma/ensureLenderProfileFields");
@@ -296,12 +297,14 @@ async function lenderUpdateProfileRoutes(fastify) {
               "image/webp",
             ];
 
-            if (!allowedMimeTypes.includes(part.mimetype)) {
+            const validation = await validateFileMimetype(part.file, allowedMimeTypes);
+            if (!validation.isValid) {
               return reply.code(400).send({
                 success: false,
-                message: "Only JPG, PNG, WEBP images allowed",
+                message: `Invalid file type. Detected: ${validation.detectedMime || "unknown"}. Only JPG, PNG, WEBP images allowed`,
               });
             }
+            const validatedStream = validation.stream;
 
             const uploadDir = path.join(
               process.cwd(),
@@ -316,7 +319,7 @@ async function lenderUpdateProfileRoutes(fastify) {
             const fileName = `${userId}-${Date.now()}${fileExt}`;
             const filePath = path.join(uploadDir, fileName);
 
-            await pipeline(part.file, fs.createWriteStream(filePath));
+            await pipeline(validatedStream, fs.createWriteStream(filePath));
             profileImage = `/public/uploads/profile/${fileName}`;
           }
         }

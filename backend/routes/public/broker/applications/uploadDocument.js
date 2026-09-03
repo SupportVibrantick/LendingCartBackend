@@ -14,6 +14,7 @@ const fs = require("fs");
 const path = require("path");
 const { pipeline } = require("stream/promises");
 const crypto = require("crypto");
+const { validateFileMimetype } = require("../../../utils/security/fileValidator");
 
 async function uploadDocumentRoute(fastify) {
   fastify.post(
@@ -100,12 +101,14 @@ async function uploadDocumentRoute(fastify) {
           "image/webp",
         ];
 
-        if (!allowedMimeTypes.includes(file.mimetype)) {
+        const validation = await validateFileMimetype(file.file, allowedMimeTypes);
+        if (!validation.isValid) {
           return reply.code(400).send({
             success: false,
-            message: "Invalid file type. Only PDF, JPG, PNG, WEBP allowed",
+            message: `Invalid file type. Detected: ${validation.detectedMime || "unknown"}. Only PDF, JPG, PNG, WEBP allowed`,
           });
         }
+        const validatedStream = validation.stream;
 
         if (file.file.truncated) {
           return reply.code(400).send({
@@ -132,7 +135,7 @@ async function uploadDocumentRoute(fastify) {
         const filePath = path.join(uploadDir, safeFileName);
         const fileUrl = `/uploads/loan-documents/${submission.application.id}/${requirementId}/${safeFileName}`;
 
-        await pipeline(file.file, fs.createWriteStream(filePath));
+        await pipeline(validatedStream, fs.createWriteStream(filePath));
 
         await fastify.prisma.$transaction(async (tx) => {
           await tx.applicationDocumentUpload.create({
