@@ -24,6 +24,7 @@ module.exports = async function uploadSubmissionDocument(fastify) {
     "/submissions/:submissionId/documents/:requirementId/upload",
     async (req, reply) => {
       try {
+        fastify.log.info({ submissionId: req.params.submissionId }, "Entering uploadDocumentRoute");
         /* ===============================
            AUTH CHECK (BROKER ONLY)
         =============================== */
@@ -94,7 +95,9 @@ module.exports = async function uploadSubmissionDocument(fastify) {
         /* ===============================
            HANDLE FILE
         =============================== */
+        fastify.log.info("Fetching file from request");
         const file = await req.file();
+        fastify.log.info({ filename: file?.filename }, "File received");
 
         if (!file) {
           return reply.code(400).send({
@@ -110,7 +113,10 @@ module.exports = async function uploadSubmissionDocument(fastify) {
           "image/webp",
         ];
 
+        fastify.log.info("Validating file mimetype");
         const validation = await validateFileMimetype(file.file, allowedMimeTypes);
+        fastify.log.info({ isValid: validation.isValid, mime: validation.detectedMime }, "Mimetype validation complete");
+
         if (!validation.isValid) {
           return reply.code(400).send({
             success: false,
@@ -158,133 +164,44 @@ module.exports = async function uploadSubmissionDocument(fastify) {
         /* ===============================
            SAVE FILE (STREAM SAFE)
         =============================== */
+        fastify.log.info(`Saving file to ${filePath}`);
         const writeStream = fs.createWriteStream(filePath);
         await pipeline(validatedStream, writeStream);
+        fastify.log.info("File saved successfully");
 
         const fileUrl = `/uploads/loan-documents/${submission.application.id}/${requirementId}/${safeFileName}`;
 
         /* ===============================
            TRANSACTION (SAVE + STATUS)
         =============================== */
-        const createdUpload = await fastify.prisma.$transaction(async (tx) => {
-          const upload = await tx.applicationDocumentUpload.create({
-            data: {
-              loanApplicationId: submission.application.id,
-              documentRequirementId: requirementId,
-              uploadedByUserId: userId,
-
-              fileName: file.filename,
-              fileUrl,
-              fileMimeType: file.mimetype,
-
-              isSubmittedToLender: false,
-            },
-          });
-
-          const totalUploads = await tx.applicationDocumentUpload.count({
-            where: { documentRequirementId: requirementId },
-          });
-
-          let newStatus = "PARTIAL";
-
-          if (requirement.minFiles && totalUploads >= requirement.minFiles) {
-            newStatus = "COMPLETE";
-          }
-
-          await tx.applicationDocumentRequirement.update({
-            where: { id: requirementId },
-            data: { status: newStatus },
-          });
-
-          if (requirement.source === "SUB_BROKER_ADDED") {
-            await tx.subBrokerSubmission.updateMany({
-              where: {
-                documentUpload: { documentRequirementId: requirementId },
-                status: "PENDING",
-              },
-              data: { status: "REVIEWED", reviewedAt: new Date() },
-            });
-          }
-
-          return upload;
-        });
-
-        let autoForwarded = false;
-        const autoForwardEnabled = await getAutoForwardDocumentsToLender(
-          fastify.prisma,
-          submission.application.id,
-        );
-
-        if (autoForwardEnabled) {
-          try {
-            const forwardResult = await autoForwardDocumentUpload(
-              fastify.prisma,
-              {
-                loanApplicationId: submission.application.id,
-                documentRequirementId: requirementId,
-                documentUploadId: createdUpload.id,
-              },
-            );
-            autoForwarded = Boolean(forwardResult.forwarded);
-
-            if (forwardResult.forwarded) {
-              const requirement = await fastify.prisma.applicationDocumentRequirement.findUnique({
-                where: { id: requirementId },
-                select: {
-                  documentType: { select: { name: true } },
-                },
-              });
-
-              await notifyLendersForForwardedDocument(fastify.prisma, fastify.io, {
-                applicationLenderIds: forwardResult.applicationLenderIds || [],
-                loanApplicationId: submission.application.id,
-                applicationNumber: submission.application.applicationNumber,
-                documentTypeName:
-                  requirement?.documentType?.name || createdUpload.fileName,
-                source: "Broker",
-              });
-            }
-          } catch (forwardErr) {
-            fastify.log.error(
-              {
-                error: forwardErr.message,
-                loanApplicationId: submission.application.id,
-                documentRequirementId: requirementId,
-                documentUploadId: createdUpload.id,
-              },
-              "Auto-forward broker document failed",
-            );
-          }
-        }
-
-        try {
-          await syncUploadToExistingLenderSubmissions(fastify.prisma, {
+        fastify.log.info("Creating upload record");
+        const createdUpload = await fastify.prisma.applicationDocumentUpload.create({
+          data: {
             loanApplicationId: submission.application.id,
             documentRequirementId: requirementId,
-            documentUploadId: createdUpload.id,
-          });
-        } catch (syncErr) {
-          fastify.log.error(
-            {
-              error: syncErr.message,
-              loanApplicationId: submission.application.id,
-              documentRequirementId: requirementId,
-              documentUploadId: createdUpload.id,
-            },
-            "Sync upload to existing lender submissions failed",
-          );
-        }
+            uploadedByUserId: userId,
+
+            fileName: file.filename,
+            fileUrl,
+            fileMimeType: file.mimetype,
+
+            isSubmittedToLender: false,
+          },
+        });
+        fastify.log.info("Upload record created");
 
         /* ===============================
            RESPONSE
         =============================== */
+        // Process status updates, forwarding and syncing in the background
+        processDocumentPostUpload(fastify, submission, requirementId, createdUpload).catch(err => {
+          fastify.log.error({ err }, "Unexpected error in background post-upload process");
+        });
+
         return reply.send({
           success: true,
-          message: autoForwarded
-            ? "Document uploaded and forwarded to lender"
-            : "Document uploaded successfully",
+          message: "Document uploaded successfully",
           fileUrl,
-          autoForwarded,
         });
       } catch (error) {
         fastify.log.error({
@@ -300,6 +217,119 @@ module.exports = async function uploadSubmissionDocument(fastify) {
     },
   );
 };
+
+async function processDocumentPostUpload(fastify, submission, requirementId, createdUpload) {
+  try {
+    // 1. Update Requirement Status and SubBroker Submissions
+    await fastify.prisma.$transaction(async (tx) => {
+      const requirement = await tx.applicationDocumentRequirement.findUnique({
+        where: { id: requirementId },
+      });
+
+      if (requirement) {
+        const totalUploads = await tx.applicationDocumentUpload.count({
+          where: { documentRequirementId: requirementId },
+        });
+
+        let newStatus = "PARTIAL";
+        if (requirement.minFiles && totalUploads >= requirement.minFiles) {
+          newStatus = "COMPLETE";
+        }
+
+        await tx.applicationDocumentRequirement.update({
+          where: { id: requirementId },
+          data: { status: newStatus },
+        });
+
+        if (requirement.source === "SUB_BROKER_ADDED") {
+          await tx.subBrokerSubmission.updateMany({
+            where: {
+              documentUpload: { documentRequirementId: requirementId },
+              status: "PENDING",
+            },
+            data: { status: "REVIEWED", reviewedAt: new Date() },
+          });
+        }
+      }
+    });
+
+    // 2. Auto-Forward to Lenders
+    const autoForwardEnabled = await getAutoForwardDocumentsToLender(
+      fastify.prisma,
+      submission.application.id,
+    );
+
+    if (autoForwardEnabled) {
+      try {
+        const forwardResult = await autoForwardDocumentUpload(
+          fastify.prisma,
+          {
+            loanApplicationId: submission.application.id,
+            documentRequirementId: requirementId,
+            documentUploadId: createdUpload.id,
+          },
+        );
+
+        if (forwardResult.forwarded) {
+          const requirement = await fastify.prisma.applicationDocumentRequirement.findUnique({
+            where: { id: requirementId },
+            select: {
+              documentType: { select: { name: true } },
+            },
+          });
+
+          await notifyLendersForForwardedDocument(fastify.prisma, fastify.io, {
+            applicationLenderIds: forwardResult.applicationLenderIds || [],
+            loanApplicationId: submission.application.id,
+            applicationNumber: submission.application.applicationNumber,
+            documentTypeName:
+              requirement?.documentType?.name || createdUpload.fileName,
+            source: "Broker",
+          });
+        }
+      } catch (forwardErr) {
+        fastify.log.error(
+          {
+            error: forwardErr.message,
+            loanApplicationId: submission.application.id,
+            documentRequirementId: requirementId,
+            documentUploadId: createdUpload.id,
+          },
+          "Auto-forward broker document failed",
+        );
+      }
+    }
+
+    // 3. Sync Upload to Existing Lender Submissions
+    try {
+      await syncUploadToExistingLenderSubmissions(fastify.prisma, {
+        loanApplicationId: submission.application.id,
+        documentRequirementId: requirementId,
+        documentUploadId: createdUpload.id,
+      });
+    } catch (syncErr) {
+      fastify.log.error(
+        {
+          error: syncErr.message,
+          loanApplicationId: submission.application.id,
+          documentRequirementId: requirementId,
+          documentUploadId: createdUpload.id,
+        },
+        "Sync upload to existing lender submissions failed",
+      );
+    }
+  } catch (error) {
+    fastify.log.error(
+      {
+        error: error.message,
+        loanApplicationId: submission?.application?.id,
+        documentRequirementId: requirementId,
+        documentUploadId: createdUpload?.id,
+      },
+      "Post-upload processing failed",
+    );
+  }
+}
 
 /* ===============================
    HELPER: MIME → EXTENSION
