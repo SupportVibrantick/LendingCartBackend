@@ -1,5 +1,5 @@
 const fileType = require("file-type");
-const { Readable } = require("stream");
+const { Readable, PassThrough } = require("stream");
 
 /**
  * Validates the actual content type of a file stream using magic numbers.
@@ -17,8 +17,10 @@ async function validateFileMimetype(stream, allowedMimeTypes) {
   // We read a chunk from the stream
   const chunk = await new Promise((resolve, reject) => {
     stream.once("data", (data) => {
-      // We only need the first 4100 bytes
       resolve(data);
+    });
+    stream.once("end", () => {
+      resolve(null);
     });
     stream.once("error", reject);
   });
@@ -32,17 +34,16 @@ async function validateFileMimetype(stream, allowedMimeTypes) {
 
   const isValid = !!(detectedMime && allowedMimeTypes.includes(detectedMime));
 
-  // Create a new stream that starts with the chunk we already read
-  const combinedStream = new Readable({
-    read() {},
-    async construct() {
-      this.push(chunk);
-      // Then pipe the rest of the original stream into this one
-      for await (const part of stream) {
-        this.push(part);
-      }
-      this.push(null);
-    },
+  // Use a PassThrough stream to prepend the buffer we already read
+  const combinedStream = new PassThrough();
+  combinedStream.write(chunk);
+
+  // Pipe the original stream into the PassThrough
+  stream.pipe(combinedStream);
+
+  // Ensure the combined stream ends when the original stream ends
+  stream.on("end", () => {
+    combinedStream.end();
   });
 
   return {
