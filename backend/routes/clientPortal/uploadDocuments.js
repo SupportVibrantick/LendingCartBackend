@@ -2,6 +2,7 @@ const fs = require("fs");
 const path = require("path");
 const { pipeline } = require("stream/promises");
 const crypto = require("crypto");
+const { validateFileMimetype } = require("../../utils/security/fileValidator");
 const clientAuthMiddleware = require("../../middleware/clientAuthMiddleware");
 const { loadTemplate } = require("../../utils/email/loadTemplate");
 const { buildDocumentUploadEmailData } = require("../../utils/email/emailTemplateData");
@@ -159,12 +160,14 @@ async function uploadDocumentsRoute(fastify) {
             ? "image/jpeg"
             : file.mimetype;
 
-        if (!allowedMime.includes(file.mimetype)) {
+        const validation = await validateFileMimetype(file.file, allowedMime);
+        if (!validation.isValid) {
           return reply.code(400).send({
             success: false,
-            message: "Only PDF, JPG/JFIF, PNG, WEBP allowed",
+            message: `Invalid file type. Detected: ${validation.detectedMime || "unknown"}. Only PDF, JPG, PNG, WEBP allowed`,
           });
         }
+        const validatedStream = validation.stream;
 
         /* ============================
            SAFE FILE NAME
@@ -192,7 +195,7 @@ async function uploadDocumentsRoute(fastify) {
 
         const filePath = path.join(uploadDir, safeFileName);
 
-        await pipeline(file.file, fs.createWriteStream(filePath));
+        await pipeline(validatedStream, fs.createWriteStream(filePath));
 
         const fileUrl = `/uploads/loan-documents/${safeFileName}`;
 

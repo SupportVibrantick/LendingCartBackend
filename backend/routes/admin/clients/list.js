@@ -70,6 +70,7 @@ async function listClients(fastify) {
               select: {
                 submissions: {
                   orderBy: { createdAt: "desc" },
+                  take: 1,
                   select: {
                     id: true,
                     createdAt: true,

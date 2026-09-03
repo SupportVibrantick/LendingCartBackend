@@ -10,7 +10,7 @@
  */
 require("dotenv").config();
 
-const { PrismaClient } = require("@prisma/client");
+const prisma = require("../config/prisma");
 const {
   findOrganizationsReadyForGhlUserProvisioning,
 } = require("../services/ghl/diagnoseOrganizationGhlSetup.service");
@@ -37,7 +37,7 @@ function looksLikeSecretLeak(text) {
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
-  const prisma = new PrismaClient();
+  // Use shared prisma client
 
   try {
     const found = await findOrganizationsReadyForGhlUserProvisioning(prisma, {

@@ -227,12 +227,14 @@ async function statusRoutes(fastify) {
 
         for (let i = 0; i < ids.length; i += BATCH_SIZE) {
           const batch = ids.slice(i, i + BATCH_SIZE);
-          await prisma.$transaction(async (tx) => {
-            for (const id of batch) {
-              const res = await toggleOrgStatusTx(tx, id, false, actor);
-              if (res) results.push(res);
-            }
-          });
+          const batchResults = await Promise.all(
+            batch.map(async (id) => {
+              return await prisma.$transaction(async (tx) => {
+                return await toggleOrgStatusTx(tx, id, false, actor);
+              });
+            })
+          );
+          results.push(...batchResults.filter((res) => res !== null));
         }
 
         adminLogs.info("Bulk brokers deactivated", {
@@ -290,12 +292,14 @@ async function statusRoutes(fastify) {
 
         for (let i = 0; i < ids.length; i += BATCH_SIZE) {
           const batch = ids.slice(i, i + BATCH_SIZE);
-          await prisma.$transaction(async (tx) => {
-            for (const id of batch) {
-              const res = await toggleOrgStatusTx(tx, id, true, actor);
-              if (res) results.push(res);
-            }
-          });
+          const batchResults = await Promise.all(
+            batch.map(async (id) => {
+              return await prisma.$transaction(async (tx) => {
+                return await toggleOrgStatusTx(tx, id, true, actor);
+              });
+            })
+          );
+          results.push(...batchResults.filter((res) => res !== null));
         }
 
         adminLogs.info("Bulk brokers activated", {

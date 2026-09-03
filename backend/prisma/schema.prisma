@@ -1614,6 +1614,7 @@ model AuditLog {
   @@index([actorOrgId])
   @@index([dashboard])
   @@index([createdAt])
+  @@index([entityId])
   @@index([entityType, createdAt])
   @@map("audit_logs")
 }
