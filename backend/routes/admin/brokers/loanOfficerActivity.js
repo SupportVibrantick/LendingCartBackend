@@ -1,4 +1,5 @@
 const { adminLogs } = require("../../../services/logger/contextLogger.js");
+const { sanitizeAuditValue } = require("../../../services/logger/sanitizeAuditValue");
 
 function formatName(first, last) {
   return `${first || ""} ${last || ""}`.trim() || "Loan Officer";
@@ -152,24 +153,43 @@ async function adminBrokerLoanOfficerActivityRoutes(fastify) {
         prisma.auditLog.count({ where: activityWhere }),
       ]);
 
-      const activity = logs.map((log) => ({
-        id: log.id,
-        category: log.category,
-        action: log.action,
-        entityType: log.entityType,
-        entityId: log.entityId,
-        createdAt: log.createdAt,
-        ipAddress: log.ipAddress,
-        oldValue: log.oldValueJson ? JSON.parse(log.oldValueJson) : null,
-        newValue: log.newValueJson ? JSON.parse(log.newValueJson) : null,
-        officer: log.actorUser
-          ? {
-              id: log.actorUser.id,
-              email: log.actorUser.email,
-              name: formatName(log.actorUser.firstName, log.actorUser.lastName),
-            }
-          : null,
-      }));
+      const activity = logs.map((log) => {
+        let oldValue = null;
+        let newValue = null;
+        try {
+          oldValue = log.oldValueJson
+            ? sanitizeAuditValue(JSON.parse(log.oldValueJson))
+            : null;
+        } catch {
+          oldValue = null;
+        }
+        try {
+          newValue = log.newValueJson
+            ? sanitizeAuditValue(JSON.parse(log.newValueJson))
+            : null;
+        } catch {
+          newValue = null;
+        }
+
+        return {
+          id: log.id,
+          category: log.category,
+          action: log.action,
+          entityType: log.entityType,
+          entityId: log.entityId,
+          createdAt: log.createdAt,
+          ipAddress: log.ipAddress,
+          oldValue,
+          newValue,
+          officer: log.actorUser
+            ? {
+                id: log.actorUser.id,
+                email: log.actorUser.email,
+                name: formatName(log.actorUser.firstName, log.actorUser.lastName),
+              }
+            : null,
+        };
+      });
 
       return reply.send({
         success: true,

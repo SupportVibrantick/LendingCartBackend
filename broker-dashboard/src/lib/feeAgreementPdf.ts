@@ -1,3 +1,4 @@
+import DOMPurify from "dompurify";
 import html2canvas from "html2canvas";
 import { jsPDF } from "jspdf";
 
@@ -6,6 +7,38 @@ const LOGO_MAX_WIDTH = 220;
 const LOGO_MAX_HEIGHT = 96;
 const SIGNATURE_MAX_WIDTH = 220;
 const SIGNATURE_MAX_HEIGHT = 80;
+
+/**
+ * Sanitize agreement HTML before any `.innerHTML` assignment.
+ * Client/broker names and other DB fields are interpolated into this HTML;
+ * unsanitized markup would XSS the broker who generates the PDF.
+ */
+function sanitizeFeeAgreementHtml(html: string): string {
+  return DOMPurify.sanitize(html, {
+    USE_PROFILES: { html: true },
+    FORBID_TAGS: [
+      "script",
+      "iframe",
+      "object",
+      "embed",
+      "form",
+      "input",
+      "button",
+      "textarea",
+      "select",
+      "link",
+      "meta",
+      "base",
+      "svg",
+      "math",
+      "video",
+      "audio",
+      "source",
+    ],
+    ALLOW_DATA_ATTR: false,
+    ALLOW_UNKNOWN_PROTOCOLS: false,
+  });
+}
 
 function sanitizeFilenamePart(value: string): string {
   return value
@@ -87,7 +120,8 @@ function resizeImageDataUrl(
 
 async function inlineImagesInHtml(html: string): Promise<string> {
   const wrapper = document.createElement("div");
-  wrapper.innerHTML = html;
+  // Parse only after sanitization — never assign raw DB/interpolated HTML.
+  wrapper.innerHTML = sanitizeFeeAgreementHtml(html);
 
   const images = Array.from(wrapper.querySelectorAll("img"));
 
@@ -198,7 +232,8 @@ function buildPrintHost(html: string): HTMLDivElement {
   host.appendChild(style);
 
   const content = document.createElement("div");
-  content.innerHTML = html;
+  // Parse only after sanitization — never assign raw DB/interpolated HTML.
+  content.innerHTML = sanitizeFeeAgreementHtml(html);
   host.appendChild(content);
 
   return host;
@@ -291,7 +326,8 @@ export async function downloadFeeAgreementPdf(options: {
   const { agreementHtml, element, filename } = options;
 
   if (agreementHtml?.trim()) {
-    const host = buildPrintHost(await inlineImagesInHtml(agreementHtml));
+    const safeHtml = sanitizeFeeAgreementHtml(agreementHtml);
+    const host = buildPrintHost(await inlineImagesInHtml(safeHtml));
     document.body.appendChild(host);
 
     try {
