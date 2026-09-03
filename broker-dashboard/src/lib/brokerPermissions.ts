@@ -163,6 +163,11 @@ export const LOAN_OFFICER_NAV_ITEMS: LoanOfficerNavItem[] = [
     permission: "CREATE_APPLICATION",
   },
   {
+    name: "GoHighLevel",
+    path: "/loan-officer/settings/integrations/ghl",
+    always: true,
+  },
+  {
     name: "User Management",
     subItems: [
       {
@@ -295,6 +300,7 @@ export const LO_ROUTE_PERMISSIONS: Record<
   "email-marketing": "SEND_EMAILS",
   messages: "CHAT",
   "settings/branding": LO_BRANDING_ACCESS_PERMISSIONS,
+  "settings/integrations/ghl": "always",
   "admin-logs": "VIEW_REPORTS",
   commissions: "VIEW_COMMISSIONS",
   invoices: "VIEW_INVOICES",
