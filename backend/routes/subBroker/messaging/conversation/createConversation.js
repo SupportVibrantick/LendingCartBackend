@@ -2,6 +2,11 @@
  * Sub Broker -> Create Conversation
  */
 
+const {
+  findBrokerAdmin,
+  findOrCreateSubBrokerBrokerConversation,
+} = require("../../../../services/messaging/brokerOfficerConversation");
+
 module.exports = async function createSubBrokerConversation(fastify) {
   fastify.post(
     "/conversations",
@@ -14,19 +19,19 @@ module.exports = async function createSubBrokerConversation(fastify) {
 
         body: {
           type: "object",
-
           required: ["loanApplicationId", "chatCategory"],
-
           properties: {
             loanApplicationId: {
               type: "string",
               format: "uuid",
             },
-
             chatCategory: {
               type: "string",
-
               enum: ["PRINCIPAL_BROKER", "LOAN_OFFICER"],
+            },
+            loanOfficerId: {
+              type: "string",
+              format: "uuid",
             },
           },
         },
@@ -35,30 +40,24 @@ module.exports = async function createSubBrokerConversation(fastify) {
 
     async (req, reply) => {
       const prisma = fastify.prisma;
-
-      const { loanApplicationId, chatCategory } = req.body;
+      const { loanApplicationId, chatCategory, loanOfficerId } = req.body;
 
       try {
-        const userId = req.user.userId;
-
-        /* =====================================
-           VERIFY ASSIGNMENT
-        ===================================== */
+        const userId = req.user.userId || req.user.id;
 
         const assignment = await prisma.subBrokerApplication.findFirst({
           where: {
             loanApplicationId,
             subBrokerId: userId,
           },
-
           include: {
             loanApplication: {
               select: {
                 id: true,
+                brokerOrgId: true,
                 brokerUserId: true,
               },
             },
-
             assignedBy: {
               select: {
                 id: true,
@@ -74,122 +73,75 @@ module.exports = async function createSubBrokerConversation(fastify) {
           });
         }
 
-        /* =====================================
-           EXISTING CONVERSATION
-        ===================================== */
-
-        const existingConversation = await prisma.conversation.findFirst({
-          where: {
-            loanApplicationId,
-
-            type: "SUBBROKER_BROKER",
-
-            chatCategory,
-
-            participants: {
-              some: {
-                participantId: userId,
-                participantType: "SUB_BROKER",
-              },
-            },
-          },
-        });
-
-        if (existingConversation) {
-          return reply.send({
-            success: true,
-
-            message: "Conversation already exists",
-
-            data: {
-              id: existingConversation.id,
-
-              type: "SUBBROKER_BROKER",
-
-              chatCategory,
-            },
-          });
-        }
-        /* =====================================
-           CREATE CONVERSATION
-        ===================================== */
-
-        const conversation = await prisma.conversation.create({
-          data: {
-            loanApplicationId,
-
-            type: "SUBBROKER_BROKER",
-
-            chatCategory,
-          },
-        });
-
-        const participants = [];
-
-        /* =====================================
-           SUB BROKER
-        ===================================== */
-
-        participants.push({
-          conversationId: conversation.id,
-
-          participantType: "SUB_BROKER",
-
-          participantId: userId,
-        });
-
-        let brokerUserId = null;
+        const loan = assignment.loanApplication;
+        let brokerParticipantId = null;
 
         if (chatCategory === "PRINCIPAL_BROKER") {
-          brokerUserId =
-            assignment.assignedById || assignment.loanApplication?.brokerUserId;
+          const admin = await findBrokerAdmin(prisma, loan.brokerOrgId);
+          brokerParticipantId =
+            admin?.id ||
+            assignment.assignedById ||
+            loan.brokerUserId ||
+            null;
         }
 
         if (chatCategory === "LOAN_OFFICER") {
-          brokerUserId = assignment.loanApplication?.brokerUserId;
+          const targetOfficerId = loanOfficerId || loan.brokerUserId;
+
+          if (!targetOfficerId) {
+            return reply.code(400).send({
+              success: false,
+              message: "Loan officer not found",
+            });
+          }
+
+          const assigned =
+            loan.brokerUserId === targetOfficerId ||
+            Boolean(
+              await prisma.loanOfficerApplication.findFirst({
+                where: {
+                  loanApplicationId,
+                  loanOfficerId: targetOfficerId,
+                },
+                select: { id: true },
+              }),
+            );
+
+          if (!assigned) {
+            return reply.code(400).send({
+              success: false,
+              message: "Loan officer is not assigned to this application",
+            });
+          }
+
+          brokerParticipantId = targetOfficerId;
         }
 
-        if (!brokerUserId) {
-          await prisma.conversation.delete({
-            where: {
-              id: conversation.id,
-            },
-          });
-
+        if (!brokerParticipantId) {
           return reply.code(400).send({
             success: false,
             message: "Broker user not found",
           });
         }
 
-        participants.push({
-          conversationId: conversation.id,
-
-          participantType: "BROKER",
-
-          participantId: brokerUserId,
-        });
-
-        /* =====================================
-           SAVE PARTICIPANTS
-        ===================================== */
-
-        await prisma.conversationParticipant.createMany({
-          data: participants,
-
-          skipDuplicates: true,
-        });
+        const conversation = await findOrCreateSubBrokerBrokerConversation(
+          prisma,
+          {
+            loanApplicationId,
+            subBrokerId: userId,
+            ...(chatCategory === "LOAN_OFFICER"
+              ? { loanOfficerId: brokerParticipantId }
+              : { brokerAdminId: brokerParticipantId }),
+            chatCategory,
+          },
+        );
 
         return reply.send({
           success: true,
-
-          message: "Conversation created successfully",
-
+          message: "Conversation ready",
           data: {
             id: conversation.id,
-
             type: "SUBBROKER_BROKER",
-
             chatCategory,
           },
         });
@@ -199,7 +151,6 @@ module.exports = async function createSubBrokerConversation(fastify) {
             error: error.message,
             stack: error.stack,
           },
-
           "Failed to create sub broker conversation",
         );
 

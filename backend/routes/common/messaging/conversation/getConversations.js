@@ -4,14 +4,14 @@
  */
 
 const {
-  buildBrokerSideEntry,
   syncClientBrokerTeamParticipants,
   isCoBrokerClientChannel,
-  isPrincipalClientBrokerChannel,
   resolvePrincipalBrokerDisplay,
   formatBrokerOfficerInboxEntry,
   filterLoanOfficerClientThreads,
   filterBrokerAdminClientThreads,
+  listAssignedStaffForLoanChat,
+  buildAssignedStaffConversationEntries,
 } = require("../../../../services/messaging/brokerOfficerConversation");
 const { resolveClientDisplayName } = require("../../../../services/messaging/resolveClientDisplayName");
 const {
@@ -316,6 +316,20 @@ module.exports = async function getConversations(fastify) {
           conversations = filterBrokerAdminClientThreads(conversations);
         }
 
+        const injectStaffContacts =
+          shouldShowBrokerOfficerPlaceholder(req) &&
+          !hasRole(req.user, "BROKER_OFFICER") &&
+          !hasRole(req.user, "SUB_BROKER");
+
+        const { officers: assignedOfficers, coBrokers: assignedCoBrokers } =
+          injectStaffContacts
+            ? await listAssignedStaffForLoanChat(
+                prisma,
+                loanId,
+                loan.brokerUser,
+              )
+            : { officers: [], coBrokers: [] };
+
         const principalBroker = await resolvePrincipalBrokerDisplay(
           prisma,
           loan.brokerOrgId,
@@ -355,6 +369,13 @@ module.exports = async function getConversations(fastify) {
 
             // CLIENT CHAT
             if (conv.type === "CLIENT_BROKER") {
+              if (
+                injectStaffContacts &&
+                isCoBrokerClientChannel(conv.chatCategory)
+              ) {
+                return null;
+              }
+
               const clientName = await resolveClientDisplayName(prisma, {
                 clientId: loan.clientId,
                 loanApplicationId: loanId,
@@ -460,6 +481,12 @@ module.exports = async function getConversations(fastify) {
             // SUB BROKER CHAT
 
             if (conv.type === "SUBBROKER_BROKER") {
+              if (
+                injectStaffContacts &&
+                conv.chatCategory !== "LOAN_OFFICER"
+              ) {
+                return null;
+              }
               const subBrokerParticipant = conv.participants.find(
                 (p) => p.participantType === "SUB_BROKER",
               );
@@ -508,6 +535,9 @@ module.exports = async function getConversations(fastify) {
             }
 
             if (conv.type === "BROKER_OFFICER") {
+              if (injectStaffContacts) {
+                return null;
+              }
               const brokerOfficerMeta = formatBrokerOfficerInboxEntry({
                 loan,
                 isLoanOfficerViewer: hasRole(req.user, "BROKER_OFFICER"),
@@ -552,17 +582,33 @@ module.exports = async function getConversations(fastify) {
           }),
         );
 
-        if (loan.brokerUser && shouldShowBrokerOfficerPlaceholder(req)) {
-          const officerConversation = conversations.find(
-            (conv) => conv.type === "BROKER_OFFICER",
-          );
+        const staffEntries = injectStaffContacts
+          ? (() => {
+              const { officerEntries, coBrokerEntries } =
+                buildAssignedStaffConversationEntries({
+                  officers: assignedOfficers,
+                  coBrokers: assignedCoBrokers,
+                  conversations,
+                  primaryOfficerId: loan.brokerUserId,
+                });
+              return [...officerEntries, ...coBrokerEntries];
+            })()
+          : [];
 
-          if (!officerConversation) {
-            formatted.unshift(
-              buildBrokerSideEntry(null, loan.brokerUser),
-            );
-          }
-        }
+        const formattedItems = formatted.filter(Boolean);
+        const clientItems = formattedItems.filter(
+          (item) =>
+            item.type === "CLIENT_BROKER" || item.type === "CLIENT_OFFICER",
+        );
+        const otherItems = formattedItems.filter(
+          (item) =>
+            item.type !== "CLIENT_BROKER" && item.type !== "CLIENT_OFFICER",
+        );
+        const mergedFormatted = [
+          ...clientItems,
+          ...staffEntries,
+          ...otherItems,
+        ];
 
         if (isLenderUser(req) && lenderAccess) {
           const { inbox: lenderInbox, conversations: lenderConversations } =
@@ -600,7 +646,7 @@ module.exports = async function getConversations(fastify) {
 
         const viewerRole = resolveViewerRole(req);
 
-        const dedupedFormatted = formatted.filter((item) => {
+        const dedupedFormatted = mergedFormatted.filter((item) => {
           if (
             viewerRole === "BROKER" &&
             item.type === "SUBBROKER_BROKER" &&

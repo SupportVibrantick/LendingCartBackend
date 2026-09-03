@@ -4,6 +4,9 @@ import {
   Building2,
   Camera,
   Check,
+  Eye,
+  EyeOff,
+  LockKeyhole,
   Mail,
   Pencil,
   Phone,
@@ -15,14 +18,30 @@ import toast from "react-hot-toast";
 import {
   LO_API_BASE,
   LO_USER_KEY,
+  checkLoanOfficerResponse,
   getLoanOfficerToken,
+  loAuthHeaders,
 } from "../../../lib/loanOfficerApi";
+import { isSessionExpiredError } from "../../../lib/sessionExpiry";
 
 const inputClass =
   "w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-gray-900 outline-none transition focus:border-[#13538A]/40 focus:bg-white focus:ring-2 focus:ring-[#13538A]/10 dark:border-gray-700 dark:bg-gray-800 dark:text-white";
 
 const displayClass =
   "rounded-xl border border-gray-100 bg-gray-50 px-4 py-2.5 text-sm text-gray-800 dark:border-gray-700 dark:bg-gray-800/80 dark:text-gray-200";
+
+function validateNewPassword(password: string) {
+  if (password.length < 8) return "Password must be at least 8 characters";
+  if (!/[A-Z]/.test(password))
+    return "Password must contain at least one uppercase letter";
+  if (!/[a-z]/.test(password))
+    return "Password must contain at least one lowercase letter";
+  if (!/[0-9]/.test(password))
+    return "Password must contain at least one number";
+  if (!/[^A-Za-z0-9]/.test(password))
+    return "Password must contain at least one special character";
+  return null;
+}
 
 export default function Profile() {
   const [user, setUser] = useState<any>(null);
@@ -40,12 +59,21 @@ export default function Profile() {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
 
+  const [showPasswordSection, setShowPasswordSection] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [changingPassword, setChangingPassword] = useState(false);
+
   async function loadUser() {
     try {
       const res = await fetch(`${LO_API_BASE}/loanofficer/auth/me`, {
         headers: { Authorization: `Bearer ${getLoanOfficerToken()}` },
       });
       const json = await res.json();
+      checkLoanOfficerResponse(res, json);
       if (!res.ok || json.ok !== true) {
         throw new Error(json.message || "Failed to load profile");
       }
@@ -67,7 +95,8 @@ export default function Profile() {
       setState(bp.state || "");
       setZipCode(bp.zipCode || "");
       setWebsite(bp.website || "");
-    } catch {
+    } catch (err) {
+      if (isSessionExpiredError(err)) return;
       toast.error("Unable to load profile");
     }
   }
@@ -182,6 +211,73 @@ export default function Profile() {
     setState(bp.state || "");
     setZipCode(bp.zipCode || "");
     setWebsite(bp.website || "");
+  };
+
+  const resetPasswordForm = () => {
+    setCurrentPassword("");
+    setNewPassword("");
+    setConfirmPassword("");
+    setShowCurrentPassword(false);
+    setShowNewPassword(false);
+  };
+
+  const handleChangePassword = async () => {
+    if (!currentPassword.trim()) {
+      toast.error("Current password is required");
+      return;
+    }
+
+    const passwordError = validateNewPassword(newPassword);
+    if (passwordError) {
+      toast.error(passwordError);
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      toast.error("Passwords do not match");
+      return;
+    }
+
+    setChangingPassword(true);
+    const toastId = toast.loading("Updating password...");
+
+    try {
+      const res = await fetch(
+        `${LO_API_BASE}/loanofficer/auth/change-password`,
+        {
+          method: "PUT",
+          headers: loAuthHeaders(true),
+          body: JSON.stringify({
+            currentPassword,
+            newPassword,
+          }),
+        },
+      );
+
+      const json = await res.json();
+      checkLoanOfficerResponse(res, json);
+
+      if (!res.ok || json.success === false) {
+        throw new Error(json.message || "Unable to change password");
+      }
+
+      resetPasswordForm();
+      setShowPasswordSection(false);
+      toast.success(json.message || "Password changed successfully", {
+        id: toastId,
+      });
+    } catch (err: unknown) {
+      if (isSessionExpiredError(err)) {
+        toast.dismiss(toastId);
+        return;
+      }
+      toast.error(
+        err instanceof Error ? err.message : "Unable to change password",
+        { id: toastId },
+      );
+    } finally {
+      setChangingPassword(false);
+    }
   };
 
   return (
@@ -389,6 +485,70 @@ export default function Profile() {
                 />
               </div>
             </section>
+
+            <section className="overflow-hidden rounded-2xl border border-gray-100 dark:border-gray-800">
+              <div className="flex flex-wrap items-start justify-between gap-4 border-b border-gray-100 px-4 py-4 dark:border-gray-800 sm:px-5">
+                <div>
+                  <h3 className="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white">
+                    <LockKeyhole size={16} className="text-[#13538A]" />
+                    Security
+                  </h3>
+                  <p className="mt-1 text-xs text-gray-500">
+                    Use at least 8 characters with upper, lower, number, and
+                    special character.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowPasswordSection((prev) => !prev);
+                    resetPasswordForm();
+                  }}
+                  className="rounded-xl bg-[#13538A]/10 px-4 py-2 text-sm font-medium text-[#13538A] transition hover:bg-[#13538A]/15"
+                >
+                  {showPasswordSection ? "Cancel" : "Change Password"}
+                </button>
+              </div>
+
+              {showPasswordSection && (
+                <div className="space-y-4 p-4 sm:p-5">
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <PasswordField
+                      label="Current password"
+                      value={currentPassword}
+                      show={showCurrentPassword}
+                      onToggle={() => setShowCurrentPassword((prev) => !prev)}
+                      onChange={setCurrentPassword}
+                    />
+                    <PasswordField
+                      label="New password"
+                      value={newPassword}
+                      show={showNewPassword}
+                      onToggle={() => setShowNewPassword((prev) => !prev)}
+                      onChange={setNewPassword}
+                    />
+                    <PasswordField
+                      label="Confirm new password"
+                      value={confirmPassword}
+                      show={showNewPassword}
+                      onToggle={() => setShowNewPassword((prev) => !prev)}
+                      onChange={setConfirmPassword}
+                      className="md:col-span-2"
+                    />
+                  </div>
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      onClick={handleChangePassword}
+                      disabled={changingPassword}
+                      className="inline-flex items-center gap-2 rounded-xl bg-[#13538A] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#1a6aad] disabled:opacity-50"
+                    >
+                      {changingPassword ? "Updating..." : "Update Password"}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </section>
           </div>
 
           {/* Sidebar stats */}
@@ -542,6 +702,46 @@ function StatTile({
       >
         {value}
       </p>
+    </div>
+  );
+}
+
+function PasswordField({
+  label,
+  value,
+  show,
+  onToggle,
+  onChange,
+  className = "",
+}: {
+  label: string;
+  value: string;
+  show: boolean;
+  onToggle: () => void;
+  onChange: (value: string) => void;
+  className?: string;
+}) {
+  return (
+    <div className={`space-y-2 ${className}`}>
+      <label className="text-xs font-medium text-gray-500 dark:text-gray-400">
+        {label}
+      </label>
+      <div className="relative">
+        <input
+          type={show ? "text" : "password"}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          autoComplete="new-password"
+          className={`${inputClass} pr-11`}
+        />
+        <button
+          type="button"
+          onClick={onToggle}
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+        >
+          {show ? <EyeOff size={16} /> : <Eye size={16} />}
+        </button>
+      </div>
     </div>
   );
 }

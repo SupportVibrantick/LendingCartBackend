@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useRef, useState } from "react";
+﻿import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router";
@@ -20,6 +20,7 @@ import {
   RefreshCw,
   X,
 } from "lucide-react";
+import { MdEdit } from "react-icons/md";
 
 import Swal from "sweetalert2";
 import { formatDocumentStatusLabel } from "../../../lib/documentStatus";
@@ -32,6 +33,12 @@ import {
 } from "../../../lib/loanOfficerApi";
 import { isSessionExpiredError } from "../../../lib/sessionExpiry";
 import ShareClientApplicationLink from "../../../components/loanPipeline/ShareClientApplicationLink";
+import MultiSelect from "../../../components/form/MultiSelect";
+import {
+  canBrokerReassignApplication,
+  getBrokerReassignmentBlockedReason,
+} from "../../../lib/brokerApplicationAssignment";
+import { hasPermission } from "../../../lib/brokerPermissions";
 
 /* ================= TYPES ================= */
 // type SubmissionListItem = {
@@ -46,6 +53,12 @@ type SubmissionField = {
   fieldKey: string | null;
   value: string;
   source: "STATIC" | "DYNAMIC";
+};
+
+type AssignedPerson = {
+  id: string;
+  name: string;
+  profileImage?: string | null;
 };
 
 type TableRow = {
@@ -64,11 +77,8 @@ type TableRow = {
 
   assignedOfficerName: string | null;
   assignedOfficerImage: string | null;
-  assignedSubBrokers?: {
-    id: string;
-    name: string;
-    profileImage?: string | null;
-  }[];
+  assignedLoanOfficers: AssignedPerson[];
+  assignedSubBrokers?: AssignedPerson[];
 };
 
 type Lender = {
@@ -147,6 +157,52 @@ function formatStatusLabel(status?: string) {
   if (status === "CLIENT_PENDING") return "Client Pending";
   if (status === "IN_REVIEW") return "In Review";
   return status.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function AssigneePills({
+  people,
+  pillClassName,
+  onShowAll,
+}: {
+  people: AssignedPerson[];
+  pillClassName: string;
+  onShowAll?: () => void;
+}) {
+  if (!people.length) {
+    return (
+      <div className="flex items-center gap-1 text-xs text-gray-400">
+        <Users className="h-3 w-3" />
+        Unassigned
+      </div>
+    );
+  }
+
+  const extra = people.length - 1;
+
+  return (
+    <div
+      className="flex min-w-0 items-center gap-1"
+      title={people.map((person) => person.name).join(", ")}
+    >
+      <span
+        className={`inline-flex max-w-[8.5rem] truncate rounded-full px-2 py-0.5 text-xs font-medium ${pillClassName}`}
+      >
+        {people[0].name}
+      </span>
+      {extra > 0 && (
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            onShowAll?.();
+          }}
+          className={`inline-flex shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${pillClassName}`}
+        >
+          +{extra}
+        </button>
+      )}
+    </div>
+  );
 }
 
 const STATUS_FILTERS = [
@@ -237,10 +293,10 @@ export default function LoanApplicationsPage() {
     applicationNumber: "",
   });
 
-  // const [subBrokers, setSubBrokers] = useState<any[]>([]);
-
-  const [selectedSubBroker, setSelectedSubBroker] = useState("");
-
+  const [subBrokers, setSubBrokers] = useState<any[]>([]);
+  const [selectedSubBrokerIds, setSelectedSubBrokerIds] = useState<string[]>(
+    [],
+  );
   const [assigningSubBroker, setAssigningSubBroker] = useState(false);
 
   const [previewFile, setPreviewFile] = useState<{
@@ -266,12 +322,16 @@ export default function LoanApplicationsPage() {
 
   // const [loanOfficers, setLoanOfficers] = useState<any[]>([]);
   const [selectedOfficer, setSelectedOfficer] = useState<string>("");
-  const [subBrokerModal, setSubBrokerModal] = useState<{
+  const [peopleModal, setPeopleModal] = useState<{
     open: boolean;
-    brokers: any[];
+    title: string;
+    roleLabel: string;
+    people: AssignedPerson[];
   }>({
     open: false,
-    brokers: [],
+    title: "",
+    roleLabel: "",
+    people: [],
   });
   const [assignLoading, setAssignLoading] = useState(false);
 
@@ -367,35 +427,61 @@ export default function LoanApplicationsPage() {
   //   }
   // };
 
-  // const fetchSubBrokers = async () => {
-  //   try {
-  //     const token = sessionStorage.getItem("loan_officer_token");
+  const fetchSubBrokers = async () => {
+    try {
+      const token = getLoanOfficerToken();
+      if (!token) {
+        handleLoanOfficerUnauthorized();
+        return;
+      }
 
-  //     const res = await fetch(`${LO_API_BASE}/broker/sub-broker/list`, {
-  //       method: "GET",
+      const res = await fetch(
+        `${LO_API_BASE}/broker/sub-broker/list?page=1&limit=100&status=ACTIVE`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
 
-  //       headers: {
-  //         Authorization: `Bearer ${token}`,
-  //       },
-  //     });
+      const json = await res.json();
+      assertLoApiOk(res, json, "Failed to fetch sub brokers");
 
-  //     const json = await res.json();
-
-  //     if (!res.ok || !json.success) {
-  //       throw new Error(json.message || "Failed to fetch sub brokers");
-  //     }
-
-  //     setSubBrokers(json.data || []);
-  //   } catch (err: any) {
-  //     toast.error(err.message || "Failed to fetch sub brokers");
-  //   }
-  // };
+      const brokers = json.data || [];
+      setSubBrokers(brokers);
+      const allowedIds = new Set(
+        brokers.map((broker: { id?: string }) => broker.id).filter(Boolean),
+      );
+      setSelectedSubBrokerIds((prev) =>
+        prev.filter((id) => allowedIds.has(id)),
+      );
+    } catch (err: any) {
+      if (isSessionExpiredError(err)) return;
+      toast.error(err.message || "Failed to fetch sub brokers");
+    }
+  };
 
   const handleAssignSubBroker = async () => {
     try {
       setAssignSubBrokerError("");
-      if (!selectedSubBroker) {
-        setAssignSubBrokerError("Please select a sub broker");
+      const currentRow = rows.find(
+        (row) => row.applicationId === assignSubBrokerModal.applicationId,
+      );
+      if (!canBrokerReassignApplication({ status: currentRow?.status })) {
+        const reason = getBrokerReassignmentBlockedReason({
+          status: currentRow?.status,
+        });
+        setAssignSubBrokerError(reason);
+        toast.error(reason);
+        return;
+      }
+
+      if (
+        selectedSubBrokerIds.length === 0 &&
+        !(currentRow?.assignedSubBrokers || []).length
+      ) {
+        setAssignSubBrokerError("Please select at least one co-broker");
         return;
       }
 
@@ -411,17 +497,13 @@ export default function LoanApplicationsPage() {
         `${LO_API_BASE}/broker/sub-broker/assign-application`,
         {
           method: "POST",
-
           headers: {
             "Content-Type": "application/json",
-
             Authorization: `Bearer ${token}`,
           },
-
           body: JSON.stringify({
             loanApplicationId: assignSubBrokerModal.applicationId,
-
-            subBrokerId: selectedSubBroker,
+            subBrokerIds: selectedSubBrokerIds,
           }),
         },
       );
@@ -429,19 +511,22 @@ export default function LoanApplicationsPage() {
       const json = await res.json();
       assertLoApiOk(res, json, "Failed to assign sub broker");
 
-      toast.success("Application assigned successfully");
+      toast.success(
+        selectedSubBrokerIds.length > 1
+          ? "Co-brokers updated successfully"
+          : "Application assigned successfully",
+      );
 
       setAssignSubBrokerModal({
         open: false,
         applicationId: "",
         applicationNumber: "",
       });
-
-      setSelectedSubBroker("");
+      setSelectedSubBrokerIds([]);
+      await refreshPipelineData();
     } catch (err: any) {
       if (isSessionExpiredError(err)) return;
       setAssignSubBrokerError(err.message || "Something went wrong");
-
       toast.error(err.message || "Something went wrong");
     } finally {
       setAssigningSubBroker(false);
@@ -681,8 +766,19 @@ export default function LoanApplicationsPage() {
           status: item.status,
           date: item.submittedOn,
           pendingDocumentsCount: item.pendingDocumentsCount,
-          assignedOfficerName: item.assignedLoanOfficer?.name || null,
-          assignedOfficerImage: item.assignedLoanOfficer?.profileImage || null,
+          assignedOfficerName:
+            item.assignedLoanOfficers?.[0]?.name ||
+            item.assignedLoanOfficer?.name ||
+            null,
+          assignedOfficerImage:
+            item.assignedLoanOfficers?.[0]?.profileImage ||
+            item.assignedLoanOfficer?.profileImage ||
+            null,
+          assignedLoanOfficers: Array.isArray(item.assignedLoanOfficers)
+            ? item.assignedLoanOfficers
+            : item.assignedLoanOfficer
+              ? [item.assignedLoanOfficer]
+              : [],
           assignedSubBrokers: item.assignedSubBrokers || [],
         }));
 
@@ -858,6 +954,22 @@ export default function LoanApplicationsPage() {
       fetchPipelineStats(),
     ]);
   }, [loadSubmissions, searchTerm, statusFilter]);
+
+  const canAssignCoBrokers = hasPermission("EDIT_CO_BROKERS", "loanOfficer");
+
+  const subBrokerOptions = useMemo(
+    () =>
+      subBrokers.map((broker) => {
+        const name = `${broker.firstName || ""} ${broker.lastName || ""}`.trim();
+        return {
+          value: broker.id as string,
+          text: name
+            ? `${name}${broker.email ? ` (${broker.email})` : ""}`
+            : broker.email || broker.id,
+        };
+      }),
+    [subBrokers],
+  );
 
   const handleRefresh = () => {
     void refreshPipelineData();
@@ -1351,7 +1463,7 @@ export default function LoanApplicationsPage() {
                   "Submitted",
                   "Status",
                   "Loan Officer",
-                  "Sub Brokers",
+                  "Co Brokers",
                   "",
                 ].map((label) => (
                   <th
@@ -1464,46 +1576,37 @@ export default function LoanApplicationsPage() {
                     <td
                       onClick={() => openPreview(row.submissionId)}
                       className="overflow-hidden px-3 py-3 align-middle"
-                      title={row.assignedOfficerName || undefined}
                     >
-                      {row.assignedOfficerName ? (
-                        <span className="inline-flex max-w-full truncate rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300">
-                          {row.assignedOfficerName}
-                        </span>
-                      ) : (
-                        <div className="flex items-center gap-1 text-xs text-gray-400">
-                          <Users className="h-3 w-3" />
-                          Unassigned
-                        </div>
-                      )}
+                      <AssigneePills
+                        people={row.assignedLoanOfficers || []}
+                        pillClassName="bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300"
+                        onShowAll={() =>
+                          setPeopleModal({
+                            open: true,
+                            title: "Assigned Loan Officers",
+                            roleLabel: "Loan Officer",
+                            people: row.assignedLoanOfficers || [],
+                          })
+                        }
+                      />
                     </td>
 
                     <td
                       onClick={() => openPreview(row.submissionId)}
-                      className="overflow-hidden px-3 py-3 align-middle text-center"
+                      className="overflow-hidden px-3 py-3 align-middle"
                     >
-                      {row.assignedSubBrokers &&
-                      row.assignedSubBrokers.length > 0 ? (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSubBrokerModal({
-                              open: true,
-                              brokers: row.assignedSubBrokers || [],
-                            });
-                          }}
-                          className="inline-flex items-center gap-1 rounded-full bg-cyan-50 px-2 py-0.5 text-xs font-medium text-cyan-700 dark:bg-cyan-500/10 dark:text-cyan-300"
-                        >
-                          <Users className="h-3 w-3" />
-                          {row.assignedSubBrokers.length}
-                        </button>
-                      ) : (
-                        <div className="flex items-center justify-center gap-1 text-xs text-gray-400">
-                          <Users className="h-3 w-3" />
-                          None
-                        </div>
-                      )}
+                      <AssigneePills
+                        people={row.assignedSubBrokers || []}
+                        pillClassName="bg-cyan-50 text-cyan-700 dark:bg-cyan-500/10 dark:text-cyan-300"
+                        onShowAll={() =>
+                          setPeopleModal({
+                            open: true,
+                            title: "Assigned Co-Brokers",
+                            roleLabel: "Co-Broker",
+                            people: row.assignedSubBrokers || [],
+                          })
+                        }
+                      />
                     </td>
 
                     <td
@@ -1577,6 +1680,49 @@ export default function LoanApplicationsPage() {
                                 Send Client Link
                               </button>
                             )}
+                            {canAssignCoBrokers &&
+                              canBrokerReassignApplication({
+                                status: row.status,
+                              }) && (
+                                <button
+                                  type="button"
+                                  onMouseDown={(e) => e.preventDefault()}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (
+                                      !canBrokerReassignApplication({
+                                        status: row.status,
+                                      })
+                                    ) {
+                                      toast.error(
+                                        getBrokerReassignmentBlockedReason({
+                                          status: row.status,
+                                        }),
+                                      );
+                                      return;
+                                    }
+                                    setActiveDropdown(null);
+                                    setSelectedSubBrokerIds(
+                                      (row.assignedSubBrokers || []).map(
+                                        (broker) => broker.id,
+                                      ),
+                                    );
+                                    setAssignSubBrokerModal({
+                                      open: true,
+                                      applicationId: row.applicationId,
+                                      applicationNumber:
+                                        row.applicationNumber || "",
+                                    });
+                                    void fetchSubBrokers();
+                                  }}
+                                  className="flex w-full items-center gap-3 px-4 py-3 text-sm text-cyan-600 hover:bg-cyan-50 dark:hover:bg-cyan-950/30"
+                                >
+                                  <MdEdit size={14} />
+                                  {(row.assignedSubBrokers || []).length
+                                    ? "Change Co Brokers"
+                                    : "Assign Co Brokers"}
+                                </button>
+                              )}
                           </div>,
                           document.body,
                         )}
@@ -2106,101 +2252,44 @@ text-sm text-slate-600 dark:text-slate-400 flex justify-between"
             document.body,
           )}
 
-        {subBrokerModal.open &&
+        {peopleModal.open &&
           createPortal(
             <div className="fixed inset-0 z-[9999] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
-              <div
-                className="
-        w-full max-w-2xl
-        rounded-2xl
-        bg-white dark:bg-slate-900
-        border border-slate-200 dark:border-slate-800
-        shadow-2xl
-        overflow-hidden
-      "
-              >
-                <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 dark:border-slate-800">
+              <div className="w-full max-w-2xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-800 dark:bg-slate-900">
+                <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4 dark:border-slate-800">
                   <h3 className="font-semibold text-slate-900 dark:text-white">
-                    Assigned Sub Brokers
+                    {peopleModal.title}
                   </h3>
-
                   <button
                     onClick={() =>
-                      setSubBrokerModal({
+                      setPeopleModal({
                         open: false,
-                        brokers: [],
+                        title: "",
+                        roleLabel: "",
+                        people: [],
                       })
                     }
-                    className="text-slate-400 hover:text-red-500 text-lg"
+                    className="text-lg text-slate-400 hover:text-red-500"
                   >
-                    âœ•
+                    ✕
                   </button>
                 </div>
-
-                <div
-                  className="
-  p-5
-  grid grid-cols-1 sm:grid-cols-2 gap-4
-
-  max-h-[70vh]
-  overflow-y-auto
-
-  scrollbar-thin
-  scrollbar-thumb-slate-300
-  dark:scrollbar-thumb-slate-700
-  scrollbar-track-transparent
-
-  overscroll-contain
-"
-                >
-                  {subBrokerModal.brokers.map((broker) => (
+                <div className="grid max-h-[70vh] grid-cols-1 gap-4 overflow-y-auto p-5 sm:grid-cols-2">
+                  {peopleModal.people.map((person) => (
                     <div
-                      key={broker.id}
-                      className="
-  relative overflow-hidden
-  rounded-2xl
-  border border-slate-200 dark:border-slate-700
-  bg-white dark:bg-slate-800/40
-  p-4
-  hover:-translate-y-0.5
-  transition-all duration-300
-"
+                      key={person.id}
+                      className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800/40"
                     >
-                      {/* TOP */}
                       <div className="flex items-start gap-3">
-                        {/* Avatar */}
-                        <div
-                          className="
-      h-12 w-12 rounded-2xl
-      bg-gradient-to-br from-cyan-500 to-blue-500
-      flex items-center justify-center
-      text-white
-      font-bold text-base
-      shrink-0
-    "
-                        >
-                          {broker.name?.charAt(0) || "S"}
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-blue-500 text-base font-bold text-white">
+                          {person.name?.charAt(0) || "?"}
                         </div>
-
-                        {/* INFO */}
                         <div className="min-w-0 flex-1">
-                          <h4
-                            className="
-        text-sm font-semibold
-        text-slate-800 dark:text-slate-100
-        truncate
-      "
-                          >
-                            {broker.name}
+                          <h4 className="truncate text-sm font-semibold text-slate-800 dark:text-slate-100">
+                            {person.name}
                           </h4>
-
-                          <p
-                            className="
-        mt-1 text-xs
-        text-slate-500 dark:text-slate-400
-      "
-                          >
-                            Sub Broker
+                          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                            {peopleModal.roleLabel}
                           </p>
                         </div>
                       </div>
@@ -3350,47 +3439,37 @@ dark:scrollbar-thumb-slate-700 w-full
         )}
 
         {assignSubBrokerModal.open && (
-          <div className="fixed inset-0 z-[99999999] flex items-center justify-center bg-black/40 backdrop-blur-sm">
-            <div className="w-full max-w-lg rounded-[32px] border border-white/20 bg-white p-8">
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+            <div className="w-full max-w-lg rounded-[32px] border border-white/20 bg-white p-8 dark:border-gray-700 dark:bg-gray-900">
               <div className="mb-6">
-                <h2 className="text-2xl font-bold text-slate-900">
-                  Assign Sub Broker
+                <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
+                  Assign Co-Brokers
                 </h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  Select one or more co-brokers linked to you. Remove a name to
+                  unassign them from this application.
+                </p>
               </div>
 
-              <div className="space-y-3">
-                <label className="text-sm font-medium text-slate-700">
-                  Select Sub Broker
-                </label>
-
-                <select
-                  value={selectedSubBroker}
-                  onChange={(e) => {
-                    setSelectedSubBroker(e.target.value);
-
-                    setAssignSubBrokerError("");
-                  }}
-                  className={`h-14 w-full rounded-2xl border px-4 text-sm outline-none transition
-  ${
-    assignSubBrokerError
-      ? "border-red-400 bg-red-50 focus:border-red-500"
-      : "border-slate-200 bg-slate-50 focus:border-cyan-400 focus:bg-white"
-  }`}
-                >
-                  <option value="">Select Sub Broker</option>
-
-                  {/* {subBrokers.map((broker) => (
-                    <option key={broker.id} value={broker.id}>
-                      {broker.firstName} {broker.lastName} ({broker.email})
-                    </option>
-                  ))} */}
-                </select>
-                {assignSubBrokerError && (
-                  <p className="text-sm font-medium text-red-500">
-                    {assignSubBrokerError}
-                  </p>
-                )}
-              </div>
+              <MultiSelect
+                label="Co-Brokers"
+                options={subBrokerOptions}
+                value={selectedSubBrokerIds}
+                onChange={(ids) => {
+                  setSelectedSubBrokerIds(ids);
+                  setAssignSubBrokerError("");
+                }}
+                placeholder={
+                  subBrokerOptions.length
+                    ? "Select co-brokers"
+                    : "No co-brokers linked to you"
+                }
+              />
+              {assignSubBrokerError && (
+                <p className="mt-3 text-sm font-medium text-red-500">
+                  {assignSubBrokerError}
+                </p>
+              )}
 
               <div className="mt-8 flex items-center justify-end gap-3">
                 <button
@@ -3400,10 +3479,9 @@ dark:scrollbar-thumb-slate-700 w-full
                       applicationId: "",
                       applicationNumber: "",
                     });
-
-                    setSelectedSubBroker("");
+                    setSelectedSubBrokerIds([]);
                   }}
-                  className="h-12 rounded-2xl border border-slate-200 px-5 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
+                  className="h-12 rounded-2xl border border-slate-200 px-5 text-sm font-medium text-slate-600 transition hover:bg-slate-50 dark:border-gray-700 dark:text-gray-300"
                 >
                   Cancel
                 </button>
@@ -3413,7 +3491,7 @@ dark:scrollbar-thumb-slate-700 w-full
                   disabled={assigningSubBroker}
                   className="h-12 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 px-5 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
                 >
-                  {assigningSubBroker ? "Assigning..." : "Assign Sub Broker"}
+                  {assigningSubBroker ? "Saving..." : "Save Assignments"}
                 </button>
               </div>
             </div>

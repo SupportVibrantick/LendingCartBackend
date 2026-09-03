@@ -150,6 +150,12 @@ async function loanOfficerSubmitApplication(fastify) {
               ...(sanitizedRequestedDocumentTypes
                 ? { requestedDocumentTypes: sanitizedRequestedDocumentTypes }
                 : {}),
+              loanOfficerAssignments: {
+                create: {
+                  loanOfficerId: loggedInUserId,
+                  assignedById: loggedInUserId,
+                },
+              },
             },
           });
 

@@ -6,6 +6,9 @@ const {
   resolveBrokerPipelineDisplayStatus,
   buildBrokerPipelineApplicationStatusWhere,
 } = require("../../../utils/applications/resolveApplicationStatus");
+const {
+  officerAssignedApplicationWhere,
+} = require("../../../services/broker/loanOfficerAccess");
 
 module.exports = async function listSubmissionsTable(fastify) {
   fastify.get(
@@ -65,9 +68,9 @@ module.exports = async function listSubmissionsTable(fastify) {
             brokerOrgId: orgId,
             ...statusFilter,
 
-            ...(isOfficer && {
-              brokerUserId: userId,
-            }),
+            ...(isOfficer && !isAdmin
+              ? officerAssignedApplicationWhere(userId)
+              : {}),
 
             ...(isSubBroker && {
               subBrokerAssignments: {
@@ -159,6 +162,20 @@ module.exports = async function listSubmissionsTable(fastify) {
                       },
                     },
                   },
+                },
+
+                loanOfficerAssignments: {
+                  select: {
+                    loanOfficer: {
+                      select: {
+                        id: true,
+                        firstName: true,
+                        lastName: true,
+                        profileImage: true,
+                      },
+                    },
+                  },
+                  orderBy: { assignedAt: "asc" },
                 },
 
                 subBrokerAssignments: {
@@ -313,7 +330,35 @@ module.exports = async function listSubmissionsTable(fastify) {
           const location =
             [city, state, country].filter(Boolean).join(", ") || "N/A";
 
-          return {
+            const formatPerson = (user) =>
+              user
+                ? {
+                    id: user.id,
+                    name: `${user.firstName || ""} ${user.lastName || ""}`.trim(),
+                    profileImage: user.profileImage || null,
+                  }
+                : null;
+
+            const assignedFromJoin =
+              app?.loanOfficerAssignments
+                ?.map((assignment) => formatPerson(assignment.loanOfficer))
+                .filter(Boolean) || [];
+
+            const primaryOfficer =
+              app?.brokerUser &&
+              app.brokerUser.roles?.some(
+                (r) => r.role?.name === "BROKER_OFFICER",
+              )
+                ? formatPerson(app.brokerUser)
+                : null;
+
+            const assignedLoanOfficers = assignedFromJoin.length
+              ? assignedFromJoin
+              : primaryOfficer
+                ? [primaryOfficer]
+                : [];
+
+            return {
             submissionId: s.id,
             applicationId: app?.id,
 
@@ -331,21 +376,8 @@ module.exports = async function listSubmissionsTable(fastify) {
             submittedOn: s.createdAt,
             pendingDocumentsCount,
 
-            // replace assignedLoanOfficer with this
-
-            assignedLoanOfficer:
-              app?.brokerUser &&
-              app.brokerUser.roles?.some(
-                (r) => r.role?.name === "BROKER_OFFICER",
-              )
-                ? {
-                    id: app.brokerUser.id,
-                    name: `${app.brokerUser.firstName || ""} ${
-                      app.brokerUser.lastName || ""
-                    }`.trim(),
-                    profileImage: app.brokerUser.profileImage || null,
-                  }
-                : null,
+            assignedLoanOfficer: assignedLoanOfficers[0] || null,
+            assignedLoanOfficers,
 
             assignedSubBrokers:
               app?.subBrokerAssignments?.map((assignment) => ({
