@@ -4,7 +4,7 @@
  */
 require("dotenv").config();
 
-const { PrismaClient } = require("@prisma/client");
+const prisma = require("../config/prisma");
 const {
   syncPaidCheckoutFromGhl,
 } = require("../services/ghl/syncPaidCheckoutFromGhl.service");
@@ -16,7 +16,7 @@ async function main() {
     process.exit(1);
   }
 
-  const prisma = new PrismaClient();
+  // Use shared prisma client
   try {
     const checkout = await prisma.loanAiGhlCheckout.findUnique({
       where: { id: checkoutId },

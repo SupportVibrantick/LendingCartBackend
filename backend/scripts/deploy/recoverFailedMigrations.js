@@ -2,10 +2,10 @@
 // can re-apply them (for example after a BOM syntax failure at byte 0).
 require("dotenv").config();
 const { spawnSync } = require("child_process");
-const { PrismaClient } = require("@prisma/client");
+const prisma = require("../../config/prisma");
 
 async function main() {
-  const prisma = new PrismaClient();
+  // Remove local instantiation
   try {
     const failed = await prisma.$queryRawUnsafe(`
       SELECT migration_name

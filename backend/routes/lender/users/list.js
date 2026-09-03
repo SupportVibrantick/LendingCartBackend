@@ -56,7 +56,7 @@ module.exports = async function listLenderUsers(fastify) {
           ];
         }
 
-        const [users, total] = await prisma.$transaction([
+        const [users, total] = await Promise.all([
           prisma.userAccount.findMany({
             where,
             skip,

@@ -3,11 +3,11 @@
  * Usage: node scripts/fixBookDemoGhlMigration.js
  */
 require("dotenv").config();
-const { PrismaClient } = require("@prisma/client");
+const prisma = require("../config/prisma");
 const { execSync } = require("child_process");
 
 async function main() {
-  const prisma = new PrismaClient();
+  // Use shared prisma client
 
   await prisma.$executeRawUnsafe(`
     DO $$ BEGIN

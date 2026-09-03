@@ -216,6 +216,8 @@ async function getApplicationsRoute(fastify, options) {
 
             brokerUser: {
               select: {
+                id: true,
+
                 firstName: true,
 
                 lastName: true,
@@ -223,7 +225,30 @@ async function getApplicationsRoute(fastify, options) {
                 email: true,
 
                 profileImage: true,
+
+                roles: {
+                  select: {
+                    role: {
+                      select: { name: true },
+                    },
+                  },
+                },
               },
+            },
+
+            loanOfficerAssignments: {
+              select: {
+                loanOfficer: {
+                  select: {
+                    id: true,
+                    firstName: true,
+                    lastName: true,
+                    email: true,
+                    profileImage: true,
+                  },
+                },
+              },
+              orderBy: { assignedAt: "asc" },
             },
 
             client: {
@@ -340,6 +365,35 @@ async function getApplicationsRoute(fastify, options) {
             submissions,
           );
 
+          const formatPerson = (user) =>
+            user
+              ? {
+                  id: user.id,
+                  firstName: user.firstName,
+                  lastName: user.lastName,
+                  email: user.email,
+                  profileImage: user.profileImage,
+                  name: `${user.firstName || ""} ${
+                    user.lastName || ""
+                  }`.trim(),
+                }
+              : null;
+
+          const assignedFromJoin =
+            item.loanOfficerAssignments
+              ?.map((row) => formatPerson(row.loanOfficer))
+              .filter(Boolean) || [];
+
+          const primaryOfficer = item.brokerUser
+            ? formatPerson(item.brokerUser)
+            : null;
+
+          const assignedLoanOfficers = assignedFromJoin.length
+            ? assignedFromJoin
+            : primaryOfficer
+              ? [primaryOfficer]
+              : [];
+
           return {
             submissionId: latestSubmission?.id || item.id,
 
@@ -393,17 +447,9 @@ async function getApplicationsRoute(fastify, options) {
 
             dynamicFields: fieldsMap,
 
-            assignedLoanOfficer: item.brokerUser
-              ? {
-                  firstName: item.brokerUser.firstName,
+            assignedLoanOfficer: assignedLoanOfficers[0] || null,
 
-                  lastName: item.brokerUser.lastName,
-
-                  email: item.brokerUser.email,
-
-                  profileImage: item.brokerUser.profileImage,
-                }
-              : null,
+            assignedLoanOfficers,
 
             submittedToLenders: item.applicationLenders.map((lender) => ({
               lenderOrgId: lender.lenderOrgId,

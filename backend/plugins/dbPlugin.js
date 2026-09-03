@@ -1,5 +1,5 @@
 const fp = require("fastify-plugin");
-const { PrismaClient } = require("@prisma/client");
+const prismaBase = require("../config/prisma");
 
 module.exports = fp(async function dbPlugin(fastify) {
 
@@ -12,7 +12,7 @@ module.exports = fp(async function dbPlugin(fastify) {
     "LenderReview"
   ]);
 
-  const prisma = new PrismaClient().$extends({
+  const prisma = prismaBase.$extends({
     query: {
       $allModels: {
         async $allOperations({ model, operation, args, query }) {

@@ -3,6 +3,8 @@ const {
 } = require("../../../utils/broker/subBrokerProfileHelpers");
 const {
   requireLoOfficerPermission,
+  isLoanOfficerActor,
+  getUserId,
 } = require("../../../services/broker/loanOfficerAccess");
 
 /**
@@ -72,6 +74,8 @@ module.exports = async function listSubBrokersRoutes(fastify) {
         }
 
         const brokerOrgId = req.user.organizationId;
+        const officerId = getUserId(req);
+        const officerScoped = isLoanOfficerActor(req);
 
         const {
           page = 1,
@@ -106,10 +110,19 @@ module.exports = async function listSubBrokersRoutes(fastify) {
           },
         };
 
+        const officerLinkFilter = officerScoped
+          ? {
+              subBrokerLoanOfficers: {
+                some: { loanOfficerId: officerId },
+              },
+            }
+          : {};
+
         const where = {
           organizationId: brokerOrgId,
           isDeleted: false,
           ...roleFilter,
+          ...officerLinkFilter,
           ...(status ? { status } : {}),
           ...searchFilter,
         };
@@ -136,6 +149,7 @@ module.exports = async function listSubBrokersRoutes(fastify) {
           organizationId: brokerOrgId,
           isDeleted: false,
           ...roleFilter,
+          ...officerLinkFilter,
           ...searchFilter,
         };
 

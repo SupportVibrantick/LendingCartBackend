@@ -2,6 +2,7 @@ const fs = require("fs");
 const path = require("path");
 const { pipeline } = require("stream/promises");
 const crypto = require("crypto");
+const { validateFileMimetype } = require("../../../utils/security/fileValidator");
 const { extraOfficerPermission } = require("../../../services/broker/loanOfficerAccess");
 const {
   autoForwardDocumentUpload,
@@ -118,12 +119,14 @@ module.exports = async function uploadSubmissionDocument(fastify) {
           "image/webp",
         ];
 
-        if (!allowedMimeTypes.includes(file.mimetype)) {
+        const validation = await validateFileMimetype(file.file, allowedMimeTypes);
+        if (!validation.isValid) {
           return reply.code(400).send({
             success: false,
-            message: "Invalid file type. Only PDF, JPG, PNG, WEBP allowed",
+            message: `Invalid file type. Detected: ${validation.detectedMime || "unknown"}. Only PDF, JPG, PNG, WEBP allowed`,
           });
         }
+        const validatedStream = validation.stream;
 
         /* ===============================
            FILE SIZE LIMIT (OPTIONAL SAFE)
@@ -165,7 +168,7 @@ module.exports = async function uploadSubmissionDocument(fastify) {
            SAVE FILE (STREAM SAFE)
         =============================== */
         const writeStream = fs.createWriteStream(filePath);
-        await pipeline(file.file, writeStream);
+        await pipeline(validatedStream, writeStream);
 
         const fileUrl = `/uploads/loan-documents/${submission.application.id}/${requirementId}/${safeFileName}`;
 

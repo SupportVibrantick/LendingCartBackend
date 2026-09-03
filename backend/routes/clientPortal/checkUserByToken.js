@@ -1,4 +1,5 @@
 const jwt = require("jsonwebtoken");
+const jwtSecret = require("../../utils/auth/jwtSecret");
 
 /**
  * @param {import("fastify").FastifyInstance} fastify
@@ -53,27 +54,23 @@ async function checkUserByTokenRoute(fastify) {
           }
 
           clientId = tokenRecord.clientId;
-        }
+        } else if (req.headers.authorization) {
 
         /* ===============================
            CASE 2: JWT BASED
         =============================== */
-
-        else if (req.headers.authorization) {
           const authHeader = req.headers.authorization;
 
           const token = authHeader.split(" ")[1];
 
-          const decoded = jwt.verify(token, process.env.JWT_SECRET);
+          const decoded = jwt.verify(token, jwtSecret);
 
           clientId = decoded.clientId;
-        }
+        } else {
 
         /* ===============================
            NO AUTH PROVIDED
         =============================== */
-
-        else {
           return reply.code(401).send({
             success: false,
             message: "Unauthorized",
@@ -139,14 +136,13 @@ async function checkUserByTokenRoute(fastify) {
             needsPasswordSetup: Boolean(clientUser) && !clientUser.lastLoginAt,
           },
         });
-
       } catch (error) {
         fastify.log.error(
           {
             error: error.message,
             query: req.query,
           },
-          "Failed to check client user (hybrid)"
+          "Failed to check client user (hybrid)",
         );
 
         return reply.code(500).send({
@@ -154,7 +150,7 @@ async function checkUserByTokenRoute(fastify) {
           message: "Unexpected server error",
         });
       }
-    }
+    },
   );
 }
 

@@ -44,6 +44,11 @@ module.exports = async function messagingRoutes(fastify) {
   );
 
   await fastify.register(
+    require("./conversation/createBrokerSubBrokerConversation"),
+    { prefix: "/" }
+  );
+
+  await fastify.register(
     require("./conversation/createClientOfficerConversation"),
     { prefix: "/" }
   );

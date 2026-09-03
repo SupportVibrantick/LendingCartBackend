@@ -1,6 +1,7 @@
 const path = require("path");
 const fs = require("fs");
 const { pipeline } = require("stream/promises");
+const { validateFileMimetype } = require("../../../utils/security/fileValidator");
 
 module.exports = async function adminUpdateProfileRoute(fastify) {
   const safeAuthPreHandler = async (req, reply) => {
@@ -37,12 +38,14 @@ module.exports = async function adminUpdateProfileRoute(fastify) {
 
           if (part.type === "file" && part.fieldname === "profileImage") {
             const allowedMimeTypes = ["image/jpeg", "image/png", "image/webp"];
-            if (!allowedMimeTypes.includes(part.mimetype)) {
+            const validation = await validateFileMimetype(part.file, allowedMimeTypes);
+            if (!validation.isValid) {
               return reply.code(400).send({
                 ok: false,
-                message: "Only JPG, PNG, WEBP images allowed",
+                message: `Invalid file type. Detected: ${validation.detectedMime || "unknown"}. Only JPG, PNG, WEBP images allowed`,
               });
             }
+            const validatedStream = validation.stream;
 
             const uploadDir = path.join(process.cwd(), "public", "uploads", "profile");
             await fs.promises.mkdir(uploadDir, { recursive: true });
@@ -51,7 +54,7 @@ module.exports = async function adminUpdateProfileRoute(fastify) {
             const fileName = `${userId}-${Date.now()}${fileExt}`;
             const filePath = path.join(uploadDir, fileName);
 
-            await pipeline(part.file, fs.createWriteStream(filePath));
+            await pipeline(validatedStream, fs.createWriteStream(filePath));
             profileImage = `/public/uploads/profile/${fileName}`;
           }
         }
