@@ -26,12 +26,12 @@ const LayoutContent: React.FC = () => {
       >
         <AppHeader />
 
-        <main className="min-h-0 flex-1 overflow-y-auto">
+        <main className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
           <div
             className={
               isLoanApplicationPage
                 ? "w-full"
-                : "mx-auto w-full max-w-[1480px] p-4 md:p-6 lg:px-8"
+                : "mx-auto w-full max-w-[1480px] p-3 md:p-4 lg:px-5"
             }
           >
             <Outlet />
