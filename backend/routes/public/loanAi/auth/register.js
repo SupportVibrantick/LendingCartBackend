@@ -1,5 +1,6 @@
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
+const jwtSecret = require("../../../../utils/auth/jwtSecret");
 const {
   loanAiRegisterSchema,
 } = require("../../../../schemas/public/loanAi/auth.schema");
@@ -16,7 +17,7 @@ function signLoanAiToken(user) {
       email: user.email,
       userType: "LOAN_AI",
     },
-    process.env.JWT_SECRET,
+    jwtSecret,
     {
       expiresIn: "7d",
       issuer: "lendingcart",
@@ -98,7 +99,10 @@ async function loanAiRegisterRoutes(fastify) {
         const token = signLoanAiToken(user);
 
         try {
-          const leadName = [firstName, lastName].filter(Boolean).join(" ").trim();
+          const leadName = [firstName, lastName]
+            .filter(Boolean)
+            .join(" ")
+            .trim();
           await notifyPlatform(prisma, fastify.io, {
             eventType: PLATFORM_NOTIFICATION_EVENTS.LANDING_PAGE_LEAD,
             category: "LEAD",
