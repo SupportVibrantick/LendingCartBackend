@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { Link } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import {
   ArrowUpRight,
   CheckCircle2,
@@ -21,7 +21,6 @@ import {
   Workflow,
 } from "lucide-react";
 import toast from "react-hot-toast";
-import { useNavigate, useSearchParams } from "react-router-dom";
 import PageMeta from "../../../components/common/PageMeta";
 import PageBreadcrumb from "../../../components/common/PageBreadCrumb";
 import {
@@ -36,6 +35,11 @@ import {
 } from "../../../lib/ghlIntegrationApi";
 
 const GHL_LOGIN_URL = "https://app.gohighlevel.com";
+
+type GhlIntegrationProps = {
+  /** Broker portal can provision; loan officer portal is read-only (shared org CRM). */
+  portal?: "broker" | "loanOfficer";
+};
 
 const CRM_FEATURES = [
   {
@@ -170,10 +174,23 @@ async function copyText(value: string, label: string) {
   }
 }
 
-export default function GhlIntegration() {
+export default function GhlIntegration({ portal }: GhlIntegrationProps) {
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const callbackHandled = useRef(false);
+
+  const isLoanOfficerPortal = useMemo(() => {
+    if (portal === "loanOfficer") return true;
+    if (portal === "broker") return false;
+    return location.pathname.startsWith("/loan-officer");
+  }, [portal, location.pathname]);
+
+  /** One org = one GHL account; only broker admins provision from the broker portal. */
+  const canManageCrm = !isLoanOfficerPortal;
+  const ghlPagePath = isLoanOfficerPortal
+    ? "/loan-officer/settings/integrations/ghl"
+    : "/settings/integrations/ghl";
 
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
@@ -263,12 +280,12 @@ export default function GhlIntegration() {
     const nextSearch = nextParams.toString();
     navigate(
       {
-        pathname: "/settings/integrations/ghl",
+        pathname: ghlPagePath,
         search: nextSearch ? `?${nextSearch}` : "",
       },
       { replace: true },
     );
-  }, [searchParams, navigate, loadStatus]);
+  }, [searchParams, navigate, loadStatus, ghlPagePath]);
 
   if (loading) {
     return (
@@ -316,15 +333,17 @@ export default function GhlIntegration() {
                 <div>
                   <h1 className="text-2xl font-bold sm:text-3xl">GoHighLevel</h1>
                   <p className="mt-1 text-sm text-blue-50/90">
-                    Dedicated CRM sub-account for your brokerage
+                    {isLoanOfficerPortal
+                      ? "Shared CRM for your brokerage — one account for the whole team"
+                      : "Dedicated CRM sub-account for your brokerage"}
                   </p>
                 </div>
               </div>
 
               <p className="mt-4 max-w-xl text-sm leading-relaxed text-blue-50/90 sm:text-[15px]">
-                Pro and Elite plans include a fully managed GoHighLevel workspace.
-                LendingCart provisions your location, emails login credentials, and
-                keeps your team in sync — no manual OAuth connect required.
+                {isLoanOfficerPortal
+                  ? "Your broker organization has one GoHighLevel workspace. Broker admins and loan officers share the same CRM sub-account — login credentials are emailed when access is provisioned."
+                  : "Pro and Elite plans include a fully managed GoHighLevel workspace. LendingCart provisions your location, emails login credentials, and keeps your team in sync — no manual OAuth connect required."}
               </p>
             </div>
 
@@ -369,8 +388,9 @@ export default function GhlIntegration() {
                     Your CRM workspace
                   </h2>
                   <p className="mt-1 max-w-2xl text-sm text-slate-500">
-                    Included with your {planLabel} plan. Sign in with the credentials
-                    emailed when your account was provisioned.
+                    {isLoanOfficerPortal
+                      ? `Shared with your brokerage on the ${planLabel} plan. Sign in with the credentials emailed when your CRM access was provisioned.`
+                      : `Included with your ${planLabel} plan. Sign in with the credentials emailed when your account was provisioned.`}
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -429,7 +449,9 @@ export default function GhlIntegration() {
                 />
               </div>
 
-              <div className="mt-4 grid gap-3 lg:grid-cols-2">
+              <div
+                className={`mt-4 grid gap-3 ${canManageCrm ? "lg:grid-cols-2" : ""}`}
+              >
                 <a
                   href={loginUrl}
                   target="_blank"
@@ -450,25 +472,27 @@ export default function GhlIntegration() {
                   <ArrowUpRight className="h-4 w-4 text-slate-400 transition group-hover:text-[#13538A]" />
                 </a>
 
-                <Link
-                  to="/website-builder"
-                  className="group flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-3.5 transition hover:border-[#13538A]/30 hover:bg-[#13538A]/5 dark:border-slate-800 dark:bg-slate-900/40 dark:hover:border-[#13538A]/40"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#13538A]/10 text-[#13538A]">
-                      <Globe className="h-5 w-5" />
+                {canManageCrm ? (
+                  <Link
+                    to="/website-builder"
+                    className="group flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-3.5 transition hover:border-[#13538A]/30 hover:bg-[#13538A]/5 dark:border-slate-800 dark:bg-slate-900/40 dark:hover:border-[#13538A]/40"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#13538A]/10 text-[#13538A]">
+                        <Globe className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-slate-900 dark:text-white">
+                          Website builder
+                        </p>
+                        <p className="text-xs text-slate-500">
+                          Manage sites from LendingCart
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm font-semibold text-slate-900 dark:text-white">
-                        Website builder
-                      </p>
-                      <p className="text-xs text-slate-500">
-                        Manage sites from LendingCart
-                      </p>
-                    </div>
-                  </div>
-                  <ArrowUpRight className="h-4 w-4 text-slate-400 transition group-hover:text-[#13538A]" />
-                </Link>
+                    <ArrowUpRight className="h-4 w-4 text-slate-400 transition group-hover:text-[#13538A]" />
+                  </Link>
+                ) : null}
               </div>
 
               <div className="mt-4 flex items-start gap-3 rounded-2xl border border-amber-200/80 bg-amber-50/80 px-4 py-3.5 dark:border-amber-500/20 dark:bg-amber-500/10">
@@ -552,9 +576,9 @@ export default function GhlIntegration() {
                   CRM setup
                 </h2>
                 <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-500">
-                  After a Pro or Elite purchase completes, your dedicated CRM is created
-                  automatically and login details are emailed to broker admins and loan
-                  officers.
+                  {isLoanOfficerPortal
+                    ? "Your brokerage shares a single GoHighLevel CRM. After a Pro or Elite purchase, the dedicated CRM is created and login details are emailed to broker admins and loan officers."
+                    : "After a Pro or Elite purchase completes, your dedicated CRM is created automatically and login details are emailed to broker admins and loan officers."}
                 </p>
               </div>
               {agencyCrm?.packageCode ? (
@@ -581,7 +605,8 @@ export default function GhlIntegration() {
                     One location per brokerage
                   </p>
                   <p className="mt-1 text-xs text-slate-500">
-                    A dedicated sub-account — never shared with other brokers.
+                    One shared sub-account for broker admins and all loan officers —
+                    never shared with other brokerages.
                   </p>
                 </div>
               </li>
@@ -599,21 +624,27 @@ export default function GhlIntegration() {
             </ul>
 
             <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100">
-              {agencyPending
-                ? "Your Pro/Elite plan is active, but the CRM sub-account is not linked yet. Click Set up CRM to provision it. If setup fails, the agency account may need a GoHighLevel plan upgrade or a free sub-account slot."
-                : "CRM status could not be loaded for this organization. Ensure you have an active Pro or Elite subscription."}
+              {isLoanOfficerPortal
+                ? agencyPending
+                  ? "Your brokerage’s Pro/Elite plan is active, but the shared CRM is not linked yet. Ask a broker admin to open GoHighLevel in the broker portal and click Set up CRM."
+                  : "CRM status could not be loaded for your organization. Ask a broker admin to confirm an active Pro or Elite subscription."
+                : agencyPending
+                  ? "Your Pro/Elite plan is active, but the CRM sub-account is not linked yet. Click Set up CRM to provision it. If setup fails, the agency account may need a GoHighLevel plan upgrade or a free sub-account slot."
+                  : "CRM status could not be loaded for this organization. Ensure you have an active Pro or Elite subscription."}
             </div>
 
             <div className="mt-5 flex flex-wrap gap-2">
-              <button
-                type="button"
-                disabled={syncing}
-                onClick={() => void retryAgencySync()}
-                className="inline-flex items-center gap-2 rounded-xl bg-[#13538A] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0f4470] disabled:cursor-not-allowed disabled:opacity-70"
-              >
-                <Loader2 className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
-                {syncing ? "Setting up CRM…" : "Set up CRM"}
-              </button>
+              {canManageCrm ? (
+                <button
+                  type="button"
+                  disabled={syncing}
+                  onClick={() => void retryAgencySync()}
+                  className="inline-flex items-center gap-2 rounded-xl bg-[#13538A] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0f4470] disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  <Loader2 className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
+                  {syncing ? "Setting up CRM…" : "Set up CRM"}
+                </button>
+              ) : null}
               <button
                 type="button"
                 onClick={() => void loadStatus()}

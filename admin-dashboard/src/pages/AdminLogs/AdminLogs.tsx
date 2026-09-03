@@ -169,6 +169,26 @@ function actionClass(action: string) {
   return "bg-slate-100 text-slate-700 ring-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:ring-slate-700";
 }
 
+const SENSITIVE_AUDIT_KEY =
+  /password|passwd|passwordhash|hashedpassword|secret|token|bearer|authorization|api[_-]?key|private[_-]?key|refresh|jwt|session|otp|pin|ssn|cvv|cvc/i;
+
+function redactAuditValue(value: unknown, depth = 0): unknown {
+  if (value == null) return value;
+  if (depth > 8) return "[TRUNCATED]";
+  if (Array.isArray(value)) {
+    return value.map((item) => redactAuditValue(item, depth + 1));
+  }
+  if (typeof value !== "object") return value;
+
+  const out: Record<string, unknown> = {};
+  for (const [key, nested] of Object.entries(value as Record<string, unknown>)) {
+    out[key] = SENSITIVE_AUDIT_KEY.test(key)
+      ? "[REDACTED]"
+      : redactAuditValue(nested, depth + 1);
+  }
+  return out;
+}
+
 function parseJsonSafe(value?: string | null) {
   if (!value) return null;
   try {
@@ -182,7 +202,7 @@ function formatJson(value?: string | null) {
   const parsed = parseJsonSafe(value);
   if (parsed == null) return "null";
   if (typeof parsed === "string") return parsed;
-  return JSON.stringify(parsed, null, 2);
+  return JSON.stringify(redactAuditValue(parsed), null, 2);
 }
 
 function getActorName(log: AdminLog) {

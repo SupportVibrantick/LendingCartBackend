@@ -79,6 +79,9 @@ import {
   fetchBrokerLoanOfficers,
   fetchBrokerSubBrokers,
   fetchBrokerSubscription,
+  impersonateBrokerClient,
+  impersonateBrokerLoanOfficer,
+  impersonateBrokerSubBroker,
   removeBrokerLender,
   updateBrokerContact,
   updateBrokerClientStatus,
@@ -96,6 +99,11 @@ import {
   type BrokerLenderAccessRow,
   type BrokerTeamMember,
 } from "../../lib/brokerDetailApi";
+import {
+  buildImpersonatePortalUrl,
+  navigatePortalTab,
+  openBlankPortalTab,
+} from "../../lib/impersonatePortal";
 import type { SubscriberDetail } from "../../lib/subscriptionApi";
 import { formatPrice } from "../../lib/subscriptionApi";
 
@@ -409,6 +417,7 @@ export default function BrokerDetailPage() {
   const [loActivityOpen, setLoActivityOpen] = useState(false);
   const [loActivityOfficer, setLoActivityOfficer] = useState<BrokerTeamMember | null>(null);
   const [activeLoMenuId, setActiveLoMenuId] = useState<string | null>(null);
+  const [impersonatingId, setImpersonatingId] = useState<string | null>(null);
   const [loMenuPos, setLoMenuPos] = useState({ top: 0, left: 0 });
   const loMenuRef = useRef<HTMLDivElement | null>(null);
 
@@ -1114,6 +1123,143 @@ export default function BrokerDetailPage() {
       await loadLoanOfficers(loPage, debouncedLoSearch);
     } catch (err: any) {
       toast.error(err.message || "Failed to delete loan officer");
+    }
+  };
+
+  const handleAccessLoanOfficerPortal = async (officer: BrokerTeamMember) => {
+    if (!brokerId) {
+      toast.error("Broker not found");
+      return;
+    }
+    if (officer.status !== "ACTIVE") {
+      toast.error("Only active loan officers can be accessed");
+      return;
+    }
+
+    const newTab = openBlankPortalTab();
+    if (!newTab) {
+      toast.error(
+        "Popup blocked. Allow popups to open the loan officer portal in a new tab.",
+      );
+      return;
+    }
+
+    try {
+      setImpersonatingId(officer.id);
+      closeLoMenu();
+
+      const json = await impersonateBrokerLoanOfficer(brokerId, officer.id);
+      const params: Record<string, string> = {
+        token: json.token,
+        user: JSON.stringify(json.user),
+        redirectTo: json.redirectTo || "/loan-officer/dashboard",
+      };
+      if (json.permissions?.length) {
+        params.permissions = JSON.stringify(json.permissions);
+      }
+
+      navigatePortalTab(
+        newTab,
+        buildImpersonatePortalUrl("/loan-officer/impersonate", params),
+      );
+
+      toast.success(
+        `Opened portal for ${personName(officer.firstName, officer.lastName, officer.email)}`,
+      );
+    } catch (err: any) {
+      newTab.close();
+      toast.error(err.message || "Failed to open loan officer portal");
+    } finally {
+      setImpersonatingId(null);
+    }
+  };
+
+  const handleAccessSubBrokerPortal = async (subBroker: BrokerTeamMember) => {
+    if (!brokerId) {
+      toast.error("Broker not found");
+      return;
+    }
+    if (subBroker.status !== "ACTIVE") {
+      toast.error("Only active co-brokers can be accessed");
+      return;
+    }
+
+    const newTab = openBlankPortalTab();
+    if (!newTab) {
+      toast.error(
+        "Popup blocked. Allow popups to open the co-broker portal in a new tab.",
+      );
+      return;
+    }
+
+    try {
+      setImpersonatingId(subBroker.id);
+      closeSbMenu();
+
+      const json = await impersonateBrokerSubBroker(brokerId, subBroker.id);
+      const params: Record<string, string> = {
+        token: json.token,
+        user: JSON.stringify(json.user),
+        redirectTo: json.redirectTo || "/sub-broker/loan-pipeline",
+      };
+      if (json.branding) {
+        params.branding = JSON.stringify(json.branding);
+      }
+
+      navigatePortalTab(
+        newTab,
+        buildImpersonatePortalUrl("/sub-broker/impersonate", params),
+      );
+
+      toast.success(
+        `Opened portal for ${personName(subBroker.firstName, subBroker.lastName, subBroker.email)}`,
+      );
+    } catch (err: any) {
+      newTab.close();
+      toast.error(err.message || "Failed to open co-broker portal");
+    } finally {
+      setImpersonatingId(null);
+    }
+  };
+
+  const handleAccessClientPortal = async (client: BrokerClientRow) => {
+    if (!brokerId) {
+      toast.error("Broker not found");
+      return;
+    }
+    if (client.isActive === false) {
+      toast.error("Only active clients can be accessed");
+      return;
+    }
+
+    const newTab = openBlankPortalTab();
+    if (!newTab) {
+      toast.error(
+        "Popup blocked. Allow popups to open the client portal in a new tab.",
+      );
+      return;
+    }
+
+    try {
+      setImpersonatingId(client.id);
+      closeClientMenu();
+
+      const json = await impersonateBrokerClient(brokerId, client.id);
+      navigatePortalTab(
+        newTab,
+        buildImpersonatePortalUrl("/client-portal/impersonate", {
+          token: json.token,
+          user: JSON.stringify(json.user),
+          redirectTo: json.redirectTo || "/client-portal",
+        }),
+      );
+
+      toast.success(`Opened portal for ${clientName(client)}`);
+    } catch (err: any) {
+      newTab.close();
+      toast.error(err.message || "Failed to open client portal");
+    } finally {
+      setImpersonatingId(null);
     }
   };
 
@@ -2852,7 +2998,7 @@ export default function BrokerDetailPage() {
           <div
             ref={loMenuRef}
             style={{ position: "fixed", top: loMenuPos.top, left: loMenuPos.left }}
-            className="z-[1250] w-44 overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900"
+            className="z-[1250] w-48 overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900"
           >
             <div className="border-b border-slate-100 px-3 py-2 dark:border-slate-800">
               <p className="truncate text-[11px] font-semibold text-slate-900 dark:text-white">
@@ -2865,6 +3011,22 @@ export default function BrokerDetailPage() {
               <p className="truncate text-[10px] text-slate-500">{activeMenuLoanOfficer.email || "—"}</p>
             </div>
             <div className="py-0.5">
+              <button
+                type="button"
+                disabled={
+                  activeMenuLoanOfficer.status !== "ACTIVE" ||
+                  impersonatingId === activeMenuLoanOfficer.id
+                }
+                onClick={() => {
+                  void handleAccessLoanOfficerPortal(activeMenuLoanOfficer);
+                }}
+                className="flex w-full items-center gap-2 px-3 py-2 text-[11px] text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:text-slate-200 dark:hover:bg-slate-800"
+              >
+                <ExternalLink size={13} className="text-cyan-600" />
+                {impersonatingId === activeMenuLoanOfficer.id
+                  ? "Opening portal..."
+                  : "Access portal"}
+              </button>
               <button
                 type="button"
                 onClick={() => {
@@ -2933,7 +3095,7 @@ export default function BrokerDetailPage() {
           <div
             ref={sbMenuRef}
             style={{ position: "fixed", top: sbMenuPos.top, left: sbMenuPos.left }}
-            className="z-[1250] w-44 overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900"
+            className="z-[1250] w-48 overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900"
           >
             <div className="border-b border-slate-100 px-3 py-2 dark:border-slate-800">
               <p className="truncate text-[11px] font-semibold text-slate-900 dark:text-white">
@@ -2946,6 +3108,22 @@ export default function BrokerDetailPage() {
               <p className="truncate text-[10px] text-slate-500">{activeMenuSubBroker.email || "—"}</p>
             </div>
             <div className="py-0.5">
+              <button
+                type="button"
+                disabled={
+                  activeMenuSubBroker.status !== "ACTIVE" ||
+                  impersonatingId === activeMenuSubBroker.id
+                }
+                onClick={() => {
+                  void handleAccessSubBrokerPortal(activeMenuSubBroker);
+                }}
+                className="flex w-full items-center gap-2 px-3 py-2 text-[11px] text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:text-slate-200 dark:hover:bg-slate-800"
+              >
+                <ExternalLink size={13} className="text-cyan-600" />
+                {impersonatingId === activeMenuSubBroker.id
+                  ? "Opening portal..."
+                  : "Access portal"}
+              </button>
               <button
                 type="button"
                 onClick={() => {
@@ -3003,7 +3181,7 @@ export default function BrokerDetailPage() {
           <div
             ref={clientMenuRef}
             style={{ position: "fixed", top: clientMenuPos.top, left: clientMenuPos.left }}
-            className="z-[1250] w-44 overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900"
+            className="z-[1250] w-48 overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900"
           >
             <div className="border-b border-slate-100 px-3 py-2 dark:border-slate-800">
               <p className="truncate text-[11px] font-semibold text-slate-900 dark:text-white">
@@ -3014,6 +3192,22 @@ export default function BrokerDetailPage() {
               </p>
             </div>
             <div className="py-0.5">
+              <button
+                type="button"
+                disabled={
+                  activeMenuClient.isActive === false ||
+                  impersonatingId === activeMenuClient.id
+                }
+                onClick={() => {
+                  void handleAccessClientPortal(activeMenuClient);
+                }}
+                className="flex w-full items-center gap-2 px-3 py-2 text-[11px] text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:text-slate-200 dark:hover:bg-slate-800"
+              >
+                <ExternalLink size={13} className="text-cyan-600" />
+                {impersonatingId === activeMenuClient.id
+                  ? "Opening portal..."
+                  : "Access portal"}
+              </button>
               <button
                 type="button"
                 onClick={() => {

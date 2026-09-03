@@ -653,6 +653,10 @@ export default function App() {
               }
             />
             <Route
+              path="settings/integrations/ghl"
+              element={<GhlIntegration portal="loanOfficer" />}
+            />
+            <Route
               path="admin-logs"
               element={
                 <LoRequirePermission permission="VIEW_REPORTS">

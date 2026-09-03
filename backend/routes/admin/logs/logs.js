@@ -1,3 +1,5 @@
+const { sanitizeAuditValueJson } = require("../../../services/logger/sanitizeAuditValue");
+
 /**
  * @param {import("fastify").FastifyInstance} fastify
  */
@@ -135,13 +137,19 @@ async function logsRoutes(fastify) {
           }),
         ]);
 
+        const data = rows.map((row) => ({
+          ...row,
+          oldValueJson: sanitizeAuditValueJson(row.oldValueJson),
+          newValueJson: sanitizeAuditValueJson(row.newValueJson),
+        }));
+
         return reply.send({
           success: true,
           total,
           page: pageNum,
           totalPages: Math.max(1, Math.ceil(total / limitNum) || 1),
           limit: limitNum,
-          data: rows,
+          data,
           filters: {
             categories: categoryGroups.map((row) => row.category).filter(Boolean),
             entityTypes: entityGroups

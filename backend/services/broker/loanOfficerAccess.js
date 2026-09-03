@@ -1,6 +1,7 @@
 /**
  * Shared access helpers for loan officer portal routes.
- * Officers may only access deals where LoanApplication.brokerUserId matches their user id.
+ * Officers may access deals assigned to them via brokerUserId, public share
+ * link provenance, or the public application link they minted.
  */
 
 function getUserId(req) {
@@ -9,6 +10,52 @@ function getUserId(req) {
 
 function getOrgId(req) {
   return req.user?.organizationId;
+}
+
+function officerAssignedApplicationWhere(userId) {
+  if (!userId) return { id: { in: [] } };
+  return {
+    OR: [
+      { brokerUserId: userId },
+      { publicCreatedByUserId: userId },
+      {
+        publicApplicationLink: {
+          is: {
+            OR: [
+              { loanOfficerId: userId },
+              { createdByUserId: userId, sourcePortal: "LOAN_OFFICER" },
+            ],
+          },
+        },
+      },
+      {
+        subBrokerAssignments: {
+          some: {
+            subBroker: {
+              subBrokerLoanOfficers: {
+                some: { loanOfficerId: userId },
+              },
+            },
+          },
+        },
+      },
+    ],
+  };
+}
+
+function isOfficerAssignedToApplication(application, userId) {
+  if (!application || !userId) return false;
+  if (application.brokerUserId === userId) return true;
+  if (application.publicCreatedByUserId === userId) return true;
+  const link = application.publicApplicationLink;
+  if (link?.loanOfficerId === userId) return true;
+  if (
+    link?.sourcePortal === "LOAN_OFFICER" &&
+    link.createdByUserId === userId
+  ) {
+    return true;
+  }
+  return false;
 }
 
 function forbidden(reply, message = "Access denied. Application not assigned to you.") {
@@ -23,7 +70,7 @@ async function assertOwnsApplication(prisma, req, reply, applicationId) {
     where: {
       id: applicationId,
       brokerOrgId: orgId,
-      brokerUserId: userId,
+      ...officerAssignedApplicationWhere(userId),
     },
   });
 
@@ -49,10 +96,21 @@ async function assertOwnsSubmission(prisma, req, reply, submissionId) {
     return null;
   }
 
-  if (
-    submission.application.brokerOrgId !== orgId ||
-    submission.application.brokerUserId !== userId
-  ) {
+  if (submission.application.brokerOrgId !== orgId) {
+    forbidden(reply);
+    return null;
+  }
+
+  const owned = await prisma.loanApplication.findFirst({
+    where: {
+      id: submission.application.id,
+      brokerOrgId: orgId,
+      ...officerAssignedApplicationWhere(userId),
+    },
+    select: { id: true },
+  });
+
+  if (!owned) {
     forbidden(reply);
     return null;
   }
@@ -128,6 +186,8 @@ module.exports = {
   getUserId,
   getOrgId,
   forbidden,
+  officerAssignedApplicationWhere,
+  isOfficerAssignedToApplication,
   assertOwnsApplication,
   assertOwnsSubmission,
   officerPreHandler,

@@ -3,6 +3,7 @@ const { logAudit } = require("../../../services/logger/auditLogger");
 const {
   getUserId,
   officerPreHandler,
+  officerAssignedApplicationWhere,
 } = require("../../../services/broker/loanOfficerAccess");
 const {
   canBrokerEditSubmittedApplication,
@@ -45,7 +46,11 @@ async function editSubmittedApplication(fastify) {
       }
 
       const application = await prisma.loanApplication.findFirst({
-        where: { id: applicationId, brokerOrgId, brokerUserId: userId },
+        where: {
+          id: applicationId,
+          brokerOrgId,
+          ...officerAssignedApplicationWhere(userId),
+        },
         include: {
           applicationLenders: {
             select: { status: true },

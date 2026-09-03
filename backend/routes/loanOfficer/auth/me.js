@@ -1,4 +1,4 @@
-const { officerPreHandler } = require("../../../services/broker/loanOfficerAccess");
+const { officerPreHandler, officerAssignedApplicationWhere } = require("../../../services/broker/loanOfficerAccess");
 const {
   normalizeLoanOfficerPermissions,
 } = require("../../../utils/broker/loanOfficerPermissions");
@@ -36,7 +36,10 @@ async function loanOfficerMeRoutes(fastify) {
         }
 
         const assignedCount = await prisma.loanApplication.count({
-          where: { brokerUserId: userId, brokerOrgId: organizationId },
+          where: {
+            brokerOrgId: organizationId,
+            ...officerAssignedApplicationWhere(userId),
+          },
         });
 
         const permissions = normalizeLoanOfficerPermissions(
