@@ -92,6 +92,23 @@ async function readBrokerRoutes(fastify) {
         summary: "List brokers",
         description:
           "Paginated list of broker organizations with optional filters and sorting.",
+        querystring: {
+          type: "object",
+          properties: {
+            page: { type: "integer", minimum: 1, default: 1 },
+            limit: { type: "integer", minimum: 1, maximum: 100, default: 20 },
+            search: { type: "string" },
+            name: { type: "string" },
+            email: { type: "string" },
+            phone: { type: "string" },
+            status: { type: "string" },
+            sortBy: {
+              type: "string",
+              enum: ["createdAt", "updatedAt", "name", "email"],
+            },
+            sortOrder: { type: "string", enum: ["asc", "desc"] },
+          },
+        },
       },
     },
     async (request, reply) => {
@@ -104,10 +121,56 @@ async function readBrokerRoutes(fastify) {
         const skip = (page - 1) * limit;
 
         const where = { type: "BROKER" };
+        const and = [];
 
-        if (q.name) where.name = { contains: q.name, mode: "insensitive" };
-        if (q.email) where.email = { contains: q.email, mode: "insensitive" };
-        if (q.phone) where.phone = { contains: q.phone };
+        const searchTerm = String(q.search || "").trim();
+        if (searchTerm) {
+          const or = [
+            { name: { contains: searchTerm, mode: "insensitive" } },
+            { email: { contains: searchTerm, mode: "insensitive" } },
+            { phone: { contains: searchTerm, mode: "insensitive" } },
+          ];
+
+          const statusMatch = searchTerm.toUpperCase();
+          if (["ACTIVE", "INACTIVE"].includes(statusMatch)) {
+            or.push({ status: statusMatch });
+          } else if (
+            "ACTIVE".startsWith(statusMatch) ||
+            "INACTIVE".startsWith(statusMatch)
+          ) {
+            const statusOptions = ["ACTIVE", "INACTIVE"].filter((s) =>
+              s.startsWith(statusMatch),
+            );
+            if (statusOptions.length === 1) {
+              or.push({ status: statusOptions[0] });
+            } else if (statusOptions.length > 1) {
+              or.push({ status: { in: statusOptions } });
+            }
+          }
+
+          and.push({ OR: or });
+        }
+
+        if (q.name) {
+          and.push({ name: { contains: String(q.name), mode: "insensitive" } });
+        }
+        if (q.email) {
+          and.push({
+            email: { contains: String(q.email), mode: "insensitive" },
+          });
+        }
+        if (q.phone) {
+          and.push({
+            phone: { contains: String(q.phone), mode: "insensitive" },
+          });
+        }
+        if (q.status) {
+          and.push({
+            status: { equals: String(q.status).trim().toUpperCase() },
+          });
+        }
+
+        if (and.length) where.AND = and;
 
         const allowedSortFields = new Set([
           "createdAt",
@@ -118,30 +181,35 @@ async function readBrokerRoutes(fastify) {
         const sortBy = allowedSortFields.has(q.sortBy) ? q.sortBy : "createdAt";
         const sortOrder = q.sortOrder === "asc" ? "asc" : "desc";
 
-        const total = await prisma.organization.count({ where });
-
-        const brokers = await prisma.organization.findMany({
-          where,
-          skip,
-          take: limit,
-          orderBy: { [sortBy]: sortOrder },
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            phone: true,
-            status: true,
-            createdAt: true,
-            updatedAt: true,
-            _count: {
-              select: {
-                users: true,
-                brokerLenderAccessAsBroker: true,
-                affiliateLinks: true,
+        const [total, brokers, totalBrokers, activeBrokers] = await Promise.all([
+          prisma.organization.count({ where }),
+          prisma.organization.findMany({
+            where,
+            skip,
+            take: limit,
+            orderBy: { [sortBy]: sortOrder },
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              phone: true,
+              status: true,
+              createdAt: true,
+              updatedAt: true,
+              _count: {
+                select: {
+                  users: true,
+                  brokerLenderAccessAsBroker: true,
+                  affiliateLinks: true,
+                },
               },
             },
-          },
-        });
+          }),
+          prisma.organization.count({ where: { type: "BROKER" } }),
+          prisma.organization.count({
+            where: { type: "BROKER", status: "ACTIVE" },
+          }),
+        ]);
 
         // ---- Transform backend naming → frontend naming ----
         const cleaned = brokers.map((b) => ({
@@ -156,7 +224,7 @@ async function readBrokerRoutes(fastify) {
           adminCount: b._count.users,
         }));
 
-        const totalPages = Math.ceil(total / limit);
+        const totalPages = Math.max(1, Math.ceil(total / limit) || 1);
 
         return reply.status(200).send({
           success: true,
@@ -167,6 +235,10 @@ async function readBrokerRoutes(fastify) {
             page,
             limit,
             totalPages,
+            totals: {
+              all: totalBrokers,
+              active: activeBrokers,
+            },
           },
         });
       } catch (error) {

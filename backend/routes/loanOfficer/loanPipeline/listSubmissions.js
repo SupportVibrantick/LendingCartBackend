@@ -2,6 +2,7 @@
  * @param {import("fastify").FastifyInstance} fastify
  */
 
+const { officerAssignedApplicationWhere } = require("../../../services/broker/loanOfficerAccess");
 const {
   resolveBrokerPipelineDisplayStatus,
   buildBrokerPipelineApplicationStatusWhere,
@@ -55,6 +56,7 @@ module.exports = async function listSubmissionsTable(fastify) {
         /* ================= WHERE ================= */
 
         const statusFilter = buildBrokerPipelineApplicationStatusWhere(status);
+        const searchTerm = search?.trim();
 
       const whereCondition = {
   status: {
@@ -62,88 +64,88 @@ module.exports = async function listSubmissionsTable(fastify) {
   },
 
   application: {
-    brokerOrgId: orgId,
-    ...statusFilter,
-
-    ...(isOfficer && {
-      brokerUserId: userId,
-    }),
-
-    ...(isSubBroker && {
-      subBrokerAssignments: {
-        some: {
-          subBrokerId: userId,
-        },
-      },
-    }),
-
-...(search?.trim() && {
-  OR: [
-    {
-      applicationNumber: {
-        contains: search.trim(),
-        mode: "insensitive",
-      },
-    },
-
-    {
-      client: {
-        is: {
-          legalName: {
-            contains: search.trim(),
-            mode: "insensitive",
-          },
-        },
-      },
-    },
-
-    {
-      brokerUser: {
-        is: {
-          OR: [
+    AND: [
+      { brokerOrgId: orgId },
+      statusFilter,
+      ...(isOfficer ? [officerAssignedApplicationWhere(userId)] : []),
+      ...(isSubBroker
+        ? [
             {
-              firstName: {
-                contains: search.trim(),
-                mode: "insensitive",
-              },
-            },
-
-            {
-              lastName: {
-                contains: search.trim(),
-                mode: "insensitive",
-              },
-            },
-          ],
-        },
-      },
-    },
-
-    {
-      subBrokerAssignments: {
-        some: {
-          subBroker: {
-            OR: [
-              {
-                firstName: {
-                  contains: search.trim(),
-                  mode: "insensitive",
+              subBrokerAssignments: {
+                some: {
+                  subBrokerId: userId,
                 },
               },
-
-              {
-                lastName: {
-                  contains: search.trim(),
-                  mode: "insensitive",
+            },
+          ]
+        : []),
+      ...(searchTerm
+        ? [
+            {
+              OR: [
+                {
+                  applicationNumber: {
+                    contains: searchTerm,
+                    mode: "insensitive",
+                  },
                 },
-              },
-            ],
-          },
-        },
-      },
-    },
-  ],
-}),
+                {
+                  client: {
+                    is: {
+                      legalName: {
+                        contains: searchTerm,
+                        mode: "insensitive",
+                      },
+                    },
+                  },
+                },
+                {
+                  brokerUser: {
+                    is: {
+                      OR: [
+                        {
+                          firstName: {
+                            contains: searchTerm,
+                            mode: "insensitive",
+                          },
+                        },
+                        {
+                          lastName: {
+                            contains: searchTerm,
+                            mode: "insensitive",
+                          },
+                        },
+                      ],
+                    },
+                  },
+                },
+                {
+                  subBrokerAssignments: {
+                    some: {
+                      subBroker: {
+                        OR: [
+                          {
+                            firstName: {
+                              contains: searchTerm,
+                              mode: "insensitive",
+                            },
+                          },
+                          {
+                            lastName: {
+                              contains: searchTerm,
+                              mode: "insensitive",
+                            },
+                          },
+                        ],
+                      },
+                    },
+                  },
+                },
+              ],
+            },
+          ]
+        : []),
+    ],
   },
 };
         /* ================= QUERY ================= */

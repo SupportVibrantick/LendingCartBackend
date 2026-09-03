@@ -18,6 +18,7 @@ module.exports = async function viewSubmission(fastify) {
 
     const userId = req.user.id || req.user.userId;
     const orgId = req.user.organizationId;
+    const { officerAssignedApplicationWhere } = require("../../../services/broker/loanOfficerAccess");
 
     /* ===============================
        FETCH SUBMISSION + EXTRA DATA
@@ -70,10 +71,23 @@ module.exports = async function viewSubmission(fastify) {
       });
     }
 
-    if (
-      submission.application.brokerOrgId !== orgId ||
-      submission.application.brokerUserId !== userId
-    ) {
+    if (submission.application.brokerOrgId !== orgId) {
+      return reply.code(403).send({
+        success: false,
+        message: "Access denied - not assigned to you",
+      });
+    }
+
+    const owned = await fastify.prisma.loanApplication.findFirst({
+      where: {
+        id: submission.applicationId,
+        brokerOrgId: orgId,
+        ...officerAssignedApplicationWhere(userId),
+      },
+      select: { id: true },
+    });
+
+    if (!owned) {
       return reply.code(403).send({
         success: false,
         message: "Access denied - not assigned to you",

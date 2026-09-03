@@ -512,6 +512,8 @@ export interface SubmitOptions {
   editApplicationId?: string;
   publicEmbed: boolean;
   recaptchaToken: string | null;
+  publicLinkRef?: string | null;
+  brokerOrgId?: string | null;
   onUpdateSuccess?: (submissionId?: string) => void;
   onPublicSubmitSuccess?: (submissionId?: string) => void;
   onNavigateAfterSuccess?: (path: string) => void;
@@ -606,10 +608,12 @@ export async function submitApplication(
     // Embedded-only: include the ref / brokerOrgId so the public endpoint
     // can route the submission to the right broker / loan officer.
     const publicExtras: Record<string, string> = {};
-    if (ctx.formData && (ctx as any).publicLinkRef) {
-      publicExtras.ref = (ctx as any).publicLinkRef;
-    } else if (ctx.formData && (ctx as any).brokerOrgId) {
-      publicExtras.brokerOrgId = (ctx as any).brokerOrgId;
+    const linkRef = opts.publicLinkRef || (ctx as any).publicLinkRef;
+    const orgId = opts.brokerOrgId || (ctx as any).brokerOrgId;
+    if (linkRef) {
+      publicExtras.ref = String(linkRef);
+    } else if (orgId) {
+      publicExtras.brokerOrgId = String(orgId);
     }
 
     const response = await fetch(
