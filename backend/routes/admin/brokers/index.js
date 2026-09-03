@@ -13,6 +13,8 @@ async function brokersRoutes(fastify, options) {
   fastify.register(require("./loanOfficerActivity"), { prefix: "/loan-officer-activity" });
   fastify.register(require("./subBrokers"), { prefix: "/sub-brokers" });
   fastify.register(require("./lenders"), { prefix: "/lenders" });
+  // LO / co-broker / client portal impersonation (new-tab access from admin)
+  fastify.register(require("./portalImpersonate"));
 }
 
 module.exports = brokersRoutes;
