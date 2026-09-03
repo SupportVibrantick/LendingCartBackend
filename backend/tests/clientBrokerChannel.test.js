@@ -90,6 +90,46 @@ test("loan officer client thread filter prefers team channel", () => {
   assert.equal(filtered[0].id, "team");
 });
 
+test("broker staff chat entries list each assigned officer and co-broker", () => {
+  const {
+    buildAssignedStaffConversationEntries,
+    buildBrokerOfficerCategory,
+  } = require("../services/messaging/brokerOfficerConversation");
+
+  const officerA = { id: "lo-1", firstName: "Sarah", lastName: "Mitchell" };
+  const officerB = { id: "lo-2", firstName: "Alex", lastName: "Chen" };
+  const coBroker = { id: "sb-1", firstName: "Jordan", lastName: "Lee" };
+
+  const { officerEntries, coBrokerEntries } =
+    buildAssignedStaffConversationEntries({
+      officers: [officerA, officerB],
+      coBrokers: [coBroker],
+      conversations: [
+        {
+          id: "legacy-bo",
+          type: "BROKER_OFFICER",
+          chatCategory: null,
+          messages: [],
+        },
+      ],
+      primaryOfficerId: officerA.id,
+    });
+
+  assert.equal(officerEntries.length, 2);
+  assert.equal(officerEntries[0].id, "legacy-bo");
+  assert.equal(officerEntries[0].isPlaceholder, false);
+  assert.equal(officerEntries[1].id, "officer-lo-2");
+  assert.equal(officerEntries[1].isPlaceholder, true);
+  assert.equal(
+    officerEntries[1].chatCategory,
+    buildBrokerOfficerCategory("lo-2"),
+  );
+  assert.equal(coBrokerEntries.length, 1);
+  assert.equal(coBrokerEntries[0].id, "co-broker-sb-1");
+  assert.equal(coBrokerEntries[0].type, "SUBBROKER_BROKER");
+  assert.equal(coBrokerEntries[0].participant.role, "SUB_BROKER");
+});
+
 test("client viewer sees Your Broker Team badge", () => {
   const { enrichConversationItem } = require("../services/messaging/conversationPresentation");
 

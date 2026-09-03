@@ -16,6 +16,9 @@ const {
   getUserId,
 } = require("../../../../services/messaging/messagingAccess");
 const {
+  officerAssignedApplicationWhere,
+} = require("../../../../services/broker/loanOfficerAccess");
+const {
   resolveViewerRole,
   enrichConversationList,
 } = require("../../../../services/messaging/conversationPresentation");
@@ -83,26 +86,28 @@ module.exports = async function getInbox(fastify) {
 
         const loanFilter = {
           brokerOrgId,
-          ...(hasRole(req.user, "BROKER_OFFICER") && userId
-            ? { brokerUserId: userId }
-            : {}),
-          ...(search
-            ? {
-                OR: [
-                  {
-                    applicationNumber: {
-                      contains: search,
-                      mode: "insensitive",
+          AND: [
+            hasRole(req.user, "BROKER_OFFICER") && userId
+              ? officerAssignedApplicationWhere(userId)
+              : null,
+            search
+              ? {
+                  OR: [
+                    {
+                      applicationNumber: {
+                        contains: search,
+                        mode: "insensitive",
+                      },
                     },
-                  },
-                  {
-                    client: {
-                      legalName: { contains: search, mode: "insensitive" },
+                    {
+                      client: {
+                        legalName: { contains: search, mode: "insensitive" },
+                      },
                     },
-                  },
-                ],
-              }
-            : {}),
+                  ],
+                }
+              : null,
+          ].filter(Boolean),
         };
 
         const matchingLoans = await prisma.loanApplication.findMany({

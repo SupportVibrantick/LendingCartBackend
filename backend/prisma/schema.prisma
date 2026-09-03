@@ -135,6 +135,8 @@ model UserAccount {
   emailVerifiedAt               DateTime?                        @map("email_verified_at") @db.Timestamptz(6)
   assignedSubBrokerApplications SubBrokerApplication[]           @relation("SubBrokerAssignedBy")
   assignedApplications          SubBrokerApplication[]           @relation("SubBrokerAssignedApplications")
+  assignedLoanOfficerApplications LoanOfficerApplication[]         @relation("LoanOfficerAssignedApplications")
+  assignedByLoanOfficerApplications LoanOfficerApplication[]         @relation("LoanOfficerAssignedBy")
   loanOfficerSubBrokers         SubBrokerLoanOfficer[]           @relation("LoanOfficerSubBrokerLinks")
   subBrokerLoanOfficers         SubBrokerLoanOfficer[]           @relation("SubBrokerAssignedLoanOfficers")
   subBrokerProfile              SubBrokerProfile?
@@ -283,6 +285,22 @@ model SubBrokerApplication {
   @@index([loanApplicationId])
   @@index([subBrokerId])
   @@map("sub_broker_applications")
+}
+
+model LoanOfficerApplication {
+  id                String          @id @default(uuid()) @db.Uuid
+  loanApplicationId String          @db.Uuid
+  loanOfficerId     String          @db.Uuid
+  assignedById      String?         @db.Uuid
+  assignedAt        DateTime        @default(now()) @db.Timestamptz(6)
+  assignedBy        UserAccount?    @relation("LoanOfficerAssignedBy", fields: [assignedById], references: [id])
+  loanApplication   LoanApplication @relation(fields: [loanApplicationId], references: [id], onDelete: Cascade)
+  loanOfficer       UserAccount     @relation("LoanOfficerAssignedApplications", fields: [loanOfficerId], references: [id], onDelete: Cascade)
+
+  @@unique([loanApplicationId, loanOfficerId])
+  @@index([loanApplicationId])
+  @@index([loanOfficerId])
+  @@map("loan_officer_applications")
 }
 
 model SubBrokerProfile {
@@ -945,6 +963,7 @@ model LoanApplication {
   publicApplicationLink        PublicApplicationLink?           @relation(fields: [publicApplicationLinkId], references: [id])
   publicCreatedByUser          UserAccount?                     @relation("PublicApplicationCreatedBy", fields: [publicCreatedByUserId], references: [id])
   subBrokerAssignments         SubBrokerApplication[]
+  loanOfficerAssignments       LoanOfficerApplication[]
   dealCommissions              DealCommission[]
   commissionInvoices           CommissionInvoice[]
   commissionPayouts            CommissionPayout[]

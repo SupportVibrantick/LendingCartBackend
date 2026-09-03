@@ -13,7 +13,7 @@ import { hasPermission } from "./brokerPermissions";
 export type ContactsPortal = "loanOfficer" | "coBroker";
 
 export type ContactsPortalConfig = {
-  listUrl: (page: number, limit: number) => string;
+  listUrl: (page: number, limit: number, search?: string) => string;
   deleteUrl: (id: string) => string;
   createUrl: string;
   updateUrl: (id: string) => string;
@@ -31,8 +31,14 @@ export function getContactsPortalConfig(
 ): ContactsPortalConfig {
   if (portal === "coBroker") {
     return {
-      listUrl: (page, limit) =>
-        `${CO_BROKER_API_BASE}/subbroker/contacts/list?page=${page}&limit=${limit}`,
+      listUrl: (page, limit, search = "") => {
+        const params = new URLSearchParams({
+          page: String(page),
+          limit: String(limit),
+        });
+        if (search.trim()) params.set("search", search.trim());
+        return `${CO_BROKER_API_BASE}/subbroker/contacts/list?${params}`;
+      },
       deleteUrl: (id) => `${CO_BROKER_API_BASE}/subbroker/contacts/${id}`,
       createUrl: `${CO_BROKER_API_BASE}/subbroker/contacts/create`,
       updateUrl: (id) => `${CO_BROKER_API_BASE}/subbroker/contacts/${id}/update`,
@@ -52,8 +58,14 @@ export function getContactsPortalConfig(
   }
 
   return {
-    listUrl: (page, limit) =>
-      `${LO_API_BASE}/loanofficer/contacts/list?page=${page}&limit=${limit}`,
+    listUrl: (page, limit, search = "") => {
+      const params = new URLSearchParams({
+        page: String(page),
+        limit: String(limit),
+      });
+      if (search.trim()) params.set("search", search.trim());
+      return `${LO_API_BASE}/loanofficer/contacts/list?${params}`;
+    },
     deleteUrl: (id) => `${LO_API_BASE}/loanofficer/contacts/${id}`,
     createUrl: `${LO_API_BASE}/loanofficer/contacts/create`,
     updateUrl: (id) => `${LO_API_BASE}/loanofficer/contacts/${id}/update`,

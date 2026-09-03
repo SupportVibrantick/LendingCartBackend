@@ -16,6 +16,10 @@ const {
 const {
   autoAssignLoanOfficerCoBrokers,
 } = require("../../../services/broker/autoAssignLoanOfficerCoBrokers");
+const {
+  uniqueIds,
+  replaceLoanOfficerAssignments,
+} = require("../../../services/broker/loanOfficerAssignments");
 
 const SUBBROKER_CHAT_DB_TYPE = "CLIENT_BROKER";
 
@@ -25,46 +29,50 @@ async function assignLoanOfficer(fastify) {
     {
       schema: {
         tags: ["Broker -> Applications"],
-        summary: "Assign Loan Officer to Application"
-      }
+        summary: "Assign Loan Officer(s) to Application",
+      },
     },
     async (req, reply) => {
       const prisma = fastify.prisma;
 
       try {
-        /* ================= AUTH ================= */
-
         if (!req.user || req.user.orgType !== "BROKER") {
           return reply.code(403).send({
             success: false,
-            message: "Broker access only"
+            message: "Broker access only",
           });
         }
 
         if (!req.user.roles?.includes("BROKER_ADMIN")) {
           return reply.code(403).send({
             success: false,
-            message: "Only Broker Admin can assign loan officer"
+            message: "Only Broker Admin can assign loan officer",
           });
         }
 
         const brokerOrgId = req.user.organizationId;
         const applicationId = req.params.id;
-        const { loanOfficerId } = req.body;
+        const body = req.body || {};
+        const hasIdsArray = Array.isArray(body.loanOfficerIds);
+        const loanOfficerIds = uniqueIds(
+          hasIdsArray
+            ? body.loanOfficerIds
+            : body.loanOfficerId
+              ? [body.loanOfficerId]
+              : [],
+        );
 
-        if (!loanOfficerId) {
+        if (!hasIdsArray && !body.loanOfficerId) {
           return reply.code(400).send({
             success: false,
-            message: "loanOfficerId is required"
+            message: "loanOfficerId or loanOfficerIds is required",
           });
         }
-
-        /* ================= VALIDATE APPLICATION ================= */
 
         const application = await prisma.loanApplication.findFirst({
           where: {
             id: applicationId,
-            brokerOrgId: brokerOrgId
+            brokerOrgId,
           },
           select: {
             id: true,
@@ -73,21 +81,20 @@ async function assignLoanOfficer(fastify) {
             applicationNumber: true,
             brokerUserId: true,
             applicationLenders: {
-              select: {
-                status: true,
-              },
+              select: { status: true },
             },
             brokerUser: {
               select: {
                 id: true,
                 roles: {
                   select: {
-                    role: {
-                      select: { name: true },
-                    },
+                    role: { select: { name: true } },
                   },
                 },
               },
+            },
+            loanOfficerAssignments: {
+              select: { loanOfficerId: true },
             },
           },
         });
@@ -95,7 +102,7 @@ async function assignLoanOfficer(fastify) {
         if (!application) {
           return reply.code(404).send({
             success: false,
-            message: "Application not found"
+            message: "Application not found",
           });
         }
 
@@ -107,97 +114,106 @@ async function assignLoanOfficer(fastify) {
           });
         }
 
-        /* ================= VALIDATE LOAN OFFICER ================= */
+        const officers =
+          loanOfficerIds.length === 0
+            ? []
+            : await prisma.userAccount.findMany({
+                where: {
+                  id: { in: loanOfficerIds },
+                  organizationId: brokerOrgId,
+                  isDeleted: false,
+                  roles: {
+                    some: {
+                      role: { name: "BROKER_OFFICER" },
+                    },
+                  },
+                },
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                },
+              });
 
-        const officer = await prisma.userAccount.findFirst({
-          where: {
-            id: loanOfficerId,
-            organizationId: brokerOrgId,
-            roles: {
-              some: {
-                role: {
-                  name: "BROKER_OFFICER"
-                }
-              }
-            }
-          },
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-          },
-        });
-
-        if (!officer) {
+        if (officers.length !== loanOfficerIds.length) {
           return reply.code(400).send({
             success: false,
-            message: "Invalid loan officer"
+            message: "One or more loan officers are invalid",
           });
         }
 
-        const currentOfficerId =
-          application.brokerUser?.roles?.some(
-            (role) => role.role?.name === "BROKER_OFFICER",
-          )
-            ? application.brokerUserId
-            : null;
+        const currentOfficerId = application.brokerUser?.roles?.some(
+          (role) => role.role?.name === "BROKER_OFFICER",
+        )
+          ? application.brokerUserId
+          : null;
 
-        if (currentOfficerId === loanOfficerId) {
+        const existingIds = application.loanOfficerAssignments.map(
+          (row) => row.loanOfficerId,
+        );
+        const effectiveCurrentIds = existingIds.length
+          ? existingIds
+          : currentOfficerId
+            ? [currentOfficerId]
+            : [];
+        const sameSet =
+          loanOfficerIds.length === effectiveCurrentIds.length &&
+          loanOfficerIds.every((id) => effectiveCurrentIds.includes(id));
+
+        const assignedByUserId = req.user.userId || req.user.id;
+        const { addedIds, allIds } = await replaceLoanOfficerAssignments(
+          prisma,
+          {
+            loanApplicationId: applicationId,
+            loanOfficerIds,
+            assignedById: assignedByUserId,
+          },
+        );
+
+        const newlyAssignedIds = loanOfficerIds.filter(
+          (id) => !effectiveCurrentIds.includes(id),
+        );
+
+        if (sameSet) {
           return reply.code(200).send({
             success: true,
             message: "Loan officer already assigned to this application",
             data: {
               applicationId,
-              loanOfficerId: currentOfficerId,
+              loanOfficerIds: allIds,
+              loanOfficerId: allIds[0] || null,
             },
           });
         }
 
-        /* ================= UPDATE ================= */
-
-        const updatedApplication = await prisma.loanApplication.update({
-          where: { id: applicationId },
-          data: {
-            brokerUserId: loanOfficerId
-          }
-        });
-
         await syncLoanOfficerForApplication(prisma, {
           loanApplicationId: applicationId,
           previousOfficerId: currentOfficerId,
-          newOfficerId: loanOfficerId,
+          officerIds: allIds,
         });
 
-        /* ================= SYNC CLIENT ↔ LOAN OFFICER CHAT ================= */
-
         if (application.clientId) {
-          await findOrCreateClientOfficerConversation(prisma, {
-            loanApplicationId: applicationId,
-            loanOfficerId,
-            clientId: application.clientId,
-          });
+          for (const loanOfficerId of allIds) {
+            await findOrCreateClientOfficerConversation(prisma, {
+              loanApplicationId: applicationId,
+              loanOfficerId,
+              clientId: application.clientId,
+            });
+          }
         }
 
-        /* ================= SYNC SUB-BROKER CHAT ================= */
-
         const assignments = await prisma.subBrokerApplication.findMany({
-          where: {
-            loanApplicationId: applicationId
-          },
-          select: {
-            subBrokerId: true
-          }
+          where: { loanApplicationId: applicationId },
+          select: { subBrokerId: true },
         });
 
         if (assignments.length > 0) {
           const existingConversation = await prisma.conversation.findFirst({
             where: {
               loanApplicationId: applicationId,
-              type: SUBBROKER_CHAT_DB_TYPE
+              type: SUBBROKER_CHAT_DB_TYPE,
             },
-            select: {
-              id: true
-            }
+            select: { id: true },
           });
 
           const conversation = existingConversation
@@ -206,33 +222,34 @@ async function assignLoanOfficer(fastify) {
                 data: {
                   loanApplicationId: applicationId,
                   applicationLenderId: null,
-                  type: SUBBROKER_CHAT_DB_TYPE
+                  type: SUBBROKER_CHAT_DB_TYPE,
                 },
-                select: {
-                  id: true
-                }
+                select: { id: true },
               });
 
           const participantRows = [
             {
               conversationId: conversation.id,
               participantType: "BROKER",
-              participantId: req.user.userId
+              participantId: assignedByUserId,
             },
             ...assignments.map((assignment) => ({
               conversationId: conversation.id,
               participantType: "SUB_BROKER",
-              participantId: assignment.subBrokerId
-            }))
+              participantId: assignment.subBrokerId,
+            })),
+            ...allIds.map((loanOfficerId) => ({
+              conversationId: conversation.id,
+              participantType: "BROKER",
+              participantId: loanOfficerId,
+            })),
           ];
 
           await prisma.conversationParticipant.createMany({
             data: participantRows,
-            skipDuplicates: true
+            skipDuplicates: true,
           });
         }
-
-        /* ================= AUDIT LOG ================= */
 
         await logAudit({
           prisma,
@@ -243,59 +260,74 @@ async function assignLoanOfficer(fastify) {
           entityId: applicationId,
           action: "ASSIGN_LOAN_OFFICER",
           newValue: {
-            loanOfficerId
-          }
-        });
-
-        const officerName =
-          `${officer.firstName || ""} ${officer.lastName || ""}`.trim() ||
-          "Loan Officer";
-
-        await notifyBroker(prisma, fastify.io, {
-          brokerOrgId,
-          eventType: BROKER_NOTIFICATION_EVENTS.LOAN_OFFICER_ASSIGNED,
-          category: "ASSIGNMENT",
-          subject: "Loan Officer Assigned",
-          body: `${officerName} assigned to application ${application.applicationNumber}`,
-          metadata: {
-            applicationId,
-            applicationNumber: application.applicationNumber,
-            loanOfficerId,
-            officerName,
+            loanOfficerIds: allIds,
+            loanOfficerId: allIds[0] || null,
           },
-          recipientUserId: loanOfficerId,
         });
 
-        await autoAssignLoanOfficerCoBrokers(prisma, fastify, {
-          loanApplicationId: applicationId,
-          loanOfficerId,
-          brokerOrgId,
-          assignedByUserId: req.user.userId || req.user.id,
-        });
+        const officerById = new Map(officers.map((officer) => [officer.id, officer]));
 
-        /* ================= SUCCESS ================= */
+        for (const loanOfficerId of newlyAssignedIds) {
+          const officer = officerById.get(loanOfficerId);
+          const officerName =
+            `${officer?.firstName || ""} ${officer?.lastName || ""}`.trim() ||
+            "Loan Officer";
+
+          await notifyBroker(prisma, fastify.io, {
+            brokerOrgId,
+            eventType: BROKER_NOTIFICATION_EVENTS.LOAN_OFFICER_ASSIGNED,
+            category: "ASSIGNMENT",
+            subject: "Loan Officer Assigned",
+            body: `${officerName} assigned to application ${application.applicationNumber}`,
+            metadata: {
+              applicationId,
+              applicationNumber: application.applicationNumber,
+              loanOfficerId,
+              officerName,
+            },
+            recipientUserId: loanOfficerId,
+          });
+
+          await autoAssignLoanOfficerCoBrokers(prisma, fastify, {
+            loanApplicationId: applicationId,
+            loanOfficerId,
+            brokerOrgId,
+            assignedByUserId,
+          });
+        }
+
+        const updatedApplication = await prisma.loanApplication.findUnique({
+          where: { id: applicationId },
+          select: { id: true, brokerUserId: true },
+        });
 
         return reply.code(200).send({
           success: true,
-          message: "Loan officer assigned successfully",
+          message:
+            allIds.length > 1
+              ? "Loan officers assigned successfully"
+              : allIds.length === 1
+                ? "Loan officer assigned successfully"
+                : "Loan officers unassigned successfully",
           data: {
-            applicationId: updatedApplication.id,
-            loanOfficerId: updatedApplication.brokerUserId
-          }
+            applicationId: updatedApplication?.id,
+            loanOfficerId: updatedApplication?.brokerUserId || null,
+            loanOfficerIds: allIds,
+            addedLoanOfficerIds: addedIds,
+          },
         });
-
       } catch (error) {
         fastify.log.error({
           error: error.message,
-          stack: error.stack
+          stack: error.stack,
         });
 
         return reply.code(500).send({
           success: false,
-          message: "Internal server error"
+          message: "Internal server error",
         });
       }
-    }
+    },
   );
 }
 

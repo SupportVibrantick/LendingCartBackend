@@ -7,6 +7,9 @@ const {
   notifyBroker,
   BROKER_NOTIFICATION_EVENTS,
 } = require("../notifications/brokerNotifications");
+const {
+  addLoanOfficerAssignments,
+} = require("./loanOfficerAssignments");
 
 const SUBBROKER_CHAT_DB_TYPE = "CLIENT_BROKER";
 
@@ -79,27 +82,33 @@ async function autoAssignSubBrokerLoanOfficers(
     ? application.brokerUserId
     : null;
 
-  const primaryOfficerId =
-    currentOfficerId && officerIds.includes(currentOfficerId)
-      ? currentOfficerId
-      : officerIds[0];
+  const existingAssignments = await prisma.loanOfficerApplication.findMany({
+    where: { loanApplicationId },
+    select: { loanOfficerId: true },
+  });
+  const knownOfficerIds = new Set([
+    ...existingAssignments.map((row) => row.loanOfficerId),
+    ...(currentOfficerId ? [currentOfficerId] : []),
+  ]);
+  const newlyAssignedIds = officerIds.filter((id) => !knownOfficerIds.has(id));
 
-  if (!currentOfficerId && primaryOfficerId) {
-    await prisma.loanApplication.update({
-      where: { id: loanApplicationId },
-      data: { brokerUserId: primaryOfficerId },
-    });
+  await addLoanOfficerAssignments(prisma, {
+    loanApplicationId,
+    loanOfficerIds: officerIds,
+    assignedById: assignedByUserId || subBrokerId,
+  });
 
-    await syncLoanOfficerForApplication(prisma, {
-      loanApplicationId,
-      previousOfficerId: null,
-      newOfficerId: primaryOfficerId,
-    });
+  await syncLoanOfficerForApplication(prisma, {
+    loanApplicationId,
+    previousOfficerId: null,
+    officerIds,
+  });
 
-    if (application.clientId) {
+  if (application.clientId) {
+    for (const loanOfficerId of officerIds) {
       await findOrCreateClientOfficerConversation(prisma, {
         loanApplicationId,
-        loanOfficerId: primaryOfficerId,
+        loanOfficerId,
         clientId: application.clientId,
       });
     }
@@ -147,6 +156,7 @@ async function autoAssignSubBrokerLoanOfficers(
   }
 
   for (const link of links) {
+    if (!newlyAssignedIds.includes(link.loanOfficerId)) continue;
     const officerName =
       `${link.loanOfficer.firstName || ""} ${link.loanOfficer.lastName || ""}`.trim() ||
       "Loan Officer";

@@ -1,7 +1,8 @@
 /**
  * Shared access helpers for loan officer portal routes.
- * Officers may access deals assigned to them via brokerUserId, public share
- * link provenance, or the public application link they minted.
+ * Officers may access deals assigned to them via brokerUserId, the
+ * loan_officer_applications join table, public share link provenance, or the
+ * public application link they minted.
  */
 
 function getUserId(req) {
@@ -17,6 +18,11 @@ function officerAssignedApplicationWhere(userId) {
   return {
     OR: [
       { brokerUserId: userId },
+      {
+        loanOfficerAssignments: {
+          some: { loanOfficerId: userId },
+        },
+      },
       { publicCreatedByUserId: userId },
       {
         publicApplicationLink: {
@@ -46,6 +52,13 @@ function officerAssignedApplicationWhere(userId) {
 function isOfficerAssignedToApplication(application, userId) {
   if (!application || !userId) return false;
   if (application.brokerUserId === userId) return true;
+  if (
+    application.loanOfficerAssignments?.some(
+      (row) => row.loanOfficerId === userId,
+    )
+  ) {
+    return true;
+  }
   if (application.publicCreatedByUserId === userId) return true;
   const link = application.publicApplicationLink;
   if (link?.loanOfficerId === userId) return true;
@@ -182,6 +195,10 @@ async function requireLoOfficerPermission(req, reply, fastify, permission) {
   await fastify.requirePermission(permission)(req, reply);
 }
 
+function isLoanOfficerActor(req) {
+  return Boolean(req.user?.roles?.includes("BROKER_OFFICER"));
+}
+
 module.exports = {
   getUserId,
   getOrgId,
@@ -202,4 +219,5 @@ module.exports = {
   requireLoAddOwnLender,
   requireLoSendApplications,
   requireLoOfficerPermission,
+  isLoanOfficerActor,
 };

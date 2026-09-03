@@ -297,6 +297,16 @@ async function submitApplication(fastify) {
             publicApplicationLinkId: provenance.publicApplicationLinkId,
             publicSourcePortal: provenance.publicSourcePortal,
             publicCreatedByUserId: provenance.publicCreatedByUserId,
+            ...(provenance.brokerUserId
+              ? {
+                  loanOfficerAssignments: {
+                    create: {
+                      loanOfficerId: provenance.brokerUserId,
+                      assignedById: provenance.brokerUserId,
+                    },
+                  },
+                }
+              : {}),
           },
         });
 
