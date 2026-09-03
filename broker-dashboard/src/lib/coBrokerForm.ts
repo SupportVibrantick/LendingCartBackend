@@ -392,6 +392,7 @@ export function validateCoBrokerForm(
 
 export function buildCoBrokerFormData(
   form: CoBrokerFormState,
+  options?: { includeLoanOfficerAssignment?: boolean },
 ): { body: Record<string, unknown>; files: { logo?: File; w9?: File } } {
   const resolvedForm = resolvePrimaryContactForSubmit(form);
   const body: Record<string, unknown> = {};
@@ -438,7 +439,9 @@ export function buildCoBrokerFormData(
   body.companyStateLicenseStates = resolvedForm.companyStateLicenseStates;
   body.personalStateLicenseStates = resolvedForm.personalStateLicenseStates;
   body.branchIds = resolvedForm.branchIds;
-  body.assignedLoanOfficerIds = resolvedForm.assignedLoanOfficerIds;
+  if (options?.includeLoanOfficerAssignment !== false) {
+    body.assignedLoanOfficerIds = resolvedForm.assignedLoanOfficerIds;
+  }
 
   if (resolvedForm.allowedToLogin && resolvedForm.password) {
     set("password", resolvedForm.password);

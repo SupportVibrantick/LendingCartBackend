@@ -1,6 +1,5 @@
 /**
  * Get conversations for sub broker loan
- * FIXED VERSION
  */
 
 const {
@@ -10,8 +9,14 @@ const {
 const {
   syncClientBrokerTeamParticipants,
   isPrincipalClientBrokerChannel,
+  findBrokerAdmin,
+  formatUserName,
+  listAssignedStaffForLoanChat,
+  buildSubBrokerLoanOfficerConversationEntries,
 } = require("../../../../services/messaging/brokerOfficerConversation");
-const { resolveClientDisplayName } = require("../../../../services/messaging/resolveClientDisplayName");
+const {
+  resolveClientDisplayName,
+} = require("../../../../services/messaging/resolveClientDisplayName");
 const {
   enrichLoanConversationItems,
 } = require("../../../../services/messaging/conversationUnread");
@@ -24,14 +29,10 @@ module.exports = async function getConversations(fastify) {
 
       schema: {
         tags: ["Sub Broker -> Messaging"],
-
         summary: "Get conversations for sub broker",
-
         params: {
           type: "object",
-
           required: ["loanId"],
-
           properties: {
             loanId: {
               type: "string",
@@ -44,89 +45,77 @@ module.exports = async function getConversations(fastify) {
 
     async (req, reply) => {
       const prisma = fastify.prisma;
-
       const { loanId } = req.params;
-
-      const userId = req.user?.userId;
+      const userId = req.user?.userId || req.user?.id;
 
       try {
-        /* ======================================
-           VERIFY ASSIGNMENT
-        ====================================== */
-
         const assignment = await prisma.subBrokerApplication.findFirst({
           where: {
             loanApplicationId: loanId,
-
             subBrokerId: userId,
           },
+          select: { id: true },
+        });
 
-          include: {
-            assignedBy: {
+        if (!assignment) {
+          return reply.code(403).send({
+            success: false,
+            message: "Application not assigned",
+          });
+        }
+
+        const loan = await prisma.loanApplication.findUnique({
+          where: { id: loanId },
+          select: {
+            id: true,
+            brokerOrgId: true,
+            brokerUserId: true,
+            brokerUser: {
               select: {
                 id: true,
-
                 firstName: true,
-
                 lastName: true,
-
                 profileImage: true,
               },
             },
           },
         });
 
-        if (!assignment) {
-          return reply.code(403).send({
+        if (!loan) {
+          return reply.code(404).send({
             success: false,
-
-            message: "Application not assigned",
+            message: "Application not found",
           });
         }
 
         await syncClientBrokerTeamParticipants(prisma, {
           loanApplicationId: loanId,
+          brokerOrgId: loan.brokerOrgId,
         });
-
-        /* ======================================
-           EXISTING CONVERSATIONS
-        ====================================== */
 
         const existingConversations = await prisma.conversation.findMany({
           where: {
             loanApplicationId: loanId,
-
             participants: {
               some: {
                 participantId: userId,
-
                 participantType: "SUB_BROKER",
               },
             },
           },
-
           include: {
             participants: true,
-
             messages: {
-              orderBy: {
-                createdAt: "desc",
-              },
-
+              orderBy: { createdAt: "desc" },
               take: 1,
             },
           },
-
           orderBy: {
             lastMessageAt: "desc",
           },
         });
 
         const formatted = [];
-
-        /* ======================================
-           CLIENT TEAM GROUP CHAT
-        ====================================== */
 
         let teamConversation = existingConversations.find(
           (c) =>
@@ -178,124 +167,54 @@ module.exports = async function getConversations(fastify) {
           });
         }
 
-        /* ======================================
-           PRINCIPAL BROKER CHAT
-        ====================================== */
-
-        const principalBroker = assignment.assignedBy;
+        const principalBroker = await findBrokerAdmin(prisma, loan.brokerOrgId);
 
         if (principalBroker) {
           const brokerConversation = existingConversations.find(
             (c) =>
               c.type === "SUBBROKER_BROKER" &&
-              c.chatCategory === "PRINCIPAL_BROKER",
+              (c.chatCategory === "PRINCIPAL_BROKER" || !c.chatCategory) &&
+              c.participants?.some(
+                (participant) =>
+                  participant.participantType === "BROKER" &&
+                  participant.participantId === principalBroker.id,
+              ),
           );
+
+          const adminName = formatUserName(principalBroker, "Broker");
 
           formatted.push({
             id: brokerConversation?.id || `broker-${principalBroker.id}`,
-
             type: "SUBBROKER_BROKER",
             chatCategory: "PRINCIPAL_BROKER",
-
-            title: `Principal Broker • ${
-              `${principalBroker.firstName || ""} ${
-                principalBroker.lastName || ""
-              }`.trim() || "Broker"
-            }`,
-
+            title: `Principal Broker • ${adminName}`,
             lastMessage: brokerConversation?.messages?.[0]?.text || null,
-
             lastMessageAt: brokerConversation?.lastMessageAt || null,
-
             unreadCount: 0,
-
+            isPlaceholder: !brokerConversation?.id,
             participant: {
               id: principalBroker.id,
-
               role: "BROKER",
-
-              name: `${principalBroker.firstName || ""} ${
-                principalBroker.lastName || ""
-              }`.trim(),
-
+              name: adminName,
               profileImage: principalBroker.profileImage || null,
             },
           });
         }
 
-        /* ======================================
-           ASSIGNED LOAN OFFICER CHAT
-        ====================================== */
-
-        /* ======================================
-   FETCH LOAN APPLICATION
-====================================== */
-
-        const loanApplication = await prisma.loanApplication.findUnique({
-          where: {
-            id: loanId,
-          },
-
-          select: {
-            brokerUser: {
-              select: {
-                id: true,
-
-                firstName: true,
-
-                lastName: true,
-
-                profileImage: true,
-              },
-            },
-          },
-        });
-
-        const loanOfficer = loanApplication?.brokerUser;
-
-        if (loanOfficer) {
-          let officerConversation = existingConversations.find(
-            (c) =>
-              c.type === "SUBBROKER_BROKER" &&
-              c.chatCategory === "LOAN_OFFICER",
+        const { officers: assignedOfficers } =
+          await listAssignedStaffForLoanChat(
+            prisma,
+            loanId,
+            loan.brokerUser || null,
           );
 
-          formatted.push({
-            id: officerConversation?.id || `officer-${loanOfficer.id}`,
+        const officerEntries = buildSubBrokerLoanOfficerConversationEntries({
+          officers: assignedOfficers,
+          conversations: existingConversations,
+          subBrokerId: userId,
+        });
 
-            type: "SUBBROKER_BROKER",
-
-            chatCategory: "LOAN_OFFICER",
-
-            title: `Loan Officer • ${
-              `${loanOfficer.firstName || ""} ${
-                loanOfficer.lastName || ""
-              }`.trim() || "Loan Officer"
-            }`,
-
-            lastMessage: officerConversation?.messages?.[0]?.text || null,
-
-            lastMessageAt: officerConversation?.lastMessageAt || null,
-
-            unreadCount: 0,
-
-            participant: {
-              id: loanOfficer.id,
-
-              role: "BROKER",
-
-              name: `${loanOfficer.firstName || ""} ${
-                loanOfficer.lastName || ""
-              }`.trim(),
-
-              profileImage: loanOfficer.profileImage || null,
-            },
-          });
-        }
-
-        /* ======================================
-           SUCCESS RESPONSE
-        ====================================== */
+        formatted.push(...officerEntries);
 
         const formattedWithUnread = await enrichLoanConversationItems(prisma, {
           items: formatted,
@@ -309,12 +228,9 @@ module.exports = async function getConversations(fastify) {
 
         return reply.send({
           success: true,
-
           data: {
             loanId,
-
             total: formattedWithUnread.length,
-
             conversations: enrichConversationList(
               formattedWithUnread,
               resolveViewerRole(req),
@@ -325,18 +241,14 @@ module.exports = async function getConversations(fastify) {
         fastify.log.error(
           {
             error: error.message,
-
             loanId,
-
             userId,
           },
-
           "Failed to fetch conversations",
         );
 
         return reply.code(500).send({
           success: false,
-
           message: error.message,
         });
       }

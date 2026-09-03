@@ -56,6 +56,10 @@ async function subBrokerRoutes(fastify, options) {
   fastify.register(require("./contacts"), {
     prefix: "/contacts",
   });
+
+  fastify.register(require("./notifications"), {
+    prefix: "/notifications",
+  });
 }
 
 module.exports = subBrokerRoutes;

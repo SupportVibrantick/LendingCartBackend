@@ -452,14 +452,35 @@ function isLoanOfficerUser(req) {
  * Loan officers only see their own channels — never principal-broker lanes
  * (duplicate lender rows) or broker-admin ↔ sub-broker threads.
  */
-function getLoanOfficerConversationListFilters() {
+function getLoanOfficerConversationListFilters(userId) {
   return {
     OR: [
       {
-        type: { in: ["CLIENT_BROKER", "CLIENT_OFFICER", "BROKER_OFFICER"] },
+        type: { in: ["CLIENT_BROKER", "CLIENT_OFFICER"] },
       },
       {
-        type: { in: ["BROKER_LENDER", "SUBBROKER_BROKER"] },
+        type: "BROKER_OFFICER",
+        ...(userId
+          ? {
+              participants: {
+                some: { participantId: userId },
+              },
+            }
+          : {}),
+      },
+      {
+        type: "SUBBROKER_BROKER",
+        chatCategory: "LOAN_OFFICER",
+        ...(userId
+          ? {
+              participants: {
+                some: { participantId: userId },
+              },
+            }
+          : {}),
+      },
+      {
+        type: "BROKER_LENDER",
         chatCategory: "LOAN_OFFICER",
       },
     ],
@@ -539,7 +560,7 @@ function getConversationListFilters(req, { userId, userEmail, lenderAccessId }) 
   }
 
   if (isLoanOfficerUser(req)) {
-    return getLoanOfficerConversationListFilters();
+    return getLoanOfficerConversationListFilters(userId);
   }
 
   return {};

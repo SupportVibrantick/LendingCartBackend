@@ -33,7 +33,7 @@ import {
 import { Loader2 } from "lucide-react";
 
 type Conversation = ChatConversationListItem & {
-  chatCategory?: "PRINCIPAL_BROKER" | "LOAN_OFFICER";
+  chatCategory?: string | null;
   participant?: {
     id?: string;
     role?: string;
@@ -452,6 +452,34 @@ const LoanChatPanel = ({
             conversation.chatCategory === "LOAN_OFFICER"
               ? "LOAN_OFFICER"
               : "PRINCIPAL_BROKER",
+          ...(conversation.chatCategory === "LOAN_OFFICER" &&
+          conversation.participant?.id
+            ? { loanOfficerId: conversation.participant.id }
+            : {}),
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || "Failed to create conversation");
+      }
+      return json.data;
+    }
+
+    if (
+      (config.id === "broker" || config.id === "loanOfficer") &&
+      conversation.type === "SUBBROKER_BROKER" &&
+      conversation.participant?.id
+    ) {
+      const subBrokerUrl = `${config.apiBase}/${config.messagingPrefix}/conversations/broker-subbroker`;
+      const res = await fetch(subBrokerUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+        body: JSON.stringify({
+          loanApplicationId: applicationId,
+          subBrokerId: conversation.participant.id,
         }),
       });
       const json = await res.json();
@@ -472,6 +500,11 @@ const LoanChatPanel = ({
       },
       body: JSON.stringify({
         loanApplicationId: applicationId,
+        ...(config.id === "broker" &&
+        conversation.type === "BROKER_OFFICER" &&
+        conversation.participant?.id
+          ? { loanOfficerId: conversation.participant.id }
+          : {}),
       }),
     });
 

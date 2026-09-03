@@ -6,7 +6,11 @@ const {
   findBrokerAdmin,
   findOrCreateBrokerOfficerConversation,
 } = require("../../../../services/messaging/brokerOfficerConversation");
-const { extraOfficerPermission, LOAN_OFFICER_MESSAGING_PERMISSIONS } = require("../../../../services/broker/loanOfficerAccess");
+const {
+  extraOfficerPermission,
+  LOAN_OFFICER_MESSAGING_PERMISSIONS,
+  officerAssignedApplicationWhere,
+} = require("../../../../services/broker/loanOfficerAccess");
 
 module.exports = async function createBrokerOfficerConversation(fastify) {
   fastify.post(
@@ -37,7 +41,7 @@ module.exports = async function createBrokerOfficerConversation(fastify) {
           where: {
             id: loanApplicationId,
             brokerOrgId,
-            brokerUserId: userId,
+            ...officerAssignedApplicationWhere(userId),
           },
           select: {
             id: true,
