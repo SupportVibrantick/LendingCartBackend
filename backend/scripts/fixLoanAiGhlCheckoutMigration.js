@@ -1,5 +1,5 @@
 require("dotenv").config();
-const { PrismaClient } = require("@prisma/client");
+const prisma = require("../config/prisma");
 const { execSync } = require("child_process");
 
 async function main() {

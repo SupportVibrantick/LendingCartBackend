@@ -10,7 +10,7 @@
  */
 require("dotenv").config();
 
-const { PrismaClient } = require("@prisma/client");
+const prisma = require("../config/prisma");
 const {
   listOrganizationEligibleGhlUsers,
 } = require("../services/ghl/ghlAgencyUsers.service");
@@ -41,7 +41,7 @@ async function main() {
     return;
   }
 
-  const prisma = new PrismaClient();
+  // Use shared prisma client
   try {
     const result = await listOrganizationEligibleGhlUsers(prisma, {
       organizationId: args.organizationId,

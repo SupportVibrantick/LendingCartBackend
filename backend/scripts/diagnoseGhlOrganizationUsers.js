@@ -9,7 +9,7 @@
  */
 require("dotenv").config();
 
-const { PrismaClient } = require("@prisma/client");
+const prisma = require("../config/prisma");
 const {
   auditOrganizationGhlAgencyUsers,
   RECONCILE_RESULTS,
@@ -60,7 +60,7 @@ async function main() {
     return;
   }
 
-  const prisma = new PrismaClient();
+  // Use shared prisma client
   let persistSpyCalled = false;
   const originalUpsert = prisma.organizationGhlAgencyUser?.upsert?.bind(
     prisma.organizationGhlAgencyUser,
