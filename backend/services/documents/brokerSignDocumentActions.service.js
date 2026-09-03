@@ -1,5 +1,6 @@
 const path = require("path");
 const crypto = require("crypto");
+const { validateFileMimetype } = require("../../utils/security/fileValidator");
 const {
   formatSignDocumentRequirement,
   REQUEST_APPLICATION_LENDER_INCLUDE,
