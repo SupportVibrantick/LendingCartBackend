@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { TiPlus } from "react-icons/ti";
 import Swal from "sweetalert2";
 import { Eye, EyeOff } from "lucide-react";
@@ -12,6 +12,7 @@ import {
   formatLoZip,
   normalizeLoWebsiteUrl,
 } from "../../lib/brokerLoanOfficerForm";
+import { useDebouncedValue } from "../../hooks/useDebouncedValue";
 
 Swal.mixin({
   customClass: {
@@ -120,8 +121,12 @@ export default function BrokersPage() {
   const [submitting, setSubmitting] = useState(false);
 
   const [query, setQuery] = useState("");
-  const [pageSize, setPageSize] = useState<number>(10);
+  const debouncedQuery = useDebouncedValue(query.trim(), 350);
+  const [pageSize, setPageSize] = useState<number>(6);
   const [currentPage, setCurrentPage] = useState<number>(1);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [stats, setStats] = useState({ all: 0, active: 0 });
 
   // Admins modal & editing state
   const [showAdminsFor, setShowAdminsFor] = useState<Broker | null>(null);
@@ -139,13 +144,8 @@ export default function BrokersPage() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    fetchBrokers();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
     setCurrentPage(1);
-  }, [query, pageSize]);
+  }, [debouncedQuery, pageSize]);
 
   function getAuthHeaders(): Record<string, string> {
     try {
@@ -162,37 +162,65 @@ export default function BrokersPage() {
     return { "Content-Type": "application/json" };
   }
 
-  async function fetchBrokers() {
-    setLoading(true);
-    try {
-      const headers = getAuthHeaders();
-      const res = await fetch(`${API_BASE}/admin/brokers/read`, {
-        method: "GET",
-        headers,
-      });
+  const fetchBrokers = useCallback(
+    async (signal?: AbortSignal) => {
+      setLoading(true);
+      try {
+        const headers = getAuthHeaders();
+        const params = new URLSearchParams({
+          page: String(currentPage),
+          limit: String(pageSize),
+        });
+        if (debouncedQuery) params.set("search", debouncedQuery);
 
-      if (!res.ok) throw new Error(`Failed to fetch brokers: ${res.status}`);
+        const res = await fetch(
+          `${API_BASE}/admin/brokers/read?${params.toString()}`,
+          {
+            method: "GET",
+            headers,
+            signal,
+          },
+        );
 
-      const json = await res.json();
-      const list = Array.isArray(json) ? json : json.data || [];
+        if (!res.ok) throw new Error(`Failed to fetch brokers: ${res.status}`);
 
-      const normalized: Broker[] = list.map((o: any) => ({
-        id: String(o.id),
-        name: o.name ?? "",
-        email: o.email ?? "",
-        phone: o.phone ?? "",
-        status: o.status ?? "UNKNOWN",
-        createdAt: o.createdAt ?? null,
-        profileImage: o.profileImage || null,
-      }));
+        const json = await res.json();
+        const list = Array.isArray(json) ? json : json.data || [];
 
-      setBrokers(normalized);
-    } catch (err: any) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  }
+        const normalized: Broker[] = list.map((o: any) => ({
+          id: String(o.id),
+          name: o.name ?? "",
+          email: o.email ?? "",
+          phone: o.phone ?? "",
+          status: o.status ?? "UNKNOWN",
+          createdAt: o.createdAt ?? null,
+          profileImage: o.profileImage || null,
+        }));
+
+        setBrokers(normalized);
+        setTotal(Number(json?.meta?.total) || normalized.length);
+        setTotalPages(
+          Math.max(1, Number(json?.meta?.totalPages) || 1),
+        );
+        setStats({
+          all: Number(json?.meta?.totals?.all) || Number(json?.meta?.total) || 0,
+          active: Number(json?.meta?.totals?.active) || 0,
+        });
+      } catch (err: any) {
+        if (err?.name === "AbortError") return;
+        console.error(err);
+      } finally {
+        if (!signal?.aborted) setLoading(false);
+      }
+    },
+    [API_BASE, currentPage, debouncedQuery, pageSize],
+  );
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetchBrokers(controller.signal);
+    return () => controller.abort();
+  }, [fetchBrokers]);
 
   const openAdd = () => {
     setForm({
@@ -370,31 +398,6 @@ export default function BrokersPage() {
     }
   };
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return brokers;
-    return brokers.filter((b) => {
-      return (
-        (b.name || "").toLowerCase().includes(q) ||
-        (b.email || "").toLowerCase().includes(q) ||
-        (b.phone || "").toLowerCase().includes(q) ||
-        (b.status || "").toLowerCase().includes(q)
-      );
-    });
-  }, [brokers, query]);
-
-  const total = filtered.length;
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
-
-  useEffect(() => {
-    if (currentPage > totalPages) setCurrentPage(totalPages);
-  }, [currentPage, totalPages]);
-
-  const paginated = useMemo(() => {
-    const start = (currentPage - 1) * pageSize;
-    return filtered.slice(start, start + pageSize);
-  }, [filtered, currentPage, pageSize]);
-
   function gotoPage(page: number) {
     if (page < 1) page = 1;
     if (page > totalPages) page = totalPages;
@@ -542,16 +545,12 @@ export default function BrokersPage() {
     }
   };
 
-  const activeBrokers = useMemo(
-    () => brokers.filter((l) => l.status === "ACTIVE").length,
-    [brokers],
-  );
-
-  const totalBrokers = brokers.length;
+  const totalBrokers = stats.all;
+  const activeBrokers = stats.active;
 
   const isSearchEmpty =
-    query.trim() !== "" && filtered.length === 0 && !loading;
-  const isTotalEmpty = query.trim() === "" && total === 0 && !loading;
+    debouncedQuery !== "" && brokers.length === 0 && !loading;
+  const isTotalEmpty = debouncedQuery === "" && total === 0 && !loading;
 
   const InfoTip = ({ text }: { text: string }) => (
     <div className="relative group cursor-pointer">
@@ -579,7 +578,7 @@ export default function BrokersPage() {
 
           <div className="flex items-center gap-3">
             <button
-              onClick={fetchBrokers}
+              onClick={() => fetchBrokers()}
               disabled={loading}
               className="group flex items-center justify-center w-10 h-10 rounded-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-all active:scale-95 disabled:opacity-50"
               title="Refresh List"
@@ -693,10 +692,7 @@ export default function BrokersPage() {
             />
             <input
               value={query}
-              onChange={(e) => {
-                setCurrentPage(1);
-                setQuery(e.target.value);
-              }}
+              onChange={(e) => setQuery(e.target.value)}
               placeholder="Search by name, email, phone or status..."
               className="text-sm w-full pl-12 pr-4 py-2 bg-transparent border-none focus:ring-2 focus:ring-blue-500/20 rounded-xl text-slate-700 dark:text-slate-200 placeholder:text-slate-400"
             />
@@ -712,10 +708,7 @@ export default function BrokersPage() {
             <div className="relative">
               <select
                 value={pageSize}
-                onChange={(e) => {
-                  setCurrentPage(1);
-                  setPageSize(Number(e.target.value));
-                }}
+                onChange={(e) => setPageSize(Number(e.target.value))}
                 className="
                             appearance-none
                             px-3 py-2 pr-8
@@ -819,7 +812,7 @@ export default function BrokersPage() {
           </div>
         ) : (
           <div className="grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(220px,260px))]">
-            {paginated.map((l) => (
+            {brokers.map((l) => (
               <div
                 key={l.id}
                 role="button"
@@ -918,7 +911,7 @@ export default function BrokersPage() {
         )}
 
         {/* ================= PAGINATION ================= */}
-        {!loading && totalPages > 1 && (
+        {!loading && total > 0 && totalPages > 1 && (
           <div className="mt-12 flex flex-col sm:flex-row items-center justify-between gap-6 border-t border-slate-200 dark:border-slate-800 pt-8">
             <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
               Showing{" "}
@@ -926,6 +919,9 @@ export default function BrokersPage() {
                 Page {currentPage}
               </span>{" "}
               of {totalPages}
+              <span className="ml-2 text-slate-400">
+                ({total} result{total === 1 ? "" : "s"})
+              </span>
             </p>
 
             <div className="flex items-center gap-3">
