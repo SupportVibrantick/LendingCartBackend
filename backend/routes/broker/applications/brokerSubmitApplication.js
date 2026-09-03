@@ -31,6 +31,9 @@ const {
   getFeeAgreementRequestError,
   tryAttachFeeAgreementIfRequested,
 } = require("../../../services/feeAgreement/attachFeeAgreementToApplication");
+const {
+  autoAssignLoanOfficerCoBrokers,
+} = require("../../../services/broker/autoAssignLoanOfficerCoBrokers");
 
 async function brokerSubmitApplication(fastify) {
   fastify.post(
@@ -276,6 +279,20 @@ async function brokerSubmitApplication(fastify) {
             { error: err.message },
             "Conversation creation failed",
           );
+        }
+
+        if (isOfficer) {
+          await autoAssignLoanOfficerCoBrokers(prisma, fastify, {
+            loanApplicationId: result.loanApplication.id,
+            loanOfficerId: loggedInUserId,
+            brokerOrgId,
+            assignedByUserId: loggedInUserId,
+          }).catch((err) => {
+            fastify.log.error(
+              { error: err.message, applicationId: result.loanApplication.id },
+              "Failed to auto-assign co-brokers for loan officer application",
+            );
+          });
         }
 
         await notifyBroker(prisma, fastify.io, {

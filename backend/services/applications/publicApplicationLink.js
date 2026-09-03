@@ -94,7 +94,18 @@ async function getOrCreatePublicApplicationLink(
   });
 
   if (existing) {
-    return existing;
+    const needsOfficerBackfill =
+      portal === LINK_SOURCE_PORTALS.LOAN_OFFICER &&
+      !existing.loanOfficerId &&
+      createdByUserId;
+    if (!needsOfficerBackfill) {
+      return existing;
+    }
+
+    return prisma.publicApplicationLink.update({
+      where: { id: existing.id },
+      data: { loanOfficerId: createdByUserId },
+    });
   }
 
   return prisma.publicApplicationLink.create({
@@ -182,6 +193,15 @@ async function touchPublicApplicationLink(prisma, linkId) {
   });
 }
 
+function resolveAssignedLoanOfficerId(link) {
+  if (!link) return null;
+  if (link.loanOfficerId) return link.loanOfficerId;
+  if (link.sourcePortal === LINK_SOURCE_PORTALS.LOAN_OFFICER) {
+    return link.createdByUserId || null;
+  }
+  return null;
+}
+
 function buildLoanApplicationProvenanceFromLink(link) {
   if (!link) {
     return {
@@ -197,10 +217,7 @@ function buildLoanApplicationProvenanceFromLink(link) {
     publicApplicationLinkId: link.id,
     publicSourcePortal: link.sourcePortal,
     publicCreatedByUserId: link.createdByUserId,
-    brokerUserId:
-      link.sourcePortal === LINK_SOURCE_PORTALS.LOAN_OFFICER
-        ? link.loanOfficerId || link.createdByUserId
-        : null,
+    brokerUserId: resolveAssignedLoanOfficerId(link),
     assignCoBrokerId:
       link.sourcePortal === LINK_SOURCE_PORTALS.CO_BROKER
         ? link.coBrokerId || link.createdByUserId
@@ -219,5 +236,6 @@ module.exports = {
   getOrCreatePublicApplicationLink,
   resolvePublicApplicationLinkByToken,
   touchPublicApplicationLink,
+  resolveAssignedLoanOfficerId,
   buildLoanApplicationProvenanceFromLink,
 };
