@@ -233,6 +233,26 @@ async function syncClientBrokerTeamParticipants(
     });
   }
 
+  const assignedSubBrokerIds = subBrokerAssignments.map(
+    (assignment) => assignment.subBrokerId,
+  );
+  if (assignedSubBrokerIds.length > 0) {
+    const officerLinks = await prisma.subBrokerLoanOfficer.findMany({
+      where: { subBrokerId: { in: assignedSubBrokerIds } },
+      select: { loanOfficerId: true },
+    });
+    const linkedOfficerIds = new Set(
+      officerLinks.map((link) => link.loanOfficerId),
+    );
+    for (const loanOfficerId of linkedOfficerIds) {
+      participantRows.push({
+        conversationId: conversation.id,
+        participantType: "BROKER",
+        participantId: loanOfficerId,
+      });
+    }
+  }
+
   const allowedBrokerIds = new Set(
     participantRows
       .filter((row) => row.participantType === "BROKER")

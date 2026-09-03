@@ -2030,8 +2030,10 @@ const LoanApplication = ({
             },
             body: JSON.stringify({
               ...payload,
-              ref: publicLinkRef,
-              brokerOrgId,
+              ...(publicLinkRef ? { ref: publicLinkRef } : {}),
+              ...(!publicLinkRef && brokerOrgId
+                ? { brokerOrgId }
+                : {}),
               fields: publicFields,
             }),
           },

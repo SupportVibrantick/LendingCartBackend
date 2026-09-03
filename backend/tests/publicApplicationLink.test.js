@@ -97,6 +97,24 @@ describe("Public application link provenance", () => {
     assert.equal(cob.brokerUserId, null);
     assert.equal(cob.assignCoBrokerId, "user-cob");
 
+    const loMissingOfficerId = buildLoanApplicationProvenanceFromLink({
+      id: "link-lo-legacy",
+      sourcePortal: LINK_SOURCE_PORTALS.LOAN_OFFICER,
+      createdByUserId: "user-lo",
+      loanOfficerId: null,
+      coBrokerId: null,
+    });
+    assert.equal(loMissingOfficerId.brokerUserId, "user-lo");
+
+    const brokerLinkWithOfficer = buildLoanApplicationProvenanceFromLink({
+      id: "link-broker-lo",
+      sourcePortal: LINK_SOURCE_PORTALS.BROKER,
+      createdByUserId: "admin-1",
+      loanOfficerId: "user-lo",
+      coBrokerId: null,
+    });
+    assert.equal(brokerLinkWithOfficer.brokerUserId, "user-lo");
+
     const legacy = buildLoanApplicationProvenanceFromLink(null);
     assert.equal(legacy.publicSourcePortal, SOURCE_PORTALS.LEGACY);
     assert.equal(legacy.publicApplicationLinkId, null);
@@ -173,6 +191,39 @@ describe("Public application link provenance", () => {
 
     assert.equal(link.token, "stable-token");
     assert.equal(createCalls, 0);
+  });
+
+  it("backfills loanOfficerId when reusing an LO link minted before that column existed", async () => {
+    const existing = {
+      id: "existing-lo",
+      token: "lo-token",
+      brokerOrganizationId: "org-1",
+      createdByUserId: "lo-1",
+      sourcePortal: "LOAN_OFFICER",
+      loanOfficerId: null,
+    };
+    let updated = null;
+    const prisma = {
+      publicApplicationLink: {
+        findFirst: async () => existing,
+        create: async () => {
+          throw new Error("should reuse");
+        },
+        update: async ({ data }) => {
+          updated = data;
+          return { ...existing, ...data };
+        },
+      },
+    };
+
+    const link = await getOrCreatePublicApplicationLink(prisma, {
+      brokerOrganizationId: "org-1",
+      createdByUserId: "lo-1",
+      sourcePortal: "LOAN_OFFICER",
+    });
+
+    assert.equal(link.loanOfficerId, "lo-1");
+    assert.equal(updated.loanOfficerId, "lo-1");
   });
 
   it("resolves a valid ref and preserves brokerOrganizationId", async () => {

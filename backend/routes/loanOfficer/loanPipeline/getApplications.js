@@ -1,5 +1,4 @@
-const prisma = require("../../../config/prisma");
-const { officerPreHandler, getUserId } = require("../../../services/broker/loanOfficerAccess");
+const { officerPreHandler, getUserId, officerAssignedApplicationWhere } = require("../../../services/broker/loanOfficerAccess");
 
 async function getApplicationsRoute(fastify) {
   fastify.get(
@@ -30,8 +29,10 @@ async function getApplicationsRoute(fastify) {
 
         const where = {
           brokerOrgId: orgId,
-          brokerUserId: userId,
-          ...(OR.length > 0 && { OR }),
+          AND: [
+            officerAssignedApplicationWhere(userId),
+            ...(OR.length > 0 ? [{ OR }] : []),
+          ],
         };
 
         const total = await prisma.loanApplication.count({ where });

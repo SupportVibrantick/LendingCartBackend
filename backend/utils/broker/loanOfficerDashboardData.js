@@ -1,4 +1,7 @@
 const {
+  officerAssignedApplicationWhere,
+} = require("../../services/broker/loanOfficerAccess");
+const {
   countBrokerPipelineStats,
   resolveBrokerPipelineDisplayStatus,
 } = require("../applications/resolveApplicationStatus");
@@ -6,7 +9,7 @@ const {
 async function fetchLoanOfficerPipelineStats(prisma, { userId, orgId }) {
   const whereCondition = {
     brokerOrgId: orgId,
-    brokerUserId: userId,
+    ...officerAssignedApplicationWhere(userId),
   };
 
   const applications = await prisma.applicationSubmission.findMany({
@@ -72,7 +75,7 @@ async function fetchLoanOfficerRecentApplications(prisma, { userId, orgId, limit
       status: { not: "SUPERSEDED" },
       application: {
         brokerOrgId: orgId,
-        brokerUserId: userId,
+        ...officerAssignedApplicationWhere(userId),
       },
     },
     orderBy: { createdAt: "desc" },
