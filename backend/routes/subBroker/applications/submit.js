@@ -286,6 +286,11 @@ async function subBrokerSubmitApplication(fastify) {
           subBrokerId: loggedInUserId,
           brokerOrgId,
           assignedByUserId: loggedInUserId,
+        }).catch((err) => {
+          fastify.log.error(
+            { error: err.message, applicationId: result.loanApplication.id },
+            "Failed to auto-assign loan officers for co-broker application",
+          );
         });
 
         const subBrokerName =
