@@ -5,6 +5,7 @@ import {
   FolderOpen,
   LogOut,
   // MessageSquare,
+  PlugZap,
   Store,
   TrendingUp,
   Wallet,
@@ -49,6 +50,12 @@ const navItems: NavItem[] = [
     name: "New Loan Application",
     path: "/loan-officer/loan-application",
     permission: "CREATE_APPLICATION",
+  },
+  {
+    icon: <PlugZap size={18} />,
+    name: "GoHighLevel",
+    path: "/loan-officer/settings/integrations/ghl",
+    always: true,
   },
   {
     icon: <FaUserGroup />,

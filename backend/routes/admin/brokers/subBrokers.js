@@ -1,4 +1,5 @@
 const bcrypt = require("bcrypt");
+const crypto = require("crypto");
 const { adminLogs } = require("../../../services/logger/contextLogger.js");
 const {
   sendSubBrokerCredentialsEmail,
@@ -10,6 +11,15 @@ const {
   buildApplicationSearchWhere,
   loanApplicationListInclude,
 } = require("../../../services/applications/loanApplicationSearch");
+const {
+  parseMultipartRequest,
+  buildProfileDataFromFields,
+  validatePrimaryContactFields,
+  syncSubBrokerLoanOfficers,
+  formatSubBrokerDetail,
+  parseJsonField,
+  subBrokerInclude,
+} = require("../../../utils/broker/subBrokerProfileHelpers");
 
 function submissionFieldValue(fields, ...keys) {
   for (const field of fields || []) {
@@ -78,7 +88,7 @@ function buildFreedDeletedEmail(user) {
   return `${local}+deleted.${user.id.slice(0, 8)}.${Date.now()}@${domain}`;
 }
 
-function formatSubBroker(user, assignedApplications = 0) {
+function formatSubBrokerListItem(user, assignedApplications = 0) {
   return {
     id: user.id,
     email: user.email,
@@ -88,7 +98,6 @@ function formatSubBroker(user, assignedApplications = 0) {
     status: user.status,
     lastLoginAt: user.lastLoginAt,
     createdAt: user.createdAt,
-    updatedAt: user.updatedAt,
     assignedApplications,
   };
 }
@@ -109,51 +118,52 @@ async function getBrokerSubBroker(prisma, orgId, userId) {
       roles: { some: { role: { name: "SUB_BROKER" } } },
     },
     include: {
+      ...subBrokerInclude,
       _count: { select: { assignedApplications: true } },
     },
   });
 }
 
-function validateSubBrokerCreate(body) {
-  const { email, password, firstName, lastName, phone } = body || {};
+function validateCreateFields(fields) {
+  if (!fields.agentType) return { error: "Agent type is required" };
 
-  if (!email?.trim()) return "Email is required";
-  if (!firstName?.trim()) return "First name is required";
-  if (firstName.trim().length < 2) return "First name must be at least 2 characters";
-  if (!lastName?.trim()) return "Last name is required";
+  const contactValidation = validatePrimaryContactFields(fields);
+  if (contactValidation.error) {
+    return { error: contactValidation.error };
+  }
 
-  const cleanPhone = String(phone || "").replace(/\D/g, "");
-  if (!cleanPhone) return "Phone is required";
-  if (cleanPhone.length < 10) return "Enter a valid 10-digit phone number";
+  const allowedToLogin =
+    fields.allowedToLogin === true ||
+    fields.allowedToLogin === "true" ||
+    fields.allowedToLogin === "1";
+  const password = String(fields.password || "");
+  const confirmPassword = String(fields.confirmPassword || password);
 
-  if (!password?.trim()) return "Password is required";
-  if (password.length < 8) return "Password must be at least 8 characters";
+  if (allowedToLogin) {
+    if (!password) return { error: "Password is required when login is enabled" };
+    if (password.length < 8) return { error: "Password must be at least 8 characters" };
+    if (password !== confirmPassword) return { error: "Passwords do not match" };
+  }
 
-  return null;
+  const { account } = contactValidation;
+
+  return {
+    email: account.email,
+    firstName: account.firstName,
+    lastName: account.lastName,
+    phone: account.phone,
+    password: allowedToLogin ? password : crypto.randomBytes(16).toString("hex"),
+    allowedToLogin,
+  };
 }
 
-function validateSubBrokerUpdate(body) {
-  const { firstName, lastName, phone } = body || {};
-
-  if (firstName !== undefined) {
-    if (!firstName?.trim()) return "First name is required";
-    if (firstName.trim().length < 2) return "First name must be at least 2 characters";
-  }
-
-  if (lastName !== undefined && !lastName?.trim()) {
-    return "Last name is required";
-  }
-
-  if (phone !== undefined) {
-    const cleanPhone = String(phone).replace(/\D/g, "");
-    if (!cleanPhone) return "Phone is required";
-    if (cleanPhone.length < 10) return "Enter a valid 10-digit phone number";
-  }
-
-  return null;
-}
-
-async function sendWelcomeEmail(fastify, prisma, { brokerOrgId, firstName, email, password, subBrokerId }) {
+async function sendWelcomeEmail(fastify, prisma, {
+  brokerOrgId,
+  firstName,
+  email,
+  password,
+  subBrokerId,
+}) {
   try {
     const organization = await prisma.organization.findUnique({
       where: { id: brokerOrgId },
@@ -238,7 +248,7 @@ async function adminBrokerSubBrokersRoutes(fastify) {
       return reply.send({
         success: true,
         data: rows.map((row) =>
-          formatSubBroker(row, row._count.assignedApplications),
+          formatSubBrokerListItem(row, row._count.assignedApplications),
         ),
         meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
       });
@@ -247,6 +257,54 @@ async function adminBrokerSubBrokersRoutes(fastify) {
       return reply.status(500).send({
         success: false,
         message: error.message || "Failed to list sub-brokers",
+      });
+    }
+  });
+
+  // Must register before /:orgId/:userId
+  fastify.get("/:orgId/loan-officers", async (request, reply) => {
+    const prisma = fastify.prisma;
+    const { orgId } = request.params;
+
+    try {
+      const org = await getBrokerOrg(prisma, orgId);
+      if (!org) {
+        return reply.status(404).send({ success: false, message: "Broker not found" });
+      }
+      if (org.type !== "BROKER") {
+        return reply.status(400).send({ success: false, message: "Organization is not a broker" });
+      }
+
+      const officers = await prisma.userAccount.findMany({
+        where: {
+          organizationId: orgId,
+          isDeleted: false,
+          status: "ACTIVE",
+          roles: {
+            some: {
+              role: { name: "BROKER_OFFICER" },
+            },
+          },
+        },
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          profileImage: true,
+        },
+        orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
+      });
+
+      return reply.send({
+        success: true,
+        data: officers,
+      });
+    } catch (error) {
+      adminLogs.error("List broker sub-broker loan officers failed", { error, orgId });
+      return reply.status(500).send({
+        success: false,
+        message: error.message || "Failed to list loan officers",
       });
     }
   });
@@ -328,7 +386,14 @@ async function adminBrokerSubBrokersRoutes(fastify) {
 
       return reply.send({
         success: true,
-        data: formatSubBroker(user, user._count?.assignedApplications || 0),
+        data: {
+          ...formatSubBrokerDetail(
+            user,
+            user.subBrokerProfile,
+            user.subBrokerLoanOfficers || [],
+          ),
+          assignedApplications: user._count?.assignedApplications || 0,
+        },
       });
     } catch (error) {
       adminLogs.error("Get broker sub-broker failed", { error, orgId, userId });
@@ -342,7 +407,6 @@ async function adminBrokerSubBrokersRoutes(fastify) {
   fastify.post("/:orgId", async (request, reply) => {
     const prisma = fastify.prisma;
     const { orgId } = request.params;
-    const body = request.body || {};
 
     try {
       const org = await getBrokerOrg(prisma, orgId);
@@ -353,14 +417,36 @@ async function adminBrokerSubBrokersRoutes(fastify) {
         return reply.status(400).send({ success: false, message: "Organization is not a broker" });
       }
 
-      const validationError = validateSubBrokerCreate(body);
-      if (validationError) {
-        return reply.status(400).send({ success: false, message: validationError });
+      let fields;
+      let logoUrl;
+      let w9Url;
+      try {
+        ({ fields, logoUrl, w9Url } = await parseMultipartRequest(request));
+      } catch (uploadErr) {
+        return reply.status(400).send({
+          success: false,
+          message: uploadErr.message || "Invalid upload",
+        });
       }
 
-      const email = body.email.trim().toLowerCase();
-      const { password, firstName, lastName, phone } = body;
-      const cleanPhone = String(phone).replace(/\D/g, "");
+      const validation = validateCreateFields(fields);
+      if (validation.error) {
+        return reply.status(400).send({ success: false, message: validation.error });
+      }
+
+      const {
+        email,
+        firstName,
+        lastName,
+        phone,
+        password,
+        allowedToLogin,
+      } = validation;
+
+      const assignedLoanOfficerIds = parseJsonField(
+        fields.assignedLoanOfficerIds,
+        [],
+      );
       const adminUserId = request.user?.id || request.user?.userId || null;
 
       const existingUser = await prisma.userAccount.findFirst({
@@ -391,9 +477,9 @@ async function adminBrokerSubBrokersRoutes(fastify) {
             data: {
               email,
               passwordHash: hashedPassword,
-              firstName: firstName.trim(),
-              lastName: lastName.trim(),
-              phone: cleanPhone,
+              firstName,
+              lastName,
+              phone,
               organizationId: orgId,
               createdById: adminUserId,
               isDeleted: false,
@@ -411,9 +497,9 @@ async function adminBrokerSubBrokersRoutes(fastify) {
             data: {
               email,
               passwordHash: hashedPassword,
-              firstName: firstName.trim(),
-              lastName: lastName.trim(),
-              phone: cleanPhone,
+              firstName,
+              lastName,
+              phone,
               organizationId: orgId,
               createdById: adminUserId,
               roles: { create: { roleId: role.id } },
@@ -425,9 +511,9 @@ async function adminBrokerSubBrokersRoutes(fastify) {
           data: {
             email,
             passwordHash: hashedPassword,
-            firstName: firstName.trim(),
-            lastName: lastName.trim(),
-            phone: cleanPhone,
+            firstName,
+            lastName,
+            phone,
             organizationId: orgId,
             createdById: adminUserId,
             roles: { create: { roleId: role.id } },
@@ -435,18 +521,51 @@ async function adminBrokerSubBrokersRoutes(fastify) {
         });
       }
 
-      await sendWelcomeEmail(fastify, prisma, {
-        brokerOrgId: orgId,
-        firstName: firstName.trim(),
-        email,
-        password,
-        subBrokerId: user.id,
+      const profileData = buildProfileDataFromFields(fields);
+      profileData.allowedToLogin = allowedToLogin;
+
+      await prisma.subBrokerProfile.upsert({
+        where: { userId: user.id },
+        create: {
+          userId: user.id,
+          profileData,
+          logoUrl,
+          w9Url,
+        },
+        update: {
+          profileData,
+          ...(logoUrl ? { logoUrl } : {}),
+          ...(w9Url ? { w9Url } : {}),
+        },
       });
+
+      await syncSubBrokerLoanOfficers(
+        prisma,
+        user.id,
+        assignedLoanOfficerIds,
+        orgId,
+      );
+
+      if (allowedToLogin) {
+        await sendWelcomeEmail(fastify, prisma, {
+          brokerOrgId: orgId,
+          firstName,
+          email,
+          password,
+          subBrokerId: user.id,
+        });
+      }
+
+      const detail = await getBrokerSubBroker(prisma, orgId, user.id);
 
       return reply.send({
         success: true,
         message: "Sub-broker created successfully",
-        data: formatSubBroker(user, 0),
+        data: formatSubBrokerDetail(
+          detail,
+          detail.subBrokerProfile,
+          detail.subBrokerLoanOfficers || [],
+        ),
       });
     } catch (error) {
       adminLogs.error("Create broker sub-broker failed", { error, orgId });
@@ -460,34 +579,124 @@ async function adminBrokerSubBrokersRoutes(fastify) {
   fastify.patch("/:orgId/:userId", async (request, reply) => {
     const prisma = fastify.prisma;
     const { orgId, userId } = request.params;
-    const body = request.body || {};
 
     try {
-      const validationError = validateSubBrokerUpdate(body);
-      if (validationError) {
-        return reply.status(400).send({ success: false, message: validationError });
-      }
-
       const existingUser = await getBrokerSubBroker(prisma, orgId, userId);
       if (!existingUser) {
         return reply.status(404).send({ success: false, message: "Sub-broker not found" });
       }
 
-      const updateData = {};
-      if (body.firstName !== undefined) updateData.firstName = body.firstName.trim();
-      if (body.lastName !== undefined) updateData.lastName = body.lastName.trim();
-      if (body.phone !== undefined) updateData.phone = String(body.phone).replace(/\D/g, "");
+      let fields;
+      let logoUrl;
+      let w9Url;
+      try {
+        ({ fields, logoUrl, w9Url } = await parseMultipartRequest(request));
+      } catch (uploadErr) {
+        return reply.status(400).send({
+          success: false,
+          message: uploadErr.message || "Invalid upload",
+        });
+      }
 
-      const updated = await prisma.userAccount.update({
+      const contactValidation = validatePrimaryContactFields(fields);
+      if (contactValidation.error) {
+        return reply.status(400).send({
+          success: false,
+          message: contactValidation.error,
+        });
+      }
+
+      const { account } = contactValidation;
+      const updateData = {
+        firstName: account.firstName,
+        lastName: account.lastName,
+        phone: account.phone,
+      };
+
+      if (fields.password) {
+        if (String(fields.password).length < 8) {
+          return reply.status(400).send({
+            success: false,
+            message: "Password must be at least 8 characters",
+          });
+        }
+        updateData.passwordHash = await bcrypt.hash(fields.password, 12);
+      }
+
+      await prisma.userAccount.update({
         where: { id: userId },
         data: updateData,
-        include: { _count: { select: { assignedApplications: true } } },
       });
+
+      const profileData = buildProfileDataFromFields(fields);
+      const mergedProfileData = {
+        ...(existingUser.subBrokerProfile?.profileData || {}),
+        ...profileData,
+      };
+
+      await prisma.subBrokerProfile.upsert({
+        where: { userId },
+        create: {
+          userId,
+          profileData: mergedProfileData,
+          logoUrl,
+          w9Url,
+        },
+        update: {
+          profileData: mergedProfileData,
+          ...(logoUrl ? { logoUrl } : {}),
+          ...(w9Url ? { w9Url } : {}),
+        },
+      });
+
+      if (fields.assignedLoanOfficerIds !== undefined) {
+        const assignedLoanOfficerIds = parseJsonField(
+          fields.assignedLoanOfficerIds,
+          [],
+        );
+        await syncSubBrokerLoanOfficers(
+          prisma,
+          userId,
+          assignedLoanOfficerIds,
+          orgId,
+        );
+      }
+
+      const detail = await getBrokerSubBroker(prisma, orgId, userId);
+
+      const passwordWasUpdated = Boolean(fields.password);
+      if (passwordWasUpdated && detail?.status === "ACTIVE") {
+        try {
+          const organization = await prisma.organization.findUnique({
+            where: { id: orgId },
+            select: { name: true },
+          });
+
+          await sendSubBrokerCredentialsEmail({
+            firstName: detail.firstName,
+            email: detail.email,
+            password: String(fields.password),
+            organizationName: organization?.name,
+            prisma,
+            isPasswordReset: true,
+          });
+        } catch (mailErr) {
+          adminLogs.error("Sub-broker updated but password-reset email failed", {
+            error: mailErr,
+            orgId,
+            userId,
+          });
+        }
+      }
 
       return reply.send({
         success: true,
         message: "Sub-broker updated successfully",
-        data: formatSubBroker(updated, updated._count.assignedApplications),
+        data: formatSubBrokerDetail(
+          detail,
+          detail.subBrokerProfile,
+          detail.subBrokerLoanOfficers || [],
+        ),
       });
     } catch (error) {
       adminLogs.error("Update broker sub-broker failed", { error, orgId, userId });
