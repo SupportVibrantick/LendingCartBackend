@@ -13,6 +13,7 @@ const {
 } = require("../../../utils/broker/subBrokerProfileHelpers");
 const {
   requireLoOfficerPermission,
+  isLoanOfficerActor,
 } = require("../../../services/broker/loanOfficerAccess");
 
 function buildFreedDeletedEmail(user) {
@@ -161,10 +162,9 @@ async function createSubBrokerRoutes(fastify) {
           allowedToLogin,
         } = validation;
 
-        const assignedLoanOfficerIds = parseJsonField(
-          fields.assignedLoanOfficerIds,
-          [],
-        );
+        const assignedLoanOfficerIds = isLoanOfficerActor(req)
+          ? [userId].filter(Boolean)
+          : parseJsonField(fields.assignedLoanOfficerIds, []);
 
         const existingUser = await prisma.userAccount.findFirst({
           where: {

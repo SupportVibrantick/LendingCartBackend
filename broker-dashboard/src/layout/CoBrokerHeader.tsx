@@ -6,10 +6,13 @@ import {
   resolveCoBrokerLogoUrl,
 } from "../lib/coBrokerPortal";
 import { useSidebar } from "../context/SidebarContext";
+import CoBrokerNotificationDropdown from "../components/header/CoBrokerNotificationDropdown";
 
 export default function CoBrokerHeader() {
   const { isMobileOpen, toggleSidebar, toggleMobileSidebar } = useSidebar();
-  const storedUser = JSON.parse(sessionStorage.getItem(CO_BROKER_USER_KEY) || "{}");
+  const storedUser = JSON.parse(
+    sessionStorage.getItem(CO_BROKER_USER_KEY) || "{}",
+  );
   const branding = readStoredCoBrokerBranding();
 
   const displayName =
@@ -52,6 +55,10 @@ export default function CoBrokerHeader() {
           <p className="truncate text-xs text-gray-500 dark:text-gray-400">
             {orgName || CO_BROKER_ROLE_LABEL}
           </p>
+        </div>
+
+        <div className="ml-auto flex items-center gap-2">
+          <CoBrokerNotificationDropdown />
         </div>
       </div>
     </header>

@@ -10,6 +10,8 @@ const {
   formatBrokerOfficerInboxEntry,
   resolvePrincipalBrokerDisplay,
   syncClientBrokerTeamParticipants,
+  listAssignedStaffForLoanChat,
+  buildLoanOfficerCoBrokerConversationEntries,
 } = require("../../../../services/messaging/brokerOfficerConversation");
 const { resolveClientDisplayName } = require("../../../../services/messaging/resolveClientDisplayName");
 const {
@@ -20,7 +22,11 @@ const {
   resolveViewerRole,
   enrichConversationList,
 } = require("../../../../services/messaging/conversationPresentation");
-const { extraOfficerPermission, LOAN_OFFICER_MESSAGING_PERMISSIONS } = require("../../../../services/broker/loanOfficerAccess");
+const {
+  extraOfficerPermission,
+  LOAN_OFFICER_MESSAGING_PERMISSIONS,
+  officerAssignedApplicationWhere,
+} = require("../../../../services/broker/loanOfficerAccess");
 const {
   enrichLoanConversationItems,
 } = require("../../../../services/messaging/conversationUnread");
@@ -92,14 +98,23 @@ module.exports = async function getConversations(fastify) {
           });
         }
 
-        if (
-          req.user.roles?.includes("BROKER_OFFICER") &&
-          loan.brokerUserId !== (req.user.id || req.user.userId)
-        ) {
-          return reply.code(403).send({
-            success: false,
-            message: "Access denied - not assigned to you",
+        if (req.user.roles?.includes("BROKER_OFFICER")) {
+          const assigned = await prisma.loanApplication.findFirst({
+            where: {
+              id: loanId,
+              ...officerAssignedApplicationWhere(
+                req.user.id || req.user.userId,
+              ),
+            },
+            select: { id: true },
           });
+
+          if (!assigned) {
+            return reply.code(403).send({
+              success: false,
+              message: "Access denied - not assigned to you",
+            });
+          }
         }
 
         // Client access — portal login may map to multiple broker Client records
@@ -265,6 +280,9 @@ module.exports = async function getConversations(fastify) {
             // SUB BROKER CHAT
 
             if (conv.type === "SUBBROKER_BROKER") {
+              if (conv.chatCategory === "LOAN_OFFICER") {
+                return null;
+              }
               const subBrokerParticipant = conv.participants.find(
                 (p) => p.participantType === "SUB_BROKER",
               );
@@ -277,10 +295,24 @@ module.exports = async function getConversations(fastify) {
                 `${subBroker?.firstName || ""} ${
                   subBroker?.lastName || ""
                 }`.trim() || "Sub Broker";
-              title =
-                conv.chatCategory === "LOAN_OFFICER"
-                  ? `Sub Broker • ${subBrokerName} (Loan Officer Chat)`
-                  : `Sub Broker • ${subBrokerName}`;
+              title = `Sub Broker • ${subBrokerName}`;
+
+              return {
+                id: conv.id,
+                type: conv.type,
+                chatCategory: conv.chatCategory || null,
+                title,
+                subBrokerName,
+                participant: {
+                  id: subBroker?.id,
+                  role: "SUB_BROKER",
+                  name: subBrokerName,
+                  profileImage: null,
+                },
+                lastMessage: conv.messages[0]?.text || null,
+                lastMessageAt: conv.lastMessageAt,
+                unread: false,
+              };
             }
 
             if (conv.type === "BROKER_OFFICER") {
@@ -333,16 +365,48 @@ module.exports = async function getConversations(fastify) {
           (conv) => conv.type === "BROKER_OFFICER",
         );
 
+        const formattedItems = formatted.filter(Boolean);
+
         if (
           brokerAdmin &&
           !officerConversation &&
           shouldShowBrokerOfficerPlaceholder(req)
         ) {
-          formatted.unshift(buildOfficerSideEntry(null, brokerAdmin));
+          formattedItems.unshift(buildOfficerSideEntry(null, brokerAdmin));
         }
 
+        const { coBrokers: assignedCoBrokers } =
+          await listAssignedStaffForLoanChat(prisma, loanId, null);
+
+        const coBrokerEntries = buildLoanOfficerCoBrokerConversationEntries({
+          coBrokers: assignedCoBrokers,
+          conversations,
+          loanOfficerId: userId,
+        });
+
+        const clientItems = formattedItems.filter(
+          (item) =>
+            item.type === "CLIENT_BROKER" || item.type === "CLIENT_OFFICER",
+        );
+        const otherItems = formattedItems.filter(
+          (item) =>
+            item.type !== "CLIENT_BROKER" &&
+            item.type !== "CLIENT_OFFICER" &&
+            item.type !== "BROKER_OFFICER",
+        );
+        const principalItems = formattedItems.filter(
+          (item) => item.type === "BROKER_OFFICER",
+        );
+
+        const mergedFormatted = [
+          ...clientItems,
+          ...principalItems,
+          ...coBrokerEntries,
+          ...otherItems,
+        ];
+
         const formattedWithUnread = await enrichLoanConversationItems(prisma, {
-          items: formatted,
+          items: mergedFormatted,
           conversations,
           userId,
           userEmail,

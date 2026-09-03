@@ -24,6 +24,7 @@ import {
   type CoBrokerLoanOfficerOption,
   type LoanTypeOption,
 } from "../../lib/coBrokerApi";
+import { isLoanOfficerPortalPath } from "../../lib/portalAuth";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
@@ -109,6 +110,7 @@ export default function CoBrokerFormModal({
   onClose,
   onSaved,
 }: Props) {
+  const isLoPortal = isLoanOfficerPortalPath();
   const isEdit = mode === "edit";
   const [form, setForm] = useState<CoBrokerFormState>(INITIAL_CO_BROKER_FORM);
   const [errors, setErrors] = useState<CoBrokerFormErrors>({});
@@ -137,7 +139,7 @@ export default function CoBrokerFormModal({
         setLoadingLoanOfficers(true);
         setLoadingLoanTypes(true);
         const [officers, loanTypes] = await Promise.all([
-          fetchCoBrokerLoanOfficers(),
+          isLoPortal ? Promise.resolve([]) : fetchCoBrokerLoanOfficers(),
           fetchCoBrokerLoanTypes(),
         ]);
         if (cancelled) return;
@@ -205,7 +207,7 @@ export default function CoBrokerFormModal({
     return () => {
       cancelled = true;
     };
-  }, [isEdit, isOpen, onClose, subBrokerId]);
+  }, [isEdit, isLoPortal, isOpen, onClose, subBrokerId]);
 
   useEffect(() => {
     if (!isOpen || !form.useSameContact) return;
@@ -292,7 +294,9 @@ export default function CoBrokerFormModal({
 
     try {
       setSaving(true);
-      const { body, files } = buildCoBrokerFormData(form);
+      const { body, files } = buildCoBrokerFormData(form, {
+        includeLoanOfficerAssignment: !isLoPortal,
+      });
       const url = isEdit
         ? `${API_BASE}/broker/sub-broker/${subBrokerId}/update`
         : `${API_BASE}/broker/sub-broker/create`;
@@ -379,7 +383,9 @@ export default function CoBrokerFormModal({
             </h2>
             <p className="text-sm text-gray-500">
               {isEdit
-                ? "Update co-broker profile and assigned loan officers."
+                ? isLoPortal
+                  ? "Update co-broker profile."
+                  : "Update co-broker profile and assigned loan officers."
                 : "Add a new co-broker with full profile details."}
             </p>
           </div>
@@ -979,42 +985,44 @@ export default function CoBrokerFormModal({
                 ) : null}
               </section>
 
-              <section className="space-y-4">
-                <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
-                  Assignments
-                </h3>
+              {!isLoPortal ? (
+                <section className="space-y-4">
+                  <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
+                    Assignments
+                  </h3>
 
-                <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
-                  Assigned to Branch(s): No branches available. Please create a
-                  branch first.
-                  <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">
-                    Branch linking will be available once branches are
-                    configured.
-                  </p>
-                </div>
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
+                    Assigned to Branch(s): No branches available. Please create a
+                    branch first.
+                    <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">
+                      Branch linking will be available once branches are
+                      configured.
+                    </p>
+                  </div>
 
-                <div>
-                  <MultiSelect
-                    label="Assigned Loan Officer(s)"
-                    options={loanOfficerOptions}
-                    value={form.assignedLoanOfficerIds}
-                    onChange={(value) =>
-                      updateField("assignedLoanOfficerIds", value)
-                    }
-                    placeholder={
-                      loanOfficerOptions.length
-                        ? "Select loan officers"
-                        : "No loan officers found"
-                    }
-                    loading={loadingLoanOfficers}
-                  />
-                  <p className="mt-1 text-xs text-gray-500">
-                    {loanOfficerOptions.length
-                      ? "Select employees within the broker company. Applications assigned to this co-broker will auto-assign these loan officers."
-                      : "Create loan officers under your broker organization to assign them here."}
-                  </p>
-                </div>
-              </section>
+                  <div>
+                    <MultiSelect
+                      label="Assigned Loan Officer(s)"
+                      options={loanOfficerOptions}
+                      value={form.assignedLoanOfficerIds}
+                      onChange={(value) =>
+                        updateField("assignedLoanOfficerIds", value)
+                      }
+                      placeholder={
+                        loanOfficerOptions.length
+                          ? "Select loan officers"
+                          : "No loan officers found"
+                      }
+                      loading={loadingLoanOfficers}
+                    />
+                    <p className="mt-1 text-xs text-gray-500">
+                      {loanOfficerOptions.length
+                        ? "Select employees within the broker company. Applications assigned to this co-broker will auto-assign these loan officers."
+                        : "Create loan officers under your broker organization to assign them here."}
+                    </p>
+                  </div>
+                </section>
+              ) : null}
             </div>
 
             <div className="flex shrink-0 justify-end gap-3 border-t px-6 py-4 dark:border-gray-800">

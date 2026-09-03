@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type MouseEvent } from "react";
 import toast from "react-hot-toast";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router";
@@ -51,7 +51,60 @@ type TableRow = {
 
   assignedOfficerName: string | null;
   assignedOfficerImage: string | null;
+  assignedLoanOfficers: AssignedPerson[];
 };
+
+type AssignedPerson = {
+  id: string;
+  name: string;
+  profileImage?: string | null;
+};
+
+function AssigneePills({
+  people,
+  pillClassName,
+  onShowAll,
+}: {
+  people: AssignedPerson[];
+  pillClassName: string;
+  onShowAll?: (event: MouseEvent) => void;
+}) {
+  if (!people.length) {
+    return (
+      <div className="flex items-center gap-1 text-xs text-gray-400">
+        <Users className="h-3 w-3" />
+        Unassigned
+      </div>
+    );
+  }
+
+  const extra = people.length - 1;
+
+  return (
+    <div
+      className="flex min-w-0 items-center gap-1"
+      title={people.map((person) => person.name).join(", ")}
+    >
+      <span
+        className={`inline-flex max-w-[8.5rem] truncate rounded-full px-2 py-0.5 text-xs font-medium ${pillClassName}`}
+      >
+        {people[0].name}
+      </span>
+      {extra > 0 && (
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            onShowAll?.(event);
+          }}
+          className={`inline-flex shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${pillClassName}`}
+        >
+          +{extra}
+        </button>
+      )}
+    </div>
+  );
+}
 
 /* ================= HELPERS ================= */
 const API_BASE = CO_BROKER_API_BASE;
@@ -213,6 +266,18 @@ export default function LoanApplicationsPage() {
   const [lois] = useState<any[]>([]);
 
   const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0 });
+
+  const [peopleModal, setPeopleModal] = useState<{
+    open: boolean;
+    title: string;
+    roleLabel: string;
+    people: AssignedPerson[];
+  }>({
+    open: false,
+    title: "",
+    roleLabel: "",
+    people: [],
+  });
 
   const [previewFile, setPreviewFile] = useState<{
     url: string;
@@ -415,10 +480,47 @@ export default function LoanApplicationsPage() {
 
           pendingDocumentsCount: 0,
 
+          assignedLoanOfficers: (() => {
+            const fromList = Array.isArray(item.assignedLoanOfficers)
+              ? item.assignedLoanOfficers
+                  .map((officer: any) => ({
+                    id: String(officer.id || ""),
+                    name:
+                      officer.name ||
+                      `${officer.firstName || ""} ${
+                        officer.lastName || ""
+                      }`.trim(),
+                    profileImage: officer.profileImage || null,
+                  }))
+                  .filter((officer: AssignedPerson) => officer.id && officer.name)
+              : [];
+
+            if (fromList.length) return fromList;
+
+            if (item.assignedLoanOfficer) {
+              const name =
+                item.assignedLoanOfficer.name ||
+                `${item.assignedLoanOfficer.firstName || ""} ${
+                  item.assignedLoanOfficer.lastName || ""
+                }`.trim();
+              if (!name) return [];
+              return [
+                {
+                  id: String(item.assignedLoanOfficer.id || name),
+                  name,
+                  profileImage: item.assignedLoanOfficer.profileImage || null,
+                },
+              ];
+            }
+
+            return [];
+          })(),
+
           assignedOfficerName: item.assignedLoanOfficer
-            ? `${item.assignedLoanOfficer.firstName || ""} ${
+            ? item.assignedLoanOfficer.name ||
+              `${item.assignedLoanOfficer.firstName || ""} ${
                 item.assignedLoanOfficer.lastName || ""
-              }`
+              }`.trim()
             : null,
 
           assignedOfficerImage: item.assignedLoanOfficer?.profileImage || null,
@@ -572,7 +674,7 @@ export default function LoanApplicationsPage() {
   }, [currentPage, debouncedSearch, statusFilter]);
 
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
+    const handleClickOutside = (event: globalThis.MouseEvent) => {
       if (
         dropdownRef.current &&
         !dropdownRef.current.contains(event.target as Node)
@@ -991,18 +1093,24 @@ export default function LoanApplicationsPage() {
                       <td
                         onClick={() => openPreview(row.submissionId, row)}
                         className="overflow-hidden px-3 py-3 align-middle"
-                        title={row.assignedOfficerName || undefined}
+                        title={
+                          (row.assignedLoanOfficers || [])
+                            .map((person) => person.name)
+                            .join(", ") || undefined
+                        }
                       >
-                        {row.assignedOfficerName ? (
-                          <span className="inline-flex max-w-full truncate rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300">
-                            {row.assignedOfficerName}
-                          </span>
-                        ) : (
-                          <div className="flex items-center gap-1 text-xs text-gray-400">
-                            <Users className="h-3 w-3" />
-                            Unassigned
-                          </div>
-                        )}
+                        <AssigneePills
+                          people={row.assignedLoanOfficers || []}
+                          pillClassName="bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300"
+                          onShowAll={() =>
+                            setPeopleModal({
+                              open: true,
+                              title: "Assigned Loan Officers",
+                              roleLabel: "Loan Officer",
+                              people: row.assignedLoanOfficers || [],
+                            })
+                          }
+                        />
                       </td>
 
                       <td
@@ -1119,6 +1227,56 @@ export default function LoanApplicationsPage() {
           </div>
         </div>
       </div>
+
+        {peopleModal.open &&
+          createPortal(
+            <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+              <div className="w-full max-w-2xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-800 dark:bg-slate-900">
+                <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4 dark:border-slate-800">
+                  <h3 className="font-semibold text-slate-900 dark:text-white">
+                    {peopleModal.title}
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setPeopleModal({
+                        open: false,
+                        title: "",
+                        roleLabel: "",
+                        people: [],
+                      })
+                    }
+                    className="text-lg text-slate-400 hover:text-red-500"
+                  >
+                    ✕
+                  </button>
+                </div>
+                <div className="grid max-h-[70vh] grid-cols-1 gap-4 overflow-y-auto p-5 sm:grid-cols-2">
+                  {peopleModal.people.map((person) => (
+                    <div
+                      key={person.id}
+                      className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800/40"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-blue-500 text-base font-bold text-white">
+                          {person.name?.charAt(0) || "?"}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <h4 className="truncate text-sm font-semibold text-slate-800 dark:text-slate-100">
+                            {person.name}
+                          </h4>
+                          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                            {peopleModal.roleLabel}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>,
+            document.body,
+          )}
 
         {viewSubmissionId &&
           createPortal(
