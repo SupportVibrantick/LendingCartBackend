@@ -44,6 +44,8 @@ async function getAdminApplicationDetails(fastify) {
           },
           brokerOrg: true,
           submissions: {
+            orderBy: { createdAt: "desc" },
+            take: 1,
             select: {
               id: true,
               createdAt: true,
