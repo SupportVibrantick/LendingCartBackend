@@ -2,24 +2,25 @@ const fs = require("fs");
 const path = require("path");
 const { pipeline } = require("stream/promises");
 const crypto = require("crypto");
-const { validateFileMimetype } = require("../../../utils/security/fileValidator");
+const {
+  validateFileMimetype,
+} = require("../../../utils/security/fileValidator");
 
 /**
  * @param {import("fastify").FastifyInstance} fastify
  */
-module.exports = async function uploadSubmissionDocumentForSubBroker(fastify) {
+async function uploadSubmissionDocumentForSubBroker(fastify) {
   fastify.post(
     "/submissions/:submissionId/documents/:requirementId/upload",
     {
-      preHandler: [
-        fastify.authenticate,
-        fastify.requireRole(["SUB_BROKER"]),
-      ],
+      preHandler: [fastify.authenticate, fastify.requireRole(["SUB_BROKER"])],
     },
     async (req, reply) => {
       try {
         if (!req.user) {
-          return reply.code(401).send({ success: false, message: "Authentication required" });
+          return reply
+            .code(401)
+            .send({ success: false, message: "Authentication required" });
         }
 
         const prisma = fastify.prisma;
@@ -32,7 +33,9 @@ module.exports = async function uploadSubmissionDocumentForSubBroker(fastify) {
         });
 
         if (!submission) {
-          return reply.code(404).send({ success: false, message: "Submission not found" });
+          return reply
+            .code(404)
+            .send({ success: false, message: "Submission not found" });
         }
 
         const assignment = await prisma.subBrokerApplication.findFirst({
@@ -44,28 +47,51 @@ module.exports = async function uploadSubmissionDocumentForSubBroker(fastify) {
         });
 
         if (!assignment) {
-          return reply.code(403).send({ success: false, message: "Access denied for this loan" });
+          return reply
+            .code(403)
+            .send({ success: false, message: "Access denied for this loan" });
         }
 
-        const requirement = await prisma.applicationDocumentRequirement.findUnique({
-          where: { id: requirementId },
-        });
+        const requirement =
+          await prisma.applicationDocumentRequirement.findUnique({
+            where: { id: requirementId },
+          });
 
         if (!requirement) {
-          return reply.code(404).send({ success: false, message: "Document requirement not found" });
+          return reply
+            .code(404)
+            .send({
+              success: false,
+              message: "Document requirement not found",
+            });
         }
 
         if (requirement.loanApplicationId !== submission.application.id) {
-          return reply.code(400).send({ success: false, message: "Requirement does not belong to this submission" });
+          return reply
+            .code(400)
+            .send({
+              success: false,
+              message: "Requirement does not belong to this submission",
+            });
         }
 
         const file = await req.file();
         if (!file) {
-          return reply.code(400).send({ success: false, message: "No file uploaded" });
+          return reply
+            .code(400)
+            .send({ success: false, message: "No file uploaded" });
         }
 
-        const allowedMimeTypes = ["application/pdf", "image/jpeg", "image/png", "image/webp"];
-        const validation = await validateFileMimetype(file.file, allowedMimeTypes);
+        const allowedMimeTypes = [
+          "application/pdf",
+          "image/jpeg",
+          "image/png",
+          "image/webp",
+        ];
+        const validation = await validateFileMimetype(
+          file.file,
+          allowedMimeTypes,
+        );
         if (!validation.isValid) {
           return reply.code(400).send({
             success: false,
@@ -75,7 +101,9 @@ module.exports = async function uploadSubmissionDocumentForSubBroker(fastify) {
         const validatedStream = validation.stream;
 
         if (file.file.truncated) {
-          return reply.code(400).send({ success: false, message: "File too large" });
+          return reply
+            .code(400)
+            .send({ success: false, message: "File too large" });
         }
 
         const randomName = crypto.randomBytes(16).toString("hex");
@@ -83,7 +111,13 @@ module.exports = async function uploadSubmissionDocumentForSubBroker(fastify) {
         const safeExt = originalExt || getExtensionFromMime(file.mimetype);
         const safeFileName = `${randomName}${safeExt}`;
 
-        const uploadDir = path.join(process.cwd(), "uploads", "loan-documents", submission.application.id, requirementId);
+        const uploadDir = path.join(
+          process.cwd(),
+          "uploads",
+          "loan-documents",
+          submission.application.id,
+          requirementId,
+        );
         await fs.promises.mkdir(uploadDir, { recursive: true });
         const filePath = path.join(uploadDir, safeFileName);
 
@@ -126,8 +160,17 @@ module.exports = async function uploadSubmissionDocumentForSubBroker(fastify) {
           fileUrl,
         });
       } catch (error) {
-        fastify.log.error({ error: error.message, stack: error.stack, route: "subbroker-upload-document" });
-        return reply.code(500).send({ success: false, message: error.message || "Server error while uploading document" });
+        fastify.log.error({
+          error: error.message,
+          stack: error.stack,
+          route: "subbroker-upload-document",
+        });
+        return reply
+          .code(500)
+          .send({
+            success: false,
+            message: error.message || "Server error while uploading document",
+          });
       }
     },
   );
@@ -135,11 +178,16 @@ module.exports = async function uploadSubmissionDocumentForSubBroker(fastify) {
 
 function getExtensionFromMime(mime) {
   switch (mime) {
-    case "application/pdf": return ".pdf";
-    case "image/jpeg": return ".jpg";
-    case "image/png": return ".png";
-    case "image/webp": return ".webp";
-    default: return "";
+    case "application/pdf":
+      return ".pdf";
+    case "image/jpeg":
+      return ".jpg";
+    case "image/png":
+      return ".png";
+    case "image/webp":
+      return ".webp";
+    default:
+      return "";
   }
 }
 

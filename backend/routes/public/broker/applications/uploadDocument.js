@@ -14,7 +14,7 @@ const fs = require("fs");
 const path = require("path");
 const { pipeline } = require("stream/promises");
 const crypto = require("crypto");
-const { validateFileMimetype } = require("../../../utils/security/fileValidator");
+const { validateFileMimetype } = require("../../../../utils/security/fileValidator");
 
 async function uploadDocumentRoute(fastify) {
   fastify.post(
