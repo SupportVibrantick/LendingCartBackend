@@ -13,6 +13,9 @@ const {
 const {
   canBrokerReassignApplication,
 } = require("../../../utils/applications/resolveApplicationStatus");
+const {
+  autoAssignLoanOfficerCoBrokers,
+} = require("../../../services/broker/autoAssignLoanOfficerCoBrokers");
 
 const SUBBROKER_CHAT_DB_TYPE = "CLIENT_BROKER";
 
@@ -261,6 +264,13 @@ async function assignLoanOfficer(fastify) {
             officerName,
           },
           recipientUserId: loanOfficerId,
+        });
+
+        await autoAssignLoanOfficerCoBrokers(prisma, fastify, {
+          loanApplicationId: applicationId,
+          loanOfficerId,
+          brokerOrgId,
+          assignedByUserId: req.user.userId || req.user.id,
         });
 
         /* ================= SUCCESS ================= */

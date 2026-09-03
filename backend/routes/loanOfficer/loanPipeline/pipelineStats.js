@@ -1,4 +1,4 @@
-const { officerPreHandler, getUserId } = require("../../../services/broker/loanOfficerAccess");
+const { officerPreHandler, getUserId, officerAssignedApplicationWhere } = require("../../../services/broker/loanOfficerAccess");
 const {
   countBrokerPipelineStats,
 } = require("../../../utils/applications/resolveApplicationStatus");
@@ -15,7 +15,7 @@ module.exports = async function loanOfficerPipelineStats(fastify) {
 
         const whereCondition = {
           brokerOrgId: orgId,
-          brokerUserId: userId,
+          ...officerAssignedApplicationWhere(userId),
         };
 
         const applications = await prisma.applicationSubmission.findMany({

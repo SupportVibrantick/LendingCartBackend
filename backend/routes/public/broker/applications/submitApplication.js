@@ -29,6 +29,16 @@ const {
 const {
   findOrCreateBorrowerClient,
 } = require("../../../../services/clientPortal/findOrCreateBorrowerClient");
+const {
+  findOrCreateClientOfficerConversation,
+  syncClientBrokerTeamParticipants,
+} = require("../../../../services/messaging/brokerOfficerConversation");
+const {
+  autoAssignLoanOfficerCoBrokers,
+} = require("../../../../services/broker/autoAssignLoanOfficerCoBrokers");
+const {
+  autoAssignSubBrokerLoanOfficers,
+} = require("../../../../services/broker/autoAssignSubBrokerLoanOfficers");
 
 async function submitApplication(fastify) {
   fastify.post(
@@ -90,6 +100,33 @@ async function submitApplication(fastify) {
       brokerOrgId = resolved.brokerOrganizationId;
       publicLink = resolved.link;
       provenance = buildLoanApplicationProvenanceFromLink(resolved.link);
+
+      if (!provenance.brokerUserId && resolved.link?.createdByUserId) {
+        const creator = await fastify.prisma.userAccount.findFirst({
+          where: {
+            id: resolved.link.createdByUserId,
+            organizationId: brokerOrgId,
+            isDeleted: false,
+            roles: {
+              some: { role: { name: "BROKER_OFFICER" } },
+            },
+          },
+          select: {
+            id: true,
+            roles: { select: { role: { select: { name: true } } } },
+          },
+        });
+
+        if (creator) {
+          const roleNames = creator.roles.map((entry) => entry.role.name);
+          const isBrokerAdminLink =
+            resolved.link.sourcePortal === SOURCE_PORTALS.BROKER &&
+            roleNames.includes("BROKER_ADMIN");
+          if (!isBrokerAdminLink) {
+            provenance.brokerUserId = creator.id;
+          }
+        }
+      }
 
       if (!loanProductCode && !(brokerApplicationId && applicationProductId)) {
         return reply.code(400).send({
@@ -256,9 +293,7 @@ async function submitApplication(fastify) {
             clientId: client.id,
             loanProductCode: resolvedLoanProductCode,
             status: "CLIENT_PENDING",
-            ...(provenance.brokerUserId
-              ? { brokerUserId: provenance.brokerUserId }
-              : {}),
+            brokerUserId: provenance.brokerUserId || null,
             publicApplicationLinkId: provenance.publicApplicationLinkId,
             publicSourcePortal: provenance.publicSourcePortal,
             publicCreatedByUserId: provenance.publicCreatedByUserId,
@@ -323,6 +358,8 @@ async function submitApplication(fastify) {
           borrowerEmail: normalizedEmail,
           portalToken,
           sourcePortal: provenance.publicSourcePortal,
+          assignedLoanOfficerId: provenance.brokerUserId || null,
+          assignedCoBrokerId: provenance.assignCoBrokerId || null,
           warnings: clientWarnings,
           clientDisplayName: resolveClientDisplayName({
             client,
@@ -374,20 +411,93 @@ async function submitApplication(fastify) {
       );
     }
 
+    try {
+      const existingTeamThread = await fastify.prisma.conversation.findFirst({
+        where: {
+          loanApplicationId: result.loanApplication.id,
+          type: "CLIENT_BROKER",
+        },
+        select: { id: true },
+      });
+
+      if (!existingTeamThread) {
+        await fastify.prisma.conversation.create({
+          data: {
+            loanApplicationId: result.loanApplication.id,
+            type: "CLIENT_BROKER",
+          },
+        });
+      }
+
+      await syncClientBrokerTeamParticipants(fastify.prisma, {
+        loanApplicationId: result.loanApplication.id,
+        brokerOrgId: result.brokerOrgId,
+      });
+
+      if (result.assignedLoanOfficerId) {
+        await autoAssignLoanOfficerCoBrokers(fastify.prisma, fastify, {
+          loanApplicationId: result.loanApplication.id,
+          loanOfficerId: result.assignedLoanOfficerId,
+          brokerOrgId: result.brokerOrgId,
+          assignedByUserId: result.assignedLoanOfficerId,
+        });
+      }
+
+      if (result.assignedCoBrokerId) {
+        await autoAssignSubBrokerLoanOfficers(fastify.prisma, fastify, {
+          loanApplicationId: result.loanApplication.id,
+          subBrokerId: result.assignedCoBrokerId,
+          brokerOrgId: result.brokerOrgId,
+          assignedByUserId: result.assignedCoBrokerId,
+        });
+      }
+
+      if (result.assignedLoanOfficerId && result.client?.id) {
+        await findOrCreateClientOfficerConversation(fastify.prisma, {
+          loanApplicationId: result.loanApplication.id,
+          loanOfficerId: result.assignedLoanOfficerId,
+          clientId: result.client.id,
+        });
+      }
+    } catch (conversationErr) {
+      fastify.log.error(
+        {
+          error: conversationErr.message,
+          applicationId: result.loanApplication.id,
+        },
+        "Failed to sync broker team conversation after public application submit",
+      );
+    }
+
+    const notifyMetadata = {
+      applicationId: result.loanApplication.id,
+      applicationNumber: result.loanApplication.applicationNumber,
+      clientName: result.clientDisplayName,
+      source: "PUBLIC_FORM",
+      sourcePortal: result.sourcePortal,
+      assignedLoanOfficerId: result.assignedLoanOfficerId,
+    };
+
     await notifyBroker(fastify.prisma, fastify.io, {
       brokerOrgId: result.brokerOrgId,
       eventType: BROKER_NOTIFICATION_EVENTS.APPLICATION_SUBMITTED,
       category: "APPLICATION",
       subject: "New Application Submitted",
       body: `New application ${result.loanApplication.applicationNumber} submitted via public form`,
-      metadata: {
-        applicationId: result.loanApplication.id,
-        applicationNumber: result.loanApplication.applicationNumber,
-        clientName: result.clientDisplayName,
-        source: "PUBLIC_FORM",
-        sourcePortal: result.sourcePortal,
-      },
+      metadata: notifyMetadata,
     });
+
+    if (result.assignedLoanOfficerId) {
+      await notifyBroker(fastify.prisma, fastify.io, {
+        brokerOrgId: result.brokerOrgId,
+        recipientUserId: result.assignedLoanOfficerId,
+        eventType: BROKER_NOTIFICATION_EVENTS.APPLICATION_SUBMITTED,
+        category: "APPLICATION",
+        subject: "New Application Assigned To You",
+        body: `New application ${result.loanApplication.applicationNumber} was submitted from your share link`,
+        metadata: notifyMetadata,
+      });
+    }
 
     return reply.code(201).send({
       success: true,

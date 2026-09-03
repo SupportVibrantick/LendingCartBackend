@@ -335,8 +335,19 @@ export async function fetchBrokerLoanOfficers(
   );
 }
 
+export type BrokerLoanOfficerCoBroker = {
+  id: string;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  profileImage?: string | null;
+};
+
 export type BrokerLoanOfficerDetail = BrokerTeamMember & {
   confirmEmail?: string;
+  permissions?: string[];
+  assignedCoBrokers?: BrokerLoanOfficerCoBroker[];
+  assignedCoBrokerIds?: string[];
   profile?: {
     company?: string | null;
     tollFree?: string | null;
@@ -352,6 +363,24 @@ export type BrokerLoanOfficerDetail = BrokerTeamMember & {
     preferredComm?: string | null;
     website?: string | null;
     avatarUrl?: string | null;
+    w9Url?: string | null;
+    findersFee?: string | null;
+    ein?: string | null;
+    dre?: string | null;
+    hasCompanyNmls?: boolean;
+    companyNmls?: string | null;
+    hasPersonalNmls?: boolean;
+    personalNmls?: string | null;
+    hasCompanyStateLicense?: boolean;
+    companyStateLicenseStates?: string[];
+    companyStateLicense?: string | null;
+    hasPersonalStateLicense?: boolean;
+    personalStateLicenseStates?: string[];
+    personalStateLicense?: string | null;
+    statesAuthorized?: string[];
+    branchIds?: string[];
+    createdAt?: string;
+    updatedAt?: string;
   } | null;
 };
 
@@ -488,6 +517,47 @@ export async function deleteBrokerLoanOfficer(userId: string) {
   );
 }
 
+export type PortalImpersonationResponse = {
+  success: boolean;
+  token: string;
+  roles?: string[];
+  permissions?: string[];
+  branding?: unknown;
+  user: Record<string, unknown>;
+  redirectTo?: string;
+  message?: string;
+};
+
+export async function impersonateBrokerLoanOfficer(
+  brokerOrgId: string,
+  userId: string,
+) {
+  return adminFetch<PortalImpersonationResponse>(
+    `/admin/brokers/loan-officers/${brokerOrgId}/${userId}/impersonate`,
+    { method: "POST", body: JSON.stringify({}) },
+  );
+}
+
+export async function impersonateBrokerSubBroker(
+  brokerOrgId: string,
+  userId: string,
+) {
+  return adminFetch<PortalImpersonationResponse>(
+    `/admin/brokers/sub-brokers/${brokerOrgId}/${userId}/impersonate`,
+    { method: "POST", body: JSON.stringify({}) },
+  );
+}
+
+export async function impersonateBrokerClient(
+  brokerOrgId: string,
+  clientId: string,
+) {
+  return adminFetch<PortalImpersonationResponse>(
+    `/admin/brokers/${brokerOrgId}/clients/${clientId}/impersonate`,
+    { method: "POST", body: JSON.stringify({}) },
+  );
+}
+
 export async function updateBrokerLoanOfficerStatus(
   userId: string,
   status: "ACTIVE" | "DISABLED" | "INVITED",
@@ -525,9 +595,38 @@ export type BrokerSubBrokerInput = {
   phone: string;
 };
 
+export type BrokerSubBrokerLoanOfficer = {
+  id: string;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  profileImage?: string | null;
+};
+
+export type BrokerSubBrokerDetail = BrokerTeamMember & {
+  profile?: Record<string, unknown> & {
+    logoUrl?: string | null;
+    w9Url?: string | null;
+    partnerType?: string;
+    company?: string;
+    allowedToLogin?: boolean;
+    agentType?: string;
+    [key: string]: unknown;
+  };
+  assignedLoanOfficers?: BrokerSubBrokerLoanOfficer[];
+  assignedLoanOfficerIds?: string[];
+  assignedApplications?: number;
+};
+
 export async function fetchBrokerSubBrokerDetail(brokerOrgId: string, userId: string) {
-  return adminFetch<{ success: boolean; data: BrokerTeamMember }>(
+  return adminFetch<{ success: boolean; data: BrokerSubBrokerDetail }>(
     `/admin/brokers/sub-brokers/${brokerOrgId}/${userId}`,
+  );
+}
+
+export async function fetchBrokerOrgLoanOfficersForSubBroker(brokerOrgId: string) {
+  return adminFetch<{ success: boolean; data: BrokerSubBrokerLoanOfficer[] }>(
+    `/admin/brokers/sub-brokers/${brokerOrgId}/loan-officers`,
   );
 }
 
@@ -554,9 +653,17 @@ export async function fetchBrokerSubBrokerApplications(
 
 export async function createBrokerSubBroker(
   brokerOrgId: string,
-  payload: BrokerSubBrokerInput,
+  payload: BrokerSubBrokerInput | FormData,
 ) {
-  return adminFetch<{ success: boolean; data: BrokerTeamMember }>(
+  if (payload instanceof FormData) {
+    return adminFetchMultipart<{ success: boolean; data: BrokerSubBrokerDetail }>(
+      `/admin/brokers/sub-brokers/${brokerOrgId}`,
+      payload,
+      "POST",
+    );
+  }
+
+  return adminFetch<{ success: boolean; data: BrokerSubBrokerDetail }>(
     `/admin/brokers/sub-brokers/${brokerOrgId}`,
     {
       method: "POST",
@@ -568,9 +675,17 @@ export async function createBrokerSubBroker(
 export async function updateBrokerSubBroker(
   brokerOrgId: string,
   userId: string,
-  payload: Partial<BrokerSubBrokerInput>,
+  payload: Partial<BrokerSubBrokerInput> | FormData,
 ) {
-  return adminFetch<{ success: boolean; data: BrokerTeamMember }>(
+  if (payload instanceof FormData) {
+    return adminFetchMultipart<{ success: boolean; data: BrokerSubBrokerDetail }>(
+      `/admin/brokers/sub-brokers/${brokerOrgId}/${userId}`,
+      payload,
+      "PATCH",
+    );
+  }
+
+  return adminFetch<{ success: boolean; data: BrokerSubBrokerDetail }>(
     `/admin/brokers/sub-brokers/${brokerOrgId}/${userId}`,
     {
       method: "PATCH",

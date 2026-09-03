@@ -1,6 +1,7 @@
 const {
   findOrCreateClientOfficerConversation,
   syncLoanOfficerForApplication,
+  syncClientBrokerTeamParticipants,
 } = require("../messaging/brokerOfficerConversation");
 const {
   notifyBroker,
@@ -10,16 +11,28 @@ const {
 const SUBBROKER_CHAT_DB_TYPE = "CLIENT_BROKER";
 
 /**
- * When a co-broker is assigned to an application, auto-assign their
- * configured loan officer(s) to the same application.
+ * When a co-broker creates or receives an application, assign every loan
+ * officer linked to that co-broker (User Management → Co-Broker).
  */
 async function autoAssignSubBrokerLoanOfficers(
   prisma,
   fastify,
   { loanApplicationId, subBrokerId, brokerOrgId, assignedByUserId },
 ) {
+  if (!loanApplicationId || !subBrokerId || !brokerOrgId) return [];
+
   const links = await prisma.subBrokerLoanOfficer.findMany({
-    where: { subBrokerId },
+    where: {
+      subBrokerId,
+      loanOfficer: {
+        organizationId: brokerOrgId,
+        isDeleted: false,
+        status: "ACTIVE",
+        roles: {
+          some: { role: { name: "BROKER_OFFICER" } },
+        },
+      },
+    },
     include: {
       loanOfficer: {
         select: {
@@ -59,7 +72,7 @@ async function autoAssignSubBrokerLoanOfficers(
 
   if (!application) return [];
 
-  const officerIds = links.map((link) => link.loanOfficerId);
+  const officerIds = [...new Set(links.map((link) => link.loanOfficerId))];
   const currentOfficerId = application.brokerUser?.roles?.some(
     (role) => role.role?.name === "BROKER_OFFICER",
   )
@@ -92,6 +105,28 @@ async function autoAssignSubBrokerLoanOfficers(
     }
   }
 
+  const existingConversation = await prisma.conversation.findFirst({
+    where: {
+      loanApplicationId,
+      type: SUBBROKER_CHAT_DB_TYPE,
+    },
+    select: { id: true },
+  });
+
+  if (!existingConversation) {
+    await prisma.conversation.create({
+      data: {
+        loanApplicationId,
+        type: SUBBROKER_CHAT_DB_TYPE,
+      },
+    });
+  }
+
+  await syncClientBrokerTeamParticipants(prisma, {
+    loanApplicationId,
+    brokerOrgId,
+  });
+
   const conversation = await prisma.conversation.findFirst({
     where: {
       loanApplicationId,
@@ -100,7 +135,7 @@ async function autoAssignSubBrokerLoanOfficers(
     select: { id: true },
   });
 
-  if (conversation) {
+  if (conversation && officerIds.length > 0) {
     await prisma.conversationParticipant.createMany({
       data: officerIds.map((loanOfficerId) => ({
         conversationId: conversation.id,
@@ -120,8 +155,8 @@ async function autoAssignSubBrokerLoanOfficers(
       brokerOrgId,
       eventType: BROKER_NOTIFICATION_EVENTS.LOAN_OFFICER_ASSIGNED,
       category: "ASSIGNMENT",
-      subject: "Loan Officer Assigned",
-      body: `${officerName} auto-assigned to application ${application.applicationNumber} via co-broker assignment`,
+      subject: "New Application Assigned",
+      body: `${officerName} assigned to application ${application.applicationNumber} via co-broker`,
       metadata: {
         applicationId: loanApplicationId,
         applicationNumber: application.applicationNumber,
