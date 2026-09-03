@@ -259,7 +259,7 @@ function CoBrokerBadge({
   return (
     <span
       title={title}
-      className="inline-flex max-w-[140px] items-center rounded-md bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700 dark:bg-gray-800 dark:text-gray-300"
+      className="inline-flex max-w-full items-center rounded-md bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700 dark:bg-gray-800 dark:text-gray-300"
     >
       <Users className="mr-1 h-3 w-3 shrink-0 text-gray-400" />
       <span className="truncate">{label}</span>
@@ -288,7 +288,7 @@ function StatChip({
 
   return (
     <div
-      className={`flex items-center gap-2.5 rounded-xl border px-4 py-2.5 ${tones[tone]}`}
+      className={`flex items-center gap-2 rounded-lg border px-3 py-2 ${tones[tone]}`}
     >
       {icon}
       <div>
@@ -743,17 +743,17 @@ export default function LoanOfficersPage() {
     <>
       <PageMeta title="Loan Officers | Broker Dashboard" description="Manage loan officers" />
 
-      <div className="space-y-5 pb-6">
+      <div className="space-y-3 pb-3">
         {/* Page header */}
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-1">
+            <p className="mb-0.5 text-xs font-semibold uppercase tracking-widest text-gray-400">
               User Management
             </p>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+            <h1 className="text-xl font-bold text-gray-900 dark:text-white sm:text-2xl">
               Loan Officers
             </h1>
-            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400 max-w-xl">
+            <p className="mt-0.5 max-w-xl text-sm text-gray-500 dark:text-gray-400">
               Manage and monitor your loan officer team.
             </p>
           </div>
@@ -776,10 +776,10 @@ export default function LoanOfficersPage() {
         </div>
 
         {/* Toolbar + table card */}
-        <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white  dark:border-gray-800 dark:bg-gray-900">
-          <div className="border-b border-gray-100 px-4 py-4 dark:border-gray-800 sm:px-5">
-            <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:flex-1 sm:min-w-0">
+        <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
+          <div className="border-b border-gray-100 px-3 py-3 dark:border-gray-800 sm:px-4">
+            <div className="flex flex-col gap-2.5 xl:flex-row xl:items-center xl:justify-between">
+              <div className="flex min-w-0 flex-col gap-2.5 sm:flex-1 sm:flex-row sm:items-center">
                 <div className="relative w-full sm:max-w-xs">
                   <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
                   <input
@@ -840,7 +840,7 @@ export default function LoanOfficersPage() {
             </div>
           </div>
 
-          <div className="flex items-center justify-between gap-3 border-b border-gray-100 bg-gray-50/50 px-4 py-2.5 dark:border-gray-800 dark:bg-gray-800/30 sm:px-5">
+          <div className="flex items-center justify-between gap-3 border-b border-gray-100 bg-gray-50/50 px-3 py-2 dark:border-gray-800 dark:bg-gray-800/30 sm:px-4">
             <p className="text-xs text-gray-500 dark:text-gray-400">
               {loading || isSearching ? (
                 isSearching ? "Searching..." : "Loading team members..."
@@ -908,14 +908,14 @@ export default function LoanOfficersPage() {
               )}
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse text-left">
+            <div className="overflow-x-hidden">
+              <table className="w-full table-fixed border-collapse text-left">
                 <thead>
                   <tr className="border-b border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
-                    <th className="w-10 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-400">
+                    <th className="w-10 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-400 sm:px-4">
                       #
                     </th>
-                    <th className="px-4 py-3 text-left">
+                    <th className="w-[18%] px-3 py-3 text-left sm:px-4">
                       <SortHeader
                         label="Name"
                         active={sortKey === "name"}
@@ -923,7 +923,7 @@ export default function LoanOfficersPage() {
                         onClick={() => toggleSort("name")}
                       />
                     </th>
-                    <th className="px-4 py-3 text-left">
+                    <th className="w-[20%] px-3 py-3 text-left sm:px-4">
                       <SortHeader
                         label="Email"
                         active={sortKey === "email"}
@@ -931,7 +931,7 @@ export default function LoanOfficersPage() {
                         onClick={() => toggleSort("email")}
                       />
                     </th>
-                    <th className="hidden px-4 py-3 text-left md:table-cell">
+                    <th className="hidden w-[12%] px-3 py-3 text-left md:table-cell sm:px-4">
                       <SortHeader
                         label="Phone"
                         active={sortKey === "phone"}
@@ -939,7 +939,7 @@ export default function LoanOfficersPage() {
                         onClick={() => toggleSort("phone")}
                       />
                     </th>
-                    <th className="px-4 py-3 text-left">
+                    <th className="w-[10%] px-3 py-3 text-left sm:px-4">
                       <SortHeader
                         label="Status"
                         active={sortKey === "status"}
@@ -947,17 +947,17 @@ export default function LoanOfficersPage() {
                         onClick={() => toggleSort("status")}
                       />
                     </th>
-                    <th className="hidden px-4 py-3 text-left lg:table-cell">
+                    <th className="hidden w-[12%] px-3 py-3 text-left lg:table-cell sm:px-4">
                       <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                         Co-Brokers
                       </span>
                     </th>
-                    <th className="hidden px-4 py-3 text-left xl:table-cell">
+                    <th className="hidden w-[10%] px-3 py-3 text-left xl:table-cell sm:px-4">
                       <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                         Permissions
                       </span>
                     </th>
-                    <th className="hidden px-4 py-3 text-left sm:table-cell">
+                    <th className="hidden w-[10%] px-3 py-3 text-left sm:table-cell sm:px-4">
                       <SortHeader
                         label="Created"
                         active={sortKey === "createdAt"}
@@ -965,7 +965,7 @@ export default function LoanOfficersPage() {
                         onClick={() => toggleSort("createdAt")}
                       />
                     </th>
-                    <th className="w-20 px-4 py-3 text-right">
+                    <th className="w-20 px-3 py-3 text-right sm:px-4">
                       <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                         Actions
                       </span>
@@ -988,11 +988,11 @@ export default function LoanOfficersPage() {
                             : "bg-gray-50/40 hover:bg-gray-100/60 dark:bg-gray-900/20 dark:hover:bg-gray-800/40"
                         }`}
                       >
-                        <td className="px-4 py-3.5 text-sm font-medium tabular-nums text-gray-400">
+                        <td className="px-3 py-3.5 text-sm font-medium tabular-nums text-gray-400 sm:px-4">
                           {(page - 1) * limit + index + 1}
                         </td>
 
-                        <td className="px-4 py-3.5">
+                        <td className="px-3 py-3.5 sm:px-4">
                           <div className="flex min-w-0 items-center gap-3">
                             <span className="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg ring-1 ring-gray-200/80 dark:ring-gray-700">
                               {o.profile?.avatarUrl ? (
@@ -1025,10 +1025,10 @@ export default function LoanOfficersPage() {
                           </div>
                         </td>
 
-                        <td className="px-4 py-3.5">
+                        <td className="px-3 py-3.5 sm:px-4">
                           <a
                             href={`mailto:${o.email}`}
-                            className="inline-flex max-w-[220px] items-center gap-2 text-sm text-gray-600 transition hover:text-[#13538A] dark:text-gray-300 dark:hover:text-cyan-400 xl:max-w-none"
+                            className="flex min-w-0 max-w-full items-center gap-2 text-sm text-gray-600 transition hover:text-[#13538A] dark:text-gray-300 dark:hover:text-cyan-400"
                             title={o.email}
                           >
                             <Mail className="h-3.5 w-3.5 shrink-0 text-gray-400" />
@@ -1036,21 +1036,22 @@ export default function LoanOfficersPage() {
                           </a>
                         </td>
 
-                        <td className="hidden px-4 py-3.5 md:table-cell">
+                        <td className="hidden px-3 py-3.5 md:table-cell sm:px-4">
                           {o.phone ? (
                             <a
                               href={`tel:${o.phone}`}
-                              className="inline-flex items-center gap-2 text-sm text-gray-600 transition hover:text-[#13538A] dark:text-gray-300 dark:hover:text-cyan-400 whitespace-nowrap"
+                              className="flex min-w-0 max-w-full items-center gap-2 text-sm text-gray-600 transition hover:text-[#13538A] dark:text-gray-300 dark:hover:text-cyan-400"
+                              title={formatPhone(o.phone)}
                             >
                               <Phone className="h-3.5 w-3.5 shrink-0 text-gray-400" />
-                              {formatPhone(o.phone)}
+                              <span className="truncate">{formatPhone(o.phone)}</span>
                             </a>
                           ) : (
                             <span className="text-sm text-gray-400">—</span>
                           )}
                         </td>
 
-                        <td className="px-4 py-3.5">
+                        <td className="px-3 py-3.5 sm:px-4">
                           <OfficerStatusBadge
                             active={isActive}
                             loading={togglingId === o.id}
@@ -1058,30 +1059,22 @@ export default function LoanOfficersPage() {
                           />
                         </td>
 
-                        <td className="hidden px-4 py-3.5 lg:table-cell">
+                        <td className="hidden min-w-0 px-3 py-3.5 lg:table-cell sm:px-4">
                           <CoBrokerBadge label={coBrokerLabel} title={coBrokerTitle} />
                         </td>
 
-                        <td className="hidden px-4 py-3.5 xl:table-cell">
+                        <td className="hidden px-3 py-3.5 xl:table-cell sm:px-4">
                           <PermissionsBadge permissions={o.permissions} />
                         </td>
 
-                        <td className="hidden px-4 py-3.5 sm:table-cell">
-                          <span className="text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                        <td className="hidden px-3 py-3.5 sm:table-cell sm:px-4">
+                          <span className="block truncate text-sm text-gray-600 dark:text-gray-300" title={formatDate(o.createdAt)}>
                             {formatDate(o.createdAt)}
                           </span>
                         </td>
 
-                        <td className="px-4 py-3.5 text-right">
+                        <td className="px-3 py-3.5 text-right sm:px-4">
                           <div className="inline-flex items-center gap-1">
-                            <button
-                              type="button"
-                              onClick={() => setViewOfficer(o)}
-                              className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-transparent text-gray-400 transition hover:border-gray-200 hover:bg-white hover:text-[#13538A] dark:hover:border-gray-700 dark:hover:bg-gray-800 dark:hover:text-cyan-400 sm:opacity-0 sm:group-hover:opacity-100"
-                              title="View details"
-                            >
-                              <Eye className="h-4 w-4" />
-                            </button>
                             <button
                               type="button"
                               data-menu-id={o.id}
@@ -1107,7 +1100,7 @@ export default function LoanOfficersPage() {
           )}
 
           {!loading && !isSearching && officers.length > 0 && (
-            <div className="flex flex-col gap-3 border-t border-gray-100 bg-gray-50/60 px-4 py-3 dark:border-gray-800 dark:bg-gray-900/50 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+            <div className="flex flex-col gap-2 border-t border-gray-100 bg-gray-50/60 px-3 py-2.5 dark:border-gray-800 dark:bg-gray-900/50 sm:flex-row sm:items-center sm:justify-between sm:px-4">
               <p className="text-sm text-gray-500 dark:text-gray-400">
                 Showing{" "}
                 <span className="font-semibold text-gray-800 dark:text-gray-200">
