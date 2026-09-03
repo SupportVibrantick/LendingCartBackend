@@ -1,5 +1,6 @@
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
+const jwtSecret = require("../../../../utils/auth/jwtSecret");
 const {
   loanAiLoginSchema,
 } = require("../../../../schemas/public/loanAi/auth.schema");
@@ -12,7 +13,7 @@ function signLoanAiToken(user) {
       email: user.email,
       userType: "LOAN_AI",
     },
-    process.env.JWT_SECRET,
+    jwtSecret,
     {
       expiresIn: "7d",
       issuer: "lendingcart",

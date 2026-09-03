@@ -25,6 +25,7 @@ export interface BrokerStats {
 interface Props {
   stats: BrokerStats | null;
   loading: boolean;
+  onStatClick?: (key: keyof BrokerStats) => void;
 }
 
 const themes = {
@@ -52,30 +53,49 @@ function StatCard({
   value,
   icon: Icon,
   colorScheme,
+  onClick,
 }: {
   title: string;
   value: string | number;
   icon: typeof FileText;
   colorScheme: keyof typeof themes;
+  onClick?: () => void;
 }) {
   const theme = themes[colorScheme];
+  const className = `relative overflow-hidden rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition hover:border-[#13538A]/30 hover:shadow-md dark:border-gray-800 dark:bg-gray-900 ${
+    onClick ? "cursor-pointer text-left w-full" : ""
+  }`;
 
-  return (
-    <div className="relative overflow-hidden rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition hover:shadow-md dark:border-gray-800 dark:bg-gray-900">
+  const content = (
+    <>
       <div className={`absolute left-0 top-0 h-1 w-full ${theme.bar}`} />
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">
             {title}
           </p>
-          <h3 className="mt-2 text-2xl font-bold text-gray-900 dark:text-white">{value}</h3>
+          <h3 className="mt-2 text-2xl font-bold text-gray-900 dark:text-white">
+            {value}
+          </h3>
         </div>
-        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${theme.bg}`}>
+        <div
+          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${theme.bg}`}
+        >
           <Icon className="h-5 w-5" />
         </div>
       </div>
-    </div>
+    </>
   );
+
+  if (onClick) {
+    return (
+      <button type="button" onClick={onClick} className={className}>
+        {content}
+      </button>
+    );
+  }
+
+  return <div className={className}>{content}</div>;
 }
 
 function SkeletonCard() {
@@ -89,7 +109,11 @@ function SkeletonCard() {
   );
 }
 
-export default function EcommerceMetrics({ stats, loading }: Props) {
+export default function EcommerceMetrics({
+  stats,
+  loading,
+  onStatClick,
+}: Props) {
   if (loading) {
     return (
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -103,13 +127,15 @@ export default function EcommerceMetrics({ stats, loading }: Props) {
   if (!stats) return null;
 
   const statItems = Object.entries(STAT_CONFIG).map(([key, config]) => {
-    const rawValue = stats[key as keyof BrokerStats] ?? 0;
+    const typedKey = key as keyof BrokerStats;
+    const rawValue = stats[typedKey] ?? 0;
     const value =
       "isCurrency" in config && config.isCurrency
         ? `$${Number(rawValue).toLocaleString()}`
         : rawValue;
 
     return {
+      key: typedKey,
       title: config.label,
       value,
       icon: config.icon,
@@ -120,7 +146,16 @@ export default function EcommerceMetrics({ stats, loading }: Props) {
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
       {statItems.map((item) => (
-        <StatCard key={item.title} {...item} />
+        <StatCard
+          key={item.title}
+          title={item.title}
+          value={item.value}
+          icon={item.icon}
+          colorScheme={item.colorScheme}
+          onClick={
+            onStatClick ? () => onStatClick(item.key) : undefined
+          }
+        />
       ))}
     </div>
   );

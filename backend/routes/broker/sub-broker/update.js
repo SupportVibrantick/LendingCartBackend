@@ -13,6 +13,7 @@ module.exports = async function updateSubBrokerRoutes(fastify) {
   } = require("../../../utils/broker/subBrokerProfileHelpers");
   const {
     requireLoOfficerPermission,
+    isLoanOfficerActor,
   } = require("../../../services/broker/loanOfficerAccess");
   const {
     sendSubBrokerCredentialsEmail,
@@ -146,7 +147,10 @@ module.exports = async function updateSubBrokerRoutes(fastify) {
           },
         });
 
-        if (fields.assignedLoanOfficerIds !== undefined) {
+        if (
+          fields.assignedLoanOfficerIds !== undefined &&
+          !isLoanOfficerActor(req)
+        ) {
           const assignedLoanOfficerIds = parseJsonField(
             fields.assignedLoanOfficerIds,
             [],

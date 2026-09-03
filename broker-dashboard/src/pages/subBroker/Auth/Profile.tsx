@@ -1,11 +1,14 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Briefcase,
   Building2,
   Camera,
   Check,
+  Eye,
+  EyeOff,
   Globe,
   Link2,
+  LockKeyhole,
   Mail,
   MapPin,
   Pencil,
@@ -16,20 +19,24 @@ import {
   X,
 } from "lucide-react";
 import toast from "react-hot-toast";
+import PageMeta from "../../../components/common/PageMeta";
 import {
+  checkCoBrokerResponse,
   CO_BROKER_API_BASE,
   CO_BROKER_ROLE_LABEL,
   CO_BROKER_TOKEN_KEY,
   CO_BROKER_USER_KEY,
   fetchCoBrokerBranding,
+  getCoBrokerAuthHeaders,
   storeCoBrokerBranding,
 } from "../../../lib/coBrokerPortal";
 import { formatPhone } from "../../../lib/coBrokerForm";
+import { isSessionExpiredError } from "../../../lib/sessionExpiry";
 
 const API_BASE = CO_BROKER_API_BASE;
 
 const inputClass =
-  "w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-gray-900 outline-none transition focus:border-[#00B8DB]/40 focus:bg-white focus:ring-2 focus:ring-[#00B8DB]/10 dark:border-gray-700 dark:bg-gray-800 dark:text-white";
+  "w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-gray-900 outline-none transition focus:border-[#13538A]/40 focus:bg-white focus:ring-2 focus:ring-[#13538A]/10 dark:border-gray-700 dark:bg-gray-800 dark:text-white";
 
 const displayClass =
   "rounded-xl border border-gray-100 bg-gray-50 px-4 py-2.5 text-sm text-gray-800 dark:border-gray-700 dark:bg-gray-800/80 dark:text-gray-200";
@@ -53,6 +60,19 @@ type AssignedOfficer = {
   email?: string;
 };
 
+function validateNewPassword(password: string) {
+  if (password.length < 8) return "Password must be at least 8 characters";
+  if (!/[A-Z]/.test(password))
+    return "Password must contain at least one uppercase letter";
+  if (!/[a-z]/.test(password))
+    return "Password must contain at least one lowercase letter";
+  if (!/[0-9]/.test(password))
+    return "Password must contain at least one number";
+  if (!/[^A-Za-z0-9]/.test(password))
+    return "Password must contain at least one special character";
+  return null;
+}
+
 export default function UserProfileCard() {
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<CoBrokerProfileData>({});
@@ -67,6 +87,14 @@ export default function UserProfileCard() {
   const [profileImage, setProfileImage] = useState<File | null>(null);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  const [showPasswordSection, setShowPasswordSection] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [changingPassword, setChangingPassword] = useState(false);
 
   function applyProfileData(data: any) {
     const nextUser = data.user;
@@ -113,6 +141,7 @@ export default function UserProfileCard() {
       });
 
       const json = await res.json();
+      checkCoBrokerResponse(res, json);
 
       if (!res.ok || json.ok === false) {
         throw new Error(json.message || "Failed to load profile");
@@ -123,7 +152,8 @@ export default function UserProfileCard() {
       if (!json.data?.branding) {
         await fetchCoBrokerBranding();
       }
-    } catch {
+    } catch (err) {
+      if (isSessionExpiredError(err)) return;
       toast.error("Unable to load profile");
     }
   }
@@ -132,18 +162,34 @@ export default function UserProfileCard() {
     loadUser();
   }, []);
 
+  const avatarObjectUrl = useMemo(() => {
+    if (!profileImage) return null;
+    return URL.createObjectURL(profileImage);
+  }, [profileImage]);
+
+  useEffect(() => {
+    return () => {
+      if (avatarObjectUrl) URL.revokeObjectURL(avatarObjectUrl);
+    };
+  }, [avatarObjectUrl]);
+
   if (!user) {
     return (
-      <div className="mx-auto mt-10 h-96 w-full max-w-5xl animate-pulse rounded-3xl border border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900" />
+      <div className="space-y-5">
+        <div className="h-36 animate-pulse rounded-2xl bg-gray-200 dark:bg-gray-800" />
+        <div className="h-96 animate-pulse rounded-2xl border border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900" />
+      </div>
     );
   }
 
   const displayName =
     [firstName, lastName].filter(Boolean).join(" ").trim() || "Co-Broker";
   const roleLabel =
-    user.roles?.[0]?.replaceAll("_", " ").replace(/SUB BROKER/i, CO_BROKER_ROLE_LABEL) ||
-    CO_BROKER_ROLE_LABEL;
-  const assignedOfficers = (user.assignedLoanOfficers || []) as AssignedOfficer[];
+    user.roles?.[0]
+      ?.replaceAll("_", " ")
+      .replace(/SUB BROKER/i, CO_BROKER_ROLE_LABEL) || CO_BROKER_ROLE_LABEL;
+  const assignedOfficers = (user.assignedLoanOfficers ||
+    []) as AssignedOfficer[];
 
   const isChanged =
     firstName !== (user.firstName || "") ||
@@ -156,11 +202,11 @@ export default function UserProfileCard() {
     tollFree !== (profile.tollFree ? formatPhone(profile.tollFree) : "") ||
     Boolean(profileImage);
 
-  const avatarSrc = profileImage
-    ? URL.createObjectURL(profileImage)
-    : user.profileImage
+  const avatarSrc =
+    avatarObjectUrl ||
+    (user.profileImage
       ? `${API_BASE}${user.profileImage}`
-      : `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=00B8DB&color=ffffff`;
+      : `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=13538A&color=ffffff`);
 
   const handleSave = async () => {
     if (!firstName.trim()) {
@@ -194,6 +240,7 @@ export default function UserProfileCard() {
       });
 
       const json = await res.json();
+      checkCoBrokerResponse(res, json);
 
       if (!res.ok || json.success === false || json.ok === false) {
         throw new Error(json.message || "Update failed");
@@ -204,6 +251,7 @@ export default function UserProfileCard() {
       setProfileImage(null);
       toast.success("Profile updated successfully");
     } catch (err: any) {
+      if (isSessionExpiredError(err)) return;
       toast.error(err.message || "Update failed");
     } finally {
       setSaving(false);
@@ -223,92 +271,171 @@ export default function UserProfileCard() {
     setTollFree(profile.tollFree ? formatPhone(profile.tollFree) : "");
   };
 
-  return (
-    <div className="mx-auto max-w-5xl p-4 md:p-6">
-      <div className="overflow-hidden rounded-[1rem] dark:bg-gray-900">
-        <div className="relative h-32 bg-[#00B8DB]">
-          <div className="absolute right-8 top-6">
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 backdrop-blur-md">
-              <div className="h-2 w-2 rounded-full bg-white" />
-              <span className="text-xs font-semibold uppercase tracking-[0.2em] text-white">
-                {CO_BROKER_ROLE_LABEL}
-              </span>
-            </div>
-          </div>
+  const resetPasswordForm = () => {
+    setCurrentPassword("");
+    setNewPassword("");
+    setConfirmPassword("");
+    setShowCurrentPassword(false);
+    setShowNewPassword(false);
+  };
 
-          <div className="absolute -bottom-12 left-8 flex items-end gap-6">
-            <div className="group relative">
-              <div className="absolute -inset-1.5 rounded-full bg-black" />
-              <div className="relative h-32 w-32 overflow-hidden rounded-full border-4 border-black bg-black shadow-lg">
-                <img src={avatarSrc} alt={displayName} className="h-full w-full object-cover" />
-                {editing && (
-                  <label className="absolute inset-0 flex cursor-pointer flex-col items-center justify-center bg-black/60 text-white opacity-0 transition group-hover:opacity-100">
-                    <Camera size={22} />
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (!file) return;
-                        if (!file.type.startsWith("image/")) {
-                          toast.error("Only image files allowed");
-                          return;
-                        }
-                        setProfileImage(file);
-                      }}
-                    />
-                  </label>
-                )}
+  const handleChangePassword = async () => {
+    if (!currentPassword.trim()) {
+      toast.error("Current password is required");
+      return;
+    }
+
+    const passwordError = validateNewPassword(newPassword);
+    if (passwordError) {
+      toast.error(passwordError);
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      toast.error("Passwords do not match");
+      return;
+    }
+
+    setChangingPassword(true);
+    const toastId = toast.loading("Updating password...");
+
+    try {
+      const res = await fetch(`${API_BASE}/subbroker/auth/change-password`, {
+        method: "PUT",
+        headers: getCoBrokerAuthHeaders("application/json"),
+        body: JSON.stringify({
+          currentPassword,
+          newPassword,
+        }),
+      });
+
+      const json = await res.json();
+      checkCoBrokerResponse(res, json);
+
+      if (!res.ok || json.success === false) {
+        throw new Error(json.message || "Unable to change password");
+      }
+
+      resetPasswordForm();
+      setShowPasswordSection(false);
+      toast.success(json.message || "Password changed successfully", {
+        id: toastId,
+      });
+    } catch (err: unknown) {
+      if (isSessionExpiredError(err)) {
+        toast.dismiss(toastId);
+        return;
+      }
+      toast.error(
+        err instanceof Error ? err.message : "Unable to change password",
+        { id: toastId },
+      );
+    } finally {
+      setChangingPassword(false);
+    }
+  };
+
+  return (
+    <>
+      <PageMeta
+        title="Profile | Co-Broker Portal"
+        description="Manage your co-broker profile and password"
+      />
+
+      <div className="mx-auto max-w-5xl space-y-5">
+        <section className="overflow-hidden rounded-2xl border border-[#13538A]/15 bg-gradient-to-br from-[#13538A] via-[#1a6aad] to-[#2C92D5] p-6 text-white shadow-sm sm:p-8">
+          <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
+            <div className="flex flex-col gap-5 sm:flex-row sm:items-end">
+              <div className="group relative">
+                <div className="relative h-24 w-24 overflow-hidden rounded-2xl border-4 border-white/30 bg-white/10 shadow-lg sm:h-28 sm:w-28">
+                  <img
+                    src={avatarSrc}
+                    alt={displayName}
+                    className="h-full w-full object-cover"
+                  />
+                  {editing && (
+                    <label className="absolute inset-0 flex cursor-pointer flex-col items-center justify-center bg-black/55 text-white opacity-0 transition group-hover:opacity-100">
+                      <Camera size={20} />
+                      <span className="mt-1 text-[10px] font-medium">
+                        Change
+                      </span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          if (!file.type.startsWith("image/")) {
+                            toast.error("Only image files allowed");
+                            return;
+                          }
+                          setProfileImage(file);
+                        }}
+                      />
+                    </label>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-widest text-white/70">
+                  {CO_BROKER_ROLE_LABEL} Profile
+                </p>
+                <h1 className="mt-1 text-2xl font-bold sm:text-3xl">
+                  {displayName}
+                </h1>
+                <p className="mt-2 flex flex-wrap items-center gap-2 text-sm text-white/85">
+                  <span className="inline-flex items-center gap-1.5">
+                    <Briefcase size={14} /> {roleLabel}
+                  </span>
+                  {profile.company ? (
+                    <>
+                      <span className="text-white/40">·</span>
+                      <span className="inline-flex items-center gap-1.5">
+                        <Building2 size={14} />
+                        {profile.company}
+                      </span>
+                    </>
+                  ) : null}
+                </p>
               </div>
             </div>
-          </div>
-        </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-4 px-8 pb-6 pt-16">
-          <div>
-            <h1 className="text-xl font-bold text-gray-900 dark:text-white">
-              {displayName}
-            </h1>
-            <p className="flex items-center gap-2 text-sm text-[#345B8B]">
-              <Briefcase size={14} /> {roleLabel}
-              {profile.company ? (
+            <button
+              type="button"
+              onClick={() => (editing ? resetEditing() : setEditing(true))}
+              className={`inline-flex items-center gap-2 self-start rounded-xl px-4 py-2.5 text-sm font-medium transition ${
+                editing
+                  ? "border border-white/25 bg-white/10 text-white hover:bg-white/20"
+                  : "bg-white text-[#13538A] hover:bg-white/90"
+              }`}
+            >
+              {editing ? (
                 <>
-                  <span className="text-gray-300">·</span>
-                  <Building2 size={14} />
-                  {profile.company}
+                  <X size={16} /> Cancel
                 </>
-              ) : null}
-            </p>
+              ) : (
+                <>
+                  <Pencil size={16} /> Edit Profile
+                </>
+              )}
+            </button>
           </div>
+        </section>
 
-          <button
-            onClick={() => (editing ? resetEditing() : setEditing(true))}
-            className={`flex items-center gap-2 rounded-xl px-5 py-2 text-sm font-medium transition ${
-              editing
-                ? "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300"
-                : "bg-[#00B8DB] text-white hover:bg-[#0bd1f9]"
-            }`}
-          >
-            {editing ? (
-              <>
-                <X size={16} /> Cancel
-              </>
-            ) : (
-              <>
-                <Pencil size={16} /> Edit Profile
-              </>
-            )}
-          </button>
-        </div>
-
-        <div className="grid gap-8 p-8 lg:grid-cols-3">
-          <div className="space-y-6 lg:col-span-2">
-            <div>
-              <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
-                Personal Details
-              </p>
-              <div className="grid gap-5 md:grid-cols-2">
+        <div className="grid gap-5 lg:grid-cols-3">
+          <div className="space-y-5 lg:col-span-2">
+            <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
+              <div className="border-b border-gray-100 px-5 py-4 dark:border-gray-800">
+                <h2 className="text-sm font-semibold text-gray-900 dark:text-white">
+                  Personal Details
+                </h2>
+                <p className="mt-0.5 text-xs text-gray-500">
+                  Your name and phone numbers as shown to your broker team.
+                </p>
+              </div>
+              <div className="grid gap-5 p-5 md:grid-cols-2">
                 <ProfileField
                   label="First Name"
                   value={firstName}
@@ -338,13 +465,18 @@ export default function UserProfileCard() {
                   icon={<Phone size={14} />}
                 />
               </div>
-            </div>
+            </section>
 
-            <div>
-              <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
-                Business Details
-              </p>
-              <div className="grid gap-5 md:grid-cols-2">
+            <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
+              <div className="border-b border-gray-100 px-5 py-4 dark:border-gray-800">
+                <h2 className="text-sm font-semibold text-gray-900 dark:text-white">
+                  Business Details
+                </h2>
+                <p className="mt-0.5 text-xs text-gray-500">
+                  Company fields are managed by your principal broker.
+                </p>
+              </div>
+              <div className="grid gap-5 p-5 md:grid-cols-2">
                 <ReadOnlyBlock
                   label="Company"
                   value={profile.company}
@@ -393,15 +525,18 @@ export default function UserProfileCard() {
                   editing={editing}
                   onChange={setPreferredComm}
                   icon={<Mail size={14} />}
+                  className="md:col-span-2"
                 />
               </div>
-            </div>
+            </section>
 
-            <div>
-              <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
-                Contact Info
-              </p>
-              <div className="grid gap-4 md:grid-cols-2">
+            <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
+              <div className="border-b border-gray-100 px-5 py-4 dark:border-gray-800">
+                <h2 className="text-sm font-semibold text-gray-900 dark:text-white">
+                  Account
+                </h2>
+              </div>
+              <div className="grid gap-4 p-5 md:grid-cols-2">
                 <ReadOnlyBlock
                   label="Email"
                   value={user.email}
@@ -413,36 +548,118 @@ export default function UserProfileCard() {
                   icon={<ShieldCheck size={16} />}
                 />
               </div>
-            </div>
-          </div>
+            </section>
 
-          <div className="space-y-4">
-            <div className="rounded-2xl border border-gray-100 bg-gray-50 p-5 dark:border-gray-700 dark:bg-gray-800/60">
-              <h4 className="mb-2 font-semibold text-gray-900 dark:text-white">
-                Profile Status
-              </h4>
-              <p className="mb-4 text-xs text-gray-500 dark:text-gray-400">
-                Keep your profile updated for smoother collaboration.
-              </p>
-              <div className="flex items-center gap-2 rounded-xl border border-green-100 bg-green-50 p-3 text-sm text-green-600 dark:border-green-800 dark:bg-green-900/30 dark:text-green-400">
-                <span className="h-2 w-2 animate-pulse rounded-full bg-green-500" />
-                Active Account
+            <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
+              <div className="flex flex-wrap items-start justify-between gap-4 border-b border-gray-100 px-5 py-4 dark:border-gray-800">
+                <div>
+                  <h2 className="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white">
+                    <LockKeyhole size={16} className="text-[#13538A]" />
+                    Security
+                  </h2>
+                  <p className="mt-1 text-xs text-gray-500">
+                    Use at least 8 characters with upper, lower, number, and
+                    special character.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowPasswordSection((prev) => !prev);
+                    resetPasswordForm();
+                  }}
+                  className="rounded-xl bg-[#13538A]/10 px-4 py-2 text-sm font-medium text-[#13538A] transition hover:bg-[#13538A]/15"
+                >
+                  {showPasswordSection ? "Cancel" : "Change Password"}
+                </button>
               </div>
 
-              <div className="mt-4 rounded-xl border border-gray-100 bg-white p-3 dark:border-gray-700 dark:bg-gray-900">
+              {showPasswordSection && (
+                <div className="space-y-4 p-5">
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <PasswordField
+                      label="Current password"
+                      value={currentPassword}
+                      show={showCurrentPassword}
+                      onToggle={() => setShowCurrentPassword((prev) => !prev)}
+                      onChange={setCurrentPassword}
+                    />
+                    <PasswordField
+                      label="New password"
+                      value={newPassword}
+                      show={showNewPassword}
+                      onToggle={() => setShowNewPassword((prev) => !prev)}
+                      onChange={setNewPassword}
+                    />
+                    <PasswordField
+                      label="Confirm new password"
+                      value={confirmPassword}
+                      show={showNewPassword}
+                      onToggle={() => setShowNewPassword((prev) => !prev)}
+                      onChange={setConfirmPassword}
+                      className="md:col-span-2"
+                    />
+                  </div>
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      onClick={handleChangePassword}
+                      disabled={changingPassword}
+                      className="inline-flex items-center gap-2 rounded-xl bg-[#13538A] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#1a6aad] disabled:opacity-50"
+                    >
+                      {changingPassword ? "Updating..." : "Update Password"}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </section>
+
+            {editing && (
+              <div className="flex justify-end rounded-2xl border border-gray-200 bg-white px-5 py-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+                <button
+                  type="button"
+                  onClick={handleSave}
+                  disabled={saving || !isChanged}
+                  className="inline-flex items-center gap-2 rounded-xl bg-[#13538A] px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-[#1a6aad] disabled:opacity-50"
+                >
+                  {saving ? (
+                    "Saving..."
+                  ) : (
+                    <>
+                      <Check size={16} /> Save Changes
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-5">
+            <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+              <h3 className="font-semibold text-gray-900 dark:text-white">
+                Profile Status
+              </h3>
+              <p className="mt-1 text-xs text-gray-500">
+                Keep your profile updated for smoother collaboration.
+              </p>
+              <div className="mt-4 flex items-center gap-2 rounded-xl border border-emerald-100 bg-emerald-50 p-3 text-sm text-emerald-700 dark:border-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300">
+                <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
+                Active Account
+              </div>
+              <div className="mt-4 rounded-xl border border-gray-100 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800/60">
                 <p className="text-xs text-gray-400">Assigned Applications</p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                <p className="mt-1 text-3xl font-bold text-gray-900 dark:text-white">
                   {user.assignedApplications ?? 0}
                 </p>
               </div>
             </div>
 
-            <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-700 dark:bg-gray-900">
+            <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
               <div className="mb-3 flex items-center gap-2">
-                <Users size={16} className="text-[#00B8DB]" />
-                <h4 className="font-semibold text-gray-900 dark:text-white">
+                <Users size={16} className="text-[#13538A]" />
+                <h3 className="font-semibold text-gray-900 dark:text-white">
                   Assigned Loan Officers
-                </h4>
+                </h3>
               </div>
               {assignedOfficers.length === 0 ? (
                 <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -450,47 +667,40 @@ export default function UserProfileCard() {
                 </p>
               ) : (
                 <div className="space-y-2">
-                  {assignedOfficers.map((officer) => (
-                    <div
-                      key={officer.id}
-                      className="rounded-xl border border-gray-100 bg-gray-50 px-3 py-2.5 dark:border-gray-700 dark:bg-gray-800/80"
-                    >
-                      <p className="text-sm font-medium text-gray-800 dark:text-gray-200">
-                        {[officer.firstName, officer.lastName]
-                          .filter(Boolean)
-                          .join(" ")
-                          .trim() || "Loan Officer"}
-                      </p>
-                      {officer.email ? (
-                        <p className="text-xs text-gray-500">{officer.email}</p>
-                      ) : null}
-                    </div>
-                  ))}
+                  {assignedOfficers.map((officer) => {
+                    const name =
+                      [officer.firstName, officer.lastName]
+                        .filter(Boolean)
+                        .join(" ")
+                        .trim() || "Loan Officer";
+                    return (
+                      <div
+                        key={officer.id}
+                        className="flex items-start gap-3 rounded-xl border border-gray-100 bg-gray-50 px-3 py-2.5 dark:border-gray-700 dark:bg-gray-800/80"
+                      >
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#13538A]/10 text-xs font-bold text-[#13538A]">
+                          {name.charAt(0)}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium text-gray-800 dark:text-gray-200">
+                            {name}
+                          </p>
+                          {officer.email ? (
+                            <p className="truncate text-xs text-gray-500">
+                              {officer.email}
+                            </p>
+                          ) : null}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
           </div>
         </div>
-
-        {editing && (
-          <div className="flex justify-end border-t border-gray-100 px-8 py-5 dark:border-gray-800">
-            <button
-              onClick={handleSave}
-              disabled={saving || !isChanged}
-              className="flex items-center gap-2 rounded-xl bg-[#00B8DB] px-6 py-3 text-white hover:bg-[#0bd1f9] disabled:opacity-50"
-            >
-              {saving ? (
-                "Saving..."
-              ) : (
-                <>
-                  <Check size={16} /> Save Changes
-                </>
-              )}
-            </button>
-          </div>
-        )}
       </div>
-    </div>
+    </>
   );
 }
 
@@ -511,7 +721,7 @@ function ProfileField({
 }) {
   return (
     <div className={`space-y-2 ${className}`}>
-      <label className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+      <label className="flex items-center gap-2 text-xs font-medium text-gray-500 dark:text-gray-400">
         {icon} {label}
       </label>
       {editing ? (
@@ -537,8 +747,8 @@ function ReadOnlyBlock({
   icon: React.ReactNode;
 }) {
   return (
-    <div className="flex items-center gap-4 rounded-xl border border-gray-100 bg-white px-4 py-3 dark:border-gray-800 dark:bg-gray-900">
-      <div className="rounded-lg bg-blue-50 p-2 text-[#345B8B] dark:bg-blue-900/30 dark:text-blue-300">
+    <div className="flex items-center gap-3 rounded-xl border border-gray-100 bg-gray-50/80 px-4 py-3 dark:border-gray-800 dark:bg-gray-800/40">
+      <div className="rounded-lg bg-[#13538A]/10 p-2 text-[#13538A] dark:bg-[#13538A]/20 dark:text-sky-300">
         {icon}
       </div>
       <div className="min-w-0">
@@ -546,6 +756,46 @@ function ReadOnlyBlock({
         <p className="truncate text-sm font-medium text-gray-800 dark:text-gray-200">
           {value || "—"}
         </p>
+      </div>
+    </div>
+  );
+}
+
+function PasswordField({
+  label,
+  value,
+  show,
+  onToggle,
+  onChange,
+  className = "",
+}: {
+  label: string;
+  value: string;
+  show: boolean;
+  onToggle: () => void;
+  onChange: (value: string) => void;
+  className?: string;
+}) {
+  return (
+    <div className={`space-y-2 ${className}`}>
+      <label className="text-xs font-medium text-gray-500 dark:text-gray-400">
+        {label}
+      </label>
+      <div className="relative">
+        <input
+          type={show ? "text" : "password"}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          autoComplete="new-password"
+          className={`${inputClass} pr-11`}
+        />
+        <button
+          type="button"
+          onClick={onToggle}
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+        >
+          {show ? <EyeOff size={16} /> : <Eye size={16} />}
+        </button>
       </div>
     </div>
   );

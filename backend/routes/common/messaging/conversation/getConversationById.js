@@ -14,6 +14,7 @@ const {
 const {
   maskBrokerParticipantsForClient,
   resolvePrincipalBrokerDisplay,
+  parseBrokerOfficerCategory,
 } = require("../../../../services/messaging/brokerOfficerConversation");
 const { resolveClientDisplayName } = require("../../../../services/messaging/resolveClientDisplayName");
 
@@ -289,21 +290,31 @@ module.exports = async function getConversationById(fastify) {
           }
 
           if (conversation.type === "BROKER_OFFICER") {
-            const loan = await prisma.loanApplication.findUnique({
-              where: { id: conversation.loanApplicationId },
-              select: {
-                brokerUser: {
-                  select: {
-                    firstName: true,
-                    lastName: true,
+            const categoryOfficerId = parseBrokerOfficerCategory(
+              conversation.chatCategory,
+            );
+            let officer = categoryOfficerId
+              ? userMap.get(categoryOfficerId)
+              : null;
+
+            if (!officer && conversation.loanApplicationId) {
+              const loan = await prisma.loanApplication.findUnique({
+                where: { id: conversation.loanApplicationId },
+                select: {
+                  brokerUser: {
+                    select: {
+                      firstName: true,
+                      lastName: true,
+                    },
                   },
                 },
-              },
-            });
+              });
+              officer = loan?.brokerUser || null;
+            }
 
             const officerName =
-              `${loan?.brokerUser?.firstName || ""} ${
-                loan?.brokerUser?.lastName || ""
+              `${officer?.firstName || ""} ${
+                officer?.lastName || ""
               }`.trim() || "Loan Officer";
             title = `Loan Officer • ${officerName}`;
           }

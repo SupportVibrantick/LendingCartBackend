@@ -4,7 +4,9 @@
 
 const {
   findOrCreateBrokerOfficerConversation,
+  buildBrokerOfficerCategory,
 } = require("../../../../services/messaging/brokerOfficerConversation");
+const { hasRole } = require("../../../../services/messaging/messagingAccess");
 
 module.exports = async function createBrokerOfficerConversation(fastify) {
   fastify.post(
@@ -19,16 +21,23 @@ module.exports = async function createBrokerOfficerConversation(fastify) {
           required: ["loanApplicationId"],
           properties: {
             loanApplicationId: { type: "string", format: "uuid" },
+            loanOfficerId: { type: "string", format: "uuid" },
           },
         },
       },
     },
     async (req, reply) => {
       const prisma = fastify.prisma;
-      const { loanApplicationId } = req.body;
+      const { loanApplicationId, loanOfficerId: requestedOfficerId } =
+        req.body;
 
       try {
-        if (!req.user || req.user.orgType !== "BROKER") {
+        if (
+          !req.user ||
+          req.user.orgType !== "BROKER" ||
+          hasRole(req.user, "BROKER_OFFICER") ||
+          hasRole(req.user, "SUB_BROKER")
+        ) {
           return reply.code(403).send({
             success: false,
             message: "Broker access only",
@@ -56,17 +65,54 @@ module.exports = async function createBrokerOfficerConversation(fastify) {
           });
         }
 
-        if (!loan.brokerUserId) {
+        const loanOfficerId = requestedOfficerId || loan.brokerUserId;
+
+        if (!loanOfficerId) {
           return reply.code(400).send({
             success: false,
             message: "No loan officer assigned to this application",
           });
         }
 
+        const assignedOfficer =
+          (await prisma.loanOfficerApplication.findFirst({
+            where: {
+              loanApplicationId,
+              loanOfficerId,
+            },
+            select: { id: true },
+          })) ||
+          (loan.brokerUserId === loanOfficerId ? { id: loanOfficerId } : null);
+
+        if (!assignedOfficer) {
+          return reply.code(400).send({
+            success: false,
+            message: "Loan officer is not assigned to this application",
+          });
+        }
+
+        const officer = await prisma.userAccount.findFirst({
+          where: {
+            id: loanOfficerId,
+            organizationId: brokerOrgId,
+            roles: {
+              some: { role: { name: "BROKER_OFFICER" } },
+            },
+          },
+          select: { id: true },
+        });
+
+        if (!officer) {
+          return reply.code(400).send({
+            success: false,
+            message: "Invalid loan officer",
+          });
+        }
+
         const conversation = await findOrCreateBrokerOfficerConversation(prisma, {
           loanApplicationId,
           brokerAdminId,
-          loanOfficerId: loan.brokerUserId,
+          loanOfficerId,
         });
 
         return reply.send({
@@ -75,6 +121,7 @@ module.exports = async function createBrokerOfficerConversation(fastify) {
           data: {
             id: conversation.id,
             type: "BROKER_OFFICER",
+            chatCategory: buildBrokerOfficerCategory(loanOfficerId),
           },
         });
       } catch (error) {

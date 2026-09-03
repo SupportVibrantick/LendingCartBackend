@@ -70,6 +70,7 @@ function inferBadgeLabel(chat: ChatConversationListItem): string {
   }
   if (chat.type === "BROKER_LENDER") return "Lender";
   if (chat.type === "BROKER_OFFICER") return "Loan Officer";
+  if (chat.type === "SUBBROKER_BROKER") return "Co-Broker";
   if (chat.chatCategory === "LOAN_OFFICER") return "Loan Officer";
   if (chat.chatCategory === "PRINCIPAL_BROKER") return "Principal Broker";
   return "Chat";

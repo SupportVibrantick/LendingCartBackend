@@ -160,6 +160,16 @@ async function brokerSubmitApplication(fastify) {
               ...(sanitizedRequestedDocumentTypes
                 ? { requestedDocumentTypes: sanitizedRequestedDocumentTypes }
                 : {}),
+              ...(isOfficer
+                ? {
+                    loanOfficerAssignments: {
+                      create: {
+                        loanOfficerId: loggedInUserId,
+                        assignedById: loggedInUserId,
+                      },
+                    },
+                  }
+                : {}),
             },
           });
 

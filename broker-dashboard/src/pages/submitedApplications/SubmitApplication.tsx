@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import toast from "react-hot-toast";
 import { createPortal } from "react-dom";
 import { useNavigate, useSearchParams } from "react-router";
@@ -29,6 +29,7 @@ import {
   getBrokerReassignmentBlockedReason,
 } from "../../lib/brokerApplicationAssignment";
 import ShareClientApplicationLink from "../../components/loanPipeline/ShareClientApplicationLink";
+import MultiSelect from "../../components/form/MultiSelect";
 
 /* ================= TYPES ================= */
 // type SubmissionListItem = {
@@ -43,6 +44,12 @@ type SubmissionField = {
   fieldKey: string | null;
   value: string;
   source: "STATIC" | "DYNAMIC";
+};
+
+type AssignedPerson = {
+  id: string;
+  name: string;
+  profileImage?: string | null;
 };
 
 type TableRow = {
@@ -62,11 +69,8 @@ type TableRow = {
   assignedOfficerName: string | null;
   assignedOfficerId: string | null;
   assignedOfficerImage: string | null;
-  assignedSubBrokers?: {
-    id: string;
-    name: string;
-    profileImage?: string | null;
-  }[];
+  assignedLoanOfficers: AssignedPerson[];
+  assignedSubBrokers?: AssignedPerson[];
 };
 
 type Lender = {
@@ -155,10 +159,62 @@ const STATUS_FILTERS = [
   { value: "DECLINED", label: "Rejected", statKey: "rejected" as const },
 ];
 
+function AssigneePills({
+  people,
+  pillClassName,
+  onShowAll,
+}: {
+  people: AssignedPerson[];
+  pillClassName: string;
+  onShowAll?: (event: MouseEvent) => void;
+}) {
+  if (!people.length) {
+    return (
+      <div className="flex items-center gap-1 text-xs text-gray-400">
+        <Users className="h-3 w-3" />
+        Unassigned
+      </div>
+    );
+  }
+
+  const extra = people.length - 1;
+
+  return (
+    <div
+      className="flex min-w-0 items-center gap-1"
+      title={people.map((person) => person.name).join(", ")}
+    >
+      <span
+        className={`inline-flex max-w-[8.5rem] truncate rounded-full px-2 py-0.5 text-xs font-medium ${pillClassName}`}
+      >
+        {people[0].name}
+      </span>
+      {extra > 0 && (
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            onShowAll?.(event);
+          }}
+          className={`inline-flex shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${pillClassName}`}
+        >
+          +{extra}
+        </button>
+      )}
+    </div>
+  );
+}
+
 /* ================= COMPONENT ================= */
 export default function LoanApplicationsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const initialQuery = searchParams.get("q") || "";
+  const initialStatusParam = searchParams.get("status") || "";
+  const initialStatus = STATUS_FILTERS.some(
+    (filter) => filter.value === initialStatusParam,
+  )
+    ? initialStatusParam
+    : "";
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dropdownRef = useRef<HTMLDivElement | null>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);
@@ -168,9 +224,10 @@ export default function LoanApplicationsPage() {
 
   // Strip legacy ?q=… from URL on mount so search stays in local state.
   useEffect(() => {
-    if (searchParams.has("q")) {
+    if (searchParams.has("q") || searchParams.has("status")) {
       const next = new URLSearchParams(searchParams);
       next.delete("q");
+      next.delete("status");
       setSearchParams(next, { replace: true });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -180,7 +237,7 @@ export default function LoanApplicationsPage() {
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const [searchTerm, setSearchTerm] = useState(initialQuery);
-  const [statusFilter, setStatusFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState(initialStatus);
   const [viewSubmissionId, setViewSubmissionId] = useState<string | null>(null);
   const [lenderSubmissionId] = useState<string | null>(null);
   const [submissionDetail, setSubmissionDetail] = useState<any>(null);
@@ -244,7 +301,7 @@ export default function LoanApplicationsPage() {
 
   const [subBrokers, setSubBrokers] = useState<any[]>([]);
 
-  const [selectedSubBroker, setSelectedSubBroker] = useState("");
+  const [selectedSubBrokerIds, setSelectedSubBrokerIds] = useState<string[]>([]);
 
   const [assigningSubBroker, setAssigningSubBroker] = useState(false);
 
@@ -267,17 +324,21 @@ export default function LoanApplicationsPage() {
   const [assignModal, setAssignModal] = useState({
     open: false,
     applicationId: "",
-    currentOfficerId: null as string | null,
+    currentOfficerIds: [] as string[],
   });
 
   const [loanOfficers, setLoanOfficers] = useState<any[]>([]);
-  const [selectedOfficer, setSelectedOfficer] = useState<string>("");
-  const [subBrokerModal, setSubBrokerModal] = useState<{
+  const [selectedOfficerIds, setSelectedOfficerIds] = useState<string[]>([]);
+  const [peopleModal, setPeopleModal] = useState<{
     open: boolean;
-    brokers: any[];
+    title: string;
+    roleLabel: string;
+    people: AssignedPerson[];
   }>({
     open: false,
-    brokers: [],
+    title: "",
+    roleLabel: "",
+    people: [],
   });
   const [assignLoading, setAssignLoading] = useState(false);
 
@@ -380,13 +441,15 @@ export default function LoanApplicationsPage() {
     try {
       const token = sessionStorage.getItem("broker_token");
 
-      const res = await fetch(`${API_BASE}/broker/sub-broker/list`, {
-        method: "GET",
-
-        headers: {
-          Authorization: `Bearer ${token}`,
+      const res = await fetch(
+        `${API_BASE}/broker/sub-broker/list?page=1&limit=100&status=ACTIVE`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         },
-      });
+      );
 
       const json = await res.json();
 
@@ -403,11 +466,6 @@ export default function LoanApplicationsPage() {
   const handleAssignSubBroker = async () => {
     try {
       setAssignSubBrokerError("");
-      if (!selectedSubBroker) {
-        setAssignSubBrokerError("Please select a sub broker");
-        return;
-      }
-
       const currentRow = rows.find(
         (row) => row.applicationId === assignSubBrokerModal.applicationId,
       );
@@ -417,6 +475,14 @@ export default function LoanApplicationsPage() {
         });
         setAssignSubBrokerError(reason);
         toast.error(reason);
+        return;
+      }
+
+      if (
+        selectedSubBrokerIds.length === 0 &&
+        !(currentRow?.assignedSubBrokers || []).length
+      ) {
+        setAssignSubBrokerError("Please select at least one co-broker");
         return;
       }
 
@@ -437,8 +503,7 @@ export default function LoanApplicationsPage() {
 
           body: JSON.stringify({
             loanApplicationId: assignSubBrokerModal.applicationId,
-
-            subBrokerId: selectedSubBroker,
+            subBrokerIds: selectedSubBrokerIds,
           }),
         },
       );
@@ -449,7 +514,11 @@ export default function LoanApplicationsPage() {
         throw new Error(json.message || "Failed to assign sub broker");
       }
 
-      toast.success("Application assigned successfully");
+      toast.success(
+        selectedSubBrokerIds.length > 1
+          ? "Co-brokers updated successfully"
+          : "Application assigned successfully",
+      );
 
       setAssignSubBrokerModal({
         open: false,
@@ -457,7 +526,7 @@ export default function LoanApplicationsPage() {
         applicationNumber: "",
       });
 
-      setSelectedSubBroker("");
+      setSelectedSubBrokerIds([]);
       await refreshPipelineData();
     } catch (err: any) {
       setAssignSubBrokerError(err.message || "Something went wrong");
@@ -706,9 +775,23 @@ export default function LoanApplicationsPage() {
           status: item.status,
           date: item.submittedOn,
           pendingDocumentsCount: item.pendingDocumentsCount,
-          assignedOfficerName: item.assignedLoanOfficer?.name || null,
-          assignedOfficerId: item.assignedLoanOfficer?.id || null,
-          assignedOfficerImage: item.assignedLoanOfficer?.profileImage || null,
+          assignedOfficerName:
+            item.assignedLoanOfficers?.[0]?.name ||
+            item.assignedLoanOfficer?.name ||
+            null,
+          assignedOfficerId:
+            item.assignedLoanOfficers?.[0]?.id ||
+            item.assignedLoanOfficer?.id ||
+            null,
+          assignedOfficerImage:
+            item.assignedLoanOfficers?.[0]?.profileImage ||
+            item.assignedLoanOfficer?.profileImage ||
+            null,
+          assignedLoanOfficers: Array.isArray(item.assignedLoanOfficers)
+            ? item.assignedLoanOfficers
+            : item.assignedLoanOfficer
+              ? [item.assignedLoanOfficer]
+              : [],
           assignedSubBrokers: item.assignedSubBrokers || [],
         }));
 
@@ -909,6 +992,9 @@ export default function LoanApplicationsPage() {
     if (!q) return rows;
 
     return rows.filter((row) => {
+      const officerNames = (row.assignedLoanOfficers || [])
+        .map((officer) => officer.name)
+        .join(" ");
       const subBrokerNames = (row.assignedSubBrokers || [])
         .map((b: any) =>
           [b.firstName, b.lastName, b.name, b.email].filter(Boolean).join(" "),
@@ -919,6 +1005,7 @@ export default function LoanApplicationsPage() {
         row.borrowerName,
         row.applicationNumber,
         row.assignedOfficerName,
+        officerNames,
         row.cityState,
         row.country,
         row.company,
@@ -934,6 +1021,35 @@ export default function LoanApplicationsPage() {
       return haystack.includes(q);
     });
   }, [rows, searchTerm]);
+
+  const loanOfficerOptions = useMemo(
+    () =>
+      loanOfficers.map((officer) => {
+        const name =
+          `${officer.firstName || ""} ${officer.lastName || ""}`.trim();
+        return {
+          value: officer.id as string,
+          text: name
+            ? `${name}${officer.email ? ` (${officer.email})` : ""}`
+            : officer.email || officer.id,
+        };
+      }),
+    [loanOfficers],
+  );
+
+  const subBrokerOptions = useMemo(
+    () =>
+      subBrokers.map((broker) => {
+        const name = `${broker.firstName || ""} ${broker.lastName || ""}`.trim();
+        return {
+          value: broker.id as string,
+          text: name
+            ? `${name}${broker.email ? ` (${broker.email})` : ""}`
+            : broker.email || broker.id,
+        };
+      }),
+    [subBrokers],
+  );
 
   const openPreview = (submissionId: string) => {
     navigate("/loan-preview", { state: { submissionId } });
@@ -970,7 +1086,7 @@ export default function LoanApplicationsPage() {
   }, [searchTerm, statusFilter]);
 
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
+    const handleClickOutside = (event: globalThis.MouseEvent) => {
       const target = event.target as Node;
 
       if (dropdownRef.current?.contains(target)) {
@@ -1156,9 +1272,12 @@ export default function LoanApplicationsPage() {
 
   const fetchLoanOfficers = async () => {
     try {
-      const res = await fetch(`${API_BASE}/broker/users?page=1&limit=10`, {
-        headers: getAuthHeaders(),
-      });
+      const res = await fetch(
+        `${API_BASE}/broker/users?page=1&limit=100&role=BROKER_OFFICER&status=ACTIVE`,
+        {
+          headers: getAuthHeaders(),
+        },
+      );
 
       const json = await res.json();
 
@@ -1166,9 +1285,8 @@ export default function LoanApplicationsPage() {
         throw new Error("Failed to fetch loan officers");
       }
 
-      // Only BROKER_OFFICER
-      const officers = json.data.filter((u: any) =>
-        u.roles?.includes("BROKER_OFFICER"),
+      const officers = (Array.isArray(json.data) ? json.data : []).filter(
+        (u: any) => u.roles?.includes("BROKER_OFFICER"),
       );
 
       return officers;
@@ -1180,7 +1298,7 @@ export default function LoanApplicationsPage() {
 
   const openAssignModal = async (
     applicationId: string,
-    currentOfficerId?: string | null,
+    currentOfficerIds?: string[],
     pipelineStatus?: string | null,
   ) => {
     if (!canBrokerReassignApplication({ status: pipelineStatus })) {
@@ -1190,23 +1308,19 @@ export default function LoanApplicationsPage() {
       return;
     }
 
+    const officerIds = (currentOfficerIds || []).filter(Boolean);
     setAssignModal({
       open: true,
       applicationId,
-      currentOfficerId: currentOfficerId || null,
+      currentOfficerIds: officerIds,
     });
-    setSelectedOfficer(currentOfficerId || "");
+    setSelectedOfficerIds(officerIds);
     setAssignError("");
     const officers = await fetchLoanOfficers();
     setLoanOfficers(officers);
   };
 
   const handleAssignLoanOfficer = async () => {
-    if (!selectedOfficer) {
-      setAssignError("Please select a loan officer");
-      return;
-    }
-
     const currentRow = rows.find(
       (row) => row.applicationId === assignModal.applicationId,
     );
@@ -1217,16 +1331,24 @@ export default function LoanApplicationsPage() {
       return;
     }
 
+    if (
+      selectedOfficerIds.length === 0 &&
+      assignModal.currentOfficerIds.length === 0
+    ) {
+      setAssignError("Please select at least one loan officer");
+      return;
+    }
+
     try {
       setAssignLoading(true);
-      setAssignError(""); // reset
+      setAssignError("");
 
       const res = await fetch(
         `${API_BASE}/broker/applications/${assignModal.applicationId}/assign`,
         {
           method: "PATCH",
           headers: getAuthHeaders(),
-          body: JSON.stringify({ loanOfficerId: selectedOfficer }),
+          body: JSON.stringify({ loanOfficerIds: selectedOfficerIds }),
         },
       );
 
@@ -1237,15 +1359,18 @@ export default function LoanApplicationsPage() {
       }
 
       toast.success(
-        assignModal.currentOfficerId
-          ? "Loan officer updated successfully"
-          : "Loan officer assigned successfully",
+        selectedOfficerIds.length > 1
+          ? "Loan officers updated successfully"
+          : assignModal.currentOfficerIds.length
+            ? "Loan officer updated successfully"
+            : "Loan officer assigned successfully",
       );
       setAssignModal({
         open: false,
         applicationId: "",
-        currentOfficerId: null,
+        currentOfficerIds: [],
       });
+      setSelectedOfficerIds([]);
       await refreshPipelineData();
     } catch (err: any) {
       setAssignError(err.message || "Something went wrong");
@@ -1460,7 +1585,7 @@ export default function LoanApplicationsPage() {
                     "Submitted",
                     "Status",
                     "Loan Officer",
-                    "Sub Brokers",
+                    "Co Brokers",
                     "",
                   ].map((label) => (
                     <th
@@ -1573,46 +1698,37 @@ export default function LoanApplicationsPage() {
                       <td
                         onClick={() => openPreview(row.submissionId)}
                         className="overflow-hidden px-3 py-3 align-middle"
-                        title={row.assignedOfficerName || undefined}
                       >
-                        {row.assignedOfficerName ? (
-                          <span className="inline-flex max-w-full truncate rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300">
-                            {row.assignedOfficerName}
-                          </span>
-                        ) : (
-                          <div className="flex items-center gap-1 text-xs text-gray-400">
-                            <Users className="h-3 w-3" />
-                            Unassigned
-                          </div>
-                        )}
+                        <AssigneePills
+                          people={row.assignedLoanOfficers || []}
+                          pillClassName="bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300"
+                          onShowAll={() =>
+                            setPeopleModal({
+                              open: true,
+                              title: "Assigned Loan Officers",
+                              roleLabel: "Loan Officer",
+                              people: row.assignedLoanOfficers || [],
+                            })
+                          }
+                        />
                       </td>
 
                       <td
                         onClick={() => openPreview(row.submissionId)}
-                        className="overflow-hidden px-3 py-3 align-middle text-center"
+                        className="overflow-hidden px-3 py-3 align-middle"
                       >
-                        {row.assignedSubBrokers &&
-                        row.assignedSubBrokers.length > 0 ? (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSubBrokerModal({
-                                open: true,
-                                brokers: row.assignedSubBrokers || [],
-                              });
-                            }}
-                            className="inline-flex items-center gap-1 rounded-full bg-cyan-50 px-2 py-0.5 text-xs font-medium text-cyan-700 dark:bg-cyan-500/10 dark:text-cyan-300"
-                          >
-                            <Users className="h-3 w-3" />
-                            {row.assignedSubBrokers.length}
-                          </button>
-                        ) : (
-                          <div className="flex items-center gap-1 text-xs text-gray-400">
-                            <Users className="h-3 w-3" />
-                            Unassigned
-                          </div>
-                        )}
+                        <AssigneePills
+                          people={row.assignedSubBrokers || []}
+                          pillClassName="bg-cyan-50 text-cyan-700 dark:bg-cyan-500/10 dark:text-cyan-300"
+                          onShowAll={() =>
+                            setPeopleModal({
+                              open: true,
+                              title: "Assigned Co-Brokers",
+                              roleLabel: "Co-Broker",
+                              people: row.assignedSubBrokers || [],
+                            })
+                          }
+                        />
                       </td>
   
                       <td
@@ -1697,16 +1813,18 @@ export default function LoanApplicationsPage() {
                                       setActiveDropdown(null);
                                       openAssignModal(
                                         row.applicationId,
-                                        row.assignedOfficerId,
+                                        (row.assignedLoanOfficers || []).map(
+                                          (officer) => officer.id,
+                                        ),
                                         row.status,
                                       );
                                     }}
                                     className="flex w-full items-center gap-3 px-4 py-3 text-sm text-indigo-600 hover:bg-indigo-50"
                                   >
                                     <MdEdit size={14} />
-                                    {row.assignedOfficerName
-                                      ? "Change Officer"
-                                      : "Assign Officer"}
+                                    {row.assignedLoanOfficers?.length
+                                      ? "Change Officers"
+                                      : "Assign Officers"}
                                   </button>
                                   <button
                                     type="button"
@@ -1726,6 +1844,11 @@ export default function LoanApplicationsPage() {
                                         return;
                                       }
                                       setActiveDropdown(null);
+                                      setSelectedSubBrokerIds(
+                                        (row.assignedSubBrokers || []).map(
+                                          (broker) => broker.id,
+                                        ),
+                                      );
                                       setAssignSubBrokerModal({
                                         open: true,
                                         applicationId: row.applicationId,
@@ -1737,7 +1860,9 @@ export default function LoanApplicationsPage() {
                                     className="flex w-full items-center gap-3 px-4 py-3 text-sm text-cyan-600 hover:bg-cyan-50"
                                   >
                                     <MdEdit size={14} />
-                                    Assign Co Broker
+                                    {(row.assignedSubBrokers || []).length
+                                      ? "Change Co Brokers"
+                                      : "Assign Co Brokers"}
                                   </button>
                                 </>
                               )}
@@ -2265,7 +2390,7 @@ text-sm text-slate-600 dark:text-slate-400 flex justify-between"
           document.body,
         )}
 
-      {subBrokerModal.open &&
+      {peopleModal.open &&
         createPortal(
           <div className="fixed inset-0 z-[9999] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
             <div
@@ -2280,14 +2405,16 @@ text-sm text-slate-600 dark:text-slate-400 flex justify-between"
             >
               <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 dark:border-slate-800">
                 <h3 className="font-semibold text-slate-900 dark:text-white">
-                  Assigned Sub Brokers
+                  {peopleModal.title}
                 </h3>
 
                 <button
                   onClick={() =>
-                    setSubBrokerModal({
+                    setPeopleModal({
                       open: false,
-                      brokers: [],
+                      title: "",
+                      roleLabel: "",
+                      people: [],
                     })
                   }
                   className="text-slate-400 hover:text-red-500 text-lg"
@@ -2312,9 +2439,9 @@ text-sm text-slate-600 dark:text-slate-400 flex justify-between"
   overscroll-contain
 "
               >
-                {subBrokerModal.brokers.map((broker) => (
+                {peopleModal.people.map((person) => (
                   <div
-                    key={broker.id}
+                    key={person.id}
                     className="
   relative overflow-hidden
   rounded-2xl
@@ -2325,9 +2452,7 @@ text-sm text-slate-600 dark:text-slate-400 flex justify-between"
   transition-all duration-300
 "
                   >
-                    {/* TOP */}
                     <div className="flex items-start gap-3">
-                      {/* Avatar */}
                       <div
                         className="
       h-12 w-12 rounded-2xl
@@ -2338,10 +2463,9 @@ text-sm text-slate-600 dark:text-slate-400 flex justify-between"
       shrink-0
     "
                       >
-                        {broker.name?.charAt(0) || "S"}
+                        {person.name?.charAt(0) || "?"}
                       </div>
 
-                      {/* INFO */}
                       <div className="min-w-0 flex-1">
                         <h4
                           className="
@@ -2350,7 +2474,7 @@ text-sm text-slate-600 dark:text-slate-400 flex justify-between"
         truncate
       "
                         >
-                          {broker.name}
+                          {person.name}
                         </h4>
 
                         <p
@@ -2359,7 +2483,7 @@ text-sm text-slate-600 dark:text-slate-400 flex justify-between"
         text-slate-500 dark:text-slate-400
       "
                         >
-                          Sub Broker
+                          {peopleModal.roleLabel}
                         </p>
                       </div>
                     </div>
@@ -3391,81 +3515,29 @@ dark:scrollbar-thumb-slate-700 w-full
         )}
 
       {assignModal.open && (
-        <div className="fixed inset-0 z-999 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl p-6">
-            {/* HEADER */}
-            <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4">
-              {assignModal.currentOfficerId
-                ? "Change Loan Officer"
-                : "Assign Loan Officer"}
+            <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-1">
+              {assignModal.currentOfficerIds.length
+                ? "Change Loan Officers"
+                : "Assign Loan Officers"}
             </h3>
+            <p className="mb-4 text-sm text-slate-500 dark:text-slate-400">
+              Select one or more loan officers. Remove a name to unassign them
+              from this application.
+            </p>
 
-            {assignModal.currentOfficerId && (
-              <p className="mb-4 text-sm text-slate-500 dark:text-slate-400">
-                Only one loan officer can be assigned per application. Selecting
-                a new officer will replace the current assignment.
-              </p>
-            )}
-
-            {/* SELECT */}
-            <div className="space-y-2">
-              <label className="text-sm text-slate-500 dark:text-slate-400">
-                Select Officer
-              </label>
-
-              <div className="relative">
-                <select
-                  value={selectedOfficer}
-                  onChange={(e) => setSelectedOfficer(e.target.value)}
-                  className="w-full appearance-none rounded-xl border border-slate-300 dark:border-slate-700 
-            bg-white dark:bg-slate-900 px-4 py-2 pr-10 text-sm
-            text-slate-800 dark:text-slate-200
-            focus:ring-2 focus:ring-indigo-500 outline-none"
-                >
-                  <option value="">Select Loan Officer</option>
-
-                  {loanOfficers.map((o) => (
-                    <option key={o.id} value={o.id}>
-                      {o.firstName} {o.lastName} ({o.email})
-                    </option>
-                  ))}
-                </select>
-
-                {/* Arrow */}
-                <div className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
-                  ▼
-                </div>
-              </div>
-            </div>
-
-            {/* PREVIEW CARD */}
-            {selectedOfficer && (
-              <div className="mt-4 p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 flex items-center gap-3">
-                {(() => {
-                  const officer = loanOfficers.find(
-                    (o) => o.id === selectedOfficer,
-                  );
-                  if (!officer) return null;
-
-                  return (
-                    <>
-                      <div className="h-10 w-10 rounded-full bg-indigo-500 text-white flex items-center justify-center font-bold">
-                        {officer.firstName?.charAt(0)}
-                      </div>
-
-                      <div>
-                        <div className="text-sm font-semibold text-slate-800 dark:text-slate-100">
-                          {officer.firstName} {officer.lastName}
-                        </div>
-                        <div className="text-xs text-slate-500">
-                          {officer.email}
-                        </div>
-                      </div>
-                    </>
-                  );
-                })()}
-              </div>
-            )}
+            <MultiSelect
+              label="Loan Officers"
+              options={loanOfficerOptions}
+              value={selectedOfficerIds}
+              onChange={setSelectedOfficerIds}
+              placeholder={
+                loanOfficerOptions.length
+                  ? "Select loan officers"
+                  : "No loan officers found"
+              }
+            />
 
             {assignError && (
               <div
@@ -3476,16 +3548,16 @@ dark:scrollbar-thumb-slate-700 w-full
               </div>
             )}
 
-            {/* ACTIONS */}
             <div className="flex justify-end gap-3 mt-6">
               <button
-                onClick={() =>
+                onClick={() => {
                   setAssignModal({
                     open: false,
                     applicationId: "",
-                    currentOfficerId: null,
-                  })
-                }
+                    currentOfficerIds: [],
+                  });
+                  setSelectedOfficerIds([]);
+                }}
                 className="px-4 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 
           text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
               >
@@ -3500,7 +3572,7 @@ dark:scrollbar-thumb-slate-700 w-full
               >
                 {assignLoading
                   ? "Saving..."
-                  : assignModal.currentOfficerId
+                  : assignModal.currentOfficerIds.length
                     ? "Update"
                     : "Assign"}
               </button>
@@ -3510,47 +3582,37 @@ dark:scrollbar-thumb-slate-700 w-full
       )}
 
       {assignSubBrokerModal.open && (
-        <div className="fixed inset-0 z-[99999999] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm">
           <div className="w-full max-w-lg rounded-[32px] border border-white/20 bg-white p-8">
             <div className="mb-6">
               <h2 className="text-2xl font-bold text-slate-900">
-                Assign Sub Broker
+                Assign Co-Brokers
               </h2>
+              <p className="mt-1 text-sm text-slate-500">
+                Select one or more co-brokers. Remove a name to unassign them
+                from this application.
+              </p>
             </div>
 
-            <div className="space-y-3">
-              <label className="text-sm font-medium text-slate-700">
-                Select Sub Broker
-              </label>
-
-              <select
-                value={selectedSubBroker}
-                onChange={(e) => {
-                  setSelectedSubBroker(e.target.value);
-
-                  setAssignSubBrokerError("");
-                }}
-                className={`h-14 w-full rounded-2xl border px-4 text-sm outline-none transition
-  ${
-    assignSubBrokerError
-      ? "border-red-400 bg-red-50 focus:border-red-500"
-      : "border-slate-200 bg-slate-50 focus:border-cyan-400 focus:bg-white"
-  }`}
-              >
-                <option value="">Select Sub Broker</option>
-
-                {subBrokers.map((broker) => (
-                  <option key={broker.id} value={broker.id}>
-                    {broker.firstName} {broker.lastName} ({broker.email})
-                  </option>
-                ))}
-              </select>
-              {assignSubBrokerError && (
-                <p className="text-sm font-medium text-red-500">
-                  {assignSubBrokerError}
-                </p>
-              )}
-            </div>
+            <MultiSelect
+              label="Co-Brokers"
+              options={subBrokerOptions}
+              value={selectedSubBrokerIds}
+              onChange={(ids) => {
+                setSelectedSubBrokerIds(ids);
+                setAssignSubBrokerError("");
+              }}
+              placeholder={
+                subBrokerOptions.length
+                  ? "Select co-brokers"
+                  : "No co-brokers found"
+              }
+            />
+            {assignSubBrokerError && (
+              <p className="mt-3 text-sm font-medium text-red-500">
+                {assignSubBrokerError}
+              </p>
+            )}
 
             <div className="mt-8 flex items-center justify-end gap-3">
               <button
@@ -3560,8 +3622,7 @@ dark:scrollbar-thumb-slate-700 w-full
                     applicationId: "",
                     applicationNumber: "",
                   });
-
-                  setSelectedSubBroker("");
+                  setSelectedSubBrokerIds([]);
                 }}
                 className="h-12 rounded-2xl border border-slate-200 px-5 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
               >
@@ -3573,7 +3634,7 @@ dark:scrollbar-thumb-slate-700 w-full
                 disabled={assigningSubBroker}
                 className="h-12 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 px-5 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
               >
-                {assigningSubBroker ? "Assigning..." : "Assign Sub Broker"}
+                {assigningSubBroker ? "Saving..." : "Save Assignments"}
               </button>
             </div>
           </div>
