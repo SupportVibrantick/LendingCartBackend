@@ -1,3 +1,5 @@
+const { sanitizeAuditValue } = require("./sanitizeAuditValue");
+
 module.exports.logAudit = async ({
   prisma,
   req,
@@ -19,8 +21,12 @@ module.exports.logAudit = async ({
         entityType,
         entityId,
         action,
-        oldValueJson: oldValue ? JSON.stringify(oldValue) : null,
-        newValueJson: newValue ? JSON.stringify(newValue) : null,
+        oldValueJson: oldValue
+          ? JSON.stringify(sanitizeAuditValue(oldValue))
+          : null,
+        newValueJson: newValue
+          ? JSON.stringify(sanitizeAuditValue(newValue))
+          : null,
         ipAddress: req.ip,
         userAgent: req.headers["user-agent"],
       },

@@ -1,7 +1,4 @@
 const bcrypt = require("bcrypt");
-const path = require("path");
-const fs = require("fs");
-const { pipeline } = require("stream/promises");
 const { adminLogs } = require("../../../services/logger/contextLogger.js");
 const {
   sendLoanOfficerCredentialsEmail,
@@ -13,6 +10,18 @@ const {
   buildApplicationSearchWhere,
   loanApplicationListInclude,
 } = require("../../../services/applications/loanApplicationSearch");
+const {
+  buildProfileDataFromFields,
+  mergeBrokerProfileResponse,
+  parseBrokerUserMultipart,
+  syncUserPermissions,
+  parsePermissionsField,
+} = require("../../../utils/broker/brokerUserProfileHelpers");
+const {
+  parseJsonField,
+  syncLoanOfficerSubBrokers,
+  formatAssignedSubBrokers,
+} = require("../../../utils/broker/subBrokerProfileHelpers");
 
 function submissionFieldValue(fields, ...keys) {
   for (const field of fields || []) {
@@ -87,6 +96,25 @@ async function getBrokerLoanOfficer(prisma, orgId, userId) {
     },
     include: {
       brokerProfile: true,
+      userPermissions: {
+        include: {
+          permission: { select: { key: true } },
+        },
+      },
+      loanOfficerSubBrokers: {
+        include: {
+          subBroker: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              profileImage: true,
+            },
+          },
+        },
+        orderBy: { createdAt: "asc" },
+      },
       _count: {
         select: { brokerLoanApplications: true },
       },
@@ -112,6 +140,10 @@ function normalizeWebsiteUrl(input) {
 }
 
 function formatLoanOfficer(user, assignedDeals = 0) {
+  const assignedCoBrokers = formatAssignedSubBrokers(
+    user.loanOfficerSubBrokers || [],
+  );
+
   return {
     id: user.id,
     email: user.email,
@@ -122,46 +154,11 @@ function formatLoanOfficer(user, assignedDeals = 0) {
     lastLoginAt: user.lastLoginAt,
     createdAt: user.createdAt,
     assignedDeals,
-    profile: user.brokerProfile || null,
+    permissions: (user.userPermissions || []).map((p) => p.permission.key),
+    assignedCoBrokers,
+    assignedCoBrokerIds: assignedCoBrokers.map((item) => item.id),
+    profile: mergeBrokerProfileResponse(user.brokerProfile),
   };
-}
-
-async function parseMultipartRequest(request) {
-  const fields = {};
-  let avatarPath = null;
-
-  if (!request.isMultipart?.()) {
-    return { fields: request.body || {}, avatarPath };
-  }
-
-  const parts = request.parts();
-
-  for await (const part of parts) {
-    if (part.type === "file") {
-      if (part.fieldname !== "avatar") continue;
-
-      const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
-      if (!allowedTypes.includes(part.mimetype)) {
-        const error = new Error("Invalid image type. Only jpg, png, gif, webp allowed.");
-        error.statusCode = 400;
-        throw error;
-      }
-
-      const uploadDir = path.join(process.cwd(), "public/broker/loanofficer");
-      if (!fs.existsSync(uploadDir)) {
-        fs.mkdirSync(uploadDir, { recursive: true });
-      }
-
-      const fileName = `${Date.now()}-${part.filename.replace(/\s+/g, "_")}`;
-      const filePath = path.join(uploadDir, fileName);
-      await pipeline(part.file, fs.createWriteStream(filePath));
-      avatarPath = `/public/broker/loanofficer/${fileName}`;
-    } else {
-      fields[part.fieldname] = part.value;
-    }
-  }
-
-  return { fields, avatarPath };
 }
 
 function validateLoanOfficerPayload(fields, { isCreate }) {
@@ -172,20 +169,26 @@ function validateLoanOfficerPayload(fields, { isCreate }) {
     confirmPassword,
     firstName,
     lastName,
+    allowedToLogin,
   } = fields;
 
   if (!email?.trim() || !firstName?.trim() || !lastName?.trim()) {
     return "First name, last name and email are required";
   }
 
+  const loginEnabled = allowedToLogin !== "false";
+
   if (isCreate) {
-    if (!password?.trim() || !confirmPassword?.trim()) {
-      return "Password and confirm password are required";
-    }
-    if (email !== confirmEmail) {
+    if (
+      email.trim().toLowerCase() !==
+      String(confirmEmail || "").trim().toLowerCase()
+    ) {
       return "Email and confirm email do not match";
     }
-    if (password !== confirmPassword) {
+    if (loginEnabled && (!password?.trim() || !confirmPassword?.trim())) {
+      return "Password and confirm password are required when login is enabled";
+    }
+    if (loginEnabled && password !== confirmPassword) {
       return "Password and confirm password do not match";
     }
   } else if (password || confirmPassword) {
@@ -197,24 +200,70 @@ function validateLoanOfficerPayload(fields, { isCreate }) {
   return null;
 }
 
-function buildProfileData(fields, avatarPath) {
-  const website = normalizeWebsiteUrl(fields.website);
+function buildColumnProfileData(fields, avatarUrl, w9Url, existingProfile = null) {
+  const website =
+    fields.website !== undefined
+      ? normalizeWebsiteUrl(fields.website)
+      : existingProfile?.website ?? null;
+
+  const profileData = buildProfileDataFromFields(
+    fields,
+    existingProfile?.profileData || {},
+  );
 
   return {
-    company: fields.company?.trim() || null,
-    tollFree: fields.tollFree?.trim() || null,
-    tollFreeExt: fields.tollFreeExt?.trim() || null,
-    serviceProvider: fields.serviceProvider?.trim() || null,
-    address: fields.address?.trim() || null,
-    suite: fields.suite?.trim() || null,
-    city: fields.city?.trim() || null,
-    state: fields.state?.trim() || null,
-    zipCode: fields.zipCode?.trim() || null,
-    agentType: fields.agentType?.trim() || null,
-    licenseNumber: fields.licenseNumber?.trim() || null,
-    preferredComm: fields.preferredComm?.trim() || null,
+    company:
+      fields.company !== undefined
+        ? fields.company?.trim() || null
+        : existingProfile?.company ?? null,
+    tollFree:
+      fields.tollFree !== undefined
+        ? fields.tollFree?.trim() || null
+        : existingProfile?.tollFree ?? null,
+    tollFreeExt:
+      fields.tollFreeExt !== undefined
+        ? fields.tollFreeExt?.trim() || null
+        : existingProfile?.tollFreeExt ?? null,
+    serviceProvider:
+      fields.serviceProvider !== undefined
+        ? fields.serviceProvider?.trim() || null
+        : existingProfile?.serviceProvider ?? null,
+    address:
+      fields.address !== undefined
+        ? fields.address?.trim() || null
+        : existingProfile?.address ?? null,
+    suite:
+      fields.suite !== undefined
+        ? fields.suite?.trim() || null
+        : existingProfile?.suite ?? null,
+    city:
+      fields.city !== undefined
+        ? fields.city?.trim() || null
+        : existingProfile?.city ?? null,
+    state:
+      fields.state !== undefined
+        ? fields.state?.trim() || null
+        : existingProfile?.state ?? null,
+    zipCode:
+      fields.zipCode !== undefined
+        ? fields.zipCode?.trim() || null
+        : existingProfile?.zipCode ?? null,
+    agentType:
+      fields.agentType !== undefined
+        ? fields.agentType?.trim() || "Loan Officer"
+        : existingProfile?.agentType || "Loan Officer",
+    licenseNumber:
+      fields.licenseNumber !== undefined
+        ? fields.licenseNumber?.trim() || null
+        : existingProfile?.licenseNumber ?? null,
+    preferredComm:
+      fields.preferredComm !== undefined
+        ? fields.preferredComm?.trim() || null
+        : existingProfile?.preferredComm ?? null,
     website,
-    ...(avatarPath ? { avatarUrl: avatarPath } : {}),
+    ...(avatarUrl ? { avatarUrl } : {}),
+    ...(w9Url ? { w9Url } : {}),
+    profileData,
   };
 }
 
@@ -233,7 +282,9 @@ async function brokerLoanOfficersRoutes(fastify) {
     try {
       const officer = await getBrokerLoanOfficer(prisma, orgId, userId);
       if (!officer) {
-        return reply.status(404).send({ success: false, message: "Loan officer not found" });
+        return reply
+          .status(404)
+          .send({ success: false, message: "Loan officer not found" });
       }
 
       const where = {
@@ -277,7 +328,11 @@ async function brokerLoanOfficersRoutes(fastify) {
         },
       });
     } catch (error) {
-      adminLogs.error("List loan officer applications failed", { error, orgId, userId });
+      adminLogs.error("List loan officer applications failed", {
+        error,
+        orgId,
+        userId,
+      });
       return reply.status(500).send({
         success: false,
         message: error.message || "Failed to fetch applications",
@@ -292,7 +347,9 @@ async function brokerLoanOfficersRoutes(fastify) {
     try {
       const user = await getBrokerLoanOfficer(prisma, orgId, userId);
       if (!user) {
-        return reply.status(404).send({ success: false, message: "Loan officer not found" });
+        return reply
+          .status(404)
+          .send({ success: false, message: "Loan officer not found" });
       }
 
       return reply.send({
@@ -315,16 +372,45 @@ async function brokerLoanOfficersRoutes(fastify) {
     try {
       const org = await getBrokerOrg(prisma, orgId);
       if (!org) {
-        return reply.status(404).send({ success: false, message: "Broker not found" });
+        return reply
+          .status(404)
+          .send({ success: false, message: "Broker not found" });
       }
       if (org.type !== "BROKER") {
-        return reply.status(400).send({ success: false, message: "Organization is not a broker" });
+        return reply
+          .status(400)
+          .send({ success: false, message: "Organization is not a broker" });
       }
 
-      const { fields, avatarPath } = await parseMultipartRequest(request);
-      const validationError = validateLoanOfficerPayload(fields, { isCreate: true });
+      let fields;
+      let avatarUrl;
+      let w9Url;
+      try {
+        ({ fields, avatarUrl, w9Url } = await parseBrokerUserMultipart(request));
+      } catch (uploadErr) {
+        return reply.status(400).send({
+          success: false,
+          message: uploadErr.message || "Invalid upload",
+        });
+      }
+
+      const validationError = validateLoanOfficerPayload(fields, {
+        isCreate: true,
+      });
       if (validationError) {
-        return reply.status(400).send({ success: false, message: validationError });
+        return reply
+          .status(400)
+          .send({ success: false, message: validationError });
+      }
+
+      let parsedPermissions = [];
+      try {
+        parsedPermissions = parsePermissionsField(fields);
+      } catch {
+        return reply.status(400).send({
+          success: false,
+          message: "Invalid permissions format",
+        });
       }
 
       const {
@@ -342,17 +428,30 @@ async function brokerLoanOfficersRoutes(fastify) {
       });
 
       if (existingUser && !existingUser.isDeleted) {
-        return reply.status(409).send({ success: false, message: "Email already in use" });
+        return reply
+          .status(409)
+          .send({ success: false, message: "Email already in use" });
       }
 
-      const roleRecord = await prisma.role.findFirst({ where: { name: "BROKER_OFFICER" } });
+      const roleRecord = await prisma.role.findFirst({
+        where: { name: "BROKER_OFFICER" },
+      });
       if (!roleRecord) {
-        return reply.status(500).send({ success: false, message: "Role configuration error" });
+        return reply
+          .status(500)
+          .send({ success: false, message: "Role configuration error" });
       }
 
-      const passwordHash = await bcrypt.hash(password, 12);
-      const status = allowedToLogin === "false" ? "DISABLED" : "ACTIVE";
-      const profileData = buildProfileData(fields, avatarPath);
+      const loginEnabled = allowedToLogin !== "false";
+      const passwordHash = loginEnabled
+        ? await bcrypt.hash(password, 12)
+        : await bcrypt.hash(
+            `disabled-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+            12,
+          );
+      const status = loginEnabled ? "ACTIVE" : "DISABLED";
+      const profileData = buildColumnProfileData(fields, avatarUrl, w9Url);
+      const assignedCoBrokerIds = parseJsonField(fields.assignedCoBrokerIds, []);
 
       const user = await prisma.$transaction(async (tx) => {
         let account;
@@ -403,10 +502,18 @@ async function brokerLoanOfficersRoutes(fastify) {
           });
         }
 
+        await syncUserPermissions(tx, account.id, parsedPermissions);
+        await syncLoanOfficerSubBrokers(
+          tx,
+          account.id,
+          assignedCoBrokerIds,
+          orgId,
+        );
+
         return account;
       });
 
-      if (user.status === "ACTIVE") {
+      if (user.status === "ACTIVE" && loginEnabled) {
         try {
           await sendLoanOfficerCredentialsEmail({
             firstName: user.firstName,
@@ -430,7 +537,10 @@ async function brokerLoanOfficersRoutes(fastify) {
       return reply.status(201).send({
         success: true,
         message: "Loan officer created successfully",
-        data: formatLoanOfficer(created, created?._count?.brokerLoanApplications || 0),
+        data: formatLoanOfficer(
+          created,
+          created?._count?.brokerLoanApplications || 0,
+        ),
       });
     } catch (error) {
       const statusCode = error.statusCode || 500;
@@ -449,22 +559,58 @@ async function brokerLoanOfficersRoutes(fastify) {
     try {
       const existing = await getBrokerLoanOfficer(prisma, orgId, userId);
       if (!existing) {
-        return reply.status(404).send({ success: false, message: "Loan officer not found" });
+        return reply
+          .status(404)
+          .send({ success: false, message: "Loan officer not found" });
       }
 
-      const { fields, avatarPath } = await parseMultipartRequest(request);
-      const validationError = validateLoanOfficerPayload(fields, { isCreate: false });
+      let fields;
+      let avatarUrl;
+      let w9Url;
+      try {
+        ({ fields, avatarUrl, w9Url } = await parseBrokerUserMultipart(request));
+      } catch (uploadErr) {
+        return reply.status(400).send({
+          success: false,
+          message: uploadErr.message || "Invalid upload",
+        });
+      }
+
+      const validationError = validateLoanOfficerPayload(fields, {
+        isCreate: false,
+      });
       if (validationError) {
-        return reply.status(400).send({ success: false, message: validationError });
+        return reply
+          .status(400)
+          .send({ success: false, message: validationError });
+      }
+
+      let parsedPermissions = null;
+      if (fields.permissions !== undefined) {
+        try {
+          parsedPermissions = parsePermissionsField(fields);
+        } catch {
+          return reply.status(400).send({
+            success: false,
+            message: "Invalid permissions format",
+          });
+        }
       }
 
       const updateData = {};
-      if (fields.firstName !== undefined) updateData.firstName = fields.firstName.trim();
-      if (fields.lastName !== undefined) updateData.lastName = fields.lastName.trim();
-      if (fields.phone !== undefined) updateData.phone = fields.phone?.trim() || null;
+      if (fields.firstName !== undefined) {
+        updateData.firstName = fields.firstName.trim();
+      }
+      if (fields.lastName !== undefined) {
+        updateData.lastName = fields.lastName.trim();
+      }
+      if (fields.phone !== undefined) {
+        updateData.phone = fields.phone?.trim() || null;
+      }
 
       if (fields.allowedToLogin !== undefined) {
-        updateData.status = fields.allowedToLogin === "false" ? "DISABLED" : "ACTIVE";
+        updateData.status =
+          fields.allowedToLogin === "false" ? "DISABLED" : "ACTIVE";
       }
 
       if (fields.email !== undefined) {
@@ -477,7 +623,9 @@ async function brokerLoanOfficersRoutes(fastify) {
           },
         });
         if (duplicate) {
-          return reply.status(409).send({ success: false, message: "Email already in use" });
+          return reply
+            .status(409)
+            .send({ success: false, message: "Email already in use" });
         }
         updateData.email = normalizedEmail;
       }
@@ -486,7 +634,16 @@ async function brokerLoanOfficersRoutes(fastify) {
         updateData.passwordHash = await bcrypt.hash(fields.password, 12);
       }
 
-      const profileData = buildProfileData(fields, avatarPath);
+      const profileData = buildColumnProfileData(
+        fields,
+        avatarUrl,
+        w9Url,
+        existing.brokerProfile,
+      );
+      const assignedCoBrokerIds =
+        fields.assignedCoBrokerIds !== undefined
+          ? parseJsonField(fields.assignedCoBrokerIds, [])
+          : null;
 
       await prisma.$transaction(async (tx) => {
         if (Object.keys(updateData).length > 0) {
@@ -509,6 +666,19 @@ async function brokerLoanOfficersRoutes(fastify) {
             },
           });
         }
+
+        if (parsedPermissions !== null) {
+          await syncUserPermissions(tx, userId, parsedPermissions);
+        }
+
+        if (assignedCoBrokerIds !== null) {
+          await syncLoanOfficerSubBrokers(
+            tx,
+            userId,
+            assignedCoBrokerIds,
+            orgId,
+          );
+        }
       });
 
       const updated = await getBrokerLoanOfficer(prisma, orgId, userId);
@@ -516,11 +686,18 @@ async function brokerLoanOfficersRoutes(fastify) {
       return reply.send({
         success: true,
         message: "Loan officer updated successfully",
-        data: formatLoanOfficer(updated, updated?._count?.brokerLoanApplications || 0),
+        data: formatLoanOfficer(
+          updated,
+          updated?._count?.brokerLoanApplications || 0,
+        ),
       });
     } catch (error) {
       const statusCode = error.statusCode || 500;
-      adminLogs.error("Update broker loan officer failed", { error, orgId, userId });
+      adminLogs.error("Update broker loan officer failed", {
+        error,
+        orgId,
+        userId,
+      });
       return reply.status(statusCode).send({
         success: false,
         message: error.message || "Failed to update loan officer",
