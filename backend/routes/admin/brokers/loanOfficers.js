@@ -1,4 +1,8 @@
 const bcrypt = require("bcrypt");
+const path = require("path");
+const fs = require("fs");
+const { pipeline } = require("stream/promises");
+const { validateFileMimetype } = require("../../../utils/security/fileValidator");
 const { adminLogs } = require("../../../services/logger/contextLogger.js");
 const {
   sendLoanOfficerCredentialsEmail,
@@ -159,6 +163,46 @@ function formatLoanOfficer(user, assignedDeals = 0) {
     assignedCoBrokerIds: assignedCoBrokers.map((item) => item.id),
     profile: mergeBrokerProfileResponse(user.brokerProfile),
   };
+}
+
+async function parseMultipartRequest(request) {
+  const fields = {};
+  let avatarPath = null;
+
+  if (!request.isMultipart?.()) {
+    return { fields: request.body || {}, avatarPath };
+  }
+
+  const parts = request.parts();
+
+  for await (const part of parts) {
+    if (part.type === "file") {
+      if (part.fieldname !== "avatar") continue;
+
+      const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+      const validation = await validateFileMimetype(part.file, allowedTypes);
+      if (!validation.isValid) {
+        const error = new Error(`Invalid image type. Detected: ${validation.detectedMime || "unknown"}. Only jpg, png, gif, webp allowed.`);
+        error.statusCode = 400;
+        throw error;
+      }
+      const validatedStream = validation.stream;
+
+      const uploadDir = path.join(process.cwd(), "public/broker/loanofficer");
+      if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
+      }
+
+      const fileName = `${Date.now()}-${part.filename.replace(/\s+/g, "_")}`;
+      const filePath = path.join(uploadDir, fileName);
+      await pipeline(validatedStream, fs.createWriteStream(filePath));
+      avatarPath = `/public/broker/loanofficer/${fileName}`;
+    } else {
+      fields[part.fieldname] = part.value;
+    }
+  }
+
+  return { fields, avatarPath };
 }
 
 function validateLoanOfficerPayload(fields, { isCreate }) {

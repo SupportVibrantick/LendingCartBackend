@@ -4,7 +4,7 @@
  */
 require("dotenv").config();
 const crypto = require("crypto");
-const { PrismaClient } = require("@prisma/client");
+const prisma = require("../config/prisma");
 const {
   buildBrokerSignInUrl,
   getEmailBranding,
@@ -19,7 +19,7 @@ async function main() {
     process.exit(1);
   }
 
-  const prisma = new PrismaClient();
+  // Use shared prisma client
   try {
     const user = await prisma.userAccount.findFirst({
       where: { email: { equals: email, mode: "insensitive" } },

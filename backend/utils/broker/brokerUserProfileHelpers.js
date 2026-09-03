@@ -1,6 +1,7 @@
 const path = require("path");
 const fs = require("fs");
 const { pipeline } = require("stream/promises");
+const { validateFileMimetype } = require("../security/fileValidator");
 const {
   parseJsonField,
   parseBooleanField,
@@ -92,7 +93,7 @@ function mergeBrokerProfileResponse(brokerProfile) {
   };
 }
 
-async function saveBrokerUserFile(part, subdir) {
+async function saveBrokerUserFile(stream, part, subdir) {
   const uploadDir = path.join(process.cwd(), `public/broker/${subdir}`);
 
   if (!fs.existsSync(uploadDir)) {
@@ -103,24 +104,7 @@ async function saveBrokerUserFile(part, subdir) {
   const fileName = `${Date.now()}-${safeName}`;
   const filePath = path.join(uploadDir, fileName);
 
-  await pipeline(part.file, fs.createWriteStream(filePath));
-
-  // ✅ MAGIC-BYTE VALIDATION
-  const buffer = Buffer.alloc(16);
-  const fd = fs.openSync(filePath, "r");
-  fs.readSync(fd, buffer, 0, 16, 0);
-  fs.closeSync(fd);
-
-  const isPdf = buffer[0] === 0x25 && buffer[1] === 0x50 && buffer[2] === 0x44 && buffer[3] === 0x46;
-  const isJpeg = buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
-  const isPng = buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e && buffer[3] === 0x47;
-  const isWebp = buffer[0] === 0x52 && buffer[1] === 0x49 && buffer[2] === 0x46 && buffer[3] === 0x46 &&
-                 buffer[8] === 0x57 && buffer[9] === 0x45 && buffer[10] === 0x42 && buffer[11] === 0x50;
-
-  if (!isPdf && !isJpeg && !isPng && !isWebp) {
-    fs.unlinkSync(filePath);
-    throw new Error("Invalid file content. The file type does not match its extension.");
-  }
+  await pipeline(stream, fs.createWriteStream(filePath));
 
   return `/public/broker/${subdir}/${fileName}`;
 }
@@ -146,10 +130,11 @@ async function parseBrokerUserMultipart(req) {
     if (part.type === "file") {
       if (part.fieldname === "avatar") {
         const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
-        if (!allowedTypes.includes(part.mimetype)) {
-          throw new Error("Invalid image type. Only jpg, png, webp allowed.");
+        const validation = await validateFileMimetype(part.file, allowedTypes);
+        if (!validation.isValid) {
+          throw new Error(`Invalid image type. Detected: ${validation.detectedMime || "unknown"}. Only jpg, png, webp allowed.`);
         }
-        avatarUrl = await saveBrokerUserFile(part, "loanofficer");
+        avatarUrl = await saveBrokerUserFile(validation.stream, part, "loanofficer");
       }
 
       if (part.fieldname === "w9") {
@@ -159,10 +144,11 @@ async function parseBrokerUserMultipart(req) {
           "image/png",
           "image/webp",
         ];
-        if (!allowedTypes.includes(part.mimetype)) {
-          throw new Error("Invalid W9 file type. Only pdf or images allowed.");
+        const validation = await validateFileMimetype(part.file, allowedTypes);
+        if (!validation.isValid) {
+          throw new Error(`Invalid W9 file type. Detected: ${validation.detectedMime || "unknown"}. Only pdf or images allowed.`);
         }
-        w9Url = await saveBrokerUserFile(part, "loanofficer-w9");
+        w9Url = await saveBrokerUserFile(validation.stream, part, "loanofficer-w9");
       }
       continue;
     }
@@ -196,8 +182,6 @@ async function syncUserPermissions(prisma, userId, permissionKeys = []) {
   const existingKeys = new Set(existingRecords.map((p) => p.key));
   const missingKeys = uniqueKeys.filter((key) => !existingKeys.has(key));
 
-  // Self-heal: ensure every normalized LO permission exists so we don't
-  // silently drop keys when a new permission is added before the seed runs.
   if (missingKeys.length > 0) {
     await Promise.all(
       missingKeys.map((key) =>

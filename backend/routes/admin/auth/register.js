@@ -3,6 +3,7 @@ const { z } = require("zod");
 const bcrypt = require("bcrypt");
 const prisma = require("../../../config/prisma.js");
 const jwt = require("jsonwebtoken");
+const jwtSecret = require("../../../utils/auth/jwtSecret");
 
 const bodySchema = z.object({
   email: z.string().email(),
@@ -27,7 +28,8 @@ module.exports = async function adminRegisterRoute(fastify, opts) {
               statusCode: 429,
               error: "Too Many Requests",
               success: false,
-              message: "Too many login attempts. Please try again after 5 hours.",
+              message:
+                "Too many login attempts. Please try again after 5 hours.",
             };
           },
         },
@@ -87,7 +89,7 @@ module.exports = async function adminRegisterRoute(fastify, opts) {
 
         const token = jwt.sign(
           { userId: user.id, orgId: user.organizationId ?? null },
-          process.env.JWT_SECRET,
+          jwtSecret,
           { expiresIn: "2h" },
         );
 

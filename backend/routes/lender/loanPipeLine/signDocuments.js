@@ -1,5 +1,6 @@
 const path = require("path");
 const crypto = require("crypto");
+const { validateFileMimetype } = require("../../../utils/security/fileValidator");
 const {
   formatSignDocumentRequirement,
 } = require("../../../utils/documents/formatSignDocument");
@@ -207,13 +208,15 @@ module.exports = async function lenderSignDocuments(fastify) {
             continue;
           }
 
-          if (!ALLOWED_MIME_TYPES.has(part.mimetype)) {
+          const validation = await validateFileMimetype(part.file, Array.from(ALLOWED_MIME_TYPES));
+          if (!validation.isValid) {
             await part.toBuffer();
             return reply.code(400).send({
               success: false,
-              message: "Only PDF or image files are allowed",
+              message: `Invalid file type. Detected: ${validation.detectedMime || "unknown"}. Only PDF or image files are allowed`,
             });
           }
+          const validatedStream = validation.stream;
 
           const ext =
             path.extname(part.filename || "") ||
@@ -222,7 +225,7 @@ module.exports = async function lenderSignDocuments(fastify) {
           const stored = await writeSignAssetFromStream({
             relativeParts: ["loan-documents", loanApplicationId, "sign-templates"],
             filename: safeFileName,
-            stream: part.file,
+            stream: validatedStream,
             mimeType: part.mimetype,
           });
 
