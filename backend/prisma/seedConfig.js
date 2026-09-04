@@ -3,13 +3,13 @@
  * Override via environment variables on local/staging/production seed runs.
  */
 module.exports = {
-  BROKER_ORG_NAME: process.env.SEED_BROKER_ORG_NAME || "LendingCart Broker",
+  BROKER_ORG_NAME: process.env.SEED_BROKER_ORG_NAME || "Loan Automation Broker",
   BROKER_ORG_EMAIL: process.env.SEED_BROKER_ORG_EMAIL || "broker@lendingcart.local",
   BROKER_ORG_PHONE: process.env.SEED_BROKER_ORG_PHONE || "+10000000001",
   BROKER_EMAIL: process.env.SEED_BROKER_EMAIL || "broker@lendingcart.com",
   BROKER_PASSWORD: process.env.SEED_BROKER_PASSWORD || "Broker@123",
 
-  PLATFORM_ORG_NAME: process.env.SEED_PLATFORM_ORG_NAME || "LendingCart Platform",
+  PLATFORM_ORG_NAME: process.env.SEED_PLATFORM_ORG_NAME || "Loan Automation Platform",
   PLATFORM_ORG_EMAIL: process.env.SEED_PLATFORM_ORG_EMAIL || "platform@lendingcart.local",
   PLATFORM_ORG_PHONE: process.env.SEED_PLATFORM_ORG_PHONE || "+10000000000",
 

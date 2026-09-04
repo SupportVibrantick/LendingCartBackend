@@ -58,7 +58,7 @@ const getEmailBranding = () => {
   );
 
   return {
-    brandName: "LendingCart",
+    brandName: "Loan Automation",
     supportEmail: process.env.SUPPORT_EMAIL || "support@lendingcart.in",
     currentYear: new Date().getFullYear(),
     apiBase,

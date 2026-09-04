@@ -6,7 +6,7 @@ export default function SignUp() {
   return (
     <>
       <PageMeta
-        title="Lending Cart "
+        title="Loan Automation"
         description=""
       />
       <AuthLayout>

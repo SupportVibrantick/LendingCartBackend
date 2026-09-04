@@ -79,7 +79,7 @@ async function sendBrokerWelcomeEmail({
     currentYear: new Date().getFullYear(),
   });
 
-  const subject = "Welcome to your LendingCart broker dashboard";
+  const subject = "Welcome to your Loan Automation broker dashboard";
   const text = `Hi ${name},
 
 Your broker account for ${organizationName} (${packageName} plan) is ready.
@@ -89,7 +89,7 @@ ${resetUrl}
 
 This link can only be used once. If you need a new link, use the "Forgot password" option on the sign-in page.
 
-— LendingCart`;
+— Loan Automation`;
 
   return enqueueEmail({
     prisma,

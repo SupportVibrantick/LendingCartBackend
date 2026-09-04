@@ -79,7 +79,7 @@ export function openCheckoutInNewTab(checkoutUrl) {
 }
 
 /**
- * Call LendingCart checkout API and open GHL payment in a new tab.
+ * Call Loan Automation checkout API and open GHL payment in a new tab.
  * Caller should navigate to /checkout/pending so the user is not stuck on GHL.
  * @returns {Promise<{ checkoutUrl: string, opened: boolean, checkoutId: string|null }>}
  */

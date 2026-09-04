@@ -107,7 +107,7 @@ export async function purchaseLoanAiSubscription(token, payload) {
 }
 
 /**
- * Start GHL checkout via LendingCart backend (never call GHL from the browser).
+ * Start GHL checkout via Loan Automation backend (never call GHL from the browser).
  * Organization details are required so broker provisioning uses the buyer's org.
  * @param {string} token
  * @param {{

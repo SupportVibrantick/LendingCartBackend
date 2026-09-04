@@ -334,7 +334,6 @@ export default function LenderAllProductAssign() {
 
         // LENDERS → paginated
         setLenders(lendersRes.data?.data?.results ?? []);
-        console.log(lenders);
 
         // PRODUCTS → direct array
         setLoanProducts(
@@ -465,7 +464,6 @@ export default function LenderAllProductAssign() {
 
     const v = validate();
     if (Object.keys(v).length) {
-      console.log(v);
       setErrors(v);
       return;
     }

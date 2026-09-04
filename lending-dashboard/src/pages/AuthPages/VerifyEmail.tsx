@@ -60,7 +60,7 @@ export default function VerifyEmail() {
 
   return (
     <>
-      <PageMeta title="Verify Email | LendingCart" description="" />
+      <PageMeta title="Verify Email | Loan Automation" description="" />
       <AuthLayout>
         <div className="w-full text-center">
           <h1 className="text-2xl font-semibold text-gray-800 dark:text-white">

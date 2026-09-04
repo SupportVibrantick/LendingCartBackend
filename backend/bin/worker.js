@@ -20,7 +20,7 @@ app
     startSchedulers(app);
     startEmailOutboxWorker(app.prisma);
 
-    console.log("✅ LendingCart worker started (crons + email outbox enabled)");
+    console.log("✅ Loan Automation worker started (crons + email outbox enabled)");
   })
   .catch((error) => {
     console.error("Worker failed to start:", error);
