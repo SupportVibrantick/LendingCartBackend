@@ -1,9 +1,19 @@
 const {
   saveSignFormValuesSchema,
+  saveSignFormDraftSchema,
+  analyzeSignFormSchema,
 } = require("../../../schemas/documents/signForm.schema");
 const {
   getFormForRequirement,
+  ensureDraftFormForRequirement,
+  saveDraftForm,
+  publishForm,
 } = require("../../../services/documents/signForm/formService");
+const {
+  analyzeAndSaveDraftForm,
+  getDetectionCapabilities,
+} = require("../../../services/documents/signForm/detectFields.service");
+const { getSignFormLimits } = require("../../../services/documents/signForm/limits");
 const {
   annotateFieldsForRole,
   computeProgress,
@@ -22,7 +32,9 @@ const {
   notifyBrokerFormProgress,
 } = require("../../../services/documents/signForm/signDocumentNotify");
 
-async function loadBrokerRequirement(fastify, {
+const MAPPING_ALLOWED_STATUSES = ["AWAITING_BROKER"];
+
+async function loadBrokerRequirementBase(fastify, {
   submissionId,
   requirementId,
   brokerOrgId,
@@ -54,6 +66,7 @@ async function loadBrokerRequirement(fastify, {
       include: {
         documentType: true,
         activeFormVersion: true,
+        signFormDefinition: true,
         requestApplicationLender: {
           include: REQUEST_APPLICATION_LENDER_INCLUDE,
         },
@@ -67,6 +80,23 @@ async function loadBrokerRequirement(fastify, {
   if (!requirement) {
     return { error: { code: 404, message: "Sign document not found" } };
   }
+
+  return { submission, requirement };
+}
+
+async function loadBrokerRequirement(fastify, {
+  submissionId,
+  requirementId,
+  brokerOrgId,
+}) {
+  const loaded = await loadBrokerRequirementBase(fastify, {
+    submissionId,
+    requirementId,
+    brokerOrgId,
+  });
+  if (loaded.error) return loaded;
+
+  const { requirement } = loaded;
 
   if (requirement.signMode !== "DYNAMIC_FORM") {
     return {
@@ -83,7 +113,52 @@ async function loadBrokerRequirement(fastify, {
     };
   }
 
-  return { submission, requirement };
+  return loaded;
+}
+
+async function loadBrokerRequirementForMapping(fastify, {
+  submissionId,
+  requirementId,
+  brokerOrgId,
+}) {
+  const loaded = await loadBrokerRequirementBase(fastify, {
+    submissionId,
+    requirementId,
+    brokerOrgId,
+  });
+  if (loaded.error) return loaded;
+
+  const { requirement } = loaded;
+
+  if (!requirement.templateFileUrl) {
+    return { error: { code: 400, message: "Template file is missing" } };
+  }
+
+  if (
+    requirement.signStatus &&
+    !MAPPING_ALLOWED_STATUSES.includes(requirement.signStatus)
+  ) {
+    return {
+      error: {
+        code: 400,
+        message: "Fields can only be mapped before sending to the client",
+      },
+    };
+  }
+
+  if (
+    requirement.source !== "BROKER_ADDED" &&
+    requirement.signMode !== "DYNAMIC_FORM"
+  ) {
+    return {
+      error: {
+        code: 400,
+        message: "Only broker-uploaded forms can be mapped here",
+      },
+    };
+  }
+
+  return loaded;
 }
 
 /**
@@ -316,6 +391,307 @@ module.exports = async function brokerSignFormRoutes(fastify) {
         return reply.code(500).send({
           success: false,
           message: error.message || "Failed to save form values",
+        });
+      }
+    },
+  );
+
+  // --- Manual / DocuSign-style field mapping ---
+
+  fastify.get(
+    "/submissions/:submissionId/sign-documents/:requirementId/form/map",
+    async (req, reply) => {
+      try {
+        if (!req.user || req.user.orgType !== "BROKER") {
+          return reply.code(403).send({
+            success: false,
+            message: "Broker access only",
+          });
+        }
+
+        const { submissionId, requirementId } = req.params;
+        const loaded = await loadBrokerRequirementForMapping(fastify, {
+          submissionId,
+          requirementId,
+          brokerOrgId: req.user.organizationId,
+        });
+
+        if (loaded.error) {
+          return reply.code(loaded.error.code).send({
+            success: false,
+            message: loaded.error.message,
+          });
+        }
+
+        let form = await getFormForRequirement(fastify.prisma, requirementId, {
+          preferPublished: false,
+        });
+
+        if (!form?.definitionId || !form?.versionId) {
+          form = await ensureDraftFormForRequirement(fastify.prisma, {
+            requirement: loaded.requirement,
+            organizationId: req.user.organizationId,
+            title:
+              loaded.requirement.signDocumentTitle ||
+              loaded.requirement.documentType?.name,
+          });
+        } else if (form.versionStatus === "PUBLISHED") {
+          form = await ensureDraftFormForRequirement(fastify.prisma, {
+            requirement: loaded.requirement,
+            organizationId: req.user.organizationId,
+            title:
+              loaded.requirement.signDocumentTitle ||
+              loaded.requirement.documentType?.name,
+          });
+        }
+
+        return reply.send({ success: true, data: form });
+      } catch (error) {
+        fastify.log.error(error);
+        return reply.code(500).send({
+          success: false,
+          message: error.message || "Failed to load form mapper",
+        });
+      }
+    },
+  );
+
+  fastify.get(
+    "/submissions/:submissionId/sign-documents/:requirementId/form/detect-capabilities",
+    async (req, reply) => {
+      try {
+        if (!req.user || req.user.orgType !== "BROKER") {
+          return reply.code(403).send({
+            success: false,
+            message: "Broker access only",
+          });
+        }
+
+        return reply.send({
+          success: true,
+          data: {
+            ...getDetectionCapabilities(),
+            limits: getSignFormLimits(),
+          },
+        });
+      } catch (error) {
+        fastify.log.error(error);
+        return reply.code(500).send({
+          success: false,
+          message: error.message || "Failed to load detection capabilities",
+        });
+      }
+    },
+  );
+
+  fastify.put(
+    "/submissions/:submissionId/sign-documents/:requirementId/form/schema",
+    async (req, reply) => {
+      try {
+        if (!req.user || req.user.orgType !== "BROKER") {
+          return reply.code(403).send({
+            success: false,
+            message: "Broker access only",
+          });
+        }
+
+        const { submissionId, requirementId } = req.params;
+        const loaded = await loadBrokerRequirementForMapping(fastify, {
+          submissionId,
+          requirementId,
+          brokerOrgId: req.user.organizationId,
+        });
+
+        if (loaded.error) {
+          return reply.code(loaded.error.code).send({
+            success: false,
+            message: loaded.error.message,
+          });
+        }
+
+        const parsed = saveSignFormDraftSchema.safeParse(req.body || {});
+        if (!parsed.success) {
+          return reply.code(400).send({
+            success: false,
+            message: "Invalid form schema",
+            errors: parsed.error.flatten(),
+          });
+        }
+
+        const form = await saveDraftForm(fastify.prisma, {
+          requirement: loaded.requirement,
+          organizationId: req.user.organizationId,
+          schema: parsed.data.schema,
+          pageManifest: parsed.data.pageManifest,
+        });
+
+        return reply.send({
+          success: true,
+          message: "Draft form saved",
+          data: form,
+        });
+      } catch (error) {
+        fastify.log.error(error);
+        return reply.code(error.statusCode || 500).send({
+          success: false,
+          message: error.message || "Failed to save form",
+        });
+      }
+    },
+  );
+
+  fastify.post(
+    "/submissions/:submissionId/sign-documents/:requirementId/form/analyze",
+    async (req, reply) => {
+      try {
+        if (!req.user || req.user.orgType !== "BROKER") {
+          return reply.code(403).send({
+            success: false,
+            message: "Broker access only",
+          });
+        }
+
+        const { submissionId, requirementId } = req.params;
+        const loaded = await loadBrokerRequirementForMapping(fastify, {
+          submissionId,
+          requirementId,
+          brokerOrgId: req.user.organizationId,
+        });
+
+        if (loaded.error) {
+          return reply.code(loaded.error.code).send({
+            success: false,
+            message: loaded.error.message,
+          });
+        }
+
+        const parsed = analyzeSignFormSchema.safeParse(req.body || {});
+        if (!parsed.success) {
+          return reply.code(400).send({
+            success: false,
+            message: "Invalid analyze options",
+            errors: parsed.error.flatten(),
+          });
+        }
+
+        const result = await analyzeAndSaveDraftForm(fastify, {
+          requirement: loaded.requirement,
+          organizationId: req.user.organizationId,
+          actorUserId: req.user.userId || req.user.id,
+          options: {
+            ...parsed.data,
+            useAzure: parsed.data.useAzure === true,
+            useLlm: parsed.data.useLlm === true,
+            useFreeOcr: parsed.data.useFreeOcr !== false,
+          },
+        });
+
+        return reply.send({
+          success: true,
+          message: result.fieldCount
+            ? `Detected ${result.fieldCount} field${result.fieldCount === 1 ? "" : "s"}. Review before publishing.`
+            : "No fields detected. Add fields manually.",
+          data: {
+            form: result.form,
+            detection: result.detection,
+            fieldCount: result.fieldCount,
+            formProcessingStatus: result.formProcessingStatus,
+          },
+        });
+      } catch (error) {
+        fastify.log.error(error);
+        return reply.code(error.statusCode || 500).send({
+          success: false,
+          message: error.message || "Failed to analyze form",
+        });
+      }
+    },
+  );
+
+  fastify.post(
+    "/submissions/:submissionId/sign-documents/:requirementId/form/publish",
+    async (req, reply) => {
+      try {
+        if (!req.user || req.user.orgType !== "BROKER") {
+          return reply.code(403).send({
+            success: false,
+            message: "Broker access only",
+          });
+        }
+
+        const { submissionId, requirementId } = req.params;
+        const loaded = await loadBrokerRequirementForMapping(fastify, {
+          submissionId,
+          requirementId,
+          brokerOrgId: req.user.organizationId,
+        });
+
+        if (loaded.error) {
+          return reply.code(loaded.error.code).send({
+            success: false,
+            message: loaded.error.message,
+          });
+        }
+
+        let schema;
+        let pageManifest;
+        if (req.body?.schema) {
+          const parsed = saveSignFormDraftSchema.safeParse(req.body);
+          if (!parsed.success) {
+            return reply.code(400).send({
+              success: false,
+              message: "Invalid form schema",
+              errors: parsed.error.flatten(),
+            });
+          }
+          schema = parsed.data.schema;
+          pageManifest = parsed.data.pageManifest;
+        }
+
+        const form = await publishForm(fastify.prisma, {
+          requirement: loaded.requirement,
+          organizationId: req.user.organizationId,
+          userId: req.user.userId || req.user.id,
+          schema,
+          pageManifest,
+        });
+
+        const requirement =
+          await fastify.prisma.applicationDocumentRequirement.findUnique({
+            where: { id: requirementId },
+            include: {
+              documentType: true,
+              uploads: {
+                where: { isSignedOutput: true },
+                orderBy: { uploadedAt: "desc" },
+              },
+              requestApplicationLender: {
+                include: REQUEST_APPLICATION_LENDER_INCLUDE,
+              },
+              activeFormVersion: true,
+              signFormSubmissions: {
+                orderBy: { createdAt: "desc" },
+                take: 1,
+                include: { values: true },
+              },
+            },
+          });
+
+        return reply.send({
+          success: true,
+          message: `Form published with ${form.schema?.fields?.length || 0} field${(form.schema?.fields?.length || 0) === 1 ? "" : "s"}`,
+          data: {
+            form,
+            requirement: formatSignDocumentRequirement(requirement, {
+              viewer: "broker",
+            }),
+          },
+        });
+      } catch (error) {
+        fastify.log.error(error);
+        return reply.code(error.statusCode || 500).send({
+          success: false,
+          message: error.message || "Failed to publish form",
         });
       }
     },
