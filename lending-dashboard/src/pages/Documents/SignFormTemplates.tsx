@@ -70,7 +70,7 @@ export default function SignFormTemplates() {
   return (
     <>
       <PageMeta
-        title="Sign form templates | LendingCart"
+        title="Sign form templates | Loan Automation"
         description="Reusable fillable sign-document templates"
       />
       <PageBreadcrumb pageTitle="Sign form templates" />

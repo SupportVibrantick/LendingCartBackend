@@ -47,7 +47,7 @@ export default function VerifyEmailPending() {
   return (
     <>
       <PageMeta
-        title="Verify your email | LendingCart"
+        title="Verify your email | Loan Automation"
         description="Verify your email to access the lender dashboard"
       />
       <AuthLayout>
