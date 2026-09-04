@@ -18,7 +18,7 @@ export default function ResetPassword() {
 
   return (
     <>
-      <PageMeta title="Reset Password | Lending Cart" description="" />
+      <PageMeta title="Reset Password | Loan Automation" description="" />
       <AuthLayout>
         {token ? (
           <ResetPasswordForm token={token} portal={portal} />
