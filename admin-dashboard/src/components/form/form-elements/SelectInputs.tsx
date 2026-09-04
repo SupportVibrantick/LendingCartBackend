@@ -10,7 +10,9 @@ export default function SelectInputs() {
     { value: "template", label: "Template" },
     { value: "development", label: "Development" },
   ];
-  const handleSelectChange = (value: string) => {
+  const handleSelectChange = (
+    // value: string
+  ) => {
   };
   const [selectedValues, setSelectedValues] = useState<string[]>([]);
 
