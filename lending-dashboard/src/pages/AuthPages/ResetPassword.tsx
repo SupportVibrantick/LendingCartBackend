@@ -12,7 +12,7 @@ export default function ResetPassword() {
     <>
       <PageMeta
         title="Reset Password | Lender Portal"
-        description="Reset your LendingCart lender portal password"
+        description="Reset your loan automation lender portal password"
       />
       <AuthLayout>
         {token ? <ResetPasswordForm token={token} /> : <ForgotPasswordForm />}
