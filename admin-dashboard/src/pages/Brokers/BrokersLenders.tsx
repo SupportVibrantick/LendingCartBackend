@@ -177,12 +177,10 @@ const BrokersLenders: React.FC = () => {
   };
 
   const handleEdit = (lender: Lender) => {
-    console.log("Edit lender", lender);
     // open modal later if needed
   };
 
   const handleDelete = (lender: Lender) => {
-    console.log("Delete lender", lender);
     // confirm + delete API later
   };
 

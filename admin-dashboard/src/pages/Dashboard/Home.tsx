@@ -83,8 +83,8 @@ export default function Home() {
   return (
     <>
       <PageMeta
-        title="Lendingcart Dashboard"
-        description="Platform-wide visibility and control for LendingCart administrators."
+        title="Loan Automation Dashboard"
+        description="Platform-wide visibility and control for Loan Automation administrators."
       />
 
       <div className="space-y-6">
