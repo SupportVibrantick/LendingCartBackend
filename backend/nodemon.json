@@ -1,0 +1,15 @@
+{
+  "watch": ["bin", "app.js", "config", "middleware", "plugins", "routes", "schemas", "services", "utils", "prisma"],
+  "ext": "js,cjs,mjs,json",
+  "ignore": [
+    "uploads/**",
+    "storage/**",
+    "public/**",
+    "node_modules/**",
+    "scripts/**",
+    "tests/**",
+    "**/*.test.js",
+    "prisma/migrations/**"
+  ],
+  "delay": 500
+}
