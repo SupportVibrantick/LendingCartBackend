@@ -21,6 +21,8 @@ jobs:
           key: ${{ secrets.SSH_KEY_LENDINGCART }}
           port: ${{ secrets.SSH_PORT }}
 
+          command_timeout: 40m
+          
           script: |
             set -euo pipefail
 
