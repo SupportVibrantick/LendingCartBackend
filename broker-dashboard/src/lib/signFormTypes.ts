@@ -24,6 +24,7 @@ export type SignFormRect = {
 export type SignFormFieldOption = {
   label: string;
   value: string;
+  page?: number;
   rect?: SignFormRect;
 };
 
@@ -41,6 +42,18 @@ export type SignFormField = {
   editable?: boolean;
   readOnly?: boolean;
   visible?: boolean;
+  group?: { id: string; label?: string; exclusive?: boolean } | null;
+  meta?: {
+    confidence?: number;
+    source?: string;
+    detectedLabel?: string | null;
+    locked?: boolean;
+    llmRefined?: boolean;
+    tableId?: string;
+    rowIndex?: number;
+    columnKey?: string;
+    defaultValue?: unknown;
+  } | null;
 };
 
 export type SignFormPage = {
@@ -57,19 +70,32 @@ export type SignFormConditional = {
   require?: string[];
 };
 
+export type SignFormTable = {
+  id: string;
+  label: string;
+  page: number;
+  columns: Array<{ key: string; label: string; type?: SignFormFieldType }>;
+  rows: number;
+  originRect: SignFormRect;
+  cellWidth?: number;
+  cellHeight?: number;
+};
+
 export type SignFormSchema = {
   schemaVersion: 1;
   pages: SignFormPage[];
   fields: SignFormField[];
   conditionals?: SignFormConditional[];
-  tables?: Array<{
-    id: string;
-    label: string;
-    page: number;
-    columns: Array<{ key: string; label: string; type?: SignFormFieldType }>;
-    rows: number;
-    originRect: SignFormRect;
-  }>;
+  tables?: SignFormTable[];
+  detection?: {
+    ranAt?: string;
+    fieldCount?: number;
+    providers?: Array<{
+      provider?: string;
+      note?: string | null;
+      fieldCount?: number;
+    }>;
+  } | null;
 };
 
 export type SignFormPayload = {
@@ -237,4 +263,41 @@ export function evaluateSignFormConditionals(
   }
 
   return { hiddenKeys, extraRequiredKeys };
+}
+
+export function expandTableToFields(table: SignFormTable): SignFormField[] {
+  const cellWidth = table.cellWidth || Math.max(36, table.originRect.width);
+  const cellHeight = table.cellHeight || Math.max(14, table.originRect.height);
+  const gapX = 4;
+  const gapY = 3;
+  const fields: SignFormField[] = [];
+  for (let row = 0; row < table.rows; row += 1) {
+    table.columns.forEach((column, colIndex) => {
+      const x = table.originRect.x + colIndex * (cellWidth + gapX);
+      const y = table.originRect.y - row * (cellHeight + gapY);
+      fields.push({
+        id: `fld_${table.id}_r${row + 1}_${column.key}`,
+        key: `${table.id}_r${row + 1}_${column.key}`,
+        label: `${table.label} ${row + 1} · ${column.label}`,
+        type: column.type || "text",
+        page: table.page,
+        rect: {
+          x,
+          y: Math.max(0, y),
+          width: cellWidth,
+          height: cellHeight,
+        },
+        required: false,
+        fillRole: "either",
+        group: { id: table.id, label: table.label },
+        meta: {
+          source: "manual",
+          tableId: table.id,
+          rowIndex: row,
+          columnKey: column.key,
+        },
+      });
+    });
+  }
+  return fields;
 }

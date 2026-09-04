@@ -405,8 +405,8 @@ async function uploadBrokerSignDocument(
     requirement: refreshed || result,
     autoPublish,
     message: autoPublish.published
-      ? `Form uploaded with ${autoPublish.fieldCount} fillable field${autoPublish.fieldCount === 1 ? "" : "s"}`
-      : "Form uploaded — ready to send to client",
+      ? `Form uploaded with ${autoPublish.fieldCount} fillable field${autoPublish.fieldCount === 1 ? "" : "s"} — you can fill before sending to the client`
+      : "Form uploaded. No fillable fields found — use Map fields, or prepare a fillable PDF with free PDF24 Form Editor and re-upload.",
   };
 }
 

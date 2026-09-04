@@ -14,7 +14,9 @@ import {
   Eye,
   FileImage,
   FileText,
+  HelpCircle,
   Loader2,
+  MousePointer2,
   PenLine,
   Search,
   SendHorizonal,
@@ -25,6 +27,8 @@ import { buildApiPublicFileUrl } from "../../lib/publicFileUrl";
 import MultiSelect from "../form/MultiSelect";
 import EmbeddedFilePreview from "./EmbeddedFilePreview";
 import SignFormFiller from "./SignFormFiller";
+import SignFormFieldMapper from "./SignFormFieldMapper";
+import MakeFillablePdfHelp from "./MakeFillablePdfHelp";
 
 const SigCanvas = SignatureCanvas as unknown as React.FC<any>;
 
@@ -181,9 +185,38 @@ function isClientFormSubmittedToBroker(row: SignDocumentRow) {
   );
 }
 
+function isClientActionNeeded(row: SignDocumentRow) {
+  return (
+    row.signStatus === "SENT_TO_CLIENT" &&
+    row.clientBucket !== "waitingOnBroker"
+  );
+}
+
 function getClientDynamicFormActionLabel(row: SignDocumentRow) {
-  if (row.signMode !== "DYNAMIC_FORM") return "Template";
-  return isClientFormSubmittedToBroker(row) ? "View form" : "Fill form";
+  if (row.signMode !== "DYNAMIC_FORM") {
+    if (isClientActionNeeded(row)) return "Open to sign";
+    if (row.signStatus === "SENT_TO_CLIENT") return "View document";
+    return "View signed copy";
+  }
+  if (isClientActionNeeded(row)) return "Fill this form";
+  if (
+    row.signStatus === "CLIENT_SIGNED" ||
+    row.signStatus === "FORWARDED_TO_LENDER" ||
+    row.signStatus === "LENDER_SEEN"
+  ) {
+    return "View submitted form";
+  }
+  // Client done, waiting on broker
+  return "View your answers";
+}
+
+function getClientNeedsActionHeadline(row: SignDocumentRow) {
+  if (row.signMode === "DYNAMIC_FORM") {
+    return row.hasSignatureField
+      ? "Your turn — fill and sign this form"
+      : "Your turn — fill this form";
+  }
+  return "Your turn — review and sign";
 }
 
 type PreviousSignedLoiVersion = {
@@ -363,6 +396,11 @@ export default function SignDocumentsPanel({
   const [selectAllActive, setSelectAllActive] = useState(false);
   const [isSubmittingSignature, setIsSubmittingSignature] = useState(false);
   const [fillingDoc, setFillingDoc] = useState<SignDocumentRow | null>(null);
+  const [mappingDoc, setMappingDoc] = useState<SignDocumentRow | null>(null);
+  const [fillableHelpOpen, setFillableHelpOpen] = useState(false);
+  const [fillableHelpRow, setFillableHelpRow] = useState<SignDocumentRow | null>(
+    null,
+  );
   const [brokerSearchInput, setBrokerSearchInput] = useState("");
   const [debouncedBrokerSearch, setDebouncedBrokerSearch] = useState("");
   const [brokerPage, setBrokerPage] = useState(1);
@@ -424,24 +462,27 @@ export default function SignDocumentsPanel({
 
   const fetchForwardableLenders = async () => {
     if (!isBrokerMode || !loanApplicationId) return;
-    try {
-      const res = await fetch(
-        `${apiBase}/${apiRolePrefix}/loan-pipeline/${loanApplicationId}/broker-loi`,
-        { headers: getAuthHeaders() },
-      );
-      const json = await res.json();
-      if (
-        res.ok &&
-        json.success &&
-        Array.isArray(json.data?.forwardableLenders) &&
-        json.data.forwardableLenders.length > 0
-      ) {
-        setForwardableLenders(json.data.forwardableLenders);
-        return;
-      }
-    } catch {
-      /* optional */
-    }
+
+    const normalizeList = (list: any[]) =>
+      list
+        .map((item: any) => ({
+          applicationLenderId: String(
+            item.applicationLenderId || item.id || "",
+          ),
+          lenderName:
+            item.lenderName || item.lender?.name || item.name || "Lender",
+          status: item.status || null,
+        }))
+        .filter((item: { applicationLenderId: string }) =>
+          Boolean(item.applicationLenderId),
+        )
+        // Match backend: approved / declined / withdrawn cannot receive docs.
+        .filter(
+          (item: { status?: string | null }) =>
+            !["APPROVED", "DECLINED", "WITHDRAWN"].includes(
+              String(item.status || "").toUpperCase(),
+            ),
+        );
 
     try {
       const res = await fetch(
@@ -454,17 +495,29 @@ export default function SignDocumentsPanel({
         : Array.isArray(json?.lenders)
           ? json.lenders
           : [];
-      setForwardableLenders(
-        list
-          .map((item: any) => ({
-            applicationLenderId:
-              item.applicationLenderId || item.id || "",
-            lenderName: item.lenderName || item.lender?.name || "Lender",
-          }))
-          .filter((item: { applicationLenderId: string }) =>
-            Boolean(item.applicationLenderId),
-          ),
+      const normalized = normalizeList(list);
+      if (normalized.length > 0) {
+        setForwardableLenders(normalized);
+        return;
+      }
+    } catch {
+      /* try fallback */
+    }
+
+    try {
+      const res = await fetch(
+        `${apiBase}/${apiRolePrefix}/loan-pipeline/${loanApplicationId}/broker-loi`,
+        { headers: getAuthHeaders() },
       );
+      const json = await res.json();
+      if (
+        res.ok &&
+        json.success &&
+        Array.isArray(json.data?.forwardableLenders) &&
+        json.data.forwardableLenders.length > 0
+      ) {
+        setForwardableLenders(normalizeList(json.data.forwardableLenders));
+      }
     } catch {
       /* optional */
     }
@@ -535,7 +588,12 @@ export default function SignDocumentsPanel({
         );
         setBrokerLenderGroups(json.lenderGroups || []);
         if (Array.isArray(json.forwardableLenders)) {
-          setForwardableLenders(json.forwardableLenders);
+          if (json.forwardableLenders.length > 0) {
+            setForwardableLenders(json.forwardableLenders);
+          } else {
+            // List API empty — try submitted-lenders / broker-loi fallback.
+            void fetchForwardableLenders();
+          }
         }
       }
       if (isClientMode) {
@@ -856,6 +914,7 @@ export default function SignDocumentsPanel({
     if (row.requestApplicationLenderId) {
       return [row.requestApplicationLenderId];
     }
+    // Do not auto-hide selection: still preselect single lender for convenience.
     if (forwardableLenders.length === 1) {
       return [forwardableLenders[0].applicationLenderId];
     }
@@ -1425,24 +1484,44 @@ export default function SignDocumentsPanel({
   };
 
   const renderForwardLenderPicker = (row: SignDocumentRow) => {
-    if (!forwardableLenders.length) return null;
-
-    const selectedIds = getForwardLenderIdsForRow(row);
+    if (forwardableLenders.length > 0) {
+      const selectedIds = getForwardLenderIdsForRow(row);
+      return (
+        <div className="mb-2 rounded-xl border border-emerald-200 bg-white p-3 dark:border-emerald-500/30 dark:bg-slate-950">
+          <MultiSelect
+            label="Select eligible lenders"
+            options={forwardableLenderSelectOptions}
+            value={selectedIds}
+            onChange={(next) =>
+              setForwardLenderIdsByRequirement((prev) => ({
+                ...prev,
+                [row.requirementId]: next,
+              }))
+            }
+            placeholder="Select one or more lenders..."
+          />
+          <p className="mt-2 text-[11px] text-slate-500">
+            Choose which funding lender(s) should receive this completed form.
+          </p>
+        </div>
+      );
+    }
 
     return (
-      <div className="mb-2 rounded-xl border border-emerald-200 bg-white p-3 dark:border-emerald-500/30 dark:bg-slate-950">
-        <MultiSelect
-          label="Forward to lenders"
-          options={forwardableLenderSelectOptions}
-          value={selectedIds}
-          onChange={(next) =>
-            setForwardLenderIdsByRequirement((prev) => ({
-              ...prev,
-              [row.requirementId]: next,
-            }))
-          }
-          placeholder="Select one or more lenders..."
-        />
+      <div className="mb-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100">
+        <p className="font-semibold">No eligible lenders on this application</p>
+        <p className="mt-1 leading-relaxed text-amber-800/90 dark:text-amber-200/90">
+          Submit this loan to at least one lender from{" "}
+          <span className="font-semibold">Lender Hub</span> first. Declined,
+          withdrawn, or already-approved lenders cannot receive documents.
+        </p>
+        <button
+          type="button"
+          onClick={() => void fetchForwardableLenders()}
+          className="mt-2 font-semibold text-amber-900 underline hover:no-underline dark:text-amber-100"
+        >
+          Refresh lender list
+        </button>
       </div>
     );
   };
@@ -1547,8 +1626,46 @@ export default function SignDocumentsPanel({
           {row.signStatus === "AWAITING_BROKER" && (
             <>
               <div className="mb-2 flex items-center gap-2 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                {row.workflowHint || "Awaiting broker to send to client"}
+                {row.workflowHint ||
+                  (row.signMode === "DYNAMIC_FORM"
+                    ? "Fill any fields you need, then send to the client"
+                    : "Flat PDF? Make it fillable (PDF24) or Map fields here, then send.")}
               </div>
+              {row.signMode === "DYNAMIC_FORM" && (
+                <button
+                  type="button"
+                  onClick={() => openBrokerTemplate(row)}
+                  className="mb-2 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-amber-200 bg-white px-4 py-2.5 text-sm font-semibold text-amber-800 transition hover:bg-amber-50 dark:border-amber-800 dark:bg-slate-950 dark:text-amber-200"
+                >
+                  <PenLine size={16} />
+                  Fill form fields
+                </button>
+              )}
+              {isBrokerUploadedDoc(row) && row.templateFileUrl && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setMappingDoc(row)}
+                    className="mb-2 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-teal-200 bg-teal-50 px-4 py-2.5 text-sm font-semibold text-teal-800 transition hover:bg-teal-100 dark:border-teal-800 dark:bg-teal-950/40 dark:text-teal-200"
+                  >
+                    <MousePointer2 size={16} />
+                    Map fields
+                  </button>
+                  {row.signMode !== "DYNAMIC_FORM" && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFillableHelpRow(row);
+                        setFillableHelpOpen(true);
+                      }}
+                      className="mb-2 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
+                    >
+                      <HelpCircle size={16} />
+                      How to make PDF fillable
+                    </button>
+                  )}
+                </>
+              )}
               <button
                 type="button"
                 disabled={isActionLoading}
@@ -2348,9 +2465,21 @@ export default function SignDocumentsPanel({
                   Upload a form
                 </h3>
                 <p className="mt-0.5 text-xs text-slate-500">
-                  Add a PDF or image to the e-signature workflow. Fillable
-                  fields are detected automatically when present.
+                  Prefer a <span className="font-medium">fillable</span> PDF
+                  (AcroForm). Flat PDFs: prepare with free PDF24, or upload and
+                  use Map fields.
                 </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFillableHelpRow(null);
+                    setFillableHelpOpen(true);
+                  }}
+                  className="mt-2 inline-flex items-center gap-1 text-[11px] font-semibold text-[#13538A] hover:underline"
+                >
+                  <HelpCircle size={12} />
+                  How to make a PDF fillable (PDF24)
+                </button>
               </div>
             </div>
           </div>
@@ -2695,7 +2824,7 @@ export default function SignDocumentsPanel({
                       <>
                         <div className="mb-3 max-w-lg">
                           <MultiSelect
-                            label="Select lenders"
+                            label="Select eligible lenders"
                             options={forwardableLenderSelectOptions}
                             value={bulkForwardLenderIds}
                             onChange={setBulkForwardLenderIds}
@@ -2705,7 +2834,10 @@ export default function SignDocumentsPanel({
                         </div>
                         <button
                           type="button"
-                          disabled={actionId === "bulk-forward"}
+                          disabled={
+                            actionId === "bulk-forward" ||
+                            bulkForwardLenderIds.length === 0
+                          }
                           onClick={() => void bulkForwardSelectedToLenders()}
                           className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
                         >
@@ -2718,9 +2850,22 @@ export default function SignDocumentsPanel({
                         </button>
                       </>
                     ) : (
-                      <p className="text-xs text-violet-700 dark:text-violet-300">
-                        No eligible lenders on this application.
-                      </p>
+                      <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100">
+                        <p className="font-semibold">
+                          No eligible lenders on this application
+                        </p>
+                        <p className="mt-1 leading-relaxed">
+                          Open Lender Hub and submit this loan to a lender first.
+                          Then refresh and select lenders here.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => void fetchForwardableLenders()}
+                          className="mt-2 font-semibold underline hover:no-underline"
+                        >
+                          Refresh lender list
+                        </button>
+                      </div>
                     )}
                   </div>
                 )}
@@ -2832,6 +2977,39 @@ export default function SignDocumentsPanel({
             }}
           />
         )}
+        {mappingDoc && submissionId && (
+          <SignFormFieldMapper
+            open={Boolean(mappingDoc)}
+            onClose={() => setMappingDoc(null)}
+            apiBase={apiBase}
+            getAuthHeaders={getAuthHeaders}
+            submissionId={submissionId}
+            apiRolePrefix={apiRolePrefix}
+            requirementId={mappingDoc.requirementId}
+            documentName={mappingDoc.documentName}
+            onPublished={(requirement) => {
+              setMappingDoc(null);
+              fetchRows();
+              onUpdated?.();
+              if (requirement) {
+                setFillingDoc(requirement as SignDocumentRow);
+              }
+            }}
+          />
+        )}
+        <MakeFillablePdfHelp
+          open={fillableHelpOpen}
+          onClose={() => {
+            setFillableHelpOpen(false);
+            setFillableHelpRow(null);
+          }}
+          showMapperCta={Boolean(fillableHelpRow?.templateFileUrl)}
+          onOpenMapper={
+            fillableHelpRow
+              ? () => setMappingDoc(fillableHelpRow)
+              : undefined
+          }
+        />
       </div>
     );
   };
@@ -2841,8 +3019,13 @@ export default function SignDocumentsPanel({
     const awaitingNewSignature = row.signStatus === "SENT_TO_CLIENT";
     const hasSigned =
       !awaitingNewSignature && Boolean(row.signedUpload?.fileUrl);
+    const actionNeeded = isClientActionNeeded(row);
+    const submitted = isClientFormSubmittedToBroker(row);
 
     if (!hasTemplate && !hasSigned) return null;
+
+    // Pending forms use the primary CTA below — avoid a duplicate "View form".
+    if (actionNeeded) return null;
 
     const actionClass =
       "inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border px-2.5 py-2 text-xs font-semibold transition min-w-0";
@@ -2860,16 +3043,17 @@ export default function SignDocumentsPanel({
                   )
                 : openBrokerTemplate(row)
             }
-            className={`${actionClass} border-slate-200 bg-white text-slate-700 hover:bg-slate-50`}
-            title={
-              row.signMode === "DYNAMIC_FORM"
-                ? isClientFormSubmittedToBroker(row)
-                  ? "View completed form"
-                  : "Open fillable form"
-                : "View template"
-            }
+            className={`${actionClass} ${
+              submitted
+                ? "border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
+                : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+            }`}
+            title={getClientDynamicFormActionLabel(row)}
           >
-            <Eye size={14} className="shrink-0 text-sky-600" />
+            <Eye
+              size={14}
+              className={`shrink-0 ${submitted ? "text-emerald-600" : "text-sky-600"}`}
+            />
             <span className="truncate">
               {getClientDynamicFormActionLabel(row)}
             </span>
@@ -2985,12 +3169,11 @@ export default function SignDocumentsPanel({
   };
 
   const renderClientDocumentCard = (row: SignDocumentRow) => {
-    const isPending =
-      row.signStatus === "SENT_TO_CLIENT" &&
-      row.clientBucket !== "waitingOnBroker";
+    const isPending = isClientActionNeeded(row);
     const brokerSheet = isBrokerTermSheetDoc(row);
     const standalone = isStandaloneBrokerTermSheet(row);
     const waitingBroker = row.clientBucket === "waitingOnBroker";
+    const submitted = isClientFormSubmittedToBroker(row);
 
     return (
       <article
@@ -3035,6 +3218,23 @@ export default function SignDocumentsPanel({
                 {row.signStatusLabel || row.signStatus || "-"}
               </span>
             </div>
+
+            {isPending ? (
+              <p className="mt-2 inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-1 text-[11px] font-semibold text-amber-800">
+                <PenLine size={12} className="shrink-0" />
+                {getClientNeedsActionHeadline(row)}
+              </p>
+            ) : waitingBroker ? (
+              <p className="mt-2 inline-flex items-center gap-1 rounded-md bg-sky-50 px-2 py-1 text-[11px] font-semibold text-sky-800">
+                <Clock size={12} className="shrink-0" />
+                No action needed — with your broker
+              </p>
+            ) : submitted ? (
+              <p className="mt-2 inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-1 text-[11px] font-semibold text-emerald-800">
+                <CheckCircle2 size={12} className="shrink-0" />
+                Submitted — no action needed
+              </p>
+            ) : null}
 
             {brokerSheet ? (
               <p className="mt-1.5 flex items-center gap-1 text-xs text-violet-700">
@@ -3095,7 +3295,7 @@ export default function SignDocumentsPanel({
               <PenLine size={15} />
               {row.signMode === "DYNAMIC_FORM"
                 ? fillFormCtaLabel(row)
-                  : "Review & Sign"}
+                : "Review & Sign"}
             </button>
           ) : (
             <div className="mt-auto">{renderClientStatusFooter(row)}</div>
@@ -3125,12 +3325,12 @@ export default function SignDocumentsPanel({
         ? "Sign Term Sheet"
         : "Sign Documents";
     const heroDescription = isSignFormsView
-      ? "Complete each lender form sent by your broker. Fill your assigned fields, sign where required, and submit. Your broker will review and forward completed copies to the lender."
+      ? "Forms marked “Your turn” need your action. Submitted and “with broker” forms are view-only — open them only to review your answers."
       : isStandaloneBrokerTermSheetHint()
         ? "Review your broker's term sheet carefully, add your signature, and submit. Supporting documents listed on the term sheet appear under Upload Documents."
         : isTermSheetView
           ? "Review your broker LOI / term sheet carefully, add your signature, and submit. Your broker may forward the signed copy to a lender."
-          : "Review each form, complete your fields or signature, and submit. Your broker will finish remaining fields if needed, then forward to the lender.";
+          : "Forms marked “Your turn” need your action. Completed forms show View submitted form so you can review only.";
     const heroTone = isSignFormsView
       ? "border-sky-100 bg-gradient-to-br from-sky-50 via-white to-blue-50"
       : isTermSheetView
