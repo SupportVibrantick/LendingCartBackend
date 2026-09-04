@@ -304,7 +304,7 @@ export default function GhlIntegration({ portal }: GhlIntegrationProps) {
     <>
       <PageMeta
         title="GoHighLevel Integration"
-        description="Your included GoHighLevel CRM for LendingCart"
+        description="Your included GoHighLevel CRM for Loan Automation"
       />
       <PageBreadcrumb pageTitle="GoHighLevel" />
 
@@ -343,7 +343,7 @@ export default function GhlIntegration({ portal }: GhlIntegrationProps) {
               <p className="mt-4 max-w-xl text-sm leading-relaxed text-blue-50/90 sm:text-[15px]">
                 {isLoanOfficerPortal
                   ? "Your broker organization has one GoHighLevel workspace. Broker admins and loan officers share the same CRM sub-account — login credentials are emailed when access is provisioned."
-                  : "Pro and Elite plans include a fully managed GoHighLevel workspace. LendingCart provisions your location, emails login credentials, and keeps your team in sync — no manual OAuth connect required."}
+                  : "Pro and Elite plans include a fully managed GoHighLevel workspace. Loan Automation provisions your location, emails login credentials, and keeps your team in sync — no manual OAuth connect required."}
               </p>
             </div>
 
@@ -486,7 +486,7 @@ export default function GhlIntegration({ portal }: GhlIntegrationProps) {
                           Website builder
                         </p>
                         <p className="text-xs text-slate-500">
-                          Manage sites from LendingCart
+                          Manage sites from Loan Automation
                         </p>
                       </div>
                     </div>

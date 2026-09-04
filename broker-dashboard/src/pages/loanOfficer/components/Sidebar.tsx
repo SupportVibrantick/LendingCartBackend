@@ -452,7 +452,7 @@ export default function Sidebar() {
             {isImpersonation ? "Close portal tab" : "Logout"}
           </button>
           <p className="text-center text-[10px] font-medium uppercase tracking-wider text-gray-400 dark:text-gray-600">
-            LendingCart Officer
+            Loan Automation Officer
           </p>
         </div>
       )}
