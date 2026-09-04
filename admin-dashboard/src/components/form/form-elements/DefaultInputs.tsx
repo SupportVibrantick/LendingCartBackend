@@ -13,8 +13,9 @@ export default function DefaultInputs() {
     { value: "template", label: "Template" },
     { value: "development", label: "Development" },
   ];
-  const handleSelectChange = (value: string) => {
-  };
+  const handleSelectChange = (
+    // value: string
+  ) => {};
 
   return (
     <ComponentCard title="Default Inputs">
@@ -61,9 +62,12 @@ export default function DefaultInputs() {
             id="date-picker"
             label="Date Picker Input"
             placeholder="Select a date"
-            onChange={(dates, currentDateString) => {
-              // Handle your logic
-            }}
+            onChange={() =>
+              // dates, currentDateString
+              {
+                // Handle your logic
+              }
+            }
           />
         </div>
 

@@ -177,11 +177,13 @@ const BrokersLenders: React.FC = () => {
   };
 
   const handleEdit = (lender: Lender) => {
+    console.log(lender);
+
     // open modal later if needed
   };
 
   const handleDelete = (lender: Lender) => {
-    // confirm + delete API later
+    console.log(lender);
   };
 
   const selectedBroker = brokers.find((b) => b.id === selectedBrokerId);
