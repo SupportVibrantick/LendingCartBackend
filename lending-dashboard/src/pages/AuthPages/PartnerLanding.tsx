@@ -13,8 +13,8 @@ export default function PartnerLanding() {
   return (
     <>
       <PageMeta
-        title="Become a Lending Partner | LendingCart"
-        description="Join LendingCart as a lending partner and start reviewing broker submissions."
+        title="Become a Lending Partner | Loan Automation"
+        description="Join Loan Automation as a lending partner and start reviewing broker submissions."
       />
       <AuthLayout>
         <div className="w-full">

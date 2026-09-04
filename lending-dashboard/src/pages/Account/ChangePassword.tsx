@@ -6,7 +6,7 @@ export default function ChangePassword() {
     <>
       <PageMeta
         title="Change Password | Lender Portal"
-        description="Change your LendingCart lender portal password"
+        description="Change your Loan Automation lender portal password"
       />
       <div className="p-4 md:p-6">
         <ChangePasswordForm />

@@ -376,8 +376,8 @@ export default function PartnerSignup() {
   return (
     <>
       <PageMeta
-        title="Partner Signup | LendingCart"
-        description="Create your LendingCart lender partner account"
+        title="Partner Signup | Loan Automation"
+        description="Create your Loan Automation lender partner account"
       />
       <AuthLayout wide>
         <div className="w-full">
