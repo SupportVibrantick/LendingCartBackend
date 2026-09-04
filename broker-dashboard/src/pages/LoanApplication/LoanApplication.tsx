@@ -5114,7 +5114,7 @@ focus:border-blue-500 outline-none text-sm ${
 
               {showPrivateDetails(
                 selectedProduct,
-                formData.loanRequest.purpose,
+                // formData.loanRequest.purpose,
               ) ? (
                 <div className="md:col-span-2">
                   <SaleDetailsCard
