@@ -156,7 +156,9 @@ export default function ClientAuth() {
                 className="h-full w-full object-cover"
               />
             </div>
-            <p className="text-base font-bold text-slate-900">Loan Automation</p>
+            <p className="text-base font-bold text-slate-900">
+              Loan Automation
+            </p>
             <p className="text-[10px] font-semibold uppercase tracking-wider text-blue-700">
               Client Portal
             </p>

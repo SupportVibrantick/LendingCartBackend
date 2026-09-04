@@ -1015,7 +1015,6 @@ const LoanApplication = ({
     const rule = getRuleForKey(fieldKey);
     if (rule) {
       const result = validateValue(value, rule);
-      console.log(result);
 
       setErrors((prev) => {
         const updated = { ...prev };
@@ -1048,8 +1047,6 @@ const LoanApplication = ({
     const rule = getRuleForKey(fieldKey);
     if (rule) {
       const result = validateValue(value, rule);
-      console.log(result);
-
       setErrors((prev) => {
         const updated = { ...prev };
         if (result.hasError) {
@@ -1393,11 +1390,7 @@ const LoanApplication = ({
       );
     }
     if (useResidentialBorrowerPanel) {
-      add(
-        "Borrower Email",
-        3,
-        !formData.borrower.email?.trim(),
-      );
+      add("Borrower Email", 3, !formData.borrower.email?.trim());
       const unanswered = countUnansweredDeclarations(
         formData.borrower.declarations,
       );
@@ -1450,7 +1443,9 @@ const LoanApplication = ({
       const feeErrors = validateOptionalFeeAgreementDraft(feeAgreementDraft);
       if (Object.keys(feeErrors).length > 0) {
         setErrors((prev) => ({ ...prev, ...feeErrors }));
-        toast.error("Please complete the fee agreement fields or skip the step");
+        toast.error(
+          "Please complete the fee agreement fields or skip the step",
+        );
         if (feeAgreementStepIndex >= 0) goToStep(feeAgreementStepIndex);
         return;
       }
@@ -1514,9 +1509,7 @@ const LoanApplication = ({
       }
 
       if (feeAgreementDraft.include) {
-        const feeErrors = validateOptionalFeeAgreementDraft(
-          feeAgreementDraft,
-        );
+        const feeErrors = validateOptionalFeeAgreementDraft(feeAgreementDraft);
         if (Object.keys(feeErrors).length > 0) {
           setErrors((prev) => ({ ...prev, ...feeErrors }));
           toast.error(
@@ -2822,71 +2815,68 @@ const LoanApplication = ({
     [useStandardSevenStepFlow, selectedCategory, selectedProduct, formData],
   );
 
-  const reviewSections = useMemo(
-    () => {
-      if (!useStandardSevenStepFlow) return [];
-      const sections = buildResidentialReviewSections({
-            loanRequest: formData.loanRequest,
-            entity: formData.entity,
-            borrower: formData.borrower,
-            financials: formData.financials,
-            pendingDocuments,
-            productLabel: selectedProductLabel,
-            selectedProduct,
-          });
-      if (includeFeeAgreementStep) {
-        sections.push({
-          stepIndex: feeAgreementStepIndex,
-          title: "Fee Agreement",
-          rows: feeAgreementDraft.include
-            ? [
-                {
-                  label: "Included",
-                  value: "Yes — will appear in client portal",
-                },
-                {
-                  label: "Broker Points",
-                  value: feeAgreementDraft.brokerPoints
-                    ? `${feeAgreementDraft.brokerPoints}%`
-                    : "—",
-                },
-                {
-                  label: "Upfront Fee",
-                  value: feeAgreementDraft.upfrontFee
-                    ? `$${feeAgreementDraft.upfrontFee}`
-                    : "—",
-                },
-                {
-                  label: "Exclusivity",
-                  value: feeAgreementDraft.exclusivityMonths
-                    ? `${feeAgreementDraft.exclusivityMonths} months`
-                    : "—",
-                },
-              ]
-            : [
-                {
-                  label: "Included",
-                  value: "Skipped (optional)",
-                },
-              ],
-        });
-      }
-      return sections;
-    },
-    [
-      useStandardSevenStepFlow,
-      includeFeeAgreementStep,
-      feeAgreementStepIndex,
-      feeAgreementDraft,
-      formData.loanRequest,
-      formData.entity,
-      formData.borrower,
-      formData.financials,
+  const reviewSections = useMemo(() => {
+    if (!useStandardSevenStepFlow) return [];
+    const sections = buildResidentialReviewSections({
+      loanRequest: formData.loanRequest,
+      entity: formData.entity,
+      borrower: formData.borrower,
+      financials: formData.financials,
       pendingDocuments,
-      selectedProductLabel,
+      productLabel: selectedProductLabel,
       selectedProduct,
-    ],
-  );
+    });
+    if (includeFeeAgreementStep) {
+      sections.push({
+        stepIndex: feeAgreementStepIndex,
+        title: "Fee Agreement",
+        rows: feeAgreementDraft.include
+          ? [
+              {
+                label: "Included",
+                value: "Yes — will appear in client portal",
+              },
+              {
+                label: "Broker Points",
+                value: feeAgreementDraft.brokerPoints
+                  ? `${feeAgreementDraft.brokerPoints}%`
+                  : "—",
+              },
+              {
+                label: "Upfront Fee",
+                value: feeAgreementDraft.upfrontFee
+                  ? `$${feeAgreementDraft.upfrontFee}`
+                  : "—",
+              },
+              {
+                label: "Exclusivity",
+                value: feeAgreementDraft.exclusivityMonths
+                  ? `${feeAgreementDraft.exclusivityMonths} months`
+                  : "—",
+              },
+            ]
+          : [
+              {
+                label: "Included",
+                value: "Skipped (optional)",
+              },
+            ],
+      });
+    }
+    return sections;
+  }, [
+    useStandardSevenStepFlow,
+    includeFeeAgreementStep,
+    feeAgreementStepIndex,
+    feeAgreementDraft,
+    formData.loanRequest,
+    formData.entity,
+    formData.borrower,
+    formData.financials,
+    pendingDocuments,
+    selectedProductLabel,
+    selectedProduct,
+  ]);
 
   const isReviewStep =
     useStandardSevenStepFlow && currentStep === reviewStepIndex;
@@ -5124,7 +5114,7 @@ focus:border-blue-500 outline-none text-sm ${
 
               {showPrivateDetails(
                 selectedProduct,
-                formData.loanRequest.purpose,
+                // formData.loanRequest.purpose,
               ) ? (
                 <div className="md:col-span-2">
                   <SaleDetailsCard
@@ -6603,23 +6593,24 @@ focus:border-blue-500 outline-none text-sm ${
             </div>
           )}
 
-          {currentStep === feeAgreementStepIndex && feeAgreementStepIndex >= 0 && (
-            <LoanApplicationFeeAgreementStep
-              draft={feeAgreementDraft}
-              errors={errors}
-              onChange={(next) => {
-                setFeeAgreementDraft(next);
-                setErrors((prev) => {
-                  const updated = { ...prev };
-                  delete updated["feeAgreement.brokerPoints"];
-                  delete updated["feeAgreement.upfrontFee"];
-                  delete updated["feeAgreement.exclusivityMonths"];
-                  return updated;
-                });
-              }}
-              stepNumber={currentStep + 1}
-            />
-          )}
+          {currentStep === feeAgreementStepIndex &&
+            feeAgreementStepIndex >= 0 && (
+              <LoanApplicationFeeAgreementStep
+                draft={feeAgreementDraft}
+                errors={errors}
+                onChange={(next) => {
+                  setFeeAgreementDraft(next);
+                  setErrors((prev) => {
+                    const updated = { ...prev };
+                    delete updated["feeAgreement.brokerPoints"];
+                    delete updated["feeAgreement.upfrontFee"];
+                    delete updated["feeAgreement.exclusivityMonths"];
+                    return updated;
+                  });
+                }}
+                stepNumber={currentStep + 1}
+              />
+            )}
 
           {/* step-6 — Review & Submit */}
           {isReviewStep && (
@@ -6731,9 +6722,8 @@ focus:border-blue-500 outline-none text-sm ${
                     currentStep === feeAgreementStepIndex &&
                     feeAgreementDraft.include
                   ) {
-                    const feeErrors = validateOptionalFeeAgreementDraft(
-                      feeAgreementDraft,
-                    );
+                    const feeErrors =
+                      validateOptionalFeeAgreementDraft(feeAgreementDraft);
                     if (Object.keys(feeErrors).length > 0) {
                       setErrors((prev) => ({ ...prev, ...feeErrors }));
                       toast.error(

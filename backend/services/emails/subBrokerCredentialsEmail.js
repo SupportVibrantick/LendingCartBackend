@@ -44,8 +44,8 @@ async function sendSubBrokerCredentialsEmail({
   });
 
   const subject = isPasswordReset
-    ? "Your LendingCart sub broker password has been reset"
-    : "Your LendingCart sub broker account";
+    ? "Your Loan Automation sub broker password has been reset"
+    : "Your Loan Automation sub broker account";
   const greeting = isPasswordReset
     ? "Your sub broker account password has been reset."
     : "You have been added as a sub broker.";
@@ -64,7 +64,7 @@ Sign in at: ${loginUrl}
 
 ${footer}
 
-— LendingCart`;
+— Loan Automation`;
 
   return enqueueEmail({
     prisma,

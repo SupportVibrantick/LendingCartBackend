@@ -506,7 +506,7 @@ const AppSidebar: React.FC = () => {
       {(isExpanded || isHovered || isMobileOpen) && (
         <div className="shrink-0 border-t border-gray-100 px-4 py-3 dark:border-gray-800">
           <p className="text-center text-[10px] font-medium uppercase tracking-wider text-gray-400 dark:text-gray-600">
-            LendingCart Broker
+            Loan Automation Broker
           </p>
         </div>
       )}

@@ -310,8 +310,6 @@ export default function CoBrokerFormModal({
       }
 
       const hasFiles = Boolean(files.logo || files.w9);
-      console.log("co-broker submit body:", body, "files:", files);
-
       let requestBody: BodyInit;
       const headers: Record<string, string> = {
         Authorization: `Bearer ${token}`,
@@ -992,8 +990,8 @@ export default function CoBrokerFormModal({
                   </h3>
 
                   <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
-                    Assigned to Branch(s): No branches available. Please create a
-                    branch first.
+                    Assigned to Branch(s): No branches available. Please create
+                    a branch first.
                     <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">
                       Branch linking will be available once branches are
                       configured.

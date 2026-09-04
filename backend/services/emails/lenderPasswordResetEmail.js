@@ -31,7 +31,7 @@ ${resetUrl}
 
 If you did not request this, you can ignore this email.
 
-— LendingCart`;
+— Loan Automation`;
 
   return enqueueEmail({
     prisma,

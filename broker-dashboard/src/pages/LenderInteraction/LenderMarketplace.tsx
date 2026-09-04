@@ -1026,7 +1026,7 @@ export default function LenderMarketplace() {
                 <EmptyState
                   icon={<UserPlus size={28} className="text-slate-400" />}
                   title="No lender submissions yet"
-                  subtitle="Add your own lender to invite them to complete their profile on LendingCart."
+                  subtitle="Add your own lender to invite them to complete their profile on Loan Automation."
                   action={
                     canAddOwnLender ? (
                       <button

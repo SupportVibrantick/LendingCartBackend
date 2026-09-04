@@ -541,8 +541,6 @@ export const showValuationCostEquity = (
   product: string,
   purpose: string
 ) => {
-  console.log("product ->", product);
-  console.log("purpose ->", purpose);
   if (
     (purpose === "Refinance & Rehab" && product === "FIX_AND_FLIP_LOAN_1_TO_4_UNITS") ||
     (purpose === "Refinance" && product === "CONSTRUCTION_LOAN_1_TO_4_UNITS") ||
@@ -640,9 +638,8 @@ export const showValuationEquityBlock = (product: string, purpose: string) => {
 };
 
 
-export const showPrivateDetails = (product: string, purpose: string) => {
-  console.log("purpose ", purpose);
-  console.log("product ", product);
+export const showPrivateDetails = (product: string,) => {
+
   if (product === "CONSTRUCTION_LOAN_1_TO_4_UNITS") {
     return false
   }

@@ -457,7 +457,6 @@ export default function AllLendersPage() {
         title: "Failed",
         text: "Could not delete lender. Try again.",
       });
-      console.log(err);
     } finally {
       setRowLoadingId(null);
     }
