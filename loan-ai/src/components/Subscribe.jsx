@@ -227,7 +227,7 @@ export default function SubscribePage() {
       <AuthPageHeader />
 
       <div className="relative z-10 max-w-2xl mx-auto px-6 py-12">
-        <h1 className="text-3xl font-bold mb-2">Subscribe to LendingCart</h1>
+        <h1 className="text-3xl font-bold mb-2">Subscribe to Loan Automation</h1>
 
         {user?.hasBrokerSubscription ? (
           <div className="space-y-4 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl p-6 backdrop-blur-xl">
