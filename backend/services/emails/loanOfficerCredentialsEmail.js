@@ -44,8 +44,8 @@ async function sendLoanOfficerCredentialsEmail({
   });
 
   const subject = isPasswordReset
-    ? "Your LendingCart loan officer password has been reset"
-    : "Your LendingCart loan officer account";
+    ? "Your Loan Automation loan officer password has been reset"
+    : "Your Loan Automation loan officer account";
   const greeting = isPasswordReset
     ? "Your loan officer account password has been reset."
     : "You have been added as a loan officer.";
@@ -64,7 +64,7 @@ Sign in at: ${loginUrl}
 
 ${footer}
 
-— LendingCart`;
+— Loan Automation`;
 
   return enqueueEmail({
     prisma,
