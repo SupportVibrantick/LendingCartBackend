@@ -20,7 +20,7 @@ async function sendBrokerCredentialsEmail({
     currentYear: new Date().getFullYear(),
   });
 
-  const subject = "Your LendingCart broker dashboard credentials";
+  const subject = "Your Loan Automation broker dashboard credentials";
   const text = `Hello ${adminFirstName},
 
 Your broker account for ${organizationName} is ready.
@@ -32,7 +32,7 @@ Sign in at: ${loginUrl}
 
 Please change your password after your first login. This password is only for the broker dashboard — it is separate from your Loan AI website login.
 
-— LendingCart`;
+— Loan Automation`;
 
   return enqueueEmail({
     prisma,

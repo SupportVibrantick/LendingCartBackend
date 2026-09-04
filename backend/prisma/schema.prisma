@@ -2185,7 +2185,7 @@ enum OrganizationGhlAgencyUserStatus {
   ERROR
 }
 
-/// LendingCart UserAccount ↔ Agency GHL team-user mapping.
+/// Loan Automation UserAccount ↔ Agency GHL team-user mapping.
 /// Used by read-only reconciliation and by Agency team-user provisioning.
 /// Separate from OrganizationGhlAgencyLocation (org→location) and OrganizationGhlConnection (OAuth).
 model OrganizationGhlAgencyUser {
