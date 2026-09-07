@@ -52,37 +52,31 @@ runEmailConsumerKafka().catch((error) => {
 
 app.register(helmet);
 
-// app.register(async (instance) => {
-//   const redisClient = await getSharedRedisClient();
-//   instance.register(rateLimit, {
-    // Don't auto-limit every route — only routes that set config.rateLimit
-    // global: false,
-    // redis: redisClient,
-    // Use the same IP extraction as the custom checkRateLimit helper so
-    // proxy headers (x-forwarded-for, x-real-ip, cf-connecting-ip) are
-    // honored even when trustProxy behavior differs from request.ip.
-//     keyGenerator: (request) => getClientIp(request),
-//   });
-// }, { name: 'rate-limit-plugin' });
+app.register(rateLimit, {
+  global: false,
 
-// app.register(cors, {
-//   origin: (origin, cb) => {
-//     const allowedOrigins = process.env.CORS_ORIGINS
-//       ? process.env.CORS_ORIGINS.split(",").map((o) => o.trim())
-//       : [];
-
-//     if (!origin || allowedOrigins.includes(origin)) {
-//       cb(null, true);
-//     } else {
-//       cb(new Error(`The CORS origin ${origin} is not allowed`), false);
-//     }
-//   },
-//   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-//   credentials: true,
-// });
+  keyGenerator: (request) => {
+    const ip = getClientIp(request);
+    // console.log({
+    //   clientIp: ip,
+    //   method: request.method,
+    //   url: request.url,
+    // });
+    return ip;
+  },
+});
 
 app.register(cors, {
-  origin: "*",
+  origin: (origin, cb) => {
+    const allowedOrigins = process.env.CORS_ORIGINS
+      ? process.env.CORS_ORIGINS.split(",").map((o) => o.trim())
+      : [];
+    if (!origin || allowedOrigins.includes(origin)) {
+      cb(null, true);
+    } else {
+      cb(new Error(`The CORS origin ${origin} is not allowed`), false);
+    }
+  },
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
   credentials: true,
 });
@@ -194,33 +188,33 @@ app.setErrorHandler((error, request, reply) => {
     });
   }
 
-    // Determine if we should return JSON or HTML
-    const isApiRequest =
-      request.url.startsWith("/api") ||
-      request.headers["accept"]?.includes("application/json") ||
-      request.url.includes("/auth") ||
-      request.url.includes("/login");
+  // Determine if we should return JSON or HTML
+  const isApiRequest =
+    request.url.startsWith("/api") ||
+    request.headers["accept"]?.includes("application/json") ||
+    request.url.includes("/auth") ||
+    request.url.includes("/login");
 
-    if (isApiRequest) {
-      const statusCode = error.statusCode || error.status || 500;
-      const isProduction = process.env.NODE_ENV === "production";
+  if (isApiRequest) {
+    const statusCode = error.statusCode || error.status || 500;
+    const isProduction = process.env.NODE_ENV === "production";
 
-      const response = {
-        success: false,
-        message:
-          statusCode === 500 && isProduction
-            ? "An internal server error occurred"
-            : error.message || "Internal Server Error",
-      };
+    const response = {
+      success: false,
+      message:
+        statusCode === 500 && isProduction
+          ? "An internal server error occurred"
+          : error.message || "Internal Server Error",
+    };
 
-      if (!isProduction && error.stack) {
-        response.stack = error.stack;
-      }
-
-      return reply.status(statusCode).send(response);
+    if (!isProduction && error.stack) {
+      response.stack = error.stack;
     }
 
-    // Handle http-errors (from createError)
+    return reply.status(statusCode).send(response);
+  }
+
+  // Handle http-errors (from createError)
   if (error.status) {
     commonLogs.warn("Client error", {
       status: error.status,
@@ -269,9 +263,10 @@ app.setErrorHandler((error, request, reply) => {
   });
 
   return reply.status(error.statusCode || 500).view("error.pug", {
-    message: error.statusCode === 500 && process.env.NODE_ENV === "production"
-      ? "An internal server error occurred"
-      : error.message || "Internal Server Error",
+    message:
+      error.statusCode === 500 && process.env.NODE_ENV === "production"
+        ? "An internal server error occurred"
+        : error.message || "Internal Server Error",
     error: {
       status: error.statusCode || 500,
       stack:
