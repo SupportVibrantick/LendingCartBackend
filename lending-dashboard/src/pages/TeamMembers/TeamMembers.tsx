@@ -1,9 +1,16 @@
-import { Info, Pencil, Plus, Trash2, Users, X } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { ExternalLink, Info, MoreVertical, Pencil, Plus, Trash2, Users, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { MouseEvent as ReactMouseEvent } from "react";
+import { createPortal } from "react-dom";
 import toast from "react-hot-toast";
 import Swal from "sweetalert2";
 import PageMeta from "../../components/common/PageMeta";
+import { buildImpersonatePortalUrl } from "../../lib/impersonateUrl";
 import { lenderFetch } from "../../lib/lenderApi";
+import {
+  ROLE_CAPABILITY_LABELS,
+  canManageTeam,
+} from "../../lib/lenderPermissions";
 import {
   LENDER_TEAM_ROLE_OPTIONS,
   type LenderTeamMember,
@@ -14,7 +21,6 @@ import {
   formatTeamMemberName,
   getMemberInitials,
   getRoleOption,
-  isLenderAdminUser,
   roleBadgeClass,
   statusBadgeClass,
 } from "../../lib/lenderTeamMembers";
@@ -40,7 +46,7 @@ const emptyInviteForm = (): InviteForm => ({
 });
 
 export default function TeamMembers() {
-  const isAdmin = isLenderAdminUser();
+  const canManage = canManageTeam();
   const [members, setMembers] = useState<LenderTeamMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -53,6 +59,10 @@ export default function TeamMembers() {
     lastName: "",
     role: "LENDER_VIEWER",
   });
+  const [accessingId, setAccessingId] = useState<string | null>(null);
+  const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+  const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
+  const menuRef = useRef<HTMLDivElement | null>(null);
 
   const selectedInviteRole = useMemo(
     () => getRoleOption(inviteForm.role),
@@ -61,6 +71,16 @@ export default function TeamMembers() {
 
   const selectedEditRole = useMemo(
     () => getRoleOption(editForm.role),
+    [editForm.role],
+  );
+
+  const inviteCapabilities = useMemo(
+    () => ROLE_CAPABILITY_LABELS[inviteForm.role] || [],
+    [inviteForm.role],
+  );
+
+  const editCapabilities = useMemo(
+    () => ROLE_CAPABILITY_LABELS[editForm.role] || [],
     [editForm.role],
   );
 
@@ -77,6 +97,25 @@ export default function TeamMembers() {
     }
   }, []);
 
+  const activeAdminCount = useMemo(
+    () =>
+      members.filter(
+        (m) =>
+          m.role === "LENDER_ADMIN" &&
+          String(m.status || "").toUpperCase() === "ACTIVE",
+      ).length,
+    [members],
+  );
+
+  const isLastActiveAdmin = (member: LenderTeamMember | null) => {
+    if (!member) return false;
+    return (
+      member.role === "LENDER_ADMIN" &&
+      String(member.status || "").toUpperCase() === "ACTIVE" &&
+      activeAdminCount <= 1
+    );
+  };
+
   const sortedMembers = useMemo(() => {
     return [...members].sort((a, b) => {
       const aIsCurrent = Boolean(currentUserId) && a.id === currentUserId;
@@ -90,6 +129,88 @@ export default function TeamMembers() {
       return 0;
     });
   }, [members, currentUserId]);
+
+  const activeMenuMember = useMemo(
+    () => members.find((m) => m.id === activeMenuId) ?? null,
+    [members, activeMenuId],
+  );
+
+  const closeRowMenu = () => setActiveMenuId(null);
+
+  const openRowMenu = (
+    memberId: string,
+    event: ReactMouseEvent<HTMLButtonElement>,
+  ) => {
+    event.stopPropagation();
+    const rect = event.currentTarget.getBoundingClientRect();
+    const menuWidth = 180;
+    const estimatedHeight = 160;
+    const gap = 6;
+
+    let left = rect.right - menuWidth;
+    let top = rect.bottom + gap;
+
+    left = Math.max(8, Math.min(left, window.innerWidth - menuWidth - 8));
+    if (top + estimatedHeight > window.innerHeight - 8) {
+      top = Math.max(8, rect.top - estimatedHeight - gap);
+    }
+
+    setMenuPos({ top, left });
+    setActiveMenuId((prev) => (prev === memberId ? null : memberId));
+  };
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (
+        menuRef.current?.contains(target) ||
+        (target instanceof Element && target.closest("[data-menu-id]"))
+      ) {
+        return;
+      }
+      setActiveMenuId(null);
+    };
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setActiveMenuId(null);
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleEscape);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!activeMenuId) return;
+
+    const reposition = () => {
+      const trigger = document.querySelector(
+        `[data-menu-id="${activeMenuId}"]`,
+      ) as HTMLElement | null;
+      if (!trigger) return;
+      const rect = trigger.getBoundingClientRect();
+      const menuWidth = 180;
+      const estimatedHeight = menuRef.current?.offsetHeight || 160;
+      const gap = 6;
+      let left = rect.right - menuWidth;
+      let top = rect.bottom + gap;
+      left = Math.max(8, Math.min(left, window.innerWidth - menuWidth - 8));
+      if (top + estimatedHeight > window.innerHeight - 8) {
+        top = Math.max(8, rect.top - estimatedHeight - gap);
+      }
+      setMenuPos({ top, left });
+    };
+
+    window.addEventListener("resize", reposition);
+    window.addEventListener("scroll", reposition, true);
+    return () => {
+      window.removeEventListener("resize", reposition);
+      window.removeEventListener("scroll", reposition, true);
+    };
+  }, [activeMenuId]);
 
   const fetchMembers = async () => {
     try {
@@ -108,12 +229,62 @@ export default function TeamMembers() {
   };
 
   useEffect(() => {
-    if (isAdmin) {
+    if (canManage) {
       fetchMembers();
     } else {
       setLoading(false);
     }
-  }, [isAdmin]);
+  }, [canManage]);
+
+  const handleAccessDashboard = async (member: LenderTeamMember) => {
+    if (member.id === currentUserId) {
+      toast.error("You are already signed in as this user");
+      return;
+    }
+
+    if (String(member.status || "").toUpperCase() !== "ACTIVE") {
+      toast.error("Only active team members can be accessed");
+      return;
+    }
+
+    try {
+      setAccessingId(member.id);
+      const json = await lenderFetch<{
+        success: boolean;
+        token: string;
+        user: Record<string, unknown>;
+        redirectTo?: string;
+        message?: string;
+      }>(`/lender/users/${member.id}/impersonate`, {
+        method: "POST",
+      });
+
+      if (!json?.token) {
+        throw new Error(json?.message || "Failed to access dashboard");
+      }
+
+      const impersonateParams: Record<string, string> = {
+        token: json.token,
+        user: JSON.stringify(json.user || {}),
+        redirectTo: json.redirectTo || "/",
+      };
+
+      const url = buildImpersonatePortalUrl("/impersonate", impersonateParams);
+      const popup = window.open(url, "_blank", "noopener,noreferrer");
+      if (!popup) {
+        toast.error("Pop-up blocked. Allow pop-ups to open the member dashboard.");
+        return;
+      }
+
+      toast.success(
+        `Opened dashboard for ${formatTeamMemberName(member)}`,
+      );
+    } catch (error: any) {
+      toast.error(error.message || "Failed to access team member dashboard");
+    } finally {
+      setAccessingId(null);
+    }
+  };
 
   const openEditModal = (member: LenderTeamMember) => {
     setEditingMember(member);
@@ -167,6 +338,25 @@ export default function TeamMembers() {
       return;
     }
 
+    if (
+      isLastActiveAdmin(editingMember) &&
+      editForm.role !== "LENDER_ADMIN"
+    ) {
+      toast.error(
+        "Cannot demote the last active admin. Promote another admin first.",
+      );
+      return;
+    }
+
+    if (
+      editingMember.id === currentUserId &&
+      editingMember.role === "LENDER_ADMIN" &&
+      editForm.role !== "LENDER_ADMIN"
+    ) {
+      toast.error("You cannot remove your own admin access");
+      return;
+    }
+
     try {
       setSubmitting(true);
       await lenderFetch(`/lender/users/${editingMember.id}`, {
@@ -191,6 +381,13 @@ export default function TeamMembers() {
   };
 
   const handleDelete = async (member: LenderTeamMember) => {
+    if (isLastActiveAdmin(member)) {
+      toast.error(
+        "Cannot remove the last active admin. Promote another admin first.",
+      );
+      return;
+    }
+
     const isDark = document.documentElement.classList.contains("dark");
     const memberName = formatTeamMemberName(member);
 
@@ -249,7 +446,7 @@ export default function TeamMembers() {
     }
   };
 
-  if (!isAdmin) {
+  if (!canManage) {
     return (
       <>
         <PageMeta
@@ -260,7 +457,7 @@ export default function TeamMembers() {
           <Users className="mx-auto mb-3 h-10 w-10 text-slate-400" />
           <h1 className="text-lg font-semibold text-slate-800">Access restricted</h1>
           <p className="mt-2 text-sm text-slate-500">
-            Only lender admins can manage team members.
+            Only lender admins can manage team members and permissions.
           </p>
         </div>
       </>
@@ -279,7 +476,7 @@ export default function TeamMembers() {
           <div>
             <h1 className="text-2xl font-bold text-slate-900">Team Members</h1>
             <p className="mt-1 text-sm text-slate-500">
-              Manage who has access to your Lender Portal 
+              Manage who has access to your Lender Portal
             </p>
           </div>
 
@@ -295,13 +492,26 @@ export default function TeamMembers() {
 
         <div className="flex gap-3 rounded-2xl border border-sky-100 bg-sky-50 px-4 py-3 text-sm text-sky-900">
           <Info className="mt-0.5 h-4 w-4 shrink-0 text-sky-600" />
-          <p>
-            <strong>Admin</strong> users have full portal access.{" "}
-            <strong>Underwriters</strong> can review deals, request documents,
-            approve or decline, generate LOI, and chat with brokers.{" "}
-            <strong>Analysts</strong> can review deals, request documents, and
-            chat with brokers. <strong>Viewers</strong> have read-only access.
-          </p>
+          <div className="space-y-1.5">
+            <p>
+              Roles control what each member can do in the Lender Portal.
+              Permissions are enforced on every action.
+            </p>
+            <ul className="grid gap-1 text-xs text-sky-800 sm:grid-cols-2">
+              <li>
+                <strong>Admin</strong> — full access + team / settings
+              </li>
+              <li>
+                <strong>Underwriter</strong> — decide, LOI, sign docs, chat
+              </li>
+              <li>
+                <strong>Analyst</strong> — request docs + chat (no decide/LOI)
+              </li>
+              <li>
+                <strong>Viewer</strong> — read-only (no mutations or chat)
+              </li>
+            </ul>
+          </div>
         </div>
 
         <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -380,25 +590,21 @@ export default function TeamMembers() {
                         {formatTeamDateTime(member.lastLoginAt)}
                       </td>
                       <td className="px-5 py-4">
-                        <div className="flex justify-end gap-2">
+                        <div className="flex justify-end">
                           <button
                             type="button"
-                            onClick={() => openEditModal(member)}
-                            className="rounded-lg border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-50 hover:text-slate-800"
-                            title="Edit member"
+                            data-menu-id={member.id}
+                            onClick={(event) => openRowMenu(member.id, event)}
+                            className={`inline-flex h-8 w-8 items-center justify-center rounded-lg border transition ${
+                              activeMenuId === member.id
+                                ? "border-[#183b57]/30 bg-[#183b57]/5 text-[#183b57]"
+                                : "border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-800"
+                            }`}
+                            title="More actions"
+                            aria-label="Open actions menu"
                           >
-                            <Pencil size={16} />
+                            <MoreVertical className="h-4 w-4" />
                           </button>
-                          {!isCurrentUser ? (
-                            <button
-                              type="button"
-                              onClick={() => handleDelete(member)}
-                              className="rounded-lg border border-rose-200 p-2 text-rose-500 transition hover:bg-rose-50 hover:text-rose-700"
-                              title="Remove member"
-                            >
-                              <Trash2 size={16} />
-                            </button>
-                          ) : null}
                         </div>
                       </td>
                     </tr>
@@ -410,6 +616,81 @@ export default function TeamMembers() {
           </div>
         </div>
       </div>
+
+      {activeMenuMember &&
+        activeMenuId &&
+        createPortal(
+          <div
+            ref={menuRef}
+            style={{ position: "fixed", top: menuPos.top, left: menuPos.left }}
+            className="z-[9999] w-[180px] overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg"
+          >
+            <div className="border-b border-slate-100 px-3 py-2">
+              <p className="truncate text-[11px] font-semibold text-slate-900">
+                {formatTeamMemberName(activeMenuMember)}
+              </p>
+              <p className="truncate text-[10px] text-slate-500">
+                {activeMenuMember.email}
+              </p>
+            </div>
+
+            <div className="py-0.5">
+              {Boolean(currentUserId) &&
+              activeMenuMember.id !== currentUserId &&
+              String(activeMenuMember.status || "").toUpperCase() ===
+                "ACTIVE" ? (
+                <button
+                  type="button"
+                  disabled={accessingId === activeMenuMember.id}
+                  onClick={() => {
+                    closeRowMenu();
+                    void handleAccessDashboard(activeMenuMember);
+                  }}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-xs text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
+                >
+                  <ExternalLink className="h-3.5 w-3.5 text-cyan-600" />
+                  {accessingId === activeMenuMember.id
+                    ? "Opening..."
+                    : "Access dashboard"}
+                </button>
+              ) : null}
+
+              <button
+                type="button"
+                onClick={() => {
+                  closeRowMenu();
+                  openEditModal(activeMenuMember);
+                }}
+                className="flex w-full items-center gap-2 px-3 py-2 text-xs text-slate-700 transition hover:bg-slate-50"
+              >
+                <Pencil className="h-3.5 w-3.5 text-amber-600" />
+                Edit member
+              </button>
+
+              {Boolean(currentUserId) &&
+              activeMenuMember.id !== currentUserId ? (
+                <button
+                  type="button"
+                  disabled={isLastActiveAdmin(activeMenuMember)}
+                  onClick={() => {
+                    closeRowMenu();
+                    void handleDelete(activeMenuMember);
+                  }}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-xs text-rose-600 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-40"
+                  title={
+                    isLastActiveAdmin(activeMenuMember)
+                      ? "Cannot remove the last active admin"
+                      : "Remove member"
+                  }
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Remove member
+                </button>
+              ) : null}
+            </div>
+          </div>,
+          document.body,
+        )}
 
       {inviteOpen && (
         <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/40 p-4">
@@ -494,6 +775,16 @@ export default function TeamMembers() {
                     {selectedInviteRole.description}
                   </p>
                 )}
+                {inviteCapabilities.length > 0 && (
+                  <ul className="mt-3 space-y-1 rounded-xl border border-slate-100 bg-slate-50 px-3 py-2.5 text-xs text-slate-600">
+                    {inviteCapabilities.map((item) => (
+                      <li key={item} className="flex gap-2">
+                        <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-[#183b57]" />
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
             </div>
 
@@ -568,13 +859,18 @@ export default function TeamMembers() {
                 </label>
                 <select
                   value={editForm.role}
+                  disabled={
+                    (editingMember.id === currentUserId &&
+                      editingMember.role === "LENDER_ADMIN") ||
+                    isLastActiveAdmin(editingMember)
+                  }
                   onChange={(e) =>
                     setEditForm({
                       ...editForm,
                       role: e.target.value as LenderTeamRole,
                     })
                   }
-                  className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#183b57] focus:ring-2 focus:ring-brand-100"
+                  className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#183b57] focus:ring-2 focus:ring-brand-100 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-500"
                 >
                   {LENDER_TEAM_ROLE_OPTIONS.map((option) => (
                     <option key={option.value} value={option.value}>
@@ -586,6 +882,27 @@ export default function TeamMembers() {
                   <p className="mt-2 text-xs text-slate-500">
                     {selectedEditRole.description}
                   </p>
+                )}
+                {editingMember.id === currentUserId &&
+                editingMember.role === "LENDER_ADMIN" ? (
+                  <p className="mt-2 text-xs text-amber-700">
+                    You cannot demote your own admin account.
+                  </p>
+                ) : isLastActiveAdmin(editingMember) ? (
+                  <p className="mt-2 text-xs text-amber-700">
+                    This is the last active admin. Promote another admin before
+                    changing this role.
+                  </p>
+                ) : null}
+                {editCapabilities.length > 0 && (
+                  <ul className="mt-3 space-y-1 rounded-xl border border-slate-100 bg-slate-50 px-3 py-2.5 text-xs text-slate-600">
+                    {editCapabilities.map((item) => (
+                      <li key={item} className="flex gap-2">
+                        <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-[#183b57]" />
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
                 )}
               </div>
             </div>

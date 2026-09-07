@@ -1,4 +1,4 @@
-import { getLenderRoles, isLenderAdminUser } from "./lenderTeamMembers";
+import { getLenderRoles, isLenderAdminUser, type LenderTeamRole } from "./lenderTeamMembers";
 
 export const LENDER_PERMISSION = {
   MARK_NOTIFICATIONS_READ: "MARK_NOTIFICATIONS_READ",
@@ -17,7 +17,7 @@ export const LENDER_PERMISSION = {
   MANAGE_PORTAL: "MANAGE_PORTAL",
 } as const;
 
-type LenderPermission =
+export type LenderPermission =
   (typeof LENDER_PERMISSION)[keyof typeof LENDER_PERMISSION];
 
 type RolePermissions = LenderPermission[] | "*";
@@ -41,6 +41,35 @@ const ROLE_PERMISSIONS: Record<string, RolePermissions> = {
   LENDER_VIEWER: [LENDER_PERMISSION.MARK_NOTIFICATIONS_READ],
 };
 
+/** Human-readable capability labels for team invite/edit UI. */
+export const ROLE_CAPABILITY_LABELS: Record<LenderTeamRole, string[]> = {
+  LENDER_ADMIN: [
+    "Full portal access",
+    "Manage team members & roles",
+    "Manage loan programs, brokers, documents, branding",
+    "Approve / decline deals, LOI, sign docs, chat",
+  ],
+  LENDER_UNDERWRITER: [
+    "View pipeline & deal details",
+    "Approve / decline applications",
+    "Request documents",
+    "Generate & send LOI",
+    "Upload / manage sign documents",
+    "Chat with brokers",
+  ],
+  LENDER_ANALYST: [
+    "View pipeline & deal details",
+    "Request supporting documents",
+    "Chat with brokers",
+    "Cannot approve/decline or generate LOI",
+  ],
+  LENDER_VIEWER: [
+    "View pipeline & deal details (read-only)",
+    "Mark notifications as read",
+    "Cannot change deals, chat, or manage settings",
+  ],
+};
+
 function roleHasPermission(roleName: string, permission: LenderPermission) {
   const permissions = ROLE_PERMISSIONS[roleName];
   if (!permissions) return false;
@@ -53,6 +82,17 @@ export function hasLenderPermission(permission: LenderPermission): boolean {
 
   const roles = getLenderRoles();
   return roles.some((role) => roleHasPermission(role, permission));
+}
+
+export function getPermissionsForRole(role: string): RolePermissions {
+  return ROLE_PERMISSIONS[role] || [];
+}
+
+export function roleGrantsPermission(
+  role: string,
+  permission: LenderPermission,
+): boolean {
+  return roleHasPermission(role, permission);
 }
 
 export function canDecideApplications(): boolean {
@@ -93,6 +133,14 @@ export function canManageLenderProfile(): boolean {
 
 export function canManageTeam(): boolean {
   return hasLenderPermission(LENDER_PERMISSION.MANAGE_TEAM);
+}
+
+export function canManageBrokers(): boolean {
+  return hasLenderPermission(LENDER_PERMISSION.MANAGE_BROKERS);
+}
+
+export function canManageEligibility(): boolean {
+  return hasLenderPermission(LENDER_PERMISSION.MANAGE_ELIGIBILITY);
 }
 
 /** @deprecated Use specific permission helpers instead */

@@ -7,6 +7,7 @@ const validateResetToken = require("./validateResetToken");
 const resetPassword = require("./resetPassword");
 const changePassword = require("./changePassword");
 const verifyEmail = require("./verifyEmail");
+const stopImpersonation = require("./stopImpersonation");
 
 async function lenderAuthRoutes(fastify) {
   fastify.register(login, { prefix: "/login" });
@@ -16,6 +17,7 @@ async function lenderAuthRoutes(fastify) {
   fastify.register(validateResetToken, { prefix: "/reset-password/validate" });
   fastify.register(resetPassword, { prefix: "/reset-password" });
   fastify.register(changePassword, { prefix: "/change-password" });
+  fastify.register(stopImpersonation);
   fastify.register(me);
   fastify.register(updateProfileRoutes);
 }

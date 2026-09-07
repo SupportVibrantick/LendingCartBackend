@@ -22,7 +22,7 @@ import {
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router";
+import { useLocation, useNavigate, useSearchParams } from "react-router";
 import { createPortal } from "react-dom";
 import toast from "react-hot-toast";
 // import Swal from "sweetalert2";
@@ -32,6 +32,7 @@ import ViewLoanOfficerModal from "./ViewLoanOfficerModal";
 import { formatPhone, normalizeLoanOfficerPermissions, LO_HIDDEN_PERMISSION_KEYS, countGrantedLoPermissionUiSlots, getLoPermissionUiSlotTotal } from "./loanOfficerShared";
 import { buildImpersonatePortalUrl } from "../../lib/impersonateUrl";
 import LoanOfficerFormModal from "../../components/loanOfficer/LoanOfficerFormModal";
+import { LoanOfficerActivityPanel } from "./LoanOfficerActivity";
 
 export { LO_PERMISSION_CATEGORIES as PERMISSIONS } from "./loanOfficerShared";
 
@@ -301,10 +302,16 @@ function StatChip({
   );
 }
 
+type OfficersPageTab = "officers" | "activity";
+
 export default function LoanOfficersPage() {
+  const location = useLocation();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const initialQuery = searchParams.get("q") || "";
+  const activeTab: OfficersPageTab =
+    searchParams.get("tab") === "activity" ? "activity" : "officers";
+  const [activityOfficerId, setActivityOfficerId] = useState("");
   const [officers, setOfficers] = useState<LoanOfficer[]>([]);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
@@ -317,6 +324,40 @@ export default function LoanOfficersPage() {
     disabled: 0,
   });
   const [search, setSearch] = useState(initialQuery);
+
+  // Strip legacy ?officer= from the URL; keep selection in React state only.
+  useEffect(() => {
+    if (!searchParams.has("officer")) return;
+    const legacyOfficer = searchParams.get("officer") || "";
+    if (legacyOfficer) setActivityOfficerId(legacyOfficer);
+    const next = new URLSearchParams(searchParams);
+    next.delete("officer");
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
+
+  // Prefer navigation state when opening Activity from redirect/menu.
+  useEffect(() => {
+    const fromState = (location.state as { officerId?: string } | null)?.officerId;
+    if (!fromState) return;
+    setActivityOfficerId(fromState);
+    navigate(`${location.pathname}${location.search}`, {
+      replace: true,
+      state: null,
+    });
+  }, [location.state, location.pathname, location.search, navigate]);
+
+  const setActiveTab = (tab: OfficersPageTab, officerId?: string) => {
+    const next = new URLSearchParams(searchParams);
+    next.delete("officer");
+    if (tab === "activity") {
+      next.set("tab", "activity");
+      if (officerId) setActivityOfficerId(officerId);
+    } else {
+      next.delete("tab");
+      setActivityOfficerId("");
+    }
+    setSearchParams(next, { replace: true });
+  };
   const [formModal, setFormModal] = useState<{
     open: boolean;
     mode: "create" | "edit";
@@ -517,21 +558,26 @@ export default function LoanOfficersPage() {
   }, [search]);
 
   useEffect(() => {
+    const next = new URLSearchParams(window.location.search);
+    next.delete("officer");
     const q = search.trim();
-    if (q) {
-      setSearchParams({ q }, { replace: true });
-    } else if (searchParams.has("q")) {
-      setSearchParams({}, { replace: true });
+    if (q) next.set("q", q);
+    else next.delete("q");
+    const nextStr = next.toString();
+    const currentStr = window.location.search.replace(/^\?/, "");
+    if (nextStr !== currentStr) {
+      setSearchParams(next, { replace: true });
     }
-  }, [search]);
+  }, [search, setSearchParams]);
 
   useEffect(() => {
     setPage(1);
   }, [statusFilter, sortKey, sortDir]);
 
   useEffect(() => {
+    if (activeTab !== "officers") return;
     fetchOfficers();
-  }, [fetchOfficers]);
+  }, [fetchOfficers, activeTab]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -741,7 +787,14 @@ export default function LoanOfficersPage() {
 
   return (
     <>
-      <PageMeta title="Loan Officers | Broker Dashboard" description="Manage loan officers" />
+      <PageMeta
+        title={
+          activeTab === "activity"
+            ? "Loan Officer Activity | Broker Dashboard"
+            : "Loan Officers | Broker Dashboard"
+        }
+        description="Manage loan officers and monitor team activity"
+      />
 
       <div className="space-y-3 pb-3">
         {/* Page header */}
@@ -754,27 +807,66 @@ export default function LoanOfficersPage() {
               Loan Officers
             </h1>
             <p className="mt-0.5 max-w-xl text-sm text-gray-500 dark:text-gray-400">
-              Manage and monitor your loan officer team.
+              {activeTab === "activity"
+                ? "Track applications, contacts, messages, and profile updates across your team."
+                : "Manage and monitor your loan officer team."}
             </p>
           </div>
 
-          <div className="flex flex-wrap gap-2 lg:justify-end">
-            <StatChip icon={<Users className="h-3.5 w-3.5" />} label="Total" value={stats.total} />
-            <StatChip
-              icon={<UserCheck className="h-3.5 w-3.5" />}
-              label="Active"
-              value={stats.active}
-              tone="emerald"
-            />
-            <StatChip
-              icon={<UserX className="h-3.5 w-3.5" />}
-              label="Disabled"
-              value={stats.disabled}
-              tone="slate"
-            />
-          </div>
+          {activeTab === "officers" && (
+            <div className="flex flex-wrap gap-2 lg:justify-end">
+              <StatChip icon={<Users className="h-3.5 w-3.5" />} label="Total" value={stats.total} />
+              <StatChip
+                icon={<UserCheck className="h-3.5 w-3.5" />}
+                label="Active"
+                value={stats.active}
+                tone="emerald"
+              />
+              <StatChip
+                icon={<UserX className="h-3.5 w-3.5" />}
+                label="Disabled"
+                value={stats.disabled}
+                tone="slate"
+              />
+            </div>
+          )}
         </div>
 
+        {/* Tabs */}
+        <div className="flex gap-1 rounded-xl border border-gray-200 bg-white p-1 dark:border-gray-800 dark:bg-gray-900">
+          <button
+            type="button"
+            onClick={() => setActiveTab("officers")}
+            className={`inline-flex flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold transition sm:flex-none sm:px-4 ${
+              activeTab === "officers"
+                ? "bg-[#13538A] text-white shadow-sm"
+                : "text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800"
+            }`}
+          >
+            <Users className="h-4 w-4" />
+            Officers
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("activity")}
+            className={`inline-flex flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold transition sm:flex-none sm:px-4 ${
+              activeTab === "activity"
+                ? "bg-[#13538A] text-white shadow-sm"
+                : "text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800"
+            }`}
+          >
+            <Activity className="h-4 w-4" />
+            Activity
+          </button>
+        </div>
+
+        {activeTab === "activity" ? (
+          <LoanOfficerActivityPanel
+            embedded
+            initialOfficerId={activityOfficerId}
+          />
+        ) : (
+        <>
         {/* Toolbar + table card */}
         <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
           <div className="border-b border-gray-100 px-3 py-3 dark:border-gray-800 sm:px-4">
@@ -1170,6 +1262,8 @@ export default function LoanOfficersPage() {
             </div>
           </div>
         )}
+        </>
+        )}
       </div>
 
       {activeMenuUser &&
@@ -1192,9 +1286,7 @@ export default function LoanOfficersPage() {
                 type="button"
                 onClick={() => {
                   closeRowMenu();
-                  navigate("/loan-officer-activity", {
-                    state: { officerId: activeMenuUser.id },
-                  });
+                  setActiveTab("activity", activeMenuUser.id);
                 }}
                 className="flex w-full items-center gap-2 px-3 py-2 text-xs text-gray-700 transition hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-800"
               >

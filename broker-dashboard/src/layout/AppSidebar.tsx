@@ -156,7 +156,6 @@ const AppSidebar: React.FC = () => {
               { name: "Co Brokers", path: "/sub-brokers" },
               { name: "Borrowers", path: "/borrowers" },
               { name: "Contacts", path: "/contacts-list" },
-              { name: "Loan Officer Activity", path: "/loan-officer-activity" },
             ],
           },
         ]

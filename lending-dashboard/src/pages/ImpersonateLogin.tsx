@@ -1,5 +1,6 @@
 import { useEffect } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate } from "react-router";
+import { readImpersonateParams } from "../lib/impersonateUrl";
 import {
   clearLenderSession,
   saveLenderSession,
@@ -7,12 +8,13 @@ import {
 } from "../lib/lenderSession";
 
 const ImpersonateLogin = () => {
-  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
   useEffect(() => {
-    const token = searchParams.get("token");
-    const userParam = searchParams.get("user");
+    const params = readImpersonateParams();
+    const token = params.get("token");
+    const userParam = params.get("user");
+    const redirectTo = params.get("redirectTo") || "/";
 
     if (!token) {
       navigate("/signin", { replace: true });
@@ -25,7 +27,7 @@ const ImpersonateLogin = () => {
 
         let user: Record<string, unknown> | null = null;
         if (userParam) {
-          user = JSON.parse(decodeURIComponent(userParam));
+          user = JSON.parse(userParam);
         }
 
         saveLenderSession(token, user);
@@ -37,18 +39,27 @@ const ImpersonateLogin = () => {
           return;
         }
 
-        navigate("/", { replace: true });
+        // Clear hash so the token is not left in the address bar.
+        if (window.location.hash) {
+          window.history.replaceState(
+            null,
+            "",
+            `${window.location.pathname}${window.location.search}`,
+          );
+        }
+
+        navigate(redirectTo, { replace: true });
       } catch (err) {
         console.error("Impersonation error", err);
         clearLenderSession();
         navigate("/signin", { replace: true });
       }
     })();
-  }, [navigate, searchParams]);
+  }, [navigate]);
 
   return (
-    <div className="flex items-center justify-center h-screen">
-      Logging you in...
+    <div className="flex h-screen items-center justify-center bg-slate-50 text-sm text-slate-600">
+      Opening team member dashboard...
     </div>
   );
 };
