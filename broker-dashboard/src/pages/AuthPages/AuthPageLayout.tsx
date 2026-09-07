@@ -6,7 +6,7 @@ const FEATURES = [
   "Manage loan pipeline in one place",
   "Match borrowers with lenders instantly",
   "Track applications and documents",
-  "Collaborate with loan officers & sub-brokers",
+  "Collaborate with loan officers & co-brokers",
 ];
 
 export default function AuthLayout({

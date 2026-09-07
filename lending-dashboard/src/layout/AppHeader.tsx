@@ -129,12 +129,42 @@ const AppHeader: React.FC = () => {
     try {
       const impersonationToken = sessionStorage.getItem("lender_token");
       if (impersonationToken) {
+        // Team-member access: restore lender admin if this tab stays open.
+        const lenderStop = await fetch(
+          `${API_BASE}/lender/auth/stop-impersonation`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${impersonationToken}`,
+            },
+          },
+        );
+
+        if (lenderStop.ok) {
+          const json = await lenderStop.json().catch(() => ({}));
+          if (json?.token) {
+            sessionStorage.setItem("lender_token", json.token);
+            if (json.user) {
+              sessionStorage.setItem("lender_user", JSON.stringify(json.user));
+              if (Array.isArray(json.user.roles)) {
+                sessionStorage.setItem(
+                  "roles",
+                  JSON.stringify(json.user.roles),
+                );
+              }
+            }
+            window.location.replace(json.redirectTo || "/team-members");
+            return;
+          }
+        }
+
+        // Platform-admin impersonation of a lender org (opened from admin portal).
         await fetch(`${API_BASE}/admin/auth/stop-impersonation`, {
           method: "POST",
           headers: {
             Authorization: `Bearer ${impersonationToken}`,
           },
-        });
+        }).catch(() => null);
       }
     } catch (err) {
       console.error(err);
@@ -144,8 +174,9 @@ const AppHeader: React.FC = () => {
       sessionStorage.removeItem("roles");
       sessionStorage.removeItem("permissions");
       window.close();
-      // Fallback if the browser blocks closing (tab wasn't script-opened)
-      window.location.replace("about:blank");
+      window.setTimeout(() => {
+        window.location.replace("/signin");
+      }, 150);
     }
   };
 

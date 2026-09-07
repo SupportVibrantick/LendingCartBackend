@@ -69,6 +69,27 @@ module.exports = async function deleteLenderUser(fastify) {
           });
         }
 
+        const isTargetAdmin = user.roles.some(
+          (entry) => entry.role?.name === "LENDER_ADMIN",
+        );
+        if (isTargetAdmin) {
+          const {
+            countActiveLenderAdmins,
+          } = require("../../../utils/lender/countActiveLenderAdmins");
+          const remainingAdmins = await countActiveLenderAdmins(
+            prisma,
+            lenderOrgId,
+            { excludeUserId: id },
+          );
+          if (remainingAdmins < 1) {
+            return reply.code(400).send({
+              success: false,
+              message:
+                "Cannot remove the last active admin. Promote another admin first.",
+            });
+          }
+        }
+
         await prisma.$transaction([
           prisma.userRole.deleteMany({ where: { userId: id } }),
           prisma.userPermission.deleteMany({ where: { userId: id } }),

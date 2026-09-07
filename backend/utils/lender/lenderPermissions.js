@@ -81,21 +81,27 @@ function resolveLenderMutationPermission(req) {
   }
 
   if (
-    method === "POST" &&
+    (method === "POST" || method === "PUT" || method === "PATCH") &&
     path.includes("/loan-pipeline/") &&
-    (path.includes("/generate-loi") || path.includes("/upload-loi-template"))
+    (path.includes("/generate-loi") ||
+      path.includes("/upload-loi-template") ||
+      path.includes("/send-loi-to-broker"))
   ) {
     return LENDER_PERMISSION.GENERATE_LOI;
   }
 
-  if (method === "POST" && path.includes("/loan-pipeline/") && path.includes("/sign-documents")) {
+  if (
+    (method === "POST" || method === "PUT" || method === "PATCH") &&
+    path.includes("/loan-pipeline/") &&
+    path.includes("/sign-documents")
+  ) {
     if (path.includes("/mark-seen")) {
       return LENDER_PERMISSION.MARK_SIGN_SEEN;
     }
     return LENDER_PERMISSION.UPLOAD_SIGN_DOCUMENTS;
   }
 
-  if (path.includes("/loan-products")) {
+  if (path.includes("/loan-products") || path.includes("/assigned-products") || path.includes("/lender-assigned")) {
     return LENDER_PERMISSION.MANAGE_LOAN_PRODUCTS;
   }
 
@@ -103,24 +109,29 @@ function resolveLenderMutationPermission(req) {
     return LENDER_PERMISSION.MANAGE_TEAM;
   }
 
-  if (path.includes("/brokers")) {
+  if (path.includes("/brokers") || path.includes("/find-broker")) {
     return LENDER_PERMISSION.MANAGE_BROKERS;
   }
 
-  if (path.includes("/document-config")) {
+  if (path.includes("/document-config") || path.includes("/sign-form-templates")) {
     return LENDER_PERMISSION.MANAGE_DOCUMENT_CONFIG;
   }
 
-  if (path.includes("/eligibility-engine")) {
+  if (path.includes("/eligibility-engine") || path.includes("/all-rules") || path.includes("/all-set-rules")) {
     return LENDER_PERMISSION.MANAGE_ELIGIBILITY;
   }
 
-  if (path.includes("/branding")) {
+  if (path.includes("/branding") || path.includes("/profile")) {
     return LENDER_PERMISSION.MANAGE_LENDER_PROFILE;
   }
 
   if (method === "DELETE" && path.includes("/notifications")) {
     return LENDER_PERMISSION.MANAGE_PORTAL;
+  }
+
+  // Messaging mutations
+  if (path.includes("/messaging") || path.includes("/conversations") || path.includes("/messages")) {
+    return LENDER_PERMISSION.SEND_CHAT;
   }
 
   return LENDER_PERMISSION.MANAGE_PORTAL;

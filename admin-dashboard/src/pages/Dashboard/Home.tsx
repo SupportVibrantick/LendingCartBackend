@@ -99,7 +99,7 @@ export default function Home() {
               <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
               <p className="mt-1 max-w-2xl text-sm text-white/80">
                 Live metrics, charts, and quick access across lenders, brokers, loan officers,
-                sub-brokers, clients, deals, and communications.
+                co-brokers, clients, deals, and communications.
               </p>
             </div>
 
