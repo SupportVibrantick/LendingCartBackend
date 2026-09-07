@@ -94,6 +94,26 @@ module.exports = async function updateLenderUser(fastify) {
           });
         }
 
+        if (
+          role &&
+          role !== "LENDER_ADMIN" &&
+          currentRole === "LENDER_ADMIN"
+        ) {
+          const { countActiveLenderAdmins } = require("../../../utils/lender/countActiveLenderAdmins");
+          const remainingAdmins = await countActiveLenderAdmins(
+            prisma,
+            lenderOrgId,
+            { excludeUserId: id },
+          );
+          if (remainingAdmins < 1) {
+            return reply.code(400).send({
+              success: false,
+              message:
+                "Cannot demote the last active admin. Promote another admin first.",
+            });
+          }
+        }
+
         let roleRecord = null;
         if (role) {
           roleRecord = await ensureLenderTeamRole(prisma, role);

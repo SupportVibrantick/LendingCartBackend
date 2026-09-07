@@ -1,23 +1,24 @@
 import { useEffect } from "react";
 import { Navigate, useLocation } from "react-router";
 import toast from "react-hot-toast";
-import { isLenderAdminUser } from "../../lib/lenderTeamMembers";
+import { canManageTeam } from "../../lib/lenderPermissions";
 
 type RequireLenderAdminProps = {
   children: React.ReactNode;
 };
 
+/** Guards lender-admin pages (team, branding, document config, products mutate). */
 export default function RequireLenderAdmin({ children }: RequireLenderAdminProps) {
   const location = useLocation();
-  const allowed = isLenderAdminUser();
+  const isAllowed = canManageTeam();
 
   useEffect(() => {
-    if (!allowed) {
-      toast.error("You have read-only access. Contact your lender admin.");
+    if (!isAllowed) {
+      toast.error("Admin access required. Contact your lender admin.");
     }
-  }, [allowed]);
+  }, [isAllowed]);
 
-  if (!allowed) {
+  if (!isAllowed) {
     return <Navigate to="/" replace state={{ from: location.pathname }} />;
   }
 

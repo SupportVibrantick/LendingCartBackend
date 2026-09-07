@@ -127,7 +127,14 @@ export default function App() {
             <Route index path="/loan-pipeline" element={<LoanPipeline />} />
             <Route index path="/loi-form" element={<LoiUnderwritingFormPage />} />
             <Route index path="/loi-preview" element={<LoiPreview />} />
-            <Route path="/team-members" element={<TeamMembers />} />
+            <Route
+              path="/team-members"
+              element={
+                <RequireLenderAdmin>
+                  <TeamMembers />
+                </RequireLenderAdmin>
+              }
+            />
             <Route path="/account/change-password" element={<ChangePassword />} />
             <Route
               path="/settings/branding"

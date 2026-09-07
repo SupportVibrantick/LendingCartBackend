@@ -43,7 +43,7 @@ async function lenderMeRoutes(fastify) {
           });
         }
 
-        if (!user.emailVerifiedAt) {
+        if (!user.emailVerifiedAt && !request.user.impersonatedBy) {
           return reply.code(403).send({
             ok: false,
             success: false,

@@ -26,24 +26,26 @@ export const LENDER_TEAM_ROLE_OPTIONS: Array<{
   {
     value: "LENDER_ADMIN",
     label: "Admin",
-    description: "Full portal access.",
+    description:
+      "Full portal access including team, programs, brokers, documents, and branding.",
   },
   {
     value: "LENDER_UNDERWRITER",
     label: "Underwriter",
     description:
-      "Review deals, request documents, approve or decline, generate LOI, and chat with brokers.",
+      "Decide deals, request documents, generate/send LOI, manage sign docs, and chat.",
   },
   {
     value: "LENDER_ANALYST",
     label: "Analyst",
     description:
-      "Review deals and documents, request supporting documents, and chat with brokers.",
+      "Review deals, request supporting documents, and chat. Cannot decide or issue LOI.",
   },
   {
     value: "LENDER_VIEWER",
     label: "Viewer",
-    description: "Read-only access. Can view deals and chat history but cannot make changes or send messages.",
+    description:
+      "Read-only access to deals and history. Cannot change data or send messages.",
   },
 ];
 

@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { HorizontaLDots } from "../icons";
 import { useSidebar } from "../context/SidebarContext";
-import { isLenderAdminUser } from "../lib/lenderTeamMembers";
+import { canManageTeam } from "../lib/lenderPermissions";
 
 type NavItem = {
   name: string;
@@ -107,7 +107,7 @@ function getNavItems() {
   const documentsNavItem = navItems.find((item) => item.path === "/documents");
   const baseNavItems = navItems.filter((item) => item.path !== "/documents");
 
-  if (!isLenderAdminUser()) {
+  if (!canManageTeam()) {
     return baseNavItems;
   }
 
