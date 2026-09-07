@@ -148,7 +148,7 @@ export default function ClientUpload() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen text-gray-500">
+      <div className="flex items-center justify-center min-h-screen text-gray-500 dark:text-gray-400">
         Loading...
       </div>
     );
@@ -157,8 +157,8 @@ export default function ClientUpload() {
   if (invalidToken) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="bg-white p-8 rounded-xl shadow text-center">
-          <h2 className="text-red-600 font-semibold">
+        <div className="bg-white p-8 rounded-xl shadow text-center dark:bg-gray-900 dark:border dark:border-gray-800">
+          <h2 className="text-red-600 font-semibold dark:text-red-400">
             Invalid or Expired Link
           </h2>
         </div>
@@ -172,24 +172,24 @@ export default function ClientUpload() {
     totalFiles === 0 ? 0 : Math.round((uploadedFilesCount / totalFiles) * 100);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white p-6">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white dark:bg-gray-950 p-6">
       <div className="max-w-5xl mx-auto">
         {/* HEADER */}
-        <div className="bg-white rounded-2xl shadow p-6 mb-6 sticky top-4 z-10">
+        <div className="bg-white rounded-2xl shadow p-6 mb-6 sticky top-4 z-10 dark:bg-gray-900 dark:border dark:border-gray-800">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
             {/* LEFT */}
             <div>
-              <h1 className="text-xl font-semibold text-gray-800">
+              <h1 className="text-xl font-semibold text-gray-800 dark:text-white">
                 Upload Documents
               </h1>
 
-              <p className="text-sm text-gray-500 mt-1">{clientName}</p>
+              <p className="text-sm text-gray-500 mt-1 dark:text-gray-400">{clientName}</p>
             </div>
 
             {/* RIGHT */}
             <div className="text-right">
-              <p className="text-xs text-gray-400">Application No.</p>
-              <p className="text-sm font-medium text-gray-700">
+              <p className="text-xs text-gray-400 dark:text-gray-400">Application No.</p>
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
                 {applicationNumber}
               </p>
             </div>
@@ -197,14 +197,14 @@ export default function ClientUpload() {
 
           {/* PROGRESS */}
           <div className="mt-4">
-            <div className="flex justify-between text-xs text-gray-500 mb-1">
+            <div className="flex justify-between text-xs text-gray-500 mb-1 dark:text-gray-400">
               <span>
                 {uploadedFilesCount} / {totalFiles} Files Uploaded
               </span>
               <span>{progress}%</span>
             </div>
 
-            <div className="w-full bg-gray-200 h-2 rounded-full">
+            <div className="w-full bg-gray-200 h-2 rounded-full dark:bg-gray-800">
               <div
                 className="bg-blue-600 h-2 rounded-full transition-all"
                 style={{
@@ -220,7 +220,7 @@ export default function ClientUpload() {
           {documents.map((doc) => (
             <div
               key={doc.requirementId}
-              className="bg-white border rounded-xl p-4 shadow-sm hover:shadow-md transition flex flex-col justify-between"
+              className="bg-white border rounded-xl p-4 shadow-sm hover:shadow-md transition flex flex-col justify-between dark:bg-gray-900 dark:border-gray-800"
             >
               {/* TOP */}
               <div>
@@ -228,19 +228,19 @@ export default function ClientUpload() {
                   <FileText className="text-blue-600" size={20} />
 
                   {uploaded[doc.requirementId] && (
-                    <CheckCircle className="text-green-600" size={20} />
+                    <CheckCircle className="text-green-600 dark:text-green-400" size={20} />
                   )}
                 </div>
 
-                <p className="text-sm font-medium text-gray-800 line-clamp-2">
+                <p className="text-sm font-medium text-gray-800 line-clamp-2 dark:text-white">
                   {doc.documentName}
                 </p>
 
                 <p
                   className={`text-xs mt-1 ${
                     uploaded[doc.requirementId]
-                      ? "text-green-600"
-                      : "text-yellow-600"
+                      ? "text-green-600 dark:text-green-400"
+                      : "text-yellow-600 dark:text-yellow-400"
                   }`}
                 >
                   {uploaded[doc.requirementId] ? "Uploaded" : "Pending"}
@@ -250,7 +250,7 @@ export default function ClientUpload() {
               {/* ACTIONS */}
               <div className="mt-4">
                 {uploaded[doc.requirementId] ? (
-                  <div className="text-xs text-green-600 font-medium">
+                  <div className="text-xs text-green-600 dark:text-green-400 font-medium">
                     ✔ Completed
                   </div>
                 ) : (
@@ -275,8 +275,8 @@ export default function ClientUpload() {
                         className={`flex-1 text-center text-xs px-3 py-2 border rounded-lg cursor-pointer 
     ${
       (files[doc.requirementId]?.length || 0) >= 4
-        ? "bg-gray-200 cursor-not-allowed text-slate-500"
-        : "hover:bg-gray-100"
+        ? "bg-gray-200 cursor-not-allowed text-slate-500 dark:bg-gray-800 dark:text-gray-500"
+        : "hover:bg-gray-100 dark:hover:bg-gray-700"
     }`}
                       >
                         Choose File
@@ -306,7 +306,7 @@ export default function ClientUpload() {
                           return (
                             <div
                               key={index}
-                              className="relative w-16 h-16 border rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center"
+                              className="relative w-16 h-16 border rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center dark:bg-gray-800 dark:border-gray-700"
                             >
                               {/* IMAGE PREVIEW */}
                               {isImage ? (

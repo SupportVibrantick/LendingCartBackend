@@ -138,12 +138,12 @@ export default function EditLoanProductModal({
 
   return (
     <div className="fixed inset-0 z-500000 flex items-center justify-center bg-black/40 backdrop-blur-sm ">
-      <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-lg dark:bg-slate-900 dark:border dark:border-slate-700">
+      <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-lg dark:bg-gray-900 dark:border dark:border-gray-800">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold">Edit Loan Product</h2>
+          <h2 className="text-lg font-semibold dark:text-white">Edit Loan Product</h2>
           <button
             onClick={onClose}
-            className="text-gray-500 hover:text-red-500"
+            className="text-gray-500 hover:text-red-500 dark:text-gray-400 dark:hover:text-red-400"
           >
             Close
           </button>
@@ -151,7 +151,7 @@ export default function EditLoanProductModal({
 
         <form onSubmit={handleSave} className="grid grid-cols-1 gap-3">
           <label className="block">
-            <span className="text-sm text-gray-700 dark:text-slate-200">
+            <span className="text-sm text-gray-700 dark:text-gray-300">
               Min Loan Amount
             </span>
             <input
@@ -163,13 +163,13 @@ export default function EditLoanProductModal({
               onChange={(e) =>
                 setForm({ ...form, minLoanAmount: Number(e.target.value) })
               }
-              className="w-full px-3 py-2 mt-1 border rounded-md"
+              className="w-full px-3 py-2 mt-1 border rounded-md dark:bg-gray-800 dark:border-gray-800 dark:text-white"
               autoFocus
             />
           </label>
 
           <label className="block">
-            <span className="text-sm text-gray-700 dark:text-slate-200">
+            <span className="text-sm text-gray-700 dark:text-gray-300">
               Max Loan Amount
             </span>
             <input
@@ -180,12 +180,12 @@ export default function EditLoanProductModal({
               onChange={(e) =>
                 setForm({ ...form, maxLoanAmount: Number(e.target.value) })
               }
-              className="w-full px-3 py-2 mt-1 border rounded-md"
+              className="w-full px-3 py-2 mt-1 border rounded-md dark:bg-gray-800 dark:border-gray-800 dark:text-white"
             />
           </label>
 
           <label className="block">
-            <span className="text-sm text-gray-700 dark:text-slate-200">
+            <span className="text-sm text-gray-700 dark:text-gray-300">
               Min Term Months
             </span>
             <input
@@ -197,12 +197,12 @@ export default function EditLoanProductModal({
               onChange={(e) =>
                 setForm({ ...form, minTermMonths: Number(e.target.value) })
               }
-              className="w-full px-3 py-2 mt-1 border rounded-md"
+              className="w-full px-3 py-2 mt-1 border rounded-md dark:bg-gray-800 dark:border-gray-800 dark:text-white"
             />
           </label>
 
           <label className="block">
-            <span className="text-sm text-gray-700 dark:text-slate-200">
+            <span className="text-sm text-gray-700 dark:text-gray-300">
               Max Term Months
             </span>
             <input
@@ -213,12 +213,12 @@ export default function EditLoanProductModal({
               onChange={(e) =>
                 setForm({ ...form, maxTermMonths: Number(e.target.value) })
               }
-              className="w-full px-3 py-2 mt-1 border rounded-md"
+              className="w-full px-3 py-2 mt-1 border rounded-md dark:bg-gray-800 dark:border-gray-800 dark:text-white"
             />
           </label>
 
           <div>
-            <label className="block text-sm text-gray-700 dark:text-slate-200">
+            <label className="block text-sm text-gray-700 dark:text-gray-300">
               Regions Supported
             </label>
             <div className="mt-2 flex flex-wrap gap-2">
@@ -227,7 +227,7 @@ export default function EditLoanProductModal({
                   type="button"
                   key={r}
                   onClick={() => toggleChip("regionsSupported", r)}
-                  className={`px-3 py-1 rounded-full border ${form.regionsSupported.includes(r) ? "bg-blue-600 text-white" : "bg-white text-gray-700"}`}
+                  className={`px-3 py-1 rounded-full border ${form.regionsSupported.includes(r) ? "bg-blue-600 text-white" : "bg-white text-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700"}`}
                 >
                   {r}
                 </button>
@@ -236,7 +236,7 @@ export default function EditLoanProductModal({
           </div>
 
           <div>
-            <label className="block text-sm text-gray-700 dark:text-slate-200">
+            <label className="block text-sm text-gray-700 dark:text-gray-300">
               Industries Supported
             </label>
             <div className="mt-2 flex flex-wrap gap-2">
@@ -245,7 +245,7 @@ export default function EditLoanProductModal({
                   type="button"
                   key={r}
                   onClick={() => toggleChip("industriesSupported", r)}
-                  className={`px-3 py-1 rounded-full border ${form.industriesSupported.includes(r) ? "bg-blue-600 text-white" : "bg-white text-gray-700"}`}
+                  className={`px-3 py-1 rounded-full border ${form.industriesSupported.includes(r) ? "bg-blue-600 text-white" : "bg-white text-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700"}`}
                 >
                   {r}
                 </button>
@@ -253,13 +253,13 @@ export default function EditLoanProductModal({
             </div>
           </div>
 
-          {error && <div className="text-sm text-red-600">{error}</div>}
+          {error && <div className="text-sm text-red-600 dark:text-red-400">{error}</div>}
 
           <div className="flex justify-end gap-3 mt-2">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md dark:text-slate-200 dark:hover:bg-slate-800"
+              className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md dark:text-gray-300 dark:hover:bg-gray-800"
             >
               Cancel
             </button>

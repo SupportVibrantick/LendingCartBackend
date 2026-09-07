@@ -256,10 +256,10 @@ export default function TeamMembers() {
           title="Team Members"
           description="Manage lender portal team members"
         />
-        <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
-          <Users className="mx-auto mb-3 h-10 w-10 text-slate-400" />
-          <h1 className="text-lg font-semibold text-slate-800">Access restricted</h1>
-          <p className="mt-2 text-sm text-slate-500">
+        <div className="rounded-2xl border border-gray-200 bg-white p-8 text-center shadow-sm dark:border-gray-800 dark:bg-gray-900">
+          <Users className="mx-auto mb-3 h-10 w-10 text-gray-400 dark:text-gray-500" />
+          <h1 className="text-lg font-semibold text-gray-800 dark:text-white">Access restricted</h1>
+          <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
             Only lender admins can manage team members.
           </p>
         </div>
@@ -277,8 +277,8 @@ export default function TeamMembers() {
       <div className="space-y-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">Team Members</h1>
-            <p className="mt-1 text-sm text-slate-500">
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Team Members</h1>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
               Manage who has access to your Lender Portal 
             </p>
           </div>
@@ -293,21 +293,21 @@ export default function TeamMembers() {
           </button>
         </div>
 
-        <div className="flex gap-3 rounded-2xl border border-sky-100 bg-sky-50 px-4 py-3 text-sm text-sky-900">
-          <Info className="mt-0.5 h-4 w-4 shrink-0 text-sky-600" />
+        <div className="flex gap-3 rounded-2xl border border-sky-100 bg-sky-50 px-4 py-3 text-sm text-sky-900 dark:border-sky-900/30 dark:bg-sky-900/20 dark:text-sky-200">
+          <Info className="mt-0.5 h-4 w-4 shrink-0 text-sky-600 dark:text-sky-400" />
           <p>
-            <strong>Admin</strong> users have full portal access.{" "}
-            <strong>Underwriters</strong> can review deals, request documents,
+            <strong className="dark:text-white">Admin</strong> users have full portal access.{" "}
+            <strong className="dark:text-white">Underwriters</strong> can review deals, request documents,
             approve or decline, generate LOI, and chat with brokers.{" "}
-            <strong>Analysts</strong> can review deals, request documents, and
-            chat with brokers. <strong>Viewers</strong> have read-only access.
+            <strong className="dark:text-white">Analysts</strong> can review deals, request documents, and
+            chat with brokers. <strong className="dark:text-white">Viewers</strong> have read-only access.
           </p>
         </div>
 
-        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
-              <thead className="border-b border-slate-200 bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <thead className="border-b border-gray-200 bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:border-gray-800 dark:bg-gray-800/50 dark:text-gray-400">
                 <tr>
                   <th className="px-5 py-3">Member</th>
                   <th className="px-5 py-3">Email</th>
@@ -318,7 +318,7 @@ export default function TeamMembers() {
                   <th className="px-5 py-3 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                 {loading ? (
                   <tr>
                     <td colSpan={7} className="px-5 py-10 text-center text-slate-500">
@@ -339,26 +339,26 @@ export default function TeamMembers() {
                     return (
                     <tr
                       key={member.id}
-                      className="border-b border-slate-100 last:border-b-0"
+                      className="border-b border-gray-100 last:border-b-0 dark:border-gray-800"
                     >
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-3">
-                          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-100 text-sm font-semibold text-brand-700">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-100 text-sm font-semibold text-brand-700 dark:bg-brand-900/30 dark:text-brand-400">
                             {getMemberInitials(member)}
                           </div>
                           <div className="min-w-0">
-                            <span className="font-medium text-slate-800">
+                            <span className="font-medium text-gray-800 dark:text-white">
                               {formatTeamMemberName(member)}
                             </span>
                             {isCurrentUser ? (
-                              <span className="ml-2 inline-flex rounded-full bg-brand-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-brand-700 ring-1 ring-inset ring-brand-200">
+                              <span className="ml-2 inline-flex rounded-full bg-brand-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-brand-700 ring-1 ring-inset ring-brand-200 dark:bg-brand-900/20 dark:text-brand-400 dark:ring-brand-800">
                                 You
                               </span>
                             ) : null}
                           </div>
                         </div>
                       </td>
-                      <td className="px-5 py-4 text-slate-600">{member.email}</td>
+                      <td className="px-5 py-4 text-gray-600 dark:text-gray-400">{member.email}</td>
                       <td className="px-5 py-4">
                         <span
                           className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset ${roleBadgeClass(member.role)}`}
@@ -373,10 +373,10 @@ export default function TeamMembers() {
                           {formatDisplayStatus(member.displayStatus)}
                         </span>
                       </td>
-                      <td className="px-5 py-4 text-slate-600">
+                      <td className="px-5 py-4 text-gray-600 dark:text-gray-400">
                         {formatTeamDate(member.createdAt)}
                       </td>
-                      <td className="px-5 py-4 text-slate-600">
+                      <td className="px-5 py-4 text-gray-600 dark:text-gray-400">
                         {formatTeamDateTime(member.lastLoginAt)}
                       </td>
                       <td className="px-5 py-4">
@@ -384,7 +384,7 @@ export default function TeamMembers() {
                           <button
                             type="button"
                             onClick={() => openEditModal(member)}
-                            className="rounded-lg border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-50 hover:text-slate-800"
+                            className="rounded-lg border border-gray-200 p-2 text-gray-500 transition hover:bg-gray-50 hover:text-gray-800 dark:border-gray-800 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200"
                             title="Edit member"
                           >
                             <Pencil size={16} />
@@ -393,7 +393,7 @@ export default function TeamMembers() {
                             <button
                               type="button"
                               onClick={() => handleDelete(member)}
-                              className="rounded-lg border border-rose-200 p-2 text-rose-500 transition hover:bg-rose-50 hover:text-rose-700"
+                              className="rounded-lg border border-rose-200 p-2 text-rose-500 transition hover:bg-rose-50 hover:text-rose-700 dark:border-rose-900/30 dark:bg-transparent dark:text-rose-500 dark:hover:bg-rose-900/20"
                               title="Remove member"
                             >
                               <Trash2 size={16} />
@@ -413,15 +413,15 @@ export default function TeamMembers() {
 
       {inviteOpen && (
         <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-lg rounded-2xl bg-white shadow-xl">
-            <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
-              <h2 className="text-lg font-semibold text-slate-900">
+          <div className="w-full max-w-lg rounded-2xl bg-white shadow-xl dark:bg-gray-900 dark:border dark:border-gray-800">
+            <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4 dark:border-gray-800">
+              <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
                 Invite Team Member
               </h2>
               <button
                 type="button"
                 onClick={() => setInviteOpen(false)}
-                className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200"
               >
                 <X size={18} />
               </button>
@@ -430,7 +430,7 @@ export default function TeamMembers() {
             <div className="space-y-4 px-6 py-5">
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                  <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-gray-400">
                     First Name *
                   </label>
                   <input
@@ -438,11 +438,11 @@ export default function TeamMembers() {
                     onChange={(e) =>
                       setInviteForm({ ...inviteForm, firstName: e.target.value })
                     }
-                    className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#183b57] focus:ring-2 focus:ring-brand-100"
+                    className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#183b57] focus:ring-2 focus:ring-brand-100 dark:border-gray-800 dark:bg-gray-900 dark:text-white"
                   />
                 </div>
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                  <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-gray-400">
                     Last Name *
                   </label>
                   <input
@@ -450,13 +450,13 @@ export default function TeamMembers() {
                     onChange={(e) =>
                       setInviteForm({ ...inviteForm, lastName: e.target.value })
                     }
-                    className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#183b57] focus:ring-2 focus:ring-brand-100"
+                    className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#183b57] focus:ring-2 focus:ring-brand-100 dark:border-gray-800 dark:bg-gray-900 dark:text-white"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-gray-400">
                   Email Address *
                 </label>
                 <input
@@ -465,12 +465,12 @@ export default function TeamMembers() {
                   onChange={(e) =>
                     setInviteForm({ ...inviteForm, email: e.target.value })
                   }
-                  className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#183b57] focus:ring-2 focus:ring-brand-100"
+                  className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#183b57] focus:ring-2 focus:ring-brand-100 dark:border-gray-800 dark:bg-gray-900 dark:text-white"
                 />
               </div>
 
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-gray-400">
                   Role *
                 </label>
                 <select
@@ -481,7 +481,7 @@ export default function TeamMembers() {
                       role: e.target.value as LenderTeamRole,
                     })
                   }
-                  className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#183b57] focus:ring-2 focus:ring-brand-100"
+                  className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#183b57] focus:ring-2 focus:ring-brand-100 dark:border-gray-800 dark:bg-gray-900 dark:text-white"
                 >
                   {LENDER_TEAM_ROLE_OPTIONS.map((option) => (
                     <option key={option.value} value={option.value}>
@@ -490,18 +490,18 @@ export default function TeamMembers() {
                   ))}
                 </select>
                 {selectedInviteRole && (
-                  <p className="mt-2 text-xs text-slate-500">
+                  <p className="mt-2 text-xs text-slate-500 dark:text-gray-400">
                     {selectedInviteRole.description}
                   </p>
                 )}
               </div>
             </div>
 
-            <div className="flex justify-end gap-3 border-t border-slate-200 px-6 py-4">
+            <div className="flex justify-end gap-3 border-t border-slate-200 px-6 py-4 dark:border-gray-800">
               <button
                 type="button"
                 onClick={() => setInviteOpen(false)}
-                className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50"
+                className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 dark:border-gray-800 dark:text-gray-400 dark:hover:bg-gray-800"
               >
                 Cancel
               </button>
@@ -520,15 +520,15 @@ export default function TeamMembers() {
 
       {editOpen && editingMember && (
         <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-lg rounded-2xl bg-white shadow-xl">
-            <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
-              <h2 className="text-lg font-semibold text-slate-900">
+          <div className="w-full max-w-lg rounded-2xl bg-white shadow-xl dark:bg-gray-900 dark:border dark:border-gray-800">
+            <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4 dark:border-gray-800">
+              <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
                 Edit Team Member
               </h2>
               <button
                 type="button"
                 onClick={() => setEditOpen(false)}
-                className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200"
               >
                 <X size={18} />
               </button>
@@ -537,7 +537,7 @@ export default function TeamMembers() {
             <div className="space-y-4 px-6 py-5">
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                  <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-gray-400">
                     First Name *
                   </label>
                   <input
@@ -545,11 +545,11 @@ export default function TeamMembers() {
                     onChange={(e) =>
                       setEditForm({ ...editForm, firstName: e.target.value })
                     }
-                    className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#183b57] focus:ring-2 focus:ring-brand-100"
+                    className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#183b57] focus:ring-2 focus:ring-brand-100 dark:border-gray-800 dark:bg-gray-900 dark:text-white"
                   />
                 </div>
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                  <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-gray-400">
                     Last Name *
                   </label>
                   <input
@@ -557,13 +557,13 @@ export default function TeamMembers() {
                     onChange={(e) =>
                       setEditForm({ ...editForm, lastName: e.target.value })
                     }
-                    className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#183b57] focus:ring-2 focus:ring-brand-100"
+                    className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#183b57] focus:ring-2 focus:ring-brand-100 dark:border-gray-800 dark:bg-gray-900 dark:text-white"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-gray-400">
                   Role *
                 </label>
                 <select
@@ -574,7 +574,7 @@ export default function TeamMembers() {
                       role: e.target.value as LenderTeamRole,
                     })
                   }
-                  className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#183b57] focus:ring-2 focus:ring-brand-100"
+                  className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#183b57] focus:ring-2 focus:ring-brand-100 dark:border-gray-800 dark:bg-gray-900 dark:text-white"
                 >
                   {LENDER_TEAM_ROLE_OPTIONS.map((option) => (
                     <option key={option.value} value={option.value}>
@@ -583,18 +583,18 @@ export default function TeamMembers() {
                   ))}
                 </select>
                 {selectedEditRole && (
-                  <p className="mt-2 text-xs text-slate-500">
+                  <p className="mt-2 text-xs text-slate-500 dark:text-gray-400">
                     {selectedEditRole.description}
                   </p>
                 )}
               </div>
             </div>
 
-            <div className="flex justify-end gap-3 border-t border-slate-200 px-6 py-4">
+            <div className="flex justify-end gap-3 border-t border-slate-200 px-6 py-4 dark:border-gray-800">
               <button
                 type="button"
                 onClick={() => setEditOpen(false)}
-                className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50"
+                className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 dark:border-gray-800 dark:text-gray-400 dark:hover:bg-gray-800"
               >
                 Cancel
               </button>

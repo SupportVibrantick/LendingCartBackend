@@ -32,7 +32,7 @@ export default function ChangePasswordForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const inputWrap =
-    "flex items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3.5 transition focus-within:border-[#183b57] focus-within:bg-white dark:border-gray-700 dark:bg-gray-900";
+    "flex items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3.5 transition focus-within:border-[#183b57] focus-within:bg-white dark:border-gray-800 dark:bg-gray-800";
 
   const resetForm = () => {
     setCurrentPassword("");
@@ -110,13 +110,13 @@ export default function ChangePasswordForm() {
           Back to dashboard
         </Link>
 
-        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-gray-400">
           Account security
         </p>
-        <h1 className="mt-1 text-2xl font-semibold text-slate-900 dark:text-white">
+        <h1 className="mt-1 text-2xl font-semibold text-gray-900 dark:text-white">
           Change password
         </h1>
-        <p className="mt-2 text-sm text-slate-500">
+        <p className="mt-2 text-sm text-slate-500 dark:text-gray-400">
           Update your lender portal password. Use at least 8 characters with
           uppercase, lowercase, number, and special character.
         </p>
@@ -138,7 +138,7 @@ export default function ChangePasswordForm() {
               <button
                 type="button"
                 onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                className="text-gray-400 hover:text-gray-600"
+                className="text-gray-400 hover:text-gray-600 dark:text-gray-400 dark:hover:text-gray-300"
                 aria-label={showCurrentPassword ? "Hide password" : "Show password"}
               >
                 {showCurrentPassword ? (
@@ -166,7 +166,7 @@ export default function ChangePasswordForm() {
               <button
                 type="button"
                 onClick={() => setShowNewPassword(!showNewPassword)}
-                className="text-gray-400 hover:text-gray-600"
+                className="text-gray-400 hover:text-gray-600 dark:text-gray-400 dark:hover:text-gray-300"
                 aria-label={showNewPassword ? "Hide password" : "Show password"}
               >
                 {showNewPassword ? (
@@ -194,7 +194,7 @@ export default function ChangePasswordForm() {
               <button
                 type="button"
                 onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                className="text-gray-400 hover:text-gray-600"
+                className="text-gray-400 hover:text-gray-600 dark:text-gray-400 dark:hover:text-gray-300"
                 aria-label={
                   showConfirmPassword ? "Hide password" : "Show password"
                 }

@@ -213,7 +213,7 @@ const StepTwo = ({
   const hideBulkActions = singleProductMode || pickOneMode;
 
   return (
-    <div className="border border-gray-200 rounded-2xl p-6 shadow-sm bg-white">
+    <div className="border border-gray-200 rounded-2xl p-6 shadow-sm bg-white dark:border-gray-800 dark:bg-gray-900">
       {!pickOneMode && value?.length > 0 && (
         <div className="flex flex-wrap gap-2 mb-4">
           {products
@@ -222,14 +222,14 @@ const StepTwo = ({
             .map((p) => (
               <span
                 key={p.id}
-                className="text-xs bg-gray-100 px-2 py-1 rounded-full"
+                className="text-xs bg-gray-100 px-2 py-1 rounded-full dark:bg-gray-800 dark:text-gray-300"
               >
                 {p.name}
               </span>
             ))}
 
           {value.length > 5 && (
-            <span className="text-xs text-gray-500">
+            <span className="text-xs text-gray-500 dark:text-gray-400">
               +{value.length - 5} more
             </span>
           )}
@@ -238,16 +238,16 @@ const StepTwo = ({
 
       <div className="flex justify-between items-start mb-5">
         <div>
-          <h2 className="font-semibold text-lg flex items-center gap-2">
+          <h2 className="font-semibold text-lg flex items-center gap-2 dark:text-white">
             Loan Programs Offered
             {!pickOneMode && value?.length > 0 && (
-              <span className="text-xs bg-blue-100 text-blue-600 px-2.5 py-0.5 rounded-full font-medium">
+              <span className="text-xs bg-blue-100 text-blue-600 px-2.5 py-0.5 rounded-full font-medium dark:bg-blue-900/30 dark:text-blue-400">
                 {value.length} selected
               </span>
             )}
           </h2>
 
-          <p className="text-sm text-gray-500 mt-1">
+          <p className="text-sm text-gray-500 mt-1 dark:text-gray-400">
             {description ||
               (pickOneMode
                 ? "Select one loan program to continue. Configured programs stay available."
@@ -266,7 +266,7 @@ const StepTwo = ({
             <button
               type="button"
               onClick={handleSelectAll}
-              className="text-blue-600 font-medium hover:underline disabled:text-gray-300"
+              className="text-blue-600 font-medium hover:underline disabled:text-gray-300 dark:text-blue-400"
               disabled={
                 selectableProducts.length === 0 ||
                 selectableProducts.every((p) => safeValue.includes(p.id))
@@ -278,7 +278,7 @@ const StepTwo = ({
             <button
               type="button"
               onClick={handleClear}
-              className="text-red-500 font-medium hover:underline disabled:text-gray-300"
+              className="text-red-500 font-medium hover:underline disabled:text-gray-300 dark:text-red-400"
               disabled={!value?.length || value.length === lockedIds.length}
             >
               Clear
@@ -313,15 +313,15 @@ const StepTwo = ({
                     item.name,
                   )} shadow-sm ring-2 ring-white`}
                 />
-                <span className="flex-1 text-xs font-medium text-slate-800">
+                <span className="flex-1 text-xs dark:text-gray-300 font-medium text-slate-800 dark:text-white">
                   {item.name}
                 </span>
                 {isConfigured ? (
-                  <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
+                  <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
                     Configured
                   </span>
                 ) : null}
-                <ChevronRight size={16} className="shrink-0 text-slate-400" />
+                <ChevronRight size={16} className="shrink-0 text-slate-400 dark:text-gray-400" />
               </button>
             );
           }
@@ -365,7 +365,7 @@ const StepTwo = ({
                 )} shadow-sm ring-2 ring-white`}
               />
 
-              <span className="flex-1 text-xs">{item.name}</span>
+              <span className="flex-1 text-xs dark:text-gray-300">{item.name}</span>
 
               {isConfigured ? (
                 <span
@@ -378,7 +378,7 @@ const StepTwo = ({
                   {configuredSelectable ? "Configured" : "Already Added"}
                 </span>
               ) : isLocked ? (
-                <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-emerald-700">
+                <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
                   Active
                 </span>
               ) : null}

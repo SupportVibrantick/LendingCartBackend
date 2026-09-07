@@ -475,11 +475,11 @@ export default function NetworkChatModal({
       <button
         type="button"
         aria-label="Close chat overlay"
-        className="absolute inset-0 bg-slate-900/45 backdrop-blur-[2px]"
+        className="absolute inset-0 bg-gray-900/45 backdrop-blur-[2px]"
         onClick={onClose}
       />
 
-      <div className="relative z-10 flex h-[min(720px,100dvh)] w-full max-w-2xl flex-col overflow-hidden rounded-t-3xl border border-slate-200/80 bg-white shadow-[0_25px_80px_-20px_rgba(15,23,42,0.5)] sm:rounded-3xl dark:border-slate-700 dark:bg-slate-900">
+      <div className="relative z-10 flex h-[min(720px,100dvh)] w-full max-w-2xl flex-col overflow-hidden rounded-t-3xl border border-slate-200/80 bg-white shadow-[0_25px_80px_-20px_rgba(15,23,42,0.5)] sm:rounded-3xl dark:border-gray-800 dark:bg-gray-900">
         {/* Header */}
         <div
           className="relative overflow-hidden px-5 pb-4 pt-4 text-white"
@@ -522,10 +522,10 @@ export default function NetworkChatModal({
         <div
           ref={messagesContainerRef}
           onScroll={onMessagesScroll}
-          className="flex-1 space-y-1 overflow-y-auto bg-[linear-gradient(180deg,#f8fafc_0%,#f1f5f9_100%)] px-4 py-4 dark:bg-none dark:bg-slate-950"
+          className="flex-1 space-y-1 overflow-y-auto bg-[linear-gradient(180deg,#f8fafc_0%,#f1f5f9_100%)] px-4 py-4 dark:bg-none dark:bg-gray-950"
         >
           {loading ? (
-            <div className="flex h-full flex-col items-center justify-center gap-3 py-16 text-slate-500">
+            <div className="flex h-full flex-col items-center justify-center gap-3 py-16 text-slate-500 dark:text-gray-400">
               <div
                 className="h-8 w-8 animate-spin rounded-full border-2 border-slate-200 border-t-brand-500"
                 style={{ borderTopColor: BRAND }}
@@ -540,10 +540,10 @@ export default function NetworkChatModal({
               >
                 <MessageSquare size={24} />
               </div>
-              <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+              <p className="text-sm font-semibold text-slate-800 dark:text-white">
                 Start the conversation
               </p>
-              <p className="mt-1 max-w-[240px] text-xs leading-relaxed text-slate-500">
+              <p className="mt-1 max-w-[240px] text-xs leading-relaxed text-slate-500 dark:text-gray-400">
                 Messages appear here instantly once either side sends a note.
               </p>
             </div>
@@ -555,7 +555,7 @@ export default function NetworkChatModal({
                     key={item.id}
                     className="flex items-center justify-center py-3"
                   >
-                    <span className="rounded-full bg-white/90 px-3 py-1 text-[11px] font-medium text-slate-500 shadow-sm ring-1 ring-slate-200/80 dark:bg-slate-800 dark:text-slate-300 dark:ring-slate-700">
+                    <span className="rounded-full bg-white/90 px-3 py-1 text-[11px] font-medium text-slate-500 dark:text-gray-400 shadow-sm ring-1 ring-slate-200/80 dark:bg-gray-800 dark:text-gray-300 dark:ring-gray-800">
                       {item.label}
                     </span>
                   </div>
@@ -585,7 +585,7 @@ export default function NetworkChatModal({
                     className={`max-w-[75%] px-3.5 py-2 text-[13px] leading-relaxed shadow-sm ${
                       mine
                         ? "rounded-2xl rounded-br-md text-white"
-                        : "rounded-2xl rounded-bl-md bg-white text-slate-800 ring-1 ring-slate-200/80 dark:bg-slate-800 dark:text-slate-100 dark:ring-slate-700"
+                        : "rounded-2xl rounded-bl-md bg-white text-slate-800 ring-1 ring-slate-200/80 dark:bg-gray-800 dark:text-white dark:ring-gray-800"
                     }`}
                     style={mine ? { backgroundColor: BRAND } : undefined}
                   >
@@ -602,7 +602,7 @@ export default function NetworkChatModal({
                     </p>
                     <p
                       className={`mt-1 text-right text-[10px] ${
-                        mine ? "text-white/70" : "text-slate-400"
+                        mine ? "text-white/70" : "text-slate-400 dark:text-gray-400"
                       }`}
                     >
                       {formatTime(msg.createdAt)}
@@ -618,10 +618,10 @@ export default function NetworkChatModal({
         {/* Composer */}
         <form
           onSubmit={handleSend}
-          className="border-t border-slate-200/80 bg-white p-4 dark:border-slate-700 dark:bg-slate-900"
+          className="border-t border-slate-200/80 bg-white p-4 dark:border-gray-800 dark:bg-gray-900"
         >
           <div
-            className="flex items-end gap-2 rounded-2xl bg-slate-100 p-1.5 ring-1 ring-slate-200/80 focus-within:ring-2 dark:bg-slate-800 dark:ring-slate-700"
+            className="flex items-end gap-2 rounded-2xl bg-slate-100 p-1.5 ring-1 ring-slate-200/80 focus-within:ring-2 dark:bg-gray-800 dark:ring-gray-800"
             style={{ ["--tw-ring-color" as string]: `${BRAND}55` }}
           >
             <textarea
@@ -631,7 +631,7 @@ export default function NetworkChatModal({
               rows={1}
               placeholder="Type a message…"
               disabled={!conversationId || loading}
-              className="max-h-28 min-h-[44px] flex-1 resize-none bg-transparent px-3 py-2.5 text-sm text-slate-800 outline-none placeholder:text-slate-400 dark:text-slate-100"
+              className="max-h-28 min-h-[44px] flex-1 resize-none bg-transparent px-3 py-2.5 text-sm text-slate-800 outline-none placeholder:text-slate-400 dark:text-white"
             />
             <button
               type="submit"
@@ -643,7 +643,7 @@ export default function NetworkChatModal({
               <Send size={16} />
             </button>
           </div>
-          <p className="mt-2 px-1 text-[10px] text-slate-400">
+          <p className="mt-2 px-1 text-[10px] text-slate-400 dark:text-gray-400">
             Enter to send · Shift+Enter for new line
           </p>
         </form>

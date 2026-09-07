@@ -47,6 +47,7 @@
     "axios": "^1.11.0",
     "bcrypt": "^6.0.0",
     "dayjs": "^1.11.20",
+    "debug": "^4.4.3",
     "docxtemplater": "^3.68.3",
     "dotenv": "^17.2.1",
     "fastify": "^5.5.0",

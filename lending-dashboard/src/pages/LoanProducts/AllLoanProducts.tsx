@@ -172,7 +172,7 @@ function statusClass(status?: string) {
     case "INACTIVE":
       return "bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-500/10 dark:text-yellow-300 dark:border-yellow-500/40";
     default:
-      return "bg-gray-100 text-gray-800 border-gray-200 dark:bg-slate-600/30 dark:text-slate-100 dark:border-slate-500";
+      return "bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-800 dark:text-white dark:border-gray-800";
   }
 }
 
@@ -491,13 +491,13 @@ export default function AlloanProducts() {
   }, []);
 
   return (
-    <div className="px-6 py-6 text-gray-900 dark:text-gray-100">
+    <div className="px-6 py-6 text-gray-900 dark:text-white">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
             <span className="text-[#3e86b7]">Loan</span> Programs
           </h1>
-          <p className="text-sm text-gray-500 mt-1 dark:text-slate-400">
+          <p className="text-sm text-gray-500 mt-1 dark:text-gray-400">
             Manage global loan programs available on the platform.
           </p>
         </div>
@@ -510,8 +510,8 @@ export default function AlloanProducts() {
               onChange={(e) => setQuery(e.target.value)}
               className="px-3 py-2 border rounded-md w-64 focus:outline-none focus:ring-1 focus:ring-blue-500
                          border-gray-300 bg-white text-gray-900
-                         dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100
-                         placeholder-gray-400 dark:placeholder-slate-400"
+                         dark:bg-gray-800 dark:border-gray-800 dark:text-white
+                         placeholder-gray-400 dark:placeholder-gray-400"
               aria-label="Search lenders"
             />
             <select
@@ -519,7 +519,7 @@ export default function AlloanProducts() {
               onChange={(e) => setPageSize(Number(e.target.value))}
               className="px-2 py-2 border rounded-md bg-white text-gray-900
                          border-gray-300
-                         dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
+                         dark:bg-gray-800 dark:border-gray-800 dark:text-white"
               aria-label="Page size"
             >
               <option value={5}>5 / page</option>
@@ -542,13 +542,13 @@ export default function AlloanProducts() {
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 dark:bg-slate-900 dark:border-slate-700">
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 dark:bg-gray-900 dark:border-gray-800">
         {loading ? (
-          <div className="py-16 text-center text-sm text-gray-500 dark:text-slate-400">
+          <div className="py-16 text-center text-sm text-gray-500 dark:text-gray-400">
             Loading loan programs...
           </div>
         ) : pagination.total === 0 ? (
-          <div className="py-16 text-center text-sm text-gray-500 dark:text-slate-400">
+          <div className="py-16 text-center text-sm text-gray-500 dark:text-gray-400">
             No Loan programs found.
           </div>
         ) : (
@@ -556,7 +556,7 @@ export default function AlloanProducts() {
             <div>
               <table className="min-w-full text-sm">
                 <thead>
-                  <tr className="border-b border-gray-100 text-xs text-gray-500 uppercase tracking-wide dark:border-slate-700 dark:text-slate-400">
+                  <tr className="border-b border-gray-100 text-xs text-gray-500 uppercase tracking-wide dark:border-gray-800 dark:text-gray-400">
                     <th className="py-2 pr-4 text-left">Loan Program</th>
                     <th className="py-2 pr-4 text-left">Key Criteria</th>
                     <th className="py-2 pr-4 text-left">Status</th>
@@ -570,12 +570,12 @@ export default function AlloanProducts() {
                     return (
                       <tr
                         key={item.id}
-                        className="border-b border-gray-100 last:border-0 hover:bg-gray-50/40 dark:border-slate-800 dark:hover:bg-slate-800/60"
+                        className="border-b border-gray-100 last:border-0 hover:bg-gray-50/40 dark:border-gray-800 dark:hover:bg-gray-800/60"
                       >
-                        <td className="py-3 pr-4 text-gray-900 whitespace-nowrap dark:text-gray-100">
+                        <td className="py-3 pr-4 text-gray-900 whitespace-nowrap dark:text-white">
                           {formatLoanProductName(item)}
                         </td>
-                        <td className="py-3 pr-4 text-gray-600 dark:text-slate-300">
+                        <td className="py-3 pr-4 text-gray-600 dark:text-gray-300">
                           {formatListKeyCriteria(item, formatAmount)}
                         </td>
                         <td className="py-3 pr-4 whitespace-nowrap">
@@ -637,7 +637,7 @@ export default function AlloanProducts() {
                               }
                               className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 
                  text-gray-500 hover:bg-gray-100 hover:text-gray-800 transition
-                 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
+                 dark:border-gray-800 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white"
                             >
                               <BsThreeDotsVertical size={16} />
                             </button>
@@ -646,7 +646,7 @@ export default function AlloanProducts() {
                             {openMenuId === item.id && (
                               <div
                                 className="absolute right-2 top-11 z-50 w-44 bg-white border rounded-lg shadow-lg overflow-hidden
-                      dark:bg-slate-900 dark:border-slate-700 animate-in fade-in zoom-in-95"
+                      dark:bg-gray-900 dark:border-gray-800 animate-in fade-in zoom-in-95"
                               >
                                 {/* VIEW DETAILS */}
                                 <button
@@ -656,7 +656,7 @@ export default function AlloanProducts() {
                                   }}
                                   className="flex items-center gap-2 w-full px-4 py-2.5 text-sm text-emerald-600
                      hover:bg-emerald-50 hover:text-emerald-600 transition
-                     dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-emerald-400"
+                     dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-emerald-400"
                                 >
                                   <MdOutlineRemoveRedEye size={16} />
                                   View Details
@@ -672,7 +672,7 @@ export default function AlloanProducts() {
                                     }
                                     className="flex items-center gap-2 w-full px-4 py-2.5 text-sm text-blue-600 
                      hover:bg-blue-50 hover:text-blue-600 transition
-                     dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-blue-400"
+                     dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-blue-400"
                                   >
                                     <MdModeEdit size={16} />
                                     Update
@@ -690,7 +690,7 @@ export default function AlloanProducts() {
             </div>
 
             <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-3">
-              <div className="text-sm text-gray-600 dark:text-slate-300">
+              <div className="text-sm text-gray-600 dark:text-gray-300">
                 Showing{" "}
                 <span className="font-medium">
                   {(currentPage - 1) * pageSize + 1}
@@ -708,7 +708,7 @@ export default function AlloanProducts() {
                   disabled={currentPage === 1}
                   className="px-3 py-1 border rounded-md disabled:opacity-40
                              border-gray-300 bg-white text-gray-800
-                             dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                             dark:border-gray-800 dark:bg-gray-900 dark:text-white"
                 >
                   Prev
                 </button>
@@ -735,7 +735,7 @@ export default function AlloanProducts() {
                         className={`px-3 py-1 rounded-md ${
                           page === currentPage
                             ? "bg-[#3e86b7] text-white"
-                            : "border border-gray-300 bg-white text-gray-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                            : "border border-gray-300 bg-white text-gray-800 dark:border-gray-800 dark:bg-gray-900 dark:text-white"
                         }`}
                       >
                         {page}
@@ -749,7 +749,7 @@ export default function AlloanProducts() {
                   disabled={currentPage === pagination.totalPages}
                   className="px-3 py-1 border rounded-md disabled:opacity-40
                              border-gray-300 bg-white text-gray-800
-                             dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                             dark:border-gray-800 dark:bg-gray-900 dark:text-white"
                 >
                   Next
                 </button>
@@ -776,7 +776,7 @@ export default function AlloanProducts() {
         >
           <div
             className="w-[95%] max-w-3xl bg-white rounded-xl shadow-xl p-6 overflow-y-auto max-h-[90vh]
-                    dark:bg-slate-900"
+                    dark:bg-gray-900"
             onClick={(event) => event.stopPropagation()}
             role="dialog"
             aria-modal="true"
@@ -794,7 +794,7 @@ export default function AlloanProducts() {
                 type="button"
                 onClick={() => setViewDetails(null)}
                 aria-label="Close loan product details"
-                className="flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 transition hover:bg-gray-100 hover:text-gray-800 dark:hover:bg-slate-800 dark:hover:text-white"
+                className="flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 transition hover:bg-gray-100 hover:text-gray-800 dark:hover:bg-gray-800 dark:hover:text-white"
               >
                 <X size={18} />
               </button>
@@ -824,7 +824,7 @@ export default function AlloanProducts() {
 
               {/* DOCUMENTS */}
               <div className="col-span-2">
-                <p className="font-medium text-gray-700 dark:text-slate-300 mb-2">
+                <p className="font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Documents
                 </p>
 
@@ -863,7 +863,7 @@ export default function AlloanProducts() {
                     ))}
                   </div>
                 ) : (
-                  <div className="text-xs text-gray-400">
+                  <div className="text-xs text-gray-400 dark:text-gray-400 dark:text-gray-400">
                     No documents configured
                   </div>
                 )}
@@ -871,7 +871,7 @@ export default function AlloanProducts() {
 
               {/* STATES */}
               <div className="col-span-2">
-                <p className="font-medium text-gray-700 dark:text-slate-300 mb-1">
+                <p className="font-medium text-gray-700 dark:text-gray-300 mb-1">
                   States Supported
                 </p>
                 {viewDetails.statesSupported?.length ? (
@@ -887,7 +887,7 @@ export default function AlloanProducts() {
                     ))}
                   </div>
                 ) : (
-                  <div className="text-xs text-gray-400">
+                  <div className="text-xs text-gray-400 dark:text-gray-400 dark:text-gray-400">
                     No states configured
                   </div>
                 )}
@@ -895,7 +895,7 @@ export default function AlloanProducts() {
 
               {/* BUSINESS TYPES */}
               <div className="col-span-2">
-                <p className="font-medium text-gray-700 dark:text-slate-300 mb-1">
+                <p className="font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Business Types
                 </p>
                 {safeGroupedEntries(viewDetails.businessTypes, "name")
@@ -903,10 +903,10 @@ export default function AlloanProducts() {
                   safeGroupedEntries(viewDetails.businessTypes, "name").map(
                     ([category, list]) => (
                       <div key={category} className="mb-2">
-                        <p className="text-xs font-semibold text-gray-500">
+                        <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 dark:text-gray-400">
                           {category}
                         </p>
-                        <ul className="list-disc ml-5 text-gray-700 dark:text-slate-300">
+                        <ul className="list-disc ml-5 text-gray-700 dark:text-gray-300">
                           {list.length ? (
                             list.map((item: string) => (
                               <li key={item}>{item}</li>
@@ -919,7 +919,7 @@ export default function AlloanProducts() {
                     ),
                   )
                 ) : (
-                  <div className="text-xs text-gray-400">
+                  <div className="text-xs text-gray-400 dark:text-gray-400 dark:text-gray-400">
                     No business types configured
                   </div>
                 )}
@@ -927,7 +927,7 @@ export default function AlloanProducts() {
 
               {/* PROPERTY TYPES */}
               <div className="col-span-2">
-                <p className="font-medium text-gray-700 dark:text-slate-300 mb-1">
+                <p className="font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Property Types
                 </p>
                 {safeGroupedEntries(viewDetails.propertyTypes, "type")
@@ -935,10 +935,10 @@ export default function AlloanProducts() {
                   safeGroupedEntries(viewDetails.propertyTypes, "type").map(
                     ([category, list]) => (
                       <div key={category} className="mb-2">
-                        <p className="text-xs font-semibold text-gray-500">
+                        <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 dark:text-gray-400">
                           {category}
                         </p>
-                        <ul className="list-disc ml-5 text-gray-700 dark:text-slate-300">
+                        <ul className="list-disc ml-5 text-gray-700 dark:text-gray-300">
                           {list.length ? (
                             list.map((item: string) => (
                               <li key={item}>{item}</li>
@@ -951,7 +951,7 @@ export default function AlloanProducts() {
                     ),
                   )
                 ) : (
-                  <div className="text-xs text-gray-400">
+                  <div className="text-xs text-gray-400 dark:text-gray-400 dark:text-gray-400">
                     No property types configured
                   </div>
                 )}
@@ -959,7 +959,7 @@ export default function AlloanProducts() {
 
               {viewDetails.equipmentTypes?.length ? (
                 <div className="col-span-2">
-                  <p className="font-medium text-gray-700 dark:text-slate-300 mb-1">
+                  <p className="font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Equipment Types
                   </p>
                   <div className="flex flex-wrap gap-2">
@@ -985,8 +985,8 @@ export default function AlloanProducts() {
 
 const Detail = ({ label, value }: any) => (
   <div>
-    <p className="text-gray-500 text-xs">{label}</p>
-    <p className="font-medium text-gray-800 dark:text-white rounded-md bg-blue-100 px-2 py-2 text-xs mt-1">
+    <p className="text-gray-500 text-xs dark:text-gray-400">{label}</p>
+    <p className="font-medium text-gray-800 dark:text-white rounded-md bg-blue-100 px-2 py-2 text-xs mt-1 dark:bg-blue-900/30">
       {value === null || value === undefined || value === "" ? "-" : value}
     </p>
   </div>

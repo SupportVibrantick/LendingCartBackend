@@ -201,7 +201,7 @@ export default function AllRuleSets() {
           <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white">
             All <span className="text-[#3e86b7]">Rules</span>
           </h1>
-          <p className="text-xs sm:text-sm text-gray-500 mt-1 dark:text-slate-400">
+          <p className="text-xs sm:text-sm text-gray-500 mt-1 dark:text-gray-400">
             Manage rules
           </p>
         </div>
@@ -211,7 +211,7 @@ export default function AllRuleSets() {
             <select
               className="px-2 py-2 border rounded-md bg-white text-gray-900 text-sm
                          border-gray-300
-                         dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
+                         dark:bg-gray-800 dark:border-gray-800 dark:text-gray-100"
               value={selectedLenderProductId}
               onChange={(e) => {
                 const id = e.target.value;
@@ -243,7 +243,7 @@ export default function AllRuleSets() {
               onChange={(e) => setPageSize(Number(e.target.value))}
               className="px-2 py-2 border rounded-md bg-white text-gray-900 text-sm
                          border-gray-300
-                         dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
+                         dark:bg-gray-800 dark:border-gray-800 dark:text-gray-100"
               aria-label="Page size"
             >
               <option value={5}>5 / page</option>
@@ -255,8 +255,8 @@ export default function AllRuleSets() {
       </div>
 
       {/* Table */}
-      <div className="mt-6 bg-white rounded-xl border p-5 dark:bg-slate-900">
-        <h2 className="text-lg font-semibold mb-3">Eligibility Rules</h2>
+      <div className="mt-6 bg-white rounded-xl border p-5 dark:bg-gray-900 dark:border-gray-800">
+        <h2 className="text-lg font-semibold mb-3 dark:text-white">Eligibility Rules</h2>
 
         {loadingRules ? (
           <div className="py-6 text-center text-gray-500">Loading rules...</div>
@@ -264,7 +264,7 @@ export default function AllRuleSets() {
           <div
             className="py-10 flex flex-col items-center justify-center text-center rounded-lg border border-dashed
                 border-gray-300 bg-gray-50
-                dark:border-slate-700 dark:bg-slate-800/40"
+                dark:border-gray-800 dark:bg-gray-900"
           >
             {/* ICON */}
             <div className="mb-3 text-3xl">
@@ -274,7 +274,7 @@ export default function AllRuleSets() {
             </div>
 
             {/* MESSAGE */}
-            <p className="text-sm sm:text-base font-medium text-gray-700 dark:text-slate-200">
+            <p className="text-sm sm:text-base font-medium text-gray-700 dark:text-gray-300">
               {!selectedLenderProductId && (
                 <>
                   Please{" "}
@@ -305,7 +305,7 @@ export default function AllRuleSets() {
             </p>
 
             {/* HELPER TEXT */}
-            <p className="mt-1 text-xs text-gray-500 dark:text-slate-400">
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
               {!selectedLenderProductId &&
                 "Choose a rule set from the dropdown above."}
               {selectedLenderProductId &&
@@ -318,7 +318,7 @@ export default function AllRuleSets() {
         ) : (
           <table className="min-w-full text-sm">
             <thead>
-              <tr className="border-b text-xs uppercase text-gray-500">
+              <tr className="border-b text-xs uppercase text-gray-500 dark:border-gray-800 dark:text-gray-400">
                 <th className="py-2 text-left">Field</th>
                 <th className="py-2 text-left">Operator</th>
                 <th className="py-2 text-left">Value</th>
@@ -331,7 +331,7 @@ export default function AllRuleSets() {
             </thead>
             <tbody>
               {paginatedRules.map((r) => (
-                <tr key={r.id} className="border-b last:border-0">
+                <tr key={r.id} className="border-b last:border-0 dark:border-gray-800">
                   <td className="py-3">{r.fieldName}</td>
 
                   <td className="py-3">
@@ -368,7 +368,7 @@ export default function AllRuleSets() {
                     <button
                       onClick={() => setEditingRule(r)}
                       className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 text-gray-500 hover:bg-gray-100
-                       dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                       dark:border-gray-800 dark:text-gray-400 dark:hover:bg-gray-800"
                     >
                       <MdModeEdit />
                     </button>
@@ -385,7 +385,7 @@ export default function AllRuleSets() {
           <button
             onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
             disabled={currentPage === 1}
-            className="px-3 py-1 border rounded disabled:opacity-40"
+            className="px-3 py-1 border rounded disabled:opacity-40 dark:border-gray-800 dark:bg-gray-800 dark:text-gray-300"
           >
             Prev
           </button>
@@ -410,7 +410,7 @@ export default function AllRuleSets() {
           <button
             onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
             disabled={currentPage === totalPages}
-            className="px-3 py-1 border rounded disabled:opacity-40"
+            className="px-3 py-1 border rounded disabled:opacity-40 dark:border-gray-800 dark:bg-gray-800 dark:text-gray-300"
           >
             Next
           </button>

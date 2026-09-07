@@ -105,12 +105,12 @@ function FieldLabel({
         <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-[#183b57]/10 text-[11px] font-bold text-[#183b57] dark:bg-brand-500/15 dark:text-brand-300">
           {step}
         </span>
-        <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+        <span className="text-sm font-semibold text-slate-800 dark:text-white">
           {label}
         </span>
       </div>
       {hint ? (
-        <p className="mt-1 pl-8 text-[11px] leading-relaxed text-slate-400">
+        <p className="mt-1 pl-8 text-[11px] leading-relaxed text-slate-400 dark:text-gray-400">
           {hint}
         </p>
       ) : null}
@@ -119,7 +119,7 @@ function FieldLabel({
 }
 
 const inputClass =
-  "w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-[#183b57] focus:ring-2 focus:ring-[#183b57]/15 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:opacity-70 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:ring-brand-500/20 dark:disabled:bg-slate-800/60";
+  "w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-[#183b57] focus:ring-2 focus:ring-[#183b57]/15 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:opacity-70 dark:border-gray-800 dark:bg-gray-800 dark:text-white dark:placeholder:text-gray-500 dark:focus:ring-brand-500/20 dark:disabled:bg-slate-800/60";
 
 export default function AllDocuments() {
   const [loanProducts, setLoanProducts] = useState<LenderLoanProduct[]>([]);
@@ -450,7 +450,7 @@ export default function AllDocuments() {
 
       <div className="space-y-6">
         {/* Page header */}
-        <div className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
           <div className="absolute inset-y-0 left-0 w-1 bg-[#183b57]" />
           <div className="flex flex-col gap-4 px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-start gap-3">
@@ -458,10 +458,10 @@ export default function AllDocuments() {
                 <FileText className="h-5 w-5" />
               </div>
               <div>
-                <h1 className="text-xl font-semibold tracking-tight text-slate-900 dark:text-white sm:text-2xl">
+                <h1 className="text-xl font-semibold tracking-tight text-gray-900 dark:text-white sm:text-2xl">
                   Document Requirements
                 </h1>
-                <p className="mt-1 max-w-xl text-sm leading-relaxed text-slate-500 dark:text-slate-400">
+                <p className="mt-1 max-w-xl text-sm leading-relaxed text-slate-500 dark:text-gray-400">
                   Attach private documents to each loan product. Only your
                   organization can see what you add here.
                 </p>
@@ -469,7 +469,7 @@ export default function AllDocuments() {
             </div>
 
             <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-600 dark:border-gray-800 dark:bg-gray-800 dark:text-gray-300">
                 <Lock className="h-3 w-3 text-[#183b57]" />
                 Private to your portal
               </span>
@@ -490,15 +490,15 @@ export default function AllDocuments() {
         </div>
 
         {/* Full-width configured list */}
-        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <div className="border-b border-slate-100 px-5 py-4 dark:border-slate-800">
+        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
+          <div className="border-b border-slate-100 px-5 py-4 dark:border-gray-800">
             <div className="flex flex-col gap-4">
               <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <h2 className="text-base font-semibold text-slate-900 dark:text-white">
+                  <h2 className="text-base font-semibold text-gray-900 dark:text-white">
                     Configured Documents
                   </h2>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                  <p className="text-xs text-slate-500 dark:text-gray-400">
                     Documents mapped to your loan products
                   </p>
                 </div>
@@ -560,7 +560,7 @@ export default function AllDocuments() {
                 <col className="w-[6%]" />
               </colgroup>
               <thead>
-                <tr className="bg-slate-50/80 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:bg-slate-800/50 dark:text-slate-500">
+                <tr className="bg-slate-50/80 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:bg-gray-800/50 dark:text-gray-500">
                   <th className="px-5 py-3">Loan Product</th>
                   <th className="px-3 py-3">Document</th>
                   <th className="px-3 py-3">Status</th>
@@ -570,7 +570,7 @@ export default function AllDocuments() {
                   <th className="px-4 py-3 text-right" />
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+              <tbody className="divide-y divide-slate-100 dark:divide-gray-800">
                 {loadingList ? (
                   <tr>
                     <td colSpan={7} className="px-5 py-14 text-center">
@@ -586,7 +586,7 @@ export default function AllDocuments() {
                       <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#183b57]/10 dark:bg-brand-500/10">
                         <FileText className="h-6 w-6 text-[#183b57]" />
                       </div>
-                      <p className="mt-4 text-sm font-semibold text-slate-700 dark:text-slate-200">
+                      <p className="mt-4 text-sm font-semibold text-slate-700 dark:text-gray-300">
                         No documents yet
                       </p>
                       <p className="mx-auto mt-1 max-w-xs text-xs leading-relaxed text-slate-400">
@@ -611,7 +611,7 @@ export default function AllDocuments() {
                   documentConfigs.map((config) => (
                     <tr
                       key={config.id}
-                      className={`transition hover:bg-slate-50/80 dark:hover:bg-slate-800/40 ${
+                      className={`transition hover:bg-slate-50/80 dark:hover:bg-gray-800/40 ${
                         editingId === config.id
                           ? "bg-amber-50/50 dark:bg-amber-500/5"
                           : ""
@@ -619,7 +619,7 @@ export default function AllDocuments() {
                     >
                       <td className="px-5 py-3.5">
                         <p
-                          className="truncate font-medium text-slate-800 dark:text-slate-100"
+                          className="truncate font-medium text-slate-800 dark:text-white"
                           title={resolveProductLabel(config)}
                         >
                           {resolveProductLabel(config)}
@@ -628,7 +628,7 @@ export default function AllDocuments() {
                       <td className="px-3 py-3.5">
                         <div className="flex min-w-0 items-center gap-1.5">
                           <span
-                            className="truncate font-medium text-slate-700 dark:text-slate-200"
+                            className="truncate font-medium text-slate-700 dark:text-gray-300"
                             title={config.documentName || undefined}
                           >
                             {config.documentName || "—"}
@@ -645,7 +645,7 @@ export default function AllDocuments() {
                           className={`inline-flex max-w-full items-center gap-1 truncate rounded-full px-2 py-1 text-[11px] font-semibold ${
                             config.isRequired
                               ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300"
-                              : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"
+                              : "bg-slate-100 text-slate-600 dark:bg-gray-800 dark:text-gray-300"
                           }`}
                         >
                           {config.isRequired ? (
@@ -654,16 +654,16 @@ export default function AllDocuments() {
                           {config.isRequired ? "Required" : "Optional"}
                         </span>
                       </td>
-                      <td className="px-3 py-3.5 tabular-nums text-slate-600 dark:text-slate-300">
+                      <td className="px-3 py-3.5 tabular-nums text-slate-600 dark:text-gray-300">
                         {config.minFiles ?? 0}–{config.maxFiles ?? "∞"}
                       </td>
                       <td className="px-3 py-3.5">
                         {config.notes ? (
                           <div className="group relative min-w-0">
-                            <p className="cursor-default truncate text-slate-500 dark:text-slate-400">
+                            <p className="cursor-default truncate text-slate-500 dark:text-gray-400">
                               {config.notes}
                             </p>
-                            <div className="pointer-events-none absolute bottom-full left-0 z-30 mb-2 hidden w-64 max-w-[min(16rem,70vw)] rounded-lg border border-slate-200 bg-slate-900 px-3 py-2 text-xs leading-relaxed text-white shadow-lg group-hover:block dark:border-slate-600 dark:bg-slate-800">
+                            <div className="pointer-events-none absolute bottom-full left-0 z-30 mb-2 hidden w-64 max-w-[min(16rem,70vw)] rounded-lg border border-slate-200 bg-slate-900 px-3 py-2 text-xs leading-relaxed text-white shadow-lg group-hover:block dark:border-gray-800 dark:bg-gray-800">
                               {config.notes}
                               <span className="absolute left-4 top-full border-4 border-transparent border-t-slate-900 dark:border-t-slate-800" />
                             </div>
@@ -672,7 +672,7 @@ export default function AllDocuments() {
                           <span className="text-slate-400">—</span>
                         )}
                       </td>
-                      <td className="px-3 py-3.5 text-slate-500 dark:text-slate-400">
+                      <td className="px-3 py-3.5 text-slate-500 dark:text-gray-400">
                         {formatDate(config.createdAt)}
                       </td>
                       <td className="relative overflow-visible px-4 py-3.5 text-right">
@@ -689,7 +689,7 @@ export default function AllDocuments() {
                               )
                             }
                             disabled={deletingId === config.id}
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition hover:bg-slate-100 hover:text-slate-800 disabled:opacity-60 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition hover:bg-slate-100 hover:text-slate-800 disabled:opacity-60 dark:border-gray-800 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white"
                             aria-label="Row actions"
                           >
                             {deletingId === config.id ? (
@@ -700,11 +700,11 @@ export default function AllDocuments() {
                           </button>
 
                           {openMenuId === config.id ? (
-                            <div className="absolute right-2 top-11 z-50 w-40 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg dark:border-slate-700 dark:bg-slate-900">
+                            <div className="absolute right-2 top-11 z-50 w-40 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg dark:border-gray-800 dark:bg-gray-900">
                               <button
                                 type="button"
                                 onClick={() => handleEdit(config)}
-                                className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-[#183b57] transition hover:bg-brand-50 dark:text-brand-300 dark:hover:bg-slate-800"
+                                className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-[#183b57] transition hover:bg-brand-50 dark:text-brand-300 dark:hover:bg-gray-800"
                               >
                                 <MdModeEdit size={15} />
                                 Edit
@@ -732,18 +732,18 @@ export default function AllDocuments() {
           </div>
 
           {pagination.total > 0 ? (
-            <div className="flex flex-col gap-3 border-t border-slate-100 px-5 py-4 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-sm text-slate-500 dark:text-slate-400">
+            <div className="flex flex-col gap-3 border-t border-slate-100 px-5 py-4 dark:border-gray-800 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm text-slate-500 dark:text-gray-400">
                 Showing{" "}
-                <span className="font-semibold text-slate-700 dark:text-slate-200">
+                <span className="font-semibold text-slate-700 dark:text-gray-300">
                   {showingFrom}
                 </span>
                 {" – "}
-                <span className="font-semibold text-slate-700 dark:text-slate-200">
+                <span className="font-semibold text-slate-700 dark:text-gray-300">
                   {showingTo}
                 </span>{" "}
                 of{" "}
-                <span className="font-semibold text-slate-700 dark:text-slate-200">
+                <span className="font-semibold text-slate-700 dark:text-gray-300">
                   {pagination.total}
                 </span>
               </p>
@@ -753,7 +753,7 @@ export default function AllDocuments() {
                   type="button"
                   onClick={() => gotoPage(page - 1)}
                   disabled={page <= 1 || loadingList}
-                  className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 disabled:opacity-40 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                  className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 disabled:opacity-40 dark:border-slate-700 dark:text-gray-300 dark:hover:bg-gray-800"
                 >
                   Previous
                 </button>
@@ -781,7 +781,7 @@ export default function AllDocuments() {
                         className={`min-w-8 rounded-lg px-2.5 py-1.5 text-xs font-medium transition ${
                           pageNumber === page
                             ? "bg-[#183b57] text-white shadow-sm"
-                            : "border border-slate-200 text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+                            : "border border-slate-200 text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-gray-300 dark:hover:bg-gray-800"
                         }`}
                       >
                         {pageNumber}
@@ -794,7 +794,7 @@ export default function AllDocuments() {
                   type="button"
                   onClick={() => gotoPage(page + 1)}
                   disabled={page >= totalPages || loadingList}
-                  className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 disabled:opacity-40 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                  className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 disabled:opacity-40 dark:border-slate-700 dark:text-gray-300 dark:hover:bg-gray-800"
                 >
                   Next
                 </button>
@@ -810,19 +810,19 @@ export default function AllDocuments() {
           <button
             type="button"
             aria-label="Close dialog backdrop"
-            className="absolute inset-0 bg-slate-900/50 backdrop-blur-[1px]"
+            className="absolute inset-0 dark:border-gray-800 la-bg-black/50 backdrop-blur-[1px]"
             onClick={() => {
               if (!saving) resetForm();
             }}
           />
 
-          <div className="relative z-10 max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900">
-            <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-5 py-4 dark:border-slate-800">
+          <div className="relative z-10 max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-gray-800 dark:bg-gray-900">
+            <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-5 py-4 dark:border-gray-800">
               <div>
-                <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                   {editingId ? "Edit Document" : "Add Document"}
                 </h3>
-                <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                <p className="mt-0.5 text-xs text-slate-500 dark:text-gray-400">
                   {editingId
                     ? "Update requirement settings for this document"
                     : "Link a document to one of your products"}
@@ -832,7 +832,7 @@ export default function AllDocuments() {
                 type="button"
                 onClick={resetForm}
                 disabled={saving}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:hover:bg-slate-800"
+                className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:hover:bg-gray-800"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -890,12 +890,12 @@ export default function AllDocuments() {
 
               <div>
                 <FieldLabel step={3} label="Requirement" />
-                <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3.5 py-3 transition hover:border-slate-300 dark:border-slate-700 dark:bg-slate-800/60 dark:hover:border-slate-600">
+                <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3.5 py-3 transition hover:border-slate-300 dark:border-gray-800 dark:bg-gray-800/60 dark:hover:border-gray-800">
                   <div className="min-w-0">
-                    <p className="text-sm font-medium text-slate-800 dark:text-slate-100">
+                    <p className="text-sm font-medium text-slate-800 dark:text-white">
                       Required Document
                     </p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                    <p className="text-xs text-slate-500 dark:text-gray-400">
                       Mark if this document is required for the product
                     </p>
                   </div>
@@ -918,7 +918,7 @@ export default function AllDocuments() {
                 <button
                   type="button"
                   onClick={() => setShowAdvanced((prev) => !prev)}
-                  className="flex w-full items-center justify-between rounded-xl border border-dashed border-slate-200 px-3.5 py-2.5 text-sm font-medium text-slate-500 transition hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800"
+                  className="flex w-full items-center justify-between rounded-xl border border-dashed border-slate-200 px-3.5 py-2.5 text-sm font-medium text-slate-500 transition hover:border-slate-300 hover:bg-slate-50 dark:border-gray-800 dark:text-gray-400 dark:hover:bg-gray-800"
                 >
                   More options
                   <ChevronDown
@@ -1007,7 +1007,7 @@ export default function AllDocuments() {
                   type="button"
                   onClick={resetForm}
                   disabled={saving}
-                  className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                  className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:text-gray-300 dark:hover:bg-gray-800"
                 >
                   Cancel
                 </button>

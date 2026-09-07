@@ -107,8 +107,8 @@ const AddUser: React.FC = () => {
 
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-gray-900">Add User</h1>
-        <p className="text-sm text-gray-500 mt-1">
+        <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Add User</h1>
+        <p className="text-sm text-gray-500 mt-1 dark:text-gray-400">
           Create a new user and assign a role.
         </p>
       </div>
@@ -117,70 +117,70 @@ const AddUser: React.FC = () => {
       <div className="grid grid-cols-12 gap-6">
         {/* LEFT FORM (unchanged) */}
         <div className="col-span-12 lg:col-span-7">
-          <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
+          <div className="bg-white rounded-xl border border-gray-100 shadow-sm dark:bg-gray-900 dark:border-gray-800">
             <form onSubmit={handleSubmit} className="p-6 space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">
+                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                     First Name
                   </label>
                   <input
                     type="text"
                     value={firstName}
                     onChange={(e) => setFirstName(e.target.value)}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:bg-gray-800 dark:border-gray-800 dark:text-white"
                     placeholder="Enter first name"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">
+                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                     Last Name
                   </label>
                   <input
                     type="text"
                     value={lastName}
                     onChange={(e) => setLastName(e.target.value)}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:bg-gray-800 dark:border-gray-800 dark:text-white"
                     placeholder="Enter last name"
                   />
                 </div>
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                   Email
                 </label>
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:bg-gray-800 dark:border-gray-800 dark:text-white"
                   placeholder="Enter email"
                 />
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                   Phone Number
                 </label>
                 <input
                   type="text"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:bg-gray-800 dark:border-gray-800 dark:text-white"
                   placeholder="Enter phone number"
                 />
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                   Role
                 </label>
                 <select
                   value={role}
                   onChange={(e) => setRole(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:bg-gray-800 dark:border-gray-800 dark:text-white"
                 >
                   <option value="">Select a role</option>
                   {roles.map((r) => (
@@ -206,15 +206,15 @@ const AddUser: React.FC = () => {
 
         {/* RIGHT TABLE */}
         <div className="col-span-12 lg:col-span-5">
-          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 h-full flex flex-col">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">
+          <div className="bg-white rounded-xl border border-gray-100 shadow-sm dark:bg-gray-900 dark:border-gray-800 p-5 h-full flex flex-col">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4 dark:text-white">
               Users List
             </h2>
 
             <div className="flex-1 overflow-auto">
               <table className="min-w-full text-sm">
                 <thead>
-                  <tr className="border-b border-gray-100 text-gray-500 text-xs uppercase tracking-wide">
+                  <tr className="border-b border-gray-100 text-gray-500 text-xs uppercase tracking-wide dark:border-gray-800 dark:text-gray-400">
                     <th className="py-2 pr-4 text-left">Full Name</th>
                     <th className="py-2 pr-4 text-left">Role</th>
                     <th className="py-2 pr-4 text-left">Created</th>
@@ -225,13 +225,13 @@ const AddUser: React.FC = () => {
                   {dummyUsers.map((u) => (
                     <tr
                       key={u.id}
-                      className="border-b border-gray-100 last:border-0"
+                      className="border-b border-gray-100 last:border-0 dark:border-gray-800"
                     >
-                      <td className="py-3 pr-4 text-gray-900 font-medium">
+                      <td className="py-3 pr-4 text-gray-900 font-medium dark:text-white">
                         {u.firstName} {u.lastName}
                       </td>
-                      <td className="py-3 pr-4 capitalize">{u.role}</td>
-                      <td className="py-3 pr-4 text-gray-500">
+                      <td className="py-3 pr-4 capitalize dark:text-gray-300">{u.role}</td>
+                      <td className="py-3 pr-4 text-gray-500 dark:text-gray-400">
                         {new Date(u.createdAt).toLocaleDateString()}
                       </td>
                     </tr>

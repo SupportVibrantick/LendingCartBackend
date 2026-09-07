@@ -154,7 +154,7 @@ function MetricCard({
   accentColor: string;
 }) {
   return (
-    <div className="group relative overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md dark:border-slate-800 dark:bg-slate-900">
+    <div className="group relative overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md dark:border-gray-800 dark:bg-gray-900">
       <div
         className="absolute inset-x-0 top-0 h-1 opacity-80"
         style={{ backgroundColor: accentColor }}
@@ -195,13 +195,13 @@ function DashboardSection({
   children: ReactNode;
 }) {
   return (
-    <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
-      <div className="flex flex-col gap-2 border-b border-slate-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between dark:border-slate-800">
+    <div className="overflow-hidden rounded-2xl border border-gray-200/80 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
+      <div className="flex flex-col gap-2 border-b border-gray-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between dark:border-gray-800">
         <div>
-          <h3 className="text-base font-semibold text-slate-900 dark:text-white">
+          <h3 className="text-base font-semibold text-gray-900 dark:text-white">
             {title}
           </h3>
-          <p className="mt-0.5 text-xs text-slate-500">{subtitle}</p>
+          <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{subtitle}</p>
         </div>
         {action}
       </div>
@@ -213,7 +213,7 @@ function DashboardSection({
 function PulseLoader({ height }: { height: string }) {
   return (
     <div
-      className={`${height} animate-pulse rounded-2xl bg-gradient-to-r from-slate-100 via-slate-50 to-slate-100 dark:from-slate-800 dark:via-slate-900 dark:to-slate-800`}
+      className={`${height} animate-pulse rounded-2xl bg-gradient-to-r from-gray-100 via-gray-50 to-gray-100 dark:from-gray-800 dark:via-gray-900 dark:to-gray-800`}
     />
   );
 }
@@ -234,7 +234,7 @@ function FunnelCard({
   const pct = Math.min(100, Math.max(0, value ?? 0));
 
   return (
-    <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+    <div className="rounded-2xl border border-gray-200/80 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
       <div className="mb-4 flex items-center gap-3">
         <div
           className="flex h-10 w-10 items-center justify-center rounded-xl"
@@ -243,21 +243,21 @@ function FunnelCard({
           {icon}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
             {label}
           </p>
-          <p className="text-2xl font-bold text-slate-900 dark:text-white">
+          <p className="text-2xl font-bold text-gray-900 dark:text-white">
             {pct}%
           </p>
         </div>
       </div>
-      <div className="h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+      <div className="h-2 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
         <div
           className="h-full rounded-full transition-all duration-700"
           style={{ width: `${pct}%`, backgroundColor: color }}
         />
       </div>
-      <p className="mt-2 text-xs text-slate-500">{desc}</p>
+      <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">{desc}</p>
     </div>
   );
 }
@@ -468,7 +468,7 @@ export default function Home() {
 
       <div className="space-y-6">
         {/* Hero */}
-        <div className="overflow-hidden rounded-3xl border border-slate-200/80 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div className="overflow-hidden rounded-3xl border border-gray-200/80 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
           <div className="bg-gradient-to-r from-[#183b57] to-[#183b57] px-6 py-6">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
@@ -503,7 +503,7 @@ export default function Home() {
           </div>
 
           {!loading && overview && (
-            <div className="grid grid-cols-2 divide-x divide-slate-100 border-t border-slate-100 dark:divide-slate-800 dark:border-slate-800 lg:grid-cols-4">
+            <div className="grid grid-cols-2 divide-x divide-gray-100 border-t border-gray-100 dark:divide-gray-800 dark:border-gray-800 lg:grid-cols-4">
               {[
                 {
                   label: "In pipeline",
@@ -523,10 +523,10 @@ export default function Home() {
                 },
               ].map((item) => (
                 <div key={item.label} className="px-5 py-4 text-center">
-                  <p className="text-2xl font-bold text-slate-900 dark:text-white">
+                  <p className="text-2xl font-bold text-gray-900 dark:text-white">
                     {item.value}
                   </p>
-                  <p className="mt-0.5 text-xs text-slate-500">{item.label}</p>
+                  <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{item.label}</p>
                 </div>
               ))}
             </div>
@@ -551,7 +551,7 @@ export default function Home() {
               title="Performance Trend"
               subtitle="Applications, approvals, and funded volume over the last 6 months"
               action={
-                <span className="rounded-lg bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                <span className="rounded-lg bg-gray-100 px-2.5 py-1 text-[11px] font-semibold text-gray-600 dark:bg-gray-800 dark:text-gray-300">
                   6 months
                 </span>
               }
@@ -588,7 +588,7 @@ export default function Home() {
                     {pipeline?.stageBreakdown.slice(0, 4).map((item, index) => (
                       <div
                         key={item.status}
-                        className="rounded-xl border border-slate-100 bg-slate-50/80 px-3 py-2.5 dark:border-slate-800 dark:bg-slate-800/50"
+                        className="rounded-xl border border-gray-100 bg-gray-50/80 px-3 py-2.5 dark:border-gray-800 dark:bg-gray-800/50"
                       >
                         <div className="flex items-center gap-2">
                           <span
@@ -598,11 +598,11 @@ export default function Home() {
                                 stageChartOptions.colors?.[index] || TEAL,
                             }}
                           />
-                          <p className="truncate text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                          <p className="truncate text-[10px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                             {item.label}
                           </p>
                         </div>
-                        <p className="mt-1 text-lg font-bold text-slate-900 dark:text-white">
+                        <p className="mt-1 text-lg font-bold text-gray-900 dark:text-white">
                           {item.count}
                         </p>
                       </div>
@@ -642,7 +642,7 @@ export default function Home() {
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[880px] text-left text-sm">
                   <thead>
-                    <tr className="border-b border-slate-200 bg-slate-50/80 text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:border-slate-800 dark:bg-slate-800/50">
+                    <tr className="border-b border-gray-200 bg-gray-50/80 text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:border-gray-800 dark:bg-gray-800/50">
                       <th className="px-4 py-3">Application</th>
                       <th className="px-4 py-3">Client</th>
                       <th className="px-4 py-3">Broker</th>
@@ -652,29 +652,29 @@ export default function Home() {
                       <th className="px-4 py-3">Updated</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100 bg-white dark:divide-slate-800 dark:bg-slate-900">
+                  <tbody className="divide-y divide-gray-100 bg-white dark:divide-gray-800 dark:bg-gray-900">
                     {pipeline.recentApplications.map((item) => (
                       <tr
                         key={item.applicationLenderId}
-                        className="transition-colors hover:bg-slate-50/70 dark:hover:bg-slate-800/40"
+                        className="transition-colors hover:bg-gray-50/70 dark:hover:bg-gray-800/40"
                       >
                         <td className="px-4 py-3.5">
                           <span className="font-mono text-xs font-semibold text-[#183b57]">
                             {item.applicationNumber || "—"}
                           </span>
                         </td>
-                        <td className="px-4 py-3.5 font-medium text-slate-800 dark:text-slate-100">
+                        <td className="px-4 py-3.5 font-medium text-gray-800 dark:text-gray-100">
                           {item.clientName || "—"}
                         </td>
-                        <td className="px-4 py-3.5 text-slate-600 dark:text-slate-300">
+                        <td className="px-4 py-3.5 text-gray-600 dark:text-gray-300">
                           {item.brokerName || "—"}
                         </td>
                         <td className="px-4 py-3.5">
-                          <span className="inline-flex max-w-[180px] truncate rounded-lg bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                          <span className="inline-flex max-w-[180px] truncate rounded-lg bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700 dark:bg-gray-800 dark:text-gray-300">
                             {formatProductCode(item.productCode)}
                           </span>
                         </td>
-                        <td className="px-4 py-3.5 text-right font-semibold text-slate-900 dark:text-white">
+                        <td className="px-4 py-3.5 text-right font-semibold text-gray-900 dark:text-white">
                           {item.amountRequested
                             ? formatRequestedAmount(item.amountRequested)
                             : "—"}
@@ -690,7 +690,7 @@ export default function Home() {
                             <span className="text-slate-400">—</span>
                           )}
                         </td>
-                        <td className="px-4 py-3.5 text-xs text-slate-500">
+                        <td className="px-4 py-3.5 text-xs text-gray-500 dark:text-gray-400">
                           {formatDate(item.updatedAt || item.sentAt)}
                         </td>
                       </tr>
@@ -700,14 +700,14 @@ export default function Home() {
               </div>
             </div>
           ) : (
-            <div className="flex flex-col items-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 px-6 py-14 text-center dark:border-slate-700 dark:bg-slate-800/30">
+            <div className="flex flex-col items-center rounded-2xl border border-dashed border-gray-200 bg-gray-50/50 px-6 py-14 text-center dark:border-gray-700 dark:bg-gray-800/30">
               <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#183b57]/10 text-[#183b57]">
                 <FileSpreadsheet className="h-7 w-7" />
               </div>
-              <h3 className="text-base font-semibold text-slate-900 dark:text-white">
+              <h3 className="text-base font-semibold text-gray-900 dark:text-white">
                 No applications yet
               </h3>
-              <p className="mt-1 max-w-sm text-sm text-slate-500">
+              <p className="mt-1 max-w-sm text-sm text-gray-500 dark:text-gray-400">
                 When brokers submit deals to your programs, they will appear
                 here and in your loan pipeline.
               </p>
@@ -726,15 +726,15 @@ export default function Home() {
         <div>
           <div className="mb-3 flex items-center justify-between">
             <div>
-              <h3 className="text-base font-semibold text-slate-900 dark:text-white">
+              <h3 className="text-base font-semibold text-gray-900 dark:text-white">
                 Conversion Funnel
               </h3>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-gray-500 dark:text-gray-400">
                 How applications move through your pipeline
               </p>
             </div>
             {loading && (
-              <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
+              <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
             )}
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">

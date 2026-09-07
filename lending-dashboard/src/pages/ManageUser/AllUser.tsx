@@ -83,24 +83,24 @@ const AllUser: React.FC = () => {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">All Users</h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">All Users</h1>
+          <p className="text-sm text-gray-500 mt-1 dark:text-gray-400">
             Manage all users, their roles, and contact details.
           </p>
         </div>
       </div>
 
       {/* Card */}
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 dark:bg-gray-900 dark:border-gray-800">
         {users.length === 0 ? (
-          <div className="py-16 text-center text-sm text-gray-500">
+          <div className="py-16 text-center text-sm text-gray-500 dark:text-gray-400">
             No users found.
           </div>
         ) : (
           <div className="overflow-auto">
             <table className="min-w-full text-sm">
               <thead>
-                <tr className="border-b border-gray-100 text-xs text-gray-500 uppercase tracking-wide">
+                <tr className="border-b border-gray-100 text-xs text-gray-500 uppercase tracking-wide dark:border-gray-800 dark:text-gray-400">
                   <th className="py-2 pr-4 text-left">Full Name</th>
                   <th className="py-2 pr-4 text-left">Role</th>
                   <th className="py-2 pr-4 text-left">Phone Number</th>
@@ -114,15 +114,15 @@ const AllUser: React.FC = () => {
                   return (
                     <tr
                       key={user.id}
-                      className="border-b border-gray-100 last:border-0 hover:bg-gray-50/40"
+                      className="border-b border-gray-100 last:border-0 hover:bg-gray-50/40 dark:border-gray-800 dark:hover:bg-gray-800/60"
                     >
-                      <td className="py-3 pr-4 text-gray-900 whitespace-nowrap">
+                      <td className="py-3 pr-4 text-gray-900 whitespace-nowrap dark:text-white">
                         {fullName}
                       </td>
-                      <td className="py-3 pr-4 text-gray-600 whitespace-nowrap">
+                      <td className="py-3 pr-4 text-gray-600 whitespace-nowrap dark:text-gray-300">
                         {roleLabel[user.role]}
                       </td>
-                      <td className="py-3 pr-4 text-gray-600 whitespace-nowrap">
+                      <td className="py-3 pr-4 text-gray-600 whitespace-nowrap dark:text-gray-300">
                         {user.phone}
                       </td>
                       <td className="py-3 pr-4">
@@ -131,7 +131,7 @@ const AllUser: React.FC = () => {
                             type="button"
                             onClick={() => handleEdit(user)}
                             disabled={isLoading}
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 text-gray-500 hover:bg-gray-100 hover:text-gray-800 disabled:opacity-40"
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 text-gray-500 hover:bg-gray-100 hover:text-gray-800 disabled:opacity-40 dark:border-gray-800 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white"
                           >
                             <MdModeEdit className="h-4 w-4" />
                           </button>
@@ -140,7 +140,7 @@ const AllUser: React.FC = () => {
                             type="button"
                             onClick={() => handleDelete(user)}
                             disabled={isLoading}
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-red-100 text-red-500 hover:bg-red-50 hover:text-red-700 disabled:opacity-40"
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-red-100 text-red-500 hover:bg-red-50 hover:text-red-700 disabled:opacity-40 dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/40"
                           >
                             {isLoading ? (
                               <svg
@@ -182,38 +182,38 @@ const AllUser: React.FC = () => {
       ------------------------ */}
       {isEditModalOpen && editUserData && (
         <div className="fixed inset-0 z-5000000 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-lg animate-slideUp">
-            <h2 className="text-lg font-semibold mb-4">Edit User</h2>
+          <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-lg animate-slideUp dark:bg-gray-900 dark:border dark:border-gray-800">
+            <h2 className="text-lg font-semibold mb-4 dark:text-white">Edit User</h2>
 
             {/* First Name */}
             <label className="block mb-3">
-              <span className="text-sm text-gray-700">First Name</span>
+              <span className="text-sm text-gray-700 dark:text-gray-300">First Name</span>
               <input
                 type="text"
                 value={editUserData.firstName}
                 onChange={(e) =>
                   setEditUserData({ ...editUserData, firstName: e.target.value })
                 }
-                className="w-full px-3 py-2 mt-1 border rounded-md"
+                className="w-full px-3 py-2 mt-1 border rounded-md dark:bg-gray-800 dark:border-gray-800 dark:text-white"
               />
             </label>
 
             {/* Last Name */}
             <label className="block mb-3">
-              <span className="text-sm text-gray-700">Last Name</span>
+              <span className="text-sm text-gray-700 dark:text-gray-300">Last Name</span>
               <input
                 type="text"
                 value={editUserData.lastName}
                 onChange={(e) =>
                   setEditUserData({ ...editUserData, lastName: e.target.value })
                 }
-                className="w-full px-3 py-2 mt-1 border rounded-md"
+                className="w-full px-3 py-2 mt-1 border rounded-md dark:bg-gray-800 dark:border-gray-800 dark:text-white"
               />
             </label>
 
             {/* Role */}
             <label className="block mb-3">
-              <span className="text-sm text-gray-700">Role</span>
+              <span className="text-sm text-gray-700 dark:text-gray-300">Role</span>
               <select
                 value={editUserData.role}
                 onChange={(e) =>
@@ -222,7 +222,7 @@ const AllUser: React.FC = () => {
                     role: e.target.value as User["role"],
                   })
                 }
-                className="w-full px-3 py-2 mt-1 border rounded-md"
+                className="w-full px-3 py-2 mt-1 border rounded-md dark:bg-gray-800 dark:border-gray-800 dark:text-white"
               >
                 <option value="admin">Admin</option>
                 <option value="broker">Broker</option>
@@ -232,14 +232,14 @@ const AllUser: React.FC = () => {
 
             {/* Phone */}
             <label className="block mb-4">
-              <span className="text-sm text-gray-700">Phone Number</span>
+              <span className="text-sm text-gray-700 dark:text-gray-300">Phone Number</span>
               <input
                 type="text"
                 value={editUserData.phone}
                 onChange={(e) =>
                   setEditUserData({ ...editUserData, phone: e.target.value })
                 }
-                className="w-full px-3 py-2 mt-1 border rounded-md"
+                className="w-full px-3 py-2 mt-1 border rounded-md dark:bg-gray-800 dark:border-gray-800 dark:text-white"
               />
             </label>
 
@@ -247,7 +247,7 @@ const AllUser: React.FC = () => {
             <div className="flex justify-end gap-3 mt-5">
               <button
                 onClick={() => setIsEditModalOpen(false)}
-                className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md"
+                className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md dark:text-gray-300 dark:hover:bg-gray-800"
               >
                 Cancel
               </button>

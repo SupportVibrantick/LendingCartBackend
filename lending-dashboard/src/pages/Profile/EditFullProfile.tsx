@@ -791,21 +791,21 @@ export default function EditFullProfile() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+      <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-950">
         <Loader2 className="h-8 w-8 animate-spin text-[#183b57]" />
       </div>
     );
   }
 
   return (
-    <div className="flex h-screen flex-col bg-gray-50">
-      <div className="sticky top-0 z-30 bg-gray-50">
+    <div className="flex h-screen flex-col bg-gray-50 dark:bg-gray-950">
+      <div className="sticky top-0 z-30 bg-gray-50 dark:bg-gray-950">
         <div className="mx-auto flex max-w-screen-2xl items-center justify-between px-6 py-4">
           <div className="flex min-w-0 items-center gap-3">
             <button
               type="button"
               onClick={() => navigate("/profile")}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border transition hover:bg-gray-100"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border transition hover:bg-gray-100 dark:border-gray-800 dark:hover:bg-gray-800"
             >
               <ArrowLeft size={18} />
             </button>
@@ -813,22 +813,22 @@ export default function EditFullProfile() {
             <div className="min-w-0">
               {selectedProducts.length > 0 && step > 0 ? (
                 <>
-                  <h1 className="truncate text-lg font-semibold leading-tight">
+                  <h1 className="truncate text-lg font-semibold leading-tight dark:text-white">
                     {selectedProducts.length === 1
                       ? selectedProducts[0].name
                       : `${selectedProducts[0].name} +${selectedProducts.length - 1} more`}
                   </h1>
-                  <p className="truncate text-xs text-gray-500">
+                  <p className="truncate text-xs text-gray-500 dark:text-gray-400">
                     {steps[step]} · Step {step + 1} of {steps.length}
                     {company.companyName ? ` · ${company.companyName}` : ""}
                   </p>
                 </>
               ) : (
                 <>
-                  <h1 className="text-lg font-semibold leading-tight">
+                  <h1 className="text-lg font-semibold leading-tight dark:text-white">
                     Edit — {company.companyName || "Lender Profile"}
                   </h1>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
                     Step {step + 1} of {steps.length} · {steps[step]}
                   </p>
                 </>
@@ -840,7 +840,7 @@ export default function EditFullProfile() {
             type="button"
             onClick={() => saveCompanyProfile()}
             disabled={savingProfile || submitting}
-            className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium transition hover:bg-slate-50 disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium transition hover:bg-slate-50 disabled:opacity-50 dark:border-gray-800 dark:bg-gray-900 dark:text-white dark:hover:bg-gray-800"
           >
             {savingProfile ? (
               <Loader2 size={16} className="animate-spin" />
@@ -852,7 +852,7 @@ export default function EditFullProfile() {
         </div>
 
         <div className="mx-auto max-w-screen-2xl px-6">
-          <div className="h-[3px] overflow-hidden rounded-full bg-gray-100">
+          <div className="h-[3px] overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
             <div
               className="h-full bg-[#183b57] transition-all duration-300"
               style={{ width: `${((step + 1) / steps.length) * 100}%` }}
@@ -873,7 +873,7 @@ export default function EditFullProfile() {
                       ? "bg-[#183b57] text-white shadow"
                       : isCompleted
                         ? "bg-emerald-500 text-white"
-                        : "bg-gray-100 text-gray-400"
+                        : "bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-400"
                   }`}
                 >
                   {isCompleted ? "✓" : index + 1}
@@ -897,14 +897,14 @@ export default function EditFullProfile() {
         <div className="mx-auto max-w-screen-2xl p-6">{getStepContent()}</div>
       </div>
 
-      <div className="sticky bottom-0 z-30 border-t bg-white/80 shadow-[0_-2px_10px_rgba(0,0,0,0.04)] backdrop-blur">
+      <div className="sticky bottom-0 z-30 border-t bg-white/80 shadow-[0_-2px_10px_rgba(0,0,0,0.04)] backdrop-blur dark:bg-gray-900/80 dark:border-gray-800">
         <div className="mx-auto flex max-w-screen-2xl items-center justify-between px-6 py-4">
-          <div className="text-xs text-gray-500">
-            Step <span className="font-semibold text-gray-700">{step + 1}</span>{" "}
+          <div className="text-xs text-gray-500 dark:text-gray-400">
+            Step <span className="font-semibold text-gray-700 dark:text-gray-300">{step + 1}</span>{" "}
             of{" "}
-            <span className="font-semibold text-gray-700">{steps.length}</span>
+            <span className="font-semibold text-gray-700 dark:text-gray-300">{steps.length}</span>
             {isLastStep && step5ValidationMessage && (
-              <p className="mt-1 text-red-600">{step5ValidationMessage}</p>
+              <p className="mt-1 text-red-600 dark:text-red-400">{step5ValidationMessage}</p>
             )}
           </div>
 
@@ -913,7 +913,7 @@ export default function EditFullProfile() {
               type="button"
               disabled={step === 0 || submitting || savingProfile}
               onClick={() => setStep((previous) => previous - 1)}
-              className="flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm transition hover:bg-gray-50 disabled:opacity-40"
+              className="flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm transition hover:bg-gray-50 disabled:opacity-40 dark:border-gray-800 dark:bg-gray-900 dark:text-white dark:hover:bg-gray-800"
             >
               <ChevronLeft size={16} />
               Previous

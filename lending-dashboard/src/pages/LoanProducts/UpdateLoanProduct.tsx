@@ -729,14 +729,14 @@ export default function UpdateLoanProduct() {
   }, [form.loanPrograms, products, loadingExisting]);
 
   return (
-    <div className="h-[calc(100vh-80px)] flex flex-col bg-gray-50">
-      <div className="sticky top-0 z-30 bg-gray-50">
+    <div className="h-[calc(100vh-80px)] flex flex-col bg-gray-50 dark:bg-gray-950">
+      <div className="sticky top-0 z-30 bg-gray-50 dark:bg-gray-950">
         <div className="max-w-screen-2xl mx-auto px-6 py-4 flex justify-between items-center">
           <div className="flex items-center gap-3 min-w-0">
             <button
               type="button"
               onClick={() => navigate("/all-loan-products")}
-              className="flex items-center justify-center w-9 h-9 shrink-0 rounded-full border hover:bg-gray-100 transition"
+              className="flex items-center justify-center w-9 h-9 shrink-0 rounded-full border hover:bg-gray-100 transition dark:border-gray-800 dark:hover:bg-gray-800"
             >
               <ArrowLeft size={18} />
             </button>
@@ -744,21 +744,21 @@ export default function UpdateLoanProduct() {
             <div className="min-w-0">
               {selectedProducts.length > 0 ? (
                 <>
-                  <h1 className="text-lg font-semibold leading-tight truncate">
+                  <h1 className="text-lg font-semibold leading-tight dark:text-white truncate dark:text-white">
                     {selectedProducts.length === 1
                       ? selectedProducts[0].name
                       : `${selectedProducts[0].name} +${selectedProducts.length - 1} more`}
                   </h1>
-                  <p className="text-xs text-gray-500 truncate">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-400 truncate dark:text-gray-400">
                     {steps[step]} · Step {step + 1} of {steps.length}
                   </p>
                 </>
               ) : (
                 <>
-                  <h1 className="text-lg font-semibold leading-tight">
+                  <h1 className="text-lg font-semibold leading-tight dark:text-white">
                     {steps[step]}
                   </h1>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-400">
                     Step {step + 1} of {steps.length}
                   </p>
                 </>
@@ -768,7 +768,7 @@ export default function UpdateLoanProduct() {
         </div>
 
         <div className="max-w-screen-2xl mx-auto px-6">
-          <div className="w-full h-[3px] bg-gray-100 rounded-full overflow-hidden">
+          <div className="w-full h-[3px] bg-gray-100 rounded-full overflow-hidden dark:bg-gray-800">
             <div
               className="h-full bg-black transition-all duration-300"
               style={{ width: `${((step + 1) / steps.length) * 100}%` }}
@@ -790,7 +790,7 @@ export default function UpdateLoanProduct() {
                         ? "bg-black text-white shadow"
                         : isCompleted
                           ? "bg-green-500 text-white"
-                          : "bg-gray-100 text-gray-400"
+                          : "bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-400"
                     }`}
                 >
                   {isCompleted ? "✓" : index + 1}
@@ -799,7 +799,7 @@ export default function UpdateLoanProduct() {
 
                 {index < steps.length - 1 && (
                   <div
-                    className={`w-6 h-[2px] transition-all ${
+                    className={`w-6 h-[2px] transition-all dark:bg-gray-700 ${
                       step > index ? "bg-green-400" : "bg-gray-300"
                     }`}
                   />
@@ -814,12 +814,12 @@ export default function UpdateLoanProduct() {
         <div className="max-w-screen-2xl mx-auto p-6">{getStepContent()}</div>
       </div>
 
-      <div className="sticky bottom-0 z-30 bg-white/80 backdrop-blur border-t shadow-[0_-2px_10px_rgba(0,0,0,0.04)]">
+      <div className="sticky bottom-0 z-30 bg-white/80 backdrop-blur border-t shadow-[0_-2px_10px_rgba(0,0,0,0.04)] dark:bg-gray-900/80 dark:border-gray-800">
         <div className="max-w-screen-2xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="text-xs text-gray-500">
-            Step <span className="font-semibold text-gray-700">{step + 1}</span>{" "}
+          <div className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-400">
+            Step <span className="font-semibold text-gray-700 dark:text-gray-300">{step + 1}</span>{" "}
             of{" "}
-            <span className="font-semibold text-gray-700">{steps.length}</span>
+            <span className="font-semibold text-gray-700 dark:text-gray-300">{steps.length}</span>
             {step === 0 && lockedProgramIds.length > 0 ? (
               <span className="ml-2 text-emerald-600">
                 {lockedProgramIds.length} active
@@ -829,7 +829,7 @@ export default function UpdateLoanProduct() {
               </span>
             ) : null}
             {footerValidationMessage && (
-              <p className="mt-1 max-w-xl text-sm text-red-600">
+              <p className="mt-1 max-w-xl text-sm text-red-600 dark:text-red-400">
                 {footerValidationMessage}
               </p>
             )}
@@ -839,7 +839,7 @@ export default function UpdateLoanProduct() {
             <button
               disabled={step === 0 || submitting}
               onClick={() => setStep((prev) => prev - 1)}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm border border-gray-300 bg-white hover:bg-gray-50 transition disabled:opacity-40"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm border border-gray-300 bg-white hover:bg-gray-50 transition disabled:opacity-40 dark:border-gray-800 dark:bg-gray-900 dark:hover:bg-gray-800"
             >
               <ChevronLeft size={16} />
               Previous

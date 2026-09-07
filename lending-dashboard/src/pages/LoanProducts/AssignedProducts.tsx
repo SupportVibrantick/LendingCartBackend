@@ -82,12 +82,12 @@ const AssignedProducts: React.FC = () => {
 
   /* ================= UI ================= */
   return (
-    <div className="bg-white rounded-xl border shadow p-6">
+    <div className="bg-white rounded-xl border shadow p-6 dark:bg-gray-900 dark:border-gray-800">
       {/* Header + Controls */}
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <div>
-          <h2 className="text-lg font-semibold">Assigned Lender Products</h2>
-          <p className="text-sm text-gray-500">
+          <h2 className="text-lg font-semibold dark:text-white">Assigned Lender Products</h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400">
             Which lender is assigned which loan product
           </p>
         </div>
@@ -97,7 +97,7 @@ const AssignedProducts: React.FC = () => {
           <select
             value={selectedLender}
             onChange={(e) => setSelectedLender(e.target.value)}
-            className="rounded-md border px-3 py-1.5 text-sm bg-white"
+            className="rounded-md border px-3 py-1.5 text-sm bg-white dark:bg-gray-800 dark:border-gray-800 dark:text-white"
           >
             <option value="">All Lenders</option>
             {lenders.map((l) => (
@@ -111,7 +111,7 @@ const AssignedProducts: React.FC = () => {
           <button
             onClick={fetchAssignments}
             disabled={loading}
-            className="rounded-full border px-4 py-1.5 text-sm hover:bg-gray-50 disabled:opacity-50"
+            className="rounded-full border px-4 py-1.5 text-sm hover:bg-gray-50 disabled:opacity-50 dark:border-gray-800 dark:hover:bg-gray-800 dark:text-gray-300"
           >
             {loading ? "Refreshing..." : "Refresh"}
           </button>
@@ -122,7 +122,7 @@ const AssignedProducts: React.FC = () => {
       <div className="overflow-auto">
         <table className="min-w-full text-sm">
           <thead>
-            <tr className="border-b text-xs text-gray-500 uppercase">
+            <tr className="border-b text-xs text-gray-500 uppercase dark:border-gray-800 dark:text-gray-400">
               <th className="py-2 pr-4 text-left">Lender</th>
               <th className="py-2 pr-4 text-left">Product</th>
               <th className="py-2 pr-4 text-left">Code</th>
@@ -134,13 +134,13 @@ const AssignedProducts: React.FC = () => {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={5} className="py-6 text-center text-gray-500">
+                <td colSpan={5} className="py-6 text-center text-gray-500 dark:text-gray-400">
                   Loading...
                 </td>
               </tr>
             ) : filteredAssignments.length === 0 ? (
               <tr>
-                <td colSpan={5} className="py-6 text-center text-gray-500">
+                <td colSpan={5} className="py-6 text-center text-gray-500 dark:text-gray-400">
                   No assignments found
                 </td>
               </tr>
@@ -148,15 +148,15 @@ const AssignedProducts: React.FC = () => {
               filteredAssignments.map((a) => (
                 <tr
                   key={a.id}
-                  className="border-b last:border-0 hover:bg-gray-50"
+                  className="border-b last:border-0 hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800/60"
                 >
-                  <td className="py-3 pr-4">{a.lenderName}</td>
-                  <td className="py-3 pr-4">{a.productName}</td>
-                  <td className="py-3 pr-4">{a.productCode}</td>
-                  <td className="py-3 pr-4">
+                  <td className="py-3 pr-4 dark:text-gray-300">{a.lenderName}</td>
+                  <td className="py-3 pr-4 dark:text-gray-300">{a.productName}</td>
+                  <td className="py-3 pr-4 dark:text-gray-300">{a.productCode}</td>
+                  <td className="py-3 pr-4 dark:text-gray-300">
                     {a.isActive ? "ACTIVE" : "INACTIVE"}
                   </td>
-                  <td className="py-3 pr-4">
+                  <td className="py-3 pr-4 dark:text-gray-300">
                     {a.createdAt
                       ? new Date(a.createdAt).toLocaleDateString()
                       : "-"}

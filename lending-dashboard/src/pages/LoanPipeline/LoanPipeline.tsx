@@ -449,14 +449,14 @@ useEffect(() => {
     : null;
 
   return (
-    <div className="min-h-screen bg-slate-50 p-4 text-slate-900 dark:bg-[#0b1120] dark:text-slate-100 md:p-6">
+    <div className="min-h-screen bg-gray-50 p-4 text-gray-900 dark:bg-gray-950 dark:text-gray-100 md:p-6">
       <header className="mx-auto mb-8 max-w-7xl">
         <div className="flex flex-col justify-between gap-6 lg:flex-row lg:items-start">
           <div className="space-y-1">
             <h1 className="text-2xl font-bold tracking-tight text-[#3e86b7] dark:text-[#5ba8d4]">
               Loan Pipeline
             </h1>
-            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+            <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
               {statsLoading ? (
                 "Loading pipeline overview..."
               ) : (
@@ -537,15 +537,15 @@ useEffect(() => {
           ].map((card) => (
             <div
               key={card.label}
-              className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900"
+              className="flex items-center justify-between rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900"
             >
               <div>
-                <p className="text-sm text-slate-500 dark:text-slate-400">
+                <p className="text-sm text-gray-500 dark:text-gray-400">
                   {card.label}
                 </p>
-                <h3 className="mt-1 text-2xl font-semibold text-slate-900 dark:text-white">
+                <h3 className="mt-1 text-2xl font-semibold text-gray-900 dark:text-white">
                   {statsLoading ? (
-                    <span className="inline-block h-7 w-16 animate-pulse rounded bg-slate-100 dark:bg-slate-800" />
+                    <span className="inline-block h-7 w-16 animate-pulse rounded bg-gray-100 dark:bg-gray-800" />
                   ) : (
                     card.value
                   )}
@@ -561,13 +561,13 @@ useEffect(() => {
         </div>
       </header>
 
-      <div className="mx-auto max-w-[100%] overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 xl:max-w-7xl">
-        <div className="flex flex-col gap-4 border-b border-slate-200 px-5 py-4 dark:border-slate-800 lg:flex-row lg:items-center lg:justify-between">
+      <div className="mx-auto max-w-[100%] overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 xl:max-w-7xl">
+        <div className="flex flex-col gap-4 border-b border-gray-200 px-5 py-4 dark:border-gray-800 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h2 className="text-base font-semibold text-slate-900 dark:text-white">
+            <h2 className="text-base font-semibold text-gray-900 dark:text-white">
               Applications
             </h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
+            <p className="text-xs text-gray-500 dark:text-gray-400">
               Click a row to open the application preview.
             </p>
           </div>
@@ -596,7 +596,7 @@ useEffect(() => {
         <div className="w-full overflow-hidden">
           <table className="w-full border-separate border-spacing-0">
             <thead>
-              <tr className="bg-slate-50/80 dark:bg-slate-800/40">
+              <tr className="bg-gray-50/80 dark:bg-gray-800/40">
                 {[
                   "Application",
                   "Borrower",
@@ -610,7 +610,7 @@ useEffect(() => {
                 ].map((label) => (
                   <th
                     key={label || "actions"}
-                    className="whitespace-nowrap border-b border-slate-200 px-3 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:border-slate-800 dark:text-slate-400 last:w-[1%] last:whitespace-nowrap"
+                    className="whitespace-nowrap border-b border-gray-200 px-3 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:border-gray-800 dark:text-gray-400 last:w-[1%] last:whitespace-nowrap"
                   >
                     {label}
                   </th>
@@ -618,7 +618,7 @@ useEffect(() => {
               </tr>
             </thead>
 
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+            <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
               {loading ? (
                 Array.from({ length: 6 }).map((_, index) => (
                   <tr key={index}>
@@ -635,11 +635,11 @@ useEffect(() => {
                     <tr
                       key={row.applicationLenderId}
                       onClick={() => openApplicationPreview(row)}
-                      className="cursor-pointer transition-colors hover:bg-[#3e86b7]/5 dark:hover:bg-[#3e86b7]/10"
+                      className="cursor-pointer transition-colors hover:bg-gray-50/70 dark:hover:bg-gray-800/40"
                     >
                       <td className="whitespace-nowrap px-3 py-3 align-middle">
                         <span
-                          className="font-mono text-xs font-medium text-slate-700 dark:text-slate-200"
+                          className="font-mono text-xs font-medium text-gray-700 dark:text-gray-200"
                           title={row.applicationNumber}
                         >
                           {row.applicationNumber}
@@ -652,7 +652,7 @@ useEffect(() => {
                             {getBorrowerInitials(row.borrowerName)}
                           </div>
                           <span
-                            className="text-sm font-semibold text-slate-900 dark:text-slate-100"
+                            className="text-sm font-semibold text-gray-900 dark:text-gray-100"
                             title={`${row.borrowerName} (${formatEntityTypeLabel(row.entityType)})`}
                           >
                             {row.borrowerName}
@@ -661,14 +661,14 @@ useEffect(() => {
                       </td>
 
                       <td className="whitespace-nowrap px-3 py-3">
-                        <div className="flex items-center gap-1.5 text-sm text-slate-600 dark:text-slate-300">
+                        <div className="flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-300">
                           <Building2 size={14} className="shrink-0 text-slate-400" />
                           <span title={row.brokerName}>{row.brokerName}</span>
                         </div>
                       </td>
 
                       <td className="whitespace-nowrap px-3 py-3">
-                        <span className="inline-flex whitespace-nowrap rounded-lg bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                        <span className="inline-flex whitespace-nowrap rounded-lg bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700 dark:bg-gray-800 dark:text-gray-300">
                           {formatLoanProduct(row.loanType)}
                         </span>
                       </td>

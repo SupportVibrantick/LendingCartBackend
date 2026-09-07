@@ -802,8 +802,8 @@ const LoanChatPanel = ({
     : "flex h-full min-h-0 flex-col overflow-hidden";
 
   const panelClass = isSingleLayout
-    ? `flex h-full min-h-0 flex-1 flex-col overflow-hidden rounded-[24px] border border-slate-200/80 bg-white ${accent.shadow} dark:border-slate-800 dark:bg-slate-950`
-    : `grid h-full min-h-0 flex-1 overflow-hidden rounded-[24px] border border-slate-200/80 bg-white ${accent.shadow} dark:border-slate-800 dark:bg-slate-950 lg:grid-cols-[330px_minmax(0,1fr)]`;
+    ? `flex h-full min-h-0 flex-1 flex-col overflow-hidden rounded-[24px] border border-slate-200/80 bg-white ${accent.shadow} dark:border-gray-800 dark:bg-gray-950`
+    : `grid h-full min-h-0 flex-1 overflow-hidden rounded-[24px] border border-slate-200/80 bg-white ${accent.shadow} dark:border-gray-800 dark:bg-gray-950 lg:grid-cols-[330px_minmax(0,1fr)]`;
 
   return (
     <div className={outerWrapperClass}>
@@ -812,7 +812,7 @@ const LoanChatPanel = ({
           <button
             type="button"
             onClick={onBack}
-            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 shadow-sm transition hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-emerald-800 dark:hover:bg-emerald-950/40"
+            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 shadow-sm transition hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700 dark:border-gray-800 dark:bg-gray-800 dark:text-gray-300 dark:hover:border-emerald-800 dark:hover:bg-emerald-950/40"
           >
             <FiArrowLeft size={14} />
             Back to application
@@ -837,13 +837,13 @@ const LoanChatPanel = ({
       <div className={panelClass}>
       {!isSingleLayout ? (
       <aside
-        className={`flex h-full min-h-0 flex-col border-b border-slate-200/80 bg-gradient-to-b from-slate-50 to-white dark:from-slate-900 dark:to-slate-950 lg:border-b-0 lg:border-r dark:border-slate-800 ${
+        className={`flex h-full min-h-0 flex-col border-b border-slate-200/80 bg-gradient-to-b from-slate-50 to-white dark:from-gray-900 dark:to-gray-950 lg:border-b-0 lg:border-r dark:border-gray-800 ${
           showMobileThread ? "hidden lg:flex" : "flex"
         }`}
       >
-        <div className="shrink-0 border-b border-slate-200/80 px-4 py-4 dark:border-slate-800">
+        <div className="shrink-0 border-b border-slate-200/80 px-4 py-4 dark:border-gray-800">
           <div className="mb-3 flex items-center justify-between">
-            <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+            <p className="text-sm font-semibold text-slate-800 dark:text-white">
               Loan chat
             </p>
             <span
@@ -865,18 +865,18 @@ const LoanChatPanel = ({
           </div>
 
           <div className="group relative">
-            <FiSearch className={`absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 transition-colors ${accent.searchFocus}`} />
+            <FiSearch className={`absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-gray-400 transition-colors ${accent.searchFocus}`} />
             <input
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Search people or messages"
-              className={`h-11 w-full rounded-2xl border border-slate-200 bg-white pl-10 pr-10 text-sm text-slate-700 outline-none transition-all placeholder:text-slate-400 ${accent.focus} focus:ring-2 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200`}
+              className={`h-11 w-full rounded-2xl border border-slate-200 bg-white pl-10 pr-10 text-sm text-slate-700 outline-none transition-all placeholder:text-slate-400 dark:text-gray-400 ${accent.focus} focus:ring-2 dark:border-gray-800 dark:bg-gray-800 dark:text-white`}
             />
             {searchTerm ? (
               <button
                 type="button"
                 onClick={() => setSearchTerm("")}
-                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800"
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-1.5 text-slate-400 dark:text-gray-400 transition hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800"
                 aria-label="Clear search"
               >
                 <FiX size={14} />
@@ -884,21 +884,21 @@ const LoanChatPanel = ({
             ) : isSearching || chatLoading ? (
               <Loader2
                 size={14}
-                className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-slate-400"
+                className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-slate-400 dark:text-gray-400"
               />
             ) : null}
           </div>
         </div>
 
-        <div className="flex shrink-0 items-center justify-between border-b border-slate-200/80 px-4 py-3 dark:border-slate-800">
-          <p className="text-sm font-semibold text-slate-900 dark:text-slate-200">
+        <div className="flex shrink-0 items-center justify-between border-b border-slate-200/80 px-4 py-3 dark:border-gray-800">
+          <p className="text-sm font-semibold text-slate-900 dark:text-white">
             Messages
           </p>
           <span
             className={`rounded-full px-2.5 py-0.5 text-[11px] font-medium ${
               totalUnread > 0
                 ? `${accent.badge} text-white`
-                : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400"
+                : "bg-slate-100 text-slate-600 dark:bg-gray-800 dark:text-gray-400"
             }`}
           >
             {totalUnread > 0 ? totalUnread : conversations.length}
@@ -911,19 +911,19 @@ const LoanChatPanel = ({
               {[1, 2, 3, 4, 5].map((item) => (
                 <div
                   key={item}
-                  className="h-[72px] animate-pulse rounded-2xl bg-slate-100 dark:bg-slate-800"
+                  className="h-[72px] animate-pulse rounded-2xl bg-slate-100 dark:bg-gray-800"
                 />
               ))}
             </div>
           ) : displayConversations.length === 0 ? (
             <div className="flex h-full flex-col items-center justify-center px-6 text-center">
-              <div className={`rounded-2xl border border-slate-200 bg-white p-4 ${accent.icon} shadow-sm dark:border-slate-700 dark:bg-slate-900`}>
+              <div className={`rounded-2xl border border-slate-200 bg-white p-4 ${accent.icon} shadow-sm dark:border-gray-800 dark:bg-gray-800`}>
                 <FiMessageCircle size={22} />
               </div>
-              <p className="mt-4 text-sm font-medium text-slate-700 dark:text-slate-300">
+              <p className="mt-4 text-sm font-medium text-slate-700 dark:text-gray-300">
                 {debouncedSearch ? "No matching chats" : "No conversations yet"}
               </p>
-              <p className="mt-2 max-w-[220px] text-xs leading-6 text-slate-400">
+              <p className="mt-2 max-w-[220px] text-xs leading-6 text-slate-400 dark:text-gray-400">
                 {debouncedSearch
                   ? "Try another keyword or participant name."
                   : "Client, lender, and team chats for this loan appear here."}
@@ -955,7 +955,7 @@ const LoanChatPanel = ({
                   >
                     <div className="relative shrink-0">
                       <div
-                        className={`flex h-11 w-11 items-center justify-center rounded-full text-xs font-semibold ring-2 ring-white dark:ring-slate-900 ${avatarTone}`}
+                        className={`flex h-11 w-11 items-center justify-center rounded-full text-xs font-semibold ring-2 ring-white dark:ring-gray-900 ${avatarTone}`}
                       >
                         {getInitials(displayName)}
                       </div>
@@ -964,10 +964,10 @@ const LoanChatPanel = ({
 
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between gap-2">
-                        <p className="truncate text-sm font-semibold text-slate-900 dark:text-slate-200">
+                        <p className="truncate text-sm font-semibold text-slate-900 dark:text-white">
                           {displayName}
                         </p>
-                        <span className="shrink-0 text-[10px] text-slate-400">
+                        <span className="shrink-0 text-[10px] text-slate-400 dark:text-gray-400">
                           {formatTime(chat.lastMessageAt)}
                         </span>
                       </div>
@@ -981,7 +981,7 @@ const LoanChatPanel = ({
                       </div>
 
                       <div className="mt-1 flex items-center justify-between gap-2">
-                        <p className="truncate text-xs text-slate-500 dark:text-slate-400">
+                        <p className="truncate text-xs text-slate-500 dark:text-gray-400 dark:text-gray-400">
                           {chat.lastMessage || "No messages yet"}
                         </p>
                         {unreadCount > 0 ? (
@@ -1001,7 +1001,7 @@ const LoanChatPanel = ({
       ) : null}
 
       <section
-        className={`flex h-full min-h-0 flex-col overflow-hidden bg-[linear-gradient(180deg,#f8fafc_0%,#ffffff_42%)] dark:from-slate-950 dark:to-slate-900 ${
+        className={`flex h-full min-h-0 flex-col overflow-hidden bg-[linear-gradient(180deg,#f8fafc_0%,#ffffff_42%)] dark:bg-none dark:bg-gradient-to-b dark:from-gray-950 dark:to-gray-900 ${
           isSingleLayout
             ? "flex"
             : showMobileThread || selectedConversation
@@ -1016,14 +1016,14 @@ const LoanChatPanel = ({
         ) : isSingleLayout && !isChatSelected ? (
           <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
             <div
-              className={`rounded-2xl border border-slate-200 bg-white p-4 ${accent.icon} shadow-sm dark:border-slate-700 dark:bg-slate-900`}
+              className={`rounded-2xl border border-slate-200 bg-white p-4 ${accent.icon} shadow-sm dark:border-gray-800 dark:bg-gray-800`}
             >
               <FiMessageCircle size={24} />
             </div>
-            <p className="mt-4 text-sm font-medium text-slate-700 dark:text-slate-300">
+            <p className="mt-4 text-sm font-medium text-slate-700 dark:text-gray-300">
               {emptyState.title}
             </p>
-            <p className="mt-2 max-w-sm text-xs leading-6 text-slate-400">
+            <p className="mt-2 max-w-sm text-xs leading-6 text-slate-400 dark:text-gray-400">
               {emptyState.description}
             </p>
           </div>
@@ -1035,26 +1035,26 @@ const LoanChatPanel = ({
               className="max-w-md"
             >
               <div
-                className={`mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border border-slate-200 bg-white ${accent.icon} shadow-sm dark:border-slate-700 dark:bg-slate-900`}
+                className={`mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border border-slate-200 bg-white ${accent.icon} shadow-sm dark:border-gray-800 dark:bg-gray-800`}
               >
                 <FiMessageCircle size={24} />
               </div>
-              <h3 className="mt-5 text-xl font-semibold text-slate-900 dark:text-slate-200">
+              <h3 className="mt-5 text-xl font-semibold text-slate-900 dark:text-white">
                 Select a conversation
               </h3>
-              <p className="mt-2 text-sm leading-7 text-slate-500">
+              <p className="mt-2 text-sm leading-7 text-slate-500 dark:text-gray-400">
                 Open any client, lender, or team chat from the left panel.
               </p>
             </motion.div>
           </div>
         ) : (
           <>
-            <div className="flex shrink-0 items-center justify-between border-b border-slate-200/80 bg-white/90 px-4 py-3 backdrop-blur dark:border-slate-800 dark:bg-slate-900/90 sm:px-5">
+            <div className="flex shrink-0 items-center justify-between border-b border-slate-200/80 bg-white/90 px-4 py-3 backdrop-blur dark:border-gray-800 dark:bg-gray-800/90 sm:px-5">
               <div className="flex min-w-0 items-center gap-3">
                 <button
                   type="button"
                   onClick={() => setShowMobileThread(false)}
-                  className="rounded-xl border border-slate-200 p-2 text-slate-600 transition hover:bg-slate-50 lg:hidden dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                  className="rounded-xl border border-slate-200 p-2 text-slate-600 transition hover:bg-slate-50 lg:hidden dark:border-gray-800 dark:text-gray-300 dark:hover:bg-slate-800"
                   aria-label="Back to conversations"
                 >
                   <FiArrowLeft size={16} />
@@ -1062,7 +1062,7 @@ const LoanChatPanel = ({
 
                 <div className="relative shrink-0">
                   <div
-                    className={`flex h-11 w-11 items-center justify-center rounded-full text-xs font-semibold ring-2 ring-white dark:ring-slate-900 ${getAvatarTone(selectedDisplayName)}`}
+                    className={`flex h-11 w-11 items-center justify-center rounded-full text-xs font-semibold ring-2 ring-white dark:ring-gray-900 ${getAvatarTone(selectedDisplayName)}`}
                   >
                     {getInitials(selectedDisplayName)}
                   </div>
@@ -1074,11 +1074,11 @@ const LoanChatPanel = ({
                 </div>
 
                 <div className="min-w-0">
-                  <p className="truncate text-base font-semibold text-slate-900 dark:text-slate-200 sm:text-lg">
+                  <p className="truncate text-base font-semibold text-slate-900 dark:text-white sm:text-lg">
                     {selectedDisplayName}
                   </p>
                   <div className="flex flex-wrap items-center gap-2">
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs text-slate-500 dark:text-gray-400">
                       {config.id === "client"
                         ? `Your Broker Team · ${isConnected ? "real-time" : "reconnecting..."}`
                         : typingUser
@@ -1098,7 +1098,7 @@ const LoanChatPanel = ({
                 </div>
               </div>
 
-              <div className="flex items-center gap-1 text-slate-500">
+              <div className="flex items-center gap-1 text-slate-500 dark:text-gray-400">
                 {showCallButtons ? (
                   <>
                     <button
@@ -1139,18 +1139,18 @@ const LoanChatPanel = ({
                       className={`h-12 animate-pulse rounded-2xl ${
                         item % 2 === 0
                           ? `ml-auto w-44 ${accent.skeleton}`
-                          : "w-56 bg-slate-100 dark:bg-slate-800"
+                          : "w-56 bg-slate-100 dark:bg-gray-800"
                       }`}
                     />
                   ))}
                 </div>
               ) : messages.length === 0 ? (
                 <div className="flex h-full items-center justify-center text-center">
-                  <div className="rounded-2xl border border-dashed border-slate-200 bg-white/80 px-6 py-8 dark:border-slate-700 dark:bg-slate-900/80">
-                    <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  <div className="rounded-2xl border border-dashed border-slate-200 bg-white/80 px-6 py-8 dark:border-gray-800 dark:bg-gray-800/80">
+                    <p className="text-sm font-medium text-slate-700 dark:text-gray-300">
                       {emptyThread.title}
                     </p>
-                    <p className="mt-2 text-xs text-slate-400">
+                    <p className="mt-2 text-xs text-slate-400 dark:text-gray-400">
                       {isReadOnlyChat
                         ? "Messages from your team will appear here."
                         : emptyThread.description}
@@ -1198,12 +1198,12 @@ const LoanChatPanel = ({
                             animate={{ opacity: 1, y: 0 }}
                           >
                             {showDayDivider ? (
-                              <div className="my-4 flex items-center gap-3 text-[11px] font-medium text-slate-400">
-                                <div className="h-px flex-1 bg-slate-200 dark:bg-slate-800" />
-                                <span className="rounded-full bg-white px-3 py-1 shadow-sm ring-1 ring-slate-200/80 dark:bg-slate-900 dark:ring-slate-700">
+                              <div className="my-4 flex items-center gap-3 text-[11px] font-medium text-slate-400 dark:text-gray-400">
+                                <div className="h-px flex-1 bg-slate-200 dark:bg-gray-800" />
+                                <span className="rounded-full bg-white px-3 py-1 shadow-sm ring-1 ring-slate-200/80 dark:bg-gray-900 dark:ring-gray-800">
                                   {currentDay}
                                 </span>
-                                <div className="h-px flex-1 bg-slate-200 dark:bg-slate-800" />
+                                <div className="h-px flex-1 bg-slate-200 dark:bg-gray-800" />
                               </div>
                             ) : null}
 
@@ -1215,17 +1215,17 @@ const LoanChatPanel = ({
                               >
                                 {!grouped ? (
                                   <div
-                                    className={`mb-1 flex items-center gap-2 px-1 text-[10px] text-slate-400 ${!isTeamMessage ? "flex-row-reverse" : ""}`}
+                                    className={`mb-1 flex items-center gap-2 px-1 text-[10px] text-slate-400 dark:text-gray-400 ${!isTeamMessage ? "flex-row-reverse" : ""}`}
                                   >
                                     <span
-                                      className={`font-semibold ${!isTeamMessage ? accent.ownText : "text-slate-600 dark:text-slate-400"}`}
+                                      className={`font-semibold ${!isTeamMessage ? accent.ownText : "text-slate-600 dark:text-gray-400"}`}
                                     >
                                       {isTeamMessage
                                         ? msg.senderName || "Broker Team"
                                         : "You"}
                                     </span>
                                     {isTeamMessage && roleLabel ? (
-                                      <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[9px] font-medium text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                                      <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[9px] font-medium text-slate-500 dark:text-gray-400 dark:bg-gray-800 dark:text-gray-400">
                                         {roleLabel}
                                       </span>
                                     ) : null}
@@ -1237,7 +1237,7 @@ const LoanChatPanel = ({
                                   className={`rounded-[20px] px-4 py-2.5 text-sm leading-6 shadow-sm ${
                                     !isTeamMessage
                                       ? `rounded-br-md bg-gradient-to-br ${accent.bubble} text-white`
-                                      : "rounded-bl-md border border-slate-200/80 bg-white text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                                      : "rounded-bl-md border border-slate-200/80 bg-white text-slate-700 dark:border-gray-800 dark:bg-gray-800 dark:text-white"
                                   }`}
                                 >
                                   {msg.text ? (
@@ -1260,12 +1260,12 @@ const LoanChatPanel = ({
                           transition={{ duration: 0.18 }}
                         >
                           {showDayDivider ? (
-                            <div className="my-4 flex items-center gap-3 text-[11px] font-medium text-slate-400">
-                              <div className="h-px flex-1 bg-slate-200 dark:bg-slate-800" />
-                              <span className="rounded-full bg-white px-3 py-1 shadow-sm ring-1 ring-slate-200/80 dark:bg-slate-900 dark:ring-slate-700">
+                            <div className="my-4 flex items-center gap-3 text-[11px] font-medium text-slate-400 dark:text-gray-400">
+                              <div className="h-px flex-1 bg-slate-200 dark:bg-gray-800" />
+                              <span className="rounded-full bg-white px-3 py-1 shadow-sm ring-1 ring-slate-200/80 dark:bg-gray-900 dark:ring-gray-800">
                                 {currentDay}
                               </span>
-                              <div className="h-px flex-1 bg-slate-200 dark:bg-slate-800" />
+                              <div className="h-px flex-1 bg-slate-200 dark:bg-gray-800" />
                             </div>
                           ) : null}
 
@@ -1279,7 +1279,7 @@ const LoanChatPanel = ({
                             >
                               {!grouped ? (
                                 <div
-                                  className={`mb-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold ring-2 ring-white dark:ring-slate-900 ${getAvatarTone(
+                                  className={`mb-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold ring-2 ring-white dark:ring-gray-900 ${getAvatarTone(
                                     ownMessage ? ownLabel : peerLabel,
                                   )}`}
                                 >
@@ -1294,12 +1294,12 @@ const LoanChatPanel = ({
                               <div className="min-w-0">
                                 {!grouped ? (
                                   <div
-                                    className={`mb-1 flex items-center gap-2 px-1 text-[10px] text-slate-400 ${
+                                    className={`mb-1 flex items-center gap-2 px-1 text-[10px] text-slate-400 dark:text-gray-400 ${
                                       ownMessage ? "justify-end" : ""
                                     }`}
                                   >
                                     {!ownMessage ? (
-                                      <span className="font-semibold text-slate-500 dark:text-slate-400">
+                                      <span className="font-semibold text-slate-500 dark:text-gray-400 dark:text-gray-400">
                                         {msg.senderName ||
                                           msg.senderType ||
                                           "User"}
@@ -1317,7 +1317,7 @@ const LoanChatPanel = ({
                                   className={`rounded-[20px] px-4 py-2.5 text-sm leading-6 shadow-sm ${
                                     ownMessage
                                       ? `rounded-br-md bg-gradient-to-br ${accent.bubble} text-white`
-                                      : "rounded-bl-md border border-slate-200/80 bg-white text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                                      : "rounded-bl-md border border-slate-200/80 bg-white text-slate-700 dark:border-gray-800 dark:bg-gray-800 dark:text-white"
                                   }`}
                                 >
                                   {msg.type === "FILE" && msg.fileUrl ? (
@@ -1343,7 +1343,7 @@ const LoanChatPanel = ({
                                           className={`block rounded-xl border px-3 py-2 text-sm transition hover:opacity-90 ${
                                             ownMessage
                                               ? "border-white/20 bg-white/10 text-white"
-                                              : "border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200"
+                                              : "border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
                                           }`}
                                         >
                                           {msg.fileName || "Download file"}
@@ -1376,11 +1376,11 @@ const LoanChatPanel = ({
                 messages.
               </div>
             ) : (
-            <div className="relative shrink-0 border-t border-slate-200/80 bg-white/95 px-3 py-3 backdrop-blur dark:border-slate-800 dark:bg-slate-900/95 sm:px-5">
+            <div className="relative shrink-0 border-t border-slate-200/80 bg-white/95 px-3 py-3 backdrop-blur dark:border-gray-800 dark:bg-gray-800/95 sm:px-5">
               {showEmojiPicker ? (
                 <div
                   ref={emojiPickerRef}
-                  className="absolute bottom-full left-3 z-50 mb-3 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-900 sm:left-4"
+                  className="absolute bottom-full left-3 z-50 mb-3 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl dark:border-gray-800 dark:bg-gray-800 sm:left-4"
                 >
                   <EmojiPicker
                     onEmojiClick={handleEmojiClick}
@@ -1390,14 +1390,14 @@ const LoanChatPanel = ({
                 </div>
               ) : null}
 
-              <div className={`flex items-end gap-2 rounded-[22px] border border-slate-200 bg-white px-2 py-2 shadow-sm transition-all focus-within:ring-2 ${accent.focus} dark:border-slate-700 dark:bg-slate-900`}>
+              <div className={`flex items-end gap-2 rounded-[22px] border border-slate-200 bg-white px-2 py-2 shadow-sm transition-all focus-within:ring-2 ${accent.focus} dark:border-gray-800 dark:bg-gray-800`}>
                 <button
                   type="button"
                   onClick={() => setShowEmojiPicker((prev) => !prev)}
                   className={`rounded-xl p-2.5 transition ${
                     showEmojiPicker
                       ? accent.emojiActive
-                      : `text-slate-500 hover:bg-slate-100 ${accent.emojiHover} dark:hover:bg-slate-800`
+                      : `text-slate-500 dark:text-gray-400 hover:bg-slate-100 ${accent.emojiHover} dark:hover:bg-slate-800`
                   }`}
                   title="Add emoji"
                 >
@@ -1412,7 +1412,7 @@ const LoanChatPanel = ({
                       ? "Message your broker team..."
                       : "Write a message..."
                   }
-                  className="min-w-0 flex-1 border-none bg-transparent px-1 py-2.5 text-sm text-slate-700 outline-none placeholder:text-slate-400 dark:text-slate-200"
+                  className="min-w-0 flex-1 border-none bg-transparent px-1 py-2.5 text-sm text-slate-700 outline-none placeholder:text-slate-400 dark:text-gray-400 dark:text-white"
                 />
                 <button
                   type="button"

@@ -47,7 +47,7 @@ function statusClass(status?: string) {
     case "INACTIVE":
       return "bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-500/10 dark:text-yellow-300 dark:border-yellow-500/40";
     default:
-      return "bg-gray-100 text-gray-800 border-gray-200 dark:bg-slate-600/30 dark:text-slate-100 dark:border-slate-500";
+      return "bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-800/50 dark:text-gray-300 dark:border-gray-800";
   }
 }
 
@@ -270,7 +270,7 @@ const AllSuperadmin: React.FC = () => {
           <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
             Super Admin Users
           </h1>
-          <p className="text-sm text-gray-500 mt-1 dark:text-slate-400">
+          <p className="text-sm text-gray-500 mt-1 dark:text-gray-400">
             Manage platform super admins and their basic details.
           </p>
         </div>
@@ -279,24 +279,24 @@ const AllSuperadmin: React.FC = () => {
       {/* 2-column layout */}
       <div className="grid grid-cols-1 lg:grid-cols-[320px_minmax(0,1fr)] gap-6">
         {/* LEFT CARD – Create / Edit admin */}
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 dark:bg-slate-900 dark:border-slate-700">
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 dark:bg-gray-900 dark:border-gray-800">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
             {editingAdminId ? "Edit Admin User" : "Add Admin User"}
           </h2>
-          <p className="text-sm text-gray-500 mb-4 dark:text-slate-400">
+          <p className="text-sm text-gray-500 mb-4 dark:text-gray-400">
             Create and manage admin accounts for your lending platform.
           </p>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* First Name */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-slate-200 mb-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 First Name
               </label>
               <input
                 type="text"
                 className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900
-                           dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
+                           dark:bg-gray-800 dark:border-gray-800 dark:text-white"
                 value={form.firstName}
                 onChange={(e) =>
                   setForm((f) => ({ ...f, firstName: e.target.value }))
@@ -308,13 +308,13 @@ const AllSuperadmin: React.FC = () => {
 
             {/* Last Name */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-slate-200 mb-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Last Name
               </label>
               <input
                 type="text"
                 className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900
-                           dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
+                           dark:bg-gray-800 dark:border-gray-800 dark:text-white"
                 value={form.lastName}
                 onChange={(e) =>
                   setForm((f) => ({ ...f, lastName: e.target.value }))
@@ -326,13 +326,13 @@ const AllSuperadmin: React.FC = () => {
 
             {/* Email */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-slate-200 mb-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Email
               </label>
               <input
                 type="email"
                 className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900
-                           dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
+                           dark:bg-gray-800 dark:border-gray-800 dark:text-white"
                 value={form.email}
                 onChange={(e) =>
                   setForm((f) => ({ ...f, email: e.target.value }))
@@ -344,13 +344,13 @@ const AllSuperadmin: React.FC = () => {
 
             {/* Password (only for create) */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-slate-200 mb-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 {editingAdminId ? "Password (not editable here)" : "Password"}
               </label>
               <input
                 type="password"
                 className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900
-                           dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
+                           dark:bg-gray-800 dark:border-gray-800 dark:text-white"
                 value={form.password}
                 onChange={(e) =>
                   setForm((f) => ({ ...f, password: e.target.value }))
@@ -359,7 +359,7 @@ const AllSuperadmin: React.FC = () => {
                 disabled={saving || !!editingAdminId}
               />
               {editingAdminId && (
-                <p className="mt-1 text-xs text-gray-500 dark:text-slate-400">
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                   Password cannot be changed from this screen.
                 </p>
               )}
@@ -386,7 +386,7 @@ const AllSuperadmin: React.FC = () => {
                   type="button"
                   onClick={resetForm}
                   disabled={saving}
-                  className="text-xs text-gray-500 hover:text-gray-700 underline dark:text-slate-400 dark:hover:text-slate-200"
+                  className="text-xs text-gray-500 hover:text-gray-700 underline dark:text-gray-400 dark:hover:text-gray-300"
                 >
                   Cancel edit
                 </button>
@@ -396,13 +396,13 @@ const AllSuperadmin: React.FC = () => {
         </div>
 
         {/* RIGHT CARD – Admins table */}
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 dark:bg-slate-900 dark:border-slate-700">
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 dark:bg-gray-900 dark:border-gray-800">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
                 All Admin Users
               </h2>
-              <p className="text-sm text-gray-500 dark:text-slate-400">
+              <p className="text-sm text-gray-500 dark:text-gray-400">
                 Super admins configured for the platform.
               </p>
             </div>
@@ -412,7 +412,7 @@ const AllSuperadmin: React.FC = () => {
               onClick={fetchAdmins}
               disabled={loadingList}
               className="rounded-full border border-gray-200 px-4 py-1.5 text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-60 disabled:cursor-not-allowed
-                         dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
+                         dark:border-gray-800 dark:bg-gray-900 dark:text-white dark:hover:bg-gray-800"
             >
               {loadingList ? "Refreshing..." : "Refresh"}
             </button>
@@ -421,7 +421,7 @@ const AllSuperadmin: React.FC = () => {
           <div className="overflow-auto">
             <table className="min-w-full text-sm">
               <thead>
-                <tr className="border-b border-gray-100 text-xs text-gray-500 uppercase tracking-wide dark:border-slate-700 dark:text-slate-400">
+                <tr className="border-b border-gray-100 text-xs text-gray-500 uppercase tracking-wide dark:border-gray-800 dark:text-gray-400">
                   <th className="py-2 pr-4 text-left">Name</th>
                   <th className="py-2 pr-4 text-left">Email</th>
                   <th className="py-2 pr-4 text-left">Org ID</th>
@@ -454,15 +454,15 @@ const AllSuperadmin: React.FC = () => {
                   admins.map((a) => (
                     <tr
                       key={a.id}
-                      className="border-b border-gray-100 last:border-0 hover:bg-gray-50/40 dark:border-slate-800 dark:hover:bg-slate-800/60"
+                      className="border-b border-gray-100 last:border-0 hover:bg-gray-50/40 dark:border-gray-800 dark:hover:bg-gray-800/60"
                     >
-                      <td className="py-3 pr-4 text-gray-900 whitespace-nowrap dark:text-gray-100">
+                      <td className="py-3 pr-4 text-gray-900 whitespace-nowrap dark:text-white">
                         {a.firstName} {a.lastName}
                       </td>
-                      <td className="py-3 pr-4 text-gray-900 whitespace-nowrap dark:text-gray-100">
+                      <td className="py-3 pr-4 text-gray-900 whitespace-nowrap dark:text-white">
                         {a.email}
                       </td>
-                      <td className="py-3 pr-4 text-gray-600 whitespace-nowrap dark:text-slate-300">
+                      <td className="py-3 pr-4 text-gray-600 whitespace-nowrap dark:text-gray-300">
                         {a.organizationId ?? "-"}
                       </td>
 
@@ -486,7 +486,7 @@ const AllSuperadmin: React.FC = () => {
                         </button>
                       </td>
 
-                      <td className="py-3 pr-4 text-gray-600 whitespace-nowrap dark:text-slate-300">
+                      <td className="py-3 pr-4 text-gray-600 whitespace-nowrap dark:text-gray-300">
                         {formatDate(a.createdAt)}
                       </td>
 
@@ -496,7 +496,7 @@ const AllSuperadmin: React.FC = () => {
                             type="button"
                             onClick={() => handleEdit(a)}
                             className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 text-gray-500 hover:bg-gray-100
-                                       dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                                       dark:border-gray-800 dark:text-gray-400 dark:hover:bg-gray-800"
                           >
                             <MdModeEdit />
                           </button>
