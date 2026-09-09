@@ -2,6 +2,7 @@ const fs = require("fs");
 const path = require("path");
 const pump = require("pump");
 const util = require("util");
+const { validateFileMimetype } = require("../../../utils/security/fileValidator");
 
 const pumpAsync = util.promisify(pump);
 
@@ -28,14 +29,14 @@ module.exports = async function (fastify) {
       /* ===============================
          VALIDATION
       =============================== */
-      if (
-        file.mimetype !==
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-      ) {
+      const allowedMimeTypes = ["application/vnd.openxmlformats-officedocument.wordprocessingml.document"];
+      const validation = await validateFileMimetype(file.file, allowedMimeTypes);
+      if (!validation.isValid) {
         return reply.code(400).send({
-          message: "Only .docx file allowed",
+          message: `Invalid file type. Detected: ${validation.detectedMime || "unknown"}. Only .docx file allowed`,
         });
       }
+      const validatedStream = validation.stream;
 
       /* ===============================
          CHECK EXISTING TEMPLATE
@@ -82,7 +83,7 @@ module.exports = async function (fastify) {
       const filePath = path.join(uploadDir, fileName);
 
       try {
-        await pumpAsync(file.file, fs.createWriteStream(filePath));
+        await pumpAsync(validatedStream, fs.createWriteStream(filePath));
       } catch (err) {
         fastify.log.error("File upload failed:", err);
 

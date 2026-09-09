@@ -171,7 +171,7 @@ export default function AcceptInvite() {
 
   return (
     <>
-      <PageMeta title="Accept Invitation | LendingCart" description="" />
+      <PageMeta title="Accept Invitation | Loan Automation" description="" />
       <AuthLayout>
         <div className="w-full">
           <div className="mb-8">
@@ -181,7 +181,7 @@ export default function AcceptInvite() {
             <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
               {invite?.isClaimFlow
                 ? "Set your password to access your lender account and complete your profile."
-                : "Create your lender account to join LendingCart."}
+                : "Create your lender account to join Loan Automation."}
             </p>
           </div>
 

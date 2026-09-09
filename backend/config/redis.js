@@ -1,7 +1,33 @@
 const { isRedisEnabled, getRedisUrl } = require("../config/env");
 const { commonLogs } = require("../services/logger/contextLogger");
+const { Redis } = require("ioredis");
 
 let redisClients = null;
+let sharedRedisClient = null;
+
+async function getSharedRedisClient() {
+  if (sharedRedisClient) return sharedRedisClient;
+
+  const redisUrl = getRedisUrl();
+  if (!redisUrl) {
+    commonLogs.warn(
+      "REDIS_URL is missing — shared Redis client unavailable",
+    );
+    return null;
+  }
+
+  try {
+    sharedRedisClient = new Redis(redisUrl, {
+      maxRetriesPerRequest: null,
+    });
+    return sharedRedisClient;
+  } catch (error) {
+    commonLogs.error("Failed to create shared Redis client", {
+      error: error.message,
+    });
+    return null;
+  }
+}
 
 async function attachRedisAdapter(io) {
   // const isProd = process.env.NODE_ENV === "production";
@@ -117,18 +143,18 @@ async function attachRedisAdapter(io) {
 }
 
 async function shutdownRedisAdapter() {
-  if (!redisClients) {
-    return;
-  }
+  const clients = redisClients
+    ? [redisClients.pubClient, redisClients.subClient]
+    : [];
+  if (sharedRedisClient) clients.push(sharedRedisClient);
 
-  await Promise.allSettled([
-    redisClients.pubClient.quit(),
-    redisClients.subClient.quit(),
-  ]);
+  await Promise.allSettled(clients.map((client) => client.quit()));
   redisClients = null;
+  sharedRedisClient = null;
 }
 
 module.exports = {
+  getSharedRedisClient,
   attachRedisAdapter,
   shutdownRedisAdapter,
 };

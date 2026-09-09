@@ -7,7 +7,7 @@ export default function SignIn() {
     <>
       <PageMeta
         title="Sign In | Lender Portal"
-        description="Sign in to your LendingCart lender dashboard"
+        description="Sign in to your Loan Automation lender dashboard"
       />
       <AuthLayout>
         <SignInForm />

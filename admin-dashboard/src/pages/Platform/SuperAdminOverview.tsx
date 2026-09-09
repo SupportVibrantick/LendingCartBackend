@@ -121,7 +121,7 @@ export default function SuperAdminOverview() {
     <>
       <PageMeta
         title="Super Admin Portal"
-        description="Platform-wide visibility and control for LendingCart super administrators."
+        description="Platform-wide visibility and control for Loan Automation super administrators."
       />
 
       <div className="space-y-6">

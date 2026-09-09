@@ -1,5 +1,6 @@
 const fp = require("fastify-plugin");
 const jwt = require("jsonwebtoken");
+const jwtSecret = require("../utils/auth/jwtSecret");
 
 function verifyLoanAiPlugin(fastify, _opts, done) {
   fastify.decorate("verifyLoanAi", async function verifyLoanAi(request, reply) {
@@ -12,7 +13,7 @@ function verifyLoanAiPlugin(fastify, _opts, done) {
         return reply.code(401).send({ success: false, message: "Authentication required" });
       }
 
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const decoded = jwt.verify(token, jwtSecret);
 
       if (decoded.aud !== "loan-ai-app") {
         return reply.code(401).send({ success: false, message: "Invalid token audience" });

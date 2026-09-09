@@ -93,7 +93,7 @@ export default function CustomerLogin() {
 
         {/* FOOTER */}
         <p className="text-center text-xs text-slate-400 mt-5">
-          Secure login powered by LendingCart 🔒
+          Secure login powered by Loan Automation 🔒
         </p>
       </motion.div>
     </div>

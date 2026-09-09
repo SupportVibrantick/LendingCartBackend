@@ -8,7 +8,7 @@
  */
 require("dotenv").config();
 
-const { PrismaClient } = require("@prisma/client");
+const prisma = require("../config/prisma");
 const {
   diagnoseOrganizationGhlSetup,
   SETUP_STATUS,
@@ -46,7 +46,7 @@ async function main() {
     return;
   }
 
-  const prisma = new PrismaClient();
+  // Use shared prisma client
   try {
     const report = await diagnoseOrganizationGhlSetup(prisma, {
       organizationId: args.organizationId,

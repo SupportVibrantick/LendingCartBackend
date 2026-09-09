@@ -1,6 +1,9 @@
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
-const { resolveClientDisplayName } = require("../../utils/applications/resolveClientDisplayName");
+const jwtSecret = require("../../utils/auth/jwtSecret");
+const {
+  resolveClientDisplayName,
+} = require("../../utils/applications/resolveClientDisplayName");
 
 /**
  * @param {import("fastify").FastifyInstance} fastify
@@ -10,6 +13,19 @@ async function clientLoginRoute(fastify) {
   fastify.post(
     "/login",
     {
+      config: {
+        rateLimit: {
+          max: 10,
+          timeWindow: "15 minutes",
+          errorResponseBuilder: () => ({
+            statusCode: 429,
+            error: "Too Many Requests",
+            success: false,
+            message:
+              "Too many login attempts. Please try again after 15 minutes.",
+          }),
+        },
+      },
       schema: {
         tags: ["Client Portal"],
         summary: "Client login",
@@ -38,24 +54,24 @@ async function clientLoginRoute(fastify) {
         /* ===============================
            FIND USER (SAFE)
         =============================== */
-     const user = await prisma.clientPortalUser.findFirst({
-  where: {
-    email,
-    isDeleted: false,
-  },
-  include: {
-    client: {
-      include: {
-        contacts: {
+        const user = await prisma.clientPortalUser.findFirst({
           where: {
-            isPrimary: true,
+            email,
+            isDeleted: false,
           },
-          take: 1,
-        },
-      },
-    },
-  },
-});
+          include: {
+            client: {
+              include: {
+                contacts: {
+                  where: {
+                    isPrimary: true,
+                  },
+                  take: 1,
+                },
+              },
+            },
+          },
+        });
 
         /* ===============================
            DUMMY HASH (ANTI-TIMING)
@@ -96,23 +112,23 @@ async function clientLoginRoute(fastify) {
         /* ===============================
            GENERATE JWT (KEEP jsonwebtoken)
         =============================== */
-const token = jwt.sign(
-  {
-    id: user.id,
-    clientId: user.clientId,
+        const token = jwt.sign(
+          {
+            id: user.id,
+            clientId: user.clientId,
 
-    email: user.email,
-    clientEmail: user.email,
+            email: user.email,
+            clientEmail: user.email,
 
-    clientName,
-    role: "CLIENT",
-    orgType: "CLIENT",
-  },
-  process.env.JWT_SECRET,
-  {
-    expiresIn: "7d",
-  }
-);
+            clientName,
+            role: "CLIENT",
+            orgType: "CLIENT",
+          },
+          jwtSecret,
+          {
+            expiresIn: "7d",
+          },
+        );
 
         /* ===============================
            UPDATE LAST LOGIN
@@ -140,19 +156,12 @@ const token = jwt.sign(
             },
           },
         });
-
       } catch (error) {
-        fastify.log.error(
-          { error: error.message },
-          "Client login failed"
-        );
+        fastify.log.error({ error: error.message }, "Client login failed");
 
-        return reply.code(500).send({
-          success: false,
-          message: "Unexpected server error",
-        });
+        throw error;
       }
-    }
+    },
   );
 }
 

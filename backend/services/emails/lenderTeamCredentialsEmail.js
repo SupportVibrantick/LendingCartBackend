@@ -26,10 +26,10 @@ async function sendLenderTeamCredentialsEmail({
     currentYear: new Date().getFullYear(),
   });
 
-  const subject = "Your LendingCart lender portal invitation";
+  const subject = "Your Loan Automation lender portal invitation";
   const text = `Hi ${name},
 
-You have been invited to join ${organizationName || "your lender organization"} on LendingCart as ${roleLabel}.
+You have been invited to join ${organizationName || "your lender organization"} on Loan Automation as ${roleLabel}.
 
 Login email: ${email}
 Password: ${password}
@@ -38,7 +38,7 @@ Sign in at: ${loginUrl}
 
 Please change your password after your first login. Do not share these credentials.
 
-— LendingCart`;
+— Loan Automation`;
 
   return enqueueEmail({
     prisma,

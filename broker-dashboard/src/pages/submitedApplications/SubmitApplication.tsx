@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEvent,
+} from "react";
 import toast from "react-hot-toast";
 import { createPortal } from "react-dom";
 import { useNavigate, useSearchParams } from "react-router";
@@ -301,7 +308,9 @@ export default function LoanApplicationsPage() {
 
   const [subBrokers, setSubBrokers] = useState<any[]>([]);
 
-  const [selectedSubBrokerIds, setSelectedSubBrokerIds] = useState<string[]>([]);
+  const [selectedSubBrokerIds, setSelectedSubBrokerIds] = useState<string[]>(
+    [],
+  );
 
   const [assigningSubBroker, setAssigningSubBroker] = useState(false);
 
@@ -344,7 +353,7 @@ export default function LoanApplicationsPage() {
 
   const navigate = useNavigate();
 
-  const formatFieldKey = (key: string | null | undefined) => { 
+  const formatFieldKey = (key: string | null | undefined) => {
     if (!key) return "";
 
     let cleaned = key
@@ -798,11 +807,11 @@ export default function LoanApplicationsPage() {
         setRows((prev) => (cursor ? [...prev, ...formatted] : formatted));
 
         setNextCursor(json.pagination.nextCursor);
-        setHasMore(json.pagination.hasMore);        
+        setHasMore(json.pagination.hasMore);
       } finally {
         setLoading(false);
       }
-    },  
+    },
     [searchTerm, statusFilter],
   );
 
@@ -931,7 +940,6 @@ export default function LoanApplicationsPage() {
   };
 
   const handleSendClientLink = async (applicationId: string) => {
-    // console.log(applicationId);
     try {
       const token = sessionStorage.getItem("broker_token");
 
@@ -959,7 +967,7 @@ export default function LoanApplicationsPage() {
       toast.error(err.message || "Something went wrong");
     }
   };
-  
+
   useEffect(() => {
     loadSubmissions(undefined, initialQuery || undefined, statusFilter);
     fetchPipelineStats();
@@ -1040,7 +1048,8 @@ export default function LoanApplicationsPage() {
   const subBrokerOptions = useMemo(
     () =>
       subBrokers.map((broker) => {
-        const name = `${broker.firstName || ""} ${broker.lastName || ""}`.trim();
+        const name =
+          `${broker.firstName || ""} ${broker.lastName || ""}`.trim();
         return {
           value: broker.id as string,
           text: name
@@ -1691,7 +1700,7 @@ export default function LoanApplicationsPage() {
                           className={`inline-flex max-w-full items-center truncate rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${getStatusColor(row.status)}`}
                           title={formatStatusLabel(row.status)}
                         >
-                          {formatStatusLabel(row.status)} 
+                          {formatStatusLabel(row.status)}
                         </span>
                       </td>
 
@@ -1730,7 +1739,7 @@ export default function LoanApplicationsPage() {
                           }
                         />
                       </td>
-  
+
                       <td
                         className="overflow-hidden px-2 py-3 pr-6 text-right align-middle lg:pr-8"
                         onClick={(e) => e.stopPropagation()}

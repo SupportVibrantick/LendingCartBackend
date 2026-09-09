@@ -70,9 +70,15 @@ async function listClients(fastify) {
               select: {
                 submissions: {
                   orderBy: { createdAt: "desc" },
-                  include: {
+                  take: 1,
+                  select: {
+                    id: true,
+                    createdAt: true,
                     fields: {
-                      include: {
+                      select: {
+                        id: true,
+                        value: true,
+                        fieldKey: true,
                         builderField: { select: { fieldKey: true } },
                       },
                     },

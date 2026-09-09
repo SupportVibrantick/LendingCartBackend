@@ -11,8 +11,9 @@ export default function InputGroup() {
     { code: "CA", label: "+1" },
     { code: "AU", label: "+61" },
   ];
-  const handlePhoneNumberChange = (phoneNumber: string) => {
-    console.log("Updated phone number:", phoneNumber);
+  const handlePhoneNumberChange = (
+    // phoneNumber: string
+  ) => {
   };
   return (
     <ComponentCard title="Input Group">

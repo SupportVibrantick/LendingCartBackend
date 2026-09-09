@@ -2,6 +2,7 @@ require("dotenv").config();
 const path = require("path");
 const Fastify = require("fastify");
 const cors = require("@fastify/cors");
+const helmet = require("@fastify/helmet");
 const cookieParser = require("@fastify/cookie");
 const fastifyStatic = require("@fastify/static");
 const fastifyFormbody = require("@fastify/formbody");
@@ -48,33 +49,26 @@ runEmailConsumerKafka().catch((error) => {
   console.error("Error starting the email consumer:", error);
 });
 
+app.register(helmet);
+
 app.register(rateLimit, {
-  // Don't auto-limit every route — only routes that set config.rateLimit
+  // Don't auto-limit every route — only routes that set config.rateLimit.
   global: false,
-  // Use the same IP extraction as the custom checkRateLimit helper so
-  // proxy headers (x-forwarded-for, x-real-ip, cf-connecting-ip) are
-  // honored even when trustProxy behavior differs from request.ip.
+  // Keep parity with the custom helper's proxy-aware IP extraction.
   keyGenerator: (request) => getClientIp(request),
 });
 
-// app.register(cors, {
-//   origin: (origin, cb) => {
-//     const allowedOrigins = process.env.CORS_ORIGINS
-//       ? process.env.CORS_ORIGINS.split(",").map((o) => o.trim())
-//       : [];
-
-//     if (!origin || allowedOrigins.includes(origin)) {
-//       cb(null, true);
-//     } else {
-//       cb(new Error(`The CORS origin ${origin} is not allowed`), false);
-//     }
-//   },
-//   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-//   credentials: true,
-// });
-
 app.register(cors, {
-  origin: "*",
+  origin: (origin, cb) => {
+    const allowedOrigins = process.env.CORS_ORIGINS
+      ? process.env.CORS_ORIGINS.split(",").map((o) => o.trim())
+      : [];
+    if (!origin || allowedOrigins.includes(origin)) {
+      cb(null, true);
+    } else {
+      cb(new Error(`The CORS origin ${origin} is not allowed`), false);
+    }
+  },
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
   credentials: true,
 });
@@ -91,7 +85,6 @@ app.register(multipart, {
     fileSize: getUploadMaxBytes(),
   },
 });
-
 app.register(cookieParser);
 
 app.register(fastifyFormbody);
@@ -186,6 +179,31 @@ app.setErrorHandler((error, request, reply) => {
     });
   }
 
+  // Determine if we should return JSON or HTML
+  const isApiRequest =
+    request.url.startsWith("/api") ||
+    request.headers["accept"]?.includes("application/json") ||
+    request.url.includes("/auth") ||
+    request.url.includes("/login");
+
+  if (isApiRequest) {
+    const statusCode = error.statusCode || error.status || 500;
+    const isProduction = process.env.NODE_ENV === "production";
+
+    const response = {
+      success: false,
+      message:
+        statusCode === 500 && isProduction
+          ? "An internal server error occurred"
+          : error.message || "Internal Server Error",
+    };
+
+    if (!isProduction && error.stack) {
+      response.stack = error.stack;
+    }
+
+    return reply.status(statusCode).send(response);
+  }
   // Handle http-errors (from createError)
   if (error.status) {
     commonLogs.warn("Client error", {
@@ -235,7 +253,10 @@ app.setErrorHandler((error, request, reply) => {
   });
 
   return reply.status(error.statusCode || 500).view("error.pug", {
-    message: error.message || "Internal Server Error",
+    message:
+      error.statusCode === 500 && process.env.NODE_ENV === "production"
+        ? "An internal server error occurred"
+        : error.message || "Internal Server Error",
     error: {
       status: error.statusCode || 500,
       stack:

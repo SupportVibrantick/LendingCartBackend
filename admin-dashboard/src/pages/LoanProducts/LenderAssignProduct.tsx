@@ -471,7 +471,6 @@ export default function LenderProductAssign({ lenderId, onSuccess }: Props) {
 
     const v = validate();
     if (Object.keys(v).length) {
-      console.log(v);
       setErrors(v);
       return;
     }

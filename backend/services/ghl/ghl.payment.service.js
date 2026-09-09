@@ -400,7 +400,7 @@ async function createGhlInvoice({
       },
     ],
     businessDetails: {
-      name: process.env.GHL_BUSINESS_NAME || "LendingCart",
+      name: process.env.GHL_BUSINESS_NAME || "Loan Automation",
     },
   };
 

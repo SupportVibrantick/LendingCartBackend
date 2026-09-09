@@ -49,7 +49,7 @@ ${dashboardUrl}
 
 Change this password after your first login. Do not share these credentials.
 
-— LendingCart`;
+— Loan Automation`;
 
   return enqueueEmail({
     prisma,

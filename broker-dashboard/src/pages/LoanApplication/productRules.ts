@@ -640,9 +640,7 @@ export const showValuationEquityBlock = (product: string, purpose: string) => {
 };
 
 
-export const showPrivateDetails = (product: string, purpose: string) => {
-  console.log("purpose ", purpose);
-  console.log("product ", product);
+export const showPrivateDetails = (product: string) => {
   if (product === "CONSTRUCTION_LOAN_1_TO_4_UNITS") {
     return false
   }
