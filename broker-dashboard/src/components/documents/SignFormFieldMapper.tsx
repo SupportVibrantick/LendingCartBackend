@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import {
   ArrowLeft,
@@ -189,6 +189,27 @@ export default function SignFormFieldMapper({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, submissionId, requirementId, apiRolePrefix]);
 
+  // Flat / unpublished PDFs: auto-run detection once when mapper opens empty.
+  const autoDetectAttemptedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!open || loading || !form || detecting) return;
+    const attemptKey = `${requirementId}:${form.versionId || "none"}`;
+    if (autoDetectAttemptedRef.current === attemptKey) return;
+    if ((form.schema?.fields || []).length > 0) {
+      autoDetectAttemptedRef.current = attemptKey;
+      return;
+    }
+    autoDetectAttemptedRef.current = attemptKey;
+    void detectFields(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, loading, form?.versionId, requirementId]);
+
+  useEffect(() => {
+    if (!open) {
+      autoDetectAttemptedRef.current = null;
+    }
+  }, [open]);
+
   useEffect(() => {
     if (!open) return;
     const previous = document.body.style.overflow;
@@ -299,7 +320,8 @@ export default function SignFormFieldMapper({
             replaceExisting,
             useAzure: false,
             useLlm: false,
-            useFreeOcr: true,
+            // AcroForm-only first — Free OCR on 13-page SBA PDFs is very slow
+            useFreeOcr: false,
           }),
         },
       );
@@ -524,18 +546,47 @@ export default function SignFormFieldMapper({
 
         <div className="flex items-start gap-2 border-t border-slate-100 bg-slate-50 px-4 py-2.5 text-xs text-slate-600 lg:px-6">
           <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0 text-teal-600" />
-          <p>
-            <span className="font-medium text-slate-800">Recommended:</span>{" "}
-            Add Text / Checkbox / Signature, drag boxes onto the PDF, then Publish.
-            Auto-detect is optional assist — always review alignment before publishing.
-          </p>
+            <p>
+              <span className="font-medium text-slate-800">Tip:</span> Click{" "}
+              <span className="font-semibold">Detect fillable fields</span>,
+              review blue boxes on each page, then{" "}
+              <span className="font-semibold">Publish</span>. Browser PDF
+              preview edits are not saved to Loan Automation.
+            </p>
         </div>
       </header>
 
-      {loading || !form || !currentPage || !templateUrl ? (
+      {loading || !form ? (
         <div className="flex flex-1 items-center justify-center text-slate-500">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           Preparing form mapper…
+        </div>
+      ) : detecting ? (
+        <div className="flex flex-1 flex-col items-center justify-center gap-2 text-slate-600">
+          <Loader2 className="h-8 w-8 animate-spin text-teal-600" />
+          <p className="text-sm font-medium">Detecting fillable fields…</p>
+          <p className="max-w-sm text-center text-xs text-slate-500">
+            Reading AcroForm widgets from the PDF. Large forms usually finish in
+            a few seconds.
+          </p>
+        </div>
+      ) : !currentPage || !templateUrl ? (
+        <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center text-slate-600">
+          <p className="text-sm font-medium text-slate-800">
+            Could not prepare PDF pages for mapping
+          </p>
+          <p className="max-w-md text-xs text-slate-500">
+            {!templateUrl
+              ? "Template file URL is missing."
+              : "Page manifest is empty. Try closing and opening Map fields again, or re-upload the PDF."}
+          </p>
+          <button
+            type="button"
+            onClick={() => void loadForm()}
+            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium hover:bg-slate-50"
+          >
+            Retry
+          </button>
         </div>
       ) : (
         <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[260px_minmax(0,1fr)_280px]">
@@ -547,7 +598,7 @@ export default function SignFormFieldMapper({
                   Auto detect
                 </p>
                 <p className="mt-1 text-[11px] leading-relaxed text-teal-800/80">
-                  Finds fillable areas on this PDF. Always review before
+                  Finds fillable PDF fields (AcroForm). Always review before
                   publishing.
                 </p>
                 {detectedCount > 0 && (
@@ -560,16 +611,21 @@ export default function SignFormFieldMapper({
                     {lastDetectionNote}
                   </p>
                 )}
-                {fields.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => detectFields(true)}
-                    disabled={detecting}
-                    className="mt-2 text-[11px] font-semibold text-teal-800 underline disabled:opacity-50"
-                  >
-                    Re-analyze & replace
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={() => detectFields(fields.length > 0)}
+                  disabled={detecting || publishing}
+                  className="mt-2 inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-teal-600 px-2.5 py-2 text-[11px] font-semibold text-white hover:bg-teal-700 disabled:opacity-50"
+                >
+                  {detecting ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Sparkles className="h-3.5 w-3.5" />
+                  )}
+                  {fields.length > 0
+                    ? "Re-detect & replace"
+                    : "Detect fillable fields"}
+                </button>
               </section>
 
               <section>

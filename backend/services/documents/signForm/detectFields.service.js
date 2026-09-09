@@ -204,7 +204,9 @@ async function runFieldDetectionPipeline({
   }
 
   const azureUseful = azureFields.length > 0;
-  if (useFreeOcr && !azureUseful) {
+  // Skip Free OCR when AcroForm already found fields — OCR on multi-page SBA
+  // PDFs is very slow and only needed for flat/scanned templates.
+  if (useFreeOcr && !azureUseful && acroFields.length === 0) {
     try {
       const free = await detectFreeOcrFields({
         filePath: templatePath,
@@ -229,7 +231,9 @@ async function runFieldDetectionPipeline({
       skipped: true,
       note: azureUseful
         ? "Free OCR skipped because Azure returned fields"
-        : "Free OCR disabled for this request",
+        : acroFields.length
+          ? "Free OCR skipped because AcroForm fields were found"
+          : "Free OCR disabled for this request",
     });
   }
 
