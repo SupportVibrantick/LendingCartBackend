@@ -2,7 +2,7 @@ const fs = require("fs");
 const path = require("path");
 const os = require("os");
 const crypto = require("crypto");
-const prisma = require("../../config/prisma");
+const sharedPrisma = require("../../config/prisma");
 const { commonLogs } = require("../logger/contextLogger");
 const { sendViaSmtp } = require("./providers/smtp.provider");
 const { sendViaGhl } = require("./providers/ghl.provider");
@@ -88,7 +88,7 @@ async function enqueueEmail({
   idempotencyKey,
   maxAttempts = 5,
 }) {
-  const client = prisma;
+  const client = prisma || sharedPrisma;
 
   if (!to || !subject) {
     throw new Error("enqueueEmail requires to and subject");
@@ -289,7 +289,7 @@ async function processOutboxRecord(prisma, record) {
 }
 
 async function processEmailOutbox(prisma) {
-  const client = prisma;
+  const client = prisma || sharedPrisma;
   const claimed = await claimOutboxBatch(client);
 
   for (const record of claimed) {
@@ -300,7 +300,7 @@ async function processEmailOutbox(prisma) {
 }
 
 async function listEmailOutbox(prisma, { status, limit = 50, offset = 0 } = {}) {
-  const client = prisma;
+  const client = prisma || sharedPrisma;
 
   return client.emailOutbox.findMany({
     where: status ? { status } : undefined,
@@ -311,7 +311,7 @@ async function listEmailOutbox(prisma, { status, limit = 50, offset = 0 } = {}) 
 }
 
 function startEmailOutboxWorker(prisma, intervalMs = 15_000) {
-  const client = prisma;
+  const client = prisma || sharedPrisma;
 
   const tick = async () => {
     try {

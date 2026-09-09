@@ -30,7 +30,6 @@ async function getSharedRedisClient() {
 }
 
 async function attachRedisAdapter(io) {
-  // ... (rest of the function)
   // const isProd = process.env.NODE_ENV === "production";
 
   // if (!isRedisEnabled()) {
@@ -144,18 +143,18 @@ async function attachRedisAdapter(io) {
 }
 
 async function shutdownRedisAdapter() {
-  if (!redisClients) {
-    return;
-  }
+  const clients = redisClients
+    ? [redisClients.pubClient, redisClients.subClient]
+    : [];
+  if (sharedRedisClient) clients.push(sharedRedisClient);
 
-  await Promise.allSettled([
-    redisClients.pubClient.quit(),
-    redisClients.subClient.quit(),
-  ]);
+  await Promise.allSettled(clients.map((client) => client.quit()));
   redisClients = null;
+  sharedRedisClient = null;
 }
 
 module.exports = {
+  getSharedRedisClient,
   attachRedisAdapter,
   shutdownRedisAdapter,
 };

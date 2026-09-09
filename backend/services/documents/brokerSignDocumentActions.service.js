@@ -1,6 +1,6 @@
 const path = require("path");
 const crypto = require("crypto");
-const { validateFileMimetype } = require("../../utils/security/fileValidator");
+const fs = require("fs");
 const {
   formatSignDocumentRequirement,
   REQUEST_APPLICATION_LENDER_INCLUDE,
@@ -21,6 +21,9 @@ const {
   ALLOWED_MIME_TYPES,
   writeSignAssetFromStream,
 } = require("./signForm/storage");
+const {
+  resolveDiskPathFromPublicUrl,
+} = require("./signForm/pageManifest");
 const {
   autoPublishAcroFormIfPresent,
 } = require("./signForm/autoPublishAcroForm");
@@ -394,7 +397,32 @@ async function uploadBrokerSignDocument(
     organizationId: brokerOrgId,
     userId: userId || null,
     logger,
+    pdfBytes: (() => {
+      try {
+        if (!String(result.templateMimeType || "").includes("pdf")) return null;
+        const diskPath = resolveDiskPathFromPublicUrl(result.templateFileUrl);
+        if (!fs.existsSync(diskPath)) return null;
+        return fs.readFileSync(diskPath);
+      } catch (error) {
+        logger?.warn?.(
+          { err: error, requirementId: result.id },
+          "Could not preload PDF bytes for AcroForm auto-publish",
+        );
+        return null;
+      }
+    })(),
   });
+
+  if (!autoPublish.published) {
+    logger?.warn?.(
+      {
+        requirementId: result.id,
+        reason: autoPublish.reason,
+        error: autoPublish.error?.message || null,
+      },
+      "AcroForm auto-publish did not publish fillable fields",
+    );
+  }
 
   const refreshed = await prisma.applicationDocumentRequirement.findUnique({
     where: { id: result.id },
@@ -406,7 +434,9 @@ async function uploadBrokerSignDocument(
     autoPublish,
     message: autoPublish.published
       ? `Form uploaded with ${autoPublish.fieldCount} fillable field${autoPublish.fieldCount === 1 ? "" : "s"} — you can fill before sending to the client`
-      : "Form uploaded. No fillable fields found — use Map fields, or prepare a fillable PDF with free PDF24 Form Editor and re-upload.",
+      : autoPublish.reason === "no_fields"
+        ? "Form uploaded. No fillable fields found — use Map fields, or prepare a fillable PDF with free PDF24 Form Editor and re-upload."
+        : `Form uploaded. Fields were not auto-published (${autoPublish.reason || "unknown"}). Open Map fields to detect and publish.`,
   };
 }
 

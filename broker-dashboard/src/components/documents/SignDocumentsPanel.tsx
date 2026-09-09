@@ -14,6 +14,7 @@ import {
   Eye,
   FileImage,
   FileText,
+  ExternalLink,
   HelpCircle,
   Loader2,
   MousePointer2,
@@ -166,7 +167,9 @@ function isBrokerFormForwardedToLender(row: SignDocumentRow) {
 }
 
 function getBrokerDynamicFormActionLabel(row: SignDocumentRow) {
-  if (row.signMode !== "DYNAMIC_FORM") return "Template";
+  if (row.signMode !== "DYNAMIC_FORM") {
+    return isBrokerUploadedDoc(row) ? "Detect fields" : "Template";
+  }
   return isBrokerFormForwardedToLender(row) ? "View form" : "Fill form";
 }
 
@@ -450,11 +453,18 @@ export default function SignDocumentsPanel({
     navigate(`/client-portal/sign-document?${qs.toString()}`);
   };
 
-  /** Broker: fillable forms open the editor; signature-only stays view-only preview. */
+  /** Broker: fillable forms open the editor; unpublished PDFs open field mapper. */
   const openBrokerTemplate = (row: SignDocumentRow) => {
     if (row.signMode === "DYNAMIC_FORM") {
       setActiveTemplateViewDoc(null);
       setFillingDoc(row);
+      return;
+    }
+    // Native browser PDF preview lets you type, but values are NOT saved here.
+    // Route brokers to Map fields so AcroForm fields get detected into our workflow.
+    if (isBrokerUploadedDoc(row) && row.templateFileUrl) {
+      setActiveTemplateViewDoc(null);
+      setMappingDoc(row);
       return;
     }
     setActiveTemplateViewDoc(row);
@@ -789,7 +799,22 @@ export default function SignDocumentsPanel({
       setBrokerViewTab("documents");
       await fetchRows();
       onUpdated?.();
-    } catch (err: any) {
+
+      const uploaded = (json.data || {}) as SignDocumentRow;
+      const published = Boolean(json.autoPublish?.published);
+      if (published && uploaded?.requirementId) {
+        setFillingDoc({
+          ...uploaded,
+          signMode: "DYNAMIC_FORM",
+          fieldCount: json.autoPublish?.fieldCount ?? uploaded.fieldCount,
+        });
+      } else if (uploaded?.requirementId && uploaded.templateFileUrl) {
+        toast(
+          "Open Map fields — Detect will find fillable boxes, then Publish.",
+          { icon: "📝", duration: 5000 },
+        );
+        setMappingDoc(uploaded);
+      }    } catch (err: any) {
       toast.error(err.message || "Upload failed");
     } finally {
       setUploading(false);
@@ -1810,7 +1835,9 @@ export default function SignDocumentsPanel({
                 ? isBrokerFormForwardedToLender(row)
                   ? "View filled form"
                   : "Open fillable form"
-                : "View template"
+                : isBrokerUploadedDoc(row)
+                  ? "Detect PDF fields and publish"
+                  : "View template"
             }
           >
             {row.signMode === "DYNAMIC_FORM" ? (
@@ -1819,6 +1846,8 @@ export default function SignDocumentsPanel({
               ) : (
                 <PenLine size={13} className="shrink-0" />
               )
+            ) : isBrokerUploadedDoc(row) ? (
+              <MousePointer2 size={13} className="shrink-0" />
             ) : (
               <Eye size={13} className="shrink-0" />
             )}
@@ -2465,26 +2494,70 @@ export default function SignDocumentsPanel({
                   Upload a form
                 </h3>
                 <p className="mt-0.5 text-xs text-slate-500">
-                  Prefer a <span className="font-medium">fillable</span> PDF
-                  (AcroForm). Flat PDFs: prepare with free PDF24, or upload and
-                  use Map fields.
+                  Make the PDF fillable first, then upload it here.
                 </p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setFillableHelpRow(null);
-                    setFillableHelpOpen(true);
-                  }}
-                  className="mt-2 inline-flex items-center gap-1 text-[11px] font-semibold text-[#13538A] hover:underline"
-                >
-                  <HelpCircle size={12} />
-                  How to make a PDF fillable (PDF24)
-                </button>
               </div>
             </div>
           </div>
 
           <div className="space-y-4 p-5">
+            <div className="rounded-xl border border-amber-200 bg-amber-50/80 px-4 py-3 dark:border-amber-900/60 dark:bg-amber-950/30">
+              <p className="text-xs font-semibold text-amber-900 dark:text-amber-100">
+                Do these steps in order
+              </p>
+              <ol className="mt-2 space-y-2.5 text-xs leading-relaxed text-amber-900/90 dark:text-amber-100/90">
+                <li className="flex gap-2.5">
+                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-200 text-[10px] font-bold text-amber-900 dark:bg-amber-800 dark:text-amber-50">
+                    1
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="font-medium">Make it fillable</span> with
+                    free PDF24 (add text, checkbox, signature fields).
+                    <span className="mt-1.5 flex flex-wrap gap-2">
+                      <a
+                        href="https://tools.pdf24.org/en/create-pdf-form"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 font-semibold text-[#13538A] underline hover:text-[#0f4370] dark:text-sky-300"
+                      >
+                        Open PDF24 Form Editor
+                        <ExternalLink size={11} />
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFillableHelpRow(null);
+                          setFillableHelpOpen(true);
+                        }}
+                        className="inline-flex items-center gap-1 font-semibold text-[#13538A] hover:underline dark:text-sky-300"
+                      >
+                        <HelpCircle size={11} />
+                        Quick guide
+                      </button>
+                    </span>
+                  </span>
+                </li>
+                <li className="flex gap-2.5">
+                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-200 text-[10px] font-bold text-amber-900 dark:bg-amber-800 dark:text-amber-50">
+                    2
+                  </span>
+                  <span>
+                    <span className="font-medium">Download / save</span> the
+                    fillable PDF (do not flatten).
+                  </span>
+                </li>
+                <li className="flex gap-2.5">
+                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-200 text-[10px] font-bold text-amber-900 dark:bg-amber-800 dark:text-amber-50">
+                    3
+                  </span>
+                  <span>
+                    <span className="font-medium">Come back here</span> and
+                    upload that fillable file below.
+                  </span>
+                </li>
+              </ol>
+            </div>
+
             <label className="block">
               <span className="mb-1.5 block text-xs font-medium text-slate-600 dark:text-slate-400">
                 Document name
@@ -2501,7 +2574,7 @@ export default function SignDocumentsPanel({
 
             <div>
               <span className="mb-1.5 block text-xs font-medium text-slate-600 dark:text-slate-400">
-                File
+                File (upload the fillable PDF from step 3)
               </span>
               <input
                 ref={uploadFileInputRef}
@@ -2573,7 +2646,7 @@ export default function SignDocumentsPanel({
                 ) : (
                   <>
                     <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-                      Drag & drop your file here
+                      Drop your fillable PDF here
                     </p>
                     <p className="text-xs text-slate-500">
                       or click to browse · PDF, PNG, JPG, WEBP
@@ -2586,8 +2659,8 @@ export default function SignDocumentsPanel({
             <div className="flex flex-col-reverse gap-3 border-t border-slate-100 pt-4 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-xs text-slate-500">
                 {!uploadName.trim() || !uploadFile
-                  ? "Enter a name and choose a file to continue"
-                  : "Ready to add to workflow"}
+                  ? "Finish steps 1–2, then enter a name and upload the fillable file"
+                  : "Ready to upload your fillable PDF"}
               </p>
               <div className="flex flex-wrap items-center gap-2">
                 {uploadFile ? (

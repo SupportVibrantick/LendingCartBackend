@@ -615,6 +615,8 @@ export default function SubBroker() {
   };
 
   const openViewSubBroker = async (id: string) => {
+    console.log("hi");
+
     setViewSubBroker(null);
     setViewLoading(true);
     const data = await fetchSubBrokerDetails(id, "view");

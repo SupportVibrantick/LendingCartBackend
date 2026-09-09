@@ -182,6 +182,8 @@ async function syncUserPermissions(prisma, userId, permissionKeys = []) {
   const existingKeys = new Set(existingRecords.map((p) => p.key));
   const missingKeys = uniqueKeys.filter((key) => !existingKeys.has(key));
 
+  // Self-heal: ensure every normalized LO permission exists so we don't
+  // silently drop keys when a new permission is added before the seed runs.
   if (missingKeys.length > 0) {
     await Promise.all(
       missingKeys.map((key) =>

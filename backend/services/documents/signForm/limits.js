@@ -7,7 +7,7 @@ function numberEnv(name, fallback) {
 function getSignFormLimits() {
   return {
     maxPages: numberEnv("SIGN_FORM_MAX_PAGES", 20),
-    maxFields: numberEnv("SIGN_FORM_MAX_FIELDS", 150),
+    maxFields: numberEnv("SIGN_FORM_MAX_FIELDS", 600),
     maxConditionals: numberEnv("SIGN_FORM_MAX_CONDITIONALS", 40),
     maxTables: numberEnv("SIGN_FORM_MAX_TABLES", 8),
     maxTableRows: numberEnv("SIGN_FORM_MAX_TABLE_ROWS", 20),

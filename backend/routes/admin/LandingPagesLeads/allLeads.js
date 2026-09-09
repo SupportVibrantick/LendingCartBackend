@@ -64,8 +64,7 @@ module.exports = async function (fastify) {
         prisma.commercialLendingMasteryLead.findMany({
           where: baseWhere,
           orderBy: { createdAt: "desc" },
-          skip,
-          take: take,
+          take: skip + take,
           select: {
             id: true,
             firstName: true,
@@ -89,8 +88,7 @@ module.exports = async function (fastify) {
         prisma.clmLandingPageLead.findMany({
           where: baseWhere,
           orderBy: { createdAt: "desc" },
-          skip,
-          take: take,
+          take: skip + take,
           select: {
             id: true,
             firstName: true,
@@ -114,8 +112,7 @@ module.exports = async function (fastify) {
         prisma.adminManualLead.findMany({
           where: adminWhere,
           orderBy: { createdAt: "desc" },
-          skip,
-          take: take,
+          take: skip + take,
           select: {
             id: true,
             firstName: true,
@@ -143,8 +140,7 @@ module.exports = async function (fastify) {
         prisma.loanAiBookDemoLead.findMany({
           where: bookDemoWhere,
           orderBy: { createdAt: "desc" },
-          skip,
-          take: take,
+          take: skip + take,
           select: {
             id: true,
             firstName: true,

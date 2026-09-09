@@ -36,8 +36,8 @@ export default function MakeFillablePdfHelp({
               Make a PDF fillable
             </h2>
             <p className="mt-1 text-xs text-slate-500">
-              Flat / scanned PDFs are not editable in-browser until they have
-              form fields (or you map them here).
+              Follow these steps in order: make the PDF fillable, save it, then
+              upload that file in Loan Automation.
             </p>
           </div>
           <button
@@ -61,8 +61,10 @@ export default function MakeFillablePdfHelp({
                 Add Text, Checkbox, Radio (Yes/No), Date, and Signature
                 fields on each page
               </li>
-              <li>Save as a fillable PDF (do not flatten)</li>
-              <li>Upload that fillable PDF here — fields auto-detect</li>
+              <li>Save / download as a fillable PDF (do not flatten)</li>
+              <li>
+                Return here → enter a document name → upload that fillable file
+              </li>
             </ol>
             <a
               href="https://tools.pdf24.org/en/create-pdf-form"
@@ -104,10 +106,13 @@ export default function MakeFillablePdfHelp({
 
           <p className="rounded-lg bg-slate-50 px-3 py-2 text-[11px] leading-relaxed text-slate-500 dark:bg-slate-800/60 dark:text-slate-400">
             <span className="font-semibold text-slate-700 dark:text-slate-200">
-              Fillable ≠ fully editable.
+              Tip:
             </span>{" "}
-            The form design stays locked; users only type/check/sign in the
-            fields you placed — ideal for Broker → Client → Lender.
+            If you already uploaded a flat PDF, use{" "}
+            <span className="font-semibold text-slate-700 dark:text-slate-200">
+              Map fields
+            </span>{" "}
+            in Loan Automation instead of leaving the app.
           </p>
         </div>
 

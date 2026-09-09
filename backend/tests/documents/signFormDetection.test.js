@@ -106,6 +106,32 @@ test("detectAcroFormFields extracts text widgets", async () => {
   assert.ok(result.fields[0].rect.width > 0);
 });
 
+test("detectAcroFormFields resolves page when widget P is missing", async () => {
+  const { PDFName } = require("pdf-lib");
+  const pdfDoc = await PDFDocument.create();
+  for (let i = 0; i < 9; i += 1) pdfDoc.addPage([612, 792]);
+  const form = pdfDoc.getForm();
+  const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const field = form.createTextField(
+    "form1[0].Page1[0].P9[0].SecIIISignatureDetails[0].Signature[0]",
+  );
+  field.addToPage(pdfDoc.getPages()[8], {
+    x: 80,
+    y: 120,
+    width: 200,
+    height: 24,
+    font,
+  });
+  for (const widget of field.acroField.getWidgets()) {
+    widget.dict.delete(PDFName.of("P"));
+  }
+
+  const bytes = await pdfDoc.save();
+  const result = await detectAcroFormFields(bytes);
+  assert.ok(result.fields.length >= 1);
+  assert.equal(result.fields[0].page, 9);
+});
+
 test("polygonToRect converts Azure top-left inches to PDF bottom-left points", () => {
   const rect = polygonToRect(
     [1, 1, 3, 1, 3, 1.5, 1, 1.5],

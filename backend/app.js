@@ -8,7 +8,6 @@ const fastifyStatic = require("@fastify/static");
 const fastifyFormbody = require("@fastify/formbody");
 const rateLimit = require("@fastify/rate-limit");
 const { getClientIp } = require("./utils/security/rateLimit");
-const { getSharedRedisClient } = require("./config/redis");
 const pointOfView = require("@fastify/view");
 const pug = require("pug");
 const {
@@ -53,17 +52,10 @@ runEmailConsumerKafka().catch((error) => {
 app.register(helmet);
 
 app.register(rateLimit, {
+  // Don't auto-limit every route — only routes that set config.rateLimit.
   global: false,
-
-  keyGenerator: (request) => {
-    const ip = getClientIp(request);
-    // console.log({
-    //   clientIp: ip,
-    //   method: request.method,
-    //   url: request.url,
-    // });
-    return ip;
-  },
+  // Keep parity with the custom helper's proxy-aware IP extraction.
+  keyGenerator: (request) => getClientIp(request),
 });
 
 app.register(cors, {
@@ -93,7 +85,6 @@ app.register(multipart, {
     fileSize: getUploadMaxBytes(),
   },
 });
-
 app.register(cookieParser);
 
 app.register(fastifyFormbody);
@@ -213,7 +204,6 @@ app.setErrorHandler((error, request, reply) => {
 
     return reply.status(statusCode).send(response);
   }
-
   // Handle http-errors (from createError)
   if (error.status) {
     commonLogs.warn("Client error", {

@@ -226,8 +226,6 @@ export default function LoanOfficerFormModal({
     try {
       const formData = buildLoanOfficerFormData(form);
 
-      form;
-
       const url = isEdit
         ? `${API_BASE}/broker/users/${officerId}`
         : `${API_BASE}/broker/users`;
