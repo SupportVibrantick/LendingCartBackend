@@ -263,7 +263,9 @@ export default function UpdateLoanProduct() {
     [form.loanPrograms, lockedProgramIds],
   );
 
-  const steps = ["Update Loan Programs", "Update Loan Criteria"];
+  const steps = isSingleProductUpdate
+    ? ["Update Loan Criteria"]
+    : ["Update Loan Programs", "Update Loan Criteria"];
 
   const loanCriteriaStepIndex = steps.length - 1;
   const isLastStep = step === steps.length - 1;
@@ -391,7 +393,11 @@ export default function UpdateLoanProduct() {
   };
 
   const getStepContent = () => {
-    if (loadingExisting && step === 0) {
+    const showProgramsStep = !isSingleProductUpdate && step === 0;
+    const showCriteriaStep =
+      isSingleProductUpdate || step === loanCriteriaStepIndex;
+
+    if (loadingExisting && showProgramsStep) {
       return (
         <div className="rounded-2xl border border-gray-200 bg-white p-10 text-center text-sm text-gray-500">
           Loading your loan programs...
@@ -399,14 +405,12 @@ export default function UpdateLoanProduct() {
       );
     }
 
-    if (step === 0) {
+    if (showProgramsStep) {
       return (
         <StepTwo
           mode="lender"
           value={form.loanPrograms}
           setValue={(val) => {
-            if (isSingleProductUpdate) return;
-
             setForm((prev) => ({
               ...prev,
               loanPrograms: [
@@ -418,17 +422,12 @@ export default function UpdateLoanProduct() {
             }));
           }}
           lockedIds={lockedProgramIds}
-          restrictToProductIds={
-            isSingleProductUpdate ? lockedProgramIds : undefined
-          }
-          singleProductMode={isSingleProductUpdate}
-          prefetchedProducts={isSingleProductUpdate ? products : undefined}
           onProductsLoad={setProducts}
         />
       );
     }
 
-    if (step === loanCriteriaStepIndex) {
+    if (showCriteriaStep) {
       if (loadingExisting) {
         return (
           <div className="rounded-2xl border border-gray-200 bg-white p-10 text-center text-sm text-gray-500">
@@ -474,7 +473,10 @@ export default function UpdateLoanProduct() {
 
   const nextDisabled =
     loadingExisting ||
-    (!isLastStep && step === 0 && form.loanPrograms.length === 0) ||
+    (!isLastStep &&
+      !isSingleProductUpdate &&
+      step === 0 &&
+      form.loanPrograms.length === 0) ||
     (step === loanCriteriaStepIndex &&
       (hasStep5Errors || footerValidationMessage !== null)) ||
     submitting;
@@ -820,7 +822,7 @@ export default function UpdateLoanProduct() {
             Step <span className="font-semibold text-gray-700">{step + 1}</span>{" "}
             of{" "}
             <span className="font-semibold text-gray-700">{steps.length}</span>
-            {step === 0 && lockedProgramIds.length > 0 ? (
+            {step === 0 && !isSingleProductUpdate && lockedProgramIds.length > 0 ? (
               <span className="ml-2 text-emerald-600">
                 {lockedProgramIds.length} active
                 {newProgramIds.length > 0
@@ -837,7 +839,7 @@ export default function UpdateLoanProduct() {
 
           <div className="flex items-center gap-3">
             <button
-              disabled={step === 0 || submitting}
+              disabled={step === 0 || isSingleProductUpdate || submitting}
               onClick={() => setStep((prev) => prev - 1)}
               className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm border border-gray-300 bg-white hover:bg-gray-50 transition disabled:opacity-40"
             >
