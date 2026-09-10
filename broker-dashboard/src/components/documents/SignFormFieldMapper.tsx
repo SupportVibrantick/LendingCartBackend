@@ -14,6 +14,7 @@ import {
   Table2,
   Sparkles,
   MousePointer2,
+  Bookmark,
 } from "lucide-react";
 import PdfPageCanvas from "./PdfPageCanvas";
 import {
@@ -87,6 +88,7 @@ export default function SignFormFieldMapper({
   const basePath = `${apiBase}/${apiRolePrefix}/loan-pipeline/submissions/${submissionId}/sign-documents/${requirementId}`;
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [savingTemplate, setSavingTemplate] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [detecting, setDetecting] = useState(false);
   const [form, setForm] = useState<SignFormPayload | null>(null);
@@ -386,6 +388,40 @@ export default function SignFormFieldMapper({
     }
   };
 
+  const saveAsTemplate = async () => {
+    if (!fields.length) {
+      toast.error("Add fields before saving a template");
+      return;
+    }
+    const name = window.prompt("Template name", documentName || "Sign form");
+    if (!name?.trim()) return;
+
+    try {
+      setSavingTemplate(true);
+      const res = await fetch(`${basePath}/save-as-template`, {
+        method: "POST",
+        headers: {
+          ...getAuthHeaders(),
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: name.trim(),
+          schema: buildSchema(),
+          pageManifest: pages,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || "Failed to save template");
+      }
+      toast.success("Saved to template library");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to save template");
+    } finally {
+      setSavingTemplate(false);
+    }
+  };
+
   const addField = (type: SignFormFieldType) => {
     if (!currentPage) return;
     const field = createEmptyField(
@@ -517,6 +553,19 @@ export default function SignFormFieldMapper({
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
+              onClick={saveAsTemplate}
+              disabled={savingTemplate || loading || !fields.length}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+            >
+              {savingTemplate ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Bookmark className="h-4 w-4" />
+              )}
+              Save template
+            </button>
+            <button
+              type="button"
               onClick={saveDraft}
               disabled={saving || loading}
               className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50"
@@ -550,8 +599,10 @@ export default function SignFormFieldMapper({
               <span className="font-medium text-slate-800">Tip:</span> Click{" "}
               <span className="font-semibold">Detect fillable fields</span>,
               review blue boxes on each page, then{" "}
-              <span className="font-semibold">Publish</span>. Browser PDF
-              preview edits are not saved to Loan Automation.
+              <span className="font-semibold">Publish</span>. Use{" "}
+              <span className="font-semibold">Save template</span> to reuse this
+              mapped form on other loans. Browser PDF preview edits are not
+              saved to Loan Automation.
             </p>
         </div>
       </header>

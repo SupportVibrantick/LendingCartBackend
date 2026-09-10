@@ -16,6 +16,12 @@ const {
   bulkForwardSignDocumentsToLenders,
   formatSignDocumentRequirement,
 } = require("../../../services/documents/brokerSignDocumentActions.service");
+const {
+  applyLibraryTemplateSchema,
+} = require("../../../schemas/documents/signForm.schema");
+const {
+  applyLibraryTemplateForBroker,
+} = require("../../../services/documents/signForm/libraryTemplate.service");
 
 async function loadBrokerSubmission(prisma, submissionId, brokerOrgId) {
   const submission = await prisma.applicationSubmission.findUnique({
@@ -157,6 +163,79 @@ module.exports = async function brokerSignDocuments(fastify) {
         return reply.code(error.statusCode || 500).send({
           success: false,
           message: error.message || "Failed to upload sign document",
+        });
+      }
+    },
+  );
+
+  fastify.post(
+    "/submissions/:submissionId/sign-documents/from-template",
+    async (req, reply) => {
+      try {
+        if (!req.user || req.user.orgType !== "BROKER") {
+          return reply.code(403).send({
+            success: false,
+            message: "Broker access only",
+          });
+        }
+
+        const brokerOrgId = req.user.organizationId;
+        const { submissionId } = req.params;
+        const parsed = applyLibraryTemplateSchema.safeParse(req.body || {});
+        if (!parsed.success) {
+          return reply.code(400).send({
+            success: false,
+            message: "Template is required",
+            errors: parsed.error.flatten(),
+          });
+        }
+
+        const submission = await loadBrokerSubmission(
+          fastify.prisma,
+          submissionId,
+          brokerOrgId,
+        );
+
+        if (!submission) {
+          return reply.code(403).send({
+            success: false,
+            message: "Access denied",
+          });
+        }
+
+        const template = await fastify.prisma.signFormLibraryTemplate.findFirst({
+          where: {
+            id: parsed.data.templateId,
+            organizationId: brokerOrgId,
+          },
+        });
+
+        if (!template) {
+          return reply.code(404).send({
+            success: false,
+            message: "Template not found",
+          });
+        }
+
+        const result = await applyLibraryTemplateForBroker(fastify.prisma, {
+          template,
+          loanApplicationId: submission.application.id,
+          organizationId: brokerOrgId,
+          userId: req.user.userId || req.user.id,
+          documentName: parsed.data.documentName,
+          req,
+        });
+
+        return reply.send({
+          success: true,
+          message: "Sign document created from template",
+          data: formatSignDocumentRequirement(result, { viewer: "broker" }),
+        });
+      } catch (error) {
+        fastify.log.error(error);
+        return reply.code(error.statusCode || 500).send({
+          success: false,
+          message: error.message || "Failed to apply template",
         });
       }
     },

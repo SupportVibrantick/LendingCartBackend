@@ -2,6 +2,7 @@ const {
   saveSignFormValuesSchema,
   saveSignFormDraftSchema,
   analyzeSignFormSchema,
+  saveAsTemplateSchema,
 } = require("../../../schemas/documents/signForm.schema");
 const {
   getFormForRequirement,
@@ -31,6 +32,9 @@ const {
 const {
   notifyBrokerFormProgress,
 } = require("../../../services/documents/signForm/signDocumentNotify");
+const {
+  saveRequirementAsLibraryTemplate,
+} = require("../../../services/documents/signForm/libraryTemplate.service");
 
 const MAPPING_ALLOWED_STATUSES = ["AWAITING_BROKER"];
 
@@ -692,6 +696,84 @@ module.exports = async function brokerSignFormRoutes(fastify) {
         return reply.code(error.statusCode || 500).send({
           success: false,
           message: error.message || "Failed to publish form",
+        });
+      }
+    },
+  );
+
+  fastify.post(
+    "/submissions/:submissionId/sign-documents/:requirementId/save-as-template",
+    async (req, reply) => {
+      try {
+        if (!req.user || req.user.orgType !== "BROKER") {
+          return reply.code(403).send({
+            success: false,
+            message: "Broker access only",
+          });
+        }
+
+        const { submissionId, requirementId } = req.params;
+        const loaded = await loadBrokerRequirementForMapping(fastify, {
+          submissionId,
+          requirementId,
+          brokerOrgId: req.user.organizationId,
+        });
+
+        if (loaded.error) {
+          return reply.code(loaded.error.code).send({
+            success: false,
+            message: loaded.error.message,
+          });
+        }
+
+        const parsed = saveAsTemplateSchema.safeParse(req.body || {});
+        if (!parsed.success) {
+          return reply.code(400).send({
+            success: false,
+            message: "Template name is required",
+            errors: parsed.error.flatten(),
+          });
+        }
+
+        // Persist latest mapper edits into draft before copying into the library.
+        if (req.body?.schema) {
+          const draftParsed = saveSignFormDraftSchema.safeParse(req.body);
+          if (!draftParsed.success) {
+            return reply.code(400).send({
+              success: false,
+              message: "Invalid form schema",
+              errors: draftParsed.error.flatten(),
+            });
+          }
+
+          await saveDraftForm(fastify.prisma, {
+            requirement: loaded.requirement,
+            organizationId: req.user.organizationId,
+            schema: draftParsed.data.schema,
+            pageManifest: draftParsed.data.pageManifest,
+          });
+        }
+
+        const template = await saveRequirementAsLibraryTemplate(fastify.prisma, {
+          requirement: loaded.requirement,
+          organizationId: req.user.organizationId,
+          userId: req.user.userId || req.user.id,
+          name: parsed.data.name,
+          description: parsed.data.description,
+          req,
+          dashboard: "BROKER",
+        });
+
+        return reply.send({
+          success: true,
+          message: "Saved to template library",
+          data: template,
+        });
+      } catch (error) {
+        fastify.log.error(error);
+        return reply.code(error.statusCode || 500).send({
+          success: false,
+          message: error.message || "Failed to save template",
         });
       }
     },

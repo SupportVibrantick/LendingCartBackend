@@ -60,12 +60,18 @@ async function saveRequirementAsLibraryTemplate(prisma, {
   name,
   description,
   req,
+  dashboard = "LENDER",
 }) {
-  const form = await getFormForRequirement(prisma, requirement.id, {
+  let form = await getFormForRequirement(prisma, requirement.id, {
     preferPublished: true,
   });
   if (!form?.schema?.fields?.length) {
-    const err = new Error("Publish at least one field before saving a template");
+    form = await getFormForRequirement(prisma, requirement.id, {
+      preferPublished: false,
+    });
+  }
+  if (!form?.schema?.fields?.length) {
+    const err = new Error("Add at least one field before saving a template");
     err.statusCode = 400;
     throw err;
   }
@@ -101,7 +107,7 @@ async function saveRequirementAsLibraryTemplate(prisma, {
     await logAudit({
       prisma,
       req,
-      dashboard: "LENDER",
+      dashboard,
       category: "APPLICATION",
       entityType: "SignFormLibraryTemplate",
       entityId: created.id,
@@ -118,6 +124,7 @@ async function updateLibraryTemplate(prisma, {
   templateId,
   patch,
   req,
+  dashboard = "LENDER",
 }) {
   const existing = await prisma.signFormLibraryTemplate.findFirst({
     where: { id: templateId, organizationId },
@@ -143,7 +150,7 @@ async function updateLibraryTemplate(prisma, {
     await logAudit({
       prisma,
       req,
-      dashboard: "LENDER",
+      dashboard,
       category: "APPLICATION",
       entityType: "SignFormLibraryTemplate",
       entityId: updated.id,
@@ -301,6 +308,126 @@ async function applyLibraryTemplate(prisma, {
   return result;
 }
 
+async function applyLibraryTemplateForBroker(prisma, {
+  template,
+  loanApplicationId,
+  organizationId,
+  userId,
+  documentName,
+  req,
+}) {
+  if (template.status === "ARCHIVED") {
+    const err = new Error("This template is archived");
+    err.statusCode = 400;
+    throw err;
+  }
+
+  const schema = cloneSchema(template.schemaJson);
+  const title = (documentName || template.name || "Sign document").trim();
+  const ext =
+    path.extname(template.templateFileName || template.templateFileUrl || "") ||
+    (String(template.templateMimeType || "").includes("pdf") ? ".pdf" : ".bin");
+  const filename = `${crypto.randomBytes(16).toString("hex")}${ext}`;
+  const copied = await copySignAsset({
+    fromPublicUrl: template.templateFileUrl,
+    relativeParts: ["loan-documents", loanApplicationId, "sign-templates"],
+    filename,
+  });
+
+  const result = await prisma.$transaction(async (tx) => {
+    let documentType = await tx.documentType.findFirst({
+      where: {
+        name: title,
+        createdByOrgId: organizationId,
+      },
+    });
+
+    if (!documentType) {
+      documentType = await tx.documentType.create({
+        data: {
+          name: title,
+          code: `BROKER_SIGN_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+          isCustom: true,
+          createdByOrgId: organizationId,
+          isActive: true,
+        },
+      });
+    }
+
+    const requirement = await tx.applicationDocumentRequirement.create({
+      data: {
+        loanApplicationId,
+        documentTypeId: documentType.id,
+        source: "BROKER_ADDED",
+        isRequired: true,
+        status: "PENDING",
+        lastRequestedAt: new Date(),
+        requiresClientSignature: true,
+        templateFileName: template.templateFileName || title,
+        templateFileUrl: copied.publicUrl,
+        templateMimeType: template.templateMimeType,
+        signStatus: "AWAITING_BROKER",
+        signMode: "DYNAMIC_FORM",
+        formProcessingStatus: "READY",
+        requestApplicationLenderId: null,
+        signDocumentTitle: title,
+      },
+    });
+
+    const definition = await tx.signFormDefinition.create({
+      data: {
+        organizationId,
+        requirementId: requirement.id,
+        title,
+        status: "PUBLISHED",
+      },
+    });
+
+    const version = await tx.signFormVersion.create({
+      data: {
+        formDefinitionId: definition.id,
+        version: 1,
+        status: "PUBLISHED",
+        schemaJson: schema,
+        pageManifestJson: template.pageManifestJson || schema.pages,
+        publishedAt: new Date(),
+        publishedByUserId: userId || null,
+      },
+    });
+
+    return tx.applicationDocumentRequirement.update({
+      where: { id: requirement.id },
+      data: { activeFormVersionId: version.id },
+      include: {
+        documentType: true,
+        uploads: true,
+        requestApplicationLender: {
+          include: { lender: { select: { name: true } } },
+        },
+        activeFormVersion: true,
+      },
+    });
+  });
+
+  if (req) {
+    await logAudit({
+      prisma,
+      req,
+      dashboard: "BROKER",
+      category: "APPLICATION",
+      entityType: "ApplicationDocumentRequirement",
+      entityId: result.id,
+      action: "TEMPLATE_APPLIED",
+      newValue: {
+        templateId: template.id,
+        templateName: template.name,
+      },
+    });
+  }
+
+  return result;
+}
+
 module.exports = {
   formatLibraryTemplate,
   listLibraryTemplates,
@@ -308,5 +435,6 @@ module.exports = {
   saveRequirementAsLibraryTemplate,
   updateLibraryTemplate,
   applyLibraryTemplate,
+  applyLibraryTemplateForBroker,
   cloneSchema,
 };

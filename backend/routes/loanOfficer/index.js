@@ -10,6 +10,11 @@ async function loanOfficerRoutes(fastify) {
   await fastify.register(require("./notifications"), { prefix: "/notifications" });
   await fastify.register(require("./commissions"), { prefix: "/commissions" });
   await fastify.register(require("./dashboard"), { prefix: "/dashboard" });
+  await fastify.register(async function loanOfficerSignFormTemplates(instance) {
+    const { registerOfficerRouteGuards } = require("../../services/broker/loanOfficerAccess");
+    registerOfficerRouteGuards(instance, "DOCUMENTS_TO_SIGN");
+    await instance.register(require("../broker/signFormTemplates"));
+  }, { prefix: "/sign-form-templates" });
 }
 
 module.exports = loanOfficerRoutes;

@@ -112,6 +112,10 @@ module.exports = async function brokerRoutes(fastify, opts) {
       prefix: "/document-types",
     });
 
+    instance.register(require("./signFormTemplates"), {
+      prefix: "/sign-form-templates",
+    });
+
     instance.register(require("./integrations"), {
       prefix: "/integrations",
     });
