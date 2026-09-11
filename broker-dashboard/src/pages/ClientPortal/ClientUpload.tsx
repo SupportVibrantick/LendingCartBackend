@@ -738,8 +738,13 @@ export default function ClientUpload() {
   const navigate = useNavigate();
   const location = useLocation();
   const sigRef = useRef<SignatureCanvas | null>(null);
+  const signaturePadWrapRef = useRef<HTMLDivElement | null>(null);
   const applicationsSectionRef = useRef<HTMLDivElement | null>(null);
   const [signature, setSignature] = useState<string>("");
+  const [signaturePadSize, setSignaturePadSize] = useState({
+    width: 600,
+    height: 220,
+  });
   const [submittingSign, setSubmittingSign] = useState(false);
 
   const [documents, setDocuments] = useState<DocumentItem[]>([]);
@@ -1670,6 +1675,45 @@ export default function ClientUpload() {
     const dataUrl = sigRef.current.getCanvas().toDataURL("image/png");
     setSignature(dataUrl);
   };
+
+  // Keep canvas buffer size in sync with CSS display size to avoid draw offset.
+  useEffect(() => {
+    if (
+      activeTab !== "application" ||
+      isSignedFromAPI ||
+      !canClientSign
+    ) {
+      return;
+    }
+
+    const el = signaturePadWrapRef.current;
+    if (!el) return;
+
+    const updateSize = () => {
+      const width = Math.floor(el.clientWidth);
+      if (width <= 0) return;
+      setSignaturePadSize((prev) => {
+        if (prev.width === width && prev.height === 220) return prev;
+        return { width, height: 220 };
+      });
+    };
+
+    updateSize();
+    const ro = new ResizeObserver(updateSize);
+    ro.observe(el);
+    window.addEventListener("resize", updateSize);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", updateSize);
+    };
+  }, [activeTab, isSignedFromAPI, canClientSign, applicationId]);
+
+  useEffect(() => {
+    // Canvas remounts when pad size changes; drop any in-progress strokes.
+    if (isSignedFromAPI) return;
+    setSignature("");
+    sigRef.current?.clear();
+  }, [signaturePadSize.width, signaturePadSize.height, isSignedFromAPI]);
 
   const handleLogout = () => {
     if (isClientPortalImpersonationSession()) {
@@ -2646,17 +2690,25 @@ export default function ClientUpload() {
                   ) : (
                     <>
                       <div className="rounded-xl border border-slate-200 bg-gradient-to-br from-white to-slate-50 p-4 shadow-sm">
-                        <SigCanvas
-                          ref={sigRef}
-                          penColor="black"
-                          onEnd={handleEndSignature}
-                          canvasProps={{
-                            width: 900,
-                            height: 220,
-                            className:
-                              "w-full max-w-full rounded-lg border-2 border-dashed border-slate-300 bg-white",
-                          }}
-                        />
+                        <div ref={signaturePadWrapRef} className="w-full">
+                          <SigCanvas
+                            key={`sig-pad-${signaturePadSize.width}x${signaturePadSize.height}`}
+                            ref={sigRef}
+                            penColor="black"
+                            onEnd={handleEndSignature}
+                            clearOnResize={false}
+                            canvasProps={{
+                              width: signaturePadSize.width,
+                              height: signaturePadSize.height,
+                              className:
+                                "block touch-none rounded-lg border-2 border-dashed border-slate-300 bg-white",
+                              style: {
+                                width: "100%",
+                                height: `${signaturePadSize.height}px`,
+                              },
+                            }}
+                          />
+                        </div>
 
                         <div className="mt-3 flex items-center justify-between gap-3">
                           <p className="text-xs text-slate-400">Sign above</p>
