@@ -14,7 +14,6 @@ import {
   Eye,
   FileImage,
   FileText,
-  ExternalLink,
   HelpCircle,
   Loader2,
   MousePointer2,
@@ -885,7 +884,7 @@ export default function SignDocumentsPanel({
         });
       } else if (uploaded?.requirementId && uploaded.templateFileUrl) {
         toast(
-          "Open Map fields — Detect will find fillable boxes, then Publish.",
+          "Review detected fields, fix anything that looks off, then Publish.",
           { icon: "📝", duration: 5000 },
         );
         setMappingDoc(uploaded);
@@ -1729,7 +1728,7 @@ export default function SignDocumentsPanel({
                 {row.workflowHint ||
                   (row.signMode === "DYNAMIC_FORM"
                     ? "Fill any fields you need, then send to the client"
-                    : "Flat PDF? Make it fillable (PDF24) or Map fields here, then send.")}
+                    : "We’ll help detect fields — open Map fields to review and fix, then Publish.")}
               </div>
               {row.signMode === "DYNAMIC_FORM" && (
                 <button
@@ -2572,68 +2571,71 @@ export default function SignDocumentsPanel({
                   Upload a form
                 </h3>
                 <p className="mt-0.5 text-xs text-slate-500">
-                  Make the PDF fillable first, then upload it here.
+                  Upload any PDF — we’ll detect fields so brokers and clients can
+                  fill them.
                 </p>
               </div>
             </div>
           </div>
 
           <div className="space-y-4 p-5">
-            <div className="rounded-xl border border-amber-200 bg-amber-50/80 px-4 py-3 dark:border-amber-900/60 dark:bg-amber-950/30">
-              <p className="text-xs font-semibold text-amber-900 dark:text-amber-100">
-                Do these steps in order
+            <div className="rounded-xl border border-teal-200 bg-teal-50/70 px-4 py-3 dark:border-teal-900/60 dark:bg-teal-950/30">
+              <p className="text-xs font-semibold text-teal-900 dark:text-teal-100">
+                Simple flow
               </p>
-              <ol className="mt-2 space-y-2.5 text-xs leading-relaxed text-amber-900/90 dark:text-amber-100/90">
+              <ol className="mt-2 space-y-2.5 text-xs leading-relaxed text-teal-900/90 dark:text-teal-100/90">
                 <li className="flex gap-2.5">
-                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-200 text-[10px] font-bold text-amber-900 dark:bg-amber-800 dark:text-amber-50">
+                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-teal-200 text-[10px] font-bold text-teal-900 dark:bg-teal-800 dark:text-teal-50">
                     1
                   </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="font-medium">Make it fillable</span> with
-                    free PDF24 (add text, checkbox, signature fields).
-                    <span className="mt-1.5 flex flex-wrap gap-2">
-                      <a
-                        href="https://tools.pdf24.org/en/create-pdf-form"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 font-semibold text-[#13538A] underline hover:text-[#0f4370] dark:text-sky-300"
-                      >
-                        Open PDF24 Form Editor
-                        <ExternalLink size={11} />
-                      </a>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setFillableHelpRow(null);
-                          setFillableHelpOpen(true);
-                        }}
-                        className="inline-flex items-center gap-1 font-semibold text-[#13538A] hover:underline dark:text-sky-300"
-                      >
-                        <HelpCircle size={11} />
-                        Quick guide
-                      </button>
-                    </span>
+                  <span>
+                    <span className="font-medium">Upload</span> your PDF (fillable
+                    or flat).
                   </span>
                 </li>
                 <li className="flex gap-2.5">
-                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-200 text-[10px] font-bold text-amber-900 dark:bg-amber-800 dark:text-amber-50">
+                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-teal-200 text-[10px] font-bold text-teal-900 dark:bg-teal-800 dark:text-teal-50">
                     2
                   </span>
                   <span>
-                    <span className="font-medium">Download / save</span> the
-                    fillable PDF (do not flatten).
+                    <span className="font-medium">We detect fields</span>{" "}
+                    automatically. Review in Map fields and fix anything that
+                    looks off.
                   </span>
                 </li>
                 <li className="flex gap-2.5">
-                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-200 text-[10px] font-bold text-amber-900 dark:bg-amber-800 dark:text-amber-50">
+                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-teal-200 text-[10px] font-bold text-teal-900 dark:bg-teal-800 dark:text-teal-50">
                     3
                   </span>
                   <span>
-                    <span className="font-medium">Come back here</span> and
-                    upload that fillable file below.
+                    <span className="font-medium">Publish</span>, then fill /
+                    send to client. Save as a template to reuse on other loans.
                   </span>
                 </li>
               </ol>
+              <p className="mt-3 text-[11px] text-teal-800/80 dark:text-teal-200/80">
+                Optional: already make the PDF fillable in{" "}
+                <a
+                  href="https://tools.pdf24.org/en/create-pdf-form"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-semibold underline hover:text-[#0f4370] dark:text-sky-300"
+                >
+                  PDF24
+                </a>{" "}
+                first for even better detection.{" "}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFillableHelpRow(null);
+                    setFillableHelpOpen(true);
+                  }}
+                  className="inline-flex items-center gap-1 font-semibold underline hover:text-[#0f4370] dark:text-sky-300"
+                >
+                  <HelpCircle size={11} />
+                  Quick guide
+                </button>
+              </p>
             </div>
 
             <label className="block">
@@ -2652,7 +2654,7 @@ export default function SignDocumentsPanel({
 
             <div>
               <span className="mb-1.5 block text-xs font-medium text-slate-600 dark:text-slate-400">
-                File (upload the fillable PDF from step 3)
+                PDF or image file
               </span>
               <input
                 ref={uploadFileInputRef}
@@ -2737,8 +2739,8 @@ export default function SignDocumentsPanel({
             <div className="flex flex-col-reverse gap-3 border-t border-slate-100 pt-4 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-xs text-slate-500">
                 {!uploadName.trim() || !uploadFile
-                  ? "Finish steps 1–2, then enter a name and upload the fillable file"
-                  : "Ready to upload your fillable PDF"}
+                  ? "Enter a name and choose a PDF to upload"
+                  : "Ready to upload — we’ll open field review next if needed"}
               </p>
               <div className="flex flex-wrap items-center gap-2">
                 {uploadFile ? (

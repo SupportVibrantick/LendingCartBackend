@@ -22,6 +22,7 @@ fastify.register(require("./uploadDocuments"));
 fastify.register(require("./submitApplication"));
 fastify.register(require("./getClientApplications"));
 fastify.register(require("./getClientProfile"));
+fastify.register(require("./updateClientProfile"));
 
 fastify.register(require("./getSingleApplication"));
 fastify.register(require("./getClientFeeAgreement"));

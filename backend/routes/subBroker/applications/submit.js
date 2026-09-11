@@ -147,12 +147,17 @@ async function subBrokerSubmitApplication(fastify) {
             client,
             email: normalizedEmail,
             warnings: clientWarnings,
+            nameMismatch,
+            portalNameUpdated,
+            existingClientName,
+            submittedName,
           } = await findOrCreateBorrowerClient(tx, {
             brokerOrgId,
             email,
             firstName,
             lastName,
             displayName,
+            updatePortalName: Boolean(req.body?.updatePortalName),
             logger: fastify.log,
           });
 
@@ -222,6 +227,10 @@ async function subBrokerSubmitApplication(fastify) {
             borrowerEmail: normalizedEmail,
             portalToken,
             warnings: clientWarnings,
+            nameMismatch: Boolean(nameMismatch),
+            portalNameUpdated: Boolean(portalNameUpdated),
+            existingClientName: existingClientName || null,
+            submittedBorrowerName: submittedName || displayName || null,
             clientDisplayName: resolveClientDisplayName({
               client,
               contacts: client.contacts,
@@ -357,6 +366,11 @@ async function subBrokerSubmitApplication(fastify) {
           data: {
             submissionId: result.submission.id,
             applicationId: result.loanApplication.id,
+            clientId: result.client.id,
+            nameMismatch: result.nameMismatch,
+            portalNameUpdated: result.portalNameUpdated,
+            existingClientName: result.existingClientName,
+            submittedBorrowerName: result.submittedBorrowerName,
             ...(warnings.length ? { warnings } : {}),
           },
         });

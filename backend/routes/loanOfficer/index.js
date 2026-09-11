@@ -10,6 +10,9 @@ async function loanOfficerRoutes(fastify) {
   await fastify.register(require("./notifications"), { prefix: "/notifications" });
   await fastify.register(require("./commissions"), { prefix: "/commissions" });
   await fastify.register(require("./dashboard"), { prefix: "/dashboard" });
+  await fastify.register(require("../broker/borrowers/updateIdentity"), {
+    prefix: "/borrowers",
+  });
   await fastify.register(async function loanOfficerSignFormTemplates(instance) {
     const { registerOfficerRouteGuards } = require("../../services/broker/loanOfficerAccess");
     registerOfficerRouteGuards(instance, "DOCUMENTS_TO_SIGN");

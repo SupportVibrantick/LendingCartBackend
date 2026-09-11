@@ -38,6 +38,11 @@ async function getClientProfileRoute(fastify) {
         });
       }
 
+      const primaryContact =
+        (user.client?.contacts || []).find((c) => c.isPrimary) ||
+        (user.client?.contacts || [])[0] ||
+        null;
+
       const clientName = await resolveClientDisplayName(prisma, {
         clientId: user.clientId,
         client: user.client,
@@ -51,6 +56,9 @@ async function getClientProfileRoute(fastify) {
           email: user.email,
           clientId: user.clientId,
           clientName,
+          firstName: primaryContact?.firstName || "",
+          lastName: primaryContact?.lastName || "",
+          phone: primaryContact?.phone || null,
         },
       });
     } catch (error) {

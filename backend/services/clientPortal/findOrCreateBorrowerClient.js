@@ -59,6 +59,7 @@ async function findOrCreateBorrowerClient(
     firstName = "",
     lastName = "",
     displayName = "",
+    updatePortalName = false,
     logger = null,
   },
 ) {
@@ -101,6 +102,7 @@ async function findOrCreateBorrowerClient(
       incomingFirst,
       incomingLast,
       incomingDisplay,
+      updatePortalName: Boolean(updatePortalName),
       logger,
     });
   }
@@ -127,6 +129,9 @@ async function findOrCreateBorrowerClient(
     client: created,
     reused: false,
     nameMismatch: false,
+    portalNameUpdated: false,
+    existingClientName: null,
+    submittedName: incomingDisplay,
     warnings: [],
     email: normalizedEmail,
   };
@@ -172,10 +177,19 @@ async function findExistingBorrowerClient(tx, { brokerOrgId, email }) {
 
 async function reuseExistingClient(
   tx,
-  { client, email, incomingFirst, incomingLast, incomingDisplay, logger },
+  {
+    client,
+    email,
+    incomingFirst,
+    incomingLast,
+    incomingDisplay,
+    updatePortalName = false,
+    logger,
+  },
 ) {
   const warnings = [];
   let nameMismatch = false;
+  let portalNameUpdated = false;
   let nextClient = client;
 
   const primaryContact =
@@ -194,29 +208,64 @@ async function reuseExistingClient(
       })
     : "";
   const existingLegalName = normalizePersonName(client.legalName);
+  const existingClientName = existingContactName || existingLegalName || "";
 
-  if (
-    namesDiffer(existingContactName || existingLegalName, incomingDisplay)
-  ) {
+  if (namesDiffer(existingClientName, incomingDisplay)) {
     nameMismatch = true;
-    const warning =
-      "Borrower name differs from existing client portal identity; existing identity was kept";
-    warnings.push(warning);
     if (logger?.warn) {
       logger.warn(
         {
           clientId: client.id,
           email,
-          existingName: existingContactName || existingLegalName,
+          existingName: existingClientName,
           submittedName: incomingDisplay,
+          updatePortalName: Boolean(updatePortalName),
         },
         "Borrower name mismatch on client reuse",
       );
     }
   }
 
-  // Only fill empty/generic identity — never overwrite a real name.
-  if (incomingDisplay && isGenericClientName(client.legalName)) {
+  // Explicit broker/client choice: sync portal identity to this application name.
+  if (updatePortalName && incomingDisplay && nameMismatch) {
+    nextClient = await tx.client.update({
+      where: { id: client.id },
+      data: { legalName: incomingDisplay },
+      include: { contacts: true },
+    });
+
+    if (primaryContact) {
+      await tx.clientContact.update({
+        where: { id: primaryContact.id },
+        data: {
+          firstName: incomingFirst && incomingFirst !== "Applicant"
+            ? incomingFirst
+            : primaryContact.firstName,
+          lastName: incomingLast || null,
+        },
+      });
+      nextClient = await tx.client.findUnique({
+        where: { id: client.id },
+        include: { contacts: true },
+      });
+    }
+
+    portalNameUpdated = true;
+    warnings.push(
+      "Client portal name was updated to match this application borrower name",
+    );
+  } else if (nameMismatch) {
+    warnings.push(
+      "Borrower name differs from existing client portal identity; existing identity was kept",
+    );
+  }
+
+  // Only fill empty/generic identity — never overwrite a real name unless updatePortalName.
+  if (
+    !portalNameUpdated &&
+    incomingDisplay &&
+    isGenericClientName(client.legalName)
+  ) {
     nextClient = await tx.client.update({
       where: { id: client.id },
       data: { legalName: incomingDisplay },
@@ -224,7 +273,7 @@ async function reuseExistingClient(
     });
   }
 
-  if (primaryContact) {
+  if (!portalNameUpdated && primaryContact) {
     const contactUpdates = {};
     if (
       incomingFirst &&
@@ -256,6 +305,9 @@ async function reuseExistingClient(
     client: nextClient,
     reused: true,
     nameMismatch,
+    portalNameUpdated,
+    existingClientName: existingClientName || null,
+    submittedName: incomingDisplay || null,
     warnings,
     email,
   };

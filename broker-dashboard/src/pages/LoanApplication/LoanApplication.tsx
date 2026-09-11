@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import toast from "react-hot-toast";
+import Swal from "sweetalert2";
 import { useNavigate } from "react-router";
 import { Building2, HomeIcon, Landmark, Settings } from "lucide-react";
 
@@ -598,6 +599,8 @@ function getPortalConfig(portal: LoanApplicationPortal, apiBase: string) {
     return {
       tokenKey: "loan_officer_token",
       submitUrl: `${apiBase}/loanofficer/applications/submit`,
+      updateIdentityUrl: (clientId: string) =>
+        `${apiBase}/loanofficer/borrowers/${clientId}/identity`,
       editUrl: (applicationId: string) =>
         `${apiBase}/loanofficer/applications/${applicationId}/edit`,
       loanProductsUrl: `${apiBase}/common/loan-products/loan-product-code`,
@@ -619,6 +622,8 @@ function getPortalConfig(portal: LoanApplicationPortal, apiBase: string) {
     return {
       tokenKey: "sub_broker_token",
       submitUrl: `${apiBase}/subbroker/applications/submit`,
+      updateIdentityUrl: (clientId: string) =>
+        `${apiBase}/subbroker/borrowers/${clientId}/identity`,
       editUrl: (applicationId: string) =>
         `${apiBase}/subbroker/applications/${applicationId}/edit`,
       loanProductsUrl: `${apiBase}/common/loan-products/loan-product-code`,
@@ -639,6 +644,8 @@ function getPortalConfig(portal: LoanApplicationPortal, apiBase: string) {
   return {
     tokenKey: "broker_token",
     submitUrl: `${apiBase}/broker/applications/submit`,
+    updateIdentityUrl: (clientId: string) =>
+      `${apiBase}/broker/borrowers/${clientId}/identity`,
     editUrl: (applicationId: string) =>
       `${apiBase}/broker/applications/${applicationId}/edit`,
     loanProductsUrl: `${apiBase}/common/loan-products/loan-product-code`,
@@ -654,6 +661,97 @@ function getPortalConfig(portal: LoanApplicationPortal, apiBase: string) {
         `${apiBase}/broker/loan-pipeline/submissions/${submissionId}/documents/${requirementId}/upload`,
     } satisfies LoanApplicationDocumentPaths,
   };
+}
+
+function escapeHtml(value: string) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function isPortalNameMismatchWarning(warning: string) {
+  const text = String(warning || "").toLowerCase();
+  return (
+    text.includes("borrower name differs from existing client portal identity") ||
+    text.includes("client portal name was updated to match this application")
+  );
+}
+
+async function maybeSyncPortalNameAfterSubmit({
+  resultData,
+  token,
+  updateIdentityUrl,
+  formData,
+}: {
+  resultData: any;
+  token: string;
+  updateIdentityUrl: (clientId: string) => string;
+  formData: FormDataType;
+}) {
+  if (
+    !resultData?.nameMismatch ||
+    resultData?.portalNameUpdated ||
+    !resultData?.clientId
+  ) {
+    return;
+  }
+
+  const existingName = resultData.existingClientName || "existing portal name";
+  const submittedName =
+    resultData.submittedBorrowerName ||
+    [formData?.borrower?.firstName, formData?.borrower?.lastName]
+      .filter(Boolean)
+      .join(" ")
+      .trim() ||
+    formData?.borrower?.name ||
+    "this application name";
+
+  const decision = await Swal.fire({
+    icon: "question",
+    title: "Client portal name mismatch",
+    html: `<p style="text-align:left;margin:0 0 8px">This email already belongs to <strong>${escapeHtml(existingName)}</strong>.</p>
+      <p style="text-align:left;margin:0 0 8px">This application uses <strong>${escapeHtml(submittedName)}</strong>.</p>
+      <p style="text-align:left;margin:0;color:#64748b;font-size:13px">Update the client portal account name to match this application?</p>`,
+    showCancelButton: true,
+    confirmButtonText: "Update portal name",
+    cancelButtonText: "Keep portal name",
+    confirmButtonColor: "#13538A",
+    reverseButtons: true,
+  });
+
+  if (!decision.isConfirmed) return;
+
+  const firstName =
+    String(formData?.borrower?.firstName || "").trim() ||
+    String(submittedName).trim().split(/\s+/)[0] ||
+    "";
+  const lastName =
+    String(formData?.borrower?.lastName || "").trim() ||
+    String(submittedName).trim().split(/\s+/).slice(1).join(" ") ||
+    "";
+
+  if (!firstName) {
+    toast.error("Could not update portal name: missing first name");
+    return;
+  }
+
+  const response = await fetch(updateIdentityUrl(resultData.clientId), {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ firstName, lastName }),
+  });
+  const json = await response.json().catch(() => ({}));
+  if (!response.ok || json.success !== true) {
+    toast.error(json.message || "Failed to update client portal name");
+    return;
+  }
+  toast.success("Client portal name updated");
 }
 
 export type LoanApplicationProps = {
@@ -2002,13 +2100,29 @@ const LoanApplication = ({
       }
 
       if (Array.isArray(result?.data?.warnings)) {
-        result.data.warnings.forEach((warning: string) => toast.error(warning));
+        result.data.warnings
+          .filter(
+            (warning: string) =>
+              !(
+                result?.data?.nameMismatch &&
+                isPortalNameMismatchWarning(warning)
+              ),
+          )
+          .forEach((warning: string) => toast.error(warning));
       }
       toast.success(
         feeAgreementDraft.include
           ? "Application submitted. Fee agreement is now available in the client portal."
           : "Application submitted. Client portal access link sent to borrower email.",
       );
+      if (token) {
+        await maybeSyncPortalNameAfterSubmit({
+          resultData: result?.data,
+          token,
+          updateIdentityUrl: portalConfig.updateIdentityUrl,
+          formData,
+        });
+      }
       navigate(portalConfig.successPath);
     } catch (error: any) {
       toast.error(error.message || "Something went wrong");
