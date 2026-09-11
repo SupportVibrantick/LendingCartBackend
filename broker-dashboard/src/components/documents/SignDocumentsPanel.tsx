@@ -14,7 +14,6 @@ import {
   Eye,
   FileImage,
   FileText,
-  ExternalLink,
   HelpCircle,
   Loader2,
   MousePointer2,
@@ -23,6 +22,7 @@ import {
   SendHorizonal,
   Upload,
   X,
+  LayoutGrid,
 } from "lucide-react";
 import { buildApiPublicFileUrl } from "../../lib/publicFileUrl";
 import MultiSelect from "../form/MultiSelect";
@@ -361,6 +361,11 @@ export default function SignDocumentsPanel({
     "documents",
   );
   const [uploading, setUploading] = useState(false);
+  const [libraryTemplates, setLibraryTemplates] = useState<
+    Array<{ id: string; name: string; fieldCount?: number; pageCount?: number }>
+  >([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState("");
+  const [applyingTemplate, setApplyingTemplate] = useState(false);
   const [actionId, setActionId] = useState<string | null>(null);
   const [activeSigningDoc, setActiveSigningDoc] =
     useState<SignDocumentRow | null>(null);
@@ -718,6 +723,75 @@ export default function SignDocumentsPanel({
     setActiveTemplateViewDoc(null);
   }, [activeTemplateViewDoc]);
 
+  const fetchLibraryTemplates = async () => {
+    if (!isBrokerMode) return;
+    try {
+      const templatesRes = await fetch(
+        `${apiBase}/${apiRolePrefix}/sign-form-templates`,
+        { headers: getAuthHeaders() },
+      );
+      const templatesJson = await templatesRes.json().catch(() => null);
+      if (templatesRes.ok && templatesJson?.success) {
+        setLibraryTemplates(templatesJson.data || []);
+      }
+    } catch {
+      /* optional */
+    }
+  };
+
+  useEffect(() => {
+    void fetchLibraryTemplates();
+  }, [isBrokerMode, apiBase, apiRolePrefix]);
+
+  const handleApplyTemplate = async () => {
+    if (!submissionId || !selectedTemplateId) {
+      toast.error("Choose a template");
+      return;
+    }
+    try {
+      setApplyingTemplate(true);
+      const res = await fetch(
+        `${apiBase}/${apiRolePrefix}/loan-pipeline/submissions/${submissionId}/sign-documents/from-template`,
+        {
+          method: "POST",
+          headers: {
+            ...getAuthHeaders(),
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            templateId: selectedTemplateId,
+            ...(uploadName.trim()
+              ? { documentName: uploadName.trim() }
+              : {}),
+          }),
+        },
+      );
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || "Failed to apply template");
+      }
+      toast.success("Sign document created from template");
+      setSelectedTemplateId("");
+      setSelectedLenderKey("broker-uploads");
+      setBrokerViewTab("documents");
+      await fetchRows();
+      onUpdated?.();
+
+      const created = (json.data || {}) as SignDocumentRow;
+      if (created?.requirementId) {
+        setFillingDoc({
+          ...created,
+          signMode: "DYNAMIC_FORM",
+          fieldCount: created.fieldCount,
+        });
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Failed to apply template");
+    } finally {
+      setApplyingTemplate(false);
+    }
+  };
+
   useEffect(() => {
     if (isBrokerMode && loanApplicationId) {
       void fetchForwardableLenders();
@@ -810,7 +884,7 @@ export default function SignDocumentsPanel({
         });
       } else if (uploaded?.requirementId && uploaded.templateFileUrl) {
         toast(
-          "Open Map fields — Detect will find fillable boxes, then Publish.",
+          "Review detected fields, fix anything that looks off, then Publish.",
           { icon: "📝", duration: 5000 },
         );
         setMappingDoc(uploaded);
@@ -1654,7 +1728,7 @@ export default function SignDocumentsPanel({
                 {row.workflowHint ||
                   (row.signMode === "DYNAMIC_FORM"
                     ? "Fill any fields you need, then send to the client"
-                    : "Flat PDF? Make it fillable (PDF24) or Map fields here, then send.")}
+                    : "We’ll help detect fields — open Map fields to review and fix, then Publish.")}
               </div>
               {row.signMode === "DYNAMIC_FORM" && (
                 <button
@@ -2447,7 +2521,10 @@ export default function SignDocumentsPanel({
         <div className="flex gap-1 rounded-xl border border-slate-200 bg-slate-100/80 p-1 dark:border-slate-700 dark:bg-slate-800/60">
           <button
             type="button"
-            onClick={() => setBrokerViewTab("upload")}
+            onClick={() => {
+              setBrokerViewTab("upload");
+              void fetchLibraryTemplates();
+            }}
             className={`inline-flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition sm:flex-none ${
               brokerViewTab === "upload"
                 ? "bg-white text-slate-900 shadow-sm dark:bg-slate-900 dark:text-white"
@@ -2494,68 +2571,71 @@ export default function SignDocumentsPanel({
                   Upload a form
                 </h3>
                 <p className="mt-0.5 text-xs text-slate-500">
-                  Make the PDF fillable first, then upload it here.
+                  Upload any PDF — we’ll detect fields so brokers and clients can
+                  fill them.
                 </p>
               </div>
             </div>
           </div>
 
           <div className="space-y-4 p-5">
-            <div className="rounded-xl border border-amber-200 bg-amber-50/80 px-4 py-3 dark:border-amber-900/60 dark:bg-amber-950/30">
-              <p className="text-xs font-semibold text-amber-900 dark:text-amber-100">
-                Do these steps in order
+            <div className="rounded-xl border border-teal-200 bg-teal-50/70 px-4 py-3 dark:border-teal-900/60 dark:bg-teal-950/30">
+              <p className="text-xs font-semibold text-teal-900 dark:text-teal-100">
+                Simple flow
               </p>
-              <ol className="mt-2 space-y-2.5 text-xs leading-relaxed text-amber-900/90 dark:text-amber-100/90">
+              <ol className="mt-2 space-y-2.5 text-xs leading-relaxed text-teal-900/90 dark:text-teal-100/90">
                 <li className="flex gap-2.5">
-                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-200 text-[10px] font-bold text-amber-900 dark:bg-amber-800 dark:text-amber-50">
+                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-teal-200 text-[10px] font-bold text-teal-900 dark:bg-teal-800 dark:text-teal-50">
                     1
                   </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="font-medium">Make it fillable</span> with
-                    free PDF24 (add text, checkbox, signature fields).
-                    <span className="mt-1.5 flex flex-wrap gap-2">
-                      <a
-                        href="https://tools.pdf24.org/en/create-pdf-form"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 font-semibold text-[#13538A] underline hover:text-[#0f4370] dark:text-sky-300"
-                      >
-                        Open PDF24 Form Editor
-                        <ExternalLink size={11} />
-                      </a>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setFillableHelpRow(null);
-                          setFillableHelpOpen(true);
-                        }}
-                        className="inline-flex items-center gap-1 font-semibold text-[#13538A] hover:underline dark:text-sky-300"
-                      >
-                        <HelpCircle size={11} />
-                        Quick guide
-                      </button>
-                    </span>
+                  <span>
+                    <span className="font-medium">Upload</span> your PDF (fillable
+                    or flat).
                   </span>
                 </li>
                 <li className="flex gap-2.5">
-                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-200 text-[10px] font-bold text-amber-900 dark:bg-amber-800 dark:text-amber-50">
+                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-teal-200 text-[10px] font-bold text-teal-900 dark:bg-teal-800 dark:text-teal-50">
                     2
                   </span>
                   <span>
-                    <span className="font-medium">Download / save</span> the
-                    fillable PDF (do not flatten).
+                    <span className="font-medium">We detect fields</span>{" "}
+                    automatically. Review in Map fields and fix anything that
+                    looks off.
                   </span>
                 </li>
                 <li className="flex gap-2.5">
-                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-200 text-[10px] font-bold text-amber-900 dark:bg-amber-800 dark:text-amber-50">
+                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-teal-200 text-[10px] font-bold text-teal-900 dark:bg-teal-800 dark:text-teal-50">
                     3
                   </span>
                   <span>
-                    <span className="font-medium">Come back here</span> and
-                    upload that fillable file below.
+                    <span className="font-medium">Publish</span>, then fill /
+                    send to client. Save as a template to reuse on other loans.
                   </span>
                 </li>
               </ol>
+              <p className="mt-3 text-[11px] text-teal-800/80 dark:text-teal-200/80">
+                Optional: already make the PDF fillable in{" "}
+                <a
+                  href="https://tools.pdf24.org/en/create-pdf-form"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-semibold underline hover:text-[#0f4370] dark:text-sky-300"
+                >
+                  PDF24
+                </a>{" "}
+                first for even better detection.{" "}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFillableHelpRow(null);
+                    setFillableHelpOpen(true);
+                  }}
+                  className="inline-flex items-center gap-1 font-semibold underline hover:text-[#0f4370] dark:text-sky-300"
+                >
+                  <HelpCircle size={11} />
+                  Quick guide
+                </button>
+              </p>
             </div>
 
             <label className="block">
@@ -2574,7 +2654,7 @@ export default function SignDocumentsPanel({
 
             <div>
               <span className="mb-1.5 block text-xs font-medium text-slate-600 dark:text-slate-400">
-                File (upload the fillable PDF from step 3)
+                PDF or image file
               </span>
               <input
                 ref={uploadFileInputRef}
@@ -2659,8 +2739,8 @@ export default function SignDocumentsPanel({
             <div className="flex flex-col-reverse gap-3 border-t border-slate-100 pt-4 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-xs text-slate-500">
                 {!uploadName.trim() || !uploadFile
-                  ? "Finish steps 1–2, then enter a name and upload the fillable file"
-                  : "Ready to upload your fillable PDF"}
+                  ? "Enter a name and choose a PDF to upload"
+                  : "Ready to upload — we’ll open field review next if needed"}
               </p>
               <div className="flex flex-wrap items-center gap-2">
                 {uploadFile ? (
@@ -2692,6 +2772,48 @@ export default function SignDocumentsPanel({
                 </button>
               </div>
             </div>
+
+            {libraryTemplates.length > 0 ? (
+              <div className="rounded-xl border border-teal-100 bg-teal-50/40 p-4 dark:border-teal-900/50 dark:bg-teal-950/20">
+                <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-teal-800 dark:text-teal-200">
+                  Or apply a saved template
+                </h4>
+                <p className="mb-3 text-xs text-teal-800/80 dark:text-teal-200/80">
+                  Reuse a previously mapped form (fields + PDF) on this loan.
+                  Optional: set Document name above before applying.
+                </p>
+                <div className="flex flex-col gap-3 sm:flex-row">
+                  <select
+                    value={selectedTemplateId}
+                    onChange={(e) => setSelectedTemplateId(e.target.value)}
+                    className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm focus:border-teal-400 focus:outline-none focus:ring-2 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                  >
+                    <option value="">Select template…</option>
+                    {libraryTemplates.map((template) => (
+                      <option key={template.id} value={template.id}>
+                        {template.name}
+                        {typeof template.fieldCount === "number"
+                          ? ` (${template.fieldCount} fields)`
+                          : ""}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => void handleApplyTemplate()}
+                    disabled={applyingTemplate || !selectedTemplateId}
+                    className="inline-flex items-center justify-center gap-2 rounded-lg border border-teal-200 bg-white px-4 py-2.5 text-sm font-semibold text-teal-800 hover:bg-teal-50 disabled:opacity-40 dark:border-teal-800 dark:bg-slate-900 dark:text-teal-200 dark:hover:bg-teal-950/40"
+                  >
+                    {applyingTemplate ? (
+                      <Loader2 size={15} className="animate-spin" />
+                    ) : (
+                      <LayoutGrid size={15} />
+                    )}
+                    Apply template
+                  </button>
+                </div>
+              </div>
+            ) : null}
           </div>
         </div>
         ) : loading && rows.length === 0 ? (
@@ -3053,7 +3175,10 @@ export default function SignDocumentsPanel({
         {mappingDoc && submissionId && (
           <SignFormFieldMapper
             open={Boolean(mappingDoc)}
-            onClose={() => setMappingDoc(null)}
+            onClose={() => {
+              setMappingDoc(null);
+              void fetchLibraryTemplates();
+            }}
             apiBase={apiBase}
             getAuthHeaders={getAuthHeaders}
             submissionId={submissionId}
@@ -3062,6 +3187,7 @@ export default function SignDocumentsPanel({
             documentName={mappingDoc.documentName}
             onPublished={(requirement) => {
               setMappingDoc(null);
+              void fetchLibraryTemplates();
               fetchRows();
               onUpdated?.();
               if (requirement) {

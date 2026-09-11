@@ -4,6 +4,27 @@ const {
   canClientSignApplication,
   resolveLatestActiveSubmission,
 } = require("../../utils/applications/clientPortalSubmission");
+const {
+  buildContactName,
+  isPlaceholderClientName,
+} = require("../../utils/applications/resolveClientDisplayName");
+
+const loanInclude = {
+  client: {
+    include: {
+      contacts: true,
+    },
+  },
+  submissions: {
+    include: { fields: true },
+  },
+  documentRequirements: {
+    include: {
+      documentType: true,
+      uploads: true,
+    },
+  },
+};
 
 /**
  * @param {import("fastify").FastifyInstance} fastify
@@ -44,17 +65,7 @@ async function getClientLoanDetailsRoute(fastify) {
               where: { token },
               include: {
                 loanApplication: {
-                  include: {
-                    submissions: {
-                      include: { fields: true },
-                    },
-                    documentRequirements: {
-                      include: {
-                        documentType: true,
-                        uploads: true,
-                      },
-                    },
-                  },
+                  include: loanInclude,
                 },
               },
             });
@@ -120,17 +131,7 @@ async function getClientLoanDetailsRoute(fastify) {
                     in: clientIds.length > 0 ? clientIds : [clientId],
                   },
                 },
-            include: {
-              submissions: {
-                include: { fields: true },
-              },
-              documentRequirements: {
-                include: {
-                  documentType: true,
-                  uploads: true,
-                },
-              },
-            },
+            include: loanInclude,
             orderBy: applicationId
               ? undefined
               : {
@@ -209,6 +210,22 @@ async function getClientLoanDetailsRoute(fastify) {
           submissions: loan.submissions,
         });
 
+        // Portal account name only (do not fall back to this application's borrower fields).
+        const primaryContact =
+          (loan.client?.contacts || []).find((c) => c.isPrimary) ||
+          (loan.client?.contacts || [])[0] ||
+          null;
+        const contactName = buildContactName(primaryContact);
+        const legalName = String(loan.client?.legalName || "").trim();
+        const portalClientName =
+          (contactName && !isPlaceholderClientName(contactName)
+            ? contactName
+            : null) ||
+          (legalName && !isPlaceholderClientName(legalName) ? legalName : null) ||
+          contactName ||
+          legalName ||
+          null;
+
         const response = {
           loanApplicationId: loan.id,
           id: loan.id,
@@ -229,6 +246,13 @@ async function getClientLoanDetailsRoute(fastify) {
           canClientSign: signatureState.allowed,
           clientSignBlockedReason: signatureState.reason || null,
           alreadySigned: Boolean(signatureState.alreadySigned),
+
+          // Portal account identity (may differ from this application's borrower)
+          clientName: portalClientName || null,
+          clientEmail:
+            primaryContact?.email ||
+            getField("email") ||
+            null,
 
           borrower: {
             name: borrowerName || null,

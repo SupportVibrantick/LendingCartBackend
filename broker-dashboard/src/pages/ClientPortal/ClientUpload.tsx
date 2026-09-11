@@ -15,6 +15,7 @@ import {
   FileSignature,
   Receipt,
   ClipboardList,
+  Pencil,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import SignatureCanvas from "react-signature-canvas";
@@ -456,7 +457,7 @@ const normalizeClientSignResumeTab = (
   return "signForms";
 };
 
-type ApplicationWorkspaceHeaderProps = {
+type ApplicationWorkspaceShellProps = {
   activeTab: ApplicationWorkspaceTab;
   applicationNumber?: string;
   status?: string;
@@ -466,21 +467,47 @@ type ApplicationWorkspaceHeaderProps = {
   getStatusStyles: (status?: string) => string;
   getStatusDot: (status?: string) => string;
   compact?: boolean;
+  children: React.ReactNode;
 };
 
-const APPLICATION_WORKSPACE_TABS: Array<{
-  key: ApplicationWorkspaceTab;
+type WorkspaceNavIcon = React.ComponentType<{
+  size?: number;
+  className?: string;
+  strokeWidth?: number;
+}>;
+
+const APPLICATION_WORKSPACE_SECTIONS: Array<{
+  id: string;
   label: string;
-  icon: React.ComponentType<{ size?: number; className?: string }>;
+  items: Array<{
+    key: ApplicationWorkspaceTab;
+    label: string;
+    icon: WorkspaceNavIcon;
+  }>;
 }> = [
-  { key: "application", label: "Overview", icon: LayoutGrid },
-  { key: "documents", label: "Upload Documents", icon: FiUploadCloud },
-  { key: "termSheet", label: "Term Sheet", icon: FileSignature },
-  { key: "signForms", label: "Fill & Sign Forms", icon: ClipboardList },
-  { key: "feeAgreement", label: "Fee Agreement", icon: Receipt },
+  {
+    id: "application",
+    label: "Application",
+    items: [{ key: "application", label: "Loan Application", icon: LayoutGrid }],
+  },
+  {
+    id: "documents",
+    label: "Documents",
+    items: [
+      { key: "documents", label: "Upload Documents", icon: FiUploadCloud },
+      { key: "termSheet", label: "Term Sheet", icon: FileSignature },
+      { key: "signForms", label: "Fill & Sign Forms", icon: ClipboardList },
+      { key: "feeAgreement", label: "Fee Agreement", icon: Receipt },
+    ],
+  },
+  {
+    id: "communication",
+    label: "Communication",
+    items: [{ key: "chat", label: "Chat", icon: FiMessageCircle }],
+  },
 ];
 
-function ApplicationWorkspaceHeader({
+function ApplicationWorkspaceShell({
   activeTab,
   applicationNumber,
   status,
@@ -490,93 +517,215 @@ function ApplicationWorkspaceHeader({
   getStatusStyles,
   getStatusDot,
   compact = false,
-}: ApplicationWorkspaceHeaderProps) {
-  return (
-    <div
-      className={`overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm ${
-        compact ? "mb-0" : "mb-6"
-      }`}
-    >
-      <div className="flex flex-col gap-4 border-b border-slate-100 px-4 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
-        <div className="min-w-0">
-        <button
-    type="button"
-    onClick={onBackToApplications}
-    className="
-      mb-3 inline-flex items-center gap-2
-      rounded-lg border border-slate-200
-      bg-white px-3 py-2
-      text-sm font-semibold text-slate-700
-      shadow-sm transition-all
-      hover:border-blue-200
-      hover:bg-blue-50
-      hover:text-blue-700
-      focus:outline-none
-      focus:ring-2
-      focus:ring-blue-500/20
-    "
-  >
-    <ChevronLeft size={18} strokeWidth={2.5} />
-    <span>Back to Applications</span>
-  </button>
-
-          <h1 className="text-lg font-bold tracking-tight text-slate-900 sm:text-xl">
-            Loan Application
-          </h1>
-          <p className="mt-0.5 font-mono text-xs text-slate-500">
-            {applicationNumber || "Application"}
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={() => onTabChange("chat")}
-            className={`inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold transition ${
-              activeTab === "chat"
-                ? "bg-emerald-600 text-white shadow-sm"
-                : "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100 hover:bg-emerald-100"
-            }`}
-          >
-            <FiMessageCircle size={14} />
-            Chat
-          </button>
-
-          {status && (
-            <span
-              className={`inline-flex items-center gap-2 rounded-full px-3.5 py-2 text-xs font-semibold ${getStatusStyles(
-                status,
-              )}`}
-            >
-              <span className={`h-2 w-2 rounded-full ${getStatusDot(status)}`} />
-              {formatStatusLabel(status)}
-            </span>
-          )}
-        </div>
-      </div>
-
-      <div className="overflow-x-auto bg-slate-50/90 p-2">
-        <div className="flex min-w-max gap-1">
-          {APPLICATION_WORKSPACE_TABS.map((tab) => {
+  children,
+  topBar,
+}: ApplicationWorkspaceShellProps & { topBar?: React.ReactNode }) {
+  const renderNavItems = (opts?: { compact?: boolean }) =>
+    APPLICATION_WORKSPACE_SECTIONS.map((section, sectionIndex) => (
+      <div
+        key={section.id}
+        className={
+          opts?.compact ? "contents" : sectionIndex > 0 ? "mt-5" : ""
+        }
+      >
+        {!opts?.compact ? (
+          <h2 className="mb-2.5 px-3 text-[10px] font-bold uppercase tracking-[0.14em] text-gray-400">
+            {section.label}
+          </h2>
+        ) : null}
+        <ul
+          className={
+            opts?.compact ? "flex gap-1.5" : "flex flex-col gap-0.5"
+          }
+        >
+          {section.items.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.key;
 
             return (
-              <button
+              <li
                 key={tab.key}
-                type="button"
-                onClick={() => onTabChange(tab.key)}
-                className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-semibold transition ${
-                  isActive
-                    ? "bg-white text-blue-700 shadow-sm ring-1 ring-blue-100"
-                    : "text-slate-600 hover:bg-white/70 hover:text-slate-900"
-                }`}
+                className={opts?.compact ? "shrink-0" : undefined}
               >
-                <Icon size={15} className={isActive ? "text-blue-600" : ""} />
-                {tab.label}
-              </button>
+                <button
+                  type="button"
+                  aria-current={isActive ? "page" : undefined}
+                  onClick={() => onTabChange(tab.key)}
+                  className={
+                    opts?.compact
+                      ? `inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold transition ${
+                          isActive
+                            ? "bg-[#13538A]/10 text-[#13538A] shadow-[inset_3px_0_0_0_#13538A]"
+                            : "bg-gray-50 text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                        }`
+                      : `relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[13px] transition-all duration-200 ${
+                          isActive
+                            ? "bg-[#13538A]/10 font-semibold text-[#13538A] shadow-[inset_3px_0_0_0_#13538A]"
+                            : "font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                        }`
+                  }
+                >
+                  <Icon
+                    size={opts?.compact ? 14 : 18}
+                    strokeWidth={2.15}
+                    className={
+                      isActive
+                        ? "shrink-0 text-[#13538A]"
+                        : "shrink-0 text-[#2C92D5]"
+                    }
+                  />
+                  <span className="min-w-0 flex-1 truncate whitespace-nowrap">
+                    {tab.label}
+                  </span>
+                </button>
+              </li>
             );
           })}
+        </ul>
+      </div>
+    ));
+
+  return (
+    <div className="flex h-full w-full overflow-hidden bg-[#F5F7FA]">
+      {/* Full-height left sidebar — AppSidebar fonts/design */}
+      <aside className="hidden h-full w-[260px] shrink-0 flex-col border-r border-gray-200 bg-white lg:flex">
+        <div className="relative shrink-0 overflow-hidden border-b border-gray-100 px-4 py-5">
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-[#13538A]/6 via-transparent to-[#2C92D5]/8" />
+          <div className="relative flex items-center gap-3">
+            <div className="h-11 w-11 shrink-0 overflow-hidden rounded-xl shadow-sm ring-2 ring-white">
+              <img
+                src={LOAN_AUTOMATION_LOGO}
+                alt="Loan Automation"
+                className="h-full w-full object-cover"
+              />
+            </div>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-bold text-gray-900">
+                Loan Automation
+              </p>
+              <p className="truncate text-[10px] font-semibold uppercase tracking-[0.12em] text-[#13538A]">
+                Client Portal
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <nav
+          aria-label="Application sections"
+          className="sidebar-scrollbar-light min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-3 py-4"
+        >
+          {renderNavItems()}
+        </nav>
+
+        <div className="shrink-0 border-t border-gray-100 p-3">
+          <button
+            type="button"
+            onClick={onBackToApplications}
+            className="relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-medium text-gray-600 transition-all duration-200 hover:bg-gray-50 hover:text-gray-900"
+          >
+            <ChevronLeft
+              size={18}
+              strokeWidth={2.15}
+              className="shrink-0 text-[#2C92D5]"
+            />
+            <span className="truncate">Back</span>
+          </button>
+        </div>
+      </aside>
+
+      {/* Main column */}
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+        {topBar}
+
+        {/* Mobile nav */}
+        <div className="border-b border-slate-200 bg-white lg:hidden">
+          <div className="flex items-center justify-between gap-3 px-4 py-3">
+            <div className="flex min-w-0 items-center gap-2.5">
+              <div className="h-9 w-9 shrink-0 overflow-hidden rounded-lg shadow-sm ring-1 ring-gray-200">
+                <img
+                  src={LOAN_AUTOMATION_LOGO}
+                  alt="Loan Automation"
+                  className="h-full w-full object-cover"
+                />
+              </div>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-bold text-gray-900">
+                  Loan Automation
+                </p>
+                <p className="truncate text-[10px] font-semibold uppercase tracking-[0.12em] text-[#13538A]">
+                  Client Portal
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={onBackToApplications}
+              className="inline-flex shrink-0 items-center gap-1 rounded-lg px-2.5 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50"
+            >
+              <ChevronLeft size={16} className="text-[#2C92D5]" />
+              Back
+            </button>
+          </div>
+          <div className="overflow-x-auto px-2 pb-2">
+            <div className="flex gap-1.5">{renderNavItems({ compact: true })}</div>
+          </div>
+        </div>
+
+        <div
+          className={`min-h-0 flex-1 ${
+            compact ? "flex flex-col overflow-hidden" : "overflow-y-auto"
+          }`}
+        >
+          <div
+            className={`mx-auto w-full max-w-[1400px] ${
+              compact
+                ? "flex min-h-0 flex-1 flex-col overflow-hidden p-3 sm:p-4 lg:p-5"
+                : "space-y-4 p-4 md:p-6 lg:px-8"
+            }`}
+          >
+            {!compact ? (
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0">
+                  <button
+                    type="button"
+                    onClick={onBackToApplications}
+                    className="mb-2 hidden items-center gap-1.5 text-sm font-medium text-slate-500 transition hover:text-[#2C92D5] lg:inline-flex"
+                  >
+                    <ChevronLeft size={15} strokeWidth={2.25} />
+                    Back to Applications
+                  </button>
+                  <h1 className="truncate text-2xl font-bold tracking-tight text-slate-900">
+                    Loan Application
+                  </h1>
+                  <div className="mt-1.5 flex flex-wrap items-center gap-2 text-sm text-slate-500">
+                    <span className="font-mono text-xs">
+                      {applicationNumber || "Application"}
+                    </span>
+                    {status ? (
+                      <span
+                        className={`inline-flex items-center gap-2 rounded-full px-2.5 py-0.5 text-xs font-semibold ${getStatusStyles(
+                          status,
+                        )}`}
+                      >
+                        <span
+                          className={`h-1.5 w-1.5 rounded-full ${getStatusDot(status)}`}
+                        />
+                        {formatStatusLabel(status)}
+                      </span>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
+            <div
+              className={
+                compact ? "min-h-0 flex-1 overflow-hidden" : "min-w-0"
+              }
+            >
+              {children}
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -602,6 +751,16 @@ export default function ClientUpload() {
   const [applicationNumber, setApplicationNumber] = useState("");
   const [clientName, setClientName] = useState("");
   const [clientEmail, setClientEmail] = useState("");
+  const [profileFirstName, setProfileFirstName] = useState("");
+  const [profileLastName, setProfileLastName] = useState("");
+  const [profilePhone, setProfilePhone] = useState("");
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
+  const [profileForm, setProfileForm] = useState({
+    firstName: "",
+    lastName: "",
+    phone: "",
+  });
+  const [profileSaving, setProfileSaving] = useState(false);
   const [applicationId, setApplicationId] = useState("");
   const [selectedApplication, setSelectedApplication] = useState<any>(null);
   const [applicationDetailsLoading, setApplicationDetailsLoading] =
@@ -712,6 +871,10 @@ export default function ClientUpload() {
         setClientEmail(data.email);
       }
 
+      setProfileFirstName(String(data.firstName || "").trim());
+      setProfileLastName(String(data.lastName || "").trim());
+      setProfilePhone(String(data.phone || "").trim());
+
       const token = sessionStorage.getItem("client_token");
       if (token) {
         saveClientPortalSession(token, {
@@ -722,6 +885,76 @@ export default function ClientUpload() {
       }
     } catch (err) {
       console.error("Failed to load client profile", err);
+    }
+  };
+
+  const openProfileEditor = () => {
+    const parts = String(clientName || "")
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean);
+    setProfileForm({
+      firstName: profileFirstName || parts[0] || "",
+      lastName:
+        profileLastName || (parts.length > 1 ? parts.slice(1).join(" ") : ""),
+      phone: profilePhone || "",
+    });
+    setProfileModalOpen(true);
+  };
+
+  const saveClientProfile = async () => {
+    const firstName = profileForm.firstName.trim();
+    const lastName = profileForm.lastName.trim();
+    const phone = profileForm.phone.trim();
+
+    if (!firstName) {
+      toast.error("First name is required");
+      return;
+    }
+
+    try {
+      setProfileSaving(true);
+      const res = await axios.put(
+        `${API_BASE}/client-portal/profile`,
+        { firstName, lastName, phone: phone || null },
+        getClientPortalAuthConfig(),
+      );
+
+      const data = res.data?.data;
+      if (!data) {
+        throw new Error(res.data?.message || "Failed to update profile");
+      }
+
+      const nextName =
+        (data.clientName && !isPlaceholderClientName(data.clientName)
+          ? data.clientName
+          : `${firstName} ${lastName}`.trim()) || firstName;
+
+      setClientName(nextName);
+      if (data.email) setClientEmail(data.email);
+      setProfileFirstName(String(data.firstName || firstName).trim());
+      setProfileLastName(String(data.lastName || lastName).trim());
+      setProfilePhone(String(data.phone || phone || "").trim());
+
+      const token = sessionStorage.getItem("client_token");
+      if (token) {
+        saveClientPortalSession(token, {
+          clientName: nextName,
+          email: data.email || clientEmail,
+          clientId: data.clientId,
+        });
+      }
+
+      setProfileModalOpen(false);
+      toast.success("Profile updated");
+    } catch (err: any) {
+      toast.error(
+        err?.response?.data?.message ||
+          err?.message ||
+          "Failed to update profile",
+      );
+    } finally {
+      setProfileSaving(false);
     }
   };
 
@@ -793,7 +1026,21 @@ export default function ClientUpload() {
       setApplicationId(data?.loanApplicationId || data?.id || "");
       applyDocumentsFromApi(data?.documents || []);
       setApplicationNumber(data?.applicationNumber || "");
-      setClientName(data?.borrower?.name || data?.borrowerName || "");
+      // Portal account name (not application borrower). Prefer API portal identity.
+      if (
+        data?.clientName &&
+        !isPlaceholderClientName(data.clientName)
+      ) {
+        setClientName(data.clientName);
+      } else if (
+        data?.portalClientName &&
+        !isPlaceholderClientName(data.portalClientName)
+      ) {
+        setClientName(data.portalClientName);
+      }
+      if (data?.clientEmail || data?.borrower?.email) {
+        setClientEmail(data.clientEmail || data.borrower?.email || "");
+      }
       setApplicationData(data);
     } catch (err) {
       console.error(err);
@@ -1251,8 +1498,8 @@ export default function ClientUpload() {
     setActiveTab("applications");
   };
 
-  const renderApplicationWorkspaceHeader = () => (
-    <ApplicationWorkspaceHeader
+  const renderApplicationWorkspace = (children: React.ReactNode) => (
+    <ApplicationWorkspaceShell
       activeTab={
         activeTab === "chat"
           ? "chat"
@@ -1268,7 +1515,72 @@ export default function ClientUpload() {
       getStatusStyles={getStatusStyles}
       getStatusDot={getStatusDot}
       compact={activeTab === "chat"}
-    />
+      topBar={
+        <>
+          {isClientPortalImpersonationSession() ? (
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-900">
+              <span>You are viewing this client portal as a broker admin.</span>
+              <button
+                type="button"
+                onClick={exitClientPortalImpersonation}
+                className="rounded-lg bg-amber-900 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-amber-800"
+              >
+                Close portal tab
+              </button>
+            </div>
+          ) : null}
+          <div className="flex items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3 sm:px-6">
+            <button
+              type="button"
+              onClick={openProfileEditor}
+              className="flex min-w-0 items-center gap-3 rounded-xl text-left transition hover:bg-slate-50"
+              title="Edit profile"
+            >
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#2C92D5]/10 text-xs font-bold text-[#2C92D5]">
+                {getClientInitials(
+                  !isPlaceholderClientName(clientName)
+                    ? clientName
+                    : clientEmail?.split("@")[0] || "Client",
+                )}
+              </div>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-slate-900">
+                  {!isPlaceholderClientName(clientName)
+                    ? clientName
+                    : clientEmail?.split("@")[0] || "Client"}
+                </p>
+                <p className="truncate text-xs text-slate-500">
+                  {clientEmail || "—"}
+                </p>
+              </div>
+              <Pencil size={14} className="ml-1 shrink-0 text-slate-400" />
+            </button>
+            <div className="flex shrink-0 items-center gap-2">
+              {Boolean(sessionStorage.getItem("client_token")) && (
+                <ClientNotificationDropdown
+                  apiBase={API_BASE}
+                  onNotificationClick={handleClientNotificationClick}
+                />
+              )}
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+              >
+                <FiLogOut size={15} />
+                <span className="hidden sm:inline">
+                  {isClientPortalImpersonationSession()
+                    ? "Close tab"
+                    : "Logout"}
+                </span>
+              </button>
+            </div>
+          </div>
+        </>
+      }
+    >
+      {children}
+    </ApplicationWorkspaceShell>
   );
 
   const totalUploadedDocuments = documents.filter(
@@ -1405,24 +1717,38 @@ export default function ClientUpload() {
     );
   }
 
-  const displayName = (() => {
-    const candidates = [applicationData?.borrower?.name, clientName];
+  // Account chrome = portal identity; loan screens = application borrower.
+  const applicationBorrowerName = (() => {
+    const candidates = [
+      applicationData?.borrower?.name,
+      selectedApplication?.borrowerName,
+    ];
     for (const name of candidates) {
-      if (name && !isPlaceholderClientName(name)) {
-        return name;
-      }
+      if (name && !isPlaceholderClientName(name)) return name;
     }
+    return "";
+  })();
+  const displayName = (() => {
+    if (clientName && !isPlaceholderClientName(clientName)) return clientName;
+    if (applicationBorrowerName) return applicationBorrowerName;
     return clientEmail?.split("@")[0] || "Client";
   })();
-  const displayEmail =
-    applicationData?.borrower?.email || clientEmail || "-";
+  const displayEmail = clientEmail || applicationData?.borrower?.email || "-";
+  const loanDisplayName = applicationBorrowerName || displayName;
   const clientInitials = getClientInitials(displayName);
   const isClientLoggedIn = Boolean(sessionStorage.getItem("client_token"));
   const isImpersonation = isClientPortalImpersonationSession();
+  const isWorkspaceMode = activeTab !== "applications";
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-100 via-slate-50 to-white p-4 sm:p-6">
-      {isImpersonation && (
+    <div
+      className={
+        isWorkspaceMode
+          ? "h-dvh overflow-hidden bg-[#F5F7FA]"
+          : "min-h-screen bg-gradient-to-b from-slate-100 via-slate-50 to-white p-4 sm:p-6"
+      }
+    >
+      {!isWorkspaceMode && isImpersonation && (
         <div className="mx-auto mb-4 flex max-w-8xl flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-900">
           <span>You are viewing this client portal as a broker admin.</span>
           <button
@@ -1434,9 +1760,10 @@ export default function ClientUpload() {
           </button>
         </div>
       )}
-      <div className="max-w-8xl mx-auto">
-        {/* TOP HEADER */}
-        {(applicationData || clientName || isClientLoggedIn) && (
+      <div className={isWorkspaceMode ? "h-full" : "max-w-8xl mx-auto"}>
+        {/* TOP HEADER — applications list only */}
+        {!isWorkspaceMode &&
+          (applicationData || clientName || isClientLoggedIn) && (
           <header className="relative mb-6 overflow-visible rounded-2xl border border-slate-200 bg-white shadow-sm">
             <div className="h-1.5 rounded-t-2xl bg-gradient-to-r from-blue-600 via-cyan-500 to-teal-500" />
 
@@ -1485,7 +1812,7 @@ export default function ClientUpload() {
                   {clientInitials}
                 </div>
 
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <h1 className="truncate text-lg font-bold tracking-tight text-slate-900 sm:text-xl">
                     {displayName}
                   </h1>
@@ -1494,6 +1821,17 @@ export default function ClientUpload() {
                     <span className="truncate">{displayEmail}</span>
                   </p>
                 </div>
+
+                {isClientLoggedIn ? (
+                  <button
+                    type="button"
+                    onClick={openProfileEditor}
+                    className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-[#2C92D5]/40 hover:text-[#13538A]"
+                  >
+                    <Pencil size={15} />
+                    <span className="hidden sm:inline">Edit profile</span>
+                  </button>
+                ) : null}
               </div>
             </div>
 
@@ -1529,9 +1867,9 @@ export default function ClientUpload() {
           </header>
         )}
 
-        {activeTab === "documents" && (
-          <>
-            {renderApplicationWorkspaceHeader()}
+        {activeTab === "documents" &&
+          renderApplicationWorkspace(
+            <>
             {applicationDetailsLoading ? (
               <div className="flex items-center justify-center py-20 text-gray-500">
                 Loading documents...
@@ -1578,7 +1916,9 @@ export default function ClientUpload() {
                       <h2 className="text-lg font-semibold text-slate-900">
                         Upload Documents
                       </h2>
-                      <p className="mt-1 text-sm text-slate-500">{clientName}</p>
+                      <p className="mt-1 text-sm text-slate-500">
+                        {loanDisplayName}
+                      </p>
                     </div>
 
                     <div className="text-right">
@@ -1781,12 +2121,12 @@ export default function ClientUpload() {
                 </div>
               </>
             )}
-          </>
-        )}
+            </>,
+          )}
 
-        {activeTab === "termSheet" && applicationId && (
-          <div className="space-y-4">
-            {renderApplicationWorkspaceHeader()}
+        {activeTab === "termSheet" &&
+          applicationId &&
+          renderApplicationWorkspace(
             <SignDocumentsPanel
               key={`term-sheet-${tabRefreshKey}`}
               mode="client"
@@ -1794,7 +2134,7 @@ export default function ClientUpload() {
               apiBase={API_BASE}
               getAuthHeaders={() => getClientPortalAuthConfig().headers}
               loanApplicationId={applicationId}
-              clientName={clientName}
+              clientName={loanDisplayName}
               applicationNumber={applicationNumber}
               onUpdated={() => {
                 if (applicationId) {
@@ -1803,13 +2143,12 @@ export default function ClientUpload() {
                   });
                 }
               }}
-            />
-          </div>
-        )}
+            />,
+          )}
 
-        {activeTab === "signForms" && applicationId && (
-          <div className="space-y-4">
-            {renderApplicationWorkspaceHeader()}
+        {activeTab === "signForms" &&
+          applicationId &&
+          renderApplicationWorkspace(
             <SignDocumentsPanel
               key={`sign-forms-${tabRefreshKey}`}
               mode="client"
@@ -1817,7 +2156,7 @@ export default function ClientUpload() {
               apiBase={API_BASE}
               getAuthHeaders={() => getClientPortalAuthConfig().headers}
               loanApplicationId={applicationId}
-              clientName={clientName}
+              clientName={loanDisplayName}
               applicationNumber={applicationNumber}
               onUpdated={() => {
                 if (applicationId) {
@@ -1826,9 +2165,8 @@ export default function ClientUpload() {
                   });
                 }
               }}
-            />
-          </div>
-        )}
+            />,
+          )}
 
         {activeTab === "applications" && (
           <div
@@ -2219,14 +2557,15 @@ export default function ClientUpload() {
         )}
 
         {activeTab === "application" &&
-          (applicationDetailsLoading ? (
-            <div className="flex items-center justify-center py-20 text-gray-500">
-              Loading application details...
-            </div>
-          ) : applicationData ? (
-            <>
-              {renderApplicationWorkspaceHeader()}
-              <div className="space-y-5">
+          (applicationDetailsLoading
+            ? renderApplicationWorkspace(
+                <div className="flex items-center justify-center py-20 text-gray-500">
+                  Loading application details...
+                </div>,
+              )
+            : applicationData
+              ? renderApplicationWorkspace(
+                  <div className="space-y-5">
                 <ClientSubmissionDetailsView
                   application={applicationData}
                   fields={submissionDetailFields}
@@ -2354,32 +2693,27 @@ export default function ClientUpload() {
                       : `Application Created: ${formatClientPortalSubmittedDate(applicationData)}`}
                   </p>
                 </div>
-              </div>
-            </>
-          ) : null)}
+              </div>,
+                )
+              : null)}
 
-        {activeTab === "feeAgreement" && (
-          <>
-            {renderApplicationWorkspaceHeader()}
-          <FeeAgreement
-            key={tabRefreshKey}
-            applicationId={
-              selectedApplication?.id ||
-              selectedApplication?.loanApplicationId ||
-              applicationId
-            }
-            getAuthHeaders={() => getClientPortalAuthConfig().headers}
-            onBack={() => setActiveTab("application")}
-          />
-          </>
-        )}
+        {activeTab === "feeAgreement" &&
+          renderApplicationWorkspace(
+            <FeeAgreement
+              key={tabRefreshKey}
+              applicationId={
+                selectedApplication?.id ||
+                selectedApplication?.loanApplicationId ||
+                applicationId
+              }
+              getAuthHeaders={() => getClientPortalAuthConfig().headers}
+              onBack={() => setActiveTab("application")}
+            />,
+          )}
 
-        {activeTab === "chat" && (
-          <>
-            <div className="mb-3 shrink-0">
-              {renderApplicationWorkspaceHeader()}
-            </div>
-            <div className="flex h-[calc(100svh-15rem)] max-h-[calc(100svh-8rem)] min-h-[620px] flex-col overflow-hidden">
+        {activeTab === "chat" &&
+          renderApplicationWorkspace(
+            <div className="h-full min-h-0 overflow-hidden">
               <Chat
                 applicationId={
                   selectedApplication?.id ||
@@ -2391,10 +2725,142 @@ export default function ClientUpload() {
                 }
                 onBack={() => setActiveTab("application")}
               />
-            </div>
-          </>
-        )}
+            </div>,
+          )}
       </div>
+
+      {profileModalOpen ? (
+        <div className="fixed inset-0 z-[999998] flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="client-profile-edit-title"
+            className="w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
+          >
+            <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+              <div>
+                <h2
+                  id="client-profile-edit-title"
+                  className="text-base font-bold text-slate-900"
+                >
+                  Edit profile
+                </h2>
+                <p className="mt-0.5 text-xs text-slate-500">
+                  Update how your name appears in the client portal
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setProfileModalOpen(false)}
+                disabled={profileSaving}
+                className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                aria-label="Close"
+              >
+                <FiX size={18} />
+              </button>
+            </div>
+
+            <div className="space-y-4 px-5 py-5">
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  value={clientEmail}
+                  disabled
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm text-slate-500"
+                />
+                <p className="mt-1 text-[11px] text-slate-400">
+                  Email is used for login and can’t be changed here.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    First name
+                  </label>
+                  <input
+                    type="text"
+                    value={profileForm.firstName}
+                    onChange={(e) =>
+                      setProfileForm((prev) => ({
+                        ...prev,
+                        firstName: e.target.value,
+                      }))
+                    }
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition focus:border-[#2C92D5] focus:ring-4 focus:ring-[#2C92D5]/15"
+                    placeholder="First name"
+                    autoFocus
+                  />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Last name
+                  </label>
+                  <input
+                    type="text"
+                    value={profileForm.lastName}
+                    onChange={(e) =>
+                      setProfileForm((prev) => ({
+                        ...prev,
+                        lastName: e.target.value,
+                      }))
+                    }
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition focus:border-[#2C92D5] focus:ring-4 focus:ring-[#2C92D5]/15"
+                    placeholder="Last name"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Phone
+                </label>
+                <input
+                  type="tel"
+                  value={profileForm.phone}
+                  onChange={(e) =>
+                    setProfileForm((prev) => ({
+                      ...prev,
+                      phone: e.target.value,
+                    }))
+                  }
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition focus:border-[#2C92D5] focus:ring-4 focus:ring-[#2C92D5]/15"
+                  placeholder="Optional"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 border-t border-slate-100 bg-slate-50/80 px-5 py-4">
+              <button
+                type="button"
+                onClick={() => setProfileModalOpen(false)}
+                disabled={profileSaving}
+                className="rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-100"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={saveClientProfile}
+                disabled={profileSaving}
+                className="inline-flex items-center gap-2 rounded-xl bg-[#13538A] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0f446f] disabled:opacity-60"
+              >
+                {profileSaving ? (
+                  <>
+                    <Loader2 size={15} className="animate-spin" />
+                    Saving…
+                  </>
+                ) : (
+                  "Save profile"
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {previewFiles.length > 0 && (
         <div className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">

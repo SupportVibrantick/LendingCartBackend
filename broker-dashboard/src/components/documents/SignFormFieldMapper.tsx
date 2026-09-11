@@ -14,6 +14,7 @@ import {
   Table2,
   Sparkles,
   MousePointer2,
+  Bookmark,
 } from "lucide-react";
 import PdfPageCanvas from "./PdfPageCanvas";
 import {
@@ -66,6 +67,8 @@ function sourceLabel(source?: string | null) {
     case "llm":
     case "llm_refined":
       return "AI refined";
+    case "llm_propose":
+      return "AI suggested";
     case "manual":
       return "Manual";
     default:
@@ -87,6 +90,7 @@ export default function SignFormFieldMapper({
   const basePath = `${apiBase}/${apiRolePrefix}/loan-pipeline/submissions/${submissionId}/sign-documents/${requirementId}`;
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [savingTemplate, setSavingTemplate] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [detecting, setDetecting] = useState(false);
   const [form, setForm] = useState<SignFormPayload | null>(null);
@@ -101,6 +105,7 @@ export default function SignFormFieldMapper({
     acroform?: boolean;
     azureConfigured?: boolean;
     llmConfigured?: boolean;
+    llmProposeEnabled?: boolean;
     freeOcrEnabled?: boolean;
     tesseractEnabled?: boolean;
     pdfTextEnabled?: boolean;
@@ -318,10 +323,10 @@ export default function SignFormFieldMapper({
           },
           body: JSON.stringify({
             replaceExisting,
-            useAzure: false,
+            // AcroForm + free OCR only — no OpenAI.
+            useAzure: true,
             useLlm: false,
-            // AcroForm-only first — Free OCR on 13-page SBA PDFs is very slow
-            useFreeOcr: false,
+            useFreeOcr: true,
           }),
         },
       );
@@ -333,17 +338,32 @@ export default function SignFormFieldMapper({
       const nextForm = json.data?.form as SignFormPayload;
       setForm(nextForm);
       setPages(nextForm.pageManifest || nextForm.schema?.pages || []);
-      setFields(nextForm.schema?.fields || []);
+      const nextFields = nextForm.schema?.fields || [];
+      setFields(nextFields);
       setConditionals(nextForm.schema?.conditionals || []);
       setTables(nextForm.schema?.tables || []);
       setSelectedId(null);
 
       const notes = (json.data?.detection?.providers || [])
-        .map((p: { note?: string | null }) => p.note)
+        .map((p: { provider?: string; note?: string | null }) => p.note)
         .filter(Boolean)
-        .join(" · ");
-      setLastDetectionNote(notes || null);
-      toast.success(json.message || "Fields detected");
+        .filter(
+          (note: string) =>
+            !/openai|llm|ai field|ai propose|billing|credits/i.test(note),
+        );
+      setLastDetectionNote(notes.length ? notes.join(" · ") : null);
+
+      const count = nextFields.length;
+      if (count > 0) {
+        toast.success(
+          `${count} field${count === 1 ? "" : "s"} found — review blue boxes, fix anything off, then Publish`,
+        );
+      } else {
+        toast(
+          "No fields found automatically. Add fields manually, then Publish.",
+          { icon: "📝", duration: 5000 },
+        );
+      }
     } catch (err: any) {
       toast.error(err.message || "Field detection failed");
     } finally {
@@ -383,6 +403,40 @@ export default function SignFormFieldMapper({
       toast.error(err.message || "Failed to publish");
     } finally {
       setPublishing(false);
+    }
+  };
+
+  const saveAsTemplate = async () => {
+    if (!fields.length) {
+      toast.error("Add fields before saving a template");
+      return;
+    }
+    const name = window.prompt("Template name", documentName || "Sign form");
+    if (!name?.trim()) return;
+
+    try {
+      setSavingTemplate(true);
+      const res = await fetch(`${basePath}/save-as-template`, {
+        method: "POST",
+        headers: {
+          ...getAuthHeaders(),
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: name.trim(),
+          schema: buildSchema(),
+          pageManifest: pages,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || "Failed to save template");
+      }
+      toast.success("Saved to template library");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to save template");
+    } finally {
+      setSavingTemplate(false);
     }
   };
 
@@ -517,6 +571,19 @@ export default function SignFormFieldMapper({
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
+              onClick={saveAsTemplate}
+              disabled={savingTemplate || loading || !fields.length}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+            >
+              {savingTemplate ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Bookmark className="h-4 w-4" />
+              )}
+              Save template
+            </button>
+            <button
+              type="button"
               onClick={saveDraft}
               disabled={saving || loading}
               className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50"
@@ -547,11 +614,12 @@ export default function SignFormFieldMapper({
         <div className="flex items-start gap-2 border-t border-slate-100 bg-slate-50 px-4 py-2.5 text-xs text-slate-600 lg:px-6">
           <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0 text-teal-600" />
             <p>
-              <span className="font-medium text-slate-800">Tip:</span> Click{" "}
-              <span className="font-semibold">Detect fillable fields</span>,
-              review blue boxes on each page, then{" "}
-              <span className="font-semibold">Publish</span>. Browser PDF
-              preview edits are not saved to Loan Automation.
+              <span className="font-medium text-slate-800">How it works:</span>{" "}
+              We detect fillable PDF fields automatically. Review the blue boxes
+              — drag, resize, or add anything missing — then{" "}
+              <span className="font-semibold">Publish</span>. Use{" "}
+              <span className="font-semibold">Save template</span> so you don’t
+              remap this form on the next loan.
             </p>
         </div>
       </header>
@@ -564,10 +632,10 @@ export default function SignFormFieldMapper({
       ) : detecting ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-2 text-slate-600">
           <Loader2 className="h-8 w-8 animate-spin text-teal-600" />
-          <p className="text-sm font-medium">Detecting fillable fields…</p>
-          <p className="max-w-sm text-center text-xs text-slate-500">
-            Reading AcroForm widgets from the PDF. Large forms usually finish in
-            a few seconds.
+          <p className="text-sm font-medium">Finding fields on your form…</p>
+          <p className="max-w-md text-center text-xs text-slate-500">
+            Checking the PDF for fillable fields. Large forms may take a few
+            seconds.
           </p>
         </div>
       ) : !currentPage || !templateUrl ? (
@@ -598,12 +666,12 @@ export default function SignFormFieldMapper({
                   Auto detect
                 </p>
                 <p className="mt-1 text-[11px] leading-relaxed text-teal-800/80">
-                  Finds fillable PDF fields (AcroForm). Always review before
+                  Finds fillable fields on this PDF. Always review before
                   publishing.
                 </p>
                 {detectedCount > 0 && (
                   <p className="mt-2 text-[11px] font-medium text-teal-900">
-                    {detectedCount} auto-detected · check colors on canvas
+                    {detectedCount} detected · fix anything that looks off
                   </p>
                 )}
                 {lastDetectionNote && (

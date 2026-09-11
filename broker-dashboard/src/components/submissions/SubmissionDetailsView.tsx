@@ -1,12 +1,9 @@
 import {
   Building2,
   ChevronDown,
-  CreditCard,
   Eye,
   FileText,
-  Hash,
   Search,
-  User,
   X,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
@@ -14,12 +11,10 @@ import { useMemo, useState, type ReactNode } from "react";
 import ApplicationDetailsDownloadButton from "./ApplicationDetailsDownloadButton";
 import {
   formatSubmissionFieldValue,
-  getBorrowerDisplayNameFromFields,
   getEntityTypeFromFields,
   getSubmissionFieldLabel,
   groupSubmissionFieldsForDisplay,
   parseSubmissionFieldValue,
-  PRODUCT_LABELS,
   type SubmissionDetailField,
 } from "../../lib/submissionFieldUtils";
 import {
@@ -69,40 +64,6 @@ type SubmissionDetailsViewProps = {
   showPdfDownload?: boolean;
 };
 
-// ─── Status helpers ────────
-function statusLabel(status?: string) {
-  if (!status)
-    return {
-      text: "—",
-      cls: "bg-slate-100 text-slate-600 ring-1 ring-slate-200/80 dark:bg-slate-800 dark:text-slate-300 dark:ring-slate-700",
-    };
-  const s = status.toUpperCase();
-  if (s === "FUNDED")
-    return {
-      text: "Funded",
-      cls: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/80 dark:bg-emerald-950/40 dark:text-emerald-400 dark:ring-emerald-900",
-    };
-  if (s === "CLIENT_PENDING")
-    return {
-      text: "Client pending",
-      cls: "bg-amber-50 text-amber-700 ring-1 ring-amber-200/80 dark:bg-amber-950/40 dark:text-amber-400 dark:ring-amber-900",
-    };
-  if (s === "SUBMITTED" || s === "IN_REVIEW" || s.includes("REVIEW"))
-    return {
-      text: s === "SUBMITTED" ? "Submitted" : "In review",
-      cls: "bg-sky-50 text-sky-700 ring-1 ring-sky-200/80 dark:bg-sky-950/40 dark:text-sky-400 dark:ring-sky-900",
-    };
-  if (s.includes("REJECT") || s.includes("DECLIN"))
-    return {
-      text: "Declined",
-      cls: "bg-red-50 text-red-700 ring-1 ring-red-200/80 dark:bg-red-950/40 dark:text-red-400 dark:ring-red-900",
-    };
-  return {
-    text: status.replace(/_/g, " "),
-    cls: "bg-slate-100 text-slate-600 ring-1 ring-slate-200/80 dark:bg-slate-800 dark:text-slate-300 dark:ring-slate-700",
-  };
-}
-
 // ─── Sub-components ───────
 
 function InfoCell({
@@ -129,51 +90,6 @@ function InfoCell({
       <div className="text-[15px] font-semibold leading-snug text-slate-900 dark:text-slate-100">
         {value ?? "—"}
       </div>
-    </div>
-  );
-}
-
-function KpiCell({
-  label,
-  value,
-  accent,
-}: {
-  label: string;
-  value: string;
-  accent?: "primary" | "muted";
-}) {
-  const isEmpty = !value || value === "—";
-  return (
-    <div
-      className={`relative overflow-hidden rounded-2xl border p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition hover:shadow-md ${
-        accent === "primary"
-          ? "border-[#0A2540]/15 bg-gradient-to-br from-[#0A2540] to-[#123A5C] text-white"
-          : "border-slate-200/80 bg-white dark:border-slate-700 dark:bg-slate-900"
-      }`}
-    >
-      {accent === "primary" ? (
-        <div className="pointer-events-none absolute -right-6 -top-6 h-20 w-20 rounded-full bg-white/10" />
-      ) : null}
-      <p
-        className={`text-[10px] font-semibold uppercase tracking-[0.14em] ${
-          accent === "primary" ? "text-white/70" : "text-slate-400"
-        }`}
-      >
-        {label}
-      </p>
-      <p
-        className={`mt-2 text-xl font-bold tabular-nums tracking-tight sm:text-2xl ${
-          isEmpty
-            ? accent === "primary"
-              ? "text-white/50"
-              : "text-slate-300"
-            : accent === "primary"
-              ? "text-white"
-              : "text-slate-900 dark:text-slate-50"
-        }`}
-      >
-        {value || "—"}
-      </p>
     </div>
   );
 }
@@ -416,10 +332,7 @@ export default function SubmissionDetailsView({
   formatCompactAmount,
   loanAmount,
   ltv,
-  ltc,
-  arv,
   dscr,
-  netWorth,
   monthlyPayment = 0,
   monthlyPaymentDisplay,
   submittedDate,
@@ -436,16 +349,6 @@ export default function SubmissionDetailsView({
     submissionDetail?.status === "FUNDED";
 
   const { sections, signatureField } = groupSubmissionFieldsForDisplay(fields);
-
-  const loanProductField = fields.find((f) => f.fieldKey === "loanProductCode");
-  const loanProductCode = loanProductField
-    ? String(parseSubmissionFieldValue(loanProductField.value) ?? "")
-    : "";
-  const loanProductName =
-    submissionDetail?.loanProduct?.name ||
-    PRODUCT_LABELS[loanProductCode] ||
-    loanProductCode.replace(/_/g, " ") ||
-    "—";
 
   const lenderDecisions = (submissionDetail?.lenders || [])
     .map((lender: LenderSummary) => {
@@ -505,43 +408,33 @@ export default function SubmissionDetailsView({
     [filteredSections],
   );
 
-  const displayStatus =
-    submissionDetail?.pipelineStatus ||
-    (submissionDetail?.applicationStatus &&
-    !["UPDATED", "SUPERSEDED"].includes(submissionDetail.applicationStatus)
-      ? submissionDetail.applicationStatus
-      : null) ||
-    (submissionDetail?.status &&
-    !["UPDATED", "SUPERSEDED"].includes(submissionDetail.status)
-      ? submissionDetail.status
-      : submissionDetail?.applicationStatus || submissionDetail?.status);
-
-  const appStatus = statusLabel(displayStatus);
-  const borrowerName = getBorrowerDisplayNameFromFields(
-    fields,
-    submissionDetail?.borrowerName,
-  );
-
-  const kpis = [
-    {
-      label: "Loan amount",
-      value: formatCompactAmount(Number(loanAmount || 0)),
-      accent: "primary" as const,
-    },
-    {
-      label: "Monthly payment",
-      value:
-        monthlyPaymentDisplay ||
-        (monthlyPayment > 0
-          ? `$${monthlyPayment.toLocaleString("en-US", { maximumFractionDigits: 0 })}`
-          : "—"),
-    },
-    { label: "LTV", value: ltv ? `${ltv.toFixed(2)}%` : "—" },
-    { label: "LTC", value: ltc ? `${ltc.toFixed(2)}%` : "—" },
-    { label: "ARV", value: arv ? `${arv.toFixed(2)}%` : "—" },
-    { label: "DSCR", value: dscr ? dscr.toFixed(2) : "—" },
-    { label: "Net worth", value: formatCompactAmount(Number(netWorth || 0)) },
-  ];
+  // Page header already shows borrower / app # / product / status / credit.
+  // Keep only facts that aren't repeated above.
+  const entityType = getEntityTypeFromFields(fields);
+  const detailFacts = [
+    entityType && entityType !== "—"
+      ? { label: "Entity type", icon: <Building2 size={12} />, value: entityType }
+      : null,
+    submittedDate
+      ? {
+          label: "Submitted",
+          icon: <FileText size={12} />,
+          value: (
+            <span>
+              {submittedDate.toLocaleDateString()}
+              <span className="mx-1.5 text-slate-300">·</span>
+              <span className="font-medium text-slate-500 dark:text-slate-400">
+                {submittedDate.toLocaleTimeString()}
+              </span>
+            </span>
+          ),
+        }
+      : null,
+  ].filter(Boolean) as Array<{
+    label: string;
+    icon: ReactNode;
+    value: ReactNode;
+  }>;
 
   return (
     <div className="space-y-5">
@@ -589,122 +482,49 @@ export default function SubmissionDetailsView({
         </div>
       )}
 
-      {/* Hero overview */}
-      <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[0_8px_30px_-18px_rgba(15,23,42,0.35)] dark:border-slate-700 dark:bg-slate-950">
-        <div className="relative overflow-hidden border-b border-slate-100 bg-gradient-to-r from-[#0A2540] via-[#0F3358] to-[#1B4F7A] px-5 py-5 text-white dark:border-slate-800 sm:px-6">
-          <div className="pointer-events-none absolute -right-10 -top-16 h-40 w-40 rounded-full bg-white/10" />
-          <div className="pointer-events-none absolute -bottom-12 left-24 h-32 w-32 rounded-full bg-cyan-300/10" />
-
-          <div className="relative flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div className="min-w-0">
-              <div className="mb-2 flex flex-wrap items-center gap-2">
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/85 ring-1 ring-white/15">
-                  <FileText size={12} />
-                  Application overview
-                </span>
-                <span
-                  className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${appStatus.cls}`}
-                >
-                  {appStatus.text}
-                </span>
-              </div>
-              <h2 className="truncate text-xl font-bold tracking-tight sm:text-2xl">
-                {borrowerName || "Borrower"}
-              </h2>
-              <p className="mt-1 text-sm text-white/75">
-                {submissionDetail?.applicationNumber || "—"}
-                <span className="mx-2 text-white/35">·</span>
-                {loanProductName}
-              </p>
-            </div>
-
-            {showPdfDownload && (
-              <div className="shrink-0 [&_button]:border-white/20 [&_button]:bg-white/10 [&_button]:text-white [&_button]:hover:bg-white/20">
-                <ApplicationDetailsDownloadButton
-                  submissionDetail={submissionDetail}
-                  fields={fields}
-                  formatSubmissionStatus={formatSubmissionStatus}
-                  formatCompactAmount={formatCompactAmount}
-                  loanAmount={loanAmount}
-                  ltv={ltv}
-                  dscr={dscr}
-                  monthlyPayment={monthlyPayment}
-                  monthlyPaymentDisplay={monthlyPaymentDisplay}
-                  submittedDate={submittedDate}
-                  className="shrink-0"
-                />
-              </div>
-            )}
+      {/* Compact details toolbar — identity lives in the page header */}
+      <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-950">
+        <div className="flex flex-col gap-3 border-b border-slate-100 px-4 py-3.5 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+          <div className="min-w-0">
+            <h2 className="text-sm font-semibold text-slate-900 dark:text-white">
+              Application details
+            </h2>
+            <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+              Full field answers for this submission
+            </p>
           </div>
-        </div>
 
-        <div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-2 sm:p-5 xl:grid-cols-3">
-          <InfoCell
-            label="Application number"
-            icon={<Hash size={12} />}
-            value={submissionDetail?.applicationNumber}
-          />
-          <InfoCell
-            label="Borrower"
-            icon={<User size={12} />}
-            value={borrowerName}
-          />
-          <InfoCell
-            label="Loan product"
-            icon={<CreditCard size={12} />}
-            value={loanProductName}
-          />
-          <InfoCell
-            label="Entity type"
-            icon={<Building2 size={12} />}
-            value={getEntityTypeFromFields(fields)}
-          />
-          <InfoCell
-            label="Credit score"
-            value={
-              fields.find((f) => f.fieldKey === "creditScore")
-                ? formatSubmissionFieldValue(
-                    fields.find((f) => f.fieldKey === "creditScore")!,
-                  )
-                : submissionDetail?.creditScore || "—"
-            }
-          />
-          {submittedDate ? (
-            <InfoCell
-              label="Submitted"
-              value={
-                <span>
-                  {submittedDate.toLocaleDateString()}
-                  <span className="mx-1.5 text-slate-300">·</span>
-                  <span className="font-medium text-slate-500 dark:text-slate-400">
-                    {submittedDate.toLocaleTimeString()}
-                  </span>
-                </span>
-              }
-            />
-          ) : (
-            <InfoCell label="Status" value={appStatus.text} />
+          {showPdfDownload && (
+            <div className="shrink-0">
+              <ApplicationDetailsDownloadButton
+                submissionDetail={submissionDetail}
+                fields={fields}
+                formatSubmissionStatus={formatSubmissionStatus}
+                formatCompactAmount={formatCompactAmount}
+                loanAmount={loanAmount}
+                ltv={ltv}
+                dscr={dscr}
+                monthlyPayment={monthlyPayment}
+                monthlyPaymentDisplay={monthlyPaymentDisplay}
+                submittedDate={submittedDate}
+                className="shrink-0"
+              />
+            </div>
           )}
         </div>
-      </section>
 
-      {/* KPI metrics */}
-      <section>
-        <div className="mb-3 flex items-center justify-between gap-3 px-0.5">
-          <h3 className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
-            Key loan metrics
-          </h3>
-        </div>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
-          {kpis.map((kpi) => (
-            <KpiCell
-              key={kpi.label}
-              label={kpi.label}
-              value={kpi.value}
-              accent={kpi.accent}
-            />
-          ))}
-        </div>
+        {detailFacts.length > 0 ? (
+          <div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-2 sm:p-5">
+            {detailFacts.map((fact) => (
+              <InfoCell
+                key={fact.label}
+                label={fact.label}
+                icon={fact.icon}
+                value={fact.value}
+              />
+            ))}
+          </div>
+        ) : null}
       </section>
 
       {/* Fields panel */}

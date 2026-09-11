@@ -158,15 +158,6 @@ export default function FeeAgreement({
       <div className="flex items-center justify-between px-6 py-4 border-b bg-gradient-to-r from-indigo-50 to-cyan-50">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-4">
-            <div className="flex items-center justify-between mb-4">
-              <button
-                onClick={onBack}
-                className="flex text-xs items-center gap-2 px-3 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 transition"
-              >
-                ← Back
-              </button>
-            </div>
-
             <div>
               <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
                 <span className="p-1.5 rounded-lg bg-indigo-100 text-indigo-600">

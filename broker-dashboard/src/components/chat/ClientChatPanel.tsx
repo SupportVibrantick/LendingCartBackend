@@ -347,7 +347,7 @@ const ClientChatPanel = ({
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[0_20px_60px_rgba(5,150,105,0.07)] ring-1 ring-slate-100 lg:flex-row">
       {/* Organization sidebar */}
-      <aside className="flex shrink-0 flex-col border-b border-slate-200/80 bg-gradient-to-b from-emerald-950 via-emerald-900 to-slate-900 lg:w-[300px] lg:border-b-0 lg:border-r">
+      <aside className="flex h-full shrink-0 flex-col border-b border-slate-200/80 bg-gradient-to-b from-emerald-950 via-emerald-900 to-slate-900 lg:w-[280px] lg:border-b-0 lg:border-r">
         <div className="flex items-center justify-between gap-2 px-4 py-3 lg:px-5 lg:pt-5">
           <button
             type="button"
@@ -405,9 +405,7 @@ const ClientChatPanel = ({
           </div>
         </div>
 
-        <div className="hidden flex-1 lg:block" />
-
-        <div className="border-t border-white/10 px-5 py-4 text-xs text-emerald-100/60">
+        <div className="mt-auto border-t border-white/10 px-5 py-4 text-xs text-emerald-100/60">
           <div className="flex items-center gap-2">
             <FiLock size={12} />
             <span>Secure messaging with your broker</span>

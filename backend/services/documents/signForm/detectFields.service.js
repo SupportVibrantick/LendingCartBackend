@@ -8,6 +8,11 @@ const { detectAcroFormFields } = require("./detectAcroForm");
 const { detectAzureLayoutFields, getAzureConfig } = require("./detectAzureLayout");
 const { detectFreeOcrFields, getFreeOcrCapabilities } = require("./detectFreeOcr");
 const { refineFieldsWithLlm, getLlmConfig } = require("./refineWithLlm");
+const {
+  proposeFieldsWithLlm,
+  isLlmProposeEnabled,
+  getLlmProposeMinFields,
+} = require("./proposeFieldsWithLlm");
 const { isFreeOcrEnabled } = require("./ocrHeuristics");
 const {
   ensureDraftFormForRequirement,
@@ -103,6 +108,7 @@ function buildDetectionReport(parts) {
     capabilities: {
       azureConfigured: Boolean(getAzureConfig()),
       llmConfigured: Boolean(getLlmConfig()),
+      llmProposeEnabled: Boolean(getLlmConfig()) && isLlmProposeEnabled(),
       ...getFreeOcrCapabilities(),
     },
   };
@@ -113,6 +119,7 @@ function getDetectionCapabilities() {
     acroform: true,
     azureConfigured: Boolean(getAzureConfig()),
     llmConfigured: Boolean(getLlmConfig()),
+    llmProposeEnabled: Boolean(getLlmConfig()) && isLlmProposeEnabled(),
     ...getFreeOcrCapabilities(),
   };
 }
@@ -129,7 +136,8 @@ async function runFieldDetectionPipeline({
 }) {
   const {
     useAzure = true,
-    useLlm = true,
+    // OpenAI propose/refine is opt-in (request flag + SIGN_FORM_LLM_PROPOSE).
+    useLlm = false,
     useFreeOcr = isFreeOcrEnabled(),
     replaceExisting = false,
   } = options;
@@ -238,6 +246,49 @@ async function runFieldDetectionPipeline({
   }
 
   let merged = mergeDetectedFields([acroFields, azureFields, freeFields]);
+
+  const minFieldsForSkipPropose = getLlmProposeMinFields();
+  const shouldPropose =
+    useLlm &&
+    isLlmProposeEnabled() &&
+    Boolean(getLlmConfig()) &&
+    merged.length < minFieldsForSkipPropose;
+
+  if (shouldPropose) {
+    try {
+      const proposed = await proposeFieldsWithLlm({
+        filePath: templatePath,
+        pageManifest: pages,
+        documentName,
+        isPdf,
+        mimeType: mime,
+      });
+      parts.push(proposed);
+      if (!proposed.skipped && (proposed.fields || []).length) {
+        merged = mergeDetectedFields([merged, proposed.fields]);
+      }
+    } catch (error) {
+      parts.push({
+        provider: "llm_propose",
+        fields: [],
+        error: error.message,
+        note: "AI field propose failed; you can still map fields manually",
+      });
+    }
+  } else {
+    parts.push({
+      provider: "llm_propose",
+      fields: [],
+      skipped: true,
+      note: !useLlm
+        ? "AI field propose disabled for this request"
+        : !getLlmConfig()
+          ? "AI field propose is not configured"
+          : !isLlmProposeEnabled()
+            ? "AI field propose is turned off"
+            : `AI propose skipped — already found ${merged.length} fields`,
+    });
+  }
 
   if (useLlm && merged.length) {
     try {

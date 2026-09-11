@@ -124,13 +124,20 @@ async function loanOfficerSubmitApplication(fastify) {
 
           /* ---------- CLIENT ---------- */
 
-          const { client, warnings: clientWarnings } =
-            await findOrCreateBorrowerClient(tx, {
+          const {
+            client,
+            warnings: clientWarnings,
+            nameMismatch,
+            portalNameUpdated,
+            existingClientName,
+            submittedName,
+          } = await findOrCreateBorrowerClient(tx, {
               brokerOrgId,
               email,
               firstName,
               lastName,
               displayName,
+              updatePortalName: Boolean(req.body?.updatePortalName),
               logger: fastify.log,
             });
 
@@ -194,7 +201,16 @@ async function loanOfficerSubmitApplication(fastify) {
             });
           }
 
-          return { submission, loanApplication, client, warnings: clientWarnings };
+          return {
+            submission,
+            loanApplication,
+            client,
+            warnings: clientWarnings,
+            nameMismatch: Boolean(nameMismatch),
+            portalNameUpdated: Boolean(portalNameUpdated),
+            existingClientName: existingClientName || null,
+            submittedBorrowerName: submittedName || displayName || null,
+          };
         });
 
         /* ================= AUDIT ================= */
@@ -305,6 +321,11 @@ async function loanOfficerSubmitApplication(fastify) {
           data: {
             submissionId: result.submission.id,
             applicationId: result.loanApplication.id,
+            clientId: result.client.id,
+            nameMismatch: result.nameMismatch,
+            portalNameUpdated: result.portalNameUpdated,
+            existingClientName: result.existingClientName,
+            submittedBorrowerName: result.submittedBorrowerName,
             ...(warnings.length ? { warnings } : {}),
           },
         });

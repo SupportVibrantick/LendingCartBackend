@@ -1,11 +1,8 @@
 import {
   Building2,
   ChevronDown,
-  CreditCard,
   FileText,
-  Hash,
   Mail,
-  User,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useState, type ReactNode } from "react";
@@ -30,8 +27,8 @@ type ClientSubmissionDetailsViewProps = {
   dscr: number;
   netWorth: number;
   submittedDate?: Date | null;
-  formatStatusLabel: (status?: string) => string;
-  getStatusChipClass: (status?: string) => string;
+  formatStatusLabel?: (status?: string) => string;
+  getStatusChipClass?: (status?: string) => string;
   /** When true, only field accordion sections are rendered. */
   sectionsOnly?: boolean;
 };
@@ -236,8 +233,6 @@ export default function ClientSubmissionDetailsView({
   dscr,
   netWorth,
   submittedDate,
-  formatStatusLabel,
-  getStatusChipClass,
   sectionsOnly = false,
 }: ClientSubmissionDetailsViewProps) {
   const { sections, signatureField } = groupSubmissionFieldsForDisplay(fields);
@@ -262,18 +257,58 @@ export default function ClientSubmissionDetailsView({
   const kpis = [
     {
       label: "Loan amount",
-      value: formatCompactAmount(Number(loanAmount || 0)),
+      value: loanAmount ? formatCompactAmount(Number(loanAmount)) : "",
       accent: true,
     },
-    { label: "LTV", value: ltv ? `${ltv.toFixed(2)}%` : "—" },
-    { label: "LTC", value: ltc ? `${ltc.toFixed(2)}%` : "—" },
-    { label: "ARV", value: arv ? `${arv.toFixed(2)}%` : "—" },
-    { label: "DSCR", value: dscr ? dscr.toFixed(2) : "—" },
+    { label: "LTV", value: ltv ? `${ltv.toFixed(2)}%` : "" },
+    { label: "LTC", value: ltc ? `${ltc.toFixed(2)}%` : "" },
+    { label: "ARV", value: arv ? `${arv.toFixed(2)}%` : "" },
+    { label: "DSCR", value: dscr ? dscr.toFixed(2) : "" },
     {
       label: "Net worth",
-      value: formatCompactAmount(Number(netWorth || 0)),
+      value: netWorth ? formatCompactAmount(Number(netWorth)) : "",
     },
-  ];
+  ].filter((kpi) => kpi.value && kpi.value !== "—" && kpi.value !== "$0");
+
+  const entityType = getEntityTypeFromFields(fields);
+  const detailFacts = [
+    broker?.email
+      ? {
+          label: "Broker email",
+          icon: <Mail size={12} />,
+          value: broker.email,
+        }
+      : null,
+    entityType && entityType !== "—"
+      ? {
+          label: "Entity type",
+          icon: <Building2 size={12} />,
+          value: entityType,
+        }
+      : null,
+    creditScore && creditScore !== "—"
+      ? { label: "Credit score", value: creditScore }
+      : null,
+    submittedDate
+      ? {
+          label: "Submitted",
+          icon: <FileText size={12} />,
+          value: (
+            <span>
+              {submittedDate.toLocaleDateString()}
+              <span className="mx-1.5 text-slate-300">·</span>
+              <span className="font-medium text-slate-500">
+                {submittedDate.toLocaleTimeString()}
+              </span>
+            </span>
+          ),
+        }
+      : null,
+  ].filter(Boolean) as Array<{
+    label: string;
+    icon?: ReactNode;
+    value: ReactNode;
+  }>;
 
   const sectionBlocks = (
     <div className="space-y-3">
@@ -298,109 +333,67 @@ export default function ClientSubmissionDetailsView({
 
   return (
     <div className="space-y-5">
-      <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[0_8px_30px_-18px_rgba(15,23,42,0.35)]">
-        <div className="relative overflow-hidden border-b border-slate-100 bg-gradient-to-r from-[#1e3a8a] via-[#1d4ed8] to-[#0ea5e9] px-5 py-5 text-white sm:px-6">
-          <div className="pointer-events-none absolute -right-10 -top-16 h-40 w-40 rounded-full bg-white/10" />
-          <div className="pointer-events-none absolute -bottom-12 left-24 h-32 w-32 rounded-full bg-cyan-300/15" />
-
-          <div className="relative min-w-0">
-            <div className="mb-2 flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/85 ring-1 ring-white/15">
-                <FileText size={12} />
-                Application overview
-              </span>
-              <span
-                className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${getStatusChipClass(application?.status)}`}
-              >
-                {formatStatusLabel(application?.status)}
-              </span>
-            </div>
-            <h2 className="truncate text-xl font-bold tracking-tight sm:text-2xl">
-              {borrowerName || "Borrower"}
-            </h2>
-            <p className="mt-1 text-sm text-white/75">
-              {application?.applicationNumber || "—"}
-              <span className="mx-2 text-white/35">·</span>
-              {loanProductName}
-              {broker?.name ? (
-                <>
-                  <span className="mx-2 text-white/35">·</span>
-                  Broker: {broker.name}
-                </>
-              ) : null}
+      {/* Single identity card — page chrome already shows app # + status */}
+      <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
+        <div className="border-b border-slate-100 px-5 py-4 sm:px-6 sm:py-5">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+            Application overview
+          </p>
+          <h2 className="mt-1 truncate text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">
+            {borrowerName || "Borrower"}
+          </h2>
+          <p className="mt-1 truncate text-sm font-medium text-[#2C92D5]">
+            {loanProductName}
+          </p>
+          {broker?.name ? (
+            <p className="mt-1 text-sm text-slate-500">
+              Broker:{" "}
+              <span className="font-medium text-slate-700">{broker.name}</span>
             </p>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-2 sm:p-5 xl:grid-cols-3">
-          <InfoCell
-            label="Application number"
-            icon={<Hash size={12} />}
-            value={application?.applicationNumber}
-          />
-          <InfoCell
-            label="Borrower"
-            icon={<User size={12} />}
-            value={borrowerName}
-          />
-          <InfoCell
-            label="Loan product"
-            icon={<CreditCard size={12} />}
-            value={loanProductName}
-          />
-          <InfoCell
-            label="Broker"
-            icon={<Building2 size={12} />}
-            value={broker?.name || "—"}
-          />
-          {broker?.email ? (
-            <InfoCell
-              label="Broker email"
-              icon={<Mail size={12} />}
-              value={broker.email}
-            />
-          ) : (
-            <InfoCell
-              label="Entity type"
-              icon={<Building2 size={12} />}
-              value={getEntityTypeFromFields(fields)}
-            />
-          )}
-          <InfoCell label="Credit score" value={creditScore} />
-          {submittedDate ? (
-            <InfoCell
-              label="Submitted"
-              value={
-                <span>
-                  {submittedDate.toLocaleDateString()}
-                  <span className="mx-1.5 text-slate-300">·</span>
-                  <span className="font-medium text-slate-500">
-                    {submittedDate.toLocaleTimeString()}
-                  </span>
-                </span>
-              }
-            />
           ) : null}
         </div>
+
+        {detailFacts.length > 0 ? (
+          <div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-2 sm:p-5 xl:grid-cols-3">
+            {detailFacts.map((fact) => (
+              <InfoCell
+                key={fact.label}
+                label={fact.label}
+                icon={fact.icon}
+                value={fact.value}
+              />
+            ))}
+          </div>
+        ) : null}
       </section>
 
-      <section>
-        <div className="mb-3 px-0.5">
-          <h3 className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
-            Key loan metrics
-          </h3>
-        </div>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-          {kpis.map((kpi) => (
-            <KpiCell
-              key={kpi.label}
-              label={kpi.label}
-              value={kpi.value}
-              accent={kpi.accent}
-            />
-          ))}
-        </div>
-      </section>
+      {kpis.length > 0 ? (
+        <section>
+          <div className="mb-3 px-0.5">
+            <h3 className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+              Key loan metrics
+            </h3>
+          </div>
+          <div
+            className={`grid gap-3 ${
+              kpis.length <= 2
+                ? "grid-cols-1 sm:grid-cols-2"
+                : kpis.length <= 4
+                  ? "grid-cols-2 lg:grid-cols-4"
+                  : "grid-cols-2 sm:grid-cols-3 lg:grid-cols-6"
+            }`}
+          >
+            {kpis.map((kpi) => (
+              <KpiCell
+                key={kpi.label}
+                label={kpi.label}
+                value={kpi.value}
+                accent={kpi.accent}
+              />
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-4 shadow-[0_8px_30px_-20px_rgba(15,23,42,0.28)] sm:p-5">
         {sectionBlocks}

@@ -27,9 +27,8 @@ import { useLocation, useNavigate } from "react-router";
 import { motion } from "framer-motion";
 import Select, { components } from "react-select";
 
-import { FiFolder, FiSend, FiTag, FiUser } from "react-icons/fi";
+import { FiFolder, FiSend } from "react-icons/fi";
 import Swal from "sweetalert2";
-import { FaRegCreditCard } from "react-icons/fa6";
 import { mapSubmissionToLoanApplication } from "../../lib/mapSubmissionToLoanApplication";
 import {
   expandDocumentsForDisplay,
@@ -997,6 +996,17 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
     () => mapSubmissionDetailFields(submissionDetail?.fields || []),
     [submissionDetail?.fields],
   );
+  const borrowerName = useMemo(() => {
+    const firstNameField = fields.find(
+      (f: any) => f.fieldKey === "borrowerFirstName",
+    );
+    const lastNameField = fields.find(
+      (f: any) => f.fieldKey === "borrowerLastName",
+    );
+    const firstName = firstNameField?.value || "";
+    const lastName = lastNameField?.value || "";
+    return `${firstName} ${lastName}`.trim() || "-";
+  }, [fields]);
   const applicationId = submissionDetail?.applicationId;
   const submissionId = Location.state?.submissionId;
 
@@ -2022,9 +2032,9 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
     if (loDocPermissions.upload) {
       documentItems.push({
         key: "documents",
-        label: "Upload Documents",
+        label: "Documents",
         icon: Upload,
-        color: "text-amber-600",
+        color: "text-slate-500",
       });
     }
 
@@ -2033,7 +2043,7 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
         key: "request-document",
         label: "Request Documents",
         icon: Send,
-        color: "text-emerald-600",
+        color: "text-slate-500",
         disabled: !effectiveCanRequestDocuments,
         disabledReason:
           documentRequestBlockedReason ||
@@ -2046,7 +2056,7 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
         key: "sign-documents",
         label: "Fill & Sign Forms",
         icon: FileText,
-        color: "text-indigo-600",
+        color: "text-slate-500",
       });
     }
 
@@ -2055,7 +2065,7 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
         key: "view-loi",
         label: "LOI / Term Sheets",
         icon: FileText,
-        color: "text-purple-600",
+        color: "text-slate-500",
       });
     }
 
@@ -2064,16 +2074,16 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
         key: "fee-agreement",
         label: "Fee Agreement",
         icon: FileText,
-        color: "text-indigo-600",
+        color: "text-slate-500",
       });
     }
 
     const applicationItems: TabSection["items"] = [
       {
         key: "view-details",
-        label: "View Details",
+        label: "Loan Application",
         icon: Eye,
-        color: "text-blue-600",
+        color: "text-[#13538A]",
       },
     ];
 
@@ -2082,7 +2092,7 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
         key: "update-application",
         label: "Update Application",
         icon: Pencil,
-        color: "text-cyan-600",
+        color: "text-slate-500",
       });
     }
 
@@ -2091,7 +2101,7 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
         key: "commissions",
         label: "Commissions",
         icon: DollarSign,
-        color: "text-emerald-600",
+        color: "text-slate-500",
       });
     }
 
@@ -2118,7 +2128,7 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
         key: "chat",
         label: "Chat",
         icon: MessageSquare,
-        color: "text-green-600",
+        color: "text-slate-500",
       });
     }
 
@@ -2127,7 +2137,7 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
         key: "email-reminders",
         label: "Email Reminders",
         icon: Mail,
-        color: "text-sky-600",
+        color: "text-slate-500",
       });
     }
 
@@ -2142,13 +2152,13 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
     if (loDocPermissions.lenderHub) {
       sections.push({
         id: "lender",
-        label: "Lender Hub",
+        label: "Lenders",
         items: [
           {
             key: "find-lenders",
-            label: "Lender Hub",
+            label: "Matched Lenders",
             icon: FileSearch,
-            color: "text-blue-600",
+            color: "text-slate-500",
           },
         ],
       });
@@ -3997,254 +4007,320 @@ dark:bg-red-900/20 dark:text-red-400"
     );
   }
 
-  const borrowerName = useMemo(() => {
-    const firstNameField = fields.find(
-      (f: any) => f.fieldKey === "borrowerFirstName",
-    );
-
-    const lastNameField = fields.find(
-      (f: any) => f.fieldKey === "borrowerLastName",
-    );
-
-    const firstName = firstNameField?.value || "";
-    const lastName = lastNameField?.value || "";
-
-    return `${firstName} ${lastName}`.trim() || "-";
-  }, [fields]);
-
   const productCode = submissionDetail?.loanProduct?.name || "-";
+  const portalSubtitle =
+    portal === "loanOfficer"
+      ? "Loan Officer Portal"
+      : portal === "coBroker"
+        ? "Co-Broker Portal"
+        : "Deal Portal";
+  const canEditApplication = submissionDetail?.canEdit !== false;
+
+  const renderSidebarNavItems = (opts?: { compact?: boolean }) =>
+    tabSections.map((section, sectionIndex) => (
+      <div
+        key={section.id}
+        className={
+          opts?.compact ? "contents" : sectionIndex > 0 ? "mt-5" : ""
+        }
+      >
+        {!opts?.compact ? (
+          <h2 className="mb-2.5 px-3 text-[10px] font-bold uppercase tracking-[0.14em] text-gray-400 dark:text-gray-500">
+            {section.label}
+          </h2>
+        ) : null}
+        <ul
+          className={
+            opts?.compact ? "flex gap-1.5" : "flex flex-col gap-0.5"
+          }
+        >
+          {section.items.map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.key;
+            const isDisabled = Boolean(tab.disabled);
+
+            return (
+              <li
+                key={tab.key}
+                className={opts?.compact ? "shrink-0" : undefined}
+              >
+                <button
+                  type="button"
+                  disabled={isDisabled}
+                  title={isDisabled ? tab.disabledReason : tab.label}
+                  aria-current={isActive ? "page" : undefined}
+                  onClick={() => {
+                    if (isDisabled) return;
+                    setActiveTab(tab.key);
+                  }}
+                  className={
+                    opts?.compact
+                      ? `inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold transition ${
+                          isActive
+                            ? "bg-[#13538A]/10 text-[#13538A] shadow-[inset_3px_0_0_0_#13538A]"
+                            : isDisabled
+                              ? "cursor-not-allowed text-gray-300"
+                              : "bg-gray-50 text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                        }`
+                      : `relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[13px] font-semibold transition-all duration-200 ${
+                          isActive
+                            ? "bg-[#13538A]/10 text-[#13538A] shadow-[inset_3px_0_0_0_#13538A] dark:bg-[#13538A]/20 dark:text-cyan-300"
+                            : isDisabled
+                              ? "cursor-not-allowed text-gray-300 opacity-50"
+                              : "text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white"
+                        }`
+                  }
+                >
+                  <Icon
+                    size={opts?.compact ? 14 : 18}
+                    strokeWidth={2.15}
+                    className={
+                      isActive
+                        ? "shrink-0 text-[#13538A] dark:text-cyan-300"
+                        : isDisabled
+                          ? "shrink-0 text-gray-300"
+                          : "shrink-0 text-[#2C92D5]"
+                    }
+                  />
+                  <span className="min-w-0 flex-1 truncate whitespace-nowrap">
+                    {tab.label}
+                  </span>
+                  {tab.key === "view-loi" && loiCount > 0 ? (
+                    <span
+                      className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums ${
+                        isActive
+                          ? "bg-[#13538A]/15 text-[#13538A]"
+                          : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300"
+                      }`}
+                    >
+                      {loiCount}
+                    </span>
+                  ) : null}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+    ));
 
   return (
     <>
-      <div className="h-dvh w-full overflow-x-hidden overflow-y-auto bg-slate-50 dark:bg-[#0b1120] dark:text-slate-100">
-        <div className="mx-auto w-full max-w-[1600px] space-y-6 p-4 md:p-6 lg:px-8">
-          <div className="mb-6 flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-            {/* LEFT SIDE */}
-            <div>
-              {/* BACK BUTTON */}
-              <button
-                onClick={() => navigate(previewConfig.pipelineListPath)}
-                className="mb-3 inline-flex items-center gap-2 text-sm text-slate-500 hover:text-blue-600 transition"
-              >
-                <ArrowLeft size={16} />
-                {previewConfig.backLabel}
-              </button>
-
-              {/* TITLE */}
-              <h1 className="text-xl font-bold text-slate-900 dark:text-white">
-                Loan Application Preview 
-              </h1>
-
-              {/* SUBTEXT */}
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                {submissionDetail?.applicationNumber || submissionId}
-              </p>
-
-              {/* EXTRA INFO (Client + Product + Amount) */}
-              <div className="mt-4 flex flex-wrap items-stretch gap-3 sm:gap-4 md:gap-5 lg:gap-6">
-                {/* CLIENT */}
-                <div className="flex min-w-[200px] flex-1 items-center gap-3 rounded-2xl bg-gradient-to-br from-[#4C76DA]/20 to-[#13538A]/15 px-5 py-3 shadow-md ring-2 ring-[#4C76DA]/35 transition-all hover:shadow-lg dark:from-[#4C76DA]/25 dark:to-[#13538A]/20 dark:ring-[#4C76DA]/45 sm:flex-none sm:flex-initial">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#13538A] text-white shadow-sm">
-                    <FiUser size={18} />
-                  </div>
-
-                  <div className="flex min-w-0 flex-col leading-tight">
-                    <span className="text-[11px] font-semibold uppercase tracking-wide text-[#13538A] dark:text-[#93b4ff]">
-                      Client Name
-                    </span>
-                    <span className="truncate text-base font-bold text-[#0f2d4d] dark:text-white">
-                      {borrowerName}
-                    </span>
-                  </div>
-                </div>
-
-                {/* PRODUCT */}
-                <div className="flex min-w-[180px] flex-1 items-center gap-3 rounded-2xl bg-[#4C76DA]/10 px-4 py-2.5 shadow-sm transition-all hover:shadow-md dark:bg-[#4C76DA]/15 sm:flex-none sm:flex-initial">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#4C76DA] text-white">
-                    <FiTag size={16} />
-                  </div>
-
-                  <div className="flex flex-col leading-tight">
-                    <span className="text-[11px] font-medium text-[#4C76DA]">
-                      Product Name
-                    </span>
-                    <span className="text-sm font-semibold text-slate-900 dark:text-white">
-                      {productCode}
-                    </span>
-                  </div>
-                </div>
-
-                {/* AMOUNT */}
-                <div className="flex min-w-[180px] flex-1 items-center gap-3 rounded-2xl bg-[#4C76DA]/10 px-4 py-2.5 shadow-sm transition-all hover:shadow-md dark:bg-[#4C76DA]/15 sm:flex-none sm:flex-initial">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#4C76DA] text-white">
-                    $
-                  </div>
-
-                  <div className="flex flex-col leading-tight">
-                    <span className="text-[11px] font-medium text-[#4C76DA]">
-                      Loan Amount Requested
-                    </span>
-                    <span className="text-sm font-semibold text-slate-900 dark:text-white">
-                      {formatCurrencyValue(submissionDetail?.amountRequested || 0)}
-                    </span>
-                  </div>
-                </div>
-
-                {/* CREDIT SCORE */}
-                <div className="flex min-w-[140px] flex-1 items-center gap-3 rounded-2xl bg-[#4C76DA]/10 px-4 py-2.5 shadow-sm transition-all hover:shadow-md dark:bg-[#4C76DA]/15 sm:flex-none sm:flex-initial">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#4C76DA] text-sm font-bold text-white">
-                    <FaRegCreditCard />
-                  </div>
-
-                  <div className="flex flex-col leading-tight">
-                    <span className="text-[11px] font-medium text-[#4C76DA]">
-                      Credit Score
-                    </span>
-                    <span className="text-sm font-semibold text-slate-900 dark:text-white">
-                      {submissionDetail?.creditScore || "N/A"}
-                    </span>
-                  </div>
-                </div>
+      <div className="flex h-dvh w-full overflow-hidden bg-[#F5F7FA] dark:bg-[#0b1120] dark:text-slate-100">
+        {/* Deal portal sidebar — AppSidebar-matched fonts/design */}
+        <aside className="hidden h-full w-[260px] shrink-0 flex-col border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 lg:flex">
+          <div className="relative shrink-0 overflow-hidden border-b border-gray-100 px-4 py-5 dark:border-gray-800">
+            <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-[#13538A]/6 via-transparent to-[#2C92D5]/8 dark:from-[#13538A]/12 dark:to-[#2C92D5]/12" />
+            <div className="relative flex items-center gap-3">
+              <div className="h-11 w-11 shrink-0 overflow-hidden rounded-xl shadow-sm ring-2 ring-white dark:ring-gray-800">
+                <img
+                  src="/loanAutomation.jpeg"
+                  alt="Loan Automation"
+                  className="h-full w-full object-cover"
+                />
               </div>
-            </div>
-
-            {/* RIGHT SIDE STATUS */}
-            <div className="flex gap-3">
-              <span
-                className={`rounded-full px-4 py-1.5 text-xs font-semibold tracking-wide shadow-sm ${getStatusChip(
-                  getDisplayApplicationStatus(submissionDetail),
-                )}`}
-              >
-                {formatSubmissionStatus(
-                  getDisplayApplicationStatus(submissionDetail),
-                )}
-              </span>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-bold text-gray-900 dark:text-white">
+                  Loan Automation
+                </p>
+                <p className="truncate text-[10px] font-semibold uppercase tracking-[0.12em] text-[#13538A] dark:text-cyan-400">
+                  {portalSubtitle}
+                </p>
+              </div>
             </div>
           </div>
 
-          {loading ? (
-            <div className="py-20 text-center text-slate-500">Loading...</div>
-          ) : (
-            <>
-              <div className="mb-6 overflow-hidden rounded-[30px] border border-[#4C76DA]/20 bg-[#4C76DA] p-6 text-white">
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-6">
-                  <Metric
-                    label="Monthly Payment"
-                    value={monthlyPaymentDisplay}
-                  />
-                  <Metric label="LTV" value={ltv ? `${formatStatNumber(ltv)}%` : "-"} />
-                  <Metric label="LTC" value={ltc ? `${formatStatNumber(ltc)}%` : "-"} />
-                  <Metric label="ARV %" value={arv ? `${formatStatNumber(arv)}%` : "-"} />
-                  <Metric label="DSCR Ratio" value={dscr ? formatStatNumber(dscr) : "-"} />
-                  <Metric
-                    label="Net Worth"
-                    value={netWorthDisplay}
-                  />
+          <nav
+            aria-label="Loan application sections"
+            className="sidebar-scrollbar-light min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-3 py-4"
+          >
+            {renderSidebarNavItems()}
+          </nav>
+
+          <div className="shrink-0 border-t border-gray-100 p-3 dark:border-gray-800">
+            <button
+              type="button"
+              onClick={() => navigate(previewConfig.pipelineListPath)}
+              className="relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-semibold text-gray-600 transition-all duration-200 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white"
+            >
+              <ArrowLeft
+                size={18}
+                strokeWidth={2.15}
+                className="shrink-0 text-[#2C92D5]"
+              />
+              <span className="truncate">Back</span>
+            </button>
+          </div>
+        </aside>
+
+        {/* Main column */}
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+          {/* Mobile top bar */}
+          <div className="flex items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3 dark:border-slate-800 dark:bg-slate-950 lg:hidden">
+            <div className="flex min-w-0 items-center gap-2.5">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[#2C92D5]/10 ring-1 ring-[#2C92D5]/20">
+                <img
+                  src="/loanAutomation.jpeg"
+                  alt="Loan Automation"
+                  className="h-full w-full object-cover"
+                />
+              </div>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-bold text-gray-900">
+                  Loan Automation
+                </p>
+                <p className="truncate text-[10px] font-semibold uppercase tracking-[0.12em] text-[#13538A]">
+                  {portalSubtitle}
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => navigate(previewConfig.pipelineListPath)}
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-semibold text-gray-600 hover:bg-gray-50"
+            >
+              <ArrowLeft size={15} />
+              Back
+            </button>
+          </div>
+
+          <div className="chat-panel-scrollbar border-b border-slate-200 bg-white px-2 py-2 dark:border-slate-800 dark:bg-slate-950 lg:hidden">
+            <div className="flex gap-1 overflow-x-auto pb-1">
+              {renderSidebarNavItems({ compact: true })}
+            </div>
+          </div>
+
+          <div
+            className={`min-h-0 flex-1 ${
+              isChatTab ? "flex flex-col overflow-hidden" : "overflow-y-auto"
+            }`}
+          >
+            <div
+              className={`mx-auto w-full max-w-[1400px] space-y-5 p-4 md:p-6 lg:px-8 ${
+                isChatTab
+                  ? "flex min-h-0 flex-1 flex-col overflow-hidden lg:pb-4"
+                  : ""
+              }`}
+            >
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0">
+                  <button
+                    type="button"
+                    onClick={() => navigate(previewConfig.pipelineListPath)}
+                    className="mb-3 hidden items-center gap-1.5 text-sm text-slate-500 transition hover:text-[#13538A] lg:inline-flex"
+                  >
+                    <ArrowLeft size={15} />
+                    {previewConfig.backLabel}
+                  </button>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h1 className="truncate text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+                      {borrowerName !== "-" ? borrowerName : "Loan application"}
+                    </h1>
+                  </div>
+                  <p className="mt-1 truncate text-sm font-semibold text-[#13538A]">
+                    {productCode !== "-" ? productCode : "Loan product"}
+                  </p>
+                  <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-slate-500">
+                    <span>
+                      {submissionDetail?.applicationNumber || submissionId}
+                    </span>
+                    <span
+                      className={`rounded-full px-2.5 py-0.5 text-xs font-semibold tracking-wide ${getStatusChip(
+                        getDisplayApplicationStatus(submissionDetail),
+                      )}`}
+                    >
+                      {formatSubmissionStatus(
+                        getDisplayApplicationStatus(submissionDetail),
+                      )}
+                    </span>
+                    <span className="hidden text-slate-300 sm:inline">·</span>
+                    <span className="hidden text-xs font-medium uppercase tracking-wide text-slate-400 sm:inline">
+                      {portalSubtitle}
+                    </span>
+                  </div>
                 </div>
+
+                {canEditApplication ? (
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("update-application")}
+                    className="inline-flex shrink-0 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-[#13538A]/30 hover:text-[#13538A] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                  >
+                    <Pencil size={15} />
+                    Edit Application
+                  </button>
+                ) : null}
               </div>
 
-              <div
-                className={`flex flex-col gap-6 lg:flex-row ${
-                  isChatTab
-                    ? "lg:h-[calc(100svh-22rem)] lg:max-h-[calc(100svh-14rem)] lg:min-h-[620px] lg:items-stretch lg:overflow-hidden"
-                    : "lg:items-start"
-                }`}
-              >
-                <aside
-                  className={`w-full shrink-0 lg:w-60 ${
-                    isChatTab
-                      ? "lg:flex lg:h-full lg:min-h-0 lg:flex-col lg:overflow-hidden"
-                      : "lg:sticky lg:top-4"
-                  }`}
-                >
-                  <nav
-                    aria-label="Loan application sections"
-                    className={`rounded-2xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900 ${
-                      isChatTab
-                        ? "chat-panel-scrollbar lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:overscroll-y-contain"
-                        : "overflow-hidden"
-                    }`}
-                  >
-                    {tabSections.map((section, sectionIndex) => (
-                      <div
-                        key={section.id}
-                        className={
-                          sectionIndex > 0
-                            ? "border-t border-slate-100 dark:border-slate-800"
-                            : ""
-                        }
-                      >
-                        <p className="px-4 pb-2 pt-4 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                          {section.label}
-                        </p>
-                        <div className="space-y-1.5 px-2 pb-3">
-                          {section.items.map((tab) => {
-                            const Icon = tab.icon;
-                            const isActive = activeTab === tab.key;
-                            const isDisabled = Boolean(tab.disabled);
+              {loading ? (
+                <div className="py-20 text-center text-slate-500">Loading...</div>
+              ) : (
+                <>
+                  {(() => {
+                    const metrics = [
+                      {
+                        label: "Monthly Payment",
+                        value: monthlyPaymentDisplay || "-",
+                      },
+                      {
+                        label: "LTV",
+                        value: ltv ? `${formatStatNumber(ltv)}%` : "-",
+                      },
+                      {
+                        label: "LTC",
+                        value: ltc ? `${formatStatNumber(ltc)}%` : "-",
+                      },
+                      {
+                        label: "ARV %",
+                        value: arv ? `${formatStatNumber(arv)}%` : "-",
+                      },
+                      {
+                        label: "DSCR Ratio",
+                        value: dscr ? formatStatNumber(dscr) : "-",
+                      },
+                      {
+                        label: "Net Worth",
+                        value: netWorthDisplay || "-",
+                      },
+                    ];
 
-                            return (
-                              <button
-                                key={tab.key}
-                                type="button"
-                                disabled={isDisabled}
-                                title={
-                                  isDisabled ? tab.disabledReason : undefined
-                                }
-                                aria-current={isActive ? "page" : undefined}
-                                onClick={() => {
-                                  if (isDisabled) return;
-                                  setActiveTab(tab.key);
-                                }}
-                                className={`flex w-full items-center gap-2.5 rounded-xl px-3 py-3 text-left text-sm font-medium transition ${
-                                  isActive
-                                    ? "bg-[#13538A] text-white shadow-sm"
-                                    : isDisabled
-                                      ? "cursor-not-allowed text-slate-400 opacity-50"
-                                      : "text-slate-600 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
-                                }`}
-                              >
-                                <Icon
-                                  size={16}
-                                  className={
-                                    isActive ? "text-white" : tab.color
-                                  }
-                                />
-                                <span className="min-w-0 flex-1 truncate">
-                                  {tab.label}
-                                </span>
-                                {tab.key === "view-loi" && loiCount > 0 && (
-                                  <span
-                                    className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
-                                      isActive
-                                        ? "bg-white/20 text-white"
-                                        : "bg-violet-100 text-violet-700 dark:bg-violet-500/20 dark:text-violet-300"
-                                    }`}
-                                  >
-                                    {loiCount}
-                                  </span>
-                                )}
-                              </button>
-                            );
-                          })}
+                    return (
+                      <div className="overflow-hidden rounded-xl bg-[#2C92D5] px-4 py-4 text-white shadow-sm sm:px-5">
+                        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+                          {metrics.map((item) => (
+                            <Metric
+                              key={item.label}
+                              label={item.label}
+                              value={item.value}
+                            />
+                          ))}
                         </div>
                       </div>
-                    ))}
-                  </nav>
-                </aside>
+                    );
+                  })()}
 
-                <main
-                  className={`min-w-0 flex-1 ${
-                    isChatTab
-                      ? "flex h-full min-h-0 flex-col overflow-hidden"
-                      : ""
-                  }`}
-                >
-                  {renderTabContent()}
-                </main>
-              </div>
-            </>
-          )}
+                  <div
+                    className={`min-w-0 ${
+                      isChatTab
+                        ? "flex min-h-0 flex-1 flex-col overflow-hidden"
+                        : ""
+                    }`}
+                  >
+                    <main
+                      className={`min-w-0 ${
+                        isChatTab
+                          ? "flex h-full min-h-0 flex-1 flex-col overflow-hidden"
+                          : ""
+                      }`}
+                    >
+                      {renderTabContent()}
+                    </main>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 
