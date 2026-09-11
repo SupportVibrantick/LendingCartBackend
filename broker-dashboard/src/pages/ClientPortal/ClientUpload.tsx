@@ -53,6 +53,7 @@ import {
   resolveClientProfileFromSession,
   saveClientPortalSession,
 } from "../../lib/clientPortalSession";
+import { formatPhone } from "../UserManagement/loanOfficerShared";
 import {
   formatClientPortalSubmittedDate,
   resolveClientSignableSubmission,
@@ -873,7 +874,7 @@ export default function ClientUpload() {
 
       setProfileFirstName(String(data.firstName || "").trim());
       setProfileLastName(String(data.lastName || "").trim());
-      setProfilePhone(String(data.phone || "").trim());
+      setProfilePhone(data.phone ? formatPhone(String(data.phone)) : "");
 
       const token = sessionStorage.getItem("client_token");
       if (token) {
@@ -897,7 +898,7 @@ export default function ClientUpload() {
       firstName: profileFirstName || parts[0] || "",
       lastName:
         profileLastName || (parts.length > 1 ? parts.slice(1).join(" ") : ""),
-      phone: profilePhone || "",
+      phone: profilePhone ? formatPhone(profilePhone) : "",
     });
     setProfileModalOpen(true);
   };
@@ -905,10 +906,21 @@ export default function ClientUpload() {
   const saveClientProfile = async () => {
     const firstName = profileForm.firstName.trim();
     const lastName = profileForm.lastName.trim();
-    const phone = profileForm.phone.trim();
+    const phoneDigits = profileForm.phone.replace(/\D/g, "");
+    const phone = phoneDigits ? formatPhone(phoneDigits) : "";
 
     if (!firstName) {
       toast.error("First name is required");
+      return;
+    }
+
+    if (!lastName) {
+      toast.error("Last name is required");
+      return;
+    }
+
+    if (phoneDigits && phoneDigits.length !== 10) {
+      toast.error("Enter a valid 10-digit phone number");
       return;
     }
 
@@ -934,7 +946,13 @@ export default function ClientUpload() {
       if (data.email) setClientEmail(data.email);
       setProfileFirstName(String(data.firstName || firstName).trim());
       setProfileLastName(String(data.lastName || lastName).trim());
-      setProfilePhone(String(data.phone || phone || "").trim());
+      setProfilePhone(
+        data.phone
+          ? formatPhone(String(data.phone))
+          : phone
+            ? formatPhone(phone)
+            : "",
+      );
 
       const token = sessionStorage.getItem("client_token");
       if (token) {
@@ -2779,10 +2797,11 @@ export default function ClientUpload() {
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                   <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    First name
+                    First name <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
+                    required
                     value={profileForm.firstName}
                     onChange={(e) =>
                       setProfileForm((prev) => ({
@@ -2797,10 +2816,11 @@ export default function ClientUpload() {
                 </div>
                 <div>
                   <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    Last name
+                    Last name <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
+                    required
                     value={profileForm.lastName}
                     onChange={(e) =>
                       setProfileForm((prev) => ({
@@ -2820,15 +2840,18 @@ export default function ClientUpload() {
                 </label>
                 <input
                   type="tel"
+                  inputMode="numeric"
+                  autoComplete="tel"
                   value={profileForm.phone}
                   onChange={(e) =>
                     setProfileForm((prev) => ({
                       ...prev,
-                      phone: e.target.value,
+                      phone: formatPhone(e.target.value),
                     }))
                   }
                   className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition focus:border-[#2C92D5] focus:ring-4 focus:ring-[#2C92D5]/15"
-                  placeholder="Optional"
+                  placeholder="222-222-2222"
+                  maxLength={12}
                 />
               </div>
             </div>

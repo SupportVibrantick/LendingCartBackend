@@ -38,6 +38,13 @@ async function updateClientProfileRoute(fastify) {
         });
       }
 
+      if (!lastName) {
+        return reply.code(400).send({
+          success: false,
+          message: "Last name is required",
+        });
+      }
+
       const user = await prisma.clientPortalUser.findFirst({
         where: {
           clientId: auth.clientId,
