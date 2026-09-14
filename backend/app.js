@@ -54,7 +54,10 @@ runEmailConsumerKafka().catch((error) => {
   console.error("Error starting the email consumer:", error);
 });
 
-app.register(helmet);
+// Dashboards run on separate origins (e.g. :5173); allow <img> / fetch of /public/* assets.
+app.register(helmet, {
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+});
 
 const rateLimitRedis = getRateLimitRedisClient();
 app.register(rateLimit, {
