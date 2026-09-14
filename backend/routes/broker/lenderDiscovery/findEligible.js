@@ -86,19 +86,37 @@ module.exports = async function findEligibleLenders(fastify) {
         const brokerOrgId = req.user.organizationId;
 
         /* =====================================================
-           2️⃣ FETCH SUBMISSION
+           2️⃣ FETCH SUBMISSION (org-scoped)
         ===================================================== */
-        const submission = await prisma.applicationSubmission.findUnique({
-          where: { id: submissionId },
-          include: {
-            application: {
-              include: {
-                financials: true,
+        const submission = await prisma.applicationSubmission.findFirst({
+          where: {
+            id: submissionId,
+            application: { brokerOrgId },
+          },
+          select: {
+            id: true,
+            fields: {
+              select: {
+                fieldKey: true,
+                value: true,
+                builderField: {
+                  select: { fieldKey: true },
+                },
               },
             },
-            fields: {
-              include: {
-                builderField: true,
+            application: {
+              select: {
+                id: true,
+                brokerOrgId: true,
+                brokerUserId: true,
+                status: true,
+                loanProductCode: true,
+                amountRequested: true,
+                financials: {
+                  select: {
+                    annualRevenue: true,
+                  },
+                },
               },
             },
           },
@@ -120,20 +138,13 @@ module.exports = async function findEligibleLenders(fastify) {
           });
         }
 
-        if (application.brokerOrgId !== brokerOrgId) {
-          return reply.code(403).send({
-            success: false,
-            message: "Unauthorized access to this application",
-          });
-        }
-
         const roles = req.user.roles || [];
-        if (roles.includes("BROKER_OFFICER")) {
+        if (roles.includes("BROKER_OFFICER") && !roles.includes("BROKER_ADMIN")) {
           const userId = req.user.id || req.user.userId;
           if (application.brokerUserId !== userId) {
-            return reply.code(403).send({
+            return reply.code(404).send({
               success: false,
-              message: "Access denied - not assigned to you",
+              message: "Submission not found",
             });
           }
         }
@@ -203,6 +214,9 @@ module.exports = async function findEligibleLenders(fastify) {
 
         const { loanProductCode } = application;
         const loanProductCodes = expandLoanProductAliasCodes(loanProductCode);
+        const normalizedSearch = String(search || "")
+          .toLowerCase()
+          .trim();
 
         /* =====================================================
            4️⃣ FETCH ALREADY SENT LENDERS
@@ -229,7 +243,7 @@ module.exports = async function findEligibleLenders(fastify) {
         const sentProductIds = new Set(applicationStatusByProductId.keys());
 
         /* =====================================================
-           5️⃣ FETCH ALL ACTIVE LENDER PRODUCTS (NO EXCLUSION)
+           5️⃣ FETCH ACTIVE LENDER PRODUCTS (slim select)
         ===================================================== */
 
         const lenderProducts = await prisma.lenderProduct.findMany({
@@ -242,16 +256,58 @@ module.exports = async function findEligibleLenders(fastify) {
               isDeleted: false,
             },
           },
-          include: {
+          select: {
+            id: true,
+            loanProductCode: true,
+            minLoanAmount: true,
+            maxLoanAmount: true,
+            minTermMonths: true,
+            maxTermMonths: true,
+            minCreditScore: true,
+            maxLtvPercent: true,
+            maxLtcPercent: true,
+            maxArvPercent: true,
+            minMezzLtvPercent: true,
+            maxMezzLtvPercent: true,
+            minDscr: true,
+            minDebtYieldPercent: true,
+            interestRateRange: true,
+            minExperience: true,
+            minTimeInBusinessMonths: true,
+            startupAllowed: true,
+            minAnnualRevenue: true,
+            ownerOccupiedRequired: true,
+            refinanceAllowed: true,
+            minUnits: true,
+            minPropertiesInPortfolio: true,
+            maxPropertiesInPortfolio: true,
+            firstTimeBorrowersAllowed: true,
+            maxTotalProjectAmount: true,
+            maxSba504DebentureAmount: true,
+            businessTypes: true,
+            propertyTypes: true,
+            statesSupported: true,
             lender: {
-              include: {
-                lenderProfile: true,
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                phone: true,
+                lenderProfile: {
+                  select: {
+                    minFunding: true,
+                    maxFunding: true,
+                    statesSupported: true,
+                    industries: true,
+                    summary: true,
+                    fundingSpeedDays: true,
+                    website: true,
+                    city: true,
+                    state: true,
+                  },
+                },
                 users: {
                   select: {
-                    id: true,
-                    firstName: true,
-                    lastName: true,
-                    email: true,
                     profileImage: true,
                   },
                   take: 1,
@@ -372,10 +428,10 @@ module.exports = async function findEligibleLenders(fastify) {
           })),
         ];
 
-        const normalizedSearch = search.toLowerCase().trim();
-
         const filteredLenders = allLenders.filter((lender) => {
+          // Name search already applied in SQL when present; still allow product-code match.
           const matchesSearch =
+            !normalizedSearch ||
             lender.lenderName?.toLowerCase().includes(normalizedSearch) ||
             lender.loanProductCode?.toLowerCase().includes(normalizedSearch);
 

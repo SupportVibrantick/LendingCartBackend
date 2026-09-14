@@ -143,11 +143,14 @@ const TemplateDetailsModal: React.FC<{
 
   useEffect(() => {
     (async () => {
-      const res = await fetch(`${API_BASE}/admin/applications/templates`, {
-        headers: getAuthHeaders(),
-      });
+      const res = await fetch(
+        `${API_BASE}/admin/applications/templates/${templateId}`,
+        {
+          headers: getAuthHeaders(),
+        },
+      );
       const json = await safeJson(res);
-      const tpl = json.data.find((x: any) => x.id === templateId);
+      const tpl = json?.data || null;
       setData(tpl);
       if (tpl?.products?.length) setActiveProductId(tpl.products[0].id);
       setLoading(false);

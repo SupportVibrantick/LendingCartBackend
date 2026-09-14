@@ -113,8 +113,64 @@ module.exports = async function listSubmissionsTable(fastify) {
 
           include: {
             fields: {
-              include: {
-                builderField: true,
+              where: {
+                OR: [
+                  {
+                    fieldKey: {
+                      in: [
+                        "borrowerFirstName",
+                        "firstName",
+                        "borrowerLastName",
+                        "lastName",
+                        "borrowerName",
+                        "applicantName",
+                        "fullName",
+                        "name",
+                        "amountRequested",
+                        "loan_amount",
+                        "propertyCity",
+                        "city",
+                        "propertyState",
+                        "state",
+                        "propertyCountry",
+                        "country",
+                      ],
+                    },
+                  },
+                  {
+                    builderField: {
+                      fieldKey: {
+                        in: [
+                          "borrowerFirstName",
+                          "firstName",
+                          "borrowerLastName",
+                          "lastName",
+                          "borrowerName",
+                          "applicantName",
+                          "fullName",
+                          "name",
+                          "amountRequested",
+                          "loan_amount",
+                          "propertyCity",
+                          "city",
+                          "propertyState",
+                          "state",
+                          "propertyCountry",
+                          "country",
+                        ],
+                      },
+                    },
+                  },
+                ],
+              },
+              select: {
+                fieldKey: true,
+                value: true,
+                builderField: {
+                  select: {
+                    fieldKey: true,
+                  },
+                },
               },
             },
 

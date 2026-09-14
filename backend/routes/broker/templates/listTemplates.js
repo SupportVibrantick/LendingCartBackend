@@ -8,15 +8,15 @@ module.exports = async function listTemplates(fastify) {
         orderBy: {
           createdAt: "desc",
         },
-        include: {
-          products: {
-            where: { isActive: true },
-            include: {
-              fields: {
-                orderBy: { sortOrder: "asc" },
-              },
-            },
-          },
+        select: {
+          id: true,
+          name: true,
+          code: true,
+          description: true,
+          version: true,
+          isActive: true,
+          createdAt: true,
+          updatedAt: true,
         },
       });
 
@@ -25,7 +25,6 @@ module.exports = async function listTemplates(fastify) {
         data: templates,
       });
     } catch (error) {
-      // 🔥 LOG THE REAL ERROR
       fastify.log.error(error);
 
       return reply.code(500).send({

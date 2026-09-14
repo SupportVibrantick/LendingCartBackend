@@ -5,6 +5,7 @@ async function applicationTemplateRoutes(fastify) {
   //Templates
   fastify.register(require("./createTemplate"));
   fastify.register(require("./listTemplate"));
+  fastify.register(require("./getTemplate"));
   fastify.register(require("./activateTemplate"));
   fastify.register(require("./updateTemplate"));
   //Mount PRODUCTS FOLDER (not a file)

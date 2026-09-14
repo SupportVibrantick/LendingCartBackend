@@ -54,30 +54,124 @@ async function getApplicationDetails(fastify) {
             id: applicationLenderId,
             lenderOrgId,
           },
-          include: {
+          select: {
+            id: true,
+            status: true,
+            sentAt: true,
+            lastUpdatedAt: true,
+            lenderOrgId: true,
+            loanApplicationId: true,
+            lenderProductId: true,
+            lenderProduct: {
+              select: {
+                id: true,
+                loanProductCode: true,
+                minLoanAmount: true,
+                maxLoanAmount: true,
+                interestRateRange: true,
+                minTermMonths: true,
+                maxTermMonths: true,
+              },
+            },
+            lenderReviews: {
+              orderBy: {
+                createdAt: "desc",
+              },
+              select: {
+                id: true,
+                reviewStatus: true,
+                approvedAmount: true,
+                interestRate: true,
+                notes: true,
+                createdAt: true,
+                conditions: {
+                  select: {
+                    id: true,
+                    description: true,
+                    status: true,
+                    satisfiedAt: true,
+                  },
+                },
+              },
+            },
             loanApplication: {
-              include: {
+              select: {
+                id: true,
+                applicationNumber: true,
+                loanProductCode: true,
+                amountRequested: true,
+                status: true,
+                createdAt: true,
+                submittedAt: true,
                 client: {
-                  include: {
+                  select: {
+                    id: true,
+                    legalName: true,
                     contacts: {
                       where: { isPrimary: true },
                       take: 1,
+                      select: {
+                        firstName: true,
+                        lastName: true,
+                        email: true,
+                        phone: true,
+                      },
                     },
                   },
                 },
-                brokerOrg: true,
+                brokerOrg: {
+                  select: {
+                    id: true,
+                    name: true,
+                    email: true,
+                    phone: true,
+                  },
+                },
                 financials: true,
-                collaterals: true,
-                documentUploads: true,
+                collaterals: {
+                  select: {
+                    id: true,
+                    collateralType: true,
+                    description: true,
+                    valueEstimated: true,
+                    lienPosition: true,
+                  },
+                },
+                documentUploads: {
+                  select: {
+                    id: true,
+                    fileName: true,
+                    fileUrl: true,
+                    fileMimeType: true,
+                    uploadedAt: true,
+                    documentRequirementId: true,
+                  },
+                },
                 submissions: {
                   where: { status: { not: "SUPERSEDED" } },
                   orderBy: { createdAt: "desc" },
-                  include: {
+                  take: 1,
+                  select: {
+                    id: true,
+                    status: true,
+                    createdAt: true,
                     fields: {
-                      include: {
+                      select: {
+                        id: true,
+                        fieldKey: true,
+                        value: true,
                         builderField: {
-                          include: {
-                            section: true,
+                          select: {
+                            fieldKey: true,
+                            label: true,
+                            fieldType: true,
+                            section: {
+                              select: {
+                                id: true,
+                                name: true,
+                                sortOrder: true,
+                              },
+                            },
                           },
                         },
                       },
@@ -85,19 +179,22 @@ async function getApplicationDetails(fastify) {
                   },
                 },
                 ruleEvaluations: {
-                  include: {
-                    results: true,
+                  orderBy: { evaluatedAt: "desc" },
+                  take: 5,
+                  select: {
+                    id: true,
+                    result: true,
+                    evaluatedAt: true,
+                    results: {
+                      select: {
+                        id: true,
+                        passed: true,
+                        message: true,
+                        fieldValue: true,
+                      },
+                    },
                   },
                 },
-              },
-            },
-            lenderProduct: true,
-            lenderReviews: {
-              orderBy: {
-                createdAt: "desc",
-              },
-              include: {
-                conditions: true,
               },
             },
           },

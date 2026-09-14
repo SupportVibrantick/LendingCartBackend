@@ -155,35 +155,6 @@ module.exports = async function brokerStatsList(fastify) {
           }),
         };
 
-        const [applications, uniqueLenders] = await Promise.all([
-          prisma.loanApplication.findMany({
-            where: applicationWhere,
-            select: {
-              id: true,
-              status: true,
-              amountRequested: true,
-              loanProductCode: true,
-              createdAt: true,
-              updatedAt: true,
-              submittedAt: true,
-              applicationLenders: {
-                select: {
-                  status: true,
-                },
-              },
-            },
-          }),
-          prisma.applicationLender.findMany({
-            where: {
-              loanApplication: applicationWhere,
-            },
-            distinct: ["lenderOrgId"],
-            select: {
-              lenderOrgId: true,
-            },
-          }),
-        ]);
-
         const monthlyBuckets = createMonthBuckets();
         const monthlyLookup = new Map(
           monthlyBuckets.map((bucket) => [bucket.key, bucket]),
@@ -191,6 +162,7 @@ module.exports = async function brokerStatsList(fastify) {
 
         const productVolume = new Map();
 
+        let totalApplications = 0;
         let totalSubmitted = 0;
         let totalInReview = 0;
         let totalApproved = 0;
@@ -209,92 +181,129 @@ module.exports = async function brokerStatsList(fastify) {
           WITHDRAWN: 0,
         };
 
-        for (const application of applications) {
-          const amount = parseAmount(application.amountRequested);
-          const submitted = isSubmittedApplication(application);
-          const approved = isApprovedApplication(application);
-          const declined = isDeclinedApplication(application);
-          const funded = application.status === "FUNDED";
-          const withdrawn = application.status === "WITHDRAWN";
-          const inReview =
-            application.status === "IN_REVIEW" ||
-            application.applicationLenders?.some((lender) => lender.status === "IN_REVIEW");
+        const BATCH_SIZE = 500;
+        let cursorId = null;
 
-          if (submitted) {
-            totalSubmitted += 1;
+        const uniqueLendersPromise = prisma.applicationLender.findMany({
+          where: {
+            loanApplication: applicationWhere,
+          },
+          distinct: ["lenderOrgId"],
+          select: {
+            lenderOrgId: true,
+          },
+        });
+
+        // Stream applications in batches so large orgs do not load the full set into memory.
+        // eslint-disable-next-line no-constant-condition
+        while (true) {
+          const batch = await prisma.loanApplication.findMany({
+            where: applicationWhere,
+            take: BATCH_SIZE,
+            ...(cursorId
+              ? {
+                  skip: 1,
+                  cursor: { id: cursorId },
+                }
+              : {}),
+            orderBy: { id: "asc" },
+            select: {
+              id: true,
+              status: true,
+              amountRequested: true,
+              loanProductCode: true,
+              createdAt: true,
+              updatedAt: true,
+              submittedAt: true,
+              applicationLenders: {
+                select: {
+                  status: true,
+                },
+              },
+            },
+          });
+
+          if (!batch.length) {
+            break;
           }
 
-          if (inReview) {
-            totalInReview += 1;
+          for (const application of batch) {
+            totalApplications += 1;
+            const amount = parseAmount(application.amountRequested);
+            const submitted = isSubmittedApplication(application);
+            const approved = isApprovedApplication(application);
+            const declined = isDeclinedApplication(application);
+            const funded = application.status === "FUNDED";
+            const withdrawn = application.status === "WITHDRAWN";
+            const inReview =
+              application.status === "IN_REVIEW" ||
+              application.applicationLenders?.some(
+                (lender) => lender.status === "IN_REVIEW",
+              );
+
+            if (submitted) totalSubmitted += 1;
+            if (inReview) totalInReview += 1;
+            if (approved) totalApproved += 1;
+            if (declined) totalDeclined += 1;
+            if (funded) {
+              totalFunded += 1;
+              totalVolumeFunded += amount;
+            }
+            if (withdrawn) totalWithdrawn += 1;
+
+            let currentStage = "DRAFT";
+            if (withdrawn) currentStage = "WITHDRAWN";
+            else if (funded) currentStage = "FUNDED";
+            else if (declined) currentStage = "LENDER_DECLINED";
+            else if (approved) currentStage = "LENDER_APPROVED";
+            else if (inReview) currentStage = "IN_REVIEW";
+            else if (application.status === "CLIENT_PENDING")
+              currentStage = "CLIENT_PENDING";
+            else if (submitted) currentStage = "SUBMITTED";
+
+            statusBreakdown[currentStage] += 1;
+
+            if (approved || funded) {
+              const existingAmount =
+                productVolume.get(application.loanProductCode) || 0;
+              productVolume.set(
+                application.loanProductCode,
+                existingAmount + amount,
+              );
+            }
+
+            const createdBucket = monthlyLookup.get(
+              getMonthKey(application.createdAt),
+            );
+            if (createdBucket) createdBucket.applications += 1;
+
+            const submittedBucket = monthlyLookup.get(
+              getMonthKey(application.submittedAt || application.createdAt),
+            );
+            if (submitted && submittedBucket) submittedBucket.submitted += 1;
+
+            const approvedBucket = monthlyLookup.get(
+              getMonthKey(application.updatedAt),
+            );
+            if (approved && approvedBucket) approvedBucket.approved += 1;
+
+            const fundedBucket = monthlyLookup.get(
+              getMonthKey(application.updatedAt),
+            );
+            if (funded && fundedBucket) {
+              fundedBucket.funded += 1;
+              fundedBucket.fundedVolume += amount;
+            }
           }
 
-          if (approved) {
-            totalApproved += 1;
-          }
-
-          if (declined) {
-            totalDeclined += 1;
-          }
-
-          if (funded) {
-            totalFunded += 1;
-            totalVolumeFunded += amount;
-          }
-
-          if (withdrawn) {
-            totalWithdrawn += 1;
-          }
-
-          let currentStage = "DRAFT";
-
-          if (withdrawn) {
-            currentStage = "WITHDRAWN";
-          } else if (funded) {
-            currentStage = "FUNDED";
-          } else if (declined) {
-            currentStage = "LENDER_DECLINED";
-          } else if (approved) {
-            currentStage = "LENDER_APPROVED";
-          } else if (inReview) {
-            currentStage = "IN_REVIEW";
-          } else if (application.status === "CLIENT_PENDING") {
-            currentStage = "CLIENT_PENDING";
-          } else if (submitted) {
-            currentStage = "SUBMITTED";
-          }
-
-          statusBreakdown[currentStage] += 1;
-
-          if (approved || funded) {
-            const existingAmount = productVolume.get(application.loanProductCode) || 0;
-            productVolume.set(application.loanProductCode, existingAmount + amount);
-          }
-
-          const createdBucket = monthlyLookup.get(getMonthKey(application.createdAt));
-          if (createdBucket) {
-            createdBucket.applications += 1;
-          }
-
-          const submittedBucket = monthlyLookup.get(
-            getMonthKey(application.submittedAt || application.createdAt),
-          );
-          if (submitted && submittedBucket) {
-            submittedBucket.submitted += 1;
-          }
-
-          const approvedBucket = monthlyLookup.get(getMonthKey(application.updatedAt));
-          if (approved && approvedBucket) {
-            approvedBucket.approved += 1;
-          }
-
-          const fundedBucket = monthlyLookup.get(getMonthKey(application.updatedAt));
-          if (funded && fundedBucket) {
-            fundedBucket.funded += 1;
-            fundedBucket.fundedVolume += amount;
+          cursorId = batch[batch.length - 1].id;
+          if (batch.length < BATCH_SIZE) {
+            break;
           }
         }
 
-        const totalApplications = applications.length;
+        const uniqueLenders = await uniqueLendersPromise;
+
         const topProducts = Array.from(productVolume.entries())
           .map(([product, totalApprovedAmount]) => ({
             product,
