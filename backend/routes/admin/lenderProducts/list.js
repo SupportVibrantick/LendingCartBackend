@@ -7,6 +7,7 @@ async function listLenderProductRoutes(fastify) {
   const {
     normalizeLenderProductForAdminApi,
   } = require("../../../utils/lender/normalizeLenderProductResponse");
+  const { LoanProductCode } = require("@prisma/client");
 
   fastify.get(
     "/",
@@ -14,6 +15,15 @@ async function listLenderProductRoutes(fastify) {
       schema: {
         tags: ["Admin -> Lender Products"],
         summary: "List all lender product mappings",
+        querystring: {
+          type: "object",
+          properties: {
+            page: { type: "integer", minimum: 1, default: 1 },
+            limit: { type: "integer", minimum: 1, maximum: 100, default: 20 },
+            search: { type: "string" },
+            lenderOrgId: { type: "string", format: "uuid" },
+          },
+        },
       },
     },
     async (req, reply) => {
@@ -22,17 +32,46 @@ async function listLenderProductRoutes(fastify) {
       const { skip, take, page, limit } = parsePagination(req.query);
 
       try {
+        const search = String(req.query.search || "").trim();
+        const lenderOrgId = String(req.query.lenderOrgId || "").trim();
+
+        const where = {
+          ...(lenderOrgId ? { lenderOrgId } : {}),
+          ...(search
+            ? {
+                OR: [
+                  {
+                    lender: {
+                      name: { contains: search, mode: "insensitive" },
+                    },
+                  },
+                  {
+                    loanProduct: {
+                      name: { contains: search, mode: "insensitive" },
+                    },
+                  },
+                  {
+                    interestRateRange: {
+                      contains: search,
+                      mode: "insensitive",
+                    },
+                  },
+                  ...Object.values(LoanProductCode)
+                    .filter((code) =>
+                      String(code).toLowerCase().includes(search.toLowerCase()),
+                    )
+                    .map((code) => ({ loanProductCode: code })),
+                ],
+              }
+            : {}),
+        };
+
         const [result, total] = await Promise.all([
           prisma.lenderProduct.findMany({
+            where,
             skip,
             take,
-            select: {
-              id: true,
-              lenderOrgId: true,
-              loanProductCode: true,
-              isEnabled: true,
-              createdAt: true,
-              updatedAt: true,
+            include: {
               lender: {
                 select: {
                   id: true,
@@ -67,7 +106,7 @@ async function listLenderProductRoutes(fastify) {
             },
             orderBy: { createdAt: "desc" },
           }),
-          prisma.lenderProduct.count(),
+          prisma.lenderProduct.count({ where }),
         ]);
 
         const formatted = result.map((item) =>
@@ -84,6 +123,7 @@ async function listLenderProductRoutes(fastify) {
           total,
           page,
           limit,
+          totalPages: Math.max(1, Math.ceil(total / limit) || 1),
           data: formatted,
         });
       } catch (error) {

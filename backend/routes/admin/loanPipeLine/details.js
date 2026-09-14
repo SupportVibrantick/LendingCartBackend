@@ -54,14 +54,38 @@ async function getAdminApplicationDetails(fastify) {
                   id: true,
                   value: true,
                   fieldKey: true,
-                  builderField: { select: { fieldKey: true } },
+                  builderField: {
+                    select: {
+                      fieldKey: true,
+                      label: true,
+                      fieldType: true,
+                      sortOrder: true,
+                      section: {
+                        select: {
+                          id: true,
+                          name: true,
+                          sortOrder: true,
+                        },
+                      },
+                    },
+                  },
                 },
               },
             },
           },
           financials: true,
           collaterals: true,
-          documentUploads: true,
+          documentUploads: {
+            orderBy: { uploadedAt: "desc" },
+            select: {
+              id: true,
+              fileName: true,
+              fileUrl: true,
+              fileMimeType: true,
+              uploadedAt: true,
+              isSignedOutput: true,
+            },
+          },
           applicationLenders: {
             select: {
               id: true,
@@ -72,7 +96,7 @@ async function getAdminApplicationDetails(fastify) {
               lenderProduct: { select: { loanProductCode: true } },
               lenderReviews: {
                 orderBy: { createdAt: "desc" },
-                select: { decision: true },
+                select: { reviewStatus: true },
                 take: 1,
               },
             },
@@ -91,7 +115,10 @@ async function getAdminApplicationDetails(fastify) {
       // Extract Values From Submission
       // ===============================
 
-      let amountRequested = null;
+      let amountRequested =
+        application.amountRequested != null
+          ? Number(application.amountRequested)
+          : null;
       let minTermMonths = null;
       let maxTermMonths = null;
 
@@ -108,9 +135,10 @@ async function getAdminApplicationDetails(fastify) {
           "requestedAmount",
           "loan_amount",
         );
-        amountRequested = amountRaw
-          ? Number(String(amountRaw).replace(/[,$]/g, "")) || null
-          : null;
+        if (amountRequested == null && amountRaw) {
+          amountRequested =
+            Number(String(amountRaw).replace(/[,$]/g, "")) || null;
+        }
 
         minTermMonths = Number(submissionFieldValue(fields, "minTermMonths")) || null;
         maxTermMonths = Number(submissionFieldValue(fields, "maxTermMonths")) || null;
@@ -149,7 +177,9 @@ async function getAdminApplicationDetails(fastify) {
             ? String(maxTermMonths)
             : minTermMonths
               ? String(minTermMonths)
-              : null;
+              : application.termMonthsRequested != null
+                ? String(application.termMonthsRequested)
+                : null;
 
       const lenders = (application.applicationLenders || []).map((al) => ({
         lenderOrgId: al.lenderOrgId,
@@ -157,22 +187,88 @@ async function getAdminApplicationDetails(fastify) {
         lenderProduct: al.lenderProduct?.loanProductCode,
         lenderStatus: al.status,
         sentAt: al.sentAt,
-        decision: al.lenderReviews?.[0]?.decision || null,
+        decision: al.lenderReviews?.[0]?.reviewStatus || null,
       }));
+
+      const mappedSubmissions = (application.submissions || []).map((submission) => {
+        const fields = (submission.fields || []).map((field) => {
+          const fieldKey =
+            field.builderField?.fieldKey || field.fieldKey || null;
+          return {
+            id: field.id,
+            fieldKey,
+            label: field.builderField?.label || null,
+            fieldType: field.builderField?.fieldType || null,
+            sortOrder: field.builderField?.sortOrder ?? null,
+            value: field.value,
+            sectionId: field.builderField?.section?.id || null,
+            sectionName: field.builderField?.section?.name || null,
+            sectionSortOrder: field.builderField?.section?.sortOrder ?? null,
+          };
+        });
+
+        return {
+          id: submission.id,
+          createdAt: submission.createdAt,
+          fields,
+        };
+      });
+
+      // Avoid spreading raw Prisma Decimals / nested graph into the response.
+      const {
+        amountRequested: _dbAmount,
+        applicationLenders: _applicationLenders,
+        financials,
+        collaterals,
+        documentUploads,
+        submissions: _submissions,
+        client,
+        brokerOrg,
+        ...applicationRest
+      } = application;
 
       return reply.send({
         success: true,
         data: {
-          ...application,
+          ...applicationRest,
+          amountRequested,
           borrowerName,
           entityLabel,
           entityType,
           purpose,
-          amountRequested,
           minTermMonths,
           maxTermMonths,
           termMonthsRequested,
           lenders,
+          client,
+          brokerOrg,
+          submissions: mappedSubmissions,
+          financials: financials
+            ? {
+                ...financials,
+                annualRevenue:
+                  financials.annualRevenue != null
+                    ? Number(financials.annualRevenue)
+                    : null,
+                netIncome:
+                  financials.netIncome != null
+                    ? Number(financials.netIncome)
+                    : null,
+                ebitda:
+                  financials.ebitda != null ? Number(financials.ebitda) : null,
+                totalDebt:
+                  financials.totalDebt != null
+                    ? Number(financials.totalDebt)
+                    : null,
+                dscr: financials.dscr != null ? Number(financials.dscr) : null,
+              }
+            : null,
+          collaterals: (collaterals || []).map((c) => ({
+            ...c,
+            valueEstimated:
+              c.valueEstimated != null ? Number(c.valueEstimated) : null,
+          })),
+          documentUploads,
         },
       });
     } catch (error) {

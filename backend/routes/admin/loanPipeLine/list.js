@@ -113,6 +113,66 @@ const applicationListInclude = {
   },
 };
 
+const VALID_APPLICATION_STATUSES = new Set([
+  "DRAFT",
+  "SUBMITTED",
+  "IN_REVIEW",
+  "AUTO_APPROVED",
+  "AUTO_DECLINED",
+  "LENDER_SELECTED",
+  "LENDER_APPROVED",
+  "LENDER_DECLINED",
+  "FUNDED",
+  "WITHDRAWN",
+  "CLIENT_PENDING",
+  "SUSPENDED",
+]);
+
+/** Map UI filter aliases to Prisma LoanApplicationStatus values. */
+function resolveStatusFilter(rawStatus) {
+  const status = String(rawStatus || "").trim().toUpperCase();
+  if (!status) return null;
+
+  if (status === "APPROVED") {
+    return { in: ["LENDER_APPROVED", "AUTO_APPROVED", "FUNDED"] };
+  }
+  if (status === "DECLINED" || status === "REJECTED") {
+    return { in: ["LENDER_DECLINED", "AUTO_DECLINED"] };
+  }
+  if (VALID_APPLICATION_STATUSES.has(status)) {
+    return status;
+  }
+  return null;
+}
+
+function bucketStatusCounts(statusGroups = []) {
+  const statusCounts = {};
+  let countsTotal = 0;
+
+  for (const group of statusGroups) {
+    const key = group.status;
+    const count = group._count._all;
+    statusCounts[key] = (statusCounts[key] || 0) + count;
+    countsTotal += count;
+  }
+
+  // UI chips use simplified Approved / Rejected labels.
+  statusCounts.APPROVED =
+    (statusCounts.LENDER_APPROVED || 0) +
+    (statusCounts.AUTO_APPROVED || 0) +
+    (statusCounts.FUNDED || 0);
+  statusCounts.DECLINED =
+    (statusCounts.LENDER_DECLINED || 0) + (statusCounts.AUTO_DECLINED || 0);
+
+  return {
+    statusCounts,
+    countsTotal,
+    inReviewCount:
+      (statusCounts.IN_REVIEW || 0) + (statusCounts.SUBMITTED || 0),
+    approvedCount: statusCounts.APPROVED,
+  };
+}
+
 /**
  * @param {import("fastify").FastifyInstance} fastify
  */
@@ -132,14 +192,39 @@ async function listAllApplications(fastify) {
         const { skip, take, page, limit } = require("../../../utils/pagination").parsePagination(req.query);
         const brokerOrgId = req.query?.brokerOrgId?.trim();
         const search = req.query?.search?.trim();
+        const statusFilter = resolveStatusFilter(req.query?.status);
 
-        const where = {
-          ...(brokerOrgId ? { brokerOrgId } : { status: { not: "DRAFT" } }),
+        if (req.query?.status?.trim() && !statusFilter) {
+          return reply.code(400).send({
+            success: false,
+            message: "Invalid status filter",
+          });
+        }
+
+        const baseWhere = {
+          ...(brokerOrgId ? { brokerOrgId } : {}),
         };
 
         if (search) {
-          where.OR = buildApplicationSearchWhere(search, { includeBorrower: true });
+          baseWhere.OR = buildApplicationSearchWhere(search, {
+            includeBorrower: true,
+          });
         }
+
+        // Status chip counts share search/broker scope but ignore the active status filter.
+        const countsWhere = {
+          ...baseWhere,
+          ...(brokerOrgId ? {} : { status: { not: "DRAFT" } }),
+        };
+
+        const where = {
+          ...baseWhere,
+          ...(statusFilter
+            ? { status: statusFilter }
+            : brokerOrgId
+              ? {}
+              : { status: { not: "DRAFT" } }),
+        };
 
         const findArgs = {
           where,
@@ -149,16 +234,23 @@ async function listAllApplications(fastify) {
           take,
         };
 
-        const [applications, total, amountAgg] = await prisma.$transaction([
-          prisma.loanApplication.findMany(findArgs),
-          prisma.loanApplication.count({ where }),
-          prisma.loanApplication.aggregate({
-            where,
-            _sum: { amountRequested: true },
-          }),
-        ]);
+        const [applications, total, amountAgg, statusGroups] =
+          await prisma.$transaction([
+            prisma.loanApplication.findMany(findArgs),
+            prisma.loanApplication.count({ where }),
+            prisma.loanApplication.aggregate({
+              where,
+              _sum: { amountRequested: true },
+            }),
+            prisma.loanApplication.groupBy({
+              by: ["status"],
+              where: countsWhere,
+              _count: { _all: true },
+            }),
+          ]);
 
         const formatted = applications.map(formatApplicationRow);
+        const buckets = bucketStatusCounts(statusGroups);
 
         return reply.send({
           success: true,
@@ -169,13 +261,19 @@ async function listAllApplications(fastify) {
             limit,
             total,
             totalPages: Math.max(Math.ceil(total / limit), 1),
-            hasMore: applications.length === limit,
+            hasMore: page * limit < total,
+            hasPreviousPage: page > 1,
+            hasNextPage: page * limit < total,
           },
           summary: {
             totalAmount:
               amountAgg._sum.amountRequested != null
                 ? Number(amountAgg._sum.amountRequested)
                 : 0,
+            statusCounts: buckets.statusCounts,
+            countsTotal: buckets.countsTotal,
+            inReviewCount: buckets.inReviewCount,
+            approvedCount: buckets.approvedCount,
           },
         });
       } catch (error) {
