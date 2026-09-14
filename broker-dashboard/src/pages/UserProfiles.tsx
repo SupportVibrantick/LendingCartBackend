@@ -10,6 +10,7 @@ import {
   Mail,
   Pencil,
   Phone,
+  Trash2,
   User,
   X,
 } from "lucide-react";
@@ -265,6 +266,7 @@ export default function UserProfileCard() {
   const [zipCode, setZipCode] = useState("");
   const [website, setWebsite] = useState("");
   const [profileImage, setProfileImage] = useState<File | null>(null);
+  const [removeProfileImage, setRemoveProfileImage] = useState(false);
   const [originalImageSize, setOriginalImageSize] = useState<number>(0);
   const [imageProcessing, setImageProcessing] = useState(false);
   const [imageError, setImageError] = useState<string | null>(null);
@@ -344,7 +346,10 @@ export default function UserProfileCard() {
   const fallbackAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(
     displayName,
   )}&background=13538A&color=ffffff`;
-  const remoteAvatarSrc = buildApiPublicFileUrl(API_BASE, user.profileImage);
+  const remoteAvatarSrc =
+    removeProfileImage
+      ? null
+      : buildApiPublicFileUrl(API_BASE, user.profileImage);
   // Cache-bust so a previously 404'd URL is not reused from browser cache.
   const remoteAvatarSrcFresh = remoteAvatarSrc
     ? `${remoteAvatarSrc}${remoteAvatarSrc.includes("?") ? "&" : "?"}v=${encodeURIComponent(user.profileImage)}`
@@ -354,6 +359,9 @@ export default function UserProfileCard() {
     : !avatarLoadFailed && remoteAvatarSrcFresh
       ? remoteAvatarSrcFresh
       : fallbackAvatar;
+
+  const hasSavedProfileImage = Boolean(user.profileImage) && !removeProfileImage;
+  const canRemovePhoto = Boolean(profileImage) || hasSavedProfileImage;
 
   const isChanged =
     firstName !== user.firstName ||
@@ -366,7 +374,8 @@ export default function UserProfileCard() {
     state !== (user.brokerProfile?.state || "") ||
     zipCode !== (user.brokerProfile?.zipCode || "") ||
     website !== (user.brokerProfile?.website || "") ||
-    Boolean(profileImage);
+    Boolean(profileImage) ||
+    removeProfileImage;
 
   const validateNewPassword = (password: string) => {
     if (password.length < 8) return "Password must be at least 8 characters";
@@ -475,7 +484,11 @@ export default function UserProfileCard() {
     formData.append("state", state.trim());
     formData.append("zipCode", zipCode.trim());
     formData.append("website", website.trim());
-    if (profileImage) formData.append("profileImage", profileImage);
+    if (profileImage) {
+      formData.append("profileImage", profileImage);
+    } else if (removeProfileImage) {
+      formData.append("removeProfileImage", "true");
+    }
 
     setSaving(true);
     try {
@@ -504,6 +517,7 @@ export default function UserProfileCard() {
       setUser(updatedUser);
       setEditing(false);
       setProfileImage(null);
+      setRemoveProfileImage(false);
       setOriginalImageSize(0);
       setImageError(null);
       setImageProcessing(false);
@@ -549,9 +563,11 @@ export default function UserProfileCard() {
   const cancelEdit = () => {
     setEditing(false);
     setProfileImage(null);
+    setRemoveProfileImage(false);
     setOriginalImageSize(0);
     setImageError(null);
     setImageProcessing(false);
+    setAvatarLoadFailed(false);
     setFormErrors({});
     setFirstName(user.firstName || "");
     setLastName(user.lastName || "");
@@ -619,6 +635,7 @@ export default function UserProfileCard() {
                         e.target.value = "";
                         if (!file) return;
                         setAvatarLoadFailed(false);
+                        setRemoveProfileImage(false);
                         if (!file.type.startsWith("image/")) {
                           toast.error("Only image files allowed");
                           return;
@@ -670,6 +687,23 @@ export default function UserProfileCard() {
                   </label>
                 )}
               </div>
+              {editing && canRemovePhoto && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setProfileImage(null);
+                    setOriginalImageSize(0);
+                    setImageError(null);
+                    setRemoveProfileImage(true);
+                    setAvatarLoadFailed(false);
+                  }}
+                  className="absolute -bottom-1 -right-1 inline-flex items-center justify-center rounded-full border border-white bg-red-500 p-1.5 text-white shadow-md transition hover:bg-red-600 dark:border-gray-900"
+                  title="Remove photo"
+                  aria-label="Remove profile photo"
+                >
+                  <Trash2 size={12} />
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -701,12 +735,17 @@ export default function UserProfileCard() {
               </p>
             )}
 
-            {editing && (imageProcessing || profileImage || imageError) && (
+            {editing && (imageProcessing || profileImage || imageError || removeProfileImage) && (
               <div className="mt-3 max-w-md">
                 {imageProcessing && (
                   <p className="flex items-center gap-2 text-xs text-blue-600 dark:text-blue-400">
                     <span className="h-2 w-2 animate-pulse rounded-full bg-blue-500" />
                     Processing image…
+                  </p>
+                )}
+                {!imageProcessing && removeProfileImage && !profileImage && (
+                  <p className="text-xs font-medium text-amber-600 dark:text-amber-400">
+                    Photo will be removed when you save.
                   </p>
                 )}
                 {!imageProcessing && profileImage && (

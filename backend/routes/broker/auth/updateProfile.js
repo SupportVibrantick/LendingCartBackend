@@ -67,6 +67,8 @@ async function brokerUpdateProfileRoutes(fastify) {
         let lastName = existingUser.lastName;
         let phone = existingUser.phone;
         let profileImage = existingUser.profileImage;
+        let removeProfileImage = false;
+        let uploadedNewImage = false;
         const profileData = {};
 
         for await (const part of parts) {
@@ -79,6 +81,12 @@ async function brokerUpdateProfileRoutes(fastify) {
             }
             if (part.fieldname === "phone") {
               phone = String(part.value).trim();
+            }
+            if (part.fieldname === "removeProfileImage") {
+              const raw = String(part.value || "")
+                .trim()
+                .toLowerCase();
+              removeProfileImage = ["1", "true", "yes", "on"].includes(raw);
             }
             if (PROFILE_FIELDS.includes(part.fieldname)) {
               profileData[part.fieldname] = String(part.value).trim();
@@ -116,6 +124,25 @@ async function brokerUpdateProfileRoutes(fastify) {
 
             await pipeline(validatedStream, fs.createWriteStream(filePath));
             profileImage = `/public/uploads/profile/${fileName}`;
+            uploadedNewImage = true;
+          }
+        }
+
+        if (removeProfileImage && !uploadedNewImage) {
+          const previous = existingUser.profileImage;
+          profileImage = null;
+
+          if (
+            previous &&
+            typeof previous === "string" &&
+            previous.startsWith("/public/uploads/profile/") &&
+            previous.includes(userId)
+          ) {
+            const absolute = path.join(
+              process.cwd(),
+              previous.replace(/^\//, ""),
+            );
+            await fs.promises.unlink(absolute).catch(() => {});
           }
         }
 
