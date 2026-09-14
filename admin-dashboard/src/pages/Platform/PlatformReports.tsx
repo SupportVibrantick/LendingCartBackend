@@ -41,7 +41,7 @@ export default function PlatformReports() {
             </div>
           </div>
           <div className="col-span-12">
-            <LatestApplicationsTable applications={stats?.latestApplications || []} />
+            <LatestApplicationsTable />
           </div>
         </div>
       </div>

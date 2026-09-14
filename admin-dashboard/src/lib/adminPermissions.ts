@@ -24,6 +24,7 @@ export const ROUTE_PERMISSIONS: Record<string, PermissionKey | PermissionKey[] |
   "/all-sub-brokers": "VIEW_USERS",
   "/all-clients": "VIEW_CONTACTS",
   "/loan-pipeline": "VIEW_APPLICATIONS",
+  "/loan-pipeline/detail": "VIEW_APPLICATIONS",
   "/all-communications": "VIEW_CAMPAIGNS",
   "/all-documents": "VIEW_DOCUMENTS",
   "/all-subscriptions": "VIEW_SUBSCRIPTIONS",

@@ -1,10 +1,11 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { MdModeEdit, MdDelete } from "react-icons/md";
 import { TiPlus } from "react-icons/ti";
 import EditLenderModal from "./EditLenderModal";
 import LenderDetailsModal from "./LenderDetailsModal";
 import TransferLenderPortalModal from "./TransferLenderPortalModal";
 import { useNavigate } from "react-router-dom";
+import { useDebouncedValue } from "../../hooks/useDebouncedValue";
 
 import {
   RefreshCcw,
@@ -83,7 +84,7 @@ function statusClass(status?: string) {
   }
 }
 
-export default function AllLendersPage() {
+export default function LenderAllLendersPage() {
   const [lenders, setLenders] = useState<Lender[]>([]);
   const [loading, setLoading] = useState(false);
   const [rowLoadingId, setRowLoadingId] = useState<any | null>(null);
@@ -113,8 +114,11 @@ export default function AllLendersPage() {
   );
 
   const [query, setQuery] = useState("");
+  const debouncedSearch = useDebouncedValue(query.trim(), 350);
   const [pageSize, setPageSize] = useState<number>(6);
   const [currentPage, setCurrentPage] = useState<number>(1);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
 
   // Admins modal & editing state
   const [showAdminsFor, setShowAdminsFor] = useState<Lender | null>(null);
@@ -183,14 +187,13 @@ export default function AllLendersPage() {
   const usPhoneRegex = /^\d{3}-\d{3}-\d{4}$/;
 
   useEffect(() => {
-    fetchLenders();
     fetchBrokers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [query, pageSize]);
+  }, [debouncedSearch, pageSize]);
 
   function getAuthHeaders(): Record<string, string> {
     try {
@@ -316,50 +319,68 @@ export default function AllLendersPage() {
   };
 
   // -------- LENDERS LIST --------
-  async function fetchLenders(searchValue?: string) {
-    setLoading(true);
+  const fetchLenders = useCallback(
+    async (signal?: AbortSignal) => {
+      setLoading(true);
 
-    try {
-      const headers = getAuthHeaders();
+      try {
+        const headers = getAuthHeaders();
+        const params = new URLSearchParams({
+          page: String(currentPage),
+          limit: String(pageSize),
+        });
+        if (debouncedSearch) params.set("search", debouncedSearch);
 
-      const url = searchValue
-        ? `${API_BASE}/admin/lenders/read?search=${encodeURIComponent(searchValue)}`
-        : `${API_BASE}/admin/lenders/read`;
+        const res = await fetch(
+          `${API_BASE}/admin/lenders/read?${params.toString()}`,
+          {
+            method: "GET",
+            headers,
+            signal,
+          },
+        );
 
-      const res = await fetch(url, {
-        method: "GET",
-        headers,
-      });
+        if (!res.ok) throw new Error(`Failed to fetch lenders: ${res.status}`);
 
-      if (!res.ok) throw new Error(`Failed to fetch lenders: ${res.status}`);
+        const json = await res.json();
+        const list = json?.data?.results || [];
 
-      const json = await res.json();
+        const normalized: Lender[] = list.map((o: any) => ({
+          id: o.id,
+          name: o.organizationName,
+          email: o.organizationEmail,
+          phone: o.organizationPhone,
+          status: o.organizationStatus,
+          adminFirstName: o.adminFirstName,
+          adminLastName: o.adminLastName,
+          adminEmail: o.adminEmail,
+          adminPhone: o.adminPhone,
+          brokerOrgId: o.brokerOrgId,
+          brokerName: o.brokerName,
+          createdAt: o.createdAt,
+          profileImage: null,
+        }));
 
-      const list = json?.data?.results || [];
+        setLenders(normalized);
+        setTotal(Number(json?.data?.total ?? normalized.length));
+        setTotalPages(
+          Math.max(1, Number(json?.data?.totalPages) || 1),
+        );
+      } catch (err: any) {
+        if (err?.name === "AbortError") return;
+        console.error("Fetch lenders failed:", err);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [API_BASE, currentPage, debouncedSearch, pageSize],
+  );
 
-      const normalized: Lender[] = list.map((o: any) => ({
-        id: o.id,
-        name: o.organizationName,
-        email: o.organizationEmail,
-        phone: o.organizationPhone,
-        status: o.organizationStatus,
-        adminFirstName: o.adminFirstName,
-        adminLastName: o.adminLastName,
-        adminEmail: o.adminEmail,
-        adminPhone: o.adminPhone,
-        brokerOrgId: o.brokerOrgId,
-        brokerName: o.brokerName,
-        createdAt: o.createdAt,
-        profileImage: null,
-      }));
-
-      setLenders(normalized);
-    } catch (err) {
-      console.error("Fetch lenders failed:", err);
-    } finally {
-      setLoading(false);
-    }
-  }
+  useEffect(() => {
+    const controller = new AbortController();
+    fetchLenders(controller.signal);
+    return () => controller.abort();
+  }, [fetchLenders]);
 
   // -------- BROKERS (for dropdown) --------
   async function fetchBrokers() {
@@ -570,19 +591,13 @@ export default function AllLendersPage() {
     }
   };
 
-  const filtered = lenders;
-
-  const total = filtered.length;
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const totalLenders = total;
+  const showingFrom = total === 0 ? 0 : (currentPage - 1) * pageSize + 1;
+  const showingTo = Math.min(currentPage * pageSize, total);
 
   useEffect(() => {
     if (currentPage > totalPages) setCurrentPage(totalPages);
   }, [currentPage, totalPages]);
-
-  const paginated = useMemo(() => {
-    const start = (currentPage - 1) * pageSize;
-    return filtered.slice(start, start + pageSize);
-  }, [filtered, currentPage, pageSize]);
 
   function gotoPage(page: number) {
     if (page < 1) page = 1;
@@ -903,11 +918,9 @@ export default function AllLendersPage() {
     [lenders],
   );
 
-  const totalLenders = lenders.length;
-
   const isSearchEmpty =
-    query.trim() !== "" && filtered.length === 0 && !loading;
-  const isTotalEmpty = query.trim() === "" && total === 0 && !loading;
+    debouncedSearch !== "" && lenders.length === 0 && !loading;
+  const isTotalEmpty = debouncedSearch === "" && total === 0 && !loading;
 
   const InfoTip = ({ text }: { text: string }) => (
     <div className="relative group cursor-pointer">
@@ -1145,13 +1158,8 @@ export default function AllLendersPage() {
                 />
                 <input
                   value={query}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    setQuery(value);
-                    setCurrentPage(1);
-                    fetchLenders(value);
-                  }}
-                  placeholder="Search by name, email, phone or status..."
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Search by name, email or phone..."
                   className="text-sm w-full pl-12 pr-4 py-2 bg-transparent border-none focus:ring-2 focus:ring-blue-500/20 rounded-xl text-slate-700 dark:text-slate-200 placeholder:text-slate-400"
                 />
               </div>
@@ -1268,7 +1276,7 @@ export default function AllLendersPage() {
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                {paginated.map((l) => (
+                {lenders.map((l) => (
                   <div
                     key={l.id}
                     role="button"
@@ -1412,14 +1420,14 @@ export default function AllLendersPage() {
             )}
 
             {/* ================= PAGINATION ================= */}
-            {!loading && totalPages > 1 && (
+            {!loading && total > 0 && (
               <div className="mt-10 flex flex-col sm:flex-row items-center justify-between gap-6 border-t border-slate-200 dark:border-slate-700 pt-6">
                 <p className="text-sm text-slate-500 dark:text-slate-400">
                   Showing{" "}
                   <span className="font-semibold text-slate-800 dark:text-slate-100">
-                    Page {currentPage}
+                    {showingFrom}–{showingTo}
                   </span>{" "}
-                  of {totalPages}
+                  of {total}
                 </p>
 
                 <div className="flex items-center gap-3">
@@ -1439,9 +1447,13 @@ export default function AllLendersPage() {
                     Prev
                   </button>
 
+                  <span className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                    Page {currentPage} of {totalPages}
+                  </span>
+
                   {/* Next */}
                   <button
-                    disabled={currentPage === totalPages}
+                    disabled={currentPage >= totalPages}
                     onClick={() => gotoPage(currentPage + 1)}
                     className="flex items-center gap-2 px-4 py-2 rounded-lg border 
         border-slate-200 dark:border-slate-700
