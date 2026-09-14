@@ -65,7 +65,7 @@ async function brokerGhlIntegrationRoutes(fastify) {
       const organizationId = req.user.organizationId;
       const userId = req.user.userId || req.user.id;
       const ip = getClientIp(req);
-      const limit = checkRateLimit(`ghl-oauth-connect:org:${organizationId}`, {
+      const limit = await checkRateLimit(`ghl-oauth-connect:org:${organizationId}`, {
         windowMs: 15 * 60 * 1000,
         max: 10,
       });
@@ -147,7 +147,7 @@ async function brokerGhlIntegrationRoutes(fastify) {
 
       const organizationId = req.user.organizationId;
       const ip = getClientIp(req);
-      const limit = checkRateLimit(`ghl-agency-sync:org:${organizationId}`, {
+      const limit = await checkRateLimit(`ghl-agency-sync:org:${organizationId}`, {
         windowMs: 60 * 1000,
         max: 5,
       });

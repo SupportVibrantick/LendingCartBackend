@@ -22,7 +22,12 @@ const indexRoutes = require("./routes/index");
 const verifySuperAdmin = require("./plugins/verifySuperAdmin");
 const dbPlugin = require("./plugins/dbPlugin");
 const multipart = require("@fastify/multipart");
-const { getUploadMaxBytes } = require("./config/env");
+const {
+  getUploadMaxBytes,
+  isProduction,
+  isRedisEnabled,
+} = require("./config/env");
+const { getRateLimitRedisClient } = require("./config/redis");
 // Configure Fastify with built-in logger
 const app = Fastify({
   // Trust X-Forwarded-* headers so request.ip reflects the real client IP
@@ -51,12 +56,26 @@ runEmailConsumerKafka().catch((error) => {
 
 app.register(helmet);
 
+const rateLimitRedis = getRateLimitRedisClient();
 app.register(rateLimit, {
   // Don't auto-limit every route — only routes that set config.rateLimit.
   global: false,
+  // Shared store across API instances when Redis is enabled.
+  ...(rateLimitRedis ? { redis: rateLimitRedis } : {}),
+  // In production Redis is required; fail closed if the store errors.
+  skipOnError: !isProduction(),
+  nameSpace: "lendingcart-rate-limit-",
   // Keep parity with the custom helper's proxy-aware IP extraction.
   keyGenerator: (request) => getClientIp(request),
 });
+
+if (rateLimitRedis) {
+  commonLogs.info("Fastify rate-limit using Redis store");
+} else if (isRedisEnabled()) {
+  commonLogs.warn(
+    "REDIS_ENABLED but rate-limit Redis client unavailable — using in-memory store",
+  );
+}
 
 app.register(cors, {
   origin: (origin, cb) => {

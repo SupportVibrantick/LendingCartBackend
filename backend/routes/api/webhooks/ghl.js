@@ -49,7 +49,7 @@ async function ghlWebhookRoutes(fastify) {
     },
     async (req, reply) => {
       const ip = getClientIp(req);
-      const limit = checkRateLimit(`ghl-webhook:ip:${ip}`, {
+      const limit = await checkRateLimit(`ghl-webhook:ip:${ip}`, {
         windowMs: 60 * 1000,
         max: 120,
       });

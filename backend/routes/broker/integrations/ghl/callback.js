@@ -24,7 +24,7 @@ async function brokerGhlOAuthCallbackRoute(fastify) {
     },
     async (req, reply) => {
       const ip = getClientIp(req);
-      const limit = checkRateLimit(`ghl-oauth-callback:ip:${ip}`, {
+      const limit = await checkRateLimit(`ghl-oauth-callback:ip:${ip}`, {
         windowMs: 60 * 1000,
         max: 30,
       });

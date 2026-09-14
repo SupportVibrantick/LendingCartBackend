@@ -1,34 +1,36 @@
 const fp = require("fastify-plugin");
 const prismaBase = require("../config/prisma");
+const {
+  sanitizeAuditValue,
+  truncateJsonString,
+} = require("../services/logger/sanitizeAuditValue");
 
 module.exports = fp(async function dbPlugin(fastify) {
-
   const AUDITED_MODELS = new Set([
     "LoanApplication",
     "UserAccount",
     "Organization",
     "ApplicationLender",
     "Client",
-    "LenderReview"
+    "LenderReview",
   ]);
 
   const prisma = prismaBase.$extends({
     query: {
       $allModels: {
         async $allOperations({ model, operation, args, query }) {
-
           const actionsToLog = ["create", "update", "delete", "upsert"];
 
           // Skip AuditLog itself and non-write operations
-          if (model === "AuditLog" || !actionsToLog.includes(operation) || !AUDITED_MODELS.has(model)) {
+          if (
+            model === "AuditLog" ||
+            !actionsToLog.includes(operation) ||
+            !AUDITED_MODELS.has(model)
+          ) {
             return query(args);
           }
 
           let oldValue = null;
-
-          /* ============================
-             Capture old value
-          ============================ */
 
           if (["update", "delete"].includes(operation)) {
             try {
@@ -37,43 +39,44 @@ module.exports = fp(async function dbPlugin(fastify) {
                   where: args.where,
                 });
               }
-            } catch (e) {
+            } catch {
               oldValue = null;
             }
           }
 
           const result = await query(args);
 
-          /* ============================
-             Safe Audit Logging
-          ============================ */
-
-          try {
-
-            // Skip if audit log requires fields we don't have
-            const auditData = {
-              entityType: model,
-              entityId: result?.id || oldValue?.id || "UNKNOWN",
-              action: operation.toUpperCase(),
-              dashboard: "PLATFORM",
-              category: "SYSTEM",
-              oldValueJson: oldValue ? JSON.stringify(oldValue) : null,
-              newValueJson:
-                operation !== "delete" && result
-                  ? JSON.stringify(result)
+          // Fire-and-forget so primary writes are not blocked by audit I/O.
+          setImmediate(() => {
+            try {
+              const auditData = {
+                entityType: model,
+                entityId: String(result?.id || oldValue?.id || "UNKNOWN"),
+                action: operation.toUpperCase(),
+                dashboard: "PLATFORM",
+                category: "SYSTEM",
+                oldValueJson: oldValue
+                  ? truncateJsonString(
+                      JSON.stringify(sanitizeAuditValue(oldValue)),
+                    )
                   : null,
-            };
+                newValueJson:
+                  operation !== "delete" && result
+                    ? truncateJsonString(
+                        JSON.stringify(sanitizeAuditValue(result)),
+                      )
+                    : null,
+              };
 
-            // Only log if schema allows minimal fields
-            if (prisma.auditLog) {
-              await prisma.auditLog.create({
-                data: auditData,
-              });
+              prismaBase.auditLog
+                .create({ data: auditData })
+                .catch((err) => {
+                  console.error("Audit log skipped:", err.message);
+                });
+            } catch (err) {
+              console.error("Audit log skipped:", err.message);
             }
-
-          } catch (err) {
-            console.error("Audit log skipped:", err.message);
-          }
+          });
 
           return result;
         },
@@ -86,5 +89,4 @@ module.exports = fp(async function dbPlugin(fastify) {
   fastify.addHook("onClose", async () => {
     await prisma.$disconnect();
   });
-
 });

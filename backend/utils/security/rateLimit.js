@@ -1,15 +1,9 @@
+const { getSharedRedisClient } = require("../../config/redis");
+const { isRedisEnabled } = require("../../config/env");
+
 const buckets = new Map();
 
-/**
- * Simple in-memory rate limiter (per-process).
- * @param {string} key
- * @param {{ windowMs?: number, max?: number }} options
- */
-function checkRateLimit(key, options = {}) {
-  const windowMs = options.windowMs ?? 15 * 60 * 1000;
-  const max = options.max ?? 5;
-  const now = Date.now();
-
+function memoryCheck(key, windowMs, max, now) {
   let entry = buckets.get(key);
   if (!entry || entry.resetAt <= now) {
     entry = { count: 0, resetAt: now + windowMs };
@@ -31,6 +25,47 @@ function checkRateLimit(key, options = {}) {
     retryAfterSec: 0,
     remaining: Math.max(0, max - entry.count),
   };
+}
+
+/**
+ * Rate limiter — Redis when REDIS_ENABLED, otherwise in-memory (per-process).
+ * @param {string} key
+ * @param {{ windowMs?: number, max?: number }} options
+ */
+async function checkRateLimit(key, options = {}) {
+  const windowMs = options.windowMs ?? 15 * 60 * 1000;
+  const max = options.max ?? 5;
+  const now = Date.now();
+  const redisKey = `rl:${key}`;
+
+  if (isRedisEnabled()) {
+    try {
+      const redis = await getSharedRedisClient();
+      if (redis) {
+        const count = await redis.incr(redisKey);
+        if (count === 1) {
+          await redis.pexpire(redisKey, windowMs);
+        }
+        const ttlMs = await redis.pttl(redisKey);
+        if (count > max) {
+          return {
+            allowed: false,
+            retryAfterSec: Math.max(1, Math.ceil(Math.max(ttlMs, 0) / 1000)),
+            remaining: 0,
+          };
+        }
+        return {
+          allowed: true,
+          retryAfterSec: 0,
+          remaining: Math.max(0, max - count),
+        };
+      }
+    } catch {
+      // Fall through to in-memory if Redis is temporarily unavailable.
+    }
+  }
+
+  return memoryCheck(key, windowMs, max, now);
 }
 
 function getClientIp(request) {

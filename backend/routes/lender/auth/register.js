@@ -134,7 +134,7 @@ async function lenderRegisterRoutes(fastify) {
 
       if (source === "public") {
         // Rate limit per email (not global/IP), so different emails are not blocked together.
-        const limit = checkRateLimit(
+        const limit = await checkRateLimit(
           `lender-public-register:email:${normalizedAdminEmail}`,
           {
             windowMs: 15 * 60 * 1000,
