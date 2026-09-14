@@ -4,6 +4,7 @@ import { Dropdown } from "../ui/dropdown/Dropdown";
 import { useNavigate } from "react-router-dom";
 import { clearBrokerSession } from "../../lib/brokerSession";
 import { BROKER_API_BASE } from "../../lib/brokerApi";
+import { buildApiPublicFileUrl } from "../../lib/publicFileUrl";
 
 const API_BASE = BROKER_API_BASE;
 
@@ -23,8 +24,12 @@ export default function UserDropdown({ user, compact = false }: UserDropdownProp
 
   const displayEmail = user?.user?.email || "";
 
-  const avatarSrc = user?.user?.profileImage
-    ? `${API_BASE}${user.user.profileImage}`
+  const remoteAvatar = buildApiPublicFileUrl(
+    API_BASE,
+    user?.user?.profileImage,
+  );
+  const avatarSrc = remoteAvatar
+    ? `${remoteAvatar}${remoteAvatar.includes("?") ? "&" : "?"}v=${encodeURIComponent(user.user.profileImage)}`
     : `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=13538A&color=ffffff`;
 
   function toggleDropdown() {
@@ -58,7 +63,11 @@ export default function UserDropdown({ user, compact = false }: UserDropdownProp
         aria-haspopup="true"
       >
         <span className="h-9 w-9 overflow-hidden rounded-lg ring-2 ring-[#13538A]/10">
-          <img src={avatarSrc} alt={displayName} className="h-full w-full object-cover" />
+          <img
+            src={avatarSrc}
+            alt={displayName}
+            className="h-full w-full bg-slate-50 object-contain dark:bg-gray-800"
+          />
         </span>
 
         <span

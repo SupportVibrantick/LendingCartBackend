@@ -10,12 +10,15 @@ import {
   Mail,
   Pencil,
   Phone,
+  Trash2,
   User,
   X,
 } from "lucide-react";
 import toast from "react-hot-toast";
+import { BROKER_API_BASE } from "../lib/brokerApi";
+import { buildApiPublicFileUrl } from "../lib/publicFileUrl";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
+const API_BASE = BROKER_API_BASE;
 
 const inputClass =
   "w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-gray-900 outline-none transition focus:border-[#13538A]/40 focus:bg-white focus:ring-2 focus:ring-[#13538A]/10 dark:border-gray-700 dark:bg-gray-800 dark:text-white";
@@ -263,9 +266,11 @@ export default function UserProfileCard() {
   const [zipCode, setZipCode] = useState("");
   const [website, setWebsite] = useState("");
   const [profileImage, setProfileImage] = useState<File | null>(null);
+  const [removeProfileImage, setRemoveProfileImage] = useState(false);
   const [originalImageSize, setOriginalImageSize] = useState<number>(0);
   const [imageProcessing, setImageProcessing] = useState(false);
   const [imageError, setImageError] = useState<string | null>(null);
+  const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
@@ -292,6 +297,7 @@ export default function UserProfileCard() {
       }
 
       const profile = json.data;
+      setAvatarLoadFailed(false);
       setUser({
         ...profile.user,
         organization: profile.organization,
@@ -319,6 +325,12 @@ export default function UserProfileCard() {
     loadUser();
   }, []);
 
+  // Reset broken-image flag whenever the saved profile path changes so a prior
+  // 404 does not keep showing the initials fallback after a successful upload.
+  useEffect(() => {
+    setAvatarLoadFailed(false);
+  }, [user?.profileImage]);
+
   if (!user) {
     return (
       <div className="space-y-6 p-4 md:p-6">
@@ -331,6 +343,26 @@ export default function UserProfileCard() {
   const displayName =
     [firstName, lastName].filter(Boolean).join(" ").trim() || "Broker";
   const roleLabel = user.roles?.[0]?.replace(/_/g, " ") || "Broker";
+  const fallbackAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(
+    displayName,
+  )}&background=13538A&color=ffffff`;
+  const remoteAvatarSrc =
+    removeProfileImage
+      ? null
+      : buildApiPublicFileUrl(API_BASE, user.profileImage);
+  // Cache-bust so a previously 404'd URL is not reused from browser cache.
+  const remoteAvatarSrcFresh = remoteAvatarSrc
+    ? `${remoteAvatarSrc}${remoteAvatarSrc.includes("?") ? "&" : "?"}v=${encodeURIComponent(user.profileImage)}`
+    : null;
+  const avatarSrc = profileImage
+    ? URL.createObjectURL(profileImage)
+    : !avatarLoadFailed && remoteAvatarSrcFresh
+      ? remoteAvatarSrcFresh
+      : fallbackAvatar;
+
+  const hasSavedProfileImage = Boolean(user.profileImage) && !removeProfileImage;
+  const canRemovePhoto = Boolean(profileImage) || hasSavedProfileImage;
+
   const isChanged =
     firstName !== user.firstName ||
     lastName !== user.lastName ||
@@ -342,13 +374,8 @@ export default function UserProfileCard() {
     state !== (user.brokerProfile?.state || "") ||
     zipCode !== (user.brokerProfile?.zipCode || "") ||
     website !== (user.brokerProfile?.website || "") ||
-    Boolean(profileImage);
-
-  const avatarSrc = profileImage
-    ? URL.createObjectURL(profileImage)
-    : user.profileImage
-      ? `${API_BASE}${user.profileImage}`
-      : `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=13538A&color=ffffff`;
+    Boolean(profileImage) ||
+    removeProfileImage;
 
   const validateNewPassword = (password: string) => {
     if (password.length < 8) return "Password must be at least 8 characters";
@@ -457,7 +484,11 @@ export default function UserProfileCard() {
     formData.append("state", state.trim());
     formData.append("zipCode", zipCode.trim());
     formData.append("website", website.trim());
-    if (profileImage) formData.append("profileImage", profileImage);
+    if (profileImage) {
+      formData.append("profileImage", profileImage);
+    } else if (removeProfileImage) {
+      formData.append("removeProfileImage", "true");
+    }
 
     setSaving(true);
     try {
@@ -486,9 +517,11 @@ export default function UserProfileCard() {
       setUser(updatedUser);
       setEditing(false);
       setProfileImage(null);
+      setRemoveProfileImage(false);
       setOriginalImageSize(0);
       setImageError(null);
       setImageProcessing(false);
+      setAvatarLoadFailed(false);
 
       const stored = JSON.parse(sessionStorage.getItem("broker_user") || "{}");
       const nextOrgName =
@@ -530,9 +563,11 @@ export default function UserProfileCard() {
   const cancelEdit = () => {
     setEditing(false);
     setProfileImage(null);
+    setRemoveProfileImage(false);
     setOriginalImageSize(0);
     setImageError(null);
     setImageProcessing(false);
+    setAvatarLoadFailed(false);
     setFormErrors({});
     setFirstName(user.firstName || "");
     setLastName(user.lastName || "");
@@ -574,9 +609,18 @@ export default function UserProfileCard() {
               <div className="absolute -inset-1 rounded-full bg-white/90 dark:bg-gray-900" />
               <div className="relative h-28 w-28 overflow-hidden rounded-full border-4 border-white shadow-lg dark:border-gray-900 sm:h-32 sm:w-32">
                 <img
+                  key={remoteAvatarSrcFresh || "avatar-fallback"}
                   src={avatarSrc}
                   alt={displayName}
-                  className="h-full w-full object-cover"
+                  className="h-full w-full bg-slate-50 object-contain dark:bg-gray-800"
+                  onError={(e) => {
+                    const src = e.currentTarget.currentSrc || e.currentTarget.src;
+                    // Ignore stale errors from a previous src and fallback failures.
+                    if (!src || src.includes("ui-avatars.com")) return;
+                    if (remoteAvatarSrcFresh && src.startsWith(remoteAvatarSrc!)) {
+                      setAvatarLoadFailed(true);
+                    }
+                  }}
                 />
                 {editing && (
                   <label className="absolute inset-0 flex cursor-pointer flex-col items-center justify-center bg-black/55 text-white opacity-0 transition group-hover:opacity-100">
@@ -590,6 +634,8 @@ export default function UserProfileCard() {
                         const file = e.target.files?.[0];
                         e.target.value = "";
                         if (!file) return;
+                        setAvatarLoadFailed(false);
+                        setRemoveProfileImage(false);
                         if (!file.type.startsWith("image/")) {
                           toast.error("Only image files allowed");
                           return;
@@ -641,6 +687,23 @@ export default function UserProfileCard() {
                   </label>
                 )}
               </div>
+              {editing && canRemovePhoto && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setProfileImage(null);
+                    setOriginalImageSize(0);
+                    setImageError(null);
+                    setRemoveProfileImage(true);
+                    setAvatarLoadFailed(false);
+                  }}
+                  className="absolute -bottom-1 -right-1 inline-flex items-center justify-center rounded-full border border-white bg-red-500 p-1.5 text-white shadow-md transition hover:bg-red-600 dark:border-gray-900"
+                  title="Remove photo"
+                  aria-label="Remove profile photo"
+                >
+                  <Trash2 size={12} />
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -672,12 +735,17 @@ export default function UserProfileCard() {
               </p>
             )}
 
-            {editing && (imageProcessing || profileImage || imageError) && (
+            {editing && (imageProcessing || profileImage || imageError || removeProfileImage) && (
               <div className="mt-3 max-w-md">
                 {imageProcessing && (
                   <p className="flex items-center gap-2 text-xs text-blue-600 dark:text-blue-400">
                     <span className="h-2 w-2 animate-pulse rounded-full bg-blue-500" />
                     Processing image…
+                  </p>
+                )}
+                {!imageProcessing && removeProfileImage && !profileImage && (
+                  <p className="text-xs font-medium text-amber-600 dark:text-amber-400">
+                    Photo will be removed when you save.
                   </p>
                 )}
                 {!imageProcessing && profileImage && (
