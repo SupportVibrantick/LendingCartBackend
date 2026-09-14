@@ -14,6 +14,7 @@ import {
   Pencil,
   Phone,
   ShieldCheck,
+  Trash2,
   User,
   Users,
   X,
@@ -23,6 +24,7 @@ import PageMeta from "../../../components/common/PageMeta";
 import {
   checkCoBrokerResponse,
   CO_BROKER_API_BASE,
+  CO_BROKER_PROFILE_UPDATED_EVENT,
   CO_BROKER_ROLE_LABEL,
   CO_BROKER_TOKEN_KEY,
   CO_BROKER_USER_KEY,
@@ -31,6 +33,7 @@ import {
   storeCoBrokerBranding,
 } from "../../../lib/coBrokerPortal";
 import { formatPhone } from "../../../lib/coBrokerForm";
+import { buildApiPublicFileUrl } from "../../../lib/publicFileUrl";
 import { isSessionExpiredError } from "../../../lib/sessionExpiry";
 
 const API_BASE = CO_BROKER_API_BASE;
@@ -85,6 +88,8 @@ export default function UserProfileCard() {
   const [preferredComm, setPreferredComm] = useState("");
   const [tollFree, setTollFree] = useState("");
   const [profileImage, setProfileImage] = useState<File | null>(null);
+  const [removeProfileImage, setRemoveProfileImage] = useState(false);
+  const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -126,8 +131,18 @@ export default function UserProfileCard() {
         firstName: nextUser?.firstName,
         lastName: nextUser?.lastName,
         email: nextUser?.email,
-        profileImage: nextUser?.profileImage,
+        profileImage: nextUser?.profileImage ?? null,
         roles: nextUser?.roles,
+      }),
+    );
+
+    window.dispatchEvent(
+      new CustomEvent(CO_BROKER_PROFILE_UPDATED_EVENT, {
+        detail: {
+          firstName: nextUser?.firstName,
+          lastName: nextUser?.lastName,
+          profileImage: nextUser?.profileImage ?? null,
+        },
       }),
     );
   }
@@ -162,6 +177,10 @@ export default function UserProfileCard() {
     loadUser();
   }, []);
 
+  useEffect(() => {
+    setAvatarLoadFailed(false);
+  }, [user?.profileImage]);
+
   const avatarObjectUrl = useMemo(() => {
     if (!profileImage) return null;
     return URL.createObjectURL(profileImage);
@@ -191,6 +210,16 @@ export default function UserProfileCard() {
   const assignedOfficers = (user.assignedLoanOfficers ||
     []) as AssignedOfficer[];
 
+  const fallbackAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(
+    displayName,
+  )}&background=13538A&color=ffffff`;
+  const remoteAvatarSrc = removeProfileImage
+    ? null
+    : buildApiPublicFileUrl(API_BASE, user.profileImage);
+  const remoteAvatarSrcFresh = remoteAvatarSrc
+    ? `${remoteAvatarSrc}${remoteAvatarSrc.includes("?") ? "&" : "?"}v=${encodeURIComponent(user.profileImage)}`
+    : null;
+
   const isChanged =
     firstName !== (user.firstName || "") ||
     lastName !== (user.lastName || "") ||
@@ -200,13 +229,17 @@ export default function UserProfileCard() {
     linkedinUrl !== (profile.linkedinUrl || "") ||
     preferredComm !== (profile.preferredComm || "") ||
     tollFree !== (profile.tollFree ? formatPhone(profile.tollFree) : "") ||
-    Boolean(profileImage);
+    Boolean(profileImage) ||
+    removeProfileImage;
 
   const avatarSrc =
     avatarObjectUrl ||
-    (user.profileImage
-      ? `${API_BASE}${user.profileImage}`
-      : `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=13538A&color=ffffff`);
+    (!avatarLoadFailed && remoteAvatarSrcFresh
+      ? remoteAvatarSrcFresh
+      : fallbackAvatar);
+
+  const hasSavedProfileImage = Boolean(user.profileImage) && !removeProfileImage;
+  const canRemovePhoto = Boolean(profileImage) || hasSavedProfileImage;
 
   const handleSave = async () => {
     if (!firstName.trim()) {
@@ -226,6 +259,8 @@ export default function UserProfileCard() {
 
     if (profileImage) {
       formData.append("profileImage", profileImage);
+    } else if (removeProfileImage) {
+      formData.append("removeProfileImage", "true");
     }
 
     setSaving(true);
@@ -249,6 +284,8 @@ export default function UserProfileCard() {
       applyProfileData(json.data);
       setEditing(false);
       setProfileImage(null);
+      setRemoveProfileImage(false);
+      setAvatarLoadFailed(false);
       toast.success("Profile updated successfully");
     } catch (err: any) {
       if (isSessionExpiredError(err)) return;
@@ -261,6 +298,8 @@ export default function UserProfileCard() {
   const resetEditing = () => {
     setEditing(false);
     setProfileImage(null);
+    setRemoveProfileImage(false);
+    setAvatarLoadFailed(false);
     setFirstName(user.firstName || "");
     setLastName(user.lastName || "");
     setPhone(user.phone ? formatPhone(user.phone) : "");
@@ -349,9 +388,21 @@ export default function UserProfileCard() {
               <div className="group relative">
                 <div className="relative h-24 w-24 overflow-hidden rounded-2xl border-4 border-white/30 bg-white/10 shadow-lg sm:h-28 sm:w-28">
                   <img
+                    key={remoteAvatarSrcFresh || "avatar-fallback"}
                     src={avatarSrc}
                     alt={displayName}
-                    className="h-full w-full object-cover"
+                    className="h-full w-full bg-white/20 object-contain"
+                    onError={(e) => {
+                      const src =
+                        e.currentTarget.currentSrc || e.currentTarget.src;
+                      if (!src || src.includes("ui-avatars.com")) return;
+                      if (
+                        remoteAvatarSrcFresh &&
+                        src.startsWith(remoteAvatarSrc!)
+                      ) {
+                        setAvatarLoadFailed(true);
+                      }
+                    }}
                   />
                   {editing && (
                     <label className="absolute inset-0 flex cursor-pointer flex-col items-center justify-center bg-black/55 text-white opacity-0 transition group-hover:opacity-100">
@@ -365,17 +416,35 @@ export default function UserProfileCard() {
                         className="hidden"
                         onChange={(e) => {
                           const file = e.target.files?.[0];
+                          e.target.value = "";
                           if (!file) return;
                           if (!file.type.startsWith("image/")) {
                             toast.error("Only image files allowed");
                             return;
                           }
+                          setRemoveProfileImage(false);
+                          setAvatarLoadFailed(false);
                           setProfileImage(file);
                         }}
                       />
                     </label>
                   )}
                 </div>
+                {editing && canRemovePhoto && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setProfileImage(null);
+                      setRemoveProfileImage(true);
+                      setAvatarLoadFailed(false);
+                    }}
+                    className="absolute -bottom-1 -right-1 inline-flex items-center justify-center rounded-full border border-white bg-red-500 p-1.5 text-white shadow-md transition hover:bg-red-600"
+                    title="Remove photo"
+                    aria-label="Remove profile photo"
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                )}
               </div>
 
               <div>
@@ -399,6 +468,11 @@ export default function UserProfileCard() {
                     </>
                   ) : null}
                 </p>
+                {editing && removeProfileImage && !profileImage && (
+                  <p className="mt-2 text-xs font-medium text-amber-200">
+                    Photo will be removed when you save.
+                  </p>
+                )}
               </div>
             </div>
 

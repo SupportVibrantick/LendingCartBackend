@@ -9,6 +9,7 @@ export const LO_API_BASE =
 
 export const LO_TOKEN_KEY = "loan_officer_token";
 export const LO_USER_KEY = "loan_officer_user";
+export const LO_PROFILE_UPDATED_EVENT = "loan-officer-profile-updated";
 
 export function isLoanOfficerTokenExpired(token: string): boolean {
   try {

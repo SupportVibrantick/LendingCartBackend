@@ -44,6 +44,8 @@ async function updateSubBrokerProfileRoutes(fastify) {
         let lastName = existingUser.lastName;
         let phone = existingUser.phone;
         let profileImage = existingUser.profileImage;
+        let removeProfileImage = false;
+        let uploadedNewImage = false;
         const profileFields = {};
 
         for await (const part of parts) {
@@ -56,6 +58,10 @@ async function updateSubBrokerProfileRoutes(fastify) {
               lastName = value;
             } else if (part.fieldname === "phone") {
               phone = value.replace(/\D/g, "");
+            } else if (part.fieldname === "removeProfileImage") {
+              removeProfileImage = ["1", "true", "yes", "on"].includes(
+                value.toLowerCase(),
+              );
             } else if (
               [
                 "address",
@@ -109,6 +115,25 @@ async function updateSubBrokerProfileRoutes(fastify) {
             await pipeline(validation.stream, fs.createWriteStream(filePath));
 
             profileImage = `/public/uploads/profile/${fileName}`;
+            uploadedNewImage = true;
+          }
+        }
+
+        if (removeProfileImage && !uploadedNewImage) {
+          const previous = existingUser.profileImage;
+          profileImage = null;
+
+          if (
+            previous &&
+            typeof previous === "string" &&
+            previous.startsWith("/public/uploads/profile/") &&
+            previous.includes(userId)
+          ) {
+            const absolute = path.join(
+              process.cwd(),
+              previous.replace(/^\//, ""),
+            );
+            await fs.promises.unlink(absolute).catch(() => {});
           }
         }
 
