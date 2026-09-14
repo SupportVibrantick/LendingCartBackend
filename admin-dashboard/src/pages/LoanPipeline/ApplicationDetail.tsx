@@ -986,6 +986,11 @@ export default function ApplicationDetail() {
           <div className="space-y-2">
             {detail.documentUploads.map((doc: any) => {
               const href = resolveFileUrl(doc.fileUrl);
+              const documentName =
+                doc.documentName ||
+                doc.documentType?.name ||
+                doc.fileName ||
+                "Document";
               return (
                 <div
                   key={doc.id}
@@ -994,10 +999,16 @@ export default function ApplicationDetail() {
                   <div className="flex min-w-0 items-center gap-3">
                     <FileText className="h-4 w-4 shrink-0 text-slate-400" />
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-slate-800 dark:text-slate-100">
-                        {doc.fileName}
+                      <p
+                        className="truncate text-sm font-medium text-slate-800 dark:text-slate-100"
+                        title={documentName}
+                      >
+                        {documentName}
                       </p>
-                      <p className="text-xs text-slate-500">
+                      <p className="truncate text-xs text-slate-500" title={doc.fileName}>
+                        {doc.fileName && doc.fileName !== documentName
+                          ? `${doc.fileName} · `
+                          : ""}
                         {formatShortDate(doc.uploadedAt)}
                         {doc.isSignedOutput ? " · Signed" : ""}
                       </p>
