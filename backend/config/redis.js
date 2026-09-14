@@ -1,50 +1,119 @@
-const { isRedisEnabled, getRedisUrl } = require("../config/env");
+const { isRedisEnabled, getRedisUrl, isProduction } = require("../config/env");
 const { commonLogs } = require("../services/logger/contextLogger");
 const { Redis } = require("ioredis");
 
 let redisClients = null;
 let sharedRedisClient = null;
+let rateLimitRedisClient = null;
+
+function buildRedisOptions(overrides = {}) {
+  return {
+    maxRetriesPerRequest: 1,
+    enableOfflineQueue: false,
+    connectTimeout: 3000,
+    lazyConnect: true,
+    retryStrategy: () => null,
+    ...overrides,
+  };
+}
+
+async function connectAndPing(client, label) {
+  if (client.status !== "ready") {
+    await client.connect();
+  }
+  await Promise.race([
+    client.ping(),
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error(`${label} Redis ping timeout (3s)`)), 3000),
+    ),
+  ]);
+}
 
 async function getSharedRedisClient() {
   if (sharedRedisClient) return sharedRedisClient;
 
+  if (!isRedisEnabled()) {
+    return null;
+  }
+
   const redisUrl = getRedisUrl();
   if (!redisUrl) {
-    commonLogs.warn(
-      "REDIS_URL is missing — shared Redis client unavailable",
-    );
+    commonLogs.warn("REDIS_URL is missing — shared Redis client unavailable");
     return null;
   }
 
   try {
-    sharedRedisClient = new Redis(redisUrl, {
-      maxRetriesPerRequest: null,
-    });
+    sharedRedisClient = new Redis(redisUrl, buildRedisOptions({ maxRetriesPerRequest: null }));
+    await connectAndPing(sharedRedisClient, "shared");
     return sharedRedisClient;
   } catch (error) {
     commonLogs.error("Failed to create shared Redis client", {
       error: error.message,
     });
+    try {
+      sharedRedisClient?.disconnect?.();
+    } catch {
+      /* ignore */
+    }
+    sharedRedisClient = null;
+    if (isProduction()) {
+      throw new Error(
+        `CRITICAL: Shared Redis client failed in production: ${error.message}`,
+      );
+    }
     return null;
   }
 }
 
-async function attachRedisAdapter(io) {
-  // const isProd = process.env.NODE_ENV === "production";
+/**
+ * Dedicated ioredis client for @fastify/rate-limit (recommended settings).
+ * Returns null when Redis is disabled (local/dev in-memory fallback).
+ */
+function getRateLimitRedisClient() {
+  if (rateLimitRedisClient) return rateLimitRedisClient;
 
-  // if (!isRedisEnabled()) {
-  //   if (isProd) {
-  //     throw new Error("REDIS_ENABLED must be true in production to support multi-instance Socket.IO");
-  //   }
-  //   commonLogs.info("Socket.IO Redis adapter disabled");
-  //   return false;
-  // }
+  if (!isRedisEnabled()) {
+    return null;
+  }
 
   const redisUrl = getRedisUrl();
   if (!redisUrl) {
-    // if (isProd) {
-    //   throw new Error("REDIS_URL is missing in production — required for Socket.IO adapter");
-    // }
+    return null;
+  }
+
+  rateLimitRedisClient = new Redis(redisUrl, {
+    connectTimeout: 500,
+    maxRetriesPerRequest: 1,
+    enableOfflineQueue: false,
+  });
+
+  rateLimitRedisClient.on("error", (error) => {
+    commonLogs.error("Rate-limit Redis client error", {
+      error: error.message,
+    });
+  });
+
+  return rateLimitRedisClient;
+}
+
+async function attachRedisAdapter(io) {
+  if (!isRedisEnabled()) {
+    if (isProduction()) {
+      throw new Error(
+        "REDIS_ENABLED must be true in production to support multi-instance Socket.IO",
+      );
+    }
+    commonLogs.info("Socket.IO Redis adapter disabled");
+    return false;
+  }
+
+  const redisUrl = getRedisUrl();
+  if (!redisUrl) {
+    if (isProduction()) {
+      throw new Error(
+        "REDIS_URL is missing in production — required for Socket.IO adapter",
+      );
+    }
     commonLogs.warn(
       "REDIS_ENABLED=true but REDIS_URL is missing — using in-memory Socket.IO adapter",
     );
@@ -56,15 +125,8 @@ async function attachRedisAdapter(io) {
 
   try {
     const { createAdapter } = require("@socket.io/redis-adapter");
-    const { Redis } = require("ioredis");
 
-    pubClient = new Redis(redisUrl, {
-      maxRetriesPerRequest: 1,
-      enableOfflineQueue: false,
-      connectTimeout: 3000,
-      lazyConnect: true,
-      retryStrategy: () => null,
-    });
+    pubClient = new Redis(redisUrl, buildRedisOptions());
     subClient = pubClient.duplicate();
 
     pubClient.on("error", (error) => {
@@ -103,9 +165,11 @@ async function attachRedisAdapter(io) {
     console.log("Socket.IO Redis adapter enabled");
     return true;
   } catch (error) {
-    // if (isProd) {
-    //   throw new Error(`CRITICAL: Failed to initialize Socket.IO Redis adapter in production: ${error.message}`);
-    // }
+    if (isProduction()) {
+      throw new Error(
+        `CRITICAL: Failed to initialize Socket.IO Redis adapter in production: ${error.message}`,
+      );
+    }
 
     commonLogs.error(
       "Failed to initialize Socket.IO Redis adapter — falling back to in-memory adapter",
@@ -147,14 +211,17 @@ async function shutdownRedisAdapter() {
     ? [redisClients.pubClient, redisClients.subClient]
     : [];
   if (sharedRedisClient) clients.push(sharedRedisClient);
+  if (rateLimitRedisClient) clients.push(rateLimitRedisClient);
 
   await Promise.allSettled(clients.map((client) => client.quit()));
   redisClients = null;
   sharedRedisClient = null;
+  rateLimitRedisClient = null;
 }
 
 module.exports = {
   getSharedRedisClient,
+  getRateLimitRedisClient,
   attachRedisAdapter,
   shutdownRedisAdapter,
 };

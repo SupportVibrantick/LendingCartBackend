@@ -93,8 +93,8 @@ module.exports = async function markFundedRoute(fastify) {
           });
         }
 
-        const loan = await prisma.loanApplication.findUnique({
-          where: { id: loanId },
+        const loan = await prisma.loanApplication.findFirst({
+          where: { id: loanId, brokerOrgId },
           include: loanIncludeForFunding,
         });
 
@@ -102,13 +102,6 @@ module.exports = async function markFundedRoute(fastify) {
           return reply.code(404).send({
             success: false,
             message: "Loan application not found",
-          });
-        }
-
-        if (loan.brokerOrgId !== brokerOrgId) {
-          return reply.code(403).send({
-            success: false,
-            message: "You do not have access to this loan",
           });
         }
 

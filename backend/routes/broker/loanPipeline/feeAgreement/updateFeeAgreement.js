@@ -49,9 +49,14 @@ module.exports = async function (fastify) {
           });
         }
 
+        // 📥 Fetch agreement scoped to broker org (admins can use any)
+        const isPlatformAdmin = Array.isArray(req.user.roles)
+          ? req.user.roles.includes("PLATFORM_ADMIN")
+          : req.user.role === "PLATFORM_ADMIN";
+
         if (
           req.user.orgType !== "BROKER" &&
-          req.user.role !== "PLATFORM_ADMIN"
+          !isPlatformAdmin
         ) {
           return reply.code(403).send({
             ok: false,
@@ -59,10 +64,14 @@ module.exports = async function (fastify) {
           });
         }
 
-        // 📥 Fetch agreement
-        const agreement = await prisma.feeAgreement.findUnique({
-          where: { id },
-        });
+        const agreement = isPlatformAdmin
+          ? await prisma.feeAgreement.findUnique({ where: { id } })
+          : await prisma.feeAgreement.findFirst({
+              where: {
+                id,
+                brokerOrgId: req.user.organizationId,
+              },
+            });
 
         if (!agreement) {
           return reply.code(404).send({

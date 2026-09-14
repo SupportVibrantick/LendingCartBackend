@@ -98,7 +98,7 @@ async function loanAiCheckoutRoutes(fastify) {
         const user = req.loanAiUser;
         const ip = getClientIp(req);
 
-        const userLimit = checkRateLimit(`loan-ai-checkout:user:${user.id}`, {
+        const userLimit = await checkRateLimit(`loan-ai-checkout:user:${user.id}`, {
           windowMs: DUPLICATE_WINDOW_MS,
           max: 5,
         });
@@ -111,7 +111,7 @@ async function loanAiCheckoutRoutes(fastify) {
           });
         }
 
-        const ipLimit = checkRateLimit(`loan-ai-checkout:ip:${ip}`, {
+        const ipLimit = await checkRateLimit(`loan-ai-checkout:ip:${ip}`, {
           windowMs: DUPLICATE_WINDOW_MS,
           max: 20,
         });
@@ -475,7 +475,7 @@ async function loanAiCheckoutRoutes(fastify) {
         }
 
         const ip = getClientIp(req);
-        const userLimit = checkRateLimit(
+        const userLimit = await checkRateLimit(
           `loan-ai-checkout-sync:user:${req.loanAiUser.id}`,
           { windowMs: 60 * 1000, max: 10 },
         );
@@ -487,7 +487,7 @@ async function loanAiCheckoutRoutes(fastify) {
             retryAfterSec: userLimit.retryAfterSec,
           });
         }
-        const ipLimit = checkRateLimit(`loan-ai-checkout-sync:ip:${ip}`, {
+        const ipLimit = await checkRateLimit(`loan-ai-checkout-sync:ip:${ip}`, {
           windowMs: 60 * 1000,
           max: 30,
         });

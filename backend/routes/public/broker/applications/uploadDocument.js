@@ -59,10 +59,9 @@ async function uploadDocumentRoute(fastify) {
         }
 
         if (!submission.application.publicSourcePortal) {
-          return reply.code(403).send({
+          return reply.code(404).send({
             success: false,
-            message:
-              "Submission is not eligible for public document upload",
+            message: "Submission not found",
           });
         }
 

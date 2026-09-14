@@ -10,9 +10,10 @@ module.exports = async function adminMeRoute(fastify, opts) {
       return reply.code(500).send({ ok: false, message: "Server misconfiguration: auth middleware missing" });
     }
 
-    // call the actual authenticate decorator
-    // If authenticate sends a reply (401), it ends the request lifecycle automatically.
-    return fastify.authenticate(req, reply);
+    await fastify.authenticate(req, reply);
+    if (reply.sent) return;
+    const roleChecker = fastify.requireRole(["PLATFORM_ADMIN"]);
+    return roleChecker(req, reply);
   };
 
   fastify.get(

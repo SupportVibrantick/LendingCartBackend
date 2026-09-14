@@ -1,6 +1,7 @@
 const path = require("path");
 const fs = require("fs");
 const { pipeline } = require("stream/promises");
+const { validateFileMimetype } = require("../../../utils/security/fileValidator");
 const {
   resolveCoBrokerBranding,
 } = require("../../../utils/broker/resolveCoBrokerBranding");
@@ -71,6 +72,22 @@ async function updateSubBrokerProfileRoutes(fastify) {
           }
 
           if (part.type === "file" && part.fieldname === "profileImage") {
+            const allowedMimeTypes = [
+              "image/jpeg",
+              "image/png",
+              "image/webp",
+            ];
+            const validation = await validateFileMimetype(
+              part.file,
+              allowedMimeTypes,
+            );
+            if (!validation.isValid) {
+              return reply.code(400).send({
+                success: false,
+                message: `Invalid file type. Detected: ${validation.detectedMime || "unknown"}. Only JPG, PNG, WEBP images allowed`,
+              });
+            }
+
             const uploadDir = path.join(
               process.cwd(),
               "public/uploads/profile",
@@ -80,11 +97,16 @@ async function updateSubBrokerProfileRoutes(fastify) {
               fs.mkdirSync(uploadDir, { recursive: true });
             }
 
-            const ext = path.extname(part.filename) || ".png";
+            const ext =
+              validation.detectedMime === "image/png"
+                ? ".png"
+                : validation.detectedMime === "image/webp"
+                  ? ".webp"
+                  : ".jpg";
             const fileName = `${userId}-${Date.now()}${ext}`;
             const filePath = path.join(uploadDir, fileName);
 
-            await pipeline(part.file, fs.createWriteStream(filePath));
+            await pipeline(validation.stream, fs.createWriteStream(filePath));
 
             profileImage = `/public/uploads/profile/${fileName}`;
           }

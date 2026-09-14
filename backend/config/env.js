@@ -207,6 +207,10 @@ function getSocketIoCorsOptions() {
   };
 }
 
+function isProduction() {
+  return process.env.NODE_ENV === "production";
+}
+
 function isRedisEnabled() {
   return envFlag("REDIS_ENABLED", false);
 }
@@ -224,6 +228,80 @@ function validateRedisEnvIfEnabled() {
   if (!getRedisUrl()) {
     throw new Error("REDIS_ENABLED=true requires REDIS_URL");
   }
+}
+
+/**
+ * Production requires Redis for multi-instance Socket.IO + shared rate limits.
+ */
+function validateRedisRequiredInProduction() {
+  if (!isProduction()) {
+    return;
+  }
+
+  if (!isRedisEnabled()) {
+    throw new Error(
+      "REDIS_ENABLED must be true in production (shared rate limits + Socket.IO)",
+    );
+  }
+
+  if (!getRedisUrl()) {
+    throw new Error("REDIS_URL is required in production");
+  }
+}
+
+function getDatabaseConnectionLimit() {
+  const raw = process.env.DATABASE_CONNECTION_LIMIT;
+  const fallback = isProduction() ? 10 : 5;
+  const value = raw ? Number(raw) : fallback;
+  return Number.isFinite(value) && value > 0 ? Math.floor(value) : fallback;
+}
+
+function getDatabasePoolTimeoutSec() {
+  const raw = process.env.DATABASE_POOL_TIMEOUT;
+  const value = raw ? Number(raw) : 20;
+  return Number.isFinite(value) && value > 0 ? Math.floor(value) : 20;
+}
+
+/**
+ * Append Prisma pool params to DATABASE_URL when not already present.
+ */
+function getDatabaseUrl() {
+  const base = requireEnv("DATABASE_URL");
+  const connectionLimit = getDatabaseConnectionLimit();
+  const poolTimeout = getDatabasePoolTimeoutSec();
+
+  try {
+    const url = new URL(base);
+    if (!url.searchParams.has("connection_limit")) {
+      url.searchParams.set("connection_limit", String(connectionLimit));
+    }
+    if (!url.searchParams.has("pool_timeout")) {
+      url.searchParams.set("pool_timeout", String(poolTimeout));
+    }
+    return url.toString();
+  } catch {
+    const sep = base.includes("?") ? "&" : "?";
+    const parts = [];
+    if (!/[?&]connection_limit=/.test(base)) {
+      parts.push(`connection_limit=${connectionLimit}`);
+    }
+    if (!/[?&]pool_timeout=/.test(base)) {
+      parts.push(`pool_timeout=${poolTimeout}`);
+    }
+    return parts.length ? `${base}${sep}${parts.join("&")}` : base;
+  }
+}
+
+function getAuditLogRetentionDays() {
+  const raw = process.env.AUDIT_LOG_RETENTION_DAYS;
+  const value = raw ? Number(raw) : 90;
+  return Number.isFinite(value) && value > 0 ? Math.floor(value) : 90;
+}
+
+function getAuditLogPayloadMaxBytes() {
+  const raw = process.env.AUDIT_LOG_PAYLOAD_MAX_BYTES;
+  const value = raw ? Number(raw) : 8 * 1024;
+  return Number.isFinite(value) && value > 0 ? Math.floor(value) : 8 * 1024;
 }
 
 function validateCommonEnv() {
@@ -281,8 +359,9 @@ function validateApiEnv() {
   validateKafkaEnvIfEnabled();
   validateGhlEnvIfEnabled();
   validateRedisEnvIfEnabled();
+  validateRedisRequiredInProduction();
 
-  if (process.env.NODE_ENV === "production") {
+  if (isProduction()) {
     getSocketCorsOrigins();
   }
 }
@@ -292,6 +371,8 @@ function validateWorkerEnv() {
   validateEmailEnvIfEnabled();
   validateKafkaEnvIfEnabled();
   validateGhlEnvIfEnabled();
+  validateRedisEnvIfEnabled();
+  validateRedisRequiredInProduction();
 
   if (!envFlag("ENABLE_CRONS", false)) {
     throw new Error(
@@ -308,6 +389,7 @@ function getUploadMaxBytes() {
 
 module.exports = {
   envFlag,
+  isProduction,
   isEmailEnabled,
   isKafkaEnabled,
   isGhlEnabled,
@@ -326,7 +408,13 @@ module.exports = {
   collectSocketCorsOrigins,
   getSocketCorsDomainSuffixes,
   getRedisUrl,
+  getDatabaseUrl,
+  getDatabaseConnectionLimit,
+  getDatabasePoolTimeoutSec,
+  getAuditLogRetentionDays,
+  getAuditLogPayloadMaxBytes,
   getUploadMaxBytes,
   validateApiEnv,
   validateWorkerEnv,
+  validateRedisRequiredInProduction,
 };

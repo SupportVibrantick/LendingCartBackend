@@ -26,7 +26,7 @@ async function loanAiBrokerSetupLinkRoutes(fastify) {
       const user = req.loanAiUser;
       const ip = getClientIp(req);
 
-      const userLimit = checkRateLimit(
+      const userLimit = await checkRateLimit(
         `loan-ai-broker-setup:user:${user.id}`,
         { windowMs: 60 * 1000, max: 8 },
       );
@@ -38,7 +38,7 @@ async function loanAiBrokerSetupLinkRoutes(fastify) {
         });
       }
 
-      const ipLimit = checkRateLimit(`loan-ai-broker-setup:ip:${ip}`, {
+      const ipLimit = await checkRateLimit(`loan-ai-broker-setup:ip:${ip}`, {
         windowMs: 60 * 1000,
         max: 20,
       });

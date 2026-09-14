@@ -1613,8 +1613,10 @@ model FeeAgreement {
   @@map("fee_agreements")
 }
 
+/// Monthly RANGE-partitioned audit table (PK includes createdAt for PG partitioning).
+/// Retention: AUDIT_LOG_RETENTION_DAYS (default 90) via worker cron.
 model AuditLog {
-  id           String        @id @default(uuid()) @db.Uuid
+  id           String        @default(uuid()) @db.Uuid
   actorUserId  String?       @db.Uuid
   actorOrgId   String?       @db.Uuid
   dashboard    DashboardType
@@ -1630,6 +1632,7 @@ model AuditLog {
   actorOrg     Organization? @relation("OrgAuditLogs", fields: [actorOrgId], references: [id])
   actorUser    UserAccount?  @relation("UserAuditLogs", fields: [actorUserId], references: [id])
 
+  @@id([id, createdAt])
   @@index([actorOrgId])
   @@index([dashboard])
   @@index([createdAt])

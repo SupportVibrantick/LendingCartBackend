@@ -48,19 +48,25 @@ module.exports = async function (fastify) {
           });
         }
 
-        if (
-          req.user.orgType !== "BROKER" &&
-          req.user.role !== "PLATFORM_ADMIN"
-        ) {
+        const isPlatformAdmin = Array.isArray(req.user.roles)
+          ? req.user.roles.includes("PLATFORM_ADMIN")
+          : req.user.role === "PLATFORM_ADMIN";
+
+        if (req.user.orgType !== "BROKER" && !isPlatformAdmin) {
           return reply.code(403).send({
             ok: false,
             message: "Only broker/admin can update agreement",
           });
         }
 
-        const agreement = await prisma.feeAgreement.findUnique({
-          where: { id },
-        });
+        const agreement = isPlatformAdmin
+          ? await prisma.feeAgreement.findUnique({ where: { id } })
+          : await prisma.feeAgreement.findFirst({
+              where: {
+                id,
+                brokerOrgId: req.user.organizationId,
+              },
+            });
 
         if (!agreement) {
           return reply.code(404).send({

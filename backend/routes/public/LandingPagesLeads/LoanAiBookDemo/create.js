@@ -47,7 +47,7 @@ module.exports = async function (fastify) {
 
     try {
       const ip = getClientIp(req);
-      const limit = checkRateLimit(`loan-ai-book-demo:${ip}`, {
+      const limit = await checkRateLimit(`loan-ai-book-demo:${ip}`, {
         windowMs: 15 * 60 * 1000,
         max: 8,
       });
