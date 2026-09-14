@@ -138,6 +138,66 @@ module.exports = async function (fastify) {
           });
         }
 
+        const isPlatformAdmin = Array.isArray(req.user.roles)
+          ? req.user.roles.includes("PLATFORM_ADMIN")
+          : req.user.role === "PLATFORM_ADMIN";
+        const userId = req.user.userId || req.user.id;
+        const orgId = req.user.organizationId;
+
+        // Enforce tenant scope before returning any agreement payload.
+        if (!isPlatformAdmin) {
+          if (req.user.orgType === "BROKER") {
+            if (
+              agreement.brokerOrgId !== orgId &&
+              agreement.loanApplication?.brokerOrgId !== orgId
+            ) {
+              return reply.code(404).send({
+                ok: false,
+                message: "Fee Agreement not found",
+              });
+            }
+          } else if (
+            req.user.role === "CLIENT_USER" ||
+            req.user.roles?.includes?.("CLIENT_USER")
+          ) {
+            if (agreement.loanApplication?.clientId !== req.user.clientId) {
+              return reply.code(404).send({
+                ok: false,
+                message: "Fee Agreement not found",
+              });
+            }
+          } else if (
+            req.user.role === "BROKER_OFFICER" ||
+            req.user.roles?.includes?.("BROKER_OFFICER")
+          ) {
+            if (agreement.loanApplication?.brokerOrgId !== orgId) {
+              return reply.code(404).send({
+                ok: false,
+                message: "Fee Agreement not found",
+              });
+            }
+          } else if (
+            req.user.role === "SUB_BROKER" ||
+            req.user.roles?.includes?.("SUB_BROKER")
+          ) {
+            const assigned =
+              agreement.loanApplication?.subBrokerAssignments?.some(
+                (item) => item.subBrokerId === userId,
+              );
+            if (!assigned) {
+              return reply.code(404).send({
+                ok: false,
+                message: "Fee Agreement not found",
+              });
+            }
+          } else {
+            return reply.code(404).send({
+              ok: false,
+              message: "Fee Agreement not found",
+            });
+          }
+        }
+
         const loanApplication = agreement.loanApplication;
         const refreshedAgreement = await refreshDraftFeeAgreementIfNeeded(
           prisma,
@@ -265,97 +325,11 @@ module.exports = async function (fastify) {
         );
 
         /* ===============================
-           ROLE ACCESS
+           ROLE ACCESS (tenant already scoped above)
         =============================== */
-
-        // PLATFORM ADMIN
-        if (
-          req.user.role === "PLATFORM_ADMIN"
-        ) {
-          return reply.send({
-            ok: true,
-            data: responseData,
-          });
-        }
-
-        // BROKER ACCESS
-        if (req.user.orgType === "BROKER") {
-          return reply.send({
-            ok: true,
-            data: responseData,
-          });
-        }
-
-        // CLIENT ACCESS
-        if (req.user.role === "CLIENT_USER") {
-          if (
-            agreement.loanApplication
-              ?.clientId !==
-            req.user.clientId
-          ) {
-            return reply.code(403).send({
-              ok: false,
-              message: "Access denied",
-            });
-          }
-
-          return reply.send({
-            ok: true,
-            data: responseData,
-          });
-        }
-
-        // LOAN OFFICER ACCESS
-        if (
-          req.user.role === "BROKER_OFFICER"
-        ) {
-          if (
-            agreement.loanApplication
-              ?.brokerUser?.id !==
-            req.user.id
-          ) {
-            return reply.code(403).send({
-              ok: false,
-              message: "Access denied",
-            });
-          }
-
-          return reply.send({
-            ok: true,
-            data: responseData,
-          });
-        }
-
-        // SUB BROKER ACCESS
-        if (
-          req.user.role === "SUB_BROKER"
-        ) {
-          const assigned =
-            agreement.loanApplication?.subBrokerAssignments?.some(
-              (item) =>
-                item.subBrokerId ===
-                req.user.id,
-            );
-
-          if (!assigned) {
-            return reply.code(403).send({
-              ok: false,
-              message: "Access denied",
-            });
-          }
-
-          return reply.send({
-            ok: true,
-            data: responseData,
-          });
-        }
-
-        /* ===============================
-           DEFAULT DENY
-        =============================== */
-        return reply.code(403).send({
-          ok: false,
-          message: "Forbidden",
+        return reply.send({
+          ok: true,
+          data: responseData,
         });
       } catch (err) {
         req.log.error(err);

@@ -56,8 +56,12 @@ module.exports = async function updateLenderUser(fastify) {
         const lenderOrgId = req.user.organizationId;
         const { firstName, lastName, role } = req.body;
 
-        const existingUser = await prisma.userAccount.findUnique({
-          where: { id },
+        const existingUser = await prisma.userAccount.findFirst({
+          where: {
+            id,
+            organizationId: lenderOrgId,
+            isDeleted: false,
+          },
           include: {
             roles: {
               include: { role: true },
@@ -65,17 +69,10 @@ module.exports = async function updateLenderUser(fastify) {
           },
         });
 
-        if (!existingUser || existingUser.isDeleted) {
+        if (!existingUser) {
           return reply.code(404).send({
             success: false,
             message: "Team member not found",
-          });
-        }
-
-        if (existingUser.organizationId !== lenderOrgId) {
-          return reply.code(403).send({
-            success: false,
-            message: "Cannot update a user from another organization",
           });
         }
 

@@ -21,6 +21,7 @@ const {
   ALLOWED_MIME_TYPES,
   writeSignAssetFromStream,
 } = require("./signForm/storage");
+const { validateFileMimetype } = require("../../utils/security/fileValidator");
 const {
   resolveDiskPathFromPublicUrl,
 } = require("./signForm/pageManifest");
@@ -322,20 +323,39 @@ async function uploadBrokerSignDocument(
       throw err;
     }
 
+    const validation = await validateFileMimetype(
+      part.file,
+      Array.from(ALLOWED_MIME_TYPES),
+    );
+    if (!validation.isValid) {
+      const err = new Error(
+        `Invalid file type. Detected: ${validation.detectedMime || "unknown"}. Only PDF or image files are allowed`,
+      );
+      err.statusCode = 400;
+      throw err;
+    }
+
+    const detectedMime = validation.detectedMime || part.mimetype;
     const ext =
       path.extname(part.filename || "") ||
-      (part.mimetype === "application/pdf" ? ".pdf" : "");
+      (detectedMime === "application/pdf"
+        ? ".pdf"
+        : detectedMime === "image/png"
+          ? ".png"
+          : detectedMime === "image/webp"
+            ? ".webp"
+            : ".jpg");
     const safeFileName = `${crypto.randomBytes(16).toString("hex")}${ext}`;
     const stored = await writeSignAssetFromStream({
       relativeParts: ["loan-documents", loanApplicationId, "sign-templates"],
       filename: safeFileName,
-      stream: part.file,
-      mimeType: part.mimetype,
+      stream: validation.stream,
+      mimeType: detectedMime,
     });
 
     uploadedFileMeta = {
       filename: part.filename || documentName || "Sign Document",
-      mimetype: part.mimetype,
+      mimetype: detectedMime,
       templateFileUrl: stored.publicUrl,
     };
   }

@@ -16,30 +16,59 @@ async function listLenderProductRoutes(fastify) {
         summary: "List all lender product mappings",
       },
     },
-    async (_, reply) => {
+    async (req, reply) => {
       const prisma = fastify.prisma;
+      const { parsePagination } = require("../../../utils/pagination");
+      const { skip, take, page, limit } = parsePagination(req.query);
 
       try {
-        const result = await prisma.lenderProduct.findMany({
-          include: {
-            lender: true,
-            loanProduct: true,
-            lenderDocumentRequirements: {
-              include: {
-                documentType: {
-                  select: {
-                    id: true,
-                    name: true,
-                    code: true,
-                    isCustom: true,
-                  },
+        const [result, total] = await Promise.all([
+          prisma.lenderProduct.findMany({
+            skip,
+            take,
+            select: {
+              id: true,
+              lenderOrgId: true,
+              loanProductCode: true,
+              isEnabled: true,
+              createdAt: true,
+              updatedAt: true,
+              lender: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true,
+                  status: true,
                 },
               },
-              orderBy: { sortOrder: "asc" },
+              loanProduct: {
+                select: {
+                  code: true,
+                  name: true,
+                },
+              },
+              lenderDocumentRequirements: {
+                select: {
+                  id: true,
+                  documentTypeId: true,
+                  isRequired: true,
+                  sortOrder: true,
+                  documentType: {
+                    select: {
+                      id: true,
+                      name: true,
+                      code: true,
+                      isCustom: true,
+                    },
+                  },
+                },
+                orderBy: { sortOrder: "asc" },
+              },
             },
-          },
-          orderBy: { createdAt: "desc" },
-        });
+            orderBy: { createdAt: "desc" },
+          }),
+          prisma.lenderProduct.count(),
+        ]);
 
         const formatted = result.map((item) =>
           normalizeLenderProductForAdminApi(item, {
@@ -52,6 +81,9 @@ async function listLenderProductRoutes(fastify) {
         return reply.send({
           success: true,
           count: formatted.length,
+          total,
+          page,
+          limit,
           data: formatted,
         });
       } catch (error) {

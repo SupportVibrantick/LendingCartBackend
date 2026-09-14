@@ -140,10 +140,14 @@ module.exports = async function (fastify) {
         }
 
         const userId = req.user.id || req.user.userId;
-        if (agreement.loanApplication?.brokerUserId !== userId) {
-          return reply.code(403).send({
+        const orgId = req.user.organizationId;
+        if (
+          agreement.loanApplication?.brokerOrgId !== orgId ||
+          agreement.loanApplication?.brokerUserId !== userId
+        ) {
+          return reply.code(404).send({
             ok: false,
-            message: "Access denied - not assigned to you",
+            message: "Fee Agreement not found",
           });
         }
 

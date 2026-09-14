@@ -8,7 +8,10 @@ module.exports = async function adminUpdateProfileRoute(fastify) {
     if (typeof fastify.authenticate !== "function") {
       return reply.code(500).send({ ok: false, message: "Auth middleware missing" });
     }
-    return fastify.authenticate(req, reply);
+    await fastify.authenticate(req, reply);
+    if (reply.sent) return;
+    const roleChecker = fastify.requireRole(["PLATFORM_ADMIN"]);
+    return roleChecker(req, reply);
   };
 
   fastify.put(
