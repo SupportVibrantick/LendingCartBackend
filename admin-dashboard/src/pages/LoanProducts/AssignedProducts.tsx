@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import axios from "axios";
 import { createPortal } from "react-dom";
 import { Eye, FileText, Loader2, Plus, SearchX } from "lucide-react";
@@ -12,6 +12,7 @@ import {
   formatLoanProductName,
 } from "../../lib/loanProductListDisplay";
 import { resolveLenderOfferedProductCode } from "../../lib/canonicalLoanProducts";
+import { useDebouncedValue } from "../../hooks/useDebouncedValue";
 
 /* ================= API ================= */
 const api = axios.create({
@@ -174,6 +175,11 @@ const PRODUCT_LABELS: Record<string, string> = {
 
 const TABLE_COL_COUNT = 10;
 
+type LenderOption = {
+  id: string;
+  name: string;
+};
+
 /* ================= COMPONENT ================= */
 const AssignedProducts: React.FC = () => {
   const navigate = useNavigate();
@@ -183,9 +189,13 @@ const AssignedProducts: React.FC = () => {
 
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
 
   const [selectedLender, setSelectedLender] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const debouncedSearch = useDebouncedValue(searchQuery.trim(), 350);
+  const [lenders, setLenders] = useState<LenderOption[]>([]);
 
   const [viewId, setViewId] = useState<string | null>(null);
   const [detail, setDetail] = useState<Record<string, unknown> | null>(null);
@@ -237,98 +247,120 @@ const AssignedProducts: React.FC = () => {
     };
   };
 
-  const fetchAssignments = async () => {
-    try {
-      setLoading(true);
-      const res = await api.get("/admin/lender-products/read");
-      const list = Array.isArray(res.data?.data)
-        ? res.data.data
-        : res.data?.data?.results || [];
+  const buildDetailFromRow = (row: Record<string, unknown>) => ({
+    ...row,
+    loanProductCode: resolveLenderOfferedProductCode(
+      (row.loanProduct as { code?: string } | undefined)?.code ||
+        String(row.loanProductCode || ""),
+    ),
+    businessTypes: Array.isArray(row.businessTypes) ? row.businessTypes : [],
+    propertyTypes: Array.isArray(row.propertyTypes) ? row.propertyTypes : [],
+    statesSupported: normalizeArray(row.statesSupported),
+    equipmentTypes: normalizeArray(row.equipmentTypes),
+    documents: mapDocuments(row.documents ?? row.lenderDocumentRequirements),
+  });
 
-      setAssignments(list.map((row: Record<string, unknown>) => mapApiRow(row)));
+  const fetchLenders = useCallback(async () => {
+    try {
+      const res = await api.get("/admin/lenders/read", {
+        params: { page: 1, limit: 100 },
+      });
+      const list = res.data?.data?.results || [];
+      const options: LenderOption[] = list
+        .map((o: { id?: string; organizationName?: string }) => ({
+          id: String(o.id || ""),
+          name: String(o.organizationName || "").trim(),
+        }))
+        .filter((o: LenderOption) => o.id && o.name)
+        .sort((a: LenderOption, b: LenderOption) =>
+          a.name.localeCompare(b.name),
+        );
+      setLenders(options);
     } catch (err) {
-      console.error("Failed to fetch assignments", err);
-    } finally {
-      setLoading(false);
+      console.error("Failed to fetch lenders", err);
     }
-  };
+  }, []);
+
+  const fetchAssignments = useCallback(
+    async (signal?: AbortSignal) => {
+      try {
+        setLoading(true);
+        const params: Record<string, string | number> = {
+          page: currentPage,
+          limit: pageSize,
+        };
+        if (debouncedSearch) params.search = debouncedSearch;
+        if (selectedLender) params.lenderOrgId = selectedLender;
+
+        const res = await api.get("/admin/lender-products/read", {
+          params,
+          signal,
+        });
+        const list = Array.isArray(res.data?.data)
+          ? res.data.data
+          : res.data?.data?.results || [];
+
+        setAssignments(
+          list.map((row: Record<string, unknown>) => mapApiRow(row)),
+        );
+        setTotal(Number(res.data?.total ?? list.length));
+        setTotalPages(
+          Math.max(
+            1,
+            Number(res.data?.totalPages) ||
+              Math.ceil(Number(res.data?.total || list.length) / pageSize) ||
+              1,
+          ),
+        );
+      } catch (err: unknown) {
+        if (
+          axios.isCancel(err) ||
+          (err &&
+            typeof err === "object" &&
+            "code" in err &&
+            (err as { code?: string }).code === "ERR_CANCELED")
+        ) {
+          return;
+        }
+        console.error("Failed to fetch assignments", err);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [currentPage, debouncedSearch, pageSize, selectedLender],
+  );
 
   useEffect(() => {
-    fetchAssignments();
-  }, []);
+    fetchLenders();
+  }, [fetchLenders]);
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [selectedLender, searchQuery]);
+  }, [debouncedSearch, selectedLender, pageSize]);
 
-  const fetchAssignmentDetail = async (id: string) => {
+  useEffect(() => {
+    const controller = new AbortController();
+    fetchAssignments(controller.signal);
+    return () => controller.abort();
+  }, [fetchAssignments]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) setCurrentPage(totalPages);
+  }, [currentPage, totalPages]);
+
+  const openAssignmentDetail = (assignment: AssignedProduct) => {
+    setViewId(assignment.id);
+    setDetailLoading(true);
+    setDetail(null);
     try {
-      setDetailLoading(true);
-      setDetail(null);
-
-      const res = await api.get("/admin/lender-products/read");
-      const list = Array.isArray(res.data?.data)
-        ? res.data.data
-        : res.data?.data?.results || [];
-
-      const found = list.find((x: { id: string }) => x.id === id);
-      if (!found) {
-        setDetail(null);
-        return;
-      }
-
-      setDetail({
-        ...found,
-        loanProductCode: resolveLenderOfferedProductCode(
-          (found.loanProduct as { code?: string } | undefined)?.code ||
-            String(found.loanProductCode || ""),
-        ),
-        businessTypes: Array.isArray(found.businessTypes) ? found.businessTypes : [],
-        propertyTypes: Array.isArray(found.propertyTypes) ? found.propertyTypes : [],
-        statesSupported: normalizeArray(found.statesSupported),
-        equipmentTypes: normalizeArray(found.equipmentTypes),
-        documents: mapDocuments(
-          found.documents ?? found.lenderDocumentRequirements,
-        ),
-      });
-    } catch (err) {
-      console.error("Failed to fetch detail", err);
+      setDetail(buildDetailFromRow(assignment.raw || {}));
     } finally {
       setDetailLoading(false);
     }
   };
 
-  const lenders = useMemo(
-    () =>
-      Array.from(new Set(assignments.map((a) => a.lenderName).filter((n) => n && n !== "-"))).sort(),
-    [assignments],
-  );
-
-  const filteredAssignments = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
-    return assignments.filter((a) => {
-      if (selectedLender && a.lenderName !== selectedLender) return false;
-      if (!q) return true;
-      const haystack = [
-        a.lenderName,
-        a.productName,
-        a.productCode,
-        productCodeLabel(a.productCode),
-        a.interestRateRange,
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
-      return haystack.includes(q);
-    });
-  }, [assignments, selectedLender, searchQuery]);
-
-  const totalPages = Math.ceil(filteredAssignments.length / pageSize) || 1;
-
-  const paginatedAssignments = useMemo(() => {
-    const start = (currentPage - 1) * pageSize;
-    return filteredAssignments.slice(start, start + pageSize);
-  }, [filteredAssignments, currentPage, pageSize]);
+  const showingFrom = total === 0 ? 0 : (currentPage - 1) * pageSize + 1;
+  const showingTo = Math.min(currentPage * pageSize, total);
 
   const scrollToTop = () => {
     tableTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -355,7 +387,8 @@ const AssignedProducts: React.FC = () => {
                 Assigned Lender Products
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                {filteredAssignments.length} assignment{filteredAssignments.length === 1 ? "" : "s"} with loan criteria
+                {total} assignment{total === 1 ? "" : "s"} with loan criteria
+                {debouncedSearch ? ` · “${debouncedSearch}”` : ""}
               </p>
             </div>
           </div>
@@ -377,8 +410,8 @@ const AssignedProducts: React.FC = () => {
               >
                 <option value="">All Lenders</option>
                 {lenders.map((l) => (
-                  <option key={l} value={l}>
-                    {l}
+                  <option key={l.id} value={l.id}>
+                    {l.name}
                   </option>
                 ))}
               </select>
@@ -394,7 +427,7 @@ const AssignedProducts: React.FC = () => {
             </button>
 
             <button
-              onClick={fetchAssignments}
+              onClick={() => fetchAssignments()}
               disabled={loading}
               className="flex items-center gap-2 rounded-lg bg-[#13538A] px-4 py-2 text-xs text-white shadow-sm transition-all hover:bg-blue-700 disabled:opacity-50"
             >
@@ -406,7 +439,6 @@ const AssignedProducts: React.FC = () => {
               value={pageSize}
               onChange={(e) => {
                 setPageSize(Number(e.target.value));
-                setCurrentPage(1);
                 scrollToTop();
               }}
               className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-slate-900 transition-all hover:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500/30 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
@@ -445,7 +477,7 @@ const AssignedProducts: React.FC = () => {
                     </div>
                   </td>
                 </tr>
-              ) : filteredAssignments.length === 0 ? (
+              ) : assignments.length === 0 ? (
                 <tr>
                   <td colSpan={TABLE_COL_COUNT} className="py-8">
                     <div className="flex flex-col items-center justify-center gap-2 text-amber-600 dark:text-amber-400">
@@ -464,7 +496,7 @@ const AssignedProducts: React.FC = () => {
                   </td>
                 </tr>
               ) : (
-                paginatedAssignments.map((a) => {
+                assignments.map((a) => {
                   const states = formatStatesSummary(a.statesSupported);
                   const productLike = {
                     ...(a.raw || {}),
@@ -551,10 +583,7 @@ const AssignedProducts: React.FC = () => {
 
                       <td className="py-3 pr-2 text-xs">
                         <button
-                          onClick={() => {
-                            setViewId(a.id);
-                            fetchAssignmentDetail(a.id);
-                          }}
+                          onClick={() => openAssignmentDetail(a)}
                           className="group rounded-lg bg-blue-50 p-2 transition-all duration-200 hover:bg-blue-100 dark:bg-blue-500/10 dark:hover:bg-blue-500/20"
                           title="View details"
                         >
@@ -569,20 +598,20 @@ const AssignedProducts: React.FC = () => {
           </table>
         </div>
 
-        {filteredAssignments.length > 0 && (
+        {total > 0 && (
           <div className="mt-6 flex flex-col items-center justify-between gap-4 sm:flex-row">
             <div className="text-sm text-slate-600 dark:text-slate-400">
               Showing{" "}
               <span className="font-semibold text-slate-900 dark:text-slate-100">
-                {(currentPage - 1) * pageSize + 1}
+                {showingFrom}
               </span>{" "}
               to{" "}
               <span className="font-semibold text-slate-900 dark:text-slate-100">
-                {Math.min(currentPage * pageSize, filteredAssignments.length)}
+                {showingTo}
               </span>{" "}
               of{" "}
               <span className="font-semibold text-slate-900 dark:text-slate-100">
-                {filteredAssignments.length}
+                {total}
               </span>{" "}
               results
             </div>
@@ -608,7 +637,7 @@ const AssignedProducts: React.FC = () => {
                   setCurrentPage((p) => Math.min(p + 1, totalPages));
                   scrollToTop();
                 }}
-                disabled={currentPage === totalPages}
+                disabled={currentPage >= totalPages}
                 className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
               >
                 Next

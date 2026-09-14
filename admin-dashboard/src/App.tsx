@@ -51,6 +51,7 @@ import AddFields from "./pages/TemplateBuilder/AddFields";
 import AddSection from "./pages/TemplateBuilder/AddSection";
 import AddAppSection from "./pages/ApplicationBuilder/AddSection";
 import LoanPipeline from "./pages/LoanPipeline/LoanPipeline";
+import ApplicationDetail from "./pages/LoanPipeline/ApplicationDetail";
 import BrokerPortal from "./pages/ViewPortal/BrokerPortal";
 import LenderPortal from "./pages/ViewPortal/LenderPortal";
 import SystemSettings from "./pages/SystemSettings/SystemSettings";
@@ -156,6 +157,10 @@ export default function App() {
             />
             <Route index path="/all-super-admins" element={<AllSuperadmin />} />
             <Route index path="/loan-pipeline" element={<LoanPipeline />} />
+            <Route
+              path="/loan-pipeline/detail"
+              element={<ApplicationDetail />}
+            />
 
             <Route index path="/all-documents" element={<AllDocuments />} />
             <Route index path="/all-subscriptions" element={<AllSubscriptions />} />

@@ -6,7 +6,9 @@ import { FaUserGroup } from "react-icons/fa6";
 import { ChevronDownIcon, GridIcon, HorizontaLDots } from "../../../icons";
 import { useSidebar } from "../../../context/SidebarContext";
 import {
+  CO_BROKER_API_BASE,
   CO_BROKER_PORTAL_LABEL,
+  CO_BROKER_PROFILE_UPDATED_EVENT,
   CO_BROKER_USER_KEY,
   clearCoBrokerSession,
   exitCoBrokerImpersonation,
@@ -16,6 +18,7 @@ import {
   resolveCoBrokerLogoUrl,
   type CoBrokerBranding,
 } from "../../../lib/coBrokerPortal";
+import { buildApiPublicFileUrl } from "../../../lib/publicFileUrl";
 
 type NavItem = {
   icon?: React.ReactNode;
@@ -81,6 +84,8 @@ export default function Sidebar() {
   const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({});
   const [displayName, setDisplayName] = useState("Co-Broker");
   const [userEmail, setUserEmail] = useState("");
+  const [profileImage, setProfileImage] = useState<string | null>(null);
+  const [avatarFailed, setAvatarFailed] = useState(false);
   const [branding, setBranding] = useState<CoBrokerBranding>(
     readStoredCoBrokerBranding(),
   );
@@ -103,15 +108,23 @@ export default function Sidebar() {
             "Co-Broker",
         );
         setUserEmail(user?.email || "");
+        setProfileImage(user?.profileImage || null);
+        setAvatarFailed(false);
       } catch {
         setDisplayName("Co-Broker");
         setUserEmail("");
+        setProfileImage(null);
+        setAvatarFailed(false);
       }
     };
 
     updateUser();
     window.addEventListener("storage", updateUser);
-    return () => window.removeEventListener("storage", updateUser);
+    window.addEventListener(CO_BROKER_PROFILE_UPDATED_EVENT, updateUser);
+    return () => {
+      window.removeEventListener("storage", updateUser);
+      window.removeEventListener(CO_BROKER_PROFILE_UPDATED_EVENT, updateUser);
+    };
   }, []);
 
   const initials = useMemo(
@@ -124,6 +137,13 @@ export default function Sidebar() {
         .toUpperCase() || "CB",
     [displayName],
   );
+
+  const avatarSrc = useMemo(() => {
+    if (!profileImage || avatarFailed) return null;
+    const remote = buildApiPublicFileUrl(CO_BROKER_API_BASE, profileImage);
+    if (!remote) return null;
+    return `${remote}${remote.includes("?") ? "&" : "?"}v=${encodeURIComponent(profileImage)}`;
+  }, [profileImage, avatarFailed]);
 
   const isActive = useCallback(
     (path?: string) => {
@@ -343,8 +363,17 @@ export default function Sidebar() {
         <div className="shrink-0 border-b border-gray-100 px-4 py-4 dark:border-gray-800">
           <div className="overflow-hidden rounded-2xl border border-[#13538A]/10 bg-gradient-to-br from-[#13538A]/5 via-white to-[#2C92D5]/5 p-3 dark:border-[#13538A]/20 dark:from-[#13538A]/10 dark:via-gray-950 dark:to-[#2C92D5]/10">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#13538A] text-xs font-bold text-white">
-                {initials}
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[#13538A] text-xs font-bold text-white">
+                {avatarSrc ? (
+                  <img
+                    src={avatarSrc}
+                    alt={displayName}
+                    className="h-full w-full bg-slate-50 object-contain"
+                    onError={() => setAvatarFailed(true)}
+                  />
+                ) : (
+                  initials
+                )}
               </div>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-semibold text-gray-900 dark:text-white">

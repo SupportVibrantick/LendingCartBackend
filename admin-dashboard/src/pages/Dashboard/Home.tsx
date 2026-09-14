@@ -32,7 +32,6 @@ type Stats = {
     breakdown?: { status: string; _count: number }[];
   };
   conversations?: { total?: number };
-  latestApplications?: any[];
 };
 
 // const quickLinks = [
@@ -208,7 +207,7 @@ export default function Home() {
           </div> */}
         {/* </div> */}
 
-        <LatestApplicationsTable applications={stats?.latestApplications || []} />
+        <LatestApplicationsTable />
       </div>
     </>
   );

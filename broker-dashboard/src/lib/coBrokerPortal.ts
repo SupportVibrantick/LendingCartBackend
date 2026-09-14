@@ -11,6 +11,7 @@ export const CO_BROKER_USER_KEY = "sub_broker_user";
 export const CO_BROKER_BRANDING_KEY = "co_broker_branding";
 export const BROKER_IMPERSONATOR_TOKEN_KEY = "broker_impersonator_token";
 export const BROKER_IMPERSONATOR_USER_KEY = "broker_impersonator_user";
+export const CO_BROKER_PROFILE_UPDATED_EVENT = "co-broker-profile-updated";
 
 export const CO_BROKER_API_BASE =
   import.meta.env.VITE_API_BASE || "http://localhost:4000";

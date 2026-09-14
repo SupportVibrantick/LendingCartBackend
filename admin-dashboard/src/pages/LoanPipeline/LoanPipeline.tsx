@@ -1,10 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { createPortal } from "react-dom";
+import { useNavigate } from "react-router";
 import {
   Eye,
   Search,
-  Loader2,
   ChevronLeft,
   ChevronRight,
   Building2,
@@ -12,18 +12,14 @@ import {
   TrendingUp,
   RefreshCw,
   SearchX,
-  FileText,
-  ExternalLink,
 } from "lucide-react";
 import { ADMIN_API_BASE } from "../../lib/adminApi";
+import { useDebouncedValue } from "../../hooks/useDebouncedValue";
+import { openLoanPipelineDetail } from "../../lib/loanPipelineNavigation";
 import {
-  formatEntityTypeLabel,
-  parseFieldValue,
   resolveBorrowerName,
   resolveEntityType,
   resolveLoanAmount,
-  resolvePurpose,
-  resolveTermLabel,
 } from "../../lib/loanPipelineUtils";
 
 /* ================= TYPES ================= */
@@ -96,20 +92,34 @@ function formatShortDate(value?: string) {
 
 function formatStatusLabel(status?: string) {
   if (!status) return "Unknown";
-  const cleaned = status.replace("LENDER_", "");
-  if (cleaned === "DECLINED") return "Rejected";
-  if (cleaned === "CLIENT_PENDING") return "Client Pending";
-  if (cleaned === "IN_REVIEW") return "In Review";
-  return cleaned.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  if (status === "APPROVED" || status === "LENDER_APPROVED" || status === "AUTO_APPROVED") {
+    return "Approved";
+  }
+  if (status === "FUNDED") return "Funded";
+  if (
+    status === "DECLINED" ||
+    status === "REJECTED" ||
+    status === "LENDER_DECLINED" ||
+    status === "AUTO_DECLINED"
+  ) {
+    return "Rejected";
+  }
+  if (status === "CLIENT_PENDING") return "Client Pending";
+  if (status === "IN_REVIEW") return "In Review";
+  if (status === "LENDER_SELECTED") return "Lender Selected";
+  return status.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 function getApplicationStatusColor(status: string) {
   if (!status) return "bg-slate-100 text-slate-700 border-slate-200";
 
-  const cleaned = status.replace("LENDER_", "");
+  const cleaned = status
+    .replace(/^LENDER_/, "")
+    .replace(/^AUTO_/, "");
 
   switch (cleaned) {
     case "APPROVED":
+    case "FUNDED":
       return "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20";
     case "DECLINED":
     case "REJECTED":
@@ -117,6 +127,7 @@ function getApplicationStatusColor(status: string) {
     case "IN_REVIEW":
       return "bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-500/10 dark:text-indigo-400 dark:border-indigo-500/20";
     case "SUBMITTED":
+    case "SELECTED":
     case "SENT":
       return "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/20";
     case "CLIENT_PENDING":
@@ -181,155 +192,105 @@ function getInitials(name: string) {
 
 /* ================= COMPONENT ================= */
 export default function LoanPipeline() {
+  const navigate = useNavigate();
   const [rows, setRows] = useState<TableRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const debouncedSearch = useDebouncedValue(searchTerm.trim(), 350);
   const [statusFilter, setStatusFilter] = useState("");
-  const [viewSubmissionId, setViewSubmissionId] = useState<string | null>(null);
-  const [submissionDetail, setSubmissionDetail] = useState<any>(null);
-  const [detailLoading, setDetailLoading] = useState(false);
   const [viewLenders, setViewLenders] = useState<LenderItem[] | null>(null);
   const [activeActionId, setActiveActionId] = useState<string | null>(null);
   const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0 });
   const dropdownRef = useRef<HTMLDivElement | null>(null);
 
   const [currentPage, setCurrentPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalVolume, setTotalVolume] = useState(0);
+  const [statusCounts, setStatusCounts] = useState<Record<string, number>>({});
+  const [countsTotal, setCountsTotal] = useState(0);
+  const [inReviewCount, setInReviewCount] = useState(0);
+  const [approvedCount, setApprovedCount] = useState(0);
   const rowsPerPage = 8;
 
-  const InfoCard = ({ label, value }: { label: string; value: any }) => (
-    <div className="rounded-xl border border-slate-100 bg-slate-50 p-4 transition-colors dark:border-slate-700 dark:bg-slate-800/60">
-      <p className="mb-1 text-xs text-slate-500">{label}</p>
-      <p className="text-sm font-semibold">{value || "-"}</p>
-    </div>
-  );
+  const loadSubmissions = useCallback(
+    async (signal?: AbortSignal) => {
+      try {
+        setLoading(true);
 
-  const formatFieldKey = (key: string | null | undefined) => {
-    if (!key) return "";
-    return key
-      .replace(/([a-z])([A-Z])/g, "$1 $2")
-      .replace(/_/g, " ")
-      .replace(/\s+/g, " ")
-      .trim()
-      .replace(/\b\w/g, (char) => char.toUpperCase());
-  };
+        const params = new URLSearchParams({
+          page: String(currentPage),
+          limit: String(rowsPerPage),
+        });
+        if (debouncedSearch) params.set("search", debouncedSearch);
+        if (statusFilter) params.set("status", statusFilter);
 
-  const statusCounts = rows.reduce<Record<string, number>>((acc, row) => {
-    const key = row.applicationStatus || "UNKNOWN";
-    acc[key] = (acc[key] || 0) + 1;
-    return acc;
-  }, {});
+        const res = await fetch(
+          `${ADMIN_API_BASE}/admin/loan-pipeline?${params.toString()}`,
+          {
+            headers: getAuthHeaders(),
+            signal,
+          },
+        );
 
-  // const approvedCount = rows.filter((r) => r.applicationStatus === "APPROVED").length;
-  // const inReviewCount = rows.filter(
-  //   (r) => r.applicationStatus === "IN_REVIEW" || r.applicationStatus === "SUBMITTED",
-  // ).length;
-  // const totalVolume = rows.reduce((sum, r) => sum + (r.amount ?? 0), 0);
+        const json = await res.json();
 
-  const fetchApplicationDetail = async (applicationId: string) => {
-    try {
-      setDetailLoading(true);
-      setViewSubmissionId(applicationId);
+        if (!res.ok || !json.success) {
+          throw new Error(json.message || "Failed to load loan pipeline");
+        }
 
-      const res = await fetch(`${ADMIN_API_BASE}/admin/loan-pipeline/${applicationId}`, {
-        headers: getAuthHeaders(),
-      });
+        const mappedRows: TableRow[] = (json.data || []).map((item: any) => {
+          const lender = item.lenders?.[0];
 
-      const json = await res.json();
+          return {
+            applicationId: item.applicationId,
+            applicationNumber: item.applicationNumber,
+            borrowerName: resolveBorrowerName(item),
+            entityType: resolveEntityType(item),
+            loanType: item.loanProductCode,
+            amount: resolveLoanAmount(item),
+            applicationStatus: item.status,
+            brokerName: item.broker?.name || "-",
+            lenderStatus: lender?.lenderStatus || "-",
+            sentAt: lender?.sentAt || null,
+            createdAt: item.createdAt,
+            lenders: item.lenders || [],
+          };
+        });
 
-      if (!res.ok || !json.success) {
-        throw new Error(json.message || "Failed to load application");
+        setRows(mappedRows);
+        setTotal(json.pagination?.total ?? json.total ?? mappedRows.length);
+        setTotalPages(json.pagination?.totalPages || 1);
+        setTotalVolume(Number(json.summary?.totalAmount || 0));
+        setStatusCounts(json.summary?.statusCounts || {});
+        setCountsTotal(
+          Number(
+            json.summary?.countsTotal ??
+              json.pagination?.total ??
+              mappedRows.length,
+          ),
+        );
+        setInReviewCount(Number(json.summary?.inReviewCount || 0));
+        setApprovedCount(Number(json.summary?.approvedCount || 0));
+      } catch (err: any) {
+        if (err?.name === "AbortError") return;
+        toast.error(err.message || "Something went wrong");
+      } finally {
+        setLoading(false);
       }
-
-      setSubmissionDetail(json.data);
-    } catch (err: any) {
-      toast.error(err.message || "Failed to load application");
-      setViewSubmissionId(null);
-    } finally {
-      setDetailLoading(false);
-    }
-  };
-
-  const loadSubmissions = async () => {
-    try {
-      setLoading(true);
-
-      const res = await fetch(`${ADMIN_API_BASE}/admin/loan-pipeline`, {
-        headers: getAuthHeaders(),
-      });
-
-      const json = await res.json();
-
-      if (!res.ok || !json.success) {
-        throw new Error(json.message || "Failed to load loan pipeline");
-      }
-
-      const mappedRows: TableRow[] = json.data.map((item: any) => {
-        const lender = item.lenders?.[0];
-
-        return {
-          applicationId: item.applicationId,
-          applicationNumber: item.applicationNumber,
-          borrowerName: resolveBorrowerName(item),
-          entityType: resolveEntityType(item),
-          loanType: item.loanProductCode,
-          amount: resolveLoanAmount(item),
-          applicationStatus: item.status,
-          brokerName: item.broker?.name || "-",
-          lenderStatus: lender?.lenderStatus || "-",
-          sentAt: lender?.sentAt || null,
-          createdAt: item.createdAt,
-          lenders: item.lenders || [],
-        };
-      });
-
-      setRows(mappedRows);
-    } catch (err: any) {
-      toast.error(err.message || "Something went wrong");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadSubmissions();
-  }, []);
-
-  const filteredRows = rows.filter((r) => {
-    const q = searchTerm.trim().toLowerCase();
-    const matchesSearch =
-      !q ||
-      r.borrowerName.toLowerCase().includes(q) ||
-      r.applicationNumber.toLowerCase().includes(q) ||
-      r.brokerName.toLowerCase().includes(q);
-
-    const matchesStatus = !statusFilter || r.applicationStatus === statusFilter;
-
-    return matchesSearch && matchesStatus;
-  });
-
-  const filteredVolume = filteredRows.reduce(
-    (sum, r) => sum + (r.amount ?? 0),
-    0,
+    },
+    [currentPage, debouncedSearch, statusFilter],
   );
-
-  const filteredApprovedCount = filteredRows.filter(
-    (r) => r.applicationStatus === "APPROVED",
-  ).length;
-  const filteredInReviewCount = filteredRows.filter(
-    (r) =>
-      r.applicationStatus === "IN_REVIEW" || r.applicationStatus === "SUBMITTED",
-  ).length;
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, statusFilter]);
+  }, [debouncedSearch, statusFilter]);
 
-  const totalPages = Math.ceil(filteredRows.length / rowsPerPage) || 1;
-
-  const paginatedRows = filteredRows.slice(
-    (currentPage - 1) * rowsPerPage,
-    currentPage * rowsPerPage,
-  );
+  useEffect(() => {
+    const controller = new AbortController();
+    loadSubmissions(controller.signal);
+    return () => controller.abort();
+  }, [loadSubmissions]);
 
   useEffect(() => {
     if (currentPage > totalPages && totalPages > 0) {
@@ -358,8 +319,12 @@ export default function LoanPipeline() {
   }, []);
 
   const openRowPreview = (applicationId: string) => {
-    fetchApplicationDetail(applicationId);
+    openLoanPipelineDetail(navigate, applicationId);
   };
+
+  const hasActiveFilters = Boolean(debouncedSearch || statusFilter);
+  const showingFrom = total === 0 ? 0 : (currentPage - 1) * rowsPerPage + 1;
+  const showingTo = Math.min(currentPage * rowsPerPage, total);
 
   return (
     <div className="mx-auto w-full min-w-0 max-w-[1400px] space-y-6 text-slate-900 dark:text-slate-100">
@@ -373,18 +338,19 @@ export default function LoanPipeline() {
             </div>
             <h1 className="text-2xl font-semibold tracking-tight">Loan Pipeline</h1>
             <p className="mt-1 max-w-2xl text-sm text-white/80">
-              {filteredRows.length} application{filteredRows.length === 1 ? "" : "s"}
-              {statusFilter ? ` · ${formatStatusLabel(statusFilter)}` : ""} ·{" "}
-              {formatCompactAmount(filteredVolume)} total volume
+              {total} application{total === 1 ? "" : "s"}
+              {statusFilter ? ` · ${formatStatusLabel(statusFilter)}` : ""}
+              {debouncedSearch ? ` · “${debouncedSearch}”` : ""} ·{" "}
+              {formatCompactAmount(totalVolume)} total volume
             </p>
           </div>
 
           <div className="grid w-full grid-cols-2 gap-3 sm:grid-cols-4 xl:w-[min(100%,520px)] xl:shrink-0">
             {[
-              { label: "Total Apps", value: rows.length },
-              { label: "In Review", value: filteredInReviewCount },
-              { label: "Approved", value: filteredApprovedCount },
-              { label: "Volume", value: formatCompactAmount(filteredVolume) },
+              { label: "Total Apps", value: countsTotal },
+              { label: "In Review", value: inReviewCount },
+              { label: "Approved", value: approvedCount },
+              { label: "Volume", value: formatCompactAmount(totalVolume) },
             ].map(({ label, value }) => (
               <div
                 key={label}
@@ -413,7 +379,7 @@ export default function LoanPipeline() {
 
           <button
             type="button"
-            onClick={loadSubmissions}
+            onClick={() => loadSubmissions()}
             disabled={loading}
             className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
           >
@@ -424,7 +390,7 @@ export default function LoanPipeline() {
 
         <div className="mt-4 flex flex-wrap gap-2">
           {STATUS_FILTERS.map(({ value, label }) => {
-            const count = value ? statusCounts[value] || 0 : rows.length;
+            const count = value ? statusCounts[value] || 0 : countsTotal;
             const active = statusFilter === value;
 
             return (
@@ -460,7 +426,11 @@ export default function LoanPipeline() {
               Applications
             </h2>
             <p className="text-xs text-slate-500">
-              {loading ? "Loading..." : `${filteredRows.length} shown`}
+              {loading
+                ? "Loading..."
+                : total === 0
+                  ? "0 shown"
+                  : `Showing ${showingFrom}–${showingTo} of ${total}`}
             </p>
           </div>
         </div>
@@ -508,8 +478,8 @@ export default function LoanPipeline() {
                     </td>
                   </tr>
                 ))
-              ) : paginatedRows.length > 0 ? (
-                paginatedRows.map((row) => (
+              ) : rows.length > 0 ? (
+                rows.map((row) => (
                   <tr
                     key={row.applicationId}
                     className="group transition hover:bg-[#13538A]/[0.03] dark:hover:bg-slate-800/50"
@@ -644,7 +614,7 @@ export default function LoanPipeline() {
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setActiveActionId(null);
-                                fetchApplicationDetail(row.applicationId);
+                                openRowPreview(row.applicationId);
                               }}
                               className="flex w-full items-center gap-3 px-4 py-3 text-sm text-[#13538A] hover:bg-slate-50 dark:hover:bg-slate-800"
                             >
@@ -665,14 +635,14 @@ export default function LoanPipeline() {
                         <SearchX className="h-6 w-6" />
                       </div>
                       <h3 className="text-base font-semibold text-slate-900 dark:text-white">
-                        {rows.length === 0
-                          ? "No loan applications yet"
-                          : "No matching applications"}
+                        {hasActiveFilters
+                          ? "No matching applications"
+                          : "No loan applications yet"}
                       </h3>
                       <p className="mt-2 text-sm text-slate-500">
-                        {rows.length === 0
-                          ? "Applications will appear here once brokers submit them."
-                          : "Try a different search or clear your filters."}
+                        {hasActiveFilters
+                          ? "Try a different search or clear your filters."
+                          : "Applications will appear here once brokers submit them."}
                       </p>
                     </div>
                   </td>
@@ -681,23 +651,22 @@ export default function LoanPipeline() {
             </tbody>
           </table>
 
-          {filteredRows.length > rowsPerPage && (
+          {totalPages > 1 && (
             <div className="flex flex-col gap-3 border-t border-slate-200 px-6 py-4 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between lg:px-8">
               <p className="text-sm text-slate-500 dark:text-slate-400">
                 Showing{" "}
                 <span className="font-medium text-slate-800 dark:text-slate-100">
-                  {(currentPage - 1) * rowsPerPage + 1}–
-                  {Math.min(currentPage * rowsPerPage, filteredRows.length)}
+                  {showingFrom}–{showingTo}
                 </span>{" "}
                 of{" "}
                 <span className="font-medium text-slate-800 dark:text-slate-100">
-                  {filteredRows.length}
+                  {total}
                 </span>
               </p>
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  disabled={currentPage === 1}
+                  disabled={currentPage === 1 || loading}
                   onClick={() => setCurrentPage((page) => Math.max(page - 1, 1))}
                   aria-label="Previous page"
                   className="rounded-lg border border-slate-200 p-2 transition hover:bg-slate-100 disabled:opacity-40 dark:border-slate-700 dark:hover:bg-slate-800"
@@ -717,6 +686,7 @@ export default function LoanPipeline() {
                     <button
                       key={page}
                       type="button"
+                      disabled={loading}
                       onClick={() => setCurrentPage(page)}
                       aria-current={currentPage === page ? "page" : undefined}
                       className={`min-w-8 rounded-lg px-2.5 py-1.5 text-sm font-medium transition ${
@@ -731,7 +701,7 @@ export default function LoanPipeline() {
                 )}
                 <button
                   type="button"
-                  disabled={currentPage === totalPages}
+                  disabled={currentPage === totalPages || loading}
                   onClick={() =>
                     setCurrentPage((page) => Math.min(page + 1, totalPages))
                   }
@@ -745,236 +715,6 @@ export default function LoanPipeline() {
           )}
         </div>
       </div>
-
-      {/* Application detail modal */}
-      {viewSubmissionId &&
-        createPortal(
-          <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm dark:bg-black/70">
-            <div className="flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-800 dark:bg-[#0f172a]">
-              <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white/95 px-6 py-4 backdrop-blur-md dark:border-slate-800 dark:bg-[#0f172a]/95">
-                <h2 className="text-lg font-bold">Application Details</h2>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setViewSubmissionId(null);
-                    setSubmissionDetail(null);
-                  }}
-                  className="rounded-lg bg-red-50 px-3 py-1 text-sm text-red-600 dark:bg-red-500/10 dark:text-red-400"
-                >
-                  Close
-                </button>
-              </div>
-
-              <div className="overflow-y-auto">
-                {detailLoading ? (
-                  <div className="flex items-center justify-center py-20">
-                    <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
-                  </div>
-                ) : submissionDetail ? (
-                  <div className="space-y-8 p-6">
-                    <div className="grid gap-6 md:grid-cols-3">
-                      <InfoCard
-                        label="Application #"
-                        value={submissionDetail.applicationNumber}
-                      />
-                      <InfoCard
-                        label="Status"
-                        value={formatStatusLabel(submissionDetail.status)}
-                      />
-                      <InfoCard
-                        label="Loan Product"
-                        value={formatLoanType(submissionDetail.loanProductCode)}
-                      />
-                      <InfoCard
-                        label="Borrower"
-                        value={resolveBorrowerName(submissionDetail)}
-                      />
-                      <InfoCard
-                        label="Entity Type"
-                        value={formatEntityTypeLabel(
-                          submissionDetail.entityType ||
-                            resolveEntityType(submissionDetail),
-                        )}
-                      />
-                      <InfoCard
-                        label="Broker"
-                        value={submissionDetail.brokerOrg?.name || "-"}
-                      />
-                      <InfoCard
-                        label="Amount"
-                        value={
-                          resolveLoanAmount(submissionDetail) != null
-                            ? formatCompactAmount(resolveLoanAmount(submissionDetail)!)
-                            : "-"
-                        }
-                      />
-                      <InfoCard
-                        label="Term (Months)"
-                        value={resolveTermLabel(submissionDetail) || "-"}
-                      />
-                      <InfoCard
-                        label="Purpose"
-                        value={resolvePurpose(submissionDetail) || "-"}
-                      />
-                    </div>
-
-                    {(submissionDetail.lenders?.length > 0 ||
-                      submissionDetail.applicationLenders?.length > 0) && (
-                      <div>
-                        <h3 className="mb-4 font-semibold text-slate-700 dark:text-slate-300">
-                          Assigned Lenders
-                        </h3>
-                        <div className="grid gap-3 md:grid-cols-2">
-                          {(submissionDetail.lenders ||
-                            submissionDetail.applicationLenders?.map((al: any) => ({
-                              lenderOrgId: al.lenderOrgId,
-                              lenderName: al.lender?.name,
-                              lenderProduct: al.lenderProduct?.loanProductCode,
-                              lenderStatus: al.status,
-                              sentAt: al.sentAt,
-                              decision: al.lenderReviews?.[0]?.decision,
-                            })) ||
-                            []
-                          ).map((lender: LenderItem & { decision?: string }) => (
-                            <div
-                              key={lender.lenderOrgId}
-                              className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800"
-                            >
-                              <p className="font-semibold text-slate-900 dark:text-slate-100">
-                                {lender.lenderName || "Lender"}
-                              </p>
-                              <p className="mt-1 text-xs text-slate-500">
-                                {formatLoanType(lender.lenderProduct)}
-                              </p>
-                              <div className="mt-3 flex flex-wrap items-center gap-2">
-                                <span
-                                  className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase ${getApplicationStatusColor(lender.lenderStatus)}`}
-                                >
-                                  {formatStatusLabel(lender.lenderStatus)}
-                                </span>
-                                {lender.decision && (
-                                  <span className="text-[10px] text-slate-500">
-                                    Decision: {formatStatusLabel(lender.decision)}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {submissionDetail.documentUploads?.length > 0 && (
-                      <div>
-                        <h3 className="mb-4 font-semibold text-slate-700 dark:text-slate-300">
-                          Documents
-                        </h3>
-                        <div className="space-y-2">
-                          {submissionDetail.documentUploads.map((doc: any) => (
-                            <div
-                              key={doc.id}
-                              className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-800"
-                            >
-                              <div className="flex min-w-0 items-center gap-3">
-                                <FileText className="h-4 w-4 shrink-0 text-slate-400" />
-                                <div className="min-w-0">
-                                  <p className="truncate text-sm font-medium text-slate-800 dark:text-slate-100">
-                                    {doc.fileName}
-                                  </p>
-                                  <p className="text-xs text-slate-500">
-                                    {formatShortDate(doc.uploadedAt)}
-                                  </p>
-                                </div>
-                              </div>
-                              {doc.fileUrl && (
-                                <a
-                                  href={doc.fileUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-[#13538A] hover:underline"
-                                >
-                                  View
-                                  <ExternalLink className="h-3 w-3" />
-                                </a>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    <div>
-                      <h3 className="mb-4 font-semibold text-slate-700 dark:text-slate-300">
-                        Submission Details
-                      </h3>
-                      {(() => {
-                        const fields = submissionDetail.submissions?.[0]?.fields || [];
-                        const hiddenKeys = new Set([
-                          "borrowerSignature",
-                          "signature",
-                          "applicantSignature",
-                        ]);
-                        const normalFields = fields.filter((f: any) => {
-                          const key = f.builderField?.fieldKey || f.fieldKey;
-                          return key && !hiddenKeys.has(key);
-                        });
-                        const signatureField = fields.find((f: any) => {
-                          const key = f.builderField?.fieldKey || f.fieldKey;
-                          return hiddenKeys.has(key);
-                        });
-
-                        return (
-                          <>
-                            {normalFields.length > 0 ? (
-                              <div className="grid gap-4 md:grid-cols-2">
-                                {normalFields.map((field: any) => {
-                                  const fieldKey =
-                                    field.builderField?.fieldKey || field.fieldKey;
-                                  return (
-                                    <div
-                                      key={field.id}
-                                      className="rounded-lg bg-slate-50 p-3 dark:bg-slate-800"
-                                    >
-                                      <p className="mb-1 text-xs text-slate-500">
-                                        {formatFieldKey(fieldKey)}
-                                      </p>
-                                      <p className="break-words text-sm font-medium">
-                                        {parseFieldValue(field.value)}
-                                      </p>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            ) : (
-                              <p className="text-sm text-slate-500">
-                                No submission fields available.
-                              </p>
-                            )}
-                            {signatureField?.value && (
-                              <div className="mt-10 flex flex-col items-center">
-                                <p className="mb-3 text-sm font-semibold text-slate-600 dark:text-slate-300">
-                                  Borrower Signature
-                                </p>
-                                <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-                                  <img
-                                    src={String(signatureField.value)}
-                                    alt="Signature"
-                                    className="h-28 object-contain"
-                                  />
-                                </div>
-                              </div>
-                            )}
-                          </>
-                        );
-                      })()}
-                    </div>
-                  </div>
-                ) : null}
-              </div>
-            </div>
-          </div>,
-          document.body,
-        )}
 
       {/* Lenders modal */}
       {viewLenders &&
