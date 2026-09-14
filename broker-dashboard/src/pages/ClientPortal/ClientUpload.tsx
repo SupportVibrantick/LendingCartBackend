@@ -2640,6 +2640,7 @@ export default function ClientUpload() {
                   submittedDate={submittedDate}
                   formatStatusLabel={formatStatusLabel}
                   getStatusChipClass={getStatusStyles}
+                  hideSignature
                 />
 
                 {/* Client signature pad / signed state */}

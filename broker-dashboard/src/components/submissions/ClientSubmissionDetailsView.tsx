@@ -31,6 +31,8 @@ type ClientSubmissionDetailsViewProps = {
   getStatusChipClass?: (status?: string) => string;
   /** When true, only field accordion sections are rendered. */
   sectionsOnly?: boolean;
+  /** Hide embedded signature — parent already shows a dedicated signature panel. */
+  hideSignature?: boolean;
 };
 
 function InfoCell({
@@ -234,6 +236,7 @@ export default function ClientSubmissionDetailsView({
   netWorth,
   submittedDate,
   sectionsOnly = false,
+  hideSignature = false,
 }: ClientSubmissionDetailsViewProps) {
   const { sections, signatureField } = groupSubmissionFieldsForDisplay(fields);
   const loanProductCode =
@@ -398,7 +401,7 @@ export default function ClientSubmissionDetailsView({
       <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-4 shadow-[0_8px_30px_-20px_rgba(15,23,42,0.28)] sm:p-5">
         {sectionBlocks}
 
-        {signatureField && (
+        {signatureField && !hideSignature && (
           <div className="mt-5 border-t border-slate-100 pt-6 text-center">
             <p className="mb-4 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">
               Digital signature (on file)
