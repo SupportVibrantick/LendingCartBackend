@@ -70,10 +70,10 @@ export default function SignFormTemplates() {
   return (
     <>
       <PageMeta
-        title="Sign form templates | Loan Automation"
+        title="Form templates | Loan Automation"
         description="Reusable fillable sign-document templates"
       />
-      <PageBreadcrumb pageTitle="Sign form templates" />
+      <PageBreadcrumb pageTitle="Form templates" />
 
       <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
