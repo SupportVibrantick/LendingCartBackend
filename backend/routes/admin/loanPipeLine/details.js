@@ -84,6 +84,18 @@ async function getAdminApplicationDetails(fastify) {
               fileMimeType: true,
               uploadedAt: true,
               isSignedOutput: true,
+              documentRequirement: {
+                select: {
+                  signDocumentTitle: true,
+                  documentType: {
+                    select: {
+                      id: true,
+                      name: true,
+                      code: true,
+                    },
+                  },
+                },
+              },
             },
           },
           applicationLenders: {
@@ -268,7 +280,19 @@ async function getAdminApplicationDetails(fastify) {
             valueEstimated:
               c.valueEstimated != null ? Number(c.valueEstimated) : null,
           })),
-          documentUploads,
+          documentUploads: (documentUploads || []).map((doc) => ({
+            id: doc.id,
+            fileName: doc.fileName,
+            fileUrl: doc.fileUrl,
+            fileMimeType: doc.fileMimeType,
+            uploadedAt: doc.uploadedAt,
+            isSignedOutput: doc.isSignedOutput,
+            documentName:
+              doc.documentRequirement?.signDocumentTitle ||
+              doc.documentRequirement?.documentType?.name ||
+              null,
+            documentType: doc.documentRequirement?.documentType || null,
+          })),
         },
       });
     } catch (error) {

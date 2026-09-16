@@ -330,7 +330,7 @@ const tabMeta: Array<{ id: PreviewTab; label: string }> = [
   { id: "details", label: "View Details" },
   { id: "requestDocs", label: "Request Documents" },
   { id: "documents", label: "Uploaded Documents" },
-  { id: "signDocuments", label: "Upload Signable Forms" },
+  { id: "signDocuments", label: "Upload Forms" },
   { id: "loi", label: "View LOI" },
   { id: "chat", label: "Chat" },
 ];
@@ -2764,7 +2764,7 @@ export default function LoanPreview() {
           id: "signDocuments",
           label: getVisibleTabLabel(
             "signDocuments",
-            "Upload Signable Forms",
+            "Upload Forms",
           ),
           icon: FileText,
           color: "text-brand-600",

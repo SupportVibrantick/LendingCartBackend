@@ -1223,7 +1223,7 @@ export default function SignDocumentsPanel({
                 Client e-signature
               </p>
               <h2 className="mt-2 text-xl font-semibold tracking-tight text-slate-900">
-                {readOnly ? "Signable Forms" : "Upload Signable Forms"}
+                {readOnly ? "Signable Forms" : "Upload Forms"}
               </h2>
               <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-slate-600">
                 {readOnly
