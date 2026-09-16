@@ -2912,7 +2912,7 @@ dark:border-slate-800 dark:bg-slate-900"
 dark:bg-amber-900/20 dark:text-amber-300"
                         >
                           <p className="mb-1 font-semibold">
-                            Does not meet criteria:
+                              Why is it not eligible?
                           </p>
                           <ul className="list-disc space-y-0.5 pl-4">
                             {lender.rejectionReasons.map((reason) => (

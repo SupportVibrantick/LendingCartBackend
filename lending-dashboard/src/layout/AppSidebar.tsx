@@ -73,7 +73,7 @@ const navItems: NavItem[] = [
     matchPaths: ["/documents", "/sign-form-templates"],
     subItems: [
       { name: "Product documents", path: "/documents" },
-      { name: "Sign form templates", path: "/sign-form-templates" },
+      { name: "Form templates", path: "/sign-form-templates" },
     ],
   },
   {
