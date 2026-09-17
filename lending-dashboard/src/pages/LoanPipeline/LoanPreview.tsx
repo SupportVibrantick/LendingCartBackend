@@ -2927,11 +2927,24 @@ export default function LoanPreview() {
                     <User size={18} />
                   </div>
 
-                  <div className="flex min-w-0 flex-col leading-tight">
+                  <div
+                    className="group/broker relative flex min-w-0 flex-col leading-tight"
+                    tabIndex={0}
+                    aria-label={`Broker name: ${submissionDetail.loanApplication.brokerOrg.name}`}
+                  >
                     <span className="text-[10px] font-semibold uppercase tracking-wide text-brand-700 dark:text-brand-300">
                       Broker Name
                     </span>
-                    <span className="truncate text-base font-bold text-brand-950 dark:text-white">
+                    <span
+                      className="truncate text-base font-bold text-brand-950 dark:text-white"
+                      title={submissionDetail.loanApplication.brokerOrg.name}
+                    >
+                      {submissionDetail.loanApplication.brokerOrg.name}
+                    </span>
+                    <span
+                      role="tooltip"
+                      className="pointer-events-none absolute bottom-full left-0 z-50 mb-2 hidden w-max max-w-72 whitespace-normal rounded-lg bg-slate-950 px-3 py-2 text-xs font-medium leading-snug text-white shadow-xl group-hover/broker:block group-focus-within/broker:block dark:bg-white dark:text-slate-900"
+                    >
                       {submissionDetail.loanApplication.brokerOrg.name}
                     </span>
                   </div>

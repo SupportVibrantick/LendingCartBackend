@@ -64,6 +64,44 @@ type SubmissionDetailsViewProps = {
   showPdfDownload?: boolean;
 };
 
+const TOP_SUMMARY_FIELD_KEYS = new Set([
+  "applicationid",
+  "applicationnumber",
+  "applicationstatus",
+  "borrowerfirstname",
+  "borrowerlastname",
+  "borrowername",
+  "firstname",
+  "lastname",
+  "borroweremail",
+  "email",
+  "brokername",
+  "brokeremail",
+  "loanproduct",
+  "loanproductcode",
+  "loanprogram",
+  "amountrequested",
+  "loanamount",
+  "monthlypayment",
+  "ltv",
+  "ltvpercentage",
+  "ltc",
+  "ltcpercentage",
+  "arv",
+  "arvpercentage",
+  "dscr",
+  "dscrratio",
+  "networth",
+]);
+
+function isDisplayedInTopSummary(field: SubmissionDetailField) {
+  const normalizedKey = (field.fieldKey || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_-]+/g, "");
+  return TOP_SUMMARY_FIELD_KEYS.has(normalizedKey);
+}
+
 // ─── Sub-components ───────
 
 function InfoCell({
@@ -362,7 +400,13 @@ export default function SubmissionDetailsView({
     submissionDetail?.pipelineStatus === "FUNDED" ||
     submissionDetail?.status === "FUNDED";
 
-  const { sections, signatureField } = groupSubmissionFieldsForDisplay(fields);
+  const fieldsWithoutTopSummary = useMemo(
+    () => fields.filter((field) => !isDisplayedInTopSummary(field)),
+    [fields],
+  );
+  const { sections, signatureField } = groupSubmissionFieldsForDisplay(
+    fieldsWithoutTopSummary,
+  );
 
   const lenderDecisions = (submissionDetail?.lenders || [])
     .map((lender: LenderSummary) => {
