@@ -487,16 +487,22 @@ export function groupSubmissionFieldsForDisplay(
       ? field.sectionSortOrder ?? 600
       : heuristic.sortOrder;
 
-    if (!sectionMap.has(sectionId)) {
-      sectionMap.set(sectionId, {
-        id: sectionId,
+    const normalizedTitle = title.trim().toLowerCase();
+    const existingSectionWithTitle = Array.from(sectionMap.values()).find(
+      (section) => section.title.trim().toLowerCase() === normalizedTitle,
+    );
+    const resolvedSectionId = existingSectionWithTitle?.id || sectionId;
+
+    if (!sectionMap.has(resolvedSectionId)) {
+      sectionMap.set(resolvedSectionId, {
+        id: resolvedSectionId,
         title,
         sortOrder,
         fields: [],
       });
     }
 
-    sectionMap.get(sectionId)!.fields.push(field);
+    sectionMap.get(resolvedSectionId)!.fields.push(field);
   });
 
   const sections = Array.from(sectionMap.values())

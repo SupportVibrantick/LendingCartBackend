@@ -520,18 +520,6 @@ export default function LoanPreview() {
     };
   }, [loiUrl]);
 
-  const Metric = ({ label, value }: any) => {
-    return (
-      <div className="flex flex-col gap-1 border-r border-white/20 pr-4 last:border-none">
-        <span className="text-xs uppercase tracking-wider text-white/70 font-medium">
-          {label}
-        </span>
-
-        <span className="text-md font-bold tracking-tight">{value}</span>
-      </div>
-    );
-  };
-
   const fetchLoanProducts = async () => {
     try {
       setLoadingProducts(true);
@@ -801,7 +789,11 @@ export default function LoanPreview() {
   }, [applicationLenderId]);
 
   const canCreateLoi = useMemo(() => canGenerateLoi(), []);
-  const loiGenerated = Boolean(submissionDetail?.loiUrl);
+  const loiGenerated = Boolean(
+    submissionDetail?.loiUrl ||
+      submissionDetail?.loiSentToBrokerAt ||
+      loiVersions.length > 0,
+  );
   const loiSentToBroker = Boolean(submissionDetail?.loiSentToBrokerAt);
   const currentLoiVersion = loiVersions.find((v) => v.isCurrent);
   const nextRevisedVersionNumber =
@@ -1643,21 +1635,85 @@ export default function LoanPreview() {
       );
     }
 
+    const formatDetailMetric = (value: unknown, suffix = "") => {
+      if (value === undefined || value === null || value === "") return "-";
+      const numeric = Number(value);
+      if (!Number.isFinite(numeric) || numeric === 0) return String(value);
+      return `${numeric}${suffix}`;
+    };
+
+    const detailFieldValue = (key: string) =>
+      getFieldValueFromList(submissionFields, key);
+
+    const metrics = [
+      {
+        label: "Monthly Payment",
+        value: monthlyPaymentDisplay,
+      },
+      {
+        label: "LTV",
+        value: ltv
+          ? `${ltv.toFixed(2)}%`
+          : formatDetailMetric(detailFieldValue("ltvPercentage"), "%"),
+      },
+      {
+        label: "LTC",
+        value: ltc
+          ? `${ltc.toFixed(2)}%`
+          : formatDetailMetric(detailFieldValue("ltcPercentage"), "%"),
+      },
+      {
+        label: "ARV %",
+        value: arv
+          ? `${arv.toFixed(2)}%`
+          : formatDetailMetric(detailFieldValue("arvPercentage"), "%"),
+      },
+      {
+        label: "DSCR Ratio",
+        value: dscr
+          ? dscr.toFixed(2)
+          : formatDetailMetric(detailFieldValue("dscr")),
+      },
+      {
+        label: "Net Worth",
+        value: netWorth
+          ? `$${Number(netWorth).toLocaleString()}`
+          : formatDetailMetric(detailFieldValue("netWorth")),
+      },
+    ];
+
     return (
-      <LenderSubmissionDetailsView
-        applicationLender={submissionDetail}
-        fields={submissionFields}
-        loanAmount={loanAmount}
-        ltv={ltv}
-        ltc={ltc}
-        arv={arv}
-        dscr={dscr}
-        netWorth={netWorth}
-        monthlyPayment={monthlyPayment}
-        monthlyPaymentDisplay={monthlyPaymentDisplay}
-        submittedDate={submittedDate}
-        pdfBranding={pdfBranding}
-      />
+      <div className="space-y-5">
+        <section className="overflow-hidden rounded-2xl bg-[#183B57] px-6 py-6 text-white shadow-sm">
+          <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 xl:grid-cols-6">
+            {metrics.map((metric) => (
+              <div key={metric.label} className="min-w-0">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.13em] text-white/75">
+                  {metric.label}
+                </p>
+                <p className="mt-2 truncate text-base font-bold tabular-nums">
+                  {metric.value || "-"}
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <LenderSubmissionDetailsView
+          applicationLender={submissionDetail}
+          fields={submissionFields}
+          loanAmount={loanAmount}
+          ltv={ltv}
+          ltc={ltc}
+          arv={arv}
+          dscr={dscr}
+          netWorth={netWorth}
+          monthlyPayment={monthlyPayment}
+          monthlyPaymentDisplay={monthlyPaymentDisplay}
+          submittedDate={submittedDate}
+          pdfBranding={pdfBranding}
+        />
+      </div>
     );
   };
 
@@ -2073,7 +2129,7 @@ export default function LoanPreview() {
             LOAN PROGRAM
           </label>
 
-          <div className="relative">
+          <div className="relative w-full max-w-md">
             <select
               value={selectedLoanProduct}
               onChange={(e) => {
@@ -2694,21 +2750,6 @@ export default function LoanPreview() {
     );
   }
 
-  const getFieldValue = (key: string) => {
-    const value = getFieldValueFromList(submissionFields, key);
-    if (value === undefined || value === null || value === "") return undefined;
-    return value;
-  };
-
-  const formatMetricValue = (value: unknown, suffix = "") => {
-    if (value === undefined || value === null || value === "") return "-";
-    const numeric = Number(value);
-    if (!Number.isFinite(numeric) || numeric === 0) {
-      return String(value);
-    }
-    return `${numeric}${suffix}`;
-  };
-
   const availableTabIds = new Set(
     visibleTabs
       .filter((tab) => tab.id !== "loi" || showLoiTab)
@@ -2796,7 +2837,7 @@ export default function LoanPreview() {
   ] satisfies PreviewTabSection[]).filter((section) => section.items.length > 0);
 
   return (
-    <div className="h-dvh w-full overflow-x-hidden overflow-y-auto bg-slate-50 p-4 text-slate-900 dark:bg-[#0b1120] dark:text-slate-100 md:p-6">
+    <div className="h-dvh w-full overflow-x-hidden overflow-y-auto bg-slate-50 p-4 text-slate-900 dark:bg-[#0b1120] dark:text-slate-100 md:p-6 lg:pl-[264px]">
       <div className="mx-auto w-full max-w-[1600px] space-y-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div className="flex items-start justify-between flex-wrap gap-4">
@@ -2861,9 +2902,9 @@ export default function LoanPreview() {
         </div>
 
         {submissionDetail && (
-          <div className="mt-3 flex flex-wrap items-stretch gap-3 sm:gap-4 md:gap-5">
+          <div className="mt-3 grid w-full grid-cols-1 items-stretch gap-3 sm:grid-cols-2 lg:grid-cols-5">
             {/* BORROWER NAME */}
-            <div className="flex min-w-[200px] flex-1 items-center gap-3 rounded-2xl border border-brand-300 bg-gradient-to-br from-brand-100 to-brand-50 px-5 py-3 shadow-md ring-2 ring-brand-400/40 dark:border-brand-700 dark:from-brand-900/40 dark:to-brand-800/20 dark:ring-brand-500/35 sm:flex-none sm:flex-initial">
+            <div className="flex min-w-0 items-center gap-3 rounded-2xl border border-brand-300 bg-gradient-to-br from-brand-100 to-brand-50 px-5 py-3 shadow-md ring-2 ring-brand-400/40 dark:border-brand-700 dark:from-brand-900/40 dark:to-brand-800/20 dark:ring-brand-500/35">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-600 text-white shadow-sm">
                 <User size={18} />
               </div>
@@ -2881,7 +2922,7 @@ export default function LoanPreview() {
             {submissionDetail.loanApplication?.brokerOrg && (
               <>
                 {/* BROKER NAME */}
-                <div className="flex min-w-[200px] flex-1 items-center gap-3 rounded-2xl border border-brand-300 bg-gradient-to-br from-brand-100 to-brand-50 px-5 py-3 shadow-md ring-2 ring-brand-400/40 dark:border-brand-700 dark:from-brand-900/40 dark:to-brand-800/20 dark:ring-brand-500/35 sm:flex-none sm:flex-initial">
+                <div className="flex min-w-0 items-center gap-3 rounded-2xl border border-brand-300 bg-gradient-to-br from-brand-100 to-brand-50 px-5 py-3 shadow-md ring-2 ring-brand-400/40 dark:border-brand-700 dark:from-brand-900/40 dark:to-brand-800/20 dark:ring-brand-500/35">
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-600 text-white shadow-sm">
                     <User size={18} />
                   </div>
@@ -2897,7 +2938,7 @@ export default function LoanPreview() {
                 </div>
 
                 {/* EMAIL */}
-                <div className="flex min-w-[220px] flex-1 items-center gap-3 rounded-xl border border-brand-200 bg-gradient-to-r from-brand-50 to-brand-100 px-4 py-2.5 dark:border-brand-800 dark:from-brand-900/30 dark:to-brand-800/20 sm:flex-none sm:flex-initial">
+                <div className="flex min-w-0 items-center gap-3 rounded-xl border border-brand-200 bg-gradient-to-r from-brand-50 to-brand-100 px-4 py-2.5 dark:border-brand-800 dark:from-brand-900/30 dark:to-brand-800/20">
                   <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-500 text-white">
                     <MdEmail />
                   </div>
@@ -2915,7 +2956,7 @@ export default function LoanPreview() {
             )}
 
             {/* LOAN PRODUCT */}
-            <div className="flex min-w-[220px] flex-1 items-center gap-3 rounded-xl border border-brand-200 bg-gradient-to-r from-brand-50 to-brand-100 px-4 py-2.5 dark:border-brand-800 dark:from-brand-900/30 dark:to-brand-800/20 sm:flex-none sm:flex-initial">
+            <div className="flex min-w-0 items-center gap-3 rounded-xl border border-brand-200 bg-gradient-to-r from-brand-50 to-brand-100 px-4 py-2.5 dark:border-brand-800 dark:from-brand-900/30 dark:to-brand-800/20">
               <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-500 text-white text-xs font-bold">
                 <BiLogoProductHunt size={14} />
               </div>
@@ -2931,7 +2972,7 @@ export default function LoanPreview() {
             </div>
 
             {/* LOAN AMOUNT */}
-            <div className="flex min-w-[200px] flex-1 items-center gap-3 rounded-xl border border-brand-200 bg-gradient-to-r from-brand-50 to-brand-100 px-4 py-2.5 dark:border-brand-800 dark:from-brand-900/30 dark:to-brand-800/20 sm:flex-none sm:flex-initial">
+            <div className="flex min-w-0 items-center gap-3 rounded-xl border border-brand-200 bg-gradient-to-r from-brand-50 to-brand-100 px-4 py-2.5 dark:border-brand-800 dark:from-brand-900/30 dark:to-brand-800/20">
               <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-500 text-white">
                 <FaDollarSign />
               </div>
@@ -2950,71 +2991,32 @@ export default function LoanPreview() {
           </div>
         )}
 
-        {submissionDetail && (
-          <div
-            className="mb-6 overflow-hidden rounded-[30px] border border-white/30
-            bg-[radial-gradient(circle_at_top_left,_rgba(255,255,255,0.24),_transparent_28%),linear-gradient(135deg,_#0f2a3e_0%,_#183b57_55%,_#3e86b7_100%)]
-            px-6 py-8 text-white"
-          >
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-6">
-              <Metric
-                label="Monthly Payment"
-                value={monthlyPaymentDisplay}
-              />
-
-              <Metric
-                label="LTV"
-                value={
-                  ltv
-                    ? `${ltv.toFixed(2)}%`
-                    : `${formatMetricValue(getFieldValue("ltvPercentage"), "%")}`
-                }
-              />
-
-              <Metric
-                label="LTC"
-                value={
-                  ltc
-                    ? `${ltc.toFixed(2)}%`
-                    : `${formatMetricValue(getFieldValue("ltcPercentage"), "%")}`
-                }
-              />
-
-              <Metric
-                label="ARV %"
-                value={
-                  arv
-                    ? `${arv.toFixed(2)}%`
-                    : `${formatMetricValue(getFieldValue("arvPercentage"), "%")}`
-                }
-              />
-
-              <Metric
-                label="DSCR RATIO"
-                value={
-                  dscr
-                    ? dscr.toFixed(2)
-                    : formatMetricValue(getFieldValue("dscr"))
-                }
-              />
-
-              <Metric
-                label="NET WORTH"
-                value={
-                  netWorth
-                    ? `$${Number(netWorth).toLocaleString()}`
-                    : `$${formatMetricValue(getFieldValue("netWorth"))}`
-                }
-              />
+        <div className="flex flex-col gap-6 lg:block">
+          <aside className="w-full shrink-0 lg:fixed lg:inset-y-0 lg:left-0 lg:z-30 lg:flex lg:w-60 lg:flex-col lg:border-r lg:border-slate-200 lg:bg-white dark:lg:border-slate-800 dark:lg:bg-slate-900">
+            <div className="relative hidden shrink-0 overflow-hidden border-b border-slate-100 px-4 py-5 dark:border-slate-800 lg:block">
+              <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-brand-500/5 via-transparent to-brand-400/10 dark:from-brand-500/10 dark:to-brand-400/10" />
+              <div className="relative flex items-center gap-3">
+                <div className="h-11 w-11 shrink-0 overflow-hidden rounded-xl shadow-sm ring-2 ring-white dark:ring-slate-800">
+                  <img
+                    src="/loanAutomation.jpeg"
+                    alt="Loan Automation"
+                    className="h-full w-full object-cover"
+                  />
+                </div>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-bold text-slate-900 dark:text-white">
+                    Loan Automation
+                  </p>
+                  <p className="truncate text-[10px] font-semibold uppercase tracking-[0.12em] text-brand-600 dark:text-brand-400">
+                    Lender Portal
+                  </p>
+                </div>
+              </div>
             </div>
-          </div>
-        )}
 
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
-          <aside className="w-full shrink-0 lg:sticky lg:top-4 lg:w-60">
             <nav
               aria-label="Loan preview sections"
-              className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900"
+              className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:rounded-none lg:border-0"
             >
               {previewTabSections.map((section, sectionIndex) => (
                 <div
@@ -3066,6 +3068,17 @@ export default function LoanPreview() {
                 </div>
               ))}
             </nav>
+
+            <div className="hidden shrink-0 border-t border-slate-100 p-3 dark:border-slate-800 lg:block">
+              <button
+                type="button"
+                onClick={() => navigate(-1)}
+                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
+              >
+                <ArrowLeft size={16} className="shrink-0 text-brand-500" />
+                <span>Back</span>
+              </button>
+            </div>
           </aside>
 
           <main className="min-w-0 flex-1">

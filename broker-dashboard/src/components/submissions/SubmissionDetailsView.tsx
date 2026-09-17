@@ -131,14 +131,18 @@ function AccordionSection({
   fields,
   defaultOpen = false,
   filledCount,
+  totalCount,
 }: {
   title: string;
   icon?: ReactNode;
   fields: SubmissionDetailField[];
   defaultOpen?: boolean;
   filledCount: number;
+  totalCount: number;
 }) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
+  const isComplete = totalCount > 0 && filledCount === totalCount;
+  const isInProgress = filledCount > 0 && !isComplete;
 
   return (
     <div className="overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.03)] dark:border-slate-700/80 dark:bg-slate-950">
@@ -152,8 +156,18 @@ function AccordionSection({
         <span className="flex-1 text-sm font-semibold text-slate-800 dark:text-slate-100">
           {title}
         </span>
-        <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-semibold tabular-nums text-slate-500 dark:bg-slate-800 dark:text-slate-400">
-          {filledCount} / {fields.length}
+        <span
+          className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold tabular-nums ${
+            isComplete
+              ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400"
+              : isInProgress
+                ? "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400"
+                : "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
+          }`}
+        >
+          {isComplete ? "✓ " : ""}
+          {filledCount}/{totalCount}
+          {isComplete ? " complete" : isInProgress ? " in progress" : ""}
         </span>
         <ChevronDown
           size={15}
@@ -592,13 +606,23 @@ export default function SubmissionDetailsView({
               const visibleFields = section.fields.filter(
                 (f) => !isFieldEmpty(f),
               );
+              const originalSection = sections.find(
+                (candidate) => candidate.id === section.id,
+              );
+              const totalCount =
+                originalSection?.fields.length ?? section.fields.length;
+              const filledCount =
+                originalSection?.fields.filter((field) => !isFieldEmpty(field))
+                  .length ?? visibleFields.length;
+
               return (
                 <AccordionSection
                   key={section.id}
                   title={section.title}
                   fields={visibleFields}
                   defaultOpen={index === 0 || Boolean(searchQuery.trim())}
-                  filledCount={visibleFields.length}
+                  filledCount={filledCount}
+                  totalCount={totalCount}
                 />
               );
             })

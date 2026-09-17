@@ -1,12 +1,7 @@
 import {
   Building2,
   ChevronDown,
-  CreditCard,
-  FileText,
-  Hash,
-  Mail,
   Search,
-  User,
   X,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
@@ -19,15 +14,9 @@ import {
   mapLenderReviewRecord,
   type LenderReviewSummary,
 } from "../../lib/lenderReviewUtils";
-import {
-  formatLoanProduct,
-  formatApplicationStatus,
-  getApplicationStatusColor,
-  formatCompactAmount,
-} from "../../lib/loanPipelineUtils";
+import { formatApplicationStatus } from "../../lib/loanPipelineUtils";
 import {
   formatSubmissionFieldValue,
-  getBorrowerDisplayNameFromFields,
   getEntityTypeFromFields,
   getSubmissionFieldLabel,
   groupSubmissionFieldsForDisplay,
@@ -52,7 +41,6 @@ type LenderSubmissionDetailsViewProps = {
 };
 
 const BRAND = "#183b57";
-const BRAND_DARK = "#264863";
 
 function InfoCell({
   label,
@@ -78,51 +66,6 @@ function InfoCell({
       <div className="text-[15px] font-semibold leading-snug text-slate-900 dark:text-slate-100">
         {value ?? "—"}
       </div>
-    </div>
-  );
-}
-
-function KpiCell({
-  label,
-  value,
-  accent,
-}: {
-  label: string;
-  value: string;
-  accent?: "primary" | "muted";
-}) {
-  const isEmpty = !value || value === "—";
-  return (
-    <div
-      className={`relative overflow-hidden rounded-2xl border p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition hover:shadow-md ${
-        accent === "primary"
-          ? "border-brand-700/20 bg-gradient-to-br from-[#183b57] to-[#264863] text-white"
-          : "border-slate-200/80 bg-white dark:border-slate-700 dark:bg-slate-900"
-      }`}
-    >
-      {accent === "primary" ? (
-        <div className="pointer-events-none absolute -right-6 -top-6 h-20 w-20 rounded-full bg-white/10" />
-      ) : null}
-      <p
-        className={`text-[10px] font-semibold uppercase tracking-[0.14em] ${
-          accent === "primary" ? "text-white/70" : "text-slate-400"
-        }`}
-      >
-        {label}
-      </p>
-      <p
-        className={`mt-2 text-xl font-bold tabular-nums tracking-tight sm:text-2xl ${
-          isEmpty
-            ? accent === "primary"
-              ? "text-white/50"
-              : "text-slate-300"
-            : accent === "primary"
-              ? "text-white"
-              : "text-slate-900 dark:text-slate-50"
-        }`}
-      >
-        {value || "—"}
-      </p>
     </div>
   );
 }
@@ -164,13 +107,17 @@ function AccordionSection({
   fields,
   defaultOpen = false,
   filledCount,
+  totalCount,
 }: {
   title: string;
   fields: SubmissionDetailField[];
   defaultOpen?: boolean;
   filledCount: number;
+  totalCount: number;
 }) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
+  const isComplete = totalCount > 0 && filledCount === totalCount;
+  const isInProgress = filledCount > 0 && !isComplete;
 
   return (
     <div className="overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.03)] dark:border-slate-700/80 dark:bg-slate-950">
@@ -187,8 +134,18 @@ function AccordionSection({
         <span className="flex-1 text-sm font-semibold text-slate-800 dark:text-slate-100">
           {title}
         </span>
-        <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-semibold tabular-nums text-slate-500 dark:bg-slate-800 dark:text-slate-400">
-          {filledCount} / {fields.length}
+        <span
+          className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold tabular-nums ${
+            isComplete
+              ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400"
+              : isInProgress
+                ? "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400"
+                : "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
+          }`}
+        >
+          {isComplete ? "✓ " : ""}
+          {filledCount}/{totalCount}
+          {isComplete ? " complete" : isInProgress ? " in progress" : ""}
         </span>
         <ChevronDown
           size={15}
@@ -327,10 +284,7 @@ export default function LenderSubmissionDetailsView({
   fields,
   loanAmount,
   ltv,
-  ltc,
-  arv,
   dscr,
-  netWorth,
   monthlyPayment = 0,
   monthlyPaymentDisplay,
   submittedDate,
@@ -349,18 +303,6 @@ export default function LenderSubmissionDetailsView({
   };
 
   const latestReview = resolveLatestLenderReview(reviewSource);
-  const displayStatus = applicationLender?.status || loanApplication?.status;
-
-  const borrowerName = getBorrowerDisplayNameFromFields(
-    fields,
-    applicationLender?.borrowerName || loanApplication?.client?.legalName,
-  );
-
-  const loanProductName =
-    applicationLender?.loanProduct?.name ||
-    formatLoanProduct(loanApplication?.loanProductCode) ||
-    "—";
-
   const [searchQuery, setSearchQuery] = useState("");
 
   const filteredSections = useMemo(() => {
@@ -386,29 +328,6 @@ export default function LenderSubmissionDetailsView({
     [filteredSections],
   );
 
-  const kpis = [
-    {
-      label: "Loan amount",
-      value: formatCompactAmount(Number(loanAmount || 0)),
-      accent: "primary" as const,
-    },
-    {
-      label: "Monthly payment",
-      value:
-        monthlyPaymentDisplay ||
-        (monthlyPayment > 0
-          ? `$${monthlyPayment.toLocaleString("en-US", {
-              maximumFractionDigits: 0,
-            })}`
-          : "—"),
-    },
-    { label: "LTV", value: ltv ? `${ltv.toFixed(2)}%` : "—" },
-    { label: "LTC", value: ltc ? `${ltc.toFixed(2)}%` : "—" },
-    { label: "ARV", value: arv ? `${arv.toFixed(2)}%` : "—" },
-    { label: "DSCR", value: dscr ? dscr.toFixed(2) : "—" },
-    { label: "Net worth", value: formatCompactAmount(Number(netWorth || 0)) },
-  ];
-
   const entityType =
     getEntityTypeFromFields(fields) !== "—"
       ? getEntityTypeFromFields(fields)
@@ -423,89 +342,40 @@ export default function LenderSubmissionDetailsView({
         />
       )}
 
-      {/* Hero overview */}
-      <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[0_8px_30px_-18px_rgba(15,23,42,0.35)] dark:border-slate-700 dark:bg-slate-950">
-        <div
-          className="relative overflow-hidden border-b border-slate-100 px-5 py-5 text-white dark:border-slate-800 sm:px-6"
-          style={{
-            background: `linear-gradient(135deg, ${BRAND} 0%, ${BRAND_DARK} 55%, #183b57 100%)`,
-          }}
-        >
-          <div className="pointer-events-none absolute -right-10 -top-16 h-40 w-40 rounded-full bg-white/10" />
-          <div className="pointer-events-none absolute -bottom-12 left-24 h-32 w-32 rounded-full bg-emerald-300/10" />
-
-          <div className="relative flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div className="min-w-0">
-              <div className="mb-2 flex flex-wrap items-center gap-2">
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/85 ring-1 ring-white/15">
-                  <FileText size={12} />
-                  Application overview
-                </span>
-                <span
-                  className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${getApplicationStatusColor(displayStatus)}`}
-                >
-                  {formatApplicationStatus(displayStatus)}
-                </span>
-              </div>
-              <h2 className="truncate text-xl font-bold tracking-tight sm:text-2xl">
-                {borrowerName || "Borrower"}
-              </h2>
-              <p className="mt-1 text-sm text-white/75">
-                {loanApplication?.applicationNumber || "—"}
-                <span className="mx-2 text-white/35">·</span>
-                {loanProductName}
-              </p>
-            </div>
-
-            {showPdfDownload ? (
-              <div className="shrink-0 [&_button]:border-white/20 [&_button]:bg-white/10 [&_button]:text-white [&_button]:hover:bg-white/20">
-                <LenderApplicationDetailsDownloadButton
-                  applicationLender={applicationLender}
-                  fields={fields}
-                  formatApplicationStatus={formatApplicationStatus}
-                  loanAmount={loanAmount}
-                  ltv={ltv}
-                  dscr={dscr}
-                  monthlyPayment={monthlyPayment}
-                  monthlyPaymentDisplay={monthlyPaymentDisplay}
-                  submittedDate={submittedDate}
-                  initialBranding={pdfBranding}
-                />
-              </div>
-            ) : null}
+      <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-950">
+        <div className="flex flex-col gap-3 border-b border-slate-100 px-4 py-3.5 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+          <div className="min-w-0">
+            <h2 className="text-sm font-semibold text-slate-900 dark:text-white">
+              Application details
+            </h2>
+            <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+              Additional submission information
+            </p>
           </div>
+
+          {showPdfDownload ? (
+            <div className="shrink-0">
+              <LenderApplicationDetailsDownloadButton
+                applicationLender={applicationLender}
+                fields={fields}
+                formatApplicationStatus={formatApplicationStatus}
+                loanAmount={loanAmount}
+                ltv={ltv}
+                dscr={dscr}
+                monthlyPayment={monthlyPayment}
+                monthlyPaymentDisplay={monthlyPaymentDisplay}
+                submittedDate={submittedDate}
+                initialBranding={pdfBranding}
+              />
+            </div>
+          ) : null}
         </div>
 
-        <div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-2 sm:p-5 xl:grid-cols-3">
-          <InfoCell
-            label="Application number"
-            icon={<Hash size={12} />}
-            value={loanApplication?.applicationNumber}
-          />
-          <InfoCell
-            label="Borrower"
-            icon={<User size={12} />}
-            value={borrowerName}
-          />
-          <InfoCell
-            label="Loan product"
-            icon={<CreditCard size={12} />}
-            value={loanProductName}
-          />
+        <div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-2 sm:p-5">
           <InfoCell
             label="Entity type"
             icon={<Building2 size={12} />}
             value={entityType}
-          />
-          <InfoCell
-            label="Broker"
-            icon={<Building2 size={12} />}
-            value={loanApplication?.brokerOrg?.name}
-          />
-          <InfoCell
-            label="Broker email"
-            icon={<Mail size={12} />}
-            value={loanApplication?.brokerOrg?.email}
           />
           <InfoCell
             label="Credit score"
@@ -530,31 +400,7 @@ export default function LenderSubmissionDetailsView({
                 </span>
               }
             />
-          ) : (
-            <InfoCell
-              label="Status"
-              value={formatApplicationStatus(displayStatus)}
-            />
-          )}
-        </div>
-      </section>
-
-      {/* KPI metrics */}
-      <section>
-        <div className="mb-3 flex items-center justify-between gap-3 px-0.5">
-          <h3 className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
-            Key loan metrics
-          </h3>
-        </div>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
-          {kpis.map((kpi) => (
-            <KpiCell
-              key={kpi.label}
-              label={kpi.label}
-              value={kpi.value}
-              accent={kpi.accent}
-            />
-          ))}
+          ) : null}
         </div>
       </section>
 
@@ -610,13 +456,23 @@ export default function LenderSubmissionDetailsView({
               const visibleFields = section.fields.filter(
                 (f) => !isFieldEmpty(f),
               );
+              const originalSection = sections.find(
+                (candidate) => candidate.id === section.id,
+              );
+              const totalCount =
+                originalSection?.fields.length ?? section.fields.length;
+              const filledCount =
+                originalSection?.fields.filter((field) => !isFieldEmpty(field))
+                  .length ?? visibleFields.length;
+
               return (
                 <AccordionSection
                   key={section.id}
                   title={section.title}
                   fields={visibleFields}
                   defaultOpen={index === 0 || Boolean(searchQuery.trim())}
-                  filledCount={visibleFields.length}
+                  filledCount={filledCount}
+                  totalCount={totalCount}
                 />
               );
             })
