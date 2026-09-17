@@ -10,7 +10,7 @@ import {
   TrendingUp,
   Wallet,
 } from "lucide-react";
-import { MdEmail, MdSettings } from "react-icons/md";
+import { MdSettings } from "react-icons/md";
 import { CgProfile } from "react-icons/cg";
 import { FaUserGroup } from "react-icons/fa6";
 // import { PiSecurityCameraFill } from "react-icons/pi";
@@ -98,12 +98,12 @@ const navItems: NavItem[] = [
       },
     ],
   },
-  {
-    icon: <MdEmail />,
-    name: "Email Marketing",
-    path: "/loan-officer/email-marketing",
-    permission: "SEND_EMAILS",
-  },
+  // {
+  //   icon: <MdEmail />,
+  //   name: "Email Marketing",
+  //   path: "/loan-officer/email-marketing",
+  //   permission: "SEND_EMAILS",
+  // },
   {
     icon: <Wallet size={18} />,
     name: "Payments",

@@ -2346,7 +2346,7 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
           </div>
         </div>
 
-        <div className="mb-4">
+        <div className="mb-4 w-full max-w-md">
           <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
             Loan product
           </label>

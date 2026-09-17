@@ -88,6 +88,42 @@ const LOAN_PRODUCT_NAME_KEYS = new Set([
   "product",
 ]);
 
+const INTERNAL_FINANCIAL_METADATA_KEYS = new Set([
+  "financialReferenceYear",
+  "financialYearColumnCount",
+]);
+
+const ANNUAL_FINANCIAL_ROWS = [
+  { key: "grossRevenue", label: "Gross Revenue" },
+  { key: "grossRentalIncome", label: "Gross Rental Income" },
+  { key: "vacancyCreditLoss", label: "Vacancy & Credit Loss" },
+  { key: "operatingExpenses", label: "Operating Expenses" },
+  { key: "mortgageDebtService", label: "Mortgage / Debt Service" },
+  {
+    key: "effectiveGrossIncomeOverride",
+    label: "Effective Gross Income",
+    computed: true,
+  },
+  {
+    key: "noiOverride",
+    label: "Net Operating Income (NOI)",
+    computed: true,
+  },
+  {
+    key: "cashFlowAfterDebtOverride",
+    label: "Cash Flow After Debt Service",
+    computed: true,
+  },
+];
+
+function isAnnualFinancialField(fieldKey?: string | null) {
+  if (!fieldKey) return false;
+  return (
+    /^financialYear_col\d+$/i.test(fieldKey) ||
+    /^financial_.+_col\d+(?:_computed)?$/i.test(fieldKey)
+  );
+}
+
 function formatLoanType(code?: string | null) {
   if (!code) return "—";
   if (LOAN_TYPE_LABELS[code]) return LOAN_TYPE_LABELS[code];
@@ -101,6 +137,35 @@ function formatCompactAmount(value: number) {
   if (value >= 1_000)
     return `$${(value / 1_000).toFixed(value % 1_000 === 0 ? 0 : 1)}K`;
   return `$${value.toLocaleString()}`;
+}
+
+function getNumericFieldValue(fields: DetailField[], ...keys: string[]) {
+  const field = fields.find(
+    (item) => item.fieldKey && keys.includes(item.fieldKey),
+  );
+  if (!field) return 0;
+
+  const parsed = parseFieldValue(field.value);
+  const numeric = Number(String(parsed ?? "").replace(/[^0-9.-]/g, ""));
+  return Number.isFinite(numeric) ? numeric : 0;
+}
+
+function calculateMonthlyPayment(
+  loanAmount: number,
+  interestRate: number,
+  termMonths: number,
+) {
+  if (!loanAmount || !termMonths || termMonths <= 0 || interestRate < 0) {
+    return 0;
+  }
+
+  const monthlyRate = interestRate / 100 / 12;
+  if (monthlyRate === 0) return loanAmount / termMonths;
+
+  return (
+    (loanAmount * monthlyRate * Math.pow(1 + monthlyRate, termMonths)) /
+    (Math.pow(1 + monthlyRate, termMonths) - 1)
+  );
 }
 
 function formatShortDate(value?: string | null) {
@@ -178,6 +243,11 @@ function formatDisplayValue(raw: unknown, fieldKey?: string | null): string {
   const parsed = parseFieldValue(raw);
   if (!parsed || parsed === "-" || parsed === "—") return "—";
 
+  if (fieldKey === "dscrCalculationMethod") {
+    if (parsed.toLowerCase() === "noi") return "Net Operating Income (NOI)";
+    if (parsed.toLowerCase() === "proforma") return "Pro Forma NOI";
+  }
+
   if (fieldKey && LOAN_PRODUCT_NAME_KEYS.has(fieldKey)) {
     return formatLoanType(parsed);
   }
@@ -214,6 +284,7 @@ function formatDisplayValue(raw: unknown, fieldKey?: string | null): string {
 
 function fieldDisplayLabel(field: DetailField) {
   const key = field.fieldKey || "";
+  if (key === "dscrCalculationMethod") return "DSCR Calculation Basis";
   if (LOAN_PRODUCT_NAME_KEYS.has(key)) return "Loan Product Name";
   const label = field.label || formatFieldKey(field.fieldKey);
   if (/product\s*code/i.test(label)) return "Loan Product Name";
@@ -319,6 +390,12 @@ function dedupeFields(
   for (const field of fields) {
     if (!field.fieldKey) continue;
     if (HIDDEN_FIELD_KEYS.has(field.fieldKey)) continue;
+    if (
+      INTERNAL_FINANCIAL_METADATA_KEYS.has(field.fieldKey) ||
+      isAnnualFinancialField(field.fieldKey)
+    ) {
+      continue;
+    }
     byKey.set(field.fieldKey, field);
   }
 
@@ -350,6 +427,12 @@ function dedupeFields(
 
   for (const field of fields) {
     if (!field.fieldKey || HIDDEN_FIELD_KEYS.has(field.fieldKey)) continue;
+    if (
+      INTERNAL_FINANCIAL_METADATA_KEYS.has(field.fieldKey) ||
+      isAnnualFinancialField(field.fieldKey)
+    ) {
+      continue;
+    }
     if (chosenKeys.has(field.fieldKey)) continue;
     // Hide labels that are clearly "product code"
     const label = (field.label || "").toLowerCase();
@@ -431,6 +514,60 @@ function groupFieldsBySection(fields: DetailField[]) {
     }))
     .filter((group) => group.fields.length > 0)
     .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
+}
+
+function buildAnnualFinancialTable(fields: DetailField[]) {
+  const fieldMap = new Map(
+    fields
+      .filter((field) => field.fieldKey)
+      .map((field) => [field.fieldKey!, parseFieldValue(field.value)]),
+  );
+
+  const columnKeys = Array.from(
+    new Set(
+      fields.flatMap((field) => {
+        const match = field.fieldKey?.match(/(?:financialYear_|_)(col\d+)/i);
+        return match ? [match[1].toLowerCase()] : [];
+      }),
+    ),
+  ).sort(
+    (left, right) =>
+      Number(left.replace("col", "")) - Number(right.replace("col", "")),
+  );
+
+  const columns = columnKeys.map((column, index) => ({
+    key: column,
+    label:
+      String(fieldMap.get(`financialYear_${column}`) || "").trim() ||
+      `Year ${index + 1}`,
+  }));
+
+  const rows = ANNUAL_FINANCIAL_ROWS.map((row) => {
+    const values = columns.map(({ key: column }) => {
+      const entered = fieldMap.get(`financial_${row.key}_${column}`);
+      const computed = fieldMap.get(
+        `financial_${row.key}_${column}_computed`,
+      );
+      const value =
+        entered !== undefined && entered !== null && entered !== ""
+          ? entered
+          : computed;
+
+      if (value === undefined || value === null || value === "") return "—";
+      const numeric = Number(String(value).replace(/[^0-9.-]/g, ""));
+      return Number.isFinite(numeric)
+        ? new Intl.NumberFormat("en-US", {
+            style: "currency",
+            currency: "USD",
+            maximumFractionDigits: 0,
+          }).format(numeric)
+        : String(value);
+    });
+
+    return { ...row, values };
+  }).filter((row) => row.values.some((value) => value !== "—"));
+
+  return { columns, rows };
 }
 
 function InfoCard({ label, value }: { label: string; value: any }) {
@@ -551,6 +688,48 @@ export default function ApplicationDetail() {
     ? formatEntityTypeLabel(detail.entityType || resolveEntityType(detail))
     : "";
   const termLabel = detail ? resolveTermLabel(detail) || "" : "";
+  const fields: DetailField[] = detail?.submissions?.[0]?.fields || [];
+  const annualFinancialTable = useMemo(
+    () => buildAnnualFinancialTable(fields),
+    [fields],
+  );
+
+  const ltv = getNumericFieldValue(fields, "ltvPercentage");
+  const ltc = getNumericFieldValue(fields, "ltcPercentage");
+  const arv = getNumericFieldValue(fields, "arvPercentage");
+  const dscr =
+    getNumericFieldValue(fields, "dscr") ||
+    Number(detail?.financials?.dscr || 0);
+  const netWorth = getNumericFieldValue(fields, "netWorth");
+  const interestRate = getNumericFieldValue(fields, "interestRate");
+  const amortizationYears = getNumericFieldValue(fields, "amortization");
+  const loanTermMonths = getNumericFieldValue(
+    fields,
+    "loanTerm",
+    "termMonths",
+  );
+  const paymentTermMonths =
+    amortizationYears > 0 ? amortizationYears * 12 : loanTermMonths;
+  const monthlyPayment = calculateMonthlyPayment(
+    Number(amount || 0),
+    interestRate,
+    paymentTermMonths,
+  );
+
+  const metrics = [
+    {
+      label: "Monthly Payment",
+      value: monthlyPayment ? formatCompactAmount(monthlyPayment) : "—",
+    },
+    { label: "LTV", value: ltv ? `${ltv.toFixed(2)}%` : "—" },
+    { label: "LTC", value: ltc ? `${ltc.toFixed(2)}%` : "—" },
+    { label: "ARV %", value: arv ? `${arv.toFixed(2)}%` : "—" },
+    { label: "DSCR Ratio", value: dscr ? dscr.toFixed(2) : "—" },
+    {
+      label: "Net Worth",
+      value: netWorth ? formatCompactAmount(netWorth) : "—",
+    },
+  ];
 
   const overviewValues = useMemo(() => {
     const values = new Set<string>();
@@ -591,7 +770,6 @@ export default function ApplicationDetail() {
     termLabel,
   ]);
 
-  const fields: DetailField[] = detail?.submissions?.[0]?.fields || [];
   const signatureField = fields.find((f) =>
     SIGNATURE_KEYS.has(f.fieldKey || ""),
   );
@@ -707,6 +885,21 @@ export default function ApplicationDetail() {
         </div>
       </div>
 
+      <section className="overflow-hidden rounded-2xl bg-[#13538A] px-6 py-6 text-white shadow-sm">
+        <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 xl:grid-cols-6">
+          {metrics.map((metric) => (
+            <div key={metric.label} className="min-w-0">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.13em] text-white/70">
+                {metric.label}
+              </p>
+              <p className="mt-2 truncate text-base font-bold tabular-nums">
+                {metric.value}
+              </p>
+            </div>
+          ))}
+        </div>
+      </section>
+
       <SectionCard
         id="overview"
         title="Overview"
@@ -804,6 +997,77 @@ export default function ApplicationDetail() {
           </div>
         </div>
       </SectionCard>
+
+      {annualFinancialTable.columns.length > 0 &&
+      annualFinancialTable.rows.length > 0 ? (
+        <SectionCard
+          id="annual-financial-performance"
+          title="Annual Financial Performance"
+          description="Year-by-year income, expenses, and calculated cash flow"
+          open={Boolean(openSections["annual-financial-performance"])}
+          onToggle={toggleSection}
+        >
+          <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700">
+            <table className="min-w-full text-sm">
+              <thead className="bg-[#13538A]/5 text-slate-600 dark:bg-[#13538A]/20 dark:text-slate-300">
+                <tr>
+                  <th className="min-w-[230px] px-4 py-3 text-left font-semibold">
+                    Financial Metric
+                  </th>
+                  {annualFinancialTable.columns.map((column, index) => (
+                    <th
+                      key={column.key}
+                      className="min-w-[130px] px-4 py-3 text-right font-semibold"
+                    >
+                      {column.label}
+                      {index === 0 ? (
+                        <span className="ml-1 text-[10px] font-normal text-slate-400">
+                          Interim
+                        </span>
+                      ) : null}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                {annualFinancialTable.rows.map((row) => (
+                  <tr
+                    key={row.key}
+                    className={
+                      row.computed
+                        ? "bg-blue-50/40 dark:bg-blue-500/5"
+                        : "bg-white dark:bg-slate-900"
+                    }
+                  >
+                    <td className="px-4 py-3">
+                      <span className="font-medium text-slate-800 dark:text-slate-100">
+                        {row.label}
+                      </span>
+                      {row.computed ? (
+                        <span className="ml-2 rounded-full bg-[#13538A]/10 px-2 py-0.5 text-[10px] font-semibold text-[#13538A] dark:text-blue-300">
+                          Calculated
+                        </span>
+                      ) : null}
+                    </td>
+                    {row.values.map((value, index) => (
+                      <td
+                        key={`${row.key}-${annualFinancialTable.columns[index].key}`}
+                        className="px-4 py-3 text-right font-medium tabular-nums text-slate-700 dark:text-slate-200"
+                      >
+                        {value}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="mt-3 text-xs text-slate-500">
+            Calculated values are derived from the submitted income, vacancy,
+            expense, and debt-service figures.
+          </p>
+        </SectionCard>
+      ) : null}
 
       {fieldSections.map((section) => (
         <SectionCard
