@@ -42,6 +42,46 @@ type LenderSubmissionDetailsViewProps = {
 
 const BRAND = "#183b57";
 
+const SUMMARY_FIELD_KEYS = new Set([
+  "applicationid",
+  "applicationnumber",
+  "applicationstatus",
+  "borrowerfirstname",
+  "borrowerlastname",
+  "borrowername",
+  "firstname",
+  "lastname",
+  "borroweremail",
+  "email",
+  "brokername",
+  "brokeremail",
+  "loanproduct",
+  "loanproductcode",
+  "loanprogram",
+  "amountrequested",
+  "loanamount",
+  "monthlypayment",
+  "ltv",
+  "ltvpercentage",
+  "ltc",
+  "ltcpercentage",
+  "arv",
+  "arvpercentage",
+  "dscr",
+  "dscrratio",
+  "networth",
+  "entitytype",
+  "creditscore",
+]);
+
+function isDisplayedInSummary(field: SubmissionDetailField) {
+  const normalizedKey = (field.fieldKey || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_-]+/g, "");
+  return SUMMARY_FIELD_KEYS.has(normalizedKey);
+}
+
 function InfoCell({
   label,
   value,
@@ -292,7 +332,12 @@ export default function LenderSubmissionDetailsView({
   pdfBranding = null,
 }: LenderSubmissionDetailsViewProps) {
   const loanApplication = applicationLender?.loanApplication;
-  const { sections, signatureField } = groupSubmissionFieldsForDisplay(fields);
+  const fieldsWithoutSummary = useMemo(
+    () => fields.filter((field) => !isDisplayedInSummary(field)),
+    [fields],
+  );
+  const { sections, signatureField } =
+    groupSubmissionFieldsForDisplay(fieldsWithoutSummary);
 
   const reviewSource = {
     lenderStatus: applicationLender?.status,
