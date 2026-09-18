@@ -103,8 +103,39 @@ export default function SignInForm() {
         throw new Error("Login succeeded but session could not be verified");
       }
 
-      const perms = Array.isArray(json?.user?.permissions) ? json.user.permissions : [];
-      const fullAccess = Boolean(json?.user?.hasFullAccess);
+      const meJson = await meRes.json().catch(() => null);
+      if (meJson?.user) {
+        const sessionUser = {
+          ...(json?.user || {}),
+          ...meJson.user,
+        };
+        sessionStorage.setItem("admin_user", JSON.stringify(sessionUser));
+        const name =
+          `${sessionUser.firstName ?? ""} ${sessionUser.lastName ?? ""}`.trim();
+        if (name) sessionStorage.setItem("admin_user_name", name);
+        if (sessionUser.email) {
+          sessionStorage.setItem("admin_user_email", sessionUser.email);
+        }
+        if (Array.isArray(sessionUser.permissions)) {
+          sessionStorage.setItem(
+            "admin_permissions",
+            JSON.stringify(sessionUser.permissions),
+          );
+        }
+        sessionStorage.setItem(
+          "admin_full_access",
+          String(sessionUser.hasFullAccess ?? false),
+        );
+      }
+
+      const perms = Array.isArray(meJson?.user?.permissions)
+        ? meJson.user.permissions
+        : Array.isArray(json?.user?.permissions)
+          ? json.user.permissions
+          : [];
+      const fullAccess = Boolean(
+        meJson?.user?.hasFullAccess ?? json?.user?.hasFullAccess,
+      );
       const landingPaths = [
         "/",
         "/platform-reports",

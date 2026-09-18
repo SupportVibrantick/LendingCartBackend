@@ -16,7 +16,16 @@ async function loanOfficerDashboardRoutes(fastify) {
       preHandler: extraOfficerPermission(fastify, DASHBOARD_STATS_PERMISSIONS),
       schema: {
         tags: ["Loan Officer -> Dashboard"],
-        summary: "Pipeline stat cards for the officer dashboard",
+        summary: "Pipeline analytics for the officer dashboard",
+        querystring: {
+          type: "object",
+          properties: {
+            period: {
+              type: "string",
+              enum: ["7d", "30d", "90d", "12m"],
+            },
+          },
+        },
       },
     },
     async (req, reply) => {
@@ -26,6 +35,7 @@ async function loanOfficerDashboardRoutes(fastify) {
         const data = await fetchLoanOfficerPipelineStats(fastify.prisma, {
           userId,
           orgId,
+          period: req.query?.period || "12m",
         });
 
         return reply.send({ success: true, data });

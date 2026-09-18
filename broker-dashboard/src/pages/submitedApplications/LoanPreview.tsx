@@ -3709,7 +3709,7 @@ dark:bg-red-900/20 dark:text-red-400"
 
           {/* DESCRIPTION */}
           <p className="mt-2 max-w-sm text-sm text-slate-500 dark:text-slate-400">
-            You havenâ€™t requested documents yet.
+            You haven&apos;t requested documents yet.
           </p>
         </div>
       )}

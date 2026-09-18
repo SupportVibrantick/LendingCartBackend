@@ -2,60 +2,69 @@ const {
   officerAssignedApplicationWhere,
 } = require("../../services/broker/loanOfficerAccess");
 const {
-  countBrokerPipelineStats,
   resolveBrokerPipelineDisplayStatus,
 } = require("../applications/resolveApplicationStatus");
+const {
+  ANALYTICS_APPLICATION_SELECT,
+  createAnalyticsEngine,
+} = require("./dashboardPeriodAnalytics");
 
-async function fetchLoanOfficerPipelineStats(prisma, { userId, orgId }) {
-  const whereCondition = {
-    brokerOrgId: orgId,
-    ...officerAssignedApplicationWhere(userId),
-  };
+async function fetchLoanOfficerPipelineStats(
+  prisma,
+  { userId, orgId, period = "12m" },
+) {
+  const engine = createAnalyticsEngine(period);
+  const { period: resolvedPeriod, previousPeriod } = engine;
 
-  const applications = await prisma.applicationSubmission.findMany({
+  const applications = await prisma.loanApplication.findMany({
     where: {
-      status: { not: "SUPERSEDED" },
-      application: whereCondition,
-    },
-    include: {
-      fields: { include: { builderField: true } },
-      application: {
-        select: {
-          id: true,
-          amountRequested: true,
-          status: true,
-          applicationLenders: { select: { status: true } },
+      brokerOrgId: orgId,
+      AND: [
+        officerAssignedApplicationWhere(userId),
+        {
+          OR: [
+            {
+              createdAt: {
+                gte: previousPeriod.start,
+                lte: resolvedPeriod.end,
+              },
+            },
+            {
+              submittedAt: {
+                gte: previousPeriod.start,
+                lte: resolvedPeriod.end,
+              },
+            },
+            {
+              fundedAt: {
+                gte: previousPeriod.start,
+                lte: resolvedPeriod.end,
+              },
+            },
+          ],
         },
-      },
+      ],
     },
+    select: ANALYTICS_APPLICATION_SELECT,
   });
 
-  const totalVolume = applications.reduce((sum, submission) => {
-    const amountField = submission.fields.find(
-      (f) =>
-        f.builderField?.fieldKey === "amountRequested" ||
-        f.builderField?.fieldKey === "loan_amount" ||
-        f.fieldKey === "amountRequested" ||
-        f.fieldKey === "loan_amount",
-    );
-    const rawAmount =
-      amountField?.value || submission.application?.amountRequested || 0;
-    const parsedAmount = Number(String(rawAmount).replace(/[$,]/g, "").trim());
-    return Number(sum || 0) + (Number.isNaN(parsedAmount) ? 0 : parsedAmount);
-  }, 0);
+  for (const application of applications) {
+    engine.add(application);
+  }
 
-  const statusCounts = countBrokerPipelineStats(applications);
+  const analytics = engine.finalize();
 
+  // Keep legacy aliases used by older LO dashboard consumers.
   return {
-    totalVolume,
-    totalApplications: applications.length,
-    newApplications: statusCounts.newApplications,
-    submitted: statusCounts.submitted,
-    clientPending: statusCounts.clientPending,
-    approved: statusCounts.approved,
-    rejected: statusCounts.rejected,
-    inReview: statusCounts.inReview,
-    draft: statusCounts.draft,
+    ...analytics,
+    totalVolume: analytics.totalVolumeFunded,
+    submitted: analytics.totalSubmitted,
+    clientPending: analytics.applicationsByStatus.CLIENT_PENDING || 0,
+    approved: analytics.totalApproved,
+    rejected: analytics.totalDeclined,
+    inReview: analytics.totalInReview,
+    draft: analytics.applicationsByStatus.DRAFT || 0,
+    newApplications: 0,
   };
 }
 
@@ -69,7 +78,10 @@ function getFieldValue(fields, ...keys) {
   return null;
 }
 
-async function fetchLoanOfficerRecentApplications(prisma, { userId, orgId, limit = 5 }) {
+async function fetchLoanOfficerRecentApplications(
+  prisma,
+  { userId, orgId, limit = 5 },
+) {
   const submissions = await prisma.applicationSubmission.findMany({
     where: {
       status: { not: "SUPERSEDED" },
@@ -87,8 +99,14 @@ async function fetchLoanOfficerRecentApplications(prisma, { userId, orgId, limit
           id: true,
           applicationNumber: true,
           amountRequested: true,
+          loanProductCode: true,
           status: true,
-          applicationLenders: { select: { status: true } },
+          applicationLenders: {
+            select: {
+              status: true,
+              lender: { select: { name: true } },
+            },
+          },
           client: { select: { legalName: true } },
         },
       },
@@ -98,13 +116,31 @@ async function fetchLoanOfficerRecentApplications(prisma, { userId, orgId, limit
   return submissions.map((submission) => {
     const app = submission.application;
     const borrower =
-      getFieldValue(submission.fields, "borrowerName", "legalName") ||
+      [
+        getFieldValue(submission.fields, "borrowerFirstName", "firstName"),
+        getFieldValue(submission.fields, "borrowerLastName", "lastName"),
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .trim() ||
+      getFieldValue(
+        submission.fields,
+        "borrowerName",
+        "applicantName",
+        "fullName",
+        "legalName",
+      ) ||
       app?.client?.legalName ||
       "Applicant";
+
     const amount =
       getFieldValue(submission.fields, "amountRequested", "loan_amount") ||
       app?.amountRequested ||
       "0";
+
+    const lenders = app?.applicationLenders || [];
+    const primaryLender =
+      lenders.find((lender) => lender.status === "APPROVED") || lenders[0];
 
     return {
       submissionId: submission.id,
@@ -114,6 +150,8 @@ async function fetchLoanOfficerRecentApplications(prisma, { userId, orgId, limit
       amount: String(amount),
       status: resolveBrokerPipelineDisplayStatus(app),
       submittedOn: submission.createdAt,
+      loanInfo: app?.loanProductCode || null,
+      lenderName: primaryLender?.lender?.name || null,
     };
   });
 }

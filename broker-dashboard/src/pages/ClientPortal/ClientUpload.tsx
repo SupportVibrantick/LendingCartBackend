@@ -32,7 +32,6 @@ import {
   FiHome,
   FiLayers,
   FiBriefcase,
-  FiFilter,
 } from "react-icons/fi";
 import Chat from "./Chat";
 import ClientNotificationDropdown, {
@@ -556,7 +555,7 @@ function ApplicationWorkspaceShell({
                     opts?.compact
                       ? `inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold transition ${
                           isActive
-                            ? "bg-[#13538A]/10 text-[#13538A] shadow-[inset_3px_0_0_0_#13538A]"
+                            ? "bg-[#13538A] text-white"
                             : "bg-gray-50 text-gray-600 hover:bg-gray-100 hover:text-gray-900"
                         }`
                       : `relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[13px] transition-all duration-200 ${
@@ -571,8 +570,10 @@ function ApplicationWorkspaceShell({
                     strokeWidth={2.15}
                     className={
                       isActive
-                        ? "shrink-0 text-[#13538A]"
-                        : "shrink-0 text-[#2C92D5]"
+                        ? opts?.compact
+                          ? "shrink-0 text-white"
+                          : "shrink-0 text-[#13538A]"
+                        : "shrink-0 text-gray-400"
                     }
                   />
                   <span className="min-w-0 flex-1 truncate whitespace-nowrap">
@@ -622,12 +623,12 @@ function ApplicationWorkspaceShell({
           <button
             type="button"
             onClick={onBackToApplications}
-            className="relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-medium text-gray-600 transition-all duration-200 hover:bg-gray-50 hover:text-gray-900"
+            className="relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-medium text-gray-600 transition-all duration-200 hover:bg-[#13538A]/10 hover:text-[#13538A]"
           >
             <ChevronLeft
               size={18}
               strokeWidth={2.15}
-              className="shrink-0 text-[#2C92D5]"
+              className="shrink-0 text-[#13538A]"
             />
             <span className="truncate">Back</span>
           </button>
@@ -685,35 +686,45 @@ function ApplicationWorkspaceShell({
             }`}
           >
             {!compact ? (
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                <div className="min-w-0">
-                  <button
-                    type="button"
-                    onClick={onBackToApplications}
-                    className="mb-2 hidden items-center gap-1.5 text-sm font-medium text-slate-500 transition hover:text-[#2C92D5] lg:inline-flex"
-                  >
-                    <ChevronLeft size={15} strokeWidth={2.25} />
-                    Back to Applications
-                  </button>
-                  <h1 className="truncate text-2xl font-bold tracking-tight text-slate-900">
-                    Loan Application
-                  </h1>
-                  <div className="mt-1.5 flex flex-wrap items-center gap-2 text-sm text-slate-500">
-                    <span className="font-mono text-xs">
-                      {applicationNumber || "Application"}
-                    </span>
-                    {status ? (
-                      <span
-                        className={`inline-flex items-center gap-2 rounded-full px-2.5 py-0.5 text-xs font-semibold ${getStatusStyles(
-                          status,
-                        )}`}
-                      >
-                        <span
-                          className={`h-1.5 w-1.5 rounded-full ${getStatusDot(status)}`}
-                        />
-                        {formatStatusLabel(status)}
-                      </span>
-                    ) : null}
+              <div className="overflow-hidden rounded-xl border border-gray-100 bg-white">
+                <div className="relative overflow-hidden">
+                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-[#13538A]/[0.07] via-transparent to-[#2C92D5]/8" />
+                  <div className="relative px-4 py-4 sm:px-5 sm:py-5">
+                    <button
+                      type="button"
+                      onClick={onBackToApplications}
+                      className="mb-2.5 hidden items-center gap-1.5 text-sm font-medium text-gray-500 transition hover:text-[#13538A] lg:inline-flex"
+                    >
+                      <ChevronLeft size={15} strokeWidth={2.25} />
+                      Back to Applications
+                    </button>
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#13538A]">
+                          Application workspace
+                        </p>
+                        <h1 className="mt-0.5 truncate text-2xl font-bold tracking-tight text-gray-900">
+                          Loan Application
+                        </h1>
+                        <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-gray-500">
+                          <span className="rounded-lg bg-[#13538A]/10 px-2.5 py-1 font-mono text-xs font-semibold text-[#13538A]">
+                            {applicationNumber || "Application"}
+                          </span>
+                          {status ? (
+                            <span
+                              className={`inline-flex items-center gap-2 rounded-full px-2.5 py-0.5 text-xs font-semibold ${getStatusStyles(
+                                status,
+                              )}`}
+                            >
+                              <span
+                                className={`h-1.5 w-1.5 rounded-full ${getStatusDot(status)}`}
+                              />
+                              {formatStatusLabel(status)}
+                            </span>
+                          ) : null}
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1559,7 +1570,7 @@ export default function ClientUpload() {
               className="flex min-w-0 items-center gap-3 rounded-xl text-left transition hover:bg-slate-50"
               title="Edit profile"
             >
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#2C92D5]/10 text-xs font-bold text-[#2C92D5]">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#13538A]/10 text-xs font-bold text-[#13538A]">
                 {getClientInitials(
                   !isPlaceholderClientName(clientName)
                     ? clientName
@@ -1826,13 +1837,16 @@ export default function ClientUpload() {
         {/* TOP HEADER — applications list only */}
         {!isWorkspaceMode &&
           (applicationData || clientName || isClientLoggedIn) && (
-          <header className="relative mb-6 overflow-visible rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div className="h-1.5 rounded-t-2xl bg-gradient-to-r from-blue-600 via-cyan-500 to-teal-500" />
+          <header className="relative mb-5 overflow-visible rounded-2xl border border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900">
+            <div className="relative rounded-t-2xl bg-gradient-to-br from-[#13538A] via-[#1a6aad] to-[#2C92D5] px-5 pb-16 pt-5 text-white sm:px-6 sm:pb-20 sm:pt-6">
+              <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-t-2xl">
+                <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
+                <div className="absolute -bottom-16 left-1/3 h-36 w-36 rounded-full bg-cyan-300/20 blur-2xl" />
+              </div>
 
-            <div className="relative px-4 py-4 sm:px-6 sm:py-5">
-              <div className="mb-4 flex items-center justify-between gap-4 border-b border-slate-100 pb-4">
+              <div className="relative flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div className="flex min-w-0 items-center gap-3">
-                  <div className="h-11 w-11 shrink-0 overflow-hidden rounded-xl border border-slate-200">
+                  <div className="h-11 w-11 shrink-0 overflow-hidden rounded-xl border border-white/25 bg-white/10">
                     <img
                       src={LOAN_AUTOMATION_LOGO}
                       alt="Loan Automation"
@@ -1840,26 +1854,45 @@ export default function ClientUpload() {
                     />
                   </div>
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-bold text-slate-900">
-                      Loan Automation
+                    <p className="text-xs font-semibold uppercase tracking-widest text-white/70">
+                      Client portal
                     </p>
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-blue-700">
-                      Client Portal
+                    <h1 className="truncate text-xl font-semibold tracking-tight sm:text-2xl">
+                      Welcome{" "}
+                      <span className="text-white/95">{displayName}</span>
+                    </h1>
+                    <p className="mt-1 flex items-center gap-1.5 truncate text-sm text-white/80">
+                      <FiUser className="h-3.5 w-3.5 shrink-0 opacity-80" />
+                      <span className="truncate">{displayEmail}</span>
                     </p>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 sm:gap-3">
-                  {isClientLoggedIn && (
-                    <ClientNotificationDropdown
-                      apiBase={API_BASE}
-                      onNotificationClick={handleClientNotificationClick}
-                    />
-                  )}
+                <div className="flex flex-wrap items-center gap-2">
+                  {isClientLoggedIn ? (
+                    <div className="[&_button]:border-white/25 [&_button]:bg-white/10 [&_button]:text-white [&_button]:hover:bg-white/20">
+                      <ClientNotificationDropdown
+                        apiBase={API_BASE}
+                        onNotificationClick={handleClientNotificationClick}
+                      />
+                    </div>
+                  ) : null}
+
+                  {isClientLoggedIn ? (
+                    <button
+                      type="button"
+                      onClick={openProfileEditor}
+                      className="inline-flex items-center gap-2 rounded-xl border border-white/25 bg-white/10 px-3.5 py-2.5 text-sm font-semibold text-white transition hover:bg-white/20"
+                    >
+                      <Pencil size={15} />
+                      <span className="hidden sm:inline">Edit profile</span>
+                    </button>
+                  ) : null}
 
                   <button
+                    type="button"
                     onClick={handleLogout}
-                    className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-medium text-slate-700 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+                    className="inline-flex items-center gap-2 rounded-xl bg-white px-3.5 py-2.5 text-sm font-semibold text-[#13538A] transition hover:bg-white/90"
                   >
                     <FiLogOut size={16} />
                     <span className="hidden sm:inline">
@@ -1869,61 +1902,41 @@ export default function ClientUpload() {
                 </div>
               </div>
 
-              <div className="flex min-w-0 items-center gap-4 rounded-2xl bg-gradient-to-r from-blue-50/80 via-white to-cyan-50/50 p-4 ring-1 ring-blue-100/80">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-blue-100 bg-white text-base font-bold text-blue-700 shadow-sm">
+              <div className="absolute -bottom-10 left-5 z-10 sm:left-6">
+                <div className="flex h-20 w-20 items-center justify-center rounded-2xl border-4 border-white bg-[#13538A] text-xl font-bold text-white shadow-lg dark:border-gray-900 sm:h-24 sm:w-24 sm:text-2xl">
                   {clientInitials}
                 </div>
-
-                <div className="min-w-0 flex-1">
-                  <h1 className="truncate text-lg font-bold tracking-tight text-slate-900 sm:text-xl">
-                    {displayName}
-                  </h1>
-                  <p className="mt-1 flex items-center gap-2 truncate text-sm text-slate-500">
-                    <FiUser className="h-3.5 w-3.5 shrink-0 text-slate-400" />
-                    <span className="truncate">{displayEmail}</span>
-                  </p>
-                </div>
-
-                {isClientLoggedIn ? (
-                  <button
-                    type="button"
-                    onClick={openProfileEditor}
-                    className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-[#2C92D5]/40 hover:text-[#13538A]"
-                  >
-                    <Pencil size={15} />
-                    <span className="hidden sm:inline">Edit profile</span>
-                  </button>
-                ) : null}
               </div>
             </div>
 
-            <div className="border-t border-slate-100 bg-slate-50/70 px-4 py-2.5 sm:px-6">
-              <nav className="flex items-center gap-2">
+            <div className="border-t border-gray-100 bg-white px-4 pb-3 pt-14 dark:border-gray-800 dark:bg-gray-900 sm:px-6 sm:pt-16">
+              <nav className="flex items-center gap-1.5">
                 <button
+                  type="button"
                   onClick={() => {
                     setSelectedApplication(null);
                     setActiveTab("applications");
                   }}
-                  className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-all ${
+                  className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition ${
                     activeTab === "applications"
-                      ? "bg-white text-blue-700 ring-1 ring-blue-200"
-                      : "text-slate-500 hover:bg-white hover:text-slate-800"
+                      ? "bg-[#13538A] text-white"
+                      : "text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800"
                   }`}
                 >
                   <FiFileText size={16} />
                   Applications
                 </button>
 
-                {activeTab !== "applications" && selectedApplication && (
-                  <span className="hidden items-center gap-2 text-sm text-slate-400 sm:inline-flex">
+                {activeTab !== "applications" && selectedApplication ? (
+                  <span className="hidden items-center gap-2 text-sm text-gray-400 sm:inline-flex">
                     <span>/</span>
-                    <span className="max-w-[220px] truncate font-medium text-slate-600">
+                    <span className="max-w-[220px] truncate font-medium text-gray-600 dark:text-gray-300">
                       {selectedApplication.applicationNumber ||
                         applicationNumber ||
                         "Application"}
                     </span>
                   </span>
-                )}
+                ) : null}
               </nav>
             </div>
           </header>
@@ -2233,154 +2246,138 @@ export default function ClientUpload() {
         {activeTab === "applications" && (
           <div
             ref={applicationsSectionRef}
-            className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
+            className="overflow-hidden rounded-xl border border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900"
           >
-            <div className="border-b border-slate-100 bg-gradient-to-r from-slate-50 via-white to-blue-50/40 px-5 py-6 sm:px-6">
-              <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wider text-blue-600">
-                    Your applications
-                  </p>
-                  <h2 className="mt-1 text-2xl font-bold tracking-tight text-slate-900">
-                    Loan Applications
+            <div className="border-b border-gray-100 px-4 py-4 dark:border-gray-800 sm:px-5">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                <div className="min-w-0">
+                  <h2 className="text-base font-semibold text-gray-900 dark:text-white">
+                    Loan applications
                   </h2>
-                  <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-500">
-                    Track status, upload documents, and stay updated on every
-                    loan in one place.
-                    {totalApplications > 0 && (
-                      <span className="font-semibold text-slate-700">
-                        {" "}
-                        {totalApplications} total application
-                        {totalApplications === 1 ? "" : "s"}.
-                      </span>
-                    )}
+                  <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
+                    {applicationsLoading
+                      ? "Loading applications..."
+                      : `${totalApplications} application${
+                          totalApplications === 1 ? "" : "s"
+                        }${
+                          debouncedSearch
+                            ? ` matching "${debouncedSearch}"`
+                            : ""
+                        }`}
                   </p>
                 </div>
 
-                <div className="flex w-full flex-col gap-2.5 lg:max-w-xl">
-                  <div className="relative w-full">
+                <div className="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end lg:max-w-2xl">
+                  <div className="relative w-full sm:min-w-[220px] sm:flex-1">
                     <FiSearch
-                      className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                      className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
                       size={16}
                     />
                     <input
                       type="text"
-                      placeholder="Search by ID, product, business, broker, or address..."
+                      placeholder="Search applications..."
                       value={search}
                       onChange={(e) => setSearch(e.target.value)}
-                      className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-9 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15"
+                      className="h-10 w-full rounded-xl border border-gray-200 bg-white py-2 pl-9 pr-9 text-sm outline-none transition focus:border-[#13538A] focus:ring-2 focus:ring-[#13538A]/15 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100"
                     />
-                    {search && (
+                    {search ? (
                       <button
                         type="button"
                         onClick={() => setSearch("")}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 transition hover:text-slate-600"
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-0.5 text-gray-400 hover:text-gray-600"
+                        aria-label="Clear search"
                       >
                         <FiX size={16} />
                       </button>
-                    )}
+                    ) : null}
                   </div>
 
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                    <div className="relative flex-1">
-                      <FiBriefcase
-                        className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-                        size={14}
-                      />
-                      <select
-                        value={brokerFilter}
-                        onChange={(e) => {
-                          setBrokerFilter(e.target.value);
-                          setPage(1);
-                        }}
-                        className="w-full appearance-none rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-8 text-sm text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15"
-                      >
-                        <option value="">All brokers</option>
-                        {filterBrokers.map((broker) => (
-                          <option key={broker.id} value={broker.id}>
-                            {broker.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                  <select
+                    value={brokerFilter}
+                    onChange={(e) => {
+                      setBrokerFilter(e.target.value);
+                      setPage(1);
+                    }}
+                    className="h-10 rounded-xl border border-gray-200 bg-white px-3 text-sm font-medium text-gray-700 outline-none transition focus:border-[#13538A] focus:ring-2 focus:ring-[#13538A]/15 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-200"
+                  >
+                    <option value="">All brokers</option>
+                    {filterBrokers.map((broker) => (
+                      <option key={broker.id} value={broker.id}>
+                        {broker.name}
+                      </option>
+                    ))}
+                  </select>
 
-                    <div className="relative flex-1">
-                      <FiFilter
-                        className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-                        size={14}
-                      />
-                      <select
-                        value={statusFilter}
-                        onChange={(e) => {
-                          setStatusFilter(e.target.value);
-                          setPage(1);
-                        }}
-                        className="w-full appearance-none rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-8 text-sm text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15"
-                      >
-                        <option value="">All statuses</option>
-                        {filterStatuses.map((status) => (
-                          <option key={status} value={status}>
-                            {formatStatusLabel(status)}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => {
+                      setStatusFilter(e.target.value);
+                      setPage(1);
+                    }}
+                    className="h-10 rounded-xl border border-gray-200 bg-white px-3 text-sm font-medium text-gray-700 outline-none transition focus:border-[#13538A] focus:ring-2 focus:ring-[#13538A]/15 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-200"
+                  >
+                    <option value="">All statuses</option>
+                    {filterStatuses.map((status) => (
+                      <option key={status} value={status}>
+                        {formatStatusLabel(status)}
+                      </option>
+                    ))}
+                  </select>
 
-                    {hasActiveFilters && (
-                      <button
-                        type="button"
-                        onClick={clearApplicationFilters}
-                        className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
-                      >
-                        <FiX size={14} />
-                        Clear
-                      </button>
-                    )}
-                  </div>
+                  {hasActiveFilters ? (
+                    <button
+                      type="button"
+                      onClick={clearApplicationFilters}
+                      className="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 text-xs font-semibold text-gray-600 transition hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-300"
+                    >
+                      <FiX size={14} />
+                      Clear
+                    </button>
+                  ) : null}
                 </div>
               </div>
             </div>
 
-            <div className="p-5 sm:p-6">
+            <div className="p-4 sm:p-5">
             {applicationsLoading ? (
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {Array.from({ length: 6 }).map((_, index) => (
                   <div
                     key={`app-skeleton-${index}`}
-                    className="animate-pulse overflow-hidden rounded-2xl border border-slate-200 bg-white"
+                    className="animate-pulse overflow-hidden rounded-xl border border-gray-100 bg-white dark:border-gray-800"
                   >
-                    <div className="h-1.5 bg-slate-200" />
+                    <div className="h-1.5 bg-gray-200 dark:bg-gray-700" />
                     <div className="space-y-4 p-5">
-                      <div className="h-4 w-2/3 rounded bg-slate-200" />
-                      <div className="h-3 w-1/2 rounded bg-slate-100" />
-                      <div className="h-16 rounded-xl bg-slate-100" />
-                      <div className="h-2 rounded-full bg-slate-100" />
+                      <div className="h-4 w-2/3 rounded bg-gray-200 dark:bg-gray-700" />
+                      <div className="h-3 w-1/2 rounded bg-gray-100 dark:bg-gray-800" />
+                      <div className="h-16 rounded-xl bg-gray-100 dark:bg-gray-800" />
+                      <div className="h-2 rounded-full bg-gray-100 dark:bg-gray-800" />
                     </div>
                   </div>
                 ))}
               </div>
             ) : applications.length === 0 ? (
-              <div className="relative overflow-hidden rounded-2xl border border-dashed border-slate-200 bg-slate-50/80 px-6 py-16 text-center">
-                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-500 shadow-lg">
-                  <FolderOpen className="text-white" size={28} />
+              <div className="flex flex-col items-center py-16 text-center">
+                <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#13538A]/10 text-[#13538A]">
+                  <FolderOpen size={24} />
                 </div>
-                <p className="text-base font-semibold text-slate-800">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                   No applications found
-                </p>
-                <p className="mx-auto mt-2 max-w-md text-sm text-slate-500">
+                </h3>
+                <p className="mt-1 max-w-md text-sm text-gray-500">
                   {hasActiveFilters
-                    ? "Try different filters or clear them to see all applications."
+                    ? "Try adjusting your search or filters."
                     : "Your loan applications will appear here once they are created."}
                 </p>
-                {hasActiveFilters && (
+                {hasActiveFilters ? (
                   <button
                     type="button"
                     onClick={clearApplicationFilters}
-                    className="mt-4 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                    className="mt-4 rounded-xl bg-[#13538A] px-4 py-2 text-sm font-medium text-white hover:bg-[#1a6aad]"
                   >
                     Clear filters
                   </button>
-                )}
+                ) : null}
               </div>
             ) : (
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -2404,7 +2401,7 @@ export default function ClientUpload() {
                       }}
                       role="button"
                       tabIndex={0}
-                      className="group flex h-full cursor-pointer flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                      className="group flex h-full cursor-pointer flex-col overflow-hidden rounded-xl border border-gray-100 bg-white transition hover:border-[#13538A]/30 hover:bg-[#13538A]/[0.02] focus:outline-none focus:ring-2 focus:ring-[#13538A]/25 dark:border-gray-800 dark:bg-gray-900 dark:hover:bg-gray-800/40"
                     >
                       <div
                         className={`h-1.5 ${getStatusAccentClass(app.status)}`}
@@ -2413,11 +2410,11 @@ export default function ClientUpload() {
                       <div className="flex flex-1 flex-col p-5">
                         <div className="mb-4 flex items-start justify-between gap-3">
                           <div className="min-w-0">
-                            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                            <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
                               Application ID
                             </p>
                             <p
-                              className="mt-1 truncate font-mono text-sm font-bold text-slate-900"
+                              className="mt-1 truncate font-mono text-sm font-semibold text-gray-900 dark:text-white"
                               title={app.applicationNumber}
                             >
                               {app.applicationNumber}
@@ -2436,11 +2433,11 @@ export default function ClientUpload() {
                           </span>
                         </div>
 
-                        <div className="mb-4 rounded-xl border border-slate-100 bg-slate-50/80 px-3 py-3">
-                          <p className="text-sm font-semibold text-slate-800">
+                        <div className="mb-4 rounded-xl border border-gray-100 bg-gray-50/80 px-3 py-3 dark:border-gray-800 dark:bg-gray-800/50">
+                          <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">
                             {formatLoanProductLabel(app.loanProduct)}
                           </p>
-                          <p className="mt-1 text-xs text-slate-500">
+                          <p className="mt-1 text-xs text-gray-500">
                             Created{" "}
                             {new Date(app.createdAt).toLocaleDateString(
                               undefined,
@@ -2454,7 +2451,7 @@ export default function ClientUpload() {
                         </div>
 
                         {hasApplicationCardSummary(app) && (
-                          <div className="mb-4 space-y-2.5 rounded-xl border border-slate-100 bg-white px-3 py-3">
+                          <div className="mb-4 space-y-2.5 rounded-xl border border-gray-100 bg-white px-3 py-3 dark:border-gray-800 dark:bg-gray-900">
                             <ApplicationCardMetaRow
                               icon={<FiBriefcase size={14} />}
                               label="Broker"
@@ -2486,10 +2483,10 @@ export default function ClientUpload() {
                         <div className="mt-auto space-y-3">
                           <div className="flex items-end justify-between gap-3">
                             <div>
-                              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                              <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
                                 Loan amount
                               </p>
-                              <p className="mt-1 text-lg font-bold text-slate-900">
+                              <p className="mt-1 text-lg font-semibold tabular-nums text-gray-900 dark:text-white">
                                 {formatApplicationAmount(app.amountRequested)}
                               </p>
                             </div>
@@ -2509,35 +2506,37 @@ export default function ClientUpload() {
                           </div>
 
                           <div>
-                            <div className="mb-1.5 flex items-center justify-between text-[11px] font-medium text-slate-500">
+                            <div className="mb-1.5 flex items-center justify-between text-[11px] font-medium text-gray-500">
                               <span>Document progress</span>
                               <span
                                 className={
                                   progress === 100
                                     ? "text-emerald-600"
-                                    : "text-slate-600"
+                                    : "text-gray-600"
                                 }
                               >
                                 {progress}%
                               </span>
                             </div>
-                            <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+                            <div className="h-2 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
                               <div
                                 className={`h-full rounded-full transition-all duration-500 ${
                                   progress === 100
                                     ? "bg-emerald-500"
-                                    : "bg-gradient-to-r from-blue-600 to-cyan-500"
+                                    : "bg-[#13538A]"
                                 }`}
-                                style={{ width: `${Math.max(progress, progress > 0 ? 8 : 0)}%` }}
+                                style={{
+                                  width: `${Math.max(progress, progress > 0 ? 8 : 0)}%`,
+                                }}
                               />
                             </div>
                           </div>
 
-                          <div className="flex items-center justify-between border-t border-slate-100 pt-3">
-                            <span className="text-xs text-slate-500">
+                          <div className="flex items-center justify-between border-t border-gray-100 pt-3 dark:border-gray-800">
+                            <span className="text-xs text-gray-500">
                               Open to view details & upload
                             </span>
-                            <span className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 transition group-hover:gap-2">
+                            <span className="inline-flex items-center gap-1 text-xs font-semibold text-[#13538A] transition group-hover:gap-2">
                               View
                               <ChevronRight size={14} />
                             </span>
@@ -2551,35 +2550,39 @@ export default function ClientUpload() {
             )}
 
             {totalApplications > 0 && (
-              <div className="mt-6 flex flex-col gap-3 border-t border-slate-100 pt-5 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-xs text-slate-500">
-                  Showing {applicationsRange.start}-{applicationsRange.end} of{" "}
-                  {totalApplications} application
-                  {totalApplications === 1 ? "" : "s"}
-                  {totalPages > 1 && (
-                    <>
-                      {" "}
-                      · Page {page} of {totalPages}
-                    </>
-                  )}
+              <div className="mt-5 flex flex-col gap-3 border-t border-gray-100 pt-4 dark:border-gray-800 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  Showing{" "}
+                  <span className="font-medium text-gray-700 dark:text-gray-200">
+                    {applicationsRange.start}-{applicationsRange.end}
+                  </span>{" "}
+                  of{" "}
+                  <span className="font-medium text-gray-700 dark:text-gray-200">
+                    {totalApplications}
+                  </span>
                 </p>
 
-                {totalPages > 1 && (
-                  <div className="flex flex-wrap items-center gap-2">
+                {totalPages > 1 ? (
+                  <div className="flex flex-wrap items-center gap-1.5">
                     <button
                       type="button"
-                      onClick={() => setPage((current) => Math.max(1, current - 1))}
+                      onClick={() =>
+                        setPage((current) => Math.max(1, current - 1))
+                      }
                       disabled={page === 1 || applicationsLoading}
-                      className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200"
                     >
-                      Previous
+                      <span className="inline-flex items-center gap-1">
+                        <ChevronLeft className="h-4 w-4" />
+                        Prev
+                      </span>
                     </button>
 
                     {visiblePages.map((pageNumber, index) =>
                       pageNumber === "ellipsis" ? (
                         <span
                           key={`ellipsis-${index}`}
-                          className="px-1 text-xs text-slate-400"
+                          className="px-1 text-sm text-gray-400"
                         >
                           ...
                         </span>
@@ -2589,10 +2592,10 @@ export default function ClientUpload() {
                           type="button"
                           onClick={() => setPage(pageNumber)}
                           disabled={applicationsLoading}
-                          className={`min-w-[2rem] rounded-lg px-3 py-1.5 text-xs font-semibold transition disabled:opacity-50 ${
+                          className={`min-w-8 rounded-lg border px-2.5 py-1.5 text-sm font-medium transition ${
                             page === pageNumber
-                              ? "bg-blue-600 text-white shadow-sm"
-                              : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                              ? "border-[#13538A] bg-[#13538A] text-white"
+                              : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200"
                           }`}
                         >
                           {pageNumber}
@@ -2606,12 +2609,15 @@ export default function ClientUpload() {
                         setPage((current) => Math.min(totalPages, current + 1))
                       }
                       disabled={page === totalPages || applicationsLoading}
-                      className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200"
                     >
-                      Next
+                      <span className="inline-flex items-center gap-1">
+                        Next
+                        <ChevronRight className="h-4 w-4" />
+                      </span>
                     </button>
                   </div>
-                )}
+                ) : null}
               </div>
             )}
             </div>
@@ -2644,18 +2650,21 @@ export default function ClientUpload() {
                 />
 
                 {/* Client signature pad / signed state */}
-                <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-5 shadow-[0_8px_30px_-20px_rgba(15,23,42,0.28)] sm:p-6">
+                <div className="overflow-hidden rounded-xl border border-gray-100 bg-white p-5 sm:p-6">
                   <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                     <div>
-                      <h3 className="text-sm font-semibold text-slate-900">
-                        Digital Signature
-                      </h3>
-                      <p className="mt-0.5 text-xs text-slate-500">
+                      <div className="mb-1 flex items-center gap-2">
+                        <span className="h-4 w-1 rounded-full bg-[#13538A]" />
+                        <h3 className="text-sm font-semibold text-gray-900">
+                          Digital Signature
+                        </h3>
+                      </div>
+                      <p className="text-xs text-gray-500">
                         Sign to confirm your application details.
                       </p>
                     </div>
                     <span
-                      className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold shadow-sm ${getStatusStyles(
+                      className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold ${getStatusStyles(
                         applicationData.status,
                       )}`}
                     >
@@ -2678,7 +2687,7 @@ export default function ClientUpload() {
                           className="mx-auto h-28 object-contain"
                         />
                       ) : (
-                        <p className="text-sm text-slate-600">
+                        <p className="text-sm text-gray-600">
                           Your application has been submitted.
                         </p>
                       )}
@@ -2690,7 +2699,7 @@ export default function ClientUpload() {
                     </div>
                   ) : (
                     <>
-                      <div className="rounded-xl border border-slate-200 bg-gradient-to-br from-white to-slate-50 p-4 shadow-sm">
+                      <div className="rounded-xl border border-gray-200 bg-gradient-to-br from-white to-[#13538A]/[0.03] p-4">
                         <div ref={signaturePadWrapRef} className="w-full">
                           <SigCanvas
                             key={`sig-pad-${signaturePadSize.width}x${signaturePadSize.height}`}
@@ -2702,7 +2711,7 @@ export default function ClientUpload() {
                               width: signaturePadSize.width,
                               height: signaturePadSize.height,
                               className:
-                                "block touch-none rounded-lg border-2 border-dashed border-slate-300 bg-white",
+                                "block touch-none rounded-lg border-2 border-dashed border-[#13538A]/30 bg-white",
                               style: {
                                 width: "100%",
                                 height: `${signaturePadSize.height}px`,
@@ -2712,7 +2721,7 @@ export default function ClientUpload() {
                         </div>
 
                         <div className="mt-3 flex items-center justify-between gap-3">
-                          <p className="text-xs text-slate-400">Sign above</p>
+                          <p className="text-xs text-gray-400">Sign above</p>
                           <div className="flex items-center gap-2">
                             <button
                               type="button"
@@ -2720,8 +2729,8 @@ export default function ClientUpload() {
                               disabled={!signature}
                               className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
                                 !signature
-                                  ? "cursor-not-allowed bg-slate-100 text-slate-400"
-                                  : "bg-white text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50"
+                                  ? "cursor-not-allowed bg-gray-100 text-gray-400"
+                                  : "bg-white text-gray-700 ring-1 ring-gray-200 hover:bg-gray-50"
                               }`}
                             >
                               Undo Last Stroke
@@ -2732,8 +2741,8 @@ export default function ClientUpload() {
                               disabled={!signature}
                               className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
                                 !signature
-                                  ? "cursor-not-allowed bg-slate-100 text-slate-400"
-                                  : "bg-slate-200 text-slate-700 hover:bg-slate-300"
+                                  ? "cursor-not-allowed bg-gray-100 text-gray-400"
+                                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
                               }`}
                             >
                               Reset Signature
@@ -2747,8 +2756,8 @@ export default function ClientUpload() {
                         disabled={!signature || submittingSign || !canClientSign}
                         className={`mt-4 w-full rounded-xl py-2.5 text-sm font-semibold transition ${
                           !signature || submittingSign || !canClientSign
-                            ? "cursor-not-allowed bg-slate-200 text-slate-500 shadow-none"
-                            : "bg-emerald-600 text-white shadow-[0_12px_24px_rgba(5,150,105,0.22)] hover:bg-emerald-700"
+                            ? "cursor-not-allowed bg-gray-200 text-gray-500"
+                            : "bg-[#13538A] text-white hover:bg-[#1a6aad]"
                         }`}
                       >
                         {submittingSign
@@ -2758,7 +2767,7 @@ export default function ClientUpload() {
                     </>
                   )}
 
-                  <p className="mt-4 text-sm text-slate-500">
+                  <p className="mt-4 text-sm text-gray-500">
                     {applicationData?.submittedAt
                       ? `Submitted: ${formatClientPortalSubmittedDate(applicationData)}`
                       : `Application Created: ${formatClientPortalSubmittedDate(applicationData)}`}

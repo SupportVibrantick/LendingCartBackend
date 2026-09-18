@@ -1200,7 +1200,7 @@ export default function BrokerDetailPage() {
       const params: Record<string, string> = {
         token: json.token,
         user: JSON.stringify(json.user),
-        redirectTo: json.redirectTo || "/sub-broker/loan-pipeline",
+        redirectTo: json.redirectTo || "/sub-broker/dashboard",
       };
       if (json.branding) {
         params.branding = JSON.stringify(json.branding);

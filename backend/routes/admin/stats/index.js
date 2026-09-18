@@ -1,4 +1,19 @@
 const { adminLogs } = require("../../../services/logger/contextLogger.js");
+const {
+  ANALYTICS_APPLICATION_SELECT,
+  createAnalyticsEngine,
+} = require("../../../utils/broker/dashboardPeriodAnalytics");
+
+function normalizeGroupCount(rows = []) {
+  return rows.map((row) => {
+    const raw = row._count;
+    const count =
+      typeof raw === "number"
+        ? raw
+        : Number(raw?._all ?? raw?.id ?? 0) || 0;
+    return { ...row, _count: count };
+  });
+}
 
 /**
  * @param {import("fastify").FastifyInstance} fastify
@@ -12,6 +27,15 @@ async function adminStatsRoutes(fastify) {
       schema: {
         tags: ["Admin -> Dashboard Stats"],
         summary: "Get Complete Admin Analytics Dashboard",
+        querystring: {
+          type: "object",
+          properties: {
+            period: {
+              type: "string",
+              enum: ["7d", "30d", "90d", "12m"],
+            },
+          },
+        },
       },
     },
     async (request, reply) => {
@@ -24,6 +48,9 @@ async function adminStatsRoutes(fastify) {
 
         const last30Days = new Date();
         last30Days.setDate(now.getDate() - 30);
+
+        const engine = createAnalyticsEngine(request.query?.period);
+        const { period, previousPeriod } = engine;
 
         const [
           totalOrganizations,
@@ -56,7 +83,7 @@ async function adminStatsRoutes(fastify) {
           prisma.organization.count({ where: { isDeleted: false } }),
           prisma.organization.groupBy({
             by: ["type"],
-            _count: true,
+            _count: { _all: true },
           }),
           prisma.userAccount.count({ where: { isDeleted: false } }),
           prisma.userAccount.count({
@@ -67,7 +94,7 @@ async function adminStatsRoutes(fastify) {
           prisma.loanApplication.count(),
           prisma.loanApplication.groupBy({
             by: ["status"],
-            _count: true,
+            _count: { _all: true },
           }),
           prisma.loanApplication.aggregate({
             _sum: {
@@ -85,7 +112,7 @@ async function adminStatsRoutes(fastify) {
           prisma.applicationLender.count(),
           prisma.applicationLender.groupBy({
             by: ["status"],
-            _count: true,
+            _count: { _all: true },
           }),
           prisma.lenderReview.count(),
           prisma.lenderReview.count({ where: { reviewStatus: "CONDITIONAL" } }),
@@ -111,14 +138,69 @@ async function adminStatsRoutes(fastify) {
           prisma.conversation.count(),
         ]);
 
-        adminLogs.info("Improved full admin dashboard analytics fetched");
+        const applicationWhere = {
+          OR: [
+            {
+              createdAt: {
+                gte: previousPeriod.start,
+                lte: period.end,
+              },
+            },
+            {
+              submittedAt: {
+                gte: previousPeriod.start,
+                lte: period.end,
+              },
+            },
+            {
+              fundedAt: {
+                gte: previousPeriod.start,
+                lte: period.end,
+              },
+            },
+          ],
+        };
+
+        const BATCH_SIZE = 500;
+        let cursorId = null;
+
+        // eslint-disable-next-line no-constant-condition
+        while (true) {
+          const batch = await prisma.loanApplication.findMany({
+            where: applicationWhere,
+            take: BATCH_SIZE,
+            ...(cursorId
+              ? {
+                  skip: 1,
+                  cursor: { id: cursorId },
+                }
+              : {}),
+            orderBy: { id: "asc" },
+            select: ANALYTICS_APPLICATION_SELECT,
+          });
+
+          if (!batch.length) break;
+
+          for (const application of batch) {
+            engine.add(application);
+          }
+
+          cursorId = batch[batch.length - 1].id;
+          if (batch.length < BATCH_SIZE) break;
+        }
+
+        const analytics = engine.finalize();
+
+        adminLogs.info("Improved full admin dashboard analytics fetched", {
+          period: analytics.period?.key,
+        });
 
         return reply.status(200).send({
           success: true,
           data: {
             organizations: {
               total: totalOrganizations,
-              breakdown: orgByType,
+              breakdown: normalizeGroupCount(orgByType),
             },
             users: {
               total: totalUsers,
@@ -135,15 +217,15 @@ async function adminStatsRoutes(fastify) {
             },
             applications: {
               total: totalApplications,
-              breakdown: applicationStatusCounts,
-              fundedVolume: fundedVolume._sum.amountRequested || 0,
+              breakdown: normalizeGroupCount(applicationStatusCounts),
+              fundedVolume: Number(fundedVolume._sum.amountRequested || 0),
               last7Days: applicationsLast7Days,
               last30Days: applicationsLast30Days,
             },
             lenders: {
               products: totalLenderProducts,
               connections: totalApplicationLenders,
-              breakdown: lenderStatusCounts,
+              breakdown: normalizeGroupCount(lenderStatusCounts),
               reviews: totalLenderReviews,
               conditionalApprovals,
             },
@@ -162,6 +244,7 @@ async function adminStatsRoutes(fastify) {
               landingPage: totalLandingLeads,
               adminManual: totalAdminLeads,
             },
+            analytics,
           },
         });
       } catch (error) {

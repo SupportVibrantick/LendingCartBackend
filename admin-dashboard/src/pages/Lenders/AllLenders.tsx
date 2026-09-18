@@ -15,7 +15,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Mail,
-  // UserPlus,
   Users,
   UserCheck,
   Activity,
@@ -24,7 +23,7 @@ import {
   Upload,
   Link2,
   ArrowRightLeft,
-  // Filter,
+  X,
 } from "lucide-react";
 import Swal from "sweetalert2";
 Swal.mixin({
@@ -115,7 +114,7 @@ export default function LenderAllLendersPage() {
 
   const [query, setQuery] = useState("");
   const debouncedSearch = useDebouncedValue(query.trim(), 350);
-  const [pageSize, setPageSize] = useState<number>(6);
+  const [pageSize, setPageSize] = useState<number>(8);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
@@ -606,6 +605,22 @@ export default function LenderAllLendersPage() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
+  function getPageNumbers() {
+    const pages: (number | "ellipsis")[] = [];
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i += 1) pages.push(i);
+      return pages;
+    }
+    pages.push(1);
+    if (currentPage > 3) pages.push("ellipsis");
+    const start = Math.max(2, currentPage - 1);
+    const end = Math.min(totalPages - 1, currentPage + 1);
+    for (let i = start; i <= end; i += 1) pages.push(i);
+    if (currentPage < totalPages - 2) pages.push("ellipsis");
+    pages.push(totalPages);
+    return pages;
+  }
+
   // const openEditModal = async (b: Lender) => {
   //   try {
   //     const token = sessionStorage.getItem("admin_token");
@@ -917,6 +932,10 @@ export default function LenderAllLendersPage() {
     () => lenders.filter((l) => l.status === "ACTIVE").length,
     [lenders],
   );
+  const inactiveLenders = useMemo(
+    () => lenders.filter((l) => l.status !== "ACTIVE").length,
+    [lenders],
+  );
 
   const isSearchEmpty =
     debouncedSearch !== "" && lenders.length === 0 && !loading;
@@ -933,106 +952,125 @@ export default function LenderAllLendersPage() {
     </div>
   );
 
+  const statCards = [
+    {
+      label: "Total Lenders",
+      value: totalLenders,
+      icon: Building2,
+      iconWrap: "bg-sky-50 text-sky-600 dark:bg-sky-500/10 dark:text-sky-400",
+      hint: "All lender organizations",
+    },
+    {
+      label: "Active Lenders",
+      value: activeLenders,
+      icon: Activity,
+      iconWrap:
+        "bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400",
+      hint: "On this page",
+    },
+    {
+      label: "Inactive Lenders",
+      value: inactiveLenders,
+      icon: UserCheck,
+      iconWrap:
+        "bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400",
+      hint: "On this page",
+    },
+  ] as const;
+
   return (
-    <div className="bg-gray-50 dark:bg-slate-950 transition-colors duration-300">
-      <div className="max-w-7xl mx-auto">
-        {/* ================= HEADER ================= */}
-        <div className="mb-8 rounded-2xl border border-slate-200 bg-white p-6  dark:border-slate-800 dark:bg-slate-900">
-  {/* Top */}
-  <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-    <div>
-      <div className="flex items-center gap-3">
-        <h1 className="text-3xl font-bold tracking-tight text-[#13538A] dark:text-white">
-          All Lenders
-        </h1>
+    <div className="w-full pb-6 transition-colors duration-300">
+      <div className="w-full">
+        {/* Hero */}
+        <div className="mb-4 overflow-hidden rounded-xl border border-[#13538A]/20 bg-gradient-to-br from-[#13538A] via-[#1a6aad] to-[#5D28A8] p-4 text-white sm:p-5">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="min-w-0">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/70">
+                Lender Database
+              </p>
+              <div className="mt-1 flex flex-wrap items-center gap-3">
+                <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
+                  All Lenders
+                </h1>
+                <button
+                  type="button"
+                  onClick={() => fetchLenders()}
+                  disabled={loading}
+                  title="Refresh"
+                  className="group inline-flex h-9 w-9 items-center justify-center rounded-lg border border-white/25 bg-white/10 text-white transition hover:bg-white/20 disabled:opacity-50"
+                >
+                  <RefreshCcw
+                    size={16}
+                    className={
+                      loading
+                        ? "animate-spin"
+                        : "transition-transform duration-500 group-hover:rotate-180"
+                    }
+                  />
+                </button>
+              </div>
+              <p className="mt-1.5 max-w-2xl text-sm text-white/80">
+                Manage lender organizations, assign loan products, and handle
+                invitations from one place.
+              </p>
+            </div>
+          </div>
 
-        <button
-          onClick={() => fetchLenders()}
-          disabled={loading}
-          title="Refresh"
-          className="group inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-sm transition-all hover:border-blue-500 hover:bg-blue-50 hover:text-blue-600 active:scale-95 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
-        >
-          <RefreshCcw
-            size={16}
-            className={
-              loading
-                ? "animate-spin"
-                : "transition-transform duration-500 group-hover:rotate-180"
-            }
-          />
-        </button>
-      </div>
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => navigate("/add-lender")}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-white px-3.5 py-2 text-xs font-semibold text-[#13538A] transition hover:bg-white/90"
+            >
+              <TiPlus className="h-3.5 w-3.5" />
+              Add Lender
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate("/assigned-products")}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-white/30 bg-white/10 px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-white/20"
+            >
+              <PackagePlus className="h-3.5 w-3.5" />
+              Assign Products
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate("/view-assigned-products")}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-white/30 bg-white/10 px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-white/20"
+            >
+              <Eye className="h-3.5 w-3.5" />
+              View Assigned
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsInviteOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-white/30 bg-white/10 px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-white/20"
+            >
+              <Users className="h-3.5 w-3.5" />
+              Invite Lender
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsBulkInviteOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-white/30 bg-white/10 px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-white/20"
+            >
+              <Upload className="h-3.5 w-3.5" />
+              Bulk Invite
+            </button>
+            <button
+              type="button"
+              onClick={copyPublicPartnerLink}
+              title={publicPartnerLink}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-white/30 bg-white/10 px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-white/20"
+            >
+              <Link2 className="h-3.5 w-3.5" />
+              Signup Link
+            </button>
+          </div>
+        </div>
 
-      <p className="mt-2  text-sm leading-6 text-slate-500 dark:text-slate-400">
-        Manage lender organizations, assign loan products and manage lender invitations from one place.
-      </p>
-    </div>
-  </div>
-
-  {/* Divider */}
-  <div className="my-5 border-t border-slate-200 dark:border-slate-800" />
-
-  {/* Actions */}
-  <div className="flex flex-wrap items-center gap-2.5">
-    {/* Add */}
-    <button
-      onClick={() => navigate("/add-lender")}
-      className="inline-flex items-center gap-1.5 rounded-lg bg-[#13538A] px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition-all hover:bg-[#10446f] hover:shadow-md active:scale-95"
-    >
-      <TiPlus className="h-3.5 w-3.5" />
-      Add Lender 
-    </button>
-
-    {/* Assign */}
-    <button
-      onClick={() => navigate("/assigned-products")}
-      className="inline-flex items-center gap-1.5 rounded-lg border border-[#13538A] bg-white px-3.5 py-2 text-xs font-semibold text-[#13538A] shadow-sm transition-all hover:bg-blue-50 active:scale-95 dark:border-blue-500 dark:bg-slate-900 dark:text-blue-400 dark:hover:bg-slate-800"
-    >
-      <PackagePlus className="h-3.5 w-3.5" />
-      Assign Products
-    </button>
-
-    {/* View */}
-    <button
-      onClick={() => navigate("/view-assigned-products")}
-      className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition-all hover:bg-emerald-700 hover:shadow-md active:scale-95"
-    >
-      <Eye className="h-3.5 w-3.5" />
-      View Assigned Products
-    </button>
-
-    {/* Invite */}
-    <button
-      onClick={() => setIsInviteOpen(true)}
-      className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition-all hover:bg-indigo-700 hover:shadow-md active:scale-95"
-    >
-      <Users className="h-3.5 w-3.5" />
-      Invite Lender
-    </button>
-
-    {/* Bulk */}
-    <button
-      onClick={() => setIsBulkInviteOpen(true)}
-      className="inline-flex items-center gap-1.5 rounded-lg bg-violet-600 px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition-all hover:bg-violet-700 hover:shadow-md active:scale-95"
-    >
-      <Upload className="h-3.5 w-3.5" />
-      Invite Multiple Lenders
-    </button>
-
-    {/* Public Link */}
-    <button
-      type="button"
-      onClick={copyPublicPartnerLink}
-      title={publicPartnerLink}
-      className="inline-flex items-center gap-1.5 rounded-lg bg-teal-600 px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition-all hover:bg-teal-700 hover:shadow-md active:scale-95"
-    >
-      <Link2 className="h-3.5 w-3.5" />
-      Copy Lender Signup Link
-    </button>
-  </div>
-</div>
-        {/* ================= VIEW TABS ================= */}
-        <div className="mb-6 inline-flex rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-1">
+        {/* View tabs */}
+        <div className="mb-4 inline-flex rounded-lg border border-slate-200 bg-white p-1 dark:border-slate-800 dark:bg-slate-900">
           <button
             type="button"
             onClick={async () => {
@@ -1041,10 +1079,10 @@ export default function LenderAllLendersPage() {
               setQuery("");
               await fetchLenders();
             }}
-            className={`px-4 py-2 text-xs font-semibold rounded-lg transition ${
+            className={`rounded-md px-3.5 py-1.5 text-xs font-semibold transition ${
               listView === "lenders"
                 ? "bg-[#13538A] text-white"
-                : "text-slate-600 dark:text-slate-300"
+                : "text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800"
             }`}
           >
             All Lenders
@@ -1052,10 +1090,10 @@ export default function LenderAllLendersPage() {
           <button
             type="button"
             onClick={() => setListView("invites")}
-            className={`px-4 py-2 text-xs font-semibold rounded-lg transition ${
+            className={`rounded-md px-3.5 py-1.5 text-xs font-semibold transition ${
               listView === "invites"
                 ? "bg-[#13538A] text-white"
-                : "text-slate-600 dark:text-slate-300"
+                : "text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800"
             }`}
           >
             Invitations
@@ -1071,211 +1109,151 @@ export default function LenderAllLendersPage() {
           />
         ) : (
           <>
-            {/* ================= STATS CARDS ================= */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-              {/* TOTAL LENDERS */}
-              <div
-                className="
-    bg-white dark:bg-slate-900
-    border border-slate-200 dark:border-slate-800
-    rounded-2xl p-6
-    hover:shadow-md
-    transition-all duration-200
-    flex items-center justify-between
-  "
-              >
-                <div>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">
-                    Total Lenders
-                  </p>
-                  <p className="text-xl font-semibold text-slate-900 dark:text-white mt-1">
-                    {totalLenders}
-                  </p>
+            {/* Stats */}
+            <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+              {statCards.map(({ label, value, icon: Icon, iconWrap, hint }) => (
+                <div
+                  key={label}
+                  className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3.5 dark:border-slate-800 dark:bg-slate-900"
+                >
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
+                      {label}
+                    </p>
+                    <p className="mt-1 text-2xl font-semibold tabular-nums text-slate-900 dark:text-white">
+                      {value}
+                    </p>
+                    <p className="mt-0.5 text-xs text-slate-400">{hint}</p>
+                  </div>
+                  <div
+                    className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${iconWrap}`}
+                  >
+                    <Icon className="h-5 w-5" />
+                  </div>
                 </div>
-
-                <div className="h-8 w-8 flex items-center justify-center rounded-full bg-violet-600 text-white">
-                  <Users className="w-5 h-5" />
-                </div>
-              </div>
-
-              {/* Total Volume */}
-              <div
-                className="
-    bg-white dark:bg-slate-900
-    border border-slate-200 dark:border-slate-800
-    rounded-2xl p-6
-    hover:shadow-md
-    transition-all duration-200
-    flex items-center justify-between
-  "
-              >
-                <div>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">
-                    Total Volume
-                  </p>
-                  <p className="text-xl font-semibold text-slate-900 dark:text-white mt-1">
-                    0
-                  </p>
-                </div>
-
-                <div className="h-8 w-8 flex items-center justify-center rounded-full bg-orange-500 text-white">
-                  <UserCheck className="w-5 h-5" />
-                </div>
-              </div>
-
-              {/* ACTIVE LENDERS */}
-              <div
-                className="
-    bg-white dark:bg-slate-900
-    border border-slate-200 dark:border-slate-800
-    rounded-2xl p-6
-    hover:shadow-md
-    transition-all duration-200
-    flex items-center justify-between
-  "
-              >
-                <div>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">
-                    Active Lenders
-                  </p>
-                  <p className="text-xl font-semibold text-slate-900 dark:text-white mt-1">
-                    {activeLenders}
-                  </p>
-                </div>
-
-                <div className="h-8 w-8 flex items-center justify-center rounded-full bg-emerald-600 text-white">
-                  <Activity className="w-5 h-5" />
-                </div>
-              </div>
+              ))}
             </div>
 
-            {/* ================= SEARCH & FILTER BAR ================= */}
-            <div className="mb-8 p-2 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 dark:shadow-none flex flex-col md:flex-row items-center gap-4">
-              <div className="relative flex-1 w-full">
+            {/* Per page + Search */}
+            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                  Per page
+                </span>
+                <div className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white p-1 dark:border-slate-700 dark:bg-slate-900">
+                  {[4, 8, 12, 16, 20].map((size) => (
+                    <button
+                      key={size}
+                      type="button"
+                      onClick={() => {
+                        setCurrentPage(1);
+                        setPageSize(size);
+                      }}
+                      className={`min-w-9 rounded-md px-2.5 py-1.5 text-xs font-semibold transition ${
+                        pageSize === size
+                          ? "bg-[#13538A] text-white"
+                          : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+                      }`}
+                    >
+                      {size}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="relative w-full max-w-[280px] self-end sm:self-auto">
                 <Search
-                  size={20}
-                  className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
+                  size={15}
+                  className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
                 />
                 <input
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Search by name, email or phone..."
-                  className="text-sm w-full pl-12 pr-4 py-2 bg-transparent border-none focus:ring-2 focus:ring-blue-500/20 rounded-xl text-slate-700 dark:text-slate-200 placeholder:text-slate-400"
+                  placeholder="Search lenders..."
+                  className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-9 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#13538A] focus:ring-2 focus:ring-[#13538A]/15 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
                 />
-              </div>
-
-              <div className="hidden md:block h-8 w-px bg-slate-200 dark:bg-slate-800"></div>
-
-              <div className="flex items-center gap-2 pr-4">
-                <span className="text-sm font-medium text-slate-500 dark:text-slate-400 whitespace-nowrap">
-                  View:
-                </span>
-
-                <div className="relative">
-                  <select
-                    value={pageSize}
-                    onChange={(e) => {
-                      setCurrentPage(1);
-                      setPageSize(Number(e.target.value));
-                    }}
-                    className="
-                    appearance-none
-                    px-3 py-2 pr-8
-                    rounded-xl text-sm font-semibold
-                    bg-white dark:bg-slate-800
-                    text-slate-900 dark:text-slate-100
-                    border border-slate-200 dark:border-slate-700
-                    hover:bg-slate-50 dark:hover:bg-slate-700
-                    focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500
-                    transition cursor-pointer
-                "
+                {query ? (
+                  <button
+                    type="button"
+                    onClick={() => setQuery("")}
+                    className="absolute right-2 top-1/2 inline-flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800"
+                    aria-label="Clear search"
                   >
-                    <option value={6}>6 / page</option>
-                    <option value={9}>9 / page</option>
-                    <option value={12}>12 / page</option>
-                    <option value={20}>20 / page</option>
-                  </select>
-
-                  <svg
-                    className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M19 9l-7 7-7-7"
-                    />
-                  </svg>
-                </div>
+                    <X size={14} />
+                  </button>
+                ) : null}
               </div>
             </div>
 
-            {/* ================= CONTENT GRID ================= */}
+            {/* Content */}
             {loading ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-                {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
                   <div
                     key={i}
-                    className="h-72 rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 animate-pulse overflow-hidden"
+                    className="h-52 animate-pulse overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900"
                   >
-                    <div className="h-2/3 bg-slate-100 dark:bg-slate-800/50"></div>
-                    <div className="p-6 space-y-3">
-                      <div className="h-4 w-1/2 bg-slate-200 dark:bg-slate-700 rounded"></div>
-                      <div className="h-4 w-full bg-slate-200 dark:bg-slate-700 rounded"></div>
-                    </div>
+                    <div className="h-full bg-slate-100 dark:bg-slate-800/50" />
                   </div>
                 ))}
               </div>
             ) : isTotalEmpty ? (
-              <div className="py-24 flex flex-col items-center text-center bg-white dark:bg-slate-900 rounded-3xl border border-dashed border-slate-300 dark:border-slate-700 shadow-sm">
-                <div className="w-24 h-24 rounded-3xl bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center mb-6">
-                  <Building2
-                    size={48}
-                    className="text-blue-600 dark:text-blue-400"
-                  />
+              <div className="flex flex-col items-center justify-center rounded-xl border border-slate-200 bg-white px-6 py-16 text-center dark:border-slate-800 dark:bg-slate-900">
+                <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#13538A]/10 text-[#13538A]">
+                  <Building2 size={26} />
                 </div>
-                <h3 className="text-2xl font-bold text-slate-900 dark:text-white">
-                  No Lenders Found
+                <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
+                  No lenders yet
                 </h3>
-                <p className="text-slate-500 dark:text-slate-400 mt-2 max-w-sm">
-                  Get started by adding a new lender to the platform.
+                <p className="mt-1.5 max-w-sm text-sm text-slate-500 dark:text-slate-400">
+                  Get started by adding the first lender organization to the
+                  platform.
                 </p>
                 <button
+                  type="button"
                   onClick={openAdd}
-                  className="mt-6 px-6 py-2 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-700 transition"
+                  className="mt-5 inline-flex items-center gap-1.5 rounded-lg bg-[#13538A] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#10446f]"
                 >
+                  <TiPlus className="h-3.5 w-3.5" />
                   Add Lender
                 </button>
               </div>
             ) : isSearchEmpty ? (
-              <div className="py-24 flex flex-col items-center text-center bg-white dark:bg-slate-900 rounded-3xl border border-dashed border-orange-300 dark:border-orange-700/50 shadow-sm">
-                <div className="w-24 h-24 rounded-3xl bg-orange-50 dark:bg-orange-900/20 flex items-center justify-center mb-6">
-                  <SearchX
-                    size={48}
-                    className="text-orange-600 dark:text-orange-400"
-                  />
+              <div className="flex flex-col items-center justify-center rounded-xl border border-slate-200 bg-white px-6 py-16 text-center dark:border-slate-800 dark:bg-slate-900">
+                <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                  <SearchX size={26} />
                 </div>
-                <h3 className="text-2xl font-bold text-slate-900 dark:text-white">
-                  No Results Found
+                <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
+                  No results found
                 </h3>
-                <p className="text-slate-500 dark:text-slate-400 mt-2 max-w-sm">
-                  We couldn't find any lenders matching "
-                  <span className="font-semibold text-orange-600">{query}</span>
-                  ".
+                <p className="mt-1.5 max-w-md text-sm text-slate-500 dark:text-slate-400">
+                  We couldn’t find any lender matching{" "}
+                  <span className="font-semibold text-slate-800 dark:text-slate-200">
+                    “{query}”
+                  </span>
+                  . Try a different name, email, or phone.
                 </p>
-                <button
-                  onClick={() => setQuery("")}
-                  className="mt-6 text-sm font-bold text-blue-600 hover:underline"
-                >
-                  Clear search
-                </button>
+                <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setQuery("")}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+                  >
+                    <X size={14} />
+                    Clear search
+                  </button>
+                  <button
+                    type="button"
+                    onClick={openAdd}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-[#13538A] px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-[#10446f]"
+                  >
+                    <TiPlus className="h-3.5 w-3.5" />
+                    Add Lender
+                  </button>
+                </div>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {lenders.map((l) => (
                   <div
                     key={l.id}
@@ -1288,128 +1266,120 @@ export default function LenderAllLendersPage() {
                         setViewingLender(l);
                       }
                     }}
-                    className="group relative cursor-pointer rounded-xl border border-slate-200 bg-white p-5 transition-all duration-300 hover:border-[#13538A]/35 hover:shadow-md dark:border-slate-800 dark:bg-slate-900 dark:hover:border-blue-500/40"
+                    className="group relative cursor-pointer rounded-xl border border-slate-200 bg-white p-4 transition hover:border-[#13538A]/35 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-blue-500/40"
                   >
-                    {/* STATUS */}
-                    <div className="absolute top-4 right-4">
+                    <div className="absolute right-3 top-3">
                       <button
+                        type="button"
                         onClick={(e) => {
                           e.stopPropagation();
                           if (!rowLoadingId) changeStatusFor(l);
                         }}
                         disabled={!!rowLoadingId}
-                        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border uppercase tracking-wider ${statusClass(
+                        className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${statusClass(
                           l.status,
                         )}`}
                       >
                         {l.status === "ACTIVE" && (
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
                         )}
                         {l.status}
                       </button>
                     </div>
 
-                    <div className="flex gap-4">
-                      {/* Image */}
-                      <div className="relative flex-shrink-0">
-                        <div className="h-14 w-14 rounded-xl overflow-hidden bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center border border-emerald-100 dark:border-emerald-500/20">
-                          {l.profileImage ? (
-                            <img
-                              src={`${API_BASE}/public${l.profileImage}`}
-                              className="h-full w-full object-cover"
-                              onError={(e: any) =>
-                                (e.currentTarget.src = "/circle_logo.png")
-                              }
-                              alt={l.name}
-                            />
-                          ) : (
-                            <Building2
-                              size={24}
-                              className="text-emerald-600 dark:text-emerald-400"
-                            />
-                          )}
-                        </div>
+                    <div className="flex gap-3 pr-16">
+                      <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-emerald-100 bg-emerald-50 dark:border-emerald-500/20 dark:bg-emerald-500/10">
+                        {l.profileImage ? (
+                          <img
+                            src={`${API_BASE}/public${l.profileImage}`}
+                            className="h-full w-full object-cover"
+                            onError={(e: any) =>
+                              (e.currentTarget.src = "/circle_logo.png")
+                            }
+                            alt={l.name}
+                          />
+                        ) : (
+                          <Building2
+                            size={20}
+                            className="text-emerald-600 dark:text-emerald-400"
+                          />
+                        )}
                       </div>
 
-                      {/* Info */}
-                      <div className="flex-1 min-w-0 pr-16">
-                        <div>
-                          <h3 className="truncate text-base font-bold text-[#13538A] transition-colors group-hover:text-blue-600 dark:text-white">
-                            {l.name}
-                          </h3>
-                        </div>
-                        <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+                      <div className="min-w-0 flex-1">
+                        <h3 className="truncate text-sm font-bold text-slate-900 transition group-hover:text-[#13538A] dark:text-white">
+                          {l.name}
+                        </h3>
+                        <p className="mt-0.5 text-[11px] text-slate-400">
                           {l.brokerName
                             ? `Broker: ${l.brokerName}`
                             : "No Broker Assigned"}
                         </p>
-
-                        <div className="mt-3 space-y-1.5">
+                        <div className="mt-2.5 space-y-1.5">
                           <div className="flex items-center gap-2 text-slate-500">
-                            <Mail size={14} className="flex-shrink-0" />
-                            <span className="text-[12px] truncate">
-                              {l.email}
-                            </span>
+                            <Mail size={13} className="shrink-0" />
+                            <span className="truncate text-[12px]">{l.email}</span>
                           </div>
                           <div className="flex items-center gap-2 text-slate-500">
-                            <span className="text-[12px] truncate">
-                              {l.phone}
+                            <Phone size={13} className="shrink-0" />
+                            <span className="truncate text-[12px]">
+                              {l.phone || "—"}
                             </span>
                           </div>
                         </div>
                       </div>
                     </div>
 
-                    {/* Actions Footer */}
-                    <div className="mt-5 flex items-center justify-between gap-2 border-t border-slate-100 pt-4 dark:border-slate-800/50">
-                      <span className="text-[10px] font-bold uppercase text-slate-400">
-                        Created:{" "}
+                    <div className="mt-4 flex items-center justify-between gap-2 border-t border-slate-100 pt-3 dark:border-slate-800">
+                      <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                        Created{" "}
                         {l.createdAt
                           ? new Date(l.createdAt).toLocaleDateString()
-                          : "-"}
+                          : "—"}
                       </span>
-
-                      <div className="flex items-center gap-2">
-                        <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-[#13538A] opacity-0 transition-opacity group-hover:opacity-100 dark:text-blue-400">
-                          View details
+                      <div className="flex items-center gap-1">
+                        <span className="mr-1 inline-flex items-center gap-1 text-[10px] font-semibold text-[#13538A] opacity-0 transition-opacity group-hover:opacity-100 dark:text-blue-400">
+                          View
                           <ChevronRight size={12} />
                         </span>
-
                         <button
+                          type="button"
                           disabled={!!rowLoadingId}
                           onClick={(e) => {
                             e.stopPropagation();
                             setTransferringLender(l);
                           }}
-                          className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-emerald-50 hover:text-emerald-700 dark:hover:bg-emerald-500/10"
+                          className="rounded-lg p-1.5 text-slate-400 transition hover:bg-emerald-50 hover:text-emerald-700 dark:hover:bg-emerald-500/10"
                           title="Transfer Lender Portal"
                         >
-                          <ArrowRightLeft size={16} />
+                          <ArrowRightLeft size={15} />
                         </button>
                         <button
+                          type="button"
                           disabled={!!rowLoadingId}
                           onClick={(e) => {
                             e.stopPropagation();
                             navigate(`/update-lender/${l.id}`);
                           }}
-                          className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-500/10"
+                          className="rounded-lg p-1.5 text-slate-400 transition hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-500/10"
                           title="Edit Lender"
                         >
-                          <MdModeEdit size={16} />
+                          <MdModeEdit size={15} />
                         </button>
                         <button
+                          type="button"
                           disabled={!!rowLoadingId}
                           onClick={(e) => {
                             e.stopPropagation();
                             handleDelete(l);
                           }}
-                          className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10"
+                          className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10"
                           title="Delete Lender"
                         >
                           {rowLoadingId === l.id ? (
-                            <RefreshCcw size={16} className="animate-spin" />
+                            <RefreshCcw size={15} className="animate-spin" />
                           ) : (
-                            <MdDelete size={16} />
+                            <MdDelete size={15} />
                           )}
                         </button>
                       </div>
@@ -1419,54 +1389,66 @@ export default function LenderAllLendersPage() {
               </div>
             )}
 
-            {/* ================= PAGINATION ================= */}
+            {/* Pagination */}
             {!loading && total > 0 && (
-              <div className="mt-10 flex flex-col sm:flex-row items-center justify-between gap-6 border-t border-slate-200 dark:border-slate-700 pt-6">
+              <div className="mt-6 flex flex-col gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-800 dark:bg-slate-900 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-sm text-slate-500 dark:text-slate-400">
                   Showing{" "}
                   <span className="font-semibold text-slate-800 dark:text-slate-100">
                     {showingFrom}–{showingTo}
                   </span>{" "}
-                  of {total}
+                  of{" "}
+                  <span className="font-semibold text-slate-800 dark:text-slate-100">
+                    {total}
+                  </span>{" "}
+                  lender{total === 1 ? "" : "s"}
                 </p>
 
-                <div className="flex items-center gap-3">
-                  {/* Prev */}
-                  <button
-                    disabled={currentPage === 1}
-                    onClick={() => gotoPage(currentPage - 1)}
-                    className="flex items-center gap-2 px-4 py-2 rounded-lg border 
-        border-slate-200 dark:border-slate-700
-        bg-white dark:bg-slate-900
-        text-slate-700 dark:text-slate-200
-        hover:bg-slate-50 dark:hover:bg-slate-800
-        disabled:opacity-40 disabled:cursor-not-allowed
-        transition"
-                  >
-                    <ChevronLeft size={18} />
-                    Prev
-                  </button>
-
-                  <span className="text-sm font-medium text-slate-600 dark:text-slate-300">
-                    Page {currentPage} of {totalPages}
-                  </span>
-
-                  {/* Next */}
-                  <button
-                    disabled={currentPage >= totalPages}
-                    onClick={() => gotoPage(currentPage + 1)}
-                    className="flex items-center gap-2 px-4 py-2 rounded-lg border 
-        border-slate-200 dark:border-slate-700
-        bg-white dark:bg-slate-900
-        text-slate-700 dark:text-slate-200
-        hover:bg-slate-50 dark:hover:bg-slate-800
-        disabled:opacity-40 disabled:cursor-not-allowed
-        transition"
-                  >
-                    Next
-                    <ChevronRight size={18} />
-                  </button>
-                </div>
+                {totalPages > 1 ? (
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      disabled={currentPage === 1}
+                      onClick={() => gotoPage(currentPage - 1)}
+                      className="inline-flex h-9 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 disabled:opacity-40 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+                    >
+                      <ChevronLeft size={16} />
+                      Prev
+                    </button>
+                    {getPageNumbers().map((page, index) =>
+                      page === "ellipsis" ? (
+                        <span
+                          key={`e-${index}`}
+                          className="px-1 text-sm text-slate-400"
+                        >
+                          …
+                        </span>
+                      ) : (
+                        <button
+                          key={page}
+                          type="button"
+                          onClick={() => gotoPage(page)}
+                          className={`inline-flex h-9 min-w-9 items-center justify-center rounded-lg px-2.5 text-xs font-semibold transition ${
+                            page === currentPage
+                              ? "bg-[#13538A] text-white"
+                              : "border border-slate-200 text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+                          }`}
+                        >
+                          {page}
+                        </button>
+                      ),
+                    )}
+                    <button
+                      type="button"
+                      disabled={currentPage >= totalPages}
+                      onClick={() => gotoPage(currentPage + 1)}
+                      className="inline-flex h-9 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 disabled:opacity-40 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+                    >
+                      Next
+                      <ChevronRight size={16} />
+                    </button>
+                  </div>
+                ) : null}
               </div>
             )}
             {/* Add Lender Modal */}

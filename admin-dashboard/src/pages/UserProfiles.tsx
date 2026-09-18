@@ -6,6 +6,7 @@ import {
   Pencil,
   Phone,
   ShieldCheck,
+  Trash2,
   User,
   X,
 } from "lucide-react";
@@ -44,12 +45,26 @@ function formatDate(value?: string | null) {
   });
 }
 
+function buildAvatarUrl(profileImage?: string | null) {
+  if (!profileImage) return null;
+  if (/^https?:\/\//i.test(profileImage)) return profileImage;
+  return `${API_BASE}${profileImage.startsWith("/") ? "" : "/"}${profileImage}`;
+}
+
 function syncAdminSession(user: Partial<AdminProfile>) {
   try {
     const raw = sessionStorage.getItem("admin_user");
     const existing = raw ? JSON.parse(raw) : {};
-    sessionStorage.setItem("admin_user", JSON.stringify({ ...existing, ...user }));
-    window.dispatchEvent(new CustomEvent("admin-profile-updated", { detail: user }));
+    const merged = { ...existing, ...user };
+    sessionStorage.setItem("admin_user", JSON.stringify(merged));
+
+    const name = `${merged.firstName ?? ""} ${merged.lastName ?? ""}`.trim();
+    if (name) sessionStorage.setItem("admin_user_name", name);
+    if (merged.email) sessionStorage.setItem("admin_user_email", merged.email);
+
+    window.dispatchEvent(
+      new CustomEvent("admin-profile-updated", { detail: merged }),
+    );
   } catch {
     /* ignore */
   }
@@ -65,6 +80,8 @@ export default function UserProfiles() {
   const [lastName, setLastName] = useState("");
   const [phone, setPhone] = useState("");
   const [profileImage, setProfileImage] = useState<File | null>(null);
+  const [removeProfileImage, setRemoveProfileImage] = useState(false);
+  const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
 
   const loadProfile = useCallback(async () => {
     const token = sessionStorage.getItem("admin_token");
@@ -83,6 +100,7 @@ export default function UserProfiles() {
       setFirstName(json.user.firstName || "");
       setLastName(json.user.lastName || "");
       setPhone(json.user.phone || "");
+      setAvatarLoadFailed(false);
       syncAdminSession(json.user);
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Unable to load profile");
@@ -95,6 +113,10 @@ export default function UserProfiles() {
     loadProfile();
   }, [loadProfile]);
 
+  useEffect(() => {
+    setAvatarLoadFailed(false);
+  }, [user?.profileImage]);
+
   const displayName = `${firstName || user?.firstName || ""} ${lastName || user?.lastName || ""}`.trim();
   const roleLabel = formatRole(user?.dbRoles?.[0]);
   const accessLabel = user?.hasFullAccess ?? hasFullAccess ? "Full Access" : "Custom Access";
@@ -103,13 +125,25 @@ export default function UserProfiles() {
     firstName !== (user?.firstName || "") ||
     lastName !== (user?.lastName || "") ||
     phone !== (user?.phone || "") ||
-    Boolean(profileImage);
+    Boolean(profileImage) ||
+    removeProfileImage;
+
+  const hasSavedProfileImage = Boolean(user?.profileImage) && !removeProfileImage;
+  const canRemovePhoto = Boolean(profileImage) || hasSavedProfileImage;
+
+  const remoteAvatarSrc =
+    removeProfileImage || avatarLoadFailed
+      ? null
+      : buildAvatarUrl(user?.profileImage);
+  const remoteAvatarSrcFresh = remoteAvatarSrc
+    ? `${remoteAvatarSrc}${remoteAvatarSrc.includes("?") ? "&" : "?"}v=${encodeURIComponent(user?.profileImage || "")}`
+    : null;
+
+  const fallbackAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName || "Admin")}&background=13538A&color=ffffff`;
 
   const avatarSrc = profileImage
     ? URL.createObjectURL(profileImage)
-    : user?.profileImage
-      ? `${API_BASE}${user.profileImage}`
-      : `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName || "Admin")}&background=13538A&color=ffffff`;
+    : remoteAvatarSrcFresh || fallbackAvatar;
 
   const handleSave = async () => {
     if (!firstName.trim()) {
@@ -121,7 +155,11 @@ export default function UserProfiles() {
     formData.append("firstName", firstName.trim());
     formData.append("lastName", lastName.trim());
     formData.append("phone", phone.trim());
-    if (profileImage) formData.append("profileImage", profileImage);
+    if (profileImage) {
+      formData.append("profileImage", profileImage);
+    } else if (removeProfileImage) {
+      formData.append("removeProfileImage", "true");
+    }
 
     setSaving(true);
     try {
@@ -135,11 +173,20 @@ export default function UserProfiles() {
         throw new Error(json.message || "Update failed");
       }
 
-      const updated = { ...user, ...json.user, hasFullAccess: user?.hasFullAccess };
+      const updated = {
+        ...user,
+        ...json.user,
+        hasFullAccess: user?.hasFullAccess,
+        dbRoles: user?.dbRoles,
+        lastLoginAt: user?.lastLoginAt,
+        createdAt: user?.createdAt,
+      };
       setUser(updated);
       syncAdminSession(updated);
       setEditing(false);
       setProfileImage(null);
+      setRemoveProfileImage(false);
+      setAvatarLoadFailed(false);
       toast.success("Profile updated successfully");
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Update failed");
@@ -151,6 +198,8 @@ export default function UserProfiles() {
   const cancelEdit = () => {
     setEditing(false);
     setProfileImage(null);
+    setRemoveProfileImage(false);
+    setAvatarLoadFailed(false);
     setFirstName(user?.firstName || "");
     setLastName(user?.lastName || "");
     setPhone(user?.phone || "");
@@ -213,7 +262,12 @@ export default function UserProfiles() {
             <div className="flex flex-col items-center gap-6 xl:flex-row">
               <div className="relative group">
                 <div className="h-20 w-20 overflow-hidden rounded-full border border-gray-200 dark:border-gray-700">
-                  <img src={avatarSrc} alt={displayName || "Admin"} className="h-full w-full object-cover" />
+                  <img
+                    src={avatarSrc}
+                    alt={displayName || "Admin"}
+                    className="h-full w-full object-cover"
+                    onError={() => setAvatarLoadFailed(true)}
+                  />
                 </div>
                 {editing && (
                   <label className="absolute inset-0 flex cursor-pointer flex-col items-center justify-center rounded-full bg-black/50 text-xs text-white opacity-0 transition group-hover:opacity-100">
@@ -223,9 +277,30 @@ export default function UserProfiles() {
                       type="file"
                       accept="image/jpeg,image/png,image/webp"
                       className="hidden"
-                      onChange={(e) => e.target.files?.[0] && setProfileImage(e.target.files[0])}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        setProfileImage(file);
+                        setRemoveProfileImage(false);
+                        setAvatarLoadFailed(false);
+                      }}
                     />
                   </label>
+                )}
+                {editing && canRemovePhoto && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setProfileImage(null);
+                      setRemoveProfileImage(true);
+                      setAvatarLoadFailed(false);
+                    }}
+                    className="absolute -bottom-1 -right-1 inline-flex items-center justify-center rounded-full border border-white bg-red-500 p-1.5 text-white shadow-md transition hover:bg-red-600 dark:border-gray-900"
+                    title="Remove photo"
+                    aria-label="Remove profile photo"
+                  >
+                    <Trash2 size={12} />
+                  </button>
                 )}
               </div>
 
@@ -237,6 +312,16 @@ export default function UserProfiles() {
                   {roleLabel} · {accessLabel}
                 </p>
                 <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{user.email}</p>
+                {editing && removeProfileImage && !profileImage && (
+                  <p className="mt-2 text-xs font-medium text-amber-600 dark:text-amber-400">
+                    Photo will be removed when you save.
+                  </p>
+                )}
+                {editing && profileImage && (
+                  <p className="mt-2 text-xs text-gray-500">
+                    New photo selected · {Math.round(profileImage.size / 1024)} KB
+                  </p>
+                )}
               </div>
 
               <div className="xl:ml-auto">

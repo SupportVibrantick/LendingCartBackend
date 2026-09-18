@@ -1,109 +1,114 @@
 import {
+  formatChangePercent,
+  formatCompactCount,
+  formatCompactCurrency,
+  type BrokerMetricKey,
+  type BrokerStats,
+  type MetricComparison,
+} from "../../lib/brokerDashboardStats";
+import {
+  BadgeDollarSign,
+  Building2,
+  CheckCircle,
+  Clock,
   FileText,
   Send,
-  Clock,
-  CheckCircle,
-  XCircle,
-  BadgeDollarSign,
-  RotateCcw,
-  DollarSign,
-  Building2,
 } from "lucide-react";
-
-export interface BrokerStats {
-  totalApplications: number;
-  totalSubmitted: number;
-  totalInReview: number;
-  totalApproved: number;
-  totalDeclined: number;
-  totalFunded: number;
-  totalWithdrawn: number;
-  totalVolumeFunded: number;
-  uniqueLendersAccessed: number;
-}
 
 interface Props {
   stats: BrokerStats | null;
   loading: boolean;
-  onStatClick?: (key: keyof BrokerStats) => void;
+  onStatClick?: (key: string) => void;
 }
 
-const themes = {
-  teal: { bg: "bg-teal-50 text-teal-600", bar: "bg-teal-500" },
-  sky: { bg: "bg-sky-50 text-sky-600", bar: "bg-sky-500" },
-  blue: { bg: "bg-blue-50 text-blue-600", bar: "bg-blue-500" },
-  amber: { bg: "bg-amber-50 text-amber-600", bar: "bg-amber-500" },
-  brand: { bg: "bg-[#13538A]/10 text-[#13538A]", bar: "bg-[#13538A]" },
-};
+const KPI_CONFIG = [
+  {
+    key: "totalApplications",
+    label: "Applications",
+    icon: FileText,
+    tone: "bg-[#13538A]/10 text-[#13538A]",
+    accent: "border-l-[#13538A]",
+  },
+  {
+    key: "totalSubmitted",
+    label: "Submitted",
+    icon: Send,
+    tone: "bg-sky-50 text-sky-600",
+    accent: "border-l-sky-500",
+  },
+  {
+    key: "totalInReview",
+    label: "In Review",
+    icon: Clock,
+    tone: "bg-amber-50 text-amber-600",
+    accent: "border-l-amber-500",
+  },
+  {
+    key: "totalApproved",
+    label: "Approved",
+    icon: CheckCircle,
+    tone: "bg-emerald-50 text-emerald-600",
+    accent: "border-l-emerald-500",
+  },
+  {
+    key: "totalFunded",
+    label: "Funded",
+    icon: BadgeDollarSign,
+    tone: "bg-violet-50 text-violet-600",
+    accent: "border-l-violet-500",
+  },
+  {
+    key: "totalVolumeFunded",
+    label: "Funded Volume",
+    icon: Building2,
+    tone: "bg-teal-50 text-teal-700",
+    accent: "border-l-teal-600",
+    isCurrency: true,
+  },
+] as const;
 
-const STAT_CONFIG = {
-  totalApplications: { label: "Total Applications", icon: FileText, color: "brand" },
-  totalSubmitted: { label: "Total Submitted", icon: Send, color: "sky" },
-  totalInReview: { label: "In Review", icon: Clock, color: "blue" },
-  totalApproved: { label: "Total Approved", icon: CheckCircle, color: "teal" },
-  totalDeclined: { label: "Total Declined", icon: XCircle, color: "blue" },
-  totalFunded: { label: "Total Funded", icon: BadgeDollarSign, color: "amber" },
-  totalWithdrawn: { label: "Total Withdrawn", icon: RotateCcw, color: "sky" },
-  totalVolumeFunded: { label: "Funded Volume", icon: DollarSign, color: "amber", isCurrency: true },
-  uniqueLendersAccessed: { label: "Lenders Accessed", icon: Building2, color: "brand" },
-} as const;
-
-function StatCard({
-  title,
-  value,
-  icon: Icon,
-  colorScheme,
-  onClick,
-}: {
-  title: string;
-  value: string | number;
-  icon: typeof FileText;
-  colorScheme: keyof typeof themes;
-  onClick?: () => void;
-}) {
-  const theme = themes[colorScheme];
-  const className = `relative overflow-hidden rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition hover:border-[#13538A]/30 hover:shadow-md dark:border-gray-800 dark:bg-gray-900 ${
-    onClick ? "cursor-pointer text-left w-full" : ""
-  }`;
-
-  const content = (
-    <>
-      <div className={`absolute left-0 top-0 h-1 w-full ${theme.bar}`} />
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">
-            {title}
-          </p>
-          <h3 className="mt-2 text-2xl font-bold text-gray-900 dark:text-white">
-            {value}
-          </h3>
-        </div>
-        <div
-          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${theme.bg}`}
-        >
-          <Icon className="h-5 w-5" />
-        </div>
-      </div>
-    </>
-  );
-
-  if (onClick) {
-    return (
-      <button type="button" onClick={onClick} className={className}>
-        {content}
-      </button>
-    );
+function shouldShowComparison(comparison?: MetricComparison) {
+  if (!comparison) return false;
+  if (comparison.changePercent === null || comparison.changePercent === undefined) {
+    return false;
   }
+  // Avoid noisy -100% cards when the prior period had almost no activity.
+  if (comparison.previous > 0 && comparison.previous < 3 && comparison.current === 0) {
+    return false;
+  }
+  return true;
+}
 
-  return <div className={className}>{content}</div>;
+function ComparisonBadge({ comparison }: { comparison?: MetricComparison }) {
+  if (!shouldShowComparison(comparison)) return null;
+  const label = formatChangePercent(comparison?.changePercent);
+  if (!label) return null;
+
+  const value = comparison?.changePercent ?? 0;
+  const positive = value > 0;
+  const negative = value < 0;
+
+  return (
+    <span
+      className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-[11px] font-semibold ${
+        positive
+          ? "bg-emerald-50 text-emerald-700"
+          : negative
+            ? "bg-rose-50 text-rose-700"
+            : "bg-gray-100 text-gray-600"
+      }`}
+    >
+      {label}
+    </span>
+  );
 }
 
 function SkeletonCard() {
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-      <div className="animate-pulse space-y-3">
-        <div className="h-3 w-24 rounded bg-gray-200 dark:bg-gray-700" />
-        <div className="h-8 w-20 rounded bg-gray-200 dark:bg-gray-700" />
+    <div className="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
+      <div className="animate-pulse space-y-2">
+        <div className="h-3 w-20 rounded bg-gray-200 dark:bg-gray-700" />
+        <div className="h-7 w-16 rounded bg-gray-200 dark:bg-gray-700" />
       </div>
     </div>
   );
@@ -116,8 +121,8 @@ export default function EcommerceMetrics({
 }: Props) {
   if (loading) {
     return (
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {Array.from({ length: 9 }).map((_, i) => (
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+        {Array.from({ length: 6 }).map((_, i) => (
           <SkeletonCard key={i} />
         ))}
       </div>
@@ -126,37 +131,42 @@ export default function EcommerceMetrics({
 
   if (!stats) return null;
 
-  const statItems = Object.entries(STAT_CONFIG).map(([key, config]) => {
-    const typedKey = key as keyof BrokerStats;
-    const rawValue = stats[typedKey] ?? 0;
-    const value =
-      "isCurrency" in config && config.isCurrency
-        ? `$${Number(rawValue).toLocaleString()}`
-        : rawValue;
-
-    return {
-      key: typedKey,
-      title: config.label,
-      value,
-      icon: config.icon,
-      colorScheme: config.color as keyof typeof themes,
-    };
-  });
-
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-      {statItems.map((item) => (
-        <StatCard
-          key={item.title}
-          title={item.title}
-          value={item.value}
-          icon={item.icon}
-          colorScheme={item.colorScheme}
-          onClick={
-            onStatClick ? () => onStatClick(item.key) : undefined
-          }
-        />
-      ))}
+    <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+      {KPI_CONFIG.map((item) => {
+        const rawValue = Number(stats[item.key as BrokerMetricKey] ?? 0) || 0;
+        const value =
+          "isCurrency" in item && item.isCurrency
+            ? formatCompactCurrency(rawValue)
+            : formatCompactCount(rawValue);
+        const comparison = stats.comparison?.[item.key as BrokerMetricKey];
+
+        return (
+          <button
+            key={item.key}
+            type="button"
+            onClick={() => onStatClick?.(item.key)}
+            className={`rounded-xl border border-gray-200 border-l-4 bg-white p-4 text-left transition hover:shadow-sm dark:border-gray-800 dark:bg-gray-900 ${item.accent}`}
+          >
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                {item.label}
+              </p>
+              <span
+                className={`flex h-8 w-8 items-center justify-center rounded-lg ${item.tone}`}
+              >
+                <item.icon className="h-4 w-4" />
+              </span>
+            </div>
+            <div className="mt-2 flex items-end justify-between gap-2">
+              <p className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
+                {value}
+              </p>
+              <ComparisonBadge comparison={comparison} />
+            </div>
+          </button>
+        );
+      })}
     </div>
   );
 }

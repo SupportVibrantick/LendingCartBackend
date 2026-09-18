@@ -137,7 +137,7 @@ module.exports = async function impersonateSubBrokerRoutes(fastify) {
             organizationName: targetUser.organization?.name || null,
           },
           branding,
-          redirectTo: "/sub-broker/loan-pipeline",
+          redirectTo: "/sub-broker/dashboard",
         });
       } catch (error) {
         fastify.log.error(

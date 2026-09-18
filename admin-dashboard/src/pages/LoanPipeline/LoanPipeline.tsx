@@ -12,6 +12,11 @@ import {
   TrendingUp,
   RefreshCw,
   SearchX,
+  FileText,
+  Clock3,
+  BadgeCheck,
+  CircleDollarSign,
+  X,
 } from "lucide-react";
 import { ADMIN_API_BASE } from "../../lib/adminApi";
 import { useDebouncedValue } from "../../hooks/useDebouncedValue";
@@ -211,7 +216,7 @@ export default function LoanPipeline() {
   const [countsTotal, setCountsTotal] = useState(0);
   const [inReviewCount, setInReviewCount] = useState(0);
   const [approvedCount, setApprovedCount] = useState(0);
-  const rowsPerPage = 8;
+  const [rowsPerPage, setRowsPerPage] = useState(8);
 
   const loadSubmissions = useCallback(
     async (signal?: AbortSignal) => {
@@ -279,12 +284,12 @@ export default function LoanPipeline() {
         setLoading(false);
       }
     },
-    [currentPage, debouncedSearch, statusFilter],
+    [currentPage, debouncedSearch, statusFilter, rowsPerPage],
   );
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [debouncedSearch, statusFilter]);
+  }, [debouncedSearch, statusFilter, rowsPerPage]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -326,18 +331,66 @@ export default function LoanPipeline() {
   const showingFrom = total === 0 ? 0 : (currentPage - 1) * rowsPerPage + 1;
   const showingTo = Math.min(currentPage * rowsPerPage, total);
 
+  const kpiCards = [
+    {
+      label: "Total Apps",
+      value: countsTotal,
+      hint: "All applications",
+      icon: FileText,
+      iconWrap: "bg-sky-50 text-sky-600 dark:bg-sky-500/10 dark:text-sky-400",
+    },
+    {
+      label: "In Review",
+      value: inReviewCount,
+      hint: "Awaiting decision",
+      icon: Clock3,
+      iconWrap:
+        "bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400",
+    },
+    {
+      label: "Approved",
+      value: approvedCount,
+      hint: "Lender approved",
+      icon: BadgeCheck,
+      iconWrap:
+        "bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400",
+    },
+    {
+      label: "Volume",
+      value: formatCompactAmount(totalVolume),
+      hint: "Requested amount",
+      icon: CircleDollarSign,
+      iconWrap:
+        "bg-violet-50 text-violet-600 dark:bg-violet-500/10 dark:text-violet-400",
+    },
+  ] as const;
+
   return (
-    <div className="mx-auto w-full min-w-0 max-w-[1400px] space-y-6 text-slate-900 dark:text-slate-100">
+    <div className="w-full space-y-4 pb-6 text-slate-900 dark:text-slate-100">
       {/* Hero */}
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-gradient-to-br from-[#13538A] via-[#1a6aad] to-[#2C92D5] p-6 text-white shadow-sm dark:border-slate-800 lg:p-8">
-        <div className="flex flex-col gap-6 xl:flex-row xl:items-start xl:gap-10">
-          <div className="min-w-0 flex-1">
-            <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-medium backdrop-blur-sm">
-              <TrendingUp className="h-3.5 w-3.5" />
+      <section className="overflow-hidden rounded-xl border border-[#13538A]/20 bg-gradient-to-br from-[#13538A] via-[#1a6aad] to-[#5D28A8] p-4 text-white sm:p-5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/70">
               Platform Overview
+            </p>
+            <div className="mt-1 flex flex-wrap items-center gap-3">
+              <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
+                Loan Pipeline
+              </h1>
+              <button
+                type="button"
+                onClick={() => loadSubmissions()}
+                disabled={loading}
+                title="Refresh"
+                className="group inline-flex h-9 w-9 items-center justify-center rounded-lg border border-white/25 bg-white/10 text-white transition hover:bg-white/20 disabled:opacity-50"
+              >
+                <RefreshCw
+                  className={`h-4 w-4 ${loading ? "animate-spin" : "transition-transform duration-500 group-hover:rotate-180"}`}
+                />
+              </button>
             </div>
-            <h1 className="text-2xl font-semibold tracking-tight">Loan Pipeline</h1>
-            <p className="mt-1 max-w-2xl text-sm text-white/80">
+            <p className="mt-1.5 max-w-2xl text-sm text-white/80">
               {total} application{total === 1 ? "" : "s"}
               {statusFilter ? ` · ${formatStatusLabel(statusFilter)}` : ""}
               {debouncedSearch ? ` · “${debouncedSearch}”` : ""} ·{" "}
@@ -345,50 +398,85 @@ export default function LoanPipeline() {
             </p>
           </div>
 
-          <div className="grid w-full grid-cols-2 gap-3 sm:grid-cols-4 xl:w-[min(100%,520px)] xl:shrink-0">
-            {[
-              { label: "Total Apps", value: countsTotal },
-              { label: "In Review", value: inReviewCount },
-              { label: "Approved", value: approvedCount },
-              { label: "Volume", value: formatCompactAmount(totalVolume) },
-            ].map(({ label, value }) => (
-              <div
-                key={label}
-                className="rounded-xl bg-white/10 px-4 py-3 ring-1 ring-white/20 backdrop-blur-sm"
-              >
-                <p className="text-xs text-white/70">{label}</p>
-                <p className="mt-1 text-xl font-semibold">{value}</p>
-              </div>
-            ))}
+          <div className="inline-flex items-center gap-2 self-start rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-xs font-medium text-white/90 backdrop-blur-sm">
+            <TrendingUp className="h-3.5 w-3.5" />
+            Live deal flow
           </div>
         </div>
+      </section>
+
+      {/* KPI cards */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {kpiCards.map(({ label, value, hint, icon: Icon, iconWrap }) => (
+          <div
+            key={label}
+            className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3.5 dark:border-slate-800 dark:bg-slate-900"
+          >
+            <div className="min-w-0">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
+                {label}
+              </p>
+              <p className="mt-1 text-2xl font-semibold tabular-nums text-slate-900 dark:text-white">
+                {value}
+              </p>
+              <p className="mt-0.5 text-xs text-slate-400">{hint}</p>
+            </div>
+            <div
+              className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${iconWrap}`}
+            >
+              <Icon className="h-5 w-5" />
+            </div>
+          </div>
+        ))}
       </div>
 
-      {/* Toolbar */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 lg:p-5">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div className="relative min-w-0 flex-1 lg:max-w-md">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <input
-              value={searchTerm}
-              placeholder="Search borrower, application #, or broker..."
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm outline-none transition focus:border-[#2C92D5] focus:ring-2 focus:ring-[#2C92D5]/20 dark:border-slate-700 dark:bg-slate-900"
-            />
+      {/* Filters toolbar */}
+      <div className="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900 sm:p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+              Per page
+            </span>
+            <div className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white p-1 dark:border-slate-700 dark:bg-slate-900">
+              {[4, 8, 12, 16, 20].map((size) => (
+                <button
+                  key={size}
+                  type="button"
+                  onClick={() => setRowsPerPage(size)}
+                  className={`min-w-9 rounded-md px-2.5 py-1.5 text-xs font-semibold transition ${
+                    rowsPerPage === size
+                      ? "bg-[#13538A] text-white"
+                      : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+                  }`}
+                >
+                  {size}
+                </button>
+              ))}
+            </div>
           </div>
 
-          <button
-            type="button"
-            onClick={() => loadSubmissions()}
-            disabled={loading}
-            className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
-          >
-            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-            Refresh
-          </button>
+          <div className="relative w-full max-w-[300px] self-end sm:self-auto">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <input
+              value={searchTerm}
+              placeholder="Search borrower, app #, broker..."
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-9 text-sm outline-none transition placeholder:text-slate-400 focus:border-[#13538A] focus:ring-2 focus:ring-[#13538A]/15 dark:border-slate-700 dark:bg-slate-900"
+            />
+            {searchTerm ? (
+              <button
+                type="button"
+                onClick={() => setSearchTerm("")}
+                className="absolute right-2 top-1/2 inline-flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800"
+                aria-label="Clear search"
+              >
+                <X size={14} />
+              </button>
+            ) : null}
+          </div>
         </div>
 
-        <div className="mt-4 flex flex-wrap gap-2">
+        <div className="mt-3 flex flex-wrap gap-1.5">
           {STATUS_FILTERS.map(({ value, label }) => {
             const count = value ? statusCounts[value] || 0 : countsTotal;
             const active = statusFilter === value;
@@ -398,7 +486,7 @@ export default function LoanPipeline() {
                 key={value || "all"}
                 type="button"
                 onClick={() => setStatusFilter(value)}
-                className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition ${
+                className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition ${
                   active
                     ? "border-[#13538A] bg-[#13538A] text-white"
                     : "border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
@@ -406,7 +494,7 @@ export default function LoanPipeline() {
               >
                 {label}
                 <span
-                  className={`rounded-full px-1.5 py-0.5 text-[10px] ${
+                  className={`rounded-md px-1.5 py-0.5 text-[10px] tabular-nums ${
                     active ? "bg-white/20" : "bg-white dark:bg-slate-900"
                   }`}
                 >
@@ -419,8 +507,8 @@ export default function LoanPipeline() {
       </div>
 
       {/* Table */}
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4 dark:border-slate-800 lg:px-8">
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+        <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3 dark:border-slate-800 sm:px-5">
           <div>
             <h2 className="text-sm font-semibold text-slate-900 dark:text-white">
               Applications
@@ -433,19 +521,31 @@ export default function LoanPipeline() {
                   : `Showing ${showingFrom}–${showingTo} of ${total}`}
             </p>
           </div>
+          {hasActiveFilters ? (
+            <button
+              type="button"
+              onClick={() => {
+                setSearchTerm("");
+                setStatusFilter("");
+              }}
+              className="text-xs font-semibold text-[#13538A] hover:underline"
+            >
+              Clear filters
+            </button>
+          ) : null}
         </div>
 
-        <div className="min-w-0">
-          <table className="w-full table-fixed text-left">
+        <div className="min-w-0 overflow-x-auto">
+          <table className="w-full min-w-[860px] table-fixed text-left">
             <colgroup>
-              <col className="w-[17%]" />
+              <col className="w-[18%]" />
               <col className="w-[12%]" />
-              <col className="w-[9%]" />
+              <col className="w-[10%]" />
               <col className="w-[14%]" />
-              <col className="w-[12%]" />
+              <col className="w-[13%]" />
               <col className="w-[11%]" />
+              <col className="w-[10%]" />
               <col className="w-[8%]" />
-              <col className="w-[7%]" />
             </colgroup>
             <thead className="bg-slate-50/80 dark:bg-slate-800/50">
               <tr>
@@ -461,7 +561,7 @@ export default function LoanPipeline() {
                 ].map((label) => (
                   <th
                     key={label || "actions"}
-                    className="overflow-hidden px-3 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 first:pl-6 last:pr-6 lg:first:pl-8 lg:last:pr-8"
+                    className="overflow-hidden px-3 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 first:pl-4 last:pr-4 sm:first:pl-5 sm:last:pr-5"
                   >
                     <span className="block truncate">{label}</span>
                   </th>
@@ -473,7 +573,7 @@ export default function LoanPipeline() {
               {loading && rows.length === 0 ? (
                 Array.from({ length: 4 }).map((_, i) => (
                   <tr key={i}>
-                    <td colSpan={TABLE_COLUMNS} className="px-6 py-4 lg:px-8">
+                    <td colSpan={TABLE_COLUMNS} className="px-4 py-4 sm:px-5">
                       <div className="h-10 animate-pulse rounded-lg bg-slate-100 dark:bg-slate-800" />
                     </td>
                   </tr>
@@ -486,7 +586,7 @@ export default function LoanPipeline() {
                   >
                     <td
                       onClick={() => openRowPreview(row.applicationId)}
-                      className="cursor-pointer overflow-hidden px-3 py-3 align-middle first:pl-6 lg:first:pl-8"
+                      className="cursor-pointer overflow-hidden px-3 py-3 align-middle first:pl-4 sm:first:pl-5"
                       title={`${row.borrowerName} · ${row.applicationNumber}`}
                     >
                       <div className="flex min-w-0 items-center gap-2">
@@ -570,7 +670,7 @@ export default function LoanPipeline() {
                     </td>
 
                     <td
-                      className="overflow-hidden px-2 py-3 pr-6 text-right align-middle lg:pr-8"
+                      className="overflow-hidden px-2 py-3 pr-4 text-right align-middle sm:pr-5"
                       onClick={(e) => e.stopPropagation()}
                     >
                       <button
@@ -629,7 +729,7 @@ export default function LoanPipeline() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={TABLE_COLUMNS} className="px-6 py-20 text-center">
+                  <td colSpan={TABLE_COLUMNS} className="px-6 py-16 text-center">
                     <div className="mx-auto flex max-w-sm flex-col items-center">
                       <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-400 dark:bg-slate-800">
                         <SearchX className="h-6 w-6" />
@@ -644,41 +744,56 @@ export default function LoanPipeline() {
                           ? "Try a different search or clear your filters."
                           : "Applications will appear here once brokers submit them."}
                       </p>
+                      {hasActiveFilters ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSearchTerm("");
+                            setStatusFilter("");
+                          }}
+                          className="mt-4 text-sm font-semibold text-[#13538A] hover:underline"
+                        >
+                          Clear filters
+                        </button>
+                      ) : null}
                     </div>
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
+        </div>
 
-          {totalPages > 1 && (
-            <div className="flex flex-col gap-3 border-t border-slate-200 px-6 py-4 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between lg:px-8">
-              <p className="text-sm text-slate-500 dark:text-slate-400">
-                Showing{" "}
-                <span className="font-medium text-slate-800 dark:text-slate-100">
-                  {showingFrom}–{showingTo}
-                </span>{" "}
-                of{" "}
-                <span className="font-medium text-slate-800 dark:text-slate-100">
-                  {total}
-                </span>
-              </p>
-              <div className="flex items-center gap-2">
+        {!loading && total > 0 ? (
+          <div className="flex flex-col gap-3 border-t border-slate-200 px-4 py-3 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              Showing{" "}
+              <span className="font-semibold text-slate-800 dark:text-slate-100">
+                {showingFrom}–{showingTo}
+              </span>{" "}
+              of{" "}
+              <span className="font-semibold text-slate-800 dark:text-slate-100">
+                {total}
+              </span>{" "}
+              application{total === 1 ? "" : "s"}
+            </p>
+
+            {totalPages > 1 ? (
+              <div className="flex items-center gap-1.5">
                 <button
                   type="button"
                   disabled={currentPage === 1 || loading}
                   onClick={() => setCurrentPage((page) => Math.max(page - 1, 1))}
-                  aria-label="Previous page"
-                  className="rounded-lg border border-slate-200 p-2 transition hover:bg-slate-100 disabled:opacity-40 dark:border-slate-700 dark:hover:bg-slate-800"
+                  className="inline-flex h-9 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 disabled:opacity-40 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
                 >
                   <ChevronLeft size={16} />
+                  Prev
                 </button>
                 {getVisiblePageNumbers(currentPage, totalPages).map((page, index) =>
                   page === "ellipsis" ? (
                     <span
                       key={`ellipsis-${index}`}
-                      className="px-1 text-sm text-slate-400 dark:text-slate-500"
-                      aria-hidden
+                      className="px-1 text-sm text-slate-400"
                     >
                       …
                     </span>
@@ -688,11 +803,10 @@ export default function LoanPipeline() {
                       type="button"
                       disabled={loading}
                       onClick={() => setCurrentPage(page)}
-                      aria-current={currentPage === page ? "page" : undefined}
-                      className={`min-w-8 rounded-lg px-2.5 py-1.5 text-sm font-medium transition ${
+                      className={`inline-flex h-9 min-w-9 items-center justify-center rounded-lg px-2.5 text-xs font-semibold transition ${
                         currentPage === page
-                          ? "bg-[#13538A] text-white dark:bg-indigo-600"
-                          : "border border-slate-200 text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+                          ? "bg-[#13538A] text-white"
+                          : "border border-slate-200 text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
                       }`}
                     >
                       {page}
@@ -705,24 +819,26 @@ export default function LoanPipeline() {
                   onClick={() =>
                     setCurrentPage((page) => Math.min(page + 1, totalPages))
                   }
-                  aria-label="Next page"
-                  className="rounded-lg border border-slate-200 p-2 transition hover:bg-slate-100 disabled:opacity-40 dark:border-slate-700 dark:hover:bg-slate-800"
+                  className="inline-flex h-9 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 disabled:opacity-40 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
                 >
+                  Next
                   <ChevronRight size={16} />
                 </button>
               </div>
-            </div>
-          )}
-        </div>
+            ) : null}
+          </div>
+        ) : null}
       </div>
 
       {/* Lenders modal */}
       {viewLenders &&
         createPortal(
           <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm dark:bg-black/70">
-            <div className="w-full max-w-2xl rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-800 dark:bg-[#0f172a]">
+            <div className="w-full max-w-2xl rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-[#0f172a]">
               <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4 dark:border-slate-800">
-                <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100">Lenders</h2>
+                <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100">
+                  Lenders
+                </h2>
                 <button
                   type="button"
                   onClick={() => setViewLenders(null)}
@@ -733,7 +849,9 @@ export default function LoanPipeline() {
               </div>
               <div className="max-h-[400px] space-y-4 overflow-y-auto p-6">
                 {viewLenders.length === 0 ? (
-                  <p className="text-center text-sm text-slate-500">No lenders assigned.</p>
+                  <p className="text-center text-sm text-slate-500">
+                    No lenders assigned.
+                  </p>
                 ) : (
                   viewLenders.map((lender) => (
                     <div

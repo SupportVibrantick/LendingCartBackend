@@ -20,7 +20,7 @@ export default function CoBrokerImpersonateLogin() {
     const token = params.get("token");
     const userParam = params.get("user");
     const brandingParam = params.get("branding");
-    const redirectTo = params.get("redirectTo") || "/sub-broker/loan-pipeline";
+    const redirectTo = params.get("redirectTo") || "/sub-broker/dashboard";
 
     if (!token) {
       navigate("/sub-broker/login", { replace: true });

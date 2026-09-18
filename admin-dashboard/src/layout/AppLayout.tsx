@@ -21,7 +21,7 @@ const LayoutContent: React.FC = () => {
         } ${isMobileOpen ? "ml-0" : ""}`}
       >
         <AppHeader />
-        <main className="mx-auto w-full max-w-(--breakpoint-2xl) flex-1 p-3 md:p-4 lg:p-6">
+        <main className="mx-auto w-full max-w-(--breakpoint-2xl) flex-1 p-2 md:p-3 lg:p-4">
           <PermissionGuard>
             <Outlet />
           </PermissionGuard>
