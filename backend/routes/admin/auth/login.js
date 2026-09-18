@@ -123,6 +123,8 @@ module.exports = async function adminLoginRoute(fastify, opts) {
             email: user.email,
             firstName: user.firstName,
             lastName: user.lastName,
+            phone: user.phone,
+            profileImage: user.profileImage,
             orgId: user.organizationId,
             dbRoles,
             permissions,

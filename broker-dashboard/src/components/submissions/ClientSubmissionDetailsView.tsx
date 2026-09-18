@@ -45,18 +45,18 @@ function InfoCell({
   icon?: ReactNode;
 }) {
   return (
-    <div className="rounded-xl border border-slate-200/80 bg-gradient-to-b from-white to-slate-50/80 p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition hover:border-slate-300 hover:shadow-sm">
+    <div className="rounded-xl border border-gray-100 bg-white p-4 transition hover:border-[#13538A]/25 hover:bg-[#13538A]/[0.02]">
       <div className="mb-2 flex items-center gap-2">
         {icon ? (
-          <span className="flex h-6 w-6 items-center justify-center rounded-md bg-blue-50 text-blue-600">
+          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#13538A]/10 text-[#13538A]">
             {icon}
           </span>
         ) : null}
-        <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+        <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-gray-400">
           {label}
         </span>
       </div>
-      <div className="text-[15px] font-semibold leading-snug text-slate-900">
+      <div className="text-[15px] font-semibold leading-snug text-gray-900">
         {value ?? "—"}
       </div>
     </div>
@@ -75,10 +75,10 @@ function KpiCell({
   const isEmpty = !value || value === "—";
   return (
     <div
-      className={`relative overflow-hidden rounded-2xl border p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] ${
+      className={`relative overflow-hidden rounded-xl border p-4 ${
         accent
-          ? "border-blue-700/15 bg-gradient-to-br from-[#1d4ed8] to-[#0ea5e9] text-white"
-          : "border-slate-200/80 bg-white"
+          ? "border-[#13538A]/20 bg-gradient-to-br from-[#13538A] via-[#1a6aad] to-[#2C92D5] text-white"
+          : "border-gray-100 bg-white"
       }`}
     >
       {accent ? (
@@ -86,7 +86,7 @@ function KpiCell({
       ) : null}
       <p
         className={`text-[10px] font-semibold uppercase tracking-[0.14em] ${
-          accent ? "text-white/70" : "text-slate-400"
+          accent ? "text-white/70" : "text-gray-400"
         }`}
       >
         {label}
@@ -96,10 +96,10 @@ function KpiCell({
           isEmpty
             ? accent
               ? "text-white/50"
-              : "text-slate-300"
+              : "text-gray-300"
             : accent
               ? "text-white"
-              : "text-slate-900"
+              : "text-gray-900"
         }`}
       >
         {value || "—"}
@@ -112,13 +112,13 @@ function FieldItem({ field }: { field: SubmissionDetailField }) {
   const display = formatSubmissionFieldValue(field);
   const isEmpty = !display || display === "—";
   return (
-    <div className="rounded-lg bg-slate-50/80 px-3 py-2.5">
-      <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">
+    <div className="rounded-lg border border-gray-100 bg-gray-50/80 px-3 py-2.5">
+      <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-gray-400">
         {getSubmissionFieldLabel(field)}
       </span>
       <p
         className={`mt-1 break-words text-sm leading-snug ${
-          isEmpty ? "italic text-slate-400" : "font-medium text-slate-900"
+          isEmpty ? "italic text-gray-400" : "font-medium text-gray-900"
         }`}
       >
         {isEmpty ? "Not provided" : display}
@@ -152,23 +152,23 @@ function AccordionSection({
   const [isOpen, setIsOpen] = useState(defaultOpen);
 
   return (
-    <div className="overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.03)]">
+    <div className="overflow-hidden rounded-xl border border-gray-100 bg-white">
       <button
         type="button"
         onClick={() => setIsOpen((o) => !o)}
         aria-expanded={isOpen}
-        className="flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors hover:bg-slate-50/80"
+        className="flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors hover:bg-[#13538A]/[0.03]"
       >
-        <span className="h-8 w-1 rounded-full bg-blue-600" />
-        <span className="flex-1 text-sm font-semibold text-slate-800">
+        <span className="h-8 w-1 rounded-full bg-[#13538A]" />
+        <span className="flex-1 text-sm font-semibold text-gray-800">
           {title}
         </span>
-        <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-semibold tabular-nums text-slate-500">
+        <span className="rounded-full bg-[#13538A]/10 px-2.5 py-0.5 text-[11px] font-semibold tabular-nums text-[#13538A]">
           {filledCount} / {fields.length}
         </span>
         <ChevronDown
           size={15}
-          className={`text-slate-400 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
+          className={`text-gray-400 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
         />
       </button>
 
@@ -180,7 +180,7 @@ function AccordionSection({
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.2, ease: "easeOut" }}
-            className="overflow-hidden border-t border-slate-100"
+            className="overflow-hidden border-t border-gray-100"
           >
             <div className="grid grid-cols-1 gap-2.5 bg-white p-4 sm:grid-cols-2 lg:grid-cols-3">
               {fields.map((field) => (
@@ -299,8 +299,8 @@ export default function ClientSubmissionDetailsView({
           value: (
             <span>
               {submittedDate.toLocaleDateString()}
-              <span className="mx-1.5 text-slate-300">·</span>
-              <span className="font-medium text-slate-500">
+              <span className="mx-1.5 text-gray-300">·</span>
+              <span className="font-medium text-gray-500">
                 {submittedDate.toLocaleTimeString()}
               </span>
             </span>
@@ -336,28 +336,31 @@ export default function ClientSubmissionDetailsView({
 
   return (
     <div className="space-y-5">
-      {/* Single identity card — page chrome already shows app # + status */}
-      <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
-        <div className="border-b border-slate-100 px-5 py-4 sm:px-6 sm:py-5">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">
-            Application overview
-          </p>
-          <h2 className="mt-1 truncate text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">
-            {borrowerName || "Borrower"}
-          </h2>
-          <p className="mt-1 truncate text-sm font-medium text-[#2C92D5]">
-            {loanProductName}
-          </p>
-          {broker?.name ? (
-            <p className="mt-1 text-sm text-slate-500">
-              Broker:{" "}
-              <span className="font-medium text-slate-700">{broker.name}</span>
+      {/* Identity + facts */}
+      <section className="overflow-hidden rounded-xl border border-gray-100 bg-white">
+        <div className="relative overflow-hidden border-b border-gray-100">
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-[#13538A]/[0.08] via-transparent to-[#2C92D5]/10" />
+          <div className="relative px-5 py-5 sm:px-6">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#13538A]">
+              Application overview
             </p>
-          ) : null}
+            <h2 className="mt-1 truncate text-xl font-bold tracking-tight text-gray-900 sm:text-2xl">
+              {borrowerName || "Borrower"}
+            </h2>
+            <p className="mt-1 truncate text-sm font-semibold text-[#13538A]">
+              {loanProductName}
+            </p>
+            {broker?.name ? (
+              <p className="mt-1.5 text-sm text-gray-500">
+                Broker:{" "}
+                <span className="font-medium text-gray-700">{broker.name}</span>
+              </p>
+            ) : null}
+          </div>
         </div>
 
         {detailFacts.length > 0 ? (
-          <div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-2 sm:p-5 xl:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-2 sm:p-5 xl:grid-cols-4">
             {detailFacts.map((fact) => (
               <InfoCell
                 key={fact.label}
@@ -372,8 +375,9 @@ export default function ClientSubmissionDetailsView({
 
       {kpis.length > 0 ? (
         <section>
-          <div className="mb-3 px-0.5">
-            <h3 className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+          <div className="mb-3 flex items-center gap-2 px-0.5">
+            <span className="h-4 w-1 rounded-full bg-[#13538A]" />
+            <h3 className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500">
               Key loan metrics
             </h3>
           </div>
@@ -398,15 +402,21 @@ export default function ClientSubmissionDetailsView({
         </section>
       ) : null}
 
-      <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-4 shadow-[0_8px_30px_-20px_rgba(15,23,42,0.28)] sm:p-5">
+      <section className="overflow-hidden rounded-xl border border-gray-100 bg-white p-4 sm:p-5">
+        <div className="mb-3 flex items-center gap-2 px-0.5">
+          <span className="h-4 w-1 rounded-full bg-[#13538A]" />
+          <h3 className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500">
+            Application details
+          </h3>
+        </div>
         {sectionBlocks}
 
         {signatureField && !hideSignature && (
-          <div className="mt-5 border-t border-slate-100 pt-6 text-center">
-            <p className="mb-4 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+          <div className="mt-5 border-t border-gray-100 pt-6 text-center">
+            <p className="mb-4 text-[10px] font-semibold uppercase tracking-[0.14em] text-gray-400">
               Digital signature (on file)
             </p>
-            <div className="inline-block rounded-2xl border border-slate-200 bg-slate-50 p-5 shadow-sm">
+            <div className="inline-block rounded-xl border border-gray-200 bg-gray-50 p-5">
               <img
                 src={String(parseSubmissionFieldValue(signatureField.value))}
                 alt="Digital Signature"

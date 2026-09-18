@@ -1,12 +1,10 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import toast from "react-hot-toast";
 import {
-  Activity,
   ArrowRight,
   BriefcaseBusiness,
   Building2,
-  CircleDollarSign,
   Contact,
   FilePlus,
   RefreshCw,
@@ -14,45 +12,29 @@ import {
   TrendingUp,
   Users,
   UserRound,
+  Wallet,
 } from "lucide-react";
 import EcommerceMetrics from "../../components/ecommerce/EcommerceMetrics";
 import StatisticsChart from "../../components/ecommerce/StatisticsChart";
 import StatusDistributionChart from "../../components/ecommerce/StatusDistributionChart";
 import ProductVolumeChart from "../../components/ecommerce/ProductVolumeChart";
+import ApplicationPipeline from "../../components/ecommerce/ApplicationPipeline";
+import ConversionFunnelChart from "../../components/ecommerce/ConversionFunnelChart";
+import ConversionRatesChart from "../../components/ecommerce/ConversionRatesChart";
+import CommissionSummaryChart from "../../components/commissions/CommissionSummaryChart";
 import PageMeta from "../../components/common/PageMeta";
 import { isSessionExpiredError } from "../../lib/sessionExpiry";
+import {
+  formatCommissionCurrency,
+  type CommissionSummary,
+} from "../../lib/commissionApi";
+import {
+  formatCompactCurrency,
+  type BrokerStats,
+  type DashboardPeriod,
+} from "../../lib/brokerDashboardStats";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
-
-interface BrokerStats {
-  totalApplications: number;
-  totalSubmitted: number;
-  totalInReview: number;
-  totalApproved: number;
-  totalDeclined: number;
-  totalFunded: number;
-  totalWithdrawn: number;
-  totalVolumeFunded: number;
-  uniqueLendersAccessed: number;
-  applicationsByStatus: Record<string, number>;
-  conversion: {
-    submissionRate: number;
-    approvalRate: number;
-    fundingRate: number;
-  };
-  monthlyTrend: {
-    label: string;
-    applications: number;
-    submitted: number;
-    approved: number;
-    funded: number;
-    fundedVolume: number;
-  }[];
-  productWiseApprovedVolume: {
-    product: string;
-    totalApprovedAmount: number;
-  }[];
-}
 
 type RecentApp = {
   submissionId: string;
@@ -62,16 +44,28 @@ type RecentApp = {
   amount: number;
   status: string;
   submittedOn: string;
+  loanInfo?: string;
+  lenderName?: string;
 };
+
+const PERIOD_OPTIONS: { value: DashboardPeriod; label: string }[] = [
+  { value: "7d", label: "7D" },
+  { value: "30d", label: "30D" },
+  { value: "90d", label: "90D" },
+  { value: "12m", label: "12M" },
+];
 
 const STATUS_TO_PIPELINE: Record<string, string> = {
   DRAFT: "DRAFT",
   CLIENT_PENDING: "CLIENT_PENDING",
   SUBMITTED: "SUBMITTED",
   IN_REVIEW: "IN_REVIEW",
+  LENDER_SELECTED: "IN_REVIEW",
   LENDER_APPROVED: "APPROVED",
   LENDER_DECLINED: "DECLINED",
   FUNDED: "FUNDED",
+  WITHDRAWN: "WITHDRAWN",
+  SUSPENDED: "SUSPENDED",
 };
 
 const METRIC_TO_PIPELINE: Record<string, string | undefined> = {
@@ -81,9 +75,7 @@ const METRIC_TO_PIPELINE: Record<string, string | undefined> = {
   totalApproved: "APPROVED",
   totalDeclined: "DECLINED",
   totalFunded: "FUNDED",
-  totalWithdrawn: undefined,
   totalVolumeFunded: "FUNDED",
-  uniqueLendersAccessed: undefined,
 };
 
 function getAuthHeaders(): HeadersInit {
@@ -94,18 +86,66 @@ function getAuthHeaders(): HeadersInit {
   };
 }
 
-function formatCompactAmount(value: number) {
-  if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`;
-  if (value >= 1_000) return `$${(value / 1_000).toFixed(0)}K`;
-  return `$${value.toLocaleString()}`;
+function getBrokerFirstName() {
+  try {
+    const storedName = sessionStorage.getItem("broker_user_name");
+    if (storedName?.trim()) return storedName.trim().split(/\s+/)[0];
+
+    const user = JSON.parse(sessionStorage.getItem("broker_user") || "{}");
+    const first =
+      user.firstName ||
+      user.name?.split(/\s+/)[0] ||
+      user.email?.split("@")[0] ||
+      "there";
+    return String(first);
+  } catch {
+    return "there";
+  }
+}
+
+function getGreeting(date = new Date()) {
+  const hour = date.getHours();
+  if (hour < 12) return "Good morning";
+  if (hour < 17) return "Good afternoon";
+  return "Good evening";
+}
+
+function isBrokerAdmin() {
+  try {
+    const roles = JSON.parse(sessionStorage.getItem("roles") || "[]");
+    return Array.isArray(roles) && roles.includes("BROKER_ADMIN");
+  } catch {
+    return false;
+  }
 }
 
 function statusLabel(status: string) {
   if (status === "CLIENT_PENDING") return "Client Pending";
   if (status === "IN_REVIEW") return "In Review";
-  if (status === "DECLINED" || status === "LENDER_DECLINED") return "Rejected";
-  if (status === "LENDER_APPROVED") return "Approved";
+  if (status === "DECLINED" || status === "LENDER_DECLINED") return "Declined";
+  if (status === "APPROVED" || status === "LENDER_APPROVED") return "Approved";
+  if (status === "LENDER_SELECTED") return "Lender Selected";
   return status.replace(/_/g, " ");
+}
+
+function statusBadgeClass(status: string) {
+  const key = status.toUpperCase();
+  if (key === "FUNDED") return "bg-teal-50 text-teal-700 ring-teal-100";
+  if (key === "APPROVED" || key === "LENDER_APPROVED") {
+    return "bg-emerald-50 text-emerald-700 ring-emerald-100";
+  }
+  if (key === "DECLINED" || key === "LENDER_DECLINED") {
+    return "bg-rose-50 text-rose-700 ring-rose-100";
+  }
+  if (key === "IN_REVIEW" || key === "LENDER_SELECTED") {
+    return "bg-indigo-50 text-indigo-700 ring-indigo-100";
+  }
+  if (key === "SUBMITTED") return "bg-sky-50 text-sky-700 ring-sky-100";
+  if (key === "CLIENT_PENDING") {
+    return "bg-orange-50 text-orange-700 ring-orange-100";
+  }
+  if (key === "DRAFT") return "bg-slate-100 text-slate-600 ring-slate-200";
+  return "bg-[#13538A]/10 text-[#13538A] ring-[#13538A]/10";
 }
 
 function pipelineHref(status?: string) {
@@ -113,112 +153,118 @@ function pipelineHref(status?: string) {
   return `/submit-applications?status=${encodeURIComponent(status)}`;
 }
 
+function productLabel(code?: string) {
+  if (!code) return "—";
+  return code.replace(/_/g, " ");
+}
+
 const quickActions = [
-  {
-    label: "New Application",
-    desc: "Start a loan file",
-    path: "/loan-application",
-    icon: FilePlus,
-    color: "bg-[#13538A]",
-  },
-  {
-    label: "Loan Pipeline",
-    desc: "Track active applications",
-    path: "/submit-applications",
-    icon: TrendingUp,
-    color: "bg-[#1a6aad]",
-  },
-  {
-    label: "Lender Marketplace",
-    desc: "Discover & connect lenders",
-    path: "/lender-marketplace",
-    icon: Store,
-    color: "bg-emerald-600",
-  },
-  {
-    label: "Loan Officers",
-    desc: "Manage your officer team",
-    path: "/loan-officers",
-    icon: Users,
-    color: "bg-violet-600",
-  },
-  {
-    label: "Co-Brokers",
-    desc: "Manage co-broker partners",
-    path: "/sub-brokers",
-    icon: Building2,
-    color: "bg-indigo-600",
-  },
-  {
-    label: "Borrowers",
-    desc: "View borrower records",
-    path: "/borrowers",
-    icon: UserRound,
-    color: "bg-orange-600",
-  },
-  {
-    label: "Contacts",
-    desc: "Manage your directory",
-    path: "/contacts-list",
-    icon: Contact,
-    color: "bg-slate-700",
-  },
+  { label: "New App", path: "/loan-application", icon: FilePlus },
+  { label: "Pipeline", path: "/submit-applications", icon: TrendingUp },
+  { label: "Lenders", path: "/lender-marketplace", icon: Store },
+  { label: "Officers", path: "/loan-officers", icon: Users },
+  { label: "Co-Brokers", path: "/sub-brokers", icon: Building2 },
+  { label: "Borrowers", path: "/borrowers", icon: UserRound },
+  { label: "Contacts", path: "/contacts-list", icon: Contact },
+  { label: "Commissions", path: "/commissions", icon: Wallet },
 ];
 
 export default function Home() {
   const navigate = useNavigate();
   const [stats, setStats] = useState<BrokerStats | null>(null);
   const [recent, setRecent] = useState<RecentApp[]>([]);
+  const [commissionSummary, setCommissionSummary] =
+    useState<CommissionSummary | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [period, setPeriod] = useState<DashboardPeriod>("12m");
+  const [commissionLoading, setCommissionLoading] = useState(false);
+  const showCommissions = useMemo(() => isBrokerAdmin(), []);
+  const firstName = useMemo(() => getBrokerFirstName(), []);
+  const greeting = useMemo(() => getGreeting(), []);
 
   const load = useCallback(async () => {
     try {
       setLoading(true);
+      setError(null);
       const headers = getAuthHeaders();
 
-      const [statsRes, listRes] = await Promise.all([
-        fetch(`${API_BASE}/broker/stats`, { headers }),
-        fetch(`${API_BASE}/broker/loan-pipeline/submissions?limit=5`, {
+      const requests: Promise<Response>[] = [
+        fetch(`${API_BASE}/broker/stats?period=${period}`, { headers }),
+        fetch(`${API_BASE}/broker/loan-pipeline/submissions?limit=8`, {
           headers,
         }),
-      ]);
+      ];
 
+      if (showCommissions) {
+        setCommissionLoading(true);
+        requests.push(
+          fetch(`${API_BASE}/broker/commissions/summary?months=6`, { headers }),
+        );
+      }
+
+      const [statsRes, listRes, commissionRes] = await Promise.all(requests);
       const statsJson = await statsRes.json();
       const listJson = await listRes.json();
 
-      if (statsRes.ok && statsJson.success) {
-        setStats(statsJson.data);
-      } else if (!statsRes.ok) {
-        throw new Error(statsJson.message || "Failed to load dashboard stats");
-      }
-
       if (listRes.ok && Array.isArray(listJson.data)) {
         setRecent(
-          listJson.data.slice(0, 5).map((item: Record<string, unknown>) => ({
-            submissionId: String(item.submissionId || ""),
-            applicationId: String(item.applicationId || ""),
-            applicationNumber: item.applicationNumber
-              ? String(item.applicationNumber)
-              : undefined,
-            borrower: String(item.borrower || "Applicant"),
-            amount: Number(item.amount || 0),
-            status: String(item.status || ""),
-            submittedOn: String(item.submittedOn || ""),
-          })),
+          listJson.data.slice(0, 8).map((item: Record<string, unknown>) => {
+            const lenders = Array.isArray(item.submittedToLenders)
+              ? (item.submittedToLenders as Array<Record<string, unknown>>)
+              : [];
+            const primaryLender =
+              lenders.find((lender) => lender.status === "APPROVED") ||
+              lenders[0];
+
+            return {
+              submissionId: String(item.submissionId || ""),
+              applicationId: String(item.applicationId || ""),
+              applicationNumber: item.applicationNumber
+                ? String(item.applicationNumber)
+                : undefined,
+              borrower: String(item.borrower || "Applicant"),
+              amount: Number(item.amount || 0),
+              status: String(item.status || ""),
+              submittedOn: String(item.submittedOn || ""),
+              loanInfo: item.loanInfo ? String(item.loanInfo) : undefined,
+              lenderName: primaryLender?.lenderName
+                ? String(primaryLender.lenderName)
+                : undefined,
+            };
+          }),
         );
       } else {
         setRecent([]);
       }
+
+      if (showCommissions && commissionRes) {
+        const commissionJson = await commissionRes.json();
+        if (commissionRes.ok && commissionJson.success) {
+          setCommissionSummary(commissionJson.data);
+        } else {
+          setCommissionSummary(null);
+        }
+      }
+
+      if (statsRes.ok && statsJson.success) {
+        setStats(statsJson.data);
+      } else {
+        setStats(null);
+        throw new Error(statsJson.message || "Failed to load dashboard stats");
+      }
     } catch (err) {
       if (isSessionExpiredError(err)) return;
       console.error("Dashboard load error:", err);
-      toast.error(
-        err instanceof Error ? err.message : "Failed to load dashboard",
-      );
+      const message =
+        err instanceof Error ? err.message : "Failed to load dashboard";
+      setError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
+      setCommissionLoading(false);
     }
-  }, []);
+  }, [period, showCommissions]);
 
   useEffect(() => {
     load();
@@ -228,32 +274,9 @@ export default function Home() {
     navigate(pipelineHref(status));
   };
 
-  const spotlightCards = [
-    {
-      title: "Submission Rate",
-      value: `${stats?.conversion.submissionRate ?? 0}%`,
-      helper: "Beyond draft stage",
-      icon: Activity,
-      tone: "bg-sky-50 text-sky-600",
-      onClick: () => openPipeline("SUBMITTED"),
-    },
-    {
-      title: "Lenders Reached",
-      value: stats?.uniqueLendersAccessed ?? 0,
-      helper: "Active pipeline lenders",
-      icon: Building2,
-      tone: "bg-emerald-50 text-emerald-600",
-      onClick: () => navigate("/lender-marketplace"),
-    },
-    {
-      title: "Funded Deals",
-      value: stats?.totalFunded ?? 0,
-      helper: "Successfully closed",
-      icon: CircleDollarSign,
-      tone: "bg-violet-50 text-violet-600",
-      onClick: () => openPipeline("FUNDED"),
-    },
-  ];
+  const actions = showCommissions
+    ? quickActions
+    : quickActions.filter((action) => action.path !== "/commissions");
 
   return (
     <>
@@ -262,105 +285,106 @@ export default function Home() {
         description="Broker analytics dashboard"
       />
 
-      <div className="space-y-6">
-        <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
-          <div className="bg-gradient-to-r from-[#13538A] to-[#1a6aad] px-6 py-8 text-white md:px-8">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/70">
-                  Broker Dashboard
-                </p>
-                <h1 className="mt-2 max-w-2xl text-2xl font-semibold md:text-3xl">
-                  Your pipeline, volume, and lender performance — all in one
-                  place.
-                </h1>
-                <p className="mt-2 max-w-xl text-sm text-white/80">
-                  Live stats from your broker analytics API. Monitor submissions,
-                  conversions, and funded volume at a glance.
-                </p>
+      <div className="space-y-4">
+        {/* Header */}
+        <section className="overflow-hidden rounded-xl border border-[#13538A]/20 bg-gradient-to-r from-[#13538A] via-[#1a6aad] to-[#2C92D5] px-4 py-4 shadow-sm sm:px-5 sm:py-5">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="min-w-0">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/70">
+                Broker Dashboard
+              </p>
+              <h1 className="mt-1 truncate text-xl font-semibold text-white sm:text-2xl">
+                {greeting}, {firstName}
+              </h1>
+              <p className="mt-0.5 text-sm text-white/80">
+                Live pipeline analytics ·{" "}
+                {PERIOD_OPTIONS.find((p) => p.value === period)?.label} window
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="inline-flex rounded-lg border border-white/20 bg-white/10 p-0.5 backdrop-blur-sm">
+                {PERIOD_OPTIONS.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => setPeriod(option.value)}
+                    className={`rounded-md px-2.5 py-1.5 text-xs font-semibold transition ${
+                      period === option.value
+                        ? "bg-white text-[#13538A] shadow-sm"
+                        : "text-white/80 hover:bg-white/10 hover:text-white"
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
               </div>
               <button
                 type="button"
                 onClick={load}
                 disabled={loading}
-                className="inline-flex items-center gap-2 self-start rounded-xl border border-white/25 bg-white/10 px-4 py-2.5 text-sm font-medium backdrop-blur-sm transition hover:bg-white/20 disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-white/25 bg-white/10 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-white/20 disabled:opacity-50"
               >
                 <RefreshCw
-                  className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
+                  className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`}
                 />
                 Refresh
               </button>
             </div>
           </div>
 
-          <div className="grid gap-4 p-4 md:grid-cols-3 md:p-6">
-            {spotlightCards.map((card) => (
-              <button
-                key={card.title}
-                type="button"
-                onClick={card.onClick}
-                className="rounded-xl border border-gray-100 bg-gray-50/80 p-4 text-left transition hover:border-[#13538A]/30 hover:bg-white hover:shadow-sm dark:border-gray-800 dark:bg-gray-800/50 dark:hover:bg-gray-800"
-              >
-                <div className="flex items-center justify-between">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                    {card.title}
-                  </p>
-                  <span className={`rounded-lg p-2 ${card.tone}`}>
-                    <card.icon size={16} />
-                  </span>
-                </div>
-                <p className="mt-3 text-2xl font-bold text-gray-900 dark:text-white">
-                  {loading ? "—" : card.value}
-                </p>
-                <p className="mt-1 text-xs text-gray-500">{card.helper}</p>
-              </button>
-            ))}
-          </div>
-        </section>
-
-        <section>
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-500">
-            Quick Actions
-          </h2>
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            {quickActions.map((action) => (
+          <div className="mt-3 flex gap-2 overflow-x-auto pb-0.5">
+            {actions.map((action) => (
               <Link
                 key={action.path}
                 to={action.path}
-                className="group flex items-start gap-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition hover:border-[#13538A]/30 hover:shadow-md dark:border-gray-800 dark:bg-gray-900"
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-white/20"
               >
-                <span
-                  className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-white ${action.color}`}
-                >
-                  <action.icon size={18} />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                    {action.label}
-                  </p>
-                  <p className="mt-0.5 text-xs text-gray-500">{action.desc}</p>
-                </div>
-                <ArrowRight
-                  size={16}
-                  className="mt-1 shrink-0 text-gray-300 transition group-hover:translate-x-0.5 group-hover:text-[#13538A]"
-                />
+                <action.icon className="h-3.5 w-3.5" />
+                {action.label}
               </Link>
             ))}
           </div>
         </section>
 
-        <div className="grid grid-cols-12 gap-4 md:gap-6">
-          <div className="col-span-12">
-            <EcommerceMetrics
-              stats={stats}
-              loading={loading}
-              onStatClick={(key) => openPipeline(METRIC_TO_PIPELINE[key])}
-            />
+        {error && !loading ? (
+          <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-300">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <p>Unable to load analytics. {error}</p>
+              <button
+                type="button"
+                onClick={load}
+                className="inline-flex items-center gap-1.5 self-start rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-rose-700 ring-1 ring-rose-200"
+              >
+                <RefreshCw className="h-3.5 w-3.5" />
+                Try again
+              </button>
+            </div>
           </div>
-          <div className="col-span-12">
+        ) : null}
+
+        {/* KPIs */}
+        <EcommerceMetrics
+          stats={stats}
+          loading={loading}
+          onStatClick={(key) => openPipeline(METRIC_TO_PIPELINE[key])}
+        />
+
+        {/* Pipeline strip */}
+        <ApplicationPipeline
+          stats={stats}
+          loading={loading}
+          onStageClick={(statusKey) =>
+            openPipeline(STATUS_TO_PIPELINE[statusKey])
+          }
+        />
+
+        {/* Charts grid */}
+        <div className="grid grid-cols-12 gap-4">
+          <div className="col-span-12 xl:col-span-8">
             <StatisticsChart stats={stats} loading={loading} />
           </div>
-          <div className="col-span-12 xl:col-span-5">
+          <div className="col-span-12 xl:col-span-4">
             <StatusDistributionChart
               stats={stats}
               loading={loading}
@@ -369,100 +393,228 @@ export default function Home() {
               }
             />
           </div>
-          <div className="col-span-12 xl:col-span-7">
+
+          <div className="col-span-12 md:col-span-6 xl:col-span-4">
+            <ConversionFunnelChart
+              stats={stats}
+              loading={loading}
+              onStageClick={(statusKey) =>
+                openPipeline(STATUS_TO_PIPELINE[statusKey])
+              }
+            />
+          </div>
+          <div className="col-span-12 md:col-span-6 xl:col-span-4">
+            <ConversionRatesChart stats={stats} loading={loading} />
+          </div>
+          <div className="col-span-12 xl:col-span-4">
             <ProductVolumeChart stats={stats} loading={loading} />
           </div>
-        </div>
 
-        <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
-          <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-800">
-            <h2 className="font-semibold text-gray-900 dark:text-white">
-              Recent Applications
-            </h2>
-            <Link
-              to="/submit-applications"
-              className="text-sm font-medium text-[#13538A] hover:underline"
-            >
-              View all
-            </Link>
-          </div>
+          {showCommissions ? (
+            <>
+              <div className="col-span-12 md:col-span-4 xl:col-span-3">
+                <div className="flex h-full flex-col rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#13538A]">
+                        Earnings
+                      </p>
+                      <h3 className="mt-0.5 text-lg font-semibold text-gray-900 dark:text-white">
+                        Commission snapshot
+                      </h3>
+                    </div>
+                    <span className="rounded-lg bg-amber-50 p-2 text-amber-600">
+                      <Wallet className="h-4 w-4" />
+                    </span>
+                  </div>
 
-          {loading ? (
-            <div className="divide-y divide-gray-100 dark:divide-gray-800">
-              {Array.from({ length: 3 }).map((_, i) => (
-                <div
-                  key={i}
-                  className="h-14 animate-pulse bg-gray-50 dark:bg-gray-800/50"
+                  {commissionLoading ? (
+                    <div className="mt-5 animate-pulse space-y-3">
+                      <div className="h-8 w-28 rounded bg-gray-200 dark:bg-gray-700" />
+                      <div className="h-16 rounded bg-gray-100 dark:bg-gray-800" />
+                    </div>
+                  ) : (
+                    <div className="mt-4 flex flex-1 flex-col">
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">
+                        Pending
+                      </p>
+                      <p className="mt-1 text-3xl font-bold text-gray-900 dark:text-white">
+                        {formatCommissionCurrency(
+                          commissionSummary?.totals.pending || 0,
+                        )}
+                      </p>
+                      <div className="mt-4 grid grid-cols-2 gap-2">
+                        <div className="rounded-lg bg-emerald-50 p-3 dark:bg-emerald-950/30">
+                          <p className="text-[10px] font-semibold uppercase text-emerald-700">
+                            Paid
+                          </p>
+                          <p className="mt-1 text-sm font-bold text-emerald-800 dark:text-emerald-300">
+                            {formatCommissionCurrency(
+                              commissionSummary?.totals.paid || 0,
+                            )}
+                          </p>
+                        </div>
+                        <div className="rounded-lg bg-slate-50 p-3 dark:bg-gray-800">
+                          <p className="text-[10px] font-semibold uppercase text-gray-500">
+                            Total
+                          </p>
+                          <p className="mt-1 text-sm font-bold text-gray-900 dark:text-white">
+                            {formatCommissionCurrency(
+                              commissionSummary?.totals.all || 0,
+                            )}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="mt-3 grid grid-cols-3 gap-2 text-center text-xs">
+                        <div className="rounded-lg border border-gray-100 py-2 dark:border-gray-800">
+                          <p className="font-bold text-gray-900 dark:text-white">
+                            {commissionSummary?.counts?.pending ?? 0}
+                          </p>
+                          <p className="text-gray-500">Open</p>
+                        </div>
+                        <div className="rounded-lg border border-gray-100 py-2 dark:border-gray-800">
+                          <p className="font-bold text-gray-900 dark:text-white">
+                            {commissionSummary?.counts?.paid ?? 0}
+                          </p>
+                          <p className="text-gray-500">Paid</p>
+                        </div>
+                        <div className="rounded-lg border border-gray-100 py-2 dark:border-gray-800">
+                          <p className="font-bold text-gray-900 dark:text-white">
+                            {commissionSummary?.counts?.total ?? 0}
+                          </p>
+                          <p className="text-gray-500">Deals</p>
+                        </div>
+                      </div>
+                      <Link
+                        to="/commissions"
+                        className="mt-auto inline-flex items-center gap-1 pt-4 text-sm font-semibold text-[#13538A] hover:underline"
+                      >
+                        View commissions
+                        <ArrowRight className="h-3.5 w-3.5" />
+                      </Link>
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="col-span-12 md:col-span-8 xl:col-span-9">
+                <CommissionSummaryChart
+                  summary={commissionSummary}
+                  loading={commissionLoading}
+                  title="Commission over time"
                 />
-              ))}
-            </div>
-          ) : recent.length === 0 ? (
-            <div className="px-6 py-12 text-center">
-              <BriefcaseBusiness className="mx-auto mb-3 h-10 w-10 text-gray-300" />
-              <p className="font-medium text-gray-700 dark:text-gray-200">
-                No applications yet
-              </p>
-              <button
-                type="button"
-                onClick={() => navigate("/loan-application")}
-                className="mt-3 text-sm font-medium text-[#13538A] hover:underline"
-              >
-                Create your first application
-              </button>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[640px] text-left text-sm">
-                <thead className="bg-gray-50 text-xs uppercase tracking-wider text-gray-500 dark:bg-gray-800">
-                  <tr>
-                    <th className="px-5 py-3">Borrower</th>
-                    <th className="px-5 py-3">App No.</th>
-                    <th className="px-5 py-3">Amount</th>
-                    <th className="px-5 py-3">Status</th>
-                    <th className="px-5 py-3">Submitted</th>
-                    <th className="px-5 py-3" />
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                  {recent.map((row) => (
-                    <tr
-                      key={row.submissionId}
-                      className="cursor-pointer transition hover:bg-gray-50 dark:hover:bg-gray-800/50"
-                      onClick={() =>
-                        navigate("/loan-preview", {
-                          state: { submissionId: row.submissionId },
-                        })
-                      }
-                    >
-                      <td className="px-5 py-3 font-medium text-gray-900 dark:text-white">
-                        {row.borrower}
-                      </td>
-                      <td className="px-5 py-3 text-gray-600">
-                        {row.applicationNumber || "—"}
-                      </td>
-                      <td className="px-5 py-3 font-mono text-gray-700">
-                        {formatCompactAmount(row.amount)}
-                      </td>
-                      <td className="px-5 py-3">
-                        <span className="rounded-full bg-[#13538A]/10 px-2.5 py-0.5 text-xs font-medium text-[#13538A]">
-                          {statusLabel(row.status)}
-                        </span>
-                      </td>
-                      <td className="px-5 py-3 text-gray-500">
-                        {row.submittedOn
-                          ? new Date(row.submittedOn).toLocaleDateString()
-                          : "—"}
-                      </td>
-                      <td className="px-5 py-3 text-right">
-                        <ArrowRight className="ml-auto h-4 w-4 text-gray-300" />
-                      </td>
-                    </tr>
+              </div>
+            </>
+          ) : null}
+
+          {/* Recent applications */}
+          <div className="col-span-12">
+            <section className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
+              <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3 dark:border-gray-800 sm:px-5">
+                <div>
+                  <h2 className="text-sm font-semibold text-gray-900 dark:text-white">
+                    Recent Applications
+                  </h2>
+                  <p className="text-xs text-gray-500">
+                    Latest files in your broker pipeline
+                  </p>
+                </div>
+                <Link
+                  to="/submit-applications"
+                  className="text-xs font-semibold text-[#13538A] hover:underline"
+                >
+                  View all
+                </Link>
+              </div>
+
+              {loading ? (
+                <div className="divide-y divide-gray-100 dark:divide-gray-800">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <div
+                      key={i}
+                      className="h-12 animate-pulse bg-gray-50 dark:bg-gray-800/50"
+                    />
                   ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </section>
+                </div>
+              ) : recent.length === 0 ? (
+                <div className="px-6 py-10 text-center">
+                  <BriefcaseBusiness className="mx-auto mb-2 h-9 w-9 text-gray-300" />
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                    No applications yet
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => navigate("/loan-application")}
+                    className="mt-2 text-sm font-semibold text-[#13538A] hover:underline"
+                  >
+                    Create your first application
+                  </button>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[780px] text-left text-sm">
+                    <thead className="bg-gray-50 text-[11px] uppercase tracking-wider text-gray-500 dark:bg-gray-800">
+                      <tr>
+                        <th className="px-4 py-2.5 sm:px-5">Borrower</th>
+                        <th className="px-4 py-2.5 sm:px-5">Loan Type</th>
+                        <th className="px-4 py-2.5 sm:px-5">Amount</th>
+                        <th className="px-4 py-2.5 sm:px-5">Lender</th>
+                        <th className="px-4 py-2.5 sm:px-5">Status</th>
+                        <th className="px-4 py-2.5 sm:px-5">Submitted</th>
+                        <th className="px-4 py-2.5 sm:px-5" />
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                      {recent.map((row) => (
+                        <tr
+                          key={row.submissionId}
+                          className="cursor-pointer transition hover:bg-gray-50 dark:hover:bg-gray-800/50"
+                          onClick={() =>
+                            navigate("/loan-preview", {
+                              state: { submissionId: row.submissionId },
+                            })
+                          }
+                        >
+                          <td className="px-4 py-2.5 sm:px-5">
+                            <p className="font-medium text-gray-900 dark:text-white">
+                              {row.borrower}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              {row.applicationNumber || "—"}
+                            </p>
+                          </td>
+                          <td className="px-4 py-2.5 capitalize text-gray-600 sm:px-5">
+                            {productLabel(row.loanInfo).toLowerCase()}
+                          </td>
+                          <td className="px-4 py-2.5 font-semibold text-gray-800 dark:text-gray-100 sm:px-5">
+                            {formatCompactCurrency(row.amount)}
+                          </td>
+                          <td className="px-4 py-2.5 text-gray-600 sm:px-5">
+                            {row.lenderName || "—"}
+                          </td>
+                          <td className="px-4 py-2.5 sm:px-5">
+                            <span
+                              className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ring-inset ${statusBadgeClass(row.status)}`}
+                            >
+                              {statusLabel(row.status)}
+                            </span>
+                          </td>
+                          <td className="px-4 py-2.5 text-gray-500 sm:px-5">
+                            {row.submittedOn
+                              ? new Date(row.submittedOn).toLocaleDateString()
+                              : "—"}
+                          </td>
+                          <td className="px-4 py-2.5 text-right sm:px-5">
+                            <ArrowRight className="ml-auto h-4 w-4 text-gray-300" />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+          </div>
+        </div>
       </div>
     </>
   );

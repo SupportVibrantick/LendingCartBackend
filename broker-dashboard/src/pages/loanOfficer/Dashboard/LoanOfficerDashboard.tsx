@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import {
   ArrowRight,
   BriefcaseBusiness,
+  Contact,
   FilePlus,
   FolderOpen,
   Mail,
@@ -11,89 +12,233 @@ import {
   Store,
   UserRound,
   Users,
-  Contact,
+  Wallet,
 } from "lucide-react";
-import { LO_API_BASE, loAuthHeaders, checkLoanOfficerResponse } from "../../../lib/loanOfficerApi";
+import {
+  LO_API_BASE,
+  LO_USER_KEY,
+  loAuthHeaders,
+  checkLoanOfficerResponse,
+} from "../../../lib/loanOfficerApi";
 import { isSessionExpiredError } from "../../../lib/sessionExpiry";
 import StaffCommissionOverview from "../../../components/commissions/StaffCommissionOverview";
+import EcommerceMetrics from "../../../components/ecommerce/EcommerceMetrics";
+import StatisticsChart from "../../../components/ecommerce/StatisticsChart";
+import StatusDistributionChart from "../../../components/ecommerce/StatusDistributionChart";
+import ProductVolumeChart from "../../../components/ecommerce/ProductVolumeChart";
+import ApplicationPipeline from "../../../components/ecommerce/ApplicationPipeline";
+import ConversionFunnelChart from "../../../components/ecommerce/ConversionFunnelChart";
+import ConversionRatesChart from "../../../components/ecommerce/ConversionRatesChart";
 import {
   hasAnyPermission,
   hasPermission,
   LO_PERMISSIONS_UPDATED_EVENT,
   type PermissionKey,
 } from "../../../lib/brokerPermissions";
-
-type PipelineStats = {
-  totalVolume: number;
-  totalApplications: number;
-  submitted: number;
-  clientPending: number;
-  approved: number;
-  rejected: number;
-  inReview: number;
-  draft: number;
-};
+import {
+  formatCompactCurrency,
+  type BrokerStats,
+  type DashboardPeriod,
+} from "../../../lib/brokerDashboardStats";
 
 type RecentApp = {
   submissionId: string;
   applicationId: string;
   applicationNumber?: string;
   borrower: string;
-  amount: string;
+  amount: number;
   status: string;
   submittedOn: string;
+  loanInfo?: string;
+  lenderName?: string;
 };
 
-function formatCompactAmount(value: number) {
-  if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`;
-  if (value >= 1_000) return `$${(value / 1_000).toFixed(0)}K`;
-  return `$${value.toLocaleString()}`;
+const PERIOD_OPTIONS: { value: DashboardPeriod; label: string }[] = [
+  { value: "7d", label: "7D" },
+  { value: "30d", label: "30D" },
+  { value: "90d", label: "90D" },
+  { value: "12m", label: "12M" },
+];
+
+const STATUS_TO_PIPELINE: Record<string, string> = {
+  DRAFT: "DRAFT",
+  CLIENT_PENDING: "CLIENT_PENDING",
+  SUBMITTED: "SUBMITTED",
+  IN_REVIEW: "IN_REVIEW",
+  LENDER_SELECTED: "IN_REVIEW",
+  LENDER_APPROVED: "APPROVED",
+  LENDER_DECLINED: "DECLINED",
+  FUNDED: "FUNDED",
+  WITHDRAWN: "WITHDRAWN",
+  SUSPENDED: "SUSPENDED",
+};
+
+const METRIC_TO_PIPELINE: Record<string, string | undefined> = {
+  totalApplications: undefined,
+  totalSubmitted: "SUBMITTED",
+  totalInReview: "IN_REVIEW",
+  totalApproved: "APPROVED",
+  totalDeclined: "DECLINED",
+  totalFunded: "FUNDED",
+  totalVolumeFunded: "FUNDED",
+};
+
+function getOfficerFirstName() {
+  try {
+    const user = JSON.parse(sessionStorage.getItem(LO_USER_KEY) || "{}");
+    const first =
+      user.firstName ||
+      user.name?.split(/\s+/)[0] ||
+      user.email?.split("@")[0] ||
+      "Officer";
+    return String(first);
+  } catch {
+    return "Officer";
+  }
+}
+
+function getGreeting(date = new Date()) {
+  const hour = date.getHours();
+  if (hour < 12) return "Good morning";
+  if (hour < 17) return "Good afternoon";
+  return "Good evening";
 }
 
 function statusLabel(status: string) {
   if (status === "CLIENT_PENDING") return "Client Pending";
   if (status === "IN_REVIEW") return "In Review";
+  if (status === "DECLINED" || status === "LENDER_DECLINED") return "Declined";
+  if (status === "APPROVED" || status === "LENDER_APPROVED") return "Approved";
+  if (status === "LENDER_SELECTED") return "Lender Selected";
   return status.replace(/_/g, " ");
 }
+
+function statusBadgeClass(status: string) {
+  const key = status.toUpperCase();
+  if (key === "FUNDED") return "bg-teal-50 text-teal-700 ring-teal-100";
+  if (key === "APPROVED" || key === "LENDER_APPROVED") {
+    return "bg-emerald-50 text-emerald-700 ring-emerald-100";
+  }
+  if (key === "DECLINED" || key === "LENDER_DECLINED") {
+    return "bg-rose-50 text-rose-700 ring-rose-100";
+  }
+  if (key === "IN_REVIEW" || key === "LENDER_SELECTED") {
+    return "bg-indigo-50 text-indigo-700 ring-indigo-100";
+  }
+  if (key === "SUBMITTED") return "bg-sky-50 text-sky-700 ring-sky-100";
+  if (key === "CLIENT_PENDING") {
+    return "bg-orange-50 text-orange-700 ring-orange-100";
+  }
+  if (key === "DRAFT") return "bg-slate-100 text-slate-600 ring-slate-200";
+  return "bg-[#13538A]/10 text-[#13538A] ring-[#13538A]/10";
+}
+
+function productLabel(code?: string) {
+  if (!code) return "—";
+  return code.replace(/_/g, " ");
+}
+
+function pipelineHref(status?: string) {
+  if (!status) return "/loan-officer/loan-pipeline";
+  return `/loan-officer/loan-pipeline?status=${encodeURIComponent(status)}`;
+}
+
+const QUICK_ACTIONS = [
+  {
+    label: "New App",
+    path: "/loan-officer/loan-application",
+    icon: FilePlus,
+    permission: "CREATE_APPLICATION" as PermissionKey,
+  },
+  {
+    label: "Pipeline",
+    path: "/loan-officer/loan-pipeline",
+    icon: BriefcaseBusiness,
+    permission: "VIEW_APPLICATIONS" as PermissionKey,
+  },
+  {
+    label: "Lenders",
+    path: "/loan-officer/lender-marketplace",
+    icon: Store,
+    permission: "VIEW_MARKETPLACE" as PermissionKey,
+  },
+  {
+    label: "Co-Brokers",
+    path: "/loan-officer/co-brokers",
+    icon: Users,
+    permission: "VIEW_CO_BROKERS" as PermissionKey,
+  },
+  {
+    label: "Borrowers",
+    path: "/loan-officer/borrowers",
+    icon: UserRound,
+    permission: "VIEW_BORROWERS" as PermissionKey,
+  },
+  {
+    label: "Contacts",
+    path: "/loan-officer/contacts",
+    icon: Contact,
+    permission: "VIEW_CONTACTS" as PermissionKey,
+  },
+  {
+    label: "Documents",
+    path: "/loan-officer/documents/custom",
+    icon: FolderOpen,
+    permission: ["MANAGE_CUSTOM_DOCUMENTS", "VIEW_CUSTOM_DOCUMENTS"] as PermissionKey[],
+  },
+  {
+    label: "Email",
+    path: "/loan-officer/email-marketing",
+    icon: Mail,
+    permission: "SEND_EMAILS" as PermissionKey,
+  },
+  {
+    label: "Commissions",
+    path: "/loan-officer/commissions",
+    icon: Wallet,
+    permission: "VIEW_COMMISSIONS" as PermissionKey,
+  },
+];
 
 export default function LoanOfficerDashboard() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState<PipelineStats>({
-    totalVolume: 0,
-    totalApplications: 0,
-    submitted: 0,
-    clientPending: 0,
-    approved: 0,
-    rejected: 0,
-    inReview: 0,
-    draft: 0,
-  });
+  const [error, setError] = useState<string | null>(null);
+  const [stats, setStats] = useState<BrokerStats | null>(null);
   const [recent, setRecent] = useState<RecentApp[]>([]);
+  const [period, setPeriod] = useState<DashboardPeriod>("12m");
   const [permTick, setPermTick] = useState(0);
+
+  const firstName = useMemo(() => getOfficerFirstName(), []);
+  const greeting = useMemo(() => getGreeting(), []);
 
   useEffect(() => {
     const refresh = () => setPermTick((value) => value + 1);
     window.addEventListener(LO_PERMISSIONS_UPDATED_EVENT, refresh);
-    return () => window.removeEventListener(LO_PERMISSIONS_UPDATED_EVENT, refresh);
+    return () =>
+      window.removeEventListener(LO_PERMISSIONS_UPDATED_EVENT, refresh);
   }, []);
 
-  const load = async () => {
+  const canViewStats = hasPermission("VIEW_DASHBOARD_STATS", "loanOfficer");
+  const canViewRecent = hasPermission("VIEW_DASHBOARD_RECENT", "loanOfficer");
+  const canViewPipeline = hasPermission("VIEW_APPLICATIONS", "loanOfficer");
+  const canViewCommissions = hasPermission("VIEW_COMMISSIONS", "loanOfficer");
+
+  const load = useCallback(async () => {
     try {
       setLoading(true);
-
-      const canViewStats = hasPermission("VIEW_DASHBOARD_STATS", "loanOfficer");
-      const canViewRecent = hasPermission("VIEW_DASHBOARD_RECENT", "loanOfficer");
+      setError(null);
 
       const requests: Promise<Response | null>[] = [
         canViewStats
-          ? fetch(`${LO_API_BASE}/loanofficer/dashboard/stats`, {
-              headers: loAuthHeaders(),
-            })
+          ? fetch(
+              `${LO_API_BASE}/loanofficer/dashboard/stats?period=${period}`,
+              { headers: loAuthHeaders() },
+            )
           : Promise.resolve(null),
         canViewRecent
           ? fetch(
-              `${LO_API_BASE}/loanofficer/dashboard/recent-applications?limit=5`,
+              `${LO_API_BASE}/loanofficer/dashboard/recent-applications?limit=8`,
               { headers: loAuthHeaders() },
             )
           : Promise.resolve(null),
@@ -101,133 +246,65 @@ export default function LoanOfficerDashboard() {
 
       const [statsRes, listRes] = await Promise.all(requests);
 
+      if (listRes) {
+        const listJson = await listRes.json();
+        checkLoanOfficerResponse(listRes, listJson);
+        if (listRes.ok && Array.isArray(listJson.data)) {
+          setRecent(
+            listJson.data.map((item: Record<string, unknown>) => ({
+              submissionId: String(item.submissionId || ""),
+              applicationId: String(item.applicationId || ""),
+              applicationNumber: item.applicationNumber
+                ? String(item.applicationNumber)
+                : undefined,
+              borrower: String(item.borrower || "Applicant"),
+              amount: Number(item.amount || 0),
+              status: String(item.status || ""),
+              submittedOn: String(item.submittedOn || ""),
+              loanInfo: item.loanInfo ? String(item.loanInfo) : undefined,
+              lenderName: item.lenderName ? String(item.lenderName) : undefined,
+            })),
+          );
+        } else {
+          setRecent([]);
+        }
+      } else {
+        setRecent([]);
+      }
+
       if (statsRes) {
         const statsJson = await statsRes.json();
         checkLoanOfficerResponse(statsRes, statsJson);
         if (statsRes.ok && statsJson.success) {
           setStats(statsJson.data);
+        } else {
+          setStats(null);
+          throw new Error(statsJson.message || "Failed to load dashboard stats");
         }
       } else {
-        setStats({
-          totalVolume: 0,
-          totalApplications: 0,
-          submitted: 0,
-          clientPending: 0,
-          approved: 0,
-          rejected: 0,
-          inReview: 0,
-          draft: 0,
-        });
-      }
-
-      if (listRes) {
-        const listJson = await listRes.json();
-        checkLoanOfficerResponse(listRes, listJson);
-        if (listRes.ok && Array.isArray(listJson.data)) {
-          setRecent(listJson.data);
-        }
-      } else {
-        setRecent([]);
+        setStats(null);
       }
     } catch (err) {
       if (isSessionExpiredError(err)) return;
-      toast.error("Failed to load dashboard");
+      const message =
+        err instanceof Error ? err.message : "Failed to load dashboard";
+      setError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
-  };
+  }, [canViewRecent, canViewStats, period]);
 
   useEffect(() => {
     load();
-  }, [permTick]);
+  }, [load, permTick]);
 
-  const statCards = [
-    {
-      label: "Total Applications",
-      value: stats.totalApplications,
-      color: "text-[#13538A]",
-    },
-    {
-      label: "Total Volume",
-      value: formatCompactAmount(stats.totalVolume),
-      color: "text-indigo-600",
-    },
-    { label: "In Review", value: stats.inReview, color: "text-amber-600" },
-    {
-      label: "Client Pending",
-      value: stats.clientPending,
-      color: "text-rose-600",
-    },
-    { label: "Approved", value: stats.approved, color: "text-emerald-600" },
-    { label: "Draft", value: stats.draft, color: "text-gray-600" },
-  ];
+  const openPipeline = (status?: string) => {
+    if (!canViewPipeline) return;
+    navigate(pipelineHref(status));
+  };
 
-  const quickActions = [
-    {
-      label: "New Application",
-      desc: "Start a new loan file",
-      icon: FilePlus,
-      to: "/loan-officer/loan-application",
-      color: "bg-[#13538A]",
-      permission: "CREATE_APPLICATION" as PermissionKey,
-    },
-    {
-      label: "Loan Pipeline",
-      desc: "View all assigned deals",
-      icon: BriefcaseBusiness,
-      to: "/loan-officer/loan-pipeline",
-      color: "bg-[#1a6aad]",
-      permission: "VIEW_APPLICATIONS" as PermissionKey,
-    },
-    {
-      label: "Co-Brokers",
-      desc: "Manage your co-broker team",
-      icon: Users,
-      to: "/loan-officer/co-brokers",
-      color: "bg-violet-600",
-      permission: "VIEW_CO_BROKERS" as PermissionKey,
-    },
-    {
-      label: "Contacts",
-      desc: "Manage your directory",
-      icon: Contact,
-      to: "/loan-officer/contacts",
-      color: "bg-slate-700",
-      permission: "VIEW_CONTACTS" as PermissionKey,
-    },
-    {
-      label: "Borrowers",
-      desc: "View borrower records",
-      icon: UserRound,
-      to: "/loan-officer/borrowers",
-      color: "bg-orange-600",
-      permission: "VIEW_BORROWERS" as PermissionKey,
-    },
-    {
-      label: "Lender Marketplace",
-      desc: "Discover and connect lenders",
-      icon: Store,
-      to: "/loan-officer/lender-marketplace",
-      color: "bg-emerald-600",
-      permission: "VIEW_MARKETPLACE" as PermissionKey,
-    },
-    {
-      label: "Custom Documents",
-      desc: "Manage document templates",
-      icon: FolderOpen,
-      to: "/loan-officer/documents/custom",
-      color: "bg-amber-600",
-      permission: ["MANAGE_CUSTOM_DOCUMENTS", "VIEW_CUSTOM_DOCUMENTS"] as PermissionKey[],
-    },
-    {
-      label: "Email Marketing",
-      desc: "Run email campaigns",
-      icon: Mail,
-      to: "/loan-officer/email-marketing",
-      color: "bg-rose-600",
-      permission: "SEND_EMAILS" as PermissionKey,
-    },
-  ].filter((action) => {
+  const quickActions = QUICK_ACTIONS.filter((action) => {
     void permTick;
     const required = Array.isArray(action.permission)
       ? action.permission
@@ -235,54 +312,138 @@ export default function LoanOfficerDashboard() {
     return hasAnyPermission(required, "loanOfficer");
   });
 
-  const canViewStats = hasPermission("VIEW_DASHBOARD_STATS", "loanOfficer");
-  const canViewRecent = hasPermission("VIEW_DASHBOARD_RECENT", "loanOfficer");
-  const canViewPipeline = hasPermission("VIEW_APPLICATIONS", "loanOfficer");
-
   return (
-    <div className="space-y-6">
-      <div className="overflow-hidden rounded-2xl border border-[#13538A]/15 bg-gradient-to-br from-[#13538A] via-[#1a6aad] to-[#2C92D5] p-6 text-white shadow-sm sm:p-8">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-widest text-white/70">
-              Officer Portal
+    <div className="space-y-4">
+      <section className="overflow-hidden rounded-xl border border-[#13538A]/20 bg-gradient-to-r from-[#13538A] via-[#1a6aad] to-[#2C92D5] px-4 py-4 shadow-sm sm:px-5 sm:py-5">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/70">
+              Officer Dashboard
             </p>
-            <h1 className="mt-1 text-2xl font-bold sm:text-3xl">Dashboard</h1>
-            <p className="mt-2 max-w-xl text-sm text-white/80">
-              Your assigned pipeline, volume, and recent activity at a glance.
+            <h1 className="mt-1 truncate text-xl font-semibold text-white sm:text-2xl">
+              {greeting}, {firstName}
+            </h1>
+            <p className="mt-0.5 text-sm text-white/80">
+              Your assigned pipeline analytics ·{" "}
+              {PERIOD_OPTIONS.find((p) => p.value === period)?.label} window
             </p>
           </div>
-          <button
-            type="button"
-            onClick={load}
-            disabled={loading}
-            className="inline-flex items-center gap-2 self-start rounded-xl border border-white/25 bg-white/10 px-4 py-2.5 text-sm font-medium backdrop-blur-sm transition hover:bg-white/20 disabled:opacity-50"
-          >
-            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-            Refresh
-          </button>
-        </div>
-      </div>
 
-      {canViewStats && (
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-6">
-          {statCards.map((card) => (
-            <div
-              key={card.label}
-              className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900"
+          <div className="flex flex-wrap items-center gap-2">
+            {canViewStats ? (
+              <div className="inline-flex rounded-lg border border-white/20 bg-white/10 p-0.5 backdrop-blur-sm">
+                {PERIOD_OPTIONS.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => setPeriod(option.value)}
+                    className={`rounded-md px-2.5 py-1.5 text-xs font-semibold transition ${
+                      period === option.value
+                        ? "bg-white text-[#13538A] shadow-sm"
+                        : "text-white/80 hover:bg-white/10 hover:text-white"
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+            <button
+              type="button"
+              onClick={load}
+              disabled={loading}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-white/25 bg-white/10 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-white/20 disabled:opacity-50"
             >
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">
-                {card.label}
-              </p>
-              <p className={`mt-2 text-2xl font-bold ${card.color}`}>
-                {loading ? "—" : card.value}
-              </p>
-            </div>
-          ))}
+              <RefreshCw
+                className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`}
+              />
+              Refresh
+            </button>
+          </div>
         </div>
-      )}
 
-      {hasPermission("VIEW_COMMISSIONS", "loanOfficer") && (
+        {quickActions.length > 0 ? (
+          <div className="mt-3 flex gap-2 overflow-x-auto pb-0.5">
+            {quickActions.map((action) => (
+              <Link
+                key={action.path}
+                to={action.path}
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-white/20"
+              >
+                <action.icon className="h-3.5 w-3.5" />
+                {action.label}
+              </Link>
+            ))}
+          </div>
+        ) : null}
+      </section>
+
+      {error && !loading ? (
+        <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-300">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <p>Unable to load analytics. {error}</p>
+            <button
+              type="button"
+              onClick={load}
+              className="inline-flex items-center gap-1.5 self-start rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-rose-700 ring-1 ring-rose-200"
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+              Try again
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {canViewStats ? (
+        <>
+          <EcommerceMetrics
+            stats={stats}
+            loading={loading}
+            onStatClick={(key) => openPipeline(METRIC_TO_PIPELINE[key])}
+          />
+
+          <ApplicationPipeline
+            stats={stats}
+            loading={loading}
+            onStageClick={(statusKey) =>
+              openPipeline(STATUS_TO_PIPELINE[statusKey])
+            }
+          />
+
+          <div className="grid grid-cols-12 gap-4">
+            <div className="col-span-12 xl:col-span-8">
+              <StatisticsChart stats={stats} loading={loading} />
+            </div>
+            <div className="col-span-12 xl:col-span-4">
+              <StatusDistributionChart
+                stats={stats}
+                loading={loading}
+                onStatusClick={(statusKey) =>
+                  openPipeline(STATUS_TO_PIPELINE[statusKey])
+                }
+              />
+            </div>
+
+            <div className="col-span-12 md:col-span-6 xl:col-span-4">
+              <ConversionFunnelChart
+                stats={stats}
+                loading={loading}
+                onStageClick={(statusKey) =>
+                  openPipeline(STATUS_TO_PIPELINE[statusKey])
+                }
+              />
+            </div>
+            <div className="col-span-12 md:col-span-6 xl:col-span-4">
+              <ConversionRatesChart stats={stats} loading={loading} />
+            </div>
+            <div className="col-span-12 xl:col-span-4">
+              <ProductVolumeChart stats={stats} loading={loading} />
+            </div>
+          </div>
+        </>
+      ) : null}
+
+      {canViewCommissions ? (
         <StaffCommissionOverview
           apiBase={LO_API_BASE}
           summaryPath="/loanofficer/commissions/summary"
@@ -293,130 +454,119 @@ export default function LoanOfficerDashboard() {
           invoicesHref="/loan-officer/invoices"
           commissionsHref="/loan-officer/commissions"
         />
-      )}
+      ) : null}
 
-      {quickActions.length > 0 && (
-        <div>
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-500">
-            Quick Actions
-          </h2>
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            {quickActions.map((action) => {
-              const Icon = action.icon;
-              return (
-                <Link
-                  key={action.to}
-                  to={action.to}
-                  className="group flex items-start gap-4 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition hover:border-[#13538A]/30 hover:shadow-md dark:border-gray-800 dark:bg-gray-900"
+      {canViewRecent ? (
+        <section className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
+          <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3 dark:border-gray-800 sm:px-5">
+            <div>
+              <h2 className="text-sm font-semibold text-gray-900 dark:text-white">
+                Recent Applications
+              </h2>
+              <p className="text-xs text-gray-500">
+                Latest files assigned to you
+              </p>
+            </div>
+            {canViewPipeline ? (
+              <Link
+                to="/loan-officer/loan-pipeline"
+                className="text-xs font-semibold text-[#13538A] hover:underline"
+              >
+                View all
+              </Link>
+            ) : null}
+          </div>
+
+          {loading ? (
+            <div className="divide-y divide-gray-100 dark:divide-gray-800">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="h-12 animate-pulse bg-gray-50 dark:bg-gray-800/50"
+                />
+              ))}
+            </div>
+          ) : recent.length === 0 ? (
+            <div className="px-6 py-10 text-center">
+              <BriefcaseBusiness className="mx-auto mb-2 h-9 w-9 text-gray-300" />
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                No applications yet
+              </p>
+              {hasPermission("CREATE_APPLICATION", "loanOfficer") ? (
+                <button
+                  type="button"
+                  onClick={() => navigate("/loan-officer/loan-application")}
+                  className="mt-2 text-sm font-semibold text-[#13538A] hover:underline"
                 >
-                  <div
-                    className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-white ${action.color}`}
-                  >
-                    <Icon size={20} />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="font-semibold text-gray-900 dark:text-white">
-                      {action.label}
-                    </p>
-                    <p className="mt-0.5 text-xs text-gray-500">{action.desc}</p>
-                  </div>
-                  <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-gray-300 transition group-hover:text-[#13538A]" />
-                </Link>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {canViewRecent && (
-      <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
-        <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-800">
-          <h2 className="font-semibold text-gray-900 dark:text-white">
-            Recent Applications
-          </h2>
-          {canViewPipeline ? (
-          <Link
-            to="/loan-officer/loan-pipeline"
-            className="text-sm font-medium text-[#13538A] hover:underline"
-          >
-            View all
-          </Link>
-          ) : null}
-        </div>
-
-        {loading ? (
-          <div className="divide-y divide-gray-100 dark:divide-gray-800">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <div
-                key={i}
-                className="h-14 animate-pulse bg-gray-50 dark:bg-gray-800/50"
-              />
-            ))}
-          </div>
-        ) : recent.length === 0 ? (
-          <div className="px-6 py-12 text-center">
-            <BriefcaseBusiness className="mx-auto mb-3 h-10 w-10 text-gray-300" />
-            <p className="font-medium text-gray-700 dark:text-gray-200">
-              No applications yet
-            </p>
-            <button
-              type="button"
-              onClick={() => navigate("/loan-officer/loan-application")}
-              className="mt-3 text-sm font-medium text-[#13538A] hover:underline"
-            >
-              Create your first application
-            </button>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[640px] text-left text-sm">
-              <thead className="bg-gray-50 text-xs uppercase tracking-wider text-gray-500 dark:bg-gray-800">
-                <tr>
-                  <th className="px-5 py-3">Borrower</th>
-                  <th className="px-5 py-3">App No.</th>
-                  <th className="px-5 py-3">Amount</th>
-                  <th className="px-5 py-3">Status</th>
-                  <th className="px-5 py-3">Submitted</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                {recent.map((row) => (
-                  <tr
-                    key={row.submissionId}
-                    className="cursor-pointer transition hover:bg-gray-50 dark:hover:bg-gray-800/50"
-                    onClick={() =>
-                      navigate("/loan-officer/loan-pipeline-preview", {
-                        state: { submissionId: row.submissionId },
-                      })
-                    }
-                  >
-                    <td className="px-5 py-3 font-medium text-gray-900 dark:text-white">
-                      {row.borrower}
-                    </td>
-                    <td className="px-5 py-3 text-gray-600">
-                      {row.applicationNumber || "—"}
-                    </td>
-                    <td className="px-5 py-3 font-mono text-gray-700">
-                      {formatCompactAmount(Number(row.amount) || 0)}
-                    </td>
-                    <td className="px-5 py-3">
-                      <span className="rounded-full bg-[#13538A]/10 px-2.5 py-0.5 text-xs font-medium text-[#13538A]">
-                        {statusLabel(row.status)}
-                      </span>
-                    </td>
-                    <td className="px-5 py-3 text-gray-500">
-                      {row.submittedOn
-                        ? new Date(row.submittedOn).toLocaleDateString()
-                        : "—"}
-                    </td>
+                  Create your first application
+                </button>
+              ) : null}
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[780px] text-left text-sm">
+                <thead className="bg-gray-50 text-[11px] uppercase tracking-wider text-gray-500 dark:bg-gray-800">
+                  <tr>
+                    <th className="px-4 py-2.5 sm:px-5">Borrower</th>
+                    <th className="px-4 py-2.5 sm:px-5">Loan Type</th>
+                    <th className="px-4 py-2.5 sm:px-5">Amount</th>
+                    <th className="px-4 py-2.5 sm:px-5">Lender</th>
+                    <th className="px-4 py-2.5 sm:px-5">Status</th>
+                    <th className="px-4 py-2.5 sm:px-5">Submitted</th>
+                    <th className="px-4 py-2.5 sm:px-5" />
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-      )}
+                </thead>
+                <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                  {recent.map((row) => (
+                    <tr
+                      key={row.submissionId}
+                      className="cursor-pointer transition hover:bg-gray-50 dark:hover:bg-gray-800/50"
+                      onClick={() =>
+                        navigate("/loan-officer/loan-pipeline-preview", {
+                          state: { submissionId: row.submissionId },
+                        })
+                      }
+                    >
+                      <td className="px-4 py-2.5 sm:px-5">
+                        <p className="font-medium text-gray-900 dark:text-white">
+                          {row.borrower}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {row.applicationNumber || "—"}
+                        </p>
+                      </td>
+                      <td className="px-4 py-2.5 capitalize text-gray-600 sm:px-5">
+                        {productLabel(row.loanInfo).toLowerCase()}
+                      </td>
+                      <td className="px-4 py-2.5 font-semibold text-gray-800 dark:text-gray-100 sm:px-5">
+                        {formatCompactCurrency(row.amount)}
+                      </td>
+                      <td className="px-4 py-2.5 text-gray-600 sm:px-5">
+                        {row.lenderName || "—"}
+                      </td>
+                      <td className="px-4 py-2.5 sm:px-5">
+                        <span
+                          className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ring-inset ${statusBadgeClass(row.status)}`}
+                        >
+                          {statusLabel(row.status)}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2.5 text-gray-500 sm:px-5">
+                        {row.submittedOn
+                          ? new Date(row.submittedOn).toLocaleDateString()
+                          : "—"}
+                      </td>
+                      <td className="px-4 py-2.5 text-right sm:px-5">
+                        <ArrowRight className="ml-auto h-4 w-4 text-gray-300" />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+      ) : null}
     </div>
   );
 }

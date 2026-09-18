@@ -1,6 +1,8 @@
 // src/pages/Brokers/BrokersLenders.tsx
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { MdModeEdit, MdDelete } from "react-icons/md";
+import { ArrowLeft } from "lucide-react";
 
 type Broker = {
   id: string;
@@ -53,6 +55,7 @@ function statusClass(status?: string) {
 }
 
 const BrokersLenders: React.FC = () => {
+  const navigate = useNavigate();
   const [brokers, setBrokers] = useState<Broker[]>([]);
   const [selectedBrokerId, setSelectedBrokerId] = useState<string>("");
   const [lenders, setLenders] = useState<Lender[]>([]);
@@ -192,14 +195,25 @@ const BrokersLenders: React.FC = () => {
   return (
     <div className="px-6 py-6 text-gray-900 dark:text-gray-100">
       {/* Heading same style as BrokersPage */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-        <div>
-          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
-            Broker Lender Mapping
-          </h1>
-          <p className="text-sm text-gray-500 mt-1 dark:text-slate-400">
-            Select a broker on the left to view and manage their lenders.
-          </p>
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-start gap-3">
+          <button
+            type="button"
+            onClick={() => navigate("/all-brokers-database")}
+            className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:border-[#13538A]/40 hover:bg-sky-50 hover:text-[#13538A] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+            title="Back to All Brokers"
+            aria-label="Back to All Brokers"
+          >
+            <ArrowLeft size={16} />
+          </button>
+          <div>
+            <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
+              Broker Lender Mapping
+            </h1>
+            <p className="mt-1 text-sm text-gray-500 dark:text-slate-400">
+              Select a broker on the left to view and manage their lenders.
+            </p>
+          </div>
         </div>
       </div>
 

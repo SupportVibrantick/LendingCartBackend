@@ -261,7 +261,7 @@ async function portalImpersonateRoutes(fastify) {
             organizationName: organization.name || null,
           },
           branding,
-          redirectTo: "/sub-broker/loan-pipeline",
+          redirectTo: "/sub-broker/dashboard",
         });
       } catch (error) {
         if (error.statusCode) {

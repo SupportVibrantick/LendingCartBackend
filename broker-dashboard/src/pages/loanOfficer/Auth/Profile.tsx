@@ -323,30 +323,36 @@ export default function Profile() {
 
   return (
     <div className="space-y-6">
-      {/* Page hero */}
-      <div className="overflow-hidden rounded-2xl border border-[#13538A]/15 bg-gradient-to-br from-[#13538A] via-[#1a6aad] to-[#2C92D5] p-6 text-white shadow-sm sm:p-8">
-        <p className="text-xs font-semibold uppercase tracking-widest text-white/70">
-          Account · Settings
-        </p>
-        <h1 className="mt-1 text-2xl font-bold sm:text-3xl">My Profile</h1>
-        <p className="mt-2 max-w-xl text-sm text-white/80">
-          Manage your personal information, photo, and account details for the
-          loan officer portal.
-        </p>
-      </div>
-
       {/* Profile card */}
       <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
-        {/* Cover */}
-        <div className="relative h-36 bg-gradient-to-r from-[#13538A] via-[#1a6aad] to-[#2C92D5] sm:h-40">
-          <div className="absolute right-4 top-4 sm:right-6 sm:top-6">
-            <span className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-white backdrop-blur-sm">
+        {/* Cover + page title */}
+        <div className="relative bg-gradient-to-br from-[#13538A] via-[#1a6aad] to-[#2C92D5] px-5 pb-16 pt-6 text-white sm:px-8 sm:pb-20 sm:pt-7">
+          <div className="pointer-events-none absolute inset-0 overflow-hidden">
+            <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
+            <div className="absolute -bottom-16 left-1/3 h-36 w-36 rounded-full bg-cyan-300/20 blur-2xl" />
+          </div>
+
+          <div className="relative flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0 max-w-xl">
+              <p className="text-xs font-semibold uppercase tracking-widest text-white/70">
+                Account · Settings
+              </p>
+              <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">
+                My Profile
+              </h1>
+              <p className="mt-2 text-sm text-white/80">
+                Manage your personal information, photo, and account details for
+                the loan officer portal.
+              </p>
+            </div>
+
+            <span className="inline-flex shrink-0 items-center gap-2 self-start rounded-full border border-white/25 bg-white/10 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-white backdrop-blur-sm">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-300" />
               Loan Officer
             </span>
           </div>
 
-          <div className="absolute -bottom-14 left-4 sm:left-8">
+          <div className="absolute -bottom-14 left-4 z-10 sm:left-8">
             <div className="group relative">
               <div className="absolute -inset-1 rounded-full bg-white/90 dark:bg-gray-900" />
               <div className="relative h-28 w-28 overflow-hidden rounded-full border-4 border-white shadow-lg dark:border-gray-900 sm:h-32 sm:w-32">

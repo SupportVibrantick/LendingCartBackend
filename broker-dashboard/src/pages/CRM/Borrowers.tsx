@@ -175,39 +175,37 @@ function SortHeader({
   );
 }
 
-function StatChip({
-  icon,
+function StatCard({
+  icon: Icon,
   label,
   value,
-  tone = "blue",
+  iconWrap,
 }: {
-  icon: React.ReactNode;
+  icon: typeof Users;
   label: string;
-  value: number;
-  tone?: "blue" | "orange" | "slate";
+  value: number | string;
+  iconWrap: string;
 }) {
-  const tones = {
-    blue: "border-blue-100 bg-blue-50 text-blue-700 dark:border-blue-500/20 dark:bg-blue-500/10 dark:text-blue-300",
-    orange:
-      "border-orange-100 bg-orange-50 text-orange-700 dark:border-orange-500/20 dark:bg-orange-500/10 dark:text-orange-300",
-    slate:
-      "border-gray-200 bg-gray-50 text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300",
-  };
-
   return (
-    <div
-      className={`flex items-center gap-2.5 rounded-xl border px-4 py-2.5 ${tones[tone]}`}
-    >
-      {icon}
-      <div>
-        <p className="text-[10px] font-semibold uppercase tracking-wide opacity-70">
+    <div className="flex items-center gap-3 rounded-xl border border-gray-100 bg-white px-4 py-3.5 dark:border-gray-800 dark:bg-gray-900">
+      <div
+        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${iconWrap}`}
+      >
+        <Icon className="h-5 w-5" />
+      </div>
+      <div className="min-w-0">
+        <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
           {label}
         </p>
-        <p className="text-lg font-bold leading-tight">{value}</p>
+        <p className="text-xl font-semibold tabular-nums text-gray-900 dark:text-white">
+          {value}
+        </p>
       </div>
     </div>
   );
 }
+
+const PAGE_SIZE_OPTIONS = [5, 8, 10, 20] as const;
 
 export default function BorrowersPage() {
   const navigate = useNavigate();
@@ -221,7 +219,7 @@ export default function BorrowersPage() {
   const [search, setSearch] = useState(initialQuery);
   const [debouncedSearch, setDebouncedSearch] = useState(initialQuery);
   const [page, setPage] = useState(1);
-  const [limit] = useState(10);
+  const [limit, setLimit] = useState(8);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
   const [sortKey, setSortKey] = useState<SortKey>("createdAt");
@@ -369,12 +367,7 @@ export default function BorrowersPage() {
     }
   };
 
-  const sortLabel =
-    sortKey === "createdAt"
-      ? "date created"
-      : sortKey === "applicationNumber"
-        ? "loan #"
-        : sortKey;
+  const withPortalCount = borrowers.filter((row) => Boolean(row.clientId)).length;
 
   return (
     <>
@@ -383,91 +376,122 @@ export default function BorrowersPage() {
         description={portalConfig.pageDescription}
       />
 
-      <div className="space-y-5 pb-6">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div>
-            <p className="mb-1 text-xs font-semibold uppercase tracking-widest text-gray-400">
-            User Management
-            </p>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Borrowers</h1>
-            <p className="mt-1 max-w-xl text-sm text-gray-500 dark:text-gray-400">
-              {portalConfig.pageDescription}
-            </p>
-          </div>
-
-          <div className="flex flex-wrap gap-2 lg:justify-end">
-            <StatChip
-              icon={<Users className="h-3.5 w-3.5" />}
-              label="Total"
-              value={total}
-              tone="blue"
-            />
-            <StatChip
-              icon={<UserRound className="h-3.5 w-3.5" />}
-              label="This page"
-              value={borrowers.length}
-              tone="orange"
-            />
-          </div>
-        </div>
-
-        <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
-          <div className="border-b border-gray-100 p-4 dark:border-gray-800 sm:p-5">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-              <div className="relative w-full sm:max-w-sm lg:flex-1 lg:max-w-md">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Search by name, email, phone, or loan #..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="h-10 w-full rounded-xl border border-gray-200 bg-gray-50 pl-10 pr-9 text-sm outline-none focus:border-[#13538A]/40 focus:ring-2 focus:ring-[#13538A]/10 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100"
-                />
-                {search && (
-                  <button
-                    type="button"
-                    onClick={() => setSearch("")}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                )}
+      <div className="space-y-4 pb-4">
+        {/* Hero */}
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#13538A] via-[#1a6aad] to-[#2C92D5] px-5 py-5 text-white sm:px-6 sm:py-6">
+          <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
+          <div className="pointer-events-none absolute -bottom-12 left-1/3 h-36 w-36 rounded-full bg-cyan-300/20 blur-2xl" />
+          <div className="relative flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="min-w-0">
+              <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-medium text-white/90 ring-1 ring-white/20">
+                <UserRound className="h-3.5 w-3.5" />
+                CRM
               </div>
-
+              <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+                Borrowers
+              </h1>
+              <p className="mt-1 max-w-xl text-sm text-white/80">
+                {portalConfig.pageDescription}
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
                 onClick={() => fetchBorrowers()}
                 disabled={loading || isSearching}
-                className="inline-flex h-10 shrink-0 items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-200"
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/25 bg-white/10 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-white/20 disabled:opacity-60"
               >
-                <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+                <RefreshCw
+                  className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
+                />
                 Refresh
               </button>
             </div>
           </div>
+        </div>
 
-          <div className="flex items-center justify-between gap-3 border-b border-gray-100 bg-gray-50/50 px-4 py-2.5 dark:border-gray-800 dark:bg-gray-800/30 sm:px-5">
-            <p className="text-xs text-gray-500 dark:text-gray-400">
-              {loading || isSearching ? (
-                isSearching ? "Searching..." : "Loading borrowers..."
-              ) : (
-                <>
-                  <span className="font-semibold text-gray-800 dark:text-gray-200">
-                    {total}
-                  </span>{" "}
-                  borrower{total === 1 ? "" : "s"}
-                  {debouncedSearch ? ` matching "${debouncedSearch}"` : ""}
-                </>
-              )}
-            </p>
-            {!loading && !isSearching && borrowers.length > 0 && (
-              <p className="text-xs text-gray-400">
-                Sorted by{" "}
-                <span className="font-medium text-gray-600 dark:text-gray-300">
-                  {sortLabel}
-                </span>
-              </p>
-            )}
+        {/* KPIs */}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <StatCard
+            icon={Users}
+            label="Total borrowers"
+            value={loading ? "—" : total}
+            iconWrap="bg-sky-50 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300"
+          />
+          <StatCard
+            icon={UserRound}
+            label="This page"
+            value={loading ? "—" : borrowers.length}
+            iconWrap="bg-violet-50 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300"
+          />
+          <StatCard
+            icon={ExternalLink}
+            label="Portal ready"
+            value={loading ? "—" : withPortalCount}
+            iconWrap="bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300"
+          />
+        </div>
+
+        {/* Toolbar + table */}
+        <div className="overflow-hidden rounded-xl border border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900">
+          <div className="border-b border-gray-100 px-4 py-4 dark:border-gray-800 sm:px-5">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div className="min-w-0">
+                <h2 className="text-base font-semibold text-gray-900 dark:text-white">
+                  All borrowers
+                </h2>
+                <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
+                  {loading || isSearching
+                    ? isSearching
+                      ? "Searching..."
+                      : "Loading borrowers..."
+                    : `${total} borrower${total === 1 ? "" : "s"}${
+                        debouncedSearch ? ` matching "${debouncedSearch}"` : ""
+                      }`}
+                </p>
+              </div>
+
+              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
+                <div className="relative w-full sm:w-64">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Search borrowers..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="h-10 w-full rounded-xl border border-gray-200 bg-white py-2 pl-9 pr-9 text-sm outline-none transition focus:border-[#13538A] focus:ring-2 focus:ring-[#13538A]/15 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100"
+                  />
+                  {search ? (
+                    <button
+                      type="button"
+                      onClick={() => setSearch("")}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-0.5 text-gray-400 hover:text-gray-600"
+                      aria-label="Clear search"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  ) : null}
+                </div>
+
+                <label className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                  Per page
+                  <select
+                    value={limit}
+                    onChange={(e) => {
+                      setLimit(Number(e.target.value));
+                      setPage(1);
+                    }}
+                    className="h-10 rounded-xl border border-gray-200 bg-white px-2.5 text-sm font-medium text-gray-700 outline-none transition focus:border-[#13538A] focus:ring-2 focus:ring-[#13538A]/15 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-200"
+                  >
+                    {PAGE_SIZE_OPTIONS.map((size) => (
+                      <option key={size} value={size}>
+                        {size}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            </div>
           </div>
 
           {loading && !isSearching ? (
@@ -478,7 +502,7 @@ export default function BorrowersPage() {
                   className="flex animate-pulse items-center gap-4 px-5 py-4"
                 >
                   <div className="h-4 w-6 rounded bg-gray-100 dark:bg-gray-800" />
-                  <div className="h-9 w-9 rounded-lg bg-gray-100 dark:bg-gray-800" />
+                  <div className="h-10 w-10 rounded-xl bg-gray-100 dark:bg-gray-800" />
                   <div className="h-4 flex-1 max-w-[180px] rounded bg-gray-100 dark:bg-gray-800" />
                   <div className="hidden h-4 w-40 rounded bg-gray-100 dark:bg-gray-800 md:block" />
                   <div className="hidden h-4 w-24 rounded bg-gray-100 dark:bg-gray-800 lg:block" />
@@ -492,7 +516,9 @@ export default function BorrowersPage() {
                 <UserRound size={24} />
               </div>
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                {search || debouncedSearch ? "No matching borrowers" : "No borrowers yet"}
+                {search || debouncedSearch
+                  ? "No matching borrowers"
+                  : "No borrowers yet"}
               </h3>
               <p className="mt-1 max-w-md text-sm text-gray-500">
                 {search || debouncedSearch
@@ -502,9 +528,9 @@ export default function BorrowersPage() {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full border-collapse text-left">
-                <thead>
-                  <tr className="border-b border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
+              <table className="w-full min-w-[900px] border-collapse text-left">
+                <thead className="sticky top-0 z-[1] bg-slate-50/95 backdrop-blur dark:bg-gray-800/90">
+                  <tr className="border-b border-gray-200 dark:border-gray-700">
                     <th className="w-10 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-400">
                       #
                     </th>
@@ -548,7 +574,7 @@ export default function BorrowersPage() {
                         onClick={() => toggleSort("createdAt")}
                       />
                     </th>
-                    <th className="w-20 px-4 py-3 text-right">
+                    <th className="w-[88px] px-4 py-3 text-right">
                       <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                         Actions
                       </span>
@@ -559,17 +585,17 @@ export default function BorrowersPage() {
                   {borrowers.map((row, index) => (
                     <tr
                       key={row.id}
-                      className="group cursor-pointer transition-colors hover:bg-orange-50/50 dark:hover:bg-gray-800/40"
+                      className="group cursor-pointer transition-colors hover:bg-[#13538A]/[0.03] dark:hover:bg-gray-800/40"
                       onClick={() => openApplication(row)}
                     >
-                      <td className="px-4 py-3.5 text-xs font-medium tabular-nums text-gray-400">
+                      <td className="px-4 py-3.5 text-sm font-medium tabular-nums text-gray-400">
                         {(page - 1) * limit + index + 1}
                       </td>
 
                       <td className="px-4 py-3.5">
-                        <div className="flex min-w-0 items-center gap-2.5">
+                        <div className="flex min-w-0 items-center gap-3">
                           <span
-                            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-xs font-bold ring-1 ring-gray-200/80 dark:ring-gray-700 ${getAvatarTone(row.name)}`}
+                            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-xs font-bold ring-1 ring-gray-200/80 dark:ring-gray-700 ${getAvatarTone(row.name)}`}
                           >
                             {getInitials(row.name)}
                           </span>
@@ -577,7 +603,7 @@ export default function BorrowersPage() {
                             <p className="truncate text-sm font-semibold text-gray-900 dark:text-gray-100">
                               {row.name || "—"}
                             </p>
-                            <p className="truncate text-xs text-gray-400 md:hidden">
+                            <p className="truncate text-xs text-gray-500 dark:text-gray-400 md:hidden">
                               {row.phone ? formatPhone(row.phone) : "—"}
                             </p>
                           </div>
@@ -589,7 +615,7 @@ export default function BorrowersPage() {
                           <a
                             href={`mailto:${row.email}`}
                             onClick={(e) => e.stopPropagation()}
-                            className="flex min-w-0 items-center gap-1.5 text-sm text-gray-600 transition hover:text-[#13538A] dark:text-gray-300"
+                            className="flex min-w-0 max-w-full items-center gap-2 text-sm text-gray-600 transition hover:text-[#13538A] dark:text-gray-300 dark:hover:text-cyan-400"
                             title={row.email}
                           >
                             <Mail className="h-3.5 w-3.5 shrink-0 text-gray-400" />
@@ -605,10 +631,13 @@ export default function BorrowersPage() {
                           <a
                             href={`tel:${row.phone}`}
                             onClick={(e) => e.stopPropagation()}
-                            className="inline-flex items-center gap-1.5 text-sm text-gray-600 transition hover:text-[#13538A] dark:text-gray-300"
+                            className="flex min-w-0 max-w-full items-center gap-2 text-sm text-gray-600 transition hover:text-[#13538A] dark:text-gray-300 dark:hover:text-cyan-400"
+                            title={formatPhone(row.phone)}
                           >
                             <Phone className="h-3.5 w-3.5 shrink-0 text-gray-400" />
-                            {formatPhone(row.phone)}
+                            <span className="truncate">
+                              {formatPhone(row.phone)}
+                            </span>
                           </a>
                         ) : (
                           <span className="text-sm text-gray-400">—</span>
@@ -617,13 +646,20 @@ export default function BorrowersPage() {
 
                       <td className="px-4 py-3.5">
                         <div className="flex min-w-0 items-center gap-1.5 text-sm font-medium text-gray-700 dark:text-gray-200">
-                          <FileText className="h-3.5 w-3.5 shrink-0 text-orange-500" />
-                          <span className="truncate">{row.applicationNumber}</span>
+                          <FileText className="h-3.5 w-3.5 shrink-0 text-[#13538A]" />
+                          <span className="truncate">
+                            {row.applicationNumber}
+                          </span>
                         </div>
                       </td>
 
-                      <td className="hidden px-4 py-3.5 text-sm text-gray-500 dark:text-gray-400 sm:table-cell">
-                        {formatDate(row.createdAt)}
+                      <td className="hidden px-4 py-3.5 sm:table-cell">
+                        <span
+                          className="block truncate text-sm text-gray-600 dark:text-gray-300"
+                          title={formatDate(row.createdAt)}
+                        >
+                          {formatDate(row.createdAt)}
+                        </span>
                       </td>
 
                       <td className="px-4 py-3.5 text-right">
@@ -635,12 +671,12 @@ export default function BorrowersPage() {
                               openApplication(row);
                             }}
                             disabled={!row.submissionId}
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-transparent text-gray-400 transition hover:border-gray-200 hover:bg-white hover:text-[#13538A] disabled:cursor-not-allowed disabled:opacity-40 dark:hover:border-gray-700 dark:hover:bg-gray-800 dark:hover:text-cyan-400 sm:opacity-0 sm:group-hover:opacity-100"
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 transition hover:border-gray-300 hover:bg-gray-50 hover:text-[#13538A] disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400 dark:hover:border-gray-600 dark:hover:bg-gray-800 dark:hover:text-cyan-400"
                             title="View application"
                           >
                             <Eye className="h-4 w-4" />
                           </button>
-                          {canAccessBorrowerPortal && (
+                          {canAccessBorrowerPortal ? (
                             <button
                               type="button"
                               onClick={(e) => {
@@ -648,7 +684,8 @@ export default function BorrowersPage() {
                                 void handleImpersonate(row);
                               }}
                               disabled={
-                                !row.clientId || impersonatingId === row.clientId
+                                !row.clientId ||
+                                impersonatingId === row.clientId
                               }
                               className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 transition hover:border-gray-300 hover:bg-gray-50 hover:text-cyan-700 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400 dark:hover:border-gray-600 dark:hover:bg-gray-800 dark:hover:text-cyan-400"
                               title={
@@ -659,7 +696,7 @@ export default function BorrowersPage() {
                             >
                               <ExternalLink className="h-4 w-4" />
                             </button>
-                          )}
+                          ) : null}
                         </div>
                       </td>
                     </tr>
@@ -670,75 +707,75 @@ export default function BorrowersPage() {
           )}
 
           {!loading && !isSearching && borrowers.length > 0 && (
-            <div className="flex flex-col gap-3 border-t border-gray-100 bg-gray-50/60 px-4 py-3 dark:border-gray-800 dark:bg-gray-900/50 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+            <div className="flex flex-col gap-3 border-t border-gray-100 px-4 py-4 dark:border-gray-800 sm:flex-row sm:items-center sm:justify-between sm:px-5">
               <p className="text-sm text-gray-500 dark:text-gray-400">
                 Showing{" "}
-                <span className="font-semibold text-gray-800 dark:text-gray-200">
-                  {total === 0 ? 0 : (page - 1) * limit + 1}–
+                <span className="font-medium text-gray-700 dark:text-gray-200">
+                  {total === 0 ? 0 : (page - 1) * limit + 1}-
                   {Math.min(page * limit, total)}
                 </span>{" "}
-                of {total} borrower{total === 1 ? "" : "s"}
+                of{" "}
+                <span className="font-medium text-gray-700 dark:text-gray-200">
+                  {total}
+                </span>
               </p>
 
-              {totalPages > 1 && (
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    disabled={page === 1 || loading}
-                    onClick={() => setPage((p) => Math.max(p - 1, 1))}
-                    className="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200"
-                  >
+              <div className="flex flex-wrap items-center gap-1.5">
+                <button
+                  type="button"
+                  disabled={page === 1 || loading}
+                  onClick={() => setPage((p) => Math.max(p - 1, 1))}
+                  className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200"
+                >
+                  <span className="inline-flex items-center gap-1">
                     <ChevronLeft className="h-4 w-4" />
-                    Previous
-                  </button>
-                  <span className="px-2 text-sm font-medium text-gray-600 dark:text-gray-300">
-                    Page {page} of {totalPages}
+                    Prev
                   </span>
-                  <button
-                    type="button"
-                    disabled={page === totalPages || loading}
-                    onClick={() => setPage((p) => Math.min(p + 1, totalPages))}
-                    className="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200"
-                  >
+                </button>
+
+                {Array.from({ length: Math.min(totalPages, 5) }).map((_, i) => {
+                  const half = Math.floor(5 / 2);
+                  let startPage = 1;
+                  if (totalPages <= 5) startPage = 1;
+                  else if (page <= half + 1) startPage = 1;
+                  else if (page >= totalPages - half) startPage = totalPages - 4;
+                  else startPage = page - half;
+
+                  const pageNum = startPage + i;
+                  if (pageNum > totalPages) return null;
+
+                  return (
+                    <button
+                      key={pageNum}
+                      type="button"
+                      onClick={() => setPage(pageNum)}
+                      disabled={loading}
+                      className={`min-w-8 rounded-lg border px-2.5 py-1.5 text-sm font-medium transition ${
+                        pageNum === page
+                          ? "border-[#13538A] bg-[#13538A] text-white"
+                          : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200"
+                      }`}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                })}
+
+                <button
+                  type="button"
+                  disabled={page === totalPages || loading}
+                  onClick={() => setPage((p) => Math.min(p + 1, totalPages))}
+                  className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200"
+                >
+                  <span className="inline-flex items-center gap-1">
                     Next
                     <ChevronRight className="h-4 w-4" />
-                  </button>
-                </div>
-              )}
+                  </span>
+                </button>
+              </div>
             </div>
           )}
         </div>
-
-        {totalPages > 1 && (loading || borrowers.length === 0) && (
-          <div className="flex items-center justify-between rounded-xl border border-gray-200 bg-white px-4 py-3 dark:border-gray-800 dark:bg-gray-900">
-            <p className="text-sm text-gray-500">
-              Page{" "}
-              <span className="font-semibold text-gray-800 dark:text-gray-200">{page}</span> of{" "}
-              <span className="font-semibold text-gray-800 dark:text-gray-200">{totalPages}</span>
-            </p>
-
-            <div className="flex gap-2">
-              <button
-                type="button"
-                disabled={page === 1 || loading}
-                onClick={() => setPage((p) => Math.max(p - 1, 1))}
-                className="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200"
-              >
-                <ChevronLeft className="h-4 w-4" />
-                Previous
-              </button>
-              <button
-                type="button"
-                disabled={page === totalPages || loading}
-                onClick={() => setPage((p) => Math.min(p + 1, totalPages))}
-                className="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200"
-              >
-                Next
-                <ChevronRight className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-        )}
       </div>
     </>
   );

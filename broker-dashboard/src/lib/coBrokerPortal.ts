@@ -268,5 +268,5 @@ export function startCoBrokerImpersonationSession(
       payload.user?.organizationId || orgIds.brokerOrgId,
   });
 
-  window.location.href = payload.redirectTo || "/sub-broker/loan-pipeline";
+  window.location.href = payload.redirectTo || "/sub-broker/dashboard";
 }

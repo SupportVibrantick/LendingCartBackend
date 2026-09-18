@@ -29,9 +29,11 @@ import {
   ChevronRight,
   Mail,
   Phone,
-  Users,
   UserCheck,
   Activity,
+  X,
+  UserRound,
+  BriefcaseBusiness,
 } from "lucide-react";
 
 type Broker = {
@@ -93,6 +95,14 @@ function formatCardDate(value?: string | null) {
   });
 }
 
+function fieldClass(hasError?: boolean) {
+  return `mt-1.5 w-full rounded-lg border bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#13538A] focus:ring-2 focus:ring-[#13538A]/15 dark:bg-slate-800 dark:text-gray-100 ${
+    hasError
+      ? "border-red-500 focus:border-red-500 focus:ring-red-500/20"
+      : "border-slate-200 dark:border-slate-600"
+  }`;
+}
+
 export default function BrokersPage() {
   const [brokers, setBrokers] = useState<Broker[]>([]);
   const [loading, setLoading] = useState(false);
@@ -122,7 +132,7 @@ export default function BrokersPage() {
 
   const [query, setQuery] = useState("");
   const debouncedQuery = useDebouncedValue(query.trim(), 350);
-  const [pageSize, setPageSize] = useState<number>(6);
+  const [pageSize, setPageSize] = useState<number>(8);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
@@ -405,6 +415,25 @@ export default function BrokersPage() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
+  function getPageNumbers() {
+    const pages: (number | "ellipsis")[] = [];
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i += 1) pages.push(i);
+      return pages;
+    }
+
+    pages.push(1);
+    if (currentPage > 3) pages.push("ellipsis");
+
+    const start = Math.max(2, currentPage - 1);
+    const end = Math.min(totalPages - 1, currentPage + 1);
+    for (let i = start; i <= end; i += 1) pages.push(i);
+
+    if (currentPage < totalPages - 2) pages.push("ellipsis");
+    pages.push(totalPages);
+    return pages;
+  }
+
   async function fetchAdmins(brokerId: string) {
     setLoadingAdmins(true);
     setAdmins([]);
@@ -547,6 +576,7 @@ export default function BrokersPage() {
 
   const totalBrokers = stats.all;
   const activeBrokers = stats.active;
+  const inactiveBrokers = Math.max(totalBrokers - activeBrokers, 0);
 
   const isSearchEmpty =
     debouncedQuery !== "" && brokers.length === 0 && !loading;
@@ -562,196 +592,172 @@ export default function BrokersPage() {
       </div>
     </div>
   );
+
+  const statCards = [
+    {
+      label: "Total Brokers",
+      value: totalBrokers,
+      icon: Building2,
+      iconWrap: "bg-sky-50 text-sky-600 dark:bg-sky-500/10 dark:text-sky-400",
+      hint: "All broker organizations",
+    },
+    {
+      label: "Active Brokers",
+      value: activeBrokers,
+      icon: Activity,
+      iconWrap:
+        "bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400",
+      hint: "Currently active accounts",
+    },
+    {
+      label: "Inactive Brokers",
+      value: inactiveBrokers,
+      icon: UserCheck,
+      iconWrap:
+        "bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400",
+      hint: "Paused or inactive accounts",
+    },
+  ] as const;
+
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-slate-950 px-4 py-8 sm:px-6 lg:px-8 transition-colors duration-300">
-      {/* Header + controls */}
-      <div className="max-w-7xl mx-auto">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-[#13538A] dark:text-indigo-600">
-              All Brokers 
-            </h1>
-            <p className="text-slate-500 dark:text-slate-400 mt-2 text-sm">
-              Manage broker organizations and their admins.
-            </p>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => fetchBrokers()}
-              disabled={loading}
-              className="group flex items-center justify-center w-10 h-10 rounded-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-all active:scale-95 disabled:opacity-50"
-              title="Refresh List"
-            >
-              <RefreshCcw
-                size={18}
-                className={`${loading ? "animate-spin" : "group-hover:rotate-180 transition-transform duration-500"} text-blue-600`}
-              />
-            </button>
-            <button
-              onClick={openAdd}
-              className="inline-flex items-center whitespace-nowrap px-4 py-2.5 bg-[#13538A] text-white text-sm font-bold rounded-xl hover:bg-[#2e87d4] shadow-lg shadow-blue-500/20 active:scale-95 transition-all"
-            >
-              <TiPlus className="mr-2 text-lg" />
-              Add Broker
-            </button>
-            <button
-              onClick={() => navigate("/all-brokers-lenders")}
-              className="inline-flex items-center whitespace-nowrap px-4 py-2.5 bg-[#13538A] text-white text-sm font-bold rounded-xl hover:bg-[#2e87d4] shadow-lg shadow-blue-500/20 active:scale-95 transition-all"
-            >
-              <UserCheck className="mr-2 h-5 w-5" />
-              Assigned Lenders
-            </button>
-          </div>
-        </div>
-
-        {/* ================= STATS CARDS ================= */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-          {/* TOTAL Brokers */}
-          <div
-            className="
-    bg-white dark:bg-slate-900
-    border border-slate-200 dark:border-slate-800
-    rounded-2xl p-6
-    shadow-sm hover:shadow-md
-    transition-all duration-200
-    flex items-center justify-between
-  "
-          >
-            <div>
-              <p className="text-sm text-slate-500 dark:text-slate-400">
-                Total Brokers
+    <div className="w-full pb-6 transition-colors duration-300">
+      <div className="w-full">
+        {/* Header */}
+        <div className="mb-4 overflow-hidden rounded-xl border border-[#13538A]/20 bg-gradient-to-br from-[#13538A] via-[#1a6aad] to-[#5D28A8] p-4 text-white sm:p-5">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="min-w-0">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/70">
+                Broker Database
               </p>
-              <p className="text-xl font-semibold text-slate-900 dark:text-white mt-1">
-                {totalBrokers}
+              <div className="mt-1 flex flex-wrap items-center gap-3">
+                <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">
+                  All Brokers
+                </h1>
+                <button
+                  type="button"
+                  onClick={() => fetchBrokers()}
+                  disabled={loading}
+                  title="Refresh list"
+                  className="group inline-flex h-9 w-9 items-center justify-center rounded-lg border border-white/25 bg-white/10 text-white transition hover:bg-white/20 active:scale-95 disabled:opacity-50"
+                >
+                  <RefreshCcw
+                    size={16}
+                    className={
+                      loading
+                        ? "animate-spin"
+                        : "transition-transform duration-500 group-hover:rotate-180"
+                    }
+                  />
+                </button>
+              </div>
+              <p className="mt-1.5 max-w-xl text-sm leading-6 text-white/80">
+                Manage broker organizations, admins, and lender assignments from
+                one place.
               </p>
             </div>
 
-            <div className="h-8 w-8 flex items-center justify-center rounded-full bg-indigo-600 text-white">
-              <Users className="w-5 h-5" />
-            </div>
-          </div>
-
-          {/* Total Volume */}
-          <div
-            className="
-    bg-white dark:bg-slate-900
-    border border-slate-200 dark:border-slate-800
-    rounded-2xl p-6
-    shadow-sm hover:shadow-md
-    transition-all duration-200
-    flex items-center justify-between
-  "
-          >
-            <div>
-              <p className="text-sm text-slate-500 dark:text-slate-400">
-                Total Volume
-              </p>
-              <p className="text-xl font-semibold text-slate-900 dark:text-white mt-1">
-                0
-              </p>
-            </div>
-
-            <div className="h-8 w-8 flex items-center justify-center rounded-full bg-red-600 text-white">
-              <UserCheck className="w-5 h-5" />
-            </div>
-          </div>
-
-          {/* Active Lenders */}
-          <div
-            className="
-    bg-white dark:bg-slate-900
-    border border-slate-200 dark:border-slate-800
-    rounded-2xl p-6
-    shadow-sm hover:shadow-md
-    transition-all duration-200
-    flex items-center justify-between
-  "
-          >
-            <div>
-              <p className="text-sm text-slate-500 dark:text-slate-400">
-                Active Lenders
-              </p>
-              <p className="text-xl font-semibold text-slate-900 dark:text-white mt-1">
-                {activeBrokers}
-              </p>
-            </div>
-
-            <div className="h-8 w-8 flex items-center justify-center rounded-full bg-emerald-600 text-white">
-              <Activity className="w-5 h-5" />
+            <div className="flex flex-wrap items-center gap-2.5">
+              <button
+                type="button"
+                onClick={openAdd}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-white px-3.5 py-2 text-xs font-semibold text-[#13538A] transition hover:bg-white/90 active:scale-95"
+              >
+                <TiPlus className="h-3.5 w-3.5" />
+                Add Broker
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate("/all-brokers-lenders")}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-white/30 bg-white/10 px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-white/20 active:scale-95"
+              >
+                <UserCheck className="h-3.5 w-3.5" />
+                Assigned Lenders
+              </button>
             </div>
           </div>
         </div>
 
-        {/* ================= SEARCH & FILTER BAR ================= */}
-        <div className="mb-8 p-2 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl shadow-slate-200/50 dark:shadow-none flex flex-col md:flex-row items-center gap-4">
-          <div className="relative flex-1 w-full">
+        {/* Stats — neutral cards, colored icons only */}
+        <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+          {statCards.map(({ label, value, icon: Icon, iconWrap, hint }) => (
+            <div
+              key={label}
+              className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3.5 transition hover:border-slate-300 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700"
+            >
+              <div className="min-w-0">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
+                  {label}
+                </p>
+                <p className="mt-1 text-2xl font-semibold tabular-nums text-slate-900 dark:text-white">
+                  {value}
+                </p>
+                <p className="mt-0.5 text-xs text-slate-400">{hint}</p>
+              </div>
+              <div
+                className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${iconWrap}`}
+              >
+                <Icon className="h-5 w-5" />
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Per page (left) + Search (right) */}
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+              Per page
+            </span>
+            <div className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white p-1 dark:border-slate-700 dark:bg-slate-900">
+              {[4, 8, 12, 16, 20].map((size) => (
+                <button
+                  key={size}
+                  type="button"
+                  onClick={() => setPageSize(size)}
+                  className={`min-w-9 rounded-md px-2.5 py-1.5 text-xs font-semibold transition ${
+                    pageSize === size
+                      ? "bg-[#13538A] text-white"
+                      : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+                  }`}
+                >
+                  {size}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="relative w-full max-w-[280px] self-end sm:self-auto">
             <Search
-              size={20}
-              className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
+              size={15}
+              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
             />
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search by name, email, phone or status..."
-              className="text-sm w-full pl-12 pr-4 py-2 bg-transparent border-none focus:ring-2 focus:ring-blue-500/20 rounded-xl text-slate-700 dark:text-slate-200 placeholder:text-slate-400"
+              placeholder="Search brokers..."
+              className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-9 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#13538A] focus:ring-2 focus:ring-[#13538A]/15 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
             />
-          </div>
-
-          <div className="hidden md:block h-8 w-px bg-slate-200 dark:bg-slate-800"></div>
-
-          <div className="flex items-center gap-2 pr-4">
-            <span className="text-sm font-medium text-slate-500 dark:text-slate-400 whitespace-nowrap">
-              View:
-            </span>
-
-            <div className="relative">
-              <select
-                value={pageSize}
-                onChange={(e) => setPageSize(Number(e.target.value))}
-                className="
-                            appearance-none
-                            px-3 py-2 pr-8
-                            rounded-xl text-sm font-semibold
-                            bg-white dark:bg-slate-800
-                            text-slate-900 dark:text-slate-100
-                            border border-slate-200 dark:border-slate-700
-                            hover:bg-slate-50 dark:hover:bg-slate-700
-                            focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500
-                            transition cursor-pointer
-                        "
+            {query ? (
+              <button
+                type="button"
+                onClick={() => setQuery("")}
+                className="absolute right-2 top-1/2 inline-flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+                aria-label="Clear search"
+                title="Clear search"
               >
-                <option value={6}>6 / page</option>
-                <option value={9}>9 / page</option>
-                <option value={12}>12 / page</option>
-                <option value={20}>20 / page</option>
-              </select>
-
-              <svg
-                className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M19 9l-7 7-7-7"
-                />
-              </svg>
-            </div>
+                <X size={14} />
+              </button>
+            ) : null}
           </div>
         </div>
 
         {/* ================= CONTENT GRID ================= */}
         {loading ? (
-          <div className="grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(220px,260px))]">
-            {[1, 2, 3, 4, 5, 6].map((i) => (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
               <div
                 key={i}
-                className="h-52 w-full max-w-[260px] overflow-hidden rounded-2xl border border-slate-200 bg-white animate-pulse dark:border-slate-800 dark:bg-slate-900"
+                className="h-52 w-full overflow-hidden rounded-2xl border border-slate-200 bg-white animate-pulse dark:border-slate-800 dark:bg-slate-900"
               >
                 <div className="h-1 bg-slate-200 dark:bg-slate-700" />
                 <div className="space-y-4 p-5">
@@ -768,50 +774,62 @@ export default function BrokersPage() {
             ))}
           </div>
         ) : isTotalEmpty ? (
-          <div className="py-24 flex flex-col items-center text-center bg-white dark:bg-slate-900 rounded-3xl border border-dashed border-slate-300 dark:border-slate-700 shadow-sm">
-            <div className="w-24 h-24 rounded-3xl bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center mb-6">
-              <Building2
-                size={48}
-                className="text-blue-600 dark:text-blue-400"
-              />
+          <div className="flex flex-col items-center justify-center rounded-xl border border-slate-200 bg-white px-6 py-16 text-center dark:border-slate-800 dark:bg-slate-900">
+            <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#13538A]/10 text-[#13538A]">
+              <Building2 size={26} />
             </div>
-            <h3 className="text-2xl font-bold text-slate-900 dark:text-white">
-              No Broker Found
+            <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
+              No brokers yet
             </h3>
-            <p className="text-slate-500 dark:text-slate-400 mt-2 max-w-sm">
-              Get started by adding a new Broker to the platform.
+            <p className="mt-1.5 max-w-sm text-sm text-slate-500 dark:text-slate-400">
+              Get started by adding the first broker organization to the
+              platform.
             </p>
             <button
+              type="button"
               onClick={openAdd}
-              className="mt-6 px-6 py-2 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-700 transition"
+              className="mt-5 inline-flex items-center gap-1.5 rounded-lg bg-[#13538A] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#10446f]"
             >
+              <TiPlus className="h-3.5 w-3.5" />
               Add Broker
             </button>
           </div>
         ) : isSearchEmpty ? (
-          <div className="py-24 flex flex-col items-center text-center bg-white dark:bg-slate-900 rounded-3xl border border-dashed border-orange-300 dark:border-orange-700/50 shadow-sm">
-            <div className="w-24 h-24 rounded-3xl bg-orange-50 dark:bg-orange-900/20 flex items-center justify-center mb-6">
-              <SearchX
-                size={48}
-                className="text-orange-600 dark:text-orange-400"
-              />
+          <div className="flex flex-col items-center justify-center rounded-xl border border-slate-200 bg-white px-6 py-16 text-center dark:border-slate-800 dark:bg-slate-900">
+            <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+              <SearchX size={26} />
             </div>
-            <h3 className="text-2xl font-bold text-slate-900 dark:text-white">
-              No Results Found
+            <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
+              No results found
             </h3>
-            <p className="text-slate-500 dark:text-slate-400 mt-2 max-w-sm">
-              We couldn't find any Broker matching "
-              <span className="font-semibold text-orange-600">{query}</span>".
+            <p className="mt-1.5 max-w-md text-sm text-slate-500 dark:text-slate-400">
+              We couldn’t find any broker matching{" "}
+              <span className="font-semibold text-slate-800 dark:text-slate-200">
+                “{query}”
+              </span>
+              . Try a different name, email, or phone.
             </p>
-            <button
-              onClick={() => setQuery("")}
-              className="mt-6 text-sm font-bold text-blue-600 hover:underline"
-            >
-              Clear search
-            </button>
+            <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+              <button
+                type="button"
+                onClick={() => setQuery("")}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+              >
+                <X size={14} />
+                Clear search
+              </button>
+              <button
+                type="button"
+                onClick={openAdd}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-[#13538A] px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-[#10446f]"
+              >
+                <TiPlus className="h-3.5 w-3.5" />
+                Add Broker
+              </button>
+            </div>
           </div>
         ) : (
-          <div className="grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(220px,260px))]">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {brokers.map((l) => (
               <div
                 key={l.id}
@@ -828,7 +846,7 @@ export default function BrokersPage() {
                     navigate(BROKER_DETAIL_PATH);
                   }
                 }}
-                className="group flex w-full max-w-[260px] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white transition-colors duration-200 hover:border-[#13538A]/35 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-indigo-500/40 cursor-pointer"
+                className="group flex w-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white transition-colors duration-200 hover:border-[#13538A]/35 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-indigo-500/40 cursor-pointer"
               >
                 <div className="h-1 bg-gradient-to-r from-[#13538A] via-[#18B6B4] to-emerald-400 opacity-80 group-hover:opacity-100" />
 
@@ -911,473 +929,534 @@ export default function BrokersPage() {
         )}
 
         {/* ================= PAGINATION ================= */}
-        {!loading && total > 0 && totalPages > 1 && (
-          <div className="mt-12 flex flex-col sm:flex-row items-center justify-between gap-6 border-t border-slate-200 dark:border-slate-800 pt-8">
-            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+        {!loading && total > 0 && (
+          <div className="mt-6 flex flex-col gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-800 dark:bg-slate-900 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-slate-500 dark:text-slate-400">
               Showing{" "}
-              <span className="text-slate-900 dark:text-white">
-                Page {currentPage}
+              <span className="font-semibold text-slate-800 dark:text-slate-100">
+                {Math.min((currentPage - 1) * pageSize + 1, total)}–
+                {Math.min(currentPage * pageSize, total)}
               </span>{" "}
-              of {totalPages}
-              <span className="ml-2 text-slate-400">
-                ({total} result{total === 1 ? "" : "s"})
-              </span>
+              of{" "}
+              <span className="font-semibold text-slate-800 dark:text-slate-100">
+                {total}
+              </span>{" "}
+              broker{total === 1 ? "" : "s"}
             </p>
 
-            <div className="flex items-center gap-3">
-              <button
-                disabled={currentPage === 1}
-                onClick={() => gotoPage(currentPage - 1)}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm font-bold disabled:opacity-40 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all shadow-sm"
-              >
-                <ChevronLeft size={18} />
-                Prev
-              </button>
+            {totalPages > 1 ? (
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  disabled={currentPage === 1}
+                  onClick={() => gotoPage(currentPage - 1)}
+                  className="inline-flex h-9 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+                >
+                  <ChevronLeft size={16} />
+                  Prev
+                </button>
 
-              <button
-                disabled={currentPage === totalPages}
-                onClick={() => gotoPage(currentPage + 1)}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm font-bold disabled:opacity-40 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all shadow-sm"
-              >
-                Next
-                <ChevronRight size={18} />
-              </button>
-            </div>
+                <div className="flex items-center gap-1">
+                  {getPageNumbers().map((page, index) =>
+                    page === "ellipsis" ? (
+                      <span
+                        key={`e-${index}`}
+                        className="px-1.5 text-sm text-slate-400"
+                      >
+                        …
+                      </span>
+                    ) : (
+                      <button
+                        key={page}
+                        type="button"
+                        onClick={() => gotoPage(page)}
+                        className={`inline-flex h-9 min-w-9 items-center justify-center rounded-lg px-2.5 text-xs font-semibold transition ${
+                          page === currentPage
+                            ? "bg-[#13538A] text-white shadow-sm"
+                            : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    ),
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  disabled={currentPage === totalPages}
+                  onClick={() => gotoPage(currentPage + 1)}
+                  className="inline-flex h-9 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+                >
+                  Next
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+            ) : null}
           </div>
         )}
 
         {/* Add Broker Modal */}
         {isAddOpen && (
-          <div className="fixed inset-0 z-500000 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-            <div className="bg-white rounded-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-lg dark:bg-slate-900 dark:border dark:border-slate-700">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                  Create Broker
-                </h2>
+          <div className="fixed inset-0 z-[500000] flex items-center justify-center bg-black/45 p-4 backdrop-blur-sm">
+            <div className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
+              {/* Sticky header */}
+              <div className="flex shrink-0 items-start justify-between gap-4 border-b border-slate-100 px-5 py-4 dark:border-slate-800 sm:px-6">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#13538A]">
+                    Broker Database
+                  </p>
+                  <h2 className="mt-0.5 text-lg font-semibold text-slate-900 dark:text-white">
+                    Create Broker
+                  </h2>
+                  <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">
+                    Add a new broker organization and its primary admin.
+                  </p>
+                </div>
                 <button
+                  type="button"
                   onClick={() => setIsAddOpen(false)}
-                  className="text-gray-500 hover:text-gray-800 dark:text-slate-400 dark:hover:text-slate-200"
+                  className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition hover:bg-slate-50 hover:text-slate-800 dark:border-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+                  aria-label="Close"
                 >
-                  Close
+                  <X size={16} />
                 </button>
               </div>
 
-              <form onSubmit={handleSubmit} className="space-y-5">
-                {/* ================= ORGANIZATION SECTION ================= */}
-                <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <h3 className="font-semibold text-gray-800 dark:text-gray-100">
-                      Organization Details
-                    </h3>
-                    <InfoTip text="Basic information about the Broker organization." />
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <label className="block">
-                      <span className="text-sm text-gray-700 dark:text-slate-200">
-                        Organization Name{" "}
-                        <span className="text-red-500">*</span>
-                      </span>
-                      <input
-                        value={form.organizationName}
-                        onChange={(e) => {
-                          setForm({ ...form, organizationName: e.target.value });
-                          setErrors((prev) => ({ ...prev, organizationName: "" }));
-                        }}
-                        className={`w-full px-3 py-2 mt-1 border rounded-md bg-white text-gray-900 dark:bg-slate-800 dark:text-gray-100 ${
-                          errors.organizationName
-                            ? "border-red-500"
-                            : "border-gray-300 dark:border-slate-600"
-                        }`}
-                      />
-                      {errors.organizationName && (
-                        <p className="text-xs text-red-600 mt-1">
-                          {errors.organizationName}
-                        </p>
-                      )}
-                    </label>
-
-                    <label className="block">
-                      <span className="text-sm text-gray-700 dark:text-slate-200">
-                        Organization Email{" "}
-                        <span className="text-red-500">*</span>
-                      </span>
-                      <input
-                        type="email"
-                        value={form.organizationEmail}
-                        onChange={(e) => {
-                          setForm({
-                            ...form,
-                            organizationEmail: e.target.value,
-                          });
-                          setErrors((prev) => ({ ...prev, organizationEmail: "" }));
-                        }}
-                        className={`w-full px-3 py-2 mt-1 border rounded-md bg-white text-gray-900 dark:bg-slate-800 dark:text-gray-100 ${
-                          errors.organizationEmail
-                            ? "border-red-500"
-                            : "border-gray-300 dark:border-slate-600"
-                        }`}
-                      />
-                      {errors.organizationEmail && (
-                        <p className="text-xs text-red-600 mt-1">
-                          {errors.organizationEmail}
-                        </p>
-                      )}
-                    </label>
-
-                    <label className="block md:col-span-1">
-                      <span className="text-sm text-gray-700 dark:text-slate-200">
-                        Organization Phone{" "}
-                        <span className="text-red-500">*</span>
-                      </span>
-                      <input
-                        type="tel"
-                        value={form.organizationPhone}
-                        onChange={(e) => {
-                          setForm({
-                            ...form,
-                            organizationPhone: formatUSPhone(e.target.value),
-                          });
-                          setErrors((prev) => ({ ...prev, organizationPhone: "" }));
-                        }}
-                        placeholder="(123) 456-7890"
-                        className={`w-full px-3 py-2 mt-1 border rounded-md bg-white text-gray-900 dark:bg-slate-800 dark:text-gray-100 ${
-                          errors.organizationPhone
-                            ? "border-red-500"
-                            : "border-gray-300 dark:border-slate-600"
-                        }`}
-                      />
-                      {errors.organizationPhone && (
-                        <p className="text-xs text-red-600 mt-1">
-                          {errors.organizationPhone}
-                        </p>
-                      )}
-                    </label>
-                  </div>
-                </div>
-
-                {/* ================= ADMIN SECTION ================= */}
-                <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <h3 className="font-semibold text-gray-800 dark:text-gray-100">
-                      Admin Details
-                    </h3>
-                    <InfoTip text="Admin user who will manage this broker organization." />
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {/* First + Last Name parallel */}
-                    <label className="block">
-                      <span className="text-sm text-gray-700 dark:text-slate-200">
-                        Admin First Name <span className="text-red-500">*</span>
-                      </span>
-                      <input
-                        value={form.adminFirstName}
-                        onChange={(e) => {
-                          setForm({ ...form, adminFirstName: e.target.value });
-                          setErrors((prev) => ({ ...prev, adminFirstName: "" }));
-                        }}
-                        className={`w-full px-3 py-2 mt-1 border rounded-md bg-white text-gray-900 dark:bg-slate-800 dark:text-gray-100 ${
-                          errors.adminFirstName
-                            ? "border-red-500"
-                            : "border-gray-300 dark:border-slate-600"
-                        }`}
-                      />
-                      {errors.adminFirstName && (
-                        <p className="text-xs text-red-600 mt-1">
-                          {errors.adminFirstName}
-                        </p>
-                      )}
-                    </label>
-
-                    <label className="block">
-                      <span className="text-sm text-gray-700 dark:text-slate-200">
-                        Admin Last Name <span className="text-red-500">*</span>
-                      </span>
-                      <input
-                        value={form.adminLastName}
-                        onChange={(e) => {
-                          setForm({ ...form, adminLastName: e.target.value });
-                          setErrors((prev) => ({ ...prev, adminLastName: "" }));
-                        }}
-                        className={`w-full px-3 py-2 mt-1 border rounded-md bg-white text-gray-900 dark:bg-slate-800 dark:text-gray-100 ${
-                          errors.adminLastName
-                            ? "border-red-500"
-                            : "border-gray-300 dark:border-slate-600"
-                        }`}
-                      />
-                      {errors.adminLastName && (
-                        <p className="text-xs text-red-600 mt-1">
-                          {errors.adminLastName}
-                        </p>
-                      )}
-                    </label>
-
-                    {/* Email + Password parallel */}
-                    <label className="block">
-                      <span className="text-sm text-gray-700 dark:text-slate-200">
-                        Admin Email <span className="text-red-500">*</span>
-                      </span>
-                      <input
-                        type="email"
-                        value={form.adminEmail}
-                        onChange={(e) => {
-                          setForm({ ...form, adminEmail: e.target.value });
-                          setErrors((prev) => ({ ...prev, adminEmail: "" }));
-                        }}
-                        className={`w-full px-3 py-2 mt-1 border rounded-md bg-white text-gray-900 dark:bg-slate-800 dark:text-gray-100 ${
-                          errors.adminEmail
-                            ? "border-red-500"
-                            : "border-gray-300 dark:border-slate-600"
-                        }`}
-                      />
-                      {errors.adminEmail && (
-                        <p className="text-xs text-red-600 mt-1">
-                          {errors.adminEmail}
-                        </p>
-                      )}
-                    </label>
-
-                    <label className="block">
-                      <span className="text-sm text-gray-700 dark:text-slate-200">
-                        Admin Password <span className="text-red-500">*</span>
-                      </span>
-
-                      <div className="relative">
-                        <input
-                          type={showPassword ? "text" : "password"}
-                          value={form.adminPassword}
-                          onChange={(e) => {
-                            setForm({ ...form, adminPassword: e.target.value });
-                            setErrors((prev) => ({ ...prev, adminPassword: "" }));
-                          }}
-                          className={`w-full px-3 py-2 mt-1 border rounded-md pr-10 bg-white text-gray-900 dark:bg-slate-800 dark:text-gray-100 ${
-                            errors.adminPassword
-                              ? "border-red-500"
-                              : "border-gray-300 dark:border-slate-600"
-                          }`}
-                        />
-
-                        <button
-                          type="button"
-                          onClick={() => setShowPassword(!showPassword)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2
-                    text-gray-500 hover:text-gray-700
-                    dark:text-slate-400 dark:hover:text-slate-200"
-                        >
-                          {showPassword ? (
-                            <EyeOff size={18} />
-                          ) : (
-                            <Eye size={18} />
-                          )}
-                        </button>
+              <form
+                onSubmit={handleSubmit}
+                className="flex min-h-0 flex-1 flex-col"
+              >
+                <div className="flex-1 space-y-4 overflow-y-auto px-5 py-4 sm:px-6">
+                  {/* Organization */}
+                  <section className="rounded-xl border border-slate-200 bg-slate-50/60 p-4 dark:border-slate-700 dark:bg-slate-800/40">
+                    <div className="mb-3 flex items-center gap-2">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-50 text-sky-600 dark:bg-sky-500/10 dark:text-sky-400">
+                        <Building2 size={16} />
                       </div>
-                      {errors.adminPassword && (
-                        <p className="text-xs text-red-600 mt-1">
-                          {errors.adminPassword}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
+                            Organization Details
+                          </h3>
+                          <InfoTip text="Basic information about the Broker organization." />
+                        </div>
+                        <p className="text-xs text-slate-500">
+                          Required company contact info
                         </p>
-                      )}
-                    </label>
+                      </div>
+                    </div>
 
-                    <label className="block">
-                      <span className="text-sm text-gray-700 dark:text-slate-200">
-                        Admin Phone
-                      </span>
-                      <input
-                        type="tel"
-                        value={form.adminPhone}
-                        onChange={(e) => {
-                          setForm({
-                            ...form,
-                            adminPhone: formatUSPhone(e.target.value),
-                          });
-                          setErrors((prev) => ({ ...prev, adminPhone: "" }));
-                        }}
-                        placeholder="(123) 456-7890"
-                        className={`w-full px-3 py-2 mt-1 border rounded-md bg-white text-gray-900 dark:bg-slate-800 dark:text-gray-100 ${
-                          errors.adminPhone
-                            ? "border-red-500"
-                            : "border-gray-300 dark:border-slate-600"
-                        }`}
-                      />
-                      {errors.adminPhone && (
-                        <p className="text-xs text-red-600 mt-1">
-                          {errors.adminPhone}
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                      <label className="block">
+                        <span className="text-xs font-medium text-slate-600 dark:text-slate-300">
+                          Organization Name{" "}
+                          <span className="text-red-500">*</span>
+                        </span>
+                        <input
+                          value={form.organizationName}
+                          onChange={(e) => {
+                            setForm({
+                              ...form,
+                              organizationName: e.target.value,
+                            });
+                            setErrors((prev) => ({
+                              ...prev,
+                              organizationName: "",
+                            }));
+                          }}
+                          className={fieldClass(Boolean(errors.organizationName))}
+                        />
+                        {errors.organizationName && (
+                          <p className="mt-1 text-xs text-red-600">
+                            {errors.organizationName}
+                          </p>
+                        )}
+                      </label>
+
+                      <label className="block">
+                        <span className="text-xs font-medium text-slate-600 dark:text-slate-300">
+                          Organization Email{" "}
+                          <span className="text-red-500">*</span>
+                        </span>
+                        <input
+                          type="email"
+                          value={form.organizationEmail}
+                          onChange={(e) => {
+                            setForm({
+                              ...form,
+                              organizationEmail: e.target.value,
+                            });
+                            setErrors((prev) => ({
+                              ...prev,
+                              organizationEmail: "",
+                            }));
+                          }}
+                          className={fieldClass(Boolean(errors.organizationEmail))}
+                        />
+                        {errors.organizationEmail && (
+                          <p className="mt-1 text-xs text-red-600">
+                            {errors.organizationEmail}
+                          </p>
+                        )}
+                      </label>
+
+                      <label className="block md:col-span-2">
+                        <span className="text-xs font-medium text-slate-600 dark:text-slate-300">
+                          Organization Phone{" "}
+                          <span className="text-red-500">*</span>
+                        </span>
+                        <input
+                          type="tel"
+                          value={form.organizationPhone}
+                          onChange={(e) => {
+                            setForm({
+                              ...form,
+                              organizationPhone: formatUSPhone(e.target.value),
+                            });
+                            setErrors((prev) => ({
+                              ...prev,
+                              organizationPhone: "",
+                            }));
+                          }}
+                          placeholder="(123) 456-7890"
+                          className={fieldClass(Boolean(errors.organizationPhone))}
+                        />
+                        {errors.organizationPhone && (
+                          <p className="mt-1 text-xs text-red-600">
+                            {errors.organizationPhone}
+                          </p>
+                        )}
+                      </label>
+                    </div>
+                  </section>
+
+                  {/* Admin */}
+                  <section className="rounded-xl border border-slate-200 bg-slate-50/60 p-4 dark:border-slate-700 dark:bg-slate-800/40">
+                    <div className="mb-3 flex items-center gap-2">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-50 text-violet-600 dark:bg-violet-500/10 dark:text-violet-400">
+                        <UserRound size={16} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
+                            Admin Details
+                          </h3>
+                          <InfoTip text="Admin user who will manage this broker organization." />
+                        </div>
+                        <p className="text-xs text-slate-500">
+                          Primary login for the broker portal
                         </p>
-                      )}
-                    </label>
-                  </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                      <label className="block">
+                        <span className="text-xs font-medium text-slate-600 dark:text-slate-300">
+                          Admin First Name{" "}
+                          <span className="text-red-500">*</span>
+                        </span>
+                        <input
+                          value={form.adminFirstName}
+                          onChange={(e) => {
+                            setForm({ ...form, adminFirstName: e.target.value });
+                            setErrors((prev) => ({
+                              ...prev,
+                              adminFirstName: "",
+                            }));
+                          }}
+                          className={fieldClass(Boolean(errors.adminFirstName))}
+                        />
+                        {errors.adminFirstName && (
+                          <p className="mt-1 text-xs text-red-600">
+                            {errors.adminFirstName}
+                          </p>
+                        )}
+                      </label>
+
+                      <label className="block">
+                        <span className="text-xs font-medium text-slate-600 dark:text-slate-300">
+                          Admin Last Name{" "}
+                          <span className="text-red-500">*</span>
+                        </span>
+                        <input
+                          value={form.adminLastName}
+                          onChange={(e) => {
+                            setForm({ ...form, adminLastName: e.target.value });
+                            setErrors((prev) => ({
+                              ...prev,
+                              adminLastName: "",
+                            }));
+                          }}
+                          className={fieldClass(Boolean(errors.adminLastName))}
+                        />
+                        {errors.adminLastName && (
+                          <p className="mt-1 text-xs text-red-600">
+                            {errors.adminLastName}
+                          </p>
+                        )}
+                      </label>
+
+                      <label className="block">
+                        <span className="text-xs font-medium text-slate-600 dark:text-slate-300">
+                          Admin Email <span className="text-red-500">*</span>
+                        </span>
+                        <input
+                          type="email"
+                          value={form.adminEmail}
+                          onChange={(e) => {
+                            setForm({ ...form, adminEmail: e.target.value });
+                            setErrors((prev) => ({ ...prev, adminEmail: "" }));
+                          }}
+                          className={fieldClass(Boolean(errors.adminEmail))}
+                        />
+                        {errors.adminEmail && (
+                          <p className="mt-1 text-xs text-red-600">
+                            {errors.adminEmail}
+                          </p>
+                        )}
+                      </label>
+
+                      <label className="block">
+                        <span className="text-xs font-medium text-slate-600 dark:text-slate-300">
+                          Admin Password <span className="text-red-500">*</span>
+                        </span>
+                        <div className="relative mt-1.5">
+                          <input
+                            type={showPassword ? "text" : "password"}
+                            value={form.adminPassword}
+                            onChange={(e) => {
+                              setForm({
+                                ...form,
+                                adminPassword: e.target.value,
+                              });
+                              setErrors((prev) => ({
+                                ...prev,
+                                adminPassword: "",
+                              }));
+                            }}
+                            className={`${fieldClass(Boolean(errors.adminPassword)).replace("mt-1.5 ", "")} pr-10`}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowPassword(!showPassword)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 transition hover:text-slate-600 dark:hover:text-slate-200"
+                            aria-label={
+                              showPassword ? "Hide password" : "Show password"
+                            }
+                          >
+                            {showPassword ? (
+                              <EyeOff size={16} />
+                            ) : (
+                              <Eye size={16} />
+                            )}
+                          </button>
+                        </div>
+                        {errors.adminPassword && (
+                          <p className="mt-1 text-xs text-red-600">
+                            {errors.adminPassword}
+                          </p>
+                        )}
+                      </label>
+
+                      <label className="block md:col-span-2">
+                        <span className="text-xs font-medium text-slate-600 dark:text-slate-300">
+                          Admin Phone
+                        </span>
+                        <input
+                          type="tel"
+                          value={form.adminPhone}
+                          onChange={(e) => {
+                            setForm({
+                              ...form,
+                              adminPhone: formatUSPhone(e.target.value),
+                            });
+                            setErrors((prev) => ({ ...prev, adminPhone: "" }));
+                          }}
+                          placeholder="(123) 456-7890"
+                          className={fieldClass(Boolean(errors.adminPhone))}
+                        />
+                        {errors.adminPhone && (
+                          <p className="mt-1 text-xs text-red-600">
+                            {errors.adminPhone}
+                          </p>
+                        )}
+                      </label>
+                    </div>
+                  </section>
+
+                  {/* Professional */}
+                  <section className="rounded-xl border border-slate-200 bg-slate-50/60 p-4 dark:border-slate-700 dark:bg-slate-800/40">
+                    <div className="mb-3 flex items-center gap-2">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400">
+                        <BriefcaseBusiness size={16} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
+                            Professional Information
+                          </h3>
+                          <InfoTip text="Optional broker profile details. Can be updated later from the broker dashboard." />
+                        </div>
+                        <p className="text-xs text-slate-500">
+                          Optional — can be completed later
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                      <label className="block md:col-span-2">
+                        <span className="text-xs font-medium text-slate-600 dark:text-slate-300">
+                          Company
+                        </span>
+                        <input
+                          value={form.company}
+                          onChange={(e) => {
+                            setForm({ ...form, company: e.target.value });
+                            setErrors((prev) => ({ ...prev, company: "" }));
+                          }}
+                          className={fieldClass()}
+                        />
+                      </label>
+
+                      <label className="block">
+                        <span className="text-xs font-medium text-slate-600 dark:text-slate-300">
+                          License Number
+                        </span>
+                        <input
+                          value={form.licenseNumber}
+                          onChange={(e) => {
+                            setForm({ ...form, licenseNumber: e.target.value });
+                            setErrors((prev) => ({
+                              ...prev,
+                              licenseNumber: "",
+                            }));
+                          }}
+                          className={fieldClass(Boolean(errors.licenseNumber))}
+                        />
+                        {errors.licenseNumber && (
+                          <p className="mt-1 text-xs text-red-600">
+                            {errors.licenseNumber}
+                          </p>
+                        )}
+                      </label>
+
+                      <label className="block">
+                        <span className="text-xs font-medium text-slate-600 dark:text-slate-300">
+                          Website
+                        </span>
+                        <input
+                          value={form.website}
+                          onChange={(e) => {
+                            setForm({ ...form, website: e.target.value });
+                            setErrors((prev) => ({ ...prev, website: "" }));
+                          }}
+                          placeholder="example.com"
+                          className={fieldClass(Boolean(errors.website))}
+                        />
+                        {errors.website && (
+                          <p className="mt-1 text-xs text-red-600">
+                            {errors.website}
+                          </p>
+                        )}
+                      </label>
+
+                      <label className="block md:col-span-2">
+                        <span className="text-xs font-medium text-slate-600 dark:text-slate-300">
+                          Address
+                        </span>
+                        <input
+                          value={form.address}
+                          onChange={(e) => {
+                            setForm({ ...form, address: e.target.value });
+                            setErrors((prev) => ({ ...prev, address: "" }));
+                          }}
+                          className={fieldClass()}
+                        />
+                      </label>
+
+                      <label className="block">
+                        <span className="text-xs font-medium text-slate-600 dark:text-slate-300">
+                          City
+                        </span>
+                        <input
+                          value={form.city}
+                          onChange={(e) => {
+                            setForm({ ...form, city: e.target.value });
+                            setErrors((prev) => ({ ...prev, city: "" }));
+                          }}
+                          className={fieldClass()}
+                        />
+                      </label>
+
+                      <label className="block">
+                        <span className="text-xs font-medium text-slate-600 dark:text-slate-300">
+                          State
+                        </span>
+                        <select
+                          value={form.state}
+                          onChange={(e) => {
+                            setForm({ ...form, state: e.target.value });
+                            setErrors((prev) => ({ ...prev, state: "" }));
+                          }}
+                          className={fieldClass()}
+                        >
+                          <option value="">Select state</option>
+                          {LO_US_STATES.map((state) => (
+                            <option key={state.code} value={state.code}>
+                              {state.name}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+
+                      <label className="block md:col-span-2">
+                        <span className="text-xs font-medium text-slate-600 dark:text-slate-300">
+                          ZIP Code
+                        </span>
+                        <input
+                          value={form.zipCode}
+                          onChange={(e) => {
+                            setForm({
+                              ...form,
+                              zipCode: formatLoZip(e.target.value),
+                            });
+                            setErrors((prev) => ({ ...prev, zipCode: "" }));
+                          }}
+                          placeholder="12345"
+                          className={fieldClass(Boolean(errors.zipCode))}
+                        />
+                        {errors.zipCode && (
+                          <p className="mt-1 text-xs text-red-600">
+                            {errors.zipCode}
+                          </p>
+                        )}
+                      </label>
+                    </div>
+                  </section>
+
+                  {formError && (
+                    <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300">
+                      {formError}
+                    </div>
+                  )}
                 </div>
 
-                {/* ================= PROFESSIONAL SECTION (OPTIONAL) ================= */}
-                <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <h3 className="font-semibold text-gray-800 dark:text-gray-100">
-                      Professional Information
-                    </h3>
-                    <InfoTip text="Optional broker profile details. Can be updated later from the broker dashboard." />
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <label className="block md:col-span-2">
-                      <span className="text-sm text-gray-700 dark:text-slate-200">
-                        Company
-                      </span>
-                      <input
-                        value={form.company}
-                        onChange={(e) => {
-                          setForm({ ...form, company: e.target.value });
-                          setErrors((prev) => ({ ...prev, company: "" }));
-                        }}
-                        className="w-full px-3 py-2 mt-1 border rounded-md bg-white text-gray-900 border-gray-300 dark:bg-slate-800 dark:text-gray-100 dark:border-slate-600"
-                      />
-                    </label>
-
-                    <label className="block">
-                      <span className="text-sm text-gray-700 dark:text-slate-200">
-                        License Number
-                      </span>
-                      <input
-                        value={form.licenseNumber}
-                        onChange={(e) => {
-                          setForm({ ...form, licenseNumber: e.target.value });
-                          setErrors((prev) => ({ ...prev, licenseNumber: "" }));
-                        }}
-                        className={`w-full px-3 py-2 mt-1 border rounded-md bg-white text-gray-900 dark:bg-slate-800 dark:text-gray-100 ${
-                          errors.licenseNumber
-                            ? "border-red-500"
-                            : "border-gray-300 dark:border-slate-600"
-                        }`}
-                      />
-                      {errors.licenseNumber && (
-                        <p className="text-xs text-red-600 mt-1">
-                          {errors.licenseNumber}
-                        </p>
-                      )}
-                    </label>
-
-                    <label className="block">
-                      <span className="text-sm text-gray-700 dark:text-slate-200">
-                        Website
-                      </span>
-                      <input
-                        value={form.website}
-                        onChange={(e) => {
-                          setForm({ ...form, website: e.target.value });
-                          setErrors((prev) => ({ ...prev, website: "" }));
-                        }}
-                        placeholder="example.com"
-                        className={`w-full px-3 py-2 mt-1 border rounded-md bg-white text-gray-900 dark:bg-slate-800 dark:text-gray-100 ${
-                          errors.website
-                            ? "border-red-500"
-                            : "border-gray-300 dark:border-slate-600"
-                        }`}
-                      />
-                      {errors.website && (
-                        <p className="text-xs text-red-600 mt-1">
-                          {errors.website}
-                        </p>
-                      )}
-                    </label>
-
-                    <label className="block md:col-span-2">
-                      <span className="text-sm text-gray-700 dark:text-slate-200">
-                        Address
-                      </span>
-                      <input
-                        value={form.address}
-                        onChange={(e) => {
-                          setForm({ ...form, address: e.target.value });
-                          setErrors((prev) => ({ ...prev, address: "" }));
-                        }}
-                        className="w-full px-3 py-2 mt-1 border rounded-md bg-white text-gray-900 border-gray-300 dark:bg-slate-800 dark:text-gray-100 dark:border-slate-600"
-                      />
-                    </label>
-
-                    <label className="block">
-                      <span className="text-sm text-gray-700 dark:text-slate-200">
-                        City
-                      </span>
-                      <input
-                        value={form.city}
-                        onChange={(e) => {
-                          setForm({ ...form, city: e.target.value });
-                          setErrors((prev) => ({ ...prev, city: "" }));
-                        }}
-                        className="w-full px-3 py-2 mt-1 border rounded-md bg-white text-gray-900 border-gray-300 dark:bg-slate-800 dark:text-gray-100 dark:border-slate-600"
-                      />
-                    </label>
-
-                    <label className="block">
-                      <span className="text-sm text-gray-700 dark:text-slate-200">
-                        State
-                      </span>
-                      <select
-                        value={form.state}
-                        onChange={(e) => {
-                          setForm({ ...form, state: e.target.value });
-                          setErrors((prev) => ({ ...prev, state: "" }));
-                        }}
-                        className="w-full px-3 py-2 mt-1 border rounded-md bg-white text-gray-900 border-gray-300 dark:bg-slate-800 dark:text-gray-100 dark:border-slate-600"
-                      >
-                        <option value="">Select state</option>
-                        {LO_US_STATES.map((state) => (
-                          <option key={state.code} value={state.code}>
-                            {state.name}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-
-                    <label className="block">
-                      <span className="text-sm text-gray-700 dark:text-slate-200">
-                        ZIP Code
-                      </span>
-                      <input
-                        value={form.zipCode}
-                        onChange={(e) => {
-                          setForm({
-                            ...form,
-                            zipCode: formatLoZip(e.target.value),
-                          });
-                          setErrors((prev) => ({ ...prev, zipCode: "" }));
-                        }}
-                        placeholder="12345"
-                        className={`w-full px-3 py-2 mt-1 border rounded-md bg-white text-gray-900 dark:bg-slate-800 dark:text-gray-100 ${
-                          errors.zipCode
-                            ? "border-red-500"
-                            : "border-gray-300 dark:border-slate-600"
-                        }`}
-                      />
-                      {errors.zipCode && (
-                        <p className="text-xs text-red-600 mt-1">
-                          {errors.zipCode}
-                        </p>
-                      )}
-                    </label>
-                  </div>
-                </div>
-
-                {/* ================= ERRORS ================= */}
-                {formError && (
-                  <div className="text-sm text-red-600">{formError}</div>
-                )}
-
-                {/* ================= ACTIONS ================= */}
-                <div className="flex justify-end gap-3 pt-3">
+                {/* Sticky footer */}
+                <div className="flex shrink-0 items-center justify-end gap-2 border-t border-slate-100 bg-white px-5 py-3 dark:border-slate-800 dark:bg-slate-900 sm:px-6">
                   <button
                     type="button"
                     onClick={() => setIsAddOpen(false)}
-                    className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md
-                          dark:text-slate-200 dark:hover:bg-slate-800"
+                    className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={submitting}
-                    className="px-4 py-2 bg-[#13538A] hover:bg-[#2e87d4] text-white rounded-md disabled:opacity-70"
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-[#13538A] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#10446f] disabled:opacity-60"
                   >
+                    <TiPlus className="h-3.5 w-3.5" />
                     {submitting ? "Creating..." : "Create Broker"}
                   </button>
                 </div>

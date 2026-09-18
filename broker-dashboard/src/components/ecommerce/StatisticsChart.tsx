@@ -1,75 +1,54 @@
 import Chart from "react-apexcharts";
-import { ApexOptions } from "apexcharts";
-import { TrendingUp, Send, BadgeDollarSign } from "lucide-react";
-
-interface MonthlyTrendPoint {
-  label: string;
-  applications: number;
-  submitted: number;
-  approved: number;
-  funded: number;
-  fundedVolume: number;
-}
-
-interface BrokerStats {
-  totalApplications: number;
-  totalSubmitted: number;
-  totalApproved: number;
-  totalFunded: number;
-  totalVolumeFunded: number;
-  conversion: {
-    submissionRate: number;
-    approvalRate: number;
-    fundingRate: number;
-  };
-  monthlyTrend: MonthlyTrendPoint[];
-}
+import type { ApexOptions } from "apexcharts";
+import {
+  formatCompactCount,
+  formatCompactCurrency,
+  type BrokerStats,
+} from "../../lib/brokerDashboardStats";
 
 interface Props {
   stats: BrokerStats | null;
   loading: boolean;
 }
 
-function formatCurrency(value: number) {
-  if (!value) {
-    return "$0";
-  }
-
-  if (value >= 1_000_000) {
-    return `$${(value / 1_000_000).toFixed(1)}M`;
-  }
-
-  if (value >= 1_000) {
-    return `$${(value / 1_000).toFixed(1)}K`; 
-  }
-
-  return `$${Math.round(value)}`;
+function ChartSkeleton() {
+  return (
+    <div className="h-full rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+      <div className="animate-pulse space-y-4">
+        <div className="h-4 w-36 rounded bg-gray-200 dark:bg-gray-700" />
+        <div className="h-6 w-56 rounded bg-gray-200 dark:bg-gray-700" />
+        <div className="h-[280px] rounded-xl bg-gray-100 dark:bg-gray-800" />
+      </div>
+    </div>
+  );
 }
 
 export default function StatisticsChart({ stats, loading }: Props) {
-  if (loading) {
-    return (
-      <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-        <p className="text-sm text-slate-500">
-          Loading pipeline performance... 
-        </p>
-      </div>
-    );
-  }
-
+  if (loading) return <ChartSkeleton />;
   if (!stats) return null;
 
   const trend = stats.monthlyTrend || [];
+  const hasActivity = trend.some(
+    (point) =>
+      point.applications > 0 ||
+      point.submitted > 0 ||
+      point.fundedVolume > 0,
+  );
+
+  const maxCount = Math.max(
+    ...trend.map((p) => Math.max(p.applications, p.submitted, p.funded)),
+    1,
+  );
 
   const series = [
     {
       name: "Applications",
-      type: "column" as const,
+      type: "area" as const,
       data: trend.map((item) => item.applications),
     },
     {
       name: "Submitted",
-      type: "column" as const, 
+      type: "area" as const,
       data: trend.map((item) => item.submitted),
     },
     {
@@ -83,54 +62,86 @@ export default function StatisticsChart({ stats, loading }: Props) {
     chart: {
       fontFamily: "Outfit, sans-serif",
       toolbar: { show: false },
-      stacked: false,
+      zoom: { enabled: false },
+      animations: { enabled: true, speed: 400 },
     },
-    colors: ["#1D4ED8", "#0EA5E9", "#0F766E"],
-    stroke: {
-      width: [0, 0, 3],
-      curve: "smooth",
-    }, 
-    plotOptions: {
-      bar: {
-        columnWidth: "42%",
-        borderRadius: 8,
+    colors: ["#13538A", "#38BDF8", "#0F766E"],
+    fill: {
+      type: ["gradient", "gradient", "solid"],
+      gradient: {
+        shadeIntensity: 1,
+        opacityFrom: 0.35,
+        opacityTo: 0.05,
+        stops: [0, 90, 100],
       },
     },
-    dataLabels: {
-      enabled: false,
+    stroke: {
+      width: [2.5, 2.5, 3],
+      curve: "smooth",
     },
+    markers: {
+      size: hasActivity ? 3 : 0,
+      strokeWidth: 0,
+      hover: { size: 5 },
+    },
+    dataLabels: { enabled: false },
     grid: {
-      borderColor: "#E2E8F0",
-      strokeDashArray: 4,
+      borderColor: "#E5E7EB",
+      strokeDashArray: 3,
+      padding: { left: 4, right: 4, top: -8 },
     },
     legend: {
       position: "top",
       horizontalAlign: "left",
+      fontSize: "12px",
+      itemMargin: { horizontal: 12 },
+      markers: { size: 7 },
     },
     xaxis: {
       categories: trend.map((item) => item.label),
       labels: {
-        style: {
-          colors: "#64748B",
-        },
+        style: { colors: "#64748B", fontSize: "10px" },
+        rotate: trend.length > 12 ? -40 : 0,
+        hideOverlappingLabels: true,
+        trim: true,
       },
+      axisBorder: { show: false },
+      axisTicks: { show: false },
+      tooltip: { enabled: false },
     },
     yaxis: [
       {
-        title: {
-          text: "Applications",
-        },
+        seriesName: "Applications",
+        min: 0,
+        max: Math.max(4, Math.ceil(maxCount * 1.25)),
+        tickAmount: 4,
+        forceNiceScale: true,
         labels: {
-          formatter: (value) => Math.round(value).toString(),
+          formatter: (value) => String(Math.round(value)),
+          style: { colors: "#64748B", fontSize: "11px" },
+        },
+        title: {
+          text: "Apps",
+          style: { color: "#94A3B8", fontSize: "11px", fontWeight: 500 },
         },
       },
       {
+        seriesName: "Submitted",
+        show: false,
+        min: 0,
+        max: Math.max(4, Math.ceil(maxCount * 1.25)),
+      },
+      {
+        seriesName: "Funded Volume",
         opposite: true,
-        title: {
-          text: "Funded Volume",
-        },
+        min: 0,
         labels: {
-          formatter: (value) => formatCurrency(value),
+          formatter: (value) => formatCompactCurrency(Math.max(0, value)),
+          style: { colors: "#64748B", fontSize: "11px" },
+        },
+        title: {
+          text: "Volume",
+          style: { color: "#94A3B8", fontSize: "11px", fontWeight: 500 },
         },
       },
     ],
@@ -140,80 +151,42 @@ export default function StatisticsChart({ stats, loading }: Props) {
       y: {
         formatter: (value, context) =>
           context.seriesIndex === 2
-            ? formatCurrency(value)
-            : Math.round(value).toString(),
+            ? formatCompactCurrency(value)
+            : formatCompactCount(value),
       },
     },
   };
 
-  const performanceCards = [
-    {
-      label: "Submission Rate",
-      value: `${stats.conversion.submissionRate}%`,
-      helper: `${stats.totalSubmitted} of ${stats.totalApplications} applications moved forward`,
-      icon: <Send className="h-5 w-5 text-sky-600" />,
-    },
-    {
-      label: "Approval Rate",
-      value: `${stats.conversion.approvalRate}%`,
-      helper: `${stats.totalApproved} approvals from submitted applications`,
-      icon: <TrendingUp className="h-5 w-5 text-emerald-600" />,
-    },
-    {
-      label: "Funding Rate",
-      value: `${stats.conversion.fundingRate}%`,
-      helper: `${stats.totalFunded} approvals converted into funding`,
-      icon: <BadgeDollarSign className="h-5 w-5 text-indigo-600" />,
-    },
-  ];
-
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-      <div className="mb-8 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+    <div className="flex h-full flex-col rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+      <div className="mb-3 flex items-start justify-between gap-3">
         <div>
-          <p className="text-sm font-medium uppercase tracking-[0.24em] text-sky-600">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#13538A]">
             Pipeline Momentum
           </p>
-          <h3 className="mt-2 text-2xl font-semibold text-slate-900 dark:text-white">
-            Monthly application flow and funded volume
+          <h3 className="mt-0.5 text-lg font-semibold text-gray-900 dark:text-white">
+            Origination trend
           </h3>
-          <p className="mt-2 text-sm text-slate-500">
-            A six month snapshot of origination activity across your broker
-            pipeline.
-          </p>
         </div>
-
-        <div className="rounded-2xl bg-slate-50 px-4 py-3 text-right dark:bg-slate-900/70">
-          <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
-            Total Funded Volume
+        <div className="rounded-lg bg-slate-50 px-3 py-1.5 text-right dark:bg-gray-800">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">
+            Funded vol
           </p>
-          <p className="mt-1 text-2xl font-semibold text-slate-900 dark:text-white">
-            {formatCurrency(stats.totalVolumeFunded)}
+          <p className="text-sm font-bold text-gray-900 dark:text-white">
+            {formatCompactCurrency(stats.totalVolumeFunded)}
           </p>
         </div>
       </div>
 
-      <Chart options={options} series={series} type="line" height={360} />
-
-      <div className="mt-8 grid gap-4 md:grid-cols-3">
-        {performanceCards.map((card) => (
-          <div
-            key={card.label}
-            className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900/70"
-          >
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">
-                {card.label}
-              </p>
-              {card.icon}
-            </div>
-            <p className="mt-4 text-3xl font-semibold text-slate-900 dark:text-white">
-              {card.value}
-            </p>
-            <p className="mt-2 text-sm text-slate-500">{card.helper}</p>
-          </div>
-        ))}
-      </div>
+      {hasActivity ? (
+        <div className="min-h-0 flex-1">
+          <Chart options={options} series={series} type="area" height={300} />
+        </div>
+      ) : (
+        <div className="flex flex-1 items-center justify-center rounded-xl border border-dashed border-gray-200 text-sm text-gray-500 dark:border-gray-800">
+          No activity for this period
+        </div>
+      )}
     </div>
   );
 }

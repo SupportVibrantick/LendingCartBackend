@@ -1,65 +1,77 @@
 import Chart from "react-apexcharts";
 import type { ApexOptions } from "apexcharts";
-import { GitBranch, Loader2 } from "lucide-react";
+import { GitBranch } from "lucide-react";
+import type { AdminAnalytics } from "../../lib/adminDashboardStats";
 
 const STATUS_LABELS: Record<string, string> = {
   DRAFT: "Draft",
-  IN_REVIEW: "In Review",
+  CLIENT_PENDING: "Client Pending",
   SUBMITTED: "Submitted",
-  SENT_TO_LENDERS: "Sent to Lenders",
+  IN_REVIEW: "In Review",
+  LENDER_SELECTED: "Lender Selected",
   LENDER_APPROVED: "Approved",
   LENDER_DECLINED: "Declined",
-  LENDER_CONDITIONAL: "Conditional",
   FUNDED: "Funded",
-  CLOSED: "Closed",
+  WITHDRAWN: "Withdrawn",
+  SUSPENDED: "Suspended",
 };
 
 const STATUS_COLORS: Record<string, string> = {
   DRAFT: "#94A3B8",
-  IN_REVIEW: "#6366F1",
+  CLIENT_PENDING: "#F59E0B",
   SUBMITTED: "#3B82F6",
-  SENT_TO_LENDERS: "#8B5CF6",
+  IN_REVIEW: "#6366F1",
+  LENDER_SELECTED: "#8B5CF6",
   LENDER_APPROVED: "#22C55E",
   LENDER_DECLINED: "#EF4444",
-  LENDER_CONDITIONAL: "#F59E0B",
   FUNDED: "#14B8A6",
-  CLOSED: "#64748B",
+  WITHDRAWN: "#64748B",
+  SUSPENDED: "#78716C",
 };
 
 type Props = {
-  stats: {
-    applications?: {
-      breakdown?: { status: string; _count: number }[];
-    };
-  } | null;
+  analytics: AdminAnalytics | null | undefined;
+  loading?: boolean;
 };
 
-export default function ApplicationPipelineChart({ stats }: Props) {
-  const breakdown = stats?.applications?.breakdown ?? [];
-
-  if (!stats) {
-    return (
-      <div className="flex h-[280px] items-center justify-center rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
-        <Loader2 className="h-6 w-6 animate-spin text-[#13538A]" />
+function ChartSkeleton() {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <div className="animate-pulse space-y-4">
+        <div className="h-4 w-40 rounded bg-slate-200 dark:bg-slate-700" />
+        <div className="h-[240px] rounded-xl bg-slate-100 dark:bg-slate-800" />
       </div>
-    );
-  }
-
-  if (breakdown.length === 0) {
-    return (
-      <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center dark:border-slate-800 dark:bg-slate-900">
-        <p className="text-sm text-slate-500">No application pipeline data yet.</p>
-      </div>
-    );
-  }
-
-  const sorted = [...breakdown].sort((a, b) => b._count - a._count);
-  const categories = sorted.map(
-    (item) => STATUS_LABELS[item.status] || item.status.replace(/_/g, " "),
+    </div>
   );
-  const values = sorted.map((item) => item._count);
-  const colors = sorted.map(
-    (item) => STATUS_COLORS[item.status] || "#13538A",
+}
+
+export default function ApplicationPipelineChart({
+  analytics,
+  loading = false,
+}: Props) {
+  if (loading) return <ChartSkeleton />;
+
+  const byStatus = analytics?.applicationsByStatus || {};
+  const entries = Object.entries(byStatus)
+    .filter(([, count]) => count > 0)
+    .sort((a, b) => b[1] - a[1]);
+
+  if (!analytics || entries.length === 0) {
+    return (
+      <div className="rounded-xl border border-slate-200 bg-white p-8 text-center shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <p className="text-sm text-slate-500">
+          No application pipeline data for this period.
+        </p>
+      </div>
+    );
+  }
+
+  const categories = entries.map(
+    ([status]) => STATUS_LABELS[status] || status.replace(/_/g, " "),
+  );
+  const values = entries.map(([, count]) => count);
+  const colors = entries.map(
+    ([status]) => STATUS_COLORS[status] || "#13538A",
   );
 
   const options: ApexOptions = {
@@ -88,7 +100,9 @@ export default function ApplicationPipelineChart({ stats }: Props) {
       labels: { style: { colors: "#64748B", fontSize: "12px" } },
     },
     yaxis: {
-      labels: { style: { colors: "#64748B", fontSize: "12px", fontWeight: 500 } },
+      labels: {
+        style: { colors: "#64748B", fontSize: "12px", fontWeight: 500 },
+      },
     },
     grid: {
       borderColor: "#E2E8F0",
@@ -97,33 +111,33 @@ export default function ApplicationPipelineChart({ stats }: Props) {
       yaxis: { lines: { show: false } },
     },
     tooltip: {
+      theme: "light",
+      cssClass: "!bg-white !text-slate-700",
       y: { formatter: (val: number) => `${val} applications` },
     },
   };
 
-  const series = [{ name: "Applications", data: values }];
-
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+    <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
       <div className="mb-4 flex items-center gap-3">
         <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-600">
           <GitBranch className="h-5 w-5" />
         </div>
         <div>
           <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
-            Loan Pipeline by Status
+            Loan pipeline by status
           </h3>
           <p className="text-sm text-slate-500 dark:text-slate-400">
-            Full application lifecycle distribution
+            Full application lifecycle for the selected period
           </p>
         </div>
       </div>
 
       <Chart
         options={options}
-        series={series}
+        series={[{ name: "Applications", data: values }]}
         type="bar"
-        height={Math.max(sorted.length * 48, 200)}
+        height={Math.max(entries.length * 48, 200)}
       />
     </div>
   );

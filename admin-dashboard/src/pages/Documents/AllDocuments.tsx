@@ -1,19 +1,34 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+} from "react";
+import { createPortal } from "react-dom";
 import toast from "react-hot-toast";
 import {
+  Ban,
+  CheckCircle2,
   FileText,
+  Layers3,
   Loader2,
+  MoreVertical,
+  Pencil,
   Plus,
   RefreshCw,
   Search,
+  ShieldCheck,
+  Trash2,
   X,
 } from "lucide-react";
-import { MdDelete, MdModeEdit } from "react-icons/md";
 import Swal from "sweetalert2";
 import { filterLenderCatalogProducts } from "../../lib/canonicalLoanProducts";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
-const ITEMS_PER_PAGE = 10;
+const DEFAULT_PAGE_SIZE = 8;
+const PAGE_SIZE_OPTIONS = [4, 8, 12, 16, 20] as const;
 const SEARCH_DEBOUNCE_MS = 400;
 
 type LoanProduct = {
@@ -101,9 +116,9 @@ function statusClass(isActive: boolean) {
 }
 
 function formatDate(value?: string) {
-  if (!value) return "—";
+  if (!value) return "-";
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "—";
+  if (Number.isNaN(date.getTime())) return "-";
   return date.toLocaleDateString("en-US", {
     year: "numeric",
     month: "short",
@@ -132,9 +147,17 @@ export default function AllDocuments() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>("admin");
   const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number }>({
+    top: 0,
+    left: 0,
+  });
+  const menuRef = useRef<HTMLDivElement | null>(null);
+  const MENU_WIDTH = 168;
   const [pagination, setPagination] = useState<PaginationMeta>({
     page: 1,
-    limit: ITEMS_PER_PAGE,
+    limit: DEFAULT_PAGE_SIZE,
     total: 0,
     totalPages: 1,
     hasNextPage: false,
@@ -153,6 +176,14 @@ export default function AllDocuments() {
 
   const activeOnPage = useMemo(
     () => documents.filter((doc) => doc.isActive).length,
+    [documents],
+  );
+  const requiredOnPage = useMemo(
+    () => documents.filter((doc) => doc.isRequired).length,
+    [documents],
+  );
+  const inactiveOnPage = useMemo(
+    () => documents.filter((doc) => !doc.isActive).length,
     [documents],
   );
 
@@ -240,7 +271,7 @@ export default function AllDocuments() {
 
         const params = new URLSearchParams({
           page: String(pageNo),
-          limit: String(ITEMS_PER_PAGE),
+          limit: String(pageSize),
         });
 
         if (productId) {
@@ -271,7 +302,7 @@ export default function AllDocuments() {
         }
 
         const total = Number(json.meta?.total || 0);
-        const limit = Number(json.meta?.limit || ITEMS_PER_PAGE);
+        const limit = Number(json.meta?.limit || pageSize);
         const page = Number(json.meta?.page || pageNo);
         const totalPages = Math.max(1, Math.ceil(total / limit));
 
@@ -320,7 +351,7 @@ export default function AllDocuments() {
         }
       }
     },
-    [statusFilter, sourceFilter],
+    [statusFilter, sourceFilter, pageSize],
   );
 
   useEffect(() => {
@@ -337,7 +368,7 @@ export default function AllDocuments() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [statusFilter, sourceFilter, selectedProductId]);
+  }, [statusFilter, sourceFilter, selectedProductId, pageSize]);
 
   useEffect(() => {
     closeForm();
@@ -358,10 +389,67 @@ export default function AllDocuments() {
     selectedProductId,
     statusFilter,
     sourceFilter,
+    pageSize,
     fetchDocuments,
   ]);
 
-  const handleSubmit = async (event: React.FormEvent) => {
+  useEffect(() => {
+    if (!openMenuId) return;
+
+    const onPointerDown = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (target.closest?.("[data-doc-menu-trigger]")) return;
+      if (menuRef.current && !menuRef.current.contains(target)) {
+        setOpenMenuId(null);
+      }
+    };
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpenMenuId(null);
+    };
+
+    const onRepositionClose = () => setOpenMenuId(null);
+
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    window.addEventListener("resize", onRepositionClose);
+    window.addEventListener("scroll", onRepositionClose, true);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("resize", onRepositionClose);
+      window.removeEventListener("scroll", onRepositionClose, true);
+    };
+  }, [openMenuId]);
+
+  const openRowMenu = (docKey: string, anchor: HTMLElement) => {
+    const rect = anchor.getBoundingClientRect();
+    const estimatedHeight = 96;
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const openUp = spaceBelow < estimatedHeight + 8;
+    const top = openUp
+      ? Math.max(8, rect.top - estimatedHeight - 4)
+      : rect.bottom + 4;
+    const left = Math.min(
+      Math.max(8, rect.right - MENU_WIDTH),
+      window.innerWidth - MENU_WIDTH - 8,
+    );
+    setMenuPos({ top, left });
+    setOpenMenuId((prev) => (prev === docKey ? null : docKey));
+  };
+
+  const activeMenuDoc = useMemo(() => {
+    if (!openMenuId) return null;
+    return (
+      documents.find(
+        (doc) =>
+          (doc.requirementId || `${doc.id}-${doc.loanProductId}`) ===
+          openMenuId,
+      ) || null
+    );
+  }, [documents, openMenuId]);
+
+  const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
 
     const targetProductId = form.loanProductId || selectedProductId;
@@ -542,89 +630,190 @@ export default function AllDocuments() {
   );
 
   return (
-    <div className="text-gray-900 dark:text-gray-100">
-      {/* Header */}
-      <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-[#13538A] dark:text-indigo-400">
-            Document Management
-          </h1>
-          <p className="mt-1 text-sm text-gray-500 dark:text-slate-400">
-            Manage required documents for each loan program separately.
-          </p>
+    <div className="space-y-4 text-gray-900 dark:text-gray-100">
+      {/* Hero */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#13538A] via-[#1a6aad] to-[#5D28A8] px-5 py-5 text-white sm:px-6 sm:py-6">
+        <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
+        <div className="pointer-events-none absolute -bottom-12 left-1/3 h-36 w-36 rounded-full bg-fuchsia-300/20 blur-2xl" />
+        <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-medium text-white/90 ring-1 ring-white/20">
+              <ShieldCheck className="h-3.5 w-3.5" />
+              Loan requirements
+            </div>
+            <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+              Document Management
+            </h1>
+            <p className="mt-1 max-w-xl text-sm text-white/80">
+              Configure required documents for each loan program across admin,
+              lender, and broker sources.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 self-start">
+            <button
+              type="button"
+              onClick={() =>
+                fetchDocuments(currentPage, debouncedSearch, selectedProductId)
+              }
+              disabled={loadingList}
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-[#13538A] transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <RefreshCw
+                className={`h-4 w-4 ${loadingList ? "animate-spin" : ""}`}
+              />
+              {loadingList ? "Refreshing..." : "Refresh"}
+            </button>
+            <button
+              type="button"
+              onClick={openCreateForm}
+              disabled={loadingProducts || products.length === 0}
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-white/15 px-4 py-2.5 text-sm font-semibold text-white ring-1 ring-white/25 transition hover:bg-white/25 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <Plus className="h-4 w-4" />
+              Add document
+            </button>
+          </div>
         </div>
-
-        <button
-          type="button"
-          onClick={openCreateForm}
-          disabled={loadingProducts || products.length === 0}
-          className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#13538A] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#1b72be] disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-blue-600"
-        >
-          <Plus className="h-4 w-4" />
-          Add Document
-        </button>
       </div>
 
-      {/* Filters / table toolbar */}
-      <div className="mb-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <div className="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
-          <div className="grid flex-1 grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,0.9fr)_auto]">
-            <div>
-              <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Loan Program
-              </label>
-              <select
-                value={selectedProductId}
-                onChange={(event) => setSelectedProductId(event.target.value)}
-                disabled={loadingProducts}
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#13538A] focus:ring-2 focus:ring-[#13538A]/10 dark:border-slate-700 dark:bg-slate-800"
+      {/* KPI cards */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {[
+          {
+            label: "Total documents",
+            value: pagination.total,
+            icon: Layers3,
+            iconWrap:
+              "bg-sky-50 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300",
+          },
+          {
+            label: "Active on page",
+            value: activeOnPage,
+            icon: CheckCircle2,
+            iconWrap:
+              "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300",
+          },
+          {
+            label: "Required on page",
+            value: requiredOnPage,
+            icon: ShieldCheck,
+            iconWrap:
+              "bg-violet-50 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300",
+          },
+          {
+            label: "Inactive on page",
+            value: inactiveOnPage,
+            icon: Ban,
+            iconWrap:
+              "bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300",
+          },
+        ].map((stat) => {
+          const Icon = stat.icon;
+          return (
+            <div
+              key={stat.label}
+              className="flex items-center gap-3 rounded-xl border border-gray-100 bg-white px-4 py-3.5 dark:border-slate-700 dark:bg-slate-900"
+            >
+              <div
+                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${stat.iconWrap}`}
               >
-                <option value="">All loan programs</option>
-                {products.map((product) => (
-                  <option key={product.id} value={product.id}>
-                    {product.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Search
-              </label>
-              <div className="relative">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="search"
-                  value={searchInput}
-                  onChange={(event) => setSearchInput(event.target.value)}
-                  placeholder="Search by name..."
-                  className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-sm outline-none focus:border-[#13538A] focus:ring-2 focus:ring-[#13538A]/10 dark:border-slate-700 dark:bg-slate-800"
-                />
+                <Icon className="h-5 w-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-medium text-gray-500 dark:text-slate-400">
+                  {stat.label}
+                </p>
+                <p className="text-xl font-semibold tabular-nums text-gray-900 dark:text-white">
+                  {loadingList ? "-" : stat.value}
+                </p>
               </div>
             </div>
+          );
+        })}
+      </div>
 
-            <div>
-              <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Created By
-              </label>
-              <select
-                value={sourceFilter}
-                onChange={(event) =>
-                  setSourceFilter(event.target.value as SourceFilter)
-                }
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#13538A] dark:border-slate-700 dark:bg-slate-800"
-              >
-                <option value="admin">Admin documents</option>
-                <option value="lender">Lender documents</option>
-                <option value="broker">Broker documents</option>
-                <option value="all">All sources</option>
-              </select>
+      {/* Table card + filters */}
+      <div className="overflow-hidden rounded-xl border border-gray-100 bg-white dark:border-slate-700 dark:bg-slate-900">
+        <div className="space-y-3 border-b border-gray-100 p-4 dark:border-slate-800 sm:p-5">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+            <div className="min-w-0">
+              <h2 className="text-base font-semibold text-gray-900 dark:text-white">
+                {selectedProduct
+                  ? `Documents - ${selectedProduct.name}`
+                  : "Documents - All loan programs"}
+              </h2>
+              <p className="mt-0.5 text-sm text-gray-500 dark:text-slate-400">
+                {pagination.total} document{pagination.total === 1 ? "" : "s"}
+                {debouncedSearch ? " matching search" : " in catalog"}
+              </p>
             </div>
 
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-              <div className="min-w-[140px] flex-1">
-                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_auto_auto_auto] xl:items-end">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-slate-400">
+                  Loan program
+                </label>
+                <select
+                  value={selectedProductId}
+                  onChange={(event) => setSelectedProductId(event.target.value)}
+                  disabled={loadingProducts}
+                  className="h-10 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm text-gray-700 outline-none transition focus:border-[#13538A] focus:ring-2 focus:ring-[#13538A]/15 disabled:opacity-60 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+                >
+                  <option value="">All loan programs</option>
+                  {products.map((product) => (
+                    <option key={product.id} value={product.id}>
+                      {product.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-slate-400">
+                  Search
+                </label>
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="text"
+                    value={searchInput}
+                    onChange={(event) => setSearchInput(event.target.value)}
+                    placeholder="Search by name..."
+                    className="h-10 w-full rounded-xl border border-gray-200 bg-white py-2 pl-9 pr-9 text-sm text-gray-900 outline-none transition focus:border-[#13538A] focus:ring-2 focus:ring-[#13538A]/15 dark:border-slate-600 dark:bg-slate-800 dark:text-gray-100"
+                  />
+                  {searchInput ? (
+                    <button
+                      type="button"
+                      onClick={() => setSearchInput("")}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-0.5 text-gray-400 hover:text-gray-600 dark:hover:text-slate-200"
+                      aria-label="Clear search"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-slate-400">
+                  Source
+                </label>
+                <select
+                  value={sourceFilter}
+                  onChange={(event) =>
+                    setSourceFilter(event.target.value as SourceFilter)
+                  }
+                  className="h-10 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm text-gray-700 outline-none transition focus:border-[#13538A] focus:ring-2 focus:ring-[#13538A]/15 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+                >
+                  <option value="admin">Admin documents</option>
+                  <option value="lender">Lender documents</option>
+                  <option value="broker">Broker documents</option>
+                  <option value="all">All sources</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-slate-400">
                   Status
                 </label>
                 <select
@@ -632,7 +821,7 @@ export default function AllDocuments() {
                   onChange={(event) =>
                     setStatusFilter(event.target.value as StatusFilter)
                   }
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#13538A] dark:border-slate-700 dark:bg-slate-800"
+                  className="h-10 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm text-gray-700 outline-none transition focus:border-[#13538A] focus:ring-2 focus:ring-[#13538A]/15 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
                 >
                   <option value="all">All status</option>
                   <option value="active">Active only</option>
@@ -640,90 +829,41 @@ export default function AllDocuments() {
                 </select>
               </div>
 
-              <button
-                type="button"
-                onClick={() =>
-                  fetchDocuments(currentPage, debouncedSearch, selectedProductId)
-                }
-                disabled={loadingList}
-                className="inline-flex h-[42px] items-center justify-center gap-2 rounded-xl border border-slate-200 px-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-60 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
-              >
-                <RefreshCw
-                  className={`h-4 w-4 ${loadingList ? "animate-spin" : ""}`}
-                />
-                Refresh
-              </button>
+              <label className="flex h-10 items-center gap-2 text-xs text-gray-500 dark:text-slate-400">
+                Per page
+                <select
+                  value={pageSize}
+                  onChange={(event) => {
+                    setPageSize(Number(event.target.value));
+                    setCurrentPage(1);
+                  }}
+                  className="h-10 rounded-xl border border-gray-200 bg-white px-2.5 text-sm font-medium text-gray-700 outline-none transition focus:border-[#13538A] focus:ring-2 focus:ring-[#13538A]/15 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+                >
+                  {PAGE_SIZE_OPTIONS.map((size) => (
+                    <option key={size} value={size}>
+                      {size}
+                    </option>
+                  ))}
+                </select>
+              </label>
             </div>
           </div>
         </div>
 
-        <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3 dark:border-slate-800">
-          {selectedProduct ? (
-            <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
-              {selectedProduct.code}
-            </span>
-          ) : (
-            <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
-              All programs
-            </span>
-          )}
-          <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
-            {sourceFilter === "admin"
-              ? "Admin only"
-              : sourceFilter === "lender"
-                ? "Lender only"
-                : sourceFilter === "broker"
-                  ? "Broker only"
-                  : "All sources"}
-          </span>
-          <span className="inline-flex items-center rounded-full border border-[#13538A]/15 bg-[#13538A]/5 px-3 py-1 text-xs font-medium text-[#13538A] dark:border-indigo-500/20 dark:bg-indigo-500/10 dark:text-indigo-300">
-            {pagination.total} total
-          </span>
-          <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300">
-            {activeOnPage} active on page
-          </span>
-        </div>
-      </div>
-
-      {/* Documents table only */}
-      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-5 py-4 dark:border-slate-800">
-          <div>
-            <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
-              {selectedProduct
-                ? `Documents · ${selectedProduct.name}`
-                : "Documents · All loan programs"}
-            </h2>
-            <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-              {selectedProduct
-                ? "List of documents configured for the selected loan program"
-                : "Documents configured across all loan programs"}
-              {" · "}
-              {sourceFilter === "admin"
-                ? "Showing admin-created documents"
-                : sourceFilter === "lender"
-                  ? "Showing lender-created documents"
-                  : sourceFilter === "broker"
-                    ? "Showing broker-created documents"
-                    : "Showing admin, lender, and broker documents"}
-            </p>
-          </div>
-        </div>
-
-        <div className="overflow-x-auto px-5">
+        <div className="overflow-x-auto px-4 sm:px-5">
           <table className="min-w-full text-sm">
             <thead>
-              <tr className="border-b border-slate-100 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-400 dark:border-slate-800">
+              <tr className="border-b border-gray-100 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:border-slate-700 dark:text-slate-400">
                 {!selectedProductId ? (
-                  <th className="py-3 pr-4">Loan Program</th>
+                  <th className="py-2.5 pr-4">Loan program</th>
                 ) : null}
-                <th className="py-3 pr-4">Document</th>
-                <th className="py-3 pr-4">Created By</th>
-                <th className="py-3 pr-4">Description</th>
-                <th className="py-3 pr-4">Required</th>
-                <th className="py-3 pr-4">Status</th>
-                <th className="py-3 pr-4">Created</th>
-                <th className="py-3 text-right">Actions</th>
+                <th className="py-2.5 pr-4">Document</th>
+                <th className="py-2.5 pr-4">Created by</th>
+                <th className="py-2.5 pr-4">Description</th>
+                <th className="py-2.5 pr-4">Required</th>
+                <th className="py-2.5 pr-4">Status</th>
+                <th className="py-2.5 pr-4">Created</th>
+                <th className="w-[72px] py-2.5 pr-0 text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -733,8 +873,8 @@ export default function AllDocuments() {
                     colSpan={selectedProductId ? 7 : 8}
                     className="py-14 text-center"
                   >
-                    <Loader2 className="mx-auto h-6 w-6 animate-spin text-[#13538A]" />
-                    <p className="mt-3 text-sm text-slate-500">
+                    <Loader2 className="mx-auto h-6 w-6 animate-spin text-[#13538A] dark:text-indigo-400" />
+                    <p className="mt-3 text-sm text-gray-500 dark:text-slate-400">
                       Loading documents...
                     </p>
                   </td>
@@ -745,20 +885,20 @@ export default function AllDocuments() {
                     colSpan={selectedProductId ? 7 : 8}
                     className="py-16 text-center"
                   >
-                    <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 dark:bg-slate-800">
-                      <FileText className="h-6 w-6 text-slate-400" />
+                    <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-gray-50 dark:bg-slate-800">
+                      <FileText className="h-6 w-6 text-gray-400 dark:text-slate-500" />
                     </div>
-                    <p className="mt-4 text-sm font-semibold text-slate-700 dark:text-slate-200">
+                    <p className="mt-4 text-sm font-semibold text-gray-800 dark:text-slate-200">
                       {selectedProductId
                         ? "No documents for this product"
                         : "No documents configured"}
                     </p>
-                    <p className="mt-1 text-xs text-slate-500">
+                    <p className="mt-1 text-xs text-gray-500 dark:text-slate-400">
                       {debouncedSearch ||
                       statusFilter !== "all" ||
                       sourceFilter !== "admin"
-                        ? "Try adjusting your search or filter."
-                        : "Use Add Document to create the first one."}
+                        ? "Try adjusting your search or filters."
+                        : "Use Add document to create the first one."}
                     </p>
                     {!debouncedSearch &&
                     statusFilter === "all" &&
@@ -766,156 +906,139 @@ export default function AllDocuments() {
                       <button
                         type="button"
                         onClick={openCreateForm}
-                        className="mt-4 inline-flex items-center gap-2 rounded-xl bg-[#13538A] px-4 py-2 text-sm font-semibold text-white hover:bg-[#1b72be]"
+                        disabled={loadingProducts || products.length === 0}
+                        className="mt-4 inline-flex items-center gap-2 rounded-xl bg-[#13538A] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#1b72be] disabled:cursor-not-allowed disabled:opacity-60 dark:hover:bg-indigo-600"
                       >
                         <Plus className="h-4 w-4" />
-                        Add Document
+                        Add document
                       </button>
                     ) : null}
                   </td>
                 </tr>
               ) : (
                 documents.map((doc) => {
+                  const docKey =
+                    doc.requirementId || `${doc.id}-${doc.loanProductId}`;
                   const isBrokerDoc = doc.source === "BROKER";
                   const isLenderDoc = doc.source === "LENDER";
                   const isExternalDoc = isBrokerDoc || isLenderDoc;
+                  const productLabel =
+                    doc.loanProductName ||
+                    products.find(
+                      (product) =>
+                        product.id === doc.loanProductId ||
+                        product.code === doc.loanProductCode,
+                    )?.name ||
+                    "-";
 
                   return (
-                  <tr
-                    key={doc.requirementId || `${doc.id}-${doc.loanProductId}`}
-                    className="border-b border-slate-50 last:border-0 hover:bg-slate-50/70 dark:border-slate-800/80 dark:hover:bg-slate-800/40"
-                  >
-                    {!selectedProductId ? (
-                      <td className="max-w-[220px] py-3.5 pr-4">
-                        <p
-                          className="truncate font-medium text-slate-800 dark:text-slate-100"
-                          title={
-                            doc.loanProductName ||
-                            products.find(
-                              (product) =>
-                                product.id === doc.loanProductId ||
-                                product.code === doc.loanProductCode,
-                            )?.name ||
-                            undefined
-                          }
-                        >
-                          {doc.loanProductName ||
-                            products.find(
-                              (product) =>
-                                product.id === doc.loanProductId ||
-                                product.code === doc.loanProductCode,
-                            )?.name ||
-                            "—"}
-                        </p>
-                        {doc.loanProductCode ? (
-                          <p className="mt-0.5 text-[11px] text-slate-400">
-                            {doc.loanProductCode}
+                    <tr
+                      key={docKey}
+                      className="border-b border-gray-50 last:border-0 hover:bg-gray-50/80 dark:border-slate-800/80 dark:hover:bg-slate-800/40"
+                    >
+                      {!selectedProductId ? (
+                        <td className="max-w-[220px] py-3 pr-4">
+                          <p
+                            className="truncate font-medium text-gray-800 dark:text-slate-100"
+                            title={productLabel !== "-" ? productLabel : undefined}
+                          >
+                            {productLabel}
                           </p>
-                        ) : null}
-                      </td>
-                    ) : null}
-                    <td className="py-3.5 pr-4">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#13538A]/10 text-[#13538A] dark:bg-indigo-500/10 dark:text-indigo-300">
-                          <FileText className="h-4 w-4" />
+                          {doc.loanProductCode ? (
+                            <p className="mt-0.5 text-[11px] text-gray-400 dark:text-slate-500">
+                              {doc.loanProductCode}
+                            </p>
+                          ) : null}
+                        </td>
+                      ) : null}
+                      <td className="py-3 pr-4">
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#13538A]/10 text-[#13538A] dark:bg-indigo-500/10 dark:text-indigo-300">
+                            <FileText className="h-4 w-4" />
+                          </div>
+                          <p className="font-medium text-gray-900 dark:text-white">
+                            {doc.name}
+                          </p>
                         </div>
-                        <p className="font-medium text-slate-900 dark:text-slate-100">
-                          {doc.name}
+                      </td>
+                      <td className="py-3 pr-4">
+                        <div className="space-y-1">
+                          <span
+                            className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold ${
+                              isBrokerDoc
+                                ? "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300"
+                                : isLenderDoc
+                                  ? "border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-500/30 dark:bg-violet-500/10 dark:text-violet-300"
+                                  : "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-500/30 dark:bg-sky-500/10 dark:text-sky-300"
+                            }`}
+                          >
+                            {isBrokerDoc
+                              ? "Broker"
+                              : isLenderDoc
+                                ? "Lender"
+                                : "Admin"}
+                          </span>
+                          {isExternalDoc && doc.createdByOrgName ? (
+                            <p
+                              className="max-w-[160px] truncate text-[11px] text-gray-400 dark:text-slate-500"
+                              title={doc.createdByOrgName}
+                            >
+                              {doc.createdByOrgName}
+                            </p>
+                          ) : null}
+                        </div>
+                      </td>
+                      <td className="max-w-[280px] py-3 pr-4 text-gray-600 dark:text-slate-300">
+                        <p className="truncate" title={doc.description || "-"}>
+                          {doc.description || "-"}
                         </p>
-                      </div>
-                    </td>
-                    <td className="py-3.5 pr-4">
-                      <div className="space-y-1">
+                      </td>
+                      <td className="py-3 pr-4">
                         <span
                           className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold ${
-                            isBrokerDoc
-                              ? "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300"
-                              : isLenderDoc
-                                ? "border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-500/30 dark:bg-violet-500/10 dark:text-violet-300"
-                                : "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-500/30 dark:bg-sky-500/10 dark:text-sky-300"
+                            doc.isRequired
+                              ? "border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-300"
+                              : "border-gray-200 bg-gray-50 text-gray-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
                           }`}
                         >
-                          {isBrokerDoc
-                            ? "Broker"
-                            : isLenderDoc
-                              ? "Lender"
-                              : "Admin"}
+                          {doc.isRequired ? "Required" : "Optional"}
                         </span>
-                        {isExternalDoc && doc.createdByOrgName ? (
-                          <p
-                            className="max-w-[160px] truncate text-[11px] text-slate-400"
-                            title={doc.createdByOrgName}
-                          >
-                            {doc.createdByOrgName}
-                          </p>
-                        ) : null}
-                      </div>
-                    </td>
-                    <td className="max-w-[280px] py-3.5 pr-4 text-slate-600 dark:text-slate-300">
-                      <p className="truncate" title={doc.description || "—"}>
-                        {doc.description || "—"}
-                      </p>
-                    </td>
-                    <td className="py-3.5 pr-4">
-                      <span
-                        className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold ${
-                          doc.isRequired
-                            ? "border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-300"
-                            : "border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
-                        }`}
-                      >
-                        {doc.isRequired ? "Required" : "Optional"}
-                      </span>
-                    </td>
-                    <td className="py-3.5 pr-4">
-                      <button
-                        type="button"
-                        onClick={() => handleToggleStatus(doc)}
-                        disabled={togglingId === doc.id}
-                        className={`inline-flex items-center rounded-full border px-3 py-1 text-[11px] font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${statusClass(doc.isActive)}`}
-                      >
-                        {togglingId === doc.id
-                          ? "Updating..."
-                          : doc.isActive
-                            ? "Active"
-                            : "Inactive"}
-                      </button>
-                    </td>
-                    <td className="py-3.5 pr-4 text-slate-500 dark:text-slate-400">
-                      {formatDate(doc.createdAt)}
-                    </td>
-                    <td className="py-3.5 text-right">
-                      <div className="inline-flex items-center gap-2">
+                      </td>
+                      <td className="py-3 pr-4">
                         <button
                           type="button"
-                          onClick={() => openEditForm(doc)}
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-                          title={
-                            isBrokerDoc
-                              ? "Edit broker document"
-                              : isLenderDoc
-                                ? "Edit lender document"
-                                : "Edit"
-                          }
+                          onClick={() => handleToggleStatus(doc)}
+                          disabled={togglingId === doc.id}
+                          className={`inline-flex items-center rounded-full border px-3 py-1 text-[11px] font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${statusClass(doc.isActive)}`}
                         >
-                          <MdModeEdit />
+                          {togglingId === doc.id
+                            ? "Updating..."
+                            : doc.isActive
+                              ? "Active"
+                              : "Inactive"}
                         </button>
+                      </td>
+                      <td className="py-3 pr-4 whitespace-nowrap text-gray-500 dark:text-slate-400">
+                        {formatDate(doc.createdAt)}
+                      </td>
+                      <td className="py-3 pr-0 text-right whitespace-nowrap">
                         <button
                           type="button"
-                          onClick={() => handleDelete(doc)}
+                          data-doc-menu-trigger="true"
                           disabled={deletingId === (doc.requirementId || doc.id)}
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-red-100 text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-red-500/20 dark:text-red-400 dark:hover:bg-red-500/10"
-                          title="Remove from product"
+                          title="More actions"
+                          aria-label="More actions"
+                          aria-expanded={openMenuId === docKey}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            openRowMenu(docKey, event.currentTarget);
+                          }}
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 transition hover:bg-gray-100 disabled:opacity-50 dark:text-slate-300 dark:hover:bg-slate-800"
                         >
-                          {deletingId === (doc.requirementId || doc.id) ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <MdDelete />
-                          )}
+                          <MoreVertical className="h-4 w-4" />
                         </button>
-                      </div>
-                    </td>
-                  </tr>
+                      </td>
+                    </tr>
                   );
                 })
               )}
@@ -923,27 +1046,75 @@ export default function AllDocuments() {
           </table>
         </div>
 
+        {activeMenuDoc &&
+          createPortal(
+            <div
+              ref={menuRef}
+              style={{
+                position: "fixed",
+                top: menuPos.top,
+                left: menuPos.left,
+                width: MENU_WIDTH,
+              }}
+              className="z-[9999] overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-xl dark:border-slate-700 dark:bg-slate-900"
+              onMouseDown={(event) => event.stopPropagation()}
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  setOpenMenuId(null);
+                  openEditForm(activeMenuDoc);
+                }}
+                className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-gray-700 transition hover:bg-gray-50 dark:text-slate-200 dark:hover:bg-slate-800"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+                Edit
+              </button>
+              <button
+                type="button"
+                disabled={
+                  deletingId ===
+                  (activeMenuDoc.requirementId || activeMenuDoc.id)
+                }
+                onClick={() => {
+                  setOpenMenuId(null);
+                  handleDelete(activeMenuDoc);
+                }}
+                className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-red-600 transition hover:bg-red-50 disabled:opacity-60 dark:text-red-400 dark:hover:bg-red-950/40"
+              >
+                {deletingId ===
+                (activeMenuDoc.requirementId || activeMenuDoc.id) ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Trash2 className="h-3.5 w-3.5" />
+                )}
+                Remove
+              </button>
+            </div>,
+            document.body,
+          )}
+
         {pagination.total > 0 ? (
-          <div className="flex flex-col gap-3 border-t border-slate-100 px-5 py-4 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-sm text-slate-500 dark:text-slate-400">
+          <div className="flex flex-col gap-3 border-t border-gray-100 px-4 py-4 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+            <p className="text-sm text-gray-500 dark:text-slate-400">
               Showing{" "}
-              <span className="font-medium text-slate-800 dark:text-slate-100">
-                {showingFrom}–{showingTo}
+              <span className="font-medium text-gray-700 dark:text-slate-200">
+                {showingFrom}-{showingTo}
               </span>{" "}
               of{" "}
-              <span className="font-medium text-slate-800 dark:text-slate-100">
+              <span className="font-medium text-gray-700 dark:text-slate-200">
                 {pagination.total}
               </span>
             </p>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
                 onClick={() => setCurrentPage((page) => Math.max(page - 1, 1))}
                 disabled={!pagination.hasPreviousPage || loadingList}
-                className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium disabled:opacity-50 dark:border-slate-700"
+                className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
               >
-                Previous
+                Prev
               </button>
 
               {Array.from({ length: Math.min(pagination.totalPages, 5) }).map(
@@ -965,10 +1136,10 @@ export default function AllDocuments() {
                       type="button"
                       onClick={() => setCurrentPage(pageNumber)}
                       disabled={loadingList}
-                      className={`min-w-8 rounded-lg px-2.5 py-1.5 text-sm font-medium ${
+                      className={`min-w-8 rounded-lg px-2.5 py-1.5 text-sm font-medium transition disabled:opacity-50 ${
                         pageNumber === currentPage
                           ? "bg-[#13538A] text-white dark:bg-indigo-600"
-                          : "border border-slate-200 text-slate-700 dark:border-slate-700 dark:text-slate-200"
+                          : "border border-gray-200 text-gray-700 hover:bg-gray-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
                       }`}
                     >
                       {pageNumber}
@@ -985,7 +1156,7 @@ export default function AllDocuments() {
                   )
                 }
                 disabled={!pagination.hasNextPage || loadingList}
-                className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium disabled:opacity-50 dark:border-slate-700"
+                className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
               >
                 Next
               </button>
@@ -994,7 +1165,7 @@ export default function AllDocuments() {
         ) : null}
       </div>
 
-      {/* Create / Edit modal — separate from table */}
+      {/* Create / Edit modal */}
       {formOpen ? (
         <div className="fixed inset-0 z-[100000] flex items-center justify-center p-4">
           <button
@@ -1006,17 +1177,17 @@ export default function AllDocuments() {
             }}
           />
 
-          <div className="relative z-10 w-full max-w-lg rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900">
-            <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-5 py-4 dark:border-slate-800">
+          <div className="relative z-10 w-full max-w-lg rounded-2xl border border-gray-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+            <div className="flex items-start justify-between gap-3 border-b border-gray-100 px-5 py-4 dark:border-slate-800">
               <div>
-                <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                   {editingId ? "Edit Document" : "Add Document"}
                 </h3>
-                <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                <p className="mt-0.5 text-xs text-gray-500 dark:text-slate-400">
                   {editingId && editingSource === "BROKER"
-                    ? `Updating broker document${editingOrgName ? ` · ${editingOrgName}` : ""}`
+                    ? `Updating broker document${editingOrgName ? ` - ${editingOrgName}` : ""}`
                     : editingId && editingSource === "LENDER"
-                      ? `Updating lender document${editingOrgName ? ` · ${editingOrgName}` : ""}`
+                      ? `Updating lender document${editingOrgName ? ` - ${editingOrgName}` : ""}`
                       : formProduct
                         ? `${editingId ? "Update" : "Create"} document for ${formProduct.name}`
                         : "Choose a loan program and fill document details"}
@@ -1026,7 +1197,7 @@ export default function AllDocuments() {
                 type="button"
                 onClick={closeForm}
                 disabled={saving}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:hover:bg-slate-800"
+                className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 text-gray-500 transition hover:bg-gray-50 disabled:opacity-50 dark:border-slate-700 dark:hover:bg-slate-800"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -1034,7 +1205,7 @@ export default function AllDocuments() {
 
             <form onSubmit={handleSubmit} className="space-y-4 px-5 py-5">
               <div>
-                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-slate-400">
                   Loan Program
                 </label>
                 <select
@@ -1046,7 +1217,7 @@ export default function AllDocuments() {
                     }))
                   }
                   disabled={saving || !!editingId || products.length === 0}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-[#13538A] focus:ring-2 focus:ring-[#13538A]/10 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800"
+                  className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-[#13538A] focus:ring-2 focus:ring-[#13538A]/10 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800 dark:text-gray-100"
                 >
                   <option value="">Select loan program</option>
                   {products.map((product) => (
@@ -1056,13 +1227,13 @@ export default function AllDocuments() {
                   ))}
                 </select>
                 {editingId ? (
-                  <p className="mt-1 text-xs text-slate-500">
+                  <p className="mt-1 text-xs text-gray-500 dark:text-slate-400">
                     Product cannot be changed while editing.
                   </p>
                 ) : formProduct ? (
-                  <p className="mt-1 text-xs text-slate-500">
+                  <p className="mt-1 text-xs text-gray-500 dark:text-slate-400">
                     Code:{" "}
-                    <span className="font-medium text-slate-700 dark:text-slate-300">
+                    <span className="font-medium text-gray-700 dark:text-slate-300">
                       {formProduct.code}
                     </span>
                   </p>
@@ -1070,7 +1241,7 @@ export default function AllDocuments() {
               </div>
 
               <div>
-                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-slate-400">
                   Document Name
                 </label>
                 <input
@@ -1081,12 +1252,12 @@ export default function AllDocuments() {
                   }
                   placeholder="e.g. Bank Statements, Appraisal Report"
                   disabled={saving}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-[#13538A] focus:ring-2 focus:ring-[#13538A]/10 dark:border-slate-700 dark:bg-slate-800"
+                  className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-[#13538A] focus:ring-2 focus:ring-[#13538A]/10 dark:border-slate-700 dark:bg-slate-800 dark:text-gray-100"
                 />
               </div>
 
               <div>
-                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-slate-400">
                   Description
                 </label>
                 <textarea
@@ -1100,16 +1271,16 @@ export default function AllDocuments() {
                   }
                   placeholder="Optional guidance for admins and lenders"
                   disabled={saving}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-[#13538A] focus:ring-2 focus:ring-[#13538A]/10 dark:border-slate-700 dark:bg-slate-800"
+                  className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-[#13538A] focus:ring-2 focus:ring-[#13538A]/10 dark:border-slate-700 dark:bg-slate-800 dark:text-gray-100"
                 />
               </div>
 
-              <label className="flex items-center justify-between rounded-xl border border-slate-200 px-3 py-3 dark:border-slate-700">
+              <label className="flex items-center justify-between rounded-xl border border-gray-200 px-3 py-3 dark:border-slate-700">
                 <div>
-                  <p className="text-sm font-medium text-slate-800 dark:text-slate-100">
+                  <p className="text-sm font-medium text-gray-800 dark:text-slate-100">
                     Required Document
                   </p>
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-gray-500 dark:text-slate-400">
                     Mark if this document is required for the product
                   </p>
                 </div>
@@ -1132,14 +1303,14 @@ export default function AllDocuments() {
                   type="button"
                   onClick={closeForm}
                   disabled={saving}
-                  className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+                  className="rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:opacity-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={saving}
-                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#13538A] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#1b72be] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#13538A] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#1b72be] disabled:cursor-not-allowed disabled:opacity-60 dark:hover:bg-indigo-600"
                 >
                   {saving ? (
                     <>

@@ -329,7 +329,11 @@ layer(base);
 }
 
 .apexcharts-tooltip.apexcharts-theme-light {
-  @apply gap-1 !rounded-lg !border-gray-200 p-3 !shadow-theme-sm dark:!border-gray-800 dark:!bg-gray-900;
+  @apply gap-1 !rounded-lg !border-gray-200 !bg-white p-3 !shadow-theme-sm dark:!border-gray-700 dark:!bg-gray-900;
+}
+
+.apexcharts-tooltip.apexcharts-theme-dark {
+  @apply gap-1 !rounded-lg !border-gray-700 !bg-gray-900 p-3 !shadow-theme-sm;
 }
 
 .apexcharts-tooltip-marker {
@@ -351,6 +355,10 @@ layer(base);
 }
 .apexcharts-tooltip-text {
   @apply !text-theme-xs !text-gray-700 dark:!text-white/90;
+}
+.apexcharts-tooltip-text-y-label,
+.apexcharts-tooltip-text-y-value {
+  @apply !text-gray-800 dark:!text-white/90;
 }
 .apexcharts-tooltip-text-y-value {
   @apply !font-medium;
