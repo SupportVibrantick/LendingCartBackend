@@ -6,7 +6,12 @@ import { TiPlus } from "react-icons/ti";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import toast from "react-hot-toast";
 import EditLoanProductModal from "./EditLoanProductModal";
-import { buildLenderProductCriteriaPayload, mapApiProductToCriteriaForm } from "../../lib/loanProductCriteriaFields";
+import {
+  buildLenderProductCriteriaPayload,
+  mapApiProductToCriteriaForm,
+  productUsesAcceptedPropertyTypes,
+  productUsesBusinessTypes,
+} from "../../lib/loanProductCriteriaFields";
 import { resolveLenderOfferedProductCode } from "../../lib/lenderLoanProducts";
 import {
   buildLoanProductDetailFields,
@@ -14,6 +19,7 @@ import {
   formatLoanProductCode,
   formatLoanProductName,
   formatPercentValue,
+  resolveProductCode,
 } from "../../lib/loanProductListDisplay";
 import { canManageLoanProducts } from "../../lib/lenderPermissions";
 
@@ -872,7 +878,9 @@ export default function AlloanProducts() {
               {/* STATES */}
               <div className="col-span-2">
                 <p className="font-medium text-gray-700 dark:text-slate-300 mb-1">
-                  States Supported
+                  {productUsesAcceptedPropertyTypes(resolveProductCode(viewDetails))
+                    ? "States Available"
+                    : "States Supported"}
                 </p>
                 {viewDetails.statesSupported?.length ? (
                   <div className="flex flex-wrap gap-2">
@@ -894,6 +902,7 @@ export default function AlloanProducts() {
               </div>
 
               {/* BUSINESS TYPES */}
+              {productUsesBusinessTypes(resolveProductCode(viewDetails)) && (
               <div className="col-span-2">
                 <p className="font-medium text-gray-700 dark:text-slate-300 mb-1">
                   Business Types
@@ -924,11 +933,14 @@ export default function AlloanProducts() {
                   </div>
                 )}
               </div>
+              )}
 
               {/* PROPERTY TYPES */}
               <div className="col-span-2">
                 <p className="font-medium text-gray-700 dark:text-slate-300 mb-1">
-                  Property Types
+                  {productUsesAcceptedPropertyTypes(resolveProductCode(viewDetails))
+                    ? "Property Types Accepted"
+                    : "Property Types"}
                 </p>
                 {safeGroupedEntries(viewDetails.propertyTypes, "type")
                   .length ? (

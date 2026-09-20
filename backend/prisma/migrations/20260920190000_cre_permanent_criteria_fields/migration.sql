@@ -1,0 +1,24 @@
+-- AlterTable
+ALTER TABLE "lender_products" ADD COLUMN "amortizationMonths" INTEGER;
+ALTER TABLE "lender_products" ADD COLUMN "minOwnershipExperienceYears" INTEGER;
+ALTER TABLE "lender_products" ADD COLUMN "rateTermRefinanceAllowed" BOOLEAN DEFAULT false;
+ALTER TABLE "lender_products" ADD COLUMN "multifamily5PlusAllowed" BOOLEAN DEFAULT false;
+ALTER TABLE "lender_products" ADD COLUMN "apartmentAllowed" BOOLEAN DEFAULT false;
+ALTER TABLE "lender_products" ADD COLUMN "officeAllowed" BOOLEAN DEFAULT false;
+ALTER TABLE "lender_products" ADD COLUMN "retailAllowed" BOOLEAN DEFAULT false;
+ALTER TABLE "lender_products" ADD COLUMN "industrialAllowed" BOOLEAN DEFAULT false;
+ALTER TABLE "lender_products" ADD COLUMN "mixedUseAllowed" BOOLEAN DEFAULT false;
+ALTER TABLE "lender_products" ADD COLUMN "selfStorageAllowed" BOOLEAN DEFAULT false;
+ALTER TABLE "lender_products" ADD COLUMN "hotelHospitalityAllowed" BOOLEAN DEFAULT false;
+ALTER TABLE "lender_products" ADD COLUMN "medicalHealthcareAllowed" BOOLEAN DEFAULT false;
+ALTER TABLE "lender_products" ADD COLUMN "studentHousingAllowed" BOOLEAN DEFAULT false;
+ALTER TABLE "lender_products" ADD COLUMN "mobileHomeParkAllowed" BOOLEAN DEFAULT false;
+ALTER TABLE "lender_products" ADD COLUMN "seniorHousingAllowed" BOOLEAN DEFAULT false;
+ALTER TABLE "lender_products" ADD COLUMN "minOccupancyPercent" DECIMAL(5,2);
+ALTER TABLE "lender_products" ADD COLUMN "minAnnualNoiAmount" DECIMAL(20,2);
+ALTER TABLE "lender_products" ADD COLUMN "maxUnits" INTEGER;
+ALTER TABLE "lender_products" ADD COLUMN "stabilizedPropertyRequired" BOOLEAN DEFAULT false;
+ALTER TABLE "lender_products" ADD COLUMN "leaseUpPropertiesAccepted" BOOLEAN DEFAULT false;
+ALTER TABLE "lender_products" ADD COLUMN "valueAddPropertiesAccepted" BOOLEAN DEFAULT false;
+ALTER TABLE "lender_products" ADD COLUMN "newlyRenovatedPropertiesAllowed" BOOLEAN DEFAULT false;
+ALTER TABLE "lender_products" ADD COLUMN "propertyConditionAssessmentRequired" BOOLEAN DEFAULT false;

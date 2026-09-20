@@ -22,6 +22,7 @@
     "db:reset:push": "prisma db push --force-reset --accept-data-loss",
     "prisma:studio": "prisma studio",
     "db:seed": "node prisma/seed.js",
+    "db:sync-loan-products": "node prisma/syncLoanProducts.js",
     "test": "node tests/run-ghl-tests.js",
     "test:ghl": "node tests/run-ghl-tests.js",
     "test:public-link": "node tests/run-public-application-link-tests.js",

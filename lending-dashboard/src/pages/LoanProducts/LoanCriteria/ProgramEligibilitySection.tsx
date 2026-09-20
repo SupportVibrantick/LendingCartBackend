@@ -484,11 +484,16 @@ function EligibilityPicker({
 type ProgramEligibilitySectionProps = {
   propertyTypes: Record<string, string[]>;
   setPropertyTypes: (next: Record<string, string[]>) => void;
+  propertyTypesTitle?: string;
   businessTypes: Record<string, string[]>;
   setBusinessTypes: (next: Record<string, string[]>) => void;
+  businessTypesTitle?: string;
   equipmentTypes?: string[];
   setEquipmentTypes?: (next: string[]) => void;
+  equipmentTypesTitle?: string;
   showEquipmentTypes?: boolean;
+  showBusinessTypes?: boolean;
+  showPropertyTypes?: boolean;
 };
 
 function EquipmentTypesPicker({
@@ -524,7 +529,7 @@ function EquipmentTypesPicker({
             <Settings size={15} />
           </span>
           <span className="text-sm font-semibold text-slate-800">
-            Equipment Types
+            Equipment Types Accepted
           </span>
           {selected.length > 0 && (
             <span
@@ -591,11 +596,15 @@ function EquipmentTypesPicker({
 export default function ProgramEligibilitySection({
   propertyTypes,
   setPropertyTypes,
+  propertyTypesTitle = "Eligible Property Types",
   businessTypes,
   setBusinessTypes,
+  businessTypesTitle = "Eligible Business Types",
   equipmentTypes = [],
   setEquipmentTypes,
   showEquipmentTypes = false,
+  showBusinessTypes = true,
+  showPropertyTypes = true,
 }: ProgramEligibilitySectionProps) {
   return (
     <div className="mt-6">
@@ -604,25 +613,29 @@ export default function ProgramEligibilitySection({
       </h3>
 
       <div className="space-y-2">
-        <EligibilityPicker
-          title="Eligible Property Types"
-          description="Select the eligible property types eligible for this specific loan program. These are independent per program."
-          icon={<FileText size={15} />}
-          options={PROPERTY_TYPE_OPTIONS}
-          value={propertyTypes || {}}
-          setValue={setPropertyTypes}
-          defaultOpen
-          accent="emerald"
-        />
-        <EligibilityPicker
-          title="Eligible Business Types"
-          description="Select the eligible business types eligible for this specific loan program. These are independent per program."
-          icon={<Briefcase size={15} />}
-          options={BUSINESS_TYPE_OPTIONS}
-          value={businessTypes || {}}
-          setValue={setBusinessTypes}
-          accent="violet"
-        />
+        {showPropertyTypes && (
+          <EligibilityPicker
+            title={propertyTypesTitle}
+            description="Select the eligible property types eligible for this specific loan program. These are independent per program."
+            icon={<FileText size={15} />}
+            options={PROPERTY_TYPE_OPTIONS}
+            value={propertyTypes || {}}
+            setValue={setPropertyTypes}
+            defaultOpen
+            accent="emerald"
+          />
+        )}
+        {showBusinessTypes && (
+          <EligibilityPicker
+            title={businessTypesTitle}
+            description="Select the eligible business types eligible for this specific loan program. These are independent per program."
+            icon={<Briefcase size={15} />}
+            options={BUSINESS_TYPE_OPTIONS}
+            value={businessTypes || {}}
+            setValue={setBusinessTypes}
+            accent="violet"
+          />
+        )}
         {showEquipmentTypes && typeof setEquipmentTypes === "function" && (
           <EquipmentTypesPicker
             value={equipmentTypes}

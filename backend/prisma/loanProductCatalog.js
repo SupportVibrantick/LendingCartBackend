@@ -76,6 +76,10 @@ const LOAN_PRODUCTS = [
     name: "USDA B&I",
   },
   {
+    code: "C_PACE",
+    name: "C-Pace Loans",
+  },
+  {
     code: "ACCOUNTS_RECEIVABLE",
     name: "Accounts Receivable Finance (Asset Based Lending)",
   },
