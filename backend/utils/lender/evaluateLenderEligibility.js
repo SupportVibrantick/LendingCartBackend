@@ -607,6 +607,15 @@ function evaluateLenderProductEligibility(lenderProduct, applicant, lenderProfil
     reasons.push(`Minimum units required (${lenderProduct.minUnits})`);
   }
 
+  if (
+    rules.checkMaxUnits &&
+    applicant.numberOfUnits !== null &&
+    hasConfiguredNumber(lenderProduct.maxUnits) &&
+    applicant.numberOfUnits > Number(lenderProduct.maxUnits)
+  ) {
+    reasons.push(`Exceeds maximum units (${lenderProduct.maxUnits})`);
+  }
+
   if (rules.checkPortfolioProperties && applicant.portfolioPropertyCount !== null) {
     if (
       hasConfiguredNumber(lenderProduct.minPropertiesInPortfolio) &&

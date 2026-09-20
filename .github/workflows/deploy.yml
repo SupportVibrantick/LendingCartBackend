@@ -52,6 +52,9 @@ jobs:
             echo "💳 Syncing subscription packages..."
             node prisma/syncSubscriptionPackages.js
 
+            echo "📋 Syncing loan products from catalog..."
+            node prisma/syncLoanProducts.js
+
             #################################################
             # Admin Dashboard
             #################################################
@@ -139,6 +142,12 @@ jobs:
               const codes = LoanProductCode || $Enums.LoanProductCode;
               if (!codes) {
                 console.error("LoanProductCode missing from @prisma/client");
+                process.exit(1);
+              }
+              const required = ["C_PACE", "USDA_BI", "SBA_EXPRESS"];
+              const missing = required.filter((code) => !codes[code]);
+              if (missing.length) {
+                console.error("LoanProductCode missing values:", missing.join(", "));
                 process.exit(1);
               }
               console.log("LoanProductCode OK:", Object.keys(codes).length, "values");

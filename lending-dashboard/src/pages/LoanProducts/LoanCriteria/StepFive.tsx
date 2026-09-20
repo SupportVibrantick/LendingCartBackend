@@ -6,6 +6,18 @@ import {
   getCriteriaFieldInputSuffix,
   isSba7aBusinessAcquisitionProduct,
   isSbaExpressProduct,
+  isEquipmentFinanceProduct,
+  isArFactoringProduct,
+  isApSupplyChainProduct,
+  isPurchaseOrderFinanceProduct,
+  isSba7aWorkingCapitalProduct,
+  isSba7aRealEstateProduct,
+  isSba7aEquipmentPurchaseProduct,
+  isSba504Product,
+  isUsdaBiProduct,
+  isCPaceProduct,
+  productUsesAcceptedPropertyTypes,
+  productUsesBusinessTypes,
   productUsesEquipmentTypes,
   type CriteriaField,
 } from "../../../lib/loanProductCriteriaFields";
@@ -486,6 +498,22 @@ const StepFive = ({
     }));
   };
 
+  const toggleCPaceJurisdiction = (productId: string, state: string) => {
+    const current = value?.[productId]?.cPaceJurisdictions || [];
+    const updated = current.includes(state)
+      ? current.filter((s: string) => s !== state)
+      : [...current, state];
+    handleChange(productId, "cPaceJurisdictions", updated);
+  };
+
+  const selectAllCPaceJurisdictions = (productId: string) => {
+    handleChange(productId, "cPaceJurisdictions", [...US_STATES]);
+  };
+
+  const clearCPaceJurisdictions = (productId: string) => {
+    handleChange(productId, "cPaceJurisdictions", []);
+  };
+
   const parseNumericValue = (input: unknown) =>
     Number(stripNumberFormatting(String(input ?? "")));
 
@@ -559,6 +587,18 @@ const StepFive = ({
       }
     }
 
+    if (key === "minPropertyValue" && current.maxPropertyValue) {
+      if (numVal > Number(current.maxPropertyValue)) {
+        return "Minimum property value cannot exceed maximum property value";
+      }
+    }
+
+    if (key === "maxPropertyValue" && current.minPropertyValue) {
+      if (numVal < Number(current.minPropertyValue)) {
+        return "Maximum property value cannot be less than minimum property value";
+      }
+    }
+
     // ✅ INTEREST RATE
     if (key === "minRate" && current.maxRate) {
       if (numVal > Number(current.maxRate)) {
@@ -590,6 +630,8 @@ const StepFive = ({
       key === "maxLtv" ||
       key === "maxArv" ||
       key === "maxLtc" ||
+      key === "maxLtvCashOut" ||
+      key === "rehabFundsMaxPercent" ||
       key === "mezzLtvMin" ||
       key === "mezzLtvMax"
     ) {
@@ -603,11 +645,19 @@ const StepFive = ({
         }
 
         if (key === "maxArv") {
-          return "ARV cannot exceed 100%";
+          return "LTARV cannot exceed 100%";
         }
 
         if (key === "maxLtc") {
           return "LTC cannot exceed 100%";
+        }
+
+        if (key === "maxLtvCashOut") {
+          return "Cash-out LTV cannot exceed 100%";
+        }
+
+        if (key === "rehabFundsMaxPercent") {
+          return "Rehab funds cannot exceed 100%";
         }
 
         if (key === "mezzLtvMin" || key === "mezzLtvMax") {
@@ -757,7 +807,11 @@ const StepFive = ({
             <label className="text-xs text-gray-700 font-medium">
               {field.label}
             </label>
-            <button
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-medium text-gray-500">
+                {currentValue ? "Yes" : "No"}
+              </span>
+              <button
               type="button"
               onClick={() =>
                 handleChange(
@@ -776,12 +830,54 @@ const StepFive = ({
                 }`}
               />
             </button>
+            </div>
           </div>
           {field.helperText && (
             <p className="text-[11px] text-gray-500 leading-snug">
               {field.helperText}
             </p>
           )}
+        </div>
+      );
+    }
+
+    if (fieldType === "choice") {
+      const options = field.options || [];
+      return (
+        <div
+          key={field.key}
+          className="col-span-2 flex flex-col gap-2 rounded-lg border border-gray-200 bg-white px-3 py-3"
+        >
+          <label className="text-xs text-gray-700 font-medium">
+            {field.label}
+            {isRequired && <span className="text-red-500"> *</span>}
+          </label>
+          <div className="flex flex-wrap gap-4">
+            {options.map((option) => {
+              const selected = currentValue === option.value;
+              return (
+                <label
+                  key={option.value}
+                  className="inline-flex items-center gap-2 text-sm text-gray-700 cursor-pointer"
+                >
+                  <input
+                    type="radio"
+                    name={`${getProductKey(product)}-${field.key}`}
+                    checked={selected}
+                    onChange={() =>
+                      handleChange(
+                        getProductKey(product),
+                        field.key,
+                        option.value,
+                      )
+                    }
+                    className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                  />
+                  {option.label}
+                </label>
+              );
+            })}
+          </div>
         </div>
       );
     }
@@ -873,6 +969,11 @@ const StepFive = ({
         {errors?.[getProductKey(product)]?.[field.key] && (
           <p className="text-xs text-red-500 mt-1">
             {errors[getProductKey(product)][field.key]}
+          </p>
+        )}
+        {field.helperText && (
+          <p className="text-[11px] text-gray-500 leading-snug mt-1">
+            {field.helperText}
           </p>
         )}
       </div>
@@ -1049,10 +1150,21 @@ const StepFive = ({
                   {/* Header */}
                   <div className="flex justify-between items-center mb-2">
                     <h3 className="text-sm font-semibold">
-                      {isSba7aBusinessAcquisitionProduct(product.code) ||
-                      isSbaExpressProduct(product.code)
-                        ? "Geographic Coverage/Location"
-                        : "States"}
+                      {productUsesAcceptedPropertyTypes(product.code) ||
+                      isEquipmentFinanceProduct(product.code) ||
+                      isArFactoringProduct(product.code) ||
+                      isApSupplyChainProduct(product.code) ||
+                      isPurchaseOrderFinanceProduct(product.code) ||
+                      isSba7aWorkingCapitalProduct(product.code) ||
+                      isSba7aRealEstateProduct(product.code) ||
+                      isSba7aEquipmentPurchaseProduct(product.code) ||
+                      isSba504Product(product.code) ||
+                      isUsdaBiProduct(product.code)
+                        ? "States Available"
+                        : isSba7aBusinessAcquisitionProduct(product.code) ||
+                            isSbaExpressProduct(product.code)
+                          ? "Geographic Coverage/Location"
+                          : "States"}
                       <span className="text-red-500">*</span>
                     </h3>
 
@@ -1115,15 +1227,101 @@ const StepFive = ({
                   </p>
                 )}
 
+                {isCPaceProduct(product.code) && (
+                  <div className="mt-6">
+                    <div className="flex justify-between items-center mb-2">
+                      <h3 className="text-sm font-semibold">
+                        C-PACE Eligible Jurisdictions
+                      </h3>
+                      <div className="flex gap-3 text-xs">
+                        <button
+                          onClick={() =>
+                            selectAllCPaceJurisdictions(getProductKey(product))
+                          }
+                          className="text-blue-600 font-medium hover:underline"
+                        >
+                          Select All
+                        </button>
+                        <button
+                          onClick={() =>
+                            clearCPaceJurisdictions(getProductKey(product))
+                          }
+                          className="text-red-500 font-medium hover:underline"
+                        >
+                          Clear All
+                        </button>
+                      </div>
+                    </div>
+                    <div className="border rounded-xl p-3 max-h-44 overflow-y-auto bg-white border-gray-300">
+                      <div className="grid grid-cols-4 gap-2">
+                        {US_STATES.map((state) => {
+                          const selected = value?.[
+                            getProductKey(product)
+                          ]?.cPaceJurisdictions?.includes(state);
+                          return (
+                            <label
+                              key={`cpace-${state}`}
+                              className={`flex items-center gap-2 text-xs px-2 py-1 rounded cursor-pointer transition
+              ${selected ? "bg-blue-50 text-blue-600" : "hover:bg-gray-50"}`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={selected || false}
+                                onChange={() =>
+                                  toggleCPaceJurisdiction(
+                                    getProductKey(product),
+                                    state,
+                                  )
+                                }
+                                className="accent-blue-600 cursor-pointer"
+                              />
+                              {state}
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-2">
+                      {value?.[getProductKey(product)]?.cPaceJurisdictions
+                        ?.length || 0}{" "}
+                      jurisdictions selected
+                    </p>
+                  </div>
+                )}
+
                 {typeof setPropertyTypes === "function" &&
                   typeof setBusinessTypes === "function" && (
                     <ProgramEligibilitySection
                       propertyTypes={propertyTypes}
                       setPropertyTypes={setPropertyTypes}
+                      propertyTypesTitle={
+                        productUsesAcceptedPropertyTypes(product.code)
+                          ? "Property Types Accepted"
+                          : "Eligible Property Types"
+                      }
                       businessTypes={businessTypes}
                       setBusinessTypes={setBusinessTypes}
-                      showEquipmentTypes={products.some((product: any) =>
-                        productUsesEquipmentTypes(product?.code),
+                      businessTypesTitle={
+                        isEquipmentFinanceProduct(product.code) ||
+                        isArFactoringProduct(product.code) ||
+                        isApSupplyChainProduct(product.code) ||
+                        isPurchaseOrderFinanceProduct(product.code) ||
+                        isSba7aWorkingCapitalProduct(product.code) ||
+                        isSba7aRealEstateProduct(product.code) ||
+                        isSba7aEquipmentPurchaseProduct(product.code) ||
+                        isSba504Product(product.code) ||
+                        isUsdaBiProduct(product.code)
+                          ? "Industries Accepted"
+                          : "Eligible Business Types"
+                      }
+                      showBusinessTypes={productUsesBusinessTypes(
+                        product?.code,
+                      )}
+                      showPropertyTypes={productUsesAcceptedPropertyTypes(
+                        product?.code,
+                      )}
+                      showEquipmentTypes={productUsesEquipmentTypes(
+                        product?.code,
                       )}
                       equipmentTypes={equipmentTypes}
                       setEquipmentTypes={setEquipmentTypes}

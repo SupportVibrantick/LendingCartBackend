@@ -52,11 +52,6 @@ type ProductLike = {
 type AmountFormatter = (amount?: number | null) => string;
 
 const usesYearTerms = (productCode: string) =>
-  isDscrRentalProduct(productCode) ||
-  isRentalPortfolioProduct(productCode) ||
-  isCrePermanentProduct(productCode) ||
-  isCmbsProduct(productCode) ||
-  isAgencyMultifamilyProduct(productCode) ||
   isSba7aWorkingCapitalProduct(productCode) ||
   isSba7aEquipmentPurchaseProduct(productCode) ||
   isSba7aRealEstateProduct(productCode) ||
@@ -80,25 +75,29 @@ export const formatLoanProductName = (product: ProductLike) => {
 
 export const getMinAmountLabel = (productCode?: string | null) => {
   if (isPurchaseOrderFinanceProduct(productCode) || isArFactoringProduct(productCode)) {
-    return "Min Facility Size";
+    return "Min Facility Amount";
   }
-  if (isApSupplyChainProduct(productCode)) return "Min Program Size";
-  if (isEquipmentFinanceProduct(productCode)) return "Min Finance Amount";
-  if (isRentalPortfolioProduct(productCode)) return "Min Portfolio Loan";
+  if (isApSupplyChainProduct(productCode)) return "Min Facility Amount";
+  if (isEquipmentFinanceProduct(productCode)) return "Min Loan Amount";
+  if (isRentalPortfolioProduct(productCode)) return "Min Loan Amount";
   if (isPreferredEquityProduct(productCode)) return "Min Investment";
   return "Min Amount";
 };
 
 export const getMaxAmountLabel = (productCode?: string | null) => {
   if (isPurchaseOrderFinanceProduct(productCode) || isArFactoringProduct(productCode)) {
-    return "Max Facility Size";
+    return "Max Facility Amount";
   }
-  if (isApSupplyChainProduct(productCode)) return "Max Program Size";
-  if (isSba7aMaxLoanOnlyProduct(productCode) || isUsdaBiProduct(productCode)) {
+  if (isApSupplyChainProduct(productCode)) return "Max Facility Amount";
+  if (
+    isSba7aMaxLoanOnlyProduct(productCode) ||
+    isUsdaBiProduct(productCode) ||
+    isSba504Product(productCode)
+  ) {
     return "Max Loan Amount";
   }
-  if (isEquipmentFinanceProduct(productCode)) return "Max Finance Amount";
-  if (isRentalPortfolioProduct(productCode)) return "Max Portfolio Loan";
+  if (isEquipmentFinanceProduct(productCode)) return "Max Loan Amount";
+  if (isRentalPortfolioProduct(productCode)) return "Max Loan Amount";
   if (isPreferredEquityProduct(productCode)) return "Max Investment";
   return "Max Amount";
 };
@@ -106,8 +105,7 @@ export const getMaxAmountLabel = (productCode?: string | null) => {
 export const shouldShowMinAmount = (productCode?: string | null) =>
   !isNoMinLoanCriteriaProduct(productCode);
 
-export const shouldShowMaxAmount = (productCode?: string | null) =>
-  !isSba504Product(productCode);
+export const shouldShowMaxAmount = (_productCode?: string | null) => true;
 
 export const formatListTenure = (product: ProductLike) => {
   const productCode = resolveProductCode(product);
@@ -149,6 +147,9 @@ const formatAmountRange = (
   formatAmount: AmountFormatter,
 ) => {
   if (isSba504Product(productCode)) {
+    if (product.maxLoanAmount) {
+      return `Up to ${formatAmount(product.maxLoanAmount)}`;
+    }
     if (product.maxSba504DebentureAmount) {
       return `Up to ${formatAmount(product.maxSba504DebentureAmount)} debenture`;
     }
@@ -288,6 +289,9 @@ const CURRENCY_FIELD_KEYS = new Set([
   "minProgramSize",
   "maxProgramSize",
   "minAnnualRevenue",
+  "minPropertyValue",
+  "maxPropertyValue",
+  "minRentalIncome",
   "maxTotalProject",
   "maxSba504Debenture",
   "maxUsdaGuarantee",
@@ -345,7 +349,7 @@ const formatDetailFieldValue = (
     return `${raw} years`;
   }
 
-  if (field.label.includes("(months)")) {
+  if (field.label.includes("(months)") || field.label.includes("(Months)")) {
     return `${raw} months`;
   }
 

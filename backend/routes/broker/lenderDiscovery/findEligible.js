@@ -279,6 +279,7 @@ module.exports = async function findEligibleLenders(fastify) {
             ownerOccupiedRequired: true,
             refinanceAllowed: true,
             minUnits: true,
+            maxUnits: true,
             minPropertiesInPortfolio: true,
             maxPropertiesInPortfolio: true,
             firstTimeBorrowersAllowed: true,

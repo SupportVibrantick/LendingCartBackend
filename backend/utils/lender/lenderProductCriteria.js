@@ -68,6 +68,8 @@ const SBA_504_LOAN_CODES = new Set([
 
 const USDA_BI_LOAN_CODES = new Set(["USDA_BI"]);
 
+const C_PACE_LOAN_CODES = new Set(["C_PACE"]);
+
 const PURCHASE_ORDER_FINANCE_LOAN_CODES = new Set([
   "PURCHASE_ORDER_FINANCE",
 ]);
@@ -85,15 +87,27 @@ const LTC_LOAN_CODES = new Set([
   "MEZZANINE_FINANCE",
   "CONSTRUCTION_LOAN",
   "CONSTRUCTION_LOAN_1_TO_4_UNITS",
+  "CRE_PERMANENT_LOAN",
+  "AGENCY_LOAN_MULTIFAMILY",
+  "CMBS",
+  "RENTAL_PORTFOLIO",
+  "EQUIPMENT_FINANCE",
+  "PREFERRED_EQUITY",
+  "MEZZ_FINANCE_PREF_EQUITY",
+  "C_PACE",
   ...FIX_AND_FLIP_CODES,
   ...BRIDGE_LOAN_CODES,
 ]);
 
 const supportsLtcPercent = (loanProductCode) =>
   LTC_LOAN_CODES.has(loanProductCode) ||
+  isSba7aBusinessAcquisitionProduct(loanProductCode) ||
+  isSba7aWorkingCapitalProduct(loanProductCode) ||
+  isSba7aRealEstateProduct(loanProductCode) ||
   isSba7aEquipmentPurchaseProduct(loanProductCode) ||
   isSbaExpressProduct(loanProductCode) ||
-  isSba504Product(loanProductCode);
+  isSba504Product(loanProductCode) ||
+  isUsdaBiProduct(loanProductCode);
 
 const isBridgeLoanProduct = (loanProductCode) =>
   BRIDGE_LOAN_CODES.has(loanProductCode);
@@ -149,6 +163,9 @@ const isSba504Product = (loanProductCode) =>
 const isUsdaBiProduct = (loanProductCode) =>
   USDA_BI_LOAN_CODES.has(loanProductCode);
 
+const isCPaceProduct = (loanProductCode) =>
+  C_PACE_LOAN_CODES.has(loanProductCode);
+
 const isPurchaseOrderFinanceProduct = (loanProductCode) =>
   PURCHASE_ORDER_FINANCE_LOAN_CODES.has(loanProductCode);
 
@@ -187,7 +204,9 @@ const isNoLtvCriteriaProduct = (loanProductCode) =>
 
 const isNoPropertyMetricsProduct = (loanProductCode) =>
   isSba7aGeneralProduct(loanProductCode) ||
-  isArFactoringProduct(loanProductCode);
+  isArFactoringProduct(loanProductCode) ||
+  isApSupplyChainProduct(loanProductCode) ||
+  isPurchaseOrderFinanceProduct(loanProductCode);
 
 const isNoTermCriteriaProduct = (loanProductCode) =>
   isPurchaseOrderFinanceProduct(loanProductCode) ||
@@ -197,17 +216,7 @@ const isNoTermCriteriaProduct = (loanProductCode) =>
 const isSba7aRateSpreadProduct = (loanProductCode) =>
   isSba7aMaxLoanOnlyProduct(loanProductCode);
 
-const usesYearTerms = (loanProductCode) =>
-  isDscrRentalProduct(loanProductCode) ||
-  isRentalPortfolioProduct(loanProductCode) ||
-  isCrePermanentProduct(loanProductCode) ||
-  isCmbsProduct(loanProductCode) ||
-  isAgencyMultifamilyProduct(loanProductCode) ||
-  isSba7aWorkingCapitalProduct(loanProductCode) ||
-  isSba7aEquipmentPurchaseProduct(loanProductCode) ||
-  isSba7aRealEstateProduct(loanProductCode) ||
-  isSba504Product(loanProductCode) ||
-  isUsdaBiProduct(loanProductCode);
+const usesYearTerms = (_loanProductCode) => false;
 
 /**
  * Mirrors lending-dashboard loanProductCriteriaFields.ts — which criteria
@@ -225,80 +234,130 @@ const getProductEligibilityRules = (productCode) => {
       isPurchaseOrderFinanceProduct(code) ||
       isArFactoringProduct(code) ||
       isApSupplyChainProduct(code),
-    checkMaxLoanAmount: !isSba504Product(code),
-    checkMaxTotalProjectAmount: isSba504Product(code),
-    checkMaxSba504DebentureAmount: isSba504Product(code),
+    checkMaxLoanAmount: true,
+    checkMaxTotalProjectAmount: false,
+    checkMaxSba504DebentureAmount: false,
     checkTermMonths: !noTerm,
-    checkCreditScore:
-      !isPurchaseOrderFinanceProduct(code) &&
-      !isArFactoringProduct(code) &&
-      !isApSupplyChainProduct(code) &&
-      !isCmbsProduct(code) &&
-      !isAgencyMultifamilyProduct(code) &&
-      !isMezzanineProduct(code) &&
-      !isPreferredEquityProduct(code),
-    checkLtv:
-      !isMezzanineProduct(code) &&
-      !isPreferredEquityProduct(code) &&
-      !noPropertyMetrics,
-    checkMezzLtv: isMezzanineProduct(code),
+    checkCreditScore: true,
+    checkLtv: !noPropertyMetrics,
+    checkMezzLtv: isMezzanineProduct(code) || isPreferredEquityProduct(code),
     checkLtc:
-      supportsLtcPercent(code) &&
-      !isDscrRentalProduct(code) &&
-      !isRentalPortfolioProduct(code) &&
-      !isCrePermanentProduct(code) &&
-      !isCmbsProduct(code) &&
-      !isAgencyMultifamilyProduct(code) &&
-      !isMezzanineProduct(code) &&
-      !isPreferredEquityProduct(code),
+      supportsLtcPercent(code) ||
+      isDscrRentalProduct(code) ||
+      isCrePermanentProduct(code) ||
+      isAgencyMultifamilyProduct(code) ||
+      isMezzanineProduct(code) ||
+      isPreferredEquityProduct(code) ||
+      isCmbsProduct(code) ||
+      isRentalPortfolioProduct(code) ||
+      isEquipmentFinanceProduct(code),
     checkArv:
-      !isBridgeLoanProduct(code) &&
-      !isDscrRentalProduct(code) &&
-      !isRentalPortfolioProduct(code) &&
-      !isConstructionLoanProduct(code) &&
-      !isCrePermanentProduct(code) &&
-      !isCmbsProduct(code) &&
-      !isAgencyMultifamilyProduct(code) &&
-      !isMezzanineProduct(code) &&
-      !isPreferredEquityProduct(code) &&
-      !noPropertyMetrics,
+      isBridgeLoanProduct(code) ||
+      isConstructionLoanProduct(code) ||
+      (!isDscrRentalProduct(code) &&
+        !isRentalPortfolioProduct(code) &&
+        !isCrePermanentProduct(code) &&
+        !isCmbsProduct(code) &&
+        !isAgencyMultifamilyProduct(code) &&
+        !isMezzanineProduct(code) &&
+        !isPreferredEquityProduct(code) &&
+        !isEquipmentFinanceProduct(code) &&
+        !isArFactoringProduct(code) &&
+        !isApSupplyChainProduct(code) &&
+        !isPurchaseOrderFinanceProduct(code) &&
+        !isCPaceProduct(code) &&
+        !noPropertyMetrics),
     checkDscr:
+      isBridgeLoanProduct(code) ||
       isDscrRentalProduct(code) ||
       isRentalPortfolioProduct(code) ||
       isCrePermanentProduct(code) ||
       isCmbsProduct(code) ||
       isAgencyMultifamilyProduct(code) ||
+      isMezzanineProduct(code) ||
+      isPreferredEquityProduct(code) ||
+      isEquipmentFinanceProduct(code) ||
+      isArFactoringProduct(code) ||
+      isApSupplyChainProduct(code) ||
+      isPurchaseOrderFinanceProduct(code) ||
       isAnySba7aProduct(code) ||
-      isSba504Product(code),
-    checkMinDebtYield: isCrePermanentProduct(code) || isCmbsProduct(code),
+      isSba504Product(code) ||
+      isUsdaBiProduct(code) ||
+      isCPaceProduct(code),
+    checkMinDebtYield:
+      isCrePermanentProduct(code) ||
+      isCmbsProduct(code) ||
+      isAgencyMultifamilyProduct(code) ||
+      isMezzanineProduct(code) ||
+      isPreferredEquityProduct(code) ||
+      isRentalPortfolioProduct(code) ||
+      isCPaceProduct(code),
     checkMinExperience:
-      !isBridgeLoanProduct(code) &&
-      !isFixAndFlipProduct(code) &&
-      !isDscrRentalProduct(code) &&
-      !isRentalPortfolioProduct(code) &&
-      !isConstructionLoanProduct(code) &&
-      !isCrePermanentProduct(code) &&
-      !isCmbsProduct(code) &&
-      !isAgencyMultifamilyProduct(code) &&
-      !isMezzanineProduct(code) &&
-      !isPreferredEquityProduct(code) &&
+      isBridgeLoanProduct(code) ||
+      isDscrRentalProduct(code) ||
+      isFixAndFlipProduct(code) ||
+      isConstructionLoanProduct(code) ||
+      isCrePermanentProduct(code) ||
+      isAgencyMultifamilyProduct(code) ||
+      isMezzanineProduct(code) ||
+      isPreferredEquityProduct(code) ||
+      isCmbsProduct(code) ||
+      isRentalPortfolioProduct(code) ||
+      isEquipmentFinanceProduct(code) ||
+      isArFactoringProduct(code) ||
+      isApSupplyChainProduct(code) ||
+      isPurchaseOrderFinanceProduct(code) ||
+      isCPaceProduct(code) ||
       !noPropertyMetrics,
     checkFirstTimeBorrowers: isFixAndFlipProduct(code),
-    checkMinUnits: isAgencyMultifamilyProduct(code),
+    checkMinUnits:
+      isAgencyMultifamilyProduct(code) || isCrePermanentProduct(code),
+    checkMaxUnits:
+      isCrePermanentProduct(code) || isAgencyMultifamilyProduct(code),
     checkPortfolioProperties: isRentalPortfolioProduct(code),
-    checkMinTimeInBusiness: isAnySba7aProduct(code) || isSba504Product(code),
-    checkStartupAllowed: isAnySba7aProduct(code) || isSba504Product(code),
-    checkMinAnnualRevenue: isSba7aWorkingCapitalProduct(code),
+    checkMinTimeInBusiness:
+      isAnySba7aProduct(code) ||
+      isSba504Product(code) ||
+      isUsdaBiProduct(code) ||
+      isRentalPortfolioProduct(code) ||
+      isEquipmentFinanceProduct(code) ||
+      isArFactoringProduct(code) ||
+      isApSupplyChainProduct(code) ||
+      isPurchaseOrderFinanceProduct(code),
+    checkStartupAllowed:
+      isAnySba7aProduct(code) ||
+      isSba504Product(code) ||
+      isUsdaBiProduct(code) ||
+      isEquipmentFinanceProduct(code) ||
+      isArFactoringProduct(code) ||
+      isApSupplyChainProduct(code) ||
+      isPurchaseOrderFinanceProduct(code),
+    checkMinAnnualRevenue:
+      isSba7aWorkingCapitalProduct(code) ||
+      isBridgeLoanProduct(code) ||
+      isEquipmentFinanceProduct(code) ||
+      isArFactoringProduct(code) ||
+      isApSupplyChainProduct(code) ||
+      isPurchaseOrderFinanceProduct(code) ||
+      isSba7aRealEstateProduct(code) ||
+      isSba7aEquipmentPurchaseProduct(code) ||
+      isSba504Product(code) ||
+      isUsdaBiProduct(code),
     checkOwnerOccupied:
-      isSba7aRealEstateProduct(code) || isSba504Product(code),
-    checkRefinanceAllowed: isSba504Product(code),
+      isSba7aRealEstateProduct(code) ||
+      isSba504Product(code) ||
+      isUsdaBiProduct(code) ||
+      isSbaExpressProduct(code) ||
+      isSba7aEquipmentPurchaseProduct(code),
+    checkRefinanceAllowed:
+      isSba504Product(code) ||
+      isSba7aRealEstateProduct(code) ||
+      isUsdaBiProduct(code) ||
+      isCPaceProduct(code),
     checkPropertyType: true,
     checkPropertyState: true,
-    checkBusinessIndustry: isAnySbaProduct(code),
-    checkInterestRate:
-      !isPreferredEquityProduct(code) &&
-      !isArFactoringProduct(code) &&
-      !isSba7aRateSpreadProduct(code),
+    checkBusinessIndustry: isAnySbaProduct(code) || isUsdaBiProduct(code),
+    checkInterestRate: !isSba7aRateSpreadProduct(code),
     usesYearTerms: usesYearTerms(code),
   };
 };
@@ -322,6 +381,7 @@ module.exports = {
   SBA_EXPRESS_LOAN_CODES,
   SBA_504_LOAN_CODES,
   USDA_BI_LOAN_CODES,
+  C_PACE_LOAN_CODES,
   PURCHASE_ORDER_FINANCE_LOAN_CODES,
   EQUIPMENT_FINANCE_LOAN_CODES,
   INVOICE_FACTORING_LOAN_CODES,
@@ -346,6 +406,7 @@ module.exports = {
   isSbaExpressProduct,
   isSba504Product,
   isUsdaBiProduct,
+  isCPaceProduct,
   isPurchaseOrderFinanceProduct,
   isEquipmentFinanceProduct,
   isArFactoringProduct,

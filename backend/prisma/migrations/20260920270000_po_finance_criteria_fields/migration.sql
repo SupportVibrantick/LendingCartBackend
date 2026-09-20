@@ -1,0 +1,20 @@
+-- AlterTable
+ALTER TABLE "lender_products" ADD COLUMN "domesticPosAllowed" BOOLEAN DEFAULT false;
+ALTER TABLE "lender_products" ADD COLUMN "governmentPosAllowed" BOOLEAN DEFAULT false;
+ALTER TABLE "lender_products" ADD COLUMN "recurringPosAllowed" BOOLEAN DEFAULT false;
+ALTER TABLE "lender_products" ADD COLUMN "oneTimePosAllowed" BOOLEAN DEFAULT false;
+ALTER TABLE "lender_products" ADD COLUMN "manufacturingRequired" BOOLEAN DEFAULT false;
+ALTER TABLE "lender_products" ADD COLUMN "finishedGoodsAllowed" BOOLEAN DEFAULT false;
+ALTER TABLE "lender_products" ADD COLUMN "rawMaterialsAllowed" BOOLEAN DEFAULT false;
+ALTER TABLE "lender_products" ADD COLUMN "supplierVendorPaymentAllowed" BOOLEAN DEFAULT false;
+ALTER TABLE "lender_products" ADD COLUMN "purchaseOrderAssignmentAllowed" BOOLEAN DEFAULT false;
+ALTER TABLE "lender_products" ADD COLUMN "minPoAmountAmount" DECIMAL(20,2);
+ALTER TABLE "lender_products" ADD COLUMN "maxPoAmountAmount" DECIMAL(20,2);
+ALTER TABLE "lender_products" ADD COLUMN "minCustomerCreditScore" INTEGER;
+ALTER TABLE "lender_products" ADD COLUMN "minCustomerCreditRating" TEXT;
+ALTER TABLE "lender_products" ADD COLUMN "maxCustomerConcentrationPercent" DECIMAL(5,2);
+ALTER TABLE "lender_products" ADD COLUMN "minGrossProfitMarginPercent" DECIMAL(5,2);
+ALTER TABLE "lender_products" ADD COLUMN "minCustomerDepositPercent" DECIMAL(5,2);
+ALTER TABLE "lender_products" ADD COLUMN "customerVerificationRequired" BOOLEAN DEFAULT false;
+ALTER TABLE "lender_products" ADD COLUMN "minEligiblePoValueAmount" DECIMAL(20,2);
+ALTER TABLE "lender_products" ADD COLUMN "maxPoConcentrationPercent" DECIMAL(5,2);

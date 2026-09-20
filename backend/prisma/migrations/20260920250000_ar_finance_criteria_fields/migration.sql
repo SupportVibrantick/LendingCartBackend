@@ -1,0 +1,24 @@
+-- AlterTable
+ALTER TABLE "lender_products" ADD COLUMN "maxAdvanceRatePercent" DECIMAL(5,2);
+ALTER TABLE "lender_products" ADD COLUMN "minMonthlyArAmount" DECIMAL(20,2);
+ALTER TABLE "lender_products" ADD COLUMN "recourseFactoringAllowed" BOOLEAN DEFAULT false;
+ALTER TABLE "lender_products" ADD COLUMN "invoiceFactoringAllowed" BOOLEAN DEFAULT false;
+ALTER TABLE "lender_products" ADD COLUMN "arLineOfCreditAllowed" BOOLEAN DEFAULT false;
+ALTER TABLE "lender_products" ADD COLUMN "assetBasedLendingAllowed" BOOLEAN DEFAULT false;
+ALTER TABLE "lender_products" ADD COLUMN "purchaseOrderFinancingAllowed" BOOLEAN DEFAULT false;
+ALTER TABLE "lender_products" ADD COLUMN "domesticArAllowed" BOOLEAN DEFAULT false;
+ALTER TABLE "lender_products" ADD COLUMN "internationalArAllowed" BOOLEAN DEFAULT false;
+ALTER TABLE "lender_products" ADD COLUMN "b2bReceivablesAllowed" BOOLEAN DEFAULT false;
+ALTER TABLE "lender_products" ADD COLUMN "b2cReceivablesAllowed" BOOLEAN DEFAULT false;
+ALTER TABLE "lender_products" ADD COLUMN "concentrationLimitPercent" DECIMAL(5,2);
+ALTER TABLE "lender_products" ADD COLUMN "minInvoiceSizeAmount" DECIMAL(20,2);
+ALTER TABLE "lender_products" ADD COLUMN "maxInvoiceSizeAmount" DECIMAL(20,2);
+ALTER TABLE "lender_products" ADD COLUMN "minInvoiceAgeDays" INTEGER;
+ALTER TABLE "lender_products" ADD COLUMN "maxInvoiceDilutionPercent" DECIMAL(5,2);
+ALTER TABLE "lender_products" ADD COLUMN "minDebtorCreditScore" INTEGER;
+ALTER TABLE "lender_products" ADD COLUMN "customerCreditInsuranceRequired" BOOLEAN DEFAULT false;
+ALTER TABLE "lender_products" ADD COLUMN "existingLiensAccepted" BOOLEAN DEFAULT false;
+ALTER TABLE "lender_products" ADD COLUMN "taxLiensAccepted" BOOLEAN DEFAULT false;
+ALTER TABLE "lender_products" ADD COLUMN "uccFilingRequired" BOOLEAN DEFAULT false;
+ALTER TABLE "lender_products" ADD COLUMN "minEligibleArAmount" DECIMAL(20,2);
+ALTER TABLE "lender_products" ADD COLUMN "maxArConcentrationPercent" DECIMAL(5,2);

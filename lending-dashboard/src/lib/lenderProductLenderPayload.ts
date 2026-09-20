@@ -1,5 +1,6 @@
 import {
   buildLenderProductCriteriaPayload,
+  productUsesBusinessTypes,
   productUsesEquipmentTypes,
 } from "./loanProductCriteriaFields";
 
@@ -97,7 +98,9 @@ export function mapToLenderProductUpdatePayload(
 
   return {
     loanProductCode: product.code,
-    businessTypes: form.businessTypes,
+    businessTypes: productUsesBusinessTypes(product.code)
+      ? form.businessTypes
+      : {},
     propertyTypes: form.propertyTypes,
     ...built,
     ...(productUsesEquipmentTypes(product.code) &&
