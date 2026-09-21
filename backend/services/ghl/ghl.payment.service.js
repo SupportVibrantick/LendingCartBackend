@@ -340,8 +340,11 @@ async function resolveGhlInvoiceSender(client, locationId) {
 }
 
 /**
- * Create a draft invoice for a contact + price.
+ * Create a draft invoice for a contact + one or more prices.
  * POST /invoices/
+ *
+ * Backward compatible: pass productId + priceId + amount for a single line,
+ * or pass `items` as an array of line descriptors.
  */
 async function createGhlInvoice({
   contact,
@@ -352,6 +355,7 @@ async function createGhlInvoice({
   itemName,
   itemDescription,
   itemType = "recurring",
+  items: lineItems,
   invoiceName,
   liveMode,
 } = {}) {
@@ -370,6 +374,42 @@ async function createGhlInvoice({
 
   const phoneE164 = toE164Phone(contact.phone);
 
+  const resolvedItems =
+    Array.isArray(lineItems) && lineItems.length > 0
+      ? lineItems.map((item) => ({
+          name: item.name || item.itemName || "Subscription",
+          description: item.description || item.itemDescription || undefined,
+          productId: item.productId || productId,
+          priceId: item.priceId,
+          currency: item.currency || currency,
+          amount: Number(item.amount),
+          qty: item.qty != null ? Number(item.qty) : 1,
+          type:
+            (item.type || item.itemType) === "one_time"
+              ? "one_time"
+              : "recurring",
+          taxInclusive: false,
+        }))
+      : [
+          {
+            name: itemName || "Subscription",
+            description: itemDescription || undefined,
+            productId,
+            priceId,
+            currency,
+            amount: Number(amount),
+            qty: 1,
+            type: itemType === "one_time" ? "one_time" : "recurring",
+            taxInclusive: false,
+          },
+        ];
+
+  for (const item of resolvedItems) {
+    if (!item.priceId || item.amount == null || Number.isNaN(item.amount)) {
+      throw checkoutError(CHECKOUT_ERROR_CODES.MISSING_GHL_PRICE, 503);
+    }
+  }
+
   const payload = {
     altId: locationId,
     altType: "location",
@@ -386,19 +426,7 @@ async function createGhlInvoice({
       ...(phoneE164 ? { phoneNo: phoneE164 } : {}),
       ...(contact.companyName ? { companyName: contact.companyName } : {}),
     },
-    items: [
-      {
-        name: itemName || "Subscription",
-        description: itemDescription || undefined,
-        productId,
-        priceId,
-        currency,
-        amount: Number(amount),
-        qty: 1,
-        type: itemType === "one_time" ? "one_time" : "recurring",
-        taxInclusive: false,
-      },
-    ],
+    items: resolvedItems,
     businessDetails: {
       name: process.env.GHL_BUSINESS_NAME || "Loan Automation",
     },
@@ -532,10 +560,13 @@ async function getGhlOrder(orderId) {
  *  1) Resolve GHL price ID from packageCode + billingCycle (env)
  *  2) Load price details (amount/currency/type) from Products API
  *  3) Upsert GHL contact (reuse existing contact sync)
- *  4) Create GHL invoice with productId + priceId (recurring)
+ *  4) Create GHL invoice with plan + optional add-on line items
  *  5) Send invoice / read invoice for checkout URL
  *
  * Returns only frontend-safe fields (never API key).
+ *
+ * @param {object} input
+ * @param {Array<{ code?: string, name: string, priceId: string, amount: number, itemType?: string }>} [input.addOnLineItems]
  */
 async function createSubscriptionCheckout(input = {}) {
   try {
@@ -553,6 +584,7 @@ async function createSubscriptionCheckout(input = {}) {
       successUrl,
       cancelUrl,
       metadata = {},
+      addOnLineItems = [],
     } = input;
 
     if (!email?.trim()) {
@@ -573,20 +605,36 @@ async function createSubscriptionCheckout(input = {}) {
       );
     }
 
-    const amount =
+    const planAmount =
       amountOverride != null
         ? Number(amountOverride)
         : priceDetails?.amount != null
           ? Number(priceDetails.amount)
           : null;
 
-    if (amount == null || Number.isNaN(amount)) {
+    if (planAmount == null || Number.isNaN(planAmount)) {
       throw checkoutError(CHECKOUT_ERROR_CODES.MISSING_GHL_PRICE, 503);
     }
 
     const currency = currencyOverride || priceDetails?.currency || "USD";
-    const itemType =
+    const planItemType =
       priceDetails?.type === "one_time" ? "one_time" : "recurring";
+
+    const normalizedAddOns = (Array.isArray(addOnLineItems) ? addOnLineItems : [])
+      .map((item) => ({
+        code: item.code || null,
+        name: item.name || "Add-on",
+        priceId: item.priceId,
+        amount: Number(item.amount),
+        itemType: item.itemType === "one_time" ? "one_time" : "recurring",
+      }))
+      .filter((item) => item.priceId && Number.isFinite(item.amount));
+
+    const addOnsAmount = normalizedAddOns.reduce(
+      (sum, item) => sum + item.amount,
+      0,
+    );
+    const amount = planAmount + addOnsAmount;
 
     let contactResult;
     try {
@@ -607,6 +655,10 @@ async function createSubscriptionCheckout(input = {}) {
           "lendingcart-checkout",
           `plan-${resolved.packageCode.toLowerCase()}`,
           `cycle-${resolved.billingCycle.toLowerCase()}`,
+          ...normalizedAddOns
+            .map((a) => a.code)
+            .filter(Boolean)
+            .map((code) => `addon-${String(code).toLowerCase()}`),
         ],
       });
     } catch (err) {
@@ -623,6 +675,31 @@ async function createSubscriptionCheckout(input = {}) {
       planName ||
       `${resolved.packageCode} ${resolved.billingCycle === "YEARLY" ? "Yearly" : "Monthly"}`;
 
+    const invoiceItems = [
+      {
+        name: displayName,
+        description: metadata.lendingCartCheckoutId
+          ? `LendingCart checkout ${metadata.lendingCartCheckoutId}`
+          : "LendingCart subscription",
+        productId,
+        priceId: resolved.priceId,
+        amount: planAmount,
+        currency,
+        type: planItemType,
+      },
+      ...normalizedAddOns.map((addon) => ({
+        name: addon.name,
+        description: addon.code
+          ? `Add-on ${addon.code}`
+          : "LendingCart add-on",
+        productId,
+        priceId: addon.priceId,
+        amount: addon.amount,
+        currency,
+        type: addon.itemType,
+      })),
+    ];
+
     // One mode for both create + send (never diverge).
     const liveMode = resolveCheckoutLiveMode();
 
@@ -638,15 +715,12 @@ async function createSubscriptionCheckout(input = {}) {
           companyName,
         },
         productId,
-        priceId: resolved.priceId,
-        amount,
         currency,
-        itemName: displayName,
-        itemDescription: metadata.lendingCartCheckoutId
-          ? `LendingCart checkout ${metadata.lendingCartCheckoutId}`
-          : "LendingCart subscription",
-        itemType,
-        invoiceName: `LendingCart — ${displayName}`,
+        items: invoiceItems,
+        invoiceName:
+          normalizedAddOns.length > 0
+            ? `LendingCart — ${displayName} + add-ons`
+            : `LendingCart — ${displayName}`,
         liveMode,
       });
     } catch (err) {
@@ -694,8 +768,11 @@ async function createSubscriptionCheckout(input = {}) {
       packageCode: resolved.packageCode,
       billingCycle: resolved.billingCycle,
       amount,
+      planAmount,
+      addOnsAmount,
       currency,
-      itemType,
+      itemType: planItemType,
+      addOnCodes: normalizedAddOns.map((a) => a.code).filter(Boolean),
     };
   } catch (err) {
     if (err?.code && Object.values(CHECKOUT_ERROR_CODES).includes(err.code)) {
@@ -709,6 +786,8 @@ module.exports = {
   canProcessGhlPayments,
   requirePaymentApiCredentials,
   resolveGhlPriceId,
+  resolveGhlAddOnPriceId: require("./ghlPriceMap").resolveGhlAddOnPriceId,
+  resolveGhlAddOnPriceIds: require("./ghlPriceMap").resolveGhlAddOnPriceIds,
   getGhlProductId,
   getGhlPriceDetails,
   createGhlInvoice,

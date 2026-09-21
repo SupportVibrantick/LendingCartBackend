@@ -107,6 +107,33 @@ export async function purchaseLoanAiSubscription(token, payload) {
 }
 
 /**
+ * Start a no-card Loan AI free trial (provisions broker + TRIAL subscription).
+ */
+export async function startLoanAiFreeTrial(token, payload) {
+  const res = await fetch(
+    `${API_BASE}/public/loan-ai/subscriptions/start-trial`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        packageId: payload.packageId,
+        billingCycle: payload.billingCycle || "MONTHLY",
+        organizationName: payload.organizationName,
+        organizationEmail: payload.organizationEmail,
+        organizationPhone: payload.organizationPhone || payload.phone,
+        firstName: payload.firstName,
+        lastName: payload.lastName,
+        addOnCodes: [],
+      }),
+    },
+  );
+  return parseCheckoutJsonResponse(res);
+}
+
+/**
  * Start GHL checkout via Loan Automation backend (never call GHL from the browser).
  * Organization details are required so broker provisioning uses the buyer's org.
  * @param {string} token

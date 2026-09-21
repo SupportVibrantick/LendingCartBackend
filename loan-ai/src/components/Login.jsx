@@ -65,17 +65,26 @@ export default function LoginPage() {
         <h1 className="text-3xl font-bold mb-2">Sign in to Loan AI</h1>
         <p className="text-slate-400 mb-6 text-sm leading-relaxed">
           Use your Loan AI website account. This is separate from your broker dashboard login —
-          broker credentials are emailed only after you subscribe.
+          {planState.mode === "trial"
+            ? " broker credentials are emailed when your free trial starts."
+            : " broker credentials are emailed only after you subscribe."}
         </p>
 
         {hasPlan && (
-          <div className="mb-6 rounded-xl bg-indigo-500/10 border border-indigo-500/30 px-4 py-3 text-sm">
-            <p className="text-indigo-200 font-semibold">
-              {planState.planName} plan
-              {planState.planPrice ? ` — ${planState.planPrice}/${planState.billingLabel || "month"}` : ""}
+          <div className={`mb-6 rounded-xl px-4 py-3 text-sm ${
+            planState.mode === "trial"
+              ? "bg-sky-500/10 border border-sky-500/30"
+              : "bg-indigo-500/10 border border-indigo-500/30"
+          }`}>
+            <p className={planState.mode === "trial" ? "text-sky-200 font-semibold" : "text-indigo-200 font-semibold"}>
+              {planState.mode === "trial"
+                ? `${planState.planName} — free trial`
+                : `${planState.planName} plan${planState.planPrice ? ` — ${planState.planPrice}/${planState.billingLabel || "month"}` : ""}`}
             </p>
             <p className="text-slate-400 mt-2 text-xs">
-              Sign in to continue to secure checkout for this plan.
+              {planState.mode === "trial"
+                ? "Sign in to start your free trial — no payment required."
+                : "Sign in to continue to secure checkout for this plan."}
             </p>
           </div>
         )}

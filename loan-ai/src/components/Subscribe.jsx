@@ -10,6 +10,7 @@ import {
 } from "../lib/addOnCheckout";
 import { buildPlanCheckoutState } from "../lib/planCheckout";
 import { startPlanCheckoutAndRedirect } from "../lib/startPlanCheckout";
+import { startLoanAiFreeTrial } from "../lib/loanAiAuth";
 import { getCheckoutUserMessage } from "../lib/checkoutErrors";
 import { getBrokerSignInUrl } from "../lib/brokerAuth";
 import AuthPageHeader from "./AuthPageHeader";
@@ -44,14 +45,18 @@ function digitsOnlyPhone(value) {
 }
 
 /**
- * Collect organization details, then open GHL payment in a new tab and
- * keep the user on Loan AI (/checkout/pending).
+ * Collect organization details, then either start a free trial (no payment)
+ * or open GHL payment in a new tab.
  */
 export default function SubscribePage() {
   const location = useLocation();
   const navigate = useNavigate();
   const planFromState = location.state || {};
-  const { user, token, loading: authLoading, isAuthenticated } = useAuth();
+  const { user, token, loading: authLoading, isAuthenticated, refreshUser } =
+    useAuth();
+
+  const isTrialMode = planFromState.mode === "trial";
+  const freeTrialDays = user?.freeTrialDays || 14;
 
   const [packages, setPackages] = useState([]);
   const [addOnCatalog, setAddOnCatalog] = useState([]);
@@ -63,7 +68,7 @@ export default function SubscribePage() {
     planFromState.billingCycle || "MONTHLY",
   );
   const [selectedAddOnCodes, setSelectedAddOnCodes] = useState(
-    planFromState.addOnCodes || [],
+    isTrialMode ? [] : planFromState.addOnCodes || [],
   );
   const [form, setForm] = useState({
     organizationName: "",
@@ -73,6 +78,12 @@ export default function SubscribePage() {
     lastName: "",
   });
   const [processing, setProcessing] = useState(false);
+  const [trialStarted, setTrialStarted] = useState(false);
+
+  const isOnTrial = user?.subscriptionStatus === "TRIAL";
+  const isPaidActive = Boolean(user?.hasBrokerSubscription) && !isOnTrial;
+  const canStartTrial =
+    isTrialMode && !user?.hasBrokerSubscription && !user?.hasUsedFreeTrial;
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -119,18 +130,25 @@ export default function SubscribePage() {
   const selectedPkg = packages.find((p) => p.id === selectedPackageId);
 
   const availableAddOns = useMemo(
-    () => filterAddOnsForPackage(addOnCatalog, selectedPkg?.code),
-    [addOnCatalog, selectedPkg?.code],
+    () =>
+      isTrialMode
+        ? []
+        : filterAddOnsForPackage(addOnCatalog, selectedPkg?.code),
+    [addOnCatalog, selectedPkg?.code, isTrialMode],
   );
 
   useEffect(() => {
+    if (isTrialMode) {
+      setSelectedAddOnCodes([]);
+      return;
+    }
     const allowed = new Set(
       availableAddOns.map((a) => String(a.code).toUpperCase()),
     );
     setSelectedAddOnCodes((prev) =>
       prev.filter((code) => allowed.has(String(code).toUpperCase())),
     );
-  }, [availableAddOns]);
+  }, [availableAddOns, isTrialMode]);
 
   const selectedAddOns = useMemo(
     () => getSelectedAddOns(availableAddOns, selectedAddOnCodes),
@@ -138,7 +156,13 @@ export default function SubscribePage() {
   );
 
   const checkoutPreview = selectedPkg
-    ? buildPlanCheckoutState(selectedPkg, billingCycle, formatPrice)
+    ? buildPlanCheckoutState(
+        selectedPkg,
+        billingCycle,
+        formatPrice,
+        isTrialMode ? [] : selectedAddOnCodes,
+        { mode: isTrialMode ? "trial" : "paid" },
+      )
     : null;
 
   const checkoutSummary = useMemo(
@@ -163,33 +187,75 @@ export default function SubscribePage() {
     }));
   };
 
-  const handleCompleteSubscription = async (e) => {
-    e.preventDefault();
+  const validateOrgForm = () => {
     if (!selectedPkg || !token) {
       toast.error("Please select a plan");
-      return;
+      return false;
     }
     if (!form.organizationName.trim() || form.organizationName.trim().length < 3) {
       toast.error("Organization name must be at least 3 characters");
-      return;
+      return false;
     }
     if (!form.organizationEmail.includes("@")) {
       toast.error("Organization email is required");
-      return;
+      return false;
     }
     if (!form.firstName.trim() || !form.lastName.trim()) {
       toast.error("Your name is required");
-      return;
+      return false;
     }
     const phone = digitsOnlyPhone(form.organizationPhone);
     if (!/^[0-9]{10}$/.test(phone)) {
       toast.error("Enter a valid US phone number (10 digits)");
+      return false;
+    }
+    return phone;
+  };
+
+  const handleStartTrial = async (e) => {
+    e.preventDefault();
+    if (!canStartTrial) {
+      toast.error(
+        user?.hasUsedFreeTrial
+          ? "You have already used your free trial. Choose Buy now to subscribe."
+          : "You already have an active subscription",
+      );
       return;
     }
-    if (user?.hasBrokerSubscription) {
+    const phone = validateOrgForm();
+    if (!phone) return;
+
+    setProcessing(true);
+    try {
+      await startLoanAiFreeTrial(token, {
+        packageId: selectedPkg.id,
+        billingCycle,
+        organizationName: form.organizationName.trim(),
+        organizationEmail: form.organizationEmail.trim().toLowerCase(),
+        organizationPhone: phone,
+        firstName: form.firstName.trim(),
+        lastName: form.lastName.trim(),
+      });
+      await refreshUser?.();
+      setTrialStarted(true);
+      toast.success(
+        `Your ${freeTrialDays}-day free trial is active. Check your email for broker login credentials.`,
+      );
+    } catch (err) {
+      toast.error(getCheckoutUserMessage(err));
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleCompleteSubscription = async (e) => {
+    e.preventDefault();
+    if (isPaidActive) {
       toast.error("You already have an active broker subscription");
       return;
     }
+    const phone = validateOrgForm();
+    if (!phone) return;
 
     setProcessing(true);
     try {
@@ -219,6 +285,52 @@ export default function SubscribePage() {
     return null;
   }
 
+  if (trialStarted || (isOnTrial && isTrialMode)) {
+    return (
+      <div className="min-h-screen relative bg-[#0b1020] text-white overflow-hidden">
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.05)_1px,transparent_1px)] bg-[size:40px_40px]" />
+        <AuthPageHeader />
+        <div className="relative z-10 max-w-2xl mx-auto px-6 py-12">
+          <div className="space-y-4 bg-sky-500/10 border border-sky-500/30 rounded-2xl p-6 backdrop-blur-xl">
+            <p className="text-sky-200 font-semibold text-lg">
+              Your {freeTrialDays}-day free trial is active
+            </p>
+            <p className="text-sm text-slate-300 leading-relaxed">
+              Broker dashboard credentials were sent to{" "}
+              <strong>{user?.email}</strong>. Subscribe anytime before your trial
+              ends to keep access.
+            </p>
+            <a
+              href={getBrokerSignInUrl()}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex w-full justify-center py-3 rounded-xl font-semibold bg-linear-to-r from-sky-500 to-blue-600"
+            >
+              Open broker dashboard
+            </a>
+            <Link
+              to="/subscribe"
+              state={{
+                packageId: user?.subscribedPackageId || selectedPackageId,
+                billingCycle: user?.subscribedBillingCycle || billingCycle,
+                mode: "paid",
+              }}
+              className="inline-flex w-full justify-center py-3 rounded-xl font-semibold border border-white/20 hover:bg-white/5"
+            >
+              Subscribe now
+            </Link>
+            <Link
+              to="/#pricing"
+              className="block text-center text-sm text-blue-400 hover:underline"
+            >
+              Back to pricing
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen relative bg-[#0b1020] text-white overflow-hidden">
       <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.05)_1px,transparent_1px)] bg-[size:40px_40px]" />
@@ -227,9 +339,15 @@ export default function SubscribePage() {
       <AuthPageHeader />
 
       <div className="relative z-10 max-w-2xl mx-auto px-6 py-12">
-        <h1 className="text-3xl font-bold mb-2">Subscribe to Loan Automation</h1>
+        <h1 className="text-3xl font-bold mb-2">
+          {isTrialMode
+            ? `Start your ${freeTrialDays}-day free trial`
+            : isOnTrial
+              ? "Subscribe to keep your access"
+              : "Subscribe to Loan Automation"}
+        </h1>
 
-        {user?.hasBrokerSubscription ? (
+        {isPaidActive ? (
           <div className="space-y-4 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl p-6 backdrop-blur-xl">
             <p className="text-emerald-300 font-semibold text-lg">
               You already have an active subscription
@@ -256,14 +374,24 @@ export default function SubscribePage() {
         ) : (
           <>
             <p className="text-slate-400 mb-8 text-sm leading-relaxed">
-              Fill in your organization details, then complete secure payment.
-              Payment opens in a new tab — this site stays open so you can
-              continue here. Broker dashboard credentials will be sent to{" "}
-              <strong className="text-slate-200">{user?.email}</strong>.
+              {isTrialMode ? (
+                <>
+                  Fill in your organization details to start your free trial —
+                  no payment required. Broker dashboard credentials will be sent
+                  to <strong className="text-slate-200">{user?.email}</strong>.
+                </>
+              ) : (
+                <>
+                  Fill in your organization details, then complete secure payment.
+                  Payment opens in a new tab — this site stays open so you can
+                  continue here. Broker dashboard credentials will be sent to{" "}
+                  <strong className="text-slate-200">{user?.email}</strong>.
+                </>
+              )}
             </p>
 
             <form
-              onSubmit={handleCompleteSubscription}
+              onSubmit={isTrialMode ? handleStartTrial : handleCompleteSubscription}
               className="space-y-5 bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-xl"
             >
               <div>
@@ -301,7 +429,7 @@ export default function SubscribePage() {
                 ))}
               </div>
 
-              {availableAddOns.length > 0 && (
+              {!isTrialMode && availableAddOns.length > 0 && (
                 <AddOnSelector
                   addOns={availableAddOns}
                   selectedCodes={selectedAddOnCodes}
@@ -312,50 +440,63 @@ export default function SubscribePage() {
                 />
               )}
 
-              {checkoutSummary && (
-                <div className="rounded-xl bg-blue-500/10 border border-blue-500/30 px-4 py-3 text-sm space-y-2">
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="text-blue-200 font-semibold">
-                      {checkoutPreview?.planName} plan
-                    </span>
-                    <span className="text-slate-200">
-                      {checkoutSummary.planPrice}/{checkoutSummary.billingLabel}
-                    </span>
-                  </div>
-                  {selectedAddOns.length > 0 && (
-                    <>
-                      {selectedAddOns.map((addOn) => (
-                        <div
-                          key={addOn.code}
-                          className="flex items-center justify-between gap-3 text-slate-300"
-                        >
-                          <span>{addOn.name}</span>
+              {isTrialMode ? (
+                <div className="rounded-xl bg-sky-500/10 border border-sky-500/30 px-4 py-3 text-sm space-y-1">
+                  <p className="text-sky-200 font-semibold">
+                    {checkoutPreview?.planName} — {freeTrialDays}-day free trial
+                  </p>
+                  <p className="text-slate-300">
+                    $0 due today. After the trial, billing is{" "}
+                    {checkoutPreview?.planPrice}/
+                    {checkoutPreview?.billingLabel} unless you cancel.
+                  </p>
+                </div>
+              ) : (
+                checkoutSummary && (
+                  <div className="rounded-xl bg-blue-500/10 border border-blue-500/30 px-4 py-3 text-sm space-y-2">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-blue-200 font-semibold">
+                        {checkoutPreview?.planName} plan
+                      </span>
+                      <span className="text-slate-200">
+                        {checkoutSummary.planPrice}/{checkoutSummary.billingLabel}
+                      </span>
+                    </div>
+                    {selectedAddOns.length > 0 && (
+                      <>
+                        {selectedAddOns.map((addOn) => (
+                          <div
+                            key={addOn.code}
+                            className="flex items-center justify-between gap-3 text-slate-300"
+                          >
+                            <span>{addOn.name}</span>
+                            <span>
+                              +
+                              {formatPrice(
+                                billingCycle === "YEARLY"
+                                  ? Number(addOn.priceMonthly) * 12
+                                  : Number(addOn.priceMonthly),
+                              )}
+                              /{checkoutSummary.billingLabel}
+                            </span>
+                          </div>
+                        ))}
+                        <div className="border-t border-blue-500/20 pt-2 flex items-center justify-between gap-3 font-semibold text-white">
+                          <span>Total due today</span>
                           <span>
-                            +
-                            {formatPrice(
-                              billingCycle === "YEARLY"
-                                ? Number(addOn.priceMonthly) * 12
-                                : Number(addOn.priceMonthly),
-                            )}
-                            /{checkoutSummary.billingLabel}
+                            {checkoutSummary.totalPrice}/
+                            {checkoutSummary.billingLabel}
                           </span>
                         </div>
-                      ))}
-                      <div className="border-t border-blue-500/20 pt-2 flex items-center justify-between gap-3 font-semibold text-white">
-                        <span>Total due today</span>
-                        <span>
-                          {checkoutSummary.totalPrice}/
-                          {checkoutSummary.billingLabel}
-                        </span>
-                      </div>
-                    </>
-                  )}
-                  {selectedAddOns.length === 0 && checkoutPreview && (
-                    <p className="text-slate-300">
-                      {checkoutPreview.planPrice}/{checkoutPreview.billingLabel}
-                    </p>
-                  )}
-                </div>
+                      </>
+                    )}
+                    {selectedAddOns.length === 0 && checkoutPreview && (
+                      <p className="text-slate-300">
+                        {checkoutPreview.planPrice}/{checkoutPreview.billingLabel}
+                      </p>
+                    )}
+                  </div>
+                )
               )}
 
               <input
@@ -415,19 +556,45 @@ export default function SubscribePage() {
                 />
               </div>
 
-              <div className="rounded-xl bg-blue-500/10 border border-blue-500/30 px-4 py-3 text-xs text-blue-100/90 leading-relaxed">
-                Next step opens secure payment in a new tab. Keep this browser
-                open — after payment we activate your plan and email broker
-                dashboard credentials to {user?.email}.
+              <div
+                className={`rounded-xl px-4 py-3 text-xs leading-relaxed ${
+                  isTrialMode
+                    ? "bg-sky-500/10 border border-sky-500/30 text-sky-100/90"
+                    : "bg-blue-500/10 border border-blue-500/30 text-blue-100/90"
+                }`}
+              >
+                {isTrialMode ? (
+                  <>
+                    No payment today. We&apos;ll create your broker account and
+                    email login credentials to {user?.email}. One free trial per
+                    account.
+                  </>
+                ) : (
+                  <>
+                    Next step opens secure payment in a new tab. Keep this browser
+                    open — after payment we activate your plan and email broker
+                    dashboard credentials to {user?.email}.
+                  </>
+                )}
               </div>
 
               <button
                 type="submit"
-                disabled={processing || user?.hasBrokerSubscription}
-                className="inline-flex w-full items-center justify-center gap-2 py-3 rounded-xl font-semibold bg-linear-to-r from-blue-500 to-indigo-500 disabled:opacity-60"
+                disabled={
+                  processing ||
+                  isPaidActive ||
+                  (isTrialMode && !canStartTrial)
+                }
+                className={`inline-flex w-full items-center justify-center gap-2 py-3 rounded-xl font-semibold disabled:opacity-60 ${
+                  isTrialMode
+                    ? "bg-linear-to-r from-sky-500 to-blue-600"
+                    : "bg-linear-to-r from-blue-500 to-indigo-500"
+                }`}
               >
                 {processing ? (
-                  "Opening payment…"
+                  isTrialMode ? "Starting trial…" : "Opening payment…"
+                ) : isTrialMode ? (
+                  `Start ${freeTrialDays}-day free trial`
                 ) : (
                   <>
                     <ExternalLink className="h-4 w-4" />
@@ -437,6 +604,21 @@ export default function SubscribePage() {
                   </>
                 )}
               </button>
+
+              {isTrialMode && (
+                <Link
+                  to="/subscribe"
+                  state={{
+                    ...planFromState,
+                    mode: "paid",
+                    packageId: selectedPackageId,
+                    billingCycle,
+                  }}
+                  className="block text-center text-sm text-slate-400 hover:text-white"
+                >
+                  Prefer to pay now? Subscribe instead
+                </Link>
+              )}
             </form>
           </>
         )}

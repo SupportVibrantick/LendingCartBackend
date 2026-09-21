@@ -3,6 +3,7 @@ const {
   mergeUsageLimitsWithAddOns,
   resolvePurchasedAddOns,
 } = require("../../utils/subscription/addOnCatalog");
+const { isLoanAiFreeTrial } = require("./freeTrial");
 
 const ACTIVE_SUB_STATUSES = ["TRIAL", "ACTIVE", "PAST_DUE"];
 
@@ -572,6 +573,25 @@ async function expireSingleTrial(prisma, sub, now) {
       return null;
     }
 
+    // Marketing free trials do not auto-bill — expire access until they pay.
+    if (isLoanAiFreeTrial(current)) {
+      const subscription = await tx.organizationSubscription.update({
+        where: { id: sub.id },
+        data: {
+          status: "EXPIRED",
+          trialEndsAt: null,
+          cancelledAt: now,
+          currentPeriodStart: periodStart,
+          currentPeriodEnd: periodEnd,
+        },
+        include: { package: true, organization: true },
+      });
+
+      await refreshUsageForSubscription(tx, sub.id);
+
+      return { subscription, invoice: null, expiredWithoutBilling: true };
+    }
+
     const subscription = await tx.organizationSubscription.update({
       where: { id: sub.id },
       data: {
@@ -597,7 +617,8 @@ async function expireSingleTrial(prisma, sub, now) {
 }
 
 /**
- * Convert TRIAL subscriptions whose trialEndsAt has passed to ACTIVE and bill.
+ * End TRIAL subscriptions whose trialEndsAt has passed.
+ * Admin trials → ACTIVE + invoice. Loan-AI free trials → EXPIRED (no invoice).
  */
 async function expireEndedTrials(prisma) {
   const now = new Date();

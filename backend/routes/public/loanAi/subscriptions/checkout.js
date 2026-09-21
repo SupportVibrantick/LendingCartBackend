@@ -6,9 +6,13 @@ const {
   createSubscriptionCheckout,
   getGhlPriceDetails,
   resolveGhlPriceId,
+  resolveGhlAddOnPriceId,
   getGhlProductId,
   appendRedirectParams,
 } = require("../../../../services/ghl/ghl.payment.service");
+const {
+  resolvePurchasedAddOns,
+} = require("../../../../utils/subscription/addOnCatalog");
 const {
   rejectTrustedClientPriceFields,
   assertSafeRedirectUrl,
@@ -51,6 +55,24 @@ function packageAmount(pkg, billingCycle) {
     return Number(pkg.priceYearly);
   }
   return Number(pkg.priceMonthly);
+}
+
+function normalizeAddOnCodesKey(codes) {
+  return [
+    ...new Set(
+      (Array.isArray(codes) ? codes : [])
+        .map((c) => String(c || "").trim().toUpperCase())
+        .filter(Boolean),
+    ),
+  ]
+    .sort()
+    .join(",");
+}
+
+function sameAddOnCodes(metadata, codes) {
+  const meta =
+    metadata && typeof metadata === "object" ? metadata.addOnCodes : [];
+  return normalizeAddOnCodesKey(meta) === normalizeAddOnCodesKey(codes);
 }
 
 function assertGhlPriceActive(priceDetails) {
@@ -180,13 +202,14 @@ async function loanAiCheckoutRoutes(fastify) {
             select: { id: true, status: true },
           });
 
+          // Allow TRIAL → paid conversion checkout. Block paid/active subs.
           if (
             latestSub &&
-            ["TRIAL", "ACTIVE", "PAST_DUE"].includes(latestSub.status)
+            ["ACTIVE", "PAST_DUE"].includes(latestSub.status)
           ) {
             throw checkoutError(CHECKOUT_ERROR_CODES.SUBSCRIPTION_ACTIVE, 409);
           }
-          // CANCELLED / EXPIRED: allow renew checkout
+          // TRIAL / CANCELLED / EXPIRED: allow checkout
         }
 
         const pkg = await prisma.subscriptionPackage.findFirst({
@@ -205,6 +228,18 @@ async function loanAiCheckoutRoutes(fastify) {
           );
         }
 
+        let purchasedAddOns = [];
+        try {
+          purchasedAddOns = resolvePurchasedAddOns(
+            organizationDetails.addOnCodes,
+            pkg.code,
+          );
+        } catch (err) {
+          throw checkoutError(CHECKOUT_ERROR_CODES.INVALID_ADDON, 400);
+        }
+
+        const addOnCodesNormalized = purchasedAddOns.map((a) => a.code);
+
         const existingOpen = await prisma.loanAiGhlCheckout.findFirst({
           where: {
             loanAiUserId: user.id,
@@ -219,7 +254,10 @@ async function loanAiCheckoutRoutes(fastify) {
           orderBy: { createdAt: "desc" },
         });
 
-        if (existingOpen?.checkoutUrl) {
+        if (
+          existingOpen?.checkoutUrl &&
+          sameAddOnCodes(existingOpen.metadata, addOnCodesNormalized)
+        ) {
           const reusedMeta = {
             ...(existingOpen.metadata && typeof existingOpen.metadata === "object"
               ? existingOpen.metadata
@@ -227,6 +265,7 @@ async function loanAiCheckoutRoutes(fastify) {
             packageCode: pkg.code,
             packageName: pkg.name,
             ...organizationDetails,
+            addOnCodes: addOnCodesNormalized,
           };
           const reused = await prisma.loanAiGhlCheckout.update({
             where: { id: existingOpen.id },
@@ -295,6 +334,71 @@ async function loanAiCheckoutRoutes(fastify) {
           );
         }
 
+        const addOnLineItems = [];
+        for (const addon of purchasedAddOns) {
+          let resolvedAddon;
+          try {
+            resolvedAddon = resolveGhlAddOnPriceId(addon.code, billingCycle);
+          } catch (err) {
+            return sendCheckoutError(reply, err);
+          }
+
+          let addonPriceDetails = null;
+          try {
+            addonPriceDetails = await getGhlPriceDetails(
+              resolvedAddon.priceId,
+              productId,
+            );
+            assertGhlPriceActive(addonPriceDetails);
+          } catch (err) {
+            logCheckoutFailed({
+              loanAiUserId: user.id,
+              packageId: pkg.id,
+              packageCode: pkg.code,
+              billingPeriod: billingCycle,
+              ghlPriceId: resolvedAddon.priceId,
+              code: err.code || CHECKOUT_ERROR_CODES.MISSING_GHL_ADDON_PRICE,
+              message: err.message,
+              reason: "ghl_addon_price_verification_failed",
+            });
+            return sendCheckoutError(
+              reply,
+              err.code
+                ? err
+                : checkoutError(CHECKOUT_ERROR_CODES.MISSING_GHL_ADDON_PRICE, 502),
+            );
+          }
+
+          const addonAmount =
+            addonPriceDetails?.amount != null
+              ? Number(addonPriceDetails.amount)
+              : billingCycle === "YEARLY"
+                ? Number(addon.priceMonthly) * 12
+                : Number(addon.priceMonthly);
+
+          if (!Number.isFinite(addonAmount)) {
+            return sendCheckoutError(
+              reply,
+              checkoutError(CHECKOUT_ERROR_CODES.MISSING_GHL_ADDON_PRICE, 503),
+            );
+          }
+
+          addOnLineItems.push({
+            code: addon.code,
+            name: addon.name,
+            priceId: resolvedAddon.priceId,
+            amount: addonAmount,
+            itemType:
+              addonPriceDetails?.type === "one_time" ? "one_time" : "recurring",
+          });
+        }
+
+        const addOnsAmount = addOnLineItems.reduce(
+          (sum, item) => sum + Number(item.amount),
+          0,
+        );
+        const totalAmount = Number(amount) + addOnsAmount;
+
         logCheckoutInitiated({
           loanAiUserId: user.id,
           packageId: pkg.id,
@@ -302,8 +406,9 @@ async function loanAiCheckoutRoutes(fastify) {
           billingPeriod: billingCycle,
           ghlPriceId: resolved.priceId,
           ghlProductId: productId,
-          amount,
+          amount: totalAmount,
           currency: priceDetails.currency || "USD",
+          addOnCodes: addOnCodesNormalized,
         });
 
         const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
@@ -315,7 +420,7 @@ async function loanAiCheckoutRoutes(fastify) {
             billingCycle,
             status: "PENDING",
             paymentStatus: "PENDING",
-            amount,
+            amount: totalAmount,
             currency: priceDetails.currency || "USD",
             ghlProductId: productId,
             ghlPriceId: resolved.priceId,
@@ -327,6 +432,15 @@ async function loanAiCheckoutRoutes(fastify) {
               packageName: pkg.name,
               ghlPriceName: priceDetails.name || null,
               ghlPriceType: priceDetails.type || null,
+              planAmount: amount,
+              addOnsAmount,
+              addOnCodes: addOnCodesNormalized,
+              addOnLineItems: addOnLineItems.map((item) => ({
+                code: item.code,
+                name: item.name,
+                priceId: item.priceId,
+                amount: item.amount,
+              })),
               clientIp: ip,
               ...organizationDetails,
             },
@@ -347,11 +461,13 @@ async function loanAiCheckoutRoutes(fastify) {
             planName: pkg.name,
             successUrl,
             cancelUrl,
+            addOnLineItems,
             metadata: {
               lendingCartCheckoutId: checkout.id,
               loanAiUserId: user.id,
               packageId: pkg.id,
               ...organizationDetails,
+              addOnCodes: addOnCodesNormalized,
             },
           });
 
