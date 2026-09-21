@@ -320,13 +320,50 @@ export function formatPrice(value: number | string | null | undefined) {
 
 export function parseFeatures(features?: string | null) {
   if (!features?.trim()) return [];
-  if (features.includes("\n")) {
-    return features
+  const text = features.trim();
+
+  // Structured JSON payload from seed (feature groups + marketing meta)
+  if (text.startsWith("{") || text.startsWith("[")) {
+    try {
+      const parsed = JSON.parse(text);
+      if (Array.isArray(parsed)) {
+        if (parsed.every((item) => typeof item === "string")) {
+          return parsed.map((s) => String(s).trim()).filter(Boolean);
+        }
+        return parsed.flatMap((group: { items?: string[]; heading?: string }) => {
+          const items = Array.isArray(group?.items) ? group.items : [];
+          const heading = group?.heading ? String(group.heading).trim() : "";
+          return [
+            ...(heading ? [`▸ ${heading}`] : []),
+            ...items.map((item) => String(item).trim()).filter(Boolean),
+          ];
+        });
+      }
+      if (parsed && typeof parsed === "object") {
+        const groups = parsed.groups || parsed.featureGroups || [];
+        if (Array.isArray(groups) && groups.length > 0) {
+          return groups.flatMap((group: { items?: string[]; heading?: string }) => {
+            const items = Array.isArray(group?.items) ? group.items : [];
+            const heading = group?.heading ? String(group.heading).trim() : "";
+            return [
+              ...(heading ? [`▸ ${heading}`] : []),
+              ...items.map((item) => String(item).trim()).filter(Boolean),
+            ];
+          });
+        }
+      }
+    } catch {
+      // fall through
+    }
+  }
+
+  if (text.includes("\n")) {
+    return text
       .split("\n")
       .map((f) => f.trim())
       .filter(Boolean);
   }
-  return features
+  return text
     .split(/[,;|]/)
     .map((f) => f.trim())
     .filter(Boolean);

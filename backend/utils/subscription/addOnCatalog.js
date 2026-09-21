@@ -8,6 +8,7 @@ function normalizeAddOn(addOn) {
     note: addOn.note || null,
     isPurchasable: addOn.isPurchasable !== false,
     includedInPackageCodes: addOn.includedInPackageCodes || [],
+    availableForPackageCodes: addOn.availableForPackageCodes || [],
     usageBoost: addOn.usageBoost || null,
   };
 }
@@ -33,6 +34,12 @@ function isAddOnAvailableForPackage(addOn, packageCode) {
     )
   ) {
     return false;
+  }
+  const availableFor = addOn.availableForPackageCodes || [];
+  if (availableFor.length > 0) {
+    return availableFor.some(
+      (code) => String(code).toUpperCase() === pkgCode,
+    );
   }
   return true;
 }

@@ -7,7 +7,16 @@ export function filterAddOnsForPackage(addOns, packageCode) {
   return (addOns || []).filter((addOn) => {
     if (addOn.isPurchasable === false) return false;
     const included = addOn.includedInPackageCodes || [];
-    return !included.some((code) => String(code).toUpperCase() === pkgCode);
+    if (included.some((code) => String(code).toUpperCase() === pkgCode)) {
+      return false;
+    }
+    const availableFor = addOn.availableForPackageCodes || [];
+    if (availableFor.length > 0) {
+      return availableFor.some(
+        (code) => String(code).toUpperCase() === pkgCode,
+      );
+    }
+    return true;
   });
 }
 

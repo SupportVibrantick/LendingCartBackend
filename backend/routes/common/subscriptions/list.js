@@ -1,18 +1,11 @@
-function parseFeatures(features) {
-  if (!features?.trim()) return [];
-  if (features.includes("\n")) {
-    return features
-      .split("\n")
-      .map((item) => item.trim())
-      .filter(Boolean);
-  }
-  return features
-    .split(/[,;|]/)
-    .map((item) => item.trim())
-    .filter(Boolean);
-}
+const {
+  parseStoredFeatures,
+} = require("../../../prisma/admin/subscriptionPackageCatalog");
+const { getCatalogAddOns } = require("../../../utils/subscription/addOnCatalog");
 
 function formatPackage(pkg) {
+  const parsed = parseStoredFeatures(pkg.features);
+
   return {
     id: pkg.id,
     name: pkg.name,
@@ -21,13 +14,19 @@ function formatPackage(pkg) {
     priceYearly: pkg.priceYearly != null ? Number(pkg.priceYearly) : null,
     isPopular: Boolean(pkg.isPopular),
     description: pkg.description,
-    features: parseFeatures(pkg.features),
+    // Flat list kept for backward compatibility with older clients
+    features: parsed.features,
+    // Structured sections for pricing UI (headings + optional highlight blocks)
+    featureGroups: parsed.groups,
+    badge: parsed.badge,
+    usersLabel: parsed.usersLabel,
+    includedUsers: parsed.includedUsers,
+    maxUsers: parsed.maxUsers,
+    extraUserPrice: parsed.extraUserPrice,
     usageLimits: pkg.usageLimits ?? null,
     sortOrder: pkg.sortOrder,
   };
 }
-
-const { getCatalogAddOns } = require("../../../utils/subscription/addOnCatalog");
 
 /**
  * Public API: List active subscription packages for marketing / pricing pages.

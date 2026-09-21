@@ -223,7 +223,7 @@ export default function AllClients() {
 
       <div className="space-y-6">
         {/* Header */}
-        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-gradient-to-br from-cyan-600 via-teal-600 to-[#13538A] p-6 text-white shadow-lg dark:border-slate-800">
+        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-gradient-to-br from-[#13538A] via-[#1a6aad] to-[#5D28A8] p-6 text-white shadow-lg dark:border-slate-800">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-medium backdrop-blur-sm">

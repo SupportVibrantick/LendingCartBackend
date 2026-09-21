@@ -5,45 +5,29 @@ import { Check } from "lucide-react";
 import { fetchSubscriptionPackages } from "../lib/api";
 import { buildPlanCheckoutState } from "../lib/planCheckout";
 import PricingPlanCta from "./PricingPlanCta";
+import PlanComparison from "./PlanComparison";
+import PricingClosingCta from "./PricingClosingCta";
 import { useAuth } from "../context/AuthContext";
 
 const TIER_ACCENTS = {
   BASIC: {
-
     ring: "border-white/10",
-
     badge: "bg-white/10 text-gray-300",
-
     price: "text-white",
-
     glow: "",
-
   },
-
   PRO: {
-
-    ring: "border-indigo-400/40 shadow-[0_0_60px_rgba(99,102,241,0.25)]",
-
-    badge: "bg-indigo-500/20 text-indigo-300",
-
+    ring: "border-[#4B83FF]/45 shadow-[0_0_60px_rgba(75,131,255,0.22)]",
+    badge: "bg-[#4B83FF]/15 text-[#4B83FF]",
     price: "text-white",
-
     glow: "scale-[1.02] md:scale-105",
-
   },
-
   ELITE: {
-
-    ring: "border-amber-400/30",
-
+    ring: "border-amber-400/35 shadow-[0_0_40px_rgba(251,191,36,0.12)]",
     badge: "bg-amber-500/15 text-amber-300",
-
     price: "text-amber-100",
-
     glow: "",
-
   },
-
 };
 
 
@@ -83,30 +67,87 @@ function getAccent(code) {
 
 
 function normalizeFeatures(features) {
-
   if (Array.isArray(features)) return features.filter(Boolean);
-
   if (typeof features === "string" && features.trim()) {
-
     if (features.includes("\n")) {
       return features
         .split("\n")
         .map((item) => item.trim())
         .filter(Boolean);
     }
-
     return features
-
       .split(/[,;|]/)
-
       .map((item) => item.trim())
-
       .filter(Boolean);
+  }
+  return [];
+}
 
+/**
+ * Prefer structured featureGroups from the API; fall back to flat features.
+ * @returns {{ heading: string | null, variant: string, items: string[] }[]}
+ */
+function normalizeFeatureGroups(pkg) {
+  if (Array.isArray(pkg?.featureGroups) && pkg.featureGroups.length > 0) {
+    return pkg.featureGroups
+      .map((group) => ({
+        heading: group?.heading ? String(group.heading).trim() : null,
+        variant: group?.variant === "highlight" ? "highlight" : "default",
+        items: Array.isArray(group?.items)
+          ? group.items.map((item) => String(item).trim()).filter(Boolean)
+          : [],
+      }))
+      .filter((group) => group.items.length > 0);
   }
 
-  return [];
+  const features = normalizeFeatures(pkg?.features);
+  if (!features.length) return [];
+  return [{ heading: null, variant: "default", items: features }];
+}
 
+function FeatureGroupsList({ groups }) {
+  if (!groups?.length) return null;
+
+  return (
+    <div className="mb-8 flex-1 space-y-5">
+      {groups.map((group, groupIndex) => {
+        const isHighlight = group.variant === "highlight";
+        return (
+          <div
+            key={`${group.heading || "features"}-${groupIndex}`}
+            className={
+              isHighlight
+                ? "rounded-2xl border border-amber-400/30 bg-amber-500/[0.06] p-4"
+                : ""
+            }
+          >
+            {group.heading && (
+              <p
+                className={`mb-3 text-[11px] font-bold uppercase tracking-wider ${
+                  isHighlight ? "text-amber-300" : "text-blue-400"
+                }`}
+              >
+                {group.heading}
+              </p>
+            )}
+            <ul className="space-y-2.5">
+              {group.items.map((feature) => (
+                <li key={feature} className="flex items-start gap-3">
+                  <Check
+                    className={`shrink-0 mt-0.5 ${
+                      isHighlight ? "text-amber-400" : "text-blue-400"
+                    }`}
+                    size={18}
+                  />
+                  <span className="text-gray-200 text-sm">{feature}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 
@@ -223,28 +264,32 @@ function AddOnsSection({ addOns, formatPrice }) {
   if (!addOns?.length) return null;
 
   return (
-    <div className="mt-16 max-w-4xl mx-auto text-left">
+    <div className="mt-16 max-w-5xl mx-auto text-left">
+      <p className="text-center text-xs font-bold uppercase tracking-[0.22em] text-[#4B83FF] mb-2">
+        Add-ons
+      </p>
       <h3 className="text-xl md:text-2xl font-bold text-white text-center mb-2">
-        Optional add-ons
+        Available Add-Ons
       </h3>
       <p className="text-sm text-gray-400 text-center mb-8">
-        Extend any plan with product packs, extra seats, and integrations. Select add-ons during
-        checkout when you subscribe.
+        Upgrade any plan with the features you need, when you need them.
       </p>
-      <ul className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         {addOns.map((addOn) => (
           <li
             key={addOn.code || addOn.name}
-            className="flex items-start justify-between gap-4 rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-4"
+            className="flex items-start justify-between gap-4 rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-4 transition hover:border-[#4B83FF]/30 hover:bg-white/[0.06]"
           >
             <div>
-              <p className="text-sm font-medium text-gray-100">{addOn.name}</p>
-              {addOn.note && (
-                <p className="text-xs text-gray-500 mt-1">{addOn.note}</p>
-              )}
+              <p className="text-sm font-medium text-gray-100">
+                {addOn.name}
+                {addOn.note ? (
+                  <span className="text-gray-500 font-normal"> ({addOn.note})</span>
+                ) : null}
+              </p>
             </div>
-            <span className="text-sm font-semibold text-indigo-300 whitespace-nowrap">
-              +{formatPrice(addOn.priceMonthly)}/mo
+            <span className="text-sm font-semibold text-[#4B83FF] whitespace-nowrap">
+              +{formatPrice(addOn.priceMonthly)}
             </span>
           </li>
         ))}
@@ -365,21 +410,25 @@ const Pricing = () => {
 
       id="pricing"
 
-      className="scroll-mt-24 bg-[#0b0f2a] py-28 px-6 relative overflow-hidden"
+      className="scroll-mt-24 relative overflow-hidden bg-black py-24 px-6 md:py-28"
 
     >
 
-      <div className="absolute -top-30 left-1/2 -translate-x-1/2 w-150 h-150 bg-indigo-500/20 blur-[120px] rounded-full" />
+      <div className="pointer-events-none absolute -top-40 left-1/2 h-80 w-80 -translate-x-1/2 rounded-full bg-[#4B83FF]/20 blur-[120px]" aria-hidden />
 
 
 
       <div className="relative max-w-6xl mx-auto text-center">
 
+        <p className="mb-3 text-xs font-bold uppercase tracking-[0.22em] text-[#4B83FF]">
+          Pricing
+        </p>
+
         <h2 className="text-3xl md:text-5xl font-bold text-white mb-6">
 
           Simple{" "}
 
-          <span className="bg-linear-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
+          <span className="text-[#4B83FF]">
 
             Pricing
 
@@ -389,7 +438,7 @@ const Pricing = () => {
 
 
 
-        <p className="text-gray-300 mb-10 max-w-2xl mx-auto">
+        <p className="text-gray-400 mb-10 max-w-2xl mx-auto">
 
           Choose the plan that fits your brokerage. No hidden fees — upgrade or
 
@@ -494,7 +543,10 @@ const Pricing = () => {
                 user?.subscribedPackageId === pkg.id &&
                 userBillingCycle === billingCycle;
 
-              const features = normalizeFeatures(pkg.features);
+              const featureGroups = normalizeFeatureGroups(pkg);
+              const planBadge =
+                pkg.badge ||
+                (isPopular ? "MOST POPULAR" : null);
 
               const { amount, suffix, sublabel } = getDisplayPrice(pkg, billingCycle);
 
@@ -538,27 +590,19 @@ const Pricing = () => {
 
                   )}
 
-                  {isPopular && !isCurrentPlan && (
+                  {planBadge && !isCurrentPlan && (
 
-                    <span className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full text-xs font-semibold bg-linear-to-r from-blue-500 to-indigo-500 text-white shadow-lg">
-
-                      Most Popular
-
+                    <span
+                      className={`absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full text-xs font-semibold shadow-lg whitespace-nowrap ${
+                        String(planBadge).toUpperCase().includes("VALUE")
+                          ? "bg-linear-to-r from-amber-400 to-yellow-500 text-slate-900"
+                          : "bg-linear-to-r from-blue-500 to-indigo-500 text-white"
+                      }`}
+                    >
+                      {planBadge}
                     </span>
 
                   )}
-
-
-
-                  <span
-
-                    className={`inline-flex w-fit px-2.5 py-1 rounded-lg text-xs font-bold tracking-wide mb-4 ${accent.badge}`}
-
-                  >
-
-                    {pkg.code}
-
-                  </span>
 
 
 
@@ -578,7 +622,7 @@ const Pricing = () => {
 
 
 
-                  <div className="mb-8">
+                  <div className="mb-4">
 
                     <span className={`text-4xl md:text-5xl font-bold ${accent.price}`}>
 
@@ -606,29 +650,13 @@ const Pricing = () => {
 
                   </div>
 
-
-
-                  <UsageLimitsSummary limits={pkg.usageLimits} />
-
-                  {features.length > 0 && (
-
-                    <ul className="space-y-3 mb-8 flex-1">
-
-                      {features.map((feature) => (
-
-                        <li key={feature} className="flex items-start gap-3">
-
-                          <Check className="text-blue-400 shrink-0 mt-0.5" size={18} />
-
-                          <span className="text-gray-200 text-sm">{feature}</span>
-
-                        </li>
-
-                      ))}
-
-                    </ul>
-
+                  {pkg.usersLabel ? (
+                    <p className="text-sm text-gray-400 mb-6">{pkg.usersLabel}</p>
+                  ) : (
+                    <UsageLimitsSummary limits={pkg.usageLimits} />
                   )}
+
+                  <FeatureGroupsList groups={featureGroups} />
 
 
 
@@ -652,13 +680,25 @@ const Pricing = () => {
           <AddOnsSection addOns={addOns} formatPrice={formatPrice} />
         )}
 
-
+        {!loading && !error && packages.length > 0 && (
+          <PlanComparison packages={packages} />
+        )}
 
         <p className="text-gray-400 text-sm mt-10">
-
           No long-term contracts. Cancel anytime.
-
         </p>
+
+        {!loading && !error && packages.length > 0 && (
+          <PricingClosingCta
+            startingPrice={
+              packages.reduce((min, pkg) => {
+                const price = Number(pkg.priceMonthly);
+                if (!Number.isFinite(price)) return min;
+                return min == null ? price : Math.min(min, price);
+              }, null)
+            }
+          />
+        )}
 
       </div>
 
