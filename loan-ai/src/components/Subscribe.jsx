@@ -464,23 +464,31 @@ export default function SubscribePage() {
                     </div>
                     {selectedAddOns.length > 0 && (
                       <>
-                        {selectedAddOns.map((addOn) => (
+                        {selectedAddOns.map((addOn) => {
+                        const qty = Math.max(1, Number(addOn.quantity) || 1);
+                        const unit =
+                          billingCycle === "YEARLY"
+                            ? Number(addOn.priceMonthly) * 12
+                            : Number(addOn.priceMonthly);
+                        const label =
+                          String(addOn.code).toUpperCase() === "EXTRA_USER"
+                            ? qty > 1
+                              ? `Additional Users × ${qty}`
+                              : "Additional Users"
+                            : addOn.name;
+                        return (
                           <div
                             key={addOn.code}
                             className="flex items-center justify-between gap-3 text-slate-300"
                           >
-                            <span>{addOn.name}</span>
+                            <span>{label}</span>
                             <span>
-                              +
-                              {formatPrice(
-                                billingCycle === "YEARLY"
-                                  ? Number(addOn.priceMonthly) * 12
-                                  : Number(addOn.priceMonthly),
-                              )}
-                              /{checkoutSummary.billingLabel}
+                              +{formatPrice(unit * qty)}/
+                              {checkoutSummary.billingLabel}
                             </span>
                           </div>
-                        ))}
+                        );
+                      })}
                         <div className="border-t border-blue-500/20 pt-2 flex items-center justify-between gap-3 font-semibold text-white">
                           <span>Total due today</span>
                           <span>

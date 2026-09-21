@@ -58,14 +58,15 @@ function packageAmount(pkg, billingCycle) {
 }
 
 function normalizeAddOnCodesKey(codes) {
-  return [
-    ...new Set(
-      (Array.isArray(codes) ? codes : [])
-        .map((c) => String(c || "").trim().toUpperCase())
-        .filter(Boolean),
-    ),
-  ]
-    .sort()
+  const counts = new Map();
+  for (const raw of Array.isArray(codes) ? codes : []) {
+    const code = String(raw || "").trim().toUpperCase();
+    if (!code) continue;
+    counts.set(code, (counts.get(code) || 0) + 1);
+  }
+  return [...counts.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([code, qty]) => (qty > 1 ? `${code}x${qty}` : code))
     .join(",");
 }
 
@@ -238,7 +239,9 @@ async function loanAiCheckoutRoutes(fastify) {
           throw checkoutError(CHECKOUT_ERROR_CODES.INVALID_ADDON, 400);
         }
 
-        const addOnCodesNormalized = purchasedAddOns.map((a) => a.code);
+        const addOnCodesNormalized = purchasedAddOns.flatMap((a) =>
+          Array(Math.max(1, Number(a.quantity) || 1)).fill(a.code),
+        );
 
         const existingOpen = await prisma.loanAiGhlCheckout.findFirst({
           where: {
@@ -369,14 +372,15 @@ async function loanAiCheckoutRoutes(fastify) {
             );
           }
 
-          const addonAmount =
+          const unitAmount =
             addonPriceDetails?.amount != null
               ? Number(addonPriceDetails.amount)
               : billingCycle === "YEARLY"
                 ? Number(addon.priceMonthly) * 12
                 : Number(addon.priceMonthly);
+          const quantity = Math.max(1, Number(addon.quantity) || 1);
 
-          if (!Number.isFinite(addonAmount)) {
+          if (!Number.isFinite(unitAmount)) {
             return sendCheckoutError(
               reply,
               checkoutError(CHECKOUT_ERROR_CODES.MISSING_GHL_ADDON_PRICE, 503),
@@ -385,16 +389,20 @@ async function loanAiCheckoutRoutes(fastify) {
 
           addOnLineItems.push({
             code: addon.code,
-            name: addon.name,
+            name:
+              quantity > 1
+                ? `${addon.name} × ${quantity}`
+                : addon.name,
             priceId: resolvedAddon.priceId,
-            amount: addonAmount,
+            amount: unitAmount,
+            qty: quantity,
             itemType:
               addonPriceDetails?.type === "one_time" ? "one_time" : "recurring",
           });
         }
 
         const addOnsAmount = addOnLineItems.reduce(
-          (sum, item) => sum + Number(item.amount),
+          (sum, item) => sum + Number(item.amount) * (Number(item.qty) || 1),
           0,
         );
         const totalAmount = Number(amount) + addOnsAmount;
@@ -440,6 +448,7 @@ async function loanAiCheckoutRoutes(fastify) {
                 name: item.name,
                 priceId: item.priceId,
                 amount: item.amount,
+                qty: item.qty || 1,
               })),
               clientIp: ip,
               ...organizationDetails,

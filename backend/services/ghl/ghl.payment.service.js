@@ -626,12 +626,13 @@ async function createSubscriptionCheckout(input = {}) {
         name: item.name || "Add-on",
         priceId: item.priceId,
         amount: Number(item.amount),
+        qty: Math.max(1, Number(item.qty) || 1),
         itemType: item.itemType === "one_time" ? "one_time" : "recurring",
       }))
       .filter((item) => item.priceId && Number.isFinite(item.amount));
 
     const addOnsAmount = normalizedAddOns.reduce(
-      (sum, item) => sum + item.amount,
+      (sum, item) => sum + item.amount * item.qty,
       0,
     );
     const amount = planAmount + addOnsAmount;
@@ -695,6 +696,7 @@ async function createSubscriptionCheckout(input = {}) {
         productId,
         priceId: addon.priceId,
         amount: addon.amount,
+        qty: addon.qty || 1,
         currency,
         type: addon.itemType,
       })),
