@@ -3,6 +3,12 @@ import { useEffect, useState } from "react";
 import { Check } from "lucide-react";
 
 import { fetchSubscriptionPackages } from "../lib/api";
+import {
+  getAddOnAvailabilityLabel,
+  getAddOnsCycleTotal,
+  getApplicableSelectedAddOns,
+  toggleAddOnCode,
+} from "../lib/addOnCheckout";
 import { buildPlanCheckoutState } from "../lib/planCheckout";
 import PricingPlanCta from "./PricingPlanCta";
 import PlanComparison from "./PlanComparison";
@@ -260,43 +266,177 @@ function UsageLimitsSummary({ limits }) {
   );
 }
 
-function AddOnsSection({ addOns, formatPrice }) {
+function AddOnsSection({
+  addOns,
+  selectedCodes,
+  onChange,
+  onClear,
+  formatPrice,
+  billingCycle,
+}) {
   if (!addOns?.length) return null;
 
+  const cycleSuffix = billingCycle === "YEARLY" ? "/yr" : "/mo";
+  const selectedCount = selectedCodes.length;
+
   return (
-    <div className="mt-16 max-w-5xl mx-auto text-left">
-      <p className="text-center text-xs font-bold uppercase tracking-[0.22em] text-[#4B83FF] mb-2">
-        Add-ons
-      </p>
-      <h3 className="text-xl md:text-2xl font-bold text-white text-center mb-2">
-        Available Add-Ons
-      </h3>
-      <p className="text-sm text-gray-400 text-center mb-8">
-        Upgrade any plan with the features you need, when you need them.
-      </p>
-      <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-        {addOns.map((addOn) => (
-          <li
-            key={addOn.code || addOn.name}
-            className="flex items-start justify-between gap-4 rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-4 transition hover:border-[#4B83FF]/30 hover:bg-white/[0.06]"
+    <div id="customize-addons" className="mb-14 max-w-5xl mx-auto text-left scroll-mt-24">
+      <div className="text-center mb-6">
+        <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#4B83FF] mb-2">
+          Customize
+        </p>
+        <h3 className="text-xl md:text-2xl font-bold text-white mb-2">
+          Available Add-Ons
+        </h3>
+        <p className="text-sm text-gray-400 max-w-xl mx-auto">
+          Tap add-ons to customize each plan. Prices update in real time — only
+          add-ons that apply to a plan are added to that card.
+        </p>
+      </div>
+
+      {selectedCount > 0 && (
+        <div className="mb-4 flex flex-wrap items-center justify-center gap-3 rounded-2xl border border-[#4B83FF]/25 bg-[#4B83FF]/10 px-4 py-3">
+          <p className="text-sm text-[#4B83FF] font-medium">
+            {selectedCount} add-on{selectedCount === 1 ? "" : "s"} selected · plan
+            prices updated below
+          </p>
+          <button
+            type="button"
+            onClick={onClear}
+            className="text-xs font-semibold uppercase tracking-wide text-white/80 hover:text-white underline underline-offset-2"
           >
-            <div>
-              <p className="text-sm font-medium text-gray-100">
-                {addOn.name}
-                {addOn.note ? (
-                  <span className="text-gray-500 font-normal"> ({addOn.note})</span>
-                ) : null}
-              </p>
-            </div>
-            <span className="text-sm font-semibold text-[#4B83FF] whitespace-nowrap">
-              +{formatPrice(addOn.priceMonthly)}
-            </span>
-          </li>
-        ))}
+            Clear all
+          </button>
+        </div>
+      )}
+
+      <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        {addOns.map((addOn) => {
+          const selected = selectedCodes.some(
+            (code) =>
+              String(code).toUpperCase() === String(addOn.code).toUpperCase(),
+          );
+          const cycleAmount =
+            billingCycle === "YEARLY"
+              ? Number(addOn.priceMonthly) * 12
+              : Number(addOn.priceMonthly);
+          const availability = getAddOnAvailabilityLabel(addOn);
+
+          return (
+            <li key={addOn.code || addOn.name}>
+              <button
+                type="button"
+                onClick={() => onChange(toggleAddOnCode(selectedCodes, addOn.code))}
+                aria-pressed={selected}
+                className={`w-full text-left rounded-2xl border px-5 py-4 transition-all duration-200 ${
+                  selected
+                    ? "border-[#4B83FF]/60 bg-[#4B83FF]/15 shadow-[0_0_24px_rgba(75,131,255,0.2)]"
+                    : "border-white/10 bg-white/[0.04] hover:border-[#4B83FF]/30 hover:bg-white/[0.06]"
+                }`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-start gap-3 min-w-0">
+                    <span
+                      className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition ${
+                        selected
+                          ? "border-[#4B83FF] bg-[#4B83FF] text-white"
+                          : "border-white/25 bg-transparent"
+                      }`}
+                    >
+                      {selected ? <Check size={12} strokeWidth={3} /> : null}
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-gray-100">{addOn.name}</p>
+                      <p className="mt-1 text-[11px] font-medium uppercase tracking-wide text-gray-500">
+                        {availability}
+                      </p>
+                    </div>
+                  </div>
+                  <span className="text-sm font-semibold text-[#4B83FF] whitespace-nowrap">
+                    +{formatPrice(cycleAmount)}
+                    {cycleSuffix}
+                  </span>
+                </div>
+              </button>
+            </li>
+          );
+        })}
       </ul>
     </div>
   );
 }
+
+function PlanPriceBlock({
+  accent,
+  billingCycle,
+  baseAmount,
+  suffix,
+  sublabel,
+  savings,
+  applicableAddOns,
+  formatPrice,
+}) {
+  const addOnsAmount = getAddOnsCycleTotal(applicableAddOns, billingCycle);
+  const totalAmount = Number(baseAmount) + addOnsAmount;
+  const hasAddOns = applicableAddOns.length > 0;
+
+  return (
+    <div className="mb-4">
+      <div className="flex flex-wrap items-end gap-x-2 gap-y-1">
+        <span className={`text-4xl md:text-5xl font-bold ${accent.price}`}>
+          {formatPrice(totalAmount)}
+        </span>
+        <span className="text-gray-400 text-base mb-1">{suffix}</span>
+      </div>
+
+      {hasAddOns ? (
+        <div className="mt-3 space-y-1.5 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5">
+          <p className="flex justify-between gap-3 text-xs text-gray-400">
+            <span>Base plan</span>
+            <span>{formatPrice(baseAmount)}</span>
+          </p>
+          {applicableAddOns.map((addOn) => {
+            const line =
+              billingCycle === "YEARLY"
+                ? Number(addOn.priceMonthly) * 12
+                : Number(addOn.priceMonthly);
+            return (
+              <p
+                key={addOn.code}
+                className="flex justify-between gap-3 text-xs text-[#4B83FF]"
+              >
+                <span className="truncate">+ {addOn.name}</span>
+                <span className="shrink-0">{formatPrice(line)}</span>
+              </p>
+            );
+          })}
+          <p className="flex justify-between gap-3 border-t border-white/10 pt-1.5 text-xs font-semibold text-white">
+            <span>Custom total</span>
+            <span>{formatPrice(totalAmount)}</span>
+          </p>
+        </div>
+      ) : (
+        <>
+          {sublabel && (
+            <p className="text-sm text-gray-500 mt-2">{sublabel}</p>
+          )}
+          {savings != null && savings > 0 && (
+            <p className="text-sm text-emerald-400 mt-2 font-medium">
+              Save {savings}% vs monthly
+            </p>
+          )}
+        </>
+      )}
+
+      {hasAddOns && savings != null && savings > 0 && (
+        <p className="text-sm text-emerald-400 mt-2 font-medium">
+          Save {savings}% on base plan vs monthly
+        </p>
+      )}
+    </div>
+  );
+}
+
 
 
 function PricingSkeleton() {
@@ -329,6 +469,7 @@ const Pricing = () => {
   const { isAuthenticated, user, refreshUser } = useAuth();
   const [packages, setPackages] = useState([]);
   const [addOns, setAddOns] = useState([]);
+  const [selectedAddOnCodes, setSelectedAddOnCodes] = useState([]);
 
   const [loading, setLoading] = useState(true);
 
@@ -440,9 +581,11 @@ const Pricing = () => {
 
         <p className="text-gray-400 mb-10 max-w-2xl mx-auto">
 
-          Choose the plan that fits your brokerage. No hidden fees — upgrade or
+          Choose the plan that fits your brokerage. Start with a{" "}
 
-          cancel anytime.
+          {user?.freeTrialDays || 14}-day free trial — no card required. Upgrade
+
+          or cancel anytime.
 
         </p>
 
@@ -502,6 +645,17 @@ const Pricing = () => {
 
 
 
+        {!loading && !error && addOns.length > 0 && (
+          <AddOnsSection
+            addOns={addOns}
+            selectedCodes={selectedAddOnCodes}
+            onChange={setSelectedAddOnCodes}
+            onClear={() => setSelectedAddOnCodes([])}
+            formatPrice={formatPrice}
+            billingCycle={billingCycle}
+          />
+        )}
+
         {loading && <PricingSkeleton />}
 
 
@@ -538,6 +692,7 @@ const Pricing = () => {
 
               const isPopular = Boolean(pkg.isPopular);
               const userBillingCycle = user?.subscribedBillingCycle || "MONTHLY";
+              const isOnTrial = user?.subscriptionStatus === "TRIAL";
               const isCurrentPlan =
                 Boolean(user?.hasBrokerSubscription) &&
                 user?.subscribedPackageId === pkg.id &&
@@ -552,7 +707,26 @@ const Pricing = () => {
 
               const savings = billingCycle === "YEARLY" ? getYearlySavingsPercent(pkg) : null;
 
-              const checkoutState = buildPlanCheckoutState(pkg, billingCycle, formatPrice);
+              const applicableAddOns = getApplicableSelectedAddOns(
+                addOns,
+                selectedAddOnCodes,
+                pkg.code,
+              );
+              const addOnCodesForCheckout = applicableAddOns.map((a) => a.code);
+
+              const checkoutState = buildPlanCheckoutState(
+                pkg,
+                billingCycle,
+                formatPrice,
+                addOnCodesForCheckout,
+              );
+              const trialCheckoutState = buildPlanCheckoutState(
+                pkg,
+                billingCycle,
+                formatPrice,
+                [],
+                { mode: "trial" },
+              );
               const demoState = {
                 planCode: pkg.code,
                 planName: pkg.name,
@@ -570,7 +744,9 @@ const Pricing = () => {
                   className={`relative flex flex-col text-left backdrop-blur-xl border rounded-3xl p-8 transition-all duration-300 ${
 
                     isCurrentPlan
-                      ? "bg-emerald-500/[0.08] border-emerald-400/40 shadow-[0_0_40px_rgba(16,185,129,0.15)]"
+                      ? isOnTrial
+                        ? "bg-sky-500/[0.08] border-sky-400/40 shadow-[0_0_40px_rgba(56,189,248,0.15)]"
+                        : "bg-emerald-500/[0.08] border-emerald-400/40 shadow-[0_0_40px_rgba(16,185,129,0.15)]"
                       : `bg-white/5 hover:bg-white/[0.07] ${accent.ring}`
                   } ${isPopular && !isCurrentPlan ? accent.glow : ""} ${
 
@@ -582,9 +758,13 @@ const Pricing = () => {
 
                   {isCurrentPlan && (
 
-                    <span className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full text-xs font-semibold bg-linear-to-r from-emerald-500 to-teal-500 text-white shadow-lg whitespace-nowrap">
+                    <span className={`absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full text-xs font-semibold shadow-lg whitespace-nowrap ${
+                      isOnTrial
+                        ? "bg-linear-to-r from-sky-500 to-blue-500 text-white"
+                        : "bg-linear-to-r from-emerald-500 to-teal-500 text-white"
+                    }`}>
 
-                      Your Plan
+                      {isOnTrial ? "Your Trial" : "Your Plan"}
 
                     </span>
 
@@ -622,33 +802,16 @@ const Pricing = () => {
 
 
 
-                  <div className="mb-4">
-
-                    <span className={`text-4xl md:text-5xl font-bold ${accent.price}`}>
-
-                      {formatPrice(amount)}
-
-                    </span>
-
-                    <span className="text-gray-400 text-base ml-1">{suffix}</span>
-
-                    {sublabel && (
-
-                      <p className="text-sm text-gray-500 mt-2">{sublabel}</p>
-
-                    )}
-
-                    {savings != null && savings > 0 && (
-
-                      <p className="text-sm text-emerald-400 mt-2 font-medium">
-
-                        Save {savings}% vs monthly
-
-                      </p>
-
-                    )}
-
-                  </div>
+                  <PlanPriceBlock
+                    accent={accent}
+                    billingCycle={billingCycle}
+                    baseAmount={amount}
+                    suffix={suffix}
+                    sublabel={sublabel}
+                    savings={savings}
+                    applicableAddOns={applicableAddOns}
+                    formatPrice={formatPrice}
+                  />
 
                   {pkg.usersLabel ? (
                     <p className="text-sm text-gray-400 mb-6">{pkg.usersLabel}</p>
@@ -663,7 +826,9 @@ const Pricing = () => {
                   <PricingPlanCta
                     pkg={pkg}
                     checkoutState={checkoutState}
+                    trialCheckoutState={trialCheckoutState}
                     demoState={demoState}
+                    freeTrialDays={user?.freeTrialDays || 14}
                   />
 
                 </article>
@@ -676,16 +841,13 @@ const Pricing = () => {
 
         )}
 
-        {!loading && !error && addOns.length > 0 && (
-          <AddOnsSection addOns={addOns} formatPrice={formatPrice} />
-        )}
-
         {!loading && !error && packages.length > 0 && (
           <PlanComparison packages={packages} />
         )}
 
         <p className="text-gray-400 text-sm mt-10">
-          No long-term contracts. Cancel anytime.
+          {user?.freeTrialDays || 14}-day free trial on every plan. No long-term
+          contracts. Cancel anytime.
         </p>
 
         {!loading && !error && packages.length > 0 && (

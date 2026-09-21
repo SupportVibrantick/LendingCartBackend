@@ -8,6 +8,10 @@ const {
   changePlan,
 } = require("../subscription/subscriptionBilling");
 const {
+  LOAN_AI_FREE_TRIAL_NOTE,
+  isLoanAiFreeTrial: isLoanAiFreeTrialNote,
+} = require("../subscription/freeTrial");
+const {
   logPaymentStatusChanged,
 } = require("./ghlPaymentLogger");
 const {
@@ -154,6 +158,12 @@ async function fulfillPaidGhlCheckout(prisma, io, checkout, paymentMeta = {}) {
     });
 
     if (existingSub) {
+      const orgDetails = resolveOrganizationDetailsFromCheckout(
+        fresh,
+        user,
+        paymentMeta,
+      );
+
       if (
         existingSub.packageId !== fresh.packageId ||
         existingSub.billingCycle !== fresh.billingCycle
@@ -167,16 +177,35 @@ async function fulfillPaidGhlCheckout(prisma, io, checkout, paymentMeta = {}) {
         });
       }
 
+      let purchasedAddOns = null;
+      try {
+        const {
+          resolvePurchasedAddOns,
+        } = require("../../utils/subscription/addOnCatalog");
+        const resolved = resolvePurchasedAddOns(
+          orgDetails.addOnCodes,
+          fresh.package?.code,
+        );
+        purchasedAddOns = resolved.length > 0 ? resolved : null;
+      } catch {
+        purchasedAddOns = undefined;
+      }
+
       const updated = await prisma.organizationSubscription.update({
         where: { id: existingSub.id },
         data: {
           status: "ACTIVE",
+          trialEndsAt: null,
+          notes: isLoanAiFreeTrialNote(existingSub.notes)
+            ? `${LOAN_AI_FREE_TRIAL_NOTE}; converted via GHL payment`
+            : "Converted from trial via GHL payment",
           ghlContactId: ghlContactId || undefined,
           ghlPriceId: ghlPriceId || undefined,
           ghlProductId: ghlProductId || undefined,
           ghlSubscriptionId: ghlSubscriptionId || undefined,
           ghlInvoiceId: ghlInvoiceId || undefined,
           loanAiUserId: user.id,
+          ...(purchasedAddOns !== undefined ? { purchasedAddOns } : {}),
           ...(periodEnd
             ? {
                 currentPeriodStart: periodStart,
@@ -307,7 +336,7 @@ async function fulfillPaidGhlCheckout(prisma, io, checkout, paymentMeta = {}) {
   });
 
   // Existing-org renew / partial provision can leave ACTIVE sub with no UserAccount.
-  // Always ensure broker login; welcome email is idempotent per buyer email.
+  // Always ensure broker login. Skip email when provision already emailed credentials/welcome.
   if (organizationId && user) {
     const orgDetails = resolveOrganizationDetailsFromCheckout(
       fresh,
@@ -321,9 +350,8 @@ async function fulfillPaidGhlCheckout(prisma, io, checkout, paymentMeta = {}) {
         firstName: orgDetails.firstName,
         lastName: orgDetails.lastName,
         packageName: fresh.package?.name || fresh.package?.code || "Selected Plan",
-        // New provision already sent welcome; still safe via idempotency key.
-        sendWelcome: true,
-        welcomeIdempotencyKey: `broker-welcome:${String(user.email)
+        sendWelcome: !provisioned,
+        welcomeIdempotencyKey: `broker-login:${String(user.email)
           .trim()
           .toLowerCase()}`,
       });

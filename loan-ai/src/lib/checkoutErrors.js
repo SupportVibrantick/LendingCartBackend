@@ -5,8 +5,10 @@
 
 export const CHECKOUT_ERROR_CODES = {
   INVALID_PACKAGE: "INVALID_PACKAGE",
+  INVALID_ADDON: "INVALID_ADDON",
   INVALID_BILLING_PERIOD: "INVALID_BILLING_PERIOD",
   MISSING_GHL_PRICE: "MISSING_GHL_PRICE",
+  MISSING_GHL_ADDON_PRICE: "MISSING_GHL_ADDON_PRICE",
   GHL_AUTH_FAILED: "GHL_AUTH_FAILED",
   GHL_API_FAILED: "GHL_API_FAILED",
   GHL_CONTACT_FAILED: "GHL_CONTACT_FAILED",
@@ -16,6 +18,8 @@ export const CHECKOUT_ERROR_CODES = {
   SUBSCRIPTION_EXPIRED: "SUBSCRIPTION_EXPIRED",
   SUBSCRIPTION_CANCELLED: "SUBSCRIPTION_CANCELLED",
   SUBSCRIPTION_ACTIVE: "SUBSCRIPTION_ACTIVE",
+  TRIAL_ALREADY_USED: "TRIAL_ALREADY_USED",
+  TRIAL_FAILED: "TRIAL_FAILED",
   PAYMENTS_UNAVAILABLE: "PAYMENTS_UNAVAILABLE",
   RATE_LIMITED: "RATE_LIMITED",
   UNAUTHORIZED: "UNAUTHORIZED",
@@ -25,10 +29,14 @@ export const CHECKOUT_ERROR_CODES = {
 const USER_MESSAGES = {
   [CHECKOUT_ERROR_CODES.INVALID_PACKAGE]:
     "That subscription package is unavailable. Please refresh and choose another plan.",
+  [CHECKOUT_ERROR_CODES.INVALID_ADDON]:
+    "One or more selected add-ons are invalid for this plan. Please refresh and try again.",
   [CHECKOUT_ERROR_CODES.INVALID_BILLING_PERIOD]:
     "Please choose a valid billing period (monthly or yearly).",
   [CHECKOUT_ERROR_CODES.MISSING_GHL_PRICE]:
     "This plan is not available for checkout right now. Please contact support.",
+  [CHECKOUT_ERROR_CODES.MISSING_GHL_ADDON_PRICE]:
+    "A selected add-on is not available for checkout right now. Please contact support.",
   [CHECKOUT_ERROR_CODES.GHL_AUTH_FAILED]:
     "Payment service authentication failed. Please try again later or contact support.",
   [CHECKOUT_ERROR_CODES.GHL_API_FAILED]:
@@ -47,6 +55,10 @@ const USER_MESSAGES = {
     "Your subscription was cancelled. Choose a plan to subscribe again.",
   [CHECKOUT_ERROR_CODES.SUBSCRIPTION_ACTIVE]:
     "You already have an active subscription.",
+  [CHECKOUT_ERROR_CODES.TRIAL_ALREADY_USED]:
+    "You have already used your free trial. Choose a plan to subscribe.",
+  [CHECKOUT_ERROR_CODES.TRIAL_FAILED]:
+    "We couldn't start your free trial. Please try again.",
   [CHECKOUT_ERROR_CODES.PAYMENTS_UNAVAILABLE]:
     "Online checkout is temporarily unavailable. Please try again later.",
   [CHECKOUT_ERROR_CODES.RATE_LIMITED]:

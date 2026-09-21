@@ -1,5 +1,5 @@
 /**
- * Maps LendingCart package code + billing cycle → GHL Price ID env vars.
+ * Maps LendingCart package / add-on codes + billing cycle → GHL Price ID env vars.
  * Never hardcodes IDs; values come from process.env only.
  */
 
@@ -23,8 +23,42 @@ const PRICE_ENV_BY_PLAN = {
   },
 };
 
+/** Catalog add-on code → env keys for GHL Internal Price Ids */
+const PRICE_ENV_BY_ADDON = {
+  EXTRA_USER: {
+    MONTHLY: "GHL_ADDON_EXTRA_USER_MONTHLY_PRICE_ID",
+    YEARLY: "GHL_ADDON_EXTRA_USER_YEARLY_PRICE_ID",
+  },
+  CRE_PACK: {
+    MONTHLY: "GHL_ADDON_CRE_PACK_MONTHLY_PRICE_ID",
+    YEARLY: "GHL_ADDON_CRE_PACK_YEARLY_PRICE_ID",
+  },
+  ABL_PACK: {
+    MONTHLY: "GHL_ADDON_ABL_PACK_MONTHLY_PRICE_ID",
+    YEARLY: "GHL_ADDON_ABL_PACK_YEARLY_PRICE_ID",
+  },
+  SBA_PACK: {
+    MONTHLY: "GHL_ADDON_SBA_PACK_MONTHLY_PRICE_ID",
+    YEARLY: "GHL_ADDON_SBA_PACK_YEARLY_PRICE_ID",
+  },
+  GHL_BASIC_SYNC: {
+    MONTHLY: "GHL_ADDON_GHL_BASIC_SYNC_MONTHLY_PRICE_ID",
+    YEARLY: "GHL_ADDON_GHL_BASIC_SYNC_YEARLY_PRICE_ID",
+  },
+  WHITE_LABEL: {
+    MONTHLY: "GHL_ADDON_WHITE_LABEL_MONTHLY_PRICE_ID",
+    YEARLY: "GHL_ADDON_WHITE_LABEL_YEARLY_PRICE_ID",
+  },
+};
+
 function normalizePackageCode(packageCode) {
   return String(packageCode || "")
+    .trim()
+    .toUpperCase();
+}
+
+function normalizeAddOnCode(addOnCode) {
+  return String(addOnCode || "")
     .trim()
     .toUpperCase();
 }
@@ -72,8 +106,60 @@ function resolveGhlPriceId(packageCode, billingCycle) {
   };
 }
 
+/**
+ * @param {string} addOnCode
+ * @param {string} billingCycle MONTHLY|YEARLY
+ * @returns {{ priceId: string, envKey: string, addOnCode: string, billingCycle: string }}
+ */
+function resolveGhlAddOnPriceId(addOnCode, billingCycle) {
+  const code = normalizeAddOnCode(addOnCode);
+  const cycle = normalizeBillingCycle(billingCycle);
+
+  if (!code || !PRICE_ENV_BY_ADDON[code]) {
+    throw checkoutError(CHECKOUT_ERROR_CODES.INVALID_ADDON, 400);
+  }
+  if (!cycle) {
+    throw checkoutError(CHECKOUT_ERROR_CODES.INVALID_BILLING_PERIOD, 400);
+  }
+
+  const envKey = PRICE_ENV_BY_ADDON[code][cycle];
+  const priceId = process.env[envKey];
+  if (!priceId || !String(priceId).trim()) {
+    throw checkoutError(CHECKOUT_ERROR_CODES.MISSING_GHL_ADDON_PRICE, 503, {
+      addOnCode: code,
+      envKey,
+    });
+  }
+
+  return {
+    priceId: String(priceId).trim(),
+    envKey,
+    addOnCode: code,
+    billingCycle: cycle,
+  };
+}
+
+/**
+ * @param {string[]} addOnCodes
+ * @param {string} billingCycle
+ * @returns {{ priceId: string, envKey: string, addOnCode: string, billingCycle: string }[]}
+ */
+function resolveGhlAddOnPriceIds(addOnCodes, billingCycle) {
+  if (!Array.isArray(addOnCodes) || addOnCodes.length === 0) return [];
+  const unique = [
+    ...new Set(addOnCodes.map((c) => normalizeAddOnCode(c)).filter(Boolean)),
+  ];
+  return unique.map((code) => resolveGhlAddOnPriceId(code, billingCycle));
+}
+
 function listConfiguredGhlPriceEnvKeys() {
   return Object.values(PRICE_ENV_BY_PLAN).flatMap((cycles) =>
+    Object.values(cycles),
+  );
+}
+
+function listConfiguredGhlAddOnPriceEnvKeys() {
+  return Object.values(PRICE_ENV_BY_ADDON).flatMap((cycles) =>
     Object.values(cycles),
   );
 }
@@ -89,10 +175,15 @@ function hasAllGhlPriceIdsConfigured() {
 
 module.exports = {
   PRICE_ENV_BY_PLAN,
+  PRICE_ENV_BY_ADDON,
   normalizePackageCode,
+  normalizeAddOnCode,
   normalizeBillingCycle,
   getGhlProductId,
   resolveGhlPriceId,
+  resolveGhlAddOnPriceId,
+  resolveGhlAddOnPriceIds,
   listConfiguredGhlPriceEnvKeys,
+  listConfiguredGhlAddOnPriceEnvKeys,
   hasAllGhlPriceIdsConfigured,
 };

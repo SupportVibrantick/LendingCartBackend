@@ -1,4 +1,9 @@
 async function loanAiMeRoutes(fastify) {
+  const {
+    LOAN_AI_FREE_TRIAL_NOTE,
+    getFreeTrialDays,
+  } = require("../../../../services/subscription/freeTrial");
+
   fastify.get(
     "/",
     {
@@ -29,6 +34,22 @@ async function loanAiMeRoutes(fastify) {
       let subscribedBillingCycle = null;
       let subscriptionStatus = null;
       let subscriptionMessage = null;
+      let trialEndsAt = null;
+      let hasUsedFreeTrial = false;
+
+      const trialOrFilters = [{ loanAiUserId: user.id }];
+      if (user.brokerOrganizationId) {
+        trialOrFilters.push({ organizationId: user.brokerOrganizationId });
+      }
+      const priorFreeTrial =
+        await fastify.prisma.organizationSubscription.findFirst({
+          where: {
+            OR: trialOrFilters,
+            notes: { contains: LOAN_AI_FREE_TRIAL_NOTE },
+          },
+          select: { id: true },
+        });
+      hasUsedFreeTrial = Boolean(priorFreeTrial);
 
       if (user.brokerOrganizationId) {
         const sub = await fastify.prisma.organizationSubscription.findFirst({
@@ -46,6 +67,9 @@ async function loanAiMeRoutes(fastify) {
             subscribedPackageId = sub.packageId;
             subscribedPackageCode = sub.package?.code ?? null;
             subscribedBillingCycle = sub.billingCycle;
+            if (sub.status === "TRIAL" && sub.trialEndsAt) {
+              trialEndsAt = sub.trialEndsAt.toISOString();
+            }
           } else if (sub.status === "EXPIRED") {
             subscriptionMessage =
               "Your previous subscription has expired. Choose a plan to renew.";
@@ -69,6 +93,9 @@ async function loanAiMeRoutes(fastify) {
           subscribedBillingCycle,
           subscriptionStatus,
           subscriptionMessage,
+          trialEndsAt,
+          hasUsedFreeTrial,
+          freeTrialDays: getFreeTrialDays(),
         },
       });
     },

@@ -59,6 +59,37 @@ export function getAddOnsCycleTotal(selectedAddOns, billingCycle) {
 }
 
 /**
+ * @param {import('../types/pricing').SubscriptionAddOn[]} addOns
+ * @param {string[]} selectedCodes
+ * @param {string | undefined} packageCode
+ */
+export function getApplicableSelectedAddOns(addOns, selectedCodes, packageCode) {
+  return getSelectedAddOns(
+    filterAddOnsForPackage(addOns, packageCode),
+    selectedCodes,
+  );
+}
+
+/**
+ * Human-readable plan labels for add-on availability chips.
+ * @param {import('../types/pricing').SubscriptionAddOn} addOn
+ */
+export function getAddOnAvailabilityLabel(addOn) {
+  if (addOn.note) return addOn.note;
+  const available = addOn.availableForPackageCodes || [];
+  if (available.length === 0) return "All plans";
+  return available
+    .map((code) => {
+      const c = String(code).toUpperCase();
+      if (c === "BASIC") return "Basic";
+      if (c === "PRO") return "Pro";
+      if (c === "ELITE") return "Elite";
+      return c;
+    })
+    .join(" / ");
+}
+
+/**
  * @param {import('../types/pricing').SubscriptionPackage | undefined} pkg
  * @param {'MONTHLY' | 'YEARLY'} billingCycle
  * @param {import('../types/pricing').SubscriptionAddOn[]} selectedAddOns

@@ -7,23 +7,27 @@ async function sendBrokerCredentialsEmail({
   adminEmail,
   temporaryPassword,
   organizationName,
+  packageName,
   prisma,
+  idempotencyKey,
 }) {
   const loginUrl = buildBrokerSignInUrl();
+  const planLabel = packageName || "Selected Plan";
 
   const html = loadTemplate("loanAi/brokerCredentials", {
     name: adminFirstName,
     organizationName,
+    packageName: planLabel,
     adminEmail,
     temporaryPassword,
     loginUrl,
     currentYear: new Date().getFullYear(),
   });
 
-  const subject = "Your Loan Automation broker dashboard credentials";
+  const subject = "Your Loan Automation broker dashboard login";
   const text = `Hello ${adminFirstName},
 
-Your broker account for ${organizationName} is ready.
+Payment for ${organizationName} was successful (${planLabel} plan). Your broker dashboard login is ready.
 
 Login email: ${adminEmail}
 Temporary password: ${temporaryPassword}
@@ -40,7 +44,8 @@ Please change your password after your first login. This password is only for th
     subject,
     text,
     html,
-    idempotencyKey: `broker-credentials:${adminEmail}`,
+    idempotencyKey:
+      idempotencyKey || `broker-credentials:${String(adminEmail).trim().toLowerCase()}`,
     provider: "SMTP",
   });
 }

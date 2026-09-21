@@ -111,14 +111,21 @@ export default function SignUpPage() {
       <div className="relative z-10 max-w-lg mx-auto px-6 py-12">
         <h1 className="text-3xl font-bold mb-2">Create your Loan AI account</h1>
         <p className="text-slate-400 mb-8 text-sm leading-relaxed">
-          Sign up to subscribe to a plan. After payment, broker dashboard credentials
-          are emailed separately.
+          {planState.mode === "trial"
+            ? "Sign up to start your free trial. Broker dashboard credentials are emailed after you complete organization details — no payment required."
+            : "Sign up to subscribe to a plan. After payment, broker dashboard credentials are emailed separately."}
         </p>
 
         {hasPlan && (
-          <div className="mb-6 rounded-xl bg-indigo-500/10 border border-indigo-500/30 px-4 py-3 text-sm">
-            <p className="text-indigo-200 font-semibold">
-              {planState.planName} plan selected
+          <div className={`mb-6 rounded-xl px-4 py-3 text-sm ${
+            planState.mode === "trial"
+              ? "bg-sky-500/10 border border-sky-500/30"
+              : "bg-indigo-500/10 border border-indigo-500/30"
+          }`}>
+            <p className={planState.mode === "trial" ? "text-sky-200 font-semibold" : "text-indigo-200 font-semibold"}>
+              {planState.mode === "trial"
+                ? `${planState.planName} — free trial`
+                : `${planState.planName} plan selected`}
             </p>
           </div>
         )}

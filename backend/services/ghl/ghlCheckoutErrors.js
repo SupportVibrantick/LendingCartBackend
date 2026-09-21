@@ -5,8 +5,10 @@
 
 const CHECKOUT_ERROR_CODES = {
   INVALID_PACKAGE: "INVALID_PACKAGE",
+  INVALID_ADDON: "INVALID_ADDON",
   INVALID_BILLING_PERIOD: "INVALID_BILLING_PERIOD",
   MISSING_GHL_PRICE: "MISSING_GHL_PRICE",
+  MISSING_GHL_ADDON_PRICE: "MISSING_GHL_ADDON_PRICE",
   GHL_AUTH_FAILED: "GHL_AUTH_FAILED",
   GHL_API_FAILED: "GHL_API_FAILED",
   GHL_CONTACT_FAILED: "GHL_CONTACT_FAILED",
@@ -25,10 +27,14 @@ const CHECKOUT_ERROR_CODES = {
 const USER_MESSAGES = {
   [CHECKOUT_ERROR_CODES.INVALID_PACKAGE]:
     "That subscription package is unavailable. Please refresh and choose another plan.",
+  [CHECKOUT_ERROR_CODES.INVALID_ADDON]:
+    "One or more selected add-ons are invalid for this plan. Please refresh and try again.",
   [CHECKOUT_ERROR_CODES.INVALID_BILLING_PERIOD]:
     "Please choose a valid billing period (monthly or yearly).",
   [CHECKOUT_ERROR_CODES.MISSING_GHL_PRICE]:
     "This plan is not available for checkout right now. Please contact support.",
+  [CHECKOUT_ERROR_CODES.MISSING_GHL_ADDON_PRICE]:
+    "A selected add-on is not available for checkout right now. Please contact support.",
   [CHECKOUT_ERROR_CODES.GHL_AUTH_FAILED]:
     "Payment service authentication failed. Please try again later or contact support.",
   [CHECKOUT_ERROR_CODES.GHL_API_FAILED]:
@@ -113,6 +119,17 @@ function toCheckoutErrorResponse(err) {
     };
   }
 
+  if (/missing ghl_addon|addon.*price|ghl_addon_/i.test(message)) {
+    return {
+      statusCode: 503,
+      body: {
+        success: false,
+        code: CHECKOUT_ERROR_CODES.MISSING_GHL_ADDON_PRICE,
+        message: USER_MESSAGES[CHECKOUT_ERROR_CODES.MISSING_GHL_ADDON_PRICE],
+      },
+    };
+  }
+
   if (/missing ghl_.*price|missing .*_price_id|ghl_product_id is required/i.test(message)) {
     return {
       statusCode: 503,
@@ -120,6 +137,17 @@ function toCheckoutErrorResponse(err) {
         success: false,
         code: CHECKOUT_ERROR_CODES.MISSING_GHL_PRICE,
         message: USER_MESSAGES[CHECKOUT_ERROR_CODES.MISSING_GHL_PRICE],
+      },
+    };
+  }
+
+  if (/unknown add-on|not available for this plan|invalid add-?on/i.test(lower)) {
+    return {
+      statusCode: 400,
+      body: {
+        success: false,
+        code: CHECKOUT_ERROR_CODES.INVALID_ADDON,
+        message: USER_MESSAGES[CHECKOUT_ERROR_CODES.INVALID_ADDON],
       },
     };
   }

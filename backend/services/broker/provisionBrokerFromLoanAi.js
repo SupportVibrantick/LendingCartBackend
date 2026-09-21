@@ -5,6 +5,7 @@ const {
   markInvoicePaid,
 } = require("../subscription/subscriptionBilling");
 const { sendBrokerWelcomeEmail } = require("../emails/brokerWelcomeEmail");
+const { sendBrokerCredentialsEmail } = require("../emails/brokerCredentialsEmail");
 const { commonLogs } = require("../logger/contextLogger");
 const {
   notifyPlatform,
@@ -27,7 +28,8 @@ async function ensureBrokerAdminRole(prisma, userId) {
 /**
  * Ensures the Loan AI buyer has a broker dashboard login on the org.
  * Used when payment fulfillment activates an org that was missing a UserAccount
- * (e.g. renew path / partial provision). Sends welcome email best-effort.
+ * (e.g. renew path / partial provision). New accounts get credentials email;
+ * existing accounts get a set-password welcome email (best-effort).
  */
 async function ensureBrokerAdminAccess(prisma, {
   organizationId,
@@ -55,8 +57,10 @@ async function ensureBrokerAdminAccess(prisma, {
   });
 
   let created = false;
+  let temporaryPassword = null;
   if (!brokerAdmin) {
-    const passwordHash = await bcrypt.hash(generateTempPassword(), 12);
+    temporaryPassword = generateTempPassword();
+    const passwordHash = await bcrypt.hash(temporaryPassword, 12);
     brokerAdmin = await prisma.userAccount.create({
       data: {
         organizationId,
@@ -94,23 +98,44 @@ async function ensureBrokerAdminAccess(prisma, {
   }
 
   let welcomeSent = false;
+  let credentialsSent = false;
   if (sendWelcome) {
     try {
       const org = await prisma.organization.findUnique({
         where: { id: organizationId },
         select: { name: true },
       });
-      await sendBrokerWelcomeEmail({
-        firstName: resolvedFirstName,
-        email: loginEmail,
-        organizationName: org?.name || "your brokerage",
-        packageName,
-        prisma,
-        idempotencyKey: welcomeIdempotencyKey,
-      });
-      welcomeSent = true;
+      const organizationName = org?.name || "your brokerage";
+
+      if (created && temporaryPassword) {
+        await sendBrokerCredentialsEmail({
+          adminFirstName: resolvedFirstName,
+          adminEmail: loginEmail,
+          temporaryPassword,
+          organizationName,
+          packageName,
+          prisma,
+          idempotencyKey:
+            welcomeIdempotencyKey ||
+            `broker-credentials:${loginEmail}`,
+        });
+        credentialsSent = true;
+      } else {
+        await sendBrokerWelcomeEmail({
+          firstName: resolvedFirstName,
+          email: loginEmail,
+          organizationName,
+          packageName,
+          prisma,
+          idempotencyKey: welcomeIdempotencyKey,
+        });
+        welcomeSent = true;
+      }
     } catch (mailErr) {
-      commonLogs.error("Broker welcome email failed after ensure admin access", mailErr);
+      commonLogs.error(
+        "Broker login email failed after ensure admin access",
+        mailErr,
+      );
     }
   }
 
@@ -119,6 +144,7 @@ async function ensureBrokerAdminAccess(prisma, {
     email: loginEmail,
     created,
     welcomeSent,
+    credentialsSent,
   };
 }
 
@@ -156,7 +182,7 @@ async function rollbackProvisionedBroker(prisma, { organizationId, loanAiUserId 
 
 /**
  * Provisions a broker org + admin from a Loan AI subscription purchase.
- * Sends a "set password" welcome email to the loan-ai user's email.
+ * New accounts receive login email + temporary password; existing accounts get a set-password link.
  */
 async function provisionBrokerFromLoanAi(prisma, io, loanAiUser, payload) {
   const loginEmail = loanAiUser.email.trim().toLowerCase();
@@ -191,12 +217,19 @@ async function provisionBrokerFromLoanAi(prisma, io, loanAiUser, payload) {
     organizationPhone,
     firstName,
     lastName,
+    trialDays = 0,
+    generateInvoice = true,
+    notes = "Provisioned via Loan AI subscription purchase",
+    notificationSource = "LOAN_AI_PURCHASE",
   } = payload;
+
+  const isFreeTrial = Number(trialDays) > 0;
 
   let brokerOrg;
   let brokerAdmin;
   let invoice;
   let isExistingUser = false;
+  let temporaryPassword = null;
 
   if (existingBrokerUser) {
     // Existing broker user found - link to existing or new organization
@@ -303,9 +336,8 @@ async function provisionBrokerFromLoanAi(prisma, io, loanAiUser, payload) {
       });
     }
 
-    // Generate a dummy password hash (user will set real password via welcome email link)
-    const dummyPassword = generateTempPassword();
-    const passwordHash = await bcrypt.hash(dummyPassword, 12);
+    temporaryPassword = generateTempPassword();
+    const passwordHash = await bcrypt.hash(temporaryPassword, 12);
 
     await prisma.$transaction(async (tx) => {
       brokerOrg = await tx.organization.create({
@@ -352,45 +384,71 @@ async function provisionBrokerFromLoanAi(prisma, io, loanAiUser, payload) {
       organizationId: brokerOrg.id,
       packageId,
       billingCycle,
-      addOnCodes: payload.addOnCodes || [],
-      trialDays: 0,
-      notes: "Provisioned via Loan AI subscription purchase",
-      generateInvoice: true,
+      // Free trial is plan-only — add-ons apply at paid conversion.
+      addOnCodes: isFreeTrial ? [] : payload.addOnCodes || [],
+      trialDays: Number(trialDays) || 0,
+      notes,
+      generateInvoice: isFreeTrial ? false : generateInvoice,
+      loanAiUserId: loanAiUser.id,
     });
 
-    if (createdInvoice) {
+    if (createdInvoice && !isFreeTrial) {
       invoice = await markInvoicePaid(prisma, createdInvoice.id);
     }
 
-    // Send welcome email with "set password" link (idempotent via email service)
     const pkg = await prisma.subscriptionPackage.findUnique({
       where: { id: packageId },
       select: { name: true },
     });
-    const packageName = pkg?.name || "Selected Plan";
+    const packageName = isFreeTrial
+      ? `${pkg?.name || "Selected Plan"} (Free Trial)`
+      : pkg?.name || "Selected Plan";
 
-    await sendBrokerWelcomeEmail({
-      firstName,
-      email: loginEmail,
-      organizationName: brokerOrg.name,
-      packageName,
-      prisma,
-    });
+    // New accounts get email + temporary password; existing accounts get set-password link.
+    if (!isExistingUser && temporaryPassword) {
+      await sendBrokerCredentialsEmail({
+        adminFirstName: firstName,
+        adminEmail: loginEmail,
+        temporaryPassword,
+        organizationName: brokerOrg.name,
+        packageName,
+        prisma,
+        idempotencyKey: isFreeTrial
+          ? `broker-credentials-trial:${loginEmail}`
+          : `broker-credentials:${loginEmail}`,
+      });
+    } else {
+      await sendBrokerWelcomeEmail({
+        firstName,
+        email: loginEmail,
+        organizationName: brokerOrg.name,
+        packageName,
+        prisma,
+        idempotencyKey: isFreeTrial
+          ? `broker-welcome-trial:${loginEmail}`
+          : `broker-welcome:${loginEmail}`,
+      });
+    }
 
     try {
       await notifyPlatform(prisma, io, {
         eventType: PLATFORM_NOTIFICATION_EVENTS.BROKER_REGISTERED,
         category: "ORGANIZATION",
-        subject: "New broker via Loan AI subscription",
-        body: `${organizationName} subscribed via Loan AI (${loginEmail}).`,
+        subject: isFreeTrial
+          ? "New broker via Loan AI free trial"
+          : "New broker via Loan AI subscription",
+        body: isFreeTrial
+          ? `${organizationName} started a free trial via Loan AI (${loginEmail}).`
+          : `${organizationName} subscribed via Loan AI (${loginEmail}).`,
         metadata: {
           organizationId: brokerOrg.id,
           organizationName: brokerOrg.name,
           adminEmail: loginEmail,
-          source: "LOAN_AI_PURCHASE",
+          source: notificationSource,
           packageId,
           billingCycle,
-          addOnCodes: payload.addOnCodes || [],
+          trialDays: Number(trialDays) || 0,
+          addOnCodes: isFreeTrial ? [] : payload.addOnCodes || [],
           isExistingUser,
         },
       });
@@ -407,6 +465,8 @@ async function provisionBrokerFromLoanAi(prisma, io, loanAiUser, payload) {
       invoiceId: invoice?.id,
       credentialsSentTo: loginEmail,
       isExistingUser,
+      trialEndsAt: subscription?.trialEndsAt || null,
+      status: subscription?.status || null,
     };
   } catch (err) {
     // Only rollback if we created a new org (not if we linked existing user)
