@@ -7,6 +7,7 @@ function normalizeAddOn(addOn) {
     priceMonthly: Number(addOn.priceMonthly),
     note: addOn.note || null,
     isPurchasable: addOn.isPurchasable !== false,
+    quantityBased: Boolean(addOn.quantityBased),
     includedInPackageCodes: addOn.includedInPackageCodes || [],
     availableForPackageCodes: addOn.availableForPackageCodes || [],
     usageBoost: addOn.usageBoost || null,
@@ -58,10 +59,16 @@ function filterAddOnsForPackage(packageCode) {
 function resolvePurchasedAddOns(addOnCodes, packageCode) {
   if (!Array.isArray(addOnCodes) || addOnCodes.length === 0) return [];
 
-  const uniqueCodes = [...new Set(addOnCodes.map((c) => String(c).trim().toUpperCase()))];
+  const counts = new Map();
+  for (const raw of addOnCodes) {
+    const code = String(raw || "").trim().toUpperCase();
+    if (!code) continue;
+    counts.set(code, (counts.get(code) || 0) + 1);
+  }
+
   const resolved = [];
 
-  for (const code of uniqueCodes) {
+  for (const [code, quantity] of counts.entries()) {
     const addOn = getAddOnByCode(code);
     if (!addOn) {
       throw Object.assign(new Error(`Unknown add-on: ${code}`), { statusCode: 400 });
@@ -76,7 +83,7 @@ function resolvePurchasedAddOns(addOnCodes, packageCode) {
       code: addOn.code,
       name: addOn.name,
       priceMonthly: addOn.priceMonthly,
-      quantity: 1,
+      quantity: Math.max(1, quantity),
       usageBoost: addOn.usageBoost,
     });
   }

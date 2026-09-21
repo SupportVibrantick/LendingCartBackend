@@ -40,8 +40,10 @@
  * @property {number} priceMonthly
  * @property {string} [note]
  * @property {boolean} [isPurchasable]
+ * @property {boolean} [quantityBased]
  * @property {string[]} [includedInPackageCodes]
  * @property {string[]} [availableForPackageCodes]
+ * @property {number} [quantity]
  */
 
 export {};

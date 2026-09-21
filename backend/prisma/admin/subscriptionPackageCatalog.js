@@ -184,10 +184,11 @@ const SUBSCRIPTION_PACKAGES = [
 const SUBSCRIPTION_ADD_ONS = [
   {
     code: "EXTRA_USER",
-    name: "Per Additional User",
+    name: "Additional Users",
     priceMonthly: 100,
     isPurchasable: true,
     usageBoost: { ACTIVE_USERS: 1 },
+    quantityBased: true,
   },
   {
     code: "CRE_PACK",
