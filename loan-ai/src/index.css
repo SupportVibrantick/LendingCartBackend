@@ -3,3 +3,17 @@
 html {
   scroll-behavior: smooth;
 }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background-color: #000;
+  color: #e5e7eb;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::selection {
+  background: rgba(75, 131, 255, 0.35);
+  color: #fff;
+}

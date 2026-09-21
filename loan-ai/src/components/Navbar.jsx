@@ -14,9 +14,9 @@ import { getBrokerSignInUrl } from "../lib/brokerAuth";
 
 const NAV_LINKS = [
   { name: "How it Works", link: "#how-it-works" },
-  { name: "Benefits", link: "#benefits" },
+  { name: "Features", link: "#features" },
   { name: "Pricing", link: "#pricing" },
-  { name: "Contact", link: "#contact" },
+  { name: "Compare", link: "#plan-comparison" },
 ];
 
 function getUserInitials(user) {
@@ -186,7 +186,7 @@ const Navbar = () => {
   const closeMobile = () => setMobileOpen(false);
 
   return (
-    <header className="fixed top-0 left-0 z-50 w-full border-b border-white/10 bg-[#0b0f2a]/80 backdrop-blur-xl">
+    <header className="fixed top-0 left-0 z-50 w-full border-b border-white/8 bg-black/70 backdrop-blur-xl">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
         <LoanAutomationLogo size="sm" className="shrink-0" />
 
@@ -259,7 +259,7 @@ const Navbar = () => {
       </div>
 
       {mobileOpen && (
-        <div className="border-t border-white/10 bg-[#0b0f2a]/95 backdrop-blur-xl lg:hidden">
+        <div className="border-t border-white/10 bg-black/95 backdrop-blur-xl lg:hidden">
           <nav className="mx-auto flex max-w-7xl flex-col gap-1 px-4 py-4 sm:px-6">
             {NAV_LINKS.map((item) => (
               <a

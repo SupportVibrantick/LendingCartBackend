@@ -45,7 +45,7 @@ const quickActions = [
   { label: "Officers", path: "/all-loan-officers", icon: Users },
   { label: "Clients", path: "/all-clients", icon: Users },
   { label: "Reports", path: "/platform-reports", icon: FileText },
-  { label: "Messages", path: "/all-communications", icon: MessageSquare },
+  // { label: "Messages", path: "/all-communications", icon: MessageSquare },
   { label: "Subs", path: "/all-subscriptions", icon: Wallet },
 ];
 
