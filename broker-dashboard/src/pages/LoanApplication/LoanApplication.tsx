@@ -3,6 +3,7 @@ import toast from "react-hot-toast";
 import Swal from "sweetalert2";
 import { useNavigate } from "react-router";
 import { Building2, HomeIcon, Landmark, Settings } from "lucide-react";
+import { useBrokerEntitlements } from "../../lib/brokerEntitlements";
 
 import {
   createSbaEntityDefaults,
@@ -817,6 +818,7 @@ const LoanApplication = ({
   reviewCaptchaSlot,
   recaptchaToken = null,
 }: LoanApplicationProps = {}) => {
+  const { entitlements } = useBrokerEntitlements();
   const coBorrowerRefs = useRef<Record<number, HTMLDivElement | null>>({});
   const [lastAddedId, setLastAddedId] = useState<number | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<string>(
@@ -2593,18 +2595,24 @@ const LoanApplication = ({
     if (!selectedCategory) return;
 
     const allowedProducts = CATEGORY_LOAN_TYPES[selectedCategory] || [];
+    const entitledTypes = entitlements?.loanTypes;
+    const categoryProducts =
+      entitledTypes && entitledTypes.length > 0
+        ? allowedProducts.filter((code) => entitledTypes.includes(code))
+        : allowedProducts;
+
     const catalogCodes = productsMeta.map((p: any) =>
       String(p.loanProductCode || ""),
     );
 
     const resolvedProducts = resolveCategoryLoanProducts(
-      allowedProducts,
+      categoryProducts,
       catalogCodes,
     );
 
     // Prefer catalog matches; if none match category mapping, show category codes.
     setLoanProducts(
-      resolvedProducts.length > 0 ? resolvedProducts : allowedProducts,
+      resolvedProducts.length > 0 ? resolvedProducts : categoryProducts,
     );
 
     if (mode === "update" && initialSelectedProduct) {
@@ -2617,7 +2625,13 @@ const LoanApplication = ({
     }
 
     setSelectedProduct("");
-  }, [selectedCategory, productsMeta, mode, initialSelectedProduct]);
+  }, [
+    selectedCategory,
+    productsMeta,
+    mode,
+    initialSelectedProduct,
+    entitlements?.loanTypes,
+  ]);
 
   const updateBorrower = (field: string, value: string) => {
     setFormData((prev) => ({
@@ -2899,12 +2913,26 @@ const LoanApplication = ({
   const subPropertyOptions =
     PROPERTY_TYPE_MAP[formData.loanRequest.propertyType] || [];
 
-  const categories: LoanCategory[] = [
-    "RESIDENTIAL_1_4",
-    "CRE_MULTIFAMILY",
-    "SBA_USDA",
-    "ABL",
-  ];
+  const categories: LoanCategory[] = useMemo(() => {
+    const all: LoanCategory[] = [
+      "RESIDENTIAL_1_4",
+      "CRE_MULTIFAMILY",
+      "SBA_USDA",
+      "ABL",
+    ];
+    const allowed = entitlements?.loanCategories;
+    if (!allowed || allowed.length === 0) return all;
+    return all.filter((cat) => allowed.includes(cat));
+  }, [entitlements?.loanCategories]);
+
+  // Clear category if no longer entitled (e.g. after entitlements load)
+  useEffect(() => {
+    if (!selectedCategory || categories.length === 0) return;
+    if (!categories.includes(selectedCategory)) {
+      setSelectedCategory("");
+      setSelectedProduct("");
+    }
+  }, [categories, selectedCategory]);
 
   const CATEGORY_ICONS: Record<string, any> = {
     RESIDENTIAL_1_4: HomeIcon,

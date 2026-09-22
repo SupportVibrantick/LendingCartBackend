@@ -13,12 +13,16 @@ import {
   CO_BROKER_API_BASE,
   getCoBrokerAuthHeaders,
 } from "../../lib/coBrokerPortal";
+import { hasPermission } from "../../lib/brokerPermissions";
+import { useBrokerEntitlements } from "../../lib/brokerEntitlements";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 const EMBED_APP_URL = (
   import.meta.env.VITE_EMBED_APP_URL ||
   "https://loan-application-lendingcart.vibrantick.org"
 ).replace(/\/$/, "");
+
+const SHARE_APPLICATION_LINK = "SHARE_APPLICATION_LINK";
 
 export type ShareClientApplicationPortal =
   | "broker"
@@ -71,6 +75,19 @@ export default function ShareClientApplicationLink({
 }: ShareClientApplicationLinkProps) {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<ShareLinkData | null>(null);
+  const { entitlements, loading: entitlementsLoading } = useBrokerEntitlements();
+
+  const canShare = useMemo(() => {
+    if (portal === "loanOfficer") {
+      return hasPermission(SHARE_APPLICATION_LINK, "loanOfficer");
+    }
+    if (portal === "broker") {
+      if (!entitlements) return false;
+      return entitlements.permissions.includes(SHARE_APPLICATION_LINK);
+    }
+    // Co-broker: org entitlement is enforced by the API.
+    return true;
+  }, [portal, entitlements]);
 
   const fetchShareLink = useCallback(async () => {
     try {
@@ -114,8 +131,13 @@ export default function ShareClientApplicationLink({
   }, [portal]);
 
   useEffect(() => {
+    if (!canShare) {
+      setLoading(false);
+      setData(null);
+      return;
+    }
     fetchShareLink();
-  }, [fetchShareLink]);
+  }, [canShare, fetchShareLink]);
 
   const shareMessage = useMemo(() => {
     if (!data?.shareUrl) return "";
@@ -152,6 +174,12 @@ export default function ShareClientApplicationLink({
     const body = encodeURIComponent(shareMessage);
     window.location.href = `sms:?body=${body}`;
   };
+
+  if (portal === "broker" && entitlementsLoading && !entitlements) {
+    return null;
+  }
+
+  if (!canShare) return null;
 
   return (
     <div className="rounded-2xl border border-sky-200 bg-gradient-to-br from-sky-50 to-blue-50 p-4 shadow-sm dark:border-sky-900/40 dark:from-sky-950/30 dark:to-blue-950/20 sm:p-5">

@@ -5,9 +5,13 @@ const changePlanRoutes = require("./changePlan");
 const cancelRoutes = require("./cancel");
 const refreshUsageRoutes = require("./refreshUsage");
 const processBillingRoutes = require("./processBilling");
+const updateFeaturesRoutes = require("./updateFeatures");
+const updateUsageLimitsRoutes = require("./updateUsageLimits");
 
 async function subscribersRoutes(fastify) {
   fastify.register(listRoutes, { prefix: "/read" });
+  fastify.register(updateFeaturesRoutes);
+  fastify.register(updateUsageLimitsRoutes);
   fastify.register(detailRoutes);
   fastify.register(assignRoutes, { prefix: "/assign" });
   fastify.register(changePlanRoutes, { prefix: "/change-plan" });

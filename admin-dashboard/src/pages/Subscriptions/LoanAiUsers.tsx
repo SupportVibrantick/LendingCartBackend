@@ -4,6 +4,16 @@ import toast from "react-hot-toast";
 import { FiRefreshCw, FiSearch, FiUsers } from "react-icons/fi";
 import { HiOutlineUserPlus } from "react-icons/hi2";
 import SubscriptionNav from "../../components/subscriptions/SubscriptionNav";
+import {
+  FilterBar,
+  PaginationBar,
+  StatusBadge,
+  SubscriptionPageHeader,
+  SubscriptionPageShell,
+  TableSkeleton,
+  filterControlClass,
+  secondaryBtnClass,
+} from "../../components/subscriptions/SubscriptionUi";
 import { useDebouncedValue } from "../../hooks/useDebouncedValue";
 import {
   fetchLoanAiUsers,
@@ -14,7 +24,6 @@ import {
   type LoanAiUserStats,
 } from "../../lib/loanAiUsersApi";
 import { openSubscriberDetail } from "../../lib/subscriberNavigation";
-import { STATUS_COLORS } from "../../lib/subscriptionApi";
 
 export default function LoanAiUsers() {
   const navigate = useNavigate();
@@ -76,30 +85,24 @@ export default function LoanAiUsers() {
   };
 
   return (
-    <div className="p-4 md:p-6">
-      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Loan AI Signups</h1>
-          <p className="text-sm text-slate-500 mt-1">
-            Users who registered on the Loan AI marketing site — before and after subscription.
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={refreshAll}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-800"
-        >
-          <FiRefreshCw size={16} />
-          Refresh
-        </button>
-      </div>
+    <SubscriptionPageShell>
+      <SubscriptionPageHeader
+        title="Loan AI Signups"
+        description="Users who registered on the Loan AI marketing site — before and after subscription."
+        actions={
+          <button type="button" onClick={refreshAll} className={secondaryBtnClass}>
+            <FiRefreshCw size={16} />
+            Refresh
+          </button>
+        }
+      />
 
       <SubscriptionNav />
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-        <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-5">
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
           <div className="flex items-center gap-3">
-            <span className="h-10 w-10 rounded-xl bg-[#13538A]/10 text-[#13538A] flex items-center justify-center">
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#13538A]/10 text-[#13538A]">
               <FiUsers size={18} />
             </span>
             <div>
@@ -108,20 +111,22 @@ export default function LoanAiUsers() {
             </div>
           </div>
         </div>
-        <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-5">
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
           <div className="flex items-center gap-3">
-            <span className="h-10 w-10 rounded-xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center">
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600">
               <HiOutlineUserPlus size={18} />
             </span>
             <div>
               <p className="text-xs uppercase tracking-wide text-slate-500">Subscribed</p>
-              <p className="text-2xl font-bold text-slate-900 dark:text-white">{stats.subscribed}</p>
+              <p className="text-2xl font-bold text-slate-900 dark:text-white">
+                {stats.subscribed}
+              </p>
             </div>
           </div>
         </div>
-        <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-5">
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
           <div className="flex items-center gap-3">
-            <span className="h-10 w-10 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center">
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600">
               <FiUsers size={18} />
             </span>
             <div>
@@ -132,31 +137,51 @@ export default function LoanAiUsers() {
         </div>
       </div>
 
-      <div className="flex flex-col lg:flex-row gap-3 mb-4">
+      <FilterBar>
         <div className="relative flex-1">
-          <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+          <FiSearch
+            className="absolute top-1/2 left-3 -translate-y-1/2 text-slate-400"
+            size={16}
+          />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search by name or email..."
-            className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm outline-none focus:ring-2 focus:ring-[#18B6B4]/25"
+            className={`w-full py-2.5 pr-10 pl-10 ${filterControlClass}`}
           />
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch("")}
+              className="absolute top-1/2 right-3 -translate-y-1/2 text-xs font-semibold text-slate-400 hover:text-slate-600"
+              aria-label="Clear search"
+            >
+              Clear
+            </button>
+          )}
         </div>
         <select
           value={filterStatus}
           onChange={(e) => setFilterStatus(e.target.value)}
-          className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm"
+          className={filterControlClass}
         >
           <option value="">All users</option>
           <option value="true">Subscribed</option>
           <option value="false">Registered only</option>
         </select>
-      </div>
+      </FilterBar>
 
-      <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 overflow-hidden">
+      {debouncedSearch && (
+        <p className="mb-4 text-xs text-slate-500">
+          Showing results for &ldquo;{debouncedSearch}&rdquo;
+          {loading ? " — searching..." : ` — ${total} found`}
+        </p>
+      )}
+
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm">
-            <thead className="bg-slate-50 dark:bg-slate-800/60 text-left text-xs uppercase tracking-wide text-slate-500">
+            <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-800/60">
               <tr>
                 <th className="px-4 py-3 font-semibold">User</th>
                 <th className="px-4 py-3 font-semibold">Registered</th>
@@ -169,15 +194,13 @@ export default function LoanAiUsers() {
             </thead>
             <tbody>
               {loading ? (
-                <tr>
-                  <td colSpan={7} className="px-4 py-10 text-center text-slate-500">
-                    Loading...
-                  </td>
-                </tr>
+                <TableSkeleton columns={7} />
               ) : rows.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-4 py-10 text-center text-slate-500">
-                    No Loan AI registrations yet.
+                    {debouncedSearch
+                      ? "No users match your search"
+                      : "No Loan AI registrations yet."}
                   </td>
                 </tr>
               ) : (
@@ -189,7 +212,7 @@ export default function LoanAiUsers() {
                   return (
                     <tr
                       key={row.id}
-                      className="border-t border-slate-100 dark:border-slate-800 hover:bg-slate-50/70 dark:hover:bg-slate-800/30"
+                      className="border-t border-slate-100 transition hover:bg-slate-50/70 dark:border-slate-800 dark:hover:bg-slate-800/30"
                     >
                       <td className="px-4 py-3">
                         <p className="font-medium text-slate-900 dark:text-white">
@@ -205,16 +228,9 @@ export default function LoanAiUsers() {
                       </td>
                       <td className="px-4 py-3">
                         {row.hasBrokerSubscription ? (
-                          <span
-                            className={`inline-flex px-2.5 py-1 rounded-full text-xs font-semibold ${
-                              STATUS_COLORS[row.subscription?.status || "ACTIVE"] ||
-                              "bg-emerald-100 text-emerald-700"
-                            }`}
-                          >
-                            {row.subscription?.status || "ACTIVE"}
-                          </span>
+                          <StatusBadge status={row.subscription?.status || "ACTIVE"} />
                         ) : (
-                          <span className="inline-flex px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">
+                          <span className="inline-flex rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">
                             Registered
                           </span>
                         )}
@@ -231,8 +247,10 @@ export default function LoanAiUsers() {
                         {row.organization?.id ? (
                           <button
                             type="button"
-                            onClick={() => openSubscriberDetail(navigate, row.organization!.id)}
-                            className="text-[#13538A] dark:text-indigo-400 font-semibold hover:underline"
+                            onClick={() =>
+                              openSubscriberDetail(navigate, row.organization!.id)
+                            }
+                            className="font-semibold text-[#13538A] hover:underline dark:text-indigo-400"
                           >
                             View subscriber
                           </button>
@@ -247,33 +265,15 @@ export default function LoanAiUsers() {
             </tbody>
           </table>
         </div>
-
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 dark:border-slate-800">
-            <p className="text-sm text-slate-500">
-              Page {page} of {totalPages} · {total} users
-            </p>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                disabled={page <= 1}
-                onClick={() => setPage((p) => p - 1)}
-                className="px-3 py-1.5 rounded-lg border text-sm disabled:opacity-40"
-              >
-                Previous
-              </button>
-              <button
-                type="button"
-                disabled={page >= totalPages}
-                onClick={() => setPage((p) => p + 1)}
-                className="px-3 py-1.5 rounded-lg border text-sm disabled:opacity-40"
-              >
-                Next
-              </button>
-            </div>
-          </div>
-        )}
       </div>
-    </div>
+
+      <PaginationBar
+        page={page}
+        totalPages={totalPages}
+        total={total}
+        noun="users"
+        onPageChange={setPage}
+      />
+    </SubscriptionPageShell>
   );
 }

@@ -17,6 +17,25 @@ const USAGE_METRICS = [
   "LENDER_CONNECTIONS",
 ];
 
+/** Metrics admins can override on a subscriber (permissions / plan limits UI). */
+const ADMIN_EDITABLE_USAGE_METRICS = [
+  "LOAN_OFFICERS",
+  "CO_BROKERS",
+  "LENDER_CONNECTIONS",
+  "LOAN_APPLICATIONS",
+];
+
+const USAGE_METRIC_LABELS = {
+  LOAN_APPLICATIONS: "Loan Applications",
+  ACTIVE_USERS: "Active Users",
+  LOAN_OFFICERS: "Loan Officers",
+  LENDER_CONNECTIONS: "Lenders Network",
+  CO_BROKERS: "Co-Brokers",
+};
+
+/** Metrics persisted on subscription_usage rows (DB enum). */
+const PERSISTED_USAGE_METRICS = USAGE_METRICS;
+
 /**
  * Best-effort Agency GHL location sync after admin assign/change plan.
  * Lazy-require avoids circular deps. Never throws — plan change must succeed.
@@ -197,6 +216,19 @@ async function countMetricUsage(prisma, organizationId, metric) {
         },
       });
     }
+    case "CO_BROKERS": {
+      const role = await prisma.role.findFirst({
+        where: { name: "SUB_BROKER" },
+        select: { id: true },
+      });
+      if (!role) return 0;
+      return prisma.userRole.count({
+        where: {
+          roleId: role.id,
+          user: { organizationId, status: "ACTIVE" },
+        },
+      });
+    }
     case "LENDER_CONNECTIONS":
       return prisma.brokerLenderAccess.count({
         where: { brokerOrgId: organizationId },
@@ -204,6 +236,73 @@ async function countMetricUsage(prisma, organizationId, metric) {
     default:
       return 0;
   }
+}
+
+function sanitizeUsageLimitOverrides(value) {
+  if (value == null) return null;
+  if (typeof value !== "object" || Array.isArray(value)) return null;
+  const out = {};
+  for (const metric of ADMIN_EDITABLE_USAGE_METRICS) {
+    if (!(metric in value)) continue;
+    const raw = value[metric];
+    if (raw === "" || raw === null || raw === undefined) continue;
+    const n = Number(raw);
+    if (Number.isFinite(n) && Number.isInteger(n) && n >= 0) {
+      out[metric] = n;
+    }
+  }
+  return Object.keys(out).length > 0 ? out : null;
+}
+
+/** Parse enabledFeatures JSON: array of keys, or `{ keys, usageLimits }`. */
+function parseEnabledFeaturesPayload(raw) {
+  if (raw == null) {
+    return { keys: null, usageLimits: null };
+  }
+  if (Array.isArray(raw)) {
+    return { keys: raw, usageLimits: null };
+  }
+  if (typeof raw === "object") {
+    const keys = Array.isArray(raw.keys)
+      ? raw.keys
+      : Array.isArray(raw.features)
+        ? raw.features
+        : null;
+    return {
+      keys,
+      usageLimits: sanitizeUsageLimitOverrides(raw.usageLimits),
+    };
+  }
+  return { keys: null, usageLimits: null };
+}
+
+function buildEnabledFeaturesPayload(keys, usageLimits) {
+  const limits = sanitizeUsageLimitOverrides(usageLimits);
+  if (limits) {
+    return { keys: Array.isArray(keys) ? keys : [], usageLimits: limits };
+  }
+  return Array.isArray(keys) ? keys : [];
+}
+
+function resolveEffectiveUsageLimits(subscription) {
+  const packageLimits =
+    subscription?.package?.usageLimits &&
+    typeof subscription.package.usageLimits === "object"
+      ? subscription.package.usageLimits
+      : {};
+  const withAddOns = mergeUsageLimitsWithAddOns(
+    packageLimits,
+    subscription?.purchasedAddOns,
+  );
+  const { usageLimits: overrides } = parseEnabledFeaturesPayload(
+    subscription?.enabledFeatures,
+  );
+  const safeOverrides = overrides || {};
+  return {
+    packageDefaults: withAddOns,
+    overrides: safeOverrides,
+    effective: { ...withAddOns, ...safeOverrides },
+  };
 }
 
 async function refreshUsageForSubscription(prisma, organizationSubscriptionId) {
@@ -216,16 +315,11 @@ async function refreshUsageForSubscription(prisma, organizationSubscriptionId) {
     throw new Error("Subscription not found");
   }
 
-  const limits = mergeUsageLimitsWithAddOns(
-    sub.package.usageLimits && typeof sub.package.usageLimits === "object"
-      ? sub.package.usageLimits
-      : {},
-    sub.purchasedAddOns,
-  );
+  const { effective: limits } = resolveEffectiveUsageLimits(sub);
 
   const records = [];
 
-  for (const metric of USAGE_METRICS) {
+  for (const metric of PERSISTED_USAGE_METRICS) {
     const usedValue = await countMetricUsage(prisma, sub.organizationId, metric);
     const limitValue =
       limits[metric] != null && limits[metric] !== ""
@@ -734,10 +828,17 @@ module.exports = {
   ACTIVE_SUB_STATUSES,
   BROKER_ACCESS_STATUSES,
   USAGE_METRICS,
+  ADMIN_EDITABLE_USAGE_METRICS,
+  USAGE_METRIC_LABELS,
   addPeriod,
   getPackagePrice,
   getSubscriptionTotal,
   ensureSinglePopularPackage,
+  countMetricUsage,
+  sanitizeUsageLimitOverrides,
+  parseEnabledFeaturesPayload,
+  buildEnabledFeaturesPayload,
+  resolveEffectiveUsageLimits,
   refreshUsageForSubscription,
   generateInvoice,
   assignPlanToOrganization,

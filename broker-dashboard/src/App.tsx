@@ -359,7 +359,7 @@ export default function App() {
             <Route index path="/all-documents" element={<AllDocuments />} />
 
             <Route index path="/admin-logs" element={
-              <BrokerRequirePermission permission="VIEW_LOGS">
+              <BrokerRequirePermission permission="VIEW_DASHBOARD_LOGS">
                 <AdminLogs />
               </BrokerRequirePermission>
             } />
@@ -374,7 +374,7 @@ export default function App() {
             <Route
               path="/settings/integrations/ghl"
               element={
-                <BrokerRequirePermission permission="VIEW_SETTINGS">
+                <BrokerRequirePermission permission="ACCESS_GOHIGHLEVEL">
                   <GhlIntegration />
                 </BrokerRequirePermission>
               }
@@ -654,12 +654,16 @@ export default function App() {
             />
             <Route
               path="settings/integrations/ghl"
-              element={<GhlIntegration portal="loanOfficer" />}
+              element={
+                <LoRequirePermission permission="ACCESS_GOHIGHLEVEL">
+                  <GhlIntegration portal="loanOfficer" />
+                </LoRequirePermission>
+              }
             />
             <Route
               path="admin-logs"
               element={
-                <LoRequirePermission permission="VIEW_REPORTS">
+                <LoRequirePermission permission="VIEW_DASHBOARD_LOGS">
                   <AdminLogs />
                 </LoRequirePermission>
               }
