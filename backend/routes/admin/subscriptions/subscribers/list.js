@@ -87,7 +87,14 @@ const subscriptionInclude = {
   where: { status: { in: ACTIVE_SUB_STATUSES } },
   orderBy: { createdAt: "desc" },
   take: 1,
-  include: {
+  select: {
+    id: true,
+    status: true,
+    billingCycle: true,
+    currentPeriodStart: true,
+    currentPeriodEnd: true,
+    trialEndsAt: true,
+    cancelAtPeriodEnd: true,
     package: {
       select: {
         id: true,
@@ -149,7 +156,7 @@ async function listSubscribersRoutes(fastify) {
         fastify.log.error(error);
         return reply.status(500).send({
           success: false,
-          message: "Failed to fetch subscribers",
+          message: error.message || "Failed to fetch subscribers",
         });
       }
     },
