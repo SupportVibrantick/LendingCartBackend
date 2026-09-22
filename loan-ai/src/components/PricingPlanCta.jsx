@@ -13,23 +13,23 @@ const TIER_PRIMARY = {
     "bg-linear-to-r from-amber-400 to-yellow-500 text-slate-900 shadow-[0_8px_28px_rgba(251,191,36,0.35)] hover:shadow-[0_12px_40px_rgba(251,191,36,0.5)]",
 };
 
-/** Outline CTAs tinted to each plan — stronger than flat grey borders */
+/** Outline CTAs tinted to each plan — readable in light and dark */
 const TIER_BUY_NOW = {
   BASIC:
-    "border-[#4B83FF]/55 bg-[#4B83FF]/15 text-[#9bb8ff] hover:border-[#4B83FF] hover:bg-[#4B83FF]/25 hover:text-white shadow-[0_0_20px_rgba(75,131,255,0.12)]",
+    "border-[#4B83FF]/50 bg-[#4B83FF]/10 text-[#2f5fd4] hover:border-[#4B83FF] hover:bg-[#4B83FF]/18 dark:border-[#4B83FF]/55 dark:bg-[#4B83FF]/15 dark:text-[#9bb8ff] dark:hover:border-[#4B83FF] dark:hover:bg-[#4B83FF]/25 dark:hover:text-white dark:shadow-[0_0_20px_rgba(75,131,255,0.12)]",
   PRO:
-    "border-indigo-400/55 bg-indigo-500/15 text-indigo-200 hover:border-indigo-400 hover:bg-indigo-500/25 hover:text-white shadow-[0_0_20px_rgba(99,102,241,0.14)]",
+    "border-indigo-400/50 bg-indigo-500/10 text-indigo-700 hover:border-indigo-500 hover:bg-indigo-500/18 dark:border-indigo-400/55 dark:bg-indigo-500/15 dark:text-indigo-200 dark:hover:border-indigo-400 dark:hover:bg-indigo-500/25 dark:hover:text-white dark:shadow-[0_0_20px_rgba(99,102,241,0.14)]",
   ELITE:
-    "border-amber-400/55 bg-amber-500/15 text-amber-200 hover:border-amber-400 hover:bg-amber-500/25 hover:text-amber-50 shadow-[0_0_20px_rgba(251,191,36,0.12)]",
+    "border-amber-400/50 bg-amber-500/10 text-amber-800 hover:border-amber-500 hover:bg-amber-500/18 dark:border-amber-400/55 dark:bg-amber-500/15 dark:text-amber-200 dark:hover:border-amber-400 dark:hover:bg-amber-500/25 dark:hover:text-amber-50 dark:shadow-[0_0_20px_rgba(251,191,36,0.12)]",
 };
 
 const TIER_BOOK_DEMO = {
   BASIC:
-    "border-white/20 bg-white/[0.06] text-gray-200 hover:border-[#4B83FF]/40 hover:bg-[#4B83FF]/10 hover:text-white",
+    "border-slate-200 bg-slate-50 text-slate-700 hover:border-[#4B83FF]/40 hover:bg-[#4B83FF]/10 hover:text-[#2f5fd4] dark:border-white/20 dark:bg-white/[0.06] dark:text-gray-200 dark:hover:border-[#4B83FF]/40 dark:hover:bg-[#4B83FF]/10 dark:hover:text-white",
   PRO:
-    "border-white/20 bg-white/[0.06] text-gray-200 hover:border-indigo-400/40 hover:bg-indigo-500/10 hover:text-white",
+    "border-slate-200 bg-slate-50 text-slate-700 hover:border-indigo-400/50 hover:bg-indigo-500/10 hover:text-indigo-700 dark:border-white/20 dark:bg-white/[0.06] dark:text-gray-200 dark:hover:border-indigo-400/40 dark:hover:bg-indigo-500/10 dark:hover:text-white",
   ELITE:
-    "border-white/20 bg-white/[0.06] text-gray-200 hover:border-amber-400/40 hover:bg-amber-500/10 hover:text-amber-50",
+    "border-slate-200 bg-slate-50 text-slate-700 hover:border-amber-400/50 hover:bg-amber-500/10 hover:text-amber-800 dark:border-white/20 dark:bg-white/[0.06] dark:text-gray-200 dark:hover:border-amber-400/40 dark:hover:bg-amber-500/10 dark:hover:text-amber-50",
 };
 
 const basePrimary =
@@ -42,7 +42,7 @@ const dashboardClass =
   "inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-linear-to-r from-emerald-500 to-teal-500 px-5 py-3.5 text-sm font-semibold text-white shadow-[0_8px_28px_rgba(16,185,129,0.35)] transition-all duration-200 hover:scale-[1.02] hover:shadow-[0_12px_36px_rgba(16,185,129,0.45)]";
 
 const disabledClass =
-  "inline-flex w-full cursor-not-allowed items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-3.5 text-sm font-semibold text-gray-500 opacity-60";
+  "inline-flex w-full cursor-not-allowed items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 px-5 py-3.5 text-sm font-semibold text-slate-400 opacity-60 dark:border-white/10 dark:bg-white/[0.04] dark:text-gray-500";
 
 function formatTrialEnds(iso) {
   if (!iso) return null;
@@ -78,8 +78,8 @@ export default function PricingPlanCta({
   if (loading) {
     return (
       <div className="mt-auto space-y-3">
-        <div className="h-12 w-full animate-pulse rounded-2xl bg-white/10" />
-        <div className="h-12 w-full animate-pulse rounded-2xl bg-white/5" />
+        <div className="h-12 w-full animate-pulse rounded-2xl bg-slate-200 dark:bg-white/10" />
+        <div className="h-12 w-full animate-pulse rounded-2xl bg-slate-100 dark:bg-white/5" />
       </div>
     );
   }
@@ -108,13 +108,13 @@ export default function PricingPlanCta({
   return (
     <div className="mt-auto flex flex-col gap-2.5 pt-2">
       {isCurrentPlan && isOnTrial && (
-        <div className="mb-1 flex flex-col items-center gap-1 rounded-2xl border border-sky-500/30 bg-sky-500/10 px-3 py-2.5 text-sm font-medium text-sky-200">
+        <div className="mb-1 flex flex-col items-center gap-1 rounded-2xl border border-sky-500/30 bg-sky-500/10 px-3 py-2.5 text-sm font-medium text-sky-700 dark:text-sky-200">
           <span className="inline-flex items-center gap-2">
             <CheckCircle2 size={16} className="shrink-0" />
             Free trial active
           </span>
           {trialEndLabel && (
-            <span className="text-xs font-normal text-sky-300/80">
+            <span className="text-xs font-normal text-sky-600/80 dark:text-sky-300/80">
               Ends {trialEndLabel}
             </span>
           )}
@@ -122,7 +122,7 @@ export default function PricingPlanCta({
       )}
 
       {isCurrentPlan && isPaidActive && (
-        <div className="mb-1 flex items-center justify-center gap-2 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2.5 text-sm font-medium text-emerald-300">
+        <div className="mb-1 flex items-center justify-center gap-2 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2.5 text-sm font-medium text-emerald-700 dark:text-emerald-300">
           <CheckCircle2 size={16} className="shrink-0" />
           Purchased · Active plan
         </div>

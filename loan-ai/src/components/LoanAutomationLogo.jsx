@@ -28,10 +28,10 @@ const LoanAutomationLogo = ({
 
       {showText && (
         <div className="min-w-0 text-left">
-          <p className={`truncate font-semibold text-white tracking-wide ${s.title}`}>
+          <p className={`truncate font-semibold text-slate-900 tracking-wide dark:text-white ${s.title}`}>
             Loan Automation
           </p>
-          <p className={`truncate text-white/60 ${s.subtitle}`}>Loan AI</p>
+          <p className={`truncate text-slate-500 dark:text-white/60 ${s.subtitle}`}>Loan AI</p>
         </div>
       )}
     </div>

@@ -279,7 +279,7 @@ export default function SubscribePage() {
   };
 
   const inputClass =
-    "w-full rounded-xl px-4 py-2.5 text-sm bg-white/10 border border-white/20 text-white placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-blue-500";
+    "w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none placeholder:text-slate-400 focus:ring-2 focus:ring-blue-500 dark:border-white/20 dark:bg-white/10 dark:text-white dark:placeholder:text-slate-400";
 
   if (authLoading || !isAuthenticated) {
     return null;
@@ -287,7 +287,7 @@ export default function SubscribePage() {
 
   if (trialStarted || (isOnTrial && isTrialMode)) {
     return (
-      <div className="min-h-screen relative bg-[#0b1020] text-white overflow-hidden">
+      <div className="relative min-h-screen overflow-hidden bg-slate-50 text-slate-900 transition-colors dark:bg-[#0b1020] dark:text-white">
         <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.05)_1px,transparent_1px)] bg-[size:40px_40px]" />
         <AuthPageHeader />
         <div className="relative z-10 max-w-2xl mx-auto px-6 py-12">
@@ -332,7 +332,7 @@ export default function SubscribePage() {
   }
 
   return (
-    <div className="min-h-screen relative bg-[#0b1020] text-white overflow-hidden">
+    <div className="relative min-h-screen overflow-hidden bg-slate-50 text-slate-900 transition-colors dark:bg-[#0b1020] dark:text-white">
       <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.05)_1px,transparent_1px)] bg-[size:40px_40px]" />
       <div className="absolute -top-25 left-1/2 -translate-x-1/2 w-150 h-150 bg-indigo-500/20 blur-[120px] rounded-full" />
 
@@ -392,7 +392,7 @@ export default function SubscribePage() {
 
             <form
               onSubmit={isTrialMode ? handleStartTrial : handleCompleteSubscription}
-              className="space-y-5 bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-xl"
+              className="space-y-5 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-white/5"
             >
               <div>
                 <label className="text-xs font-medium text-slate-400 block mb-1">

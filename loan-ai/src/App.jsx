@@ -3,16 +3,8 @@ import { BrowserRouter, Routes, Route, useLocation, useNavigate } from "react-ro
 import { Toaster } from "react-hot-toast";
 
 import Navbar from "./components/Navbar";
-import Hero from "./components/Hero";
-import DashboardPreview from "./components/DashboardPreview";
-import Benefits from "./components/Benefits";
-import MultiLenderSupport from "./components/MultiLenderSupport";
-import InstantBusinessIntelligence from "./components/InstantBusinessIntelligence";
-import VirtualProcessor from "./components/VirtualProcessor";
-import ApplicantPortal from "./components/ApplicantPortal";
 import PricingLeadIn from "./components/PricingLeadIn";
 import Pricing from "./components/Pricing";
-import Footer from "./components/Footer";
 import SectionWrapper from "./components/SectionWrapper";
 
 import BookDemoPage from "./components/BookDemo";
@@ -22,6 +14,7 @@ import SubscribePage from "./components/Subscribe";
 import CheckoutStart from "./components/CheckoutStart";
 import CheckoutResult from "./components/CheckoutResult";
 import { AuthProvider } from "./context/AuthContext";
+import { ThemeProvider, useTheme } from "./context/ThemeContext";
 
 const SCROLL_HASHES = new Set([
   "#pricing",
@@ -39,13 +32,11 @@ function HomePage() {
   useEffect(() => {
     if (!SCROLL_HASHES.has(location.hash)) return;
     const id = location.hash.slice(1);
-    // Wait a tick so the section is painted after route mount
     requestAnimationFrame(() => {
       document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
     });
   }, [location.hash]);
 
-  // Legacy return URLs: /?checkout=success → dedicated result page
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const checkout = params.get("checkout");
@@ -68,77 +59,61 @@ function HomePage() {
     <>
       <Navbar />
 
-      <div className="min-h-screen bg-black pt-16 text-white">
-        {/* <Hero /> */}
-
-        {/* <SectionWrapper>
-          <div className="bg-gray-100 pb-0">
-            <DashboardPreview />
-          </div>
-        </SectionWrapper> */}
-
-        {/* <SectionWrapper>
-          <Benefits />
-        </SectionWrapper> */}
-
-        {/* <SectionWrapper>
-          <MultiLenderSupport />
-        </SectionWrapper> */}
-
-        {/* <SectionWrapper>
-          <InstantBusinessIntelligence />
-        </SectionWrapper> */}
-
-        {/* <SectionWrapper>
-          <VirtualProcessor />
-        </SectionWrapper> */}
-
-        {/* <SectionWrapper>
-          <ApplicantPortal />
-        </SectionWrapper> */}
-
+      <div className="min-h-screen bg-slate-50 pt-16 text-slate-900 transition-colors dark:bg-black dark:text-white">
         <PricingLeadIn />
 
         <SectionWrapper>
           <Pricing />
         </SectionWrapper>
-
-        {/* <SectionWrapper>
-          <Footer />
-        </SectionWrapper> */}
       </div>
     </>
   );
 }
 
-function App() {
+function ThemedToaster() {
+  const { isDark } = useTheme();
+
   return (
-    <AuthProvider>
-      <BrowserRouter>
-        <Toaster
-          position="top-right"
-          toastOptions={{
-            style: {
+    <Toaster
+      position="top-right"
+      toastOptions={{
+        style: isDark
+          ? {
               background: "#0f1428",
               color: "#e5e7eb",
               border: "1px solid rgba(255,255,255,0.1)",
+            }
+          : {
+              background: "#ffffff",
+              color: "#0f172a",
+              border: "1px solid rgba(15,23,42,0.1)",
             },
-          }}
-        />
-        <Routes>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/book-demo" element={<BookDemoPage />} />
-          <Route path="/subscribe" element={<SubscribePage />} />
-          <Route path="/checkout" element={<CheckoutStart />} />
-          <Route path="/checkout/pending" element={<CheckoutResult />} />
-          <Route path="/checkout/success" element={<CheckoutResult />} />
-          <Route path="/checkout/cancelled" element={<CheckoutResult />} />
-          <Route path="/checkout/failed" element={<CheckoutResult />} />
-          <Route path="/signup" element={<SignUpPage />} />
-          <Route path="/login" element={<LoginPage />} />
-        </Routes>
-      </BrowserRouter>
-    </AuthProvider>
+      }}
+    />
+  );
+}
+
+function App() {
+  return (
+    <ThemeProvider>
+      <AuthProvider>
+        <BrowserRouter>
+          <ThemedToaster />
+          <Routes>
+            <Route path="/" element={<HomePage />} />
+            <Route path="/book-demo" element={<BookDemoPage />} />
+            <Route path="/subscribe" element={<SubscribePage />} />
+            <Route path="/checkout" element={<CheckoutStart />} />
+            <Route path="/checkout/pending" element={<CheckoutResult />} />
+            <Route path="/checkout/success" element={<CheckoutResult />} />
+            <Route path="/checkout/cancelled" element={<CheckoutResult />} />
+            <Route path="/checkout/failed" element={<CheckoutResult />} />
+            <Route path="/signup" element={<SignUpPage />} />
+            <Route path="/login" element={<LoginPage />} />
+          </Routes>
+        </BrowserRouter>
+      </AuthProvider>
+    </ThemeProvider>
   );
 }
 

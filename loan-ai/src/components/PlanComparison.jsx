@@ -22,21 +22,26 @@ function ComparisonCell({ value }) {
   if (value === true) {
     return (
       <span className="inline-flex items-center justify-center" aria-label="Included">
-        <Check className="text-emerald-400" size={18} strokeWidth={2.5} />
+        <Check className="text-emerald-500 dark:text-emerald-400" size={18} strokeWidth={2.5} />
       </span>
     );
   }
 
   if (value === false || value == null) {
     return (
-      <span className="text-gray-600 text-base leading-none" aria-label="Not included">
+      <span
+        className="text-base leading-none text-slate-400 dark:text-gray-600"
+        aria-label="Not included"
+      >
         —
       </span>
     );
   }
 
   return (
-    <span className="text-sm text-gray-200 font-medium whitespace-nowrap">{value}</span>
+    <span className="whitespace-nowrap text-sm font-medium text-slate-700 dark:text-gray-200">
+      {value}
+    </span>
   );
 }
 
@@ -71,23 +76,23 @@ export default function PlanComparison({ packages = [] }) {
   ];
 
   return (
-    <div id="plan-comparison" className="mt-20 max-w-5xl mx-auto text-left">
-      <div className="text-center mb-10">
-        <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#4B83FF] mb-3">
+    <div id="plan-comparison" className="mx-auto mt-20 max-w-5xl text-left">
+      <div className="mb-10 text-center">
+        <p className="mb-3 text-xs font-bold uppercase tracking-[0.22em] text-[#4B83FF]">
           Full Comparison
         </p>
-        <h3 className="text-3xl md:text-4xl font-bold text-white">
+        <h3 className="text-3xl font-bold text-slate-900 md:text-4xl dark:text-white">
           Compare All <span className="text-[#4B83FF]">Plans</span>
         </h3>
       </div>
 
-      <div className="overflow-x-auto rounded-2xl border border-white/10 bg-white/[0.02] shadow-[0_0_60px_rgba(75,131,255,0.06)]">
+      <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-white/[0.02] dark:shadow-[0_0_60px_rgba(75,131,255,0.06)]">
         <table className="w-full min-w-[640px] border-collapse">
           <thead>
-            <tr className="border-b border-white/10 bg-white/[0.03]">
+            <tr className="border-b border-slate-200 bg-slate-50 dark:border-white/10 dark:bg-white/[0.03]">
               <th
                 scope="col"
-                className="py-4 px-4 md:px-6 text-left text-sm font-medium text-gray-400"
+                className="px-4 py-4 text-left text-sm font-medium text-slate-500 md:px-6 dark:text-gray-400"
               >
                 Feature
               </th>
@@ -95,7 +100,7 @@ export default function PlanComparison({ packages = [] }) {
                 <th
                   key={col.key}
                   scope="col"
-                  className="py-4 px-3 md:px-4 text-center text-sm font-semibold text-[#4B83FF] whitespace-nowrap"
+                  className="whitespace-nowrap px-3 py-4 text-center text-sm font-semibold text-[#4B83FF] md:px-4"
                 >
                   {col.label} ({formatPrice(col.price)})
                 </th>
@@ -106,16 +111,19 @@ export default function PlanComparison({ packages = [] }) {
             {PLAN_COMPARISON_ROWS.map((row) => (
               <tr
                 key={row.feature}
-                className="border-b border-white/[0.06] last:border-b-0"
+                className="border-b border-slate-100 last:border-b-0 dark:border-white/[0.06]"
               >
                 <th
                   scope="row"
-                  className="py-3.5 px-4 md:px-6 text-left text-sm font-normal text-gray-200"
+                  className="px-4 py-3.5 text-left text-sm font-normal text-slate-700 md:px-6 dark:text-gray-200"
                 >
                   {row.feature}
                 </th>
                 {columns.map((col) => (
-                  <td key={col.key} className="py-3.5 px-3 md:px-4 text-center align-middle">
+                  <td
+                    key={col.key}
+                    className="px-3 py-3.5 text-center align-middle md:px-4"
+                  >
                     <ComparisonCell value={row[col.key]} />
                   </td>
                 ))}

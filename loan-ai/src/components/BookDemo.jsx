@@ -89,7 +89,7 @@ const BookDemoPage = () => {
 
   if (user?.hasBrokerSubscription) {
     return (
-      <div className="min-h-screen relative bg-[#0b1020] text-white overflow-hidden">
+      <div className="relative min-h-screen overflow-hidden bg-slate-50 text-slate-900 transition-colors dark:bg-[#0b1020] dark:text-white">
         <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.05)_1px,transparent_1px)] bg-[size:40px_40px]" />
         <AuthPageHeader />
         <div className="relative z-10 max-w-lg mx-auto px-6 py-20 text-center">
@@ -121,7 +121,7 @@ const BookDemoPage = () => {
     isAuthenticated && Boolean(form.firstName || form.lastName);
 
   return (
-    <div className="min-h-screen relative bg-[#0b1020] text-white overflow-hidden">
+    <div className="relative min-h-screen overflow-hidden bg-slate-50 text-slate-900 transition-colors dark:bg-[#0b1020] dark:text-white">
       <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.05)_1px,transparent_1px)] bg-[size:40px_40px]"></div>
       <div className="absolute -top-25 left-[50%] -translate-x-1/2 w-150 h-150 bg-indigo-500/20 blur-[120px] rounded-full"></div>
 
@@ -157,7 +157,7 @@ const BookDemoPage = () => {
           </div>
         </div>
 
-        <div className="bg-white/5 border border-white/10 backdrop-blur-xl rounded-2xl p-6 shadow-xl">
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xl backdrop-blur-xl dark:border-white/10 dark:bg-white/5">
           <h2 className="text-lg font-semibold mb-1">Schedule Your Demo</h2>
           {planState.planName && (
             <p className="text-sm text-blue-300 mb-4">

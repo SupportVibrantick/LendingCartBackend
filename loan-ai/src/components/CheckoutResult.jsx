@@ -467,7 +467,7 @@ export default function CheckoutResult() {
 
 function ResultShell({ children }) {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#0b1020] px-6 py-16 text-white">
+    <div className="flex min-h-screen items-center justify-center bg-slate-50 px-6 py-16 text-slate-900 transition-colors dark:bg-[#0b1020] dark:text-white">
       <div className="w-full max-w-lg rounded-3xl border border-white/10 bg-gradient-to-b from-white/10 to-white/5 p-8 text-center shadow-2xl shadow-black/40 sm:p-10">
         {children}
       </div>

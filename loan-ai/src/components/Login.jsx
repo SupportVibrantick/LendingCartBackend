@@ -46,7 +46,7 @@ export default function LoginPage() {
   };
 
   const inputClass =
-    "w-full rounded-xl px-4 py-2.5 text-sm bg-white/10 border border-white/20 text-white placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-blue-500";
+    "w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none placeholder:text-slate-400 focus:ring-2 focus:ring-blue-500 dark:border-white/20 dark:bg-white/10 dark:text-white dark:placeholder:text-slate-400";
 
   const hasPlan = Boolean(planState.planName);
 
@@ -55,7 +55,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen relative bg-[#0b1020] text-white overflow-hidden">
+    <div className="relative min-h-screen overflow-hidden bg-slate-50 text-slate-900 transition-colors dark:bg-[#0b1020] dark:text-white">
       <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.05)_1px,transparent_1px)] bg-[size:40px_40px]" />
       <div className="absolute -top-25 left-1/2 -translate-x-1/2 w-150 h-150 bg-blue-500/20 blur-[120px] rounded-full" />
 
@@ -63,7 +63,7 @@ export default function LoginPage() {
 
       <div className="relative z-10 max-w-md mx-auto px-6 py-16">
         <h1 className="text-3xl font-bold mb-2">Sign in to Loan AI</h1>
-        <p className="text-slate-400 mb-6 text-sm leading-relaxed">
+        <p className="mb-6 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
           Use your Loan AI website account. This is separate from your broker dashboard login —
           {planState.mode === "trial"
             ? " broker credentials are emailed when your free trial starts."
@@ -76,12 +76,12 @@ export default function LoginPage() {
               ? "bg-sky-500/10 border border-sky-500/30"
               : "bg-indigo-500/10 border border-indigo-500/30"
           }`}>
-            <p className={planState.mode === "trial" ? "text-sky-200 font-semibold" : "text-indigo-200 font-semibold"}>
+            <p className={planState.mode === "trial" ? "font-semibold text-sky-700 dark:text-sky-200" : "font-semibold text-indigo-700 dark:text-indigo-200"}>
               {planState.mode === "trial"
                 ? `${planState.planName} — free trial`
                 : `${planState.planName} plan${planState.planPrice ? ` — ${planState.planPrice}/${planState.billingLabel || "month"}` : ""}`}
             </p>
-            <p className="text-slate-400 mt-2 text-xs">
+            <p className="mt-2 text-xs text-slate-600 dark:text-slate-400">
               {planState.mode === "trial"
                 ? "Sign in to start your free trial — no payment required."
                 : "Sign in to continue to secure checkout for this plan."}
@@ -91,7 +91,7 @@ export default function LoginPage() {
 
         <form
           onSubmit={handleSubmit}
-          className="space-y-4 bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-xl"
+          className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-white/5"
         >
           <input
             className={inputClass}
@@ -127,7 +127,7 @@ export default function LoginPage() {
             {loading ? "Signing in..." : "Sign in"}
           </button>
 
-          <p className="text-center text-sm text-slate-400">
+          <p className="text-center text-sm text-slate-600 dark:text-slate-400">
             Don&apos;t have an account?{" "}
             <Link
               to="/signup"

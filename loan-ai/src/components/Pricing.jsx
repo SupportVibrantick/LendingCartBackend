@@ -24,21 +24,21 @@ import { useAuth } from "../context/AuthContext";
 
 const TIER_ACCENTS = {
   BASIC: {
-    ring: "border-white/10",
-    badge: "bg-white/10 text-gray-300",
-    price: "text-white",
+    ring: "border-slate-200 dark:border-white/10",
+    badge: "bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-gray-300",
+    price: "text-slate-900 dark:text-white",
     glow: "",
   },
   PRO: {
-    ring: "border-[#4B83FF]/45 shadow-[0_0_60px_rgba(75,131,255,0.22)]",
+    ring: "border-[#4B83FF]/45 shadow-[0_0_40px_rgba(75,131,255,0.15)]",
     badge: "bg-[#4B83FF]/15 text-[#4B83FF]",
-    price: "text-white",
-    glow: "scale-[1.02] md:scale-105",
+    price: "text-slate-900 dark:text-white",
+    glow: "",
   },
   ELITE: {
     ring: "border-amber-400/35 shadow-[0_0_40px_rgba(251,191,36,0.12)]",
-    badge: "bg-amber-500/15 text-amber-300",
-    price: "text-amber-100",
+    badge: "bg-amber-500/15 text-amber-600 dark:text-amber-300",
+    price: "text-amber-800 dark:text-amber-100",
     glow: "",
   },
 };
@@ -130,14 +130,16 @@ function FeatureGroupsList({ groups }) {
             key={`${group.heading || "features"}-${groupIndex}`}
             className={
               isHighlight
-                ? "rounded-2xl border border-amber-400/30 bg-amber-500/[0.06] p-4"
+                ? "rounded-2xl border border-amber-400/30 bg-amber-500/[0.08] p-4 dark:bg-amber-500/[0.06]"
                 : ""
             }
           >
             {group.heading && (
               <p
                 className={`mb-3 text-[11px] font-bold uppercase tracking-wider ${
-                  isHighlight ? "text-amber-300" : "text-blue-400"
+                  isHighlight
+                    ? "text-amber-700 dark:text-amber-300"
+                    : "text-blue-600 dark:text-blue-400"
                 }`}
               >
                 {group.heading}
@@ -147,12 +149,14 @@ function FeatureGroupsList({ groups }) {
               {group.items.map((feature) => (
                 <li key={feature} className="flex items-start gap-3">
                   <Check
-                    className={`shrink-0 mt-0.5 ${
-                      isHighlight ? "text-amber-400" : "text-blue-400"
+                    className={`mt-0.5 shrink-0 ${
+                      isHighlight
+                        ? "text-amber-500 dark:text-amber-400"
+                        : "text-blue-500 dark:text-blue-400"
                     }`}
                     size={18}
                   />
-                  <span className="text-gray-200 text-sm">{feature}</span>
+                  <span className="text-sm text-slate-700 dark:text-gray-200">{feature}</span>
                 </li>
               ))}
             </ul>
@@ -255,15 +259,15 @@ function UsageLimitsSummary({ limits }) {
   if (entries.length === 0) return null;
 
   return (
-    <div className="mb-6 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-      <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-3">
+    <div className="mb-6 rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/[0.03]">
+      <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-gray-400">
         Usage limits
       </p>
       <dl className="grid grid-cols-2 gap-x-3 gap-y-2">
         {entries.map(([key, label]) => (
           <div key={key}>
-            <dt className="text-[11px] text-gray-500 leading-tight">{label}</dt>
-            <dd className="text-sm font-semibold text-white">
+            <dt className="text-[11px] leading-tight text-slate-500">{label}</dt>
+            <dd className="text-sm font-semibold text-slate-900 dark:text-white">
               {formatUsageLimit(limits[key])}
             </dd>
           </div>
@@ -292,10 +296,10 @@ function AddOnsSection({
         <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#4B83FF] mb-2">
           Customize
         </p>
-        <h3 className="text-xl md:text-2xl font-bold text-white mb-2">
+        <h3 className="text-xl md:text-2xl font-bold text-slate-900 mb-2 dark:text-white">
           Available Add-Ons
         </h3>
-        <p className="text-sm text-gray-400 max-w-xl mx-auto">
+        <p className="mx-auto max-w-xl text-sm text-slate-500 dark:text-gray-400">
           Tap add-ons to customize each plan. Use the stepper for extra users —
           prices update in real time.
         </p>
@@ -310,7 +314,7 @@ function AddOnsSection({
           <button
             type="button"
             onClick={onClear}
-            className="text-xs font-semibold uppercase tracking-wide text-white/80 hover:text-white underline underline-offset-2"
+            className="text-xs font-semibold uppercase tracking-wide text-[#4B83FF]/80 underline underline-offset-2 hover:text-[#4B83FF] dark:text-white/80 dark:hover:text-white"
           >
             Clear all
           </button>
@@ -339,14 +343,14 @@ function AddOnsSection({
             return (
               <li key={addOn.code || addOn.name} className="h-full">
                 <div
-                  className={`flex h-full w-full items-start justify-between gap-3 rounded-2xl border px-5 py-4 transition-all duration-200 ${
+                  className={`flex h-full w-full items-center justify-between gap-3 rounded-2xl border px-4 py-3.5 transition-all duration-200 ${
                     selected
-                      ? "border-[#4B83FF]/60 bg-[#4B83FF]/15 shadow-[0_0_24px_rgba(75,131,255,0.2)]"
-                      : "border-white/10 bg-white/[0.04]"
+                      ? "border-[#4B83FF]/60 bg-[#4B83FF]/10 shadow-[0_0_24px_rgba(75,131,255,0.12)]"
+                      : "border-slate-200 bg-white dark:border-white/10 dark:bg-white/[0.04]"
                   }`}
                 >
-                  <div className="flex min-w-0 items-start gap-3">
-                    <div className="mt-0.5 inline-flex shrink-0 items-center rounded-lg border border-white/20 bg-black/25 p-0.5">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div className="inline-flex shrink-0 items-center rounded-lg border border-slate-200 bg-slate-50 p-0.5 dark:border-white/20 dark:bg-black/25">
                       <button
                         type="button"
                         aria-label="Decrease additional users"
@@ -360,11 +364,11 @@ function AddOnsSection({
                             ),
                           )
                         }
-                        className="flex h-6 w-6 items-center justify-center rounded-md text-sm text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+                        className="flex h-6 w-6 items-center justify-center rounded-md text-sm text-slate-700 transition hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-40 dark:text-white dark:hover:bg-white/10"
                       >
                         −
                       </button>
-                      <span className="min-w-6 text-center text-xs font-semibold text-white tabular-nums">
+                      <span className="min-w-6 text-center text-xs font-semibold text-slate-900 tabular-nums dark:text-white">
                         {quantity}
                       </span>
                       <button
@@ -380,16 +384,16 @@ function AddOnsSection({
                             ),
                           )
                         }
-                        className="flex h-6 w-6 items-center justify-center rounded-md text-sm text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+                        className="flex h-6 w-6 items-center justify-center rounded-md text-sm text-slate-700 transition hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-40 dark:text-white dark:hover:bg-white/10"
                       >
                         +
                       </button>
                     </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-gray-100">
+                    <div className="min-w-0 text-left">
+                      <p className="text-sm font-medium text-slate-900 dark:text-gray-100">
                         {displayName}
                       </p>
-                      <p className="mt-1 text-[11px] font-medium uppercase tracking-wide text-gray-500">
+                      <p className="mt-0.5 text-[11px] font-medium uppercase tracking-wide text-slate-500">
                         {formatPrice(unitCycleAmount)}/user · {availability}
                       </p>
                     </div>
@@ -410,31 +414,33 @@ function AddOnsSection({
                 type="button"
                 onClick={() => onChange(toggleAddOnCode(selectedCodes, addOn.code))}
                 aria-pressed={selected}
-                className={`flex h-full w-full text-left rounded-2xl border px-5 py-4 transition-all duration-200 ${
+                className={`flex h-full w-full items-center text-left rounded-2xl border px-4 py-3.5 transition-all duration-200 ${
                   selected
-                    ? "border-[#4B83FF]/60 bg-[#4B83FF]/15 shadow-[0_0_24px_rgba(75,131,255,0.2)]"
-                    : "border-white/10 bg-white/[0.04] hover:border-[#4B83FF]/30 hover:bg-white/[0.06]"
+                    ? "border-[#4B83FF]/60 bg-[#4B83FF]/10 shadow-[0_0_24px_rgba(75,131,255,0.12)]"
+                    : "border-slate-200 bg-white hover:border-[#4B83FF]/35 hover:bg-slate-50 dark:border-white/10 dark:bg-white/[0.04] dark:hover:border-[#4B83FF]/30 dark:hover:bg-white/[0.06]"
                 }`}
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-start gap-3 min-w-0">
+                <div className="flex w-full items-center justify-between gap-3">
+                  <div className="flex min-w-0 items-center gap-3">
                     <span
-                      className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition ${
+                      className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition ${
                         selected
                           ? "border-[#4B83FF] bg-[#4B83FF] text-white"
-                          : "border-white/25 bg-transparent"
+                          : "border-slate-300 bg-transparent dark:border-white/25"
                       }`}
                     >
                       {selected ? <Check size={12} strokeWidth={3} /> : null}
                     </span>
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-gray-100">{displayName}</p>
-                      <p className="mt-1 text-[11px] font-medium uppercase tracking-wide text-gray-500">
+                    <div className="min-w-0 text-left">
+                      <p className="text-sm font-medium text-slate-900 dark:text-gray-100">
+                        {displayName}
+                      </p>
+                      <p className="mt-0.5 text-[11px] font-medium uppercase tracking-wide text-slate-500">
                         {availability}
                       </p>
                     </div>
                   </div>
-                  <span className="text-sm font-semibold text-[#4B83FF] whitespace-nowrap">
+                  <span className="shrink-0 text-sm font-semibold text-[#4B83FF] whitespace-nowrap">
                     +{formatPrice(lineTotal)}
                     {cycleSuffix}
                   </span>
@@ -468,12 +474,12 @@ function PlanPriceBlock({
         <span className={`text-4xl md:text-5xl font-bold ${accent.price}`}>
           {formatPrice(totalAmount)}
         </span>
-        <span className="text-gray-400 text-base mb-1">{suffix}</span>
+        <span className="mb-1 text-base text-slate-500 dark:text-gray-400">{suffix}</span>
       </div>
 
       {hasAddOns ? (
-        <div className="mt-3 space-y-1.5 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5">
-          <p className="flex justify-between gap-3 text-xs text-gray-400">
+        <div className="mt-3 space-y-1.5 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 dark:border-white/10 dark:bg-white/[0.03]">
+          <p className="flex justify-between gap-3 text-xs text-slate-500 dark:text-gray-400">
             <span>Base plan</span>
             <span>{formatPrice(baseAmount)}</span>
           </p>
@@ -499,7 +505,7 @@ function PlanPriceBlock({
               </p>
             );
           })}
-          <p className="flex justify-between gap-3 border-t border-white/10 pt-1.5 text-xs font-semibold text-white">
+          <p className="flex justify-between gap-3 border-t border-slate-200 pt-1.5 text-xs font-semibold text-slate-900 dark:border-white/10 dark:text-white">
             <span>Custom total</span>
             <span>{formatPrice(totalAmount)}</span>
           </p>
@@ -507,7 +513,7 @@ function PlanPriceBlock({
       ) : (
         <>
           {sublabel && (
-            <p className="text-sm text-gray-500 mt-2">{sublabel}</p>
+            <p className="mt-2 text-sm text-slate-500 dark:text-gray-400">{sublabel}</p>
           )}
           {savings != null && savings > 0 && (
             <p className="text-sm text-emerald-400 mt-2 font-medium">
@@ -540,7 +546,7 @@ function PricingSkeleton() {
 
           key={i}
 
-          className="h-[420px] rounded-3xl bg-white/5 border border-white/10 animate-pulse"
+          className="h-[420px] animate-pulse rounded-3xl border border-slate-200 bg-slate-100 dark:border-white/10 dark:bg-white/5"
 
         />
 
@@ -640,7 +646,7 @@ const Pricing = () => {
 
       id="pricing"
 
-      className="scroll-mt-24 relative overflow-hidden bg-black py-24 px-6 md:py-28"
+      className="scroll-mt-24 relative overflow-hidden bg-slate-50 py-24 px-6 transition-colors md:py-28 dark:bg-black"
 
     >
 
@@ -654,7 +660,7 @@ const Pricing = () => {
           Pricing
         </p>
 
-        <h2 className="text-3xl md:text-5xl font-bold text-white mb-6">
+        <h2 className="text-3xl md:text-5xl font-bold text-slate-900 mb-6 dark:text-white">
 
           Simple{" "}
 
@@ -668,7 +674,7 @@ const Pricing = () => {
 
 
 
-        <p className="text-gray-400 mb-10 max-w-2xl mx-auto">
+        <p className="text-slate-600 mb-10 max-w-2xl mx-auto dark:text-gray-400">
 
           Choose the plan that fits your brokerage. Start with a{" "}
 
@@ -682,7 +688,7 @@ const Pricing = () => {
 
         {!loading && !error && hasYearlyPricing && (
 
-          <div className="inline-flex items-center gap-1 rounded-full bg-white/10 border border-white/15 p-1 mb-12">
+          <div className="mb-12 inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-100 p-1 dark:border-white/15 dark:bg-white/10">
 
             <button
 
@@ -690,13 +696,13 @@ const Pricing = () => {
 
               onClick={() => setBillingCycle("MONTHLY")}
 
-              className={`px-5 py-2 rounded-full text-sm font-semibold transition ${
+              className={`rounded-full px-5 py-2 text-sm font-semibold transition ${
 
                 billingCycle === "MONTHLY"
 
-                  ? "bg-white text-[#0b0f2a] shadow"
+                  ? "bg-white text-[#0b0f2a] shadow dark:bg-white"
 
-                  : "text-gray-300 hover:text-white"
+                  : "text-slate-500 hover:text-slate-900 dark:text-gray-300 dark:hover:text-white"
 
               }`}
 
@@ -712,13 +718,13 @@ const Pricing = () => {
 
               onClick={() => setBillingCycle("YEARLY")}
 
-              className={`px-5 py-2 rounded-full text-sm font-semibold transition ${
+              className={`rounded-full px-5 py-2 text-sm font-semibold transition ${
 
                 billingCycle === "YEARLY"
 
-                  ? "bg-white text-[#0b0f2a] shadow"
+                  ? "bg-white text-[#0b0f2a] shadow dark:bg-white"
 
-                  : "text-gray-300 hover:text-white"
+                  : "text-slate-500 hover:text-slate-900 dark:text-gray-300 dark:hover:text-white"
 
               }`}
 
@@ -765,7 +771,7 @@ const Pricing = () => {
 
         {!loading && !error && packages.length === 0 && (
 
-          <p className="text-gray-400">Pricing plans coming soon.</p>
+          <p className="text-slate-500 dark:text-gray-400">Pricing plans coming soon.</p>
 
         )}
 
@@ -837,7 +843,7 @@ const Pricing = () => {
                       ? isOnTrial
                         ? "bg-sky-500/[0.08] border-sky-400/40 shadow-[0_0_40px_rgba(56,189,248,0.15)]"
                         : "bg-emerald-500/[0.08] border-emerald-400/40 shadow-[0_0_40px_rgba(16,185,129,0.15)]"
-                      : `bg-white/5 hover:bg-white/[0.07] ${accent.ring}`
+                      : `bg-white hover:bg-slate-50 dark:bg-white/5 dark:hover:bg-white/[0.07] ${accent.ring}`
                   } ${isPopular && !isCurrentPlan ? accent.glow : ""} ${
 
                     isPopular || isCurrentPlan ? "z-10" : ""
@@ -876,13 +882,13 @@ const Pricing = () => {
 
 
 
-                  <h3 className="text-2xl font-bold text-white mb-2">{pkg.name}</h3>
+                  <h3 className="text-2xl font-bold text-slate-900 mb-2 dark:text-white">{pkg.name}</h3>
 
 
 
                   {pkg.description && (
 
-                    <p className="text-sm text-gray-400 mb-6 leading-relaxed min-h-[40px]">
+                    <p className="mb-6 min-h-[40px] text-sm leading-relaxed text-slate-500 dark:text-gray-400">
 
                       {pkg.description}
 
@@ -904,7 +910,7 @@ const Pricing = () => {
                   />
 
                   {pkg.usersLabel ? (
-                    <p className="text-sm text-gray-400 mb-6">{pkg.usersLabel}</p>
+                    <p className="mb-6 text-sm text-slate-500 dark:text-gray-400">{pkg.usersLabel}</p>
                   ) : (
                     <UsageLimitsSummary limits={pkg.usageLimits} />
                   )}
@@ -935,7 +941,7 @@ const Pricing = () => {
           <PlanComparison packages={packages} />
         )}
 
-        <p className="text-gray-400 text-sm mt-10">
+        <p className="text-slate-600 text-sm mt-10 dark:text-gray-400">
           {user?.freeTrialDays || 14}-day free trial on every plan. No long-term
           contracts. Cancel anytime.
         </p>
