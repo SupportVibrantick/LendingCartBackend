@@ -100,8 +100,18 @@ export default function OrgFeaturesPanel({
     [catalog],
   );
 
+  const catalogKeySet = useMemo(() => new Set(allKeys), [allKeys]);
+
+  // Only count keys that still exist in the catalog (legacy/orphan keys can linger in saved overrides).
+  const enabledCount = useMemo(
+    () => value.filter((key) => catalogKeySet.has(key)).length,
+    [value, catalogKeySet],
+  );
+
   const pct =
-    allKeys.length > 0 ? Math.round((value.length / allKeys.length) * 100) : 0;
+    allKeys.length > 0
+      ? Math.min(100, Math.round((enabledCount / allKeys.length) * 100))
+      : 0;
 
   const toggle = (key: string) => {
     if (disabled) return;
@@ -193,7 +203,7 @@ export default function OrgFeaturesPanel({
             </div>
             <div>
               <p className="text-2xl font-bold tabular-nums leading-none">
-                {value.length}
+                {enabledCount}
                 <span className="text-base font-medium text-white/70">
                   /{allKeys.length}
                 </span>

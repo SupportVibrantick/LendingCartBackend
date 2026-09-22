@@ -60,9 +60,18 @@ export default function SubscriberPermissions() {
         return;
       }
       setDetail(json.data);
-      setFeatureCatalog(json.data.featureCatalog || []);
-      setFeatureKeys(json.data.orgFeatures?.enabledFeatures || []);
-      setPackageDefaults(json.data.orgFeatures?.packageDefaults || []);
+      const catalog = json.data.featureCatalog || [];
+      setFeatureCatalog(catalog);
+      const catalogKeySet = new Set(
+        catalog.flatMap((group) => group.items.map((item) => item.key)),
+      );
+      const rawKeys = json.data.orgFeatures?.enabledFeatures || [];
+      setFeatureKeys(rawKeys.filter((key) => catalogKeySet.has(key)));
+      setPackageDefaults(
+        (json.data.orgFeatures?.packageDefaults || []).filter((key) =>
+          catalogKeySet.has(key),
+        ),
+      );
       setFeaturesCustom(Boolean(json.data.orgFeatures?.isCustom));
       setUsageLimits(json.data.orgUsageLimits || null);
       setFeaturesDirty(false);
