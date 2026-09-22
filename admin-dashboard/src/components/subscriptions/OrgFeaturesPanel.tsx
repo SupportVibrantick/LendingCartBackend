@@ -95,10 +95,18 @@ export default function OrgFeaturesPanel({
       .filter((group) => group.items.length > 0);
   }, [catalog, q]);
 
-  const allKeys = useMemo(
-    () => catalog.flatMap((g) => g.items.map((i) => i.key)),
-    [catalog],
-  );
+  const allKeys = useMemo(() => {
+    const keys: string[] = [];
+    const seen = new Set<string>();
+    for (const group of catalog) {
+      for (const item of group.items) {
+        if (seen.has(item.key)) continue;
+        seen.add(item.key);
+        keys.push(item.key);
+      }
+    }
+    return keys;
+  }, [catalog]);
 
   const catalogKeySet = useMemo(() => new Set(allKeys), [allKeys]);
 
