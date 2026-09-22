@@ -6,10 +6,13 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
+  Moon,
+  Sun,
   X,
 } from "lucide-react";
 import LoanAutomationLogo from "./LoanAutomationLogo";
 import { useAuth } from "../context/AuthContext";
+import { useTheme } from "../context/ThemeContext";
 import { getBrokerSignInUrl } from "../lib/brokerAuth";
 
 const NAV_LINKS = [
@@ -26,6 +29,22 @@ function getUserInitials(user) {
   return (user?.email?.[0] || "?").toUpperCase();
 }
 
+function ThemeToggle({ className = "" }) {
+  const { isDark, toggleTheme } = useTheme();
+
+  return (
+    <button
+      type="button"
+      onClick={toggleTheme}
+      className={`inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 hover:text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white ${className}`}
+      aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
+      title={isDark ? "Light mode" : "Dark mode"}
+    >
+      {isDark ? <Sun size={18} /> : <Moon size={18} />}
+    </button>
+  );
+}
+
 function NavLink({ href, label, active, onClick }) {
   return (
     <a
@@ -33,8 +52,8 @@ function NavLink({ href, label, active, onClick }) {
       onClick={onClick}
       className={`relative px-1 py-2 text-sm font-medium transition-colors ${
         active
-          ? "text-white"
-          : "text-slate-400 hover:text-white"
+          ? "text-slate-900 dark:text-white"
+          : "text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
       }`}
     >
       {label}
@@ -71,32 +90,36 @@ function UserMenu({ user, hasSubscription, onLogout }) {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 py-1.5 pl-1.5 pr-2.5 text-sm transition hover:border-white/20 hover:bg-white/10"
+        className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white py-1.5 pl-1.5 pr-2.5 text-sm transition hover:border-slate-300 hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:hover:border-white/20 dark:hover:bg-white/10"
         aria-expanded={open}
         aria-haspopup="menu"
       >
         <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-linear-to-br from-blue-500 to-indigo-600 text-xs font-bold text-white">
           {getUserInitials(user)}
         </span>
-        <span className="hidden max-w-[100px] truncate text-slate-300 lg:inline">
+        <span className="hidden max-w-[100px] truncate text-slate-600 lg:inline dark:text-slate-300">
           {displayName}
         </span>
         <ChevronDown
           size={14}
-          className={`shrink-0 text-slate-500 transition-transform ${open ? "rotate-180" : ""}`}
+          className={`shrink-0 text-slate-400 transition-transform dark:text-slate-500 ${open ? "rotate-180" : ""}`}
         />
       </button>
 
       {open && (
         <div
           role="menu"
-          className="absolute right-0 top-[calc(100%+8px)] z-50 w-64 overflow-hidden rounded-2xl border border-white/10 bg-[#0f1428]/95 shadow-2xl shadow-black/40 backdrop-blur-xl"
+          className="absolute right-0 top-[calc(100%+8px)] z-50 w-64 overflow-hidden rounded-2xl border border-slate-200 bg-white/95 shadow-2xl shadow-slate-900/10 backdrop-blur-xl dark:border-white/10 dark:bg-[#0f1428]/95 dark:shadow-black/40"
         >
-          <div className="border-b border-white/10 px-4 py-3">
-            <p className="truncate text-sm font-medium text-white">{displayName}</p>
-            <p className="mt-0.5 truncate text-xs text-slate-400">{user?.email}</p>
+          <div className="border-b border-slate-100 px-4 py-3 dark:border-white/10">
+            <p className="truncate text-sm font-medium text-slate-900 dark:text-white">
+              {displayName}
+            </p>
+            <p className="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400">
+              {user?.email}
+            </p>
             {hasSubscription && (
-              <span className="mt-2 inline-flex items-center rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-300">
+              <span className="mt-2 inline-flex items-center rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-300">
                 Active plan
               </span>
             )}
@@ -110,11 +133,11 @@ function UserMenu({ user, hasSubscription, onLogout }) {
                 rel="noopener noreferrer"
                 role="menuitem"
                 onClick={() => setOpen(false)}
-                className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm text-slate-200 transition hover:bg-white/5"
+                className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm text-slate-700 transition hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-white/5"
               >
-                <LayoutDashboard size={16} className="text-emerald-400" />
+                <LayoutDashboard size={16} className="text-emerald-500 dark:text-emerald-400" />
                 Open broker dashboard
-                <ExternalLink size={12} className="ml-auto text-slate-500" />
+                <ExternalLink size={12} className="ml-auto text-slate-400 dark:text-slate-500" />
               </a>
             )}
 
@@ -123,9 +146,9 @@ function UserMenu({ user, hasSubscription, onLogout }) {
                 to="/subscribe"
                 role="menuitem"
                 onClick={() => setOpen(false)}
-                className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm text-slate-200 transition hover:bg-white/5"
+                className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm text-slate-700 transition hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-white/5"
               >
-                <LayoutDashboard size={16} className="text-blue-400" />
+                <LayoutDashboard size={16} className="text-blue-500 dark:text-blue-400" />
                 Complete subscription
               </Link>
             )}
@@ -137,7 +160,7 @@ function UserMenu({ user, hasSubscription, onLogout }) {
                 setOpen(false);
                 onLogout();
               }}
-              className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm text-red-300 transition hover:bg-red-500/10"
+              className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm text-red-500 transition hover:bg-red-50 dark:text-red-300 dark:hover:bg-red-500/10"
             >
               <LogOut size={16} />
               Sign out
@@ -186,7 +209,7 @@ const Navbar = () => {
   const closeMobile = () => setMobileOpen(false);
 
   return (
-    <header className="fixed top-0 left-0 z-50 w-full border-b border-white/8 bg-black/70 backdrop-blur-xl">
+    <header className="fixed top-0 left-0 z-50 w-full border-b border-slate-200/80 bg-slate-50/85 backdrop-blur-xl transition-colors dark:border-white/8 dark:bg-black/70">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
         <LoanAutomationLogo size="sm" className="shrink-0" />
 
@@ -202,8 +225,10 @@ const Navbar = () => {
         </nav>
 
         <div className="flex items-center gap-2 sm:gap-3">
+          <ThemeToggle />
+
           {loading ? (
-            <div className="h-9 w-32 animate-pulse rounded-xl bg-white/10" />
+            <div className="h-9 w-32 animate-pulse rounded-xl bg-slate-200 dark:bg-white/10" />
           ) : isAuthenticated ? (
             <>
               <UserMenu
@@ -234,7 +259,7 @@ const Navbar = () => {
             <>
               <Link
                 to="/signup"
-                className="hidden rounded-xl border border-white/10 px-4 py-2 text-sm font-medium text-slate-300 transition hover:border-white/25 hover:bg-white/5 hover:text-white sm:inline-flex"
+                className="hidden rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 transition hover:border-slate-300 hover:bg-slate-100 hover:text-slate-900 sm:inline-flex dark:border-white/10 dark:text-slate-300 dark:hover:border-white/25 dark:hover:bg-white/5 dark:hover:text-white"
               >
                 Get Started
               </Link>
@@ -250,7 +275,7 @@ const Navbar = () => {
           <button
             type="button"
             onClick={() => setMobileOpen((v) => !v)}
-            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 text-slate-300 transition hover:bg-white/5 hover:text-white lg:hidden"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 lg:hidden dark:border-white/10 dark:text-slate-300 dark:hover:bg-white/5 dark:hover:text-white"
             aria-label={mobileOpen ? "Close menu" : "Open menu"}
           >
             {mobileOpen ? <X size={20} /> : <Menu size={20} />}
@@ -259,7 +284,7 @@ const Navbar = () => {
       </div>
 
       {mobileOpen && (
-        <div className="border-t border-white/10 bg-black/95 backdrop-blur-xl lg:hidden">
+        <div className="border-t border-slate-200 bg-white/95 backdrop-blur-xl lg:hidden dark:border-white/10 dark:bg-black/95">
           <nav className="mx-auto flex max-w-7xl flex-col gap-1 px-4 py-4 sm:px-6">
             {NAV_LINKS.map((item) => (
               <a
@@ -268,8 +293,8 @@ const Navbar = () => {
                 onClick={closeMobile}
                 className={`rounded-xl px-4 py-3 text-sm font-medium transition ${
                   activeHash === item.link
-                    ? "bg-white/10 text-white"
-                    : "text-slate-400 hover:bg-white/5 hover:text-white"
+                    ? "bg-slate-100 text-slate-900 dark:bg-white/10 dark:text-white"
+                    : "text-slate-500 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-white"
                 }`}
               >
                 {item.name}

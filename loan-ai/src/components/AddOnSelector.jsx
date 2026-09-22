@@ -37,11 +37,11 @@ export default function AddOnSelector({
   return (
     <div className={compact ? "space-y-3" : "space-y-4"}>
       <div>
-        <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
           Optional add-ons
         </p>
         {!compact && (
-          <p className="text-xs text-slate-500 mt-1">
+          <p className="mt-1 text-xs text-slate-500">
             Extend your plan with product packs, extra seats, and integrations.
           </p>
         )}
@@ -70,11 +70,11 @@ export default function AddOnSelector({
                   className={`flex w-full items-start justify-between gap-3 rounded-xl border px-4 py-3 transition ${
                     selected
                       ? "border-indigo-400/50 bg-indigo-500/10"
-                      : "border-white/10 bg-white/[0.03]"
+                      : "border-slate-200 bg-white dark:border-white/10 dark:bg-white/[0.03]"
                   }`}
                 >
                   <div className="flex min-w-0 items-start gap-3">
-                    <div className="mt-0.5 inline-flex shrink-0 items-center rounded-md border border-white/15 bg-black/30 p-0.5">
+                    <div className="mt-0.5 inline-flex shrink-0 items-center rounded-md border border-slate-200 bg-slate-50 p-0.5 dark:border-white/15 dark:bg-black/30">
                       <button
                         type="button"
                         aria-label="Decrease additional users"
@@ -88,11 +88,11 @@ export default function AddOnSelector({
                             ),
                           )
                         }
-                        className="flex h-6 w-6 items-center justify-center rounded text-white hover:bg-white/10 disabled:opacity-40"
+                        className="flex h-6 w-6 items-center justify-center rounded text-slate-700 hover:bg-slate-200 disabled:opacity-40 dark:text-white dark:hover:bg-white/10"
                       >
                         −
                       </button>
-                      <span className="min-w-6 text-center text-xs font-semibold text-white tabular-nums">
+                      <span className="min-w-6 text-center text-xs font-semibold tabular-nums text-slate-900 dark:text-white">
                         {quantity}
                       </span>
                       <button
@@ -108,19 +108,21 @@ export default function AddOnSelector({
                             ),
                           )
                         }
-                        className="flex h-6 w-6 items-center justify-center rounded text-white hover:bg-white/10 disabled:opacity-40"
+                        className="flex h-6 w-6 items-center justify-center rounded text-slate-700 hover:bg-slate-200 disabled:opacity-40 dark:text-white dark:hover:bg-white/10"
                       >
                         +
                       </button>
                     </div>
                     <div className="min-w-0">
-                      <p className="text-sm font-medium text-white">{displayName}</p>
-                      <p className="text-xs text-slate-500 mt-0.5">
+                      <p className="text-sm font-medium text-slate-900 dark:text-white">
+                        {displayName}
+                      </p>
+                      <p className="mt-0.5 text-xs text-slate-500">
                         {formatPrice(unitCycleAmount)}/user {cycleSuffix}
                       </p>
                     </div>
                   </div>
-                  <span className="text-sm font-semibold text-indigo-300 whitespace-nowrap">
+                  <span className="whitespace-nowrap text-sm font-semibold text-indigo-600 dark:text-indigo-300">
                     {selected
                       ? `+${formatPrice(unitCycleAmount * quantity)}${cycleSuffix}`
                       : `+${formatPrice(unitCycleAmount)}${cycleSuffix}`}
@@ -135,31 +137,33 @@ export default function AddOnSelector({
               <button
                 type="button"
                 onClick={() => handleToggle(addOn.code)}
-                className={`w-full text-left rounded-xl border px-4 py-3 transition ${
+                className={`w-full rounded-xl border px-4 py-3 text-left transition ${
                   selected
                     ? "border-indigo-400/50 bg-indigo-500/10"
-                    : "border-white/10 bg-white/[0.03] hover:border-white/20"
+                    : "border-slate-200 bg-white hover:border-slate-300 dark:border-white/10 dark:bg-white/[0.03] dark:hover:border-white/20"
                 }`}
               >
                 <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-start gap-3 min-w-0">
+                  <div className="flex min-w-0 items-start gap-3">
                     <span
                       className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border ${
                         selected
                           ? "border-indigo-400 bg-indigo-500 text-white"
-                          : "border-white/20 bg-transparent"
+                          : "border-slate-300 bg-transparent dark:border-white/20"
                       }`}
                     >
                       {selected ? <Check size={12} /> : null}
                     </span>
                     <div className="min-w-0">
-                      <p className="text-sm font-medium text-white">{displayName}</p>
+                      <p className="text-sm font-medium text-slate-900 dark:text-white">
+                        {displayName}
+                      </p>
                       {addOn.note && (
-                        <p className="text-xs text-slate-500 mt-0.5">{addOn.note}</p>
+                        <p className="mt-0.5 text-xs text-slate-500">{addOn.note}</p>
                       )}
                     </div>
                   </div>
-                  <span className="text-sm font-semibold text-indigo-300 whitespace-nowrap">
+                  <span className="whitespace-nowrap text-sm font-semibold text-indigo-600 dark:text-indigo-300">
                     +{formatPrice(unitCycleAmount)}
                     {cycleSuffix}
                   </span>

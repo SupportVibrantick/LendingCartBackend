@@ -93,7 +93,7 @@ export default function SignUpPage() {
   };
 
   const inputClass =
-    "w-full rounded-xl px-4 py-2.5 text-sm bg-white/10 border border-white/20 text-white placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-blue-500";
+    "w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none placeholder:text-slate-400 focus:ring-2 focus:ring-blue-500 dark:border-white/20 dark:bg-white/10 dark:text-white dark:placeholder:text-slate-400";
 
   const hasPlan = Boolean(planState.planName);
 
@@ -102,7 +102,7 @@ export default function SignUpPage() {
   }
 
   return (
-    <div className="min-h-screen relative bg-[#0b1020] text-white overflow-hidden">
+    <div className="relative min-h-screen overflow-hidden bg-slate-50 text-slate-900 transition-colors dark:bg-[#0b1020] dark:text-white">
       <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.05)_1px,transparent_1px)] bg-[size:40px_40px]" />
       <div className="absolute -top-25 left-1/2 -translate-x-1/2 w-150 h-150 bg-indigo-500/20 blur-[120px] rounded-full" />
 
@@ -110,7 +110,7 @@ export default function SignUpPage() {
 
       <div className="relative z-10 max-w-lg mx-auto px-6 py-12">
         <h1 className="text-3xl font-bold mb-2">Create your Loan AI account</h1>
-        <p className="text-slate-400 mb-8 text-sm leading-relaxed">
+        <p className="mb-8 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
           {planState.mode === "trial"
             ? "Sign up to start your free trial. Broker dashboard credentials are emailed after you complete organization details — no payment required."
             : "Sign up to subscribe to a plan. After payment, broker dashboard credentials are emailed separately."}
@@ -122,7 +122,7 @@ export default function SignUpPage() {
               ? "bg-sky-500/10 border border-sky-500/30"
               : "bg-indigo-500/10 border border-indigo-500/30"
           }`}>
-            <p className={planState.mode === "trial" ? "text-sky-200 font-semibold" : "text-indigo-200 font-semibold"}>
+            <p className={planState.mode === "trial" ? "font-semibold text-sky-700 dark:text-sky-200" : "font-semibold text-indigo-700 dark:text-indigo-200"}>
               {planState.mode === "trial"
                 ? `${planState.planName} — free trial`
                 : `${planState.planName} plan selected`}
@@ -132,7 +132,7 @@ export default function SignUpPage() {
 
         <form
           onSubmit={handleSubmit}
-          className="space-y-4 bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-xl"
+          className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-white/5"
         >
           <div className="grid grid-cols-2 gap-3">
             <input
@@ -179,7 +179,7 @@ export default function SignUpPage() {
             onChange={(e) => handleChange("confirmPassword", e.target.value)}
           />
 
-          <label className="flex items-start gap-2 text-sm text-slate-400 cursor-pointer">
+          <label className="flex cursor-pointer items-start gap-2 text-sm text-slate-600 dark:text-slate-400">
             <input
               type="checkbox"
               checked={acceptedTerms}
@@ -197,7 +197,7 @@ export default function SignUpPage() {
             {loading ? "Creating account..." : "Create account"}
           </button>
 
-          <p className="text-center text-sm text-slate-400">
+          <p className="text-center text-sm text-slate-600 dark:text-slate-400">
             Already have an account?{" "}
             <Link
               to="/login"

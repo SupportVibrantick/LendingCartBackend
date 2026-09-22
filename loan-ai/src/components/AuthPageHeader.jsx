@@ -1,19 +1,31 @@
 import { Link } from "react-router-dom";
+import { Moon, Sun } from "lucide-react";
 import LoanAutomationLogo from "./LoanAutomationLogo";
 import { useAuth } from "../context/AuthContext";
+import { useTheme } from "../context/ThemeContext";
 import { getBrokerSignInUrl } from "../lib/brokerAuth";
 
 export default function AuthPageHeader() {
   const { isAuthenticated, user, logout, loading } = useAuth();
+  const { isDark, toggleTheme } = useTheme();
 
   return (
-    <div className="relative z-10 flex items-center justify-between px-6 py-4 border-b border-white/10 backdrop-blur-md">
+    <div className="relative z-10 flex items-center justify-between border-b border-slate-200 px-6 py-4 backdrop-blur-md dark:border-white/10">
       <LoanAutomationLogo />
 
       <div className="flex items-center gap-2 sm:gap-3">
+        <button
+          type="button"
+          onClick={toggleTheme}
+          className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/10 dark:text-slate-300 dark:hover:bg-white/20"
+          aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
+        >
+          {isDark ? <Sun size={16} /> : <Moon size={16} />}
+        </button>
+
         {!loading && isAuthenticated && (
           <>
-            <span className="hidden md:inline text-sm text-slate-400 truncate max-w-[180px]">
+            <span className="hidden max-w-[180px] truncate text-sm text-slate-500 md:inline dark:text-slate-400">
               {user?.email}
             </span>
             {user?.hasBrokerSubscription && (
@@ -21,7 +33,7 @@ export default function AuthPageHeader() {
                 href={getBrokerSignInUrl()}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="hidden sm:inline-flex px-4 py-2 rounded-lg text-sm font-medium bg-emerald-500/20 border border-emerald-500/30 text-emerald-200 hover:bg-emerald-500/30 transition"
+                className="hidden rounded-lg border border-emerald-500/30 bg-emerald-500/20 px-4 py-2 text-sm font-medium text-emerald-700 transition hover:bg-emerald-500/30 sm:inline-flex dark:text-emerald-200"
               >
                 Dashboard
               </a>
@@ -29,7 +41,7 @@ export default function AuthPageHeader() {
             <button
               type="button"
               onClick={logout}
-              className="hidden sm:inline-flex px-4 py-2 rounded-lg text-sm text-slate-300 border border-white/10 hover:border-white/30 hover:text-white transition"
+              className="hidden rounded-lg border border-slate-200 px-4 py-2 text-sm text-slate-600 transition hover:border-slate-300 hover:text-slate-900 sm:inline-flex dark:border-white/10 dark:text-slate-300 dark:hover:border-white/30 dark:hover:text-white"
             >
               Sign out
             </button>
@@ -38,7 +50,7 @@ export default function AuthPageHeader() {
 
         <Link
           to="/"
-          className="px-4 sm:px-5 py-2 rounded-lg bg-white/10 border border-white/20 hover:bg-white/20 transition text-sm"
+          className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 transition hover:bg-slate-50 sm:px-5 dark:border-white/20 dark:bg-white/10 dark:text-white dark:hover:bg-white/20"
         >
           ← Home
         </Link>
