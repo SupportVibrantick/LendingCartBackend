@@ -44,7 +44,6 @@ const LOAN_TYPES_BY_CATEGORY = {
   CRE_MULTIFAMILY: [
     "BRIDGE_LOAN",
     "CONSTRUCTION_LOAN",
-    "RENTAL_PORTFOLIO",
     "CRE_PERMANENT_LOAN",
     "AGENCY_LOAN_MULTIFAMILY",
     "CMBS",
@@ -274,6 +273,7 @@ const LO_FEATURE_GROUPS = [
 ];
 
 function buildCatalog(nameByCode = {}) {
+  const seenLoanTypeKeys = new Set();
   const groups = [
     {
       id: "loan_categories",
@@ -293,11 +293,18 @@ function buildCatalog(nameByCode = {}) {
     const visibleCodes = hasDbNames
       ? codes.filter((code) => Boolean(nameByCode[code]))
       : codes;
+    // Same product code can appear in multiple categories; feature key must stay unique.
+    const uniqueCodes = visibleCodes.filter((code) => {
+      const key = loanTypeFeatureKey(code);
+      if (seenLoanTypeKeys.has(key)) return false;
+      seenLoanTypeKeys.add(key);
+      return true;
+    });
     groups.push({
       id: `loan_types_${cat.category}`,
       title: `Loan Types · ${cat.label}`,
       description: `Product types under ${cat.label}`,
-      items: visibleCodes.map((code) => ({
+      items: uniqueCodes.map((code) => ({
         key: loanTypeFeatureKey(code),
         label: nameByCode[code] || humanizeLoanProductCode(code) || code,
       })),
