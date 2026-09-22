@@ -49,7 +49,8 @@ async function listInvoicesRoutes(fastify) {
                 select: { id: true, name: true, email: true },
               },
               organizationSubscription: {
-                include: {
+                select: {
+                  id: true,
                   package: {
                     select: { id: true, name: true, code: true },
                   },
@@ -68,7 +69,7 @@ async function listInvoicesRoutes(fastify) {
         fastify.log.error(error);
         return reply.status(500).send({
           success: false,
-          message: "Failed to fetch invoices",
+          message: error.message || "Failed to fetch invoices",
         });
       }
     },
