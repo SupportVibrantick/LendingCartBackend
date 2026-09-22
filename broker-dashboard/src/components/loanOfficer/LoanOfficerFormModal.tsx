@@ -18,6 +18,8 @@ import {
   type LoanOfficerFormState,
 } from "../../lib/loanOfficerForm";
 import LoanOfficerPermissionsPanel from "./LoanOfficerPermissionsPanel";
+import { useBrokerEntitlements } from "../../lib/brokerEntitlements";
+import { normalizeLoanOfficerPermissions } from "../../pages/UserManagement/loanOfficerShared";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
@@ -114,6 +116,8 @@ export default function LoanOfficerFormModal({
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [coBrokers, setCoBrokers] = useState<LoanOfficerCoBroker[]>([]);
   const [loadingCoBrokers, setLoadingCoBrokers] = useState(false);
+  const { entitlements } = useBrokerEntitlements();
+  const allowedPermissionKeys = entitlements?.permissions ?? null;
 
   useEffect(() => {
     if (!isOpen) return;
@@ -764,10 +768,14 @@ export default function LoanOfficerFormModal({
                 <LoanOfficerPermissionsPanel
                   value={form.permissions}
                   onChange={(permissions) =>
-                    updateField("permissions", permissions)
+                    updateField(
+                      "permissions",
+                      normalizeLoanOfficerPermissions(permissions),
+                    )
                   }
                   error={errors.permissions}
                   disabled={saving}
+                  allowedKeys={allowedPermissionKeys}
                 />
               </section>
             </div>

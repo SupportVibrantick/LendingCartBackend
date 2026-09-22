@@ -4,6 +4,11 @@ const {
   normalizeSourcePortalOption,
   shouldShowCoBrokerBorrowerInformationTab,
 } = require("../../../services/applications/publicApplicationLink");
+const {
+  getOrgEnabledFeatures,
+} = require("../../../services/subscription/brokerOrgFeatures");
+
+const SHARE_APPLICATION_LINK = "SHARE_APPLICATION_LINK";
 
 /**
  * Portal-aware client application link endpoint.
@@ -26,6 +31,11 @@ module.exports = function createGetClientApplicationLink(options = {}) {
           summary:
             "Get shareable client loan application link for this authenticated portal user",
         },
+        preHandler: [
+          ...(forcedSourcePortal === "LOAN_OFFICER"
+            ? [fastify.requirePermission(SHARE_APPLICATION_LINK)]
+            : []),
+        ],
       },
       async (req, reply) => {
         const prisma = fastify.prisma;
@@ -74,6 +84,15 @@ module.exports = function createGetClientApplicationLink(options = {}) {
             return reply.code(401).send({
               success: false,
               message: "Invalid token (missing user id)",
+            });
+          }
+
+          const orgEntitlements = await getOrgEnabledFeatures(prisma, brokerOrgId);
+          if (!orgEntitlements.permissions.includes(SHARE_APPLICATION_LINK)) {
+            return reply.code(403).send({
+              success: false,
+              message:
+                "Share Your Loan Application Link is not enabled for this brokerage",
             });
           }
 

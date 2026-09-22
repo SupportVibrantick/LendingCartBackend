@@ -112,6 +112,19 @@ module.exports = async function updateBrokerUser(fastify) {
               message: "Invalid permissions format",
             });
           }
+
+          const {
+            getOrgEnabledFeatures,
+            filterPermissionsToOrg,
+          } = require("../../../services/subscription/brokerOrgFeatures");
+          const orgEntitlements = await getOrgEnabledFeatures(
+            prisma,
+            req.user.organizationId,
+          );
+          parsedPermissions = filterPermissionsToOrg(
+            parsedPermissions,
+            orgEntitlements.features,
+          );
         }
 
         const userUpdateData = {};

@@ -7,9 +7,26 @@ export type UsageMetric =
   | "LOAN_APPLICATIONS"
   | "ACTIVE_USERS"
   | "LOAN_OFFICERS"
-  | "LENDER_CONNECTIONS";
+  | "LENDER_CONNECTIONS"
+  | "CO_BROKERS";
 
 export type UsageLimits = Partial<Record<UsageMetric, number>>;
+
+export type OrgUsageMetricRow = {
+  metric: UsageMetric;
+  label: string;
+  usedValue: number;
+  limitValue: number | null;
+  packageDefault: number | null;
+  isCustom: boolean;
+};
+
+export type OrgUsageLimitsPayload = {
+  usageLimitOverrides?: UsageLimits | null;
+  packageDefaults?: UsageLimits | null;
+  effective?: UsageLimits | null;
+  metrics: OrgUsageMetricRow[];
+};
 
 export type SubscriptionPackage = {
   id: string;
@@ -77,6 +94,29 @@ export type SubscriptionInvoice = {
   };
 };
 
+export type FeatureCatalogItem = {
+  key: string;
+  label: string;
+  description?: string;
+};
+
+export type FeatureCatalogGroup = {
+  id: string;
+  title: string;
+  description?: string;
+  items: FeatureCatalogItem[];
+};
+
+export type OrgFeaturesPayload = {
+  enabledFeatures: string[];
+  isCustom: boolean;
+  packageDefaults?: string[];
+  permissions: string[];
+  loanCategories: string[];
+  loanTypes: string[];
+  all?: string[];
+};
+
 export type SubscriberDetail = {
   organization: {
     id: string;
@@ -98,6 +138,7 @@ export type SubscriberDetail = {
     package: SubscriptionPackage;
     usageRecords: SubscriptionUsageRecord[];
     invoices: SubscriptionInvoice[];
+    enabledFeatures?: string[] | null;
   } | null;
   history: Array<{
     id: string;
@@ -106,6 +147,9 @@ export type SubscriberDetail = {
     createdAt: string;
     package: { id: string; name: string; code: string };
   }>;
+  featureCatalog?: FeatureCatalogGroup[];
+  orgFeatures?: OrgFeaturesPayload;
+  orgUsageLimits?: OrgUsageLimitsPayload | null;
 };
 
 type ApiResponse<T> = {
@@ -215,6 +259,29 @@ export async function fetchSubscribers(params?: {
 
 export async function fetchSubscriberDetail(orgId: string) {
   return request<SubscriberDetail>(`${API_BASE}/admin/subscriptions/subscribers/${orgId}`);
+}
+
+export async function updateSubscriberFeatures(orgId: string, features: string[]) {
+  return request<OrgFeaturesPayload>(
+    `${API_BASE}/admin/subscriptions/subscribers/${orgId}/features`,
+    {
+      method: "PUT",
+      body: JSON.stringify({ features }),
+    },
+  );
+}
+
+export async function updateSubscriberUsageLimits(
+  orgId: string,
+  payload: { limits?: UsageLimits; resetToPackage?: boolean },
+) {
+  return request<OrgUsageLimitsPayload>(
+    `${API_BASE}/admin/subscriptions/subscribers/${orgId}/usage-limits`,
+    {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    },
+  );
 }
 
 export async function assignSubscription(payload: {
@@ -373,8 +440,16 @@ export const USAGE_METRIC_LABELS: Record<UsageMetric, string> = {
   LOAN_APPLICATIONS: "Loan Applications",
   ACTIVE_USERS: "Active Users",
   LOAN_OFFICERS: "Loan Officers",
-  LENDER_CONNECTIONS: "Lender Connections",
+  LENDER_CONNECTIONS: "Lenders Network",
+  CO_BROKERS: "Co-Brokers",
 };
+
+export const ADMIN_USAGE_LIMIT_METRICS: UsageMetric[] = [
+  "LOAN_OFFICERS",
+  "CO_BROKERS",
+  "LENDER_CONNECTIONS",
+  "LOAN_APPLICATIONS",
+];
 
 export const STATUS_COLORS: Record<string, string> = {
   ACTIVE: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400",

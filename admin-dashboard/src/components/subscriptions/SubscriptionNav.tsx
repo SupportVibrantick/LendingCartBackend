@@ -1,6 +1,9 @@
 import { Link, useLocation } from "react-router-dom";
 import { useAdminPermissions } from "../../context/AdminPermissionsContext";
-import { SUBSCRIBER_DETAIL_PATH } from "../../lib/subscriberNavigation";
+import {
+  SUBSCRIBER_DETAIL_PATH,
+  SUBSCRIBER_PERMISSIONS_PATH,
+} from "../../lib/subscriberNavigation";
 
 const TABS = [
   { label: "Packages", path: "/all-subscriptions", permission: "VIEW_SUBSCRIPTIONS" },
@@ -18,27 +21,32 @@ export default function SubscriptionNav() {
   if (visibleTabs.length <= 1) return null;
 
   return (
-    <div className="flex flex-wrap gap-2 mb-6">
+    <nav
+      aria-label="Subscription sections"
+      className="mb-5 flex w-full max-w-full flex-wrap gap-1 rounded-2xl border border-slate-200/90 bg-white p-1.5 shadow-sm dark:border-slate-800 dark:bg-slate-900"
+    >
       {visibleTabs.map((tab) => {
         const active =
           location.pathname === tab.path ||
           (tab.path === "/subscription-subscribers" &&
-            location.pathname === SUBSCRIBER_DETAIL_PATH);
+            (location.pathname === SUBSCRIBER_DETAIL_PATH ||
+              location.pathname === SUBSCRIBER_PERMISSIONS_PATH));
 
         return (
           <Link
             key={tab.path}
             to={tab.path}
-            className={`px-4 py-2 rounded-xl text-sm font-semibold transition ${
+            aria-current={active ? "page" : undefined}
+            className={`rounded-xl px-4 py-2.5 text-sm font-semibold transition ${
               active
-                ? "bg-[#13538A] text-white shadow-sm"
-                : "bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
+                ? "bg-[#13538A] text-white shadow-sm dark:bg-indigo-600"
+                : "text-slate-600 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
             }`}
           >
             {tab.label}
           </Link>
         );
       })}
-    </div>
+    </nav>
   );
 }

@@ -4,7 +4,7 @@ import { Link, useLocation } from "react-router";
 import { ChevronDownIcon, GridIcon, HorizontaLDots } from "../icons";
 import { useSidebar } from "../context/SidebarContext";
 
-// import { MdEmail } from "react-icons/md";
+import { MdEmail } from "react-icons/md";
 // import { FaAppStore } from "react-icons/fa6";
 import { MdOutlineDocumentScanner } from "react-icons/md";
 import { FaUsersBetweenLines, FaUserGroup } from "react-icons/fa6";
@@ -214,7 +214,7 @@ const AppSidebar: React.FC = () => {
             icon: <PlugZap size={18} />,
             name: "GoHighLevel",
             path: "/settings/integrations/ghl",
-            permission: "VIEW_SETTINGS",
+            permission: "ACCESS_GOHIGHLEVEL",
           },
         ]
         : []),
@@ -259,16 +259,16 @@ const AppSidebar: React.FC = () => {
           },
         ]
         : []),
-      // ...(!isSubBroker
-      //   ? [
-      //     {
-      //       icon: <MdEmail />,
-      //       name: "Email Marketing",
-      //       path: "/email-marketing",
-      //       permission: "MANAGE_SETTINGS",
-      //     },
-      //   ]
-      //   : []),
+      ...(!isSubBroker
+        ? [
+          {
+            icon: <MdEmail />,
+            name: "Email Marketing",
+            path: "/email-marketing",
+            permission: "MANAGE_SETTINGS",
+          },
+        ]
+        : []),
         ...(!isSubBroker && isBrokerAdmin
           ? [
               {
@@ -316,7 +316,7 @@ const AppSidebar: React.FC = () => {
             icon: <PiSecurityCameraFill />,
             name: "Dashboard Logs",
             path: "/admin-logs",
-            permission: "VIEW_LOGS",
+            permission: "VIEW_DASHBOARD_LOGS",
           },
         ]
         : []),

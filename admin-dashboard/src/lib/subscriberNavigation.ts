@@ -1,4 +1,5 @@
 export const SUBSCRIBER_DETAIL_PATH = "/subscription-subscribers/detail";
+export const SUBSCRIBER_PERMISSIONS_PATH = "/subscription-subscribers/permissions";
 
 const STORAGE_KEY = "admin_subscriber_org_id";
 
@@ -20,4 +21,12 @@ export function openSubscriberDetail(
 ) {
   setSubscriberOrgId(orgId);
   navigate(SUBSCRIBER_DETAIL_PATH, { state: { organizationId: orgId } });
+}
+
+export function openSubscriberPermissions(
+  navigate: (path: string, options?: { state?: { organizationId: string } }) => void,
+  orgId: string,
+) {
+  setSubscriberOrgId(orgId);
+  navigate(SUBSCRIBER_PERMISSIONS_PATH, { state: { organizationId: orgId } });
 }

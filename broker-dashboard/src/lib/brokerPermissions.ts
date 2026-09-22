@@ -11,6 +11,7 @@ export type PermissionKey =
   | "DELETE_APPLICATION"
   | "ASSIGN_APPLICATION"
   | "SUBMIT_TO_LENDERS"
+  | "SHARE_APPLICATION_LINK"
   | "VIEW_BORROWERS"
   | "CREATE_BORROWERS"
   | "EDIT_BORROWERS"
@@ -54,7 +55,13 @@ export type PermissionKey =
   | "MANAGE_BRANDING"
   | "VIEW_COMPANY_SETTINGS"
   | "MANAGE_CUSTOM_DOCUMENTS"
-  | "VIEW_CUSTOM_DOCUMENTS";
+  | "VIEW_CUSTOM_DOCUMENTS"
+  | "ACCESS_GOHIGHLEVEL"
+  | "VIEW_DASHBOARD_LOGS"
+  | "VIEW_LOAN_OFFICERS"
+  | "CREATE_LOAN_OFFICERS"
+  | "EDIT_LOAN_OFFICERS"
+  | "DISABLE_LOAN_OFFICERS";
 
 export type PermissionPortal = "broker" | "loanOfficer";
 
@@ -165,7 +172,7 @@ export const LOAN_OFFICER_NAV_ITEMS: LoanOfficerNavItem[] = [
   {
     name: "GoHighLevel",
     path: "/loan-officer/settings/integrations/ghl",
-    always: true,
+    permission: "ACCESS_GOHIGHLEVEL",
   },
   {
     name: "User Management",
@@ -240,7 +247,7 @@ export const LOAN_OFFICER_NAV_ITEMS: LoanOfficerNavItem[] = [
   {
     name: "Dashboard Logs",
     path: "/loan-officer/admin-logs",
-    permission: "VIEW_REPORTS",
+    permission: "VIEW_DASHBOARD_LOGS",
   },
   { name: "Profile", path: "/loan-officer/profile", always: true },
 ];
@@ -300,8 +307,8 @@ export const LO_ROUTE_PERMISSIONS: Record<
   "email-marketing": "SEND_EMAILS",
   messages: "CHAT",
   "settings/branding": LO_BRANDING_ACCESS_PERMISSIONS,
-  "settings/integrations/ghl": "always",
-  "admin-logs": "VIEW_REPORTS",
+  "settings/integrations/ghl": "ACCESS_GOHIGHLEVEL",
+  "admin-logs": "VIEW_DASHBOARD_LOGS",
   commissions: "VIEW_COMMISSIONS",
   invoices: "VIEW_INVOICES",
   profile: "always",

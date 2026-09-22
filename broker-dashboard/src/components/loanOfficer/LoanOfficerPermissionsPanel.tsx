@@ -16,6 +16,8 @@ type Props = {
   onChange: (next: string[]) => void;
   error?: string;
   disabled?: boolean;
+  /** When set, only these permission keys are assignable (org entitlement subset). */
+  allowedKeys?: string[] | null;
 };
 
 function PermissionCheckbox({
@@ -66,7 +68,21 @@ export default function LoanOfficerPermissionsPanel({
   onChange,
   error,
   disabled = false,
+  allowedKeys = null,
 }: Props) {
+  const allowedSet = useMemo(() => {
+    if (!allowedKeys) return null;
+    return new Set(normalizeLoanOfficerPermissions(allowedKeys));
+  }, [allowedKeys]);
+
+  const categories = useMemo(() => {
+    if (!allowedSet) return LO_PERMISSION_CATEGORIES;
+    return LO_PERMISSION_CATEGORIES.map((category) => ({
+      ...category,
+      items: category.items.filter((item) => allowedSet.has(item.key)),
+    })).filter((category) => category.items.length > 0);
+  }, [allowedSet]);
+
   const granted = useMemo(
     () => new Set(normalizeLoanOfficerPermissions(value)),
     [value],
@@ -75,11 +91,21 @@ export default function LoanOfficerPermissionsPanel({
     Object.fromEntries(LO_PERMISSION_CATEGORIES.map((category) => [category.title, true])),
   );
 
-  const totalSelectable = getLoPermissionUiSlotTotal();
-  const grantedSlotCount = countGrantedLoPermissionUiSlots(value);
+  const selectableKeys = useMemo(
+    () => categories.flatMap((c) => c.items.map((i) => i.key)),
+    [categories],
+  );
+  const totalSelectable = allowedSet
+    ? selectableKeys.length
+    : getLoPermissionUiSlotTotal();
+  const grantedSlotCount = allowedSet
+    ? value.filter((k) => allowedSet.has(k)).length
+    : countGrantedLoPermissionUiSlots(value);
+
+  const isKeyAllowed = (key: string) => !allowedSet || allowedSet.has(key);
 
   const togglePermission = (key: string) => {
-    if (disabled) return;
+    if (disabled || !isKeyAllowed(key)) return;
     if (granted.has(key)) {
       onChange(value.filter((item) => item !== key));
       return;
@@ -89,20 +115,26 @@ export default function LoanOfficerPermissionsPanel({
 
   const setRadioCategoryPermission = (categoryTitle: string, key: string | null) => {
     if (disabled) return;
-    const radioKeys = LO_RADIO_PERMISSION_CATEGORIES[categoryTitle] || [];
+    const radioKeys = (LO_RADIO_PERMISSION_CATEGORIES[categoryTitle] || []).filter(
+      isKeyAllowed,
+    );
     const withoutGroup = value.filter((item) => !radioKeys.includes(item));
+    if (key && !isKeyAllowed(key)) return;
     onChange(key ? normalizeLoanOfficerPermissions([...withoutGroup, key]) : withoutGroup);
   };
 
   const setCategoryPermissions = (categoryTitle: string, enabled: boolean) => {
     if (disabled) return;
-    const category = LO_PERMISSION_CATEGORIES.find((item) => item.title === categoryTitle);
+    const category = categories.find((item) => item.title === categoryTitle);
     if (!category) return;
 
     const radioKeys = LO_RADIO_PERMISSION_CATEGORIES[categoryTitle];
     if (radioKeys) {
       if (enabled) {
-        const defaultKey = radioKeys.find((key) => key.startsWith("MANAGE_")) || radioKeys[0];
+        const defaultKey =
+          radioKeys.find((key) => isKeyAllowed(key) && key.startsWith("MANAGE_")) ||
+          radioKeys.find(isKeyAllowed) ||
+          null;
         setRadioCategoryPermission(categoryTitle, defaultKey);
       } else {
         setRadioCategoryPermission(categoryTitle, null);
@@ -110,7 +142,7 @@ export default function LoanOfficerPermissionsPanel({
       return;
     }
 
-    const keys = category.items.map((item) => item.key);
+    const keys = category.items.map((item) => item.key).filter(isKeyAllowed);
     if (enabled) {
       onChange(normalizeLoanOfficerPermissions([...value, ...keys]));
       return;
@@ -121,7 +153,11 @@ export default function LoanOfficerPermissionsPanel({
 
   const selectAll = () => {
     if (disabled) return;
-    onChange([...LO_PERMISSION_SELECT_ALL_KEYS]);
+    onChange(
+      normalizeLoanOfficerPermissions(
+        allowedSet ? selectableKeys : [...LO_PERMISSION_SELECT_ALL_KEYS],
+      ),
+    );
   };
 
   const clearAll = () => {
@@ -140,7 +176,7 @@ export default function LoanOfficerPermissionsPanel({
           key={item.key}
           item={item}
           checked={granted.has(item.key)}
-          disabled={disabled}
+          disabled={disabled || !isKeyAllowed(item.key)}
           onToggle={() => togglePermission(item.key)}
         />
       ))}
@@ -158,6 +194,7 @@ export default function LoanOfficerPermissionsPanel({
             </p>
             <p className="text-xs text-gray-500 dark:text-gray-400">
               {grantedSlotCount} of {totalSelectable} permissions selected
+              {allowedSet ? " (limited by your broker plan)" : ""}
             </p>
           </div>
         </div>
@@ -182,9 +219,17 @@ export default function LoanOfficerPermissionsPanel({
         </div>
       </div>
 
+      {categories.length === 0 ? (
+        <p className="rounded-xl border border-dashed border-amber-300 bg-amber-50 px-4 py-6 text-center text-sm text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200">
+          No assignable permissions are enabled for this brokerage. Contact platform
+          admin to update the subscription features.
+        </p>
+      ) : (
       <div className="space-y-2">
-        {LO_PERMISSION_CATEGORIES.map((category) => {
-          const radioKeys = LO_RADIO_PERMISSION_CATEGORIES[category.title];
+        {categories.map((category) => {
+          const radioKeys = (LO_RADIO_PERMISSION_CATEGORIES[category.title] || []).filter(
+            isKeyAllowed,
+          );
           const isRadioCategory = Boolean(radioKeys?.length);
           const categoryKeys = category.items.map((item) => item.key);
           const subgroups = groupPermissionItemsBySubgroup(category.items);
@@ -198,7 +243,7 @@ export default function LoanOfficerPermissionsPanel({
             : categoryKeys.filter((key) => granted.has(key)).length;
           const allSelected = isRadioCategory
             ? Boolean(radioSelection)
-            : selectedCount === categoryKeys.length;
+            : selectedCount === categoryKeys.length && categoryKeys.length > 0;
           const isOpen = openCategories[category.title] ?? true;
 
           return (
@@ -312,6 +357,7 @@ export default function LoanOfficerPermissionsPanel({
           );
         })}
       </div>
+      )}
 
       {error ? <p className="text-xs text-red-500">{error}</p> : null}
     </div>

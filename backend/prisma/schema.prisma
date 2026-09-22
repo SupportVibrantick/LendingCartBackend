@@ -912,6 +912,10 @@ model OrganizationSubscription {
   ghlInvoiceId              String?
   loanAiUserId              String?                        @db.Uuid
   purchasedAddOns           Json?
+  /// Admin-managed feature keys for this broker org (permissions + loan categories/types).
+  /// Null = derive defaults from package code + purchased add-ons.
+  /// May be a string[] of keys, or `{ keys: string[], usageLimits?: Record<string, number> }`.
+  enabledFeatures           Json?                          @map("enabled_features")
   assignedByAdminId         String?                        @db.Uuid
   notes                     String?
   createdAt                 DateTime                       @default(now()) @db.Timestamptz(6)

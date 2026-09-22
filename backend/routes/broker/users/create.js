@@ -84,6 +84,19 @@ module.exports = async function createBrokerUser(fastify) {
           });
         }
 
+        const {
+          getOrgEnabledFeatures,
+          filterPermissionsToOrg,
+        } = require("../../../services/subscription/brokerOrgFeatures");
+        const orgEntitlements = await getOrgEnabledFeatures(
+          prisma,
+          req.user.organizationId,
+        );
+        parsedPermissions = filterPermissionsToOrg(
+          parsedPermissions,
+          orgEntitlements.features,
+        );
+
         if (
           !email ||
           !confirmEmail ||

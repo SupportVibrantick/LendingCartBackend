@@ -10,10 +10,11 @@ import {
   TrendingUp,
   Wallet,
 } from "lucide-react";
+import { MdEmail } from "react-icons/md";
 import { MdSettings } from "react-icons/md";
 import { CgProfile } from "react-icons/cg";
 import { FaUserGroup } from "react-icons/fa6";
-// import { PiSecurityCameraFill } from "react-icons/pi";
+import { PiSecurityCameraFill } from "react-icons/pi";
 import { ChevronDownIcon, GridIcon, HorizontaLDots } from "../../../icons";
 import { useSidebar } from "../../../context/SidebarContext";
 import {
@@ -58,7 +59,7 @@ const navItems: NavItem[] = [
     icon: <PlugZap size={18} />,
     name: "GoHighLevel",
     path: "/loan-officer/settings/integrations/ghl",
-    always: true,
+    permission: "ACCESS_GOHIGHLEVEL",
   },
   {
     icon: <FaUserGroup />,
@@ -98,12 +99,12 @@ const navItems: NavItem[] = [
       },
     ],
   },
-  // {
-  //   icon: <MdEmail />,
-  //   name: "Email Marketing",
-  //   path: "/loan-officer/email-marketing",
-  //   permission: "SEND_EMAILS",
-  // },
+  {
+    icon: <MdEmail />,
+    name: "Email Marketing",
+    path: "/loan-officer/email-marketing",
+    permission: "SEND_EMAILS",
+  },
   {
     icon: <Wallet size={18} />,
     name: "Payments",
@@ -130,6 +131,12 @@ const navItems: NavItem[] = [
         permission: ["MANAGE_BRANDING", "VIEW_COMPANY_SETTINGS"],
       },
     ],
+  },
+  {
+    icon: <PiSecurityCameraFill />,
+    name: "Dashboard Logs",
+    path: "/loan-officer/admin-logs",
+    permission: "VIEW_DASHBOARD_LOGS",
   },
   {
     icon: <CgProfile />,

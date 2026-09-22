@@ -37,6 +37,11 @@ export const LO_PERMISSION_CATEGORIES: LoanOfficerPermissionCategory[] = [
       { label: "Delete Applications", key: "DELETE_APPLICATION" },
       { label: "Assign Applications", key: "ASSIGN_APPLICATION" },
       { label: "Submit to Lenders", key: "SUBMIT_TO_LENDERS" },
+      {
+        label: "Share Your Loan Application Link",
+        key: "SHARE_APPLICATION_LINK",
+        description: "Can share the public client application link from Loan Pipeline",
+      },
     ],
   },
   {
@@ -47,7 +52,7 @@ export const LO_PERMISSION_CATEGORIES: LoanOfficerPermissionCategory[] = [
       { label: "Fill & Sign Forms", key: "DOCUMENTS_TO_SIGN" },
       { label: "LOI / Term Sheet tab", key: "VIEW_LOI_TERM_SHEET" },
       { label: "Fee Agreement", key: "VIEW_FEE_AGREEMENT" },
-      { label: "Lender Hub", key: "VIEW_LENDER_HUB" },
+      { label: "Lender Matching Tool", key: "VIEW_LENDER_HUB" },
       {
         label: "Auto Forward to Lender",
         key: "AUTO_FORWARD_TO_LENDER",
@@ -119,22 +124,42 @@ export const LO_PERMISSION_CATEGORIES: LoanOfficerPermissionCategory[] = [
   {
     title: "User Management",
     items: [
-      { label: "View Co-Brokers", key: "VIEW_CO_BROKERS", group: "Co-Brokers" },
+      {
+        label: "View Loan Officers",
+        key: "VIEW_LOAN_OFFICERS",
+        group: "Loan Officers",
+      },
+      {
+        label: "Create Loan Officers",
+        key: "CREATE_LOAN_OFFICERS",
+        group: "Loan Officers",
+      },
+      {
+        label: "Edit Loan Officers",
+        key: "EDIT_LOAN_OFFICERS",
+        group: "Loan Officers",
+      },
+      {
+        label: "Disable Loan Officers",
+        key: "DISABLE_LOAN_OFFICERS",
+        group: "Loan Officers",
+      },
+      { label: "View Co-Brokers", key: "VIEW_CO_BROKERS", group: "Co Brokers" },
       {
         label: "Access Co-Broker Portal",
         key: "ACCESS_CO_BROKER_PORTAL",
-        group: "Co-Brokers",
+        group: "Co Brokers",
       },
-      { label: "Edit Co-Brokers", key: "EDIT_CO_BROKERS", group: "Co-Brokers" },
+      { label: "Edit Co-Brokers", key: "EDIT_CO_BROKERS", group: "Co Brokers" },
       {
         label: "Disable Co-Brokers",
         key: "DISABLE_CO_BROKERS",
-        group: "Co-Brokers",
+        group: "Co Brokers",
       },
       {
         label: "Delete Co-Brokers",
         key: "DELETE_CO_BROKERS",
-        group: "Co-Brokers",
+        group: "Co Brokers",
       },
       {
         label: "View Borrowers",
@@ -175,6 +200,26 @@ export const LO_PERMISSION_CATEGORIES: LoanOfficerPermissionCategory[] = [
     items: [
       { label: "View Commissions", key: "VIEW_COMMISSIONS" },
       { label: "View Invoices", key: "VIEW_INVOICES" },
+    ],
+  },
+  {
+    title: "GoHighLevel",
+    items: [
+      {
+        label: "GoHighLevel",
+        key: "ACCESS_GOHIGHLEVEL",
+        description: "Can open GoHighLevel integrations settings",
+      },
+    ],
+  },
+  {
+    title: "Dashboard Logs",
+    items: [
+      {
+        label: "Dashboard Logs",
+        key: "VIEW_DASHBOARD_LOGS",
+        description: "Can view dashboard activity logs",
+      },
     ],
   },
   {
@@ -312,7 +357,7 @@ export const LEGACY_LO_PERMISSION_MAP: Record<string, string[]> = {
   MANAGE_SETTINGS: ["MANAGE_BRANDING"],
   VIEW_STATS: ["VIEW_REPORTS"],
   VIEW_NOTIFICATIONS: ["SEND_NOTIFICATIONS"],
-  VIEW_LOGS: ["VIEW_REPORTS"],
+  VIEW_LOGS: ["VIEW_DASHBOARD_LOGS"],
   VIEW_TEMPLATES: ["VIEW_CUSTOM_DOCUMENTS"],
   MANAGE_TEMPLATES: ["MANAGE_CUSTOM_DOCUMENTS"],
   VIEW_WEBSITE_BUILDER: [],
