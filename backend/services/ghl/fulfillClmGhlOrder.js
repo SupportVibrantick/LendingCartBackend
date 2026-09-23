@@ -70,8 +70,17 @@ function isClmSoftTrialEnabled() {
   return raw !== "0" && raw !== "false" && raw !== "off" && raw !== "no";
 }
 
+function mergeCustomData(body = {}) {
+  // GHL workflow "Custom Data" may arrive nested OR as top-level keys.
+  return {
+    ...asObject(body.data?.customData),
+    ...asObject(body.customData),
+    ...asObject(body.data),
+  };
+}
+
 function extractProductHints(body = {}) {
-  const customData = asObject(body.customData || body.data?.customData);
+  const customData = mergeCustomData(body);
   const invoice = asObject(body.invoice || body.data?.invoice || body.data);
   const order = asObject(body.order || body.data?.order);
   const lineItem = firstLineItem(
@@ -82,32 +91,41 @@ function extractProductHints(body = {}) {
     invoice.items,
     invoice.invoiceItems,
     order.items,
+    order.products,
+    body.products,
   );
 
   const productId = pickFirst(
     customData.productId,
+    customData.product_id,
     body.productId,
+    body.product_id,
     body.data?.productId,
     invoice.productId,
     lineItem.productId,
     lineItem.product,
+    lineItem.id,
   );
   const productName = pickFirst(
     customData.productName,
+    customData.product_name,
     customData.product,
     body.productName,
+    body.product_name,
     lineItem.name,
     lineItem.productName,
     lineItem.title,
     invoice.name,
     order.name,
+    body.name,
   );
 
   return { productId, productName, customData };
 }
 
 /**
- * Whether this paid GHL webhook should provision a CLM soft trial.
+ * Whether this GHL webhook should provision a CLM soft trial.
+ * Works for official payment events AND workflow custom webhooks.
  */
 function isClmSoftTrialOrder(body = {}, ids = {}) {
   if (!isClmSoftTrialEnabled()) return false;
@@ -115,25 +133,35 @@ function isClmSoftTrialOrder(body = {}, ids = {}) {
   const { productId, productName, customData } = extractProductHints(body);
 
   const action = String(
-    customData.lendingCartAction || customData.action || "",
+    pickFirst(
+      customData.lendingCartAction,
+      customData.action,
+      body.lendingCartAction,
+      body.action,
+      body.data?.lendingCartAction,
+    ) || "",
   )
     .trim()
     .toUpperCase();
   if (
     action === "CLM_SOFT_TRIAL" ||
     customData.clmSoftTrial === true ||
-    String(customData.clmSoftTrial || "").toLowerCase() === "true"
+    body.clmSoftTrial === true ||
+    String(customData.clmSoftTrial || body.clmSoftTrial || "").toLowerCase() ===
+      "true"
   ) {
     return true;
   }
 
   const configuredProductId = String(
     process.env.CLM_GHL_PRODUCT_ID || "",
-  ).trim();
+  )
+    .trim()
+    .toLowerCase();
   if (
     configuredProductId &&
     productId &&
-    configuredProductId === String(productId).trim()
+    configuredProductId === String(productId).trim().toLowerCase()
   ) {
     return true;
   }
@@ -149,20 +177,22 @@ function isClmSoftTrialOrder(body = {}, ids = {}) {
 
   // Workflow webhooks may only send contact + a tag/source flag.
   const source = String(
-    customData.source || customData.offer || body.source || "",
+    pickFirst(
+      customData.source,
+      customData.offer,
+      body.source,
+      body.offer,
+    ) || "",
   )
     .trim()
     .toLowerCase();
   if (source.includes("clm") && source.includes("soft")) return true;
 
-  // Prefer not to provision every unpaid OrderCreate with only email.
-  if (!ids.email) return false;
-
   return false;
 }
 
 function extractContactProfile(body = {}, ids = {}) {
-  const customData = asObject(body.customData || body.data?.customData);
+  const customData = mergeCustomData(body);
   const contact = asObject(
     body.contact ||
       body.contactDetails ||
@@ -170,43 +200,74 @@ function extractContactProfile(body = {}, ids = {}) {
       body.data?.contactDetails,
   );
 
-  const email = String(ids.email || contact.email || "").trim().toLowerCase();
+  const email = String(
+    pickFirst(
+      ids.email,
+      contact.email,
+      customData.email,
+      customData.Email,
+      body.email,
+      body.Email,
+      body.contact_email,
+      body["Contact Email"],
+    ) || "",
+  )
+    .trim()
+    .toLowerCase();
+
   const phone = pickFirst(
     ids.phone,
     contact.phone,
     contact.phoneNo,
     customData.phone,
+    customData.Phone,
     customData.organizationPhone,
+    body.phone,
+    body.Phone,
+    body.phone_number,
   );
 
   const companyName = pickFirst(
     customData.organizationName,
     customData.companyName,
     customData.company,
+    customData.Company,
     contact.companyName,
     contact.company,
     body.companyName,
+    body.company_name,
+    body.company,
+    body.Company,
   );
 
   let firstName = pickFirst(
     customData.firstName,
+    customData.first_name,
     contact.firstName,
     contact.first_name,
+    body.firstName,
+    body.first_name,
   );
   let lastName = pickFirst(
     customData.lastName,
+    customData.last_name,
     contact.lastName,
     contact.last_name,
+    body.lastName,
+    body.last_name,
   );
 
   if (!firstName || !lastName) {
     const fromFull = splitName(
       pickFirst(
         customData.fullName,
+        customData.full_name,
         contact.name,
         contact.fullName,
         body.fullName,
+        body.full_name,
         body.name,
+        body.Name,
       ),
     );
     firstName = firstName || fromFull.firstName;

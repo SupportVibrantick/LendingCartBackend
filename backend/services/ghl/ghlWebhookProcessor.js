@@ -5,7 +5,7 @@ const {
   handleGhlSubscriptionPastDue,
   handleGhlSubscriptionExpired,
 } = require("./ghlSubscriptionLifecycle");
-const { tryFulfillClmGhlOrder } = require("./fulfillClmGhlOrder");
+const { tryFulfillClmGhlOrder, isClmSoftTrialOrder } = require("./fulfillClmGhlOrder");
 const {
   logWebhookReceived,
   logWebhookProcessed,
@@ -187,7 +187,11 @@ function extractIds(body = {}) {
     contact.email,
     invoice.email,
     body.email,
+    body.Email,
+    body.contact_email,
     body.data?.email,
+    customData.email,
+    customData.Email,
   );
   const email = emailRaw ? emailRaw.toLowerCase() : null;
   const phone = pickFirst(
@@ -553,6 +557,17 @@ async function processGhlWebhook(prisma, io, body = {}) {
     });
 
     if (!checkout && lifecycle === "paid") {
+      // fall through to CLM attempt below
+    }
+
+    // CLM funnel / workflow webhooks often have no LendingCart checkout and may
+    // not use an official InvoicePaid event type (lifecycle=unknown). Still try.
+    if (
+      !checkout &&
+      (lifecycle === "paid" ||
+        lifecycle === "unknown" ||
+        isClmSoftTrialOrder(body, ids))
+    ) {
       try {
         const clmResult = await tryFulfillClmGhlOrder(prisma, io, body, ids);
         if (clmResult) {
@@ -590,29 +605,38 @@ async function processGhlWebhook(prisma, io, body = {}) {
           };
         }
       } catch (clmErr) {
-        commonLogs.error("CLM soft trial fulfillment failed", clmErr);
-        await prisma.ghlWebhookEvent.update({
-          where: { id: eventRow.id },
-          data: {
-            status: "FAILED",
-            processedAt: new Date(),
-            errorMessage: String(clmErr?.message || "CLM soft trial failed").slice(
-              0,
-              500,
-            ),
-          },
-        });
-        logWebhookFailed({
-          webhookId,
+        // Only hard-fail when this webhook was clearly a CLM soft-trial intent.
+        if (isClmSoftTrialOrder(body, ids) || lifecycle === "paid") {
+          commonLogs.error("CLM soft trial fulfillment failed", clmErr);
+          await prisma.ghlWebhookEvent.update({
+            where: { id: eventRow.id },
+            data: {
+              status: "FAILED",
+              processedAt: new Date(),
+              errorMessage: String(
+                clmErr?.message || "CLM soft trial failed",
+              ).slice(0, 500),
+            },
+          });
+          logWebhookFailed({
+            webhookId,
+            eventType,
+            lifecycle,
+            error: clmErr,
+            ghlContactId: ids.ghlContactId,
+            ghlInvoiceId: ids.ghlInvoiceId,
+          });
+          throw clmErr;
+        }
+        commonLogs.warn("CLM soft trial attempt skipped after error", {
+          message: clmErr?.message,
           eventType,
           lifecycle,
-          error: clmErr,
-          ghlContactId: ids.ghlContactId,
-          ghlInvoiceId: ids.ghlInvoiceId,
         });
-        throw clmErr;
       }
+    }
 
+    if (!checkout && lifecycle === "paid") {
       await prisma.ghlWebhookEvent.update({
         where: { id: eventRow.id },
         data: {
