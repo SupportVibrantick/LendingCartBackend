@@ -8,9 +8,9 @@ const { getEmailBranding } = require("../email/emailBranding");
 
 const DEFAULT_LOGO_PATH = path.join(
   __dirname,
-  "../../public/images/ACOM_LOGO.jpeg",
+  "../../public/images/loanAutomation.jpeg",
 );
-const DEFAULT_LOGO_CID = "lendingcart-logo@lendingcart";
+const DEFAULT_LOGO_CID = "loan-automation-logo@lendingcart";
 
 const downloadImageBuffer = (url, timeoutMs = 5000) =>
   new Promise((resolve, reject) => {
