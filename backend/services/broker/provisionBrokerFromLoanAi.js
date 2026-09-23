@@ -435,10 +435,14 @@ async function provisionBrokerFromLoanAi(prisma, io, loanAiUser, payload) {
         eventType: PLATFORM_NOTIFICATION_EVENTS.BROKER_REGISTERED,
         category: "ORGANIZATION",
         subject: isFreeTrial
-          ? "New broker via Loan AI free trial"
+          ? notificationSource === "CLM_GHL_SOFT_TRIAL"
+            ? "New broker via CLM GHL soft trial"
+            : "New broker via Loan AI free trial"
           : "New broker via Loan AI subscription",
         body: isFreeTrial
-          ? `${organizationName} started a free trial via Loan AI (${loginEmail}).`
+          ? notificationSource === "CLM_GHL_SOFT_TRIAL"
+            ? `${organizationName} started a 90-day Loan Automation trial via CLM GHL (${loginEmail}).`
+            : `${organizationName} started a free trial via Loan AI (${loginEmail}).`
           : `${organizationName} subscribed via Loan AI (${loginEmail}).`,
         metadata: {
           organizationId: brokerOrg.id,

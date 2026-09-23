@@ -5,6 +5,7 @@ const {
   handleGhlSubscriptionPastDue,
   handleGhlSubscriptionExpired,
 } = require("./ghlSubscriptionLifecycle");
+const { tryFulfillClmGhlOrder } = require("./fulfillClmGhlOrder");
 const {
   logWebhookReceived,
   logWebhookProcessed,
@@ -552,6 +553,66 @@ async function processGhlWebhook(prisma, io, body = {}) {
     });
 
     if (!checkout && lifecycle === "paid") {
+      try {
+        const clmResult = await tryFulfillClmGhlOrder(prisma, io, body, ids);
+        if (clmResult) {
+          await prisma.ghlWebhookEvent.update({
+            where: { id: eventRow.id },
+            data: {
+              status: "PROCESSED",
+              processedAt: new Date(),
+              loanAiUserId: clmResult.loanAiUserId || null,
+              errorMessage:
+                clmResult.action === "clm_soft_trial_skipped"
+                  ? clmResult.reason || "CLM soft trial skipped"
+                  : null,
+            },
+          });
+          logWebhookProcessed({
+            webhookId,
+            eventType,
+            lifecycle,
+            action: clmResult.action,
+            checkoutId: null,
+            loanAiUserId: clmResult.loanAiUserId || null,
+            organizationSubscriptionId:
+              clmResult.organizationSubscriptionId || null,
+            ghlContactId: ids.ghlContactId,
+            ghlInvoiceId: ids.ghlInvoiceId,
+            status: "PROCESSED",
+          });
+          return {
+            duplicate: false,
+            webhookId,
+            status: "PROCESSED",
+            action: clmResult.action,
+            ...clmResult,
+          };
+        }
+      } catch (clmErr) {
+        commonLogs.error("CLM soft trial fulfillment failed", clmErr);
+        await prisma.ghlWebhookEvent.update({
+          where: { id: eventRow.id },
+          data: {
+            status: "FAILED",
+            processedAt: new Date(),
+            errorMessage: String(clmErr?.message || "CLM soft trial failed").slice(
+              0,
+              500,
+            ),
+          },
+        });
+        logWebhookFailed({
+          webhookId,
+          eventType,
+          lifecycle,
+          error: clmErr,
+          ghlContactId: ids.ghlContactId,
+          ghlInvoiceId: ids.ghlInvoiceId,
+        });
+        throw clmErr;
+      }
+
       await prisma.ghlWebhookEvent.update({
         where: { id: eventRow.id },
         data: {
