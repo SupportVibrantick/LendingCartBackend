@@ -3,7 +3,7 @@ const {
   mergeUsageLimitsWithAddOns,
   resolvePurchasedAddOns,
 } = require("../../utils/subscription/addOnCatalog");
-const { isLoanAiFreeTrial } = require("./freeTrial");
+const { isSoftTrialWithoutBilling } = require("./freeTrial");
 
 const ACTIVE_SUB_STATUSES = ["TRIAL", "ACTIVE", "PAST_DUE"];
 
@@ -667,8 +667,8 @@ async function expireSingleTrial(prisma, sub, now) {
       return null;
     }
 
-    // Marketing free trials do not auto-bill — expire access until they pay.
-    if (isLoanAiFreeTrial(current)) {
+    // Marketing soft trials do not auto-bill — expire access until they pay on LendingCart.
+    if (isSoftTrialWithoutBilling(current)) {
       const subscription = await tx.organizationSubscription.update({
         where: { id: sub.id },
         data: {
@@ -712,7 +712,7 @@ async function expireSingleTrial(prisma, sub, now) {
 
 /**
  * End TRIAL subscriptions whose trialEndsAt has passed.
- * Admin trials → ACTIVE + invoice. Loan-AI free trials → EXPIRED (no invoice).
+ * Admin trials → ACTIVE + invoice. Soft trials (Loan AI / CLM GHL) → EXPIRED (no invoice).
  */
 async function expireEndedTrials(prisma) {
   const now = new Date();
@@ -806,7 +806,7 @@ async function assertBrokerSubscriptionAccess(prisma, organizationId) {
       EXPIRED: {
         code: "SUBSCRIPTION_EXPIRED",
         message:
-          "Your previous subscription has expired. Choose a plan to renew.",
+          "Your free access period has ended. Choose a plan on LendingCart to continue.",
       },
     };
     const mapped = byStatus[sub.status] || {
