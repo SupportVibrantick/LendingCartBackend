@@ -52,6 +52,39 @@ describe("CLM soft trial detection", () => {
     );
   });
 
+  it("matches top-level lendingCartAction from GHL workflow custom data", () => {
+    process.env.CLM_GHL_SOFT_TRIAL_ENABLED = "true";
+    delete require.cache[require.resolve("../../services/ghl/fulfillClmGhlOrder")];
+    const { isClmSoftTrialOrder } = require("../../services/ghl/fulfillClmGhlOrder");
+
+    assert.equal(
+      isClmSoftTrialOrder(
+        {
+          email: "buyer@example.com",
+          lendingCartAction: "CLM_SOFT_TRIAL",
+          first_name: "Tushar",
+        },
+        { email: "buyer@example.com" },
+      ),
+      true,
+    );
+  });
+
+  it("matches product id case-insensitively", () => {
+    process.env.CLM_GHL_SOFT_TRIAL_ENABLED = "true";
+    process.env.CLM_GHL_PRODUCT_ID = "6ab197d4a8217B273b6dacdf";
+    delete require.cache[require.resolve("../../services/ghl/fulfillClmGhlOrder")];
+    const { isClmSoftTrialOrder } = require("../../services/ghl/fulfillClmGhlOrder");
+
+    assert.equal(
+      isClmSoftTrialOrder(
+        { productId: "6ab197d4a8217b273b6dacdf" },
+        { email: "a@b.com" },
+      ),
+      true,
+    );
+  });
+
   it("ignores unrelated paid events", () => {
     process.env.CLM_GHL_SOFT_TRIAL_ENABLED = "true";
     delete process.env.CLM_GHL_PRODUCT_ID;
