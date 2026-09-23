@@ -72,18 +72,56 @@ function isClmSoftTrialEnabled() {
 
 function mergeCustomData(body = {}) {
   // GHL workflow "Custom Data" may arrive nested OR as top-level keys.
+  // Do NOT spread body.data wholesale — that can be an invoice/event blob.
   return {
     ...asObject(body.data?.customData),
     ...asObject(body.customData),
-    ...asObject(body.data),
   };
+}
+
+function collectLineItems(...candidates) {
+  const items = [];
+  for (const value of candidates) {
+    if (!Array.isArray(value)) continue;
+    for (const entry of value) {
+      if (entry && typeof entry === "object") items.push(entry);
+    }
+  }
+  return items;
+}
+
+function normalizeMoneyAmount(value) {
+  if (value === undefined || value === null || value === "") return null;
+  if (typeof value === "string") {
+    const cleaned = value.replace(/[^0-9.-]/g, "");
+    if (!cleaned) return null;
+    value = cleaned;
+  }
+  const n = Number(value);
+  if (!Number.isFinite(n)) return null;
+  // GHL sometimes sends cents (999700) for $9997.00
+  if (Math.abs(n) >= 100000) return n / 100;
+  return n;
+}
+
+function asOrderObject(value) {
+  if (!value) return {};
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      return asObject(parsed);
+    } catch {
+      return {};
+    }
+  }
+  return asObject(value);
 }
 
 function extractProductHints(body = {}) {
   const customData = mergeCustomData(body);
-  const invoice = asObject(body.invoice || body.data?.invoice || body.data);
-  const order = asObject(body.order || body.data?.order);
-  const lineItem = firstLineItem(
+  const invoice = asObject(body.invoice || body.data?.invoice);
+  const order = asOrderObject(body.order || body.data?.order || body.triggerData?.order);
+  const lineItems = collectLineItems(
     body.items,
     body.invoiceItems,
     body.data?.items,
@@ -92,8 +130,11 @@ function extractProductHints(body = {}) {
     invoice.invoiceItems,
     order.items,
     order.products,
+    order.line_items,
+    order.lineItems,
     body.products,
   );
+  const lineItem = lineItems[0] ? asObject(lineItems[0]) : firstLineItem(lineItems);
 
   const productId = pickFirst(
     customData.productId,
@@ -102,11 +143,15 @@ function extractProductHints(body = {}) {
     body.product_id,
     body.data?.productId,
     invoice.productId,
+    order.productId,
     lineItem.productId,
+    lineItem.product_id,
     lineItem.product,
+    lineItem._id,
     lineItem.id,
   );
-  const productName = pickFirst(
+
+  const productNames = [
     customData.productName,
     customData.product_name,
     customData.product,
@@ -114,23 +159,63 @@ function extractProductHints(body = {}) {
     body.product_name,
     lineItem.name,
     lineItem.productName,
+    lineItem.product_name,
     lineItem.title,
     invoice.name,
     order.name,
+    order.productName,
     body.name,
+    ...lineItems.map((item) => item?.name || item?.productName || item?.title),
+  ]
+    .map((v) => (v == null ? "" : String(v).trim()))
+    .filter(Boolean);
+
+  const productName = productNames[0] || null;
+  const productNameBlob = productNames.join(" | ").toLowerCase();
+
+  const orderAmount = normalizeMoneyAmount(
+    pickFirst(
+      order.amount,
+      order.total,
+      order.totalAmount,
+      order.amountPaid,
+      order.price,
+      invoice.amount,
+      invoice.total,
+      invoice.amountPaid,
+      customData.amount,
+      body.amount,
+      lineItem.price,
+      lineItem.amount,
+    ),
   );
 
-  return { productId, productName, customData };
+  return {
+    productId,
+    productName,
+    productNameBlob,
+    orderAmount,
+    order,
+    customData,
+    hasOrder: Object.keys(order).length > 0,
+  };
 }
 
 /**
  * Whether this GHL webhook should provision a CLM soft trial.
- * Works for official payment events AND workflow custom webhooks.
+ * Works for official payment events AND workflow custom webhooks / order forms.
  */
 function isClmSoftTrialOrder(body = {}, ids = {}) {
   if (!isClmSoftTrialEnabled()) return false;
 
-  const { productId, productName, customData } = extractProductHints(body);
+  const {
+    productId,
+    productName,
+    productNameBlob,
+    orderAmount,
+    customData,
+    hasOrder,
+  } = extractProductHints(body);
 
   const action = String(
     pickFirst(
@@ -153,9 +238,7 @@ function isClmSoftTrialOrder(body = {}, ids = {}) {
     return true;
   }
 
-  const configuredProductId = String(
-    process.env.CLM_GHL_PRODUCT_ID || "",
-  )
+  const configuredProductId = String(process.env.CLM_GHL_PRODUCT_ID || "")
     .trim()
     .toLowerCase();
   if (
@@ -171,7 +254,22 @@ function isClmSoftTrialOrder(body = {}, ids = {}) {
   )
     .trim()
     .toLowerCase();
-  if (nameMatch && productName && productName.toLowerCase().includes(nameMatch)) {
+  if (
+    nameMatch &&
+    ((productName && productName.toLowerCase().includes(nameMatch)) ||
+      (productNameBlob && productNameBlob.includes(nameMatch)))
+  ) {
+    return true;
+  }
+
+  // GHL order-form workflow: amount ~ $9997 even when product id/name fields are odd.
+  const expectedAmount = Number(process.env.CLM_GHL_ORDER_AMOUNT || 9997);
+  if (
+    Number.isFinite(expectedAmount) &&
+    expectedAmount > 0 &&
+    orderAmount != null &&
+    Math.abs(orderAmount - expectedAmount) < 0.5
+  ) {
     return true;
   }
 
@@ -182,11 +280,30 @@ function isClmSoftTrialOrder(body = {}, ids = {}) {
       customData.offer,
       body.source,
       body.offer,
+      body.contact_source,
     ) || "",
   )
     .trim()
     .toLowerCase();
   if (source.includes("clm") && source.includes("soft")) return true;
+
+  const tags = Array.isArray(body.tags)
+    ? body.tags.map((t) => String(t).toLowerCase())
+    : [];
+  if (tags.some((t) => t.includes("clm") && (t.includes("soft") || t.includes("trial")))) {
+    return true;
+  }
+
+  // GHL "Send Webhook" after Order Form: payload has contact_* + order + workflow,
+  // often without product id / lendingCartAction. This endpoint's CLM funnel workflow
+  // uses that shape — treat it as soft-trial when enabled.
+  if (
+    hasOrder &&
+    (body.workflow || body.workflow_id || body.workflowId) &&
+    (ids.email || body.email || body.contact_id)
+  ) {
+    return true;
+  }
 
   return false;
 }
@@ -234,6 +351,7 @@ function extractContactProfile(body = {}, ids = {}) {
     customData.Company,
     contact.companyName,
     contact.company,
+    body.company_name,
     body.companyName,
     body.company_name,
     body.company,
@@ -265,6 +383,7 @@ function extractContactProfile(body = {}, ids = {}) {
         contact.name,
         contact.fullName,
         body.fullName,
+        body.full_name,
         body.full_name,
         body.name,
         body.Name,

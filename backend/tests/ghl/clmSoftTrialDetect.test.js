@@ -85,9 +85,59 @@ describe("CLM soft trial detection", () => {
     );
   });
 
+  it("matches GHL order-form workflow payload (order + workflow + email)", () => {
+    process.env.CLM_GHL_SOFT_TRIAL_ENABLED = "true";
+    delete process.env.CLM_GHL_PRODUCT_ID;
+    delete require.cache[require.resolve("../../services/ghl/fulfillClmGhlOrder")];
+    const { isClmSoftTrialOrder } = require("../../services/ghl/fulfillClmGhlOrder");
+
+    assert.equal(
+      isClmSoftTrialOrder(
+        {
+          contact_id: "abc123",
+          first_name: "Tushar",
+          last_name: "Jain",
+          email: "gavin.luian@forliion.com",
+          company_name: "VIB",
+          order: {
+            id: "ord_1",
+            amount: 9997,
+            products: [
+              {
+                _id: "prod1",
+                name: "Commercial Lending Mastery - Product",
+              },
+            ],
+          },
+          workflow: { id: "wf_1", name: "CLM Order Complete" },
+          customData: {},
+        },
+        { email: "gavin.luian@forliion.com", ghlContactId: "abc123" },
+      ),
+      true,
+    );
+  });
+
+  it("matches order amount 9997 even without product name", () => {
+    process.env.CLM_GHL_SOFT_TRIAL_ENABLED = "true";
+    process.env.CLM_GHL_ORDER_AMOUNT = "9997";
+    delete process.env.CLM_GHL_PRODUCT_ID;
+    delete require.cache[require.resolve("../../services/ghl/fulfillClmGhlOrder")];
+    const { isClmSoftTrialOrder } = require("../../services/ghl/fulfillClmGhlOrder");
+
+    assert.equal(
+      isClmSoftTrialOrder(
+        { order: { amount: "9997.00" }, email: "a@b.com" },
+        { email: "a@b.com" },
+      ),
+      true,
+    );
+  });
+
   it("ignores unrelated paid events", () => {
     process.env.CLM_GHL_SOFT_TRIAL_ENABLED = "true";
     delete process.env.CLM_GHL_PRODUCT_ID;
+    delete process.env.CLM_GHL_ORDER_AMOUNT;
     delete require.cache[require.resolve("../../services/ghl/fulfillClmGhlOrder")];
     const { isClmSoftTrialOrder } = require("../../services/ghl/fulfillClmGhlOrder");
 
@@ -112,5 +162,26 @@ describe("soft trial without billing notes", () => {
     assert.equal(isSoftTrialWithoutBilling(CLM_GHL_SOFT_TRIAL_NOTE), true);
     assert.equal(isSoftTrialWithoutBilling(LOAN_AI_FREE_TRIAL_NOTE), true);
     assert.equal(isSoftTrialWithoutBilling("admin assign"), false);
+  });
+});
+
+describe("resolveWebhookId for workflow payloads", () => {
+  it("does not collapse different CLM payloads into one hash", () => {
+    delete require.cache[require.resolve("../../services/ghl/ghlWebhookProcessor")];
+    const { resolveWebhookId } = require("../../services/ghl/ghlWebhookProcessor");
+
+    const a = resolveWebhookId({
+      lendingCartAction: "CLM_SOFT_TRIAL",
+      email: "a@example.com",
+    });
+    const b = resolveWebhookId({
+      lendingCartAction: "CLM_SOFT_TRIAL",
+      email: "b@example.com",
+    });
+    const emptyish = resolveWebhookId({ type: "Unknown" });
+
+    assert.match(a, /^hash:[a-f0-9]{40}$/);
+    assert.notEqual(a, b);
+    assert.notEqual(a, emptyish);
   });
 });

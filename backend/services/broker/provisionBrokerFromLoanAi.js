@@ -401,7 +401,7 @@ async function provisionBrokerFromLoanAi(prisma, io, loanAiUser, payload) {
       select: { name: true },
     });
     const packageName = isFreeTrial
-      ? `${pkg?.name || "Selected Plan"} (Free Trial)`
+      ? pkg?.name || "Selected Plan"
       : pkg?.name || "Selected Plan";
 
     // New accounts get email + temporary password; existing accounts get set-password link.
@@ -413,6 +413,8 @@ async function provisionBrokerFromLoanAi(prisma, io, loanAiUser, payload) {
         organizationName: brokerOrg.name,
         packageName,
         prisma,
+        trialDays: Number(trialDays) || 0,
+        trialEndsAt: subscription?.trialEndsAt || null,
         idempotencyKey: isFreeTrial
           ? `broker-credentials-trial:${loginEmail}`
           : `broker-credentials:${loginEmail}`,

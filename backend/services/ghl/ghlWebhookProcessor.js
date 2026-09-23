@@ -348,6 +348,9 @@ function logGhlWebhookPayloadStructureDebug(body = {}) {
     event: "ghl.webhook.payload_debug",
     eventType: normalizeEventType(body),
     topLevelKeys: Object.keys(body),
+    orderObjectKeys: collectObjectKeyNames(asObject(body.order)),
+    customDataKeys: collectObjectKeyNames(asObject(body.customData)),
+    workflowKeys: collectObjectKeyNames(asObject(body.workflow)),
     invoiceObjectKeys: collectObjectKeyNames(invoice),
     contactRelatedTopLevelKeys,
     contactObjectKeys: collectObjectKeyNames(contact),
@@ -463,28 +466,73 @@ async function findCheckout(prisma, ids, { includePaid = false } = {}) {
 }
 
 function resolveWebhookId(body = {}) {
-  return (
-    pickFirst(
-      body.webhookId,
-      body.webhook_id,
-      body.id,
-      body.eventId,
-      body.data?.webhookId,
-    ) ||
-    `hash:${require("crypto")
-      .createHash("sha256")
-      .update(
-        JSON.stringify({
-          type: normalizeEventType(body),
-          invoiceId: body.invoiceId || body.invoice?._id || body.invoice?.id,
-          contactId: body.contactId || body.contact?.id,
-          subscriptionId: body.subscriptionId,
-          timestamp: body.timestamp || body.createdAt,
-        }),
-      )
-      .digest("hex")
-      .slice(0, 40)}`
+  const explicit = pickFirst(
+    body.webhookId,
+    body.webhook_id,
+    body.id,
+    body.eventId,
+    body.data?.webhookId,
   );
+  if (explicit) return String(explicit);
+
+  // Workflow / custom webhooks often lack invoice/contact/event ids.
+  // Hashing only those fields collapses every such payload into one id,
+  // so later POSTs return 200 DUPLICATE and never provision (no credentials email).
+  const customData =
+    (body.customData && typeof body.customData === "object"
+      ? body.customData
+      : null) ||
+    (body.data?.customData && typeof body.data.customData === "object"
+      ? body.data.customData
+      : null) ||
+    {};
+
+  const email = pickFirst(
+    body.email,
+    body.Email,
+    body.contact?.email,
+    body.contactDetails?.email,
+    body.data?.email,
+    body.data?.contact?.email,
+    customData.email,
+    customData.Email,
+  );
+  const action = pickFirst(
+    body.lendingCartAction,
+    body.action,
+    body.data?.lendingCartAction,
+    customData.lendingCartAction,
+    customData.action,
+  );
+  const productId = pickFirst(
+    body.productId,
+    body.product_id,
+    body.data?.productId,
+    customData.productId,
+    customData.product_id,
+  );
+
+  const crypto = require("crypto");
+  const fingerprint = crypto
+    .createHash("sha256")
+    .update(
+      JSON.stringify({
+        type: normalizeEventType(body),
+        invoiceId: body.invoiceId || body.invoice?._id || body.invoice?.id,
+        contactId: body.contactId || body.contact?.id || body.data?.contactId,
+        subscriptionId: body.subscriptionId,
+        timestamp: body.timestamp || body.createdAt,
+        email: email ? String(email).trim().toLowerCase() : null,
+        action: action ? String(action).trim().toUpperCase() : null,
+        productId: productId ? String(productId).trim().toLowerCase() : null,
+        // Last resort: content fingerprint so empty-id payloads stay unique
+        bodyKeys: Object.keys(body || {}).sort(),
+      }),
+    )
+    .digest("hex")
+    .slice(0, 40);
+
+  return `hash:${fingerprint}`;
 }
 
 /**
@@ -528,23 +576,53 @@ async function processGhlWebhook(prisma, io, body = {}) {
       const existing = await prisma.ghlWebhookEvent.findUnique({
         where: { webhookId },
       });
-      logWebhookDuplicate({
-        webhookId,
-        eventType,
-        lifecycle,
-        status: existing?.status || "PROCESSED",
-        ghlContactId: ids.ghlContactId,
-        ghlInvoiceId: ids.ghlInvoiceId,
-        ghlSubscriptionId: ids.ghlSubscriptionId,
-      });
-      return {
-        duplicate: true,
-        webhookId,
-        status: existing?.status || "PROCESSED",
-        message: "Webhook already processed",
-      };
+      const priorStatus = existing?.status || "PROCESSED";
+      // Re-attempt IGNORED/FAILED so workflow retries (and hash collisions on
+      // old empty-id events) can still provision after CLM detection fixes.
+      if (
+        existing &&
+        (priorStatus === "IGNORED" || priorStatus === "FAILED")
+      ) {
+        eventRow = await prisma.ghlWebhookEvent.update({
+          where: { id: existing.id },
+          data: {
+            status: "RECEIVED",
+            eventType,
+            errorMessage: null,
+            processedAt: null,
+            ghlContactId: ids.ghlContactId || existing.ghlContactId,
+            ghlInvoiceId: ids.ghlInvoiceId || existing.ghlInvoiceId,
+            ghlSubscriptionId:
+              ids.ghlSubscriptionId || existing.ghlSubscriptionId,
+            payloadSummary: summary,
+          },
+        });
+        commonLogs.info("Reprocessing previously ignored/failed GHL webhook", {
+          webhookId,
+          priorStatus,
+          eventType,
+          lifecycle,
+        });
+      } else {
+        logWebhookDuplicate({
+          webhookId,
+          eventType,
+          lifecycle,
+          status: priorStatus,
+          ghlContactId: ids.ghlContactId,
+          ghlInvoiceId: ids.ghlInvoiceId,
+          ghlSubscriptionId: ids.ghlSubscriptionId,
+        });
+        return {
+          duplicate: true,
+          webhookId,
+          status: priorStatus,
+          message: "Webhook already processed",
+        };
+      }
+    } else {
+      throw err;
     }
-    throw err;
   }
 
   try {
