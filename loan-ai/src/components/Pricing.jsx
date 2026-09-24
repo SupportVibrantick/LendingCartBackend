@@ -29,6 +29,13 @@ const TIER_ACCENTS = {
     price: "text-slate-900 dark:text-white",
     glow: "",
   },
+  // Display name is "Starter"; package code remains BASIC
+  STARTER: {
+    ring: "border-slate-200 dark:border-white/10",
+    badge: "bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-gray-300",
+    price: "text-slate-900 dark:text-white",
+    glow: "",
+  },
   PRO: {
     ring: "border-[#4B83FF]/45 shadow-[0_0_40px_rgba(75,131,255,0.15)]",
     badge: "bg-[#4B83FF]/15 text-[#4B83FF]",
@@ -570,11 +577,10 @@ const Pricing = () => {
 
   const [error, setError] = useState("");
 
-  const [billingCycle, setBillingCycle] = useState("MONTHLY");
-
-
+  const [billingCycle, setBillingCycle] = useState("YEARLY");
 
   const hasYearlyPricing = packages.some((pkg) => pkg.priceYearly != null);
+  const isYearly = billingCycle === "YEARLY";
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -687,55 +693,54 @@ const Pricing = () => {
 
 
         {!loading && !error && hasYearlyPricing && (
-
-          <div className="mb-12 inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-100 p-1 dark:border-white/15 dark:bg-white/10">
-
-            <button
-
-              type="button"
-
-              onClick={() => setBillingCycle("MONTHLY")}
-
-              className={`rounded-full px-5 py-2 text-sm font-semibold transition ${
-
-                billingCycle === "MONTHLY"
-
-                  ? "bg-white text-[#0b0f2a] shadow dark:bg-white"
-
-                  : "text-slate-500 hover:text-slate-900 dark:text-gray-300 dark:hover:text-white"
-
+          <div className="mb-12 flex flex-wrap items-center justify-center gap-3">
+            <span
+              className={`text-sm font-bold transition ${
+                !isYearly
+                  ? "text-slate-900 dark:text-white"
+                  : "text-slate-500 dark:text-gray-400"
               }`}
-
             >
-
               Monthly
-
-            </button>
+            </span>
 
             <button
-
               type="button"
-
-              onClick={() => setBillingCycle("YEARLY")}
-
-              className={`rounded-full px-5 py-2 text-sm font-semibold transition ${
-
-                billingCycle === "YEARLY"
-
-                  ? "bg-white text-[#0b0f2a] shadow dark:bg-white"
-
-                  : "text-slate-500 hover:text-slate-900 dark:text-gray-300 dark:hover:text-white"
-
+              role="switch"
+              aria-checked={isYearly}
+              aria-label={
+                isYearly
+                  ? "Switch to monthly billing"
+                  : "Switch to yearly billing"
+              }
+              onClick={() =>
+                setBillingCycle(isYearly ? "MONTHLY" : "YEARLY")
+              }
+              className={`relative inline-flex h-7 w-12 shrink-0 cursor-pointer items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4B83FF] focus-visible:ring-offset-2 dark:focus-visible:ring-offset-black ${
+                isYearly ? "bg-[#4B83FF]" : "bg-slate-300 dark:bg-white/25"
               }`}
-
             >
-
-              Yearly
-
+              <span
+                className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${
+                  isYearly ? "translate-x-6" : "translate-x-1"
+                }`}
+              />
             </button>
 
-          </div>
+            <span
+              className={`text-sm font-bold transition ${
+                isYearly
+                  ? "text-slate-900 dark:text-white"
+                  : "text-slate-500 dark:text-gray-400"
+              }`}
+            >
+              Yearly
+            </span>
 
+            <span className="animate-save-badge inline-block rounded-full bg-emerald-500 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-white shadow-sm shadow-emerald-500/40">
+              Save 17%
+            </span>
+          </div>
         )}
 
 

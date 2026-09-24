@@ -163,7 +163,7 @@ export function getAddOnAvailabilityLabel(addOn) {
   return available
     .map((code) => {
       const c = String(code).toUpperCase();
-      if (c === "BASIC") return "Basic";
+      if (c === "BASIC") return "Starter";
       if (c === "PRO") return "Pro";
       if (c === "ELITE") return "Elite";
       return c;

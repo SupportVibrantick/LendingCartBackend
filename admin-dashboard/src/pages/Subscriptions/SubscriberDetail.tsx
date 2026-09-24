@@ -35,6 +35,7 @@ import {
   type SubscriptionPackage,
 } from "../../lib/subscriptionApi";
 import { getSubscriberOrgId } from "../../lib/subscriberNavigation";
+import { getPackageCodeLabel } from "../../lib/packageDisplay";
 
 function tierGradient(code?: string) {
   const c = String(code || "").toUpperCase();
@@ -220,12 +221,15 @@ export default function SubscriberDetail() {
     );
   }
 
-  const { organization, subscription, history } = detail;
+  const { organization, subscription, history, orgUsageLimits } = detail;
   const price = subscription
     ? subscription.billingCycle === "YEARLY"
       ? subscription.package.priceYearly
       : subscription.package.priceMonthly
     : null;
+  const usageMetrics = orgUsageLimits?.metrics?.length
+    ? orgUsageLimits.metrics
+    : [];
 
   return (
     <SubscriptionPageShell>
@@ -314,7 +318,9 @@ export default function SubscriberDetail() {
                 <div className="relative mt-2 flex items-end justify-between gap-3">
                   <div>
                     <h2 className="text-2xl font-bold">{subscription.package.name}</h2>
-                    <p className="mt-0.5 text-sm text-white/70">{subscription.package.code}</p>
+                    <p className="mt-0.5 text-sm text-white/70">
+                      {getPackageCodeLabel(subscription.package.code)}
+                    </p>
                   </div>
                   <HiSparkles className="mb-1 text-white/70" size={22} />
                 </div>
@@ -417,13 +423,13 @@ export default function SubscriberDetail() {
                   Usage Tracking
                 </h2>
               </div>
-              {subscription.usageRecords.length === 0 ? (
+              {usageMetrics.length === 0 ? (
                 <p className="rounded-2xl border border-dashed border-slate-200 py-10 text-center text-sm text-slate-500 dark:border-slate-700">
                   No usage data yet. Refresh usage to compute.
                 </p>
               ) : (
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  {subscription.usageRecords.map((u) => {
+                  {usageMetrics.map((u) => {
                     const pct =
                       u.limitValue && u.limitValue > 0
                         ? Math.min(100, Math.round((u.usedValue / u.limitValue) * 100))
@@ -436,15 +442,15 @@ export default function SubscriberDetail() {
                           : "from-[#13538A] to-[#18B6B4]";
                     return (
                       <div
-                        key={u.id}
+                        key={u.metric}
                         className="rounded-2xl border border-slate-100 bg-gradient-to-br from-slate-50 to-white p-4 dark:border-slate-800 dark:from-slate-800/40 dark:to-slate-900"
                       >
                         <div className="mb-3 flex items-start justify-between gap-2">
                           <p className="text-sm font-semibold text-slate-800 dark:text-white">
-                            {USAGE_METRIC_LABELS[u.metric]}
+                            {u.label || USAGE_METRIC_LABELS[u.metric] || u.metric}
                           </p>
                           <p className="text-xs font-bold tabular-nums text-slate-500">
-                            {pct}%
+                            {u.limitValue != null ? `${pct}%` : "∞"}
                           </p>
                         </div>
                         <p className="mb-2 text-lg font-bold tabular-nums text-slate-900 dark:text-white">

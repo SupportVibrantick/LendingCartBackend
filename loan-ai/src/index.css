@@ -42,3 +42,44 @@ body {
   background: rgba(75, 131, 255, 0.35);
   color: #fff;
 }
+
+/* Pricing "Save 17%" badge — gentle wiggle + pulse so it stays noticeable */
+@keyframes save-badge-wiggle {
+  0%,
+  100% {
+    transform: rotate(0deg) translateY(0) scale(1);
+  }
+  12% {
+    transform: rotate(-8deg) translateY(-2px) scale(1.04);
+  }
+  24% {
+    transform: rotate(8deg) translateY(-1px) scale(1.06);
+  }
+  36% {
+    transform: rotate(-6deg) translateY(-2px) scale(1.04);
+  }
+  48% {
+    transform: rotate(6deg) translateY(0) scale(1.02);
+  }
+  60% {
+    transform: rotate(-3deg) translateY(-1px) scale(1.03);
+  }
+  72% {
+    transform: rotate(3deg) translateY(0) scale(1);
+  }
+  84% {
+    transform: rotate(-1deg) scale(1.01);
+  }
+}
+
+.animate-save-badge {
+  animation: save-badge-wiggle 1.8s ease-in-out infinite;
+  transform-origin: center center;
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-save-badge {
+    animation: none;
+  }
+}

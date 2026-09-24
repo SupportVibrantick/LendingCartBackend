@@ -41,6 +41,7 @@ import {
   openSubscriberDetail,
   openSubscriberPermissions,
 } from "../../lib/subscriberNavigation";
+import { getPackageCodeLabel } from "../../lib/packageDisplay";
 
 const MENU_WIDTH = 176;
 
@@ -393,7 +394,7 @@ export default function SubscriptionSubscribers() {
                           <div>
                             <span className="font-medium">{sub.package.name}</span>
                             <span className="ml-1 text-xs text-slate-400">
-                              ({sub.package.code})
+                              ({getPackageCodeLabel(sub.package.code)})
                             </span>
                           </div>
                         ) : (
@@ -574,7 +575,7 @@ export default function SubscriptionSubscribers() {
               >
                 {packages.map((p) => (
                   <option key={p.id} value={p.id}>
-                    {p.name} ({p.code}) — {formatPrice(p.priceMonthly)}/mo
+                    {p.name} ({getPackageCodeLabel(p.code)}) — {formatPrice(p.priceMonthly)}/mo
                   </option>
                 ))}
               </select>

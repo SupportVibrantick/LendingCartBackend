@@ -216,7 +216,7 @@ describe("GHL contact upsert paths (18–19) + API failure (11)", () => {
       packageCode: "BASIC",
       billingCycle: "MONTHLY",
       amount: 49,
-      planName: "Basic",
+      planName: "Starter",
       metadata: { lendingCartCheckoutId: "co_existing" },
     });
 
