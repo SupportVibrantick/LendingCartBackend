@@ -5,7 +5,10 @@ import Swal from "sweetalert2";
 import {
   FiArrowLeft,
   FiCalendar,
+  FiClock,
+  FiCreditCard,
   FiInfo,
+  FiPackage,
   FiRefreshCw,
 } from "react-icons/fi";
 import { HiSparkles } from "react-icons/hi2";
@@ -36,6 +39,11 @@ import {
 } from "../../lib/subscriptionApi";
 import { getSubscriberOrgId } from "../../lib/subscriberNavigation";
 import { getPackageCodeLabel } from "../../lib/packageDisplay";
+import {
+  formatBillingCycleLabel,
+  getTrialAccessInfo,
+  parseSubscriptionNotes,
+} from "../../lib/subscriptionDisplay";
 
 function tierGradient(code?: string) {
   const c = String(code || "").toUpperCase();
@@ -59,6 +67,9 @@ export default function SubscriberDetail() {
   const [loading, setLoading] = useState(true);
   const [changeOpen, setChangeOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [detailPanel, setDetailPanel] = useState<"plan" | "invoices" | "history">(
+    "plan",
+  );
   const [changeForm, setChangeForm] = useState({
     packageId: "",
     billingCycle: "MONTHLY" as BillingCycle,
@@ -230,6 +241,17 @@ export default function SubscriberDetail() {
   const usageMetrics = orgUsageLimits?.metrics?.length
     ? orgUsageLimits.metrics
     : [];
+  const noteInfo = parseSubscriptionNotes(subscription?.notes);
+  const trialAccess = subscription
+    ? getTrialAccessInfo({
+        trialEndsAt: subscription.trialEndsAt,
+        periodStart: subscription.currentPeriodStart,
+        notes: subscription.notes,
+      })
+    : null;
+  const billingLabel = subscription
+    ? formatBillingCycleLabel(subscription.billingCycle, trialAccess)
+    : null;
 
   return (
     <SubscriptionPageShell>
@@ -302,184 +324,129 @@ export default function SubscriberDetail() {
           </Link>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-          <div className="space-y-6 xl:col-span-1">
-            <div className="overflow-hidden rounded-3xl border border-slate-200/80 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
-              <div
-                className={`relative bg-gradient-to-br ${tierGradient(subscription.package.code)} px-5 py-5 text-white`}
-              >
-                <div
-                  className="pointer-events-none absolute -right-6 -top-6 h-28 w-28 rounded-full bg-white/10 blur-2xl"
-                  aria-hidden
-                />
-                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-white/75">
-                  Current Plan
-                </p>
-                <div className="relative mt-2 flex items-end justify-between gap-3">
-                  <div>
-                    <h2 className="text-2xl font-bold">{subscription.package.name}</h2>
-                    <p className="mt-0.5 text-sm text-white/70">
-                      {getPackageCodeLabel(subscription.package.code)}
-                    </p>
-                  </div>
-                  <HiSparkles className="mb-1 text-white/70" size={22} />
-                </div>
-                <p className="relative mt-4 text-3xl font-extrabold tracking-tight">
-                  {formatPrice(price)}
-                  <span className="ml-1 text-sm font-medium text-white/75">
-                    / {subscription.billingCycle === "YEARLY" ? "year" : "month"}
-                  </span>
-                </p>
-              </div>
-              <div className="p-5">
-                <div className="mb-4 flex flex-wrap gap-2">
-                  <StatusBadge status={subscription.status} />
-                  {subscription.cancelAtPeriodEnd && (
-                    <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">
-                      Cancels at period end
-                    </span>
-                  )}
-                </div>
-                <dl className="space-y-2 text-sm">
-                  <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 px-3.5 py-2.5 dark:border-slate-800">
-                    <dt className="inline-flex items-center gap-2 text-slate-500">
-                      <FiCalendar size={14} className="text-[#18B6B4]" />
-                      Period start
-                    </dt>
-                    <dd className="font-semibold text-slate-800 dark:text-slate-100">
-                      {new Date(subscription.currentPeriodStart).toLocaleDateString()}
-                    </dd>
-                  </div>
-                  <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 px-3.5 py-2.5 dark:border-slate-800">
-                    <dt className="inline-flex items-center gap-2 text-slate-500">
-                      <FiCalendar size={14} className="text-[#18B6B4]" />
-                      Period end
-                    </dt>
-                    <dd className="font-semibold text-slate-800 dark:text-slate-100">
-                      {new Date(subscription.currentPeriodEnd).toLocaleDateString()}
-                    </dd>
-                  </div>
-                  {subscription.trialEndsAt && (
-                    <div className="flex items-center justify-between gap-3 rounded-xl border border-[#18B6B4]/25 bg-[#18B6B4]/5 px-3.5 py-2.5 dark:border-[#18B6B4]/30 dark:bg-[#18B6B4]/10">
-                      <dt className="text-[#13538A] dark:text-[#18B6B4]">Trial ends</dt>
-                      <dd className="font-semibold text-[#0B3A63] dark:text-slate-100">
-                        {new Date(subscription.trialEndsAt).toLocaleDateString()}
-                      </dd>
-                    </div>
-                  )}
-                </dl>
-                {subscription.notes ? (
-                  <div className="mt-4 flex gap-3 border-t border-slate-100 pt-4 dark:border-slate-800">
-                    <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#13538A]/10 text-[#13538A] dark:bg-[#18B6B4]/15 dark:text-[#18B6B4]">
-                      <FiInfo size={15} />
-                    </span>
-                    <div className="min-w-0">
-                      <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#18B6B4]">
-                        Notes
-                      </p>
-                      <p className="mt-1 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
-                        {subscription.notes}
-                      </p>
-                    </div>
-                  </div>
-                ) : null}
-              </div>
-            </div>
-
-            {history.length > 0 && (
-              <div className="rounded-3xl border border-slate-200/80 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-                <h2 className="mb-4 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">
-                  History
-                </h2>
-                <ul className="space-y-3">
-                  {history.map((h) => (
-                    <li
-                      key={h.id}
-                      className="flex items-start justify-between gap-3 rounded-2xl border border-slate-100 bg-slate-50/70 px-3.5 py-3 dark:border-slate-800 dark:bg-slate-800/40"
-                    >
-                      <div>
-                        <p className="text-sm font-semibold text-slate-800 dark:text-white">
-                          {h.package.name} ·{" "}
-                          {h.billingCycle === "YEARLY" ? "Yearly" : "Monthly"}
-                        </p>
-                        <div className="mt-1.5">
-                          <StatusBadge status={h.status} />
-                        </div>
-                      </div>
-                      <span className="shrink-0 text-xs text-slate-500">
-                        {new Date(h.createdAt).toLocaleDateString()}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </div>
-
-          <div className="space-y-6 xl:col-span-2">
-            <div className="rounded-3xl border border-slate-200/80 bg-white p-5 shadow-sm sm:p-6 dark:border-slate-800 dark:bg-slate-900">
-              <div className="mb-5 flex items-center justify-between gap-3">
+        <div className="space-y-6">
+          {/* Usage Tracking — top */}
+          <section className="rounded-3xl border border-slate-200/80 bg-white p-5 shadow-sm sm:p-6 dark:border-slate-800 dark:bg-slate-900">
+            <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+              <div>
                 <h2 className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">
                   Usage Tracking
                 </h2>
-              </div>
-              {usageMetrics.length === 0 ? (
-                <p className="rounded-2xl border border-dashed border-slate-200 py-10 text-center text-sm text-slate-500 dark:border-slate-700">
-                  No usage data yet. Refresh usage to compute.
+                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                  Live seat and capacity usage for this brokerage
                 </p>
-              ) : (
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  {usageMetrics.map((u) => {
-                    const pct =
-                      u.limitValue && u.limitValue > 0
-                        ? Math.min(100, Math.round((u.usedValue / u.limitValue) * 100))
-                        : 0;
-                    const bar =
-                      pct >= 90
-                        ? "from-rose-500 to-rose-400"
-                        : pct >= 70
-                          ? "from-amber-500 to-amber-400"
-                          : "from-[#13538A] to-[#18B6B4]";
-                    return (
-                      <div
-                        key={u.metric}
-                        className="rounded-2xl border border-slate-100 bg-gradient-to-br from-slate-50 to-white p-4 dark:border-slate-800 dark:from-slate-800/40 dark:to-slate-900"
-                      >
-                        <div className="mb-3 flex items-start justify-between gap-2">
-                          <p className="text-sm font-semibold text-slate-800 dark:text-white">
-                            {u.label || USAGE_METRIC_LABELS[u.metric] || u.metric}
-                          </p>
-                          <p className="text-xs font-bold tabular-nums text-slate-500">
-                            {u.limitValue != null ? `${pct}%` : "∞"}
-                          </p>
-                        </div>
-                        <p className="mb-2 text-lg font-bold tabular-nums text-slate-900 dark:text-white">
-                          {u.usedValue}
-                          <span className="text-sm font-medium text-slate-400">
-                            {u.limitValue != null ? ` / ${u.limitValue}` : " · unlimited"}
-                          </span>
-                        </p>
-                        {u.limitValue != null && (
-                          <div className="h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
-                            <div
-                              className={`h-full rounded-full bg-gradient-to-r ${bar} transition-all`}
-                              style={{ width: `${pct}%` }}
-                            />
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+              </div>
+              {canManage ? (
+                <button
+                  type="button"
+                  onClick={handleRefreshUsage}
+                  className={secondaryBtnClass}
+                >
+                  <FiRefreshCw size={14} />
+                  Refresh
+                </button>
+              ) : null}
             </div>
+            {usageMetrics.length === 0 ? (
+              <p className="rounded-2xl border border-dashed border-slate-200 py-10 text-center text-sm text-slate-500 dark:border-slate-700">
+                No usage data yet. Refresh usage to compute.
+              </p>
+            ) : (
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                {usageMetrics.map((u) => {
+                  const pct =
+                    u.limitValue && u.limitValue > 0
+                      ? Math.min(100, Math.round((u.usedValue / u.limitValue) * 100))
+                      : 0;
+                  const bar =
+                    pct >= 90
+                      ? "from-rose-500 to-rose-400"
+                      : pct >= 70
+                        ? "from-amber-500 to-amber-400"
+                        : "from-[#13538A] to-[#18B6B4]";
+                  return (
+                    <div
+                      key={u.metric}
+                      className="rounded-2xl border border-slate-100 bg-gradient-to-br from-slate-50 to-white p-4 dark:border-slate-800 dark:from-slate-800/40 dark:to-slate-900"
+                    >
+                      <div className="mb-3 flex items-start justify-between gap-2">
+                        <p className="text-sm font-semibold text-slate-800 dark:text-white">
+                          {u.label || USAGE_METRIC_LABELS[u.metric] || u.metric}
+                        </p>
+                        <p className="text-xs font-bold tabular-nums text-slate-500">
+                          {u.limitValue != null ? `${pct}%` : "∞"}
+                        </p>
+                      </div>
+                      <p className="mb-2 text-lg font-bold tabular-nums text-slate-900 dark:text-white">
+                        {u.usedValue}
+                        <span className="text-sm font-medium text-slate-400">
+                          {u.limitValue != null ? ` / ${u.limitValue}` : " · unlimited"}
+                        </span>
+                      </p>
+                      {u.limitValue != null && (
+                        <div className="h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+                          <div
+                            className={`h-full rounded-full bg-gradient-to-r ${bar} transition-all`}
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </section>
 
-            <div className="overflow-hidden rounded-3xl border border-slate-200/80 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
-              <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4 dark:border-slate-800">
-                <h2 className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">
-                  Invoices
-                </h2>
-                {canManageInvoices && (
+          {/* Plan / Invoices / History tabs */}
+          <section className="overflow-hidden rounded-3xl border border-slate-200/80 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-2 sm:px-4 dark:border-slate-800">
+              <div className="flex min-w-0 flex-1 gap-1 overflow-x-auto p-2">
+                {(
+                  [
+                    { id: "plan" as const, label: "Current Plan", icon: FiPackage },
+                    { id: "invoices" as const, label: "Invoices", icon: FiCreditCard },
+                    { id: "history" as const, label: "History", icon: FiClock },
+                  ] as const
+                ).map((tab) => {
+                  const active = detailPanel === tab.id;
+                  const Icon = tab.icon;
+                  const count =
+                    tab.id === "invoices"
+                      ? subscription.invoices.length
+                      : tab.id === "history"
+                        ? history.length
+                        : null;
+                  return (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      onClick={() => setDetailPanel(tab.id)}
+                      className={`inline-flex shrink-0 items-center gap-2 rounded-xl px-3.5 py-2.5 text-sm font-semibold transition ${
+                        active
+                          ? "bg-[#13538A] text-white shadow-sm dark:bg-[#18B6B4] dark:text-slate-950"
+                          : "text-slate-500 hover:bg-slate-100 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100"
+                      }`}
+                    >
+                      <Icon size={15} />
+                      {tab.label}
+                      {count != null ? (
+                        <span
+                          className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums ${
+                            active
+                              ? "bg-white/20 text-white"
+                              : "bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300"
+                          }`}
+                        >
+                          {count}
+                        </span>
+                      ) : null}
+                    </button>
+                  );
+                })}
+              </div>
+              {detailPanel === "invoices" && canManageInvoices ? (
+                <div className="shrink-0 px-2 pb-2 sm:pb-0">
                   <button
                     type="button"
                     onClick={handleGenerateInvoice}
@@ -487,68 +454,260 @@ export default function SubscriberDetail() {
                   >
                     Generate Invoice
                   </button>
-                )}
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-slate-50/80 text-left text-[11px] font-bold uppercase tracking-wide text-slate-400 dark:bg-slate-800/50">
-                    <tr>
-                      <th className="px-5 py-3">Invoice</th>
-                      <th className="px-4 py-3">Amount</th>
-                      <th className="px-4 py-3">Status</th>
-                      <th className="px-4 py-3">Due</th>
-                      <th className="px-5 py-3 text-right">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {subscription.invoices.length === 0 ? (
+                </div>
+              ) : null}
+            </div>
+
+            <div className="p-5 sm:p-6">
+              {detailPanel === "plan" && (
+                <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
+                  <div
+                    className={`relative overflow-hidden rounded-2xl bg-gradient-to-br ${tierGradient(subscription.package.code)} p-5 text-white lg:col-span-2`}
+                  >
+                    <div
+                      className="pointer-events-none absolute -right-6 -top-6 h-28 w-28 rounded-full bg-white/10 blur-2xl"
+                      aria-hidden
+                    />
+                    <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-white/75">
+                      Current Plan
+                    </p>
+                    <div className="relative mt-2 flex items-end justify-between gap-3">
+                      <div>
+                        <h2 className="text-2xl font-bold">{subscription.package.name}</h2>
+                        <p className="mt-0.5 text-sm text-white/70">
+                          {getPackageCodeLabel(subscription.package.code)}
+                        </p>
+                      </div>
+                      <HiSparkles className="mb-1 text-white/70" size={22} />
+                    </div>
+                    <p className="relative mt-4 text-3xl font-extrabold tracking-tight">
+                      {formatPrice(price)}
+                      <span className="ml-1 text-sm font-medium text-white/75">
+                        / {subscription.billingCycle === "YEARLY" ? "year" : "month"}
+                      </span>
+                    </p>
+                    {billingLabel ? (
+                      <p className="relative mt-2 text-sm font-medium text-white/85">
+                        {billingLabel}
+                      </p>
+                    ) : null}
+                    {trialAccess ? (
+                      <span className="relative mt-3 inline-flex rounded-full bg-emerald-400/20 px-3 py-1 text-xs font-bold uppercase tracking-wide text-emerald-50 ring-1 ring-emerald-300/40">
+                        {trialAccess.shortBadge}
+                      </span>
+                    ) : null}
+                  </div>
+
+                  <div className="space-y-4 lg:col-span-3">
+                    <div className="flex flex-wrap gap-2">
+                      <StatusBadge status={subscription.status} />
+                      {trialAccess ? (
+                        <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300">
+                          {trialAccess.label}
+                        </span>
+                      ) : null}
+                      {noteInfo.isClmSoftTrial ? (
+                        <span className="rounded-full bg-sky-100 px-2.5 py-1 text-xs font-semibold text-sky-800 dark:bg-sky-500/15 dark:text-sky-300">
+                          CLM soft trial
+                        </span>
+                      ) : null}
+                      {subscription.cancelAtPeriodEnd && (
+                        <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">
+                          Cancels at period end
+                        </span>
+                      )}
+                    </div>
+
+                    <dl className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 px-3.5 py-2.5 dark:border-slate-800">
+                        <dt className="inline-flex items-center gap-2 text-sm text-slate-500">
+                          <FiCalendar size={14} className="text-[#18B6B4]" />
+                          Access start
+                        </dt>
+                        <dd className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                          {new Date(subscription.currentPeriodStart).toLocaleDateString()}
+                        </dd>
+                      </div>
+                      {trialAccess && subscription.trialEndsAt ? (
+                        <div className="flex items-center justify-between gap-3 rounded-xl border border-emerald-200/80 bg-emerald-50/80 px-3.5 py-2.5 dark:border-emerald-500/30 dark:bg-emerald-500/10 sm:col-span-2">
+                          <dt className="text-sm text-emerald-800 dark:text-emerald-300">
+                            Free access until
+                          </dt>
+                          <dd className="text-sm font-semibold text-emerald-900 dark:text-emerald-100">
+                            {new Date(subscription.trialEndsAt).toLocaleDateString()}
+                            <span className="ml-1.5 text-xs font-medium text-emerald-700/80 dark:text-emerald-300/80">
+                              ({trialAccess.label})
+                            </span>
+                          </dd>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 px-3.5 py-2.5 dark:border-slate-800">
+                          <dt className="inline-flex items-center gap-2 text-sm text-slate-500">
+                            <FiCalendar size={14} className="text-[#18B6B4]" />
+                            Period end
+                          </dt>
+                          <dd className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                            {new Date(subscription.currentPeriodEnd).toLocaleDateString()}
+                          </dd>
+                        </div>
+                      )}
+                      {!trialAccess && subscription.trialEndsAt ? (
+                        <div className="flex items-center justify-between gap-3 rounded-xl border border-[#18B6B4]/25 bg-[#18B6B4]/5 px-3.5 py-2.5 dark:border-[#18B6B4]/30 dark:bg-[#18B6B4]/10 sm:col-span-2">
+                          <dt className="text-sm text-[#13538A] dark:text-[#18B6B4]">
+                            Trial ends
+                          </dt>
+                          <dd className="text-sm font-semibold text-[#0B3A63] dark:text-slate-100">
+                            {new Date(subscription.trialEndsAt).toLocaleDateString()}
+                          </dd>
+                        </div>
+                      ) : null}
+                    </dl>
+
+                    {(noteInfo.summary ||
+                      noteInfo.plainNotes ||
+                      noteInfo.details.length > 0) && (
+                      <div className="flex gap-3 rounded-2xl border border-slate-100 bg-slate-50/60 p-4 dark:border-slate-800 dark:bg-slate-800/30">
+                        <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#13538A]/10 text-[#13538A] dark:bg-[#18B6B4]/15 dark:text-[#18B6B4]">
+                          <FiInfo size={15} />
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#18B6B4]">
+                            About this subscription
+                          </p>
+                          {noteInfo.summary ? (
+                            <p className="mt-1 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+                              {noteInfo.summary}
+                            </p>
+                          ) : null}
+                          {noteInfo.plainNotes ? (
+                            <p className="mt-1 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+                              {noteInfo.plainNotes}
+                            </p>
+                          ) : null}
+                          {noteInfo.details.length > 0 ? (
+                            <details className="mt-3 rounded-xl border border-slate-100 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900/60">
+                              <summary className="cursor-pointer text-xs font-semibold text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200">
+                                Technical details (GHL)
+                              </summary>
+                              <dl className="mt-2 space-y-1.5">
+                                {noteInfo.details.map((d) => (
+                                  <div
+                                    key={d.label}
+                                    className="flex flex-wrap items-baseline justify-between gap-2 text-xs"
+                                  >
+                                    <dt className="text-slate-500">{d.label}</dt>
+                                    <dd className="font-mono text-[11px] text-slate-700 dark:text-slate-200">
+                                      {d.value}
+                                    </dd>
+                                  </div>
+                                ))}
+                              </dl>
+                            </details>
+                          ) : null}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {detailPanel === "invoices" && (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-slate-50/80 text-left text-[11px] font-bold uppercase tracking-wide text-slate-400 dark:bg-slate-800/50">
                       <tr>
-                        <td colSpan={5} className="px-5 py-10 text-center text-slate-500">
-                          No invoices yet
-                        </td>
+                        <th className="px-4 py-3 first:pl-0">Invoice</th>
+                        <th className="px-4 py-3">Amount</th>
+                        <th className="px-4 py-3">Status</th>
+                        <th className="px-4 py-3">Due</th>
+                        <th className="px-4 py-3 text-right last:pr-0">Action</th>
                       </tr>
-                    ) : (
-                      subscription.invoices.map((inv) => (
-                        <tr
-                          key={inv.id}
-                          className="border-t border-slate-100 transition hover:bg-slate-50/70 dark:border-slate-800 dark:hover:bg-slate-800/30"
-                        >
-                          <td className="px-5 py-3.5 font-mono text-xs font-medium text-slate-700 dark:text-slate-200">
-                            {inv.invoiceNumber}
-                          </td>
-                          <td className="px-4 py-3.5 font-semibold">
-                            {formatPrice(inv.amount)}
-                          </td>
-                          <td className="px-4 py-3.5">
-                            <StatusBadge status={inv.status} />
-                          </td>
-                          <td className="px-4 py-3.5">
-                            <div>{new Date(inv.dueDate).toLocaleDateString()}</div>
-                            {inv.paidAt ? (
-                              <div className="text-[11px] font-medium text-emerald-600">
-                                Paid {new Date(inv.paidAt).toLocaleDateString()}
-                              </div>
-                            ) : null}
-                          </td>
-                          <td className="px-5 py-3.5 text-right">
-                            {canManageInvoices && inv.status === "PENDING" && (
-                              <button
-                                type="button"
-                                onClick={() => handleMarkPaid(inv.id)}
-                                className="text-xs font-semibold text-emerald-600 hover:underline"
-                              >
-                                Mark Paid
-                              </button>
-                            )}
+                    </thead>
+                    <tbody>
+                      {subscription.invoices.length === 0 ? (
+                        <tr>
+                          <td
+                            colSpan={5}
+                            className="px-4 py-12 text-center text-slate-500"
+                          >
+                            No invoices yet
                           </td>
                         </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
+                      ) : (
+                        subscription.invoices.map((inv) => (
+                          <tr
+                            key={inv.id}
+                            className="border-t border-slate-100 transition hover:bg-slate-50/70 dark:border-slate-800 dark:hover:bg-slate-800/30"
+                          >
+                            <td className="px-4 py-3.5 font-mono text-xs font-medium text-slate-700 first:pl-0 dark:text-slate-200">
+                              {inv.invoiceNumber}
+                            </td>
+                            <td className="px-4 py-3.5 font-semibold">
+                              {formatPrice(inv.amount)}
+                            </td>
+                            <td className="px-4 py-3.5">
+                              <StatusBadge status={inv.status} />
+                            </td>
+                            <td className="px-4 py-3.5">
+                              <div>{new Date(inv.dueDate).toLocaleDateString()}</div>
+                              {inv.paidAt ? (
+                                <div className="text-[11px] font-medium text-emerald-600">
+                                  Paid {new Date(inv.paidAt).toLocaleDateString()}
+                                </div>
+                              ) : null}
+                            </td>
+                            <td className="px-4 py-3.5 text-right last:pr-0">
+                              {canManageInvoices && inv.status === "PENDING" && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleMarkPaid(inv.id)}
+                                  className="text-xs font-semibold text-emerald-600 hover:underline"
+                                >
+                                  Mark Paid
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {detailPanel === "history" && (
+                <div>
+                  {history.length === 0 ? (
+                    <p className="rounded-2xl border border-dashed border-slate-200 py-12 text-center text-sm text-slate-500 dark:border-slate-700">
+                      No subscription history yet
+                    </p>
+                  ) : (
+                    <ul className="space-y-3">
+                      {history.map((h) => (
+                        <li
+                          key={h.id}
+                          className="flex items-start justify-between gap-3 rounded-2xl border border-slate-100 bg-slate-50/70 px-4 py-3.5 dark:border-slate-800 dark:bg-slate-800/40"
+                        >
+                          <div>
+                            <p className="text-sm font-semibold text-slate-800 dark:text-white">
+                              {h.package.name} ·{" "}
+                              {h.billingCycle === "YEARLY" ? "Yearly" : "Monthly"}
+                            </p>
+                            <div className="mt-1.5">
+                              <StatusBadge status={h.status} />
+                            </div>
+                          </div>
+                          <span className="shrink-0 text-xs text-slate-500">
+                            {new Date(h.createdAt).toLocaleDateString()}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
             </div>
-          </div>
+          </section>
         </div>
       )}
 
