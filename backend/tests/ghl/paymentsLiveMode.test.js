@@ -208,7 +208,7 @@ describe("GHL payments liveMode (GHL_PAYMENTS_LIVE_MODE)", () => {
       packageCode: "BASIC",
       billingCycle: "MONTHLY",
       amount: 49,
-      planName: "Basic",
+      planName: "Starter",
     });
 
     assert.equal(lastCreateBody.liveMode, false);

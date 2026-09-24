@@ -23,6 +23,7 @@ import {
   type LoanAiUserRow,
   type LoanAiUserStats,
 } from "../../lib/loanAiUsersApi";
+import { getPackageCodeLabel } from "../../lib/packageDisplay";
 import { openSubscriberDetail } from "../../lib/subscriberNavigation";
 
 export default function LoanAiUsers() {
@@ -237,7 +238,7 @@ export default function LoanAiUsers() {
                       </td>
                       <td className="px-4 py-3 text-slate-700 dark:text-slate-200">
                         {row.subscription?.package
-                          ? `${row.subscription.package.name} (${row.subscription.package.code})`
+                          ? `${row.subscription.package.name} (${getPackageCodeLabel(row.subscription.package.code)})`
                           : "—"}
                       </td>
                       <td className="px-4 py-3 text-slate-600 dark:text-slate-300">

@@ -18,7 +18,7 @@
 
 const SUBSCRIPTION_PACKAGES = [
   {
-    name: "Basic",
+    name: "Starter",
     code: "BASIC",
     priceMonthly: 199,
     priceYearly: 1990,
@@ -62,7 +62,7 @@ const SUBSCRIPTION_PACKAGES = [
     ],
     usageLimits: {
       LOAN_APPLICATIONS: 50,
-      ACTIVE_USERS: 10,
+      CO_BROKERS: 10,
       LOAN_OFFICERS: 5,
       LENDER_CONNECTIONS: 10,
     },
@@ -82,7 +82,7 @@ const SUBSCRIPTION_PACKAGES = [
     extraUserPrice: 100,
     featureGroups: [
       {
-        heading: "EVERYTHING IN BASIC, PLUS:",
+        heading: "EVERYTHING IN STARTER, PLUS:",
         items: [
           "Unlimited Co-Brokers",
           "CRE, Agency, CMBS, Mezz/Pref Products",
@@ -121,7 +121,7 @@ const SUBSCRIPTION_PACKAGES = [
     ],
     usageLimits: {
       LOAN_APPLICATIONS: 200,
-      ACTIVE_USERS: 25,
+      CO_BROKERS: 25,
       LOAN_OFFICERS: 15,
       LENDER_CONNECTIONS: 50,
     },
@@ -172,7 +172,7 @@ const SUBSCRIPTION_PACKAGES = [
     ],
     usageLimits: {
       LOAN_APPLICATIONS: 1000,
-      ACTIVE_USERS: 100,
+      CO_BROKERS: 100,
       LOAN_OFFICERS: 50,
       LENDER_CONNECTIONS: 200,
     },
@@ -187,14 +187,14 @@ const SUBSCRIPTION_ADD_ONS = [
     name: "Additional Users",
     priceMonthly: 100,
     isPurchasable: true,
-    usageBoost: { ACTIVE_USERS: 1 },
+    usageBoost: { CO_BROKERS: 1, ACTIVE_USERS: 1 },
     quantityBased: true,
   },
   {
     code: "CRE_PACK",
     name: "CRE & Multifamily",
     priceMonthly: 50,
-    note: "Basic",
+    note: "Starter",
     isPurchasable: true,
     availableForPackageCodes: ["BASIC"],
     includedInPackageCodes: ["PRO", "ELITE"],
@@ -203,7 +203,7 @@ const SUBSCRIPTION_ADD_ONS = [
     code: "ABL_PACK",
     name: "Asset-Based Lending",
     priceMonthly: 50,
-    note: "Basic/Pro",
+    note: "Starter/Pro",
     isPurchasable: true,
     availableForPackageCodes: ["BASIC", "PRO"],
     includedInPackageCodes: ["ELITE"],
@@ -212,7 +212,7 @@ const SUBSCRIPTION_ADD_ONS = [
     code: "SBA_PACK",
     name: "SBA & USDA",
     priceMonthly: 50,
-    note: "Basic/Pro",
+    note: "Starter/Pro",
     isPurchasable: true,
     availableForPackageCodes: ["BASIC", "PRO"],
     includedInPackageCodes: ["ELITE"],
@@ -230,7 +230,7 @@ const SUBSCRIPTION_ADD_ONS = [
     code: "WHITE_LABEL",
     name: "White-Labeling",
     priceMonthly: 50,
-    note: "Basic",
+    note: "Starter",
     isPurchasable: true,
     availableForPackageCodes: ["BASIC"],
     includedInPackageCodes: ["PRO", "ELITE"],

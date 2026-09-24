@@ -58,7 +58,7 @@ export default function PlanComparison({ packages = [] }) {
     {
       key: "basic",
       code: "BASIC",
-      label: byCode.BASIC?.name || "Basic",
+      label: byCode.BASIC?.name || "Starter",
       price: byCode.BASIC?.priceMonthly ?? 199,
     },
     {

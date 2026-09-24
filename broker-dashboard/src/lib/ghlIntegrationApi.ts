@@ -145,7 +145,7 @@ export function formatGhlPlanLabel(packageCode?: string | null): string {
     case "ELITE":
       return "Elite";
     case "BASIC":
-      return "Basic";
+      return "Starter";
     default:
       return packageCode ? String(packageCode) : "—";
   }

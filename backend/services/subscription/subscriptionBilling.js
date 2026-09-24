@@ -288,12 +288,25 @@ function resolveEffectiveUsageLimits(subscription) {
   const packageLimits =
     subscription?.package?.usageLimits &&
     typeof subscription.package.usageLimits === "object"
-      ? subscription.package.usageLimits
+      ? { ...subscription.package.usageLimits }
       : {};
+  // Legacy packages stored seat limit as ACTIVE_USERS; admin UI tracks CO_BROKERS.
+  if (
+    packageLimits.CO_BROKERS == null &&
+    packageLimits.ACTIVE_USERS != null
+  ) {
+    packageLimits.CO_BROKERS = packageLimits.ACTIVE_USERS;
+  }
   const withAddOns = mergeUsageLimitsWithAddOns(
     packageLimits,
     subscription?.purchasedAddOns,
   );
+  if (
+    withAddOns.CO_BROKERS == null &&
+    withAddOns.ACTIVE_USERS != null
+  ) {
+    withAddOns.CO_BROKERS = withAddOns.ACTIVE_USERS;
+  }
   const { usageLimits: overrides } = parseEnabledFeaturesPayload(
     subscription?.enabledFeatures,
   );

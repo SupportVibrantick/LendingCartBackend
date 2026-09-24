@@ -35,6 +35,7 @@ import {
   type UsageLimits,
   type UsageMetric,
 } from "../../lib/subscriptionApi";
+import { getPackageCodeLabel } from "../../lib/packageDisplay";
 
 type PackageForm = {
   name: string;
@@ -53,6 +54,14 @@ const TIER_STYLES: Record<
   { ring: string; badge: string; price: string; glow: string; icon: string }
 > = {
   BASIC: {
+    ring: "ring-slate-200 dark:ring-slate-700",
+    badge: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200",
+    price: "text-slate-800 dark:text-slate-100",
+    glow: "from-slate-100/80 to-white dark:from-slate-800/50 dark:to-slate-900",
+    icon: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300",
+  },
+  // Display name is "Starter"; package code remains BASIC
+  STARTER: {
     ring: "ring-slate-200 dark:ring-slate-700",
     badge: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200",
     price: "text-slate-800 dark:text-slate-100",
@@ -89,9 +98,18 @@ function formatUsageLimitValue(value: number) {
 function UsageLimitsBadges({ limits }: { limits?: UsageLimits | null }) {
   if (!limits || typeof limits !== "object") return null;
 
-  const entries = (Object.keys(USAGE_METRIC_LABELS) as UsageMetric[]).filter(
-    (key) => limits[key] != null,
-  );
+  const displayOrder: UsageMetric[] = [
+    "LOAN_APPLICATIONS",
+    "CO_BROKERS",
+    "LOAN_OFFICERS",
+    "LENDER_CONNECTIONS",
+  ];
+  const entries = displayOrder.filter((key) => {
+    if (limits[key] != null) return true;
+    // Legacy packages may still store ACTIVE_USERS instead of CO_BROKERS
+    if (key === "CO_BROKERS" && limits.ACTIVE_USERS != null) return true;
+    return false;
+  });
 
   if (entries.length === 0) return null;
 
@@ -101,17 +119,23 @@ function UsageLimitsBadges({ limits }: { limits?: UsageLimits | null }) {
         Usage limits
       </p>
       <div className="flex flex-wrap gap-2">
-        {entries.map((key) => (
-          <span
-            key={key}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200/80 bg-white px-2.5 py-1 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
-          >
-            <span className="font-semibold text-slate-800 dark:text-slate-100">
-              {formatUsageLimitValue(limits[key]!)}
+        {entries.map((key) => {
+          const value =
+            key === "CO_BROKERS" && limits.CO_BROKERS == null
+              ? limits.ACTIVE_USERS!
+              : limits[key]!;
+          return (
+            <span
+              key={key}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200/80 bg-white px-2.5 py-1 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+            >
+              <span className="font-semibold text-slate-800 dark:text-slate-100">
+                {formatUsageLimitValue(value)}
+              </span>
+              <span className="text-slate-500">{USAGE_METRIC_LABELS[key]}</span>
             </span>
-            <span className="text-slate-500">{USAGE_METRIC_LABELS[key]}</span>
-          </span>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
@@ -581,7 +605,7 @@ const AllSubscriptions = () => {
                       <span
                         className={`inline-block rounded-lg px-2.5 py-1 text-xs font-bold tracking-wide ${style.badge}`}
                       >
-                        {pkg.code}
+                        {getPackageCodeLabel(pkg.code)}
                       </span>
                       <h3 className="mt-3 text-xl font-bold text-slate-900 dark:text-white">
                         {pkg.name}

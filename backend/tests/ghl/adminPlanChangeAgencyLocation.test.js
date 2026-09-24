@@ -110,7 +110,7 @@ describe("Admin plan change → Agency GHL location sync", () => {
         id: "pkg_basic",
         code: "BASIC",
         isActive: true,
-        name: "Basic",
+        name: "Starter",
         usageLimits: {},
         priceMonthly: 0,
         priceYearly: 0,
