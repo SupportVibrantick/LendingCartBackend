@@ -1,8 +1,9 @@
 /**
  * Fulfill CLM GHL order-form purchases:
- * - Client pays CLM (~$9997) on GHL
+ * - Client pays CLM (~$9997) on GHL (card saved) + $0 software with 90-day trial → $699/mo
  * - LendingCart provisions broker + 90-day FULL ACCESS soft trial
- * - After trialEndsAt, expireWithoutBilling → lock until they subscribe on LendingCart
+ * - After trialEndsAt → ACTIVE (no lock); GHL auto-bills the card
+ * - Broker may Discontinue → CANCELLED on LC + GHL billing stop request
  */
 
 const bcrypt = require("bcrypt");
@@ -505,6 +506,29 @@ async function tryFulfillClmGhlOrder(prisma, io, body = {}, ids = {}) {
       select: { id: true, status: true, notes: true, trialEndsAt: true },
     });
     if (active) {
+      // Keep GHL payment refs fresh (subscription.charged after trial, etc.).
+      const ghlPatch = {
+        ...(ids.ghlContactId ? { ghlContactId: ids.ghlContactId } : {}),
+        ...(ids.ghlInvoiceId ? { ghlInvoiceId: ids.ghlInvoiceId } : {}),
+        ...(ids.ghlProductId ? { ghlProductId: ids.ghlProductId } : {}),
+        ...(ids.ghlPriceId ? { ghlPriceId: ids.ghlPriceId } : {}),
+        ...(ids.ghlSubscriptionId
+          ? { ghlSubscriptionId: ids.ghlSubscriptionId }
+          : {}),
+        ...(ids.stripeSubscriptionId
+          ? { stripeSubscriptionId: ids.stripeSubscriptionId }
+          : {}),
+        ...(ids.stripeCustomerId
+          ? { stripeCustomerId: ids.stripeCustomerId }
+          : {}),
+      };
+      if (Object.keys(ghlPatch).length) {
+        await prisma.organizationSubscription.update({
+          where: { id: active.id },
+          data: ghlPatch,
+        });
+      }
+
       commonLogs.info("CLM soft trial already active — skipping provision", {
         event: "ghl.clm_soft_trial.already_active",
         organizationId: loanAiUser.brokerOrganizationId,
@@ -566,7 +590,7 @@ async function tryFulfillClmGhlOrder(prisma, io, body = {}, ids = {}) {
   if (result?.subscriptionId) {
     await applyFullAccessFeatures(prisma, result.subscriptionId, packageCode);
 
-    // Persist GHL payment refs when present (billing still LendingCart later).
+    // Persist GHL + Stripe payment refs when present (GHL bills via Stripe after trial).
     await prisma.organizationSubscription.update({
       where: { id: result.subscriptionId },
       data: {
@@ -574,8 +598,50 @@ async function tryFulfillClmGhlOrder(prisma, io, body = {}, ids = {}) {
         ...(ids.ghlInvoiceId ? { ghlInvoiceId: ids.ghlInvoiceId } : {}),
         ...(ids.ghlProductId ? { ghlProductId: ids.ghlProductId } : {}),
         ...(ids.ghlPriceId ? { ghlPriceId: ids.ghlPriceId } : {}),
+        ...(ids.ghlSubscriptionId
+          ? { ghlSubscriptionId: ids.ghlSubscriptionId }
+          : {}),
+        ...(ids.stripeSubscriptionId
+          ? { stripeSubscriptionId: ids.stripeSubscriptionId }
+          : {}),
+        ...(ids.stripeCustomerId
+          ? { stripeCustomerId: ids.stripeCustomerId }
+          : {}),
       },
     });
+
+    // Best-effort: resolve Stripe sub by email when webhook did not include it.
+    try {
+      const {
+        isStripeConfigured,
+        resolveStripeSubscriptionForClm,
+      } = require("../stripe/stripeBilling");
+      if (isStripeConfigured() && profile.email && !ids.stripeSubscriptionId) {
+        const resolved = await resolveStripeSubscriptionForClm(
+          {
+            stripeSubscriptionId: null,
+            ghlSubscriptionId: ids.ghlSubscriptionId,
+          },
+          { email: profile.email },
+        );
+        if (resolved.stripeSubscriptionId) {
+          await prisma.organizationSubscription.update({
+            where: { id: result.subscriptionId },
+            data: {
+              stripeSubscriptionId: resolved.stripeSubscriptionId,
+              ...(resolved.stripeCustomerId
+                ? { stripeCustomerId: resolved.stripeCustomerId }
+                : {}),
+            },
+          });
+        }
+      }
+    } catch (stripeResolveErr) {
+      commonLogs.warn("CLM provision — Stripe sub resolve skipped", {
+        error: stripeResolveErr?.message,
+        email: profile.email,
+      });
+    }
   }
 
   commonLogs.info("CLM soft trial provisioned from GHL order", {

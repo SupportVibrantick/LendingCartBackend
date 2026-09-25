@@ -1,10 +1,21 @@
 const { SUBSCRIPTION_ADD_ONS } = require("../../prisma/admin/subscriptionPackageCatalog");
 
 function normalizeAddOn(addOn) {
+  const priceByPackage =
+    addOn.priceByPackage && typeof addOn.priceByPackage === "object"
+      ? Object.fromEntries(
+          Object.entries(addOn.priceByPackage).map(([key, value]) => [
+            String(key).toUpperCase(),
+            Number(value),
+          ]),
+        )
+      : null;
+
   return {
     code: addOn.code,
     name: addOn.name,
     priceMonthly: Number(addOn.priceMonthly),
+    priceByPackage,
     note: addOn.note || null,
     isPurchasable: addOn.isPurchasable !== false,
     quantityBased: Boolean(addOn.quantityBased),
@@ -12,6 +23,16 @@ function normalizeAddOn(addOn) {
     availableForPackageCodes: addOn.availableForPackageCodes || [],
     usageBoost: addOn.usageBoost || null,
   };
+}
+
+function resolveAddOnPriceForPackage(addOn, packageCode) {
+  const pkgCode = String(packageCode || "").toUpperCase();
+  const byPkg = addOn?.priceByPackage;
+  if (byPkg && pkgCode && byPkg[pkgCode] != null) {
+    const priced = Number(byPkg[pkgCode]);
+    if (Number.isFinite(priced)) return priced;
+  }
+  return Number(addOn?.priceMonthly || 0);
 }
 
 function getCatalogAddOns() {
@@ -46,9 +67,12 @@ function isAddOnAvailableForPackage(addOn, packageCode) {
 }
 
 function filterAddOnsForPackage(packageCode) {
-  return getCatalogAddOns().filter((addOn) =>
-    isAddOnAvailableForPackage(addOn, packageCode),
-  );
+  return getCatalogAddOns()
+    .filter((addOn) => isAddOnAvailableForPackage(addOn, packageCode))
+    .map((addOn) => ({
+      ...addOn,
+      priceMonthly: resolveAddOnPriceForPackage(addOn, packageCode),
+    }));
 }
 
 /**
@@ -82,7 +106,7 @@ function resolvePurchasedAddOns(addOnCodes, packageCode) {
     resolved.push({
       code: addOn.code,
       name: addOn.name,
-      priceMonthly: addOn.priceMonthly,
+      priceMonthly: resolveAddOnPriceForPackage(addOn, packageCode),
       quantity: Math.max(1, quantity),
       usageBoost: addOn.usageBoost,
     });
@@ -129,6 +153,7 @@ function mergeUsageLimitsWithAddOns(baseLimits, purchasedAddOns) {
 module.exports = {
   getCatalogAddOns,
   getAddOnByCode,
+  resolveAddOnPriceForPackage,
   filterAddOnsForPackage,
   resolvePurchasedAddOns,
   getAddOnsMonthlyTotal,

@@ -28,6 +28,9 @@ import {
   fetchPackages as fetchPackagesApi,
   formatPrice,
   parseFeatures,
+  parseFeaturesPayload,
+  featuresToEditableText,
+  buildFeaturesStorage,
   togglePackageStatus,
   updatePackage,
   USAGE_METRIC_LABELS,
@@ -44,6 +47,11 @@ type PackageForm = {
   priceYearly: string;
   description: string;
   features: string;
+  badge: string;
+  usersLabel: string;
+  includedUsers: string;
+  maxUsers: string;
+  extraUserPrice: string;
   sortOrder: string;
   isPopular: boolean;
   usageLimitsJson: string;
@@ -159,12 +167,13 @@ function FeatureList({
   return (
     <div className="mb-6 flex-1">
       <ul className="space-y-2.5">
-        {visible.map((feature) => {
+        {visible.map((feature, index) => {
           const isHeading = feature.startsWith("▸ ");
+          const isChild = feature.startsWith("· ");
           if (isHeading) {
             return (
               <li
-                key={feature}
+                key={`heading-${index}-${feature}`}
                 className="pt-1 text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500"
               >
                 {feature.replace(/^▸\s*/, "")}
@@ -173,15 +182,17 @@ function FeatureList({
           }
           return (
             <li
-              key={feature}
-              className="flex items-start gap-2.5 text-sm text-slate-600 dark:text-slate-300"
+              key={`feature-${index}-${feature}`}
+              className={`flex items-start gap-2.5 text-sm text-slate-600 dark:text-slate-300 ${
+                isChild ? "ml-4" : ""
+              }`}
             >
               <span
                 className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${iconClass}`}
               >
                 <FiCheck size={11} />
               </span>
-              <span>{feature}</span>
+              <span>{isChild ? feature.replace(/^·\s*/, "") : feature}</span>
             </li>
           );
         })}
@@ -206,6 +217,11 @@ const EMPTY_FORM: PackageForm = {
   priceYearly: "",
   description: "",
   features: "",
+  badge: "",
+  usersLabel: "",
+  includedUsers: "",
+  maxUsers: "",
+  extraUserPrice: "",
   sortOrder: "0",
   isPopular: false,
   usageLimitsJson: "",
@@ -290,6 +306,7 @@ const AllSubscriptions = () => {
   };
 
   const openEditModal = (pkg: SubscriptionPackage) => {
+    const payload = parseFeaturesPayload(pkg.features);
     setEditingId(pkg.id);
     setForm({
       name: pkg.name,
@@ -297,10 +314,27 @@ const AllSubscriptions = () => {
       priceMonthly: String(pkg.priceMonthly),
       priceYearly: pkg.priceYearly != null ? String(pkg.priceYearly) : "",
       description: pkg.description || "",
-      features: pkg.features || "",
+      features: featuresToEditableText(pkg.features),
+      badge: payload?.badge ? String(payload.badge) : "",
+      usersLabel: payload?.usersLabel ? String(payload.usersLabel) : "",
+      includedUsers:
+        payload?.includedUsers != null && Number.isFinite(payload.includedUsers)
+          ? String(payload.includedUsers)
+          : "",
+      maxUsers:
+        payload?.maxUsers != null && Number.isFinite(payload.maxUsers)
+          ? String(payload.maxUsers)
+          : "",
+      extraUserPrice:
+        payload?.extraUserPrice != null &&
+        Number.isFinite(payload.extraUserPrice)
+          ? String(payload.extraUserPrice)
+          : "",
       sortOrder: String(pkg.sortOrder ?? 0),
       isPopular: Boolean(pkg.isPopular),
-      usageLimitsJson: pkg.usageLimits ? JSON.stringify(pkg.usageLimits, null, 2) : "",
+      usageLimitsJson: pkg.usageLimits
+        ? JSON.stringify(pkg.usageLimits, null, 2)
+        : "",
     });
     setModalOpen(true);
   };
@@ -370,13 +404,30 @@ const AllSubscriptions = () => {
         return;
       }
 
+      let featuresStorage: string | undefined;
+      try {
+        featuresStorage = buildFeaturesStorage({
+          featuresText: form.features,
+          badge: form.badge,
+          usersLabel: form.usersLabel,
+          includedUsers: form.includedUsers,
+          maxUsers: form.maxUsers,
+          extraUserPrice: form.extraUserPrice,
+        });
+      } catch (err) {
+        toast.error(
+          err instanceof Error ? err.message : "Invalid features JSON",
+        );
+        return;
+      }
+
       const payload = {
         name: form.name.trim(),
         code: form.code.trim().toUpperCase(),
         priceMonthly: Number(form.priceMonthly),
         priceYearly: form.priceYearly ? Number(form.priceYearly) : null,
         description: form.description.trim() || undefined,
-        features: form.features.trim() || undefined,
+        features: featuresStorage,
         sortOrder: Number(form.sortOrder) || 0,
         isPopular: form.isPopular,
         usageLimits: usageLimits ?? null,
@@ -694,7 +745,7 @@ const AllSubscriptions = () => {
             className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm"
           />
 
-          <div className="relative max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+          <div className="relative max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900">
             <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white/95 px-6 py-4 backdrop-blur dark:border-slate-800 dark:bg-slate-900/95">
               <div>
                 <h2 className="text-lg font-bold text-slate-900 dark:text-white">
@@ -832,19 +883,111 @@ const AllSubscriptions = () => {
                   />
                 </div>
 
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-slate-600 dark:text-slate-400">
+                    Badge
+                  </label>
+                  <input
+                    value={form.badge}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, badge: e.target.value }))
+                    }
+                    placeholder="MOST POPULAR"
+                    className={`w-full ${filterControlClass}`}
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-slate-600 dark:text-slate-400">
+                    Users Label
+                  </label>
+                  <input
+                    value={form.usersLabel}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, usersLabel: e.target.value }))
+                    }
+                    placeholder="Add up to 5 users · Additional User Cost: $99/m"
+                    className={`w-full ${filterControlClass}`}
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-slate-600 dark:text-slate-400">
+                    Included Users
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={form.includedUsers}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, includedUsers: e.target.value }))
+                    }
+                    placeholder="1"
+                    className={`w-full ${filterControlClass}`}
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-slate-600 dark:text-slate-400">
+                    Max Users
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={form.maxUsers}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, maxUsers: e.target.value }))
+                    }
+                    placeholder="5"
+                    className={`w-full ${filterControlClass}`}
+                  />
+                </div>
+
                 <div className="sm:col-span-2">
                   <label className="mb-1.5 block text-xs font-medium text-slate-600 dark:text-slate-400">
-                    Features
+                    Extra User Price ($ / month)
+                  </label>
+                  <div className="relative">
+                    <span className="absolute top-1/2 left-3 -translate-y-1/2 text-sm text-slate-400">
+                      $
+                    </span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={form.extraUserPrice}
+                      onChange={(e) =>
+                        setForm((f) => ({
+                          ...f,
+                          extraUserPrice: e.target.value,
+                        }))
+                      }
+                      placeholder="99"
+                      className={`w-full py-2.5 pr-3 pl-7 ${filterControlClass}`}
+                    />
+                  </div>
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="mb-1.5 block text-xs font-medium text-slate-600 dark:text-slate-400">
+                    Features (JSON)
                   </label>
                   <textarea
-                    rows={4}
+                    rows={14}
                     value={form.features}
-                    onChange={(e) => setForm((f) => ({ ...f, features: e.target.value }))}
-                    placeholder="Separate features with commas or new lines"
-                    className={`w-full resize-none ${filterControlClass}`}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, features: e.target.value }))
+                    }
+                    placeholder={`{\n  "groups": [\n    {\n      "heading": "CORE PLATFORM",\n      "items": ["Broker Portal", { "label": "1-4 unit Residential", "children": ["Bridge Loans"] }]\n    }\n  ]\n}`}
+                    spellCheck={false}
+                    className={`w-full resize-y font-mono text-xs leading-relaxed ${filterControlClass}`}
                   />
                   <p className="mt-1.5 text-xs text-slate-400">
-                    Example: Core loan pipeline, Advanced analytics, Priority support
+                    Keep structured JSON so pricing dropdowns (
+                    <code className="rounded bg-slate-100 px-1 dark:bg-slate-800">
+                      label + children
+                    </code>
+                    ) stay intact. Badge / user fields above are merged on save.
                   </p>
                 </div>
 

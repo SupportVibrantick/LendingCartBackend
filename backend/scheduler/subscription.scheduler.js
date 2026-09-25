@@ -25,7 +25,10 @@ function runSubscriptionScheduler(fastify) {
             fastify.prisma,
             fastify.io,
           );
-          const billing = await runSubscriptionBillingCycle(fastify.prisma);
+          const billing = await runSubscriptionBillingCycle(
+            fastify.prisma,
+            fastify.io,
+          );
 
           return {
             trialRemindersSent: reminders.sent,

@@ -77,6 +77,18 @@ const buildBrokerSignInUrl = () => {
     : `${brokerDashboardUrl}/signin`;
 };
 
+const buildLoanAiPricingUrl = () => {
+  const base = ensureAbsoluteUrl(
+    firstConfigured(
+      process.env.LOAN_AI_URL,
+      process.env.VITE_LOAN_AI_URL,
+      "https://loanautomation.ai",
+    ),
+  );
+  if (!base) return "/#pricing";
+  return `${stripTrailingSlash(base)}/#pricing`;
+};
+
 const buildLenderSignInUrl = () => {
   const { lenderDashboardUrl } = getEmailBranding();
   return lenderDashboardUrl ? `${lenderDashboardUrl}/signin` : "";
@@ -182,6 +194,7 @@ module.exports = {
   stripLegacyCustomerPath,
   getEmailBranding,
   buildBrokerSignInUrl,
+  buildLoanAiPricingUrl,
   buildLenderSignInUrl,
   buildLenderInviteUrl,
   buildLenderPartnerUrl,

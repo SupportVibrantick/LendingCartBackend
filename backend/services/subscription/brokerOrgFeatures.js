@@ -372,8 +372,14 @@ function defaultFeaturesForPackage(packageCode, purchasedAddOns = []) {
   }
 
   const includeCre = code === "PRO" || code === "ELITE" || addOnCodes.has("CRE_PACK");
-  const includeSba = code === "ELITE" || addOnCodes.has("SBA_PACK");
-  const includeAbl = code === "ELITE" || addOnCodes.has("ABL_PACK");
+  const includeSba =
+    code === "ELITE" ||
+    addOnCodes.has("SBA_PACK") ||
+    addOnCodes.has("BUSINESS_LENDING_PACK");
+  const includeAbl =
+    code === "ELITE" ||
+    addOnCodes.has("ABL_PACK") ||
+    addOnCodes.has("BUSINESS_LENDING_PACK");
 
   if (includeCre) {
     features.add("LOAN_CAT_CRE_MULTIFAMILY");

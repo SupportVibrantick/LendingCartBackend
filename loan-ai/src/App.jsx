@@ -5,6 +5,7 @@ import { Toaster } from "react-hot-toast";
 import Navbar from "./components/Navbar";
 import PricingLeadIn from "./components/PricingLeadIn";
 import Pricing from "./components/Pricing";
+import Footer from "./components/Footer";
 import SectionWrapper from "./components/SectionWrapper";
 
 import BookDemoPage from "./components/BookDemo";
@@ -65,6 +66,8 @@ function HomePage() {
         <SectionWrapper>
           <Pricing />
         </SectionWrapper>
+
+        <Footer />
       </div>
     </>
   );

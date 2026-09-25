@@ -3,7 +3,12 @@ const {
   mergeUsageLimitsWithAddOns,
   resolvePurchasedAddOns,
 } = require("../../utils/subscription/addOnCatalog");
-const { isSoftTrialWithoutBilling } = require("./freeTrial");
+const {
+  isSoftTrialWithoutBilling,
+  isClmGhlSoftTrial,
+  CLM_GHL_BILLING_PHASE_NOTE,
+  appendSubscriptionNote,
+} = require("./freeTrial");
 
 const ACTIVE_SUB_STATUSES = ["TRIAL", "ACTIVE", "PAST_DUE"];
 
@@ -680,7 +685,34 @@ async function expireSingleTrial(prisma, sub, now) {
       return null;
     }
 
-    // Marketing soft trials do not auto-bill — expire access until they pay on LendingCart.
+    // CLM GHL funnel: GHL bills $699/mo from the card on the order form.
+    // Keep access ACTIVE (no lock). Keep trialEndsAt so UI can show Discontinue.
+    if (isClmGhlSoftTrial(current)) {
+      const subscription = await tx.organizationSubscription.update({
+        where: { id: sub.id },
+        data: {
+          status: "ACTIVE",
+          // Keep trialEndsAt — marks when free period ended for Discontinue banner.
+          currentPeriodStart: periodStart,
+          currentPeriodEnd: periodEnd,
+          notes: appendSubscriptionNote(
+            current.notes,
+            CLM_GHL_BILLING_PHASE_NOTE,
+          ),
+        },
+        include: { package: true, organization: true },
+      });
+
+      await refreshUsageForSubscription(tx, sub.id);
+
+      return {
+        subscription,
+        invoice: null,
+        clmConvertedToActive: true,
+      };
+    }
+
+    // Loan AI no-card soft trials — expire access until they pay on LendingCart.
     if (isSoftTrialWithoutBilling(current)) {
       const subscription = await tx.organizationSubscription.update({
         where: { id: sub.id },
@@ -725,9 +757,11 @@ async function expireSingleTrial(prisma, sub, now) {
 
 /**
  * End TRIAL subscriptions whose trialEndsAt has passed.
- * Admin trials → ACTIVE + invoice. Soft trials (Loan AI / CLM GHL) → EXPIRED (no invoice).
+ * Admin trials → ACTIVE + invoice.
+ * Loan AI soft trials → EXPIRED (no invoice).
+ * CLM GHL soft trials → ACTIVE (GHL bills; no LendingCart invoice; no lock).
  */
-async function expireEndedTrials(prisma) {
+async function expireEndedTrials(prisma, io = null) {
   const now = new Date();
 
   const expiredTrials = await prisma.organizationSubscription.findMany({
@@ -744,6 +778,26 @@ async function expireEndedTrials(prisma) {
     const result = await expireSingleTrial(prisma, sub, now);
     if (result) {
       results.push(result);
+
+      if (result.clmConvertedToActive) {
+        try {
+          const {
+            sendClmTrialCompletedAlert,
+          } = require("./subscriptionTrialReminder");
+          await sendClmTrialCompletedAlert(
+            prisma,
+            io,
+            result.subscription,
+          );
+        } catch (alertErr) {
+          // Non-fatal — access conversion already succeeded.
+          const { commonLogs } = require("../logger/contextLogger");
+          commonLogs.warn("CLM trial-completed alert failed", {
+            subscriptionId: result.subscription?.id,
+            error: alertErr?.message,
+          });
+        }
+      }
     }
   }
 
@@ -780,8 +834,8 @@ async function markPastDueSubscriptions(prisma) {
   return updated;
 }
 
-async function runSubscriptionBillingCycle(prisma) {
-  const expiredTrials = await expireEndedTrials(prisma);
+async function runSubscriptionBillingCycle(prisma, io = null) {
+  const expiredTrials = await expireEndedTrials(prisma, io);
   const pastDue = await markPastDueSubscriptions(prisma);
   return {
     expiredTrials: expiredTrials.length,

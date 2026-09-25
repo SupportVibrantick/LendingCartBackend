@@ -385,6 +385,208 @@ export function formatPrice(value: number | string | null | undefined) {
   }).format(num);
 }
 
+/**
+ * Feature group items may be plain strings or dropdown objects:
+ * `{ label: "1-4 unit Residential", children: ["Bridge Loans", ...] }`
+ */
+function formatFeatureItem(item: unknown): string[] {
+  if (item == null) return [];
+
+  if (typeof item === "string") {
+    const text = item.trim();
+    return text ? [text] : [];
+  }
+
+  if (typeof item === "object") {
+    const obj = item as {
+      label?: unknown;
+      name?: unknown;
+      title?: unknown;
+      children?: unknown[];
+      items?: unknown[];
+      subItems?: unknown[];
+    };
+    const label = String(obj.label || obj.name || obj.title || "").trim();
+    if (!label) return [];
+
+    const rawChildren = obj.children || obj.items || obj.subItems || [];
+    const children = Array.isArray(rawChildren)
+      ? rawChildren.map((child) => String(child).trim()).filter(Boolean)
+      : [];
+
+    return [label, ...children.map((child) => `· ${child}`)];
+  }
+
+  const fallback = String(item).trim();
+  if (!fallback || fallback === "[object Object]") return [];
+  return [fallback];
+}
+
+function flattenFeatureGroupItems(items: unknown[] = []): string[] {
+  return items.flatMap(formatFeatureItem);
+}
+
+export type FeaturesPayload = {
+  badge?: string | null;
+  usersLabel?: string | null;
+  includedUsers?: number | null;
+  maxUsers?: number | null;
+  extraUserPrice?: number | null;
+  groups?: unknown[];
+  features?: string[];
+};
+
+/** Parse stored features JSON into a structured payload (or null for legacy text). */
+export function parseFeaturesPayload(
+  features?: string | null,
+): FeaturesPayload | null {
+  if (!features?.trim()) return null;
+  const text = features.trim();
+  if (!text.startsWith("{") && !text.startsWith("[")) return null;
+
+  try {
+    const parsed = JSON.parse(text);
+    if (Array.isArray(parsed)) {
+      return { groups: parsed };
+    }
+    if (parsed && typeof parsed === "object") {
+      return {
+        badge: parsed.badge ?? null,
+        usersLabel: parsed.usersLabel ?? null,
+        includedUsers:
+          parsed.includedUsers != null ? Number(parsed.includedUsers) : null,
+        maxUsers: parsed.maxUsers != null ? Number(parsed.maxUsers) : null,
+        extraUserPrice:
+          parsed.extraUserPrice != null ? Number(parsed.extraUserPrice) : null,
+        groups: parsed.groups || parsed.featureGroups || [],
+        features: Array.isArray(parsed.features) ? parsed.features : undefined,
+      };
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+/** Pretty-print features for the Edit Package textarea. */
+export function featuresToEditableText(features?: string | null): string {
+  if (!features?.trim()) return "";
+  const text = features.trim();
+  if (text.startsWith("{") || text.startsWith("[")) {
+    try {
+      return JSON.stringify(JSON.parse(text), null, 2);
+    } catch {
+      return text;
+    }
+  }
+  return text;
+}
+
+/**
+ * Build the `features` DB string from the edit form.
+ * Preserves structured JSON (including dropdown children) when valid.
+ * Plain line/comma lists stay as legacy newline storage.
+ */
+export function buildFeaturesStorage(input: {
+  featuresText: string;
+  badge?: string;
+  usersLabel?: string;
+  includedUsers?: string;
+  maxUsers?: string;
+  extraUserPrice?: string;
+}): string | undefined {
+  const text = input.featuresText.trim();
+  if (!text) {
+    // Still allow saving user-limit meta alone as a minimal payload
+    const hasMeta =
+      input.badge?.trim() ||
+      input.usersLabel?.trim() ||
+      input.includedUsers?.trim() ||
+      input.maxUsers?.trim() ||
+      input.extraUserPrice?.trim();
+    if (!hasMeta) return undefined;
+  }
+
+  const toNum = (raw?: string) => {
+    if (raw == null || !String(raw).trim()) return null;
+    const n = Number(raw);
+    return Number.isFinite(n) ? n : null;
+  };
+
+  const meta = {
+    badge: input.badge?.trim() || null,
+    usersLabel: input.usersLabel?.trim() || null,
+    includedUsers: toNum(input.includedUsers),
+    maxUsers: toNum(input.maxUsers),
+    extraUserPrice: toNum(input.extraUserPrice),
+  };
+
+  if (text.startsWith("{") || text.startsWith("[")) {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(text);
+    } catch {
+      throw new Error("Features must be valid JSON");
+    }
+
+    if (Array.isArray(parsed)) {
+      return JSON.stringify({
+        ...meta,
+        groups: parsed,
+      });
+    }
+
+    if (parsed && typeof parsed === "object") {
+      const obj = parsed as Record<string, unknown>;
+      return JSON.stringify({
+        ...obj,
+        badge: meta.badge ?? obj.badge ?? null,
+        usersLabel: meta.usersLabel ?? obj.usersLabel ?? null,
+        includedUsers:
+          meta.includedUsers ??
+          (obj.includedUsers != null ? Number(obj.includedUsers) : null),
+        maxUsers:
+          meta.maxUsers ?? (obj.maxUsers != null ? Number(obj.maxUsers) : null),
+        extraUserPrice:
+          meta.extraUserPrice ??
+          (obj.extraUserPrice != null ? Number(obj.extraUserPrice) : null),
+        groups: obj.groups || obj.featureGroups || [],
+      });
+    }
+
+    throw new Error("Features JSON must be an object or array");
+  }
+
+  // Legacy plain text — keep as newline list, but attach meta if provided
+  const lines = text.includes("\n")
+    ? text
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean)
+    : text
+        .split(/[,;|]/)
+        .map((line) => line.trim())
+        .filter(Boolean);
+
+  const hasMeta =
+    meta.badge ||
+    meta.usersLabel ||
+    meta.includedUsers != null ||
+    meta.maxUsers != null ||
+    meta.extraUserPrice != null;
+
+  if (!hasMeta) {
+    return lines.join("\n") || undefined;
+  }
+
+  return JSON.stringify({
+    ...meta,
+    groups: lines.length
+      ? [{ heading: null, variant: "default", items: lines }]
+      : [],
+  });
+}
+
 export function parseFeatures(features?: string | null) {
   if (!features?.trim()) return [];
   const text = features.trim();
@@ -397,26 +599,30 @@ export function parseFeatures(features?: string | null) {
         if (parsed.every((item) => typeof item === "string")) {
           return parsed.map((s) => String(s).trim()).filter(Boolean);
         }
-        return parsed.flatMap((group: { items?: string[]; heading?: string }) => {
-          const items = Array.isArray(group?.items) ? group.items : [];
-          const heading = group?.heading ? String(group.heading).trim() : "";
-          return [
-            ...(heading ? [`▸ ${heading}`] : []),
-            ...items.map((item) => String(item).trim()).filter(Boolean),
-          ];
-        });
-      }
-      if (parsed && typeof parsed === "object") {
-        const groups = parsed.groups || parsed.featureGroups || [];
-        if (Array.isArray(groups) && groups.length > 0) {
-          return groups.flatMap((group: { items?: string[]; heading?: string }) => {
+        return parsed.flatMap(
+          (group: { items?: unknown[]; heading?: string }) => {
             const items = Array.isArray(group?.items) ? group.items : [];
             const heading = group?.heading ? String(group.heading).trim() : "";
             return [
               ...(heading ? [`▸ ${heading}`] : []),
-              ...items.map((item) => String(item).trim()).filter(Boolean),
+              ...flattenFeatureGroupItems(items),
             ];
-          });
+          },
+        );
+      }
+      if (parsed && typeof parsed === "object") {
+        const groups = parsed.groups || parsed.featureGroups || [];
+        if (Array.isArray(groups) && groups.length > 0) {
+          return groups.flatMap(
+            (group: { items?: unknown[]; heading?: string }) => {
+              const items = Array.isArray(group?.items) ? group.items : [];
+              const heading = group?.heading ? String(group.heading).trim() : "";
+              return [
+                ...(heading ? [`▸ ${heading}`] : []),
+                ...flattenFeatureGroupItems(items),
+              ];
+            },
+          );
         }
       }
     } catch {

@@ -1,125 +1,109 @@
-import { FaFacebookF, FaLinkedinIn } from "react-icons/fa";
-import { FaXTwitter } from "react-icons/fa6";
-import { useAuth } from "../context/AuthContext";
-import { getCtaSectionTitle } from "../lib/authCta";
-import LoanAutomationLogo from "./LoanAutomationLogo";
-import MarketingCtaButtons from "./MarketingCtaButtons";
+import { Link } from "react-router-dom";
+import { Home } from "lucide-react";
 
-const SOCIAL = [
-  { Icon: FaFacebookF, label: "Facebook" },
-  { Icon: FaXTwitter, label: "X" },
-  { Icon: FaLinkedinIn, label: "LinkedIn" },
+const LEGAL_LINKS = [
+  { label: "Terms & Conditions", href: "#terms" },
+  { label: "Privacy Policy", href: "#privacy" },
 ];
-
-const LEGAL = [
-  "Privacy Policy",
-  "Terms of Use",
-  "Electronic Disclosures",
-  "Referral Program",
-];
-
-const COMPANY = ["Resources", "FAQ", "Help", "About Us"];
 
 const Footer = () => {
-  const { isAuthenticated, user, loading } = useAuth();
-  const auth = {
-    isAuthenticated,
-    hasBrokerSubscription: Boolean(user?.hasBrokerSubscription),
-  };
+  const year = new Date().getFullYear();
 
   return (
-    <footer
-      id="contact"
-      className="scroll-mt-24 relative overflow-hidden border-t border-white/10 bg-black px-6 py-20 text-gray-300"
-    >
-      <div
-        className="pointer-events-none absolute -top-32 left-1/2 h-64 w-64 -translate-x-1/2 rounded-full bg-[#4B83FF]/15 blur-[100px]"
-        aria-hidden
-      />
+    <footer id="contact" className="scroll-mt-24">
+      {/* Promo strip */}
+      <div className="border-t border-slate-200/80 bg-gradient-to-b from-slate-50 to-white px-4 py-4 text-center dark:border-white/10 dark:from-slate-950 dark:to-black">
+        <p className="mx-auto flex max-w-4xl flex-wrap items-center justify-center gap-x-2 gap-y-1 text-[12px] leading-relaxed text-slate-500 sm:text-[13px] dark:text-slate-400">
+          <Home
+            size={14}
+            className="shrink-0 text-amber-500 dark:text-amber-400"
+            aria-hidden
+          />
+          <span className="font-medium text-slate-600 dark:text-slate-300">
+            Loan Automation
+          </span>
+          <span className="hidden text-slate-300 sm:inline dark:text-slate-600" aria-hidden>
+            —
+          </span>
+          <span>Close More Deals In Less Time</span>
+          <span className="text-slate-300 dark:text-slate-600" aria-hidden>
+            •
+          </span>
+          <span>87% Faster With Zero Chasing</span>
+          <span className="text-slate-300 dark:text-slate-600" aria-hidden>
+            -
+          </span>
+          <a
+            href="https://loanautomation.ai"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-medium text-[#4B83FF] transition hover:underline"
+          >
+            loanautomation.ai
+          </a>
+        </p>
+      </div>
 
-      <div className="relative mx-auto grid max-w-6xl gap-12 md:grid-cols-4">
-        <div>
-          <LoanAutomationLogo size="md" className="mb-5" />
-          <p className="mb-6 text-sm leading-relaxed text-gray-400">
-            Smart lending automation built for commercial mortgage brokers —
-            match lenders, collect docs, and close faster.
-          </p>
+      {/* Dark brand footer */}
+      <div className="relative overflow-hidden bg-black px-6 py-12 text-center md:py-14">
+        <div
+          className="pointer-events-none absolute left-1/2 top-0 h-40 w-40 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#4B83FF]/20 blur-[80px]"
+          aria-hidden
+        />
 
-          <div className="mb-6 flex gap-3">
-            {SOCIAL.map(({ Icon, label }) => (
-              <a
-                key={label}
-                href="#"
-                aria-label={label}
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] transition hover:scale-110 hover:border-[#4B83FF]/40 hover:bg-[#4B83FF]/10"
-              >
-                <Icon size={14} />
-              </a>
+        <div className="relative mx-auto flex max-w-2xl flex-col items-center">
+          <Link
+            to="/"
+            className="group mb-8 inline-flex transition-transform hover:scale-[1.03]"
+            aria-label="Loan Automation home"
+          >
+            <span className="relative flex h-20 w-20 items-center justify-center sm:h-[88px] sm:w-[88px]">
+              <span
+                className="absolute inset-[-6px] rounded-full bg-[#4B83FF]/25 blur-md transition group-hover:bg-[#4B83FF]/40"
+                aria-hidden
+              />
+              <img
+                src="/loanAutomation.jpeg"
+                alt="Loan Automation"
+                className="relative h-full w-full rounded-full object-cover ring-2 ring-[#4B83FF]/70 shadow-[0_0_40px_rgba(75,131,255,0.45)]"
+              />
+            </span>
+          </Link>
+
+          <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-[13px] text-slate-400">
+            <span>© {year}. CLM &amp; Loan Automation. All rights reserved.</span>
+            {LEGAL_LINKS.map((item) => (
+              <span key={item.href} className="inline-flex items-center gap-x-2">
+                <span className="text-slate-600" aria-hidden>
+                  |
+                </span>
+                <a
+                  href={item.href}
+                  className="underline-offset-2 transition hover:text-white hover:underline"
+                >
+                  {item.label}
+                </a>
+              </span>
             ))}
           </div>
 
-          <p className="text-sm leading-relaxed text-gray-400">
-            66 Franklin Street, Norwich, CT 06360
-            <br />
-            <a
-              href="mailto:contact@loanai.com"
-              className="underline decoration-white/20 underline-offset-2 transition hover:text-white"
-            >
-              contact@loanai.com
-            </a>
-            <br />
-            <a href="tel:8555960900" className="transition hover:text-white">
-              855-596-0900
-            </a>
+          <p className="mt-5 max-w-xl text-[13px] leading-relaxed text-slate-400 sm:text-sm">
+            LOAN AUTOMATION software is created for loan advisors and brokers to
+            accelerate the loan process and save time.
           </p>
-        </div>
 
-        <div>
-          <h4 className="mb-4 font-semibold text-white">Legal</h4>
-          <ul className="space-y-3 text-sm">
-            {LEGAL.map((item) => (
-              <li key={item}>
-                <span className="cursor-pointer transition hover:text-white">
-                  {item}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        <div>
-          <h4 className="mb-4 font-semibold text-white">Company</h4>
-          <ul className="space-y-3 text-sm">
-            {COMPANY.map((item) => (
-              <li key={item}>
-                <span className="cursor-pointer transition hover:text-white">
-                  {item}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        <div>
-          <h4 className="mb-4 font-semibold text-white">
-            {loading ? "Get Started" : getCtaSectionTitle(auth)}
-          </h4>
-
-          {!loading && isAuthenticated && (
-            <p className="mb-4 text-sm text-gray-400">
-              {user?.hasBrokerSubscription
-                ? "Manage your brokerage from the dashboard."
-                : "Finish subscription to unlock your broker dashboard."}
+          <div className="mt-7 w-full max-w-xl rounded-xl border border-white/[0.06] bg-white/[0.03] px-5 py-4">
+            <p className="text-left text-[12px] leading-relaxed text-slate-500 sm:text-center sm:text-[13px]">
+              <span className="font-medium text-slate-400">Disclaimer:</span>{" "}
+              The success stories you see from our students are real—but
+              they&apos;re not guaranteed for everyone. Your results will depend
+              on your background, experience, work ethic, and how much effort you
+              put in. Commercial lending is a business that takes consistent
+              action, focus, and risk-taking. If you&apos;re not ready to commit
+              and put in the work, this business is not for you.
             </p>
-          )}
-
-          <MarketingCtaButtons variant="footer" />
+          </div>
         </div>
-      </div>
-
-      <div className="relative mx-auto mt-14 max-w-6xl border-t border-white/10 pt-6 text-center text-sm text-gray-500">
-        © {new Date().getFullYear()} Loan Automation · Vibrantick Infotech
-        Solutions
       </div>
     </footer>
   );

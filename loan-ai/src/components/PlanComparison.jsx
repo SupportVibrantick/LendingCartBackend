@@ -108,27 +108,39 @@ export default function PlanComparison({ packages = [] }) {
             </tr>
           </thead>
           <tbody>
-            {PLAN_COMPARISON_ROWS.map((row) => (
-              <tr
-                key={row.feature}
-                className="border-b border-slate-100 last:border-b-0 dark:border-white/[0.06]"
-              >
-                <th
-                  scope="row"
-                  className="px-4 py-3.5 text-left text-sm font-normal text-slate-700 md:px-6 dark:text-gray-200"
+            {PLAN_COMPARISON_ROWS.map((row, index) => {
+              const isSection =
+                row.feature === "GHL STARTER" || row.feature === "GHL GROWTH";
+              return (
+                <tr
+                  key={row.feature}
+                  className={`border-b border-slate-100 last:border-b-0 dark:border-white/[0.06] ${
+                    index % 2 === 1
+                      ? "bg-slate-50/70 dark:bg-white/[0.02]"
+                      : "bg-white dark:bg-transparent"
+                  }`}
                 >
-                  {row.feature}
-                </th>
-                {columns.map((col) => (
-                  <td
-                    key={col.key}
-                    className="px-3 py-3.5 text-center align-middle md:px-4"
+                  <th
+                    scope="row"
+                    className={`px-4 py-3.5 text-left text-sm md:px-6 ${
+                      isSection
+                        ? "font-semibold uppercase tracking-wide text-[#4B83FF]"
+                        : "font-normal text-slate-700 dark:text-gray-200"
+                    }`}
                   >
-                    <ComparisonCell value={row[col.key]} />
-                  </td>
-                ))}
-              </tr>
-            ))}
+                    {row.feature}
+                  </th>
+                  {columns.map((col) => (
+                    <td
+                      key={col.key}
+                      className="px-3 py-3.5 text-center align-middle md:px-4"
+                    >
+                      <ComparisonCell value={row[col.key]} />
+                    </td>
+                  ))}
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

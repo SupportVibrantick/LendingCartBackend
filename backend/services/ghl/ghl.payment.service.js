@@ -784,6 +784,64 @@ async function createSubscriptionCheckout(input = {}) {
   }
 }
 
+/**
+ * Best-effort cancel of a GHL Payments subscription.
+ * Native GHL cancel API is limited — callers should also tag the contact /
+ * fire a workflow webhook so billing actually stops.
+ */
+async function cancelGhlSubscription(subscriptionId) {
+  if (!subscriptionId) {
+    return { cancelled: false, reason: "missing_subscription_id" };
+  }
+
+  try {
+    const { locationId } = requirePaymentApiCredentials();
+    const client = createGhlApiClient();
+    const params = { altId: locationId, altType: "location", locationId };
+
+    try {
+      await client.delete(`/payments/subscriptions/${subscriptionId}`, {
+        params,
+      });
+      return { cancelled: true, method: "DELETE" };
+    } catch (deleteErr) {
+      const status = deleteErr?.response?.status;
+      if (status && status !== 404 && status !== 405) {
+        // try POST cancel endpoints as fallback
+      }
+      try {
+        await client.post(
+          `/payments/subscriptions/${subscriptionId}/cancel`,
+          {},
+          { params },
+        );
+        return { cancelled: true, method: "POST_cancel" };
+      } catch (postErr) {
+        return {
+          cancelled: false,
+          reason:
+            postErr?.response?.data?.message ||
+            deleteErr?.message ||
+            "ghl_cancel_failed",
+          status: postErr?.response?.status || status || null,
+        };
+      }
+    }
+  } catch (err) {
+    return {
+      cancelled: false,
+      reason: err?.message || "ghl_cancel_unavailable",
+    };
+  }
+}
+
+function getDiscontinueTag() {
+  return (
+    String(process.env.CLM_GHL_DISCONTINUE_TAG || "loan-automation-discontinue")
+      .trim() || "loan-automation-discontinue"
+  );
+}
+
 module.exports = {
   canProcessGhlPayments,
   requirePaymentApiCredentials,
@@ -804,4 +862,6 @@ module.exports = {
   normalizeBillingCycle,
   appendRedirectParams,
   toE164Phone,
+  cancelGhlSubscription,
+  getDiscontinueTag,
 };
