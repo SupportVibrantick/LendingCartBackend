@@ -425,4 +425,5 @@ module.exports = {
   sanitizeAxiosError,
   getLocationId,
   requireContactApiCredentials,
+  addTagsToContact,
 };

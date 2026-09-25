@@ -7,6 +7,9 @@ const {
 } = require("./ghlSubscriptionLifecycle");
 const { tryFulfillClmGhlOrder, isClmSoftTrialOrder } = require("./fulfillClmGhlOrder");
 const {
+  syncClmSubscriptionFromGhlPayment,
+} = require("./syncClmGhlBilling");
+const {
   logWebhookReceived,
   logWebhookProcessed,
   logWebhookDuplicate,
@@ -228,6 +231,18 @@ function extractIds(body = {}) {
     customData.status,
   );
 
+  // Stripe ids when GHL/Payments forwards them (or when id itself is sub_…)
+  const stripeFromPayload = (() => {
+    try {
+      const {
+        extractStripeIdsFromPayload,
+      } = require("../stripe/stripeBilling");
+      return extractStripeIdsFromPayload(body);
+    } catch {
+      return { stripeSubscriptionId: null, stripeCustomerId: null };
+    }
+  })();
+
   return {
     ghlInvoiceId,
     ghlContactId,
@@ -239,6 +254,8 @@ function extractIds(body = {}) {
     phone,
     checkoutId,
     status: status ? String(status).toLowerCase() : null,
+    stripeSubscriptionId: stripeFromPayload.stripeSubscriptionId || null,
+    stripeCustomerId: stripeFromPayload.stripeCustomerId || null,
   };
 }
 
@@ -715,6 +732,45 @@ async function processGhlWebhook(prisma, io, body = {}) {
     }
 
     if (!checkout && lifecycle === "paid") {
+      // Recurring $699 charge after CLM trial — no Loan AI checkout row.
+      try {
+        const syncResult = await syncClmSubscriptionFromGhlPayment(prisma, ids);
+        if (syncResult) {
+          await prisma.ghlWebhookEvent.update({
+            where: { id: eventRow.id },
+            data: {
+              status: "PROCESSED",
+              processedAt: new Date(),
+              errorMessage: null,
+            },
+          });
+          logWebhookProcessed({
+            webhookId,
+            eventType,
+            lifecycle,
+            action: syncResult.action,
+            checkoutId: null,
+            organizationSubscriptionId:
+              syncResult.organizationSubscriptionId || null,
+            ghlContactId: ids.ghlContactId,
+            ghlInvoiceId: ids.ghlInvoiceId,
+            ghlSubscriptionId: ids.ghlSubscriptionId,
+            status: "PROCESSED",
+          });
+          return {
+            duplicate: false,
+            webhookId,
+            status: "PROCESSED",
+            ...syncResult,
+          };
+        }
+      } catch (syncErr) {
+        commonLogs.warn("CLM billing sync after paid webhook failed", {
+          message: syncErr?.message,
+          eventType,
+        });
+      }
+
       await prisma.ghlWebhookEvent.update({
         where: { id: eventRow.id },
         data: {

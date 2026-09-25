@@ -84,6 +84,10 @@ module.exports = async function brokerRoutes(fastify, opts) {
       prefix: "/entitlements",
     });
 
+    instance.register(require("./subscription"), {
+      prefix: "/subscription",
+    });
+
     instance.register(require("./contacts"), {
       prefix: "/contacts",
     });

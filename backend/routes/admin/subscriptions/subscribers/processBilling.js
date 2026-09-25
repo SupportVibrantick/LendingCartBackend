@@ -15,7 +15,7 @@ async function processBillingRoutes(fastify) {
       const prisma = fastify.prisma;
       try {
         const reminders = await sendTrialEndingReminders(prisma, fastify.io);
-        const result = await runSubscriptionBillingCycle(prisma);
+        const result = await runSubscriptionBillingCycle(prisma, fastify.io);
 
         adminLogs.info("Subscription billing cycle run manually", {
           trialRemindersSent: reminders.sent,

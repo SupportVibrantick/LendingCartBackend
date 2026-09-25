@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Your trial ends tomorrow</title>
+    <title>Your free trial is complete</title>
 
     <style>
       body,html { margin:0; padding:0; width:100%; background:#f3f6f9; -webkit-font-smoothing:antialiased; }
@@ -18,8 +18,8 @@
       .greeting { font-size:16px; margin:0 0 12px 0; }
       .lead { font-size:15px; margin:0 0 18px 0; color:#394954; line-height:1.6; }
       .panel {
-        background:#fff8f0;
-        border-left:4px solid #f59e0b;
+        background:#f0f7ff;
+        border-left:4px solid #0b66d0;
         padding:14px 18px;
         border-radius:8px;
         margin:18px 0;
@@ -47,35 +47,38 @@
 
   <body>
     <div class="wrap">
-      <div class="card" role="article" aria-label="Trial ending reminder">
+      <div class="card" role="article" aria-label="Free trial complete">
         <div class="header">
           <img class="logo" src="{{logoUrl}}" alt="{{brandName}} logo" />
-          <div class="title">Your trial ends tomorrow</div>
+          <div class="title">Your free trial is complete</div>
         </div>
 
         <div class="body">
           <p class="greeting">Hi <strong>{{name}}</strong>,</p>
 
           <p class="lead">
-            This is a friendly reminder that the free trial for <strong>{{organizationName}}</strong> on Loan Automation is ending soon.
+            The complimentary Loan Automation access included with Commercial Lending Mastery for
+            <strong>{{organizationName}}</strong> has ended.
           </p>
 
-          <div class="panel" role="region" aria-label="Trial details">
+          <div class="panel" role="region" aria-label="What happens next">
             <p><strong>Plan:</strong> {{planName}}</p>
-            <p><strong>Trial ends:</strong> {{trialEndsAt}}</p>
-            <p><strong>After trial:</strong> {{planPrice}} ({{billingCycle}} billing)</p>
+            <p><strong>Ongoing rate:</strong> {{planPrice}}</p>
+            <p><strong>Your account:</strong> Stays open — nothing is locked.</p>
+            <p><strong>Billing:</strong> Charged to the card on your CLM order unless you Discontinue.</p>
           </div>
 
           <p class="lead">
-            {{afterTrialNote}}
+            If you want to stop software billing and close access, open your dashboard and click
+            <strong>Discontinue</strong>. After that, you will need a new LendingCart subscription to continue using Loan Automation.
           </p>
 
           <div class="cta-wrap">
-            <a href="{{loginUrl}}" class="btn" target="_blank" rel="noopener">Go to Dashboard</a>
+            <a href="{{loginUrl}}" class="btn" target="_blank" rel="noopener">Open Dashboard</a>
           </div>
 
           <p class="note">
-            If you have questions about your plan or need to make changes before billing begins, please contact our support team at
+            Questions? Contact
             <a href="mailto:support@lendingcart.in">support@lendingcart.in</a>.
           </p>
         </div>

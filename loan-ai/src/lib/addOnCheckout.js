@@ -17,25 +17,44 @@ export function isQuantityAddOn(addOnOrCode) {
 }
 
 /**
+ * @param {import('../types/pricing').SubscriptionAddOn} addOn
+ * @param {string | undefined} packageCode
+ */
+export function resolveAddOnPriceForPackage(addOn, packageCode) {
+  const pkgCode = String(packageCode || "").toUpperCase();
+  const byPkg = addOn?.priceByPackage;
+  if (byPkg && typeof byPkg === "object" && pkgCode && byPkg[pkgCode] != null) {
+    const priced = Number(byPkg[pkgCode]);
+    if (Number.isFinite(priced)) return priced;
+  }
+  return Number(addOn?.priceMonthly || 0);
+}
+
+/**
  * @param {import('../types/pricing').SubscriptionAddOn[]} addOns
  * @param {string | undefined} packageCode
  */
 export function filterAddOnsForPackage(addOns, packageCode) {
   const pkgCode = String(packageCode || "").toUpperCase();
-  return (addOns || []).filter((addOn) => {
-    if (addOn.isPurchasable === false) return false;
-    const included = addOn.includedInPackageCodes || [];
-    if (included.some((code) => String(code).toUpperCase() === pkgCode)) {
-      return false;
-    }
-    const availableFor = addOn.availableForPackageCodes || [];
-    if (availableFor.length > 0) {
-      return availableFor.some(
-        (code) => String(code).toUpperCase() === pkgCode,
-      );
-    }
-    return true;
-  });
+  return (addOns || [])
+    .filter((addOn) => {
+      if (addOn.isPurchasable === false) return false;
+      const included = addOn.includedInPackageCodes || [];
+      if (included.some((code) => String(code).toUpperCase() === pkgCode)) {
+        return false;
+      }
+      const availableFor = addOn.availableForPackageCodes || [];
+      if (availableFor.length > 0) {
+        return availableFor.some(
+          (code) => String(code).toUpperCase() === pkgCode,
+        );
+      }
+      return true;
+    })
+    .map((addOn) => ({
+      ...addOn,
+      priceMonthly: resolveAddOnPriceForPackage(addOn, packageCode),
+    }));
 }
 
 /**

@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Loan Automation discontinued</title>
+    <style>
+      body,html { margin:0; padding:0; width:100%; background:#f3f6f9; }
+      body { font-family: "Inter", "Segoe UI", Roboto, Arial, sans-serif; color:#243142; }
+      a { color: #0b66d0; text-decoration:none; }
+      .wrap { width:100%; padding:28px 12px; box-sizing:border-box; }
+      .card { max-width:680px; margin:0 auto; background:#ffffff; border-radius:12px; box-shadow:0 8px 30px rgba(20,30,40,0.06); overflow:hidden; }
+      .header { padding:28px 36px 18px; text-align:center; border-bottom:1px solid #eef4fb; }
+      .logo { display:block; margin:0 auto 12px; max-width:200px; height:auto; }
+      .title { font-size:22px; color:#0b66d0; margin:6px 0 0; font-weight:700; }
+      .body { padding:28px 40px; }
+      .lead { font-size:15px; margin:0 0 18px; color:#394954; line-height:1.6; }
+      .cta-wrap { text-align:center; margin-top:22px; }
+      .btn {
+        display:inline-block; background:#0b66d0; color:#fff !important;
+        padding:12px 20px; border-radius:8px; font-weight:600;
+      }
+      .footer { padding:18px 36px; border-top:1px solid #eef4fb; text-align:center; color:#7c8a95; font-size:13px; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="card">
+        <div class="header">
+          <img class="logo" src="{{logoUrl}}" alt="{{brandName}} logo" />
+          <div class="title">Loan Automation discontinued</div>
+        </div>
+        <div class="body">
+          <p class="lead">Hi <strong>{{name}}</strong>,</p>
+          <p class="lead">
+            You discontinued Loan Automation for <strong>{{organizationName}}</strong>.
+            Recurring software billing from your Commercial Lending Mastery order will be stopped,
+            and dashboard access is now locked until you subscribe again.
+          </p>
+          <div class="cta-wrap">
+            <a href="{{subscribeUrl}}" class="btn" target="_blank" rel="noopener">Choose a plan</a>
+          </div>
+          <p class="lead" style="margin-top:18px;font-size:13px;color:#60707b;">
+            Already subscribed? <a href="{{loginUrl}}">Sign in to your dashboard</a>.
+          </p>
+        </div>
+        <div class="footer">&copy; {{currentYear}} Loan Automation.</div>
+      </div>
+    </div>
+  </body>
+</html>

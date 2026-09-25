@@ -12,7 +12,7 @@
  *   includedUsers?: number,
  *   maxUsers?: number,
  *   extraUserPrice?: number,
- *   groups: [{ heading, items: string[], variant?: "default" | "highlight" }]
+ *   groups: [{ heading, items: (string | { label, children: string[] })[], variant?: "default" | "highlight" }]
  * }
  */
 
@@ -21,48 +21,44 @@ const SUBSCRIPTION_PACKAGES = [
     name: "Starter",
     code: "BASIC",
     priceMonthly: 199,
-    priceYearly: 1990,
+    // 20% off vs paying monthly for 12 months
+    priceYearly: 1910,
     description: "For independent brokers getting started",
     badge: null,
-    usersLabel: "1 User · Add up to 10 ($100/user)",
+    usersLabel: "Add up to 5 users · Additional User Cost: $99/m",
     includedUsers: 1,
-    maxUsers: 10,
-    extraUserPrice: 100,
+    maxUsers: 5,
+    extraUserPrice: 99,
     featureGroups: [
       {
         heading: "CORE PLATFORM",
         items: [
-          "Unlimited Borrowers",
-          "Web-Based Loan Application",
           "Broker Portal",
-          "Client Portal",
+          "Unlimited Borrowers",
+          "Unlimited Client Portals",
+          "Web-Based Loan Application",
           "Loan Pipeline & Dashboard",
           "Performance Dashboard",
           "Loan Status & Doc Upload Portal",
-        ],
-      },
-      {
-        heading: "LOAN PRODUCTS & LENDERS",
-        items: [
-          "Bridge, DSCR, Fix & Flip, Construction (1-4 unit)",
-          "20+ Lenders Network",
+          {
+            label: "1-4 unit Residential",
+            children: [
+              "Bridge Loans",
+              "Fix & Flip Loans",
+              "DSCR Loans",
+              "Construction Loans",
+              "Rental portfolio Loans",
+            ],
+          },
           "Lender Matching Tool",
-        ],
-      },
-      {
-        heading: "CLOSING & COMMUNICATION",
-        items: [
-          "Fee Agreement & E-Signatures",
-          "Basic Website Builder (single page)",
-          "Document Request, Upload & Send to Lender",
-          "Email Notifications & Reminders",
-          "Email Support",
+          "Custom Document Types",
+          "Document Activity Timeline",
         ],
       },
     ],
     usageLimits: {
       LOAN_APPLICATIONS: 50,
-      CO_BROKERS: 10,
+      CO_BROKERS: 5,
       LOAN_OFFICERS: 5,
       LENDER_CONNECTIONS: 10,
     },
@@ -73,55 +69,54 @@ const SUBSCRIPTION_PACKAGES = [
     name: "Pro",
     code: "PRO",
     priceMonthly: 399,
-    priceYearly: 3990,
+    priceYearly: 3830,
     description: "For growing brokerages with a team",
     badge: "MOST POPULAR",
-    usersLabel: "3 Users · Add up to 25 ($100/user)",
-    includedUsers: 3,
-    maxUsers: 25,
-    extraUserPrice: 100,
+    usersLabel: "Add up to 10 users · Additional User Cost: $79/m",
+    includedUsers: 5,
+    maxUsers: 10,
+    extraUserPrice: 79,
     featureGroups: [
       {
         heading: "EVERYTHING IN STARTER, PLUS:",
         items: [
-          "Unlimited Co-Brokers",
-          "CRE, Agency, CMBS, Mezz/Pref Products",
-          "40+ Lenders + Lender Marketplace",
-          "Add Your Own Lenders",
-          "Basic CRM Included",
-        ],
-      },
-      {
-        heading: "MULTI-PORTAL & BRANDING",
-        items: [
           "Co-Broker Portals",
           "Loan Officer Portals",
-          "White Labeling (Logo & Brand Name)",
-          "Full Website Builder (multi-page, custom)",
-        ],
-      },
-      {
-        heading: "ADVANCED FEATURES",
-        items: [
-          "LOI / Term Sheet Workflow",
-          "Custom Document Types",
-          "Email Marketing Campaigns",
+          {
+            label: "CRE & Multifamily",
+            children: [
+              "Bridge Loans",
+              "Value Add Property Loans",
+              "Construction Loans",
+              "CRE Permanent Loans",
+              "Conventional Loans",
+              "CMBS Loans",
+              "Agency Loans for Multifamily",
+              "C-Pace Loans",
+              "Mezzanine & Preferred Equity",
+            ],
+          },
           "Commission Tracking",
-          "In-App Chat on Deals",
+          "Internal Chat (Lenders/Clients)",
           "Pre-Underwriting Checklist",
           "Auto Deal Summary (PDF for lenders)",
-          "Document Activity Timeline",
-          "Platform Reports & Analytics",
+          "Fee Agreement & Term Sheet",
         ],
       },
       {
-        heading: "SUPPORT",
-        items: ["Priority Support"],
+        heading: "GHL STARTER",
+        items: [
+          "Advanced CRM Integration",
+          "Advanced Calendar Sync",
+          "Websites & Funnels Builder",
+          "Email & SMS Marketing Campaigns",
+          "Priority Support",
+        ],
       },
     ],
     usageLimits: {
       LOAN_APPLICATIONS: 200,
-      CO_BROKERS: 25,
+      CO_BROKERS: 10,
       LOAN_OFFICERS: 15,
       LENDER_CONNECTIONS: 50,
     },
@@ -132,47 +127,66 @@ const SUBSCRIPTION_PACKAGES = [
     name: "Elite",
     code: "ELITE",
     priceMonthly: 699,
-    priceYearly: 6990,
+    priceYearly: 6710,
     description: "For teams at scale + full GHL suite",
     badge: "BEST VALUE",
-    usersLabel: "5 Users · Add up to 100 ($100/user)",
-    includedUsers: 5,
-    maxUsers: 100,
-    extraUserPrice: 100,
+    usersLabel: "Add up to 25 users · Additional User Cost: $49/m",
+    includedUsers: 10,
+    maxUsers: 25,
+    extraUserPrice: 49,
     featureGroups: [
       {
         heading: "EVERYTHING IN PRO, PLUS:",
         items: [
-          "All Lending Products (SBA, USDA, Asset-Based)",
-          "100+ Lenders Network",
-          "Advanced CRM (Contacts & Borrowers)",
-          "Advanced Document Automation",
-          "Auto-Forward Documents to Lender & Client",
-          "White-Label Custom Domain (Coming Soon)",
-          "Dedicated Account Manager",
+          {
+            label: "SBA & USDA Loans",
+            children: [
+              "SBA 7(a) Express",
+              "SBA 7(a) Business Acquisition",
+              "SBA 7(a) Equipment Finance",
+              "SBA 7(a) Working Capital",
+              "SBA 7(a) Real Estate + Construction",
+              "SBA 504 Real Estate + Business",
+              "SBA 504 Real Estate Construction",
+              "USDA Business & Industry",
+            ],
+          },
+          {
+            label: "Asset-Based Lending",
+            children: [
+              "Equipment Finance",
+              "Accounts Receivable Finance",
+              "Accounts Payable Finance",
+              "Purchase Order Finance",
+            ],
+          },
+          "Lender Marketplace",
+          "Add Your Own Lenders",
+          "Auto-Forward Docs (Client/Lenders)",
+          "White Label",
+          "Auto Follow-up (Clients/Lenders)",
         ],
       },
       {
-        heading: "Advanced GHL Integrations",
+        heading: "GHL GROWTH",
         variant: "highlight",
         items: [
-          "GHL Advanced CRM (Done-For-You)",
+          "Advanced CRM & Calendar Integration",
           "Social Media Integration & Campaigns",
-          "All Social Media Posts in One Click",
           "Email & SMS (Pre-Built Campaigns)",
           "Advanced Workflow Automation",
-          "Unlimited Websites + Funnels",
-          "Advanced Calendar Integration",
-          "Unlimited Webinars & Funnels",
+          "Unlimited Websites & Funnels",
+          "Unlimited Webinars + Funnels",
+          "Unlimited Sub-Domains",
           "AI Appointment Setup Agent",
           "Voice AI Agents (Inbound & Outbound)",
-          "Custom Domain",
+          "Onboarding Assistance",
         ],
       },
     ],
     usageLimits: {
       LOAN_APPLICATIONS: 1000,
-      CO_BROKERS: 100,
+      CO_BROKERS: 25,
       LOAN_OFFICERS: 50,
       LENDER_CONNECTIONS: 200,
     },
@@ -185,7 +199,7 @@ const SUBSCRIPTION_ADD_ONS = [
   {
     code: "EXTRA_USER",
     name: "Additional Users",
-    priceMonthly: 100,
+    priceMonthly: 99,
     isPurchasable: true,
     usageBoost: { CO_BROKERS: 1, ACTIVE_USERS: 1 },
     quantityBased: true,
@@ -193,18 +207,38 @@ const SUBSCRIPTION_ADD_ONS = [
   {
     code: "CRE_PACK",
     name: "CRE & Multifamily",
-    priceMonthly: 50,
+    priceMonthly: 59,
     note: "Starter",
     isPurchasable: true,
     availableForPackageCodes: ["BASIC"],
     includedInPackageCodes: ["PRO", "ELITE"],
   },
   {
+    code: "FEE_AGREEMENT_PACK",
+    name: "FEE Agreement & Term Sheet",
+    priceMonthly: 59,
+    note: "Starter",
+    isPurchasable: true,
+    availableForPackageCodes: ["BASIC"],
+    includedInPackageCodes: ["PRO", "ELITE"],
+  },
+  {
+    code: "BUSINESS_LENDING_PACK",
+    name: "Business Lending (SBA, USDA, ABL)",
+    priceMonthly: 99,
+    priceByPackage: { BASIC: 99, PRO: 79 },
+    note: "Starter/Pro",
+    isPurchasable: true,
+    availableForPackageCodes: ["BASIC", "PRO"],
+    includedInPackageCodes: ["ELITE"],
+  },
+  // Legacy individual packs — kept for existing subscribers, hidden from pricing UI
+  {
     code: "ABL_PACK",
     name: "Asset-Based Lending",
     priceMonthly: 50,
-    note: "Starter/Pro",
-    isPurchasable: true,
+    note: "Legacy",
+    isPurchasable: false,
     availableForPackageCodes: ["BASIC", "PRO"],
     includedInPackageCodes: ["ELITE"],
   },
@@ -212,6 +246,35 @@ const SUBSCRIPTION_ADD_ONS = [
     code: "SBA_PACK",
     name: "SBA & USDA",
     priceMonthly: 50,
+    note: "Legacy",
+    isPurchasable: false,
+    availableForPackageCodes: ["BASIC", "PRO"],
+    includedInPackageCodes: ["ELITE"],
+  },
+  {
+    code: "LENDER_MARKETPLACE_PACK",
+    name: "Lender Marketplace + Add Lenders",
+    priceMonthly: 79,
+    priceByPackage: { BASIC: 79, PRO: 59 },
+    note: "Starter/Pro",
+    isPurchasable: true,
+    availableForPackageCodes: ["BASIC", "PRO"],
+    includedInPackageCodes: ["ELITE"],
+  },
+  {
+    code: "GHL_STARTER",
+    name: "GoHighLevel Starter",
+    priceMonthly: 99,
+    note: "Starter",
+    isPurchasable: true,
+    availableForPackageCodes: ["BASIC"],
+    includedInPackageCodes: ["PRO", "ELITE"],
+  },
+  {
+    code: "WHITE_LABEL",
+    name: "White-Label",
+    priceMonthly: 99,
+    priceByPackage: { BASIC: 99, PRO: 79 },
     note: "Starter/Pro",
     isPurchasable: true,
     availableForPackageCodes: ["BASIC", "PRO"],
@@ -219,32 +282,46 @@ const SUBSCRIPTION_ADD_ONS = [
   },
   {
     code: "GHL_BASIC_SYNC",
-    name: "GHL Basic Sync",
-    priceMonthly: 100,
-    note: "Pro",
+    name: "GoHighLevel Growth",
+    priceMonthly: 199,
+    priceByPackage: { BASIC: 199, PRO: 99 },
+    note: "Starter/Pro",
     isPurchasable: true,
-    availableForPackageCodes: ["PRO"],
+    availableForPackageCodes: ["BASIC", "PRO"],
     includedInPackageCodes: ["ELITE"],
   },
-  {
-    code: "WHITE_LABEL",
-    name: "White-Labeling",
-    priceMonthly: 50,
-    note: "Starter",
-    isPurchasable: true,
-    availableForPackageCodes: ["BASIC"],
-    includedInPackageCodes: ["PRO", "ELITE"],
-  },
 ];
+
+function normalizeFeatureItem(item) {
+  if (item == null) return null;
+
+  if (typeof item === "string") {
+    const label = item.trim();
+    return label ? { label, children: [] } : null;
+  }
+
+  if (typeof item === "object") {
+    const label = String(item.label || item.name || item.title || "").trim();
+    if (!label) return null;
+    const rawChildren = item.children || item.items || item.subItems || [];
+    const children = Array.isArray(rawChildren)
+      ? rawChildren.map((child) => String(child).trim()).filter(Boolean)
+      : [];
+    return { label, children };
+  }
+
+  return null;
+}
 
 function flattenFeatureGroups(featureGroups = []) {
   const items = [];
   for (const group of featureGroups) {
-    if (!group) continue;
-    if (Array.isArray(group.items)) {
-      for (const item of group.items) {
-        if (item != null && String(item).trim()) items.push(String(item).trim());
-      }
+    if (!group || !Array.isArray(group.items)) continue;
+    for (const item of group.items) {
+      const normalized = normalizeFeatureItem(item);
+      if (!normalized) continue;
+      items.push(normalized.label);
+      for (const child of normalized.children) items.push(child);
     }
   }
   return items;
@@ -257,7 +334,7 @@ function normalizeFeatureGroups(featureGroups = []) {
       heading: group.heading ? String(group.heading).trim() : null,
       variant: group.variant === "highlight" ? "highlight" : "default",
       items: Array.isArray(group.items)
-        ? group.items.map((item) => String(item).trim()).filter(Boolean)
+        ? group.items.map(normalizeFeatureItem).filter(Boolean)
         : [],
     }))
     .filter((group) => group.items.length > 0);
@@ -433,6 +510,7 @@ module.exports = {
   SUBSCRIPTION_ADD_ONS,
   flattenFeatureGroups,
   normalizeFeatureGroups,
+  normalizeFeatureItem,
   buildFeaturesPayload,
   featuresToStorage,
   parseStoredFeatures,

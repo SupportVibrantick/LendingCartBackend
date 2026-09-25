@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { ArrowRight, Home } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { getBrokerSignInUrl } from "../lib/brokerAuth";
 
@@ -100,24 +100,6 @@ export default function PricingClosingCta({ startingPrice = 199 }) {
           </dl>
         </div>
       </section>
-
-      <div className="border-t border-slate-200 bg-slate-50 px-4 py-3 dark:border-white/10 dark:bg-black">
-        <p className="flex flex-wrap items-center justify-center gap-x-1.5 gap-y-1 text-center text-[11px] text-slate-500 sm:text-xs">
-          <Home size={12} className="shrink-0 text-slate-500" aria-hidden />
-          <span>
-            Loan Automation — Close More Deals In Less Time • 87% Faster With Zero
-            Chasing -{" "}
-            <a
-              href="https://loanautomation.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="transition hover:text-slate-800 dark:hover:text-slate-300"
-            >
-              loanautomation.com
-            </a>
-          </span>
-        </p>
-      </div>
     </div>
   );
 }

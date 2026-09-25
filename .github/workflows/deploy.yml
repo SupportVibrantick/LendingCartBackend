@@ -47,9 +47,6 @@ jobs:
             echo "🔧 Generating Prisma client..."
             npx prisma generate
 
-            echo "📦 Syncing subscription packages (Starter rename, Co-Brokers limits)..."
-            npm run db:sync-subscription-packages
-
             #################################################
             # Admin Dashboard
             #################################################

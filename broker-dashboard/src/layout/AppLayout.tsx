@@ -4,6 +4,7 @@ import AppHeader from "./AppHeader";
 import Backdrop from "./Backdrop";
 import AppSidebar from "./AppSidebar";
 import { useBrokerSessionMonitor } from "../hooks/useSessionMonitor";
+import ClmTrialBanner from "../components/subscription/ClmTrialBanner";
 
 const LayoutContent: React.FC = () => {
   const { isExpanded, isHovered, isMobileOpen } = useSidebar();
@@ -34,6 +35,7 @@ const LayoutContent: React.FC = () => {
                 : "mx-auto w-full max-w-[1480px] p-3 md:p-4 lg:px-5"
             }
           >
+            {!isLoanApplicationPage ? <ClmTrialBanner /> : null}
             <Outlet />
           </div>
         </main>

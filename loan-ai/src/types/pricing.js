@@ -7,9 +7,15 @@
  */
 
 /**
+ * @typedef {Object} FeatureItem
+ * @property {string} label
+ * @property {string[]} [children]
+ */
+
+/**
  * @typedef {Object} FeatureGroup
  * @property {string | null} [heading]
- * @property {string[]} items
+ * @property {(string | FeatureItem)[]} items
  * @property {"default" | "highlight"} [variant]
  */
 
@@ -38,6 +44,7 @@
  * @property {string} code
  * @property {string} name
  * @property {number} priceMonthly
+ * @property {Record<string, number>} [priceByPackage]
  * @property {string} [note]
  * @property {boolean} [isPurchasable]
  * @property {boolean} [quantityBased]
