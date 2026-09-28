@@ -48,9 +48,9 @@ export function getContactsPortalConfig(
           string
         >,
       checkResponse: checkCoBrokerResponse,
-      canCreate: true,
-      canEdit: true,
-      canDelete: true,
+      canCreate: hasPermission("CREATE_CONTACTS", "coBroker"),
+      canEdit: hasPermission("EDIT_CONTACTS", "coBroker"),
+      canDelete: hasPermission("DELETE_CONTACTS", "coBroker"),
       heroEyebrow: "User Management",
       heroDescription:
         "Manage lenders, partners, and contacts in your personal directory.",

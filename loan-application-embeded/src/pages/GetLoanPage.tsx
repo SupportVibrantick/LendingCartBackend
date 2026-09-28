@@ -10,7 +10,52 @@ type ResolvedLink = {
   sourcePortal: "BROKER" | "LOAN_OFFICER" | "CO_BROKER" | "LEGACY";
   showCoBrokerBorrowerInformationTab: boolean;
   ref: string | null;
+  loanCategories: string[];
+  loanTypes: string[];
+  packageCode: string | null;
+  feeAgreementEnabled: boolean;
 };
+
+async function fetchEntitlementsForOrg(
+  brokerOrgId: string,
+  ref?: string | null,
+): Promise<
+  Pick<
+    ResolvedLink,
+    "loanCategories" | "loanTypes" | "packageCode" | "feeAgreementEnabled"
+  >
+> {
+  try {
+    const qs = ref
+      ? `ref=${encodeURIComponent(ref)}`
+      : `brokerOrgId=${encodeURIComponent(brokerOrgId)}`;
+    const res = await fetch(
+      `${API_BASE}/api/public/broker/applications/entitlements?${qs}`,
+    );
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok || !json?.success) {
+      return {
+        loanCategories: [],
+        loanTypes: [],
+        packageCode: null,
+        feeAgreementEnabled: false,
+      };
+    }
+    return {
+      loanCategories: json.data?.loanCategories || [],
+      loanTypes: json.data?.loanTypes || [],
+      packageCode: json.data?.packageCode || null,
+      feeAgreementEnabled: Boolean(json.data?.feeAgreementEnabled),
+    };
+  } catch {
+    return {
+      loanCategories: [],
+      loanTypes: [],
+      packageCode: null,
+      feeAgreementEnabled: false,
+    };
+  }
+}
 
 export default function GetLoanPage() {
   const [searchParams] = useSearchParams();
@@ -50,25 +95,50 @@ export default function GetLoanPage() {
             );
           }
 
+          const brokerOrgId =
+            json.data.brokerOrganizationId || json.data.brokerOrgId;
+
+          // Always load entitlements from the dedicated endpoint so plan
+          // filters work even if /link was served from a stale process.
+          const entitlements = await fetchEntitlementsForOrg(
+            brokerOrgId,
+            refParam,
+          );
+
           if (cancelled) return;
           setResolved({
-            brokerOrgId: json.data.brokerOrganizationId || json.data.brokerOrgId,
+            brokerOrgId,
             sourcePortal: json.data.sourcePortal,
             showCoBrokerBorrowerInformationTab: Boolean(
               json.data.showCoBrokerBorrowerInformationTab,
             ),
             ref: refParam,
+            loanCategories:
+              entitlements.loanCategories.length > 0
+                ? entitlements.loanCategories
+                : json.data.loanCategories || [],
+            loanTypes:
+              entitlements.loanTypes.length > 0
+                ? entitlements.loanTypes
+                : json.data.loanTypes || [],
+            packageCode:
+              entitlements.packageCode || json.data.packageCode || null,
+            feeAgreementEnabled:
+              entitlements.feeAgreementEnabled ||
+              Boolean(json.data.feeAgreementEnabled),
           });
           return;
         }
 
         if (brokerParam) {
+          const entitlements = await fetchEntitlementsForOrg(brokerParam);
           if (cancelled) return;
           setResolved({
             brokerOrgId: brokerParam,
             sourcePortal: "LEGACY",
             showCoBrokerBorrowerInformationTab: false,
             ref: null,
+            ...entitlements,
           });
           return;
         }
@@ -79,13 +149,11 @@ export default function GetLoanPage() {
             "This page requires a valid broker link. Please use the link your broker sent you.",
           );
         }
-      } catch (error) {
+      } catch (err) {
         if (!cancelled) {
           setResolved(null);
           setResolveError(
-            error instanceof Error
-              ? error.message
-              : "Failed to resolve application link",
+            err instanceof Error ? err.message : "Failed to load application link",
           );
         }
       } finally {
@@ -168,6 +236,9 @@ export default function GetLoanPage() {
           showCoBrokerBorrowerInformationTab={
             resolved.showCoBrokerBorrowerInformationTab
           }
+          allowedLoanCategories={resolved.loanCategories}
+          allowedLoanTypes={resolved.loanTypes}
+          feeAgreementEnabled={resolved.feeAgreementEnabled}
           onPublicSubmitSuccess={() => setSubmitted(true)}
         />
       </div>

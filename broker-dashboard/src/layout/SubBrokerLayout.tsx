@@ -1,4 +1,5 @@
 import { Outlet } from "react-router-dom";
+import { useEffect } from "react";
 import { SidebarProvider, useSidebar } from "../context/SidebarContext";
 import Sidebar from "../pages/subBroker/components/Sidebar";
 import CoBrokerHeader from "./CoBrokerHeader";
@@ -7,6 +8,7 @@ import {
   exitCoBrokerImpersonation,
   isCoBrokerImpersonationSession,
 } from "../lib/coBrokerPortal";
+import { hydrateOrgEntitlements } from "../lib/brokerEntitlements";
 import { useCoBrokerSessionMonitor } from "../hooks/useSessionMonitor";
 
 function LayoutContent() {
@@ -14,6 +16,10 @@ function LayoutContent() {
   const isImpersonation = isCoBrokerImpersonationSession();
 
   useCoBrokerSessionMonitor();
+
+  useEffect(() => {
+    void hydrateOrgEntitlements();
+  }, []);
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50 dark:bg-gray-950">

@@ -21,8 +21,10 @@ import { CgProfile } from "react-icons/cg";
 import {
   hasAnyPermission,
   isBrokerAdmin as sessionIsBrokerAdmin,
+  ORG_ENTITLEMENTS_UPDATED_EVENT,
   type PermissionKey,
 } from "../lib/brokerPermissions";
+import { hydrateOrgEntitlements } from "../lib/brokerEntitlements";
 import { buildApiPublicFileUrl } from "../lib/publicFileUrl";
 import { BROKER_API_BASE, getBrokerAuthHeaders } from "../lib/brokerApi";
 
@@ -36,13 +38,9 @@ type NavItem = {
 };
 
 const filterBrokerNavItems = (items: NavItem[]): NavItem[] => {
-  if (sessionIsBrokerAdmin("broker")) {
-    return items;
-  }
-
   return items
     .map((item) => {
-      if (item.adminOnly) {
+      if (item.adminOnly && !sessionIsBrokerAdmin("broker")) {
         return null;
       }
 
@@ -80,6 +78,18 @@ const AppSidebar: React.FC = () => {
   const [userEmail, setUserEmail] = useState("");
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [avatarFailed, setAvatarFailed] = useState(false);
+  const [entitlementsTick, setEntitlementsTick] = useState(0);
+
+  useEffect(() => {
+    void hydrateOrgEntitlements().then(() => {
+      setEntitlementsTick((n) => n + 1);
+    });
+    const onEntitlements = () => setEntitlementsTick((n) => n + 1);
+    window.addEventListener(ORG_ENTITLEMENTS_UPDATED_EVENT, onEntitlements);
+    return () => {
+      window.removeEventListener(ORG_ENTITLEMENTS_UPDATED_EVENT, onEntitlements);
+    };
+  }, []);
 
   useEffect(() => {
     const updateRole = () => {
@@ -226,10 +236,26 @@ const AppSidebar: React.FC = () => {
             name: "User Management",
             adminOnly: true,
             subItems: [
-              { name: "Loan Officers", path: "/loan-officers" },
-              { name: "Co Brokers", path: "/sub-brokers" },
-              { name: "Borrowers", path: "/borrowers" },
-              { name: "Contacts", path: "/contacts-list" },
+              {
+                name: "Loan Officers",
+                path: "/loan-officers",
+                permission: "VIEW_LOAN_OFFICERS" as PermissionKey,
+              },
+              {
+                name: "Co Brokers",
+                path: "/sub-brokers",
+                permission: "VIEW_CO_BROKERS" as PermissionKey,
+              },
+              {
+                name: "Borrowers",
+                path: "/borrowers",
+                permission: "VIEW_BORROWERS" as PermissionKey,
+              },
+              {
+                name: "Contacts",
+                path: "/contacts-list",
+                permission: "VIEW_CONTACTS" as PermissionKey,
+              },
             ],
           },
         ]
@@ -276,8 +302,16 @@ const AppSidebar: React.FC = () => {
                 name: "Payments",
                 adminOnly: true,
                 subItems: [
-                  { name: "Commissions", path: "/payments/commissions" },
-                  { name: "Invoices", path: "/payments/invoices" },
+                  {
+                    name: "Commissions",
+                    path: "/payments/commissions",
+                    permission: "VIEW_COMMISSIONS" as PermissionKey,
+                  },
+                  {
+                    name: "Invoices",
+                    path: "/payments/invoices",
+                    permission: "VIEW_INVOICES" as PermissionKey,
+                  },
                 ],
               },
             ]
@@ -287,11 +321,15 @@ const AppSidebar: React.FC = () => {
           {
             icon: <MdSettings />,
             name: "Settings",
-            permission: "VIEW_SETTINGS",
             subItems: [
               {
                 name: "Branding",
                 path: "/settings/branding",
+                permission: "MANAGE_BRANDING" as PermissionKey,
+              },
+              {
+                name: "Plan & Add-ons",
+                path: "/settings/plan",
               },
               // {
               //   icon: <FaAppStore />,
@@ -331,7 +369,9 @@ const AppSidebar: React.FC = () => {
 
   const visibleNavItems = useMemo(
     () => filterBrokerNavItems(navItems),
-    [navItems],
+    // Recompute when org package entitlements hydrate / change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [navItems, entitlementsTick],
   );
 
   const isActive = useCallback(

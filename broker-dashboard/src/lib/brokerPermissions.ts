@@ -61,11 +61,37 @@ export type PermissionKey =
   | "VIEW_LOAN_OFFICERS"
   | "CREATE_LOAN_OFFICERS"
   | "EDIT_LOAN_OFFICERS"
-  | "DISABLE_LOAN_OFFICERS";
+  | "DISABLE_LOAN_OFFICERS"
+  | "VIEW_PIPELINE"
+  | "VIEW_LENDERS"
+  | "VIEW_TEMPLATES"
+  | "MANAGE_SETTINGS"
+  | "VIEW_SETTINGS";
 
-export type PermissionPortal = "broker" | "loanOfficer";
+export type PermissionPortal = "broker" | "loanOfficer" | "coBroker";
 
 const ADMIN_ROLES = new Set(["BROKER_ADMIN", "PLATFORM_ADMIN"]);
+const PLATFORM_ADMIN_ROLES = new Set(["PLATFORM_ADMIN"]);
+
+/** Legacy sidebar keys → org entitlement keys */
+const PERMISSION_ALIASES: Record<string, string[]> = {
+  VIEW_PIPELINE: ["VIEW_APPLICATIONS"],
+  VIEW_LENDERS: ["VIEW_MARKETPLACE"],
+  VIEW_TEMPLATES: ["MANAGE_CUSTOM_DOCUMENTS", "VIEW_CUSTOM_DOCUMENTS"],
+  MANAGE_SETTINGS: ["MANAGE_BRANDING"],
+  VIEW_SETTINGS: ["VIEW_COMPANY_SETTINGS", "MANAGE_BRANDING"],
+  CREATE_CO_BROKER: [
+    "VIEW_CO_BROKERS",
+    "ACCESS_CO_BROKER_PORTAL",
+    "EDIT_CO_BROKERS",
+  ],
+  MANAGE_OWN_CO_BROKERS: ["VIEW_CO_BROKERS", "EDIT_CO_BROKERS"],
+  ASSIGN_CO_BROKER: ["EDIT_CO_BROKERS"],
+};
+
+function expandPermissionKey(permission: string): string[] {
+  return PERMISSION_ALIASES[permission] || [permission];
+}
 
 function parseJsonArray(raw: string | null): string[] {
   if (!raw) return [];
@@ -98,6 +124,7 @@ export function getSessionPermissions(
 }
 
 export const LO_PERMISSIONS_UPDATED_EVENT = "lo-permissions-updated";
+export const ORG_ENTITLEMENTS_UPDATED_EVENT = "org-entitlements-updated";
 
 export function setSessionPermissions(permissions: string[]) {
   if (typeof window === "undefined") return;
@@ -108,40 +135,100 @@ export function setSessionPermissions(permissions: string[]) {
   window.dispatchEvent(new Event(LO_PERMISSIONS_UPDATED_EVENT));
 }
 
+/** Cached org permissions (same set assignable to LOs / co-brokers). */
+let orgEntitlementPermissions: string[] | null = null;
+
+export function setOrgEntitlementPermissions(permissions: string[] | null) {
+  orgEntitlementPermissions = Array.isArray(permissions) ? permissions : null;
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event(ORG_ENTITLEMENTS_UPDATED_EVENT));
+  }
+}
+
+export function getOrgEntitlementPermissions(): string[] | null {
+  return orgEntitlementPermissions;
+}
+
+export function applyBrokerEntitlements(data: {
+  permissions?: string[] | null;
+} | null) {
+  setOrgEntitlementPermissions(data?.permissions ?? null);
+}
+
 export function isBrokerAdmin(portal: PermissionPortal = "broker"): boolean {
   const roles = getSessionRoles(portal);
   return roles.some((role) => ADMIN_ROLES.has(role));
 }
 
+export function isPlatformAdmin(portal: PermissionPortal = "broker"): boolean {
+  const roles = getSessionRoles(portal);
+  return roles.some((role) => PLATFORM_ADMIN_ROLES.has(role));
+}
+
+function permissionGrantedInSet(
+  permission: PermissionKey | string,
+  granted: Set<string>,
+): boolean {
+  return expandPermissionKey(String(permission)).some((key) => granted.has(key));
+}
+
+/**
+ * Broker admin is limited to the org package entitlement set (same pool LOs get).
+ * Platform admin bypasses. LO must have the permission assigned AND the org plan
+ * must include it (so Starter LOs / admin impersonation cannot unlock Pro features).
+ * Co-brokers have no per-user permission matrix — they are gated by org plan only.
+ */
 export function hasPermission(
   permission: PermissionKey | string,
   portal: PermissionPortal = "loanOfficer",
 ): boolean {
-  if (portal === "broker" && isBrokerAdmin(portal)) return true;
-  return getSessionPermissions(portal).includes(permission);
+  if (isPlatformAdmin(portal)) return true;
+
+  if (portal === "broker" && isBrokerAdmin(portal)) {
+    const orgPerms = getOrgEntitlementPermissions();
+    // Until entitlements load, allow core nav so the shell does not flash empty.
+    if (orgPerms == null) return true;
+    return permissionGrantedInSet(permission, new Set(orgPerms));
+  }
+
+  if (portal === "coBroker") {
+    const orgPerms = getOrgEntitlementPermissions();
+    if (orgPerms == null) return true;
+    return permissionGrantedInSet(permission, new Set(orgPerms));
+  }
+
+  const sessionOk = permissionGrantedInSet(
+    permission,
+    new Set(getSessionPermissions(portal)),
+  );
+  if (!sessionOk) return false;
+
+  if (portal === "loanOfficer") {
+    const orgPerms = getOrgEntitlementPermissions();
+    // Until org entitlements hydrate, keep assigned LO permissions.
+    if (orgPerms == null) return true;
+    return permissionGrantedInSet(permission, new Set(orgPerms));
+  }
+
+  return true;
 }
 
 export function hasAnyPermission(
   permissions: Array<PermissionKey | string>,
   portal: PermissionPortal = "loanOfficer",
 ): boolean {
-  if (portal === "broker" && isBrokerAdmin(portal)) return true;
-  const granted = new Set(getSessionPermissions(portal));
-  return permissions.some((permission) => granted.has(permission));
+  return permissions.some((permission) => hasPermission(permission, portal));
 }
 
 export function hasAllPermissions(
   permissions: Array<PermissionKey | string>,
   portal: PermissionPortal = "loanOfficer",
 ): boolean {
-  if (portal === "broker" && isBrokerAdmin(portal)) return true;
-  const granted = new Set(getSessionPermissions(portal));
-  return permissions.every((permission) => granted.has(permission));
+  return permissions.every((permission) => hasPermission(permission, portal));
 }
 
 export const LO_BRANDING_ACCESS_PERMISSIONS: PermissionKey[] = [
   "MANAGE_BRANDING",
-  "VIEW_COMPANY_SETTINGS",
 ];
 
 export const LO_CUSTOM_DOCUMENTS_ACCESS_PERMISSIONS: PermissionKey[] = [
@@ -289,6 +376,62 @@ export function getFirstAllowedLoanOfficerPath(
     visible.find((item) => item.path)?.path ||
     visible.find((item) => item.subItems?.[0]?.path)?.subItems?.[0]?.path;
   return firstPath || "/loan-officer/profile";
+}
+
+/** Co-broker sidebar / route permission map (org package only). */
+export const CO_BROKER_NAV_ITEMS: LoanOfficerNavItem[] = [
+  { name: "Dashboard", path: "/sub-broker/dashboard", always: true },
+  {
+    name: "Loan Pipeline",
+    path: "/sub-broker/loan-pipeline",
+    permission: "VIEW_APPLICATIONS",
+  },
+  {
+    name: "New Loan Application",
+    path: "/sub-broker/loan-application",
+    permission: "CREATE_APPLICATION",
+  },
+  {
+    name: "Payments",
+    subItems: [
+      {
+        name: "Commissions",
+        path: "/sub-broker/commissions",
+        permission: "VIEW_COMMISSIONS",
+      },
+      {
+        name: "Invoices",
+        path: "/sub-broker/invoices",
+        permission: "VIEW_INVOICES",
+      },
+    ],
+  },
+  {
+    name: "User Management",
+    subItems: [
+      {
+        name: "Borrowers",
+        path: "/sub-broker/borrowers",
+        permission: "VIEW_BORROWERS",
+      },
+      {
+        name: "Contacts",
+        path: "/sub-broker/contacts",
+        permission: "VIEW_CONTACTS",
+      },
+    ],
+  },
+  { name: "Profile", path: "/sub-broker/profile", always: true },
+];
+
+export function getFirstAllowedCoBrokerPath(
+  portal: PermissionPortal = "coBroker",
+): string {
+  const visible = filterLoanOfficerNavItems(CO_BROKER_NAV_ITEMS, portal);
+  const firstPath =
+    visible.find((item) => item.path)?.path ||
+    visible.find((item) => item.subItems?.[0]?.path)?.subItems?.[0]?.path;
+  return firstPath || "/sub-broker/profile";
 }
 
 export const LO_ROUTE_PERMISSIONS: Record<

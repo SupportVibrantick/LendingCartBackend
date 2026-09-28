@@ -117,6 +117,7 @@ function collectSocketCorsOrigins() {
     process.env.BROKER_DASHBOARD_URL,
     process.env.LENDER_DASHBOARD_URL,
     process.env.LOAN_AI_URL,
+    process.env.LOAN_AI_TRIAL_URL,
     process.env.EMBED_APP_URL,
   ]) {
     for (const origin of parseOriginList(raw)) {

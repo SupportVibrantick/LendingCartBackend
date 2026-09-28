@@ -208,6 +208,29 @@ async function assertCanAccessConversation(prisma, user, conversationId) {
     return { allowed: false, error: typeAccessError };
   }
 
+  // Starter / no-CHAT orgs: clients cannot open or use client messaging threads.
+  if (
+    isClientUser(req) &&
+    CLIENT_CONVERSATION_TYPES.includes(conversation.type) &&
+    conversation.loanApplicationId
+  ) {
+    const loan = await prisma.loanApplication.findUnique({
+      where: { id: conversation.loanApplicationId },
+      select: { brokerOrgId: true },
+    });
+    const { orgHasChatFeature } = require("../subscription/brokerOrgFeatures");
+    const chatEnabled = await orgHasChatFeature(prisma, loan?.brokerOrgId);
+    if (!chatEnabled) {
+      return {
+        allowed: false,
+        error: {
+          code: 403,
+          message: "Chat is not available on this broker's plan",
+        },
+      };
+    }
+  }
+
   const participant = await prisma.conversationParticipant.findFirst({
     where: {
       conversationId,

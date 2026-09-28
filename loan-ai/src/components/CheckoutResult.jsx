@@ -30,6 +30,51 @@ const STATUS = {
   failed: "failed",
 };
 
+const primaryBtn =
+  "inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-500 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-500/20 transition hover:from-blue-400 hover:to-indigo-400 disabled:cursor-not-allowed disabled:opacity-60";
+
+const secondaryBtn =
+  "inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/20 dark:bg-white/5 dark:text-white dark:hover:bg-white/10";
+
+const headingClass =
+  "mt-5 text-2xl font-bold text-slate-900 sm:text-3xl dark:text-white";
+const bodyClass =
+  "mt-3 text-sm leading-relaxed text-slate-600 sm:text-base dark:text-slate-300";
+const tipClass = "mt-6 text-xs text-slate-500";
+const infoBoxClass =
+  "mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left text-sm text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300";
+const infoTitleClass = "font-semibold text-slate-900 dark:text-white";
+const infoMutedClass = "mt-1 text-slate-500 dark:text-slate-400";
+const warnBoxClass =
+  "mt-4 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-left text-sm text-amber-900 dark:border-amber-400/30 dark:bg-amber-500/10 dark:text-amber-100";
+
+function ResultShell({ children }) {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-slate-100 px-6 py-16 text-slate-900 transition-colors dark:bg-[#0b1020] dark:text-white">
+      <div className="w-full max-w-lg rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-xl shadow-slate-900/10 sm:p-10 dark:border-white/10 dark:bg-gradient-to-b dark:from-white/10 dark:to-white/5 dark:shadow-2xl dark:shadow-black/40">
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function IconBubble({ children, tone }) {
+  const tones = {
+    green:
+      "bg-emerald-100 text-emerald-600 ring-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:ring-emerald-400/30",
+    amber:
+      "bg-amber-100 text-amber-600 ring-amber-200 dark:bg-amber-500/15 dark:text-amber-300 dark:ring-amber-400/30",
+    red: "bg-red-100 text-red-600 ring-red-200 dark:bg-red-500/15 dark:text-red-300 dark:ring-red-400/30",
+  };
+  return (
+    <div
+      className={`mx-auto flex h-20 w-20 items-center justify-center rounded-full ring-1 ${tones[tone] || tones.green}`}
+    >
+      {children}
+    </div>
+  );
+}
+
 function normalizeStatus(value) {
   const raw = String(value || "").toLowerCase();
   if (
@@ -45,8 +90,8 @@ function normalizeStatus(value) {
 
 /**
  * Post-payment landing page (Loan AI).
- * GHL invoice pages often do not redirect back — we keep the user here while
- * they pay in a new tab, then poll until the subscription activates.
+ * Stripe Checkout redirects here with session_id; GHL may keep the user pending
+ * while they pay in a new tab. We poll/sync until the subscription activates.
  */
 export default function CheckoutResult() {
   const [searchParams] = useSearchParams();
@@ -98,13 +143,21 @@ export default function CheckoutResult() {
     if (!token || !isAuthenticated) return null;
     try {
       const checkoutId = getStoredCheckoutId();
-      const result = await syncLoanAiCheckout(token, checkoutId || undefined);
+      const sessionId =
+        searchParams.get("session_id") ||
+        searchParams.get("sessionId") ||
+        undefined;
+      const result = await syncLoanAiCheckout(
+        token,
+        checkoutId || undefined,
+        sessionId || undefined,
+      );
       return result;
     } catch (err) {
       console.warn("[CheckoutResult] sync failed:", err);
       throw err;
     }
-  }, [token, isAuthenticated]);
+  }, [token, isAuthenticated, searchParams]);
 
   const verifySubscription = useCallback(async () => {
     if (
@@ -120,8 +173,12 @@ export default function CheckoutResult() {
     const maxAttempts = status === STATUS.pending ? 24 : 8;
 
     while (attempt < maxAttempts) {
-      // Local/dev: webhooks often never arrive — poll GHL invoice via sync.
-      if (status === STATUS.pending && attempt > 0 && attempt % 2 === 0) {
+      // Local/dev: webhooks often never arrive — poll Stripe/GHL via sync.
+      // Stripe success redirects include session_id; sync immediately on first attempt.
+      const shouldSync =
+        (status === STATUS.success && attempt === 0) ||
+        (status === STATUS.pending && attempt > 0 && attempt % 2 === 0);
+      if (shouldSync) {
         try {
           const synced = await syncPaymentFromProvider();
           if (synced?.alreadyPaid || synced?.paymentStatus === "PAID") {
@@ -250,10 +307,10 @@ export default function CheckoutResult() {
         <IconBubble tone="amber">
           <XCircle className="h-10 w-10" />
         </IconBubble>
-        <h1 className="mt-5 text-2xl font-bold text-white sm:text-3xl">
+        <h1 className={headingClass}>
           Checkout cancelled
         </h1>
-        <p className="mt-3 text-sm leading-relaxed text-slate-300 sm:text-base">
+        <p className={bodyClass}>
           No payment was completed. You can pick a plan again whenever you are
           ready — your Loan AI account is unchanged.
         </p>
@@ -276,10 +333,10 @@ export default function CheckoutResult() {
         <IconBubble tone="red">
           <XCircle className="h-10 w-10" />
         </IconBubble>
-        <h1 className="mt-5 text-2xl font-bold text-white sm:text-3xl">
+        <h1 className={headingClass}>
           Payment did not complete
         </h1>
-        <p className="mt-3 text-sm leading-relaxed text-slate-300 sm:text-base">
+        <p className={bodyClass}>
           Something went wrong during checkout. If you were charged, contact
           support with your email and we will help activate your plan.
         </p>
@@ -302,33 +359,36 @@ export default function CheckoutResult() {
         <IconBubble tone="amber">
           <Clock3 className="h-10 w-10 animate-pulse" />
         </IconBubble>
-        <h1 className="mt-5 text-2xl font-bold text-white sm:text-3xl">
+        <h1 className={headingClass}>
           Complete your payment
         </h1>
-        <p className="mt-3 text-sm leading-relaxed text-slate-300 sm:text-base">
+        <p className={bodyClass}>
           A secure payment tab should have opened. Finish paying there — this
           page updates automatically when payment succeeds. You do not need to
           come back from the invoice page manually.
         </p>
 
         {popupBlocked ? (
-          <div className="mt-4 rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-left text-sm text-amber-100">
+          <div className={warnBoxClass}>
             Your browser blocked the payment popup. Click{" "}
             <strong>Open payment page</strong> below to continue.
           </div>
         ) : null}
 
-        <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-4 text-left text-sm text-slate-300">
+        <div className={infoBoxClass}>
           <div className="flex items-start gap-3">
-            <Clock3 className="mt-0.5 h-5 w-5 shrink-0 animate-pulse text-blue-300" />
+            <Clock3 className="mt-0.5 h-5 w-5 shrink-0 animate-pulse text-blue-600 dark:text-blue-300" />
             <div>
-              <p className="font-semibold text-white">
+              <p className={infoTitleClass}>
                 {verifying
                   ? "Waiting for payment confirmation…"
                   : "Still waiting for payment"}
               </p>
-              <p className="mt-1 text-slate-400">
-                After you see <strong className="text-slate-200">PAID</strong>{" "}
+              <p className={infoMutedClass}>
+                After you see{" "}
+                <strong className="text-slate-800 dark:text-slate-200">
+                  PAID
+                </strong>{" "}
                 on the invoice, you can close that tab. Keep this page open.
               </p>
             </div>
@@ -365,7 +425,7 @@ export default function CheckoutResult() {
           </button>
         ) : null}
 
-        <p className="mt-6 text-xs text-slate-500">
+        <p className={tipClass}>
           Tip: leave this tab open. Closing the invoice tab after payment is
           fine.
         </p>
@@ -379,22 +439,22 @@ export default function CheckoutResult() {
       <IconBubble tone="green">
         <CheckCircle2 className="h-10 w-10" />
       </IconBubble>
-      <h1 className="mt-5 text-2xl font-bold text-white sm:text-3xl">
+      <h1 className={headingClass}>
         Payment successful
       </h1>
-      <p className="mt-3 text-sm leading-relaxed text-slate-300 sm:text-base">
+      <p className={bodyClass}>
         Thank you. Your Pro/Elite subscription is being activated
         {packageCode ? ` (${packageCode} plan)` : ""}. Next, set your broker
         password to open the dashboard.
       </p>
 
-      <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-4 text-left text-sm text-slate-300">
+      <div className={infoBoxClass}>
         {verifying ? (
           <div className="flex items-start gap-3">
-            <Clock3 className="mt-0.5 h-5 w-5 shrink-0 animate-pulse text-blue-300" />
+            <Clock3 className="mt-0.5 h-5 w-5 shrink-0 animate-pulse text-blue-600 dark:text-blue-300" />
             <div>
-              <p className="font-semibold text-white">Confirming activation…</p>
-              <p className="mt-1 text-slate-400">
+              <p className={infoTitleClass}>Confirming activation…</p>
+              <p className={infoMutedClass}>
                 This usually takes a few seconds after payment. You can leave
                 this page — we will also email you.
               </p>
@@ -402,10 +462,10 @@ export default function CheckoutResult() {
           </div>
         ) : subscriptionActive ? (
           <div className="flex items-start gap-3">
-            <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-300" />
+            <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-300" />
             <div>
-              <p className="font-semibold text-white">Subscription active</p>
-              <p className="mt-1 text-slate-400">
+              <p className={infoTitleClass}>Subscription active</p>
+              <p className={infoMutedClass}>
                 Your broker account is ready. Set your password to open the
                 dashboard.
               </p>
@@ -413,10 +473,10 @@ export default function CheckoutResult() {
           </div>
         ) : (
           <div className="flex items-start gap-3">
-            <Clock3 className="mt-0.5 h-5 w-5 shrink-0 text-amber-300" />
+            <Clock3 className="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-300" />
             <div>
-              <p className="font-semibold text-white">Almost there</p>
-              <p className="mt-1 text-slate-400">
+              <p className={infoTitleClass}>Almost there</p>
+              <p className={infoMutedClass}>
                 Activation can take a minute after payment. Use the email link
                 we sent, or refresh this page shortly.
               </p>
@@ -457,7 +517,7 @@ export default function CheckoutResult() {
         )}
       </div>
 
-      <p className="mt-6 text-xs text-slate-500">
+      <p className={tipClass}>
         Next you will set your broker password, then sign in. You can safely
         close the payment invoice tab.
       </p>
@@ -465,33 +525,3 @@ export default function CheckoutResult() {
   );
 }
 
-function ResultShell({ children }) {
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50 px-6 py-16 text-slate-900 transition-colors dark:bg-[#0b1020] dark:text-white">
-      <div className="w-full max-w-lg rounded-3xl border border-white/10 bg-gradient-to-b from-white/10 to-white/5 p-8 text-center shadow-2xl shadow-black/40 sm:p-10">
-        {children}
-      </div>
-    </div>
-  );
-}
-
-function IconBubble({ children, tone }) {
-  const tones = {
-    green: "bg-emerald-500/15 text-emerald-300 ring-emerald-400/30",
-    amber: "bg-amber-500/15 text-amber-300 ring-amber-400/30",
-    red: "bg-red-500/15 text-red-300 ring-red-400/30",
-  };
-  return (
-    <div
-      className={`mx-auto flex h-20 w-20 items-center justify-center rounded-full ring-1 ${tones[tone] || tones.green}`}
-    >
-      {children}
-    </div>
-  );
-}
-
-const primaryBtn =
-  "inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-500 px-5 py-3 text-sm font-semibold text-white transition hover:from-blue-400 hover:to-indigo-400";
-
-const secondaryBtn =
-  "inline-flex items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/5 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/10";

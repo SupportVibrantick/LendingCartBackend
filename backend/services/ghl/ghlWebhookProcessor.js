@@ -652,7 +652,50 @@ async function processGhlWebhook(prisma, io, body = {}) {
     });
 
     if (!checkout && lifecycle === "paid") {
-      // fall through to CLM attempt below
+      // Mid-cycle add-on upgrade tracked only on SubscriptionInvoice (no LoanAi user)
+      try {
+        const {
+          tryFulfillAddOnUpgradeFromInvoice,
+        } = require("../subscription/addOnUpgradeFulfill");
+        const addonResult = await tryFulfillAddOnUpgradeFromInvoice(
+          prisma,
+          ids,
+        );
+        if (addonResult) {
+          await prisma.ghlWebhookEvent.update({
+            where: { id: eventRow.id },
+            data: {
+              status: "PROCESSED",
+              processedAt: new Date(),
+              errorMessage: null,
+            },
+          });
+          logWebhookProcessed({
+            webhookId,
+            eventType,
+            lifecycle,
+            action: addonResult.action,
+            checkoutId: null,
+            loanAiUserId: null,
+            organizationSubscriptionId:
+              addonResult.organizationSubscriptionId || null,
+            ghlContactId: ids.ghlContactId,
+            ghlInvoiceId: ids.ghlInvoiceId,
+            status: "PROCESSED",
+          });
+          return {
+            duplicate: false,
+            webhookId,
+            status: "PROCESSED",
+            ...addonResult,
+          };
+        }
+      } catch (addonErr) {
+        commonLogs.warn("Add-on upgrade invoice fulfill attempt failed", {
+          message: addonErr?.message,
+          ghlInvoiceId: ids.ghlInvoiceId,
+        });
+      }
     }
 
     // CLM funnel / workflow webhooks often have no LendingCart checkout and may

@@ -152,6 +152,12 @@ export type LoanApplicationProps = {
   publicSourcePortal?: "BROKER" | "LOAN_OFFICER" | null;
   /** Embedded-only — if true, surface the "are you a broker?" step. */
   showCoBrokerBorrowerInformationTab?: boolean;
+  /** Broker plan loan categories (RESIDENTIAL_1_4, …). Empty = show all. */
+  allowedLoanCategories?: string[];
+  /** Broker plan loan product codes. Empty = no extra type filter. */
+  allowedLoanTypes?: string[];
+  /** Pro+ / fee-agreement pack: show optional Fee Agreement step. */
+  feeAgreementEnabled?: boolean;
   reviewCaptchaSlot?: ReactNode;
   recaptchaToken?: string | null;
 };

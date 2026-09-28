@@ -467,6 +467,7 @@ type ApplicationWorkspaceShellProps = {
   getStatusStyles: (status?: string) => string;
   getStatusDot: (status?: string) => string;
   compact?: boolean;
+  chatEnabled?: boolean;
   children: React.ReactNode;
 };
 
@@ -517,11 +518,16 @@ function ApplicationWorkspaceShell({
   getStatusStyles,
   getStatusDot,
   compact = false,
+  chatEnabled = true,
   children,
   topBar,
 }: ApplicationWorkspaceShellProps & { topBar?: React.ReactNode }) {
+  const workspaceSections = APPLICATION_WORKSPACE_SECTIONS.filter(
+    (section) => chatEnabled || section.id !== "communication",
+  );
+
   const renderNavItems = (opts?: { compact?: boolean }) =>
-    APPLICATION_WORKSPACE_SECTIONS.map((section, sectionIndex) => (
+    workspaceSections.map((section, sectionIndex) => (
       <div
         key={section.id}
         className={
@@ -817,7 +823,7 @@ export default function ClientUpload() {
   const [tabRefreshKey, setTabRefreshKey] = useState(0);
 
   const getClientPortalAuthConfig = () => {
-    const clientToken = sessionStorage.getItem("client_token");
+    const clientToken = sessionStorage.getItem("client_token")?.trim() || "";
 
     const headers: Record<string, string> = {};
 
@@ -1347,7 +1353,7 @@ export default function ClientUpload() {
         LENDER_CONDITIONAL: "documents",
       };
 
-      const nextTab = tabByEvent[notification.eventType || ""] || "application";
+      let nextTab = tabByEvent[notification.eventType || ""] || "application";
 
       if (nextTab === "documents") {
         await fetchApplicationDetails(appId, { keepCurrentTab: true });
@@ -1377,8 +1383,16 @@ export default function ClientUpload() {
         return;
       }
 
-      await fetchApplicationDetails(appId, { keepCurrentTab: true });
+      const details = await fetchApplicationDetails(appId, {
+        keepCurrentTab: true,
+      });
       setApplicationId(appId);
+      if (
+        nextTab === "chat" &&
+        !Boolean(details?.entitlements?.chatEnabled)
+      ) {
+        nextTab = "application";
+      }
       setActiveTab(nextTab);
     }
   };
@@ -1437,6 +1451,10 @@ export default function ClientUpload() {
       const res = await axios.get(url, getClientPortalAuthConfig());
 
       const data = res.data?.data;
+      if (!data) {
+        toast.error("Failed to fetch application details");
+        return null;
+      }
 
       setApplicationId(data.id);
       setApplicationNumber(data.applicationNumber || "");
@@ -1458,9 +1476,12 @@ export default function ClientUpload() {
       if (!options?.keepCurrentTab) {
         setActiveTab("application");
       }
+
+      return data;
     } catch (err) {
       console.error(err);
       toast.error("Failed to fetch application details");
+      return null;
     } finally {
       setApplicationDetailsLoading(false);
     }
@@ -1492,6 +1513,14 @@ export default function ClientUpload() {
     }
 
     if (tab === "chat") {
+      const enabled = Boolean(
+        applicationData?.entitlements?.chatEnabled ??
+          selectedApplication?.entitlements?.chatEnabled,
+      );
+      if (!enabled) {
+        setActiveTab("application");
+        return;
+      }
       setActiveTab("chat");
       return;
     }
@@ -1532,6 +1561,17 @@ export default function ClientUpload() {
     setActiveTab("applications");
   };
 
+  const chatEnabled = Boolean(
+    applicationData?.entitlements?.chatEnabled ??
+      selectedApplication?.entitlements?.chatEnabled,
+  );
+
+  useEffect(() => {
+    if (activeTab === "chat" && applicationId && !chatEnabled) {
+      setActiveTab("application");
+    }
+  }, [activeTab, applicationId, chatEnabled]);
+
   const renderApplicationWorkspace = (children: React.ReactNode) => (
     <ApplicationWorkspaceShell
       activeTab={
@@ -1549,6 +1589,7 @@ export default function ClientUpload() {
       getStatusStyles={getStatusStyles}
       getStatusDot={getStatusDot}
       compact={activeTab === "chat"}
+      chatEnabled={chatEnabled}
       topBar={
         <>
           {isClientPortalImpersonationSession() ? (
@@ -2792,6 +2833,7 @@ export default function ClientUpload() {
           )}
 
         {activeTab === "chat" &&
+          chatEnabled &&
           renderApplicationWorkspace(
             <div className="h-full min-h-0 overflow-hidden">
               <Chat

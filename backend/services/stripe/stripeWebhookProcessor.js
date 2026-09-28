@@ -13,6 +13,9 @@ const {
 const {
   cancelSubscription,
 } = require("../subscription/subscriptionBilling");
+const {
+  fulfillStripeCheckoutSession,
+} = require("./syncPaidCheckoutFromStripe.service");
 
 async function findOrgSubByStripeIds(prisma, { stripeSubscriptionId, stripeCustomerId }) {
   if (stripeSubscriptionId) {
@@ -161,9 +164,13 @@ async function attachStripeIdsToClmSubscription(
   });
 }
 
-async function processStripeWebhookEvent(prisma, event) {
+async function processStripeWebhookEvent(prisma, event, io = null) {
   const type = event?.type || "";
   const object = event?.data?.object || {};
+
+  if (type === "checkout.session.completed") {
+    return fulfillStripeCheckoutSession(prisma, io, object);
+  }
 
   if (
     type === "customer.subscription.deleted" ||

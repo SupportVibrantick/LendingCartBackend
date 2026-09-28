@@ -88,7 +88,10 @@ app.register(cors, {
     if (!origin || allowedOrigins.includes(origin)) {
       cb(null, true);
     } else {
-      cb(new Error(`The CORS origin ${origin} is not allowed`), false);
+      // Do not pass an Error here — @fastify/cors turns that into a 500.
+      // Rejecting with false omits ACAO; the browser blocks the response.
+      commonLogs.warn("CORS origin not allowlisted", { origin });
+      cb(null, false);
     }
   },
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],

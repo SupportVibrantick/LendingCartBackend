@@ -785,6 +785,183 @@ async function createSubscriptionCheckout(input = {}) {
 }
 
 /**
+ * Create a GHL invoice for mid-cycle add-on / extra-user upgrades (no plan line).
+ */
+async function createAddOnOnlyCheckout(input = {}) {
+  try {
+    const {
+      email,
+      firstName,
+      lastName,
+      phone,
+      companyName,
+      packageCode,
+      billingCycle,
+      planName,
+      successUrl,
+      cancelUrl,
+      metadata = {},
+      addOnLineItems = [],
+    } = input;
+
+    if (!email?.trim()) {
+      throw checkoutError(CHECKOUT_ERROR_CODES.VALIDATION_FAILED, 400);
+    }
+
+    const normalizedAddOns = (Array.isArray(addOnLineItems) ? addOnLineItems : [])
+      .map((item) => ({
+        code: item.code || null,
+        name: item.name || "Add-on",
+        priceId: item.priceId,
+        amount: Number(item.amount),
+        qty: Math.max(1, Number(item.qty) || 1),
+        itemType: item.itemType === "one_time" ? "one_time" : "recurring",
+      }))
+      .filter((item) => item.priceId && Number.isFinite(item.amount));
+
+    if (normalizedAddOns.length === 0) {
+      throw checkoutError(CHECKOUT_ERROR_CODES.INVALID_ADDON, 400);
+    }
+
+    const { productId } = requirePaymentApiCredentials();
+    const currency = "USD";
+    const addOnsAmount = normalizedAddOns.reduce(
+      (sum, item) => sum + item.amount * item.qty,
+      0,
+    );
+
+    let contactResult;
+    try {
+      contactResult = await ghlService.upsertGhlContact({
+        email: email.trim().toLowerCase(),
+        firstName: firstName || "",
+        lastName: lastName || "",
+        phone: phone || undefined,
+        companyName: companyName || undefined,
+        leadSource: "LendingCart Add-on Upgrade",
+        leadType: "AddOnUpgrade",
+        interestedPlan:
+          planName ||
+          `${String(packageCode || "").toUpperCase()} add-ons`.trim(),
+        lendingCartLeadId:
+          metadata.lendingCartCheckoutId || metadata.checkoutId || "",
+        tags: [
+          "lendingcart-addon-upgrade",
+          packageCode
+            ? `plan-${String(packageCode).toLowerCase()}`
+            : null,
+          billingCycle
+            ? `cycle-${String(billingCycle).toLowerCase()}`
+            : null,
+          ...normalizedAddOns
+            .map((a) => a.code)
+            .filter(Boolean)
+            .map((code) => `addon-${String(code).toLowerCase()}`),
+        ].filter(Boolean),
+      });
+    } catch (err) {
+      console.error("GHL contact upsert for add-on upgrade failed:", err.message);
+      throw checkoutError(CHECKOUT_ERROR_CODES.GHL_CONTACT_FAILED, 502);
+    }
+
+    const ghlContactId = contactResult.ghlContactId;
+    if (!ghlContactId) {
+      throw checkoutError(CHECKOUT_ERROR_CODES.GHL_CONTACT_FAILED, 502);
+    }
+
+    const liveMode = resolveCheckoutLiveMode();
+    const invoiceItems = normalizedAddOns.map((addon) => ({
+      name: addon.name,
+      description: addon.code
+        ? `Add-on upgrade ${addon.code}`
+        : "LendingCart add-on upgrade",
+      productId,
+      priceId: addon.priceId,
+      amount: addon.amount,
+      qty: addon.qty || 1,
+      currency,
+      type: addon.itemType,
+    }));
+
+    let invoicePayload;
+    try {
+      invoicePayload = await createGhlInvoice({
+        contact: {
+          ghlContactId,
+          email: email.trim().toLowerCase(),
+          firstName,
+          lastName,
+          phone,
+          companyName,
+        },
+        productId,
+        currency,
+        items: invoiceItems,
+        invoiceName: `LendingCart — Add-ons (${String(packageCode || "plan").toUpperCase()})`,
+        liveMode,
+      });
+    } catch (err) {
+      console.error("GHL create add-on invoice failed:", err.message);
+      throw mapPaymentServiceError(err);
+    }
+
+    const invoiceId = extractInvoiceId(invoicePayload);
+    let checkoutUrl = extractCheckoutUrl(invoicePayload);
+
+    if (invoiceId) {
+      try {
+        const sent = await sendGhlInvoice(invoiceId, {
+          email: email.trim().toLowerCase(),
+          liveMode,
+        });
+        checkoutUrl = extractCheckoutUrl(sent) || checkoutUrl;
+      } catch (err) {
+        console.warn("GHL send add-on invoice warning:", err.message || err);
+      }
+
+      if (!checkoutUrl) {
+        try {
+          const invoice = await getGhlInvoice(invoiceId);
+          checkoutUrl =
+            extractCheckoutUrl(invoice) || extractCheckoutUrl({ invoice });
+        } catch (err) {
+          console.warn("GHL get add-on invoice warning:", err.message || err);
+        }
+      }
+    }
+
+    if (!checkoutUrl) {
+      throw checkoutError(CHECKOUT_ERROR_CODES.CHECKOUT_CREATE_FAILED, 502);
+    }
+
+    checkoutUrl = appendRedirectParams(checkoutUrl, { successUrl, cancelUrl });
+
+    return {
+      checkoutUrl,
+      invoiceId,
+      ghlContactId,
+      productId,
+      priceId: normalizedAddOns[0].priceId,
+      packageCode: packageCode ? String(packageCode).toUpperCase() : null,
+      billingCycle: billingCycle
+        ? String(billingCycle).toUpperCase()
+        : null,
+      amount: addOnsAmount,
+      planAmount: 0,
+      addOnsAmount,
+      currency,
+      itemType: "recurring",
+      addOnCodes: normalizedAddOns.map((a) => a.code).filter(Boolean),
+    };
+  } catch (err) {
+    if (err?.code && Object.values(CHECKOUT_ERROR_CODES).includes(err.code)) {
+      throw err;
+    }
+    throw mapPaymentServiceError(err);
+  }
+}
+
+/**
  * Best-effort cancel of a GHL Payments subscription.
  * Native GHL cancel API is limited — callers should also tag the contact /
  * fire a workflow webhook so billing actually stops.
@@ -856,6 +1033,7 @@ module.exports = {
   getGhlSubscription,
   getGhlOrder,
   createSubscriptionCheckout,
+  createAddOnOnlyCheckout,
   extractCheckoutUrl,
   resolveCheckoutLiveMode,
   normalizePackageCode,

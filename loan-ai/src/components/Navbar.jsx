@@ -16,10 +16,10 @@ import { useTheme } from "../context/ThemeContext";
 import { getBrokerSignInUrl } from "../lib/brokerAuth";
 
 const NAV_LINKS = [
-  { name: "How it Works", link: "#how-it-works" },
-  { name: "Features", link: "#features" },
-  { name: "Pricing", link: "#pricing" },
-  { name: "Compare", link: "#plan-comparison" },
+  { name: "How it Works", link: "/#how-it-works", hash: "#how-it-works" },
+  { name: "Features", link: "/#features", hash: "#features" },
+  { name: "Pricing", link: "/#pricing", hash: "#pricing" },
+  { name: "Compare", link: "/#plan-comparison", hash: "#plan-comparison" },
 ];
 
 function getUserInitials(user) {
@@ -45,23 +45,34 @@ function ThemeToggle({ className = "" }) {
   );
 }
 
-function NavLink({ href, label, active, onClick }) {
-  return (
-    <a
-      href={href}
-      onClick={onClick}
-      className={`relative px-1 py-2 text-sm font-medium transition-colors ${
-        active
-          ? "text-slate-900 dark:text-white"
-          : "text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
+function NavLink({ href, label, active, onClick, external = false }) {
+  const isRoute = !external && href.startsWith("/") && !href.startsWith("/#");
+  const className = `relative px-1 py-2 text-sm font-medium transition-colors ${
+    active
+      ? "text-slate-900 dark:text-white"
+      : "text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
+  }`;
+  const underline = (
+    <span
+      className={`absolute left-0 -bottom-0.5 h-0.5 rounded-full bg-linear-to-r from-blue-400 to-indigo-400 transition-all duration-300 ${
+        active ? "w-full" : "w-0 group-hover:w-full"
       }`}
-    >
+    />
+  );
+
+  if (isRoute) {
+    return (
+      <Link to={href} onClick={onClick} className={className}>
+        {label}
+        {underline}
+      </Link>
+    );
+  }
+
+  return (
+    <a href={href} onClick={onClick} className={className}>
       {label}
-      <span
-        className={`absolute left-0 -bottom-0.5 h-0.5 rounded-full bg-linear-to-r from-blue-400 to-indigo-400 transition-all duration-300 ${
-          active ? "w-full" : "w-0 group-hover:w-full"
-        }`}
-      />
+      {underline}
     </a>
   );
 }
@@ -219,7 +230,12 @@ const Navbar = () => {
               key={item.link}
               href={item.link}
               label={item.name}
-              active={activeHash === item.link}
+              external={Boolean(item.external)}
+              active={
+                item.hash
+                  ? activeHash === item.hash && location.pathname === "/"
+                  : !item.external && location.pathname === item.link
+              }
             />
           ))}
         </nav>
@@ -286,20 +302,39 @@ const Navbar = () => {
       {mobileOpen && (
         <div className="border-t border-slate-200 bg-white/95 backdrop-blur-xl lg:hidden dark:border-white/10 dark:bg-black/95">
           <nav className="mx-auto flex max-w-7xl flex-col gap-1 px-4 py-4 sm:px-6">
-            {NAV_LINKS.map((item) => (
-              <a
-                key={item.link}
-                href={item.link}
-                onClick={closeMobile}
-                className={`rounded-xl px-4 py-3 text-sm font-medium transition ${
-                  activeHash === item.link
-                    ? "bg-slate-100 text-slate-900 dark:bg-white/10 dark:text-white"
-                    : "text-slate-500 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-white"
-                }`}
-              >
-                {item.name}
-              </a>
-            ))}
+            {NAV_LINKS.map((item) => {
+              const isRoute =
+                !item.external &&
+                item.link.startsWith("/") &&
+                !item.link.startsWith("/#");
+              const active = item.hash
+                ? activeHash === item.hash && location.pathname === "/"
+                : !item.external && location.pathname === item.link;
+              const className = `rounded-xl px-4 py-3 text-sm font-medium transition ${
+                active
+                  ? "bg-slate-100 text-slate-900 dark:bg-white/10 dark:text-white"
+                  : "text-slate-500 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-white"
+              }`;
+              return isRoute ? (
+                <Link
+                  key={item.link}
+                  to={item.link}
+                  onClick={closeMobile}
+                  className={className}
+                >
+                  {item.name}
+                </Link>
+              ) : (
+                <a
+                  key={item.link}
+                  href={item.link}
+                  onClick={closeMobile}
+                  className={className}
+                >
+                  {item.name}
+                </a>
+              );
+            })}
 
             {isAuthenticated && hasSubscription && (
               <a

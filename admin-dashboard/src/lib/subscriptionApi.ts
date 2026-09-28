@@ -432,6 +432,7 @@ export type FeaturesPayload = {
   includedUsers?: number | null;
   maxUsers?: number | null;
   extraUserPrice?: number | null;
+  priceYearlyMonthly?: number | null;
   groups?: unknown[];
   features?: string[];
 };
@@ -458,6 +459,10 @@ export function parseFeaturesPayload(
         maxUsers: parsed.maxUsers != null ? Number(parsed.maxUsers) : null,
         extraUserPrice:
           parsed.extraUserPrice != null ? Number(parsed.extraUserPrice) : null,
+        priceYearlyMonthly:
+          parsed.priceYearlyMonthly != null
+            ? Number(parsed.priceYearlyMonthly)
+            : null,
         groups: parsed.groups || parsed.featureGroups || [],
         features: Array.isArray(parsed.features) ? parsed.features : undefined,
       };

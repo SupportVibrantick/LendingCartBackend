@@ -83,61 +83,110 @@ async function resolvePortalClientIds(
   return Array.from(ids);
 }
 
+async function resolveUploadTokenClientEmail(prisma, clientId) {
+  if (!clientId) return "";
+
+  const contact = await prisma.clientContact.findFirst({
+    where: { clientId },
+    orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }],
+    select: { email: true },
+  });
+  if (contact?.email) {
+    return String(contact.email).trim().toLowerCase();
+  }
+
+  const portalUser = await prisma.clientPortalUser.findFirst({
+    where: { clientId, isDeleted: false },
+    select: { email: true },
+  });
+  return portalUser?.email
+    ? String(portalUser.email).trim().toLowerCase()
+    : "";
+}
+
 async function resolveClientPortalAccess(
   prisma,
   req,
   { applicationId } = {},
 ) {
-  const uploadToken = req.query?.token;
+  // Prefer a valid client JWT when present. Invite links often keep ?token= in
+  // the URL after login; that upload token is loan-scoped and would incorrectly
+  // block opening other applications shown in the portal list.
+  const clientAuth = getClientFromRequest(req);
+  if (!clientAuth.error) {
+    if (!applicationId) {
+      return { error: { code: 400, message: "Application id is required" } };
+    }
 
-  if (uploadToken) {
-    const tokenRecord = await prisma.clientUploadToken.findUnique({
-      where: { token: uploadToken },
-      select: {
-        clientId: true,
-        loanApplicationId: true,
-        expiresAt: true,
+    return {
+      clientId: clientAuth.clientId,
+      applicationId,
+      userId: clientAuth.userId,
+      email: clientAuth.email,
+    };
+  }
+
+  const uploadToken = req.query?.token;
+  if (!uploadToken) {
+    return clientAuth;
+  }
+
+  const tokenRecord = await prisma.clientUploadToken.findUnique({
+    where: { token: uploadToken },
+    select: {
+      clientId: true,
+      loanApplicationId: true,
+      expiresAt: true,
+    },
+  });
+
+  if (!tokenRecord) {
+    return {
+      error: { code: 404, message: "Invalid or expired access link" },
+    };
+  }
+
+  if (tokenRecord.expiresAt < new Date()) {
+    return { error: { code: 400, message: "Link expired" } };
+  }
+
+  if (
+    applicationId &&
+    tokenRecord.loanApplicationId &&
+    tokenRecord.loanApplicationId !== applicationId
+  ) {
+    // Invite tokens are created for one loan, but the same client may open
+    // sibling applications from the portal list. Allow same-client access.
+    const email = await resolveUploadTokenClientEmail(
+      prisma,
+      tokenRecord.clientId,
+    );
+    const clientIds = await resolvePortalClientIds(prisma, {
+      clientId: tokenRecord.clientId,
+      email,
+    });
+    const siblingApp = await prisma.loanApplication.findFirst({
+      where: {
+        id: applicationId,
+        clientId: { in: clientIds.length > 0 ? clientIds : [tokenRecord.clientId] },
       },
+      select: { id: true, clientId: true },
     });
 
-    if (!tokenRecord) {
-      return {
-        error: { code: 404, message: "Invalid or expired access link" },
-      };
-    }
-
-    if (tokenRecord.expiresAt < new Date()) {
-      return { error: { code: 400, message: "Link expired" } };
-    }
-
-    if (
-      applicationId &&
-      tokenRecord.loanApplicationId &&
-      tokenRecord.loanApplicationId !== applicationId
-    ) {
+    if (!siblingApp) {
       return { error: { code: 403, message: "Access denied" } };
     }
 
     return {
-      clientId: tokenRecord.clientId,
-      applicationId: applicationId || tokenRecord.loanApplicationId,
+      clientId: siblingApp.clientId,
+      applicationId: siblingApp.id,
+      email: email || undefined,
     };
   }
 
-  const clientAuth = getClientFromRequest(req);
-  if (clientAuth.error) {
-    return clientAuth;
-  }
-
-  if (!applicationId) {
-    return { error: { code: 400, message: "Application id is required" } };
-  }
-
   return {
-    clientId: clientAuth.clientId,
-    applicationId,
-    userId: clientAuth.userId,
-    email: clientAuth.email,
+    clientId: tokenRecord.clientId,
+    applicationId: applicationId || tokenRecord.loanApplicationId,
   };
 }
 

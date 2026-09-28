@@ -1,5 +1,6 @@
 async function loanOfficerRoutes(fastify) {
   await fastify.register(require("./auth"), { prefix: "/auth" });
+  await fastify.register(require("./entitlements"), { prefix: "/entitlements" });
   await fastify.register(require("./loanPipeline"), { prefix: "/loan-pipeline" });
   await fastify.register(require("./applications"), { prefix: "/applications" });
   await fastify.register(require("./contacts"), { prefix: "/contacts" });

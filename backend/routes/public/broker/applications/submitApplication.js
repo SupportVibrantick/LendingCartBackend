@@ -261,6 +261,65 @@ async function submitApplication(fastify) {
       });
     }
 
+    const {
+      assertPublicLoanAccess,
+      getPublicLoanEntitlements,
+    } = require("../../../../utils/applications/publicLoanEntitlements");
+    const loanDenied = await assertPublicLoanAccess(
+      fastify.prisma,
+      brokerOrgId,
+      {
+        loanProductCode: resolvedLoanProductCode,
+        fields,
+      },
+    );
+    if (loanDenied) {
+      return reply.code(loanDenied.status).send({
+        success: false,
+        message: loanDenied.message,
+      });
+    }
+
+    const {
+      getFeeAgreementRequestError,
+      tryAttachFeeAgreementIfRequested,
+    } = require("../../../../services/feeAgreement/attachFeeAgreementToApplication");
+    const wantsFeeAgreement = req.body?.feeAgreement?.include === true;
+    if (wantsFeeAgreement) {
+      const loanEntitlements = await getPublicLoanEntitlements(
+        fastify.prisma,
+        brokerOrgId,
+      );
+      if (!loanEntitlements.feeAgreementEnabled) {
+        return reply.code(403).send({
+          success: false,
+          message: "Fee agreement is not available on this broker's plan",
+        });
+      }
+      const feeAgreementError = getFeeAgreementRequestError(req.body);
+      if (feeAgreementError) {
+        return reply.code(400).send({
+          success: false,
+          message: feeAgreementError,
+        });
+      }
+    }
+
+    const {
+      assertApplicationQuotaAvailable,
+    } = require("../../../../services/subscription/subscriptionBilling");
+    const quota = await assertApplicationQuotaAvailable(
+      fastify.prisma,
+      brokerOrgId,
+    );
+    if (!quota.ok) {
+      return reply.code(quota.statusCode || 403).send({
+        success: false,
+        code: quota.code,
+        message: quota.message,
+      });
+    }
+
     let result;
     try {
       result = await fastify.prisma.$transaction(async (tx) => {
@@ -509,6 +568,18 @@ async function submitApplication(fastify) {
       });
     }
 
+    const feeAgreementWarning = wantsFeeAgreement
+      ? await tryAttachFeeAgreementIfRequested(
+          fastify,
+          result.loanApplication.id,
+          req.body,
+        )
+      : null;
+    const warnings = [
+      ...(result.warnings || []),
+      ...(feeAgreementWarning ? [feeAgreementWarning] : []),
+    ];
+
     return reply.code(201).send({
       success: true,
       message: "Application submitted successfully",
@@ -516,7 +587,7 @@ async function submitApplication(fastify) {
         submissionId: result.submission.id,
         loanApplicationId: result.loanApplication.id,
         sourcePortal: result.sourcePortal,
-        ...(result.warnings?.length ? { warnings: result.warnings } : {}),
+        ...(warnings.length ? { warnings } : {}),
       },
     });
   });

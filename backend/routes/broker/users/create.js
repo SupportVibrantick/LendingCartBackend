@@ -97,6 +97,24 @@ module.exports = async function createBrokerUser(fastify) {
           orgEntitlements.features,
         );
 
+        const {
+          assertSeatAvailable,
+        } = require("../../../services/subscription/subscriptionBilling");
+        const seatCheck = await assertSeatAvailable(
+          prisma,
+          brokerOrgId,
+          "LOAN_OFFICERS",
+        );
+        if (!seatCheck.ok) {
+          return reply.code(seatCheck.statusCode || 403).send({
+            success: false,
+            code: seatCheck.code,
+            message: seatCheck.message,
+            used: seatCheck.used,
+            limit: seatCheck.limit,
+          });
+        }
+
         if (
           !email ||
           !confirmEmail ||

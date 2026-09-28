@@ -1,62 +1,6 @@
 // backend/routes/common/documentTypes/wizardOptions.js
 const { WIZARD_DOCUMENT_TYPE_CODES } = require("../../../prisma/admin/documentTypes.seed");
 
-module.exports = async function wizardDocumentTypeOptions(fastify) {
-  fastify.get(
-    "/wizard-options",
-    {
-      schema: {
-        tags: ["Common -> Document Types"],
-        summary:
-          "Get the canonical 23-option document-type list used by the loan-application wizard (Step 6). Each entry is keyed by `code` and includes a friendly `label` plus the DB row's `id` and `name`.",
-      },
-    },
-    async (req, reply) => {
-      const prisma = fastify.prisma;
-      await fastify.authenticate(req, reply);
-
-      const rows = await prisma.documentType.findMany({
-        where: {
-          code: { in: WIZARD_DOCUMENT_TYPE_CODES },
-          isActive: true,
-        },
-        select: {
-          id: true,
-          code: true,
-          name: true,
-          description: true,
-        },
-      });
-
-      // Stable order matching the wizard's vocabulary so the UI renders
-      // checkboxes in the same order regardless of DB insertion sequence.
-      const byCode = new Map(rows.map((row) => [row.code, row]));
-      const ordered = WIZARD_DOCUMENT_TYPE_CODES
-        .map((code) => {
-          const row = byCode.get(code);
-          if (!row) return null;
-          return {
-            id: row.id,
-            code: row.code,
-            // Friendly label comes from the canonical wizard list (above the
-            // seed). For rows the seed aliases back to an existing catalog
-            // row, the wizard label and DB `name` differ by design — we
-            // surface `name` for display but expose `code` for routing.
-            label: wizardLabelFor(code),
-            name: row.name,
-            description: row.description,
-          };
-        })
-        .filter(Boolean);
-
-      return {
-        success: true,
-        data: ordered,
-      };
-    },
-  );
-};
-
 // Keep this map in sync with `APPLICATION_DOCUMENT_TYPE_OPTIONS` in the
 // frontends (broker-dashboard + loan-application-embeded). The DB stores the
 // `code`; the wizard UI shows the human-friendly label.
@@ -89,3 +33,81 @@ const WIZARD_LABELS = {
 function wizardLabelFor(code) {
   return WIZARD_LABELS[code] || code;
 }
+
+/** Create any missing wizard codes so uploads never fail with "can't resolve". */
+async function ensureWizardDocumentTypes(prisma) {
+  const existing = await prisma.documentType.findMany({
+    where: { code: { in: WIZARD_DOCUMENT_TYPE_CODES } },
+    select: { code: true },
+  });
+  const found = new Set(existing.map((row) => row.code));
+  const missing = WIZARD_DOCUMENT_TYPE_CODES.filter((code) => !found.has(code));
+  if (missing.length === 0) return;
+
+  for (const code of missing) {
+    const label = wizardLabelFor(code);
+    await prisma.documentType.create({
+      data: {
+        code,
+        name: label,
+        description: `${label} (wizard vocabulary)`,
+        isActive: true,
+      },
+    });
+  }
+}
+
+module.exports = async function wizardDocumentTypeOptions(fastify) {
+  fastify.get(
+    "/wizard-options",
+    {
+      schema: {
+        tags: ["Common -> Document Types"],
+        summary:
+          "Get the canonical 23-option document-type list used by the loan-application wizard (Step 6). Each entry is keyed by `code` and includes a friendly `label` plus the DB row's `id` and `name`.",
+      },
+    },
+    async (req, reply) => {
+      const prisma = fastify.prisma;
+      await fastify.authenticate(req, reply);
+      if (reply.sent) return;
+
+      await ensureWizardDocumentTypes(prisma);
+
+      const rows = await prisma.documentType.findMany({
+        where: {
+          code: { in: WIZARD_DOCUMENT_TYPE_CODES },
+          isActive: true,
+        },
+        select: {
+          id: true,
+          code: true,
+          name: true,
+          description: true,
+        },
+      });
+
+      // Stable order matching the wizard's vocabulary so the UI renders
+      // checkboxes in the same order regardless of DB insertion sequence.
+      const byCode = new Map(rows.map((row) => [row.code, row]));
+      const ordered = WIZARD_DOCUMENT_TYPE_CODES
+        .map((code) => {
+          const row = byCode.get(code);
+          if (!row) return null;
+          return {
+            id: row.id,
+            code: row.code,
+            label: wizardLabelFor(code),
+            name: row.name,
+            description: row.description,
+          };
+        })
+        .filter(Boolean);
+
+      return {
+        success: true,
+        data: ordered,
+      };
+    },
+  );
+};

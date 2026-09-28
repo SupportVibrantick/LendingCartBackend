@@ -48,6 +48,8 @@ export type LoanPreviewConfig = {
   canMarkPaidCommission: boolean;
   showMarkFunded: boolean;
   showEmailReminders: boolean;
+  /** Document reminder schedules API root (broker path works for LO JWTs). */
+  documentRemindersApiPrefix: string;
   Chat: ComponentType<{ applicationId?: string | null }>;
   FeeAgreement: ComponentType<any>;
   LoanApplication: ComponentType<any>;
@@ -137,7 +139,8 @@ export function getLoanPreviewConfig(
       commissionPortal: "subbroker",
       canMarkPaidCommission: false,
       showMarkFunded: false,
-      showEmailReminders: false,
+      showEmailReminders: true,
+      documentRemindersApiPrefix: "/subbroker/loan-pipeline",
       Chat: CoBrokerLoanPreviewChat,
       FeeAgreement: CoBrokerFeeAgreement,
       LoanApplication: CoBrokerLoanApplication,
@@ -162,6 +165,7 @@ export function getLoanPreviewConfig(
       canMarkPaidCommission: false,
       showMarkFunded: false,
       showEmailReminders: true,
+      documentRemindersApiPrefix: "/broker/loan-pipeline",
       Chat: LoanOfficerLoanPreviewChat,
       FeeAgreement: LoanOfficerFeeAgreement,
       LoanApplication: LoanOfficerLoanApplication,
@@ -185,6 +189,7 @@ export function getLoanPreviewConfig(
     canMarkPaidCommission: true,
     showMarkFunded: true,
     showEmailReminders: true,
+    documentRemindersApiPrefix: "/broker/loan-pipeline",
     Chat: BrokerLoanPreviewChat,
     FeeAgreement: BrokerFeeAgreement,
     LoanApplication: BrokerLoanApplication,

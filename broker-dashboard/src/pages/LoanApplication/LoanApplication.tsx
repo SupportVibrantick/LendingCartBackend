@@ -4,6 +4,7 @@ import Swal from "sweetalert2";
 import { useNavigate } from "react-router";
 import { Building2, HomeIcon, Landmark, Settings } from "lucide-react";
 import { useBrokerEntitlements } from "../../lib/brokerEntitlements";
+import { hasPermission } from "../../lib/brokerPermissions";
 
 import {
   createSbaEntityDefaults,
@@ -612,7 +613,7 @@ function getPortalConfig(portal: LoanApplicationPortal, apiBase: string) {
         requestDocuments: (loanApplicationId: string) =>
           `${apiBase}/broker/loan-pipeline/${loanApplicationId}/request-documents`,
         listDocuments: (submissionId: string) =>
-          `${apiBase}/broker/loan-pipeline/submissions/${submissionId}/documents?limit=100&documentCategory=upload`,
+          `${apiBase}/broker/loan-pipeline/submissions/${submissionId}/documents?limit=50&documentCategory=upload`,
         uploadDocument: (submissionId: string, requirementId: string) =>
           `${apiBase}/broker/loan-pipeline/submissions/${submissionId}/documents/${requirementId}/upload`,
       } satisfies LoanApplicationDocumentPaths,
@@ -635,7 +636,7 @@ function getPortalConfig(portal: LoanApplicationPortal, apiBase: string) {
         requestDocuments: (loanApplicationId: string) =>
           `${apiBase}/subbroker/documents/${loanApplicationId}/request-documents`,
         listDocuments: (submissionId: string) =>
-          `${apiBase}/subbroker/documents/submissions/${submissionId}/documents?limit=100&documentCategory=upload`,
+          `${apiBase}/subbroker/documents/submissions/${submissionId}/documents?limit=50&documentCategory=upload`,
         uploadDocument: (submissionId: string, requirementId: string) =>
           `${apiBase}/subbroker/documents/submissions/${submissionId}/documents/${requirementId}/upload`,
       } satisfies LoanApplicationDocumentPaths,
@@ -657,7 +658,7 @@ function getPortalConfig(portal: LoanApplicationPortal, apiBase: string) {
       requestDocuments: (loanApplicationId: string) =>
         `${apiBase}/broker/loan-pipeline/${loanApplicationId}/request-documents`,
       listDocuments: (submissionId: string) =>
-        `${apiBase}/broker/loan-pipeline/submissions/${submissionId}/documents?limit=100&documentCategory=upload`,
+        `${apiBase}/broker/loan-pipeline/submissions/${submissionId}/documents?limit=50&documentCategory=upload`,
       uploadDocument: (submissionId: string, requirementId: string) =>
         `${apiBase}/broker/loan-pipeline/submissions/${submissionId}/documents/${requirementId}/upload`,
     } satisfies LoanApplicationDocumentPaths,
@@ -818,7 +819,7 @@ const LoanApplication = ({
   reviewCaptchaSlot,
   recaptchaToken = null,
 }: LoanApplicationProps = {}) => {
-  const { entitlements } = useBrokerEntitlements();
+  const { entitlements, loading: entitlementsLoading } = useBrokerEntitlements();
   const coBorrowerRefs = useRef<Record<number, HTMLDivElement | null>>({});
   const [lastAddedId, setLastAddedId] = useState<number | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<string>(
@@ -893,7 +894,16 @@ const LoanApplication = ({
   const useStandardSevenStepFlow =
     isBase44Flow || !selectedCategory || !selectedProduct;
 
-  const includeFeeAgreementStep = !publicEmbed;
+  const includeFeeAgreementStep =
+    !publicEmbed &&
+    hasPermission(
+      "VIEW_FEE_AGREEMENT",
+      portal === "loanOfficer"
+        ? "loanOfficer"
+        : portal === "coBroker"
+          ? "coBroker"
+          : "broker",
+    );
 
   const showDefaultEntityInfoFields = !selectedCategory || !selectedProduct;
 
@@ -2921,9 +2931,16 @@ const LoanApplication = ({
       "ABL",
     ];
     const allowed = entitlements?.loanCategories;
-    if (!allowed || allowed.length === 0) return all;
+    // Fail closed while loading / missing: Starter floor only. Pro+ expands
+    // once entitlements arrive (avoids briefly unlocking CRE on LO portal).
+    if (entitlementsLoading || !entitlements) {
+      return ["RESIDENTIAL_1_4"];
+    }
+    if (!allowed || allowed.length === 0) {
+      return ["RESIDENTIAL_1_4"];
+    }
     return all.filter((cat) => allowed.includes(cat));
-  }, [entitlements?.loanCategories]);
+  }, [entitlements, entitlementsLoading]);
 
   // Clear category if no longer entitled (e.g. after entitlements load)
   useEffect(() => {

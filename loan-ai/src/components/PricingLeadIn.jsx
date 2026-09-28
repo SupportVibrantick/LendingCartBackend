@@ -1,4 +1,3 @@
-import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
   ArrowRight,
@@ -179,10 +178,10 @@ function PrimaryCta() {
   }
 
   return (
-    <Link to="/signup" className={className}>
-      Start Free Trial
+    <a href="#pricing" className={className}>
+      Choose a plan
       <ArrowRight size={18} />
-    </Link>
+    </a>
   );
 }
 

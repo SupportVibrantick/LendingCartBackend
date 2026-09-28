@@ -44,12 +44,9 @@ module.exports = async function listBrokerLogs(fastify) {
           });
         }
 
-        if (!req.user.roles?.includes("BROKER_ADMIN")) {
-          return reply.code(403).send({
-            success: false,
-            message: "Only Broker Admin can view logs"
-          });
-        }
+        // Broker admins always; loan officers need VIEW_DASHBOARD_LOGS.
+        await fastify.requirePermission("VIEW_DASHBOARD_LOGS")(req, reply);
+        if (reply.sent) return;
 
         const brokerOrgId = req.user.organizationId;
 

@@ -93,6 +93,77 @@ function loanTypeCodesForCategory(category) {
   return LOAN_TYPES_BY_CATEGORY[category] || [];
 }
 
+/**
+ * Residential Bridge/Construction are stored as canonical CRE codes
+ * (BRIDGE_LOAN / CONSTRUCTION_LOAN) after submit canonicalization, but Starter
+ * entitlements grant the *_1_TO_4_UNITS variants. Map both directions.
+ */
+const RESIDENTIAL_PRODUCT_CANONICAL = {
+  BRIDGE_LOAN_1_TO_4_UNITS: "BRIDGE_LOAN",
+  CONSTRUCTION_LOAN_1_TO_4_UNITS: "CONSTRUCTION_LOAN",
+};
+
+const CANONICAL_TO_RESIDENTIAL_PRODUCT = {
+  BRIDGE_LOAN: "BRIDGE_LOAN_1_TO_4_UNITS",
+  CONSTRUCTION_LOAN: "CONSTRUCTION_LOAN_1_TO_4_UNITS",
+};
+
+function loanTypeEntitlementCandidates(loanCategory, loanType) {
+  const type = String(loanType || "").trim().toUpperCase();
+  if (!type) return [];
+
+  const cat = String(loanCategory || "")
+    .trim()
+    .toUpperCase()
+    .replace(/^LOAN_CAT_/, "");
+
+  const candidates = new Set([type]);
+
+  if (cat === "RESIDENTIAL_1_4" && CANONICAL_TO_RESIDENTIAL_PRODUCT[type]) {
+    candidates.add(CANONICAL_TO_RESIDENTIAL_PRODUCT[type]);
+  }
+  if (RESIDENTIAL_PRODUCT_CANONICAL[type]) {
+    candidates.add(RESIDENTIAL_PRODUCT_CANONICAL[type]);
+  }
+
+  return [...candidates];
+}
+
+function normalizeLoanCategoryCode(loanCategory) {
+  const cat = String(loanCategory || "")
+    .trim()
+    .toUpperCase()
+    .replace(/^LOAN_CAT_/, "");
+  return LOAN_TYPES_BY_CATEGORY[cat] ? cat : null;
+}
+
+/**
+ * Prefer explicit category from the client. Only infer from product code when
+ * the code uniquely belongs to one category (never invent CRE from a
+ * canonicalized residential Bridge/Construction code).
+ */
+function resolveLoanCategoryForAccess({ loanCategory, loanType } = {}) {
+  const explicit = normalizeLoanCategoryCode(loanCategory);
+  if (explicit) return explicit;
+
+  const type = String(loanType || "").trim().toUpperCase();
+  if (!type) return null;
+
+  // Canonical Bridge/Construction are shared with CRE after submit
+  // canonicalization — never infer CRE without an explicit category.
+  if (CANONICAL_TO_RESIDENTIAL_PRODUCT[type]) {
+    return null;
+  }
+
+  const exactMatches = [];
+  for (const [cat, codes] of Object.entries(LOAN_TYPES_BY_CATEGORY)) {
+    if (codes.includes(type)) exactMatches.push(cat);
+  }
+  if (exactMatches.length === 1) return exactMatches[0];
+
+  return null;
+}
+
 const LO_FEATURE_LABELS = {
   VIEW_DASHBOARD_STATS: "View Pipeline Stats",
   VIEW_DASHBOARD_RECENT: "View Recent Applications",
@@ -356,6 +427,98 @@ async function getFeatureCatalog(prisma) {
   return buildCatalog(nameByCode);
 }
 
+/** Core LO/admin capabilities every paid plan gets (Starter floor). */
+const CORE_PACKAGE_PERMISSIONS = [
+  "VIEW_DASHBOARD_STATS",
+  "VIEW_DASHBOARD_RECENT",
+  "VIEW_APPLICATIONS",
+  "CREATE_APPLICATION",
+  "EDIT_APPLICATION",
+  "DELETE_APPLICATION",
+  "ASSIGN_APPLICATION",
+  "SUBMIT_TO_LENDERS",
+  "SHARE_APPLICATION_LINK",
+  "VIEW_BORROWERS",
+  "CREATE_BORROWERS",
+  "EDIT_BORROWERS",
+  "ACCESS_BORROWER_PORTAL",
+  "UPLOAD_DOCUMENTS",
+  "REQUEST_DOCUMENTS",
+  "DOCUMENTS_TO_SIGN",
+  "VIEW_LENDER_HUB",
+  "DELETE_DOCUMENTS",
+  "MANAGE_CUSTOM_DOCUMENTS",
+  "VIEW_CUSTOM_DOCUMENTS",
+  "VIEW_CONTACTS",
+  "CREATE_CONTACTS",
+  "EDIT_CONTACTS",
+  "DELETE_CONTACTS",
+  "VIEW_REPORTS",
+  "EXPORT_REPORTS",
+  "VIEW_COMPANY_SETTINGS",
+  // Seat-based team: any plan that can buy EXTRA_USER may create LOs
+  "VIEW_LOAN_OFFICERS",
+  "CREATE_LOAN_OFFICERS",
+  "EDIT_LOAN_OFFICERS",
+  "DISABLE_LOAN_OFFICERS",
+];
+
+/** Pro+ (or matching add-ons): LO/co-broker portals, fee/term sheet, GHL starter. */
+const PRO_PACKAGE_PERMISSIONS = [
+  "VIEW_CO_BROKERS",
+  "ACCESS_CO_BROKER_PORTAL",
+  "EDIT_CO_BROKERS",
+  "DISABLE_CO_BROKERS",
+  "DELETE_CO_BROKERS",
+  "VIEW_FEE_AGREEMENT",
+  "VIEW_LOI_TERM_SHEET",
+  "GENERATE_LOI",
+  "REGENERATE_LOI",
+  "SEND_LOI_TO_CLIENT",
+  "SEND_LOI_TO_LENDER",
+  "VIEW_COMMISSIONS",
+  "VIEW_INVOICES",
+  "ACCESS_GOHIGHLEVEL",
+  // Internal chat + email reminders (Starter excluded)
+  "CHAT",
+  "SEND_EMAILS",
+  "SEND_NOTIFICATIONS",
+];
+
+/** Elite+: marketplace, white-label, logs, auto-forward docs. */
+const ELITE_PACKAGE_PERMISSIONS = [
+  "VIEW_MARKETPLACE",
+  "CONNECT_LENDERS",
+  "SEND_APPLICATIONS",
+  "ADD_OWN_LENDER",
+  "MANAGE_BRANDING",
+  "VIEW_DASHBOARD_LOGS",
+  "AUTO_FORWARD_TO_LENDER",
+  "AUTO_FORWARD_TO_CLIENT",
+];
+
+const FEE_AGREEMENT_PERMISSIONS = [
+  "VIEW_FEE_AGREEMENT",
+  "VIEW_LOI_TERM_SHEET",
+  "GENERATE_LOI",
+  "REGENERATE_LOI",
+  "SEND_LOI_TO_CLIENT",
+  "SEND_LOI_TO_LENDER",
+];
+
+const MARKETPLACE_PERMISSIONS = [
+  "VIEW_MARKETPLACE",
+  "CONNECT_LENDERS",
+  "SEND_APPLICATIONS",
+  "ADD_OWN_LENDER",
+];
+
+function addPermissionGroup(target, keys) {
+  for (const key of keys) {
+    if (ALL_LO_PERMISSION_KEYS.includes(key)) target.add(key);
+  }
+}
+
 function defaultFeaturesForPackage(packageCode, purchasedAddOns = []) {
   const code = String(packageCode || "BASIC").toUpperCase();
   const addOnCodes = new Set(
@@ -364,20 +527,54 @@ function defaultFeaturesForPackage(packageCode, purchasedAddOns = []) {
       .filter(Boolean),
   );
 
-  const features = new Set(ALL_LO_PERMISSION_KEYS);
+  const features = new Set();
+  addPermissionGroup(features, CORE_PACKAGE_PERMISSIONS);
 
-  features.add("LOAN_CAT_RESIDENTIAL_1_4");
-  for (const code of loanTypeCodesForCategory("RESIDENTIAL_1_4")) {
-    features.add(loanTypeFeatureKey(code));
+  const isProOrHigher = code === "PRO" || code === "ELITE";
+  const isElite = code === "ELITE";
+
+  if (isProOrHigher) {
+    addPermissionGroup(features, PRO_PACKAGE_PERMISSIONS);
+  }
+  if (isElite) {
+    addPermissionGroup(features, ELITE_PACKAGE_PERMISSIONS);
   }
 
-  const includeCre = code === "PRO" || code === "ELITE" || addOnCodes.has("CRE_PACK");
+  // Add-on unlocks (lower tiers)
+  if (addOnCodes.has("FEE_AGREEMENT_PACK")) {
+    addPermissionGroup(features, FEE_AGREEMENT_PERMISSIONS);
+  }
+  if (
+    addOnCodes.has("LENDER_MARKETPLACE_PACK") ||
+    addOnCodes.has("LENDER_MARKETPLACE")
+  ) {
+    addPermissionGroup(features, MARKETPLACE_PERMISSIONS);
+  }
+  if (addOnCodes.has("WHITE_LABEL")) {
+    features.add("MANAGE_BRANDING");
+  }
+  if (
+    addOnCodes.has("GHL_STARTER") ||
+    addOnCodes.has("GHL_BASIC_SYNC") ||
+    addOnCodes.has("GHL_GROWTH")
+  ) {
+    features.add("ACCESS_GOHIGHLEVEL");
+  }
+
+  // Loan categories / types
+  features.add("LOAN_CAT_RESIDENTIAL_1_4");
+  for (const typeCode of loanTypeCodesForCategory("RESIDENTIAL_1_4")) {
+    features.add(loanTypeFeatureKey(typeCode));
+  }
+
+  const includeCre =
+    isProOrHigher || addOnCodes.has("CRE_PACK");
   const includeSba =
-    code === "ELITE" ||
+    isElite ||
     addOnCodes.has("SBA_PACK") ||
     addOnCodes.has("BUSINESS_LENDING_PACK");
   const includeAbl =
-    code === "ELITE" ||
+    isElite ||
     addOnCodes.has("ABL_PACK") ||
     addOnCodes.has("BUSINESS_LENDING_PACK");
 
@@ -403,6 +600,28 @@ function defaultFeaturesForPackage(packageCode, purchasedAddOns = []) {
   return [...features].filter((k) => ALL_FEATURE_KEY_SET.has(k));
 }
 
+/**
+ * Map a UI/legacy permission key to org entitlement permission keys.
+ */
+function expandPermissionAliases(permissionKey) {
+  const key = String(permissionKey || "").trim();
+  if (!key) return [];
+  const aliases = {
+    VIEW_PIPELINE: ["VIEW_APPLICATIONS"],
+    VIEW_LENDERS: ["VIEW_MARKETPLACE"],
+    VIEW_TEMPLATES: ["MANAGE_CUSTOM_DOCUMENTS", "VIEW_CUSTOM_DOCUMENTS"],
+    MANAGE_SETTINGS: ["MANAGE_BRANDING"],
+    VIEW_SETTINGS: ["VIEW_COMPANY_SETTINGS", "MANAGE_BRANDING"],
+  };
+  if (aliases[key]) return aliases[key];
+  return [key];
+}
+
+function orgAllowsPermission(orgPermissionKeys, permissionKey) {
+  const allowed = new Set(orgPermissionKeys || []);
+  return expandPermissionAliases(permissionKey).some((k) => allowed.has(k));
+}
+
 function normalizeFeatureKeys(keys = []) {
   const unique = new Set();
   for (const key of keys || []) {
@@ -413,21 +632,47 @@ function normalizeFeatureKeys(keys = []) {
 }
 
 function resolveEnabledFeatures(subscription) {
+  const packageDefaults = defaultFeaturesForPackage(
+    subscription?.package?.code || "BASIC",
+    subscription?.purchasedAddOns || [],
+  );
+
   if (!subscription) {
-    return normalizeFeatureKeys(defaultFeaturesForPackage("BASIC", []));
+    return normalizeFeatureKeys(packageDefaults);
   }
 
   const raw = subscription.enabledFeatures;
-  if (Array.isArray(raw)) {
-    return normalizeFeatureKeys(raw);
-  }
-  if (raw && typeof raw === "object" && Array.isArray(raw.keys)) {
-    return normalizeFeatureKeys(raw.keys);
+  let customKeys = null;
+  if (Array.isArray(raw) && raw.length > 0) {
+    customKeys = raw;
+  } else if (
+    raw &&
+    typeof raw === "object" &&
+    Array.isArray(raw.keys) &&
+    raw.keys.length > 0
+  ) {
+    customKeys = raw.keys;
   }
 
-  return normalizeFeatureKeys(
-    defaultFeaturesForPackage(subscription.package?.code, subscription.purchasedAddOns),
+  // No custom snapshot → full package matrix (Starter / Pro / Elite + add-ons).
+  if (!customKeys) {
+    return normalizeFeatureKeys(packageDefaults);
+  }
+
+  const custom = normalizeFeatureKeys(customKeys);
+  // Loan category/type matrix always tracks the current package (+ add-ons),
+  // so Elite upgrades are not stuck on a Starter-only snapshot. Permission
+  // keys may still be customized by admin.
+  const packageLoan = packageDefaults.filter(
+    (k) =>
+      String(k).startsWith("LOAN_CAT_") || String(k).startsWith("LOAN_TYPE_"),
   );
+  const customPermissions = custom.filter(
+    (k) =>
+      !String(k).startsWith("LOAN_CAT_") && !String(k).startsWith("LOAN_TYPE_"),
+  );
+
+  return normalizeFeatureKeys([...customPermissions, ...packageLoan]);
 }
 
 function isCustomEnabledFeatures(raw) {
@@ -466,6 +711,48 @@ function filterPermissionsToOrg(permissionKeys, orgFeatureKeys) {
   return (permissionKeys || []).filter((k) => allowed.has(k));
 }
 
+/**
+ * Validate loan category / product type against org entitlements.
+ * @returns {{ ok: true } | { ok: false, message: string }}
+ */
+function assertLoanAccessAllowed(orgFeatures, { loanCategory, loanType } = {}) {
+  const { loanCategories, loanTypes } = splitFeatures(orgFeatures || []);
+  const catSet = new Set(loanCategories);
+  const typeSet = new Set(loanTypes);
+
+  const resolvedCategory = resolveLoanCategoryForAccess({
+    loanCategory,
+    loanType,
+  });
+
+  if (resolvedCategory) {
+    if (!catSet.has(resolvedCategory) && !catSet.has(`LOAN_CAT_${resolvedCategory}`)) {
+      return {
+        ok: false,
+        message: `Your plan does not include the "${resolvedCategory}" loan category`,
+      };
+    }
+  }
+
+  if (loanType) {
+    const candidates = loanTypeEntitlementCandidates(
+      resolvedCategory || loanCategory,
+      loanType,
+    );
+    if (
+      typeSet.size > 0 &&
+      !candidates.some((candidate) => typeSet.has(candidate))
+    ) {
+      return {
+        ok: false,
+        message: `Your plan does not include the "${String(loanType).toUpperCase()}" loan type`,
+      };
+    }
+  }
+
+  return { ok: true };
+}
+
 async function getOrgEnabledFeatures(prisma, organizationId) {
   const { ACTIVE_SUB_STATUSES } = require("./subscriptionBilling");
   const subscription = await prisma.organizationSubscription.findFirst({
@@ -487,6 +774,12 @@ async function getOrgEnabledFeatures(prisma, organizationId) {
   };
 }
 
+async function orgHasChatFeature(prisma, organizationId) {
+  if (!organizationId) return false;
+  const { features } = await getOrgEnabledFeatures(prisma, organizationId);
+  return (features || []).includes("CHAT");
+}
+
 module.exports = {
   FEATURE_CATALOG,
   getFeatureCatalog,
@@ -496,6 +789,8 @@ module.exports = {
   loanTypeFeatureKey,
   parseLoanTypeCode,
   parseLoanCategoryCode,
+  resolveLoanCategoryForAccess,
+  loanTypeEntitlementCandidates,
   defaultFeaturesForPackage,
   normalizeFeatureKeys,
   resolveEnabledFeatures,
@@ -503,4 +798,8 @@ module.exports = {
   splitFeatures,
   filterPermissionsToOrg,
   getOrgEnabledFeatures,
+  orgHasChatFeature,
+  expandPermissionAliases,
+  orgAllowsPermission,
+  assertLoanAccessAllowed,
 };

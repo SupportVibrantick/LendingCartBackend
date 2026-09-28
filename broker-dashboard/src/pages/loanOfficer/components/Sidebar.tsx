@@ -10,7 +10,6 @@ import {
   TrendingUp,
   Wallet,
 } from "lucide-react";
-import { MdEmail } from "react-icons/md";
 import { MdSettings } from "react-icons/md";
 import { CgProfile } from "react-icons/cg";
 import { FaUserGroup } from "react-icons/fa6";
@@ -20,6 +19,7 @@ import { useSidebar } from "../../../context/SidebarContext";
 import {
   filterLoanOfficerNavItems,
   LO_PERMISSIONS_UPDATED_EVENT,
+  ORG_ENTITLEMENTS_UPDATED_EVENT,
   type LoanOfficerNavItem,
 } from "../../../lib/brokerPermissions";
 import {
@@ -30,6 +30,7 @@ import {
   exitLoanOfficerImpersonation,
   isLoanOfficerImpersonationSession,
 } from "../../../lib/loanOfficerApi";
+import { hydrateOrgEntitlements } from "../../../lib/brokerEntitlements";
 import { buildApiPublicFileUrl } from "../../../lib/publicFileUrl";
 
 type NavItem = LoanOfficerNavItem & {
@@ -99,12 +100,12 @@ const navItems: NavItem[] = [
       },
     ],
   },
-  {
-    icon: <MdEmail />,
-    name: "Email Marketing",
-    path: "/loan-officer/email-marketing",
-    permission: "SEND_EMAILS",
-  },
+  // {
+  //   icon: <MdEmail />,
+  //   name: "Email Marketing",
+  //   path: "/loan-officer/email-marketing",
+  //   permission: "SEND_EMAILS",
+  // },
   {
     icon: <Wallet size={18} />,
     name: "Payments",
@@ -128,7 +129,7 @@ const navItems: NavItem[] = [
       {
         name: "Branding",
         path: "/loan-officer/settings/branding",
-        permission: ["MANAGE_BRANDING", "VIEW_COMPANY_SETTINGS"],
+        permission: "MANAGE_BRANDING",
       },
     ],
   },
@@ -159,9 +160,14 @@ export default function Sidebar() {
   const [permTick, setPermTick] = useState(0);
 
   useEffect(() => {
+    void hydrateOrgEntitlements();
     const refresh = () => setPermTick((value) => value + 1);
     window.addEventListener(LO_PERMISSIONS_UPDATED_EVENT, refresh);
-    return () => window.removeEventListener(LO_PERMISSIONS_UPDATED_EVENT, refresh);
+    window.addEventListener(ORG_ENTITLEMENTS_UPDATED_EVENT, refresh);
+    return () => {
+      window.removeEventListener(LO_PERMISSIONS_UPDATED_EVENT, refresh);
+      window.removeEventListener(ORG_ENTITLEMENTS_UPDATED_EVENT, refresh);
+    };
   }, []);
 
   const visibleNavItems = useMemo(

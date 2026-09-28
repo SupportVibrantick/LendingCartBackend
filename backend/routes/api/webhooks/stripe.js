@@ -34,7 +34,7 @@ async function stripeWebhookRoutes(fastify) {
       schema: {
         tags: ["Webhooks -> Stripe"],
         summary:
-          "Inbound Stripe webhook (subscription deleted → lock CLM access)",
+          "Inbound Stripe webhook (checkout.session.completed → activate Loan AI; subscription deleted → lock CLM access)",
       },
     },
     async (req, reply) => {
@@ -82,7 +82,11 @@ async function stripeWebhookRoutes(fastify) {
       }
 
       try {
-        const result = await processStripeWebhookEvent(fastify.prisma, event);
+        const result = await processStripeWebhookEvent(
+          fastify.prisma,
+          event,
+          fastify.io,
+        );
         return reply.send({
           success: true,
           received: true,

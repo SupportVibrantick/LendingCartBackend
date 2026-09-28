@@ -7,6 +7,8 @@ type DocumentTypeRecord = {
   id: string;
   code?: string | null;
   name: string;
+  /** Present on `/document-types/wizard-options` — matches wizard dropdown labels. */
+  label?: string | null;
 };
 
 type DocumentUploadPaths = {
@@ -15,60 +17,108 @@ type DocumentUploadPaths = {
   uploadDocument: (submissionId: string, requirementId: string) => string;
 };
 
+/** Wizard dropdown label → DocumentType.code (keep in sync with backend wizardOptions). */
+const WIZARD_LABEL_TO_CODE: Record<string, string> = {
+  "Driving License": "DRIVING_LICENSE",
+  "Social Security Number Card": "SSN_CARD",
+  "Purchase Agreement": "PURCHASE_AGREEMENT",
+  "Financial Statements": "FINANCIAL_STATEMENTS",
+  "Tax Returns": "TAX_RETURNS",
+  "Profit & Loss": "PROFIT_AND_LOSS",
+  "Property Appraisal": "PROPERTY_APPRAISAL",
+  "Property Tax Bill": "PROPERTY_TAX_BILL",
+  "Construction Quote": "CONSTRUCTION_QUOTE",
+  "Construction Plans": "CONSTRUCTION_PLANS",
+  "Construction Budget": "CONSTRUCTION_BUDGET",
+  "Sources & Uses": "SOURCES_AND_USES",
+  Proforma: "PROFORMA",
+  "Permits & Approvals": "PERMITS_APPROVALS",
+  "Certificate of Occupancy": "CERTIFICATE_OF_OCCUPANCY",
+  "Bank Statements": "BANK_STATEMENTS",
+  "Entity Docs": "ENTITY_DOCS",
+  "Insurance Binder": "INSURANCE_BINDER",
+  "Rent Roll": "RENT_ROLL",
+  "Personal Financial Statement": "PERSONAL_FINANCIAL_STATEMENT",
+  "Credit Report": "CREDIT_REPORT",
+  "Title Report": "TITLE_REPORT",
+  Other: "OTHER",
+};
+
 const defaultDocumentPaths = (apiBase: string): DocumentUploadPaths => ({
   requestDocuments: (loanApplicationId: string) =>
     `${apiBase}/broker/loan-pipeline/${loanApplicationId}/request-documents`,
+  // API caps page size at 50
   listDocuments: (submissionId: string) =>
-    `${apiBase}/broker/loan-pipeline/submissions/${submissionId}/documents?limit=100&documentCategory=upload`,
+    `${apiBase}/broker/loan-pipeline/submissions/${submissionId}/documents?limit=50&documentCategory=upload`,
   uploadDocument: (submissionId: string, requirementId: string) =>
     `${apiBase}/broker/loan-pipeline/submissions/${submissionId}/documents/${requirementId}/upload`,
 });
+
+function findOtherDocumentType(
+  documentTypes: DocumentTypeRecord[],
+): DocumentTypeRecord | undefined {
+  return (
+    documentTypes.find((d) => (d.code || "").toUpperCase() === "OTHER") ||
+    documentTypes.find((d) => (d.label || "").trim().toLowerCase() === "other") ||
+    documentTypes.find((d) => d.name.trim().toLowerCase() === "other")
+  );
+}
 
 /**
  * Resolve a wizard label (one of the 23 strings in
  * APPLICATION_DOCUMENT_TYPE_OPTIONS) to a DB DocumentType row.
  *
- * Exported so the wizard can map labels to ids upfront, then pass ids
- * straight to /request-documents below — no more fuzzy `includes()` matching.
- *
  * Match priority:
- *   1. exact code (when DB rows have wizard-vocabulary codes)
- *   2. exact (case-insensitive) name
- *   3. fall back to "Other"
+ *   1. wizard label → code map, then exact code
+ *   2. exact wizard `label` field (from /wizard-options)
+ *   3. exact code string
+ *   4. exact name
+ *   5. fall back to "Other" only (never the first catalog row)
  */
 export function resolveDocumentTypeByLabel(
   label: ApplicationDocumentType | "",
   documentTypes: DocumentTypeRecord[],
 ): DocumentTypeRecord | undefined {
-  const normalized = (label || "Other").trim().toLowerCase();
+  const raw = (label || "Other").trim();
+  const normalized = raw.toLowerCase();
+  if (!normalized || documentTypes.length === 0) {
+    return findOtherDocumentType(documentTypes);
+  }
 
-  // 1. exact code match
+  const mappedCode = WIZARD_LABEL_TO_CODE[raw] || WIZARD_LABEL_TO_CODE[
+    Object.keys(WIZARD_LABEL_TO_CODE).find(
+      (key) => key.toLowerCase() === normalized,
+    ) || ""
+  ];
+
+  if (mappedCode) {
+    const byMappedCode = documentTypes.find(
+      (d) => (d.code || "").toUpperCase() === mappedCode,
+    );
+    if (byMappedCode) return byMappedCode;
+  }
+
+  const byLabel = documentTypes.find(
+    (d) => (d.label || "").trim().toLowerCase() === normalized,
+  );
+  if (byLabel) return byLabel;
+
   const byCode = documentTypes.find(
     (d) => typeof d.code === "string" && d.code.toLowerCase() === normalized,
   );
   if (byCode) return byCode;
 
-  // 2. exact name match (case-insensitive)
-  const byName = documentTypes.find((d) => d.name.trim().toLowerCase() === normalized);
+  const byName = documentTypes.find(
+    (d) => d.name.trim().toLowerCase() === normalized,
+  );
   if (byName) return byName;
 
-  // 3. fall back to "Other"
-  return (
-    documentTypes.find((d) => d.name.toLowerCase() === "other") ||
-    documentTypes.find((d) => (d.code || "").toLowerCase() === "other") ||
-    documentTypes[0]
-  );
+  return findOtherDocumentType(documentTypes);
 }
 
 /**
  * Upload pending wizard documents into a freshly-created loan application.
- *
- * The wizard passes `documents` with each file's `documentType` tag set from
- * the 23-option dropdown. The function resolves each label to a DocumentType
- * row using `resolveDocumentTypeByLabel` (exact code match → exact name →
- * "Other"), then POSTs the resolved ids to /request-documents. NO fuzzy
- * `includes()` matching — the previous behavior drifted wizard labels onto
- * unrelated catalog rows.
+ * Each file is uploaded to the requirement for its selected document type.
  */
 export async function uploadPendingApplicationDocuments({
   apiBase,
@@ -93,42 +143,58 @@ export async function uploadPendingApplicationDocuments({
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
   };
 
-  // Fetch the active catalog so we can resolve labels → ids via exact match.
-  // Always pull the wizard-options endpoint (which is keyed by code) — it's
-  // both faster and aligned with what the wizard just selected. Fall back to
-  // /document-types/active only if the wizard-options endpoint is unavailable.
   let documentTypes: DocumentTypeRecord[] = [];
+  const byId = new Map<string, DocumentTypeRecord>();
+
   try {
     const wizardRes = await fetch(`${apiBase}/document-types/wizard-options`, {
       headers,
     });
     const wizardJson = await wizardRes.json();
     if (wizardRes.ok && wizardJson?.success) {
-      documentTypes = (wizardJson.data || []) as DocumentTypeRecord[];
+      for (const row of (wizardJson.data || []) as DocumentTypeRecord[]) {
+        if (row?.id) byId.set(row.id, row);
+      }
     }
   } catch {
-    // Fall through to next attempt.
+    // Fall through — merge active catalog below.
   }
 
-  if (documentTypes.length === 0) {
+  try {
     const fallbackRes = await fetch(`${apiBase}/document-types/active?all=true`, {
       headers,
     });
     const fallbackJson = await fallbackRes.json();
     if (fallbackRes.ok && fallbackJson?.success) {
-      documentTypes = (fallbackJson.data || []) as DocumentTypeRecord[];
+      for (const row of (fallbackJson.data || []) as DocumentTypeRecord[]) {
+        if (!row?.id) continue;
+        // Prefer wizard-options rows (have `label`); fill gaps from active catalog.
+        if (!byId.has(row.id)) byId.set(row.id, row);
+      }
     }
+  } catch {
+    // ignore
   }
 
-  // Derive the unique set of types we need to materialize as
-  // ApplicationDocumentRequirement rows. Source: each file's tagged label.
+  documentTypes = Array.from(byId.values());
+
+  if (documentTypes.length === 0) {
+    throw new Error(
+      "Document type catalog is empty. Ask an admin to seed document types, then try again.",
+    );
+  }
+
   const orderedLabels = dedupeLabels(
     documents.map((doc) => doc.documentType),
   );
 
-  const typeIds = orderedLabels
-    .map((label) => resolveDocumentTypeByLabel(label, documentTypes)?.id)
-    .filter((id): id is string => Boolean(id));
+  const typeIds = [
+    ...new Set(
+      orderedLabels
+        .map((label) => resolveDocumentTypeByLabel(label, documentTypes)?.id)
+        .filter((id): id is string => Boolean(id)),
+    ),
+  ];
 
   if (typeIds.length > 0) {
     const requestRes = await fetch(paths.requestDocuments(loanApplicationId), {
@@ -161,22 +227,27 @@ export async function uploadPendingApplicationDocuments({
     documentTypeId: string;
   }> = docsJson?.data?.documents || [];
 
+  const requirementByTypeId = new Map(
+    requirements.map((item) => [item.documentTypeId, item]),
+  );
+
   for (const doc of documents) {
     const resolved = resolveDocumentTypeByLabel(
       doc.documentType || "Other",
       documentTypes,
     );
-    if (!resolved) continue;
-
-    const requirement =
-      requirements.find((item) => item.documentTypeId === resolved.id) ||
-      requirements.find(
-        (item) =>
-          (item.documentName || "").trim().toLowerCase() ===
-          (doc.documentType || "Other").trim().toLowerCase(),
+    if (!resolved) {
+      throw new Error(
+        `Could not resolve document type for "${doc.fileName}" (${doc.documentType || "Other"})`,
       );
+    }
 
-    if (!requirement?.requirementId) continue;
+    const requirement = requirementByTypeId.get(resolved.id);
+    if (!requirement?.requirementId) {
+      throw new Error(
+        `No document requirement found for "${doc.documentType || "Other"}" (${doc.fileName})`,
+      );
+    }
 
     const formData = new FormData();
     formData.append("file", doc.file);
@@ -203,10 +274,10 @@ function dedupeLabels(labels: Array<ApplicationDocumentType | "">) {
   const seen = new Set<string>();
   const out: ApplicationDocumentType[] = [];
   for (const label of labels) {
-    const key = (label || "").trim();
-    if (!key || seen.has(key)) continue;
+    const key = (label || "Other").trim() || "Other";
+    if (seen.has(key)) continue;
     seen.add(key);
-    out.push(label as ApplicationDocumentType);
+    out.push(key as ApplicationDocumentType);
   }
   return out;
 }

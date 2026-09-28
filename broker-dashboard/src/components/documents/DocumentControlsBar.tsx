@@ -44,6 +44,8 @@ type DocumentControlsBarProps = {
   showLenderFilter?: boolean;
   brokerSourceFilterLabel?: string;
   coBrokerSourceFilterLabel?: string;
+  /** When true, show locked Elite upgrade cards instead of hiding toggles. */
+  autoForwardEliteLocked?: boolean;
 };
 
 const selectClass =
@@ -77,6 +79,7 @@ export default function DocumentControlsBar({
   showLenderFilter = true,
   brokerSourceFilterLabel = "My documents",
   coBrokerSourceFilterLabel = "Co broker",
+  autoForwardEliteLocked = false,
 }: DocumentControlsBarProps) {
   const visibleLenderFilters =
     showLenderFilter && documentFilterLenders.length > 0;
@@ -97,7 +100,51 @@ export default function DocumentControlsBar({
   return (
     <div className="mb-5 space-y-3">
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-        {/* Auto-forward */}
+        {/* Auto-forward — Elite package */}
+        {autoForwardEliteLocked && (
+          <>
+            <div className="flex h-full flex-col gap-3 rounded-2xl border border-amber-200/80 bg-gradient-to-r from-amber-50/90 to-orange-50/40 px-4 py-3.5 shadow-sm dark:border-amber-900/40 dark:from-amber-950/20 dark:to-slate-900 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex min-w-0 flex-1 items-start gap-3 sm:items-center">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300">
+                  <Zap size={18} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-sm font-semibold text-slate-800 dark:text-white">
+                      Auto Forward to Lender
+                    </p>
+                    <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-700 dark:text-amber-300">
+                      Elite
+                    </span>
+                  </div>
+                  <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                    Upgrade to Elite to auto-forward uploads to lenders.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="flex h-full flex-col gap-3 rounded-2xl border border-amber-200/80 bg-gradient-to-r from-amber-50/90 to-orange-50/40 px-4 py-3.5 shadow-sm dark:border-amber-900/40 dark:from-amber-950/20 dark:to-slate-900 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex min-w-0 flex-1 items-start gap-3 sm:items-center">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300">
+                  <UserRound size={18} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-sm font-semibold text-slate-800 dark:text-white">
+                      Auto Forward to Client
+                    </p>
+                    <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-700 dark:text-amber-300">
+                      Elite
+                    </span>
+                  </div>
+                  <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                    Upgrade to Elite to auto-forward lender requests to clients.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
         {showAutoForward && (
           <div
             className={`flex h-full flex-col gap-3 rounded-2xl border px-4 py-3.5 shadow-sm transition sm:flex-row sm:items-center sm:justify-between ${

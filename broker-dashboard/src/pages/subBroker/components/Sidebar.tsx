@@ -18,13 +18,16 @@ import {
   resolveCoBrokerLogoUrl,
   type CoBrokerBranding,
 } from "../../../lib/coBrokerPortal";
+import {
+  filterLoanOfficerNavItems,
+  ORG_ENTITLEMENTS_UPDATED_EVENT,
+  type LoanOfficerNavItem,
+} from "../../../lib/brokerPermissions";
+import { hydrateOrgEntitlements } from "../../../lib/brokerEntitlements";
 import { buildApiPublicFileUrl } from "../../../lib/publicFileUrl";
 
-type NavItem = {
+type NavItem = LoanOfficerNavItem & {
   icon?: React.ReactNode;
-  name: string;
-  path?: string;
-  subItems?: NavItem[];
 };
 
 const navItems: NavItem[] = [
@@ -32,16 +35,19 @@ const navItems: NavItem[] = [
     icon: <GridIcon />,
     name: "Dashboard",
     path: "/sub-broker/dashboard",
+    always: true,
   },
   {
     icon: <TrendingUp size={18} />,
     name: "Loan Pipeline",
     path: "/sub-broker/loan-pipeline",
+    permission: "VIEW_APPLICATIONS",
   },
   {
     icon: <FilePlus size={18} />,
     name: "New Loan Application",
     path: "/sub-broker/loan-application",
+    permission: "CREATE_APPLICATION",
   },
   {
     icon: <Wallet size={18} />,
@@ -50,10 +56,12 @@ const navItems: NavItem[] = [
       {
         name: "Commissions",
         path: "/sub-broker/commissions",
+        permission: "VIEW_COMMISSIONS",
       },
       {
         name: "Invoices",
         path: "/sub-broker/invoices",
+        permission: "VIEW_INVOICES",
       },
     ],
   },
@@ -64,10 +72,12 @@ const navItems: NavItem[] = [
       {
         name: "Borrowers",
         path: "/sub-broker/borrowers",
+        permission: "VIEW_BORROWERS",
       },
       {
         name: "Contacts",
         path: "/sub-broker/contacts",
+        permission: "VIEW_CONTACTS",
       },
     ],
   },
@@ -75,6 +85,7 @@ const navItems: NavItem[] = [
     icon: <CgProfile />,
     name: "Profile",
     path: "/sub-broker/profile",
+    always: true,
   },
 ];
 
@@ -90,6 +101,21 @@ export default function Sidebar() {
     readStoredCoBrokerBranding(),
   );
   const isImpersonation = isCoBrokerImpersonationSession();
+  const [permTick, setPermTick] = useState(0);
+
+  useEffect(() => {
+    void hydrateOrgEntitlements();
+    const refresh = () => setPermTick((value) => value + 1);
+    window.addEventListener(ORG_ENTITLEMENTS_UPDATED_EVENT, refresh);
+    return () => {
+      window.removeEventListener(ORG_ENTITLEMENTS_UPDATED_EVENT, refresh);
+    };
+  }, []);
+
+  const visibleNavItems = useMemo(
+    () => filterLoanOfficerNavItems(navItems, "coBroker"),
+    [permTick],
+  );
 
   const brandTitle = branding.brandName || "Loan Automation";
   const portalLabel = branding.portalLabel || CO_BROKER_PORTAL_LABEL;
@@ -191,8 +217,8 @@ export default function Sidebar() {
       return result;
     };
 
-    setOpenMenus(findActiveMenus(navItems));
-  }, [location.pathname, hasActiveChild]);
+    setOpenMenus(findActiveMenus(visibleNavItems));
+  }, [location.pathname, hasActiveChild, visibleNavItems]);
 
   const renderMenuItems = (
     items: NavItem[],
@@ -402,7 +428,7 @@ export default function Sidebar() {
             )}
           </h2>
 
-          {renderMenuItems(navItems)}
+          {renderMenuItems(visibleNavItems)}
         </nav>
       </div>
 

@@ -7,7 +7,7 @@
  */
 
 const {
-  normalizeAccountPlan,
+  resolveAgencyPlanFromEntitlements,
   getAgencyCompanyId,
   getOptionalSnapshotIdForPlan,
   isSharedPoolLocationId,
@@ -170,25 +170,29 @@ async function deactivateMapping(prisma, existing) {
 }
 
 /**
- * Upsert ACTIVE dedicated mapping for PRO/ELITE, or deactivate for BASIC.
- * Idempotent: never creates a second location for an org that already has one.
+ * Upsert ACTIVE dedicated mapping for PRO/ELITE (base plan or GHL add-on),
+ * or deactivate when not eligible. Idempotent: never creates a second location
+ * for an org that already has one.
  *
  * @returns {Promise<{ action: string, mapping: object|null, packageCode: string|null }>}
  */
 async function syncOrganizationAgencyLocation(
   prisma,
-  { organizationId, packageCode },
+  { organizationId, packageCode, purchasedAddOns = [] },
   { createLocationFn = null } = {},
 ) {
   const orgId = assertOrganizationId(organizationId);
   const rawCode = String(packageCode || "").trim().toUpperCase();
-  const agencyPlan = normalizeAccountPlan(rawCode);
+  const agencyPlan = resolveAgencyPlanFromEntitlements(
+    rawCode,
+    purchasedAddOns,
+  );
 
   const existing = await prisma.organizationGhlAgencyLocation.findUnique({
     where: { organizationId: orgId },
   });
 
-  // BASIC (and any non-PRO/ELITE) → deactivate mapping; never delete the GHL location.
+  // Not eligible (e.g. BASIC without GHL add-on) → deactivate; never delete GHL location.
   if (!agencyPlan) {
     const deactivated = await deactivateMapping(prisma, existing);
     return {
@@ -312,14 +316,20 @@ async function provisionUsersAfterLocationSync(prisma, { organizationId, mapping
  */
 async function syncAgencyLocationForSubscription(
   prisma,
-  { organizationId, organizationSubscriptionId, packageCode },
+  {
+    organizationId,
+    organizationSubscriptionId,
+    packageCode,
+    purchasedAddOns,
+  },
   { throwOnError = false, provisionUsers = true } = {},
 ) {
   let orgId = organizationId ? String(organizationId).trim() : null;
   let code = packageCode != null ? String(packageCode).trim() : null;
+  let addOns = Array.isArray(purchasedAddOns) ? purchasedAddOns : null;
 
   try {
-    if ((!orgId || !code) && organizationSubscriptionId) {
+    if ((!orgId || !code || addOns == null) && organizationSubscriptionId) {
       const sub = await prisma.organizationSubscription.findUnique({
         where: { id: organizationSubscriptionId },
         include: { package: { select: { code: true } } },
@@ -332,6 +342,9 @@ async function syncAgencyLocationForSubscription(
       }
       orgId = orgId || sub.organizationId;
       code = code || sub.package?.code || null;
+      if (addOns == null) {
+        addOns = Array.isArray(sub.purchasedAddOns) ? sub.purchasedAddOns : [];
+      }
     }
 
     if (!orgId) {
@@ -344,6 +357,7 @@ async function syncAgencyLocationForSubscription(
     const result = await syncOrganizationAgencyLocation(prisma, {
       organizationId: orgId,
       packageCode: code,
+      purchasedAddOns: addOns || [],
     });
 
     let userProvisioning = null;

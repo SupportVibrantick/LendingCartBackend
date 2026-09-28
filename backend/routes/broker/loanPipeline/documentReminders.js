@@ -9,15 +9,67 @@ const {
 } = require("../../../services/documents/documentReminderService");
 const { requireLoOfficerPermission } = require("../../../services/broker/loanOfficerAccess");
 
-async function assertLoDocumentReminderAccess(req, reply, fastify, loan) {
-  if (!req.user?.roles?.includes("BROKER_OFFICER")) {
+function getUserRoles(user) {
+  return Array.isArray(user?.roles) ? user.roles : [];
+}
+
+/** Broker admin / LO / co-broker staff on a broker org (JWT may omit orgType). */
+function isBrokerOrgStaff(user) {
+  if (!user?.organizationId) return false;
+  if (user.orgType === "BROKER") return true;
+  const roles = getUserRoles(user);
+  return (
+    roles.includes("BROKER_ADMIN") ||
+    roles.includes("BROKER_OFFICER") ||
+    roles.includes("SUB_BROKER")
+  );
+}
+
+function assertBrokerStaff(req, reply) {
+  if (!req.user || !isBrokerOrgStaff(req.user)) {
+    reply.code(403).send({ success: false, message: "Broker access only" });
+    return false;
+  }
+  return true;
+}
+
+async function assertSubBrokerLoanAccess(prisma, userId, loanId) {
+  if (!userId || !loanId) return false;
+  const assignment = await prisma.subBrokerApplication.findFirst({
+    where: { loanApplicationId: loanId, subBrokerId: userId },
+    select: { id: true },
+  });
+  return Boolean(assignment);
+}
+
+async function assertDocumentReminderAccess(req, reply, fastify, loan) {
+  const roles = getUserRoles(req.user);
+  const userId = req.user?.id || req.user?.userId;
+  const loanId = loan?.id || loan?.loanApplicationId;
+
+  if (roles.includes("SUB_BROKER")) {
+    const allowed = await assertSubBrokerLoanAccess(
+      fastify.prisma,
+      userId,
+      loanId,
+    );
+    if (!allowed) {
+      reply.code(403).send({
+        success: false,
+        message: "Access denied for this loan",
+      });
+      return false;
+    }
+    return true;
+  }
+
+  if (!roles.includes("BROKER_OFFICER")) {
     return true;
   }
 
   await requireLoOfficerPermission(req, reply, fastify, "SEND_EMAILS");
   if (reply.sent) return false;
 
-  const userId = req.user.id || req.user.userId;
   if (loan?.brokerUserId !== userId) {
     reply.code(403).send({
       success: false,
@@ -52,9 +104,7 @@ module.exports = async function documentRemindersRoutes(fastify) {
     },
     async (req, reply) => {
       try {
-        if (!req.user || req.user.orgType !== "BROKER" || !req.user.organizationId) {
-          return reply.code(403).send({ success: false, message: "Broker access only" });
-        }
+        if (!assertBrokerStaff(req, reply)) return;
 
         const brokerOrgId = req.user.organizationId;
         const { loanId } = req.params;
@@ -80,7 +130,7 @@ module.exports = async function documentRemindersRoutes(fastify) {
           });
         }
 
-        if (!(await assertLoDocumentReminderAccess(req, reply, fastify, loan))) {
+        if (!(await assertDocumentReminderAccess(req, reply, fastify, loan))) {
           return;
         }
 
@@ -139,9 +189,7 @@ module.exports = async function documentRemindersRoutes(fastify) {
     },
     async (req, reply) => {
       try {
-        if (!req.user || req.user.orgType !== "BROKER" || !req.user.organizationId) {
-          return reply.code(403).send({ success: false, message: "Broker access only" });
-        }
+        if (!assertBrokerStaff(req, reply)) return;
 
         const brokerOrgId = req.user.organizationId;
         const { loanId } = req.params;
@@ -216,7 +264,7 @@ module.exports = async function documentRemindersRoutes(fastify) {
           });
         }
 
-        if (!(await assertLoDocumentReminderAccess(req, reply, fastify, loan))) {
+        if (!(await assertDocumentReminderAccess(req, reply, fastify, loan))) {
           return;
         }
 
@@ -276,9 +324,7 @@ module.exports = async function documentRemindersRoutes(fastify) {
     },
     async (req, reply) => {
       try {
-        if (!req.user || req.user.orgType !== "BROKER" || !req.user.organizationId) {
-          return reply.code(403).send({ success: false, message: "Broker access only" });
-        }
+        if (!assertBrokerStaff(req, reply)) return;
 
         const brokerOrgId = req.user.organizationId;
         const { reminderId } = req.params;
@@ -287,7 +333,7 @@ module.exports = async function documentRemindersRoutes(fastify) {
         const existing = await fastify.prisma.documentReminderSchedule.findFirst({
           where: { id: reminderId, brokerOrgId },
           include: {
-            loanApplication: { select: { brokerUserId: true } },
+            loanApplication: { select: { id: true, brokerUserId: true } },
           },
         });
 
@@ -299,7 +345,7 @@ module.exports = async function documentRemindersRoutes(fastify) {
         }
 
         if (
-          !(await assertLoDocumentReminderAccess(
+          !(await assertDocumentReminderAccess(
             req,
             reply,
             fastify,
@@ -384,9 +430,7 @@ module.exports = async function documentRemindersRoutes(fastify) {
     },
     async (req, reply) => {
       try {
-        if (!req.user || req.user.orgType !== "BROKER" || !req.user.organizationId) {
-          return reply.code(403).send({ success: false, message: "Broker access only" });
-        }
+        if (!assertBrokerStaff(req, reply)) return;
 
         const existing = await fastify.prisma.documentReminderSchedule.findFirst({
           where: {
@@ -394,7 +438,7 @@ module.exports = async function documentRemindersRoutes(fastify) {
             brokerOrgId: req.user.organizationId,
           },
           include: {
-            loanApplication: { select: { brokerUserId: true } },
+            loanApplication: { select: { id: true, brokerUserId: true } },
           },
         });
 
@@ -406,7 +450,7 @@ module.exports = async function documentRemindersRoutes(fastify) {
         }
 
         if (
-          !(await assertLoDocumentReminderAccess(
+          !(await assertDocumentReminderAccess(
             req,
             reply,
             fastify,
@@ -444,9 +488,7 @@ module.exports = async function documentRemindersRoutes(fastify) {
     },
     async (req, reply) => {
       try {
-        if (!req.user || req.user.orgType !== "BROKER" || !req.user.organizationId) {
-          return reply.code(403).send({ success: false, message: "Broker access only" });
-        }
+        if (!assertBrokerStaff(req, reply)) return;
 
         const existing = await fastify.prisma.documentReminderSchedule.findFirst({
           where: {
@@ -454,7 +496,7 @@ module.exports = async function documentRemindersRoutes(fastify) {
             brokerOrgId: req.user.organizationId,
           },
           include: {
-            loanApplication: { select: { brokerUserId: true } },
+            loanApplication: { select: { id: true, brokerUserId: true } },
           },
         });
 
@@ -466,7 +508,7 @@ module.exports = async function documentRemindersRoutes(fastify) {
         }
 
         if (
-          !(await assertLoDocumentReminderAccess(
+          !(await assertDocumentReminderAccess(
             req,
             reply,
             fastify,
