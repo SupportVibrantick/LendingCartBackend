@@ -1,4 +1,8 @@
 const {
+  getAddOnUpgradeOptions,
+  startAddOnUpgradeCheckout,
+} = require("../../services/subscription/addOnUpgradeCheckout");
+const {
   getClmSubscriptionStatus,
   discontinueClmSoftTrial,
 } = require("../../services/subscription/clmDiscontinue");
@@ -32,6 +36,114 @@ async function brokerSubscriptionRoutes(fastify) {
         return reply.code(500).send({
           success: false,
           message: "Failed to load subscription status",
+        });
+      }
+    },
+  );
+
+  fastify.get(
+    "/addons",
+    {
+      schema: {
+        tags: ["Broker -> Subscription"],
+        summary:
+          "Current plan add-ons, owned items, and available upgrades for purchase",
+      },
+    },
+    async (req, reply) => {
+      try {
+        const organizationId = req.user?.organizationId;
+        if (!organizationId) {
+          return reply.code(400).send({
+            success: false,
+            message: "Organization missing",
+          });
+        }
+
+        const data = await getAddOnUpgradeOptions(
+          fastify.prisma,
+          organizationId,
+        );
+        return reply.send({ success: true, data });
+      } catch (err) {
+        const status = err.statusCode || 500;
+        req.log.error(err);
+        return reply.code(status).send({
+          success: false,
+          code: err.code || "ADDONS_LOAD_FAILED",
+          message: err.message || "Failed to load add-ons",
+        });
+      }
+    },
+  );
+
+  fastify.post(
+    "/addons/checkout",
+    {
+      schema: {
+        tags: ["Broker -> Subscription"],
+        summary:
+          "Create Stripe (or GHL) checkout for new add-ons / additional seats",
+        body: {
+          type: "object",
+          properties: {
+            addOnCodes: {
+              type: "array",
+              items: { type: "string" },
+            },
+            extraUserTotal: { type: "number" },
+            successUrl: { type: "string" },
+            cancelUrl: { type: "string" },
+          },
+        },
+      },
+    },
+    async (req, reply) => {
+      try {
+        const organizationId = req.user?.organizationId;
+        if (!organizationId) {
+          return reply.code(400).send({
+            success: false,
+            message: "Organization missing",
+          });
+        }
+
+        const roles = Array.isArray(req.user?.roles) ? req.user.roles : [];
+        if (!roles.includes("BROKER_ADMIN")) {
+          return reply.code(403).send({
+            success: false,
+            code: "FORBIDDEN",
+            message: "Only the broker admin can purchase add-ons.",
+          });
+        }
+
+        const body = req.body || {};
+        const result = await startAddOnUpgradeCheckout(fastify.prisma, {
+          organizationId,
+          actorUser: {
+            email: req.user?.email,
+            firstName: req.user?.firstName,
+            lastName: req.user?.lastName,
+            name: req.user?.name,
+          },
+          addOnCodes: Array.isArray(body.addOnCodes) ? body.addOnCodes : [],
+          extraUserTotal:
+            body.extraUserTotal != null ? Number(body.extraUserTotal) : undefined,
+          successUrl: body.successUrl || undefined,
+          cancelUrl: body.cancelUrl || undefined,
+        });
+
+        return reply.send({
+          success: true,
+          data: result,
+        });
+      } catch (err) {
+        const status = err.statusCode || 500;
+        req.log.error(err);
+        return reply.code(status).send({
+          success: false,
+          code: err.code || "ADDON_CHECKOUT_FAILED",
+          message: err.message || "Failed to start add-on checkout",
         });
       }
     },

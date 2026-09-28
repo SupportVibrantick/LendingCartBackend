@@ -97,11 +97,15 @@ function getLenderName(
 
 type DocumentReminderPanelProps = {
   loanApplicationId: string | null;
+  /** e.g. "/broker/loan-pipeline" or "/subbroker/loan-pipeline" */
+  apiPrefix?: string;
 };
 
 export default function DocumentReminderPanel({
   loanApplicationId,
+  apiPrefix = "/broker/loan-pipeline",
 }: DocumentReminderPanelProps) {
+  const remindersBase = `${API_BASE}${apiPrefix}`;
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [data, setData] = useState<ReminderPayload | null>(null);
@@ -120,7 +124,7 @@ export default function DocumentReminderPanel({
     try {
       setLoading(true);
       const res = await fetch(
-        `${API_BASE}/broker/loan-pipeline/${loanApplicationId}/document-reminders`,
+        `${remindersBase}/${loanApplicationId}/document-reminders`,
         { headers: getAuthHeaders() },
       );
       const json = await res.json();
@@ -144,7 +148,7 @@ export default function DocumentReminderPanel({
     } finally {
       setLoading(false);
     }
-  }, [loanApplicationId]);
+  }, [loanApplicationId, remindersBase]);
 
   useEffect(() => {
     fetchReminders();
@@ -166,7 +170,7 @@ export default function DocumentReminderPanel({
     try {
       setSaving(true);
       const res = await fetch(
-        `${API_BASE}/broker/loan-pipeline/${loanApplicationId}/document-reminders`,
+        `${remindersBase}/${loanApplicationId}/document-reminders`,
         {
           method: "POST",
           headers: getAuthHeaders(true),
@@ -206,7 +210,7 @@ export default function DocumentReminderPanel({
   ) => {
     try {
       const res = await fetch(
-        `${API_BASE}/broker/loan-pipeline/document-reminders/${reminderId}`,
+        `${remindersBase}/document-reminders/${reminderId}`,
         {
           method: "PATCH",
           headers: getAuthHeaders(true),
@@ -229,7 +233,7 @@ export default function DocumentReminderPanel({
   const sendNow = async (reminderId: string) => {
     try {
       const res = await fetch(
-        `${API_BASE}/broker/loan-pipeline/document-reminders/${reminderId}/send-now`,
+        `${remindersBase}/document-reminders/${reminderId}/send-now`,
         {
           method: "POST",
           headers: getAuthHeaders(true),
@@ -268,7 +272,7 @@ export default function DocumentReminderPanel({
 
     try {
       const res = await fetch(
-        `${API_BASE}/broker/loan-pipeline/document-reminders/${reminder.id}`,
+        `${remindersBase}/document-reminders/${reminder.id}`,
         {
           method: "DELETE",
           headers: getAuthHeaders(true),

@@ -34,6 +34,27 @@ module.exports = async function updateDocumentAutoForward(fastify) {
         const { submissionId } = req.params;
         const { autoForwardDocumentsToLender } = req.body;
 
+        const {
+          getOrgEnabledFeatures,
+          orgAllowsPermission,
+        } = require("../../../services/subscription/brokerOrgFeatures");
+        const orgEntitlements = await getOrgEnabledFeatures(
+          fastify.prisma,
+          brokerOrgId,
+        );
+        if (
+          !orgAllowsPermission(
+            orgEntitlements.permissions,
+            "AUTO_FORWARD_TO_LENDER",
+          )
+        ) {
+          return reply.code(403).send({
+            success: false,
+            message:
+              "Auto-Forward Docs is available on the Elite plan. Upgrade to unlock.",
+          });
+        }
+
         const submission = await fastify.prisma.applicationSubmission.findUnique({
           where: { id: submissionId },
           include: { application: true },

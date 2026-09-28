@@ -89,8 +89,21 @@ function ThemedToaster() {
           : {
               background: "#ffffff",
               color: "#0f172a",
-              border: "1px solid rgba(15,23,42,0.1)",
+              border: "1px solid rgba(15,23,42,0.12)",
+              boxShadow: "0 10px 30px rgba(15,23,42,0.08)",
             },
+        success: {
+          iconTheme: {
+            primary: isDark ? "#34d399" : "#059669",
+            secondary: isDark ? "#0f1428" : "#ffffff",
+          },
+        },
+        error: {
+          iconTheme: {
+            primary: isDark ? "#f87171" : "#dc2626",
+            secondary: isDark ? "#0f1428" : "#ffffff",
+          },
+        },
       }}
     />
   );

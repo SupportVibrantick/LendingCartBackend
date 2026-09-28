@@ -172,16 +172,21 @@ async function brokerGhlIntegrationRoutes(fastify) {
         return reply.code(409).send({
           success: false,
           code: "NO_ACTIVE_SUBSCRIPTION",
-          message: "An active Pro or Elite subscription is required for CRM setup.",
+          message: "An active subscription is required for CRM setup.",
         });
       }
 
       const packageCode = String(sub.package?.code || "").toUpperCase();
-      if (!["PRO", "ELITE"].includes(packageCode)) {
+      const {
+        isGhlAgencyEligible,
+      } = require("../../../../services/ghl/ghlAccountLocation.service");
+
+      if (!isGhlAgencyEligible(packageCode, sub.purchasedAddOns)) {
         return reply.code(409).send({
           success: false,
           code: "PACKAGE_NOT_ELIGIBLE",
-          message: "CRM sub-accounts are included with Pro and Elite plans only.",
+          message:
+            "CRM sub-accounts require a Pro/Elite plan or a GoHighLevel Starter/Growth add-on.",
         });
       }
 
@@ -196,6 +201,7 @@ async function brokerGhlIntegrationRoutes(fastify) {
           organizationId,
           organizationSubscriptionId: sub.id,
           packageCode,
+          purchasedAddOns: sub.purchasedAddOns,
         },
         { throwOnError: false, provisionUsers: true },
       );

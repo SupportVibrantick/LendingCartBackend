@@ -16,6 +16,10 @@ async function subBrokerRoutes(fastify, options) {
     prefix: "/auth",
   });
 
+  fastify.register(require("./entitlements"), {
+    prefix: "/entitlements",
+  });
+
   // LOAN PIPELINE
   fastify.register(subBrokerLoanPipelineRoutes, {
     prefix: "/loan-pipeline",

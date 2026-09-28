@@ -35,6 +35,7 @@ function getAllowedCheckoutOrigins() {
   for (const key of [
     "FRONTEND_URL",
     "LOAN_AI_URL",
+    "LOAN_AI_TRIAL_URL",
     "EMBED_APP_URL",
     "CORS_ORIGINS",
   ]) {
@@ -54,8 +55,10 @@ function getAllowedCheckoutOrigins() {
     origins.add("http://localhost:5173");
     origins.add("http://localhost:5174");
     origins.add("http://localhost:5175");
+    origins.add("http://localhost:5176");
     origins.add("http://127.0.0.1:5173");
     origins.add("http://127.0.0.1:5175");
+    origins.add("http://127.0.0.1:5176");
   }
   return origins;
 }

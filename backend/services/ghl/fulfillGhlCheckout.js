@@ -6,6 +6,7 @@ const {
   assignPlanToOrganization,
   markInvoicePaid,
   changePlan,
+  applyAddOnUpgrade,
 } = require("../subscription/subscriptionBilling");
 const {
   LOAN_AI_FREE_TRIAL_NOTE,
@@ -17,6 +18,9 @@ const {
 const {
   syncAgencyLocationForSubscription,
 } = require("./organizationGhlAgencyLocation.service");
+const {
+  resolvePurchasedAddOns,
+} = require("../../utils/subscription/addOnCatalog");
 
 function deriveOrgName(user) {
   const name = [user.firstName, user.lastName].filter(Boolean).join(" ").trim();
@@ -137,6 +141,13 @@ async function fulfillPaidGhlCheckout(prisma, io, checkout, paymentMeta = {}) {
   const ghlPriceId = paymentMeta.ghlPriceId || fresh.ghlPriceId;
   const ghlProductId = paymentMeta.ghlProductId || fresh.ghlProductId;
   const ghlTransactionId = paymentMeta.ghlTransactionId || null;
+  const stripeSubscriptionId =
+    paymentMeta.stripeSubscriptionId || null;
+  const stripeCustomerId = paymentMeta.stripeCustomerId || null;
+  const stripeBillingFields = {
+    ...(stripeSubscriptionId ? { stripeSubscriptionId } : {}),
+    ...(stripeCustomerId ? { stripeCustomerId } : {}),
+  };
 
   const periodStart = paymentMeta.currentPeriodStart
     ? new Date(paymentMeta.currentPeriodStart)
@@ -164,6 +175,79 @@ async function fulfillPaidGhlCheckout(prisma, io, checkout, paymentMeta = {}) {
         paymentMeta,
       );
 
+      const checkoutMeta =
+        fresh.metadata && typeof fresh.metadata === "object"
+          ? fresh.metadata
+          : {};
+      const isAddOnUpgrade = checkoutMeta.type === "ADDON_UPGRADE";
+
+      if (isAddOnUpgrade) {
+        const deltaCodes = Array.isArray(checkoutMeta.addOnCodes)
+          ? checkoutMeta.addOnCodes
+          : orgDetails.addOnCodes;
+        const targetSubId =
+          checkoutMeta.organizationSubscriptionId || existingSub.id;
+
+        const upgrade = await applyAddOnUpgrade(prisma, {
+          organizationSubscriptionId: targetSubId,
+          deltaCodes,
+          notes: "Add-ons unlocked via GHL payment",
+          ghlContactId,
+          ghlInvoiceId,
+          ghlSubscriptionId,
+          ghlTransactionId,
+          markPaid: true,
+        });
+
+        organizationSubscriptionId = upgrade.subscription.id;
+        organizationId = user.brokerOrganizationId;
+
+        const updatedCheckoutEarly = await prisma.loanAiGhlCheckout.update({
+          where: { id: fresh.id },
+          data: {
+            status: "PAID",
+            paymentStatus: "PAID",
+            completedAt: new Date(),
+            ghlContactId: ghlContactId || fresh.ghlContactId,
+            ghlInvoiceId: ghlInvoiceId || fresh.ghlInvoiceId,
+            ghlSubscriptionId: ghlSubscriptionId || fresh.ghlSubscriptionId,
+            ghlPriceId: ghlPriceId || fresh.ghlPriceId,
+            ghlProductId: ghlProductId || fresh.ghlProductId,
+            currentPeriodStart: periodStart,
+            ...(periodEnd ? { currentPeriodEnd: periodEnd } : {}),
+          },
+        });
+
+        logPaymentStatusChanged({
+          checkoutId: updatedCheckoutEarly.id,
+          loanAiUserId: user.id,
+          packageId: fresh.packageId,
+          billingPeriod: fresh.billingCycle,
+          ghlContactId: updatedCheckoutEarly.ghlContactId,
+          ghlPriceId: updatedCheckoutEarly.ghlPriceId,
+          ghlInvoiceId: updatedCheckoutEarly.ghlInvoiceId,
+          ghlSubscriptionId: updatedCheckoutEarly.ghlSubscriptionId,
+          organizationSubscriptionId,
+          previousStatus: fresh.paymentStatus,
+          paymentStatus: "PAID",
+          status: "PAID",
+          amount: fresh.amount,
+          currency: fresh.currency,
+          reason: "addon_upgrade_fulfilled",
+        });
+
+        return {
+          alreadyProcessed: false,
+          addOnUpgrade: true,
+          checkoutId: fresh.id,
+          organizationSubscriptionId,
+          loanAiUserId: user.id,
+          organizationId,
+          provisioned: false,
+          agencyLocation: upgrade.agencyLocation || null,
+        };
+      }
+
       if (
         existingSub.packageId !== fresh.packageId ||
         existingSub.billingCycle !== fresh.billingCycle
@@ -179,14 +263,18 @@ async function fulfillPaidGhlCheckout(prisma, io, checkout, paymentMeta = {}) {
 
       let purchasedAddOns = null;
       try {
-        const {
-          resolvePurchasedAddOns,
-        } = require("../../utils/subscription/addOnCatalog");
-        const resolved = resolvePurchasedAddOns(
-          orgDetails.addOnCodes,
-          fresh.package?.code,
-        );
-        purchasedAddOns = resolved.length > 0 ? resolved : null;
+        // Initial conversion / plan checkout: replace with checkout add-ons.
+        // If checkout had no add-ons, keep existing seats/add-ons (don't wipe).
+        if (orgDetails.addOnCodes.length > 0) {
+          const resolved = resolvePurchasedAddOns(
+            orgDetails.addOnCodes,
+            fresh.package?.code,
+            fresh.billingCycle || "MONTHLY",
+          );
+          purchasedAddOns = resolved.length > 0 ? resolved : null;
+        } else {
+          purchasedAddOns = undefined;
+        }
       } catch {
         purchasedAddOns = undefined;
       }
@@ -197,13 +285,14 @@ async function fulfillPaidGhlCheckout(prisma, io, checkout, paymentMeta = {}) {
           status: "ACTIVE",
           trialEndsAt: null,
           notes: isLoanAiFreeTrialNote(existingSub.notes)
-            ? `${LOAN_AI_FREE_TRIAL_NOTE}; converted via GHL payment`
-            : "Converted from trial via GHL payment",
+            ? `${LOAN_AI_FREE_TRIAL_NOTE}; converted via payment`
+            : "Converted from trial via payment",
           ghlContactId: ghlContactId || undefined,
           ghlPriceId: ghlPriceId || undefined,
           ghlProductId: ghlProductId || undefined,
           ghlSubscriptionId: ghlSubscriptionId || undefined,
           ghlInvoiceId: ghlInvoiceId || undefined,
+          ...stripeBillingFields,
           loanAiUserId: user.id,
           ...(purchasedAddOns !== undefined ? { purchasedAddOns } : {}),
           ...(periodEnd
@@ -246,7 +335,7 @@ async function fulfillPaidGhlCheckout(prisma, io, checkout, paymentMeta = {}) {
         packageId: fresh.packageId,
         billingCycle: fresh.billingCycle,
         trialDays: 0,
-        notes: "Activated via GHL payment webhook",
+        notes: "Activated via payment webhook",
         generateInvoice: true,
         status: "ACTIVE",
         ghlContactId,
@@ -254,6 +343,7 @@ async function fulfillPaidGhlCheckout(prisma, io, checkout, paymentMeta = {}) {
         ghlProductId,
         ghlSubscriptionId,
         ghlInvoiceId,
+        ...stripeBillingFields,
         loanAiUserId: user.id,
         currentPeriodStart: periodStart,
         currentPeriodEnd: periodEnd || undefined,
@@ -299,6 +389,7 @@ async function fulfillPaidGhlCheckout(prisma, io, checkout, paymentMeta = {}) {
           ghlProductId: ghlProductId || null,
           ghlSubscriptionId: ghlSubscriptionId || null,
           ghlInvoiceId: ghlInvoiceId || null,
+          ...stripeBillingFields,
           loanAiUserId: user.id,
         },
       });

@@ -121,18 +121,14 @@ export default function CreateCampaignPage() {
 
   const fetchCampaigns = async () => {
     try {
-      const token = getPortalAuthHeaders().Authorization;
-      if (!token) return;
+      const headers = getPortalAuthHeaders();
+      if (!headers.Authorization) return;
 
       setLoadingList(true);
 
       const res = await fetch(
         `${import.meta.env.VITE_API_BASE}/broker/campaign/list?page=${page}&limit=6&search=${debouncedSearch}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        },
+        { headers },
       );
 
       const data = await res.json();
@@ -159,17 +155,13 @@ export default function CreateCampaignPage() {
   useEffect(() => {
     const fetchEmails = async () => {
       try {
-        const token = getPortalAuthHeaders().Authorization;
+        const headers = getPortalAuthHeaders();
 
-        if (!token) return;
+        if (!headers.Authorization) return;
 
         const res = await fetch(
           `${import.meta.env.VITE_API_BASE}/broker/contacts/list?page=1&limit=50`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          },
+          { headers },
         );
 
         if (!res.ok) throw new Error("Failed to fetch");
@@ -248,8 +240,8 @@ export default function CreateCampaignPage() {
         return toast.error("Please enter name for all recipients");
       }
 
-      const token = getPortalAuthHeaders().Authorization;
-      if (!token) return toast.error("Session expired");
+      const headers = getPortalAuthHeaders(true);
+      if (!headers.Authorization) return toast.error("Session expired");
 
       setLoading(true);
 
@@ -277,10 +269,7 @@ export default function CreateCampaignPage() {
         `${import.meta.env.VITE_API_BASE}/broker/campaign/send`,
         {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
+          headers,
           body: JSON.stringify(payload),
         },
       );
@@ -329,8 +318,8 @@ export default function CreateCampaignPage() {
     if (!result.isConfirmed) return;
 
     try {
-      const token = getPortalAuthHeaders().Authorization;
-      if (!token) return toast.error("Session expired");
+      const headers = getPortalAuthHeaders();
+      if (!headers.Authorization) return toast.error("Session expired");
 
       setStoppingId(id);
 
@@ -338,9 +327,7 @@ export default function CreateCampaignPage() {
         `${import.meta.env.VITE_API_BASE}/broker/campaign/${id}/stop`,
         {
           method: "PATCH",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+          headers,
         },
       );
 

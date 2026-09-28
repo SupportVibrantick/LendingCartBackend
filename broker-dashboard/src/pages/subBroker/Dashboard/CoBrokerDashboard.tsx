@@ -28,6 +28,12 @@ import {
   checkCoBrokerResponse,
   getCoBrokerAuthHeaders,
 } from "../../../lib/coBrokerPortal";
+import {
+  hasPermission,
+  ORG_ENTITLEMENTS_UPDATED_EVENT,
+  type PermissionKey,
+} from "../../../lib/brokerPermissions";
+import { hydrateOrgEntitlements } from "../../../lib/brokerEntitlements";
 import { isSessionExpiredError } from "../../../lib/sessionExpiry";
 import {
   formatCompactCurrency,
@@ -137,41 +143,54 @@ function pipelineHref(status?: string) {
   return `/sub-broker/loan-pipeline?status=${encodeURIComponent(status)}`;
 }
 
-const QUICK_ACTIONS = [
+const QUICK_ACTIONS: Array<{
+  label: string;
+  path: string;
+  icon: typeof FilePlus;
+  permission?: PermissionKey;
+  always?: boolean;
+}> = [
   {
     label: "New App",
     path: "/sub-broker/loan-application",
     icon: FilePlus,
+    permission: "CREATE_APPLICATION",
   },
   {
     label: "Pipeline",
     path: "/sub-broker/loan-pipeline",
     icon: TrendingUp,
+    permission: "VIEW_APPLICATIONS",
   },
   {
     label: "Commissions",
     path: "/sub-broker/commissions",
     icon: DollarSign,
+    permission: "VIEW_COMMISSIONS",
   },
   {
     label: "Invoices",
     path: "/sub-broker/invoices",
     icon: FileText,
+    permission: "VIEW_INVOICES",
   },
   {
     label: "Borrowers",
     path: "/sub-broker/borrowers",
     icon: UserRound,
+    permission: "VIEW_BORROWERS",
   },
   {
     label: "Contacts",
     path: "/sub-broker/contacts",
     icon: Contact,
+    permission: "VIEW_CONTACTS",
   },
   {
     label: "Profile",
     path: "/sub-broker/profile",
     icon: UserPen,
+    always: true,
   },
 ];
 
@@ -182,6 +201,30 @@ export default function CoBrokerDashboard() {
   const [stats, setStats] = useState<BrokerStats | null>(null);
   const [recent, setRecent] = useState<RecentApp[]>([]);
   const [period, setPeriod] = useState<DashboardPeriod>("12m");
+  const [permTick, setPermTick] = useState(0);
+
+  useEffect(() => {
+    void hydrateOrgEntitlements();
+    const refresh = () => setPermTick((n) => n + 1);
+    window.addEventListener(ORG_ENTITLEMENTS_UPDATED_EVENT, refresh);
+    return () => {
+      window.removeEventListener(ORG_ENTITLEMENTS_UPDATED_EVENT, refresh);
+    };
+  }, []);
+
+  const visibleQuickActions = useMemo(
+    () =>
+      QUICK_ACTIONS.filter(
+        (action) =>
+          action.always ||
+          (action.permission
+            ? hasPermission(action.permission, "coBroker")
+            : true),
+      ),
+    [permTick],
+  );
+
+  const canViewCommissions = hasPermission("VIEW_COMMISSIONS", "coBroker");
 
   const firstName = useMemo(() => getCoBrokerFirstName(), []);
   const greeting = useMemo(() => getGreeting(), []);
@@ -325,7 +368,7 @@ export default function CoBrokerDashboard() {
           </div>
 
           <div className="mt-3 flex gap-2 overflow-x-auto pb-0.5">
-            {QUICK_ACTIONS.map((action) => (
+            {visibleQuickActions.map((action) => (
               <Link
                 key={action.path}
                 to={action.path}
@@ -399,16 +442,18 @@ export default function CoBrokerDashboard() {
           </div>
         </div>
 
-        <StaffCommissionOverview
-          apiBase={CO_BROKER_API_BASE}
-          summaryPath="/subbroker/commissions/summary"
-          listPath="/subbroker/commissions"
-          getHeaders={() => getCoBrokerAuthHeaders()}
-          portal="subbroker"
-          title="My Commission Earnings"
-          invoicesHref="/sub-broker/invoices"
-          commissionsHref="/sub-broker/commissions"
-        />
+        {canViewCommissions ? (
+          <StaffCommissionOverview
+            apiBase={CO_BROKER_API_BASE}
+            summaryPath="/subbroker/commissions/summary"
+            listPath="/subbroker/commissions"
+            getHeaders={() => getCoBrokerAuthHeaders()}
+            portal="subbroker"
+            title="My Commission Earnings"
+            invoicesHref="/sub-broker/invoices"
+            commissionsHref="/sub-broker/commissions"
+          />
+        ) : null}
 
         <section className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
           <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3 dark:border-gray-800 sm:px-5">

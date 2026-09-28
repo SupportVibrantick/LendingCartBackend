@@ -11,6 +11,20 @@ const {
   appendRedirectParams,
 } = require("../../../../services/ghl/ghl.payment.service");
 const {
+  getPaymentProvider,
+  canProcessLoanAiPayments,
+} = require("../../../../services/stripe/paymentProvider");
+const {
+  createStripeSubscriptionCheckout,
+} = require("../../../../services/stripe/stripeCheckout.service");
+const {
+  resolveStripePriceId,
+  resolveStripeAddOnPriceId,
+} = require("../../../../services/stripe/stripePriceMap");
+const {
+  syncPaidCheckoutFromStripe,
+} = require("../../../../services/stripe/syncPaidCheckoutFromStripe.service");
+const {
   resolvePurchasedAddOns,
 } = require("../../../../utils/subscription/addOnCatalog");
 const {
@@ -44,6 +58,7 @@ const DUPLICATE_WINDOW_MS = 15 * 60 * 1000;
 const checkoutSyncSchema = z
   .object({
     checkoutId: z.string().uuid().optional(),
+    sessionId: z.string().min(1).max(255).optional(),
   })
   .strict();
 
@@ -105,14 +120,19 @@ async function loanAiCheckoutRoutes(fastify) {
       preHandler: [fastify.verifyLoanAi],
       schema: {
         tags: ["Public -> Loan AI Subscriptions"],
-        summary: "Start GHL subscription checkout and return checkout URL",
+        summary: "Start subscription checkout (Stripe or GHL) and return checkout URL",
       },
     },
     async (req, reply) => {
       const prisma = fastify.prisma;
 
       try {
-        if (!canProcessGhlPayments()) {
+        if (!canProcessLoanAiPayments()) {
+          throw checkoutError(CHECKOUT_ERROR_CODES.PAYMENTS_UNAVAILABLE, 503);
+        }
+
+        const paymentProvider = getPaymentProvider();
+        if (!paymentProvider) {
           throw checkoutError(CHECKOUT_ERROR_CODES.PAYMENTS_UNAVAILABLE, 503);
         }
 
@@ -234,6 +254,7 @@ async function loanAiCheckoutRoutes(fastify) {
           purchasedAddOns = resolvePurchasedAddOns(
             organizationDetails.addOnCodes,
             pkg.code,
+            billingCycle,
           );
         } catch (err) {
           throw checkoutError(CHECKOUT_ERROR_CODES.INVALID_ADDON, 400);
@@ -259,7 +280,8 @@ async function loanAiCheckoutRoutes(fastify) {
 
         if (
           existingOpen?.checkoutUrl &&
-          sameAddOnCodes(existingOpen.metadata, addOnCodesNormalized)
+          sameAddOnCodes(existingOpen.metadata, addOnCodesNormalized) &&
+          String(existingOpen.metadata?.provider || "ghl") === paymentProvider
         ) {
           const reusedMeta = {
             ...(existingOpen.metadata && typeof existingOpen.metadata === "object"
@@ -267,6 +289,7 @@ async function loanAiCheckoutRoutes(fastify) {
               : {}),
             packageCode: pkg.code,
             packageName: pkg.name,
+            provider: paymentProvider,
             ...organizationDetails,
             addOnCodes: addOnCodesNormalized,
           };
@@ -290,20 +313,201 @@ async function loanAiCheckoutRoutes(fastify) {
             status: reused.status,
             reused: true,
           });
-          const checkoutUrl = appendRedirectParams(reused.checkoutUrl, {
-            successUrl,
-            cancelUrl,
-          });
+          const checkoutUrl =
+            paymentProvider === "stripe"
+              ? reused.checkoutUrl
+              : appendRedirectParams(reused.checkoutUrl, {
+                  successUrl,
+                  cancelUrl,
+                });
           return reply.send({
             success: true,
+            provider: paymentProvider,
             checkoutUrl,
             reused: true,
             checkoutId: reused.id,
-            data: toPublicCheckoutPayload(
-              { ...reused, checkoutUrl },
-              pkg,
-            ),
+            data: {
+              ...toPublicCheckoutPayload({ ...reused, checkoutUrl }, pkg),
+              provider: paymentProvider,
+            },
           });
+        }
+
+        if (paymentProvider === "stripe") {
+          let resolvedStripe;
+          try {
+            resolvedStripe = resolveStripePriceId(pkg.code, billingCycle);
+          } catch (err) {
+            return sendCheckoutError(reply, err);
+          }
+
+          const stripeAddOnLineItems = [];
+          for (const addon of purchasedAddOns) {
+            let resolvedAddon;
+            try {
+              resolvedAddon = resolveStripeAddOnPriceId(
+                addon.code,
+                billingCycle,
+                pkg.code,
+              );
+            } catch (err) {
+              return sendCheckoutError(reply, err);
+            }
+            const quantity = Math.max(1, Number(addon.quantity) || 1);
+            const unitAmount =
+              billingCycle === "YEARLY"
+                ? Number(addon.priceMonthly) * 12
+                : Number(addon.priceMonthly);
+            stripeAddOnLineItems.push({
+              code: addon.code,
+              name:
+                quantity > 1 ? `${addon.name} × ${quantity}` : addon.name,
+              priceId: resolvedAddon.priceId,
+              amount: Number.isFinite(unitAmount) ? unitAmount : 0,
+              qty: quantity,
+            });
+          }
+
+          const addOnsAmount = stripeAddOnLineItems.reduce(
+            (sum, item) => sum + Number(item.amount) * (Number(item.qty) || 1),
+            0,
+          );
+          const totalAmount = Number(amount) + addOnsAmount;
+          const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+          logCheckoutInitiated({
+            loanAiUserId: user.id,
+            packageId: pkg.id,
+            packageCode: pkg.code,
+            billingPeriod: billingCycle,
+            ghlPriceId: resolvedStripe.priceId,
+            amount: totalAmount,
+            currency: "USD",
+            addOnCodes: addOnCodesNormalized,
+            provider: "stripe",
+          });
+
+          const checkout = await prisma.loanAiGhlCheckout.create({
+            data: {
+              loanAiUserId: user.id,
+              packageId: pkg.id,
+              billingCycle,
+              status: "PENDING",
+              paymentStatus: "PENDING",
+              amount: totalAmount,
+              currency: "USD",
+              ghlProductId: "stripe",
+              ghlPriceId: resolvedStripe.priceId,
+              successUrl: successUrl || null,
+              cancelUrl: cancelUrl || null,
+              expiresAt,
+              metadata: {
+                provider: "stripe",
+                packageCode: pkg.code,
+                packageName: pkg.name,
+                planAmount: amount,
+                addOnsAmount,
+                addOnCodes: addOnCodesNormalized,
+                addOnLineItems: stripeAddOnLineItems,
+                clientIp: ip,
+                ...organizationDetails,
+              },
+            },
+          });
+
+          try {
+            const session = await createStripeSubscriptionCheckout({
+              email: user.email,
+              customerName:
+                [
+                  organizationDetails.firstName || user.firstName,
+                  organizationDetails.lastName || user.lastName,
+                ]
+                  .filter(Boolean)
+                  .join(" ") || undefined,
+              packageCode: pkg.code,
+              billingCycle,
+              purchasedAddOns,
+              successUrl,
+              cancelUrl,
+              checkoutId: checkout.id,
+              metadata: {
+                loanAiUserId: user.id,
+                packageId: pkg.id,
+                organizationName: organizationDetails.organizationName,
+              },
+            });
+
+            const updated = await prisma.loanAiGhlCheckout.update({
+              where: { id: checkout.id },
+              data: {
+                status: "CHECKOUT_CREATED",
+                paymentStatus: "PENDING",
+                ghlInvoiceId: session.sessionId,
+                checkoutUrl: session.checkoutUrl,
+                lastError: null,
+                metadata: {
+                  ...(checkout.metadata && typeof checkout.metadata === "object"
+                    ? checkout.metadata
+                    : {}),
+                  provider: "stripe",
+                  stripeSessionId: session.sessionId,
+                },
+              },
+            });
+
+            logCheckoutCreated({
+              checkoutId: updated.id,
+              loanAiUserId: user.id,
+              packageId: pkg.id,
+              packageCode: pkg.code,
+              billingPeriod: billingCycle,
+              ghlPriceId: resolvedStripe.priceId,
+              ghlInvoiceId: session.sessionId,
+              paymentStatus: updated.paymentStatus,
+              status: updated.status,
+              provider: "stripe",
+            });
+
+            return reply.send({
+              success: true,
+              provider: "stripe",
+              checkoutUrl: session.checkoutUrl,
+              checkoutId: updated.id,
+              data: {
+                ...toPublicCheckoutPayload(
+                  { ...updated, checkoutUrl: session.checkoutUrl },
+                  pkg,
+                ),
+                provider: "stripe",
+              },
+            });
+          } catch (err) {
+            await prisma.loanAiGhlCheckout.update({
+              where: { id: checkout.id },
+              data: {
+                status: "FAILED",
+                paymentStatus: "FAILED",
+                lastError: String(err?.message || "stripe_checkout_failed"),
+              },
+            });
+            logCheckoutFailed({
+              checkoutId: checkout.id,
+              loanAiUserId: user.id,
+              packageId: pkg.id,
+              billingPeriod: billingCycle,
+              ghlPriceId: resolvedStripe.priceId,
+              previousStatus: "PENDING",
+              paymentStatus: "FAILED",
+              status: "FAILED",
+              reason: err.code || "stripe_checkout_create_failed",
+            });
+            throw err;
+          }
+        }
+
+        if (!canProcessGhlPayments()) {
+          throw checkoutError(CHECKOUT_ERROR_CODES.PAYMENTS_UNAVAILABLE, 503);
         }
 
         let resolved;
@@ -341,7 +545,11 @@ async function loanAiCheckoutRoutes(fastify) {
         for (const addon of purchasedAddOns) {
           let resolvedAddon;
           try {
-            resolvedAddon = resolveGhlAddOnPriceId(addon.code, billingCycle);
+            resolvedAddon = resolveGhlAddOnPriceId(
+              addon.code,
+              billingCycle,
+              pkg.code,
+            );
           } catch (err) {
             return sendCheckoutError(reply, err);
           }
@@ -436,6 +644,7 @@ async function loanAiCheckoutRoutes(fastify) {
             cancelUrl: cancelUrl || null,
             expiresAt,
             metadata: {
+              provider: "ghl",
               packageCode: pkg.code,
               packageName: pkg.name,
               ghlPriceName: priceDetails.name || null,
@@ -491,6 +700,12 @@ async function loanAiCheckoutRoutes(fastify) {
               ghlPriceId: resolved.priceId,
               checkoutUrl: session.checkoutUrl,
               lastError: null,
+              metadata: {
+                ...(checkout.metadata && typeof checkout.metadata === "object"
+                  ? checkout.metadata
+                  : {}),
+                provider: "ghl",
+              },
             },
           });
 
@@ -508,13 +723,18 @@ async function loanAiCheckoutRoutes(fastify) {
             status: updated.status,
             amount: updated.amount,
             currency: updated.currency,
+            provider: "ghl",
           });
 
           return reply.send({
             success: true,
+            provider: "ghl",
             checkoutUrl: updated.checkoutUrl,
             checkoutId: updated.id,
-            data: toPublicCheckoutPayload(updated, pkg),
+            data: {
+              ...toPublicCheckoutPayload(updated, pkg),
+              provider: "ghl",
+            },
           });
         } catch (err) {
           await prisma.loanAiGhlCheckout.update({
@@ -589,7 +809,7 @@ async function loanAiCheckoutRoutes(fastify) {
       preHandler: [fastify.verifyLoanAi],
       schema: {
         tags: ["Public -> Loan AI Subscriptions"],
-        summary: "Sync checkout payment status from GHL invoice and fulfill if paid",
+        summary: "Sync checkout payment status from Stripe/GHL and fulfill if paid",
       },
     },
     async (req, reply) => {
@@ -625,16 +845,42 @@ async function loanAiCheckoutRoutes(fastify) {
           });
         }
 
-        if (!canProcessGhlPayments()) {
+        if (!canProcessLoanAiPayments()) {
           throw checkoutError(CHECKOUT_ERROR_CODES.PAYMENTS_UNAVAILABLE, 503);
         }
 
-        const result = await syncPaidCheckoutFromGhl(
-          fastify.prisma,
-          fastify.io,
-          req.loanAiUser,
-          { checkoutId: parsed.data.checkoutId },
-        );
+        // Prefer Stripe sync when sessionId present or checkout is Stripe-backed.
+        let useStripe = getPaymentProvider() === "stripe";
+        if (parsed.data.sessionId) {
+          useStripe = true;
+        } else if (parsed.data.checkoutId) {
+          const row = await fastify.prisma.loanAiGhlCheckout.findFirst({
+            where: {
+              id: parsed.data.checkoutId,
+              loanAiUserId: req.loanAiUser.id,
+            },
+            select: { metadata: true },
+          });
+          if (row?.metadata?.provider === "stripe") useStripe = true;
+          if (row?.metadata?.provider === "ghl") useStripe = false;
+        }
+
+        const result = useStripe
+          ? await syncPaidCheckoutFromStripe(
+              fastify.prisma,
+              fastify.io,
+              req.loanAiUser,
+              {
+                checkoutId: parsed.data.checkoutId,
+                sessionId: parsed.data.sessionId,
+              },
+            )
+          : await syncPaidCheckoutFromGhl(
+              fastify.prisma,
+              fastify.io,
+              req.loanAiUser,
+              { checkoutId: parsed.data.checkoutId },
+            );
 
         return reply.send({
           success: true,

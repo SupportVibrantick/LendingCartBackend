@@ -183,17 +183,25 @@ module.exports = async function findEligibleLenders(fastify) {
            4️⃣ FETCH ALREADY SENT LENDERS
         ===================================================== */
 
-        const alreadySent = await prisma.applicationLender.findMany({
+        const applicationLenders = await prisma.applicationLender.findMany({
           where: {
-            loanApplicationId: application.id,          },
+            loanApplicationId: application.id,
+          },
           select: {
             lenderProductId: true,
+            status: true,
           },
         });
 
-        const sentProductIds = new Set(
-          alreadySent.map((a) => a.lenderProductId).filter(Boolean),
+        const declinedStatuses = new Set(["DECLINED", "WITHDRAWN"]);
+
+        const applicationStatusByProductId = new Map(
+          applicationLenders
+            .filter((entry) => entry.lenderProductId)
+            .map((entry) => [entry.lenderProductId, entry.status]),
         );
+
+        const sentProductIds = new Set(applicationStatusByProductId.keys());
 
         /* =====================================================
            5️⃣ FETCH ALL ACTIVE LENDER PRODUCTS (NO EXCLUSION)
@@ -235,9 +243,11 @@ module.exports = async function findEligibleLenders(fastify) {
               submissionId,
               applicationId: application.id,
               totalEligibleLenders: 0,
+              totalIneligibleLenders: 0,
               totalRejectedLenders: 0,
               totalAlreadySentLenders: 0,
               eligibleLenders: [],
+              ineligibleLenders: [],
               rejectedLenders: [],
               alreadySentLenders: [],
             },
@@ -271,7 +281,13 @@ module.exports = async function findEligibleLenders(fastify) {
         };
 
         const evaluatedLenders = lenderProducts.map((lp) => {
+          const applicationStatus =
+            applicationStatusByProductId.get(lp.id) ?? null;
           const isAlreadySent = sentProductIds.has(lp.id);
+          const isDeclined =
+            isAlreadySent &&
+            applicationStatus &&
+            declinedStatuses.has(applicationStatus);
           const lender = lp.lender;
           const lenderProfile = lender.lenderProfile ?? null;
 
@@ -280,6 +296,8 @@ module.exports = async function findEligibleLenders(fastify) {
             applicant,
             lenderProfile,
           );
+
+          const isEligible = reasons.length === 0;
 
           return {
             lenderOrgId: lender.id,
@@ -301,12 +319,13 @@ module.exports = async function findEligibleLenders(fastify) {
             minCreditScore: lp.minCreditScore,
             interestRateRange: formatLenderInterestRate(lp),
 
-            // 🔥 FLAGS
             alreadySent: isAlreadySent,
-            eligible: reasons.length === 0,
-            canSend: !isAlreadySent && reasons.length === 0,
+            applicationStatus,
+            isDeclined,
+            eligible: isEligible,
+            canSend: !isAlreadySent && isEligible,
 
-            rejectionReasons: reasons,
+            rejectionReasons: isDeclined ? [] : reasons,
           };
         });
 
@@ -314,22 +333,29 @@ module.exports = async function findEligibleLenders(fastify) {
            7️⃣ SPLIT DATA
         ===================================================== */
 
-        const alreadySentLenders = evaluatedLenders.filter(
-          (l) => l.alreadySent,
-        );
-
         const eligibleLenders = evaluatedLenders.filter(
           (l) => l.eligible && !l.alreadySent,
         );
 
-        const rejectedLenders = evaluatedLenders.filter(
+        const ineligibleLenders = evaluatedLenders.filter(
           (l) => !l.eligible && !l.alreadySent,
+        );
+
+        const rejectedLenders = evaluatedLenders.filter((l) => l.isDeclined);
+
+        const alreadySentLenders = evaluatedLenders.filter(
+          (l) => l.alreadySent && !l.isDeclined,
         );
 
         const allLenders = [
           ...eligibleLenders.map((l) => ({
             ...l,
             type: "eligible",
+          })),
+
+          ...ineligibleLenders.map((l) => ({
+            ...l,
+            type: "ineligible",
           })),
 
           ...rejectedLenders.map((l) => ({
@@ -367,6 +393,10 @@ module.exports = async function findEligibleLenders(fastify) {
 
         const paginatedEligibleLenders = paginatedLenders.filter(
           (l) => l.type === "eligible",
+        );
+
+        const paginatedIneligibleLenders = paginatedLenders.filter(
+          (l) => l.type === "ineligible",
         );
 
         const paginatedRejectedLenders = paginatedLenders.filter(
@@ -410,10 +440,12 @@ module.exports = async function findEligibleLenders(fastify) {
             },
 
             totalEligibleLenders: eligibleLenders.length,
+            totalIneligibleLenders: ineligibleLenders.length,
             totalRejectedLenders: rejectedLenders.length,
             totalAlreadySentLenders: alreadySentLenders.length,
 
             eligibleLenders: paginatedEligibleLenders,
+            ineligibleLenders: paginatedIneligibleLenders,
             rejectedLenders: paginatedRejectedLenders,
             alreadySentLenders: paginatedAlreadySentLenders,
 

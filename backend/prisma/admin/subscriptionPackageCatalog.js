@@ -12,6 +12,7 @@
  *   includedUsers?: number,
  *   maxUsers?: number,
  *   extraUserPrice?: number,
+ *   priceYearlyMonthly?: number, // marketing display $/mo when billed yearly (may differ from priceYearly/12)
  *   groups: [{ heading, items: (string | { label, children: string[] })[], variant?: "default" | "highlight" }]
  * }
  */
@@ -20,9 +21,10 @@ const SUBSCRIPTION_PACKAGES = [
   {
     name: "Starter",
     code: "BASIC",
-    priceMonthly: 199,
-    // 20% off vs paying monthly for 12 months
-    priceYearly: 1910,
+    // Client source of truth — do not derive yearly display from monthly*0.8
+    priceMonthly: 249,
+    priceYearly: 2338, // actual annual charge
+    priceYearlyMonthly: 199, // yearly-toggle display only
     description: "For independent brokers getting started",
     badge: null,
     usersLabel: "Add up to 5 users · Additional User Cost: $99/m",
@@ -57,7 +59,8 @@ const SUBSCRIPTION_PACKAGES = [
       },
     ],
     usageLimits: {
-      LOAN_APPLICATIONS: 50,
+      // Base = includedUsers × 20 apps/month (scaled further by EXTRA_USER seats)
+      LOAN_APPLICATIONS: 20,
       CO_BROKERS: 5,
       LOAN_OFFICERS: 5,
       LENDER_CONNECTIONS: 10,
@@ -68,8 +71,9 @@ const SUBSCRIPTION_PACKAGES = [
   {
     name: "Pro",
     code: "PRO",
-    priceMonthly: 399,
-    priceYearly: 3830,
+    priceMonthly: 499,
+    priceYearly: 4788,
+    priceYearlyMonthly: 399,
     description: "For growing brokerages with a team",
     badge: "MOST POPULAR",
     usersLabel: "Add up to 10 users · Additional User Cost: $79/m",
@@ -115,7 +119,7 @@ const SUBSCRIPTION_PACKAGES = [
       },
     ],
     usageLimits: {
-      LOAN_APPLICATIONS: 200,
+      LOAN_APPLICATIONS: 100,
       CO_BROKERS: 10,
       LOAN_OFFICERS: 15,
       LENDER_CONNECTIONS: 50,
@@ -126,8 +130,9 @@ const SUBSCRIPTION_PACKAGES = [
   {
     name: "Elite",
     code: "ELITE",
-    priceMonthly: 699,
-    priceYearly: 6710,
+    priceMonthly: 874,
+    priceYearly: 8388,
+    priceYearlyMonthly: 699,
     description: "For teams at scale + full GHL suite",
     badge: "BEST VALUE",
     usersLabel: "Add up to 25 users · Additional User Cost: $49/m",
@@ -185,7 +190,7 @@ const SUBSCRIPTION_PACKAGES = [
       },
     ],
     usageLimits: {
-      LOAN_APPLICATIONS: 1000,
+      LOAN_APPLICATIONS: 200,
       CO_BROKERS: 25,
       LOAN_OFFICERS: 50,
       LENDER_CONNECTIONS: 200,
@@ -199,15 +204,24 @@ const SUBSCRIPTION_ADD_ONS = [
   {
     code: "EXTRA_USER",
     name: "Additional Users",
+    // Default = Starter; plan tiers via priceByPackage + package.extraUserPrice
     priceMonthly: 99,
+    priceYearlyMonthly: 99,
+    priceByPackage: {
+      BASIC: { monthly: 99, yearly: 99 },
+      PRO: { monthly: 79, yearly: 79 },
+      ELITE: { monthly: 49, yearly: 49 },
+    },
     isPurchasable: true,
-    usageBoost: { CO_BROKERS: 1, ACTIVE_USERS: 1 },
+    usageBoost: { CO_BROKERS: 1, LOAN_OFFICERS: 1, ACTIVE_USERS: 1 },
     quantityBased: true,
   },
   {
     code: "CRE_PACK",
     name: "CRE & Multifamily",
-    priceMonthly: 59,
+    // Monthly toggle / Yearly toggle (display $/m)
+    priceMonthly: 74,
+    priceYearlyMonthly: 59,
     note: "Starter",
     isPurchasable: true,
     availableForPackageCodes: ["BASIC"],
@@ -216,7 +230,8 @@ const SUBSCRIPTION_ADD_ONS = [
   {
     code: "FEE_AGREEMENT_PACK",
     name: "FEE Agreement & Term Sheet",
-    priceMonthly: 59,
+    priceMonthly: 74,
+    priceYearlyMonthly: 59,
     note: "Starter",
     isPurchasable: true,
     availableForPackageCodes: ["BASIC"],
@@ -225,8 +240,12 @@ const SUBSCRIPTION_ADD_ONS = [
   {
     code: "BUSINESS_LENDING_PACK",
     name: "Business Lending (SBA, USDA, ABL)",
-    priceMonthly: 99,
-    priceByPackage: { BASIC: 99, PRO: 79 },
+    priceMonthly: 124,
+    priceYearlyMonthly: 99,
+    priceByPackage: {
+      BASIC: { monthly: 124, yearly: 99 },
+      PRO: { monthly: 99, yearly: 79 },
+    },
     note: "Starter/Pro",
     isPurchasable: true,
     availableForPackageCodes: ["BASIC", "PRO"],
@@ -237,6 +256,7 @@ const SUBSCRIPTION_ADD_ONS = [
     code: "ABL_PACK",
     name: "Asset-Based Lending",
     priceMonthly: 50,
+    priceYearlyMonthly: 50,
     note: "Legacy",
     isPurchasable: false,
     availableForPackageCodes: ["BASIC", "PRO"],
@@ -246,6 +266,7 @@ const SUBSCRIPTION_ADD_ONS = [
     code: "SBA_PACK",
     name: "SBA & USDA",
     priceMonthly: 50,
+    priceYearlyMonthly: 50,
     note: "Legacy",
     isPurchasable: false,
     availableForPackageCodes: ["BASIC", "PRO"],
@@ -254,8 +275,12 @@ const SUBSCRIPTION_ADD_ONS = [
   {
     code: "LENDER_MARKETPLACE_PACK",
     name: "Lender Marketplace + Add Lenders",
-    priceMonthly: 79,
-    priceByPackage: { BASIC: 79, PRO: 59 },
+    priceMonthly: 99,
+    priceYearlyMonthly: 79,
+    priceByPackage: {
+      BASIC: { monthly: 99, yearly: 79 },
+      PRO: { monthly: 74, yearly: 59 },
+    },
     note: "Starter/Pro",
     isPurchasable: true,
     availableForPackageCodes: ["BASIC", "PRO"],
@@ -264,7 +289,8 @@ const SUBSCRIPTION_ADD_ONS = [
   {
     code: "GHL_STARTER",
     name: "GoHighLevel Starter",
-    priceMonthly: 99,
+    priceMonthly: 124,
+    priceYearlyMonthly: 99,
     note: "Starter",
     isPurchasable: true,
     availableForPackageCodes: ["BASIC"],
@@ -273,8 +299,12 @@ const SUBSCRIPTION_ADD_ONS = [
   {
     code: "WHITE_LABEL",
     name: "White-Label",
-    priceMonthly: 99,
-    priceByPackage: { BASIC: 99, PRO: 79 },
+    priceMonthly: 124,
+    priceYearlyMonthly: 99,
+    priceByPackage: {
+      BASIC: { monthly: 124, yearly: 99 },
+      PRO: { monthly: 99, yearly: 79 },
+    },
     note: "Starter/Pro",
     isPurchasable: true,
     availableForPackageCodes: ["BASIC", "PRO"],
@@ -283,8 +313,12 @@ const SUBSCRIPTION_ADD_ONS = [
   {
     code: "GHL_BASIC_SYNC",
     name: "GoHighLevel Growth",
-    priceMonthly: 199,
-    priceByPackage: { BASIC: 199, PRO: 99 },
+    priceMonthly: 249,
+    priceYearlyMonthly: 199,
+    priceByPackage: {
+      BASIC: { monthly: 249, yearly: 199 },
+      PRO: { monthly: 124, yearly: 99 },
+    },
     note: "Starter/Pro",
     isPurchasable: true,
     availableForPackageCodes: ["BASIC", "PRO"],
@@ -351,6 +385,8 @@ function buildFeaturesPayload(pkg) {
     includedUsers: pkg.includedUsers ?? null,
     maxUsers: pkg.maxUsers ?? null,
     extraUserPrice: pkg.extraUserPrice ?? null,
+    priceYearlyMonthly:
+      pkg.priceYearlyMonthly != null ? Number(pkg.priceYearlyMonthly) : null,
     groups,
   };
 }
@@ -380,6 +416,7 @@ function parseStoredFeatures(raw) {
     includedUsers: null,
     maxUsers: null,
     extraUserPrice: null,
+    priceYearlyMonthly: null,
     groups: [],
     features: [],
   };
@@ -423,6 +460,10 @@ function parseStoredFeatures(raw) {
           maxUsers: parsed.maxUsers != null ? Number(parsed.maxUsers) : null,
           extraUserPrice:
             parsed.extraUserPrice != null ? Number(parsed.extraUserPrice) : null,
+          priceYearlyMonthly:
+            parsed.priceYearlyMonthly != null
+              ? Number(parsed.priceYearlyMonthly)
+              : null,
           groups,
           features: flattenFeatureGroups(groups),
         };

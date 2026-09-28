@@ -261,6 +261,27 @@ async function forwardLenderDocumentsToClientRoutes(fastify) {
         if (reply.sent) return;
 
         const brokerOrgId = req.user.organizationId;
+        const {
+          getOrgEnabledFeatures,
+          orgAllowsPermission,
+        } = require("../../../services/subscription/brokerOrgFeatures");
+        const orgEntitlements = await getOrgEnabledFeatures(
+          fastify.prisma,
+          brokerOrgId,
+        );
+        if (
+          !orgAllowsPermission(
+            orgEntitlements.permissions,
+            "AUTO_FORWARD_TO_CLIENT",
+          )
+        ) {
+          return reply.code(403).send({
+            success: false,
+            message:
+              "Auto-Forward Docs is available on the Elite plan. Upgrade to unlock.",
+          });
+        }
+
         const { submissionId } = req.params;
         const { autoForwardLenderRequestsToClient } = req.body;
 

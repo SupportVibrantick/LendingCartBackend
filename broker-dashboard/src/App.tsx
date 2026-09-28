@@ -89,6 +89,7 @@ import LoanOfficerMessagesPage from "./pages/loanOfficer/Messages/LoanOfficerMes
 import LoanOfficerApplication from "./pages/loanOfficer/LoanApplication/LoanApplication";
 import LoanOfficerContacts from "./pages/loanOfficer/Contacts/ContactPage";
 import BrokerBranding from "./pages/Settings/BrokerBranding";
+import PlanAddOns from "./pages/Settings/PlanAddOns";
 import GhlIntegration from "./pages/Settings/Integrations/GHL";
 import BrokerCustomDocuments from "./pages/Documents/BrokerCustomDocuments";
 import CommissionsPage from "./pages/Commissions/CommissionsPage";
@@ -140,6 +141,21 @@ const LoRequirePermission = ({
   if (permission === "always") return <>{children}</>;
   return (
     <RequirePermission permission={permission} portal="loanOfficer">
+      {children}
+    </RequirePermission>
+  );
+};
+
+const CoBrokerRequirePermission = ({
+  permission,
+  children,
+}: {
+  permission: PermissionKey | PermissionKey[] | "always";
+  children: React.ReactNode;
+}) => {
+  if (permission === "always") return <>{children}</>;
+  return (
+    <RequirePermission permission={permission} portal="coBroker">
       {children}
     </RequirePermission>
   );
@@ -249,7 +265,13 @@ export default function App() {
             <Route
               path="/sub-brokers"
               element={
-                isSubBrokerUser() ? <Navigate to="/" replace /> : <SubBroker />
+                isSubBrokerUser() ? (
+                  <Navigate to="/" replace />
+                ) : (
+                  <BrokerRequirePermission permission="VIEW_CO_BROKERS">
+                    <SubBroker />
+                  </BrokerRequirePermission>
+                )
               }
             />
 
@@ -292,7 +314,7 @@ export default function App() {
                 isSubBrokerUser() ? (
                   <Navigate to="/" replace />
                 ) : (
-                  <BrokerRequirePermission permission="VIEW_CLIENTS">
+                  <BrokerRequirePermission permission="VIEW_CONTACTS">
                     <ContactPage />
                   </BrokerRequirePermission>
                 )
@@ -326,8 +348,22 @@ export default function App() {
 
             <Route path="/payments" element={<PaymentsLayout />}>
               <Route index element={<Navigate to="invoices" replace />} />
-              <Route path="invoices" element={<InvoicesPage />} />
-              <Route path="commissions" element={<CommissionsPage />} />
+              <Route
+                path="invoices"
+                element={
+                  <BrokerRequirePermission permission="VIEW_INVOICES">
+                    <InvoicesPage />
+                  </BrokerRequirePermission>
+                }
+              />
+              <Route
+                path="commissions"
+                element={
+                  <BrokerRequirePermission permission="VIEW_COMMISSIONS">
+                    <CommissionsPage />
+                  </BrokerRequirePermission>
+                }
+              />
             </Route>
             <Route
               path="/commissions"
@@ -367,10 +403,18 @@ export default function App() {
             {/* Others Page */}
             <Route path="/profile" element={<UserProfiles />} />
             <Route path="/settings/branding" element={
-              <BrokerRequirePermission permission="VIEW_SETTINGS">
+              <BrokerRequirePermission permission="MANAGE_BRANDING">
                 <BrokerBranding />
               </BrokerRequirePermission>
             } />
+            <Route
+              path="/settings/plan"
+              element={
+                <BrokerRequirePermission permission="VIEW_COMPANY_SETTINGS">
+                  <PlanAddOns />
+                </BrokerRequirePermission>
+              }
+            />
             <Route
               path="/settings/integrations/ghl"
               element={
@@ -500,7 +544,11 @@ export default function App() {
           >
             <Route
               path="loan-pipeline-preview"
-              element={<CoBrokerLoanPreview />}
+              element={
+                <CoBrokerRequirePermission permission="VIEW_APPLICATIONS">
+                  <CoBrokerLoanPreview />
+                </CoBrokerRequirePermission>
+              }
             />
 
             <Route element={<SubBrokerLayout />}>
@@ -508,17 +556,59 @@ export default function App() {
 
             <Route path="dashboard" element={<CoBrokerDashboard />} />
 
-            <Route path="invoices" element={<CoBrokerInvoicesPage />} />
+            <Route
+              path="invoices"
+              element={
+                <CoBrokerRequirePermission permission="VIEW_INVOICES">
+                  <CoBrokerInvoicesPage />
+                </CoBrokerRequirePermission>
+              }
+            />
 
-            <Route path="commissions" element={<CoBrokerCommissionsPage />} />
+            <Route
+              path="commissions"
+              element={
+                <CoBrokerRequirePermission permission="VIEW_COMMISSIONS">
+                  <CoBrokerCommissionsPage />
+                </CoBrokerRequirePermission>
+              }
+            />
 
-            <Route path="loan-pipeline" element={<LoanPipeline />} />
+            <Route
+              path="loan-pipeline"
+              element={
+                <CoBrokerRequirePermission permission="VIEW_APPLICATIONS">
+                  <LoanPipeline />
+                </CoBrokerRequirePermission>
+              }
+            />
 
-            <Route path="loan-application" element={<CoBrokerApplication />} />
+            <Route
+              path="loan-application"
+              element={
+                <CoBrokerRequirePermission permission="CREATE_APPLICATION">
+                  <CoBrokerApplication />
+                </CoBrokerRequirePermission>
+              }
+            />
 
-            <Route path="borrowers" element={<BorrowersPage />} />
+            <Route
+              path="borrowers"
+              element={
+                <CoBrokerRequirePermission permission="VIEW_BORROWERS">
+                  <BorrowersPage />
+                </CoBrokerRequirePermission>
+              }
+            />
 
-            <Route path="contacts" element={<CoBrokerContactsPage />} />
+            <Route
+              path="contacts"
+              element={
+                <CoBrokerRequirePermission permission="VIEW_CONTACTS">
+                  <CoBrokerContactsPage />
+                </CoBrokerRequirePermission>
+              }
+            />
 
             <Route path="profile" element={<SubBrokerProfile />} />
             </Route>

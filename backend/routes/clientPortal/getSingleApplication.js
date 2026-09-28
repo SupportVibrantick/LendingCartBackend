@@ -13,6 +13,9 @@ const {
   resolveClientPortalAccess,
   resolvePortalClientIds,
 } = require("../../utils/auth/clientPortalAuth");
+const {
+  orgHasChatFeature,
+} = require("../../services/subscription/brokerOrgFeatures");
 
 function findSubmissionFieldValue(fields, keys) {
   const field = fields.find((item) => keys.includes(item.fieldKey));
@@ -224,6 +227,11 @@ async function getClientApplicationDetailsRoute(fastify) {
           }
         : null;
 
+      const chatEnabled = await orgHasChatFeature(
+        prisma,
+        application.brokerOrgId,
+      );
+
       return reply.send({
         success: true,
         data: {
@@ -251,6 +259,9 @@ async function getClientApplicationDetailsRoute(fastify) {
           alreadySigned: Boolean(signatureState.alreadySigned),
           feeAgreement: feeAgreement || null,
           broker,
+          entitlements: {
+            chatEnabled,
+          },
         },
       });
     } catch (error) {

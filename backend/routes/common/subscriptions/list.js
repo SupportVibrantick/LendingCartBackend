@@ -23,6 +23,7 @@ function formatPackage(pkg) {
     includedUsers: parsed.includedUsers,
     maxUsers: parsed.maxUsers,
     extraUserPrice: parsed.extraUserPrice,
+    priceYearlyMonthly: parsed.priceYearlyMonthly,
     usageLimits: pkg.usageLimits ?? null,
     sortOrder: pkg.sortOrder,
   };

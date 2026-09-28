@@ -343,7 +343,7 @@ export default function GhlIntegration({ portal }: GhlIntegrationProps) {
               <p className="mt-4 max-w-xl text-sm leading-relaxed text-blue-50/90 sm:text-[15px]">
                 {isLoanOfficerPortal
                   ? "Your broker organization has one GoHighLevel workspace. Broker admins and loan officers share the same CRM sub-account — login credentials are emailed when access is provisioned."
-                  : "Pro and Elite plans include a fully managed GoHighLevel workspace. Loan Automation provisions your location, emails login credentials, and keeps your team in sync — no manual OAuth connect required."}
+                  : "Pro/Elite plans and GoHighLevel Starter/Growth add-ons include a fully managed GoHighLevel workspace. Loan Automation provisions your location, emails login credentials, and keeps your team in sync — no manual OAuth connect required."}
               </p>
             </div>
 
@@ -626,11 +626,11 @@ export default function GhlIntegration({ portal }: GhlIntegrationProps) {
             <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100">
               {isLoanOfficerPortal
                 ? agencyPending
-                  ? "Your brokerage’s Pro/Elite plan is active, but the shared CRM is not linked yet. Ask a broker admin to open GoHighLevel in the broker portal and click Set up CRM."
-                  : "CRM status could not be loaded for your organization. Ask a broker admin to confirm an active Pro or Elite subscription."
+                  ? "Your brokerage has CRM access, but the shared CRM is not linked yet. Ask a broker admin to open GoHighLevel in the broker portal and click Set up CRM."
+                  : "CRM status could not be loaded for your organization. Ask a broker admin to confirm an active Pro/Elite plan or GoHighLevel add-on."
                 : agencyPending
-                  ? "Your Pro/Elite plan is active, but the CRM sub-account is not linked yet. Click Set up CRM to provision it. If setup fails, the agency account may need a GoHighLevel plan upgrade or a free sub-account slot."
-                  : "CRM status could not be loaded for this organization. Ensure you have an active Pro or Elite subscription."}
+                  ? "CRM access is active, but the sub-account is not linked yet. Click Set up CRM to provision it. If setup fails, the agency account may need a GoHighLevel plan upgrade or a free sub-account slot."
+                  : "CRM status could not be loaded for this organization. Ensure you have an active Pro/Elite plan or a GoHighLevel Starter/Growth add-on."}
             </div>
 
             <div className="mt-5 flex flex-wrap gap-2">

@@ -177,7 +177,12 @@ function normalizeFeatureGroups(pkg) {
 function getDisplayPrice(pkg, billingCycle) {
   if (billingCycle === "YEARLY" && pkg.priceYearly != null) {
     const yearlyTotal = Number(pkg.priceYearly);
-    const monthlyEquivalent = Math.round(yearlyTotal / 12);
+    // Explicit yearly display $/mo — do NOT derive from priceYearly/12 or monthly*0.8
+    const monthlyEquivalent =
+      pkg.priceYearlyMonthly != null &&
+      Number.isFinite(Number(pkg.priceYearlyMonthly))
+        ? Number(pkg.priceYearlyMonthly)
+        : Math.round(yearlyTotal / 12);
     return {
       amount: monthlyEquivalent,
       suffix: "/ month",
@@ -197,14 +202,9 @@ function getDisplayPrice(pkg, billingCycle) {
 }
 
 function getYearlySavingsPercent(pkg) {
-  const monthly = Number(pkg.priceMonthly);
-  const yearly = Number(pkg.priceYearly);
-  if (!Number.isFinite(monthly) || !Number.isFinite(yearly) || monthly <= 0) {
-    return null;
-  }
-  const annualFromMonthly = monthly * 12;
-  if (yearly >= annualFromMonthly) return null;
-  return Math.round(((annualFromMonthly - yearly) / annualFromMonthly) * 100);
+  // Marketing copy is fixed at 20% — do not recompute from list prices
+  if (pkg.priceYearly == null || pkg.priceMonthly == null) return null;
+  return YEARLY_SAVE_PERCENT;
 }
 
 function planDemoMessage(pkg, billingCycle) {
@@ -558,11 +558,12 @@ function PricingSkeleton() {
   );
 }
 
+/** Paid pricing section on the loan-ai marketing site. */
 const Pricing = () => {
   const { isAuthenticated, user, refreshUser } = useAuth();
   const [packages, setPackages] = useState([]);
   const [addOns, setAddOns] = useState([]);
-  /** @type {[Record<string, string[]>, Function]} */
+  /** @type {[Record<string, string[]], Function]} */
   const [selectedByPackage, setSelectedByPackage] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -640,8 +641,8 @@ const Pricing = () => {
         </h2>
 
         <p className="mx-auto mb-10 max-w-2xl text-slate-600 dark:text-gray-400">
-          Transparent pricing for high-value loan brokerage workflows. Start
-          with a {user?.freeTrialDays || 14}-day free trial — no card required.
+          Transparent pricing for high-value loan brokerage workflows. Buy a plan
+          to go live immediately. No long-term contracts.
         </p>
 
         {!loading && !error && hasYearlyPricing && (
@@ -732,7 +733,11 @@ const Pricing = () => {
                   : null;
 
               const selectedCodes = getPackageSelections(pkg.id);
-              const packageAddOns = filterAddOnsForPackage(addOns, pkg.code);
+              const packageAddOns = filterAddOnsForPackage(
+                addOns,
+                pkg.code,
+                billingCycle,
+              );
               const extraUserAddOn = packageAddOns.find((a) =>
                 isQuantityAddOn(a),
               );
@@ -744,6 +749,7 @@ const Pricing = () => {
                 addOns,
                 selectedCodes,
                 pkg.code,
+                billingCycle,
               ).map((addOn) => {
                 if (!isQuantityAddOn(addOn)) return addOn;
                 const unit =
@@ -757,7 +763,6 @@ const Pricing = () => {
                 applicableAddOns,
                 billingCycle,
               );
-              // When yearly, display monthly equivalent of plan + add-ons
               const displayTotal =
                 billingCycle === "YEARLY"
                   ? amount + Math.round(addOnsAmount / 12)
@@ -775,13 +780,6 @@ const Pricing = () => {
                 billingCycle,
                 formatPrice,
                 addOnCodesForCheckout,
-              );
-              const trialCheckoutState = buildPlanCheckoutState(
-                pkg,
-                billingCycle,
-                formatPrice,
-                [],
-                { mode: "trial" },
               );
               const demoState = {
                 planCode: pkg.code,
@@ -808,7 +806,7 @@ const Pricing = () => {
                           : "bg-linear-to-r from-emerald-500 to-teal-500 text-white"
                       }`}
                     >
-                      {isOnTrial ? "Your Trial" : "Your Plan"}
+                      {isOnTrial ? "Current plan" : "Your Plan"}
                     </span>
                   )}
 
@@ -897,9 +895,7 @@ const Pricing = () => {
                   <PricingPlanCta
                     pkg={pkg}
                     checkoutState={checkoutState}
-                    trialCheckoutState={trialCheckoutState}
                     demoState={demoState}
-                    freeTrialDays={user?.freeTrialDays || 14}
                   />
                 </article>
               );
@@ -912,8 +908,7 @@ const Pricing = () => {
         )}
 
         <p className="mt-10 text-sm text-slate-600 dark:text-gray-400">
-          {user?.freeTrialDays || 14}-day free trial on every plan. No long-term
-          contracts. Cancel anytime.
+          No long-term contracts. Cancel anytime.
         </p>
 
         {!loading && !error && packages.length > 0 && (

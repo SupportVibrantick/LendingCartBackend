@@ -27,7 +27,7 @@ const loanAiPurchaseSchema = z.object({
   organizationEmail: z.string().trim().toLowerCase().email(),
   organizationPhone: z
     .union([z.string(), z.number()])
-    .transform((val) => String(val))
+    .transform((val) => String(val).replace(/\D/g, ""))
     .refine((val) => /^[0-9]{10,15}$/.test(val), "Phone must be 10–15 digits"),
   firstName: z.string().trim().min(2).max(50),
   lastName: z.string().trim().min(2).max(50),

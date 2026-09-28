@@ -143,6 +143,39 @@ async function createSubBrokerRoutes(fastify) {
         const brokerOrgId = req.user.organizationId;
         const userId = req.user.id;
 
+        const {
+          assertSeatAvailable,
+        } = require("../../../services/subscription/subscriptionBilling");
+        const {
+          getOrgEnabledFeatures,
+          orgAllowsPermission,
+        } = require("../../../services/subscription/brokerOrgFeatures");
+        const orgEntitlements = await getOrgEnabledFeatures(prisma, brokerOrgId);
+        if (
+          !orgAllowsPermission(orgEntitlements.permissions, "EDIT_CO_BROKERS") &&
+          !orgAllowsPermission(orgEntitlements.permissions, "VIEW_CO_BROKERS")
+        ) {
+          return reply.code(403).send({
+            success: false,
+            message:
+              "Co-Broker portals are not included in your plan. Upgrade to Pro or buy the matching add-on.",
+          });
+        }
+        const seatCheck = await assertSeatAvailable(
+          prisma,
+          brokerOrgId,
+          "CO_BROKERS",
+        );
+        if (!seatCheck.ok) {
+          return reply.code(seatCheck.statusCode || 403).send({
+            success: false,
+            code: seatCheck.code,
+            message: seatCheck.message,
+            used: seatCheck.used,
+            limit: seatCheck.limit,
+          });
+        }
+
         const { fields, logoUrl, w9Url } = await parseMultipartRequest(req);
         const validation = validateCreateFields(fields);
 

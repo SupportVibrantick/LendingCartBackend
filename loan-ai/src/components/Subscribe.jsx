@@ -55,7 +55,8 @@ export default function SubscribePage() {
   const { user, token, loading: authLoading, isAuthenticated, refreshUser } =
     useAuth();
 
-  const isTrialMode = planFromState.mode === "trial";
+  // Free trial checkout lives on loan-ai-trial — this app is paid-only.
+  const isTrialMode = false;
   const freeTrialDays = user?.freeTrialDays || 14;
 
   const [packages, setPackages] = useState([]);
@@ -84,6 +85,24 @@ export default function SubscribePage() {
   const isPaidActive = Boolean(user?.hasBrokerSubscription) && !isOnTrial;
   const canStartTrial =
     isTrialMode && !user?.hasBrokerSubscription && !user?.hasUsedFreeTrial;
+
+  // Re-apply plan selections when navigating from pricing (same page remount or state update).
+  const pricingAddOnKey = JSON.stringify(planFromState.addOnCodes || []);
+  useEffect(() => {
+    if (!planFromState.packageId) return;
+    setSelectedPackageId(planFromState.packageId);
+    if (planFromState.billingCycle) {
+      setBillingCycle(planFromState.billingCycle);
+    }
+    if (!isTrialMode && Array.isArray(planFromState.addOnCodes)) {
+      setSelectedAddOnCodes(planFromState.addOnCodes);
+    }
+  }, [
+    planFromState.packageId,
+    planFromState.billingCycle,
+    pricingAddOnKey,
+    isTrialMode,
+  ]);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -133,8 +152,8 @@ export default function SubscribePage() {
     () =>
       isTrialMode
         ? []
-        : filterAddOnsForPackage(addOnCatalog, selectedPkg?.code),
-    [addOnCatalog, selectedPkg?.code, isTrialMode],
+        : filterAddOnsForPackage(addOnCatalog, selectedPkg?.code, billingCycle),
+    [addOnCatalog, selectedPkg?.code, isTrialMode, billingCycle],
   );
 
   useEffect(() => {
@@ -142,13 +161,17 @@ export default function SubscribePage() {
       setSelectedAddOnCodes([]);
       return;
     }
+    // Don't wipe codes from pricing while packages/catalog are still loading —
+    // availableAddOns starts empty and would clear all prefetched selections.
+    if (loadingPackages || !selectedPkg) return;
+
     const allowed = new Set(
       availableAddOns.map((a) => String(a.code).toUpperCase()),
     );
     setSelectedAddOnCodes((prev) =>
       prev.filter((code) => allowed.has(String(code).toUpperCase())),
     );
-  }, [availableAddOns, isTrialMode]);
+  }, [availableAddOns, isTrialMode, loadingPackages, selectedPkg]);
 
   const selectedAddOns = useMemo(
     () => getSelectedAddOns(availableAddOns, selectedAddOnCodes),
@@ -288,23 +311,25 @@ export default function SubscribePage() {
   if (trialStarted || (isOnTrial && isTrialMode)) {
     return (
       <div className="relative min-h-screen overflow-hidden bg-slate-50 text-slate-900 transition-colors dark:bg-[#0b1020] dark:text-white">
-        <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.05)_1px,transparent_1px)] bg-[size:40px_40px]" />
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(15,23,42,0.04)_1px,transparent_1px),linear-gradient(90deg,rgba(15,23,42,0.04)_1px,transparent_1px)] bg-[size:40px_40px] dark:bg-[linear-gradient(rgba(255,255,255,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.05)_1px,transparent_1px)]" />
         <AuthPageHeader />
-        <div className="relative z-10 max-w-2xl mx-auto px-6 py-12">
-          <div className="space-y-4 bg-sky-500/10 border border-sky-500/30 rounded-2xl p-6 backdrop-blur-xl">
-            <p className="text-sky-200 font-semibold text-lg">
+        <div className="relative z-10 mx-auto max-w-2xl px-6 py-12">
+          <div className="space-y-4 rounded-2xl border border-sky-200 bg-sky-50 p-6 shadow-sm dark:border-sky-500/30 dark:bg-sky-500/10 dark:shadow-none dark:backdrop-blur-xl">
+            <p className="text-lg font-semibold text-sky-900 dark:text-sky-200">
               Your {freeTrialDays}-day free trial is active
             </p>
-            <p className="text-sm text-slate-300 leading-relaxed">
+            <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-300">
               Broker dashboard credentials were sent to{" "}
-              <strong>{user?.email}</strong>. Subscribe anytime before your trial
-              ends to keep access.
+              <strong className="font-semibold text-slate-900 dark:text-white">
+                {user?.email}
+              </strong>
+              . Subscribe anytime before your trial ends to keep access.
             </p>
             <a
               href={getBrokerSignInUrl()}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex w-full justify-center py-3 rounded-xl font-semibold bg-linear-to-r from-sky-500 to-blue-600"
+              className="inline-flex w-full justify-center rounded-xl bg-linear-to-r from-sky-500 to-blue-600 py-3 font-semibold text-white shadow-sm transition hover:from-sky-600 hover:to-blue-700"
             >
               Open broker dashboard
             </a>
@@ -315,13 +340,13 @@ export default function SubscribePage() {
                 billingCycle: user?.subscribedBillingCycle || billingCycle,
                 mode: "paid",
               }}
-              className="inline-flex w-full justify-center py-3 rounded-xl font-semibold border border-white/20 hover:bg-white/5"
+              className="inline-flex w-full justify-center rounded-xl border border-slate-200 bg-white py-3 font-semibold text-slate-800 transition hover:bg-slate-50 dark:border-white/20 dark:bg-transparent dark:text-white dark:hover:bg-white/5"
             >
               Subscribe now
             </Link>
             <Link
               to="/#pricing"
-              className="block text-center text-sm text-blue-400 hover:underline"
+              className="block text-center text-sm font-medium text-blue-600 hover:underline dark:text-blue-400"
             >
               Back to pricing
             </Link>
@@ -333,13 +358,13 @@ export default function SubscribePage() {
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-slate-50 text-slate-900 transition-colors dark:bg-[#0b1020] dark:text-white">
-      <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.05)_1px,transparent_1px)] bg-[size:40px_40px]" />
-      <div className="absolute -top-25 left-1/2 -translate-x-1/2 w-150 h-150 bg-indigo-500/20 blur-[120px] rounded-full" />
+      <div className="absolute inset-0 bg-[linear-gradient(rgba(15,23,42,0.04)_1px,transparent_1px),linear-gradient(90deg,rgba(15,23,42,0.04)_1px,transparent_1px)] bg-[size:40px_40px] dark:bg-[linear-gradient(rgba(255,255,255,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.05)_1px,transparent_1px)]" />
+      <div className="absolute -top-25 left-1/2 h-150 w-150 -translate-x-1/2 rounded-full bg-indigo-500/10 blur-[120px] dark:bg-indigo-500/20" />
 
       <AuthPageHeader />
 
-      <div className="relative z-10 max-w-2xl mx-auto px-6 py-12">
-        <h1 className="text-3xl font-bold mb-2">
+      <div className="relative z-10 mx-auto max-w-2xl px-6 py-12">
+        <h1 className="mb-2 text-3xl font-bold text-slate-900 dark:text-white">
           {isTrialMode
             ? `Start your ${freeTrialDays}-day free trial`
             : isOnTrial
@@ -348,54 +373,64 @@ export default function SubscribePage() {
         </h1>
 
         {isPaidActive ? (
-          <div className="space-y-4 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl p-6 backdrop-blur-xl">
-            <p className="text-emerald-300 font-semibold text-lg">
+          <div className="space-y-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-6 shadow-sm dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:shadow-none dark:backdrop-blur-xl">
+            <p className="text-lg font-semibold text-emerald-900 dark:text-emerald-300">
               You already have an active subscription
             </p>
-            <p className="text-sm text-slate-300 leading-relaxed">
+            <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-300">
               Your broker dashboard is ready. Use the credentials emailed to{" "}
-              <strong>{user?.email}</strong> to sign in.
+              <strong className="font-semibold text-slate-900 dark:text-white">
+                {user?.email}
+              </strong>{" "}
+              to sign in.
             </p>
             <a
               href={getBrokerSignInUrl()}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex w-full justify-center py-3 rounded-xl font-semibold bg-linear-to-r from-emerald-500 to-teal-500"
+              className="inline-flex w-full justify-center rounded-xl bg-linear-to-r from-emerald-500 to-teal-500 py-3 font-semibold text-white shadow-sm transition hover:from-emerald-600 hover:to-teal-600"
             >
               Open broker dashboard
             </a>
             <Link
               to="/"
-              className="block text-center text-sm text-blue-400 hover:underline"
+              className="block text-center text-sm font-medium text-blue-600 hover:underline dark:text-blue-400"
             >
               Back to home
             </Link>
           </div>
         ) : (
           <>
-            <p className="text-slate-400 mb-8 text-sm leading-relaxed">
+            <p className="mb-8 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
               {isTrialMode ? (
                 <>
                   Fill in your organization details to start your free trial —
                   no payment required. Broker dashboard credentials will be sent
-                  to <strong className="text-slate-200">{user?.email}</strong>.
+                  to{" "}
+                  <strong className="font-semibold text-slate-800 dark:text-slate-200">
+                    {user?.email}
+                  </strong>
+                  .
                 </>
               ) : (
                 <>
                   Fill in your organization details, then complete secure payment.
                   Payment opens in a new tab — this site stays open so you can
                   continue here. Broker dashboard credentials will be sent to{" "}
-                  <strong className="text-slate-200">{user?.email}</strong>.
+                  <strong className="font-semibold text-slate-800 dark:text-slate-200">
+                    {user?.email}
+                  </strong>
+                  .
                 </>
               )}
             </p>
 
             <form
               onSubmit={isTrialMode ? handleStartTrial : handleCompleteSubscription}
-              className="space-y-5 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-white/5"
+              className="space-y-5 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/[0.06] dark:shadow-none dark:backdrop-blur-xl"
             >
               <div>
-                <label className="text-xs font-medium text-slate-400 block mb-1">
+                <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">
                   Plan
                 </label>
                 <select
@@ -418,10 +453,10 @@ export default function SubscribePage() {
                     key={cycle}
                     type="button"
                     onClick={() => setBillingCycle(cycle)}
-                    className={`flex-1 py-2 rounded-xl text-sm font-semibold border transition ${
+                    className={`flex-1 rounded-xl border py-2 text-sm font-semibold transition ${
                       billingCycle === cycle
-                        ? "bg-white text-[#0b1020] border-white"
-                        : "border-white/20 text-slate-300"
+                        ? "border-slate-900 bg-slate-900 text-white dark:border-white dark:bg-white dark:text-[#0b1020]"
+                        : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-white/20 dark:bg-transparent dark:text-slate-300 dark:hover:bg-white/5"
                     }`}
                   >
                     {cycle === "MONTHLY" ? "Monthly" : "Yearly"}
@@ -436,16 +471,18 @@ export default function SubscribePage() {
                   onChange={setSelectedAddOnCodes}
                   formatPrice={formatPrice}
                   billingCycle={billingCycle}
+                  includedUsers={selectedPkg?.includedUsers}
+                  maxUsers={selectedPkg?.maxUsers}
                   compact
                 />
               )}
 
               {isTrialMode ? (
-                <div className="rounded-xl bg-sky-500/10 border border-sky-500/30 px-4 py-3 text-sm space-y-1">
-                  <p className="text-sky-200 font-semibold">
+                <div className="space-y-1 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm dark:border-sky-500/30 dark:bg-sky-500/10">
+                  <p className="font-semibold text-sky-900 dark:text-sky-200">
                     {checkoutPreview?.planName} — {freeTrialDays}-day free trial
                   </p>
-                  <p className="text-slate-300">
+                  <p className="text-slate-600 dark:text-slate-300">
                     $0 due today. After the trial, billing is{" "}
                     {checkoutPreview?.planPrice}/
                     {checkoutPreview?.billingLabel} unless you cancel.
@@ -453,12 +490,12 @@ export default function SubscribePage() {
                 </div>
               ) : (
                 checkoutSummary && (
-                  <div className="rounded-xl bg-blue-500/10 border border-blue-500/30 px-4 py-3 text-sm space-y-2">
+                  <div className="space-y-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm dark:border-blue-500/30 dark:bg-blue-500/10">
                     <div className="flex items-center justify-between gap-3">
-                      <span className="text-blue-200 font-semibold">
+                      <span className="font-semibold text-blue-900 dark:text-blue-200">
                         {checkoutPreview?.planName} plan
                       </span>
-                      <span className="text-slate-200">
+                      <span className="font-medium text-slate-800 dark:text-slate-200">
                         {checkoutSummary.planPrice}/{checkoutSummary.billingLabel}
                       </span>
                     </div>
@@ -470,16 +507,19 @@ export default function SubscribePage() {
                           billingCycle === "YEARLY"
                             ? Number(addOn.priceMonthly) * 12
                             : Number(addOn.priceMonthly);
-                        const label =
-                          String(addOn.code).toUpperCase() === "EXTRA_USER"
-                            ? qty > 1
-                              ? `Additional Users × ${qty}`
-                              : "Additional Users"
-                            : addOn.name;
+                        const isExtraUser =
+                          String(addOn.code).toUpperCase() === "EXTRA_USER";
+                        const included = Math.max(
+                          1,
+                          Number(selectedPkg?.includedUsers) || 1,
+                        );
+                        const label = isExtraUser
+                          ? `Users (${included + qty} total · ${qty} extra)`
+                          : addOn.name;
                         return (
                           <div
                             key={addOn.code}
-                            className="flex items-center justify-between gap-3 text-slate-300"
+                            className="flex items-center justify-between gap-3 text-slate-600 dark:text-slate-300"
                           >
                             <span>{label}</span>
                             <span>
@@ -489,7 +529,7 @@ export default function SubscribePage() {
                           </div>
                         );
                       })}
-                        <div className="border-t border-blue-500/20 pt-2 flex items-center justify-between gap-3 font-semibold text-white">
+                        <div className="flex items-center justify-between gap-3 border-t border-blue-200 pt-2 font-semibold text-slate-900 dark:border-blue-500/20 dark:text-white">
                           <span>Total due today</span>
                           <span>
                             {checkoutSummary.totalPrice}/
@@ -499,7 +539,7 @@ export default function SubscribePage() {
                       </>
                     )}
                     {selectedAddOns.length === 0 && checkoutPreview && (
-                      <p className="text-slate-300">
+                      <p className="text-slate-600 dark:text-slate-300">
                         {checkoutPreview.planPrice}/{checkoutPreview.billingLabel}
                       </p>
                     )}
@@ -552,11 +592,11 @@ export default function SubscribePage() {
               </div>
 
               <div>
-                <label className="text-xs font-medium text-slate-400 block mb-1">
+                <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">
                   Broker login email (from your Loan AI account)
                 </label>
                 <input
-                  className={`${inputClass} opacity-70 cursor-not-allowed`}
+                  className={`${inputClass} cursor-not-allowed opacity-70`}
                   type="email"
                   value={user?.email || ""}
                   readOnly
@@ -565,10 +605,10 @@ export default function SubscribePage() {
               </div>
 
               <div
-                className={`rounded-xl px-4 py-3 text-xs leading-relaxed ${
+                className={`rounded-xl border px-4 py-3 text-xs leading-relaxed ${
                   isTrialMode
-                    ? "bg-sky-500/10 border border-sky-500/30 text-sky-100/90"
-                    : "bg-blue-500/10 border border-blue-500/30 text-blue-100/90"
+                    ? "border-sky-200 bg-sky-50 text-sky-900 dark:border-sky-500/30 dark:bg-sky-500/10 dark:text-sky-100"
+                    : "border-blue-200 bg-blue-50 text-blue-900 dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-100"
                 }`}
               >
                 {isTrialMode ? (
@@ -593,10 +633,10 @@ export default function SubscribePage() {
                   isPaidActive ||
                   (isTrialMode && !canStartTrial)
                 }
-                className={`inline-flex w-full items-center justify-center gap-2 py-3 rounded-xl font-semibold disabled:opacity-60 ${
+                className={`inline-flex w-full items-center justify-center gap-2 rounded-xl py-3 font-semibold text-white shadow-sm transition disabled:opacity-60 ${
                   isTrialMode
-                    ? "bg-linear-to-r from-sky-500 to-blue-600"
-                    : "bg-linear-to-r from-blue-500 to-indigo-500"
+                    ? "bg-linear-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700"
+                    : "bg-linear-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600"
                 }`}
               >
                 {processing ? (
@@ -622,7 +662,7 @@ export default function SubscribePage() {
                     packageId: selectedPackageId,
                     billingCycle,
                   }}
-                  className="block text-center text-sm text-slate-400 hover:text-white"
+                  className="block text-center text-sm text-slate-500 transition hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
                 >
                   Prefer to pay now? Subscribe instead
                 </Link>

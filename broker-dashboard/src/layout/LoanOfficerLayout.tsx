@@ -12,6 +12,7 @@ import {
   checkLoanOfficerResponse,
 } from "../lib/loanOfficerApi";
 import { setSessionPermissions } from "../lib/brokerPermissions";
+import { hydrateOrgEntitlements } from "../lib/brokerEntitlements";
 import { useLoanOfficerSessionMonitor } from "../hooks/useSessionMonitor";
 
 function LayoutContent() {
@@ -21,6 +22,7 @@ function LayoutContent() {
   useLoanOfficerSessionMonitor();
 
   useEffect(() => {
+    void hydrateOrgEntitlements();
     void (async () => {
       try {
         const res = await fetch(`${LO_API_BASE}/loanofficer/auth/me`, {

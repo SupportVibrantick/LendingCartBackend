@@ -7,24 +7,24 @@ const STATS = [
   { value: "100+", label: "Lenders" },
   { value: "12+", label: "Loan Types" },
   { value: "4", label: "Portals" },
-  { value: "$199", label: "Starting Price", key: "startingPrice" },
+  { value: "$249", label: "Starting Price", key: "startingPrice" },
 ];
 
 const ctaClass =
   "inline-flex items-center justify-center gap-2 rounded-xl bg-[#4B83FF] px-8 py-4 text-base font-semibold text-white shadow-[0_0_40px_rgba(75,131,255,0.25)] transition hover:scale-[1.02] hover:bg-[#3d73ef] dark:shadow-[0_0_40px_rgba(75,131,255,0.35)]";
 
 /**
- * Closing CTA below the plan comparison table.
+ * Closing CTA below the plan comparison table (paid site).
  * @param {{ startingPrice?: number | null }} props
  */
-export default function PricingClosingCta({ startingPrice = 199 }) {
+export default function PricingClosingCta({ startingPrice = 249 }) {
   const { isAuthenticated, user, loading } = useAuth();
   const hasSubscription = Boolean(user?.hasBrokerSubscription);
 
   const priceLabel =
     startingPrice != null && Number.isFinite(Number(startingPrice))
       ? `$${Math.round(Number(startingPrice))}`
-      : "$199";
+      : "$249";
 
   const stats = STATS.map((stat) =>
     stat.key === "startingPrice" ? { ...stat, value: priceLabel } : stat,
@@ -49,15 +49,15 @@ export default function PricingClosingCta({ startingPrice = 199 }) {
     );
   } else if (isAuthenticated) {
     cta = (
-      <Link to="/#pricing" className={ctaClass}>
+      <a href="#pricing" className={ctaClass}>
         Choose a plan
         <ArrowRight size={18} />
-      </Link>
+      </a>
     );
   } else {
     cta = (
       <Link to="/signup" className={ctaClass}>
-        Start Your 14-Day Free Trial
+        Buy a plan
         <ArrowRight size={18} />
       </Link>
     );

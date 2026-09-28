@@ -40,6 +40,10 @@ import {
 } from "../../lib/subscriptionApi";
 import { getPackageCodeLabel } from "../../lib/packageDisplay";
 
+type BillingCycle = "MONTHLY" | "YEARLY";
+
+const YEARLY_SAVE_PERCENT = 20;
+
 type PackageForm = {
   name: string;
   code: string;
@@ -96,6 +100,72 @@ const DEFAULT_TIER_STYLE = TIER_STYLES.BASIC;
 
 function getTierStyle(code: string) {
   return TIER_STYLES[code.toUpperCase()] ?? DEFAULT_TIER_STYLE;
+}
+
+function getPackageDisplayPrice(pkg: SubscriptionPackage, cycle: BillingCycle) {
+  if (cycle === "YEARLY" && pkg.priceYearly != null) {
+    const yearlyTotal = Number(pkg.priceYearly);
+    const meta = parseFeaturesPayload(pkg.features);
+    const monthlyEquivalent =
+      meta?.priceYearlyMonthly != null &&
+      Number.isFinite(Number(meta.priceYearlyMonthly))
+        ? Number(meta.priceYearlyMonthly)
+        : Math.round(yearlyTotal / 12);
+    return {
+      amount: monthlyEquivalent,
+      billingLabel: "Billed yearly",
+      billedToday: yearlyTotal,
+      savings: YEARLY_SAVE_PERCENT,
+    };
+  }
+  return {
+    amount: Number(pkg.priceMonthly),
+    billingLabel: "Billed monthly",
+    billedToday: null as number | null,
+    savings: null as number | null,
+  };
+}
+
+function BillingCycleToggle({
+  value,
+  onChange,
+  hasYearly,
+}: {
+  value: BillingCycle;
+  onChange: (cycle: BillingCycle) => void;
+  hasYearly: boolean;
+}) {
+  if (!hasYearly) return null;
+
+  return (
+    <div className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-100 p-1 dark:border-slate-700 dark:bg-slate-800">
+      <button
+        type="button"
+        onClick={() => onChange("MONTHLY")}
+        className={`rounded-full px-4 py-1.5 text-sm font-semibold transition ${
+          value === "MONTHLY"
+            ? "bg-white text-slate-900 shadow-sm dark:bg-slate-900 dark:text-white"
+            : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
+        }`}
+      >
+        Monthly
+      </button>
+      <button
+        type="button"
+        onClick={() => onChange("YEARLY")}
+        className={`inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold transition ${
+          value === "YEARLY"
+            ? "bg-[#13538A] text-white shadow-sm dark:bg-indigo-600"
+            : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
+        }`}
+      >
+        Yearly
+        <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-300">
+          Save {YEARLY_SAVE_PERCENT}%
+        </span>
+      </button>
+    </div>
+  );
 }
 
 function formatUsageLimitValue(value: number) {
@@ -269,6 +339,7 @@ const AllSubscriptions = () => {
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
+  const [billingCycle, setBillingCycle] = useState<BillingCycle>("YEARLY");
 
   const totalPages = Math.ceil(total / limit);
 
@@ -288,12 +359,27 @@ const AllSubscriptions = () => {
 
   const stats = useMemo(() => {
     const active = packages.filter((p) => p.isActive).length;
-    const prices = packages.map((p) => Number(p.priceMonthly)).filter((n) => !Number.isNaN(n));
+    const prices = packages
+      .map((p) => {
+        if (billingCycle === "YEARLY" && p.priceYearly != null) {
+          const meta = parseFeaturesPayload(p.features);
+          if (
+            meta?.priceYearlyMonthly != null &&
+            Number.isFinite(Number(meta.priceYearlyMonthly))
+          ) {
+            return Number(meta.priceYearlyMonthly);
+          }
+          return Math.round(Number(p.priceYearly) / 12);
+        }
+        return Number(p.priceMonthly);
+      })
+      .filter((n) => !Number.isNaN(n));
     const min = prices.length ? Math.min(...prices) : 0;
     const max = prices.length ? Math.max(...prices) : 0;
+    const hasYearly = packages.some((p) => p.priceYearly != null);
 
-    return { active, min, max };
-  }, [packages]);
+    return { active, min, max, hasYearly };
+  }, [packages, billingCycle]);
 
   const resetForm = () => {
     setEditingId(null);
@@ -451,16 +537,43 @@ const AllSubscriptions = () => {
   };
 
   const handleToggleStatus = async (pkg: SubscriptionPackage) => {
+    const nextActive = !pkg.isActive;
+    const result = await Swal.fire({
+      title: nextActive ? "Activate package?" : "Deactivate package?",
+      text: nextActive
+        ? `"${pkg.name}" will become available for new subscriptions.`
+        : `"${pkg.name}" will be hidden from new signups.`,
+      icon: nextActive ? "question" : "warning",
+      showCancelButton: true,
+      confirmButtonColor: nextActive ? "#059669" : "#d97706",
+      cancelButtonColor: "#64748b",
+      confirmButtonText: nextActive ? "Activate" : "Deactivate",
+      cancelButtonText: "Cancel",
+    });
+
+    if (!result.isConfirmed) return;
+
     try {
       setTogglingId(pkg.id);
 
-      const json = await togglePackageStatus(pkg.id, !pkg.isActive);
+      const json = await togglePackageStatus(pkg.id, nextActive);
       if (!json.success) {
-        toast.error(json.message || "Status update failed");
+        await Swal.fire({
+          title: "Update failed",
+          text: json.message || "Status update failed",
+          icon: "error",
+          confirmButtonColor: "#13538A",
+        });
         return;
       }
 
-      toast.success(pkg.isActive ? "Package deactivated" : "Package activated");
+      await Swal.fire({
+        title: nextActive ? "Package activated" : "Package deactivated",
+        text: `"${pkg.name}" is now ${nextActive ? "active" : "inactive"}.`,
+        icon: "success",
+        timer: 1600,
+        showConfirmButton: false,
+      });
       await loadPackages(currentPage);
     } finally {
       setTogglingId(null);
@@ -509,7 +622,7 @@ const AllSubscriptions = () => {
     <SubscriptionPageShell>
       <SubscriptionPageHeader
         title="Subscription Packages"
-        description="Manage broker subscription tiers, monthly pricing, and included features."
+        description="Manage broker subscription tiers, monthly/yearly pricing, and included features."
         actions={
           canCreate ? (
             <button type="button" onClick={openCreateModal} className={primaryBtnClass}>
@@ -553,39 +666,55 @@ const AllSubscriptions = () => {
               <FiDollarSign size={18} />
             </div>
             <div>
-              <p className="text-xs text-slate-500 dark:text-slate-400">Price Range</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Price Range
+              </p>
               <p className="text-lg font-bold">
                 {total > 0
                   ? `${formatPrice(stats.min)} – ${formatPrice(stats.max)}`
                   : "—"}
-                <span className="text-xs font-normal text-slate-500"> /mo</span>
+                <span className="text-xs font-normal text-slate-500">
+                  {" "}
+                  /mo
+                  {billingCycle === "YEARLY" ? " (yearly)" : ""}
+                </span>
               </p>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="mb-6 flex flex-col gap-3 sm:flex-row">
-        <div className="relative flex-1">
-          <FiSearch className="absolute top-1/2 left-3 -translate-y-1/2 text-slate-400" />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by name, code, or description..."
-            className={`w-full py-2.5 pr-3 pl-10 ${filterControlClass}`}
+      <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-1">
+          <div className="relative flex-1">
+            <FiSearch className="absolute top-1/2 left-3 -translate-y-1/2 text-slate-400" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search by name, code, or description..."
+              className={`w-full py-2.5 pr-3 pl-10 ${filterControlClass}`}
+            />
+          </div>
+          <select
+            value={statusFilter}
+            onChange={(e) =>
+              setStatusFilter(e.target.value as "all" | "active" | "inactive")
+            }
+            className={filterControlClass}
+          >
+            <option value="all">All statuses</option>
+            <option value="active">Active only</option>
+            <option value="inactive">Inactive only</option>
+          </select>
+        </div>
+
+        <div className="flex justify-center lg:justify-end">
+          <BillingCycleToggle
+            value={billingCycle}
+            onChange={setBillingCycle}
+            hasYearly={stats.hasYearly}
           />
         </div>
-        <select
-          value={statusFilter}
-          onChange={(e) =>
-            setStatusFilter(e.target.value as "all" | "active" | "inactive")
-          }
-          className={filterControlClass}
-        >
-          <option value="all">All statuses</option>
-          <option value="active">Active only</option>
-          <option value="inactive">Inactive only</option>
-        </select>
       </div>
 
       {loadingList ? (
@@ -634,71 +763,142 @@ const AllSubscriptions = () => {
           {filteredPackages.map((pkg) => {
             const style = getTierStyle(pkg.code);
             const features = parseFeatures(pkg.features);
+            const featureMeta = parseFeaturesPayload(pkg.features);
+            const display = getPackageDisplayPrice(pkg, billingCycle);
+            const badgeLabel =
+              featureMeta?.badge || (pkg.isPopular ? "Most Popular" : null);
+
             return (
               <article
                 key={pkg.id}
-                className={`relative flex flex-col rounded-2xl border bg-gradient-to-b ${style.glow} bg-white shadow-sm ring-1 transition-all duration-300 hover:shadow-lg dark:bg-slate-900 ${style.ring} ${
+                className={`relative flex flex-col rounded-3xl border bg-white shadow-sm ring-1 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl dark:bg-slate-900 ${style.ring} ${
                   !pkg.isActive ? "opacity-70" : ""
                 }`}
               >
-                {pkg.isPopular && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                    <span className="inline-flex items-center gap-1 rounded-full bg-[#13538A] px-3 py-1 text-xs font-semibold text-white shadow-md">
-                      <HiSparkles size={12} />
-                      Most Popular
-                    </span>
-                  </div>
-                )}
+                <div
+                  className={`pointer-events-none absolute inset-x-0 top-0 h-28 rounded-t-3xl bg-gradient-to-b ${style.glow}`}
+                  aria-hidden
+                />
 
-                <div className="flex flex-1 flex-col p-6">
-                  <div className="mb-4 flex items-start justify-between gap-3">
-                    <div>
+                <div className="relative flex flex-1 flex-col p-6 pb-5">
+                  <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <span
                         className={`inline-block rounded-lg px-2.5 py-1 text-xs font-bold tracking-wide ${style.badge}`}
                       >
                         {getPackageCodeLabel(pkg.code)}
                       </span>
-                      <h3 className="mt-3 text-xl font-bold text-slate-900 dark:text-white">
-                        {pkg.name}
-                      </h3>
-                      {pkg.description && (
-                        <p className="mt-1 line-clamp-2 text-sm leading-relaxed text-slate-500 dark:text-slate-400">
-                          {pkg.description}
-                        </p>
+                      {badgeLabel && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-[#13538A] px-2.5 py-1 text-[11px] font-semibold text-white shadow-sm dark:bg-indigo-600">
+                          <HiSparkles size={12} />
+                          {badgeLabel}
+                        </span>
                       )}
                     </div>
 
                     <button
                       type="button"
                       onClick={() => handleToggleStatus(pkg)}
-                      disabled={togglingId === pkg.id}
-                      className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold transition ${
+                      disabled={togglingId === pkg.id || !canUpdate}
+                      title={
                         pkg.isActive
-                          ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400"
-                          : "bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-400"
+                          ? "Click to deactivate"
+                          : "Click to activate"
+                      }
+                      className={`z-10 shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold shadow-sm ring-1 ring-black/5 transition hover:scale-[1.03] disabled:cursor-not-allowed disabled:opacity-60 dark:ring-white/10 ${
+                        pkg.isActive
+                          ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-300"
+                          : "bg-rose-100 text-rose-700 hover:bg-rose-200 dark:bg-rose-500/20 dark:text-rose-300"
                       }`}
                     >
-                      {togglingId === pkg.id ? "..." : pkg.isActive ? "Active" : "Inactive"}
+                      {togglingId === pkg.id
+                        ? "Updating..."
+                        : pkg.isActive
+                          ? "Active"
+                          : "Inactive"}
                     </button>
                   </div>
 
-                  <div className="mb-5">
-                    <span className={`text-4xl font-extrabold tracking-tight ${style.price}`}>
-                      {formatPrice(pkg.priceMonthly)}
-                    </span>
-                    <span className="ml-1 text-sm text-slate-500">/ month</span>
-                    {pkg.priceYearly != null && (
-                      <p className="mt-1 text-sm text-slate-500">
-                        or {formatPrice(pkg.priceYearly)} / year
+                  <div className="mb-5 min-w-0">
+                    <h3 className="text-2xl font-bold text-slate-900 dark:text-white">
+                      {pkg.name}
+                    </h3>
+                    {pkg.description && (
+                      <p className="mt-1.5 line-clamp-2 text-sm leading-relaxed text-slate-500 dark:text-slate-400">
+                        {pkg.description}
                       </p>
                     )}
                   </div>
+
+                  <div className="mb-5 rounded-2xl border border-slate-200/80 bg-slate-50/80 p-4 dark:border-slate-700 dark:bg-slate-800/50">
+                    <div className="flex flex-wrap items-end gap-x-2 gap-y-1">
+                      <span
+                        className={`text-4xl font-extrabold tracking-tight ${style.price}`}
+                      >
+                        {formatPrice(display.amount)}
+                      </span>
+                      <span className="mb-1 text-sm text-slate-500 dark:text-slate-400">
+                        / month
+                      </span>
+                    </div>
+                    <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                      {display.billingLabel}
+                    </p>
+                    {display.billedToday != null && (
+                      <p className="mt-1.5 text-sm font-semibold text-slate-800 dark:text-slate-100">
+                        {formatPrice(display.billedToday)} billed yearly
+                      </p>
+                    )}
+                    {display.savings != null && display.savings > 0 && (
+                      <p className="mt-2 text-sm font-medium text-emerald-600 dark:text-emerald-400">
+                        Save {display.savings}% vs monthly
+                      </p>
+                    )}
+                    {billingCycle === "MONTHLY" && pkg.priceYearly != null && (
+                      <p className="mt-1.5 text-xs text-slate-500 dark:text-slate-400">
+                        Yearly option: {formatPrice(pkg.priceYearly)} / year
+                      </p>
+                    )}
+                  </div>
+
+                  {(featureMeta?.includedUsers != null ||
+                    featureMeta?.maxUsers != null ||
+                    featureMeta?.extraUserPrice != null) && (
+                    <div className="mb-5 grid grid-cols-3 gap-2">
+                      <div className="rounded-xl border border-slate-200/80 bg-white px-2.5 py-2 text-center dark:border-slate-700 dark:bg-slate-900">
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                          Included
+                        </p>
+                        <p className="mt-0.5 text-sm font-bold text-slate-800 dark:text-slate-100">
+                          {featureMeta.includedUsers ?? "—"}
+                        </p>
+                      </div>
+                      <div className="rounded-xl border border-slate-200/80 bg-white px-2.5 py-2 text-center dark:border-slate-700 dark:bg-slate-900">
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                          Max
+                        </p>
+                        <p className="mt-0.5 text-sm font-bold text-slate-800 dark:text-slate-100">
+                          {featureMeta.maxUsers ?? "—"}
+                        </p>
+                      </div>
+                      <div className="rounded-xl border border-slate-200/80 bg-white px-2.5 py-2 text-center dark:border-slate-700 dark:bg-slate-900">
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                          Extra
+                        </p>
+                        <p className="mt-0.5 text-sm font-bold text-slate-800 dark:text-slate-100">
+                          {featureMeta.extraUserPrice != null
+                            ? `${formatPrice(featureMeta.extraUserPrice)}/m`
+                            : "—"}
+                        </p>
+                      </div>
+                    </div>
+                  )}
 
                   <UsageLimitsBadges limits={pkg.usageLimits} />
 
                   <FeatureList features={features} iconClass={style.icon} />
 
-                  <div className="flex items-center gap-2 border-t border-slate-200/80 pt-4 dark:border-slate-800">
+                  <div className="mt-auto flex items-center gap-2 border-t border-slate-200/80 pt-4 dark:border-slate-800">
                     {canUpdate && (
                       <button
                         type="button"

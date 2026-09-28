@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { Navigate } from "react-router-dom";
 import {
   getFirstAllowedLoanOfficerPath,
+  getFirstAllowedCoBrokerPath,
   hasAnyPermission,
   type PermissionKey,
   type PermissionPortal,
@@ -28,7 +29,9 @@ export default function RequirePermission({
       fallbackPath ||
       (portal === "loanOfficer"
         ? getFirstAllowedLoanOfficerPath(portal)
-        : "/");
+        : portal === "coBroker"
+          ? getFirstAllowedCoBrokerPath(portal)
+          : "/");
 
     return <Navigate to={redirect} replace />;
   }

@@ -47,6 +47,11 @@ import ResidentialBorrowerPanel from "../../components/loanApplication/Residenti
 import ResidentialFinancialsStep from "../../components/loanApplication/ResidentialFinancialsStep";
 import ResidentialDocumentsStep from "../../components/loanApplication/ResidentialDocumentsStep";
 import ResidentialReviewStep from "../../components/loanApplication/ResidentialReviewStep";
+import LoanApplicationFeeAgreementStep, {
+  EMPTY_FEE_AGREEMENT_DRAFT,
+  validateOptionalFeeAgreementDraft,
+  type FeeAgreementDraft,
+} from "../../components/loanApplication/LoanApplicationFeeAgreementStep";
 import Sba7aEntityFields from "../../components/loanApplication/Sba7aEntityFields";
 import AblEntityFields from "../../components/loanApplication/AblEntityFields";
 import AddCollateralChips from "../../components/loanApplication/AddCollateralChips";
@@ -687,6 +692,12 @@ export type LoanApplicationProps = {
   publicSourcePortal?: LoanApplicationPortal | null;
   /** Embedded-only: whether to surface the "are you a broker?" step. */
   showCoBrokerBorrowerInformationTab?: boolean;
+  /** Broker plan loan categories. Empty = show all. */
+  allowedLoanCategories?: string[];
+  /** Broker plan loan product codes. Empty = no extra type filter. */
+  allowedLoanTypes?: string[];
+  /** Pro+ / fee-agreement pack: show optional Fee Agreement step. */
+  feeAgreementEnabled?: boolean;
 };
 
 async function fetchLoanProductCatalog(
@@ -739,6 +750,9 @@ const LoanApplication = ({
   publicLinkRef = null,
   publicSourcePortal = null,
   showCoBrokerBorrowerInformationTab = false,
+  allowedLoanCategories = [],
+  allowedLoanTypes = [],
+  feeAgreementEnabled = false,
 }: LoanApplicationProps = {}) => {
   const coBorrowerRefs = useRef<Record<number, HTMLDivElement | null>>({});
   const [lastAddedId, setLastAddedId] = useState<number | null>(null);
@@ -832,6 +846,9 @@ const LoanApplication = ({
     Boolean(showCoBrokerBorrowerInformationTab) &&
     (publicSourcePortal === "broker" || publicSourcePortal === "loan_officer");
 
+  // Pro+ (or FEE_AGREEMENT_PACK): optional fee agreement before review.
+  const includeFeeAgreementStep = Boolean(feeAgreementEnabled);
+
   // const includeCoBrokerBorrowerInformationTab = true;
 
   const baseSteps = useStandardSevenStepFlow
@@ -847,6 +864,7 @@ const LoanApplication = ({
         "Borrower Info",
         "Financials",
         "Documents",
+        ...(includeFeeAgreementStep ? ["Fee Agreement"] : []),
         "Review & Submit",
       ]
     : [
@@ -860,9 +878,11 @@ const LoanApplication = ({
           : []),
         "Borrower Info",
         "Loan Term & Income",
+        ...(includeFeeAgreementStep ? ["Fee Agreement"] : []),
       ];
 
   const reviewStepIndex = useStandardSevenStepFlow ? baseSteps.length - 1 : -1;
+  const feeAgreementStepIndex = baseSteps.indexOf("Fee Agreement");
 
   const handleAmountChange = (
     section: "loanRequest" | "loanTermIncome" | "coBorrower",
@@ -901,6 +921,9 @@ const LoanApplication = ({
       ];
 
   const [currentStep, setCurrentStep] = useState(0);
+  const [feeAgreementDraft, setFeeAgreementDraft] = useState<FeeAgreementDraft>(
+    EMPTY_FEE_AGREEMENT_DRAFT,
+  );
   const createEmptyBorrower = (): Borrower => ({
     ...createResidentialBorrowerDefaults(),
     name: "",
@@ -1424,6 +1447,12 @@ const LoanApplication = ({
       if (noi && noi < 0)
         newErrors["loanTermIncome.noiActual"] = "NOI cannot be negative";
     }
+    if (stepIndex === feeAgreementStepIndex && feeAgreementDraft.include) {
+      Object.assign(
+        newErrors,
+        validateOptionalFeeAgreementDraft(feeAgreementDraft),
+      );
+    }
     return newErrors;
   };
 
@@ -1556,6 +1585,17 @@ const LoanApplication = ({
     if (issues.length > 0) {
       toast.error("Please complete all required fields before submitting");
       return;
+    }
+    if (feeAgreementDraft.include) {
+      const feeErrors = validateOptionalFeeAgreementDraft(feeAgreementDraft);
+      if (Object.keys(feeErrors).length > 0) {
+        setErrors((prev) => ({ ...prev, ...feeErrors }));
+        toast.error(
+          "Please complete the fee agreement fields or skip the step",
+        );
+        if (feeAgreementStepIndex >= 0) goToStep(feeAgreementStepIndex);
+        return;
+      }
     }
     if (!creditAuthorizationConsent) {
       toast.error(
@@ -1938,6 +1978,14 @@ const LoanApplication = ({
       const payload = {
         loanProductCode: resolveCanonicalLoanProductCode(selectedProduct),
         fields,
+        feeAgreement: feeAgreementDraft.include
+          ? {
+              include: true,
+              brokerPoints: toNumber(feeAgreementDraft.brokerPoints),
+              upfrontFee: Number(feeAgreementDraft.upfrontFee),
+              exclusivityMonths: Number(feeAgreementDraft.exclusivityMonths),
+            }
+          : { include: false },
       };
 
       const token = sessionStorage.getItem(portalConfig.tokenKey);
@@ -2596,18 +2644,23 @@ const LoanApplication = ({
     if (!selectedCategory) return;
 
     const allowedProducts = CATEGORY_LOAN_TYPES[selectedCategory] || [];
+    const categoryProducts =
+      allowedLoanTypes && allowedLoanTypes.length > 0
+        ? allowedProducts.filter((code) => allowedLoanTypes.includes(code))
+        : allowedProducts;
+
     const catalogCodes = productsMeta.map((p: any) =>
       String(p.loanProductCode || ""),
     );
 
     const resolvedProducts = resolveCategoryLoanProducts(
-      allowedProducts,
+      categoryProducts,
       catalogCodes,
     );
 
     // Prefer catalog matches; if none match category mapping, show category codes.
     setLoanProducts(
-      resolvedProducts.length > 0 ? resolvedProducts : allowedProducts,
+      resolvedProducts.length > 0 ? resolvedProducts : categoryProducts,
     );
 
     if (mode === "update" && initialSelectedProduct) {
@@ -2620,7 +2673,13 @@ const LoanApplication = ({
     }
 
     setSelectedProduct("");
-  }, [selectedCategory, productsMeta, mode, initialSelectedProduct]);
+  }, [
+    selectedCategory,
+    productsMeta,
+    mode,
+    initialSelectedProduct,
+    allowedLoanTypes,
+  ]);
 
   const updateBorrower = (field: string, value: string) => {
     setFormData((prev) => ({
@@ -2902,12 +2961,29 @@ const LoanApplication = ({
   const subPropertyOptions =
     PROPERTY_TYPE_MAP[formData.loanRequest.propertyType] || [];
 
-  const categories: LoanCategory[] = [
-    "RESIDENTIAL_1_4",
-    "CRE_MULTIFAMILY",
-    "SBA_USDA",
-    "ABL",
-  ];
+  const categories: LoanCategory[] = useMemo(() => {
+    const all: LoanCategory[] = [
+      "RESIDENTIAL_1_4",
+      "CRE_MULTIFAMILY",
+      "SBA_USDA",
+      "ABL",
+    ];
+    // Public embed: fail closed — never show every category when plan data
+    // is missing (empty list previously unlocked CRE/SBA/ABL for Starter).
+    if (!allowedLoanCategories || allowedLoanCategories.length === 0) {
+      return publicEmbed ? (["RESIDENTIAL_1_4"] as LoanCategory[]) : all;
+    }
+    return all.filter((cat) => allowedLoanCategories.includes(cat));
+  }, [allowedLoanCategories, publicEmbed]);
+
+  // Clear category if broker plan no longer includes it
+  useEffect(() => {
+    if (!selectedCategory || categories.length === 0) return;
+    if (!categories.includes(selectedCategory)) {
+      setSelectedCategory("");
+      setSelectedProduct("");
+    }
+  }, [categories, selectedCategory]);
 
   const CATEGORY_ICONS: Record<string, any> = {
     RESIDENTIAL_1_4: HomeIcon,
@@ -2933,18 +3009,51 @@ const LoanApplication = ({
   );
 
   const reviewSections = useMemo(
-    () =>
-      useStandardSevenStepFlow
-        ? buildResidentialReviewSections({
-            loanRequest: formData.loanRequest,
-            entity: formData.entity,
-            borrower: formData.borrower,
-            financials: formData.financials,
-            pendingDocuments,
-            productLabel: selectedProductLabel,
-            selectedProduct,
-          })
-        : [],
+    () => {
+      if (!useStandardSevenStepFlow) return [];
+      const sections = buildResidentialReviewSections({
+        loanRequest: formData.loanRequest,
+        entity: formData.entity,
+        borrower: formData.borrower,
+        financials: formData.financials,
+        pendingDocuments,
+        productLabel: selectedProductLabel,
+        selectedProduct,
+      });
+      if (includeFeeAgreementStep) {
+        sections.push({
+          stepIndex: feeAgreementStepIndex,
+          title: "Fee Agreement",
+          rows: feeAgreementDraft.include
+            ? [
+                {
+                  label: "Included",
+                  value: "Yes — will appear in client portal",
+                },
+                {
+                  label: "Broker Points",
+                  value: feeAgreementDraft.brokerPoints
+                    ? `${feeAgreementDraft.brokerPoints}%`
+                    : "—",
+                },
+                {
+                  label: "Upfront Fee",
+                  value: feeAgreementDraft.upfrontFee
+                    ? `$${feeAgreementDraft.upfrontFee}`
+                    : "—",
+                },
+                {
+                  label: "Exclusivity",
+                  value: feeAgreementDraft.exclusivityMonths
+                    ? `${feeAgreementDraft.exclusivityMonths} months`
+                    : "—",
+                },
+              ]
+            : [{ label: "Included", value: "No" }],
+        });
+      }
+      return sections;
+    },
     [
       useStandardSevenStepFlow,
       formData.loanRequest,
@@ -2954,6 +3063,9 @@ const LoanApplication = ({
       pendingDocuments,
       selectedProductLabel,
       selectedProduct,
+      includeFeeAgreementStep,
+      feeAgreementStepIndex,
+      feeAgreementDraft,
     ],
   );
 
@@ -6911,7 +7023,7 @@ focus:border-blue-500 outline-none text-sm ${
             useStandardSevenStepFlow && (
               <div className="mt-6 relative z-10 rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-700 dark:bg-slate-800">
                 <h3 className="mb-1 inline-block border-b-2 border-[#2C92D5] pb-2 text-lg font-semibold dark:text-white">
-                  Step 6: Documents
+                  Step {currentStep + 1}: Documents
                 </h3>
 
                 <ResidentialDocumentsStep
@@ -6922,11 +7034,30 @@ focus:border-blue-500 outline-none text-sm ${
               </div>
             )}
 
-          {/* step-6 — Review & Submit */}
+          {currentStep === feeAgreementStepIndex &&
+            feeAgreementStepIndex >= 0 && (
+              <LoanApplicationFeeAgreementStep
+                draft={feeAgreementDraft}
+                errors={errors}
+                onChange={(next) => {
+                  setFeeAgreementDraft(next);
+                  setErrors((prev) => {
+                    const updated = { ...prev };
+                    delete updated["feeAgreement.brokerPoints"];
+                    delete updated["feeAgreement.upfrontFee"];
+                    delete updated["feeAgreement.exclusivityMonths"];
+                    return updated;
+                  });
+                }}
+                stepNumber={currentStep + 1}
+              />
+            )}
+
+          {/* step — Review & Submit */}
           {isReviewStep && (
             <div className="mt-6 relative z-10 rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-700 dark:bg-slate-800">
               <h3 className="mb-1 inline-block border-b-2 border-[#2C92D5] pb-2 text-lg font-semibold dark:text-white">
-                Step 7: Review & Submit
+                Step {currentStep + 1}: Review & Submit
               </h3>
 
               <ResidentialReviewStep
@@ -7023,6 +7154,21 @@ focus:border-blue-500 outline-none text-sm ${
                     }
                     handleSubmitApplication();
                     return;
+                  }
+
+                  if (
+                    currentStep === feeAgreementStepIndex &&
+                    feeAgreementDraft.include
+                  ) {
+                    const feeErrors =
+                      validateOptionalFeeAgreementDraft(feeAgreementDraft);
+                    if (Object.keys(feeErrors).length > 0) {
+                      setErrors((prev) => ({ ...prev, ...feeErrors }));
+                      toast.error(
+                        "Please complete the fee agreement fields or skip the step",
+                      );
+                      return;
+                    }
                   }
 
                   if (

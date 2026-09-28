@@ -7,7 +7,10 @@
  *
  * Server-only; do not expose GHL_AGENCY_PRIVATE_TOKEN or wire this into frontend.
  *
- * Supported plans: PRO, ELITE
+ * Supported agency tiers: PRO, ELITE
+ * Eligibility: base package PRO/ELITE, or GHL add-ons on any plan
+ *   - GHL_STARTER → PRO snapshot/sub-account
+ *   - GHL_BASIC_SYNC / GHL_GROWTH → ELITE snapshot/sub-account
  */
 
 const LOCATION_ENV_BY_PLAN = Object.freeze({
@@ -20,6 +23,13 @@ const SNAPSHOT_ENV_BY_PLAN = Object.freeze({
   PRO: "GHL_PRO_SNAPSHOT_ID",
   ELITE: "GHL_ELITE_SNAPSHOT_ID",
 });
+
+/** Add-on codes that unlock a dedicated Agency CRM location. */
+const GHL_STARTER_ADDON_CODES = Object.freeze(["GHL_STARTER"]);
+const GHL_GROWTH_ADDON_CODES = Object.freeze([
+  "GHL_BASIC_SYNC",
+  "GHL_GROWTH",
+]);
 
 const DEFAULT_AGENCY_APP_BASE_URL = "https://app.gohighlevel.com";
 
@@ -58,6 +68,53 @@ function normalizeAccountPlan(plan) {
   // Reject anything else (including BASIC) — no silent remap.
   if (LOCATION_ENV_BY_PLAN[raw]) return raw;
   return null;
+}
+
+function normalizeAddOnCodeSet(purchasedAddOns = []) {
+  const codes = new Set();
+  for (const item of Array.isArray(purchasedAddOns) ? purchasedAddOns : []) {
+    if (typeof item === "string") {
+      const code = item.trim().toUpperCase();
+      if (code) codes.add(code);
+      continue;
+    }
+    if (item && typeof item === "object") {
+      const code = String(item.code || item.addOnCode || "").trim().toUpperCase();
+      if (code) codes.add(code);
+    }
+  }
+  return codes;
+}
+
+function hasAnyAddOn(codes, candidates) {
+  return candidates.some((code) => codes.has(code));
+}
+
+/**
+ * Resolve Agency CRM tier from base package + purchased GHL add-ons.
+ *
+ * Priority (highest wins):
+ *   1. ELITE package OR Growth add-on → ELITE
+ *   2. PRO package OR Starter add-on → PRO
+ *   3. otherwise → null (no dedicated sub-account)
+ *
+ * @returns {'PRO'|'ELITE'|null}
+ */
+function resolveAgencyPlanFromEntitlements(packageCode, purchasedAddOns = []) {
+  const base = normalizeAccountPlan(packageCode);
+  const addOns = normalizeAddOnCodeSet(purchasedAddOns);
+
+  if (base === "ELITE" || hasAnyAddOn(addOns, GHL_GROWTH_ADDON_CODES)) {
+    return "ELITE";
+  }
+  if (base === "PRO" || hasAnyAddOn(addOns, GHL_STARTER_ADDON_CODES)) {
+    return "PRO";
+  }
+  return null;
+}
+
+function isGhlAgencyEligible(packageCode, purchasedAddOns = []) {
+  return resolveAgencyPlanFromEntitlements(packageCode, purchasedAddOns) != null;
 }
 
 function readRequiredEnv(envKey, { missingCode }) {
@@ -193,10 +250,14 @@ function buildAgencyAppLoginUrl() {
 module.exports = {
   LOCATION_ENV_BY_PLAN,
   SNAPSHOT_ENV_BY_PLAN,
+  GHL_STARTER_ADDON_CODES,
+  GHL_GROWTH_ADDON_CODES,
   SUPPORTED_ACCOUNT_PLANS,
   DEFAULT_AGENCY_APP_BASE_URL,
   GhlAccountLocationError,
   normalizeAccountPlan,
+  resolveAgencyPlanFromEntitlements,
+  isGhlAgencyEligible,
   getAgencyCompanyId,
   getProLocationId,
   getEliteLocationId,

@@ -1,6 +1,9 @@
 const {
   resolvePublicApplicationLinkByToken,
 } = require("../../../../services/applications/publicApplicationLink");
+const {
+  getPublicLoanEntitlements,
+} = require("../../../../utils/applications/publicLoanEntitlements");
 
 /**
  * @param {import("fastify").FastifyInstance} fastify
@@ -22,6 +25,11 @@ module.exports = async function resolvePublicApplicationLink(fastify) {
       });
     }
 
+    const loanEntitlements = await getPublicLoanEntitlements(
+      fastify.prisma,
+      resolved.brokerOrganizationId,
+    );
+
     return reply.send({
       success: true,
       data: {
@@ -37,6 +45,10 @@ module.exports = async function resolvePublicApplicationLink(fastify) {
         showCoBrokerBorrowerInformationTab:
           resolved.showCoBrokerBorrowerInformationTab,
         expiresAt: resolved.link.expiresAt || null,
+        loanCategories: loanEntitlements.loanCategories,
+        loanTypes: loanEntitlements.loanTypes,
+        packageCode: loanEntitlements.packageCode,
+        feeAgreementEnabled: loanEntitlements.feeAgreementEnabled,
       },
     });
   });

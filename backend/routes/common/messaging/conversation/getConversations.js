@@ -35,6 +35,9 @@ const {
 const {
   resolvePortalClientIds,
 } = require("../../../../utils/auth/clientPortalAuth");
+const {
+  orgHasChatFeature,
+} = require("../../../../services/subscription/brokerOrgFeatures");
 
 module.exports = async function getConversations(fastify) {
   fastify.get(
@@ -137,6 +140,18 @@ module.exports = async function getConversations(fastify) {
             return reply.code(403).send({
               success: false,
               message: "Access denied",
+            });
+          }
+
+          const chatEnabled = await orgHasChatFeature(
+            prisma,
+            loan.brokerOrgId,
+          );
+          if (!chatEnabled) {
+            return reply.code(403).send({
+              success: false,
+              message: "Chat is not available on this broker's plan",
+              entitlements: { chatEnabled: false },
             });
           }
         }

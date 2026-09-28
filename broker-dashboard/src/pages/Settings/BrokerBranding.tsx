@@ -58,10 +58,11 @@ function RequirementItem({
 
 export default function BrokerBranding() {
   const isLoanOfficerPortal = isLoanOfficerPortalPath();
-  const canManageBranding =
-    !isLoanOfficerPortal ||
-    hasPermission("MANAGE_BRANDING", "loanOfficer");
-  const readOnly = isLoanOfficerPortal && !canManageBranding;
+  const canManageBranding = hasPermission(
+    "MANAGE_BRANDING",
+    isLoanOfficerPortal ? "loanOfficer" : "broker",
+  );
+  const readOnly = !canManageBranding;
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);

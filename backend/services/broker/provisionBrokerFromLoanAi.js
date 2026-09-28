@@ -26,6 +26,58 @@ async function ensureBrokerAdminRole(prisma, userId) {
 }
 
 /**
+ * Find a conflicting BROKER org only (LENDER/PLATFORM phones/emails must not block signup).
+ * Prefer reusable orgs (same email, no active subscription).
+ */
+async function findBrokerOrgConflict(
+  prisma,
+  { organizationName, organizationEmail, organizationPhone },
+) {
+  const phone = String(organizationPhone || "").replace(/\D/g, "");
+  const email = String(organizationEmail || "")
+    .trim()
+    .toLowerCase();
+  const name = String(organizationName || "").trim();
+
+  const candidates = await prisma.organization.findMany({
+    where: {
+      type: "BROKER",
+      OR: [
+        ...(name ? [{ name: { equals: name, mode: "insensitive" } }] : []),
+        ...(email ? [{ email: { equals: email, mode: "insensitive" } }] : []),
+        ...(phone ? [{ phone }] : []),
+      ],
+    },
+    orderBy: { createdAt: "asc" },
+  });
+
+  if (candidates.length === 0) return { conflict: null, reusable: null };
+
+  for (const org of candidates) {
+    const activeSub = await prisma.organizationSubscription.findFirst({
+      where: {
+        organizationId: org.id,
+        status: { in: ["TRIAL", "ACTIVE", "PAST_DUE"] },
+      },
+      select: { id: true },
+    });
+    const emailMatches =
+      email &&
+      String(org.email || "")
+        .trim()
+        .toLowerCase() === email;
+    // Safe to reuse when same org email and no live subscription.
+    if (!activeSub && emailMatches) {
+      return { conflict: null, reusable: org };
+    }
+  }
+
+  // Hard conflict: another broker already owns these details with an active sub,
+  // or name/phone collide with a different broker org.
+  return { conflict: candidates[0], reusable: null };
+}
+
+/**
  * Ensures the Loan AI buyer has a broker dashboard login on the org.
  * Used when payment fulfillment activates an org that was missing a UserAccount
  * (e.g. renew path / partial provision). New accounts get credentials email;
@@ -256,37 +308,15 @@ async function provisionBrokerFromLoanAi(prisma, io, loanAiUser, payload) {
         }
       }
     } else {
-      // Check for organization conflicts
-      const orgConflict = await prisma.organization.findFirst({
-        where: {
-          OR: [
-            { name: organizationName },
-            { email: organizationEmail },
-            { phone: String(organizationPhone) },
-          ],
-        },
+      const { conflict, reusable } = await findBrokerOrgConflict(prisma, {
+        organizationName,
+        organizationEmail,
+        organizationPhone,
       });
 
-      if (orgConflict) {
-        throw Object.assign(new Error("Organization with these details already exists"), {
-          statusCode: 409,
-        });
-      }
-
-      // Create new organization for the existing user
-      await prisma.$transaction(async (tx) => {
-        brokerOrg = await tx.organization.create({
-          data: {
-            name: organizationName,
-            email: organizationEmail,
-            phone: String(organizationPhone),
-            type: "BROKER",
-            status: "ACTIVE",
-          },
-        });
-
-        // Update existing user to link to new org and ensure BROKER_ADMIN role
-        brokerAdmin = await tx.userAccount.update({
+      if (reusable) {
+        brokerOrg = reusable;
+        brokerAdmin = await prisma.userAccount.update({
           where: { id: existingBrokerUser.id },
           data: {
             organizationId: brokerOrg.id,
@@ -296,18 +326,152 @@ async function provisionBrokerFromLoanAi(prisma, io, loanAiUser, payload) {
           },
           include: { roles: { include: { role: true } } },
         });
+        await ensureBrokerAdminRole(prisma, brokerAdmin.id);
+        await prisma.loanAiUser.update({
+          where: { id: loanAiUser.id },
+          data: {
+            brokerOrganizationId: brokerOrg.id,
+            firstName,
+            lastName,
+          },
+        });
+      } else if (conflict) {
+        throw Object.assign(
+          new Error("Organization with these details already exists"),
+          { statusCode: 409, code: "ORG_EXISTS" },
+        );
+      } else {
+        // Create new organization for the existing user
+        await prisma.$transaction(async (tx) => {
+          brokerOrg = await tx.organization.create({
+            data: {
+              name: organizationName,
+              email: organizationEmail,
+              phone: String(organizationPhone).replace(/\D/g, ""),
+              type: "BROKER",
+              status: "ACTIVE",
+            },
+          });
 
-        const hasAdminRole = brokerAdmin.roles.some((r) => r.role.name === "BROKER_ADMIN");
-        if (!hasAdminRole) {
-          const role = await tx.role.findFirst({ where: { name: "BROKER_ADMIN" } });
-          if (role) {
-            await tx.userRole.create({
-              data: { userId: brokerAdmin.id, roleId: role.id },
+          // Update existing user to link to new org and ensure BROKER_ADMIN role
+          brokerAdmin = await tx.userAccount.update({
+            where: { id: existingBrokerUser.id },
+            data: {
+              organizationId: brokerOrg.id,
+              firstName,
+              lastName,
+              status: "ACTIVE",
+            },
+            include: { roles: { include: { role: true } } },
+          });
+
+          const hasAdminRole = brokerAdmin.roles.some(
+            (r) => r.role.name === "BROKER_ADMIN",
+          );
+          if (!hasAdminRole) {
+            const role = await tx.role.findFirst({
+              where: { name: "BROKER_ADMIN" },
             });
+            if (role) {
+              await tx.userRole.create({
+                data: { userId: brokerAdmin.id, roleId: role.id },
+              });
+            }
           }
-        }
 
-        // Update Loan AI user to link to new broker org
+          // Update Loan AI user to link to new broker org
+          await tx.loanAiUser.update({
+            where: { id: loanAiUser.id },
+            data: {
+              brokerOrganizationId: brokerOrg.id,
+              firstName,
+              lastName,
+            },
+          });
+        });
+      }
+    }
+  } else {
+    // No existing broker user - create new organization and user
+    const { conflict, reusable } = await findBrokerOrgConflict(prisma, {
+      organizationName,
+      organizationEmail,
+      organizationPhone,
+    });
+
+    if (reusable) {
+      // Reuse dormant broker org; create admin user on it
+      brokerOrg = reusable;
+      isExistingUser = false;
+      temporaryPassword = generateTempPassword();
+      const passwordHash = await bcrypt.hash(temporaryPassword, 12);
+
+      await prisma.$transaction(async (tx) => {
+        brokerAdmin = await tx.userAccount.create({
+          data: {
+            organizationId: brokerOrg.id,
+            email: loginEmail,
+            passwordHash,
+            firstName,
+            lastName,
+            status: "ACTIVE",
+          },
+        });
+
+        const role = await tx.role.findFirst({ where: { name: "BROKER_ADMIN" } });
+        if (!role) throw new Error("BROKER_ADMIN role missing");
+
+        await tx.userRole.create({
+          data: { userId: brokerAdmin.id, roleId: role.id },
+        });
+
+        await tx.loanAiUser.update({
+          where: { id: loanAiUser.id },
+          data: {
+            brokerOrganizationId: brokerOrg.id,
+            firstName,
+            lastName,
+          },
+        });
+      });
+    } else if (conflict) {
+      throw Object.assign(
+        new Error("Organization with these details already exists"),
+        { statusCode: 409, code: "ORG_EXISTS" },
+      );
+    } else {
+      temporaryPassword = generateTempPassword();
+      const passwordHash = await bcrypt.hash(temporaryPassword, 12);
+
+      await prisma.$transaction(async (tx) => {
+        brokerOrg = await tx.organization.create({
+          data: {
+            name: organizationName,
+            email: organizationEmail,
+            phone: String(organizationPhone).replace(/\D/g, ""),
+            type: "BROKER",
+            status: "ACTIVE",
+          },
+        });
+
+        brokerAdmin = await tx.userAccount.create({
+          data: {
+            organizationId: brokerOrg.id,
+            email: loginEmail,
+            passwordHash,
+            firstName,
+            lastName,
+            status: "ACTIVE",
+          },
+        });
+
+        const role = await tx.role.findFirst({ where: { name: "BROKER_ADMIN" } });
+        if (!role) throw new Error("BROKER_ADMIN role missing");
+
+        await tx.userRole.create({
+          data: { userId: brokerAdmin.id, roleId: role.id },
+        });
+
         await tx.loanAiUser.update({
           where: { id: loanAiUser.id },
           data: {
@@ -318,65 +482,6 @@ async function provisionBrokerFromLoanAi(prisma, io, loanAiUser, payload) {
         });
       });
     }
-  } else {
-    // No existing broker user - create new organization and user
-    const orgConflict = await prisma.organization.findFirst({
-      where: {
-        OR: [
-          { name: organizationName },
-          { email: organizationEmail },
-          { phone: String(organizationPhone) },
-        ],
-      },
-    });
-
-    if (orgConflict) {
-      throw Object.assign(new Error("Organization with these details already exists"), {
-        statusCode: 409,
-      });
-    }
-
-    temporaryPassword = generateTempPassword();
-    const passwordHash = await bcrypt.hash(temporaryPassword, 12);
-
-    await prisma.$transaction(async (tx) => {
-      brokerOrg = await tx.organization.create({
-        data: {
-          name: organizationName,
-          email: organizationEmail,
-          phone: String(organizationPhone),
-          type: "BROKER",
-          status: "ACTIVE",
-        },
-      });
-
-      brokerAdmin = await tx.userAccount.create({
-        data: {
-          organizationId: brokerOrg.id,
-          email: loginEmail,
-          passwordHash,
-          firstName,
-          lastName,
-          status: "ACTIVE",
-        },
-      });
-
-      const role = await tx.role.findFirst({ where: { name: "BROKER_ADMIN" } });
-      if (!role) throw new Error("BROKER_ADMIN role missing");
-
-      await tx.userRole.create({
-        data: { userId: brokerAdmin.id, roleId: role.id },
-      });
-
-      await tx.loanAiUser.update({
-        where: { id: loanAiUser.id },
-        data: {
-          brokerOrganizationId: brokerOrg.id,
-          firstName,
-          lastName,
-        },
-      });
-    });
   }
 
   try {

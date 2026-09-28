@@ -70,7 +70,8 @@ import {
   type LoanPreviewPortal,
 } from "../../lib/loanPreviewConfig";
 import { useLoanPreviewSessionMonitor } from "../../hooks/useSessionMonitor";
-import { hasPermission } from "../../lib/brokerPermissions";
+import { hasPermission, ORG_ENTITLEMENTS_UPDATED_EVENT } from "../../lib/brokerPermissions";
+import { hydrateOrgEntitlements } from "../../lib/brokerEntitlements";
 import { ensureChatSocket } from "../../lib/chatSocketManager";
 import { getOrgIdsFromToken } from "../../lib/chatSocket";
 
@@ -443,6 +444,23 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
   const previewConfig = getLoanPreviewConfig(portal);
   const isLoPortal = portal === "loanOfficer";
   const isCoBrokerPortal = portal === "coBroker";
+  const permissionPortal = isLoPortal
+    ? "loanOfficer"
+    : isCoBrokerPortal
+      ? "coBroker"
+      : "broker";
+  const [entitlementsTick, setEntitlementsTick] = useState(0);
+
+  useEffect(() => {
+    void hydrateOrgEntitlements().then(() => {
+      setEntitlementsTick((n) => n + 1);
+    });
+    const onUpdate = () => setEntitlementsTick((n) => n + 1);
+    window.addEventListener(ORG_ENTITLEMENTS_UPDATED_EVENT, onUpdate);
+    return () => {
+      window.removeEventListener(ORG_ENTITLEMENTS_UPDATED_EVENT, onUpdate);
+    };
+  }, []);
   const previewApi = previewConfig.api;
   const getAuthHeaders = previewConfig.getAuthHeaders;
   const PreviewChat = previewConfig.Chat;
@@ -801,6 +819,12 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
 
   const handleToggleAutoForward = async () => {
     if (!submissionId) return;
+    if (!loDocPermissions.autoForwardToLender) {
+      toast.error(
+        "Auto-Forward Docs is available on the Elite plan. Upgrade to unlock.",
+      );
+      return;
+    }
 
     const nextValue = !autoForwardEnabled;
 
@@ -851,6 +875,12 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
 
   const handleToggleAutoForwardToClient = async () => {
     if (!submissionId) return;
+    if (!loDocPermissions.autoForwardToClient) {
+      toast.error(
+        "Auto-Forward Docs is available on the Elite plan. Upgrade to unlock.",
+      );
+      return;
+    }
 
     const nextValue = !autoForwardToClientEnabled;
 
@@ -1021,43 +1051,40 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
         upload: true,
         request: true,
         sign: false,
-        loi: true,
-        feeAgreement: true,
+        loi: hasPermission("VIEW_LOI_TERM_SHEET", permissionPortal),
+        feeAgreement: hasPermission("VIEW_FEE_AGREEMENT", permissionPortal),
         lenderHub: false,
         autoForwardToLender: false,
         autoForwardToClient: false,
         delete: false,
         sendApplications: false,
-        chat: true,
-        sendEmails: false,
+        chat: hasPermission("CHAT", permissionPortal),
+        sendEmails: hasPermission("SEND_EMAILS", permissionPortal),
       };
     }
 
+    // Broker admin + LO both check the same org package pool (permissionPortal).
     return {
-      upload:
-        !isLoPortal || hasPermission("UPLOAD_DOCUMENTS", "loanOfficer"),
-      request:
-        !isLoPortal || hasPermission("REQUEST_DOCUMENTS", "loanOfficer"),
-      sign:
-        !isLoPortal || hasPermission("DOCUMENTS_TO_SIGN", "loanOfficer"),
-      loi:
-        !isLoPortal || hasPermission("VIEW_LOI_TERM_SHEET", "loanOfficer"),
-      feeAgreement:
-        !isLoPortal || hasPermission("VIEW_FEE_AGREEMENT", "loanOfficer"),
-      lenderHub:
-        !isLoPortal || hasPermission("VIEW_LENDER_HUB", "loanOfficer"),
-      autoForwardToLender:
-        !isLoPortal || hasPermission("AUTO_FORWARD_TO_LENDER", "loanOfficer"),
-      autoForwardToClient:
-        !isLoPortal || hasPermission("AUTO_FORWARD_TO_CLIENT", "loanOfficer"),
-      delete:
-        !isLoPortal || hasPermission("DELETE_DOCUMENTS", "loanOfficer"),
-      sendApplications:
-        !isLoPortal || hasPermission("SEND_APPLICATIONS", "loanOfficer"),
-      chat: !isLoPortal || hasPermission("CHAT", "loanOfficer"),
-      sendEmails: !isLoPortal || hasPermission("SEND_EMAILS", "loanOfficer"),
+      upload: hasPermission("UPLOAD_DOCUMENTS", permissionPortal),
+      request: hasPermission("REQUEST_DOCUMENTS", permissionPortal),
+      sign: hasPermission("DOCUMENTS_TO_SIGN", permissionPortal),
+      loi: hasPermission("VIEW_LOI_TERM_SHEET", permissionPortal),
+      feeAgreement: hasPermission("VIEW_FEE_AGREEMENT", permissionPortal),
+      lenderHub: hasPermission("VIEW_LENDER_HUB", permissionPortal),
+      autoForwardToLender: hasPermission(
+        "AUTO_FORWARD_TO_LENDER",
+        permissionPortal,
+      ),
+      autoForwardToClient: hasPermission(
+        "AUTO_FORWARD_TO_CLIENT",
+        permissionPortal,
+      ),
+      delete: hasPermission("DELETE_DOCUMENTS", permissionPortal),
+      sendApplications: hasPermission("SEND_APPLICATIONS", permissionPortal),
+      chat: hasPermission("CHAT", permissionPortal),
+      sendEmails: hasPermission("SEND_EMAILS", permissionPortal),
     };
-  }, [isLoPortal, isCoBrokerPortal]);
+  }, [isLoPortal, isCoBrokerPortal, permissionPortal, entitlementsTick]);
 
   const effectiveCanRequestDocuments =
     canRequestDocuments && loDocPermissions.request;
@@ -2132,7 +2159,7 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
       });
     }
 
-    if (loDocPermissions.sendEmails) {
+    if (previewConfig.showEmailReminders && loDocPermissions.sendEmails) {
       communicationItems.push({
         key: "email-reminders",
         label: "Email Reminders",
@@ -2171,6 +2198,7 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
     documentRequestBlockedReason,
     submissionDetail?.canEdit,
     isFundedDeal,
+    previewConfig.showEmailReminders,
   ]);
 
   const visibleTabKeys = useMemo(
@@ -3143,6 +3171,11 @@ dark:bg-red-900/20 dark:text-red-400"
         onToggleAutoForward={handleToggleAutoForward}
         showAutoForward={loDocPermissions.autoForwardToLender}
         showAutoForwardToClient={loDocPermissions.autoForwardToClient}
+        autoForwardEliteLocked={
+          !isCoBrokerPortal &&
+          !loDocPermissions.autoForwardToLender &&
+          !loDocPermissions.autoForwardToClient
+        }
         autoForwardToClientEnabled={autoForwardToClientEnabled}
         autoForwardToClientSaving={autoForwardToClientSaving}
         onToggleAutoForwardToClient={handleToggleAutoForwardToClient}
@@ -3922,7 +3955,12 @@ dark:bg-red-900/20 dark:text-red-400"
       case "request-document":
         return renderRequestDocument();
       case "email-reminders":
-        return <DocumentReminderPanel loanApplicationId={applicationId} />;
+        return (
+          <DocumentReminderPanel
+            loanApplicationId={applicationId}
+            apiPrefix={previewConfig.documentRemindersApiPrefix}
+          />
+        );
       case "view-loi":
         return renderViewLoi();
       case "documents":

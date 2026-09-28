@@ -116,6 +116,45 @@ async function brokerSubmitApplication(fastify) {
         const resolvedApplicationProductId =
           resolvedProduct.applicationProductId;
 
+        const {
+          getOrgEnabledFeatures,
+          assertLoanAccessAllowed,
+          resolveLoanCategoryForAccess,
+        } = require("../../../services/subscription/brokerOrgFeatures");
+        const orgEntitlements = await getOrgEnabledFeatures(prisma, brokerOrgId);
+        const explicitLoanCategory = Array.isArray(fields)
+          ? fields.find((f) => f?.fieldKey === "loanCategory")?.value
+          : null;
+        const loanCategory = resolveLoanCategoryForAccess({
+          loanCategory: explicitLoanCategory,
+          loanType: resolvedLoanProductCode,
+        });
+        const loanAccess = assertLoanAccessAllowed(orgEntitlements.features, {
+          loanCategory,
+          loanType: resolvedLoanProductCode,
+        });
+        if (!loanAccess.ok) {
+          return reply.code(403).send({
+            success: false,
+            message: loanAccess.message,
+          });
+        }
+
+        const {
+          assertApplicationQuotaAvailable,
+        } = require("../../../services/subscription/subscriptionBilling");
+        const quota = await assertApplicationQuotaAvailable(prisma, brokerOrgId);
+        if (!quota.ok) {
+          return reply.code(quota.statusCode || 403).send({
+            success: false,
+            code: quota.code,
+            message: quota.message,
+            used: quota.used,
+            limit: quota.limit,
+            teamSeats: quota.teamSeats,
+          });
+        }
+
         /* ================= TRANSACTION ================= */
 
         const result = await prisma.$transaction(async (tx) => {

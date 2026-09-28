@@ -31,15 +31,79 @@ const ADMIN_EDITABLE_USAGE_METRICS = [
 ];
 
 const USAGE_METRIC_LABELS = {
-  LOAN_APPLICATIONS: "Loan Applications",
+  LOAN_APPLICATIONS: "Loan Applications (monthly)",
   ACTIVE_USERS: "Active Users",
   LOAN_OFFICERS: "Loan Officers",
   LENDER_CONNECTIONS: "Lenders Network",
   CO_BROKERS: "Co-Brokers",
 };
 
+/** Each purchased team seat unlocks this many new loan applications per calendar month. */
+const APPLICATIONS_PER_SEAT_PER_MONTH = 20;
+
 /** Metrics persisted on subscription_usage rows (DB enum). */
 const PERSISTED_USAGE_METRICS = USAGE_METRICS;
+
+function getCalendarMonthBounds(now = new Date()) {
+  const start = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0, 0),
+  );
+  const end = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1, 0, 0, 0, 0),
+  );
+  return { start, end };
+}
+
+/**
+ * Team seats = package includedUsers + EXTRA_USER quantity (min 1).
+ * Matches pricing "Add users" slider totals.
+ */
+function resolveTeamSeatCount(subscription) {
+  const code = String(subscription?.package?.code || "BASIC").toUpperCase();
+  const defaultsByCode = { BASIC: 1, PRO: 5, ELITE: 10 };
+  let included = defaultsByCode[code] || 1;
+
+  const rawFeatures = subscription?.package?.features;
+  if (rawFeatures) {
+    try {
+      const parsed =
+        typeof rawFeatures === "string" ? JSON.parse(rawFeatures) : rawFeatures;
+      if (
+        parsed &&
+        typeof parsed === "object" &&
+        parsed.includedUsers != null &&
+        Number.isFinite(Number(parsed.includedUsers))
+      ) {
+        included = Math.max(1, Math.floor(Number(parsed.includedUsers)));
+      }
+    } catch {
+      // keep code default
+    }
+  }
+
+  let extra = 0;
+  const addOns = Array.isArray(subscription?.purchasedAddOns)
+    ? subscription.purchasedAddOns
+    : [];
+  for (const item of addOns) {
+    if (String(item?.code || "").toUpperCase() !== "EXTRA_USER") continue;
+    extra += Math.max(0, Math.floor(Number(item.quantity) || 1));
+  }
+
+  return Math.max(1, included + extra);
+}
+
+function resolveMonthlyApplicationLimit(subscription, { overrides = {} } = {}) {
+  if (
+    overrides.LOAN_APPLICATIONS != null &&
+    overrides.LOAN_APPLICATIONS !== "" &&
+    Number.isFinite(Number(overrides.LOAN_APPLICATIONS))
+  ) {
+    return Math.max(0, Math.floor(Number(overrides.LOAN_APPLICATIONS)));
+  }
+  const seats = resolveTeamSeatCount(subscription);
+  return seats * APPLICATIONS_PER_SEAT_PER_MONTH;
+}
 
 /**
  * Best-effort Agency GHL location sync after admin assign/change plan.
@@ -200,10 +264,21 @@ async function createSubscriptionInvoice(tx, sub, options = {}) {
   }
 }
 
-async function countMetricUsage(prisma, organizationId, metric) {
+async function countMetricUsage(prisma, organizationId, metric, options = {}) {
   switch (metric) {
-    case "LOAN_APPLICATIONS":
-      return prisma.loanApplication.count({ where: { brokerOrgId: organizationId } });
+    case "LOAN_APPLICATIONS": {
+      // Monthly quota — count apps created in the current calendar month (UTC).
+      const { start, end } =
+        options.periodStart && options.periodEnd
+          ? { start: options.periodStart, end: options.periodEnd }
+          : getCalendarMonthBounds();
+      return prisma.loanApplication.count({
+        where: {
+          brokerOrgId: organizationId,
+          createdAt: { gte: start, lt: end },
+        },
+      });
+    }
     case "ACTIVE_USERS":
       return prisma.userAccount.count({
         where: { organizationId, status: "ACTIVE" },
@@ -316,10 +391,133 @@ function resolveEffectiveUsageLimits(subscription) {
     subscription?.enabledFeatures,
   );
   const safeOverrides = overrides || {};
+
+  const seats = resolveTeamSeatCount(subscription);
+  const monthlyApps = resolveMonthlyApplicationLimit(subscription, {
+    overrides: safeOverrides,
+  });
+
+  const effective = {
+    ...withAddOns,
+    ...safeOverrides,
+    // Always derive from seats × 20 unless admin overrode LOAN_APPLICATIONS
+    LOAN_APPLICATIONS: monthlyApps,
+  };
+
   return {
     packageDefaults: withAddOns,
     overrides: safeOverrides,
-    effective: { ...withAddOns, ...safeOverrides },
+    effective,
+    teamSeats: seats,
+    applicationsPerSeat: APPLICATIONS_PER_SEAT_PER_MONTH,
+  };
+}
+
+async function assertSeatAvailable(prisma, organizationId, metric) {
+  const metricKey = String(metric || "").toUpperCase();
+  if (!["LOAN_OFFICERS", "CO_BROKERS", "ACTIVE_USERS"].includes(metricKey)) {
+    return { ok: true };
+  }
+
+  const sub = await prisma.organizationSubscription.findFirst({
+    where: {
+      organizationId,
+      status: { in: ACTIVE_SUB_STATUSES },
+    },
+    orderBy: { createdAt: "desc" },
+    include: { package: true },
+  });
+
+  // Legacy orgs without a subscription: do not block.
+  if (!sub) return { ok: true, unlimited: true };
+
+  const { effective } = resolveEffectiveUsageLimits(sub);
+  const rawLimit = effective[metricKey];
+  if (rawLimit == null || rawLimit === "") {
+    return { ok: true, unlimited: true };
+  }
+
+  const limit = Number(rawLimit);
+  if (!Number.isFinite(limit)) {
+    return { ok: true, unlimited: true };
+  }
+
+  const used = await countMetricUsage(prisma, organizationId, metricKey);
+  if (used >= limit) {
+    const label =
+      metricKey === "LOAN_OFFICERS"
+        ? "loan officers"
+        : metricKey === "CO_BROKERS"
+          ? "co-brokers"
+          : "users";
+    return {
+      ok: false,
+      statusCode: 403,
+      code: "SEAT_LIMIT_REACHED",
+      message: `Your plan allows up to ${limit} ${label}. Buy Additional Users or upgrade to add more.`,
+      used,
+      limit,
+      metric: metricKey,
+    };
+  }
+
+  return { ok: true, used, limit, metric: metricKey };
+}
+
+/**
+ * Enforce monthly loan-application quota: teamSeats × 20 / calendar month.
+ */
+async function assertApplicationQuotaAvailable(prisma, organizationId) {
+  const sub = await prisma.organizationSubscription.findFirst({
+    where: {
+      organizationId,
+      status: { in: ACTIVE_SUB_STATUSES },
+    },
+    orderBy: { createdAt: "desc" },
+    include: { package: true },
+  });
+
+  if (!sub) return { ok: true, unlimited: true };
+
+  const {
+    effective,
+    teamSeats,
+    applicationsPerSeat,
+  } = resolveEffectiveUsageLimits(sub);
+  const limit = Number(effective.LOAN_APPLICATIONS);
+  if (!Number.isFinite(limit)) {
+    return { ok: true, unlimited: true };
+  }
+
+  const { start, end } = getCalendarMonthBounds();
+  const used = await countMetricUsage(prisma, organizationId, "LOAN_APPLICATIONS", {
+    periodStart: start,
+    periodEnd: end,
+  });
+
+  if (used >= limit) {
+    return {
+      ok: false,
+      statusCode: 403,
+      code: "APPLICATION_LIMIT_REACHED",
+      message: `Monthly loan application limit reached (${used}/${limit}). Your plan allows ${applicationsPerSeat} applications per user per month (${teamSeats} users × ${applicationsPerSeat}). Add users or wait until next month.`,
+      used,
+      limit,
+      teamSeats,
+      applicationsPerSeat,
+      periodStart: start,
+      periodEnd: end,
+    };
+  }
+
+  return {
+    ok: true,
+    used,
+    limit,
+    teamSeats,
+    applicationsPerSeat,
+    periodStart: start,
+    periodEnd: end,
   };
 }
 
@@ -338,18 +536,26 @@ async function refreshUsageForSubscription(prisma, organizationSubscriptionId) {
   const records = [];
 
   for (const metric of PERSISTED_USAGE_METRICS) {
-    const usedValue = await countMetricUsage(prisma, sub.organizationId, metric);
+    const monthBounds =
+      metric === "LOAN_APPLICATIONS" ? getCalendarMonthBounds() : null;
+    const usedValue = await countMetricUsage(prisma, sub.organizationId, metric, {
+      periodStart: monthBounds?.start,
+      periodEnd: monthBounds?.end,
+    });
     const limitValue =
       limits[metric] != null && limits[metric] !== ""
         ? Number(limits[metric])
         : null;
+
+    const periodStart = monthBounds?.start || sub.currentPeriodStart;
+    const periodEnd = monthBounds?.end || sub.currentPeriodEnd;
 
     const record = await prisma.subscriptionUsage.upsert({
       where: {
         organizationSubscriptionId_metric_periodStart: {
           organizationSubscriptionId,
           metric,
-          periodStart: sub.currentPeriodStart,
+          periodStart,
         },
       },
       create: {
@@ -357,13 +563,13 @@ async function refreshUsageForSubscription(prisma, organizationSubscriptionId) {
         metric,
         limitValue: Number.isFinite(limitValue) ? limitValue : null,
         usedValue,
-        periodStart: sub.currentPeriodStart,
-        periodEnd: sub.currentPeriodEnd,
+        periodStart,
+        periodEnd,
       },
       update: {
         limitValue: Number.isFinite(limitValue) ? limitValue : null,
         usedValue,
-        periodEnd: sub.currentPeriodEnd,
+        periodEnd,
       },
     });
 
@@ -402,6 +608,8 @@ async function assignPlanToOrganization(prisma, payload) {
     ghlProductId,
     ghlSubscriptionId,
     ghlInvoiceId,
+    stripeCustomerId,
+    stripeSubscriptionId,
     loanAiUserId,
     currentPeriodStart,
     currentPeriodEnd,
@@ -427,7 +635,7 @@ async function assignPlanToOrganization(prisma, payload) {
 
   let purchasedAddOns = [];
   try {
-    purchasedAddOns = resolvePurchasedAddOns(addOnCodes, pkg.code);
+    purchasedAddOns = resolvePurchasedAddOns(addOnCodes, pkg.code, billingCycle);
   } catch (error) {
     if (error.statusCode) throw error;
     throw error;
@@ -474,6 +682,8 @@ async function assignPlanToOrganization(prisma, payload) {
         ghlProductId: ghlProductId || null,
         ghlSubscriptionId: ghlSubscriptionId || null,
         ghlInvoiceId: ghlInvoiceId || null,
+        stripeCustomerId: stripeCustomerId || null,
+        stripeSubscriptionId: stripeSubscriptionId || null,
         loanAiUserId: loanAiUserId || null,
       },
       include: { package: true, organization: true },
@@ -587,6 +797,123 @@ async function changePlan(prisma, payload) {
     invoice: result.invoice,
     agencyLocation,
   };
+}
+
+/**
+ * Merge new add-ons / extra seats onto an active subscription and refresh usage.
+ */
+async function applyAddOnUpgrade(prisma, payload) {
+  const {
+    organizationSubscriptionId,
+    organizationId,
+    deltaCodes = [],
+    mergedPurchased,
+    notes,
+    ghlContactId,
+    ghlInvoiceId,
+    ghlSubscriptionId,
+    ghlTransactionId,
+    markPaid = true,
+  } = payload;
+
+  const sub = await prisma.organizationSubscription.findFirst({
+    where: organizationSubscriptionId
+      ? { id: organizationSubscriptionId }
+      : {
+          organizationId,
+          status: { in: ACTIVE_SUB_STATUSES },
+        },
+    include: { package: true },
+  });
+
+  if (!sub) {
+    throw Object.assign(new Error("No active subscription found"), {
+      statusCode: 404,
+    });
+  }
+
+  const {
+    mergePurchasedAddOns,
+    resolvePurchasedAddOns,
+    flattenPurchasedAddOnCodes,
+    getAddOnsTotalForCycle: addOnsCycleTotal,
+  } = require("../../utils/subscription/addOnCatalog");
+
+  const purchased =
+    Array.isArray(mergedPurchased) && mergedPurchased.length > 0
+      ? mergedPurchased
+      : mergePurchasedAddOns(
+          sub.purchasedAddOns,
+          deltaCodes,
+          sub.package?.code,
+          sub.billingCycle,
+        );
+
+  const flatCodes = flattenPurchasedAddOnCodes(purchased);
+  const normalized = resolvePurchasedAddOns(
+    flatCodes,
+    sub.package?.code,
+    sub.billingCycle,
+  );
+
+  const deltaResolved = resolvePurchasedAddOns(
+    deltaCodes,
+    sub.package?.code,
+    sub.billingCycle,
+  );
+  const amount = addOnsCycleTotal(deltaResolved, sub.billingCycle);
+
+  const now = new Date();
+  const result = await prisma.$transaction(async (tx) => {
+    const updated = await tx.organizationSubscription.update({
+      where: { id: sub.id },
+      data: {
+        purchasedAddOns: normalized.length > 0 ? normalized : null,
+        notes: notes
+          ? appendSubscriptionNote(sub.notes, notes)
+          : sub.notes,
+        ghlContactId: ghlContactId || undefined,
+        ghlInvoiceId: ghlInvoiceId || undefined,
+        ghlSubscriptionId: ghlSubscriptionId || undefined,
+      },
+      include: { package: true, organization: true },
+    });
+
+    await refreshUsageForSubscription(tx, updated.id);
+
+    let invoice = null;
+    if (deltaCodes.length > 0 && Number.isFinite(amount) && amount > 0) {
+      invoice = await createSubscriptionInvoice(tx, updated, {
+        amount,
+        notes: "Add-on / extra user upgrade",
+        idempotencyKey: `addon-upgrade:${updated.id}:${ghlInvoiceId || now.toISOString()}`,
+      });
+      if (markPaid && invoice) {
+        invoice = await tx.subscriptionInvoice.update({
+          where: { id: invoice.id },
+          data: {
+            status: "PAID",
+            paidAt: now,
+            ghlInvoiceId: ghlInvoiceId || null,
+            ghlSubscriptionId: ghlSubscriptionId || null,
+            ghlTransactionId: ghlTransactionId || null,
+            externalPaymentRef: ghlInvoiceId || null,
+          },
+        });
+      }
+    }
+
+    return { subscription: updated, invoice };
+  });
+
+  // GHL Starter/Growth add-ons (or Pro/Elite) → provision dedicated Agency sub-account.
+  const agencyLocation = await syncAgencyLocationAfterPlanChange(prisma, {
+    organizationId: result.subscription.organizationId,
+    organizationSubscriptionId: result.subscription.id,
+    packageCode: result.subscription.package?.code || sub.package?.code,
+  });
+
+  return { ...result, agencyLocation };
 }
 
 async function cancelSubscription(prisma, payload) {
@@ -906,10 +1233,16 @@ module.exports = {
   parseEnabledFeaturesPayload,
   buildEnabledFeaturesPayload,
   resolveEffectiveUsageLimits,
+  resolveTeamSeatCount,
+  resolveMonthlyApplicationLimit,
+  APPLICATIONS_PER_SEAT_PER_MONTH,
+  assertSeatAvailable,
+  assertApplicationQuotaAvailable,
   refreshUsageForSubscription,
   generateInvoice,
   assignPlanToOrganization,
   changePlan,
+  applyAddOnUpgrade,
   cancelSubscription,
   markInvoicePaid,
   expireEndedTrials,
