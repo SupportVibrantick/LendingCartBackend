@@ -6,7 +6,9 @@ const {
 const {
   isSoftTrialWithoutBilling,
   isClmGhlSoftTrial,
+  isLoanAiCardTrial,
   CLM_GHL_BILLING_PHASE_NOTE,
+  LOAN_AI_CARD_BILLING_PHASE_NOTE,
   appendSubscriptionNote,
 } = require("./freeTrial");
 
@@ -1039,7 +1041,33 @@ async function expireSingleTrial(prisma, sub, now) {
       };
     }
 
-    // Loan AI no-card soft trials — expire access until they pay on LendingCart.
+    // Loan AI card trial: Stripe already has the card and starts charging after
+    // trial_period_days. Keep ACTIVE; no LendingCart invoice.
+    if (isLoanAiCardTrial(current)) {
+      const subscription = await tx.organizationSubscription.update({
+        where: { id: sub.id },
+        data: {
+          status: "ACTIVE",
+          currentPeriodStart: periodStart,
+          currentPeriodEnd: periodEnd,
+          notes: appendSubscriptionNote(
+            current.notes,
+            LOAN_AI_CARD_BILLING_PHASE_NOTE,
+          ),
+        },
+        include: { package: true, organization: true },
+      });
+
+      await refreshUsageForSubscription(tx, sub.id);
+
+      return {
+        subscription,
+        invoice: null,
+        loanAiCardConvertedToActive: true,
+      };
+    }
+
+    // Loan AI legacy no-card soft trials — expire access until they pay on LendingCart.
     if (isSoftTrialWithoutBilling(current)) {
       const subscription = await tx.organizationSubscription.update({
         where: { id: sub.id },
@@ -1085,7 +1113,8 @@ async function expireSingleTrial(prisma, sub, now) {
 /**
  * End TRIAL subscriptions whose trialEndsAt has passed.
  * Admin trials → ACTIVE + invoice.
- * Loan AI soft trials → EXPIRED (no invoice).
+ * Loan AI legacy no-card soft trials → EXPIRED (no invoice).
+ * Loan AI card trials → ACTIVE (Stripe bills; no LendingCart invoice).
  * CLM GHL soft trials → ACTIVE (GHL bills; no LendingCart invoice; no lock).
  */
 async function expireEndedTrials(prisma, io = null) {

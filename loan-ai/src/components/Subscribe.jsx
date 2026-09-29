@@ -10,7 +10,6 @@ import {
 } from "../lib/addOnCheckout";
 import { buildPlanCheckoutState } from "../lib/planCheckout";
 import { startPlanCheckoutAndRedirect } from "../lib/startPlanCheckout";
-import { startLoanAiFreeTrial } from "../lib/loanAiAuth";
 import { getCheckoutUserMessage } from "../lib/checkoutErrors";
 import { getBrokerSignInUrl } from "../lib/brokerAuth";
 import AuthPageHeader from "./AuthPageHeader";
@@ -45,8 +44,8 @@ function digitsOnlyPhone(value) {
 }
 
 /**
- * Collect organization details, then either start a free trial (no payment)
- * or open GHL payment in a new tab.
+ * Collect organization details, then either start a card-required free trial
+ * (Stripe Checkout, $0 for FREE_TRIAL_DAYS then auto-charge) or open paid checkout.
  */
 export default function SubscribePage() {
   const location = useLocation();
@@ -55,8 +54,8 @@ export default function SubscribePage() {
   const { user, token, loading: authLoading, isAuthenticated, refreshUser } =
     useAuth();
 
-  // Free trial checkout lives on loan-ai-trial — this app is paid-only.
-  const isTrialMode = false;
+  // Paid site defaults to paid checkout; pass mode: "trial" from pricing CTAs.
+  const isTrialMode = planFromState.mode === "trial";
   const freeTrialDays = user?.freeTrialDays || 14;
 
   const [packages, setPackages] = useState([]);
@@ -250,23 +249,22 @@ export default function SubscribePage() {
 
     setProcessing(true);
     try {
-      await startLoanAiFreeTrial(token, {
+      const { opened } = await startPlanCheckoutAndRedirect({
+        token,
         packageId: selectedPkg.id,
         billingCycle,
+        addOnCodes: [],
+        withFreeTrial: true,
         organizationName: form.organizationName.trim(),
         organizationEmail: form.organizationEmail.trim().toLowerCase(),
         organizationPhone: phone,
         firstName: form.firstName.trim(),
         lastName: form.lastName.trim(),
       });
-      await refreshUser?.();
-      setTrialStarted(true);
-      toast.success(
-        `Your ${freeTrialDays}-day free trial is active. Check your email for broker login credentials.`,
-      );
+      const qs = opened ? "status=pending" : "status=pending&popup=blocked";
+      navigate(`/checkout/pending?${qs}`);
     } catch (err) {
       toast.error(getCheckoutUserMessage(err));
-    } finally {
       setProcessing(false);
     }
   };
@@ -323,7 +321,9 @@ export default function SubscribePage() {
               <strong className="font-semibold text-slate-900 dark:text-white">
                 {user?.email}
               </strong>
-              . Subscribe anytime before your trial ends to keep access.
+              . You will not be charged for {freeTrialDays} days. From day{" "}
+              {freeTrialDays + 1}, billing starts on your card unless you
+              Discontinue in the broker dashboard or buy a plan earlier.
             </p>
             <a
               href={getBrokerSignInUrl()}
@@ -404,9 +404,10 @@ export default function SubscribePage() {
             <p className="mb-8 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
               {isTrialMode ? (
                 <>
-                  Fill in your organization details to start your free trial —
-                  no payment required. Broker dashboard credentials will be sent
-                  to{" "}
+                  Fill in your organization details, then add a payment card to
+                  start your {freeTrialDays}-day free trial. You will not be
+                  charged today — billing starts on day {freeTrialDays + 1}.
+                  Broker dashboard credentials will be sent to{" "}
                   <strong className="font-semibold text-slate-800 dark:text-slate-200">
                     {user?.email}
                   </strong>
@@ -483,9 +484,10 @@ export default function SubscribePage() {
                     {checkoutPreview?.planName} — {freeTrialDays}-day free trial
                   </p>
                   <p className="text-slate-600 dark:text-slate-300">
-                    $0 due today. After the trial, billing is{" "}
-                    {checkoutPreview?.planPrice}/
-                    {checkoutPreview?.billingLabel} unless you cancel.
+                    $0 due today after you add a card. From day{" "}
+                    {freeTrialDays + 1}, billing is {checkoutPreview?.planPrice}/
+                    {checkoutPreview?.billingLabel} unless you Discontinue or
+                    buy a plan.
                   </p>
                 </div>
               ) : (
@@ -613,9 +615,10 @@ export default function SubscribePage() {
               >
                 {isTrialMode ? (
                   <>
-                    No payment today. We&apos;ll create your broker account and
-                    email login credentials to {user?.email}. One free trial per
-                    account.
+                    Next step opens secure checkout to save your card ($0 today).
+                    We&apos;ll create your broker account and email login
+                    credentials to {user?.email}. One free trial per account.
+                    Discontinue anytime in the broker dashboard to stop billing.
                   </>
                 ) : (
                   <>
@@ -640,7 +643,7 @@ export default function SubscribePage() {
                 }`}
               >
                 {processing ? (
-                  isTrialMode ? "Starting trial…" : "Opening payment…"
+                  isTrialMode ? "Opening card checkout…" : "Opening payment…"
                 ) : isTrialMode ? (
                   `Start ${freeTrialDays}-day free trial`
                 ) : (

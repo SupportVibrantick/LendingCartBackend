@@ -13,13 +13,18 @@ const STATS = [
 const ctaClass =
   "inline-flex items-center justify-center gap-2 rounded-xl bg-[#4B83FF] px-8 py-4 text-base font-semibold text-white shadow-[0_0_40px_rgba(75,131,255,0.25)] transition hover:scale-[1.02] hover:bg-[#3d73ef] dark:shadow-[0_0_40px_rgba(75,131,255,0.35)]";
 
+const secondaryClass =
+  "inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-8 py-4 text-base font-semibold text-slate-800 transition hover:bg-slate-50 dark:border-white/20 dark:bg-white/[0.04] dark:text-white dark:hover:bg-white/[0.08]";
+
 /**
- * Closing CTA below the plan comparison table (paid site).
+ * Closing CTA below the plan comparison table (paid site + free trial).
  * @param {{ startingPrice?: number | null }} props
  */
 export default function PricingClosingCta({ startingPrice = 249 }) {
   const { isAuthenticated, user, loading } = useAuth();
   const hasSubscription = Boolean(user?.hasBrokerSubscription);
+  const canStartTrial = !hasSubscription && !user?.hasUsedFreeTrial;
+  const trialDays = user?.freeTrialDays || 14;
 
   const priceLabel =
     startingPrice != null && Number.isFinite(Number(startingPrice))
@@ -30,13 +35,13 @@ export default function PricingClosingCta({ startingPrice = 249 }) {
     stat.key === "startingPrice" ? { ...stat, value: priceLabel } : stat,
   );
 
-  let cta;
+  let primaryCta;
   if (loading) {
-    cta = (
+    primaryCta = (
       <div className="h-14 w-72 max-w-full animate-pulse rounded-xl bg-[#4B83FF]/25" />
     );
   } else if (hasSubscription) {
-    cta = (
+    primaryCta = (
       <a
         href={getBrokerSignInUrl()}
         target="_blank"
@@ -48,20 +53,37 @@ export default function PricingClosingCta({ startingPrice = 249 }) {
       </a>
     );
   } else if (isAuthenticated) {
-    cta = (
+    primaryCta = (
       <a href="#pricing" className={ctaClass}>
         Choose a plan
         <ArrowRight size={18} />
       </a>
     );
   } else {
-    cta = (
+    primaryCta = (
       <Link to="/signup" className={ctaClass}>
         Buy a plan
         <ArrowRight size={18} />
       </Link>
     );
   }
+
+  const trialCta =
+    !loading && canStartTrial ? (
+      isAuthenticated ? (
+        <a href="#pricing" className={secondaryClass}>
+          Start {trialDays}-day free trial
+        </a>
+      ) : (
+        <Link
+          to="/signup"
+          state={{ mode: "trial" }}
+          className={secondaryClass}
+        >
+          Start {trialDays}-day free trial
+        </Link>
+      )
+    ) : null;
 
   return (
     <div className="mt-20 -mx-4 sm:-mx-6 lg:-mx-8">
@@ -78,12 +100,16 @@ export default function PricingClosingCta({ startingPrice = 249 }) {
           </h2>
 
           <p className="mx-auto mt-6 max-w-2xl text-sm leading-relaxed text-slate-600 sm:text-base dark:text-slate-300">
-            Join the brokers using Loan Automation to close deals 87% faster. Get
-            your branded website, smart loan wizard, automated lender matching,
-            client portal, and full GHL integration — all in one platform.
+            Join the brokers using Loan Automation to close deals 87% faster. Buy
+            a plan to go live now, or try a {trialDays}-day free trial with a
+            card on file — $0 today, then billing starts automatically unless you
+            Discontinue.
           </p>
 
-          <div className="mt-10 flex justify-center">{cta}</div>
+          <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
+            {primaryCta}
+            {trialCta}
+          </div>
 
           <dl className="mt-14 grid grid-cols-2 gap-8 md:grid-cols-4 md:gap-6">
             {stats.map((stat) => (

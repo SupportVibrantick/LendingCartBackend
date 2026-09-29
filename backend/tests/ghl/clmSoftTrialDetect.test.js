@@ -152,18 +152,30 @@ describe("CLM soft trial detection", () => {
 });
 
 describe("soft trial without billing notes", () => {
-  it("only Loan AI soft trials expire without LC billing (CLM uses GHL card)", () => {
+  it("only legacy Loan AI no-card trials expire without LC billing", () => {
     const {
       isSoftTrialWithoutBilling,
       isClmGhlSoftTrial,
+      isLoanAiCardTrial,
+      canShowLoanAiCardTrialDiscontinue,
       CLM_GHL_SOFT_TRIAL_NOTE,
       LOAN_AI_FREE_TRIAL_NOTE,
+      LOAN_AI_CARD_TRIAL_NOTE,
     } = require("../../services/subscription/freeTrial");
 
     assert.equal(isSoftTrialWithoutBilling(LOAN_AI_FREE_TRIAL_NOTE), true);
+    assert.equal(isSoftTrialWithoutBilling(LOAN_AI_CARD_TRIAL_NOTE), false);
     assert.equal(isSoftTrialWithoutBilling(CLM_GHL_SOFT_TRIAL_NOTE), false);
     assert.equal(isClmGhlSoftTrial(CLM_GHL_SOFT_TRIAL_NOTE), true);
+    assert.equal(isLoanAiCardTrial(LOAN_AI_CARD_TRIAL_NOTE), true);
     assert.equal(isSoftTrialWithoutBilling("admin assign"), false);
+    assert.equal(
+      canShowLoanAiCardTrialDiscontinue({
+        notes: LOAN_AI_CARD_TRIAL_NOTE,
+        status: "TRIAL",
+      }),
+      true,
+    );
   });
 });
 

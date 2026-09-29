@@ -1,6 +1,7 @@
 async function loanAiMeRoutes(fastify) {
   const {
     LOAN_AI_FREE_TRIAL_NOTE,
+    LOAN_AI_CARD_TRIAL_NOTE,
     getFreeTrialDays,
   } = require("../../../../services/subscription/freeTrial");
 
@@ -44,8 +45,15 @@ async function loanAiMeRoutes(fastify) {
       const priorFreeTrial =
         await fastify.prisma.organizationSubscription.findFirst({
           where: {
-            OR: trialOrFilters,
-            notes: { contains: LOAN_AI_FREE_TRIAL_NOTE },
+            AND: [
+              { OR: trialOrFilters },
+              {
+                OR: [
+                  { notes: { contains: LOAN_AI_FREE_TRIAL_NOTE } },
+                  { notes: { contains: LOAN_AI_CARD_TRIAL_NOTE } },
+                ],
+              },
+            ],
           },
           select: { id: true },
         });

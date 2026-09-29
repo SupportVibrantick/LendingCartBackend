@@ -59,7 +59,14 @@ export function getCtaSectionTitle(auth) {
  */
 export function getAuthenticatedHeroMessage(user) {
   if (user?.hasBrokerSubscription) {
+    if (user?.subscriptionStatus === "TRIAL") {
+      return "Your free trial is active. Open your dashboard, or subscribe anytime to keep access.";
+    }
     return "Your broker subscription is active. Open your dashboard to manage loans and lenders.";
+  }
+  if (!user?.hasUsedFreeTrial) {
+    const days = user?.freeTrialDays || 14;
+    return `You're signed in. Buy a plan below, or start a ${days}-day free trial with a card on file — $0 today, billing from day ${days + 1}.`;
   }
   return "You're signed in. Choose a plan below to activate your broker dashboard.";
 }

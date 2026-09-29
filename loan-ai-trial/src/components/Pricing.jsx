@@ -657,8 +657,9 @@ const Pricing = () => {
         </h2>
 
         <p className="mx-auto mb-10 max-w-2xl text-slate-600 dark:text-gray-400">
-          Pick a plan to start your {trialDays}-day free trial. No card
-          required. Prefer to pay now?{" "}
+          Pick a plan to start your {trialDays}-day free trial. A card is
+          required — $0 today, billing starts on day {trialDays + 1} unless you
+          Discontinue. Prefer to pay now?{" "}
           <a
             href={paidSiteUrl}
             className="font-medium text-[#4B83FF] underline-offset-2 hover:underline"

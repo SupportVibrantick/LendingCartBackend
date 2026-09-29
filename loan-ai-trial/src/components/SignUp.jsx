@@ -112,7 +112,7 @@ export default function SignUpPage() {
         <h1 className="text-3xl font-bold mb-2">Create your Loan AI account</h1>
         <p className="mb-8 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
           {planState.mode === "trial"
-            ? "Sign up to start your free trial. Broker dashboard credentials are emailed after you complete organization details — no payment required."
+            ? "Sign up to start your free trial. After signup you'll add a card ($0 today) — billing starts when the trial ends unless you Discontinue."
             : "Sign up to subscribe to a plan. After payment, broker dashboard credentials are emailed separately."}
         </p>
 

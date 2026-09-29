@@ -16,6 +16,7 @@ const {
 } = require("../../../../services/stripe/paymentProvider");
 const {
   createStripeSubscriptionCheckout,
+  canProcessStripePayments,
 } = require("../../../../services/stripe/stripeCheckout.service");
 const {
   resolveStripePriceId,
@@ -27,6 +28,9 @@ const {
 const {
   resolvePurchasedAddOns,
 } = require("../../../../utils/subscription/addOnCatalog");
+const {
+  getFreeTrialDays,
+} = require("../../../../services/subscription/freeTrial");
 const {
   rejectTrustedClientPriceFields,
   assertSafeRedirectUrl,
@@ -205,7 +209,16 @@ async function loanAiCheckoutRoutes(fastify) {
           firstName,
           lastName,
           addOnCodes,
+          withFreeTrial,
         } = parsed.data;
+
+        const trialPeriodDays = withFreeTrial ? getFreeTrialDays() : 0;
+
+        if (withFreeTrial) {
+          if (getPaymentProvider() !== "stripe" || !canProcessStripePayments()) {
+            throw checkoutError(CHECKOUT_ERROR_CODES.PAYMENTS_UNAVAILABLE, 503);
+          }
+        }
 
         const organizationDetails = {
           organizationName,
@@ -214,6 +227,8 @@ async function loanAiCheckoutRoutes(fastify) {
           firstName,
           lastName,
           addOnCodes: Array.isArray(addOnCodes) ? addOnCodes : [],
+          withFreeTrial: Boolean(withFreeTrial),
+          trialPeriodDays,
         };
 
         if (user.brokerOrganizationId) {
@@ -251,11 +266,13 @@ async function loanAiCheckoutRoutes(fastify) {
 
         let purchasedAddOns = [];
         try {
-          purchasedAddOns = resolvePurchasedAddOns(
-            organizationDetails.addOnCodes,
-            pkg.code,
-            billingCycle,
-          );
+          purchasedAddOns = withFreeTrial
+            ? []
+            : resolvePurchasedAddOns(
+                organizationDetails.addOnCodes,
+                pkg.code,
+                billingCycle,
+              );
         } catch (err) {
           throw checkoutError(CHECKOUT_ERROR_CODES.INVALID_ADDON, 400);
         }
@@ -281,7 +298,8 @@ async function loanAiCheckoutRoutes(fastify) {
         if (
           existingOpen?.checkoutUrl &&
           sameAddOnCodes(existingOpen.metadata, addOnCodesNormalized) &&
-          String(existingOpen.metadata?.provider || "ghl") === paymentProvider
+          String(existingOpen.metadata?.provider || "ghl") === paymentProvider &&
+          Boolean(existingOpen.metadata?.withFreeTrial) === Boolean(withFreeTrial)
         ) {
           const reusedMeta = {
             ...(existingOpen.metadata && typeof existingOpen.metadata === "object"
@@ -410,6 +428,8 @@ async function loanAiCheckoutRoutes(fastify) {
                 addOnCodes: addOnCodesNormalized,
                 addOnLineItems: stripeAddOnLineItems,
                 clientIp: ip,
+                withFreeTrial: Boolean(withFreeTrial),
+                trialPeriodDays,
                 ...organizationDetails,
               },
             },
@@ -431,10 +451,15 @@ async function loanAiCheckoutRoutes(fastify) {
               successUrl,
               cancelUrl,
               checkoutId: checkout.id,
+              trialPeriodDays,
               metadata: {
                 loanAiUserId: user.id,
                 packageId: pkg.id,
                 organizationName: organizationDetails.organizationName,
+                withFreeTrial: withFreeTrial ? "true" : "false",
+                trialPeriodDays: trialPeriodDays
+                  ? String(trialPeriodDays)
+                  : "0",
               },
             });
 

@@ -107,7 +107,7 @@ export async function purchaseLoanAiSubscription(token, payload) {
 }
 
 /**
- * Start a no-card Loan AI free trial (provisions broker + TRIAL subscription).
+ * Start a card-required Loan AI free trial (deprecated endpoint — use checkout withFreeTrial).
  */
 export async function startLoanAiFreeTrial(token, payload) {
   const res = await fetch(
@@ -149,6 +149,7 @@ export async function startLoanAiFreeTrial(token, payload) {
  *   lastName: string,
  *   addOnCodes?: string[],
  *   phone?: string,
+ *   withFreeTrial?: boolean,
  * }} payload
  */
 export async function startLoanAiCheckout(token, payload) {
@@ -168,7 +169,8 @@ export async function startLoanAiCheckout(token, payload) {
       organizationPhone: payload.organizationPhone || payload.phone,
       firstName: payload.firstName,
       lastName: payload.lastName,
-      addOnCodes: payload.addOnCodes || [],
+      addOnCodes: payload.withFreeTrial ? [] : payload.addOnCodes || [],
+      withFreeTrial: Boolean(payload.withFreeTrial),
     }),
   });
   return parseCheckoutJsonResponse(res);

@@ -47,11 +47,6 @@ jobs:
             echo "🔧 Generating Prisma client..."
             npx prisma generate
 
-            # Safe catalog upserts only (no demo users / destructive full seed).
-            # Keeps production Pricing in sync with subscriptionPackageCatalog.js
-            echo "💳 Syncing subscription packages (pricing)..."
-            npm run db:sync-subscription-packages
-
             #################################################
             # Admin Dashboard
             #################################################
@@ -103,19 +98,6 @@ jobs:
             mkdir -p /var/www/loan-ai
             rm -rf /var/www/loan-ai/*
             cp -r dist/* /var/www/loan-ai/
-
-            #################################################
-            # Loan AI Free Trial
-            #################################################
-
-            cd ../loan-ai-trial
-
-            npm ci
-            npm run build
-
-            mkdir -p /var/www/loan-ai-trial
-            rm -rf /var/www/loan-ai-trial/*
-            cp -r dist/* /var/www/loan-ai-trial/
 
             #################################################
             # Loan Application Embedded
