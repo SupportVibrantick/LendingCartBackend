@@ -32,16 +32,16 @@ const TIER_BOOK_DEMO = {
 };
 
 const basePrimary =
-  "group inline-flex w-full items-center justify-center gap-2 rounded-2xl px-5 py-3.5 text-sm font-semibold text-white transition-all duration-200 hover:scale-[1.02] active:scale-[0.99] disabled:pointer-events-none disabled:opacity-50 disabled:hover:scale-100";
+  "group inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white transition-all duration-200 hover:scale-[1.02] active:scale-[0.99] disabled:pointer-events-none disabled:opacity-50 disabled:hover:scale-100";
 
 const baseSecondary =
-  "inline-flex w-full items-center justify-center gap-2 rounded-2xl border px-5 py-3.5 text-sm font-semibold transition-all duration-200 hover:scale-[1.01] active:scale-[0.99]";
+  "inline-flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-semibold transition-all duration-200 hover:scale-[1.01] active:scale-[0.99]";
 
 const dashboardClass =
-  "inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-linear-to-r from-emerald-500 to-teal-500 px-5 py-3.5 text-sm font-semibold text-white shadow-[0_8px_28px_rgba(16,185,129,0.35)] transition-all duration-200 hover:scale-[1.02] hover:shadow-[0_12px_36px_rgba(16,185,129,0.45)]";
+  "inline-flex w-full items-center justify-center gap-2 rounded-xl bg-linear-to-r from-emerald-500 to-teal-500 px-4 py-2.5 text-sm font-semibold text-white shadow-[0_8px_28px_rgba(16,185,129,0.35)] transition-all duration-200 hover:scale-[1.02] hover:shadow-[0_12px_36px_rgba(16,185,129,0.45)]";
 
 const disabledClass =
-  "inline-flex w-full cursor-not-allowed items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 px-5 py-3.5 text-sm font-semibold text-slate-400 opacity-60 dark:border-white/10 dark:bg-white/[0.04] dark:text-gray-500";
+  "inline-flex w-full cursor-not-allowed items-center justify-center rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-semibold text-slate-400 opacity-60 dark:border-white/10 dark:bg-white/[0.04] dark:text-gray-500";
 
 function formatTrialEnds(iso) {
   if (!iso) return null;
@@ -75,9 +75,9 @@ export default function PricingPlanCta({
 
   if (loading) {
     return (
-      <div className="mt-auto space-y-3">
-        <div className="h-12 w-full animate-pulse rounded-2xl bg-slate-200 dark:bg-white/10" />
-        <div className="h-12 w-full animate-pulse rounded-2xl bg-slate-100 dark:bg-white/5" />
+      <div className="mt-auto space-y-2">
+        <div className="h-10 w-full animate-pulse rounded-xl bg-slate-200 dark:bg-white/10" />
+        <div className="h-10 w-full animate-pulse rounded-xl bg-slate-100 dark:bg-white/5" />
       </div>
     );
   }
@@ -121,16 +121,16 @@ export default function PricingPlanCta({
   ) : null;
 
   return (
-    <div className="mt-auto flex flex-col gap-2.5 pt-2">
+    <div className="mt-auto flex flex-col gap-2 pt-1">
       {isCurrentPlan && isPaidActive && (
-        <div className="mb-1 flex items-center justify-center gap-2 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2.5 text-sm font-medium text-emerald-700 dark:text-emerald-300">
+        <div className="mb-0.5 flex items-center justify-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm font-medium text-emerald-700 dark:text-emerald-300">
           <CheckCircle2 size={16} className="shrink-0" />
           Purchased · Active plan
         </div>
       )}
 
       {isCurrentPlan && isOnTrial && (
-        <div className="mb-1 flex flex-col items-center gap-1 rounded-2xl border border-sky-500/30 bg-sky-500/10 px-3 py-2.5 text-sm font-medium text-sky-700 dark:text-sky-200">
+        <div className="mb-0.5 flex flex-col items-center gap-0.5 rounded-xl border border-sky-500/30 bg-sky-500/10 px-3 py-2 text-sm font-medium text-sky-700 dark:text-sky-200">
           <span className="inline-flex items-center gap-2">
             <CheckCircle2 size={16} className="shrink-0" />
             Free trial active
