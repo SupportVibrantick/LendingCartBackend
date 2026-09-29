@@ -241,9 +241,9 @@ function FeatureDropdownItem({ feature, openKey, setOpenKey }) {
 
   if (!hasChildren) {
     return (
-      <li className="flex items-start gap-3">
-        <Check className="mt-0.5 shrink-0 text-[#4B83FF]" size={18} />
-        <span className="text-sm text-slate-700 dark:text-gray-200">
+      <li className="flex items-start gap-2">
+        <Check className="mt-0.5 shrink-0 text-[#4B83FF]" size={15} />
+        <span className="text-[13px] leading-snug text-slate-700 dark:text-gray-200">
           {feature.label}
         </span>
       </li>
@@ -251,18 +251,18 @@ function FeatureDropdownItem({ feature, openKey, setOpenKey }) {
   }
 
   return (
-    <li ref={rootRef} className="relative flex items-start gap-3">
-      <Check className="mt-0.5 shrink-0 text-[#4B83FF]" size={18} />
+    <li ref={rootRef} className="relative flex items-start gap-2">
+      <Check className="mt-0.5 shrink-0 text-[#4B83FF]" size={15} />
       <div className="min-w-0 flex-1">
         <button
           type="button"
           aria-expanded={isOpen}
           onClick={() => setOpenKey(isOpen ? null : itemKey)}
-          className="inline-flex items-center gap-1 text-left text-sm font-medium text-[#4B83FF] underline decoration-[#4B83FF]/70 underline-offset-2 transition hover:text-[#3a6fe0]"
+          className="inline-flex items-center gap-1 text-left text-[13px] font-medium leading-snug text-[#4B83FF] underline decoration-[#4B83FF]/70 underline-offset-2 transition hover:text-[#3a6fe0]"
         >
           {feature.label}
           <ChevronDown
-            size={14}
+            size={13}
             className={`shrink-0 transition-transform ${isOpen ? "rotate-180" : ""}`}
             aria-hidden
           />
@@ -271,16 +271,16 @@ function FeatureDropdownItem({ feature, openKey, setOpenKey }) {
         {isOpen && (
           <div
             role="menu"
-            className="absolute left-0 z-20 mt-2 min-w-[220px] max-w-[280px] rounded-lg border border-slate-200 bg-white p-3 shadow-lg dark:border-white/10 dark:bg-slate-900"
+            className="absolute left-0 z-20 mt-1.5 min-w-[200px] max-w-[260px] rounded-lg border border-slate-200 bg-white p-2.5 shadow-lg dark:border-white/10 dark:bg-slate-900"
           >
-            <ul className="space-y-2">
+            <ul className="space-y-1.5">
               {feature.children.map((child) => (
-                <li key={child} className="flex items-start gap-2.5">
+                <li key={child} className="flex items-start gap-2">
                   <Check
                     className="mt-0.5 shrink-0 text-[#4B83FF]"
-                    size={16}
+                    size={14}
                   />
-                  <span className="text-sm text-slate-700 dark:text-gray-200">
+                  <span className="text-[13px] leading-snug text-slate-700 dark:text-gray-200">
                     {child}
                   </span>
                 </li>
@@ -299,14 +299,14 @@ function FeatureGroupsList({ groups }) {
   if (!groups?.length) return null;
 
   return (
-    <div className="mb-6 flex-1 space-y-5">
+    <div className="mb-4 flex-1 space-y-3.5">
       {groups.map((group, groupIndex) => {
         const isHighlight = group.variant === "highlight";
         return (
           <div key={`${group.heading || "features"}-${groupIndex}`}>
             {group.heading && (
               <p
-                className={`mb-3 text-[11px] font-bold uppercase tracking-wider ${
+                className={`mb-1.5 text-[10px] font-bold uppercase tracking-wider ${
                   isHighlight
                     ? "text-emerald-700 dark:text-emerald-300"
                     : "text-[#4B83FF]"
@@ -315,7 +315,7 @@ function FeatureGroupsList({ groups }) {
                 {group.heading}
               </p>
             )}
-            <ul className="space-y-2.5">
+            <ul className="space-y-1.5">
               {group.items.map((feature) => (
                 <FeatureDropdownItem
                   key={feature.label}
@@ -356,8 +356,8 @@ function UserSlider({ pkg, quantity, onChange, formatPrice }) {
   }
 
   return (
-    <div className="mb-6 border-b border-slate-100 pb-6 dark:border-white/10">
-      <div className="mb-3 flex items-center justify-between gap-3">
+    <div className="mb-4 border-b border-slate-100 pb-4 dark:border-white/10">
+      <div className="mb-2 flex items-center justify-between gap-3">
         <p className="text-sm font-bold text-slate-800 dark:text-white">
           Add Users
         </p>
@@ -367,11 +367,11 @@ function UserSlider({ pkg, quantity, onChange, formatPrice }) {
             onClick={() => setTotalUsers(totalUsers - 1)}
             disabled={totalUsers <= included}
             aria-label="Decrease users"
-            className="flex h-7 w-7 items-center justify-center rounded-md border border-slate-200 text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/15 dark:text-gray-300 dark:hover:bg-white/5"
+            className="flex h-6 w-6 items-center justify-center rounded-md border border-slate-200 text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/15 dark:text-gray-300 dark:hover:bg-white/5"
           >
             −
           </button>
-          <span className="min-w-[1.75rem] text-center text-sm font-bold tabular-nums text-slate-800 dark:text-white">
+          <span className="min-w-[1.5rem] text-center text-sm font-bold tabular-nums text-slate-800 dark:text-white">
             {totalUsers}
           </span>
           <button
@@ -379,14 +379,14 @@ function UserSlider({ pkg, quantity, onChange, formatPrice }) {
             onClick={() => setTotalUsers(totalUsers + 1)}
             disabled={totalUsers >= maxUsers}
             aria-label="Increase users"
-            className="flex h-7 w-7 items-center justify-center rounded-md border border-slate-200 text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/15 dark:text-gray-300 dark:hover:bg-white/5"
+            className="flex h-6 w-6 items-center justify-center rounded-md border border-slate-200 text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/15 dark:text-gray-300 dark:hover:bg-white/5"
           >
             +
           </button>
         </div>
       </div>
 
-      <div className="relative px-0.5 pt-1">
+      <div className="relative px-0.5 pt-0.5">
         {/* Track + filled progress */}
         <div className="relative h-1.5 rounded-full bg-slate-200 dark:bg-white/15">
           <div
@@ -396,7 +396,7 @@ function UserSlider({ pkg, quantity, onChange, formatPrice }) {
         </div>
 
         {/* Clickable step dots */}
-        <div className="pointer-events-none absolute inset-x-0.5 top-1 flex h-1.5 items-center justify-between">
+        <div className="pointer-events-none absolute inset-x-0.5 top-0.5 flex h-1.5 items-center justify-between">
           {steps.map((step) => {
             const active = step <= totalUsers;
             return (
@@ -406,7 +406,7 @@ function UserSlider({ pkg, quantity, onChange, formatPrice }) {
                 onClick={() => setTotalUsers(step)}
                 aria-label={`${step} users`}
                 aria-pressed={step === totalUsers}
-                className={`pointer-events-auto z-10 h-2.5 w-2.5 rounded-full border-2 transition ${
+                className={`pointer-events-auto z-10 h-2 w-2 rounded-full border-2 transition ${
                   active
                     ? "border-[#4B83FF] bg-[#4B83FF]"
                     : "border-slate-300 bg-white dark:border-white/30 dark:bg-slate-900"
@@ -424,7 +424,7 @@ function UserSlider({ pkg, quantity, onChange, formatPrice }) {
           step={1}
           value={totalUsers}
           onChange={(e) => setTotalUsers(Number(e.target.value))}
-          className="absolute inset-x-0 top-0 z-20 h-6 w-full cursor-pointer opacity-0"
+          className="absolute inset-x-0 top-0 z-20 h-5 w-full cursor-pointer opacity-0"
           aria-label={`Total users for ${pkg.name}`}
           aria-valuemin={included}
           aria-valuemax={maxUsers}
@@ -439,7 +439,7 @@ function UserSlider({ pkg, quantity, onChange, formatPrice }) {
 
         {/* Step numbers: 1 → 2 → 3 → … */}
         <div
-          className={`mt-3 flex justify-between ${
+          className={`mt-2 flex justify-between ${
             compactLabels ? "gap-0.5" : "gap-1"
           }`}
         >
@@ -457,7 +457,7 @@ function UserSlider({ pkg, quantity, onChange, formatPrice }) {
                 type="button"
                 onClick={() => setTotalUsers(step)}
                 className={`min-w-0 flex-1 text-center tabular-nums transition ${
-                  compactLabels ? "text-[9px] leading-none" : "text-[11px]"
+                  compactLabels ? "text-[9px] leading-none" : "text-[10px]"
                 } ${
                   selected
                     ? "font-bold text-[#4B83FF]"
@@ -475,11 +475,11 @@ function UserSlider({ pkg, quantity, onChange, formatPrice }) {
         </div>
       </div>
 
-      <p className="mt-3 text-xs text-slate-500 dark:text-gray-400">
-        Add up to {maxUsers} users
-      </p>
-      <p className="mt-1 text-sm font-semibold text-slate-700 dark:text-gray-200">
-        Additional User Cost: {formatPrice(extraUserPrice)}/m
+      <p className="mt-2 text-[11px] leading-snug text-slate-500 dark:text-gray-400">
+        Add up to {maxUsers} users · Additional User Cost:{" "}
+        <span className="font-semibold text-slate-700 dark:text-gray-200">
+          {formatPrice(extraUserPrice)}/m
+        </span>
       </p>
     </div>
   );
@@ -495,9 +495,9 @@ function InCardAddOns({
   if (!checkboxAddOns.length) return null;
 
   return (
-    <div className="mb-6 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 dark:border-white/10 dark:bg-white/[0.03]">
-      <div className="border-b border-slate-200/80 px-4 py-3 dark:border-white/10">
-        <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-600 dark:text-gray-300">
+    <div className="mb-4 overflow-hidden rounded-xl border border-slate-200 bg-slate-50 dark:border-white/10 dark:bg-white/[0.03]">
+      <div className="border-b border-slate-200/80 px-3 py-2 dark:border-white/10">
+        <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-600 dark:text-gray-300">
           Add-ons
         </p>
       </div>
@@ -515,25 +515,25 @@ function InCardAddOns({
                 type="button"
                 onClick={() => onToggle(addOn.code)}
                 aria-pressed={selected}
-                className={`grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-x-3 px-4 py-3 text-left transition ${
+                className={`grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-2.5 px-3 py-2 text-left transition ${
                   selected
                     ? "bg-[#4B83FF]/[0.08] dark:bg-[#4B83FF]/15"
                     : "hover:bg-white/70 dark:hover:bg-white/[0.04]"
                 }`}
               >
                 <span
-                  className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-[5px] border transition ${
+                  className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-[4px] border transition ${
                     selected
                       ? "border-[#4B83FF] bg-[#4B83FF] text-white"
                       : "border-slate-300 bg-white dark:border-white/25 dark:bg-transparent"
                   }`}
                 >
-                  {selected ? <Check size={12} strokeWidth={3} /> : null}
+                  {selected ? <Check size={10} strokeWidth={3} /> : null}
                 </span>
-                <span className="min-w-0 break-words text-[13px] leading-5 text-slate-800 dark:text-gray-200">
+                <span className="min-w-0 break-words text-[12px] leading-snug text-slate-800 dark:text-gray-200">
                   {getAddOnDisplayName(addOn)}
                 </span>
-                <span className="shrink-0 whitespace-nowrap pt-px text-[13px] font-semibold tabular-nums text-[#4B83FF]">
+                <span className="shrink-0 whitespace-nowrap text-[12px] font-semibold tabular-nums text-[#4B83FF]">
                   {formatPrice(unit)}/m
                 </span>
               </button>
@@ -551,7 +551,7 @@ function PricingSkeleton() {
       {[1, 2, 3].map((i) => (
         <div
           key={i}
-          className="h-[520px] animate-pulse rounded-3xl border border-slate-200 bg-slate-100 dark:border-white/10 dark:bg-white/5"
+          className="h-[420px] animate-pulse rounded-2xl border border-slate-200 bg-slate-100 dark:border-white/10 dark:bg-white/5"
         />
       ))}
     </div>
@@ -800,7 +800,7 @@ const Pricing = () => {
               return (
                 <article
                   key={pkg.id}
-                  className={`relative flex flex-col rounded-3xl border bg-white p-8 text-left backdrop-blur-xl transition-all duration-300 dark:bg-white/5 ${
+                  className={`relative flex flex-col rounded-2xl border bg-white p-5 text-left backdrop-blur-xl transition-all duration-300 dark:bg-white/5 md:p-6 ${
                     isCurrentPlan
                       ? isOnTrial
                         ? "border-sky-400/40 bg-sky-500/[0.08] shadow-[0_0_40px_rgba(56,189,248,0.15)]"
@@ -810,7 +810,7 @@ const Pricing = () => {
                 >
                   {isCurrentPlan && (
                     <span
-                      className={`absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full px-4 py-1 text-xs font-semibold shadow-lg ${
+                      className={`absolute -top-2.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full px-3 py-0.5 text-[11px] font-semibold shadow-lg ${
                         isOnTrial
                           ? "bg-linear-to-r from-sky-500 to-blue-500 text-white"
                           : "bg-linear-to-r from-emerald-500 to-teal-500 text-white"
@@ -822,7 +822,7 @@ const Pricing = () => {
 
                   {planBadge && !isCurrentPlan && (
                     <span
-                      className={`absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full px-4 py-1 text-xs font-semibold shadow-lg ${
+                      className={`absolute -top-2.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full px-3 py-0.5 text-[11px] font-semibold shadow-lg ${
                         String(planBadge).toUpperCase().includes("VALUE")
                           ? "bg-emerald-500 text-white"
                           : "bg-[#4B83FF] text-white"
@@ -832,31 +832,31 @@ const Pricing = () => {
                     </span>
                   )}
 
-                  <h3 className="mb-4 text-2xl font-bold text-slate-900 dark:text-white">
+                  <h3 className="mb-2 text-xl font-bold text-slate-900 dark:text-white">
                     {pkg.name}
                   </h3>
 
-                  <div className="mb-6">
-                    <div className="flex flex-wrap items-end gap-x-2 gap-y-1">
+                  <div className="mb-4">
+                    <div className="flex flex-wrap items-end gap-x-2 gap-y-0.5">
                       <span
-                        className={`text-4xl font-bold md:text-5xl ${accent.price}`}
+                        className={`text-3xl font-bold md:text-4xl ${accent.price}`}
                       >
                         {formatPrice(displayTotal)}
                       </span>
-                      <span className="mb-1 text-sm text-slate-500 dark:text-gray-400">
+                      <span className="mb-0.5 text-sm text-slate-500 dark:text-gray-400">
                         {suffix}
                       </span>
                     </div>
-                    <p className="mt-1 text-sm text-slate-500 dark:text-gray-400">
+                    <p className="mt-0.5 text-xs text-slate-500 dark:text-gray-400">
                       {billingLabel}
                     </p>
                     {displayBilledToday != null && (
-                      <p className="mt-1.5 text-sm font-semibold text-slate-800 dark:text-gray-100">
+                      <p className="mt-1 text-sm font-semibold text-slate-800 dark:text-gray-100">
                         {formatPrice(displayBilledToday)} billed today
                       </p>
                     )}
                     {savings != null && savings > 0 && (
-                      <p className="mt-2 text-sm font-medium text-emerald-500">
+                      <p className="mt-1 text-xs font-medium text-emerald-500">
                         Save {savings}% vs monthly
                       </p>
                     )}
