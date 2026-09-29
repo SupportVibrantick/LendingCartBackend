@@ -58,10 +58,13 @@ const loanAiCheckoutSchema = z
     firstName: z.string().trim().min(2).max(50),
     lastName: z.string().trim().min(2).max(50),
     addOnCodes: z.array(z.string().trim().min(1)).optional().default([]),
+    /** Card-required free trial — Stripe collects card, charges after FREE_TRIAL_DAYS. */
+    withFreeTrial: z.boolean().optional().default(false),
   })
   .strict()
   .transform((data) => {
     const billingCycle = data.billingCycle || data.billingPeriod || "MONTHLY";
+    const withFreeTrial = Boolean(data.withFreeTrial);
     return {
       packageId: data.packageId,
       billingCycle,
@@ -73,7 +76,9 @@ const loanAiCheckoutSchema = z
       organizationPhone: data.organizationPhone,
       firstName: data.firstName,
       lastName: data.lastName,
-      addOnCodes: data.addOnCodes || [],
+      // Trials are plan-only; add-ons apply after conversion / paid subscribe.
+      addOnCodes: withFreeTrial ? [] : data.addOnCodes || [],
+      withFreeTrial,
     };
   })
   .superRefine((data, ctx) => {

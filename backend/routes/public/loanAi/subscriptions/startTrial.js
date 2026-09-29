@@ -1,9 +1,10 @@
 const { loanAiPurchaseSchema } = require("../../../../schemas/public/loanAi/auth.schema");
-const { provisionBrokerFromLoanAi } = require("../../../../services/broker/provisionBrokerFromLoanAi");
 const {
+  LOAN_AI_CARD_TRIAL_NOTE,
   LOAN_AI_FREE_TRIAL_NOTE,
   getFreeTrialDays,
   isLoanAiFreeTrial,
+  isLoanAiCardTrial,
 } = require("../../../../services/subscription/freeTrial");
 const { commonLogs } = require("../../../../services/logger/contextLogger");
 const {
@@ -11,6 +12,10 @@ const {
   getClientIp,
 } = require("../../../../utils/security/rateLimit");
 
+/**
+ * No-card start-trial is retired. Free trials now require a Stripe card via
+ * POST /subscriptions/checkout with withFreeTrial: true.
+ */
 async function hasUsedLoanAiFreeTrial(prisma, loanAiUser) {
   const orFilters = [{ loanAiUserId: loanAiUser.id }];
   if (loanAiUser.brokerOrganizationId) {
@@ -19,8 +24,15 @@ async function hasUsedLoanAiFreeTrial(prisma, loanAiUser) {
 
   const prior = await prisma.organizationSubscription.findFirst({
     where: {
-      OR: orFilters,
-      notes: { contains: LOAN_AI_FREE_TRIAL_NOTE },
+      AND: [
+        { OR: orFilters },
+        {
+          OR: [
+            { notes: { contains: LOAN_AI_FREE_TRIAL_NOTE } },
+            { notes: { contains: LOAN_AI_CARD_TRIAL_NOTE } },
+          ],
+        },
+      ],
     },
     select: { id: true },
   });
@@ -47,7 +59,8 @@ async function loanAiStartTrialRoutes(fastify) {
       },
       schema: {
         tags: ["Public -> Loan AI Subscriptions"],
-        summary: "Start a no-card Loan AI free trial and provision broker access",
+        summary:
+          "Deprecated no-card trial — use checkout with withFreeTrial (card required)",
       },
     },
     async (req, reply) => {
@@ -69,14 +82,8 @@ async function loanAiStartTrialRoutes(fastify) {
           });
         }
 
-        const parsed = loanAiPurchaseSchema.safeParse(req.body || {});
-        if (!parsed.success) {
-          return reply.status(400).send({
-            success: false,
-            code: "VALIDATION_FAILED",
-            message: parsed.error.issues[0]?.message || "Invalid trial data",
-          });
-        }
+        // Soft-validate body so clients get familiar errors; trial itself is card-checkout only.
+        loanAiPurchaseSchema.safeParse(req.body || {});
 
         if (await hasUsedLoanAiFreeTrial(prisma, user)) {
           return reply.status(409).send({
@@ -99,52 +106,23 @@ async function loanAiStartTrialRoutes(fastify) {
             return reply.status(409).send({
               success: false,
               code: "SUBSCRIPTION_ACTIVE",
-              message: isLoanAiFreeTrial(activeSub)
-                ? "You already have an active free trial."
-                : "You already have an active broker subscription.",
+              message:
+                isLoanAiFreeTrial(activeSub) || isLoanAiCardTrial(activeSub)
+                  ? "You already have an active free trial."
+                  : "You already have an active broker subscription.",
             });
           }
         }
 
-        const pkg = await prisma.subscriptionPackage.findFirst({
-          where: { id: parsed.data.packageId, isActive: true },
-        });
-
-        if (!pkg) {
-          return reply.status(404).send({
-            success: false,
-            code: "INVALID_PACKAGE",
-            message: "Subscription package not found or inactive",
-          });
-        }
-
         const trialDays = getFreeTrialDays();
-
-        const result = await provisionBrokerFromLoanAi(
-          prisma,
-          fastify.io,
-          user,
-          {
-            ...parsed.data,
-            // Trial is plan-only; add-ons are selected at paid conversion.
-            addOnCodes: [],
-            trialDays,
-            generateInvoice: false,
-            notes: LOAN_AI_FREE_TRIAL_NOTE,
-            notificationSource: "LOAN_AI_FREE_TRIAL",
-          },
-        );
-
-        return reply.status(201).send({
-          success: true,
-          message:
-            "Free trial started. Broker dashboard credentials have been sent to your email.",
+        return reply.status(400).send({
+          success: false,
+          code: "CARD_REQUIRED",
+          message: `A payment card is required to start your ${trialDays}-day free trial. Use subscription checkout with withFreeTrial enabled — you will not be charged until day ${trialDays + 1}.`,
           data: {
-            ...result,
             trialDays,
-            packageId: pkg.id,
-            packageCode: pkg.code,
-            packageName: pkg.name,
+            useCheckout: true,
+            withFreeTrial: true,
           },
         });
       } catch (error) {
@@ -156,7 +134,7 @@ async function loanAiStartTrialRoutes(fastify) {
           });
         }
 
-        commonLogs.error("Loan AI free trial failed", error);
+        commonLogs.error("Loan AI free trial gate failed", error);
         return reply.status(500).send({
           success: false,
           code: "TRIAL_FAILED",

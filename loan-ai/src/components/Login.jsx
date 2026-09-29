@@ -83,7 +83,7 @@ export default function LoginPage() {
             </p>
             <p className="mt-2 text-xs text-slate-600 dark:text-slate-400">
               {planState.mode === "trial"
-                ? "Sign in to start your free trial — no payment required."
+                ? "Sign in to start your free trial — card required, $0 due today."
                 : "Sign in to continue to secure checkout for this plan."}
             </p>
           </div>

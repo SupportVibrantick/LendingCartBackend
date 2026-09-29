@@ -571,6 +571,7 @@ const Pricing = () => {
 
   const hasYearlyPricing = packages.some((pkg) => pkg.priceYearly != null);
   const isYearly = billingCycle === "YEARLY";
+  const trialDays = user?.freeTrialDays || 14;
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -642,7 +643,9 @@ const Pricing = () => {
 
         <p className="mx-auto mb-10 max-w-2xl text-slate-600 dark:text-gray-400">
           Transparent pricing for high-value loan brokerage workflows. Buy a plan
-          to go live immediately. No long-term contracts.
+          to go live immediately, or start a {trialDays}-day free trial with a
+          card on file — $0 today, billing starts on day {trialDays + 1}. No
+          long-term contracts.
         </p>
 
         {!loading && !error && hasYearlyPricing && (
@@ -781,6 +784,13 @@ const Pricing = () => {
                 formatPrice,
                 addOnCodesForCheckout,
               );
+              const trialCheckoutState = buildPlanCheckoutState(
+                pkg,
+                billingCycle,
+                formatPrice,
+                [],
+                { mode: "trial" },
+              );
               const demoState = {
                 planCode: pkg.code,
                 planName: pkg.name,
@@ -895,7 +905,9 @@ const Pricing = () => {
                   <PricingPlanCta
                     pkg={pkg}
                     checkoutState={checkoutState}
+                    trialCheckoutState={trialCheckoutState}
                     demoState={demoState}
+                    freeTrialDays={trialDays}
                   />
                 </article>
               );
@@ -908,7 +920,9 @@ const Pricing = () => {
         )}
 
         <p className="mt-10 text-sm text-slate-600 dark:text-gray-400">
-          No long-term contracts. Cancel anytime.
+          {trialDays}-day free trial available (card required, charged from day{" "}
+          {trialDays + 1}). No long-term contracts. Cancel or Discontinue
+          anytime.
         </p>
 
         {!loading && !error && packages.length > 0 && (

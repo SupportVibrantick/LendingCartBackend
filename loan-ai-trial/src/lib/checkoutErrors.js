@@ -20,6 +20,7 @@ export const CHECKOUT_ERROR_CODES = {
   SUBSCRIPTION_ACTIVE: "SUBSCRIPTION_ACTIVE",
   TRIAL_ALREADY_USED: "TRIAL_ALREADY_USED",
   TRIAL_FAILED: "TRIAL_FAILED",
+  CARD_REQUIRED: "CARD_REQUIRED",
   PAYMENTS_UNAVAILABLE: "PAYMENTS_UNAVAILABLE",
   RATE_LIMITED: "RATE_LIMITED",
   UNAUTHORIZED: "UNAUTHORIZED",
@@ -59,6 +60,8 @@ const USER_MESSAGES = {
     "You have already used your free trial. Choose a plan to subscribe.",
   [CHECKOUT_ERROR_CODES.TRIAL_FAILED]:
     "We couldn't start your free trial. Please try again.",
+  [CHECKOUT_ERROR_CODES.CARD_REQUIRED]:
+    "A payment card is required to start your free trial. You will not be charged until the trial ends.",
   [CHECKOUT_ERROR_CODES.PAYMENTS_UNAVAILABLE]:
     "Online checkout is temporarily unavailable. Please try again later.",
   [CHECKOUT_ERROR_CODES.RATE_LIMITED]:

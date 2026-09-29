@@ -10,7 +10,10 @@ const {
 } = require("../subscription/subscriptionBilling");
 const {
   LOAN_AI_FREE_TRIAL_NOTE,
+  LOAN_AI_CARD_TRIAL_NOTE,
+  getFreeTrialDays,
   isLoanAiFreeTrial: isLoanAiFreeTrialNote,
+  isLoanAiCardTrial: isLoanAiCardTrialNote,
 } = require("../subscription/freeTrial");
 const {
   logPaymentStatusChanged,
@@ -286,7 +289,9 @@ async function fulfillPaidGhlCheckout(prisma, io, checkout, paymentMeta = {}) {
           trialEndsAt: null,
           notes: isLoanAiFreeTrialNote(existingSub.notes)
             ? `${LOAN_AI_FREE_TRIAL_NOTE}; converted via payment`
-            : "Converted from trial via payment",
+            : isLoanAiCardTrialNote(existingSub.notes)
+              ? `${LOAN_AI_CARD_TRIAL_NOTE}; converted via payment`
+              : "Converted from trial via payment",
           ghlContactId: ghlContactId || undefined,
           ghlPriceId: ghlPriceId || undefined,
           ghlProductId: ghlProductId || undefined,
@@ -370,10 +375,32 @@ async function fulfillPaidGhlCheckout(prisma, io, checkout, paymentMeta = {}) {
       paymentMeta,
     );
 
+    const checkoutMeta =
+      fresh.metadata && typeof fresh.metadata === "object"
+        ? fresh.metadata
+        : {};
+    const withFreeTrial =
+      checkoutMeta.withFreeTrial === true ||
+      checkoutMeta.withFreeTrial === "true" ||
+      String(checkoutMeta.withFreeTrial || "").toLowerCase() === "true";
+    const trialDays = withFreeTrial
+      ? Number(checkoutMeta.trialPeriodDays) > 0
+        ? Number(checkoutMeta.trialPeriodDays)
+        : getFreeTrialDays()
+      : 0;
+
     const result = await provisionBrokerFromLoanAi(prisma, io, user, {
       packageId: fresh.packageId,
       billingCycle: fresh.billingCycle,
       ...orgDetails,
+      // Card trial: plan-only, no LC invoice — Stripe bills after trial_period_days.
+      addOnCodes: withFreeTrial ? [] : orgDetails.addOnCodes,
+      trialDays,
+      generateInvoice: !withFreeTrial,
+      notes: withFreeTrial ? LOAN_AI_CARD_TRIAL_NOTE : undefined,
+      notificationSource: withFreeTrial
+        ? "LOAN_AI_CARD_TRIAL"
+        : "LOAN_AI_CHECKOUT",
     });
 
     provisioned = true;

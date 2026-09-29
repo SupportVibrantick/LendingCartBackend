@@ -12,7 +12,8 @@ const {
 } = require("./subscriptionBilling");
 const {
   isClmGhlSoftTrial,
-  canShowClmDiscontinue,
+  isLoanAiCardTrial,
+  canShowSoftTrialDiscontinue,
   CLM_GHL_DISCONTINUED_NOTE,
   appendSubscriptionNote,
 } = require("./freeTrial");
@@ -128,13 +129,15 @@ async function getClmSubscriptionStatus(prisma, organizationId) {
     return {
       hasSubscription: false,
       isClmSoftTrial: false,
+      isLoanAiCardTrial: false,
       canDiscontinue: false,
       showTrialCompletedAlert: false,
     };
   }
 
   const isClm = isClmGhlSoftTrial(sub);
-  const canDiscontinue = canShowClmDiscontinue(sub);
+  const isCardTrial = isLoanAiCardTrial(sub);
+  const canDiscontinue = canShowSoftTrialDiscontinue(sub);
   const trialEndsAt = sub.trialEndsAt ? new Date(sub.trialEndsAt) : null;
   const trialEnded =
     Boolean(trialEndsAt) && trialEndsAt.getTime() <= Date.now();
@@ -147,10 +150,11 @@ async function getClmSubscriptionStatus(prisma, organizationId) {
     subscriptionId: sub.id,
     status: sub.status,
     isClmSoftTrial: isClm,
+    isLoanAiCardTrial: isCardTrial,
     trialEndsAt: sub.trialEndsAt,
     trialEnded,
     canDiscontinue,
-    showTrialCompletedAlert: canDiscontinue,
+    showTrialCompletedAlert: canDiscontinue && (isClm ? trialEnded : true),
     packageCode: sub.package?.code || null,
     packageName: sub.package?.name || null,
     billingCycle: sub.billingCycle,
@@ -248,7 +252,7 @@ async function stopClmBilling(prisma, sub, { email = null } = {}) {
 }
 
 /**
- * Broker voluntarily stops CLM software after (or at end of) free trial.
+ * Broker voluntarily stops CLM or Loan AI card-trial software (cancels Stripe billing).
  */
 async function discontinueClmSoftTrial(prisma, { organizationId, actorUserId }) {
   const sub = await prisma.organizationSubscription.findFirst({
@@ -263,17 +267,22 @@ async function discontinueClmSoftTrial(prisma, { organizationId, actorUserId }) 
     },
   });
 
-  if (!sub || !isClmGhlSoftTrial(sub)) {
+  const isClm = sub && isClmGhlSoftTrial(sub);
+  const isCardTrial = sub && isLoanAiCardTrial(sub);
+
+  if (!sub || (!isClm && !isCardTrial)) {
     throw Object.assign(
-      new Error("No CLM soft-trial subscription found to discontinue"),
+      new Error("No soft-trial subscription found to discontinue"),
       { statusCode: 404, code: "CLM_DISCONTINUE_NOT_FOUND" },
     );
   }
 
-  if (!canShowClmDiscontinue(sub)) {
+  if (!canShowSoftTrialDiscontinue(sub)) {
     throw Object.assign(
       new Error(
-        "Discontinue is available after your free trial period ends",
+        isClm
+          ? "Discontinue is available after your free trial period ends"
+          : "Discontinue is not available for this subscription",
       ),
       { statusCode: 400, code: "CLM_DISCONTINUE_TOO_EARLY" },
     );

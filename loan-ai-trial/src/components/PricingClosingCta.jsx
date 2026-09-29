@@ -85,7 +85,8 @@ export default function PricingClosingCta({ startingPrice = 249 }) {
 
           <p className="mx-auto mt-6 max-w-2xl text-sm leading-relaxed text-slate-600 sm:text-base dark:text-slate-300">
             Join brokers using Loan Automation with a {trialDays}-day free trial.
-            No card required — pick a plan above to get started.
+            Card required — $0 today, then automatic billing unless you
+            Discontinue. Pick a plan above to get started.
           </p>
 
           <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">

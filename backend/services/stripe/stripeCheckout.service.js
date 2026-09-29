@@ -41,6 +41,7 @@ function withStripeSessionPlaceholder(url) {
  *   cancelUrl: string,
  *   checkoutId: string,
  *   metadata?: Record<string, string>,
+ *   trialPeriodDays?: number,
  * }} args
  */
 async function createStripeSubscriptionCheckout(args) {
@@ -58,12 +59,17 @@ async function createStripeSubscriptionCheckout(args) {
     cancelUrl,
     checkoutId,
     metadata = {},
+    trialPeriodDays = 0,
   } = args;
 
   const plan = resolveStripePriceId(packageCode, billingCycle);
   const lineItems = [{ price: plan.priceId, quantity: 1 }];
 
-  for (const addon of purchasedAddOns) {
+  // Card trials are plan-only; add-ons apply at paid conversion / upgrade.
+  const addOns =
+    Number(trialPeriodDays) > 0 ? [] : purchasedAddOns;
+
+  for (const addon of addOns) {
     const qty = Math.max(1, Number(addon.quantity) || 1);
     const resolved = resolveStripeAddOnPriceId(
       addon.code,
@@ -84,6 +90,7 @@ async function createStripeSubscriptionCheckout(args) {
     checkoutId,
     metadata,
     planPriceId: plan.priceId,
+    trialPeriodDays,
   });
 }
 
@@ -150,7 +157,9 @@ async function createStripeCheckoutSession({
   checkoutId,
   metadata = {},
   planPriceId,
+  trialPeriodDays = 0,
 }) {
+  const trialDays = Math.max(0, Math.floor(Number(trialPeriodDays) || 0));
   const meta = {};
   for (const [key, value] of Object.entries({
     lendingCartCheckoutId: checkoutId,
@@ -158,6 +167,8 @@ async function createStripeCheckoutSession({
     billingCycle,
     provider: "stripe",
     customerName: customerName || undefined,
+    withFreeTrial: trialDays > 0 ? "true" : undefined,
+    trialPeriodDays: trialDays > 0 ? String(trialDays) : undefined,
     ...metadata,
   })) {
     if (value == null) continue;
@@ -168,6 +179,21 @@ async function createStripeCheckoutSession({
 
   try {
     const stripe = getStripeClient();
+    const subscriptionData = {
+      metadata: {
+        lendingCartCheckoutId: checkoutId,
+        packageCode: String(packageCode || ""),
+        billingCycle: String(billingCycle || ""),
+        type: String(metadata.type || "PLAN"),
+        ...(trialDays > 0
+          ? { withFreeTrial: "true", trialPeriodDays: String(trialDays) }
+          : {}),
+      },
+    };
+    if (trialDays > 0) {
+      subscriptionData.trial_period_days = trialDays;
+    }
+
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       customer_email: String(email || "").trim().toLowerCase() || undefined,
@@ -176,15 +202,10 @@ async function createStripeCheckoutSession({
       cancel_url: cancelUrl || successUrl,
       client_reference_id: checkoutId,
       metadata: meta,
-      subscription_data: {
-        metadata: {
-          lendingCartCheckoutId: checkoutId,
-          packageCode: String(packageCode || ""),
-          billingCycle: String(billingCycle || ""),
-          type: String(metadata.type || "PLAN"),
-        },
-      },
-      allow_promotion_codes: true,
+      subscription_data: subscriptionData,
+      // Require a card even when trial_period_days makes amount due today $0.
+      ...(trialDays > 0 ? { payment_method_collection: "always" } : {}),
+      allow_promotion_codes: trialDays > 0 ? false : true,
       billing_address_collection: "auto",
     });
 

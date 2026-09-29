@@ -94,6 +94,7 @@ export async function startPlanCheckoutAndRedirect({
   lastName,
   addOnCodes,
   phone,
+  withFreeTrial = false,
 }) {
   if (!token) {
     throw new Error(getCheckoutUserMessage({ code: "UNAUTHORIZED" }));
@@ -128,7 +129,8 @@ export async function startPlanCheckoutAndRedirect({
       organizationPhone: String(organizationPhone || phone).replace(/\D/g, ""),
       firstName: firstName.trim(),
       lastName: lastName.trim(),
-      addOnCodes: addOnCodes || [],
+      addOnCodes: withFreeTrial ? [] : addOnCodes || [],
+      withFreeTrial: Boolean(withFreeTrial),
     });
 
     const checkoutUrl = json.checkoutUrl || json.data?.checkoutUrl;
