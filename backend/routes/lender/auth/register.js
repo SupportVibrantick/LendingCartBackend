@@ -18,9 +18,33 @@ const {
 } = require("../../../utils/security/rateLimit");
 const {
   verifyRecaptchaToken,
-  isCaptchaConfigured,
+  isPublicSignupCaptchaRequired,
   getCaptchaSiteKey,
 } = require("../../../utils/security/recaptcha");
+
+function getOptionalAuthenticatedUser(req) {
+  const authHeader = req.headers["authorization"] || "";
+  const header = String(authHeader).trim();
+  const token = header.startsWith("Bearer ") ? header.slice(7).trim() : header;
+
+  if (!token) return null;
+
+  try {
+    const decoded = jwt.verify(token, jwtSecret);
+    const userId = decoded.userId ?? decoded.id ?? decoded.user?.id ?? null;
+    if (!userId) return null;
+
+    return {
+      id: userId,
+      organizationId:
+        decoded.organizationId ?? decoded.orgId ?? decoded.organization?.id ?? null,
+      orgType: decoded.orgType ?? decoded.organization?.type ?? null,
+      roles: decoded.roles ?? decoded.role ?? [],
+    };
+  } catch {
+    return null;
+  }
+}
 
 function issueLenderToken(user, roles) {
   return jwt.sign(
@@ -52,12 +76,13 @@ async function lenderRegisterRoutes(fastify) {
       },
     },
     async (_req, reply) => {
-      const captchaConfigured = isCaptchaConfigured();
+      const captchaRequired = isPublicSignupCaptchaRequired();
+      const captchaSiteKey = getCaptchaSiteKey();
       return reply.send({
         success: true,
         data: {
-          captchaRequired: captchaConfigured,
-          captchaSiteKey: captchaConfigured ? getCaptchaSiteKey() : "",
+          captchaRequired,
+          captchaSiteKey: captchaRequired ? captchaSiteKey : "",
           publicSignupEnabled: true,
         },
       });
@@ -107,11 +132,8 @@ async function lenderRegisterRoutes(fastify) {
         captchaToken,
       } = req.body || {};
 
-      const source = inviteToken
-        ? "invite"
-        : String(req.body?.source || "public").toLowerCase() === "direct"
-          ? "direct"
-          : "public";
+      const authenticatedUser = getOptionalAuthenticatedUser(req);
+      const source = inviteToken ? "invite" : authenticatedUser ? "direct" : "public";
 
       if (!organizationName || !organizationEmail || !adminEmail || !password) {
         return reply.status(400).send({

@@ -182,6 +182,7 @@ export default function PartnerSignup() {
   const [saving, setSaving] = useState(false);
   const [captchaSiteKey, setCaptchaSiteKey] = useState("");
   const [captchaRequired, setCaptchaRequired] = useState(false);
+  const [captchaConfigError, setCaptchaConfigError] = useState("");
   const [errors, setErrors] = useState<FormErrors>({});
   const [form, setForm] = useState({
     organizationName: "",
@@ -201,17 +202,18 @@ export default function PartnerSignup() {
         const json = await res.json().catch(() => ({}));
         if (cancelled || !json?.success) return;
 
-        const envSiteKey = String(
-          import.meta.env.VITE_RECAPTCHA_SITE_KEY || "",
-        ).trim();
-        const siteKey =
-          String(json.data?.captchaSiteKey || "").trim() || envSiteKey;
-        const required = Boolean(json.data?.captchaRequired) && Boolean(siteKey);
+        const siteKey = String(json.data?.captchaSiteKey || "").trim();
+        const required = Boolean(json.data?.captchaRequired);
 
         setCaptchaRequired(required);
         setCaptchaSiteKey(siteKey);
+        setCaptchaConfigError(
+          required && !siteKey
+            ? "reCAPTCHA is required but the site key is not configured."
+            : "",
+        );
 
-        if (siteKey) {
+        if (required && siteKey) {
           try {
             await loadRecaptchaScript(siteKey);
           } catch (err) {
@@ -219,7 +221,11 @@ export default function PartnerSignup() {
           }
         }
       } catch {
-        // Config is optional in local/dev without captcha
+        if (!cancelled) {
+          setCaptchaConfigError(
+            "Could not load signup security settings. Please refresh and try again.",
+          );
+        }
       }
     })();
     return () => {
@@ -281,6 +287,7 @@ export default function PartnerSignup() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (saving) return;
     if (!validate()) {
       toast.error("Please fix the highlighted fields");
       return;
@@ -291,13 +298,21 @@ export default function PartnerSignup() {
 
       let captchaToken: string | undefined;
       if (captchaRequired) {
+        if (!captchaSiteKey) {
+          toast.error(
+            captchaConfigError ||
+              "reCAPTCHA is not configured. Please refresh and try again.",
+          );
+          return;
+        }
+
         try {
           captchaToken = await getCaptchaToken(captchaSiteKey);
         } catch (captchaErr: any) {
           console.error("reCAPTCHA token error", captchaErr);
           toast.error(
             captchaErr?.message ||
-              "Captcha verification failed. Please try again.",
+              "Captcha could not be loaded. Please refresh and try again.",
           );
           return;
         }
@@ -343,7 +358,11 @@ export default function PartnerSignup() {
           setErrors(apiErrors);
         }
 
-        toast.error(json.message || "Failed to create account");
+        toast.error(
+          json.code === "CAPTCHA_FAILED"
+            ? json.message || "Captcha verification failed. Please try again."
+            : json.message || "Failed to create account",
+        );
         return;
       }
 
@@ -524,12 +543,18 @@ export default function PartnerSignup() {
               </div>
             </div>
 
+            {captchaConfigError ? (
+              <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200">
+                {captchaConfigError}
+              </p>
+            ) : null}
+
             <button
               type="submit"
-              disabled={saving}
+              disabled={saving || Boolean(captchaConfigError)}
               className="mt-1 inline-flex w-full items-center justify-center rounded-xl bg-[#264863] px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-sky-900/20 transition hover:bg-[#183b57] disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {saving ? "Creating account..." : "Create account"}
+              {saving ? "Verifying and creating account..." : "Create account"}
             </button>
           </form>
 

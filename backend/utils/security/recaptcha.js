@@ -5,17 +5,22 @@
  */
 
 function getCaptchaSiteKey() {
-  return (
-    process.env.RECAPTCHA_SITE_KEY ||
-    process.env.VITE_RECAPTCHA_SITE_KEY ||
-    ""
-  ).trim();
+  return String(process.env.RECAPTCHA_SITE_KEY || "").trim();
 }
 
 function isCaptchaConfigured() {
   return Boolean(
     String(process.env.RECAPTCHA_SECRET_KEY || "").trim() && getCaptchaSiteKey(),
   );
+}
+
+function isPublicSignupCaptchaRequired() {
+  const requiredExplicitly =
+    String(process.env.PUBLIC_SIGNUP_REQUIRE_CAPTCHA || "")
+      .toLowerCase()
+      .trim() === "true";
+
+  return requiredExplicitly || isCaptchaConfigured();
 }
 
 function mapRecaptchaError(errorCodes = []) {
@@ -152,6 +157,7 @@ async function verifyRecaptchaToken(token, remoteIp) {
 module.exports = {
   verifyRecaptchaToken,
   isCaptchaConfigured,
+  isPublicSignupCaptchaRequired,
   getCaptchaSiteKey,
   hostnameAllowed,
 };
