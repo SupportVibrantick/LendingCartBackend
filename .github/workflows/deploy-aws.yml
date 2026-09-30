@@ -18,14 +18,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      #############################################
-      # NETWORK DEBUGGING (KEEP COMMENTED)
-      # ###########################################
-      
-      - name: Test SSH Port
-        run: |
-          nc -vz -w 10 ${{ secrets.AWS_DEPLOY_HOST }} ${{ secrets.AWS_DEPLOY_PORT }}
-
       - name: Deploy to AWS EC2
         uses: appleboy/ssh-action@v1.0.3
         with:
