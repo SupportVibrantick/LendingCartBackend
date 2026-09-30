@@ -19,23 +19,50 @@ function isCaptchaConfigured() {
 }
 
 function mapRecaptchaError(errorCodes = []) {
-  const codes = Array.isArray(errorCodes) ? errorCodes : [];
-  if (codes.includes("invalid-input-secret")) {
-    return "reCAPTCHA secret key is invalid on the server";
+  const codes = Array.isArray(errorCodes) ? errorCodes.map(String) : [];
+  const joined = codes.length ? ` (${codes.join(", ")})` : "";
+
+  if (codes.includes("missing-input-secret") || codes.includes("invalid-input-secret")) {
+    return `reCAPTCHA secret key is invalid or missing on the server${joined}`;
+  }
+  if (codes.includes("missing-input-response")) {
+    return `reCAPTCHA token is missing. Refresh the page and try again${joined}`;
   }
   if (codes.includes("invalid-input-response")) {
-    return "reCAPTCHA token is invalid or expired. Please try again.";
+    return `reCAPTCHA token is invalid or expired. Refresh and try again${joined}`;
   }
   if (codes.includes("timeout-or-duplicate")) {
-    return "reCAPTCHA token expired. Please try again.";
+    return `reCAPTCHA token expired or was already used. Refresh and try again${joined}`;
   }
   if (codes.includes("bad-request")) {
-    return "reCAPTCHA request was rejected. Check site key configuration.";
+    return `reCAPTCHA request was rejected. Check site/secret key pair and domains${joined}`;
   }
   if (codes.includes("browser-error")) {
-    return "reCAPTCHA could not run in this browser. Disable blockers and retry.";
+    return `reCAPTCHA could not run in this browser. Disable blockers and retry${joined}`;
   }
-  return "reCAPTCHA verification failed";
+  return `reCAPTCHA verification failed${joined}`;
+}
+
+/**
+ * Parent domain allow-list: `loanautomation.ai` also matches `lender.loanautomation.ai`.
+ */
+function hostnameAllowed(hostname, allowedHosts) {
+  const host = String(hostname || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\.$/, "");
+  if (!host || !allowedHosts.length) return true;
+
+  return allowedHosts.some((allowed) => {
+    const a = String(allowed || "")
+      .trim()
+      .toLowerCase()
+      .replace(/\.$/, "");
+    if (!a) return false;
+    if (host === a) return true;
+    // Allow first-level (and deeper) subdomains of an allowed parent domain.
+    return host.endsWith(`.${a}`);
+  });
 }
 
 async function verifyRecaptchaToken(token, remoteIp) {
@@ -75,26 +102,28 @@ async function verifyRecaptchaToken(token, remoteIp) {
 
   const json = await res.json().catch(() => ({}));
   if (!json.success) {
+    const errorCodes = json["error-codes"] || [];
     return {
       ok: false,
-      message: mapRecaptchaError(json["error-codes"]),
-      details: json["error-codes"] || [],
+      message: mapRecaptchaError(errorCodes),
+      details: errorCodes,
+      hostname: json.hostname || null,
     };
   }
 
   // Optional hostname allow-list (comma-separated), e.g.
-  // RECAPTCHA_ALLOWED_HOSTNAMES=lender-lendingcart.vibrantick.org,localhost
+  // RECAPTCHA_ALLOWED_HOSTNAMES=loanautomation.ai,lender-lendingcart.vibrantick.org,localhost
   const allowedHosts = String(process.env.RECAPTCHA_ALLOWED_HOSTNAMES || "")
     .split(",")
     .map((item) => item.trim().toLowerCase())
     .filter(Boolean);
   if (allowedHosts.length && json.hostname) {
-    const hostname = String(json.hostname).toLowerCase();
-    if (!allowedHosts.includes(hostname)) {
+    if (!hostnameAllowed(json.hostname, allowedHosts)) {
       return {
         ok: false,
-        message: `reCAPTCHA hostname not allowed: ${hostname}`,
+        message: `reCAPTCHA hostname not allowed: ${json.hostname}`,
         details: ["hostname-mismatch"],
+        hostname: json.hostname,
       };
     }
   }
@@ -105,17 +134,24 @@ async function verifyRecaptchaToken(token, remoteIp) {
     if (json.score < minScore) {
       return {
         ok: false,
-        message: "reCAPTCHA score too low. Please try again.",
+        message: `reCAPTCHA score too low (${json.score}). Please try again.`,
         score: json.score,
+        hostname: json.hostname || null,
       };
     }
   }
 
-  return { ok: true, score: json.score ?? null, hostname: json.hostname || null };
+  return {
+    ok: true,
+    score: json.score ?? null,
+    hostname: json.hostname || null,
+    action: json.action || null,
+  };
 }
 
 module.exports = {
   verifyRecaptchaToken,
   isCaptchaConfigured,
   getCaptchaSiteKey,
+  hostnameAllowed,
 };
