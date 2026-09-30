@@ -232,8 +232,8 @@ export type LoanCategory =
 
 /* ================= HELPERS ================= */
 const API_BASE =
-  (import.meta as any).env?.VITE_API_BASE ||
-  "https://api-lendingcart.vibrantick.org";
+  import.meta.env.VITE_API_BASE?.replace(/\/$/, "") ||
+  "https://api.test.ai";
 
 const BRIDGE_LOAN_TYPES = new Set(["BRIDGE_LOAN", "BRIDGE_LOAN_1_TO_4_UNITS"]);
 const BRIDGE_PURCHASE_PURPOSE = "Purchase/Acquisition";
