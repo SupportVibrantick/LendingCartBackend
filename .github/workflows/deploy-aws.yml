@@ -1,0 +1,99 @@
+name: Deploy LendingCart to AWS
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: lendingcart-aws-production
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      #############################################
+      # NETWORK DEBUGGING (KEEP COMMENTED)
+      # ###########################################
+      
+      - name: Test SSH Port
+        run: |
+          nc -vz -w 10 ${{ secrets.AWS_DEPLOY_HOST }} ${{ secrets.AWS_DEPLOY_PORT }}
+
+      - name: Deploy to AWS EC2
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.AWS_DEPLOY_HOST }}
+          username: ${{ secrets.AWS_DEPLOY_USER }}
+          key: ${{ secrets.AWS_DEPLOY_SSH_KEY }}
+          port: ${{ secrets.AWS_DEPLOY_PORT }}
+          script: |
+            set -euo pipefail
+
+            APP_DIR="${{ secrets.AWS_DEPLOY_PATH }}"
+
+            echo "Starting LendingCart AWS deployment..."
+            cd "$APP_DIR"
+            git fetch origin main
+            git reset --hard origin/main
+
+            echo "Installing backend dependencies and applying migrations..."
+            cd backend
+            npm ci
+            npx prisma generate
+            npx prisma migrate deploy
+
+            echo "Building Admin Dashboard..."
+            cd ../admin-dashboard
+            npm ci
+            npm run build
+            sudo install -d -o ubuntu -g ubuntu /var/www/admin
+            sudo cp -a dist/. /var/www/admin/
+
+            echo "Building Broker Dashboard..."
+            cd ../broker-dashboard
+            npm ci
+            npm run build
+            sudo install -d -o ubuntu -g ubuntu /var/www/broker
+            sudo cp -a dist/. /var/www/broker/
+
+            echo "Building Lending Dashboard..."
+            cd ../lending-dashboard
+            npm ci
+            npm run build
+            sudo install -d -o ubuntu -g ubuntu /var/www/lending
+            sudo cp -a dist/. /var/www/lending/
+
+            echo "Building Loan AI..."
+            cd ../loan-ai
+            npm ci
+            npm run build
+            sudo install -d -o ubuntu -g ubuntu /var/www/loan-ai
+            sudo cp -a dist/. /var/www/loan-ai/
+
+            echo "Building embedded Loan Application..."
+            cd ../loan-application-embeded
+            npm ci
+            npm run build
+            sudo install -d -o ubuntu -g ubuntu /var/www/embed
+            sudo cp -a dist/. /var/www/embed/
+
+            echo "Validating and reloading Nginx..."
+            sudo nginx -t
+            sudo systemctl reload nginx
+
+            echo "Starting application processes..."
+            cd "$APP_DIR/backend"
+            pm2 startOrReload ecosystem.config.cjs --update-env
+            pm2 save
+
+            sleep 5
+            curl -fsS http://127.0.0.1:3008/ >/dev/null
+
+            echo "Deployment completed successfully."
