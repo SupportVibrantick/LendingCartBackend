@@ -66,26 +66,26 @@ jobs:
             sudo install -d -o ubuntu -g ubuntu /var/www/broker
             sudo cp -a dist/. /var/www/broker/
 
-            echo "Building Lending Dashboard..."
+            echo "Building Lender Dashboard..."
             cd ../lending-dashboard
             npm ci
             npm run build
-            sudo install -d -o ubuntu -g ubuntu /var/www/lending
-            sudo cp -a dist/. /var/www/lending/
+            sudo install -d -o ubuntu -g ubuntu /var/www/lender
+            sudo cp -a dist/. /var/www/lender/
 
-            echo "Building Loan AI..."
+            echo "Building Landing Page..."
             cd ../loan-ai
             npm ci
             npm run build
             sudo install -d -o ubuntu -g ubuntu /var/www/loan-ai
             sudo cp -a dist/. /var/www/loan-ai/
 
-            echo "Building embedded Loan Application..."
+            echo "Building Loan Application..."
             cd ../loan-application-embeded
             npm ci
             npm run build
-            sudo install -d -o ubuntu -g ubuntu /var/www/embed
-            sudo cp -a dist/. /var/www/embed/
+            sudo install -d -o ubuntu -g ubuntu /var/www/app
+            sudo cp -a dist/. /var/www/app/
 
             echo "Validating and reloading Nginx..."
             sudo nginx -t
