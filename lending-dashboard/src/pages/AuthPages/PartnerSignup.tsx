@@ -369,10 +369,13 @@ export default function PartnerSignup() {
       // Hard gate: public signup must verify email before session access
       if (json.data?.emailVerificationRequired) {
         toast.success("Account created. Please verify your email.");
-        const pendingEmail = encodeURIComponent(
-          String(json.data?.email || adminEmail),
-        );
-        navigate(`/verify-email-pending?email=${pendingEmail}`);
+        const pendingEmail = String(json.data?.email || adminEmail).trim();
+        navigate({
+          pathname: "/verify-email-pending",
+          search: pendingEmail
+            ? `?email=${encodeURIComponent(pendingEmail)}`
+            : "",
+        });
         return;
       }
 

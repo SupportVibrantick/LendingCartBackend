@@ -54,7 +54,8 @@ const getEmailBranding = () => {
   const lenderDashboardUrl = firstConfigured(
     process.env.VITE_LENDER_DASHBOARD_URL,
     process.env.LENDER_DASHBOARD_URL,
-    "https://lender-lendingcart.vibrantick.org",
+    // Production lender app (must match the site users sign up on).
+    "https://lender.loanautomation.ai",
   );
 
   return {

@@ -8,7 +8,7 @@ const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
 export default function VerifyEmail() {
   const [searchParams] = useSearchParams();
-  const token = searchParams.get("token") || "";
+  const token = String(searchParams.get("token") || "").trim();
   const [status, setStatus] = useState<"loading" | "success" | "error">(
     token ? "loading" : "error",
   );
@@ -33,7 +33,10 @@ export default function VerifyEmail() {
 
         if (!res.ok || !json.success) {
           setStatus("error");
-          setMessage(json.message || "Verification failed");
+          setMessage(
+            json.message ||
+              "Invalid or outdated verification link. Request a new one.",
+          );
           return;
         }
 
@@ -44,7 +47,9 @@ export default function VerifyEmail() {
       } catch {
         if (!cancelled) {
           setStatus("error");
-          setMessage("Verification failed");
+          setMessage(
+            "Could not reach the server to verify your email. Please try again.",
+          );
         }
       }
     })();
@@ -57,6 +62,10 @@ export default function VerifyEmail() {
   const signInHref = email
     ? `/signin?email=${encodeURIComponent(email)}`
     : "/signin";
+
+  const resendHref = email
+    ? `/verify-email-pending?email=${encodeURIComponent(email)}`
+    : "/verify-email-pending";
 
   return (
     <>
@@ -90,7 +99,7 @@ export default function VerifyEmail() {
             <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">
               Need a new link?{" "}
               <Link
-                to="/verify-email-pending"
+                to={resendHref}
                 className="font-semibold text-brand-800 hover:underline dark:text-brand-300"
               >
                 Resend verification
