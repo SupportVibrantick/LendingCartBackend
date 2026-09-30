@@ -38,6 +38,8 @@ const lenderPassword =
     12
   );
 
+  const verifiedAt = new Date();
+
   let lenderUser = await prisma.userAccount.findUnique({
     where: {
       email: lenderEmail,
@@ -53,6 +55,8 @@ const lenderPassword =
         firstName: "Lender",
         lastName: "Admin",
         status: "ACTIVE",
+        // Seeded demo users skip email verification — login immediately.
+        emailVerifiedAt: verifiedAt,
       },
     });
 
@@ -60,8 +64,20 @@ const lenderPassword =
       `✅ Lender user created: ${lenderUser.email}`
     );
   } else {
+    // Keep password in sync with seed defaults and mark email verified.
+    lenderUser = await prisma.userAccount.update({
+      where: { id: lenderUser.id },
+      data: {
+        passwordHash,
+        status: "ACTIVE",
+        organizationId: organization.id,
+        ...(lenderUser.emailVerifiedAt
+          ? {}
+          : { emailVerifiedAt: verifiedAt }),
+      },
+    });
     console.log(
-      `ℹ️ Lender user already exists: ${lenderUser.email}`
+      `ℹ️ Lender user already exists (verified for login): ${lenderUser.email}`
     );
   }
 
@@ -182,7 +198,12 @@ if (!org) {
     where: {
       email: `eligible${i}@lendingcart.com`,
     },
-    update: {},
+    update: {
+      passwordHash,
+      status: "ACTIVE",
+      organizationId: org.id,
+      emailVerifiedAt: verifiedAt,
+    },
     create: {
       organizationId: org.id,
       email: `eligible${i}@lendingcart.com`,
@@ -190,6 +211,7 @@ if (!org) {
       firstName: "Eligible",
       lastName: `Lender ${i}`,
       status: "ACTIVE",
+      emailVerifiedAt: verifiedAt,
     },
   });
 

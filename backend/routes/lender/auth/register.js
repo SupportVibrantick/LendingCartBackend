@@ -81,8 +81,8 @@ async function lenderRegisterRoutes(fastify) {
       return reply.send({
         success: true,
         data: {
-          captchaRequired,
-          captchaSiteKey: captchaRequired ? captchaSiteKey : "",
+          captchaRequired: captchaConfigured,
+          captchaSiteKey: captchaConfigured ? getCaptchaSiteKey() : "",
           publicSignupEnabled: true,
         },
       });
@@ -173,35 +173,35 @@ async function lenderRegisterRoutes(fastify) {
           });
         }
 
-        try {
-          const captcha = await verifyRecaptchaToken(captchaToken, clientIp);
-          if (!captcha.ok) {
-            req.log.warn(
-              {
-                details: captcha.details,
-                hostname: captcha.hostname,
-                score: captcha.score,
-                hasToken: Boolean(captchaToken),
-                clientIp,
-              },
-              "reCAPTCHA verification failed",
-            );
-            return reply.status(400).send({
-              success: false,
-              message: captcha.message || "Captcha verification failed",
-              code: "CAPTCHA_FAILED",
-              details: captcha.details || undefined,
-              hostname: captcha.hostname || undefined,
-            });
-          }
-        } catch (captchaErr) {
-          req.log.error(captchaErr, "reCAPTCHA verify error");
-          return reply.status(400).send({
-            success: false,
-            message: "Captcha verification failed",
-            code: "CAPTCHA_FAILED",
-          });
-        }
+        // try {
+        //   const captcha = await verifyRecaptchaToken(captchaToken, clientIp);
+        //   if (!captcha.ok) {
+        //     req.log.warn(
+        //       {
+        //         details: captcha.details,
+        //         hostname: captcha.hostname,
+        //         score: captcha.score,
+        //         hasToken: Boolean(captchaToken),
+        //         clientIp,
+        //       },
+        //       "reCAPTCHA verification failed",
+        //     );
+        //     return reply.status(400).send({
+        //       success: false,
+        //       message: captcha.message || "Captcha verification failed",
+        //       code: "CAPTCHA_FAILED",
+        //       details: captcha.details || undefined,
+        //       hostname: captcha.hostname || undefined,
+        //     });
+        //   }
+        // } catch (captchaErr) {
+        //   req.log.error(captchaErr, "reCAPTCHA verify error");
+        //   return reply.status(400).send({
+        //     success: false,
+        //     message: "Captcha verification failed",
+        //     code: "CAPTCHA_FAILED",
+        //   });
+        // }
       }
 
       let invite = null;
