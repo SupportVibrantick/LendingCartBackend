@@ -64,16 +64,29 @@ async function lenderVerifyEmailRoutes(fastify) {
       if (!record || record.user?.isDeleted) {
         return reply.status(404).send({
           success: false,
-          message: "Invalid verification link",
+          message:
+            "Invalid or outdated verification link. Request a new verification email and use the latest link.",
           code: "NOT_FOUND",
         });
       }
 
       if (record.usedAt) {
-        return reply.send({
-          success: true,
-          message: "Email already verified",
-          data: { alreadyVerified: true },
+        // If the user is already verified, treat as success (email clients often prefetch links).
+        if (record.user?.emailVerifiedAt) {
+          return reply.send({
+            success: true,
+            message: "Email already verified",
+            data: {
+              alreadyVerified: true,
+              email: record.user.email,
+            },
+          });
+        }
+        return reply.status(400).send({
+          success: false,
+          message:
+            "This verification link was already used. Request a new verification email.",
+          code: "ALREADY_USED",
         });
       }
 

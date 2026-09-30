@@ -20,20 +20,38 @@ function buildVerificationExpiry(from = new Date()) {
 
 /**
  * Create verification token and enqueue email.
+ * Previous unused tokens for this user are invalidated so only the latest link works.
  */
 async function createAndSendEmailVerification(prisma, user) {
   const token = generateVerificationToken();
   const expiresAt = buildVerificationExpiry();
 
-  await prisma.emailVerificationToken.create({
-    data: {
-      userId: user.id,
-      token,
-      expiresAt,
-    },
-  });
+  await prisma.$transaction([
+    prisma.emailVerificationToken.updateMany({
+      where: {
+        userId: user.id,
+        usedAt: null,
+      },
+      data: {
+        usedAt: new Date(),
+      },
+    }),
+    prisma.emailVerificationToken.create({
+      data: {
+        userId: user.id,
+        token,
+        expiresAt,
+      },
+    }),
+  ]);
 
   const verifyUrl = buildLenderVerifyEmailUrl(token);
+  if (!verifyUrl) {
+    throw new Error(
+      "LENDER_DASHBOARD_URL is not configured — cannot build verification link",
+    );
+  }
+
   const branding = getEmailBranding();
   const name =
     [user.firstName, user.lastName].filter(Boolean).join(" ").trim() || "there";
