@@ -1,7 +1,3 @@
-const fs = require("fs");
-const path = require("path");
-const { pipeline } = require("stream/promises");
-const crypto = require("crypto");
 const { validateFileMimetype } = require("../../utils/security/fileValidator");
 const clientAuthMiddleware = require("../../middleware/clientAuthMiddleware");
 const { loadTemplate } = require("../../utils/email/loadTemplate");
@@ -26,6 +22,9 @@ const {
 const {
   resolvePortalClientIds,
 } = require("../../utils/auth/clientPortalAuth");
+const {
+  saveLoanDocumentFile,
+} = require("../../services/documents/saveLoanDocumentFile");
 
 /**
  * @param {import("fastify").FastifyInstance} fastify
@@ -170,34 +169,18 @@ async function uploadDocumentsRoute(fastify) {
         const validatedStream = validation.stream;
 
         /* ============================
-           SAFE FILE NAME
+           STORAGE (local or S3)
         ============================ */
 
-        const randomName = crypto.randomBytes(16).toString("hex");
-
-        const ext =
-          path.extname(file.filename) ||
-          getExtensionFromMime(normalizedMime);
-
-        const safeFileName = `${randomName}${ext}`;
-
-        /* ============================
-           STORAGE
-        ============================ */
-
-        const uploadDir = path.join(
-          process.cwd(),
-          "uploads",
-          "loan-documents"
-        );
-
-        await fs.promises.mkdir(uploadDir, { recursive: true });
-
-        const filePath = path.join(uploadDir, safeFileName);
-
-        await pipeline(validatedStream, fs.createWriteStream(filePath));
-
-        const fileUrl = `/uploads/loan-documents/${safeFileName}`;
+        const stored = await saveLoanDocumentFile({
+          prisma,
+          stream: validatedStream,
+          originalFileName: file.filename,
+          mimeType: normalizedMime,
+          applicationId: loanApplicationId,
+          requirementId: documentRequirementId,
+        });
+        const { fileUrl, storageKey, storageProvider } = stored;
 
         /* ============================
            SAVE DOCUMENT
@@ -210,6 +193,8 @@ async function uploadDocumentsRoute(fastify) {
             uploadedByClientUserId: req.client.id,
             fileName: file.filename,
             fileUrl,
+            storageKey,
+            storageProvider,
             fileMimeType: normalizedMime,
           },
         });
@@ -380,22 +365,3 @@ async function uploadDocumentsRoute(fastify) {
 }
 
 module.exports = uploadDocumentsRoute;
-
-/* ============================
-   EXTENSION HELPER
-============================ */
-
-function getExtensionFromMime(mime) {
-  switch (mime) {
-    case "application/pdf":
-      return ".pdf";
-    case "image/jpeg":
-      return ".jpg";
-    case "image/png":
-      return ".png";
-    case "image/webp":
-      return ".webp";
-    default:
-      return "";
-  }
-}

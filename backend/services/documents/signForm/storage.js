@@ -1,7 +1,4 @@
-const fs = require("fs");
-const path = require("path");
-const { pipeline } = require("stream/promises");
-const { resolveDiskPathFromPublicUrl } = require("./pageManifest");
+const { getStorage, keyFromFileUrl, getBufferFromRef } = require("../../storage");
 const { getUploadMaxBytes } = require("./limits");
 
 const ALLOWED_MIME_TYPES = new Set([
@@ -32,41 +29,69 @@ function publicUrlFromParts(relativeParts, filename) {
   return `/${["uploads", ...relativeParts, filename].join("/")}`;
 }
 
-function diskPathFromParts(relativeParts, filename) {
-  return path.join(process.cwd(), "uploads", ...relativeParts, filename);
+function keyFromParts(relativeParts, filename) {
+  return ["uploads", ...relativeParts, filename].join("/");
 }
 
+/**
+ * @param {{ relativeParts: string[], filename: string, stream: import("stream").Readable, mimeType?: string, prisma?: any }} args
+ */
 async function writeSignAssetFromStream({
   relativeParts,
   filename,
   stream,
   mimeType,
+  prisma,
 }) {
   assertAllowedUpload({ mimeType });
-  const dir = path.join(process.cwd(), "uploads", ...relativeParts);
-  await fs.promises.mkdir(dir, { recursive: true });
-  const filePath = diskPathFromParts(relativeParts, filename);
-  await pipeline(stream, fs.createWriteStream(filePath));
+  const key = keyFromParts(relativeParts, filename);
+  const storage = await getStorage(prisma);
+  const stored = await storage.putStream({
+    key,
+    stream,
+    contentType: mimeType || "application/octet-stream",
+  });
   return {
-    filePath,
-    publicUrl: publicUrlFromParts(relativeParts, filename),
+    filePath: null,
+    storageKey: stored.key,
+    storageProvider: stored.provider,
+    publicUrl: stored.url || publicUrlFromParts(relativeParts, filename),
   };
 }
 
-async function copySignAsset({ fromPublicUrl, relativeParts, filename }) {
-  const src = resolveDiskPathFromPublicUrl(fromPublicUrl);
-  if (!fs.existsSync(src)) {
-    const err = new Error("Template file not found on server");
-    err.statusCode = 400;
-    throw err;
-  }
-  const dir = path.join(process.cwd(), "uploads", ...relativeParts);
-  await fs.promises.mkdir(dir, { recursive: true });
-  const dest = diskPathFromParts(relativeParts, filename);
-  await fs.promises.copyFile(src, dest);
+/**
+ * @param {{ fromPublicUrl: string, relativeParts: string[], filename: string, prisma?: any, fromStorageKey?: string, fromStorageProvider?: string }} args
+ */
+async function copySignAsset({
+  fromPublicUrl,
+  relativeParts,
+  filename,
+  prisma,
+  fromStorageKey,
+  fromStorageProvider,
+}) {
+  const buffer = await getBufferFromRef(
+    {
+      storageKey: fromStorageKey || keyFromFileUrl(fromPublicUrl),
+      storageProvider: fromStorageProvider || null,
+      fileUrl: fromPublicUrl,
+    },
+    prisma,
+  );
+
+  const key = keyFromParts(relativeParts, filename);
+  const storage = await getStorage(prisma);
+  const stored = await storage.putBuffer({
+    key,
+    buffer,
+    contentType: "application/octet-stream",
+  });
+
   return {
-    filePath: dest,
-    publicUrl: publicUrlFromParts(relativeParts, filename),
+    filePath: null,
+    storageKey: stored.key,
+    storageProvider: stored.provider,
+    publicUrl: stored.url || publicUrlFromParts(relativeParts, filename),
   };
 }
 
@@ -74,6 +99,7 @@ module.exports = {
   ALLOWED_MIME_TYPES,
   assertAllowedUpload,
   publicUrlFromParts,
+  keyFromParts,
   writeSignAssetFromStream,
   copySignAsset,
 };

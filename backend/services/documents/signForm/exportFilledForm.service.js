@@ -6,11 +6,12 @@ const {
   valueMapFromSubmission,
 } = require("./flattenForm");
 const {
-  resolveDiskPathFromPublicUrl,
+  loadBytesFromPublicUrl,
 } = require("./pageManifest");
 const {
   valuesMapFromSubmission,
 } = require("./submissionService");
+const { getBufferFromRef } = require("../../storage");
 
 function unwrapValuesMap(rawValues) {
   const source = valueMapFromSubmission(rawValues) || {};
@@ -136,8 +137,20 @@ async function buildSignDocumentDownload(prisma, requirementId) {
           values,
           outputDir,
           outputBaseName: `filled-${Date.now()}`,
+          prisma,
         });
-        buffer = await fs.promises.readFile(stored.filePath);
+        try {
+          buffer = await fs.promises.readFile(stored.filePath);
+        } catch {
+          buffer = await getBufferFromRef(
+            {
+              storageKey: stored.storageKey,
+              storageProvider: stored.storageProvider,
+              fileUrl: stored.fileUrl,
+            },
+            prisma,
+          );
+        }
       }
 
       return {
@@ -153,33 +166,45 @@ async function buildSignDocumentDownload(prisma, requirementId) {
   // Existing signed/flattened output
   const signed = requirement.uploads?.[0];
   if (signed?.fileUrl) {
-    const diskPath = resolveDiskPathFromPublicUrl(signed.fileUrl);
-    if (fs.existsSync(diskPath)) {
+    try {
+      const buffer = await getBufferFromRef(
+        {
+          storageKey: signed.storageKey || null,
+          storageProvider: signed.storageProvider || null,
+          fileUrl: signed.fileUrl,
+        },
+        prisma,
+      );
       return {
-        buffer: await fs.promises.readFile(diskPath),
+        buffer,
         fileName: signed.fileName || `${safeName}-signed.pdf`,
         mimeType: signed.fileMimeType || "application/pdf",
         source: "signed_upload",
       };
+    } catch {
+      // fall through
     }
   }
 
   // Blank template fallback
-  const templatePath = resolveDiskPathFromPublicUrl(requirement.templateFileUrl);
-  if (!fs.existsSync(templatePath)) {
+  try {
+    const buffer = await loadBytesFromPublicUrl(
+      requirement.templateFileUrl,
+      prisma,
+    );
+    return {
+      buffer,
+      fileName:
+        requirement.templateFileName ||
+        `${safeName}-template${path.extname(requirement.templateFileUrl || "") || ".pdf"}`,
+      mimeType: requirement.templateMimeType || "application/pdf",
+      source: "template",
+    };
+  } catch {
     const err = new Error("Template file not found on server");
     err.statusCode = 404;
     throw err;
   }
-
-  return {
-    buffer: await fs.promises.readFile(templatePath),
-    fileName:
-      requirement.templateFileName ||
-      `${safeName}-template${path.extname(templatePath) || ".pdf"}`,
-    mimeType: requirement.templateMimeType || "application/pdf",
-    source: "template",
-  };
 }
 
 module.exports = {

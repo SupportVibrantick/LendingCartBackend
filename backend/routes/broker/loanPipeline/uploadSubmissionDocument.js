@@ -1,7 +1,3 @@
-const fs = require("fs");
-const path = require("path");
-const { pipeline } = require("stream/promises");
-const crypto = require("crypto");
 const { validateFileMimetype } = require("../../../utils/security/fileValidator");
 const {
   autoForwardDocumentUpload,
@@ -15,6 +11,9 @@ const {
 const {
   syncUploadToExistingLenderSubmissions,
 } = require("../../../services/documents/syncUploadToExistingLenderSubmissions");
+const {
+  saveLoanDocumentFile,
+} = require("../../../services/documents/saveLoanDocumentFile");
 
 /**
  * @param {import("fastify").FastifyInstance} fastify
@@ -125,10 +124,6 @@ module.exports = async function uploadSubmissionDocument(fastify) {
         }
         const validatedStream = validation.stream;
 
-        /* ===============================
-           FILE SIZE LIMIT (OPTIONAL SAFE)
-        =============================== */
-        const MAX_SIZE = 10 * 1024 * 1024; // 10MB
         if (file.file.truncated) {
           return reply.code(400).send({
             success: false,
@@ -137,39 +132,19 @@ module.exports = async function uploadSubmissionDocument(fastify) {
         }
 
         /* ===============================
-           CREATE SAFE FILE NAME
+           SAVE FILE (local or S3)
         =============================== */
-        const randomName = crypto.randomBytes(16).toString("hex");
-
-        const originalExt = path.extname(file.filename || "");
-        const safeExt = originalExt || getExtensionFromMime(file.mimetype);
-
-        const safeFileName = `${randomName}${safeExt}`;
-
-        /* ===============================
-           UPLOAD DIRECTORY
-        =============================== */
-        const uploadDir = path.join(
-          process.cwd(),
-          "uploads",
-          "loan-documents",
-          submission.application.id,
+        fastify.log.info("Saving file via storage provider");
+        const stored = await saveLoanDocumentFile({
+          prisma: fastify.prisma,
+          stream: validatedStream,
+          originalFileName: file.filename,
+          mimeType: file.mimetype,
+          applicationId: submission.application.id,
           requirementId,
-        );
-
-        await fs.promises.mkdir(uploadDir, { recursive: true });
-
-        const filePath = path.join(uploadDir, safeFileName);
-
-        /* ===============================
-           SAVE FILE (STREAM SAFE)
-        =============================== */
-        fastify.log.info(`Saving file to ${filePath}`);
-        const writeStream = fs.createWriteStream(filePath);
-        await pipeline(validatedStream, writeStream);
-        fastify.log.info("File saved successfully");
-
-        const fileUrl = `/uploads/loan-documents/${submission.application.id}/${requirementId}/${safeFileName}`;
+        });
+        const { fileUrl, storageKey, storageProvider } = stored;
+        fastify.log.info({ storageProvider, storageKey }, "File saved successfully");
 
         /* ===============================
            TRANSACTION (SAVE + STATUS)
@@ -183,6 +158,8 @@ module.exports = async function uploadSubmissionDocument(fastify) {
 
             fileName: file.filename,
             fileUrl,
+            storageKey,
+            storageProvider,
             fileMimeType: file.mimetype,
 
             isSubmittedToLender: false,
@@ -190,10 +167,6 @@ module.exports = async function uploadSubmissionDocument(fastify) {
         });
         fastify.log.info("Upload record created");
 
-        /* ===============================
-           RESPONSE
-        =============================== */
-        // Process status updates, forwarding and syncing in the background
         processDocumentPostUpload(fastify, submission, requirementId, createdUpload).catch(err => {
           fastify.log.error({ err }, "Unexpected error in background post-upload process");
         });
@@ -220,7 +193,6 @@ module.exports = async function uploadSubmissionDocument(fastify) {
 
 async function processDocumentPostUpload(fastify, submission, requirementId, createdUpload) {
   try {
-    // 1. Update Requirement Status and SubBroker Submissions
     await fastify.prisma.$transaction(async (tx) => {
       const requirement = await tx.applicationDocumentRequirement.findUnique({
         where: { id: requirementId },
@@ -253,7 +225,6 @@ async function processDocumentPostUpload(fastify, submission, requirementId, cre
       }
     });
 
-    // 2. Auto-Forward to Lenders
     const autoForwardEnabled = await getAutoForwardDocumentsToLender(
       fastify.prisma,
       submission.application.id,
@@ -300,7 +271,6 @@ async function processDocumentPostUpload(fastify, submission, requirementId, cre
       }
     }
 
-    // 3. Sync Upload to Existing Lender Submissions
     try {
       await syncUploadToExistingLenderSubmissions(fastify.prisma, {
         loanApplicationId: submission.application.id,
@@ -328,23 +298,5 @@ async function processDocumentPostUpload(fastify, submission, requirementId, cre
       },
       "Post-upload processing failed",
     );
-  }
-}
-
-/* ===============================
-   HELPER: MIME → EXTENSION
-=============================== */
-function getExtensionFromMime(mime) {
-  switch (mime) {
-    case "application/pdf":
-      return ".pdf";
-    case "image/jpeg":
-      return ".jpg";
-    case "image/png":
-      return ".png";
-    case "image/webp":
-      return ".webp";
-    default:
-      return "";
   }
 }

@@ -3,8 +3,9 @@ const path = require("path");
 const { PDFDocument, StandardFonts, rgb } = require("pdf-lib");
 const sharp = require("sharp");
 const {
-  resolveDiskPathFromPublicUrl,
+  ensureLocalPathFromPublicUrl,
 } = require("./pageManifest");
+const { getStorage } = require("../../storage");
 const {
   decodeSignatureDataUrl,
 } = require("../signDocumentMerge");
@@ -365,49 +366,69 @@ async function createFlattenedFormDocument({
   values,
   outputDir,
   outputBaseName,
+  prisma,
 }) {
-  const templatePath = resolveDiskPathFromPublicUrl(templateFileUrl);
-  if (!fs.existsSync(templatePath)) {
-    throw new Error("Template file not found on server");
-  }
+  const localRef = await ensureLocalPathFromPublicUrl(templateFileUrl, prisma);
+  const templatePath = localRef.path;
 
-  const mime = String(templateMimeType || "").toLowerCase();
-  const ext = path.extname(templateFileName || templatePath || "").toLowerCase();
-  let outputBuffer;
+  try {
+    const mime = String(templateMimeType || "").toLowerCase();
+    const ext = path.extname(templateFileName || templatePath || "").toLowerCase();
+    let outputBuffer;
 
-  if (mime === "application/pdf" || ext === ".pdf") {
-    outputBuffer = await flattenFieldsOntoPdf({
-      templatePath,
-      schema,
-      values,
+    if (mime === "application/pdf" || ext === ".pdf") {
+      outputBuffer = await flattenFieldsOntoPdf({
+        templatePath,
+        schema,
+        values,
+      });
+    } else if (mime.startsWith("image/")) {
+      outputBuffer = await flattenFieldsOntoImage({
+        templatePath,
+        mimeType: mime,
+        schema,
+        values,
+      });
+    } else {
+      throw new Error("Unsupported template type. Use PDF or image.");
+    }
+
+    const safeBase = `${outputBaseName}.pdf`;
+    const relativeFromUploads = path
+      .relative(path.join(process.cwd(), "uploads"), outputDir)
+      .split(path.sep)
+      .join("/");
+    const storageKey = `uploads/${relativeFromUploads}/${safeBase}`.replace(
+      /\\/g,
+      "/",
+    );
+
+    const storage = await getStorage(prisma);
+    const stored = await storage.putBuffer({
+      key: storageKey,
+      buffer: outputBuffer,
+      contentType: "application/pdf",
     });
-  } else if (mime.startsWith("image/")) {
-    outputBuffer = await flattenFieldsOntoImage({
-      templatePath,
-      mimeType: mime,
-      schema,
-      values,
-    });
-  } else {
-    throw new Error("Unsupported template type. Use PDF or image.");
+
+    // Keep a local copy when writing to S3 so legacy disk readers still work.
+    if (stored.provider === "s3") {
+      await fs.promises.mkdir(outputDir, { recursive: true });
+      await fs.promises.writeFile(path.join(outputDir, safeBase), outputBuffer);
+    }
+
+    return {
+      fileName: safeBase,
+      fileUrl: stored.url,
+      storageKey: stored.key,
+      storageProvider: stored.provider,
+      fileMimeType: "application/pdf",
+      filePath: path.join(outputDir, safeBase),
+    };
+  } finally {
+    if (localRef.cleanup) {
+      await fs.promises.unlink(localRef.path).catch(() => {});
+    }
   }
-
-  await fs.promises.mkdir(outputDir, { recursive: true });
-  const safeBase = `${outputBaseName}.pdf`;
-  const outputPath = path.join(outputDir, safeBase);
-  await fs.promises.writeFile(outputPath, outputBuffer);
-
-  const relativeFromUploads = path
-    .relative(path.join(process.cwd(), "uploads"), outputDir)
-    .split(path.sep)
-    .join("/");
-
-  return {
-    fileName: safeBase,
-    fileUrl: `/uploads/${relativeFromUploads}/${safeBase}`.replace(/\\/g, "/"),
-    fileMimeType: "application/pdf",
-    filePath: outputPath,
-  };
 }
 
 module.exports = {

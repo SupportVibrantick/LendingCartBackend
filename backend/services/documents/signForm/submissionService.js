@@ -271,6 +271,7 @@ async function finalizeFormIfComplete(prisma, {
     values,
     outputDir,
     outputBaseName: `signed-form-${crypto.randomBytes(8).toString("hex")}`,
+    prisma,
   });
 
   const signatureField = (schema?.fields || []).find(
@@ -300,6 +301,8 @@ async function finalizeFormIfComplete(prisma, {
         uploadedByClientUserId: clientUserId || null,
         fileName: signedFile.fileName,
         fileUrl: signedFile.fileUrl,
+        storageKey: signedFile.storageKey || null,
+        storageProvider: signedFile.storageProvider || null,
         fileMimeType: signedFile.fileMimeType,
         isSignedOutput: true,
         clientSignatureData:

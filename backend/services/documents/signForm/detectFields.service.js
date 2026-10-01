@@ -1,7 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const {
-  resolveDiskPathFromPublicUrl,
+  ensureLocalPathFromPublicUrl,
   buildPageManifestFromTemplate,
 } = require("./pageManifest");
 const { detectAcroFormFields } = require("./detectAcroForm");
@@ -142,11 +142,10 @@ async function runFieldDetectionPipeline({
     replaceExisting = false,
   } = options;
 
-  const templatePath = resolveDiskPathFromPublicUrl(templateFileUrl);
-  if (!fs.existsSync(templatePath)) {
-    throw new Error("Template file not found on server");
-  }
+  const localRef = await ensureLocalPathFromPublicUrl(templateFileUrl);
+  const templatePath = localRef.path;
 
+  try {
   const mime = String(templateMimeType || "").toLowerCase();
   const ext = path.extname(templateFileName || templatePath || "").toLowerCase();
   const isPdf = mime === "application/pdf" || ext === ".pdf";
@@ -331,6 +330,11 @@ async function runFieldDetectionPipeline({
     },
     parts,
   };
+  } finally {
+    if (localRef.cleanup) {
+      await fs.promises.unlink(localRef.path).catch(() => {});
+    }
+  }
 }
 
 /**

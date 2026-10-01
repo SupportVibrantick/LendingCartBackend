@@ -73,5 +73,9 @@ module.exports = async function adminRoutes(fastify, opts) {
       prefix: "/notifications",
     });
 
+    instance.register(require("./system"), {
+      prefix: "/system",
+    });
+
   });
 };

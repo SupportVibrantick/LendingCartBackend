@@ -128,12 +128,8 @@ app.register(verifySuperAdmin);
 const socketPlugin = require("./plugins/socket");
 app.register(socketPlugin);
 
-// Serve uploads (profile images)
-app.register(fastifyStatic, {
-  root: path.join(__dirname, "uploads"),
-  prefix: "/uploads/",
-  decorateReply: false,
-});
+// Serve /uploads/* via storage proxy (local disk and/or S3)
+app.register(require("./routes/common/storageProxy"));
 
 // Serve public assets
 app.register(fastifyStatic, {

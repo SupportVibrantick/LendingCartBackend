@@ -388,6 +388,18 @@ function getUploadMaxBytes() {
   return Number.isFinite(value) && value > 0 ? value : 25 * 1024 * 1024;
 }
 
+/**
+ * STORAGE_PROVIDER=local|s3
+ * Admin PlatformConfig can override at runtime; see services/storage/config.js.
+ */
+function getStorageProviderEnv() {
+  const raw = String(process.env.STORAGE_PROVIDER || "")
+    .trim()
+    .toLowerCase();
+  if (raw === "s3" || raw === "local") return raw;
+  return "local";
+}
+
 module.exports = {
   envFlag,
   isProduction,
@@ -415,6 +427,7 @@ module.exports = {
   getAuditLogRetentionDays,
   getAuditLogPayloadMaxBytes,
   getUploadMaxBytes,
+  getStorageProviderEnv,
   validateApiEnv,
   validateWorkerEnv,
   validateRedisRequiredInProduction,
