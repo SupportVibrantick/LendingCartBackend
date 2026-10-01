@@ -6,7 +6,7 @@ import { Eye, EyeOff } from "lucide-react";
 import { saveClientPortalSession } from "../../lib/clientPortalSession";
 
 const API_BASE =
-  import.meta.env.VITE_API_BASE || "https://api-lendingcart.vibrantick.org";
+  import.meta.env.VITE_API_BASE || "https://api.loanautomation.ai";
 
 const LOAN_AUTOMATION_LOGO = "/loanAutomation.jpeg";
 

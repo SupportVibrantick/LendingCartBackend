@@ -604,7 +604,7 @@ export const LOAN_PRODUCT_CODE_ALIASES: Record<string, string[]> = {
  */
 export const API_BASE =
   (import.meta as any).env?.VITE_API_BASE ||
-  "https://api-lendingcart.vibrantick.org";
+  "https://api.loanautomation.ai";
 
 export const PURCHASE_DATE_WITH_AMORTIZATION_LOAN_TYPES = new Set([
   "DSCR_LOAN_1_TO_4_UNITS",

@@ -69,7 +69,7 @@ const US_STATES = [
 ];
 
 const API_BASE =
-  import.meta.env.VITE_API_BASE || "https://api-lendingcart.vibrantick.org";
+  import.meta.env.VITE_API_BASE || "https://api.loanautomation.ai";
 
 const getColor = (name: string) => {
   const colors = [
