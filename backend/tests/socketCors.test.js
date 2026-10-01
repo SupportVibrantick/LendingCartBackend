@@ -45,15 +45,15 @@ test("allows explicit socket origins", () => {
     {
       NODE_ENV: "production",
       SOCKET_CORS_ORIGINS:
-        "https://broker-lendingcart.vibrantick.org,https://lender-lendingcart.vibrantick.org",
+        "https://broker.loanautomation.ai,https://lender.loanautomation.ai",
     },
     ({ isSocketOriginAllowed }) => {
       assert.equal(
-        isSocketOriginAllowed("https://broker-lendingcart.vibrantick.org"),
+        isSocketOriginAllowed("https://broker.loanautomation.ai"),
         true,
       );
       assert.equal(
-        isSocketOriginAllowed("https://lender-lendingcart.vibrantick.org"),
+        isSocketOriginAllowed("https://lender.loanautomation.ai"),
         true,
       );
       assert.equal(isSocketOriginAllowed("https://evil.example.com"), false);
@@ -69,11 +69,11 @@ test("allows subdomain suffix when configured", () => {
     },
     ({ isSocketOriginAllowed }) => {
       assert.equal(
-        isSocketOriginAllowed("https://broker-lendingcart.vibrantick.org"),
+        isSocketOriginAllowed("https://broker.loanautomation.ai"),
         true,
       );
       assert.equal(
-        isSocketOriginAllowed("https://lender-lendingcart.vibrantick.org"),
+        isSocketOriginAllowed("https://lender.loanautomation.ai"),
         true,
       );
       assert.equal(isSocketOriginAllowed("https://vibrantick.org"), true);
