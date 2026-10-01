@@ -2,6 +2,10 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import toast from "react-hot-toast";
 import { useNavigate } from "react-router";
 import { Building2, HomeIcon, Landmark, Settings } from "lucide-react";
+import {
+  ALL_LOAN_CATEGORIES,
+  isLoanCategoryAllowed,
+} from "./loanCategoryAccess";
 
 import {
   createSbaEntityDefaults,
@@ -2961,29 +2965,28 @@ const LoanApplication = ({
   const subPropertyOptions =
     PROPERTY_TYPE_MAP[formData.loanRequest.propertyType] || [];
 
-  const categories: LoanCategory[] = useMemo(() => {
-    const all: LoanCategory[] = [
-      "RESIDENTIAL_1_4",
-      "CRE_MULTIFAMILY",
-      "SBA_USDA",
-      "ABL",
-    ];
-    // Public embed: fail closed — never show every category when plan data
-    // is missing (empty list previously unlocked CRE/SBA/ABL for Starter).
+  // Always show every category; lock ones the broker plan/add-ons do not include.
+  const categories: LoanCategory[] = useMemo(
+    () => [...ALL_LOAN_CATEGORIES] as LoanCategory[],
+    [],
+  );
+
+  const allowedCategoriesForUi = useMemo(() => {
     if (!allowedLoanCategories || allowedLoanCategories.length === 0) {
-      return publicEmbed ? (["RESIDENTIAL_1_4"] as LoanCategory[]) : all;
+      // Public embed / missing plan data: Starter floor only.
+      return ["RESIDENTIAL_1_4"];
     }
-    return all.filter((cat) => allowedLoanCategories.includes(cat));
-  }, [allowedLoanCategories, publicEmbed]);
+    return allowedLoanCategories;
+  }, [allowedLoanCategories]);
 
   // Clear category if broker plan no longer includes it
   useEffect(() => {
-    if (!selectedCategory || categories.length === 0) return;
-    if (!categories.includes(selectedCategory)) {
+    if (!selectedCategory) return;
+    if (!isLoanCategoryAllowed(selectedCategory, allowedCategoriesForUi)) {
       setSelectedCategory("");
       setSelectedProduct("");
     }
-  }, [categories, selectedCategory]);
+  }, [allowedCategoriesForUi, selectedCategory]);
 
   const CATEGORY_ICONS: Record<string, any> = {
     RESIDENTIAL_1_4: HomeIcon,
@@ -3211,29 +3214,42 @@ rounded-2xl p-6 shadow-sm
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   {categories.map((category: LoanCategory) => {
                     const Icon = CATEGORY_ICONS[category] || Settings;
+                    const locked = !isLoanCategoryAllowed(
+                      category,
+                      allowedCategoriesForUi,
+                    );
+                    const isSelected =
+                      !locked && selectedCategory === category;
 
                     return (
                       <button
                         key={category}
                         type="button"
-                        disabled={mode === "update"}
-                        onClick={() => setSelectedCategory(category)}
-                        className={`flex-shrink-0 flex flex-col items-center justify-center gap-1 
-        w-full h-[76px] rounded-xl border transition-all text-center px-2 py-2
-        disabled:cursor-not-allowed disabled:opacity-60
+                        disabled={mode === "update" || locked}
+                        onClick={() => {
+                          if (locked) return;
+                          setSelectedCategory(category);
+                        }}
+                        className={`relative flex-shrink-0 flex flex-col items-center justify-center gap-1 
+        w-full min-h-[84px] rounded-xl border transition-all text-center px-2 py-2
+        disabled:cursor-not-allowed
         
         ${
-          selectedCategory === category
-            ? "bg-[#2C92D5] text-white border-[#2C92D5] shadow-md"
-            : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:shadow-md"
+          locked
+            ? "bg-slate-50 dark:bg-slate-900/60 border-slate-200 dark:border-slate-700 text-slate-400 dark:text-slate-500 opacity-80"
+            : isSelected
+              ? "bg-[#2C92D5] text-white border-[#2C92D5] shadow-md"
+              : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:shadow-md"
         }`}
                       >
                         <Icon
                           size={20}
                           className={
-                            selectedCategory === category
-                              ? "text-white"
-                              : "text-[#2C92D5]"
+                            locked
+                              ? "text-slate-400 dark:text-slate-500"
+                              : isSelected
+                                ? "text-white"
+                                : "text-[#2C92D5]"
                           }
                         />
 
