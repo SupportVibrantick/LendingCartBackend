@@ -5,6 +5,11 @@ import { useNavigate } from "react-router";
 import { Building2, HomeIcon, Landmark, Settings } from "lucide-react";
 import { useBrokerEntitlements } from "../../lib/brokerEntitlements";
 import { hasPermission } from "../../lib/brokerPermissions";
+import {
+  ALL_LOAN_CATEGORIES,
+  getLoanCategoryPlanTag,
+  isLoanCategoryAllowed,
+} from "./loanCategoryAccess";
 
 import {
   createSbaEntityDefaults,
@@ -2923,33 +2928,29 @@ const LoanApplication = ({
   const subPropertyOptions =
     PROPERTY_TYPE_MAP[formData.loanRequest.propertyType] || [];
 
-  const categories: LoanCategory[] = useMemo(() => {
-    const all: LoanCategory[] = [
-      "RESIDENTIAL_1_4",
-      "CRE_MULTIFAMILY",
-      "SBA_USDA",
-      "ABL",
-    ];
-    const allowed = entitlements?.loanCategories;
-    // Fail closed while loading / missing: Starter floor only. Pro+ expands
-    // once entitlements arrive (avoids briefly unlocking CRE on LO portal).
+  // Always show every category; lock ones the plan/add-ons do not include.
+  const categories: LoanCategory[] = useMemo(
+    () => [...ALL_LOAN_CATEGORIES] as LoanCategory[],
+    [],
+  );
+
+  const allowedLoanCategories = useMemo(() => {
     if (entitlementsLoading || !entitlements) {
       return ["RESIDENTIAL_1_4"];
     }
-    if (!allowed || allowed.length === 0) {
-      return ["RESIDENTIAL_1_4"];
-    }
-    return all.filter((cat) => allowed.includes(cat));
+    const allowed = entitlements.loanCategories;
+    if (!allowed || allowed.length === 0) return ["RESIDENTIAL_1_4"];
+    return allowed;
   }, [entitlements, entitlementsLoading]);
 
   // Clear category if no longer entitled (e.g. after entitlements load)
   useEffect(() => {
-    if (!selectedCategory || categories.length === 0) return;
-    if (!categories.includes(selectedCategory)) {
+    if (!selectedCategory) return;
+    if (!isLoanCategoryAllowed(selectedCategory, allowedLoanCategories)) {
       setSelectedCategory("");
       setSelectedProduct("");
     }
-  }, [categories, selectedCategory]);
+  }, [allowedLoanCategories, selectedCategory]);
 
   const CATEGORY_ICONS: Record<string, any> = {
     RESIDENTIAL_1_4: HomeIcon,
@@ -3179,29 +3180,55 @@ rounded-2xl p-6 shadow-sm
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   {categories.map((category: LoanCategory) => {
                     const Icon = CATEGORY_ICONS[category] || Settings;
+                    const locked = !isLoanCategoryAllowed(
+                      category,
+                      allowedLoanCategories,
+                    );
+                    const planTag = locked
+                      ? getLoanCategoryPlanTag(category)
+                      : null;
+                    const isSelected =
+                      !locked && selectedCategory === category;
 
                     return (
                       <button
                         key={category}
                         type="button"
-                        disabled={mode === "update"}
-                        onClick={() => setSelectedCategory(category)}
-                        className={`flex-shrink-0 flex flex-col items-center justify-center gap-1 
-        w-full h-[76px] rounded-xl border transition-all text-center px-2 py-2
-        disabled:cursor-not-allowed disabled:opacity-60
+                        disabled={mode === "update" || locked}
+                        title={
+                          locked && planTag
+                            ? `Requires ${planTag} plan`
+                            : undefined
+                        }
+                        onClick={() => {
+                          if (locked) return;
+                          setSelectedCategory(category);
+                        }}
+                        className={`relative flex-shrink-0 flex flex-col items-center justify-center gap-1 
+        w-full min-h-[84px] rounded-xl border transition-all text-center px-2 py-2
+        disabled:cursor-not-allowed
         
         ${
-          selectedCategory === category
-            ? "bg-[#2C92D5] text-white border-[#2C92D5] shadow-md"
-            : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:shadow-md"
+          locked
+            ? "bg-slate-50 dark:bg-slate-900/60 border-slate-200 dark:border-slate-700 text-slate-400 dark:text-slate-500 opacity-80"
+            : isSelected
+              ? "bg-[#2C92D5] text-white border-[#2C92D5] shadow-md"
+              : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:shadow-md"
         }`}
                       >
+                        {planTag && (
+                          <span className="absolute right-1.5 top-1.5 rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-amber-800 dark:bg-amber-500/20 dark:text-amber-200">
+                            {planTag}
+                          </span>
+                        )}
                         <Icon
                           size={20}
                           className={
-                            selectedCategory === category
-                              ? "text-white"
-                              : "text-[#2C92D5]"
+                            locked
+                              ? "text-slate-400 dark:text-slate-500"
+                              : isSelected
+                                ? "text-white"
+                                : "text-[#2C92D5]"
                           }
                         />
 
