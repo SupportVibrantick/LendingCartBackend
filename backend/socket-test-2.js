@@ -21,7 +21,7 @@ const conversationId = args[1];
 =============================== */
 
 // change to VPS when needed
-const SOCKET_URL = "https://api-lendingcart.vibrantick.org";
+const SOCKET_URL = "https://api.loanautomation.ai";
 
 /* =============================== */
 
