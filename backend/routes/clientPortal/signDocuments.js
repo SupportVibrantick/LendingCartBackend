@@ -347,6 +347,7 @@ module.exports = async function clientSignDocuments(fastify) {
           outputBaseName: `signed-${crypto.randomBytes(8).toString("hex")}`,
           signerName,
           signedAt,
+          prisma,
         });
 
         const result = await prisma.$transaction(async (tx) => {
@@ -357,6 +358,8 @@ module.exports = async function clientSignDocuments(fastify) {
               uploadedByClientUserId: req.user?.id || null,
               fileName: signedFile.fileName,
               fileUrl: signedFile.fileUrl,
+              storageKey: signedFile.storageKey || null,
+              storageProvider: signedFile.storageProvider || null,
               fileMimeType: signedFile.fileMimeType,
               isSignedOutput: true,
               clientSignatureData: signature,

@@ -23,9 +23,6 @@ const {
 } = require("./signForm/storage");
 const { validateFileMimetype } = require("../../utils/security/fileValidator");
 const {
-  resolveDiskPathFromPublicUrl,
-} = require("./signForm/pageManifest");
-const {
   autoPublishAcroFormIfPresent,
 } = require("./signForm/autoPublishAcroForm");
 
@@ -417,12 +414,13 @@ async function uploadBrokerSignDocument(
     organizationId: brokerOrgId,
     userId: userId || null,
     logger,
-    pdfBytes: (() => {
+    pdfBytes: await (async () => {
       try {
         if (!String(result.templateMimeType || "").includes("pdf")) return null;
-        const diskPath = resolveDiskPathFromPublicUrl(result.templateFileUrl);
-        if (!fs.existsSync(diskPath)) return null;
-        return fs.readFileSync(diskPath);
+        const {
+          loadBytesFromPublicUrl,
+        } = require("./signForm/pageManifest");
+        return await loadBytesFromPublicUrl(result.templateFileUrl, prisma);
       } catch (error) {
         logger?.warn?.(
           { err: error, requirementId: result.id },

@@ -1467,6 +1467,10 @@ model ApplicationDocumentUpload {
   uploadedByClientUserId String?                         @db.Uuid
   fileName               String
   fileUrl                String
+  /// Opaque storage object key, e.g. uploads/loan-documents/{appId}/{reqId}/{file}
+  storageKey             String?                         @map("storage_key")
+  /// Provider used when the file was written: local | s3
+  storageProvider        String?                         @map("storage_provider")
   fileMimeType           String?
   isSubmittedToLender    Boolean                         @default(false)
   submittedAt            DateTime?                       @db.Timestamptz(6)
@@ -3199,4 +3203,15 @@ model JobLock {
   updatedAt   DateTime  @updatedAt @db.Timestamptz(6)
 
   @@map("job_locks")
+}
+
+/// Platform-wide key/value config (admin-managed overrides).
+model PlatformConfig {
+  key       String   @id
+  value     String
+  updatedBy String?  @map("updated_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@map("platform_config")
 }

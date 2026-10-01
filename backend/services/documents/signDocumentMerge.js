@@ -6,6 +6,10 @@ const {
   estimateLoiSignatureAnchor,
   pdfKitYToPdfLibY,
 } = require("../loi/loiPdfLayout");
+const {
+  ensureLocalPathFromPublicUrl,
+} = require("./signForm/pageManifest");
+const { getStorage } = require("../storage");
 
 function readLoiSigAnchor(pdfDoc, pageWidth, pageHeight) {
   try {
@@ -200,59 +204,77 @@ async function createSignedDocumentFile({
   outputBaseName,
   signerName,
   signedAt,
+  prisma,
 }) {
   const signatureBuffer = decodeSignatureDataUrl(signature);
-  const templatePath = resolveDiskPathFromPublicUrl(templateFileUrl);
+  const localRef = await ensureLocalPathFromPublicUrl(templateFileUrl, prisma);
+  const templatePath = localRef.path;
 
-  if (!fs.existsSync(templatePath)) {
-    throw new Error("Template file not found on server");
-  }
-
-  const mime = (templateMimeType || "").toLowerCase();
-  let outputBuffer;
-  let outputMime = templateMimeType;
-  let extension = path.extname(templateFileName || templatePath) || ".pdf";
-  const isLoiTemplate = /\/(broker|lender)\/LOI\//i.test(
-    String(templateFileUrl || ""),
-  );
-
-  if (mime === "application/pdf" || extension.toLowerCase() === ".pdf") {
-    outputBuffer = await mergeSignatureOntoPdf(templatePath, signatureBuffer, {
-      isLoiTemplate,
-      signerName,
-      signedAt: signedAt || new Date(),
-    });
-    outputMime = "application/pdf";
-    extension = ".pdf";
-  } else if (mime.startsWith("image/")) {
-    outputBuffer = await mergeSignatureOntoImage(
-      templatePath,
-      signatureBuffer,
-      mime,
+  try {
+    const mime = (templateMimeType || "").toLowerCase();
+    let outputBuffer;
+    let outputMime = templateMimeType;
+    let extension = path.extname(templateFileName || templatePath) || ".pdf";
+    const isLoiTemplate = /\/(broker|lender)\/LOI\//i.test(
+      String(templateFileUrl || ""),
     );
-    outputMime = mime || "image/png";
-  } else {
-    throw new Error("Unsupported template type. Use PDF or image.");
+
+    if (mime === "application/pdf" || extension.toLowerCase() === ".pdf") {
+      outputBuffer = await mergeSignatureOntoPdf(templatePath, signatureBuffer, {
+        isLoiTemplate,
+        signerName,
+        signedAt: signedAt || new Date(),
+      });
+      outputMime = "application/pdf";
+      extension = ".pdf";
+    } else if (mime.startsWith("image/")) {
+      outputBuffer = await mergeSignatureOntoImage(
+        templatePath,
+        signatureBuffer,
+        mime,
+      );
+      outputMime = mime || "image/png";
+    } else {
+      throw new Error("Unsupported template type. Use PDF or image.");
+    }
+
+    const safeBase = isLoiTemplate
+      ? `${outputBaseName}-signed-loi${extension}`
+      : `${outputBaseName}${extension}`;
+    const relativeFromUploads = path
+      .relative(path.join(process.cwd(), "uploads"), outputDir)
+      .split(path.sep)
+      .join("/");
+    const storageKey = `uploads/${relativeFromUploads}/${safeBase}`.replace(
+      /\\/g,
+      "/",
+    );
+
+    const storage = await getStorage(prisma);
+    const stored = await storage.putBuffer({
+      key: storageKey,
+      buffer: outputBuffer,
+      contentType: outputMime || "application/octet-stream",
+    });
+
+    if (stored.provider === "s3") {
+      await fs.promises.mkdir(outputDir, { recursive: true });
+      await fs.promises.writeFile(path.join(outputDir, safeBase), outputBuffer);
+    }
+
+    return {
+      fileName: safeBase,
+      fileUrl: stored.url,
+      storageKey: stored.key,
+      storageProvider: stored.provider,
+      fileMimeType: outputMime,
+      filePath: path.join(outputDir, safeBase),
+    };
+  } finally {
+    if (localRef.cleanup) {
+      await fs.promises.unlink(localRef.path).catch(() => {});
+    }
   }
-
-  await fs.promises.mkdir(outputDir, { recursive: true });
-  const safeBase = isLoiTemplate
-    ? `${outputBaseName}-signed-loi${extension}`
-    : `${outputBaseName}${extension}`;
-  const outputPath = path.join(outputDir, safeBase);
-  await fs.promises.writeFile(outputPath, outputBuffer);
-
-  const relativeFromUploads = path
-    .relative(path.join(process.cwd(), "uploads"), outputDir)
-    .split(path.sep)
-    .join("/");
-
-  return {
-    fileName: safeBase,
-    fileUrl: `/uploads/${relativeFromUploads}/${safeBase}`.replace(/\\/g, "/"),
-    fileMimeType: outputMime,
-    filePath: outputPath,
-  };
 }
 
 module.exports = {

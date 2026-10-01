@@ -8,13 +8,13 @@ import BrandingSettingsCard from "../../components/settings/BrandingSettingsCard
 import SecuritySettingsCard from "../../components/settings/SecuritySettingsCard";
 import NotificationsSettingsCard from "../../components/settings/NotificationsSettingsCard";
 import BackupSettingsCard from "../../components/settings/BackupSettingsCard";
+import StorageSettingsCard from "../../components/settings/StorageSettingsCard";
 
 const SystemSettings = () => {
   const [activeMenu, setActiveMenu] = useState("Profile");
 
   return (
     <div className="p-6 bg-gray-50 dark:bg-gray-900 min-h-screen">
-      {/* Page Title */}
       <div className="mb-6">
         <h1 className="text-2xl font-semibold text-gray-800 dark:text-white">
           System Settings
@@ -26,18 +26,17 @@ const SystemSettings = () => {
       </div>
 
       <div className="flex gap-6">
-        {/* LEFT MENU */}
         <SettingsSidebar
           activeMenu={activeMenu}
           setActiveMenu={setActiveMenu}
         />
 
-        {/* RIGHT CONTENT */}
         <div className="flex-1">
           {activeMenu === "Profile" && <ProfileSettingsCard />}
           {activeMenu === "Language" && <LanguageSettingsCard />}
           {activeMenu === "Location" && <LocationSettingsCard />}
           {activeMenu === "General" && <GeneralSettingsCard />}
+          {activeMenu === "Storage" && <StorageSettingsCard />}
           {activeMenu === "Branding" && <BrandingSettingsCard />}
           {activeMenu === "Security" && <SecuritySettingsCard />}
           {activeMenu === "Notifications" && <NotificationsSettingsCard />}

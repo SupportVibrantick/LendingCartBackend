@@ -1,10 +1,9 @@
-const fs = require("fs");
-const path = require("path");
-const { pipeline } = require("stream/promises");
-const crypto = require("crypto");
 const {
   validateFileMimetype,
 } = require("../../../utils/security/fileValidator");
+const {
+  saveLoanDocumentFile,
+} = require("../../../services/documents/saveLoanDocumentFile");
 
 /**
  * @param {import("fastify").FastifyInstance} fastify
@@ -106,25 +105,15 @@ async function uploadSubmissionDocumentForSubBroker(fastify) {
             .send({ success: false, message: "File too large" });
         }
 
-        const randomName = crypto.randomBytes(16).toString("hex");
-        const originalExt = path.extname(file.filename || "");
-        const safeExt = originalExt || getExtensionFromMime(file.mimetype);
-        const safeFileName = `${randomName}${safeExt}`;
-
-        const uploadDir = path.join(
-          process.cwd(),
-          "uploads",
-          "loan-documents",
-          submission.application.id,
+        const stored = await saveLoanDocumentFile({
+          prisma,
+          stream: validatedStream,
+          originalFileName: file.filename,
+          mimeType: file.mimetype,
+          applicationId: submission.application.id,
           requirementId,
-        );
-        await fs.promises.mkdir(uploadDir, { recursive: true });
-        const filePath = path.join(uploadDir, safeFileName);
-
-        const writeStream = fs.createWriteStream(filePath);
-        await pipeline(validatedStream, writeStream);
-
-        const fileUrl = `/uploads/loan-documents/${submission.application.id}/${requirementId}/${safeFileName}`;
+        });
+        const { fileUrl, storageKey, storageProvider } = stored;
 
         await prisma.$transaction(async (tx) => {
           await tx.applicationDocumentUpload.create({
@@ -134,6 +123,8 @@ async function uploadSubmissionDocumentForSubBroker(fastify) {
               uploadedByUserId: userId,
               fileName: file.filename,
               fileUrl,
+              storageKey,
+              storageProvider,
               fileMimeType: file.mimetype,
               isSubmittedToLender: false,
             },
@@ -174,21 +165,6 @@ async function uploadSubmissionDocumentForSubBroker(fastify) {
       }
     },
   );
-}
-
-function getExtensionFromMime(mime) {
-  switch (mime) {
-    case "application/pdf":
-      return ".pdf";
-    case "image/jpeg":
-      return ".jpg";
-    case "image/png":
-      return ".png";
-    case "image/webp":
-      return ".webp";
-    default:
-      return "";
-  }
 }
 
 module.exports = uploadSubmissionDocumentForSubBroker;

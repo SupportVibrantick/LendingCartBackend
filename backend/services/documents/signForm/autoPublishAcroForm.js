@@ -1,10 +1,9 @@
-const fs = require("fs");
 const {
   detectAcroFormFields,
 } = require("./detectAcroForm");
 const {
   buildPageManifestFromTemplate,
-  resolveDiskPathFromPublicUrl,
+  loadBytesFromPublicUrl,
 } = require("./pageManifest");
 const { publishForm } = require("./formService");
 
@@ -43,11 +42,11 @@ async function prepareAcroFormAutoPublish({
     if (!templateFileUrl) {
       return { ok: false, reason: "missing_template" };
     }
-    const diskPath = resolveDiskPathFromPublicUrl(templateFileUrl);
-    if (!fs.existsSync(diskPath)) {
+    try {
+      pdfBytes = await loadBytesFromPublicUrl(templateFileUrl, prisma);
+    } catch {
       return { ok: false, reason: "template_missing" };
     }
-    pdfBytes = fs.readFileSync(diskPath);
   }
 
   const detected = await detectAcroFormFields(pdfBytes);

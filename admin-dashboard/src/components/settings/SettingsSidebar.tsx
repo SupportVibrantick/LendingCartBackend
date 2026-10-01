@@ -7,6 +7,7 @@ import {
   Shield,
   Bell,
   Database,
+  HardDrive,
 } from "lucide-react";
 
 const menuItems = [
@@ -29,6 +30,11 @@ const menuItems = [
     name: "General",
     icon: Settings,
     description: "Configure general system preferences and defaults.",
+  },
+  {
+    name: "Storage",
+    icon: HardDrive,
+    description: "Switch document uploads between local disk and S3.",
   },
   {
     name: "Branding",
