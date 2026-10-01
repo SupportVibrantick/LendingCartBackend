@@ -1,3 +1,4 @@
 docs/
 AGENTS.md
-storage/
+# Only ignore a repo-root /storage data dir — never backend/services/storage/
+/storage/

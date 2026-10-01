@@ -1,5 +1,6 @@
 node_modules
 /generated/prisma
 /public/logs/
-storage/
+# Only ignore a backend-root /storage data dir — never services/storage/
+/storage/
 .env
