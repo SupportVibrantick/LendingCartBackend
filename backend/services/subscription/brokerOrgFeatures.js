@@ -643,36 +643,18 @@ function resolveEnabledFeatures(subscription) {
 
   const raw = subscription.enabledFeatures;
   let customKeys = null;
-  if (Array.isArray(raw) && raw.length > 0) {
+  if (Array.isArray(raw)) {
     customKeys = raw;
-  } else if (
-    raw &&
-    typeof raw === "object" &&
-    Array.isArray(raw.keys) &&
-    raw.keys.length > 0
-  ) {
+  } else if (raw && typeof raw === "object" && Array.isArray(raw.keys)) {
     customKeys = raw.keys;
   }
 
-  // No custom snapshot → full package matrix (Starter / Pro / Elite + add-ons).
-  if (!customKeys) {
-    return normalizeFeatureKeys(packageDefaults);
+  // Admin/custom snapshot is authoritative — full control including loan matrix.
+  if (customKeys !== null) {
+    return normalizeFeatureKeys(customKeys);
   }
 
-  const custom = normalizeFeatureKeys(customKeys);
-  // Loan category/type matrix always tracks the current package (+ add-ons),
-  // so Elite upgrades are not stuck on a Starter-only snapshot. Permission
-  // keys may still be customized by admin.
-  const packageLoan = packageDefaults.filter(
-    (k) =>
-      String(k).startsWith("LOAN_CAT_") || String(k).startsWith("LOAN_TYPE_"),
-  );
-  const customPermissions = custom.filter(
-    (k) =>
-      !String(k).startsWith("LOAN_CAT_") && !String(k).startsWith("LOAN_TYPE_"),
-  );
-
-  return normalizeFeatureKeys([...customPermissions, ...packageLoan]);
+  return normalizeFeatureKeys(packageDefaults);
 }
 
 function isCustomEnabledFeatures(raw) {

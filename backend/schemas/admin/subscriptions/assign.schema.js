@@ -15,6 +15,8 @@ const changePlanSchema = z.object({
   billingCycle: z.enum(["MONTHLY", "YEARLY"]).optional(),
   notes: z.string().optional(),
   generateInvoice: z.boolean().optional().default(false),
+  /** Optional admin override — any catalog feature keys, even outside the package. */
+  features: z.array(z.string()).optional(),
 });
 
 const cancelSubscriptionSchema = z.object({

@@ -725,6 +725,7 @@ async function changePlan(prisma, payload) {
     notes,
     assignedByAdminId,
     generateInvoice: shouldInvoice = false,
+    features: featuresOverride,
   } = payload;
 
   const sub = await prisma.organizationSubscription.findFirst({
@@ -755,7 +756,22 @@ async function changePlan(prisma, payload) {
   const nextCycle = billingCycle || sub.billingCycle;
   const periodEnd = addPeriod(now, nextCycle);
 
+  const {
+    normalizeFeatureKeys,
+    splitFeatures,
+  } = require("./brokerOrgFeatures");
+
+  const hasFeatureOverride = Array.isArray(featuresOverride);
+  const normalizedFeatures = hasFeatureOverride
+    ? normalizeFeatureKeys(featuresOverride)
+    : null;
+
   const result = await prisma.$transaction(async (tx) => {
+    const { usageLimits } = parseEnabledFeaturesPayload(sub.enabledFeatures);
+    const enabledFeaturesUpdate = hasFeatureOverride
+      ? buildEnabledFeaturesPayload(normalizedFeatures, usageLimits)
+      : undefined;
+
     const updated = await tx.organizationSubscription.update({
       where: { id: sub.id },
       data: {
@@ -769,6 +785,9 @@ async function changePlan(prisma, payload) {
         cancelAtPeriodEnd: false,
         notes: notes ?? sub.notes,
         assignedByAdminId: assignedByAdminId || sub.assignedByAdminId,
+        ...(enabledFeaturesUpdate !== undefined
+          ? { enabledFeatures: enabledFeaturesUpdate }
+          : {}),
       },
       include: { package: true, organization: true },
     });
@@ -788,6 +807,37 @@ async function changePlan(prisma, payload) {
     return { subscription: updated, invoice };
   });
 
+  if (hasFeatureOverride && normalizedFeatures) {
+    const { permissions: allowedPerms } = splitFeatures(normalizedFeatures);
+    const allowedSet = new Set(allowedPerms);
+    const officers = await prisma.userAccount.findMany({
+      where: {
+        organizationId,
+        roles: { some: { role: { name: "BROKER_OFFICER" } } },
+      },
+      select: {
+        id: true,
+        userPermissions: {
+          select: {
+            id: true,
+            permission: { select: { key: true } },
+          },
+        },
+      },
+    });
+
+    for (const officer of officers) {
+      const revokeIds = officer.userPermissions
+        .filter((up) => !allowedSet.has(up.permission.key))
+        .map((up) => up.id);
+      if (revokeIds.length > 0) {
+        await prisma.userPermission.deleteMany({
+          where: { id: { in: revokeIds } },
+        });
+      }
+    }
+  }
+
   const agencyLocation = await syncAgencyLocationAfterPlanChange(prisma, {
     organizationId,
     organizationSubscriptionId: result.subscription.id,
@@ -798,6 +848,7 @@ async function changePlan(prisma, payload) {
     subscription: result.subscription,
     invoice: result.invoice,
     agencyLocation,
+    features: hasFeatureOverride ? normalizedFeatures : undefined,
   };
 }
 

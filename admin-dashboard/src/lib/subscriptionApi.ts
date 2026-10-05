@@ -304,11 +304,31 @@ export async function changeSubscriptionPlan(payload: {
   billingCycle?: BillingCycle;
   notes?: string;
   generateInvoice?: boolean;
+  features?: string[];
 }) {
   return request<unknown>(`${API_BASE}/admin/subscriptions/subscribers/change-plan`, {
     method: "PATCH",
     body: JSON.stringify(payload),
   });
+}
+
+export async function fetchPackageFeatureDefaults(params: {
+  packageId?: string;
+  packageCode?: string;
+  organizationId?: string;
+}) {
+  const q = new URLSearchParams();
+  if (params.packageId) q.set("packageId", params.packageId);
+  if (params.packageCode) q.set("packageCode", params.packageCode);
+  if (params.organizationId) q.set("organizationId", params.organizationId);
+  return request<{
+    packageId?: string | null;
+    packageCode: string;
+    packageName?: string | null;
+    defaults: string[];
+  }>(
+    `${API_BASE}/admin/subscriptions/subscribers/features/package-defaults?${q}`,
+  );
 }
 
 export async function cancelSubscription(payload: {
