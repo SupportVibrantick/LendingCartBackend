@@ -5,6 +5,9 @@ import { useNavigate } from "react-router";
 import { Building2, HomeIcon, Landmark, Settings } from "lucide-react";
 import { useBrokerEntitlements } from "../../lib/brokerEntitlements";
 import { hasPermission } from "../../lib/brokerPermissions";
+import LoanCategoryUpgradeModal, {
+  canPurchaseCategoryUpgrade,
+} from "../../components/loanApplication/LoanCategoryUpgradeModal";
 import {
   ALL_LOAN_CATEGORIES,
   getLoanCategoryPlanTag,
@@ -824,9 +827,16 @@ const LoanApplication = ({
   reviewCaptchaSlot,
   recaptchaToken = null,
 }: LoanApplicationProps = {}) => {
-  const { entitlements, loading: entitlementsLoading } = useBrokerEntitlements();
+  const {
+    entitlements,
+    loading: entitlementsLoading,
+    refresh: refreshEntitlements,
+  } = useBrokerEntitlements();
   const coBorrowerRefs = useRef<Record<number, HTMLDivElement | null>>({});
   const [lastAddedId, setLastAddedId] = useState<number | null>(null);
+  const [upgradeCategory, setUpgradeCategory] = useState<LoanCategory | null>(
+    null,
+  );
   const [selectedProduct, setSelectedProduct] = useState<string>(
     initialSelectedProduct,
   );
@@ -2952,6 +2962,60 @@ const LoanApplication = ({
     }
   }, [allowedLoanCategories, selectedCategory]);
 
+  // After add-on checkout return: refresh entitlements and auto-select unlocked category
+  useEffect(() => {
+    if (typeof window === "undefined" || publicEmbed) return;
+    const params = new URLSearchParams(window.location.search);
+    const upgrade = params.get("categoryUpgrade");
+    if (!upgrade) return;
+
+    const unlock = params.get("unlock") || "";
+    const cleanUrl = () => {
+      window.history.replaceState({}, "", window.location.pathname);
+    };
+
+    if (upgrade === "cancelled") {
+      toast("Checkout cancelled — no charges were made.", { icon: "ℹ️" });
+      cleanUrl();
+      return;
+    }
+
+    if (upgrade !== "paid") return;
+
+    toast.success(
+      "Payment received. Unlocking your loan category once billing confirms…",
+    );
+    cleanUrl();
+
+    let attempts = 0;
+    let cancelled = false;
+    const poll = async () => {
+      while (!cancelled && attempts < 8) {
+        attempts += 1;
+        const ents = await refreshEntitlements();
+        const allowed = ents?.loanCategories || [];
+        if (unlock && isLoanCategoryAllowed(unlock, allowed)) {
+          setSelectedCategory(unlock as LoanCategory);
+          setUpgradeCategory(null);
+          toast.success("Loan category unlocked — you can continue your application.");
+          return;
+        }
+        await new Promise((r) => setTimeout(r, 1500));
+      }
+      if (!cancelled) {
+        toast(
+          "Payment received. If the category is still locked, refresh in a few seconds.",
+          { icon: "ℹ️" },
+        );
+      }
+    };
+    void poll();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [publicEmbed, refreshEntitlements]);
+
   const CATEGORY_ICONS: Record<string, any> = {
     RESIDENTIAL_1_4: HomeIcon,
     CRE_MULTIFAMILY: Building2,
@@ -3194,14 +3258,26 @@ rounded-2xl p-6 shadow-sm
                       <button
                         key={category}
                         type="button"
-                        disabled={mode === "update" || locked}
+                        disabled={mode === "update"}
                         title={
                           locked && planTag
-                            ? `Requires ${planTag} plan`
+                            ? `Requires ${planTag} plan — click to upgrade`
                             : undefined
                         }
                         onClick={() => {
-                          if (locked) return;
+                          if (mode === "update") return;
+                          if (locked) {
+                            if (publicEmbed) {
+                              toast.error(
+                                planTag
+                                  ? `This category requires the ${planTag} plan.`
+                                  : "This category is not available on your plan.",
+                              );
+                              return;
+                            }
+                            setUpgradeCategory(category);
+                            return;
+                          }
                           setSelectedCategory(category);
                         }}
                         className={`relative flex-shrink-0 flex flex-col items-center justify-center gap-1 
@@ -3210,7 +3286,7 @@ rounded-2xl p-6 shadow-sm
         
         ${
           locked
-            ? "bg-slate-50 dark:bg-slate-900/60 border-slate-200 dark:border-slate-700 text-slate-400 dark:text-slate-500 opacity-80"
+            ? "bg-slate-50 dark:bg-slate-900/60 border-slate-200 dark:border-slate-700 text-slate-400 dark:text-slate-500 opacity-80 cursor-pointer hover:border-amber-300 hover:opacity-100 dark:hover:border-amber-600"
             : isSelected
               ? "bg-[#2C92D5] text-white border-[#2C92D5] shadow-md"
               : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:shadow-md"
@@ -6948,6 +7024,18 @@ focus:border-blue-500 outline-none text-sm ${
           </div>
         </div>
       </div>
+
+      <LoanCategoryUpgradeModal
+        isOpen={Boolean(upgradeCategory)}
+        category={upgradeCategory}
+        categoryLabel={
+          upgradeCategory
+            ? CATEGORY_LABELS[upgradeCategory] || upgradeCategory
+            : ""
+        }
+        canPurchase={canPurchaseCategoryUpgrade(portal, publicEmbed)}
+        onClose={() => setUpgradeCategory(null)}
+      />
     </>
   );
 };

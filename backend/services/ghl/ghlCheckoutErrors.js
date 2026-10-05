@@ -9,6 +9,7 @@ const CHECKOUT_ERROR_CODES = {
   INVALID_BILLING_PERIOD: "INVALID_BILLING_PERIOD",
   MISSING_GHL_PRICE: "MISSING_GHL_PRICE",
   MISSING_GHL_ADDON_PRICE: "MISSING_GHL_ADDON_PRICE",
+  STRIPE_PRICE_MODE_MISMATCH: "STRIPE_PRICE_MODE_MISMATCH",
   GHL_AUTH_FAILED: "GHL_AUTH_FAILED",
   GHL_API_FAILED: "GHL_API_FAILED",
   GHL_CONTACT_FAILED: "GHL_CONTACT_FAILED",
@@ -35,6 +36,8 @@ const USER_MESSAGES = {
     "This plan is not available for checkout right now. Please contact support.",
   [CHECKOUT_ERROR_CODES.MISSING_GHL_ADDON_PRICE]:
     "A selected add-on is not available for checkout right now. Please contact support.",
+  [CHECKOUT_ERROR_CODES.STRIPE_PRICE_MODE_MISMATCH]:
+    "Stripe price IDs don’t match your API key mode (test vs live). Use test price IDs with a test key, or live price IDs with a live key.",
   [CHECKOUT_ERROR_CODES.GHL_AUTH_FAILED]:
     "Payment service authentication failed. Please try again later or contact support.",
   [CHECKOUT_ERROR_CODES.GHL_API_FAILED]:

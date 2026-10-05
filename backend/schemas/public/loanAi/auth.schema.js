@@ -13,6 +13,10 @@ const loanAiRegisterSchema = z.object({
   lastName: z.string().trim().min(2).max(50),
   email: z.string().trim().toLowerCase().email(),
   password: loanAiPasswordSchema,
+  /** Optional plan context for GHL lead tagging (from pricing → signup). */
+  interestedPlanCode: z.string().trim().min(1).max(80).optional(),
+  interestedPlanName: z.string().trim().min(1).max(120).optional(),
+  signupMode: z.enum(["trial", "paid"]).optional(),
 });
 
 const loanAiLoginSchema = z.object({

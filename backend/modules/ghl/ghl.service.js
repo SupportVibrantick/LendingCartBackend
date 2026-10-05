@@ -131,7 +131,7 @@ function buildPlanTag(planCode) {
 }
 
 function buildTags({ interestedPlanCode } = {}) {
-  const tags = ["lendingcart-lead", "book-demo"];
+  const tags = ["loanautomation-lead", "book-demo"];
   const planTag = buildPlanTag(interestedPlanCode);
   if (planTag) tags.push(planTag);
   return [...new Set(tags)];

@@ -244,6 +244,17 @@ async function createStripeCheckoutSession({
       type: err?.type,
       code: err?.code,
     });
+    const stripeMsg = String(err?.message || "");
+    if (
+      err?.code === "resource_missing" ||
+      /no such price/i.test(stripeMsg) ||
+      (/live mode/i.test(stripeMsg) && /test mode/i.test(stripeMsg))
+    ) {
+      throw checkoutError(
+        CHECKOUT_ERROR_CODES.STRIPE_PRICE_MODE_MISMATCH,
+        503,
+      );
+    }
     throw checkoutError(CHECKOUT_ERROR_CODES.CHECKOUT_CREATE_FAILED, 502);
   }
 }

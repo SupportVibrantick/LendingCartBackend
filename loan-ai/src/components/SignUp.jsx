@@ -77,6 +77,19 @@ export default function SignUpPage() {
         lastName: form.lastName.trim(),
         email: form.email.trim().toLowerCase(),
         password: form.password,
+        ...(planState.planCode || planState.packageCode
+          ? {
+              interestedPlanCode: String(
+                planState.planCode || planState.packageCode,
+              ),
+            }
+          : {}),
+        ...(planState.planName
+          ? { interestedPlanName: String(planState.planName) }
+          : {}),
+        ...(planState.mode === "trial" || planState.mode === "paid"
+          ? { signupMode: planState.mode }
+          : {}),
       });
       toast.success("Account created! Continue with organization details…");
 

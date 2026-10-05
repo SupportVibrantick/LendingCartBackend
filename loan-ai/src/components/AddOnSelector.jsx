@@ -32,7 +32,9 @@ export default function AddOnSelector({
 }) {
   if (!addOns?.length) return null;
 
-  const cycleSuffix = billingCycle === "YEARLY" ? "/yr" : "/mo";
+  // Always show effective monthly rate. When billingCycle is YEARLY,
+  // callers resolve priceMonthly to the discounted yearly-monthly amount.
+  const cycleSuffix = "/mo";
   const included = Math.max(1, Number(includedUsers) || 1);
   const maxTotal =
     maxUsers != null && Number.isFinite(Number(maxUsers))
@@ -55,6 +57,11 @@ export default function AddOnSelector({
             Extend your plan with product packs, extra seats, and integrations.
           </p>
         )}
+        {billingCycle === "YEARLY" && (
+          <p className="mt-1 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+            Monthly rates with 20% yearly discount · billed annually
+          </p>
+        )}
       </div>
 
       <ul className="space-y-2">
@@ -68,10 +75,7 @@ export default function AddOnSelector({
                   String(code).toUpperCase() ===
                   String(addOn.code).toUpperCase(),
               );
-          const unitCycleAmount =
-            billingCycle === "YEARLY"
-              ? Number(addOn.priceMonthly) * 12
-              : Number(addOn.priceMonthly);
+          const unitCycleAmount = Number(addOn.priceMonthly) || 0;
           const displayName = getAddOnDisplayName(addOn);
 
           if (quantityBased) {
