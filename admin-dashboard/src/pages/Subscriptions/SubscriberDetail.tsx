@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, Navigate, useLocation } from "react-router-dom";
+import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import Swal from "sweetalert2";
 import {
@@ -19,25 +19,23 @@ import SubscriberSubNav from "../../components/subscriptions/SubscriberSubNav";
 import {
   StatusBadge,
   SubscriptionPageShell,
-  filterControlClass,
   primaryBtnClass,
   secondaryBtnClass,
 } from "../../components/subscriptions/SubscriptionUi";
 import {
   cancelSubscription,
-  changeSubscriptionPlan,
-  fetchPackages,
   fetchSubscriberDetail,
   formatPrice,
   generateInvoice,
   markInvoicePaid,
   refreshSubscriptionUsage,
   USAGE_METRIC_LABELS,
-  type BillingCycle,
   type SubscriberDetail as SubscriberDetailType,
-  type SubscriptionPackage,
 } from "../../lib/subscriptionApi";
-import { getSubscriberOrgId } from "../../lib/subscriberNavigation";
+import {
+  getSubscriberOrgId,
+  openSubscriberChangePlan,
+} from "../../lib/subscriberNavigation";
 import { getPackageCodeLabel } from "../../lib/packageDisplay";
 import {
   formatBillingCycleLabel,
@@ -54,6 +52,7 @@ function tierGradient(code?: string) {
 
 export default function SubscriberDetail() {
   const location = useLocation();
+  const navigate = useNavigate();
   const orgId = useMemo(
     () => getSubscriberOrgId(location.state as { organizationId?: string } | null),
     [location.state],
@@ -63,19 +62,10 @@ export default function SubscriberDetail() {
   const canManageInvoices = can("MANAGE_SUBSCRIPTION_INVOICES");
 
   const [detail, setDetail] = useState<SubscriberDetailType | null>(null);
-  const [packages, setPackages] = useState<SubscriptionPackage[]>([]);
   const [loading, setLoading] = useState(true);
-  const [changeOpen, setChangeOpen] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [detailPanel, setDetailPanel] = useState<"plan" | "invoices" | "history">(
     "plan",
   );
-  const [changeForm, setChangeForm] = useState({
-    packageId: "",
-    billingCycle: "MONTHLY" as BillingCycle,
-    notes: "",
-    generateInvoice: false,
-  });
 
   const load = async () => {
     if (!orgId) return;
@@ -87,15 +77,6 @@ export default function SubscriberDetail() {
         return;
       }
       setDetail(json.data);
-      const sub = json.data.subscription;
-      if (sub) {
-        setChangeForm({
-          packageId: sub.package.id,
-          billingCycle: sub.billingCycle,
-          notes: sub.notes || "",
-          generateInvoice: false,
-        });
-      }
     } catch {
       toast.error("Failed to load subscriber");
     } finally {
@@ -106,38 +87,11 @@ export default function SubscriberDetail() {
   useEffect(() => {
     if (!orgId) return;
     load();
-    fetchPackages({ limit: 50, isActive: true }).then((json) => {
-      if (json.success) setPackages(json.data || []);
-    });
   }, [orgId]);
 
   if (!orgId) {
     return <Navigate to="/subscription-subscribers" replace />;
   }
-
-  const handleChangePlan = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!orgId) return;
-    try {
-      setSaving(true);
-      const json = await changeSubscriptionPlan({
-        organizationId: orgId,
-        packageId: changeForm.packageId,
-        billingCycle: changeForm.billingCycle,
-        notes: changeForm.notes || undefined,
-        generateInvoice: changeForm.generateInvoice,
-      });
-      if (!json.success) {
-        toast.error(json.message || "Change plan failed");
-        return;
-      }
-      toast.success("Plan updated");
-      setChangeOpen(false);
-      load();
-    } finally {
-      setSaving(false);
-    }
-  };
 
   const handleCancel = async (immediate: boolean) => {
     if (!orgId) return;
@@ -281,7 +235,7 @@ export default function SubscriberDetail() {
               </button>
               <button
                 type="button"
-                onClick={() => setChangeOpen(true)}
+                onClick={() => openSubscriberChangePlan(navigate, orgId)}
                 className={primaryBtnClass}
               >
                 Change Plan
@@ -708,82 +662,6 @@ export default function SubscriberDetail() {
               )}
             </div>
           </section>
-        </div>
-      )}
-
-      {changeOpen && (
-        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4">
-          <button
-            type="button"
-            aria-label="Close"
-            onClick={() => setChangeOpen(false)}
-            className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm"
-          />
-          <form
-            onSubmit={handleChangePlan}
-            className="relative w-full max-w-md space-y-4 rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-700 dark:bg-slate-900"
-          >
-            <div>
-              <h2 className="text-lg font-bold text-slate-900 dark:text-white">Change Plan</h2>
-              <p className="mt-0.5 text-xs text-slate-500">
-                Update package, billing cycle, or notes for this broker.
-              </p>
-            </div>
-            <select
-              value={changeForm.packageId}
-              onChange={(e) => setChangeForm((f) => ({ ...f, packageId: e.target.value }))}
-              className={`w-full ${filterControlClass}`}
-              required
-            >
-              {packages.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name} — {formatPrice(p.priceMonthly)}/mo
-                </option>
-              ))}
-            </select>
-            <select
-              value={changeForm.billingCycle}
-              onChange={(e) =>
-                setChangeForm((f) => ({
-                  ...f,
-                  billingCycle: e.target.value as BillingCycle,
-                }))
-              }
-              className={`w-full ${filterControlClass}`}
-            >
-              <option value="MONTHLY">Monthly</option>
-              <option value="YEARLY">Yearly</option>
-            </select>
-            <textarea
-              rows={2}
-              value={changeForm.notes}
-              onChange={(e) => setChangeForm((f) => ({ ...f, notes: e.target.value }))}
-              placeholder="Notes"
-              className={`w-full resize-none ${filterControlClass}`}
-            />
-            <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
-              <input
-                type="checkbox"
-                checked={changeForm.generateInvoice}
-                onChange={(e) =>
-                  setChangeForm((f) => ({ ...f, generateInvoice: e.target.checked }))
-                }
-              />
-              Generate invoice for plan change
-            </label>
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={() => setChangeOpen(false)}
-                className={`flex-1 ${secondaryBtnClass}`}
-              >
-                Cancel
-              </button>
-              <button type="submit" disabled={saving} className={`flex-1 ${primaryBtnClass}`}>
-                {saving ? "Saving..." : "Update Plan"}
-              </button>
-            </div>
-          </form>
         </div>
       )}
     </SubscriptionPageShell>

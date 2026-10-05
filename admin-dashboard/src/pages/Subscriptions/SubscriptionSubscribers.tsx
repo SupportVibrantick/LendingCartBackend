@@ -32,7 +32,6 @@ import {
 import { useDebouncedValue } from "../../hooks/useDebouncedValue";
 import {
   assignSubscription,
-  changeSubscriptionPlan,
   fetchBrokerOptions,
   fetchPackages,
   fetchSubscribers,
@@ -43,6 +42,7 @@ import {
   type SubscriptionPackage,
 } from "../../lib/subscriptionApi";
 import {
+  openSubscriberChangePlan,
   openSubscriberDetail,
   openSubscriberPermissions,
 } from "../../lib/subscriberNavigation";
@@ -93,9 +93,6 @@ export default function SubscriptionSubscribers() {
   const [assignOpen, setAssignOpen] = useState(false);
   const [assigning, setAssigning] = useState(false);
   const [assignLockedBroker, setAssignLockedBroker] = useState<BrokerOption | null>(null);
-  const [changeOpen, setChangeOpen] = useState(false);
-  const [changing, setChanging] = useState(false);
-  const [changeRow, setChangeRow] = useState<SubscriberRow | null>(null);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
   const menuRef = useRef<HTMLDivElement | null>(null);
@@ -104,12 +101,6 @@ export default function SubscriptionSubscribers() {
     packageId: "",
     billingCycle: "MONTHLY" as BillingCycle,
     trialDays: "0",
-    notes: "",
-    generateInvoice: false,
-  });
-  const [changeForm, setChangeForm] = useState({
-    packageId: "",
-    billingCycle: "MONTHLY" as BillingCycle,
     notes: "",
     generateInvoice: false,
   });
@@ -244,29 +235,16 @@ export default function SubscriptionSubscribers() {
   };
 
   const openChangePlan = (row: SubscriberRow) => {
-    const sub = row.subscription;
-    if (!sub?.package) {
+    if (!row.subscription?.package) {
       toast.error("No active subscription to change");
       return;
     }
-    setChangeRow(row);
-    setChangeForm({
-      packageId: sub.package.id,
-      billingCycle: sub.billingCycle,
-      notes: "",
-      generateInvoice: false,
-    });
-    setChangeOpen(true);
+    openSubscriberChangePlan(navigate, row.organizationId);
   };
 
   const closeAssign = () => {
     setAssignLockedBroker(null);
     setAssignOpen(false);
-  };
-
-  const closeChange = () => {
-    setChangeRow(null);
-    setChangeOpen(false);
   };
 
   const handleAssign = async (e: React.FormEvent) => {
@@ -297,47 +275,13 @@ export default function SubscriptionSubscribers() {
     }
   };
 
-  const handleChangePlan = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!changeRow?.organizationId || !changeForm.packageId) {
-      toast.error("Package is required");
-      return;
-    }
-    try {
-      setChanging(true);
-      const json = await changeSubscriptionPlan({
-        organizationId: changeRow.organizationId,
-        packageId: changeForm.packageId,
-        billingCycle: changeForm.billingCycle,
-        notes: changeForm.notes || undefined,
-        generateInvoice: changeForm.generateInvoice,
-      });
-      if (!json.success) {
-        toast.error(json.message || "Change plan failed");
-        return;
-      }
-      toast.success("Plan updated");
-      closeChange();
-      fetchRows();
-    } finally {
-      setChanging(false);
-    }
-  };
-
   const selectedAssignPkg = packages.find((p) => p.id === assignForm.packageId);
-  const selectedChangePkg = packages.find((p) => p.id === changeForm.packageId);
   const assignPrice =
     selectedAssignPkg == null
       ? null
       : assignForm.billingCycle === "YEARLY"
         ? selectedAssignPkg.priceYearly ?? selectedAssignPkg.priceMonthly
         : selectedAssignPkg.priceMonthly;
-  const changePrice =
-    selectedChangePkg == null
-      ? null
-      : changeForm.billingCycle === "YEARLY"
-        ? selectedChangePkg.priceYearly ?? selectedChangePkg.priceMonthly
-        : selectedChangePkg.priceMonthly;
 
   return (
     <SubscriptionPageShell>
@@ -844,198 +788,6 @@ export default function SubscriptionSubscribers() {
               </button>
               <button type="submit" disabled={assigning} className={`flex-1 ${primaryBtnClass}`}>
                 {assigning ? "Assigning..." : "Assign plan"}
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
-
-      {changeOpen && changeRow && (
-        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4">
-          <button
-            type="button"
-            aria-label="Close"
-            onClick={closeChange}
-            className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm"
-          />
-          <form
-            onSubmit={handleChangePlan}
-            className="relative flex max-h-[min(920px,92vh)] w-full max-w-lg flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900"
-          >
-            <div className="relative overflow-hidden border-b border-slate-100 bg-gradient-to-br from-[#13538A] via-[#0B3A63] to-[#18B6B4] px-6 py-5 text-white dark:border-slate-800">
-              <div className="pointer-events-none absolute -right-8 -top-10 h-36 w-36 rounded-full bg-white/10" />
-              <div className="relative flex items-start justify-between gap-3">
-                <div className="flex items-start gap-3">
-                  <span className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-2xl bg-white/15 ring-1 ring-white/25">
-                    <FiRepeat size={18} />
-                  </span>
-                  <div>
-                    <h2 className="text-lg font-bold tracking-tight">Change Plan</h2>
-                    <p className="mt-0.5 text-xs text-white/75">
-                      Update package or billing for this broker.
-                    </p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={closeChange}
-                  className="rounded-xl p-1.5 text-white/80 transition hover:bg-white/15 hover:text-white"
-                  aria-label="Close dialog"
-                >
-                  <FiX size={18} />
-                </button>
-              </div>
-            </div>
-
-            <div className="space-y-5 overflow-y-auto px-6 py-5">
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-800/60">
-                <p className="font-semibold text-slate-900 dark:text-white">
-                  {changeRow.organizationName}
-                </p>
-                {changeRow.organizationEmail ? (
-                  <p className="mt-0.5 text-xs text-slate-500">{changeRow.organizationEmail}</p>
-                ) : null}
-                {changeRow.subscription?.package ? (
-                  <p className="mt-2 text-xs text-slate-600 dark:text-slate-300">
-                    Current:{" "}
-                    <span className="font-semibold">
-                      {changeRow.subscription.package.name}
-                    </span>
-                    <span className="text-slate-400">
-                      {" "}
-                      ({getPackageCodeLabel(changeRow.subscription.package.code)}) ·{" "}
-                      {changeRow.subscription.billingCycle === "YEARLY" ? "Yearly" : "Monthly"}
-                    </span>
-                  </p>
-                ) : null}
-              </div>
-
-              <div>
-                <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  New package
-                </label>
-                <div className="grid gap-2.5 sm:grid-cols-3">
-                  {packages.map((pkg) => {
-                    const selected = changeForm.packageId === pkg.id;
-                    const isCurrent = changeRow.subscription?.package?.id === pkg.id;
-                    const tone = packageTierTone(pkg.code);
-                    return (
-                      <button
-                        key={pkg.id}
-                        type="button"
-                        onClick={() => setChangeForm((f) => ({ ...f, packageId: pkg.id }))}
-                        className={`relative rounded-2xl border px-3 py-3 text-left transition ${
-                          selected
-                            ? `${tone.ring} ring-2 bg-white shadow-sm dark:bg-slate-800`
-                            : "border-slate-200 bg-slate-50/80 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-800/40"
-                        }`}
-                      >
-                        {selected ? (
-                          <span
-                            className={`absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full ${tone.badge}`}
-                          >
-                            <FiCheck size={11} strokeWidth={3} />
-                          </span>
-                        ) : null}
-                        <span
-                          className={`inline-flex rounded-md px-1.5 py-0.5 text-[10px] font-bold tracking-wide ${tone.soft}`}
-                        >
-                          {getPackageCodeLabel(pkg.code)}
-                        </span>
-                        <p className="mt-1.5 text-sm font-semibold text-slate-900 dark:text-white">
-                          {pkg.name}
-                        </p>
-                        <p className="mt-1 text-xs text-slate-500">
-                          {formatPrice(pkg.priceMonthly)}
-                          <span className="text-slate-400">/mo</span>
-                        </p>
-                        {isCurrent ? (
-                          <p className="mt-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-                            Current
-                          </p>
-                        ) : null}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div>
-                <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Billing cycle
-                </label>
-                <div className="grid grid-cols-2 gap-2 rounded-2xl bg-slate-100 p-1 dark:bg-slate-800">
-                  {(["MONTHLY", "YEARLY"] as BillingCycle[]).map((cycle) => {
-                    const active = changeForm.billingCycle === cycle;
-                    return (
-                      <button
-                        key={cycle}
-                        type="button"
-                        onClick={() => setChangeForm((f) => ({ ...f, billingCycle: cycle }))}
-                        className={`rounded-xl px-3 py-2.5 text-sm font-semibold transition ${
-                          active
-                            ? "bg-white text-[#13538A] shadow-sm dark:bg-slate-900 dark:text-[#5BA3D9]"
-                            : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
-                        }`}
-                      >
-                        {cycle === "YEARLY" ? "Yearly" : "Monthly"}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-800/50">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-                  New price
-                </p>
-                <p className="text-lg font-bold text-slate-900 dark:text-white">
-                  {changePrice != null ? formatPrice(changePrice) : "—"}
-                  <span className="ml-1 text-xs font-medium text-slate-400">
-                    /{changeForm.billingCycle === "YEARLY" ? "yr" : "mo"}
-                  </span>
-                </p>
-              </div>
-
-              <div>
-                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Notes <span className="font-normal normal-case tracking-normal">(optional)</span>
-                </label>
-                <textarea
-                  rows={2}
-                  value={changeForm.notes}
-                  onChange={(e) => setChangeForm((f) => ({ ...f, notes: e.target.value }))}
-                  placeholder="Reason for plan change..."
-                  className={`w-full resize-none ${filterControlClass}`}
-                />
-              </div>
-
-              <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50/80 px-3.5 py-3 dark:border-slate-700 dark:bg-slate-800/40">
-                <input
-                  type="checkbox"
-                  checked={changeForm.generateInvoice}
-                  onChange={(e) =>
-                    setChangeForm((f) => ({ ...f, generateInvoice: e.target.checked }))
-                  }
-                  className="mt-0.5 h-4 w-4 rounded border-slate-300 text-[#13538A] focus:ring-[#13538A]"
-                />
-                <span>
-                  <span className="block text-sm font-medium text-slate-800 dark:text-slate-100">
-                    Generate invoice for plan change
-                  </span>
-                  <span className="mt-0.5 block text-xs text-slate-500">
-                    Creates a new invoice for the updated plan period.
-                  </span>
-                </span>
-              </label>
-            </div>
-
-            <div className="flex gap-3 border-t border-slate-100 bg-slate-50/80 px-6 py-4 dark:border-slate-800 dark:bg-slate-900/80">
-              <button type="button" onClick={closeChange} className={`flex-1 ${secondaryBtnClass}`}>
-                Cancel
-              </button>
-              <button type="submit" disabled={changing} className={`flex-1 ${primaryBtnClass}`}>
-                {changing ? "Updating..." : "Update plan"}
               </button>
             </div>
           </form>

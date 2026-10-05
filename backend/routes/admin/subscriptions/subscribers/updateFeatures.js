@@ -3,6 +3,7 @@ const {
   normalizeFeatureKeys,
   resolveEnabledFeatures,
   splitFeatures,
+  defaultFeaturesForPackage,
 } = require("../../../../services/subscription/brokerOrgFeatures");
 const {
   ACTIVE_SUB_STATUSES,
@@ -32,6 +33,101 @@ async function updateFeaturesRoutes(fastify) {
         return reply.status(500).send({
           success: false,
           message: "Failed to load feature catalog",
+        });
+      }
+    },
+  );
+
+  fastify.get(
+    "/features/package-defaults",
+    {
+      schema: {
+        tags: ["Admin -> Subscriptions"],
+        summary:
+          "Preview package default features (optionally merge org add-ons)",
+        querystring: {
+          type: "object",
+          properties: {
+            packageId: { type: "string" },
+            packageCode: { type: "string" },
+            organizationId: { type: "string" },
+          },
+        },
+      },
+    },
+    async (req, reply) => {
+      const prisma = fastify.prisma;
+      try {
+        const packageId = req.query?.packageId
+          ? String(req.query.packageId)
+          : "";
+        const packageCodeRaw = req.query?.packageCode
+          ? String(req.query.packageCode)
+          : "";
+        const organizationId = req.query?.organizationId
+          ? String(req.query.organizationId)
+          : "";
+
+        let packageCode = packageCodeRaw.toUpperCase();
+        let packageName = null;
+        let pkgId = packageId || null;
+
+        if (packageId) {
+          const pkg = await prisma.subscriptionPackage.findFirst({
+            where: { id: packageId },
+            select: { id: true, code: true, name: true },
+          });
+          if (!pkg) {
+            return reply.status(404).send({
+              success: false,
+              message: "Package not found",
+            });
+          }
+          packageCode = String(pkg.code || "").toUpperCase();
+          packageName = pkg.name;
+          pkgId = pkg.id;
+        } else if (!packageCode) {
+          return reply.status(400).send({
+            success: false,
+            message: "packageId or packageCode is required",
+          });
+        }
+
+        let purchasedAddOns = [];
+        if (organizationId) {
+          const sub = await prisma.organizationSubscription.findFirst({
+            where: {
+              organizationId,
+              status: { in: ACTIVE_SUB_STATUSES },
+            },
+            select: { purchasedAddOns: true },
+            orderBy: { createdAt: "desc" },
+          });
+          purchasedAddOns = Array.isArray(sub?.purchasedAddOns)
+            ? sub.purchasedAddOns
+            : [];
+        }
+
+        const defaults = defaultFeaturesForPackage(
+          packageCode,
+          purchasedAddOns,
+        );
+
+        return reply.send({
+          success: true,
+          data: {
+            packageId: pkgId,
+            packageCode,
+            packageName,
+            defaults,
+            ...splitFeatures(defaults),
+          },
+        });
+      } catch (error) {
+        fastify.log.error(error);
+        return reply.status(500).send({
+          success: false,
+          message: "Failed to load package feature defaults",
         });
       }
     },
