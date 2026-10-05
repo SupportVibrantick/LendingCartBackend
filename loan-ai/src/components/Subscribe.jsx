@@ -16,6 +16,8 @@ import AuthPageHeader from "./AuthPageHeader";
 import AddOnSelector from "./AddOnSelector";
 import { useAuth } from "../context/AuthContext";
 
+const YEARLY_SAVE_PERCENT = 20;
+
 function formatPrice(value) {
   const num = Number(value);
   if (Number.isNaN(num)) return "—";
@@ -27,11 +29,31 @@ function formatPrice(value) {
   }).format(num);
 }
 
+/**
+ * US national number (10 digits). Handles +1, leading 1, and mistaken 01 prefix.
+ */
+function normalizeUsPhoneDigits(value) {
+  let digits = String(value || "").replace(/\D/g, "");
+  if (!digits) return "";
+
+  if (digits.startsWith("01")) {
+    digits = digits.slice(2);
+  }
+
+  if (digits.length >= 11 && digits.startsWith("1")) {
+    digits = digits.slice(1);
+  }
+
+  if (digits.length > 10 && digits.startsWith("0")) {
+    digits = digits.slice(1);
+  }
+
+  return digits.slice(0, 10);
+}
+
 /** US phone display: 333-333-3333 (exactly 10 digits max). */
 function formatPhoneDisplay(value) {
-  const digits = String(value || "")
-    .replace(/\D/g, "")
-    .slice(0, 10);
+  const digits = normalizeUsPhoneDigits(value);
   if (digits.length <= 3) return digits;
   if (digits.length <= 6) {
     return `${digits.slice(0, 3)}-${digits.slice(3)}`;
@@ -40,7 +62,7 @@ function formatPhoneDisplay(value) {
 }
 
 function digitsOnlyPhone(value) {
-  return String(value || "").replace(/\D/g, "").slice(0, 10);
+  return normalizeUsPhoneDigits(value);
 }
 
 /**
@@ -227,8 +249,10 @@ export default function SubscribePage() {
       return false;
     }
     const phone = digitsOnlyPhone(form.organizationPhone);
-    if (!/^[0-9]{10}$/.test(phone)) {
-      toast.error("Enter a valid US phone number (10 digits)");
+    if (!/^[2-9][0-9]{9}$/.test(phone)) {
+      toast.error(
+        "Enter a valid US phone number (10 digits, area code cannot start with 0 or 1)",
+      );
       return false;
     }
     return phone;
@@ -454,13 +478,24 @@ export default function SubscribePage() {
                     key={cycle}
                     type="button"
                     onClick={() => setBillingCycle(cycle)}
-                    className={`flex-1 rounded-xl border py-2 text-sm font-semibold transition ${
+                    className={`relative flex flex-1 items-center justify-center gap-2 rounded-xl border py-2 text-sm font-semibold transition ${
                       billingCycle === cycle
                         ? "border-slate-900 bg-slate-900 text-white dark:border-white dark:bg-white dark:text-[#0b1020]"
                         : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-white/20 dark:bg-transparent dark:text-slate-300 dark:hover:bg-white/5"
                     }`}
                   >
-                    {cycle === "MONTHLY" ? "Monthly" : "Yearly"}
+                    <span>{cycle === "MONTHLY" ? "Monthly" : "Yearly"}</span>
+                    {cycle === "YEARLY" && (
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+                          billingCycle === "YEARLY"
+                            ? "bg-emerald-500 text-white"
+                            : "bg-emerald-500/15 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300"
+                        }`}
+                      >
+                        Save {YEARLY_SAVE_PERCENT}%
+                      </span>
+                    )}
                   </button>
                 ))}
               </div>
@@ -505,10 +540,8 @@ export default function SubscribePage() {
                       <>
                         {selectedAddOns.map((addOn) => {
                         const qty = Math.max(1, Number(addOn.quantity) || 1);
-                        const unit =
-                          billingCycle === "YEARLY"
-                            ? Number(addOn.priceMonthly) * 12
-                            : Number(addOn.priceMonthly);
+                        // Show effective monthly rate (yearly already discounted via catalog).
+                        const unit = Number(addOn.priceMonthly) || 0;
                         const isExtraUser =
                           String(addOn.code).toUpperCase() === "EXTRA_USER";
                         const included = Math.max(
@@ -524,10 +557,7 @@ export default function SubscribePage() {
                             className="flex items-center justify-between gap-3 text-slate-600 dark:text-slate-300"
                           >
                             <span>{label}</span>
-                            <span>
-                              +{formatPrice(unit * qty)}/
-                              {checkoutSummary.billingLabel}
-                            </span>
+                            <span>+{formatPrice(unit * qty)}/mo</span>
                           </div>
                         );
                       })}
@@ -566,16 +596,26 @@ export default function SubscribePage() {
                 }
                 required
               />
-              <input
-                className={inputClass}
-                placeholder="Phone * (333-333-3333)"
-                inputMode="tel"
-                autoComplete="tel"
-                maxLength={12}
-                value={form.organizationPhone}
-                onChange={(e) => handlePhoneChange(e.target.value)}
-                required
-              />
+              <div className="flex w-full overflow-hidden rounded-xl border border-slate-200 bg-white focus-within:ring-2 focus-within:ring-blue-500 dark:border-white/20 dark:bg-white/10">
+                <span
+                  className="flex shrink-0 items-center border-r border-slate-200 px-3 py-2.5 text-sm font-medium text-slate-600 dark:border-white/20 dark:text-slate-300"
+                  aria-hidden
+                >
+                  +1
+                </span>
+                <input
+                  className="min-w-0 flex-1 border-0 bg-transparent px-4 py-2.5 text-sm text-slate-900 outline-none placeholder:text-slate-400 dark:text-white dark:placeholder:text-slate-400"
+                  placeholder="333-333-3333 *"
+                  type="tel"
+                  inputMode="tel"
+                  autoComplete="tel-national"
+                  maxLength={12}
+                  value={form.organizationPhone}
+                  onChange={(e) => handlePhoneChange(e.target.value)}
+                  aria-label="US phone number"
+                  required
+                />
+              </div>
               <div className="grid grid-cols-2 gap-3">
                 <input
                   className={inputClass}

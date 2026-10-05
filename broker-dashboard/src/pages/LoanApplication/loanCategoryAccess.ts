@@ -39,6 +39,20 @@ export function getLoanCategoryPlanTag(
 }
 
 /**
+ * Preferred add-on codes that unlock a locked category (first match wins).
+ * Keep in sync with backend `defaultFeaturesForPackage` add-on gates.
+ */
+export const LOAN_CATEGORY_UPGRADE_ADDONS: Record<string, string[]> = {
+  CRE_MULTIFAMILY: ["CRE_PACK"],
+  SBA_USDA: ["BUSINESS_LENDING_PACK", "SBA_PACK"],
+  ABL: ["BUSINESS_LENDING_PACK", "ABL_PACK"],
+};
+
+export function getUpgradeAddOnCodesForCategory(category: string): string[] {
+  return LOAN_CATEGORY_UPGRADE_ADDONS[category] || [];
+}
+
+/**
  * Whether the org may select this category.
  * Fail closed: missing/empty allowed list → only Residential.
  */

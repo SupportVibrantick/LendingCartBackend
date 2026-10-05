@@ -9,6 +9,9 @@ const {
   notifyPlatform,
   PLATFORM_NOTIFICATION_EVENTS,
 } = require("../../../../services/notifications/platformNotifications");
+const {
+  syncSignupLeadToGhlInBackground,
+} = require("../../../../services/ghl/bookDemoLeadSync");
 
 function signLoanAiToken(user) {
   return jwt.sign(
@@ -60,7 +63,15 @@ async function loanAiRegisterRoutes(fastify) {
           });
         }
 
-        const { firstName, lastName, email, password } = parsed.data;
+        const {
+          firstName,
+          lastName,
+          email,
+          password,
+          interestedPlanCode,
+          interestedPlanName,
+          signupMode,
+        } = parsed.data;
 
         const existing = await prisma.loanAiUser.findFirst({
           where: { email: { equals: email, mode: "insensitive" } },
@@ -115,6 +126,9 @@ async function loanAiRegisterRoutes(fastify) {
               firstName,
               lastName,
               email,
+              interestedPlanCode: interestedPlanCode || null,
+              interestedPlanName: interestedPlanName || null,
+              signupMode: signupMode || null,
               source: "loan-ai-register",
             },
           });
@@ -123,6 +137,20 @@ async function loanAiRegisterRoutes(fastify) {
             error: notifyErr.message,
           });
         }
+
+        // Non-blocking: signup must succeed even if GHL is down.
+        syncSignupLeadToGhlInBackground(
+          {
+            id: user.id,
+            firstName,
+            lastName,
+            email,
+            interestedPlanCode: interestedPlanCode || null,
+            interestedPlanName: interestedPlanName || null,
+            signupMode: signupMode || null,
+          },
+          { logger: req.log },
+        );
 
         return reply.status(201).send({
           success: true,

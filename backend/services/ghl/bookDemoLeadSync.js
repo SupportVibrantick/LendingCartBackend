@@ -31,7 +31,7 @@ function toAdminManualGhlPayload(lead) {
     interestedPlan: lead.campaign || "",
     lendingCartLeadId: lead.id || "",
     tags: [
-      "lendingcart-lead",
+      "loanautomation-lead",
       "admin-contact",
       String(lead.source || "admin")
         .toLowerCase()
@@ -151,12 +151,83 @@ function syncAdminManualLeadToGhlInBackground(prisma, lead, options = {}) {
   });
 }
 
+/**
+ * Upsert a Loan AI signup contact in GHL (no lead-table status fields).
+ * Fire-and-forget — never blocks registration.
+ */
+function toSignupGhlPayload({
+  id,
+  firstName,
+  lastName,
+  email,
+  interestedPlanCode,
+  interestedPlanName,
+  signupMode,
+} = {}) {
+  const planTag = interestedPlanCode
+    ? String(interestedPlanCode)
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "")
+    : "";
+  const tags = ["loanautomation-lead", "loan-ai-signup"];
+  if (signupMode === "trial") tags.push("loan-ai-trial");
+  if (planTag) tags.push(`plan-${planTag}`);
+
+  return {
+    firstName: firstName || "",
+    lastName: lastName || "",
+    email,
+    leadSource: "LendingCart Website",
+    leadType: signupMode === "trial" ? "Signup Trial" : "Signup",
+    interestedPlan: interestedPlanName || interestedPlanCode || "",
+    lendingCartLeadId: id || "",
+    tags: [...new Set(tags.filter(Boolean))],
+  };
+}
+
+async function syncSignupLeadToGhl(user, options = {}) {
+  const { logger } = options;
+  if (!user?.email) return { skipped: true, reason: "missing_email" };
+
+  if (!isGhlEnabled()) {
+    return { skipped: true, reason: "GHL_ENABLED=false" };
+  }
+
+  if (!ghlService.canSyncContacts()) {
+    throw new Error(
+      "GHL contact sync requires GHL_API_KEY + GHL_LOCATION_ID",
+    );
+  }
+
+  return ghlService.upsertGhlContact(toSignupGhlPayload(user));
+}
+
+function syncSignupLeadToGhlInBackground(user, options = {}) {
+  setImmediate(() => {
+    syncSignupLeadToGhl(user, options).catch((err) => {
+      if (options.logger?.warn) {
+        options.logger.warn(
+          { err: err.message, userId: user?.id },
+          "Background Loan AI signup GHL sync failed",
+        );
+      } else {
+        console.error("Background Loan AI signup GHL sync failed:", err.message);
+      }
+    });
+  });
+}
+
 module.exports = {
   syncBookDemoLeadToGhl,
   syncBookDemoLeadToGhlInBackground,
   syncAdminManualLeadToGhl,
   syncAdminManualLeadToGhlInBackground,
+  syncSignupLeadToGhl,
+  syncSignupLeadToGhlInBackground,
   toBookDemoGhlPayload,
   toAdminManualGhlPayload,
+  toSignupGhlPayload,
   toGhlContactPayload: toBookDemoGhlPayload,
 };
