@@ -25,6 +25,8 @@ type AvailableAddOn = {
 };
 
 type AddOnsPayload = {
+  subscriptionId?: string;
+  status?: string | null;
   packageCode: string | null;
   packageName: string | null;
   billingCycle: "MONTHLY" | "YEARLY" | string;
@@ -253,6 +255,14 @@ export default function LoanCategoryUpgradeModal({
                   <span className="opacity-80">Billing</span>
                   <span className="font-semibold">{billingCycleLabel}</span>
                 </p>
+                {data.status ? (
+                  <p className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-2.5 py-1 text-xs text-sky-50 ring-1 ring-white/15">
+                    <span className="opacity-80">Status</span>
+                    <span className="font-semibold">
+                      {String(data.status).replace(/_/g, " ")}
+                    </span>
+                  </p>
+                ) : null}
               </div>
             )}
           </div>

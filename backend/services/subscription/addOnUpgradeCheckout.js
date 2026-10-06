@@ -26,7 +26,10 @@ function assertGhlPriceActive(priceDetails) {
   }
 }
 
+/** Subscriptions that can load add-on catalog / start checkout. */
 const ACTIVE = ["ACTIVE", "TRIAL", "PAST_DUE"];
+/** Prefer these when an org has multiple subscription rows. */
+const PREFERRED_ACTIVE = ["ACTIVE", "TRIAL"];
 
 const ADDON_DESCRIPTIONS = {
   CRE_PACK: "Unlock CRE & Multifamily loan categories for your team.",
@@ -52,17 +55,33 @@ function getExtraUserQty(purchasedAddOns) {
   ).length;
 }
 
+const SUB_INCLUDE = {
+  package: true,
+  organization: true,
+  loanAiUser: true,
+};
+
+/**
+ * Prefer ACTIVE/TRIAL over PAST_DUE when multiple rows exist (common after
+ * renewals / failed invoices), so checkout does not latch onto a stale PAST_DUE.
+ */
 async function getActiveBrokerSubscription(prisma, organizationId) {
+  const preferred = await prisma.organizationSubscription.findFirst({
+    where: {
+      organizationId,
+      status: { in: PREFERRED_ACTIVE },
+    },
+    include: SUB_INCLUDE,
+    orderBy: { createdAt: "desc" },
+  });
+  if (preferred) return preferred;
+
   return prisma.organizationSubscription.findFirst({
     where: {
       organizationId,
       status: { in: ACTIVE },
     },
-    include: {
-      package: true,
-      organization: true,
-      loanAiUser: true,
-    },
+    include: SUB_INCLUDE,
     orderBy: { createdAt: "desc" },
   });
 }
@@ -247,9 +266,15 @@ async function startAddOnUpgradeCheckout(prisma, input = {}) {
     });
   }
 
-  if (!["ACTIVE", "TRIAL"].includes(sub.status)) {
+  const status = String(sub.status || "").toUpperCase();
+  // Align with catalog load: ACTIVE / TRIAL / PAST_DUE may purchase add-ons.
+  // PAST_DUE is common in production when a renewal invoice is unpaid but the
+  // broker still has an eligible subscription row.
+  if (!ACTIVE.includes(status)) {
     throw Object.assign(
-      new Error("Subscription must be ACTIVE or TRIAL to purchase add-ons"),
+      new Error(
+        `Subscription must be ACTIVE, TRIAL, or PAST_DUE to purchase add-ons (current: ${status || "unknown"})`,
+      ),
       { statusCode: 409, code: "SUBSCRIPTION_NOT_ELIGIBLE" },
     );
   }
