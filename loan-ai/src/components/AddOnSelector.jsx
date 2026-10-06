@@ -75,7 +75,7 @@ export default function AddOnSelector({
             <button
               type="button"
               onClick={handleSelectAll}
-              className="shrink-0 text-xs font-semibold text-indigo-600 transition hover:text-indigo-500 dark:text-indigo-300 dark:hover:text-indigo-200"
+              className="shrink-0 cursor-pointer text-xs font-semibold text-indigo-600 transition hover:text-indigo-500 dark:text-indigo-300 dark:hover:text-indigo-200"
             >
               {allCheckboxSelected ? "Deselect all" : "Select all"}
             </button>

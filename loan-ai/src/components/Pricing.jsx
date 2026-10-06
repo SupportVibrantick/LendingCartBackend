@@ -528,7 +528,7 @@ function InCardAddOns({
         <button
           type="button"
           onClick={handleSelectAll}
-          className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-[#4B83FF] transition hover:opacity-80"
+          className="shrink-0 cursor-pointer text-[10px] font-semibold uppercase tracking-wide text-[#4B83FF] transition hover:opacity-80"
         >
           {allSelected ? "Deselect all" : "Select all"}
         </button>
