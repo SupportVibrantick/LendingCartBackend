@@ -40,18 +40,19 @@ const headingClass =
   "mt-5 text-2xl font-bold text-slate-900 sm:text-3xl dark:text-white";
 const bodyClass =
   "mt-3 text-sm leading-relaxed text-slate-600 sm:text-base dark:text-slate-300";
-const tipClass = "mt-6 text-xs text-slate-500";
+const tipClass = "mt-6 text-xs text-slate-500 dark:text-slate-400";
 const infoBoxClass =
-  "mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left text-sm text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300";
+  "mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left text-sm text-slate-700 dark:border-white/10 dark:bg-white/5 dark:text-slate-300";
 const infoTitleClass = "font-semibold text-slate-900 dark:text-white";
-const infoMutedClass = "mt-1 text-slate-500 dark:text-slate-400";
+const infoMutedClass = "mt-1 text-slate-600 dark:text-slate-400";
 const warnBoxClass =
-  "mt-4 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-left text-sm text-amber-900 dark:border-amber-400/30 dark:bg-amber-500/10 dark:text-amber-100";
+  "mt-4 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-left text-sm font-medium text-amber-950 dark:border-amber-400/40 dark:bg-amber-500/15 dark:text-amber-100";
 
 function ResultShell({ children }) {
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-100 px-6 py-16 text-slate-900 transition-colors dark:bg-[#0b1020] dark:text-white">
-      <div className="w-full max-w-lg rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-xl shadow-slate-900/10 sm:p-10 dark:border-white/10 dark:bg-gradient-to-b dark:from-white/10 dark:to-white/5 dark:shadow-2xl dark:shadow-black/40">
+      {/* Solid dark:bg so it replaces bg-white (gradients alone leave the white fill). */}
+      <div className="w-full max-w-lg rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-xl shadow-slate-900/10 sm:p-10 dark:border-white/10 dark:bg-[#12182a] dark:shadow-2xl dark:shadow-black/40">
         {children}
       </div>
     </div>

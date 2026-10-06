@@ -103,6 +103,54 @@ export function toggleAddOnCode(selectedCodes, code) {
 }
 
 /**
+ * Select or clear all checkbox add-ons (not quantity seats like EXTRA_USER).
+ * Preserves any quantity-based codes already in the selection.
+ *
+ * @param {string[]} selectedCodes
+ * @param {Array<{ code?: string } | string>} checkboxAddOns
+ * @param {boolean} selected
+ * @returns {string[]}
+ */
+export function setCheckboxAddOnsSelected(
+  selectedCodes,
+  checkboxAddOns,
+  selected,
+) {
+  const checkboxCodes = (checkboxAddOns || [])
+    .map((a) =>
+      String(typeof a === "string" ? a : a?.code || "")
+        .trim()
+        .toUpperCase(),
+    )
+    .filter(Boolean);
+  const checkboxSet = new Set(checkboxCodes);
+  const preserved = (selectedCodes || []).filter(
+    (c) => !checkboxSet.has(String(c).toUpperCase()),
+  );
+  if (!selected) return preserved;
+  return [...preserved, ...checkboxCodes];
+}
+
+/**
+ * @param {string[]} selectedCodes
+ * @param {Array<{ code?: string } | string>} checkboxAddOns
+ */
+export function areAllCheckboxAddOnsSelected(selectedCodes, checkboxAddOns) {
+  const codes = (checkboxAddOns || [])
+    .map((a) =>
+      String(typeof a === "string" ? a : a?.code || "")
+        .trim()
+        .toUpperCase(),
+    )
+    .filter(Boolean);
+  if (!codes.length) return false;
+  const selected = new Set(
+    (selectedCodes || []).map((c) => String(c).toUpperCase()),
+  );
+  return codes.every((code) => selected.has(code));
+}
+
+/**
  * @param {string[]} selectedCodes
  * @param {string} code
  */
