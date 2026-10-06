@@ -147,7 +147,6 @@ async function getAddOnUpgradeOptions(prisma, organizationId) {
 }
 
 async function buildGhlAddOnLineItems(deltaPurchased, packageCode, billingCycle) {
-  const productId = getGhlProductId();
   const items = [];
 
   for (const addon of deltaPurchased) {
@@ -158,7 +157,10 @@ async function buildGhlAddOnLineItems(deltaPurchased, packageCode, billingCycle)
     );
     let details = null;
     try {
-      details = await getGhlPriceDetails(resolved.priceId, productId);
+      details = await getGhlPriceDetails(
+        resolved.priceId,
+        resolved.productId || getGhlProductId(),
+      );
       assertGhlPriceActive(details);
     } catch (err) {
       throw Object.assign(

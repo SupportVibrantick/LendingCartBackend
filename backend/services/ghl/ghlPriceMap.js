@@ -23,6 +23,27 @@ const PRICE_ENV_BY_PLAN = {
   },
 };
 
+/** Separate GHL product IDs per plan (fallback: GHL_PRODUCT_ID). */
+const PRODUCT_ENV_BY_PLAN = {
+  BASIC: "GHL_BASIC_PRODUCT_ID",
+  PRO: "GHL_PRO_PRODUCT_ID",
+  ELITE: "GHL_ELITE_PRODUCT_ID",
+};
+
+/** Separate GHL product IDs per add-on (fallback: GHL_PRODUCT_ID). */
+const PRODUCT_ENV_BY_ADDON = {
+  EXTRA_USER: "GHL_ADDON_EXTRA_USER_PRODUCT_ID",
+  CRE_PACK: "GHL_ADDON_CRE_PACK_PRODUCT_ID",
+  BUSINESS_LENDING_PACK: "GHL_ADDON_BUSINESS_LENDING_PACK_PRODUCT_ID",
+  FEE_AGREEMENT_PACK: "GHL_ADDON_FEE_AGREEMENT_PACK_PRODUCT_ID",
+  LENDER_MARKETPLACE_PACK: "GHL_ADDON_LENDER_MARKETPLACE_PACK_PRODUCT_ID",
+  GHL_STARTER: "GHL_ADDON_GHL_STARTER_PRODUCT_ID",
+  ABL_PACK: "GHL_ADDON_ABL_PACK_PRODUCT_ID",
+  SBA_PACK: "GHL_ADDON_SBA_PACK_PRODUCT_ID",
+  GHL_BASIC_SYNC: "GHL_ADDON_GHL_BASIC_SYNC_PRODUCT_ID",
+  WHITE_LABEL: "GHL_ADDON_WHITE_LABEL_PRODUCT_ID",
+};
+
 /** Catalog add-on code → env keys for GHL Internal Price Ids */
 const PRICE_ENV_BY_ADDON = {
   EXTRA_USER: {
@@ -148,10 +169,28 @@ function getGhlProductId() {
   return id && String(id).trim() ? String(id).trim() : null;
 }
 
+function readEnvId(envKey) {
+  if (!envKey) return null;
+  const id = process.env[envKey];
+  return id && String(id).trim() ? String(id).trim() : null;
+}
+
+function getGhlProductIdForPackage(packageCode) {
+  const code = normalizePackageCode(packageCode);
+  const specific = code ? readEnvId(PRODUCT_ENV_BY_PLAN[code]) : null;
+  return specific || getGhlProductId();
+}
+
+function getGhlProductIdForAddOn(addOnCode) {
+  const code = normalizeAddOnCode(addOnCode);
+  const specific = code ? readEnvId(PRODUCT_ENV_BY_ADDON[code]) : null;
+  return specific || getGhlProductId();
+}
+
 /**
  * @param {string} packageCode BASIC|PRO|ELITE
  * @param {string} billingCycle MONTHLY|YEARLY
- * @returns {{ priceId: string, envKey: string, packageCode: string, billingCycle: string }}
+ * @returns {{ priceId: string, productId: string | null, envKey: string, packageCode: string, billingCycle: string }}
  */
 function resolveGhlPriceId(packageCode, billingCycle) {
   const code = normalizePackageCode(packageCode);
@@ -172,6 +211,7 @@ function resolveGhlPriceId(packageCode, billingCycle) {
 
   return {
     priceId: String(priceId).trim(),
+    productId: getGhlProductIdForPackage(code),
     envKey,
     packageCode: code,
     billingCycle: cycle,
@@ -229,6 +269,7 @@ function resolveGhlAddOnPriceId(addOnCode, billingCycle, packageCode) {
 
   return {
     priceId: String(priceId).trim(),
+    productId: getGhlProductIdForAddOn(code),
     envKey,
     addOnCode: code,
     billingCycle: cycle,
@@ -285,10 +326,14 @@ function hasAllGhlPriceIdsConfigured() {
 module.exports = {
   PRICE_ENV_BY_PLAN,
   PRICE_ENV_BY_ADDON,
+  PRODUCT_ENV_BY_PLAN,
+  PRODUCT_ENV_BY_ADDON,
   normalizePackageCode,
   normalizeAddOnCode,
   normalizeBillingCycle,
   getGhlProductId,
+  getGhlProductIdForPackage,
+  getGhlProductIdForAddOn,
   resolveGhlPriceId,
   resolveGhlAddOnPriceId,
   resolveGhlAddOnPriceIds,

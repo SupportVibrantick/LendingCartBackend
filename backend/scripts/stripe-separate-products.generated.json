@@ -1,0 +1,390 @@
+{
+  "createdAt": "2026-10-06T05:26:52.487Z",
+  "mode": "live",
+  "products": [
+    {
+      "name": "Loan AI - Starter",
+      "productId": "prod_VODK90Eoi2PkhN",
+      "prices": [
+        {
+          "envKey": "STRIPE_BASIC_MONTHLY_PRICE_ID",
+          "oldPriceId": "price_1UJL3V07scMY6ZpE6c951cK7",
+          "newPriceId": "price_1UNQtv07scMY6ZpE1FsUaE17",
+          "amount": 24900,
+          "interval": "month"
+        },
+        {
+          "envKey": "STRIPE_BASIC_YEARLY_PRICE_ID",
+          "oldPriceId": "price_1UJL4407scMY6ZpEFlKGi9pR",
+          "newPriceId": "price_1UNQtv07scMY6ZpENqDfr0hW",
+          "amount": 233800,
+          "interval": "year"
+        }
+      ]
+    },
+    {
+      "name": "Loan AI - Pro",
+      "productId": "prod_VODKOzcHruwdRk",
+      "prices": [
+        {
+          "envKey": "STRIPE_PRO_MONTHLY_PRICE_ID",
+          "oldPriceId": "price_1UJL2I07scMY6ZpEIBAlVdKy",
+          "newPriceId": "price_1UNQtx07scMY6ZpEFp1Ivo6F",
+          "amount": 49900,
+          "interval": "month"
+        },
+        {
+          "envKey": "STRIPE_PRO_YEARLY_PRICE_ID",
+          "oldPriceId": "price_1UJL8y07scMY6ZpEWHRkOh7w",
+          "newPriceId": "price_1UNQty07scMY6ZpEY45QuDgd",
+          "amount": 478800,
+          "interval": "year"
+        }
+      ]
+    },
+    {
+      "name": "Loan AI - Elite",
+      "productId": "prod_VODKcHMQQaukNJ",
+      "prices": [
+        {
+          "envKey": "STRIPE_ELITE_MONTHLY_PRICE_ID",
+          "oldPriceId": "price_1UJL0i07scMY6ZpE2HePMRkg",
+          "newPriceId": "price_1UNQu007scMY6ZpEgBcYRNA5",
+          "amount": 87400,
+          "interval": "month"
+        },
+        {
+          "envKey": "STRIPE_ELITE_YEARLY_PRICE_ID",
+          "oldPriceId": "price_1UJL9p07scMY6ZpEEjxO6ttp",
+          "newPriceId": "price_1UNQu007scMY6ZpEVECEaFNt",
+          "amount": 838800,
+          "interval": "year"
+        }
+      ]
+    },
+    {
+      "name": "Loan AI - CRE & Multifamily Pack",
+      "productId": "prod_VODKEINJlcoGzN",
+      "prices": [
+        {
+          "envKey": "STRIPE_ADDON_CRE_PACK_MONTHLY_PRICE_ID",
+          "oldPriceId": "price_1UJXKT07scMY6ZpE4PVfqIt4",
+          "newPriceId": "price_1UNQu207scMY6ZpErCMszZzP",
+          "amount": 7400,
+          "interval": "month"
+        },
+        {
+          "envKey": "STRIPE_ADDON_CRE_PACK_YEARLY_PRICE_ID",
+          "oldPriceId": "price_1UJYZu07scMY6ZpEEDfIpOvd",
+          "newPriceId": "price_1UNQu307scMY6ZpEaGaMryfA",
+          "amount": 70800,
+          "interval": "year"
+        }
+      ]
+    },
+    {
+      "name": "Loan AI - Business Lending Pack",
+      "productId": "prod_VODKlXkzZjaIkx",
+      "prices": [
+        {
+          "envKey": "STRIPE_ADDON_BUSINESS_LENDING_PACK_MONTHLY_PRICE_ID",
+          "oldPriceId": "price_1UJwId07scMY6ZpEfMdcsZBO",
+          "newPriceId": "price_1UNQu507scMY6ZpE5S8818NE",
+          "amount": 12400,
+          "interval": "month"
+        },
+        {
+          "envKey": "STRIPE_ADDON_BUSINESS_LENDING_PACK_YEARLY_PRICE_ID",
+          "oldPriceId": "price_1UJwId07scMY6ZpEDFmIvj9i",
+          "newPriceId": "price_1UNQu507scMY6ZpEimuF72zV",
+          "amount": 118800,
+          "interval": "year"
+        },
+        {
+          "envKey": "STRIPE_ADDON_BUSINESS_LENDING_PACK_PRO_MONTHLY_PRICE_ID",
+          "oldPriceId": "price_1UJwo707scMY6ZpED7a9v0Yd",
+          "newPriceId": "price_1UNQu607scMY6ZpEB8jq60hb",
+          "amount": 9900,
+          "interval": "month"
+        },
+        {
+          "envKey": "STRIPE_ADDON_BUSINESS_LENDING_PACK_PRO_YEARLY_PRICE_ID",
+          "oldPriceId": "price_1UJwo707scMY6ZpEcxRK3xh7",
+          "newPriceId": "price_1UNQu707scMY6ZpEoVuX3jWm",
+          "amount": 94800,
+          "interval": "year"
+        }
+      ]
+    },
+    {
+      "name": "Loan AI - Fee Agreement Pack",
+      "productId": "prod_VODKs3JEoqyhO4",
+      "prices": [
+        {
+          "envKey": "STRIPE_ADDON_FEE_AGREEMENT_PACK_MONTHLY_PRICE_ID",
+          "oldPriceId": "price_1UJwIc07scMY6ZpEH0own2n6",
+          "newPriceId": "price_1UNQu907scMY6ZpEyM7FgBIL",
+          "amount": 7400,
+          "interval": "month"
+        },
+        {
+          "envKey": "STRIPE_ADDON_FEE_AGREEMENT_PACK_YEARLY_PRICE_ID",
+          "oldPriceId": "price_1UJwIc07scMY6ZpE63oHh3Ok",
+          "newPriceId": "price_1UNQu907scMY6ZpE7OfQ42BL",
+          "amount": 70800,
+          "interval": "year"
+        }
+      ]
+    },
+    {
+      "name": "Loan AI - Lender Marketplace Pack",
+      "productId": "prod_VODK9VQ1T0qpjP",
+      "prices": [
+        {
+          "envKey": "STRIPE_ADDON_LENDER_MARKETPLACE_PACK_MONTHLY_PRICE_ID",
+          "oldPriceId": "price_1UJwIe07scMY6ZpEsdH0yzja",
+          "newPriceId": "price_1UNQuB07scMY6ZpE8dm7Bn78",
+          "amount": 9900,
+          "interval": "month"
+        },
+        {
+          "envKey": "STRIPE_ADDON_LENDER_MARKETPLACE_PACK_YEARLY_PRICE_ID",
+          "oldPriceId": "price_1UJwIe07scMY6ZpEUnp1s2uA",
+          "newPriceId": "price_1UNQuC07scMY6ZpEZwrKuAb1",
+          "amount": 94800,
+          "interval": "year"
+        },
+        {
+          "envKey": "STRIPE_ADDON_LENDER_MARKETPLACE_PACK_PRO_MONTHLY_PRICE_ID",
+          "oldPriceId": "price_1UJwo807scMY6ZpEY8z77CPQ",
+          "newPriceId": "price_1UNQuD07scMY6ZpEso73936n",
+          "amount": 7400,
+          "interval": "month"
+        },
+        {
+          "envKey": "STRIPE_ADDON_LENDER_MARKETPLACE_PACK_PRO_YEARLY_PRICE_ID",
+          "oldPriceId": "price_1UJwo807scMY6ZpEyj4BoYMt",
+          "newPriceId": "price_1UNQuD07scMY6ZpE55N0gnfH",
+          "amount": 70800,
+          "interval": "year"
+        }
+      ]
+    },
+    {
+      "name": "Loan AI - GoHighLevel Starter",
+      "productId": "prod_VODKuIJedlYeij",
+      "prices": [
+        {
+          "envKey": "STRIPE_ADDON_GHL_STARTER_MONTHLY_PRICE_ID",
+          "oldPriceId": "price_1UJwIf07scMY6ZpEOquQ91NB",
+          "newPriceId": "price_1UNQuF07scMY6ZpEKwPRVVj8",
+          "amount": 12400,
+          "interval": "month"
+        },
+        {
+          "envKey": "STRIPE_ADDON_GHL_STARTER_YEARLY_PRICE_ID",
+          "oldPriceId": "price_1UJwIf07scMY6ZpEx80qgaIx",
+          "newPriceId": "price_1UNQuF07scMY6ZpEAfhyFmSQ",
+          "amount": 118800,
+          "interval": "year"
+        }
+      ]
+    },
+    {
+      "name": "Loan AI - GoHighLevel Growth",
+      "productId": "prod_VODKnBf90sbiY5",
+      "prices": [
+        {
+          "envKey": "STRIPE_ADDON_GHL_BASIC_SYNC_MONTHLY_PRICE_ID",
+          "oldPriceId": "price_1UJwQQ07scMY6ZpE6tSk44gy",
+          "newPriceId": "price_1UNQuH07scMY6ZpEOJ2Qa3PH",
+          "amount": 24900,
+          "interval": "month"
+        },
+        {
+          "envKey": "STRIPE_ADDON_GHL_BASIC_SYNC_YEARLY_PRICE_ID",
+          "oldPriceId": "price_1UJwQR07scMY6ZpEoKAJL82P",
+          "newPriceId": "price_1UNQuI07scMY6ZpEFM6S2GNK",
+          "amount": 238800,
+          "interval": "year"
+        },
+        {
+          "envKey": "STRIPE_ADDON_GHL_BASIC_SYNC_PRO_MONTHLY_PRICE_ID",
+          "oldPriceId": "price_1UJwo907scMY6ZpECwZvn0Xb",
+          "newPriceId": "price_1UNQuJ07scMY6ZpE45V03nk4",
+          "amount": 12400,
+          "interval": "month"
+        },
+        {
+          "envKey": "STRIPE_ADDON_GHL_BASIC_SYNC_PRO_YEARLY_PRICE_ID",
+          "oldPriceId": "price_1UJwo907scMY6ZpE1jy1Uof6",
+          "newPriceId": "price_1UNQuJ07scMY6ZpECPVuVaJQ",
+          "amount": 118800,
+          "interval": "year"
+        }
+      ]
+    },
+    {
+      "name": "Loan AI - White-Label",
+      "productId": "prod_VODLcDp36cuqdX",
+      "prices": [
+        {
+          "envKey": "STRIPE_ADDON_WHITE_LABEL_MONTHLY_PRICE_ID",
+          "oldPriceId": "price_1UJwQS07scMY6ZpEZARkhCko",
+          "newPriceId": "price_1UNQuM07scMY6ZpEccbgBYHN",
+          "amount": 12400,
+          "interval": "month"
+        },
+        {
+          "envKey": "STRIPE_ADDON_WHITE_LABEL_YEARLY_PRICE_ID",
+          "oldPriceId": "price_1UJwQS07scMY6ZpEciEPV7Ug",
+          "newPriceId": "price_1UNQuN07scMY6ZpEyz65eg2J",
+          "amount": 118800,
+          "interval": "year"
+        },
+        {
+          "envKey": "STRIPE_ADDON_WHITE_LABEL_PRO_MONTHLY_PRICE_ID",
+          "oldPriceId": "price_1UJwo807scMY6ZpEfQHvFFu7",
+          "newPriceId": "price_1UNQuN07scMY6ZpEIaIbxMd1",
+          "amount": 9900,
+          "interval": "month"
+        },
+        {
+          "envKey": "STRIPE_ADDON_WHITE_LABEL_PRO_YEARLY_PRICE_ID",
+          "oldPriceId": "price_1UJwo907scMY6ZpEDS8cJNnf",
+          "newPriceId": "price_1UNQuO07scMY6ZpEJYpugOdN",
+          "amount": 94800,
+          "interval": "year"
+        }
+      ]
+    },
+    {
+      "name": "Loan AI - Extra User",
+      "productId": "prod_VODLawlXJSi7Fx",
+      "prices": [
+        {
+          "envKey": "STRIPE_ADDON_EXTRA_USER_MONTHLY_PRICE_ID",
+          "oldPriceId": "price_1UJwQQ07scMY6ZpEM7KXMLGk",
+          "newPriceId": "price_1UNQuS07scMY6ZpEgFviGHuc",
+          "amount": 9900,
+          "interval": "month"
+        },
+        {
+          "envKey": "STRIPE_ADDON_EXTRA_USER_YEARLY_PRICE_ID",
+          "oldPriceId": "price_1UJwfg07scMY6ZpE5lDrgKx7",
+          "newPriceId": "price_1UNQuS07scMY6ZpEiznUHXNe",
+          "amount": 118800,
+          "interval": "year"
+        },
+        {
+          "envKey": "STRIPE_ADDON_EXTRA_USER_PRO_MONTHLY_PRICE_ID",
+          "oldPriceId": "price_1UJwZP07scMY6ZpEHa58VvuG",
+          "newPriceId": "price_1UNQuS07scMY6ZpESXemTFoz",
+          "amount": 7900,
+          "interval": "month"
+        },
+        {
+          "envKey": "STRIPE_ADDON_EXTRA_USER_PRO_YEARLY_PRICE_ID",
+          "oldPriceId": "price_1UJwZP07scMY6ZpEDgWyBQqc",
+          "newPriceId": "price_1UNQuT07scMY6ZpEyaVc1zAE",
+          "amount": 94800,
+          "interval": "year"
+        },
+        {
+          "envKey": "STRIPE_ADDON_EXTRA_USER_ELITE_MONTHLY_PRICE_ID",
+          "oldPriceId": "price_1UJwZQ07scMY6ZpEEtNl6sVK",
+          "newPriceId": "price_1UNQuT07scMY6ZpEligoXb3x",
+          "amount": 4900,
+          "interval": "month"
+        },
+        {
+          "envKey": "STRIPE_ADDON_EXTRA_USER_ELITE_YEARLY_PRICE_ID",
+          "oldPriceId": "price_1UJwZQ07scMY6ZpEGnmggEoG",
+          "newPriceId": "price_1UNQuU07scMY6ZpEU9FxFr8l",
+          "amount": 58800,
+          "interval": "year"
+        }
+      ]
+    },
+    {
+      "name": "Loan AI - ABL Pack",
+      "productId": "prod_VODLQ4SIGHN5WH",
+      "prices": [
+        {
+          "envKey": "STRIPE_ADDON_ABL_PACK_MONTHLY_PRICE_ID",
+          "oldPriceId": "price_1UJwQT07scMY6ZpER3SIbtgw",
+          "newPriceId": "price_1UNQuV07scMY6ZpEAL06xoBy",
+          "amount": 5000,
+          "interval": "month"
+        },
+        {
+          "envKey": "STRIPE_ADDON_ABL_PACK_YEARLY_PRICE_ID",
+          "oldPriceId": "price_1UJwQU07scMY6ZpEAbNDH7RW",
+          "newPriceId": "price_1UNQuW07scMY6ZpEO2lms6A1",
+          "amount": 60000,
+          "interval": "year"
+        }
+      ]
+    },
+    {
+      "name": "Loan AI - SBA Pack",
+      "productId": "prod_VODLZkeFk8ohRN",
+      "prices": [
+        {
+          "envKey": "STRIPE_ADDON_SBA_PACK_MONTHLY_PRICE_ID",
+          "oldPriceId": "price_1UJwQU07scMY6ZpE3QfSVjMp",
+          "newPriceId": "price_1UNQuX07scMY6ZpEqexAMh0c",
+          "amount": 5000,
+          "interval": "month"
+        },
+        {
+          "envKey": "STRIPE_ADDON_SBA_PACK_YEARLY_PRICE_ID",
+          "oldPriceId": "price_1UJwQU07scMY6ZpEFL5lSjyf",
+          "newPriceId": "price_1UNQuY07scMY6ZpEOmuOk6HP",
+          "amount": 60000,
+          "interval": "year"
+        }
+      ]
+    }
+  ],
+  "envUpdates": {
+    "STRIPE_BASIC_MONTHLY_PRICE_ID": "price_1UNQtv07scMY6ZpE1FsUaE17",
+    "STRIPE_BASIC_YEARLY_PRICE_ID": "price_1UNQtv07scMY6ZpENqDfr0hW",
+    "STRIPE_PRO_MONTHLY_PRICE_ID": "price_1UNQtx07scMY6ZpEFp1Ivo6F",
+    "STRIPE_PRO_YEARLY_PRICE_ID": "price_1UNQty07scMY6ZpEY45QuDgd",
+    "STRIPE_ELITE_MONTHLY_PRICE_ID": "price_1UNQu007scMY6ZpEgBcYRNA5",
+    "STRIPE_ELITE_YEARLY_PRICE_ID": "price_1UNQu007scMY6ZpEVECEaFNt",
+    "STRIPE_ADDON_CRE_PACK_MONTHLY_PRICE_ID": "price_1UNQu207scMY6ZpErCMszZzP",
+    "STRIPE_ADDON_CRE_PACK_YEARLY_PRICE_ID": "price_1UNQu307scMY6ZpEaGaMryfA",
+    "STRIPE_ADDON_BUSINESS_LENDING_PACK_MONTHLY_PRICE_ID": "price_1UNQu507scMY6ZpE5S8818NE",
+    "STRIPE_ADDON_BUSINESS_LENDING_PACK_YEARLY_PRICE_ID": "price_1UNQu507scMY6ZpEimuF72zV",
+    "STRIPE_ADDON_BUSINESS_LENDING_PACK_PRO_MONTHLY_PRICE_ID": "price_1UNQu607scMY6ZpEB8jq60hb",
+    "STRIPE_ADDON_BUSINESS_LENDING_PACK_PRO_YEARLY_PRICE_ID": "price_1UNQu707scMY6ZpEoVuX3jWm",
+    "STRIPE_ADDON_FEE_AGREEMENT_PACK_MONTHLY_PRICE_ID": "price_1UNQu907scMY6ZpEyM7FgBIL",
+    "STRIPE_ADDON_FEE_AGREEMENT_PACK_YEARLY_PRICE_ID": "price_1UNQu907scMY6ZpE7OfQ42BL",
+    "STRIPE_ADDON_LENDER_MARKETPLACE_PACK_MONTHLY_PRICE_ID": "price_1UNQuB07scMY6ZpE8dm7Bn78",
+    "STRIPE_ADDON_LENDER_MARKETPLACE_PACK_YEARLY_PRICE_ID": "price_1UNQuC07scMY6ZpEZwrKuAb1",
+    "STRIPE_ADDON_LENDER_MARKETPLACE_PACK_PRO_MONTHLY_PRICE_ID": "price_1UNQuD07scMY6ZpEso73936n",
+    "STRIPE_ADDON_LENDER_MARKETPLACE_PACK_PRO_YEARLY_PRICE_ID": "price_1UNQuD07scMY6ZpE55N0gnfH",
+    "STRIPE_ADDON_GHL_STARTER_MONTHLY_PRICE_ID": "price_1UNQuF07scMY6ZpEKwPRVVj8",
+    "STRIPE_ADDON_GHL_STARTER_YEARLY_PRICE_ID": "price_1UNQuF07scMY6ZpEAfhyFmSQ",
+    "STRIPE_ADDON_GHL_BASIC_SYNC_MONTHLY_PRICE_ID": "price_1UNQuH07scMY6ZpEOJ2Qa3PH",
+    "STRIPE_ADDON_GHL_BASIC_SYNC_YEARLY_PRICE_ID": "price_1UNQuI07scMY6ZpEFM6S2GNK",
+    "STRIPE_ADDON_GHL_BASIC_SYNC_PRO_MONTHLY_PRICE_ID": "price_1UNQuJ07scMY6ZpE45V03nk4",
+    "STRIPE_ADDON_GHL_BASIC_SYNC_PRO_YEARLY_PRICE_ID": "price_1UNQuJ07scMY6ZpECPVuVaJQ",
+    "STRIPE_ADDON_WHITE_LABEL_MONTHLY_PRICE_ID": "price_1UNQuM07scMY6ZpEccbgBYHN",
+    "STRIPE_ADDON_WHITE_LABEL_YEARLY_PRICE_ID": "price_1UNQuN07scMY6ZpEyz65eg2J",
+    "STRIPE_ADDON_WHITE_LABEL_PRO_MONTHLY_PRICE_ID": "price_1UNQuN07scMY6ZpEIaIbxMd1",
+    "STRIPE_ADDON_WHITE_LABEL_PRO_YEARLY_PRICE_ID": "price_1UNQuO07scMY6ZpEJYpugOdN",
+    "STRIPE_ADDON_EXTRA_USER_MONTHLY_PRICE_ID": "price_1UNQuS07scMY6ZpEgFviGHuc",
+    "STRIPE_ADDON_EXTRA_USER_YEARLY_PRICE_ID": "price_1UNQuS07scMY6ZpEiznUHXNe",
+    "STRIPE_ADDON_EXTRA_USER_PRO_MONTHLY_PRICE_ID": "price_1UNQuS07scMY6ZpESXemTFoz",
+    "STRIPE_ADDON_EXTRA_USER_PRO_YEARLY_PRICE_ID": "price_1UNQuT07scMY6ZpEyaVc1zAE",
+    "STRIPE_ADDON_EXTRA_USER_ELITE_MONTHLY_PRICE_ID": "price_1UNQuT07scMY6ZpEligoXb3x",
+    "STRIPE_ADDON_EXTRA_USER_ELITE_YEARLY_PRICE_ID": "price_1UNQuU07scMY6ZpEU9FxFr8l",
+    "STRIPE_ADDON_ABL_PACK_MONTHLY_PRICE_ID": "price_1UNQuV07scMY6ZpEAL06xoBy",
+    "STRIPE_ADDON_ABL_PACK_YEARLY_PRICE_ID": "price_1UNQuW07scMY6ZpEO2lms6A1",
+    "STRIPE_ADDON_SBA_PACK_MONTHLY_PRICE_ID": "price_1UNQuX07scMY6ZpEqexAMh0c",
+    "STRIPE_ADDON_SBA_PACK_YEARLY_PRICE_ID": "price_1UNQuY07scMY6ZpEOmuOk6HP"
+  }
+}

@@ -1,0 +1,339 @@
+{
+  "createdAt": "2026-10-06T05:29:34.419Z",
+  "products": [
+    {
+      "name": "Loan AI - Starter",
+      "productId": "6ac4873ffed6d069dc0bb692",
+      "productEnv": "GHL_BASIC_PRODUCT_ID",
+      "prices": [
+        {
+          "env": "GHL_BASIC_MONTHLY_PRICE_ID",
+          "oldPriceId": "6a1721f43e1d7713bb68eb27",
+          "newPriceId": "6ac4873ffed6d069dc0bb6b5"
+        },
+        {
+          "env": "GHL_BASIC_YEARLY_PRICE_ID",
+          "oldPriceId": "6aad48098fbde1fd7448b1f8",
+          "newPriceId": "6ac48740d3a5058db2a026d4"
+        }
+      ]
+    },
+    {
+      "name": "Loan AI - Pro",
+      "productId": "6ac4874162714ba46bf56d22",
+      "productEnv": "GHL_PRO_PRODUCT_ID",
+      "prices": [
+        {
+          "env": "GHL_PRO_MONTHLY_PRICE_ID",
+          "oldPriceId": "6a1722afb465a1ea5e65dc3b",
+          "newPriceId": "6ac48741d3a5058db2a0270c"
+        },
+        {
+          "env": "GHL_PRO_YEARLY_PRICE_ID",
+          "oldPriceId": "6aad974951da9e75456fc944",
+          "newPriceId": "6ac487423605f6147a3050b6"
+        }
+      ]
+    },
+    {
+      "name": "Loan AI - Elite",
+      "productId": "6ac48743d3a5058db2a02778",
+      "productEnv": "GHL_ELITE_PRODUCT_ID",
+      "prices": [
+        {
+          "env": "GHL_ELITE_MONTHLY_PRICE_ID",
+          "oldPriceId": "6a1722afb465a12e3465dc40",
+          "newPriceId": "6ac48743d3a5058db2a02793"
+        },
+        {
+          "env": "GHL_ELITE_YEARLY_PRICE_ID",
+          "oldPriceId": "6aad974951da9e75456fc94c",
+          "newPriceId": "6ac48744fed6d069dc0bb758"
+        }
+      ]
+    },
+    {
+      "name": "Loan AI - CRE & Multifamily Pack",
+      "productId": "6ac48745d3a5058db2a02829",
+      "productEnv": "GHL_ADDON_CRE_PACK_PRODUCT_ID",
+      "prices": [
+        {
+          "env": "GHL_ADDON_CRE_PACK_MONTHLY_PRICE_ID",
+          "oldPriceId": "6ab0e3b02bfb4e37de0bfe7e",
+          "newPriceId": "6ac4874617c5e202c25e38b5"
+        },
+        {
+          "env": "GHL_ADDON_CRE_PACK_YEARLY_PRICE_ID",
+          "oldPriceId": "6ab0e420791299e19f4623b0",
+          "newPriceId": "6ac4874617c5e202c25e38e3"
+        }
+      ]
+    },
+    {
+      "name": "Loan AI - Business Lending Pack",
+      "productId": "6ac48749d3a5058db2a028c0",
+      "productEnv": "GHL_ADDON_BUSINESS_LENDING_PACK_PRODUCT_ID",
+      "prices": [
+        {
+          "env": "GHL_ADDON_BUSINESS_LENDING_PACK_MONTHLY_PRICE_ID",
+          "oldPriceId": "6ab7d237d885033ef39e503e",
+          "newPriceId": "6ac48749fed6d069dc0bb8a0"
+        },
+        {
+          "env": "GHL_ADDON_BUSINESS_LENDING_PACK_YEARLY_PRICE_ID",
+          "oldPriceId": "6ab7d23780e11d5e521a44ba",
+          "newPriceId": "6ac4874a17c5e202c25e397f"
+        },
+        {
+          "env": "GHL_ADDON_BUSINESS_LENDING_PACK_PRO_MONTHLY_PRICE_ID",
+          "oldPriceId": "6ab7d9d772c4e47d069f110d",
+          "newPriceId": "6ac4874afed6d069dc0bb8c1"
+        },
+        {
+          "env": "GHL_ADDON_BUSINESS_LENDING_PACK_PRO_YEARLY_PRICE_ID",
+          "oldPriceId": "6ab7d9d7e0a756f74aa68d11",
+          "newPriceId": "6ac4874a62714ba46bf56f66"
+        }
+      ]
+    },
+    {
+      "name": "Loan AI - Fee Agreement Pack",
+      "productId": "6ac4874bd3a5058db2a02936",
+      "productEnv": "GHL_ADDON_FEE_AGREEMENT_PACK_PRODUCT_ID",
+      "prices": [
+        {
+          "env": "GHL_ADDON_FEE_AGREEMENT_PACK_MONTHLY_PRICE_ID",
+          "oldPriceId": "6ab7d2361d7cb94f5e70252a",
+          "newPriceId": "6ac4874cd3a5058db2a0295e"
+        },
+        {
+          "env": "GHL_ADDON_FEE_AGREEMENT_PACK_YEARLY_PRICE_ID",
+          "oldPriceId": "6ab7d236a45571af67256caf",
+          "newPriceId": "6ac4874c62714ba46bf56f9b"
+        }
+      ]
+    },
+    {
+      "name": "Loan AI - Lender Marketplace Pack",
+      "productId": "6ac4874ed3a5058db2a02a33",
+      "productEnv": "GHL_ADDON_LENDER_MARKETPLACE_PACK_PRODUCT_ID",
+      "prices": [
+        {
+          "env": "GHL_ADDON_LENDER_MARKETPLACE_PACK_MONTHLY_PRICE_ID",
+          "oldPriceId": "6ab7d237a45571af67256d1a",
+          "newPriceId": "6ac4874efed6d069dc0bb976"
+        },
+        {
+          "env": "GHL_ADDON_LENDER_MARKETPLACE_PACK_YEARLY_PRICE_ID",
+          "oldPriceId": "6ab7d2381d7cb94f5e7025c8",
+          "newPriceId": "6ac4874f62714ba46bf5702f"
+        },
+        {
+          "env": "GHL_ADDON_LENDER_MARKETPLACE_PACK_PRO_MONTHLY_PRICE_ID",
+          "oldPriceId": "6ab7d9d7d885033ef39fa66c",
+          "newPriceId": "6ac4874f62714ba46bf5703b"
+        },
+        {
+          "env": "GHL_ADDON_LENDER_MARKETPLACE_PACK_PRO_YEARLY_PRICE_ID",
+          "oldPriceId": "6ab7d9d8e0a756f74aa68d29",
+          "newPriceId": "6ac4874f62714ba46bf57048"
+        }
+      ]
+    },
+    {
+      "name": "Loan AI - GoHighLevel Starter",
+      "productId": "6ac487513605f6147a305348",
+      "productEnv": "GHL_ADDON_GHL_STARTER_PRODUCT_ID",
+      "prices": [
+        {
+          "env": "GHL_ADDON_GHL_STARTER_MONTHLY_PRICE_ID",
+          "oldPriceId": "6ab7d238a45571af67256d4a",
+          "newPriceId": "6ac487513605f6147a305363"
+        },
+        {
+          "env": "GHL_ADDON_GHL_STARTER_YEARLY_PRICE_ID",
+          "oldPriceId": "6ab7d239a45571af67256d62",
+          "newPriceId": "6ac48752d3a5058db2a02a7f"
+        }
+      ]
+    },
+    {
+      "name": "Loan AI - GoHighLevel Growth",
+      "productId": "6ac4875317c5e202c25e3aba",
+      "productEnv": "GHL_ADDON_GHL_BASIC_SYNC_PRODUCT_ID",
+      "prices": [
+        {
+          "env": "GHL_ADDON_GHL_BASIC_SYNC_MONTHLY_PRICE_ID",
+          "oldPriceId": "6ab7d41a1d7cb94f5e70a211",
+          "newPriceId": "6ac48754fed6d069dc0bba40"
+        },
+        {
+          "env": "GHL_ADDON_GHL_BASIC_SYNC_YEARLY_PRICE_ID",
+          "oldPriceId": "6ab7d41bd885033ef39ec54d",
+          "newPriceId": "6ac4875417c5e202c25e3acb"
+        },
+        {
+          "env": "GHL_ADDON_GHL_BASIC_SYNC_PRO_MONTHLY_PRICE_ID",
+          "oldPriceId": "6ab7d9d949b162cedc33348f",
+          "newPriceId": "6ac487553605f6147a3053a8"
+        },
+        {
+          "env": "GHL_ADDON_GHL_BASIC_SYNC_PRO_YEARLY_PRICE_ID",
+          "oldPriceId": "6ab7d9d9e0a756f74aa68d6f",
+          "newPriceId": "6ac48755fed6d069dc0bba5c"
+        }
+      ]
+    },
+    {
+      "name": "Loan AI - White-Label",
+      "productId": "6ac48757fed6d069dc0bba89",
+      "productEnv": "GHL_ADDON_WHITE_LABEL_PRODUCT_ID",
+      "prices": [
+        {
+          "env": "GHL_ADDON_WHITE_LABEL_MONTHLY_PRICE_ID",
+          "oldPriceId": "6ab7d41bd885033ef39ec5ae",
+          "newPriceId": "6ac48758d3a5058db2a02b13"
+        },
+        {
+          "env": "GHL_ADDON_WHITE_LABEL_YEARLY_PRICE_ID",
+          "oldPriceId": "6ab7d41c1d7cb94f5e70a2fa",
+          "newPriceId": "6ac4875817c5e202c25e3b17"
+        },
+        {
+          "env": "GHL_ADDON_WHITE_LABEL_PRO_MONTHLY_PRICE_ID",
+          "oldPriceId": "6ab7d9d872c4e47d069f116f",
+          "newPriceId": "6ac487583605f6147a3053ea"
+        },
+        {
+          "env": "GHL_ADDON_WHITE_LABEL_PRO_YEARLY_PRICE_ID",
+          "oldPriceId": "6ab7d9d9d885033ef39fa681",
+          "newPriceId": "6ac48759d3a5058db2a02b31"
+        }
+      ]
+    },
+    {
+      "name": "Loan AI - Extra User",
+      "productId": "6ac4875bd3a5058db2a02ba4",
+      "productEnv": "GHL_ADDON_EXTRA_USER_PRODUCT_ID",
+      "prices": [
+        {
+          "env": "GHL_ADDON_EXTRA_USER_MONTHLY_PRICE_ID",
+          "oldPriceId": "6ab7d41ad885033ef39ec494",
+          "newPriceId": "6ac4875c3605f6147a3054a7"
+        },
+        {
+          "env": "GHL_ADDON_EXTRA_USER_YEARLY_PRICE_ID",
+          "oldPriceId": "6ab0e25080a941909c745a4e",
+          "newPriceId": "6ac4875cfed6d069dc0bbb99"
+        },
+        {
+          "env": "GHL_ADDON_EXTRA_USER_PRO_MONTHLY_PRICE_ID",
+          "oldPriceId": "6ab7d647527bc38984cca653",
+          "newPriceId": "6ac4875dfed6d069dc0bbbd4"
+        },
+        {
+          "env": "GHL_ADDON_EXTRA_USER_PRO_YEARLY_PRICE_ID",
+          "oldPriceId": "6ab7d647a45571af672650e2",
+          "newPriceId": "6ac4875d17c5e202c25e3c01"
+        },
+        {
+          "env": "GHL_ADDON_EXTRA_USER_ELITE_MONTHLY_PRICE_ID",
+          "oldPriceId": "6ab7d64849b162cedc32c7b5",
+          "newPriceId": "6ac4875d62714ba46bf5729f"
+        },
+        {
+          "env": "GHL_ADDON_EXTRA_USER_ELITE_YEARLY_PRICE_ID",
+          "oldPriceId": "6ab7d6486d26c7b44febe735",
+          "newPriceId": "6ac4875ed3a5058db2a02c4c"
+        }
+      ]
+    },
+    {
+      "name": "Loan AI - ABL Pack",
+      "productId": "6ac4875f3605f6147a30557b",
+      "productEnv": "GHL_ADDON_ABL_PACK_PRODUCT_ID",
+      "prices": [
+        {
+          "env": "GHL_ADDON_ABL_PACK_MONTHLY_PRICE_ID",
+          "oldPriceId": "6ab7d41dd885033ef39ec688",
+          "newPriceId": "6ac4875f62714ba46bf57327"
+        },
+        {
+          "env": "GHL_ADDON_ABL_PACK_YEARLY_PRICE_ID",
+          "oldPriceId": "6ab7d41d1d7cb94f5e70a44f",
+          "newPriceId": "6ac48760d3a5058db2a02cd0"
+        }
+      ]
+    },
+    {
+      "name": "Loan AI - SBA Pack",
+      "productId": "6ac4876117c5e202c25e3cb9",
+      "productEnv": "GHL_ADDON_SBA_PACK_PRODUCT_ID",
+      "prices": [
+        {
+          "env": "GHL_ADDON_SBA_PACK_MONTHLY_PRICE_ID",
+          "oldPriceId": "6ab7d41e1d7cb94f5e70a4af",
+          "newPriceId": "6ac4876117c5e202c25e3cc6"
+        },
+        {
+          "env": "GHL_ADDON_SBA_PACK_YEARLY_PRICE_ID",
+          "oldPriceId": "6ab7d41e1d7cb94f5e70a4d2",
+          "newPriceId": "6ac48762d3a5058db2a02d43"
+        }
+      ]
+    }
+  ],
+  "envUpdates": {
+    "GHL_BASIC_PRODUCT_ID": "6ac4873ffed6d069dc0bb692",
+    "GHL_BASIC_MONTHLY_PRICE_ID": "6ac4873ffed6d069dc0bb6b5",
+    "GHL_BASIC_YEARLY_PRICE_ID": "6ac48740d3a5058db2a026d4",
+    "GHL_PRO_PRODUCT_ID": "6ac4874162714ba46bf56d22",
+    "GHL_PRO_MONTHLY_PRICE_ID": "6ac48741d3a5058db2a0270c",
+    "GHL_PRO_YEARLY_PRICE_ID": "6ac487423605f6147a3050b6",
+    "GHL_ELITE_PRODUCT_ID": "6ac48743d3a5058db2a02778",
+    "GHL_ELITE_MONTHLY_PRICE_ID": "6ac48743d3a5058db2a02793",
+    "GHL_ELITE_YEARLY_PRICE_ID": "6ac48744fed6d069dc0bb758",
+    "GHL_ADDON_CRE_PACK_PRODUCT_ID": "6ac48745d3a5058db2a02829",
+    "GHL_ADDON_CRE_PACK_MONTHLY_PRICE_ID": "6ac4874617c5e202c25e38b5",
+    "GHL_ADDON_CRE_PACK_YEARLY_PRICE_ID": "6ac4874617c5e202c25e38e3",
+    "GHL_ADDON_BUSINESS_LENDING_PACK_PRODUCT_ID": "6ac48749d3a5058db2a028c0",
+    "GHL_ADDON_BUSINESS_LENDING_PACK_MONTHLY_PRICE_ID": "6ac48749fed6d069dc0bb8a0",
+    "GHL_ADDON_BUSINESS_LENDING_PACK_YEARLY_PRICE_ID": "6ac4874a17c5e202c25e397f",
+    "GHL_ADDON_BUSINESS_LENDING_PACK_PRO_MONTHLY_PRICE_ID": "6ac4874afed6d069dc0bb8c1",
+    "GHL_ADDON_BUSINESS_LENDING_PACK_PRO_YEARLY_PRICE_ID": "6ac4874a62714ba46bf56f66",
+    "GHL_ADDON_FEE_AGREEMENT_PACK_PRODUCT_ID": "6ac4874bd3a5058db2a02936",
+    "GHL_ADDON_FEE_AGREEMENT_PACK_MONTHLY_PRICE_ID": "6ac4874cd3a5058db2a0295e",
+    "GHL_ADDON_FEE_AGREEMENT_PACK_YEARLY_PRICE_ID": "6ac4874c62714ba46bf56f9b",
+    "GHL_ADDON_LENDER_MARKETPLACE_PACK_PRODUCT_ID": "6ac4874ed3a5058db2a02a33",
+    "GHL_ADDON_LENDER_MARKETPLACE_PACK_MONTHLY_PRICE_ID": "6ac4874efed6d069dc0bb976",
+    "GHL_ADDON_LENDER_MARKETPLACE_PACK_YEARLY_PRICE_ID": "6ac4874f62714ba46bf5702f",
+    "GHL_ADDON_LENDER_MARKETPLACE_PACK_PRO_MONTHLY_PRICE_ID": "6ac4874f62714ba46bf5703b",
+    "GHL_ADDON_LENDER_MARKETPLACE_PACK_PRO_YEARLY_PRICE_ID": "6ac4874f62714ba46bf57048",
+    "GHL_ADDON_GHL_STARTER_PRODUCT_ID": "6ac487513605f6147a305348",
+    "GHL_ADDON_GHL_STARTER_MONTHLY_PRICE_ID": "6ac487513605f6147a305363",
+    "GHL_ADDON_GHL_STARTER_YEARLY_PRICE_ID": "6ac48752d3a5058db2a02a7f",
+    "GHL_ADDON_GHL_BASIC_SYNC_PRODUCT_ID": "6ac4875317c5e202c25e3aba",
+    "GHL_ADDON_GHL_BASIC_SYNC_MONTHLY_PRICE_ID": "6ac48754fed6d069dc0bba40",
+    "GHL_ADDON_GHL_BASIC_SYNC_YEARLY_PRICE_ID": "6ac4875417c5e202c25e3acb",
+    "GHL_ADDON_GHL_BASIC_SYNC_PRO_MONTHLY_PRICE_ID": "6ac487553605f6147a3053a8",
+    "GHL_ADDON_GHL_BASIC_SYNC_PRO_YEARLY_PRICE_ID": "6ac48755fed6d069dc0bba5c",
+    "GHL_ADDON_WHITE_LABEL_PRODUCT_ID": "6ac48757fed6d069dc0bba89",
+    "GHL_ADDON_WHITE_LABEL_MONTHLY_PRICE_ID": "6ac48758d3a5058db2a02b13",
+    "GHL_ADDON_WHITE_LABEL_YEARLY_PRICE_ID": "6ac4875817c5e202c25e3b17",
+    "GHL_ADDON_WHITE_LABEL_PRO_MONTHLY_PRICE_ID": "6ac487583605f6147a3053ea",
+    "GHL_ADDON_WHITE_LABEL_PRO_YEARLY_PRICE_ID": "6ac48759d3a5058db2a02b31",
+    "GHL_ADDON_EXTRA_USER_PRODUCT_ID": "6ac4875bd3a5058db2a02ba4",
+    "GHL_ADDON_EXTRA_USER_MONTHLY_PRICE_ID": "6ac4875c3605f6147a3054a7",
+    "GHL_ADDON_EXTRA_USER_YEARLY_PRICE_ID": "6ac4875cfed6d069dc0bbb99",
+    "GHL_ADDON_EXTRA_USER_PRO_MONTHLY_PRICE_ID": "6ac4875dfed6d069dc0bbbd4",
+    "GHL_ADDON_EXTRA_USER_PRO_YEARLY_PRICE_ID": "6ac4875d17c5e202c25e3c01",
+    "GHL_ADDON_EXTRA_USER_ELITE_MONTHLY_PRICE_ID": "6ac4875d62714ba46bf5729f",
+    "GHL_ADDON_EXTRA_USER_ELITE_YEARLY_PRICE_ID": "6ac4875ed3a5058db2a02c4c",
+    "GHL_ADDON_ABL_PACK_PRODUCT_ID": "6ac4875f3605f6147a30557b",
+    "GHL_ADDON_ABL_PACK_MONTHLY_PRICE_ID": "6ac4875f62714ba46bf57327",
+    "GHL_ADDON_ABL_PACK_YEARLY_PRICE_ID": "6ac48760d3a5058db2a02cd0",
+    "GHL_ADDON_SBA_PACK_PRODUCT_ID": "6ac4876117c5e202c25e3cb9",
+    "GHL_ADDON_SBA_PACK_MONTHLY_PRICE_ID": "6ac4876117c5e202c25e3cc6",
+    "GHL_ADDON_SBA_PACK_YEARLY_PRICE_ID": "6ac48762d3a5058db2a02d43"
+  }
+}
