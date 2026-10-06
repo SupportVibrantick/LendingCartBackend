@@ -1,10 +1,12 @@
 import { Check } from "lucide-react";
 import {
+  areAllCheckboxAddOnsSelected,
   getAddOnDisplayName,
   getAddOnQuantity,
   isQuantityAddOn,
   MAX_QUANTITY_ADDON,
   setAddOnQuantity,
+  setCheckboxAddOnsSelected,
   toggleAddOnCode,
 } from "../lib/addOnCheckout";
 
@@ -42,16 +44,43 @@ export default function AddOnSelector({
       : included + MAX_QUANTITY_ADDON;
   const maxExtra = Math.max(0, maxTotal - included);
 
+  const checkboxAddOns = addOns.filter((a) => !isQuantityAddOn(a));
+  const allCheckboxSelected = areAllCheckboxAddOnsSelected(
+    selectedCodes,
+    checkboxAddOns,
+  );
+
   const handleToggle = (code) => {
     onChange(toggleAddOnCode(selectedCodes, code));
+  };
+
+  const handleSelectAll = () => {
+    onChange(
+      setCheckboxAddOnsSelected(
+        selectedCodes,
+        checkboxAddOns,
+        !allCheckboxSelected,
+      ),
+    );
   };
 
   return (
     <div className={compact ? "space-y-3" : "space-y-4"}>
       <div>
-        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-          Optional add-ons
-        </p>
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+            Optional add-ons
+          </p>
+          {checkboxAddOns.length > 0 ? (
+            <button
+              type="button"
+              onClick={handleSelectAll}
+              className="shrink-0 text-xs font-semibold text-indigo-600 transition hover:text-indigo-500 dark:text-indigo-300 dark:hover:text-indigo-200"
+            >
+              {allCheckboxSelected ? "Deselect all" : "Select all"}
+            </button>
+          ) : null}
+        </div>
         {!compact && (
           <p className="mt-1 text-xs text-slate-500">
             Extend your plan with product packs, extra seats, and integrations.

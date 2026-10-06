@@ -3,6 +3,7 @@ import { Check, ChevronDown } from "lucide-react";
 
 import { fetchSubscriptionPackages } from "../lib/api";
 import {
+  areAllCheckboxAddOnsSelected,
   expandAddOnCodesForCheckout,
   filterAddOnsForPackage,
   getAddOnDisplayName,
@@ -12,6 +13,7 @@ import {
   isQuantityAddOn,
   MAX_QUANTITY_ADDON,
   setAddOnQuantity,
+  setCheckboxAddOnsSelected,
   toggleAddOnCode,
 } from "../lib/addOnCheckout";
 import { buildPlanCheckoutState } from "../lib/planCheckout";
@@ -489,17 +491,47 @@ function InCardAddOns({
   addOns,
   selectedCodes,
   onToggle,
+  onChange,
   formatPrice,
 }) {
   const checkboxAddOns = (addOns || []).filter((a) => !isQuantityAddOn(a));
   if (!checkboxAddOns.length) return null;
 
+  const allSelected = areAllCheckboxAddOnsSelected(
+    selectedCodes,
+    checkboxAddOns,
+  );
+
+  const handleSelectAll = () => {
+    if (typeof onChange === "function") {
+      onChange(
+        setCheckboxAddOnsSelected(selectedCodes, checkboxAddOns, !allSelected),
+      );
+      return;
+    }
+    // Fallback: toggle each code via onToggle (should not be needed).
+    for (const addOn of checkboxAddOns) {
+      const isOn = selectedCodes.some(
+        (code) =>
+          String(code).toUpperCase() === String(addOn.code).toUpperCase(),
+      );
+      if (isOn === allSelected) onToggle?.(addOn.code);
+    }
+  };
+
   return (
     <div className="mb-4 overflow-hidden rounded-xl border border-slate-200 bg-slate-50 dark:border-white/10 dark:bg-white/[0.03]">
-      <div className="border-b border-slate-200/80 px-3 py-2 dark:border-white/10">
+      <div className="flex items-center justify-between gap-2 border-b border-slate-200/80 px-3 py-2 dark:border-white/10">
         <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-600 dark:text-gray-300">
           Add-ons
         </p>
+        <button
+          type="button"
+          onClick={handleSelectAll}
+          className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-[#4B83FF] transition hover:opacity-80"
+        >
+          {allSelected ? "Deselect all" : "Select all"}
+        </button>
       </div>
       <ul className="divide-y divide-slate-200/80 dark:divide-white/10">
         {checkboxAddOns.map((addOn) => {
@@ -899,6 +931,9 @@ const Pricing = () => {
                         pkg.id,
                         toggleAddOnCode(selectedCodes, code),
                       )
+                    }
+                    onChange={(codes) =>
+                      updatePackageSelections(pkg.id, codes)
                     }
                   />
 
