@@ -591,8 +591,9 @@ async function createSubscriptionCheckout(input = {}) {
       throw checkoutError(CHECKOUT_ERROR_CODES.VALIDATION_FAILED, 400);
     }
 
-    const { productId } = requirePaymentApiCredentials();
+    requirePaymentApiCredentials();
     const resolved = resolveGhlPriceId(packageCode, billingCycle);
+    const productId = resolved.productId || getGhlProductId();
 
     let priceDetails = null;
     try {
