@@ -1,15 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import {
   FiAlertCircle,
   FiCheck,
   FiDollarSign,
+  FiEdit2,
   FiLayers,
   FiPlus,
   FiSearch,
-  FiX,
+  FiTrash2,
 } from "react-icons/fi";
-import { MdModeEdit, MdDelete } from "react-icons/md";
 import { HiSparkles } from "react-icons/hi2";
 import Swal from "sweetalert2";
 import { useAdminPermissions } from "../../context/AdminPermissionsContext";
@@ -20,19 +21,14 @@ import {
   SubscriptionPageHeader,
   SubscriptionPageShell,
   filterControlClass,
-  primaryBtnClass,
 } from "../../components/subscriptions/SubscriptionUi";
 import {
-  createPackage,
   deletePackage,
   fetchPackages as fetchPackagesApi,
   formatPrice,
   parseFeatures,
   parseFeaturesPayload,
-  featuresToEditableText,
-  buildFeaturesStorage,
   togglePackageStatus,
-  updatePackage,
   USAGE_METRIC_LABELS,
   type SubscriptionPackage,
   type UsageLimits,
@@ -44,55 +40,37 @@ type BillingCycle = "MONTHLY" | "YEARLY";
 
 const YEARLY_SAVE_PERCENT = 20;
 
-type PackageForm = {
-  name: string;
-  code: string;
-  priceMonthly: string;
-  priceYearly: string;
-  description: string;
-  features: string;
-  badge: string;
-  usersLabel: string;
-  includedUsers: string;
-  maxUsers: string;
-  extraUserPrice: string;
-  sortOrder: string;
-  isPopular: boolean;
-  usageLimitsJson: string;
-};
-
 const TIER_STYLES: Record<
   string,
-  { ring: string; badge: string; price: string; glow: string; icon: string }
+  { border: string; badge: string; price: string; accent: string; icon: string }
 > = {
   BASIC: {
-    ring: "ring-slate-200 dark:ring-slate-700",
+    border: "border-slate-200 dark:border-slate-700",
     badge: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200",
-    price: "text-slate-800 dark:text-slate-100",
-    glow: "from-slate-100/80 to-white dark:from-slate-800/50 dark:to-slate-900",
-    icon: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300",
+    price: "text-slate-900 dark:text-white",
+    accent: "border-t-[#13538A]",
+    icon: "bg-slate-100 text-[#13538A] dark:bg-slate-800 dark:text-indigo-300",
   },
-  // Display name is "Starter"; package code remains BASIC
   STARTER: {
-    ring: "ring-slate-200 dark:ring-slate-700",
+    border: "border-slate-200 dark:border-slate-700",
     badge: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200",
-    price: "text-slate-800 dark:text-slate-100",
-    glow: "from-slate-100/80 to-white dark:from-slate-800/50 dark:to-slate-900",
-    icon: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300",
+    price: "text-slate-900 dark:text-white",
+    accent: "border-t-[#13538A]",
+    icon: "bg-slate-100 text-[#13538A] dark:bg-slate-800 dark:text-indigo-300",
   },
   PRO: {
-    ring: "ring-[#13538A]/30 dark:ring-indigo-500/40",
+    border: "border-[#13538A]/35 dark:border-indigo-500/40",
     badge: "bg-[#13538A]/10 text-[#13538A] dark:bg-indigo-500/15 dark:text-indigo-300",
-    price: "text-[#13538A] dark:text-indigo-400",
-    glow: "from-[#13538A]/8 to-white dark:from-indigo-500/10 dark:to-slate-900",
+    price: "text-[#13538A] dark:text-indigo-300",
+    accent: "border-t-[#13538A]",
     icon: "bg-[#13538A]/10 text-[#13538A] dark:bg-indigo-500/15 dark:text-indigo-300",
   },
   ELITE: {
-    ring: "ring-amber-300/50 dark:ring-amber-500/30",
-    badge: "bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300",
-    price: "text-amber-700 dark:text-amber-400",
-    glow: "from-amber-50 to-white dark:from-amber-500/10 dark:to-slate-900",
-    icon: "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300",
+    border: "border-amber-300/60 dark:border-amber-500/35",
+    badge: "bg-amber-50 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300",
+    price: "text-amber-700 dark:text-amber-300",
+    accent: "border-t-amber-500",
+    icon: "bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300",
   },
 };
 
@@ -138,13 +116,13 @@ function BillingCycleToggle({
   if (!hasYearly) return null;
 
   return (
-    <div className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-100 p-1 dark:border-slate-700 dark:bg-slate-800">
+    <div className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-slate-50 p-1 dark:border-slate-700 dark:bg-slate-900">
       <button
         type="button"
         onClick={() => onChange("MONTHLY")}
-        className={`rounded-full px-4 py-1.5 text-sm font-semibold transition ${
+        className={`rounded-lg px-4 py-1.5 text-sm font-semibold transition ${
           value === "MONTHLY"
-            ? "bg-white text-slate-900 shadow-sm dark:bg-slate-900 dark:text-white"
+            ? "bg-white text-slate-900 ring-1 ring-slate-200 dark:bg-slate-800 dark:text-white dark:ring-slate-600"
             : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
         }`}
       >
@@ -153,15 +131,21 @@ function BillingCycleToggle({
       <button
         type="button"
         onClick={() => onChange("YEARLY")}
-        className={`inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold transition ${
+        className={`inline-flex items-center gap-2 rounded-lg px-4 py-1.5 text-sm font-semibold transition ${
           value === "YEARLY"
-            ? "bg-[#13538A] text-white shadow-sm dark:bg-indigo-600"
+            ? "bg-[#13538A] text-white dark:bg-indigo-600"
             : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
         }`}
       >
         Yearly
-        <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-300">
-          Save {YEARLY_SAVE_PERCENT}%
+        <span
+          className={`rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+            value === "YEARLY"
+              ? "bg-white/20 text-white"
+              : "bg-emerald-500/15 text-emerald-600 dark:text-emerald-300"
+          }`}
+        >
+          −{YEARLY_SAVE_PERCENT}%
         </span>
       </button>
     </div>
@@ -192,11 +176,11 @@ function UsageLimitsBadges({ limits }: { limits?: UsageLimits | null }) {
   if (entries.length === 0) return null;
 
   return (
-    <div className="mb-5 rounded-xl border border-slate-200/80 bg-slate-50/80 p-3 dark:border-slate-700 dark:bg-slate-800/40">
+    <div className="mb-5 rounded-xl border border-dashed border-slate-200 p-3 dark:border-slate-700">
       <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
         Usage limits
       </p>
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-1.5">
         {entries.map((key) => {
           const value =
             key === "CO_BROKERS" && limits.CO_BROKERS == null
@@ -205,9 +189,9 @@ function UsageLimitsBadges({ limits }: { limits?: UsageLimits | null }) {
           return (
             <span
               key={key}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200/80 bg-white px-2.5 py-1 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+              className="inline-flex items-center gap-1.5 rounded-md bg-slate-100 px-2 py-1 text-xs text-slate-600 dark:bg-slate-800 dark:text-slate-300"
             >
-              <span className="font-semibold text-slate-800 dark:text-slate-100">
+              <span className="font-bold text-slate-800 dark:text-slate-100">
                 {formatUsageLimitValue(value)}
               </span>
               <span className="text-slate-500">{USAGE_METRIC_LABELS[key]}</span>
@@ -258,9 +242,9 @@ function FeatureList({
               }`}
             >
               <span
-                className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${iconClass}`}
+                className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md ${iconClass}`}
               >
-                <FiCheck size={11} />
+                <FiCheck size={11} strokeWidth={2.5} />
               </span>
               <span>{isChild ? feature.replace(/^·\s*/, "") : feature}</span>
             </li>
@@ -280,45 +264,8 @@ function FeatureList({
   );
 }
 
-const EMPTY_FORM: PackageForm = {
-  name: "",
-  code: "",
-  priceMonthly: "",
-  priceYearly: "",
-  description: "",
-  features: "",
-  badge: "",
-  usersLabel: "",
-  includedUsers: "",
-  maxUsers: "",
-  extraUserPrice: "",
-  sortOrder: "0",
-  isPopular: false,
-  usageLimitsJson: "",
-};
-
-function parseUsageLimitsJson(raw: string): UsageLimits | undefined {
-  if (!raw.trim()) return undefined;
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    throw new Error("Invalid usage limits JSON");
-  }
-  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return undefined;
-
-  const out: UsageLimits = {};
-  for (const [key, value] of Object.entries(parsed as Record<string, unknown>)) {
-    if (value === "" || value == null) continue;
-    const n = Number(value);
-    if (Number.isFinite(n) && Number.isInteger(n) && n >= 0) {
-      out[key as keyof UsageLimits] = n;
-    }
-  }
-  return Object.keys(out).length > 0 ? out : undefined;
-}
-
 const AllSubscriptions = () => {
+  const navigate = useNavigate();
   const { can } = useAdminPermissions();
   const canCreate = can("CREATE_SUBSCRIPTION");
   const canUpdate = can("UPDATE_SUBSCRIPTION");
@@ -326,13 +273,8 @@ const AllSubscriptions = () => {
 
   const [packages, setPackages] = useState<SubscriptionPackage[]>([]);
   const [loadingList, setLoadingList] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState<PackageForm>(EMPTY_FORM);
 
   const [currentPage, setCurrentPage] = useState(1);
   const [limit] = useState(12);
@@ -381,55 +323,6 @@ const AllSubscriptions = () => {
     return { active, min, max, hasYearly };
   }, [packages, billingCycle]);
 
-  const resetForm = () => {
-    setEditingId(null);
-    setForm(EMPTY_FORM);
-  };
-
-  const openCreateModal = () => {
-    resetForm();
-    setModalOpen(true);
-  };
-
-  const openEditModal = (pkg: SubscriptionPackage) => {
-    const payload = parseFeaturesPayload(pkg.features);
-    setEditingId(pkg.id);
-    setForm({
-      name: pkg.name,
-      code: pkg.code,
-      priceMonthly: String(pkg.priceMonthly),
-      priceYearly: pkg.priceYearly != null ? String(pkg.priceYearly) : "",
-      description: pkg.description || "",
-      features: featuresToEditableText(pkg.features),
-      badge: payload?.badge ? String(payload.badge) : "",
-      usersLabel: payload?.usersLabel ? String(payload.usersLabel) : "",
-      includedUsers:
-        payload?.includedUsers != null && Number.isFinite(payload.includedUsers)
-          ? String(payload.includedUsers)
-          : "",
-      maxUsers:
-        payload?.maxUsers != null && Number.isFinite(payload.maxUsers)
-          ? String(payload.maxUsers)
-          : "",
-      extraUserPrice:
-        payload?.extraUserPrice != null &&
-        Number.isFinite(payload.extraUserPrice)
-          ? String(payload.extraUserPrice)
-          : "",
-      sortOrder: String(pkg.sortOrder ?? 0),
-      isPopular: Boolean(pkg.isPopular),
-      usageLimitsJson: pkg.usageLimits
-        ? JSON.stringify(pkg.usageLimits, null, 2)
-        : "",
-    });
-    setModalOpen(true);
-  };
-
-  const closeModal = () => {
-    setModalOpen(false);
-    resetForm();
-  };
-
   const loadPackages = async (page = 1) => {
     try {
       setLoadingList(true);
@@ -460,79 +353,6 @@ const AllSubscriptions = () => {
       toast.error("Failed to load subscription packages");
     } finally {
       setLoadingList(false);
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!form.name.trim()) {
-      toast.error("Name is required");
-      return;
-    }
-    if (!form.code.trim()) {
-      toast.error("Code is required");
-      return;
-    }
-    if (!form.priceMonthly || Number(form.priceMonthly) <= 0) {
-      toast.error("Valid monthly price is required");
-      return;
-    }
-
-    try {
-      setSaving(true);
-
-      let usageLimits: UsageLimits | undefined;
-      try {
-        usageLimits = parseUsageLimitsJson(form.usageLimitsJson);
-      } catch {
-        toast.error("Usage limits must be valid JSON");
-        return;
-      }
-
-      let featuresStorage: string | undefined;
-      try {
-        featuresStorage = buildFeaturesStorage({
-          featuresText: form.features,
-          badge: form.badge,
-          usersLabel: form.usersLabel,
-          includedUsers: form.includedUsers,
-          maxUsers: form.maxUsers,
-          extraUserPrice: form.extraUserPrice,
-        });
-      } catch (err) {
-        toast.error(
-          err instanceof Error ? err.message : "Invalid features JSON",
-        );
-        return;
-      }
-
-      const payload = {
-        name: form.name.trim(),
-        code: form.code.trim().toUpperCase(),
-        priceMonthly: Number(form.priceMonthly),
-        priceYearly: form.priceYearly ? Number(form.priceYearly) : null,
-        description: form.description.trim() || undefined,
-        features: featuresStorage,
-        sortOrder: Number(form.sortOrder) || 0,
-        isPopular: form.isPopular,
-        usageLimits: usageLimits ?? null,
-      };
-
-      const json = editingId
-        ? await updatePackage({ id: editingId, ...payload })
-        : await createPackage(payload);
-
-      if (!json.success) {
-        toast.error(json.message || "Save failed");
-        return;
-      }
-
-      toast.success(editingId ? "Package updated" : "Package created");
-      await loadPackages(currentPage);
-      closeModal();
-    } finally {
-      setSaving(false);
     }
   };
 
@@ -602,7 +422,6 @@ const AllSubscriptions = () => {
       }
 
       toast.success("Package deleted");
-      if (editingId === pkg.id) closeModal();
       await loadPackages(currentPage);
     } finally {
       setDeletingId(null);
@@ -625,63 +444,68 @@ const AllSubscriptions = () => {
         description="Manage broker subscription tiers, monthly/yearly pricing, and included features."
         actions={
           canCreate ? (
-            <button type="button" onClick={openCreateModal} className={primaryBtnClass}>
+            <Link
+              to="/all-subscriptions/new"
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#13538A] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0f4470]"
+            >
               <FiPlus size={16} />
               Add Package
-            </button>
+            </Link>
           ) : null
         }
       />
 
       <SubscriptionNav />
 
-      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#13538A]/10 text-[#13538A] dark:bg-indigo-500/15 dark:text-indigo-400">
-              <FiLayers size={18} />
-            </div>
-            <div>
-              <p className="text-xs text-slate-500 dark:text-slate-400">Total Plans</p>
-              <p className="text-2xl font-bold">{total}</p>
+      <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
+        {[
+          {
+            label: "Total plans",
+            value: total,
+            icon: <FiLayers size={18} />,
+            tone: "bg-[#13538A]/10 text-[#13538A] dark:bg-indigo-500/15 dark:text-indigo-300",
+          },
+          {
+            label: "Active plans",
+            value: stats.active,
+            icon: <FiCheck size={18} />,
+            tone: "bg-emerald-50 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-300",
+          },
+          {
+            label: "Price range / mo",
+            value:
+              total > 0
+                ? `${formatPrice(stats.min)} – ${formatPrice(stats.max)}`
+                : "—",
+            hint: billingCycle === "YEARLY" ? "yearly display" : "monthly",
+            icon: <FiDollarSign size={18} />,
+            tone: "bg-amber-50 text-amber-600 dark:bg-amber-500/15 dark:text-amber-300",
+          },
+        ].map((stat) => (
+          <div
+            key={stat.label}
+            className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900"
+          >
+            <div className="flex items-center gap-3">
+              <div
+                className={`flex h-10 w-10 items-center justify-center rounded-xl ${stat.tone}`}
+              >
+                {stat.icon}
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                  {stat.label}
+                </p>
+                <p className="truncate text-xl font-bold text-slate-900 dark:text-white">
+                  {stat.value}
+                </p>
+                {stat.hint ? (
+                  <p className="text-[11px] text-slate-400">{stat.hint}</p>
+                ) : null}
+              </div>
             </div>
           </div>
-        </div>
-
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-400">
-              <FiCheck size={18} />
-            </div>
-            <div>
-              <p className="text-xs text-slate-500 dark:text-slate-400">Active Plans</p>
-              <p className="text-2xl font-bold">{stats.active}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-100 text-amber-600 dark:bg-amber-500/15 dark:text-amber-400">
-              <FiDollarSign size={18} />
-            </div>
-            <div>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Price Range
-              </p>
-              <p className="text-lg font-bold">
-                {total > 0
-                  ? `${formatPrice(stats.min)} – ${formatPrice(stats.max)}`
-                  : "—"}
-                <span className="text-xs font-normal text-slate-500">
-                  {" "}
-                  /mo
-                  {billingCycle === "YEARLY" ? " (yearly)" : ""}
-                </span>
-              </p>
-            </div>
-          </div>
-        </div>
+        ))}
       </div>
 
       <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -733,10 +557,13 @@ const AllSubscriptions = () => {
           description="Create your first plan to start offering subscriptions to brokers."
           action={
             canCreate ? (
-              <button type="button" onClick={openCreateModal} className={primaryBtnClass}>
+              <Link
+                to="/all-subscriptions/new"
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#13538A] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0f4470]"
+              >
                 <FiPlus size={16} />
                 Create first package
-              </button>
+              </Link>
             ) : null
           }
         />
@@ -759,7 +586,7 @@ const AllSubscriptions = () => {
           }
         />
       ) : (
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           {filteredPackages.map((pkg) => {
             const style = getTierStyle(pkg.code);
             const features = parseFeatures(pkg.features);
@@ -771,29 +598,24 @@ const AllSubscriptions = () => {
             return (
               <article
                 key={pkg.id}
-                className={`relative flex flex-col rounded-3xl border bg-white shadow-sm ring-1 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl dark:bg-slate-900 ${style.ring} ${
-                  !pkg.isActive ? "opacity-70" : ""
+                className={`flex flex-col overflow-hidden rounded-2xl border border-t-4 bg-white transition-colors hover:border-slate-300 dark:bg-slate-900 dark:hover:border-slate-600 ${style.border} ${style.accent} ${
+                  !pkg.isActive ? "opacity-65" : ""
                 }`}
               >
-                <div
-                  className={`pointer-events-none absolute inset-x-0 top-0 h-28 rounded-t-3xl bg-gradient-to-b ${style.glow}`}
-                  aria-hidden
-                />
-
-                <div className="relative flex flex-1 flex-col p-6 pb-5">
-                  <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-                    <div className="flex flex-wrap items-center gap-2">
+                <div className="flex flex-1 flex-col p-5">
+                  <div className="mb-4 flex flex-wrap items-start justify-between gap-2">
+                    <div className="flex min-w-0 flex-wrap items-center gap-2">
                       <span
-                        className={`inline-block rounded-lg px-2.5 py-1 text-xs font-bold tracking-wide ${style.badge}`}
+                        className={`inline-flex rounded-md px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide ${style.badge}`}
                       >
                         {getPackageCodeLabel(pkg.code)}
                       </span>
-                      {badgeLabel && (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-[#13538A] px-2.5 py-1 text-[11px] font-semibold text-white shadow-sm dark:bg-indigo-600">
-                          <HiSparkles size={12} />
+                      {badgeLabel ? (
+                        <span className="inline-flex items-center gap-1 rounded-md bg-[#13538A] px-2 py-0.5 text-[11px] font-semibold text-white dark:bg-indigo-600">
+                          <HiSparkles size={11} />
                           {badgeLabel}
                         </span>
-                      )}
+                      ) : null}
                     </div>
 
                     <button
@@ -805,92 +627,93 @@ const AllSubscriptions = () => {
                           ? "Click to deactivate"
                           : "Click to activate"
                       }
-                      className={`z-10 shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold shadow-sm ring-1 ring-black/5 transition hover:scale-[1.03] disabled:cursor-not-allowed disabled:opacity-60 dark:ring-white/10 ${
+                      className={`shrink-0 rounded-md px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide transition disabled:cursor-not-allowed disabled:opacity-60 ${
                         pkg.isActive
-                          ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-300"
-                          : "bg-rose-100 text-rose-700 hover:bg-rose-200 dark:bg-rose-500/20 dark:text-rose-300"
+                          ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 hover:bg-emerald-100 dark:bg-emerald-500/15 dark:text-emerald-300 dark:ring-emerald-500/30"
+                          : "bg-rose-50 text-rose-700 ring-1 ring-rose-200 hover:bg-rose-100 dark:bg-rose-500/15 dark:text-rose-300 dark:ring-rose-500/30"
                       }`}
                     >
                       {togglingId === pkg.id
-                        ? "Updating..."
+                        ? "…"
                         : pkg.isActive
                           ? "Active"
                           : "Inactive"}
                     </button>
                   </div>
 
-                  <div className="mb-5 min-w-0">
-                    <h3 className="text-2xl font-bold text-slate-900 dark:text-white">
+                  <div className="mb-4 min-w-0">
+                    <h3 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
                       {pkg.name}
                     </h3>
-                    {pkg.description && (
-                      <p className="mt-1.5 line-clamp-2 text-sm leading-relaxed text-slate-500 dark:text-slate-400">
+                    {pkg.description ? (
+                      <p className="mt-1 line-clamp-2 text-sm leading-relaxed text-slate-500 dark:text-slate-400">
                         {pkg.description}
                       </p>
-                    )}
+                    ) : null}
                   </div>
 
-                  <div className="mb-5 rounded-2xl border border-slate-200/80 bg-slate-50/80 p-4 dark:border-slate-700 dark:bg-slate-800/50">
-                    <div className="flex flex-wrap items-end gap-x-2 gap-y-1">
+                  <div className="mb-4 rounded-xl border border-slate-100 bg-slate-50 px-4 py-3 dark:border-slate-800 dark:bg-slate-800/50">
+                    <div className="flex flex-wrap items-baseline gap-x-1.5">
                       <span
-                        className={`text-4xl font-extrabold tracking-tight ${style.price}`}
+                        className={`text-3xl font-extrabold tracking-tight ${style.price}`}
                       >
                         {formatPrice(display.amount)}
                       </span>
-                      <span className="mb-1 text-sm text-slate-500 dark:text-slate-400">
-                        / month
+                      <span className="text-sm text-slate-500 dark:text-slate-400">
+                        /mo
                       </span>
                     </div>
-                    <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                    <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
                       {display.billingLabel}
+                      {display.billedToday != null
+                        ? ` · ${formatPrice(display.billedToday)}/yr`
+                        : ""}
                     </p>
-                    {display.billedToday != null && (
-                      <p className="mt-1.5 text-sm font-semibold text-slate-800 dark:text-slate-100">
-                        {formatPrice(display.billedToday)} billed yearly
-                      </p>
-                    )}
-                    {display.savings != null && display.savings > 0 && (
-                      <p className="mt-2 text-sm font-medium text-emerald-600 dark:text-emerald-400">
+                    {display.savings != null && display.savings > 0 ? (
+                      <p className="mt-1.5 inline-flex rounded-md bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300">
                         Save {display.savings}% vs monthly
                       </p>
-                    )}
-                    {billingCycle === "MONTHLY" && pkg.priceYearly != null && (
+                    ) : null}
+                    {billingCycle === "MONTHLY" && pkg.priceYearly != null ? (
                       <p className="mt-1.5 text-xs text-slate-500 dark:text-slate-400">
-                        Yearly option: {formatPrice(pkg.priceYearly)} / year
+                        Yearly: {formatPrice(pkg.priceYearly)}/yr
                       </p>
-                    )}
+                    ) : null}
                   </div>
 
                   {(featureMeta?.includedUsers != null ||
                     featureMeta?.maxUsers != null ||
                     featureMeta?.extraUserPrice != null) && (
-                    <div className="mb-5 grid grid-cols-3 gap-2">
-                      <div className="rounded-xl border border-slate-200/80 bg-white px-2.5 py-2 text-center dark:border-slate-700 dark:bg-slate-900">
-                        <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-                          Included
-                        </p>
-                        <p className="mt-0.5 text-sm font-bold text-slate-800 dark:text-slate-100">
-                          {featureMeta.includedUsers ?? "—"}
-                        </p>
-                      </div>
-                      <div className="rounded-xl border border-slate-200/80 bg-white px-2.5 py-2 text-center dark:border-slate-700 dark:bg-slate-900">
-                        <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-                          Max
-                        </p>
-                        <p className="mt-0.5 text-sm font-bold text-slate-800 dark:text-slate-100">
-                          {featureMeta.maxUsers ?? "—"}
-                        </p>
-                      </div>
-                      <div className="rounded-xl border border-slate-200/80 bg-white px-2.5 py-2 text-center dark:border-slate-700 dark:bg-slate-900">
-                        <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-                          Extra
-                        </p>
-                        <p className="mt-0.5 text-sm font-bold text-slate-800 dark:text-slate-100">
-                          {featureMeta.extraUserPrice != null
-                            ? `${formatPrice(featureMeta.extraUserPrice)}/m`
-                            : "—"}
-                        </p>
-                      </div>
+                    <div className="mb-4 grid grid-cols-3 gap-2">
+                      {[
+                        {
+                          label: "Included",
+                          value: featureMeta.includedUsers ?? "—",
+                        },
+                        {
+                          label: "Max",
+                          value: featureMeta.maxUsers ?? "—",
+                        },
+                        {
+                          label: "Extra",
+                          value:
+                            featureMeta.extraUserPrice != null
+                              ? `${formatPrice(featureMeta.extraUserPrice)}/m`
+                              : "—",
+                        },
+                      ].map((cell) => (
+                        <div
+                          key={cell.label}
+                          className="rounded-lg border border-slate-100 px-2 py-2 text-center dark:border-slate-800"
+                        >
+                          <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                            {cell.label}
+                          </p>
+                          <p className="mt-0.5 text-sm font-bold text-slate-800 dark:text-slate-100">
+                            {cell.value}
+                          </p>
+                        </div>
+                      ))}
                     </div>
                   )}
 
@@ -898,28 +721,35 @@ const AllSubscriptions = () => {
 
                   <FeatureList features={features} iconClass={style.icon} />
 
-                  <div className="mt-auto flex items-center gap-2 border-t border-slate-200/80 pt-4 dark:border-slate-800">
-                    {canUpdate && (
+                  <div className="mt-auto grid grid-cols-[1fr_auto] gap-2 border-t border-slate-100 pt-4 dark:border-slate-800">
+                    {canUpdate ? (
                       <button
                         type="button"
-                        onClick={() => openEditModal(pkg)}
-                        className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-slate-100 py-2.5 text-sm font-semibold transition-colors hover:bg-[#13538A] hover:text-white dark:bg-slate-800 dark:hover:bg-indigo-600"
+                        onClick={() =>
+                          navigate(`/all-subscriptions/edit?id=${pkg.id}`)
+                        }
+                        className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-[#13538A]/25 bg-[#13538A]/[0.04] px-3 text-sm font-semibold text-[#13538A] transition hover:bg-[#13538A] hover:text-white dark:border-indigo-500/30 dark:bg-indigo-500/10 dark:text-indigo-300 dark:hover:bg-indigo-600 dark:hover:text-white"
                       >
-                        <MdModeEdit size={16} />
-                        Edit
+                        <FiEdit2 size={15} />
+                        Edit package
                       </button>
+                    ) : (
+                      <div />
                     )}
-                    {canDelete && (
+                    {canDelete ? (
                       <button
                         type="button"
                         onClick={() => handleDelete(pkg)}
                         disabled={deletingId === pkg.id}
-                        className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 transition-colors hover:bg-red-600 hover:text-white disabled:opacity-50 dark:bg-slate-800"
+                        className="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50 px-3 text-sm font-semibold text-rose-700 transition hover:border-rose-500 hover:bg-rose-600 hover:text-white disabled:opacity-50 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-300 dark:hover:bg-rose-600 dark:hover:text-white"
                         title="Delete package"
                       >
-                        <MdDelete size={18} />
+                        <FiTrash2 size={15} />
+                        <span className="hidden sm:inline">
+                          {deletingId === pkg.id ? "…" : "Delete"}
+                        </span>
                       </button>
-                    )}
+                    ) : null}
                   </div>
                 </div>
               </article>
@@ -935,298 +765,6 @@ const AllSubscriptions = () => {
         noun="packages"
         onPageChange={gotoPage}
       />
-
-      {modalOpen && (
-        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4">
-          <button
-            type="button"
-            aria-label="Close modal"
-            onClick={closeModal}
-            className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm"
-          />
-
-          <div className="relative max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900">
-            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white/95 px-6 py-4 backdrop-blur dark:border-slate-800 dark:bg-slate-900/95">
-              <div>
-                <h2 className="text-lg font-bold text-slate-900 dark:text-white">
-                  {editingId ? "Edit Package" : "New Package"}
-                </h2>
-                <p className="text-xs text-slate-500">
-                  {editingId ? "Update plan details" : "Add a subscription tier"}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={closeModal}
-                className="flex h-9 w-9 items-center justify-center rounded-lg transition hover:bg-slate-100 dark:hover:bg-slate-800"
-              >
-                <FiX size={18} />
-              </button>
-            </div>
-
-            <form onSubmit={handleSubmit} className="space-y-4 p-6">
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div className="sm:col-span-2">
-                  <label className="mb-1.5 block text-xs font-medium text-slate-600 dark:text-slate-400">
-                    Package Name
-                  </label>
-                  <input
-                    value={form.name}
-                    onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                    placeholder="e.g. Pro"
-                    className={`w-full ${filterControlClass}`}
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-1.5 block text-xs font-medium text-slate-600 dark:text-slate-400">
-                    Code
-                  </label>
-                  <input
-                    value={form.code}
-                    onChange={(e) =>
-                      setForm((f) => ({ ...f, code: e.target.value.toUpperCase() }))
-                    }
-                    placeholder="PRO"
-                    disabled={Boolean(editingId)}
-                    className={`w-full font-mono text-sm disabled:opacity-60 ${filterControlClass}`}
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-1.5 block text-xs font-medium text-slate-600 dark:text-slate-400">
-                    Monthly Price ($)
-                  </label>
-                  <div className="relative">
-                    <span className="absolute top-1/2 left-3 -translate-y-1/2 text-sm text-slate-400">
-                      $
-                    </span>
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={form.priceMonthly}
-                      onChange={(e) =>
-                        setForm((f) => ({ ...f, priceMonthly: e.target.value }))
-                      }
-                      placeholder="399"
-                      className={`w-full py-2.5 pr-3 pl-7 ${filterControlClass}`}
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="mb-1.5 block text-xs font-medium text-slate-600 dark:text-slate-400">
-                    Yearly Price ($)
-                  </label>
-                  <div className="relative">
-                    <span className="absolute top-1/2 left-3 -translate-y-1/2 text-sm text-slate-400">
-                      $
-                    </span>
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={form.priceYearly}
-                      onChange={(e) =>
-                        setForm((f) => ({ ...f, priceYearly: e.target.value }))
-                      }
-                      placeholder="3990"
-                      className={`w-full py-2.5 pr-3 pl-7 ${filterControlClass}`}
-                    />
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2 sm:col-span-2">
-                  <input
-                    id="isPopular"
-                    type="checkbox"
-                    checked={form.isPopular}
-                    onChange={(e) =>
-                      setForm((f) => ({ ...f, isPopular: e.target.checked }))
-                    }
-                    className="rounded"
-                  />
-                  <label
-                    htmlFor="isPopular"
-                    className="text-sm font-medium text-slate-600 dark:text-slate-300"
-                  >
-                    Mark as Most Popular plan
-                  </label>
-                </div>
-
-                <div className="sm:col-span-2">
-                  <label className="mb-1.5 block text-xs font-medium text-slate-600 dark:text-slate-400">
-                    Sort Order
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={form.sortOrder}
-                    onChange={(e) => setForm((f) => ({ ...f, sortOrder: e.target.value }))}
-                    className={`w-full ${filterControlClass}`}
-                  />
-                </div>
-
-                <div className="sm:col-span-2">
-                  <label className="mb-1.5 block text-xs font-medium text-slate-600 dark:text-slate-400">
-                    Description
-                  </label>
-                  <textarea
-                    rows={2}
-                    value={form.description}
-                    onChange={(e) =>
-                      setForm((f) => ({ ...f, description: e.target.value }))
-                    }
-                    placeholder="Who is this plan for?"
-                    className={`w-full resize-none ${filterControlClass}`}
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-1.5 block text-xs font-medium text-slate-600 dark:text-slate-400">
-                    Badge
-                  </label>
-                  <input
-                    value={form.badge}
-                    onChange={(e) =>
-                      setForm((f) => ({ ...f, badge: e.target.value }))
-                    }
-                    placeholder="MOST POPULAR"
-                    className={`w-full ${filterControlClass}`}
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-1.5 block text-xs font-medium text-slate-600 dark:text-slate-400">
-                    Users Label
-                  </label>
-                  <input
-                    value={form.usersLabel}
-                    onChange={(e) =>
-                      setForm((f) => ({ ...f, usersLabel: e.target.value }))
-                    }
-                    placeholder="Add up to 5 users · Additional User Cost: $99/m"
-                    className={`w-full ${filterControlClass}`}
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-1.5 block text-xs font-medium text-slate-600 dark:text-slate-400">
-                    Included Users
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    value={form.includedUsers}
-                    onChange={(e) =>
-                      setForm((f) => ({ ...f, includedUsers: e.target.value }))
-                    }
-                    placeholder="1"
-                    className={`w-full ${filterControlClass}`}
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-1.5 block text-xs font-medium text-slate-600 dark:text-slate-400">
-                    Max Users
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    value={form.maxUsers}
-                    onChange={(e) =>
-                      setForm((f) => ({ ...f, maxUsers: e.target.value }))
-                    }
-                    placeholder="5"
-                    className={`w-full ${filterControlClass}`}
-                  />
-                </div>
-
-                <div className="sm:col-span-2">
-                  <label className="mb-1.5 block text-xs font-medium text-slate-600 dark:text-slate-400">
-                    Extra User Price ($ / month)
-                  </label>
-                  <div className="relative">
-                    <span className="absolute top-1/2 left-3 -translate-y-1/2 text-sm text-slate-400">
-                      $
-                    </span>
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={form.extraUserPrice}
-                      onChange={(e) =>
-                        setForm((f) => ({
-                          ...f,
-                          extraUserPrice: e.target.value,
-                        }))
-                      }
-                      placeholder="99"
-                      className={`w-full py-2.5 pr-3 pl-7 ${filterControlClass}`}
-                    />
-                  </div>
-                </div>
-
-                <div className="sm:col-span-2">
-                  <label className="mb-1.5 block text-xs font-medium text-slate-600 dark:text-slate-400">
-                    Features (JSON)
-                  </label>
-                  <textarea
-                    rows={14}
-                    value={form.features}
-                    onChange={(e) =>
-                      setForm((f) => ({ ...f, features: e.target.value }))
-                    }
-                    placeholder={`{\n  "groups": [\n    {\n      "heading": "CORE PLATFORM",\n      "items": ["Broker Portal", { "label": "1-4 unit Residential", "children": ["Bridge Loans"] }]\n    }\n  ]\n}`}
-                    spellCheck={false}
-                    className={`w-full resize-y font-mono text-xs leading-relaxed ${filterControlClass}`}
-                  />
-                  <p className="mt-1.5 text-xs text-slate-400">
-                    Keep structured JSON so pricing dropdowns (
-                    <code className="rounded bg-slate-100 px-1 dark:bg-slate-800">
-                      label + children
-                    </code>
-                    ) stay intact. Badge / user fields above are merged on save.
-                  </p>
-                </div>
-
-                <div className="sm:col-span-2">
-                  <label className="mb-1.5 block text-xs font-medium text-slate-600 dark:text-slate-400">
-                    Usage Limits (JSON)
-                  </label>
-                  <textarea
-                    rows={4}
-                    value={form.usageLimitsJson}
-                    onChange={(e) =>
-                      setForm((f) => ({ ...f, usageLimitsJson: e.target.value }))
-                    }
-                    placeholder='{"LOAN_APPLICATIONS": 100, "ACTIVE_USERS": 25}'
-                    className={`w-full resize-none font-mono text-xs ${filterControlClass}`}
-                  />
-                </div>
-              </div>
-
-              <div className="flex gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={closeModal}
-                  className="flex-1 rounded-xl border border-slate-200 py-2.5 text-sm font-semibold transition hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className={`flex-1 ${primaryBtnClass}`}
-                >
-                  {saving ? "Saving..." : editingId ? "Save Changes" : "Create Package"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </SubscriptionPageShell>
   );
 };

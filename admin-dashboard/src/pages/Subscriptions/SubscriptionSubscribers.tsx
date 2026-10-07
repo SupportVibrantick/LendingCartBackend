@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import {
   FiCheck,
+  FiClock,
   FiFileText,
   FiMoreVertical,
   FiPackage,
@@ -12,10 +13,10 @@ import {
   FiRepeat,
   FiSearch,
   FiShield,
+  FiUserCheck,
   FiUsers,
   FiX,
 } from "react-icons/fi";
-import { HiOutlineUserPlus } from "react-icons/hi2";
 import { useAdminPermissions } from "../../context/AdminPermissionsContext";
 import SubscriptionNav from "../../components/subscriptions/SubscriptionNav";
 import {
@@ -26,8 +27,6 @@ import {
   SubscriptionPageShell,
   TableSkeleton,
   filterControlClass,
-  primaryBtnClass,
-  secondaryBtnClass,
 } from "../../components/subscriptions/SubscriptionUi";
 import { useDebouncedValue } from "../../hooks/useDebouncedValue";
 import {
@@ -49,6 +48,11 @@ import {
 import { getPackageCodeLabel } from "../../lib/packageDisplay";
 
 const MENU_WIDTH = 176;
+
+const flatPrimaryBtn =
+  "inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-[#13538A] px-4 text-sm font-semibold text-white transition hover:bg-[#0f4470] disabled:opacity-60";
+const flatSecondaryBtn =
+  "inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800";
 
 function packageTierTone(code?: string | null) {
   const c = String(code || "").toUpperCase();
@@ -289,53 +293,84 @@ export default function SubscriptionSubscribers() {
         title="Subscribers"
         description="Manage broker subscriptions, plans, and billing cycles."
         actions={
-          canManage ? (
-            <button type="button" onClick={() => openAssign()} className={primaryBtnClass}>
-              <FiPlus size={16} />
-              Assign Plan
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => void fetchRows()}
+              disabled={loading}
+              className={flatSecondaryBtn}
+            >
+              <FiRefreshCw
+                size={15}
+                className={loading ? "animate-spin" : undefined}
+              />
+              Refresh
             </button>
-          ) : null
+            {canManage ? (
+              <button
+                type="button"
+                onClick={() => openAssign()}
+                className={flatPrimaryBtn}
+              >
+                <FiPlus size={16} />
+                Assign Plan
+              </button>
+            ) : null}
+          </div>
         }
       />
 
       <SubscriptionNav />
 
-      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
           <div className="flex items-center gap-3">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#13538A]/10 text-[#13538A]">
-              <FiUsers size={16} />
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#13538A]/10 text-[#13538A] dark:bg-indigo-500/15 dark:text-indigo-300">
+              <FiUsers size={18} />
             </span>
-            <div>
-              <p className="text-xs text-slate-500">On this page</p>
-              <p className="text-lg font-bold">{rows.length} brokers</p>
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                On this page
+              </p>
+              <p className="text-xl font-bold text-slate-900 dark:text-white">
+                {rows.length}
+                <span className="ml-1 text-xs font-medium text-slate-500">
+                  brokers
+                </span>
+              </p>
             </div>
           </div>
         </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
           <div className="flex items-center gap-3">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-100 text-emerald-600">
-              <HiOutlineUserPlus size={16} />
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-300">
+              <FiUserCheck size={18} />
             </span>
-            <div>
-              <p className="text-xs text-slate-500">With plan (page)</p>
-              <p className="text-lg font-bold">
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                With plan
+              </p>
+              <p className="text-xl font-bold text-slate-900 dark:text-white">
                 {pageStats.withPlan}
-                <span className="ml-1 text-xs font-normal text-slate-500">
+                <span className="ml-1 text-xs font-medium text-slate-500">
                   · {pageStats.active} active
                 </span>
               </p>
             </div>
           </div>
         </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
           <div className="flex items-center gap-3">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-100 text-blue-600">
-              <FiUsers size={16} />
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-600 dark:bg-amber-500/15 dark:text-amber-300">
+              <FiClock size={18} />
             </span>
-            <div>
-              <p className="text-xs text-slate-500">Trials (page)</p>
-              <p className="text-lg font-bold">{pageStats.trials}</p>
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                Trials
+              </p>
+              <p className="text-xl font-bold text-slate-900 dark:text-white">
+                {pageStats.trials}
+              </p>
             </div>
           </div>
         </div>
@@ -343,14 +378,17 @@ export default function SubscriptionSubscribers() {
 
       <FilterBar>
         <div className="relative flex-1">
-          <FiSearch className="absolute top-1/2 left-3 -translate-y-1/2 text-slate-400" />
+          <FiSearch
+            className="absolute top-1/2 left-3 -translate-y-1/2 text-slate-400"
+            size={16}
+          />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search by broker name, email, phone, or plan..."
             className={`w-full py-2.5 pr-10 pl-10 ${filterControlClass}`}
           />
-          {search && (
+          {search ? (
             <button
               type="button"
               onClick={() => setSearch("")}
@@ -359,7 +397,7 @@ export default function SubscriptionSubscribers() {
             >
               Clear
             </button>
-          )}
+          ) : null}
         </div>
         <select
           value={filterHasSub}
@@ -382,29 +420,25 @@ export default function SubscriptionSubscribers() {
           <option value="CANCELLED">Cancelled</option>
           <option value="EXPIRED">Expired</option>
         </select>
-        <button type="button" onClick={() => fetchRows()} className={secondaryBtnClass}>
-          <FiRefreshCw size={14} />
-          Refresh
-        </button>
       </FilterBar>
 
-      {debouncedSearch && (
+      {debouncedSearch ? (
         <p className="mb-4 text-xs text-slate-500">
           Showing results for &ldquo;{debouncedSearch}&rdquo;
           {loading ? " — searching..." : ` — ${total} found`}
         </p>
-      )}
+      ) : null}
 
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-800/50">
+          <table className="min-w-full text-sm">
+            <thead className="border-b border-slate-200 bg-slate-50 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:border-slate-800 dark:bg-slate-800/50">
               <tr>
-                <th className="px-4 py-3">Broker Organization</th>
+                <th className="px-4 py-3">Broker</th>
                 <th className="px-4 py-3">Plan</th>
                 <th className="px-4 py-3">Cycle</th>
                 <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">Period End</th>
+                <th className="px-4 py-3">Period end</th>
                 <th className="px-4 py-3">Price</th>
                 <th className="px-4 py-3 text-right">Actions</th>
               </tr>
@@ -414,10 +448,25 @@ export default function SubscriptionSubscribers() {
                 <TableSkeleton columns={7} />
               ) : rows.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-12 text-center text-slate-500">
-                    {debouncedSearch
-                      ? "No subscribers match your search"
-                      : "No subscribers found"}
+                  <td
+                    colSpan={7}
+                    className="px-4 py-14 text-center text-slate-500"
+                  >
+                    <div className="mx-auto flex max-w-sm flex-col items-center gap-2">
+                      <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-slate-100 text-slate-400 dark:bg-slate-800">
+                        <FiUsers size={22} />
+                      </span>
+                      <p className="font-medium text-slate-700 dark:text-slate-200">
+                        {debouncedSearch
+                          ? "No subscribers match your search"
+                          : "No subscribers found"}
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        {debouncedSearch
+                          ? "Try a different broker name, email, or plan."
+                          : "Assign a plan to a broker to get started."}
+                      </p>
+                    </div>
                   </td>
                 </tr>
               ) : (
@@ -428,40 +477,53 @@ export default function SubscriptionSubscribers() {
                       ? sub.package?.priceYearly
                       : sub.package?.priceMonthly
                     : null;
+                  const initial =
+                    (row.organizationName || "?").charAt(0).toUpperCase();
 
                   return (
                     <tr
                       key={row.organizationId}
-                      className="border-t border-slate-100 transition hover:bg-slate-50/80 dark:border-slate-800 dark:hover:bg-slate-800/30"
+                      className="border-t border-slate-100 transition hover:bg-slate-50/80 dark:border-slate-800 dark:hover:bg-slate-800/40"
                     >
-                      <td className="px-4 py-3">
-                        <div className="font-semibold text-slate-900 dark:text-white">
-                          {row.organizationName}
-                        </div>
-                        <div className="text-xs text-slate-500">
-                          {row.organizationEmail || "—"}
+                      <td className="px-4 py-3.5">
+                        <div className="flex items-center gap-3">
+                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#13538A]/10 text-xs font-bold text-[#13538A] dark:bg-indigo-500/15 dark:text-indigo-300">
+                            {initial}
+                          </span>
+                          <div className="min-w-0">
+                            <p className="truncate font-semibold text-slate-900 dark:text-white">
+                              {row.organizationName}
+                            </p>
+                            <p className="truncate text-xs text-slate-500">
+                              {row.organizationEmail || "—"}
+                            </p>
+                          </div>
                         </div>
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3.5">
                         {sub?.package ? (
                           <div>
-                            <span className="font-medium">{sub.package.name}</span>
-                            <span className="ml-1 text-xs text-slate-400">
-                              ({getPackageCodeLabel(sub.package.code)})
-                            </span>
+                            <p className="font-medium text-slate-900 dark:text-white">
+                              {sub.package.name}
+                            </p>
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                              {getPackageCodeLabel(sub.package.code)}
+                            </p>
                           </div>
                         ) : (
-                          <span className="text-slate-400">No plan</span>
+                          <span className="inline-flex rounded-md bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                            No plan
+                          </span>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-slate-600 dark:text-slate-300">
+                      <td className="px-4 py-3.5 text-slate-600 dark:text-slate-300">
                         {sub?.billingCycle
                           ? sub.billingCycle === "YEARLY"
                             ? "Yearly"
                             : "Monthly"
                           : "—"}
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3.5">
                         <StatusBadge status={sub?.status} />
                         {sub?.cancelAtPeriodEnd ? (
                           <p className="mt-1 text-[11px] font-medium text-amber-600">
@@ -469,15 +531,15 @@ export default function SubscriptionSubscribers() {
                           </p>
                         ) : null}
                       </td>
-                      <td className="px-4 py-3 text-slate-600 dark:text-slate-300">
+                      <td className="px-4 py-3.5 whitespace-nowrap text-slate-600 dark:text-slate-300">
                         {sub?.currentPeriodEnd
                           ? new Date(sub.currentPeriodEnd).toLocaleDateString()
                           : "—"}
                       </td>
-                      <td className="px-4 py-3 font-medium">
+                      <td className="px-4 py-3.5 font-semibold text-slate-900 dark:text-white">
                         {price != null ? formatPrice(price) : "—"}
                       </td>
-                      <td className="px-4 py-3 text-right">
+                      <td className="px-4 py-3.5 text-right">
                         <button
                           type="button"
                           data-subscriber-menu-trigger="true"
@@ -492,7 +554,7 @@ export default function SubscriptionSubscribers() {
                               e.currentTarget,
                             );
                           }}
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-transparent text-slate-500 transition hover:border-slate-200 hover:bg-slate-50 dark:text-slate-300 dark:hover:border-slate-700 dark:hover:bg-slate-800"
                         >
                           <FiMoreVertical size={16} />
                         </button>
@@ -516,7 +578,7 @@ export default function SubscriptionSubscribers() {
               left: menuPos.left,
               width: MENU_WIDTH,
             }}
-            className="z-[9999] overflow-hidden rounded-xl border border-slate-200 bg-white py-1 shadow-xl dark:border-slate-700 dark:bg-slate-900"
+            className="z-[9999] overflow-hidden rounded-xl border border-slate-200 bg-white py-1 dark:border-slate-700 dark:bg-slate-900"
             onMouseDown={(e) => e.stopPropagation()}
           >
             <button
@@ -589,7 +651,7 @@ export default function SubscriptionSubscribers() {
           />
           <form
             onSubmit={handleAssign}
-            className="relative flex max-h-[min(920px,92vh)] w-full max-w-lg flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900"
+            className="relative flex max-h-[min(920px,92vh)] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900"
           >
             <div className="relative overflow-hidden border-b border-slate-100 bg-gradient-to-br from-[#0B3A63] via-[#13538A] to-[#18B6B4] px-6 py-5 text-white dark:border-slate-800">
               <div className="pointer-events-none absolute -right-8 -top-10 h-36 w-36 rounded-full bg-white/10" />
@@ -665,7 +727,7 @@ export default function SubscriptionSubscribers() {
                         onClick={() => setAssignForm((f) => ({ ...f, packageId: pkg.id }))}
                         className={`relative rounded-2xl border px-3 py-3 text-left transition ${
                           selected
-                            ? `${tone.ring} ring-2 bg-white shadow-sm dark:bg-slate-800`
+                            ? `${tone.ring} ring-2 bg-white dark:bg-slate-800`
                             : "border-slate-200 bg-slate-50/80 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-800/40"
                         }`}
                       >
@@ -708,7 +770,7 @@ export default function SubscriptionSubscribers() {
                         onClick={() => setAssignForm((f) => ({ ...f, billingCycle: cycle }))}
                         className={`rounded-xl px-3 py-2.5 text-sm font-semibold transition ${
                           active
-                            ? "bg-white text-[#13538A] shadow-sm dark:bg-slate-900 dark:text-[#5BA3D9]"
+                            ? "bg-white text-[#13538A] dark:bg-slate-900 dark:text-[#5BA3D9]"
                             : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
                         }`}
                       >
@@ -783,10 +845,18 @@ export default function SubscriptionSubscribers() {
             </div>
 
             <div className="flex gap-3 border-t border-slate-100 bg-slate-50/80 px-6 py-4 dark:border-slate-800 dark:bg-slate-900/80">
-              <button type="button" onClick={closeAssign} className={`flex-1 ${secondaryBtnClass}`}>
+              <button
+                type="button"
+                onClick={closeAssign}
+                className={`flex-1 ${flatSecondaryBtn}`}
+              >
                 Cancel
               </button>
-              <button type="submit" disabled={assigning} className={`flex-1 ${primaryBtnClass}`}>
+              <button
+                type="submit"
+                disabled={assigning}
+                className={`flex-1 ${flatPrimaryBtn}`}
+              >
                 {assigning ? "Assigning..." : "Assign plan"}
               </button>
             </div>

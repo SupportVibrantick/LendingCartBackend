@@ -312,6 +312,12 @@ export async function changeSubscriptionPlan(payload: {
   });
 }
 
+export async function fetchFeatureCatalog() {
+  return request<{ catalog: FeatureCatalogGroup[] }>(
+    `${API_BASE}/admin/subscriptions/subscribers/features/catalog`,
+  );
+}
+
 export async function fetchPackageFeatureDefaults(params: {
   packageId?: string;
   packageCode?: string;
@@ -512,6 +518,69 @@ export function featuresToEditableText(features?: string | null): string {
  * Preserves structured JSON (including dropdown children) when valid.
  * Plain line/comma lists stay as legacy newline storage.
  */
+export type PackageFeatureGroup = {
+  heading: string | null;
+  variant?: "default" | "highlight";
+  items: Array<string | { label: string; children: string[] }>;
+};
+
+/** Parse marketing feature groups from package.features JSON. */
+export function featureGroupsFromPackage(
+  features?: string | null,
+): PackageFeatureGroup[] {
+  const payload = parseFeaturesPayload(features);
+  const raw = payload?.groups;
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((group: unknown) => {
+      if (!group || typeof group !== "object") return null;
+      const g = group as Record<string, unknown>;
+      const items = Array.isArray(g.items) ? g.items : [];
+      return {
+        heading: g.heading ? String(g.heading) : null,
+        variant: g.variant === "highlight" ? ("highlight" as const) : ("default" as const),
+        items,
+      } as PackageFeatureGroup;
+    })
+    .filter((g): g is PackageFeatureGroup => Boolean(g && g.items.length > 0));
+}
+
+export function buildPackageFeaturesJson(input: {
+  groups: PackageFeatureGroup[];
+  badge?: string;
+  usersLabel?: string;
+  includedUsers?: string;
+  maxUsers?: string;
+  extraUserPrice?: string;
+  priceYearlyMonthly?: string;
+}): string | undefined {
+  const toNum = (raw?: string) => {
+    if (raw == null || !String(raw).trim()) return null;
+    const n = Number(raw);
+    return Number.isFinite(n) ? n : null;
+  };
+
+  const hasMeta =
+    input.badge?.trim() ||
+    input.usersLabel?.trim() ||
+    input.includedUsers?.trim() ||
+    input.maxUsers?.trim() ||
+    input.extraUserPrice?.trim() ||
+    input.priceYearlyMonthly?.trim();
+
+  if (!input.groups.length && !hasMeta) return undefined;
+
+  return JSON.stringify({
+    badge: input.badge?.trim() || null,
+    usersLabel: input.usersLabel?.trim() || null,
+    includedUsers: toNum(input.includedUsers),
+    maxUsers: toNum(input.maxUsers),
+    extraUserPrice: toNum(input.extraUserPrice),
+    priceYearlyMonthly: toNum(input.priceYearlyMonthly),
+    groups: input.groups,
+  });
+}
+
 export function buildFeaturesStorage(input: {
   featuresText: string;
   badge?: string;
