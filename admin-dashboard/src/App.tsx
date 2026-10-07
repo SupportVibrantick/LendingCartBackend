@@ -31,6 +31,7 @@ import AdminLogs from "./pages/AdminLogs/AdminLogs";
 import AllLoanProducts from "./pages/LoanProducts/AllLoanProducts";
 import AllDocuments from "./pages/Documents/AllDocuments";
 import AllSubscriptions from "./pages/Subscriptions/AllSubscriptions";
+import PackageFormPage from "./pages/Subscriptions/PackageFormPage";
 import SubscriptionSubscribers from "./pages/Subscriptions/SubscriptionSubscribers";
 import SubscriberDetail from "./pages/Subscriptions/SubscriberDetail";
 import SubscriberPermissions from "./pages/Subscriptions/SubscriberPermissions";
@@ -166,6 +167,8 @@ export default function App() {
 
             <Route index path="/all-documents" element={<AllDocuments />} />
             <Route index path="/all-subscriptions" element={<AllSubscriptions />} />
+            <Route path="/all-subscriptions/new" element={<PackageFormPage />} />
+            <Route path="/all-subscriptions/edit" element={<PackageFormPage />} />
             <Route index path="/subscription-subscribers" element={<SubscriptionSubscribers />} />
             <Route index path="/subscription-subscribers/detail" element={<SubscriberDetail />} />
             <Route
