@@ -676,7 +676,7 @@ export default function SubscribePage() {
                   isPaidActive ||
                   (isTrialMode && !canStartTrial)
                 }
-                className={`inline-flex w-full items-center justify-center gap-2 rounded-xl py-3 font-semibold text-white shadow-sm transition disabled:opacity-60 ${
+                className={`inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl py-3 font-semibold text-white shadow-sm transition disabled:cursor-not-allowed disabled:opacity-60 ${
                   isTrialMode
                     ? "bg-linear-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700"
                     : "bg-linear-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600"

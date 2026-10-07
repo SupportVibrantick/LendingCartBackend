@@ -142,7 +142,7 @@ export default function AddOnSelector({
                         aria-label="Decrease users"
                         disabled={totalUsers <= included}
                         onClick={() => setTotalUsers(totalUsers - 1)}
-                        className="flex h-6 w-6 items-center justify-center rounded text-slate-700 hover:bg-slate-200 disabled:opacity-40 dark:text-white dark:hover:bg-white/10"
+                        className="flex h-6 w-6 cursor-pointer items-center justify-center rounded text-slate-700 hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-40 dark:text-white dark:hover:bg-white/10"
                       >
                         −
                       </button>
@@ -154,7 +154,7 @@ export default function AddOnSelector({
                         aria-label="Increase users"
                         disabled={totalUsers >= maxTotal}
                         onClick={() => setTotalUsers(totalUsers + 1)}
-                        className="flex h-6 w-6 items-center justify-center rounded text-slate-700 hover:bg-slate-200 disabled:opacity-40 dark:text-white dark:hover:bg-white/10"
+                        className="flex h-6 w-6 cursor-pointer items-center justify-center rounded text-slate-700 hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-40 dark:text-white dark:hover:bg-white/10"
                       >
                         +
                       </button>
@@ -186,7 +186,7 @@ export default function AddOnSelector({
               <button
                 type="button"
                 onClick={() => handleToggle(addOn.code)}
-                className={`w-full rounded-xl border px-4 py-3 text-left transition ${
+                className={`w-full cursor-pointer rounded-xl border px-4 py-3 text-left transition ${
                   selected
                     ? "border-indigo-400/50 bg-indigo-500/10"
                     : "border-slate-200 bg-white hover:border-slate-300 dark:border-white/10 dark:bg-white/[0.03] dark:hover:border-white/20"
@@ -195,7 +195,7 @@ export default function AddOnSelector({
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex min-w-0 items-start gap-3">
                     <span
-                      className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border ${
+                      className={`mt-0.5 flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded-md border ${
                         selected
                           ? "border-indigo-400 bg-indigo-500 text-white"
                           : "border-slate-300 bg-transparent dark:border-white/20"
