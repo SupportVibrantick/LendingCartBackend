@@ -11,10 +11,10 @@ const STATS = [
 ];
 
 const ctaClass =
-  "inline-flex items-center justify-center gap-2 rounded-xl bg-[#4B83FF] px-8 py-4 text-base font-semibold text-white shadow-[0_0_40px_rgba(75,131,255,0.25)] transition hover:scale-[1.02] hover:bg-[#3d73ef] dark:shadow-[0_0_40px_rgba(75,131,255,0.35)]";
+  "inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-[#4B83FF] px-8 py-4 text-base font-semibold text-white shadow-[0_0_40px_rgba(75,131,255,0.25)] transition hover:scale-[1.02] hover:bg-[#3d73ef] dark:shadow-[0_0_40px_rgba(75,131,255,0.35)]";
 
 const secondaryClass =
-  "inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-8 py-4 text-base font-semibold text-slate-800 transition hover:bg-slate-50 dark:border-white/20 dark:bg-white/[0.04] dark:text-white dark:hover:bg-white/[0.08]";
+  "inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-8 py-4 text-base font-semibold text-slate-800 transition hover:bg-slate-50 dark:border-white/20 dark:bg-white/[0.04] dark:text-white dark:hover:bg-white/[0.08]";
 
 /**
  * Closing CTA below the plan comparison table (paid site + free trial).

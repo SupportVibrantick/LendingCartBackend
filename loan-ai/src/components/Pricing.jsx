@@ -260,7 +260,7 @@ function FeatureDropdownItem({ feature, openKey, setOpenKey }) {
           type="button"
           aria-expanded={isOpen}
           onClick={() => setOpenKey(isOpen ? null : itemKey)}
-          className="inline-flex items-center gap-1 text-left text-[13px] font-medium leading-snug text-[#4B83FF] underline decoration-[#4B83FF]/70 underline-offset-2 transition hover:text-[#3a6fe0]"
+          className="inline-flex cursor-pointer items-center gap-1 text-left text-[13px] font-medium leading-snug text-[#4B83FF] underline decoration-[#4B83FF]/70 underline-offset-2 transition hover:text-[#3a6fe0]"
         >
           {feature.label}
           <ChevronDown
@@ -369,7 +369,7 @@ function UserSlider({ pkg, quantity, onChange, formatPrice }) {
             onClick={() => setTotalUsers(totalUsers - 1)}
             disabled={totalUsers <= included}
             aria-label="Decrease users"
-            className="flex h-6 w-6 items-center justify-center rounded-md border border-slate-200 text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/15 dark:text-gray-300 dark:hover:bg-white/5"
+            className="flex h-6 w-6 cursor-pointer items-center justify-center rounded-md border border-slate-200 text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/15 dark:text-gray-300 dark:hover:bg-white/5"
           >
             −
           </button>
@@ -381,7 +381,7 @@ function UserSlider({ pkg, quantity, onChange, formatPrice }) {
             onClick={() => setTotalUsers(totalUsers + 1)}
             disabled={totalUsers >= maxUsers}
             aria-label="Increase users"
-            className="flex h-6 w-6 items-center justify-center rounded-md border border-slate-200 text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/15 dark:text-gray-300 dark:hover:bg-white/5"
+            className="flex h-6 w-6 cursor-pointer items-center justify-center rounded-md border border-slate-200 text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/15 dark:text-gray-300 dark:hover:bg-white/5"
           >
             +
           </button>
@@ -408,7 +408,7 @@ function UserSlider({ pkg, quantity, onChange, formatPrice }) {
                 onClick={() => setTotalUsers(step)}
                 aria-label={`${step} users`}
                 aria-pressed={step === totalUsers}
-                className={`pointer-events-auto z-10 h-2 w-2 rounded-full border-2 transition ${
+                className={`pointer-events-auto z-10 h-2 w-2 cursor-pointer rounded-full border-2 transition ${
                   active
                     ? "border-[#4B83FF] bg-[#4B83FF]"
                     : "border-slate-300 bg-white dark:border-white/30 dark:bg-slate-900"
@@ -458,7 +458,7 @@ function UserSlider({ pkg, quantity, onChange, formatPrice }) {
                 key={`label-${step}`}
                 type="button"
                 onClick={() => setTotalUsers(step)}
-                className={`min-w-0 flex-1 text-center tabular-nums transition ${
+                className={`min-w-0 flex-1 cursor-pointer text-center tabular-nums transition ${
                   compactLabels ? "text-[9px] leading-none" : "text-[10px]"
                 } ${
                   selected
@@ -547,14 +547,14 @@ function InCardAddOns({
                 type="button"
                 onClick={() => onToggle(addOn.code)}
                 aria-pressed={selected}
-                className={`grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-2.5 px-3 py-2 text-left transition ${
+                className={`grid w-full cursor-pointer grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-2.5 px-3 py-2 text-left transition ${
                   selected
                     ? "bg-[#4B83FF]/[0.08] dark:bg-[#4B83FF]/15"
                     : "hover:bg-white/70 dark:hover:bg-white/[0.04]"
                 }`}
               >
                 <span
-                  className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-[4px] border transition ${
+                  className={`flex h-4 w-4 shrink-0 cursor-pointer items-center justify-center rounded-[4px] border transition ${
                     selected
                       ? "border-[#4B83FF] bg-[#4B83FF] text-white"
                       : "border-slate-300 bg-white dark:border-white/25 dark:bg-transparent"

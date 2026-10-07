@@ -36,7 +36,7 @@ function ThemeToggle({ className = "" }) {
     <button
       type="button"
       onClick={toggleTheme}
-      className={`inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 hover:text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white ${className}`}
+      className={`inline-flex h-10 w-10 cursor-pointer items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 hover:text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white ${className}`}
       aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
       title={isDark ? "Light mode" : "Dark mode"}
     >
@@ -47,7 +47,7 @@ function ThemeToggle({ className = "" }) {
 
 function NavLink({ href, label, active, onClick, external = false }) {
   const isRoute = !external && href.startsWith("/") && !href.startsWith("/#");
-  const className = `relative px-1 py-2 text-sm font-medium transition-colors ${
+  const className = `group relative cursor-pointer px-1 py-2 text-sm font-medium transition-colors ${
     active
       ? "text-slate-900 dark:text-white"
       : "text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
@@ -101,7 +101,7 @@ function UserMenu({ user, hasSubscription, onLogout }) {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white py-1.5 pl-1.5 pr-2.5 text-sm transition hover:border-slate-300 hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:hover:border-white/20 dark:hover:bg-white/10"
+        className="flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-white py-1.5 pl-1.5 pr-2.5 text-sm transition hover:border-slate-300 hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:hover:border-white/20 dark:hover:bg-white/10"
         aria-expanded={open}
         aria-haspopup="menu"
       >
@@ -144,7 +144,7 @@ function UserMenu({ user, hasSubscription, onLogout }) {
                 rel="noopener noreferrer"
                 role="menuitem"
                 onClick={() => setOpen(false)}
-                className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm text-slate-700 transition hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-white/5"
+                className="flex w-full cursor-pointer items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm text-slate-700 transition hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-white/5"
               >
                 <LayoutDashboard size={16} className="text-emerald-500 dark:text-emerald-400" />
                 Open broker dashboard
@@ -157,7 +157,7 @@ function UserMenu({ user, hasSubscription, onLogout }) {
                 to="/subscribe"
                 role="menuitem"
                 onClick={() => setOpen(false)}
-                className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm text-slate-700 transition hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-white/5"
+                className="flex w-full cursor-pointer items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm text-slate-700 transition hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-white/5"
               >
                 <LayoutDashboard size={16} className="text-blue-500 dark:text-blue-400" />
                 Complete subscription
@@ -171,7 +171,7 @@ function UserMenu({ user, hasSubscription, onLogout }) {
                 setOpen(false);
                 onLogout();
               }}
-              className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm text-red-500 transition hover:bg-red-50 dark:text-red-300 dark:hover:bg-red-500/10"
+              className="flex w-full cursor-pointer items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm text-red-500 transition hover:bg-red-50 dark:text-red-300 dark:hover:bg-red-500/10"
             >
               <LogOut size={16} />
               Sign out
@@ -257,7 +257,7 @@ const Navbar = () => {
                   href={primaryHref}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="hidden items-center gap-1.5 rounded-xl bg-linear-to-r from-emerald-500 to-teal-500 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-emerald-500/20 transition hover:scale-[1.02] sm:inline-flex"
+                  className="hidden cursor-pointer items-center gap-1.5 rounded-xl bg-linear-to-r from-emerald-500 to-teal-500 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-emerald-500/20 transition hover:scale-[1.02] sm:inline-flex"
                 >
                   <LayoutDashboard size={16} />
                   {primaryLabel}
@@ -265,7 +265,7 @@ const Navbar = () => {
               ) : (
                 <Link
                   to={primaryHref}
-                  className="hidden rounded-xl bg-linear-to-r from-blue-500 to-indigo-500 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-blue-500/20 transition hover:scale-[1.02] sm:inline-flex"
+                  className="hidden cursor-pointer rounded-xl bg-linear-to-r from-blue-500 to-indigo-500 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-blue-500/20 transition hover:scale-[1.02] sm:inline-flex"
                 >
                   {primaryLabel}
                 </Link>
@@ -275,13 +275,13 @@ const Navbar = () => {
             <>
               <Link
                 to="/signup"
-                className="hidden rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 transition hover:border-slate-300 hover:bg-slate-100 hover:text-slate-900 sm:inline-flex dark:border-white/10 dark:text-slate-300 dark:hover:border-white/25 dark:hover:bg-white/5 dark:hover:text-white"
+                className="hidden cursor-pointer rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 transition hover:border-slate-300 hover:bg-slate-100 hover:text-slate-900 sm:inline-flex dark:border-white/10 dark:text-slate-300 dark:hover:border-white/25 dark:hover:bg-white/5 dark:hover:text-white"
               >
                 Get Started
               </Link>
               <Link
                 to={primaryHref}
-                className="rounded-xl bg-linear-to-r from-blue-500 to-indigo-500 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-blue-500/20 transition hover:scale-[1.02]"
+                className="cursor-pointer rounded-xl bg-linear-to-r from-blue-500 to-indigo-500 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-blue-500/20 transition hover:scale-[1.02]"
               >
                 {primaryLabel}
               </Link>
@@ -291,7 +291,7 @@ const Navbar = () => {
           <button
             type="button"
             onClick={() => setMobileOpen((v) => !v)}
-            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 lg:hidden dark:border-white/10 dark:text-slate-300 dark:hover:bg-white/5 dark:hover:text-white"
+            className="inline-flex h-10 w-10 cursor-pointer items-center justify-center rounded-xl border border-slate-200 text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 lg:hidden dark:border-white/10 dark:text-slate-300 dark:hover:bg-white/5 dark:hover:text-white"
             aria-label={mobileOpen ? "Close menu" : "Open menu"}
           >
             {mobileOpen ? <X size={20} /> : <Menu size={20} />}
@@ -310,7 +310,7 @@ const Navbar = () => {
               const active = item.hash
                 ? activeHash === item.hash && location.pathname === "/"
                 : !item.external && location.pathname === item.link;
-              const className = `rounded-xl px-4 py-3 text-sm font-medium transition ${
+              const className = `cursor-pointer rounded-xl px-4 py-3 text-sm font-medium transition ${
                 active
                   ? "bg-slate-100 text-slate-900 dark:bg-white/10 dark:text-white"
                   : "text-slate-500 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-white"
@@ -342,7 +342,7 @@ const Navbar = () => {
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={closeMobile}
-                className="mt-2 flex items-center justify-center gap-2 rounded-xl bg-linear-to-r from-emerald-500 to-teal-500 px-4 py-3 text-sm font-semibold text-white"
+                className="mt-2 flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-linear-to-r from-emerald-500 to-teal-500 px-4 py-3 text-sm font-semibold text-white"
               >
                 <LayoutDashboard size={16} />
                 Open broker dashboard
