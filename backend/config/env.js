@@ -250,8 +250,18 @@ function validateRedisRequiredInProduction() {
   }
 }
 
+/**
+ * PM2 cluster sets NODE_APP_INSTANCE to 0, 1, ... Fork mode and local dev leave it unset.
+ * Background consumers (Kafka, API email outbox) should run on only one API process.
+ */
+function isPrimaryProcess() {
+  const instance = process.env.NODE_APP_INSTANCE;
+  return instance === undefined || instance === "" || instance === "0";
+}
+
 function getDatabaseConnectionLimit() {
   const raw = process.env.DATABASE_CONNECTION_LIMIT;
+  // Per process. Production default is 2 API processes + 1 worker ≈ 30 connections.
   const fallback = isProduction() ? 10 : 5;
   const value = raw ? Number(raw) : fallback;
   return Number.isFinite(value) && value > 0 ? Math.floor(value) : fallback;
@@ -403,6 +413,7 @@ function getStorageProviderEnv() {
 module.exports = {
   envFlag,
   isProduction,
+  isPrimaryProcess,
   isEmailEnabled,
   isKafkaEnabled,
   isGhlEnabled,

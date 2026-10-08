@@ -1181,6 +1181,8 @@ model LoanApplication {
   @@index([publicApplicationLinkId])
   @@index([publicSourcePortal])
   @@index([brokerOrgId, createdAt])
+  @@index([brokerOrgId, submittedAt])
+  @@index([brokerOrgId, fundedAt])
   @@index([status, createdAt])
   @@map("loan_applications")
 }
@@ -1316,6 +1318,7 @@ model BrokerApplication {
   broker              Organization               @relation(fields: [brokerOrgId], references: [id])
 
   @@index([brokerOrgId])
+  @@index([brokerOrgId, createdAt])
   @@map("broker_applications")
 }
 
@@ -1747,6 +1750,8 @@ model Notification {
   @@index([recipientUserId])
   @@index([recipientOrgId])
   @@index([recipientClientId])
+  @@index([recipientUserId, deletedAt, createdAt])
+  @@index([recipientOrgId, deletedAt, createdAt])
   @@index([eventType])
   @@map("notifications")
 }
@@ -2231,6 +2236,7 @@ model Message {
   conversation       Conversation    @relation(fields: [conversationId], references: [id])
 
   @@index([conversationId])
+  @@index([conversationId, createdAt])
   @@index([createdAt])
 }
 

@@ -85,11 +85,12 @@ async function socketPlugin(fastify) {
   const socketCors = getSocketIoCorsOptions();
   const io = new Server(fastify.server, {
     cors: socketCors,
-    transports: ["websocket", "polling"],
+    // WebSocket only. PM2 runs multiple API processes on one port; long-polling
+    // would hop between processes and drop the session. Redis still fans events out.
+    transports: ["websocket"],
   });
 
   commonLogs.info("Socket.IO server initialized");
-  console.log("Socket.IO server initialized");
 
   const redisOk = await attachRedisAdapter(io);
   if (!redisOk) {

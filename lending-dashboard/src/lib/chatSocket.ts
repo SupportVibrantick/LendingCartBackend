@@ -15,7 +15,7 @@ export function createChatSocket(token: string): Socket {
   return io(CHAT_API_BASE, {
     auth: { token },
     path: "/socket.io",
-    transports: ["polling", "websocket"],
+    transports: ["websocket"],
     withCredentials: true,
     reconnection: true,
     reconnectionAttempts: Infinity,
