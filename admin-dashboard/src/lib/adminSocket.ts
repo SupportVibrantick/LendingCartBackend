@@ -94,7 +94,7 @@ function ensureSocket(token: string) {
 
   socket = io(ADMIN_API_BASE, {
     auth: { token },
-    transports: ["websocket", "polling"],
+    transports: ["websocket"],
     withCredentials: true,
     reconnection: true,
     reconnectionAttempts: Infinity,

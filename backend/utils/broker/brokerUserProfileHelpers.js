@@ -172,7 +172,12 @@ async function syncUserPermissions(prisma, userId, permissionKeys = []) {
     where: { userId },
   });
 
-  if (uniqueKeys.length === 0) return;
+  const { invalidateUserPermissionCache } = require("./brokerPermissionHelpers");
+
+  if (uniqueKeys.length === 0) {
+    invalidateUserPermissionCache(userId);
+    return;
+  }
 
   const existingRecords = await prisma.permission.findMany({
     where: { key: { in: uniqueKeys } },
@@ -201,7 +206,10 @@ async function syncUserPermissions(prisma, userId, permissionKeys = []) {
     select: { id: true },
   });
 
-  if (permissionRecords.length === 0) return;
+  if (permissionRecords.length === 0) {
+    invalidateUserPermissionCache(userId);
+    return;
+  }
 
   await prisma.userPermission.createMany({
     data: permissionRecords.map((perm) => ({
@@ -210,6 +218,8 @@ async function syncUserPermissions(prisma, userId, permissionKeys = []) {
       isAllowed: true,
     })),
   });
+
+  invalidateUserPermissionCache(userId);
 }
 
 function parsePermissionsField(fields = {}) {

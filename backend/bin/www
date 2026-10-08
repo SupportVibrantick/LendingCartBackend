@@ -1,4 +1,5 @@
-const { validateApiEnv, isEmailEnabled } = require("../config/env");
+const { validateApiEnv, isEmailEnabled, isPrimaryProcess, isProduction } = require("../config/env");
+const { getConfiguredStorageProviderSync } = require("../services/storage/config");
 const { startEmailOutboxWorker } = require("../services/email");
 const { registerProcessSafetyHandlers } = require("../config/processSafety");
 
@@ -39,7 +40,20 @@ async function start() {
   debug(`Server is running on ${address}`);
   app.log.info(`Server listening on ${bind}`);
 
-  if (isEmailEnabled()) {
+  if (isProduction()) {
+    const storageProvider = getConfiguredStorageProviderSync();
+    if (storageProvider === "local") {
+      app.log.warn(
+        "Production uploads are on local disk. Set STORAGE_PROVIDER=s3 (and S3 credentials) so files are shared across API processes and survive deploys. Existing /uploads files on disk are still served.",
+      );
+    } else {
+      app.log.info("Production uploads use S3. Existing local /uploads files are still served.");
+    }
+  }
+
+  // The dedicated worker also drains the outbox. Only the first API process
+  // does too, so a 2–4 process cluster does not poll the table on every worker.
+  if (isEmailEnabled() && isPrimaryProcess()) {
     startEmailOutboxWorker(app.prisma);
     app.log.info("Email outbox worker started (API process)");
   }

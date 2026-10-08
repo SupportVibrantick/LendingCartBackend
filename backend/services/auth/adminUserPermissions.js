@@ -80,9 +80,16 @@ const ALL_ADMIN_PERMISSION_KEYS = [
 ];
 
 async function syncUserPermissions(tx, userId, permissionKeys) {
+  const {
+    invalidateUserPermissionCache,
+  } = require("../../utils/broker/brokerPermissionHelpers");
+
   await tx.userPermission.deleteMany({ where: { userId } });
 
-  if (!permissionKeys?.length) return;
+  if (!permissionKeys?.length) {
+    invalidateUserPermissionCache(userId);
+    return;
+  }
 
   const permissionRecords = await tx.permission.findMany({
     where: { key: { in: permissionKeys } },
@@ -97,6 +104,8 @@ async function syncUserPermissions(tx, userId, permissionKeys) {
       })),
     });
   }
+
+  invalidateUserPermissionCache(userId);
 }
 
 async function resolveUserPermissions(prisma, userId, roleNames = []) {

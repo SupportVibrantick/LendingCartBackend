@@ -986,7 +986,7 @@ export default function LenderAllLendersPage() {
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div className="min-w-0">
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/70">
-                Lender Database
+                Lender Database 
               </p>
               <div className="mt-1 flex flex-wrap items-center gap-3">
                 <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">

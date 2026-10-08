@@ -1,6 +1,7 @@
 /**
  * Resolve active storage provider (local | s3).
- * Priority: PlatformConfig DB override → STORAGE_PROVIDER env → local.
+ * Priority: PlatformConfig DB override → STORAGE_PROVIDER env →
+ * s3 in production when a bucket is set → local.
  */
 
 const STORAGE_PROVIDER_KEY = "storage.provider";
@@ -17,6 +18,13 @@ function envStorageProvider() {
     .trim()
     .toLowerCase();
   if (raw === "s3" || raw === "local") return raw;
+
+  // Production with S3 credentials and no explicit provider writes new files to S3.
+  // Reads still check local disk first (see routes/common/storageProxy.js).
+  if (process.env.NODE_ENV === "production" && isS3Configured()) {
+    return "s3";
+  }
+
   return "local";
 }
 

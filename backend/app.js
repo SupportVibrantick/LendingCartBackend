@@ -24,6 +24,7 @@ const dbPlugin = require("./plugins/dbPlugin");
 const multipart = require("@fastify/multipart");
 const {
   getUploadMaxBytes,
+  isPrimaryProcess,
   isProduction,
   isRedisEnabled,
 } = require("./config/env");
@@ -49,10 +50,12 @@ const app = Fastify({
         },
 });
 
-// Start the Kafka consumer for sending emails
-runEmailConsumerKafka().catch((error) => {
-  console.error("Error starting the email consumer:", error);
-});
+// One consumer per host. Extra PM2 workers must not each join the email group.
+if (isPrimaryProcess()) {
+  runEmailConsumerKafka().catch((error) => {
+    console.error("Error starting the email consumer:", error);
+  });
+}
 
 // Dashboards run on separate origins (e.g. :5173); allow <img> / fetch of /public/* assets.
 app.register(helmet, {
@@ -96,13 +99,6 @@ app.register(cors, {
   },
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
   credentials: true,
-});
-
-app.addHook("onRequest", async (request) => {
-  console.log("DEBUG request.ip:", request.ip);
-  console.log("DEBUG x-forwarded-for:", request.headers["x-forwarded-for"]);
-  console.log("DEBUG x-real-ip:", request.headers["x-real-ip"]);
-  console.log("DEBUG cf-connecting-ip:", request.headers["cf-connecting-ip"]);
 });
 
 app.register(multipart, {
