@@ -6,10 +6,14 @@ import { getRequiredPermission } from "../../lib/adminPermissions";
 const FALLBACK_PATHS = [
   "/",
   "/platform-reports",
-  "/all-brokers-database",
-  "/all-loan-products",
-  "/all-lenders-Organization",
   "/loan-pipeline",
+  "/all-brokers-database",
+  "/all-lenders-Organization",
+  "/all-loan-products",
+  "/all-documents",
+  "/all-landing-pages-leads",
+  "/all-subscriptions",
+  "/admin-logs",
   "/profile",
 ];
 

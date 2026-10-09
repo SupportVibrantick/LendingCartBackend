@@ -39,6 +39,8 @@ import SubscriberChangePlan from "./pages/Subscriptions/SubscriberChangePlan";
 import LoanAiUsers from "./pages/Subscriptions/LoanAiUsers";
 import SubscriptionInvoices from "./pages/Subscriptions/SubscriptionInvoices";
 import AllSuperadmin from "./pages/SuperAdmin/AllSuperAdmin";
+import CreateSuperAdmin from "./pages/SuperAdmin/CreateSuperAdmin";
+import EditSuperAdmin from "./pages/SuperAdmin/EditSuperAdmin";
 import LenderProductAssign from "./pages/LoanProducts/LenderAssignProduct";
 import LenderAllAssignProducts from "./pages/LoanProducts/LenderAllAssignProducts";
 import AssignedProducts from "./pages/LoanProducts/AssignedProducts";
@@ -159,6 +161,8 @@ export default function App() {
               element={<AssignedProducts />}
             />
             <Route index path="/all-super-admins" element={<AllSuperadmin />} />
+            <Route path="/all-super-admins/create" element={<CreateSuperAdmin />} />
+            <Route path="/all-super-admins/:id/edit" element={<EditSuperAdmin />} />
             <Route index path="/loan-pipeline" element={<LoanPipeline />} />
             <Route
               path="/loan-pipeline/detail"

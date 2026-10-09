@@ -143,13 +143,48 @@ request.user = {
       : [requiredPermissions];
 
     return async (request, reply) => {
-      const userRoles = request.user?.roles ?? [];
+      const userRoles = Array.isArray(request.user?.roles)
+        ? request.user.roles
+        : request.user?.roles
+          ? [request.user.roles]
+          : [];
 
-      if (rolesIncludeAdmin(userRoles)) {
+      // Broker org admins retain full org bypass.
+      if (userRoles.includes("BROKER_ADMIN")) {
         return;
       }
 
       const userId = request.user?.userId || request.user?.id;
+
+      // PLATFORM_ADMIN: full access (no UserPermission rows) bypasses checks.
+      // Custom-access platform admins must hold the required permission keys.
+      if (userRoles.includes("PLATFORM_ADMIN") && userId) {
+        const customKeys = await loadUserPermissionKeys(fastify.prisma, userId);
+        if (customKeys.length === 0) {
+          return;
+        }
+        request.user.permissions = customKeys;
+        if (!userHasPermissionKeys(customKeys, requiredKeys)) {
+          logger.commonLogs.warn("Access denied - platform admin permission", {
+            endpoint: request.url,
+            method: request.method,
+            requiredKeys,
+            permissionKeys: customKeys,
+          });
+          return reply.code(403).send({
+            success: false,
+            ok: false,
+            message: "Forbidden - insufficient permissions",
+          });
+        }
+        return;
+      }
+
+      // Legacy helper still covers any other admin-bypass roles if added later.
+      if (rolesIncludeAdmin(userRoles) && !userRoles.includes("PLATFORM_ADMIN")) {
+        return;
+      }
+
       let permissionKeys = Array.isArray(request.user?.permissions)
         ? request.user.permissions
         : [];
