@@ -6,7 +6,10 @@ export type NavItemLike = {
   subItems?: NavItemLike[];
 };
 
-/** Route → required permission(s). null = any authenticated admin. */
+/**
+ * Route → required permission(s). null = any authenticated admin.
+ * Aligns with AppSidebar nav + deep links used in the admin-dashboard.
+ */
 export const ROUTE_PERMISSIONS: Record<string, PermissionKey | PermissionKey[] | null> = {
   "/": "VIEW_DASHBOARD",
   "/platform-reports": "VIEW_REPORTS",
@@ -28,36 +31,44 @@ export const ROUTE_PERMISSIONS: Record<string, PermissionKey | PermissionKey[] |
   "/all-communications": "VIEW_CAMPAIGNS",
   "/all-documents": "VIEW_DOCUMENTS",
   "/all-subscriptions": "VIEW_SUBSCRIPTIONS",
+  "/all-subscriptions/new": "CREATE_SUBSCRIPTION",
+  "/all-subscriptions/edit": "UPDATE_SUBSCRIPTION",
   "/subscription-subscribers": "VIEW_SUBSCRIBERS",
   "/subscription-subscribers/detail": "VIEW_SUBSCRIBERS",
-  "/subscription-subscribers/permissions": "VIEW_SUBSCRIBERS",
+  "/subscription-subscribers/permissions": "MANAGE_SUBSCRIBERS",
+  "/subscription-subscribers/change-plan": "MANAGE_SUBSCRIBERS",
   "/loan-ai-signups": "VIEW_SUBSCRIBERS",
   "/subscription-invoices": "VIEW_SUBSCRIPTION_INVOICES",
-  "/all-super-admins": "MANAGE_PERMISSIONS",
+  "/all-super-admins": ["MANAGE_PERMISSIONS", "VIEW_USERS"],
+  "/all-super-admins/create": ["MANAGE_PERMISSIONS", "CREATE_USER"],
   "/all-landing-pages-leads": "VIEW_CONTACTS",
   "/email-marketing": "VIEW_CAMPAIGNS",
-  "/admin-logs": "VIEW_DASHBOARD",
+  "/admin-logs": "VIEW_DASHBOARD_LOGS",
   "/system-settings": "MANAGE_SETTINGS",
-  "/create-application": "CREATE_APPLICATION",
-  "/loan-application-config": "UPDATE_APPLICATION",
-  "/add-app-sections": "UPDATE_APPLICATION",
-  "/application-builder": "UPDATE_APPLICATION",
+  "/create-application": "VIEW_APPLICATIONS",
+  "/loan-application-config": "VIEW_APPLICATIONS",
+  "/add-app-sections": "VIEW_APPLICATIONS",
+  "/application-builder": "VIEW_APPLICATIONS",
   "/active-application": "VIEW_APPLICATIONS",
-  "/create-template": "CREATE_APPLICATION",
+  "/create-template": "VIEW_APPLICATIONS",
   "/all-templates": "VIEW_APPLICATIONS",
   "/add-loan-product": "CREATE_LOAN_PRODUCT",
-  "/add-sections": "UPDATE_APPLICATION",
-  "/add-fields": "UPDATE_APPLICATION",
+  "/add-sections": "VIEW_APPLICATIONS",
+  "/add-fields": "VIEW_APPLICATIONS",
   "/add-user": "CREATE_USER",
   "/all-user": "VIEW_USERS",
-  "/broker-portal": null,
-  "/lender-portal": null,
+  "/broker-portal": "VIEW_ORGANIZATIONS",
+  "/lender-portal": "VIEW_LENDERS",
   "/profile": null,
 };
 
 const DYNAMIC_ROUTE_RULES: { pattern: RegExp; permission: PermissionKey | PermissionKey[] | null }[] = [
   { pattern: /^\/update-lender\/.+/, permission: "UPDATE_LENDER" },
   { pattern: /^\/brokers\/.+/, permission: "VIEW_ORGANIZATIONS" },
+  {
+    pattern: /^\/all-super-admins\/[^/]+\/edit$/,
+    permission: ["MANAGE_PERMISSIONS", "UPDATE_USER"],
+  },
 ];
 
 export function getRequiredPermission(pathname: string): PermissionKey | PermissionKey[] | null {

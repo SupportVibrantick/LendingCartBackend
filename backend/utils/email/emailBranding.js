@@ -78,6 +78,22 @@ const buildBrokerSignInUrl = () => {
     : `${brokerDashboardUrl}/signin`;
 };
 
+/** Platform admin dashboard sign-in (FRONTEND_URL / ADMIN_DASHBOARD_URL). */
+const buildAdminSignInUrl = () => {
+  const adminDashboardUrl = ensureAbsoluteUrl(
+    firstConfigured(
+      process.env.ADMIN_DASHBOARD_URL,
+      process.env.VITE_ADMIN_DASHBOARD_URL,
+      process.env.FRONTEND_URL,
+      "http://localhost:5173",
+    ),
+  );
+  if (!adminDashboardUrl) return "";
+  return adminDashboardUrl.includes("/signin")
+    ? adminDashboardUrl
+    : `${stripTrailingSlash(adminDashboardUrl)}/signin`;
+};
+
 const buildLoanAiPricingUrl = () => {
   const base = ensureAbsoluteUrl(
     firstConfigured(
@@ -195,6 +211,7 @@ module.exports = {
   stripLegacyCustomerPath,
   getEmailBranding,
   buildBrokerSignInUrl,
+  buildAdminSignInUrl,
   buildLoanAiPricingUrl,
   buildLenderSignInUrl,
   buildLenderInviteUrl,

@@ -8,9 +8,7 @@ const createAdminUserSchema = z
 
     lastName: z
       .string()
-      .min(2, "Last name must contain at least 2 characters")
-      .optional()
-      .nullable(),
+      .min(2, "Last name must contain at least 2 characters"),
 
     email: z.string().email("Invalid email format"),
 

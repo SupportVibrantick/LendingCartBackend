@@ -85,6 +85,11 @@ module.exports = async function adminLoginRoute(fastify, opts) {
           });
         }
 
+        await prisma.userAccount.update({
+          where: { id: user.id },
+          data: { lastLoginAt: new Date() },
+        });
+
         const dbRoles = user.roles?.map((r) => r.role.name) ?? [];
 
         let permissions = [];
