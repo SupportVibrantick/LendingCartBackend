@@ -201,7 +201,7 @@ const AdminPermissionSelector: React.FC<Props> = ({
       </div>
 
       {/* Groups */}
-      <div className="max-h-[28rem] overflow-y-auto">
+      <div>
         {loading ? (
           <div className="space-y-3 p-4">
             {[1, 2, 3].map((i) => (
@@ -361,7 +361,7 @@ const AdminPermissionSelector: React.FC<Props> = ({
           <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-500">
             Selected
           </p>
-          <div className="flex max-h-20 flex-wrap gap-1.5 overflow-y-auto">
+          <div className="flex flex-wrap gap-1.5">
             {selected.map((key) => (
               <button
                 key={key}
