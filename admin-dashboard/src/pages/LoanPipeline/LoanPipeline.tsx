@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router";
@@ -204,6 +204,7 @@ export default function LoanPipeline() {
   const debouncedSearch = useDebouncedValue(searchTerm.trim(), 350);
   const [statusFilter, setStatusFilter] = useState("");
   const [viewLenders, setViewLenders] = useState<LenderItem[] | null>(null);
+  const [lenderModalQuery, setLenderModalQuery] = useState("");
   const [activeActionId, setActiveActionId] = useState<string | null>(null);
   const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0 });
   const dropdownRef = useRef<HTMLDivElement | null>(null);
@@ -330,6 +331,18 @@ export default function LoanPipeline() {
   const hasActiveFilters = Boolean(debouncedSearch || statusFilter);
   const showingFrom = total === 0 ? 0 : (currentPage - 1) * rowsPerPage + 1;
   const showingTo = Math.min(currentPage * rowsPerPage, total);
+
+  const filteredViewLenders = useMemo(() => {
+    if (!viewLenders) return [];
+    const q = lenderModalQuery.trim().toLowerCase();
+    if (!q) return viewLenders;
+    return viewLenders.filter((lender) => {
+      const name = (lender.lenderName || "").toLowerCase();
+      const product = formatLoanType(lender.lenderProduct).toLowerCase();
+      const status = formatStatusLabel(lender.lenderStatus).toLowerCase();
+      return name.includes(q) || product.includes(q) || status.includes(q);
+    });
+  }, [viewLenders, lenderModalQuery]);
 
   const kpiCards = [
     {
@@ -655,6 +668,7 @@ export default function LoanPipeline() {
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
+                          setLenderModalQuery("");
                           setViewLenders(row.lenders);
                         }}
                         className="relative inline-flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 transition hover:bg-indigo-100 dark:bg-indigo-500/10 dark:text-indigo-400 dark:hover:bg-indigo-500/20"
@@ -834,54 +848,109 @@ export default function LoanPipeline() {
       {viewLenders &&
         createPortal(
           <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm dark:bg-black/70">
-            <div className="w-full max-w-2xl rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-[#0f172a]">
-              <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4 dark:border-slate-800">
-                <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100">
-                  Lenders
-                </h2>
+            <div className="flex max-h-[min(85vh,640px)] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl dark:border-slate-800 dark:bg-[#0f172a]">
+              <div className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-200 px-4 py-3 dark:border-slate-800 sm:px-5">
+                <div className="min-w-0">
+                  <h2 className="text-base font-bold text-slate-800 dark:text-slate-100">
+                    Lenders
+                  </h2>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    {viewLenders.length} lender
+                    {viewLenders.length === 1 ? "" : "s"} on this application
+                    {lenderModalQuery.trim()
+                      ? ` · ${filteredViewLenders.length} shown`
+                      : ""}
+                  </p>
+                </div>
                 <button
                   type="button"
-                  onClick={() => setViewLenders(null)}
-                  className="rounded-lg bg-red-50 px-3 py-1 text-sm text-red-600 dark:bg-red-500/10 dark:text-red-400"
+                  onClick={() => {
+                    setLenderModalQuery("");
+                    setViewLenders(null);
+                  }}
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition hover:bg-slate-50 hover:text-slate-800 dark:border-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-100"
+                  aria-label="Close"
+                  title="Close"
                 >
-                  Close
+                  <X size={16} />
                 </button>
               </div>
-              <div className="max-h-[400px] space-y-4 overflow-y-auto p-6">
+
+              {viewLenders.length > 4 ? (
+                <div className="shrink-0 border-b border-slate-100 px-4 py-2.5 dark:border-slate-800 sm:px-5">
+                  <div className="relative">
+                    <Search
+                      size={14}
+                      className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                    />
+                    <input
+                      type="search"
+                      value={lenderModalQuery}
+                      onChange={(e) => setLenderModalQuery(e.target.value)}
+                      placeholder="Search lender, product, or status…"
+                      className="w-full rounded-lg border border-slate-200 bg-slate-50 py-2 pl-9 pr-3 text-sm text-slate-800 outline-none ring-[#13538A]/30 placeholder:text-slate-400 focus:border-[#13538A]/40 focus:bg-white focus:ring-2 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-100"
+                    />
+                  </div>
+                </div>
+              ) : null}
+
+              <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 sm:px-5">
                 {viewLenders.length === 0 ? (
-                  <p className="text-center text-sm text-slate-500">
+                  <p className="py-8 text-center text-sm text-slate-500">
                     No lenders assigned.
                   </p>
-                ) : (
-                  viewLenders.map((lender) => (
-                    <div
-                      key={lender.lenderOrgId}
-                      className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800"
+                ) : filteredViewLenders.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center gap-2 py-8 text-center">
+                    <SearchX size={22} className="text-slate-400" />
+                    <p className="text-sm text-slate-500">
+                      No lenders match “{lenderModalQuery.trim()}”.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setLenderModalQuery("")}
+                      className="text-xs font-semibold text-[#13538A] hover:underline dark:text-blue-400"
                     >
-                      <div className="flex flex-wrap items-center justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="truncate font-semibold text-slate-900 dark:text-slate-100">
-                            {lender.lenderName}
-                          </p>
-                          <p className="truncate text-xs text-slate-500">
-                            {formatLoanType(lender.lenderProduct)}
-                          </p>
+                      Clear search
+                    </button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    {filteredViewLenders.map((lender) => (
+                      <div
+                        key={lender.lenderOrgId}
+                        className="flex items-center gap-2.5 rounded-xl border border-slate-200 bg-slate-50/80 px-3 py-2.5 dark:border-slate-700 dark:bg-slate-800/60"
+                      >
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400">
+                          <Building2 size={14} />
                         </div>
-                        <div className="text-right">
-                          <span
-                            className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase ${getApplicationStatusColor(lender.lenderStatus)}`}
-                          >
-                            {formatStatusLabel(lender.lenderStatus)}
-                          </span>
-                          <p className="mt-1 text-xs text-slate-500">
-                            {lender.sentAt
-                              ? formatShortDate(lender.sentAt)
-                              : "—"}
-                          </p>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-start justify-between gap-2">
+                            <p
+                              className="truncate text-[13px] font-semibold text-slate-900 dark:text-slate-100"
+                              title={lender.lenderName}
+                            >
+                              {lender.lenderName}
+                            </p>
+                            <span
+                              className={`inline-flex shrink-0 rounded-full border px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide ${getApplicationStatusColor(lender.lenderStatus)}`}
+                            >
+                              {formatStatusLabel(lender.lenderStatus)}
+                            </span>
+                          </div>
+                          <div className="mt-0.5 flex items-center justify-between gap-2 text-[11px] text-slate-500">
+                            <span className="truncate">
+                              {formatLoanType(lender.lenderProduct)}
+                            </span>
+                            <span className="shrink-0 tabular-nums">
+                              {lender.sentAt
+                                ? formatShortDate(lender.sentAt)
+                                : "—"}
+                            </span>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))
+                    ))}
+                  </div>
                 )}
               </div>
             </div>

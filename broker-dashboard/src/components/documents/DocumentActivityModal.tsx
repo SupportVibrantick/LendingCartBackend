@@ -132,6 +132,16 @@ export default function DocumentActivityModal({ doc, onClose }: Props) {
               </p>
             )}
 
+            {activity.isForwardedToClient &&
+              activity.totalLenderPendingCount > 0 && (
+              <p className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-200">
+                {activity.totalLenderPendingCount} file
+                {activity.totalLenderPendingCount === 1 ? "" : "s"} on the
+                client portal {activity.totalLenderPendingCount === 1 ? "is" : "are"}{" "}
+                still not sent to lender.
+              </p>
+            )}
+
             {activity.awaitingClientForward && (
               <p className="mb-3 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600">
                 This document has not been forwarded to the client portal yet.
@@ -140,10 +150,18 @@ export default function DocumentActivityModal({ doc, onClose }: Props) {
 
             {activity.clientUploads.length > 0 ? (
               <div className="space-y-2">
-                {activity.clientUploads.map((upload) => (
+                {activity.clientUploads.map((upload) => {
+                  const notSentToLender =
+                    (upload.sentToLenders?.length ?? 0) === 0;
+
+                  return (
                   <div
                     key={upload.uploadId || upload.fileName}
-                    className="rounded-lg border border-slate-100 bg-slate-50/80 px-3 py-2.5 dark:border-slate-800 dark:bg-slate-900/50"
+                    className={`rounded-lg border px-3 py-2.5 dark:bg-slate-900/50 ${
+                      notSentToLender
+                        ? "border-amber-200 bg-amber-50/60 dark:border-amber-900/40"
+                        : "border-slate-100 bg-slate-50/80 dark:border-slate-800"
+                    }`}
                   >
                     <div className="flex items-start gap-2">
                       <FileText
@@ -174,14 +192,15 @@ export default function DocumentActivityModal({ doc, onClose }: Props) {
                             ))}
                           </div>
                         ) : (
-                          <p className="mt-1 text-[11px] text-amber-700">
+                          <p className="mt-1 text-[11px] font-medium text-amber-700">
                             Not sent to any lender yet
                           </p>
                         )}
                       </div>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <p className="text-sm text-slate-500">

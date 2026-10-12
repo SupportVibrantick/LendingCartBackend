@@ -1191,9 +1191,20 @@ export default function LenderAllLendersPage() {
                 {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
                   <div
                     key={i}
-                    className="h-52 animate-pulse overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900"
+                    className="h-56 animate-pulse overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900"
                   >
-                    <div className="h-full bg-slate-100 dark:bg-slate-800/50" />
+                    <div className="h-1 bg-slate-200 dark:bg-slate-700" />
+                    <div className="space-y-3 p-4">
+                      <div className="flex gap-3">
+                        <div className="h-11 w-11 rounded-xl bg-slate-100 dark:bg-slate-800" />
+                        <div className="flex-1 space-y-2">
+                          <div className="h-4 w-3/4 rounded bg-slate-100 dark:bg-slate-800" />
+                          <div className="h-3 w-1/2 rounded bg-slate-100 dark:bg-slate-800" />
+                        </div>
+                      </div>
+                      <div className="h-16 rounded-lg bg-slate-100 dark:bg-slate-800" />
+                      <div className="h-8 rounded bg-slate-100 dark:bg-slate-800" />
+                    </div>
                   </div>
                 ))}
               </div>
@@ -1266,79 +1277,113 @@ export default function LenderAllLendersPage() {
                         setViewingLender(l);
                       }
                     }}
-                    className="group relative cursor-pointer rounded-xl border border-slate-200 bg-white p-4 transition hover:border-[#13538A]/35 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-blue-500/40"
+                    className="group flex cursor-pointer flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white transition-colors duration-200 hover:border-[#13538A]/35 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-blue-500/40"
                   >
-                    <div className="absolute right-3 top-3">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (!rowLoadingId) changeStatusFor(l);
-                        }}
-                        disabled={!!rowLoadingId}
-                        className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${statusClass(
-                          l.status,
-                        )}`}
-                      >
-                        {l.status === "ACTIVE" && (
-                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                        )}
-                        {l.status}
-                      </button>
-                    </div>
+                    <div className="h-1 bg-gradient-to-r from-[#13538A] via-[#18B6B4] to-emerald-400 opacity-80 transition-opacity group-hover:opacity-100" />
 
-                    <div className="flex gap-3 pr-16">
-                      <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-emerald-100 bg-emerald-50 dark:border-emerald-500/20 dark:bg-emerald-500/10">
-                        {l.profileImage ? (
-                          <img
-                            src={`${API_BASE}/public${l.profileImage}`}
-                            className="h-full w-full object-cover"
-                            onError={(e: any) =>
-                              (e.currentTarget.src = "/circle_logo.png")
-                            }
-                            alt={l.name}
-                          />
-                        ) : (
-                          <Building2
-                            size={20}
-                            className="text-emerald-600 dark:text-emerald-400"
-                          />
-                        )}
+                    <div className="flex flex-1 flex-col p-4">
+                      <div className="flex items-start gap-3">
+                        <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-emerald-100 bg-gradient-to-br from-emerald-50 to-teal-50 dark:border-emerald-500/20 dark:from-emerald-500/10 dark:to-teal-500/10">
+                          {l.profileImage ? (
+                            <img
+                              src={`${API_BASE}/public${l.profileImage}`}
+                              className="h-full w-full object-cover"
+                              onError={(e: any) =>
+                                (e.currentTarget.src = "/circle_logo.png")
+                              }
+                              alt={l.name}
+                            />
+                          ) : (
+                            <Building2
+                              size={20}
+                              className="text-emerald-600 dark:text-emerald-400"
+                            />
+                          )}
+                        </div>
+
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-start justify-between gap-2">
+                            <h3
+                              className="line-clamp-2 text-[13px] font-bold leading-snug text-slate-900 transition-colors group-hover:text-[#13538A] dark:text-white"
+                              title={l.name}
+                            >
+                              {l.name}
+                            </h3>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (!rowLoadingId) changeStatusFor(l);
+                              }}
+                              disabled={!!rowLoadingId}
+                              title="Toggle status"
+                              className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide transition hover:opacity-80 disabled:opacity-50 ${statusClass(
+                                l.status,
+                              )}`}
+                            >
+                              {l.status === "ACTIVE" && (
+                                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                              )}
+                              {l.status || "UNKNOWN"}
+                            </button>
+                          </div>
+
+                          <div className="mt-2">
+                            {l.brokerName ? (
+                              <span
+                                className="inline-flex max-w-full items-center gap-1 rounded-md border border-[#13538A]/15 bg-[#13538A]/5 px-2 py-0.5 text-[10px] font-semibold text-[#13538A] dark:border-blue-500/20 dark:bg-blue-500/10 dark:text-blue-300"
+                                title={l.brokerName}
+                              >
+                                <Users size={11} className="shrink-0" />
+                                <span className="truncate">{l.brokerName}</span>
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-medium text-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-500">
+                                <Users size={11} className="shrink-0" />
+                                No broker assigned
+                              </span>
+                            )}
+                          </div>
+                        </div>
                       </div>
 
-                      <div className="min-w-0 flex-1">
-                        <h3 className="truncate text-sm font-bold text-slate-900 transition group-hover:text-[#13538A] dark:text-white">
-                          {l.name}
-                        </h3>
-                        <p className="mt-0.5 text-[11px] text-slate-400">
-                          {l.brokerName
-                            ? `Broker: ${l.brokerName}`
-                            : "No Broker Assigned"}
-                        </p>
-                        <div className="mt-2.5 space-y-1.5">
-                          <div className="flex items-center gap-2 text-slate-500">
-                            <Mail size={13} className="shrink-0" />
-                            <span className="truncate text-[12px]">{l.email}</span>
-                          </div>
-                          <div className="flex items-center gap-2 text-slate-500">
-                            <Phone size={13} className="shrink-0" />
-                            <span className="truncate text-[12px]">
-                              {l.phone || "—"}
-                            </span>
-                          </div>
+                      <div className="mt-3 space-y-2 rounded-xl border border-slate-100 bg-slate-50/80 p-2.5 dark:border-slate-800 dark:bg-slate-800/40">
+                        <div className="flex items-start gap-2.5 text-slate-600 dark:text-slate-300">
+                          <Mail
+                            size={13}
+                            className="mt-0.5 shrink-0 text-slate-400"
+                          />
+                          <span
+                            className="min-w-0 break-all text-[11px] leading-relaxed"
+                            title={l.email}
+                          >
+                            {l.email || "—"}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2.5 text-slate-600 dark:text-slate-300">
+                          <Phone
+                            size={13}
+                            className="shrink-0 text-slate-400"
+                          />
+                          <span className="text-[11px]">{l.phone || "—"}</span>
                         </div>
                       </div>
                     </div>
 
-                    <div className="mt-4 flex items-center justify-between gap-2 border-t border-slate-100 pt-3 dark:border-slate-800">
-                      <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-                        Created{" "}
-                        {l.createdAt
-                          ? new Date(l.createdAt).toLocaleDateString()
-                          : "—"}
-                      </span>
+                    <div className="flex items-center justify-between gap-2 border-t border-slate-100 bg-slate-50/60 px-3 py-2.5 dark:border-slate-800 dark:bg-slate-800/30">
+                      <div className="min-w-0">
+                        <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-400">
+                          Created
+                        </p>
+                        <p className="truncate text-[11px] font-medium text-slate-600 dark:text-slate-300">
+                          {l.createdAt
+                            ? new Date(l.createdAt).toLocaleDateString()
+                            : "—"}
+                        </p>
+                      </div>
+
                       <div className="flex items-center gap-1">
-                        <span className="mr-1 inline-flex items-center gap-1 text-[10px] font-semibold text-[#13538A] opacity-0 transition-opacity group-hover:opacity-100 dark:text-blue-400">
+                        <span className="mr-0.5 inline-flex items-center gap-0.5 text-[10px] font-semibold text-[#13538A] opacity-0 transition-opacity group-hover:opacity-100 dark:text-blue-400">
                           View
                           <ChevronRight size={12} />
                         </span>
@@ -1349,10 +1394,10 @@ export default function LenderAllLendersPage() {
                             e.stopPropagation();
                             setTransferringLender(l);
                           }}
-                          className="rounded-lg p-1.5 text-slate-400 transition hover:bg-emerald-50 hover:text-emerald-700 dark:hover:bg-emerald-500/10"
+                          className="rounded-lg border border-transparent p-1.5 text-slate-400 transition hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700 dark:hover:border-emerald-500/30 dark:hover:bg-emerald-500/10"
                           title="Transfer Lender Portal"
                         >
-                          <ArrowRightLeft size={15} />
+                          <ArrowRightLeft size={14} />
                         </button>
                         <button
                           type="button"
@@ -1361,10 +1406,10 @@ export default function LenderAllLendersPage() {
                             e.stopPropagation();
                             navigate(`/update-lender/${l.id}`);
                           }}
-                          className="rounded-lg p-1.5 text-slate-400 transition hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-500/10"
+                          className="rounded-lg border border-transparent p-1.5 text-slate-400 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-600 dark:hover:border-blue-500/30 dark:hover:bg-blue-500/10"
                           title="Edit Lender"
                         >
-                          <MdModeEdit size={15} />
+                          <MdModeEdit size={14} />
                         </button>
                         <button
                           type="button"
@@ -1373,13 +1418,13 @@ export default function LenderAllLendersPage() {
                             e.stopPropagation();
                             handleDelete(l);
                           }}
-                          className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10"
+                          className="rounded-lg border border-transparent p-1.5 text-slate-400 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600 dark:hover:border-red-500/30 dark:hover:bg-red-500/10"
                           title="Delete Lender"
                         >
                           {rowLoadingId === l.id ? (
-                            <RefreshCcw size={15} className="animate-spin" />
+                            <RefreshCcw size={14} className="animate-spin" />
                           ) : (
-                            <MdDelete size={15} />
+                            <MdDelete size={14} />
                           )}
                         </button>
                       </div>

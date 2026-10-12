@@ -103,6 +103,35 @@ function getLatestClientUploadAt(doc: DocumentSendRow): string | null {
   return new Date(Math.max(...timestamps)).toISOString();
 }
 
+/** Files uploaded after a cutoff (e.g. after last client forward). */
+export function countUploadsAfterDate(
+  doc: DocumentSendRow,
+  cutoff?: string | Date | null,
+): number {
+  if (!cutoff) return 0;
+  const cutoffMs = new Date(cutoff).getTime();
+  if (!Number.isFinite(cutoffMs)) return 0;
+
+  return (doc.uploadedFiles || []).filter((file) => {
+    if (!file.uploadedAt) return false;
+    const uploadedMs = new Date(String(file.uploadedAt)).getTime();
+    return Number.isFinite(uploadedMs) && uploadedMs > cutoffMs;
+  }).length;
+}
+
+/** Uploads that have not been sent to any lender yet. */
+export function countUploadsNotSentToLender(doc: DocumentSendRow): number {
+  const uploads = doc.uploadedFiles || [];
+  if (!uploads.length) return Number(doc.uploadedCount) || 0;
+
+  return uploads.filter((file) => {
+    const sent =
+      Boolean(file.isSentToAnyLender) ||
+      ((file.sentToLenders as unknown[] | undefined)?.length ?? 0) > 0;
+    return !sent;
+  }).length;
+}
+
 function getRelevantLenderSentAt(doc: DocumentDisplayRow): string | null {
   const sentToLenders = doc.sentToLenders || [];
   if (!sentToLenders.length) return null;
@@ -332,15 +361,15 @@ export function getDocumentStatusSummary(
     } else if (sentCount === 0) {
       items.push({
         key: "lender",
-        label: "Not sent to lender",
-        detail: lenderName,
+        label: `0 of ${uploadedCount} sent`,
+        detail: `${lenderName} · ${uploadedCount} pending`,
         tone: "warning",
       });
     } else if (pendingCount > 0) {
       items.push({
         key: "lender",
         label: `${sentCount} of ${uploadedCount} sent`,
-        detail: `${lenderName} · ${pendingCount} pending`,
+        detail: `${lenderName} · ${pendingCount} new not sent`,
         tone: "warning",
       });
     } else {
@@ -357,9 +386,10 @@ export function getDocumentStatusSummary(
 
   if (isClientForwardableDocument(doc)) {
     if (doc.isForwardedToClient) {
+      // Requirement-level forward: every upload (including later ones) is on the portal.
       items.push({
         key: "client",
-        label: "On client portal",
+        label: "Sent to client",
         detail: formatDocumentTimelineDate(doc.sentToClientAt),
         tone: "info",
       });
@@ -1027,6 +1057,8 @@ export type DocumentActivitySummary = {
   clientUploads: DocumentUploadActivity[];
   clientUploadCount: number;
   clientUploadPending: boolean;
+  /** Files uploaded after the requirement was forwarded to the client portal. */
+  newUploadsSinceClientSend: number;
   awaitingClientForward: boolean;
   sentToClientAt?: string | null;
   isForwardedToClient: boolean;
@@ -1096,6 +1128,9 @@ export function buildDocumentActivitySummary(
   }
 
   const { sentCount, pendingCount } = evaluateLenderSendState(doc, lenderId);
+  const newUploadsSinceClientSend = doc.isForwardedToClient
+    ? countUploadsAfterDate(doc, doc.sentToClientAt)
+    : 0;
 
   return {
     documentName: doc.documentName || "Document",
@@ -1105,6 +1140,7 @@ export function buildDocumentActivitySummary(
       isClientForwardableDocument(doc) &&
       Boolean(doc.isForwardedToClient) &&
       uploadedCount === 0,
+    newUploadsSinceClientSend,
     awaitingClientForward:
       isClientForwardableDocument(doc) && !doc.isForwardedToClient,
     sentToClientAt: doc.sentToClientAt ?? null,
