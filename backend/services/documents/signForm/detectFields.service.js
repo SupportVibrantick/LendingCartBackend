@@ -164,7 +164,22 @@ async function runFieldDetectionPipeline({
   if (isPdf) {
     try {
       const pdfBytes = fs.readFileSync(templatePath);
-      const acro = await detectAcroFormFields(pdfBytes);
+      // Cap AcroForm work — large SBA/LiveCycle PDFs can block for a long time
+      // if pdf-lib getForm() is reached. Widget-annot path is usually fast.
+      const acro = await Promise.race([
+        detectAcroFormFields(pdfBytes),
+        new Promise((_, reject) =>
+          setTimeout(
+            () =>
+              reject(
+                new Error(
+                  "AcroForm detection timed out. You can map fields manually.",
+                ),
+              ),
+            45000,
+          ),
+        ),
+      ]);
       parts.push(acro);
       acroFields = acro.fields || [];
     } catch (error) {
@@ -215,12 +230,25 @@ async function runFieldDetectionPipeline({
   // PDFs is very slow and only needed for flat/scanned templates.
   if (useFreeOcr && !azureUseful && acroFields.length === 0) {
     try {
-      const free = await detectFreeOcrFields({
-        filePath: templatePath,
-        mimeType: mime,
-        pageManifest: pages,
-        isPdf,
-      });
+      const free = await Promise.race([
+        detectFreeOcrFields({
+          filePath: templatePath,
+          mimeType: mime,
+          pageManifest: pages,
+          isPdf,
+        }),
+        new Promise((_, reject) =>
+          setTimeout(
+            () =>
+              reject(
+                new Error(
+                  "Free OCR timed out. Map fields manually or try again.",
+                ),
+              ),
+            60000,
+          ),
+        ),
+      ]);
       parts.push(free);
       freeFields = free.fields || [];
     } catch (error) {

@@ -286,6 +286,11 @@ function collectPageWidgetAnnots(pdfDoc) {
 
 /**
  * Extract native PDF AcroForm fields with PDF-point rectangles (bottom-left).
+ *
+ * IMPORTANT: Never call pdf-lib getForm() / getFields() here.
+ * On large SBA / LiveCycle PDFs that path blocks the Node event loop for
+ * minutes and freezes the whole API (pipeline, brokers, etc. all hang).
+ * Page Widget Annots already cover official fillable forms.
  */
 async function detectAcroFormFields(pdfBytes) {
   const pdfDoc = await PDFDocument.load(pdfBytes, {
@@ -293,27 +298,16 @@ async function detectAcroFormFields(pdfBytes) {
     updateMetadata: false,
   });
 
-  let form = null;
-  try {
-    form = pdfDoc.getForm();
-  } catch {
-    form = null;
-  }
-
-  const { widgets: pageWidgets, rectPageMap } = collectPageWidgetAnnots(pdfDoc);
+  const { widgets: pageWidgets } = collectPageWidgetAnnots(pdfDoc);
   const detected = [];
   const usedKeys = new Set();
-  const usedRects = new Set();
-  const pageCount = pdfDoc.getPageCount?.() || pdfDoc.getPages().length;
 
-  // 1) Prefer page Annot widgets — complete + correct page for SBA / LiveCycle PDFs
   pageWidgets.forEach((widget, index) => {
     const key = uniqueKey(
       usedKeys,
       slugKeyFromName(widget.name, index + 1),
       index + 1,
     );
-    usedRects.add(rectKey(widget.rect));
     detected.push({
       id: `fld_acro_${key}`,
       key,
@@ -332,135 +326,6 @@ async function detectAcroFormFields(pdfBytes) {
     });
   });
 
-  // 2) Only fall back to getFields() when page Annots were empty
-  //    (simple pdf-lib-created forms). Avoids duplicate overlays on SBA PDFs.
-  if (form && pageWidgets.length === 0) {
-    const acroFields = form.getFields();
-    acroFields.forEach((field, index) => {
-      const type = classifyAcroField(field);
-      if (!type) return;
-
-      const name = field.getName?.() || `Field ${index + 1}`;
-      let widgets = [];
-      try {
-        widgets = field.acroField?.getWidgets?.() || [];
-      } catch {
-        widgets = [];
-      }
-      if (!widgets.length) return;
-
-      if (type === "radio") {
-        const options = [];
-        let firstRect = null;
-        let page = 1;
-
-        widgets.forEach((widget, widgetIndex) => {
-          const rect = widget.getRectangle?.();
-          if (!rect) return;
-          if (!firstRect) {
-            firstRect = rect;
-            page = resolvePageIndex(pdfDoc, widget, name, rectPageMap) + 1;
-          }
-          options.push({
-            label: `Option ${widgetIndex + 1}`,
-            value: `option_${widgetIndex + 1}`,
-            rect: {
-              x: rect.x,
-              y: rect.y,
-              width: rect.width,
-              height: rect.height,
-            },
-          });
-        });
-
-        if (!firstRect || !options.length) return;
-        if (page < 1 || page > pageCount) page = 1;
-        const rk = rectKey(firstRect);
-        if (usedRects.has(rk)) return;
-        usedRects.add(rk);
-
-        const key = uniqueKey(usedKeys, slugKeyFromName(name, index + 1), index + 1);
-        detected.push({
-          id: `fld_acro_${key}`,
-          key,
-          label: humanizeFieldLabel(name, null, index),
-          type: "radio",
-          page,
-          rect: {
-            x: firstRect.x,
-            y: firstRect.y,
-            width: Math.max(firstRect.width, 40),
-            height: Math.max(
-              firstRect.height,
-              options.length * (firstRect.height + 4),
-            ),
-          },
-          required: false,
-          fillRole: "either",
-          options,
-          meta: {
-            confidence: 0.95,
-            source: "acroform",
-            detectedLabel: name,
-          },
-        });
-        return;
-      }
-
-      widgets.forEach((widget, widgetIndex) => {
-        const rect = widget.getRectangle?.();
-        if (!rect) return;
-        const rk = rectKey(rect);
-        if (usedRects.has(rk)) return;
-        usedRects.add(rk);
-
-        let page = resolvePageIndex(pdfDoc, widget, name, rectPageMap) + 1;
-        if (page < 1 || page > pageCount) page = 1;
-
-        const key = uniqueKey(
-          usedKeys,
-          `${slugKeyFromName(name, index + 1)}${widgetIndex > 0 ? `_w${widgetIndex + 1}` : ""}`,
-          index + 1,
-        );
-
-        const fieldPayload = {
-          id: `fld_acro_${key}`,
-          key,
-          label: humanizeFieldLabel(name, null, index),
-          type,
-          page,
-          rect: {
-            x: rect.x,
-            y: rect.y,
-            width: Math.max(rect.width, type === "checkbox" ? 12 : 40),
-            height: Math.max(rect.height, type === "checkbox" ? 12 : 14),
-          },
-          required: false,
-          fillRole: "either",
-          meta: {
-            confidence: 0.95,
-            source: "acroform",
-            detectedLabel: name,
-          },
-        };
-
-        if (type === "dropdown") {
-          try {
-            const options = field.getOptions?.() || [];
-            fieldPayload.options = options.map((opt) => ({
-              label: String(opt),
-              value: String(opt),
-            }));
-          } catch {
-            fieldPayload.options = [];
-          }
-        }
-
-        detected.push(fieldPayload);
-      });
-    });
-  }
-
   const pageCounts = detected.reduce((acc, field) => {
     acc[field.page] = (acc[field.page] || 0) + 1;
     return acc;
@@ -471,9 +336,7 @@ async function detectAcroFormFields(pdfBytes) {
     provider: "acroform",
     note: detected.length
       ? `Extracted ${detected.length} AcroForm fields across ${Object.keys(pageCounts).length} page(s)`
-      : form
-        ? "No AcroForm fields found"
-        : "No AcroForm present",
+      : "No fillable PDF widgets found on page annotations",
     pageCounts,
   };
 }

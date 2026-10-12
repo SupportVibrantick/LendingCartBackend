@@ -196,6 +196,7 @@ export default function SignFormFieldMapper({
 
   // Flat / unpublished PDFs: auto-run detection once when mapper opens empty.
   const autoDetectAttemptedRef = useRef<string | null>(null);
+  const detectAbortRef = useRef<AbortController | null>(null);
   useEffect(() => {
     if (!open || loading || !form || detecting) return;
     const attemptKey = `${requirementId}:${form.versionId || "none"}`;
@@ -212,6 +213,9 @@ export default function SignFormFieldMapper({
   useEffect(() => {
     if (!open) {
       autoDetectAttemptedRef.current = null;
+      detectAbortRef.current?.abort();
+      detectAbortRef.current = null;
+      setDetecting(false);
     }
   }, [open]);
 
@@ -303,6 +307,13 @@ export default function SignFormFieldMapper({
     }
   };
 
+  const cancelDetection = () => {
+    detectAbortRef.current?.abort();
+    detectAbortRef.current = null;
+    setDetecting(false);
+    toast("Detection stopped. You can add fields manually.", { icon: "✏️" });
+  };
+
   const detectFields = async (replaceExisting: boolean) => {
     if (fields.length && replaceExisting) {
       const ok = window.confirm(
@@ -311,25 +322,29 @@ export default function SignFormFieldMapper({
       if (!ok) return;
     }
 
+    detectAbortRef.current?.abort();
+    const controller = new AbortController();
+    detectAbortRef.current = controller;
+    const timeoutId = window.setTimeout(() => controller.abort(), 90000);
+
     try {
       setDetecting(true);
-      const res = await fetch(
-        `${basePath}/form/analyze`,
-        {
-          method: "POST",
-          headers: {
-            ...getAuthHeaders(),
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            replaceExisting,
-            // AcroForm + free OCR only — no OpenAI.
-            useAzure: true,
-            useLlm: false,
-            useFreeOcr: true,
-          }),
+      const res = await fetch(`${basePath}/form/analyze`, {
+        method: "POST",
+        headers: {
+          ...getAuthHeaders(),
+          "Content-Type": "application/json",
         },
-      );
+        signal: controller.signal,
+        body: JSON.stringify({
+          replaceExisting,
+          // Widget Annots first. Free OCR is opt-in via Re-detect only when needed —
+          // auto-run OCR on multi-page SBA PDFs can stall the API for everyone.
+          useAzure: true,
+          useLlm: false,
+          useFreeOcr: replaceExisting,
+        }),
+      });
       const json = await res.json();
       if (!res.ok || !json.success) {
         throw new Error(json.message || "Field detection failed");
@@ -365,8 +380,18 @@ export default function SignFormFieldMapper({
         );
       }
     } catch (err: any) {
-      toast.error(err.message || "Field detection failed");
+      if (err?.name === "AbortError") {
+        toast.error(
+          "Field detection took too long. Map fields manually, or try Detect again.",
+        );
+      } else {
+        toast.error(err.message || "Field detection failed");
+      }
     } finally {
+      window.clearTimeout(timeoutId);
+      if (detectAbortRef.current === controller) {
+        detectAbortRef.current = null;
+      }
       setDetecting(false);
     }
   };
@@ -630,13 +655,20 @@ export default function SignFormFieldMapper({
           Preparing form mapper…
         </div>
       ) : detecting ? (
-        <div className="flex flex-1 flex-col items-center justify-center gap-2 text-slate-600">
+        <div className="flex flex-1 flex-col items-center justify-center gap-3 text-slate-600">
           <Loader2 className="h-8 w-8 animate-spin text-teal-600" />
           <p className="text-sm font-medium">Finding fields on your form…</p>
           <p className="max-w-md text-center text-xs text-slate-500">
-            Checking the PDF for fillable fields. Large forms may take a few
-            seconds.
+            Checking the PDF for fillable fields. Large SBA forms can take up to
+            a minute — if this stalls, skip and map fields manually.
           </p>
+          <button
+            type="button"
+            onClick={cancelDetection}
+            className="mt-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+          >
+            Skip — map manually
+          </button>
         </div>
       ) : !currentPage || !templateUrl ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center text-slate-600">

@@ -23,6 +23,7 @@ import {
   Upload,
   User,
   ChevronDown,
+  X,
   XCircle,
   type LucideIcon,
 } from "lucide-react";
@@ -460,6 +461,7 @@ export default function LoanPreview() {
   const [newDocName, setNewDocName] = useState("");
   const [newDocRequired, setNewDocRequired] = useState(true);
   const [addingDocument, setAddingDocument] = useState(false);
+  const [requestDocsSearch, setRequestDocsSearch] = useState("");
   const [previewFile, setPreviewFile] = useState<{
     url: string;
     type: string;
@@ -1684,14 +1686,18 @@ export default function LoanPreview() {
 
     return (
       <div className="space-y-5">
-        <section className="overflow-hidden rounded-2xl bg-[#183B57] px-6 py-6 text-white shadow-sm">
-          <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 xl:grid-cols-6">
+        <section className="overflow-hidden rounded-xl bg-[#183B57] text-white">
+          <div className="grid grid-cols-2 divide-x divide-y divide-white/10 sm:grid-cols-3 xl:grid-cols-6 xl:divide-y-0">
             {metrics.map((metric) => (
-              <div key={metric.label} className="min-w-0">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.13em] text-white/75">
+              <div
+                key={metric.label}
+                className="min-w-0 px-4 py-4 sm:px-5"
+                title={`${metric.label}: ${metric.value || "-"}`}
+              >
+                <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-white/65">
                   {metric.label}
                 </p>
-                <p className="mt-2 truncate text-base font-bold tabular-nums">
+                <p className="mt-1.5 truncate text-lg font-bold tabular-nums tracking-tight">
                   {metric.value || "-"}
                 </p>
               </div>
@@ -2087,8 +2093,11 @@ export default function LoanPreview() {
   const renderRequestDocs = () => {
     if (!canRequestDocuments) {
       return (
-        <div className="mx-auto rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800/60">
-          <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+        <div className="rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-700 dark:bg-slate-900">
+          <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-[#183B57]">
+            Document workflow
+          </p>
+          <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
             Request Documents
           </h2>
           <p className="mt-2 text-sm text-slate-500">
@@ -2099,7 +2108,7 @@ export default function LoanPreview() {
             <button
               type="button"
               onClick={() => onTabChange("loi")}
-              className="mt-4 inline-flex items-center gap-2 rounded-xl bg-[#3e86b7] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#2e6f99]"
+              className="mt-4 inline-flex items-center gap-2 rounded-lg bg-[#183B57] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#122d42]"
             >
               <FileText size={16} />
               Generate Term Sheet / LOI
@@ -2117,142 +2126,246 @@ export default function LoanPreview() {
         : "") ||
       "selected program";
 
+    const searchTerm = requestDocsSearch.trim().toLowerCase();
+    const filteredRequestDocs = searchTerm
+      ? docSelectModal.documents.filter((doc: any) => {
+          const name = String(
+            doc.documentName || doc.documentType?.name || "",
+          ).toLowerCase();
+          return name.includes(searchTerm);
+        })
+      : docSelectModal.documents;
+
+    const toggleRequestDoc = (docId: string, isChecked: boolean) => {
+      const updated = isChecked
+        ? (docSelectModal.selectedDocs || []).filter((id) => id !== docId)
+        : [...new Set([...(docSelectModal.selectedDocs || []), docId])];
+      setDocSelectModal((prev) => ({ ...prev, selectedDocs: updated }));
+    };
+
     return (
-      <div
-        className="mx-auto rounded-2xl p-6 space-y-6 
-  bg-white dark:bg-slate-800/60
-  border border-stroke dark:border-slate-700"
-      >
-        {/* LOAN PRODUCT SELECT */}
-        <div className="space-y-1">
-          <label className="text-xs font-semibold text-gray-500">
-            LOAN PROGRAM
-          </label>
-
-          <div className="relative w-full max-w-md">
-            <select
-              value={selectedLoanProduct}
-              onChange={(e) => {
-                const value = e.target.value;
-                setSelectedLoanProduct(value);
-
-                if (!value) {
-                  setDocSelectModal({
-                    documents: [],
-                    selectedDocs: [],
-                    loading: false,
-                  });
-                }
-              }}
-              disabled={loadingProducts}
-              className="w-full px-4 py-2 text-sm rounded-xl border border-gray-200 bg-white 
-    focus:ring-2 focus:ring-[#3e86b7] outline-none appearance-none
-    disabled:bg-gray-100 disabled:cursor-not-allowed dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200 dark:disabled:bg-slate-700/50"
-            >
-              <option value="">
-                {loadingProducts
-                  ? "Loading loan products..."
-                  : "Select loan program"}
-              </option>
-
-              {!loadingProducts &&
-                loanProducts.map((lp) => {
-                  const optionCode = String(lp.loanProductCode || "");
-                  const isAppProduct = isSameLoanProgramCode(
-                    applicationLoanProductCode,
-                    optionCode,
-                  );
-                  return (
-                    <option key={lp.id} value={optionCode}>
-                      {lp.loanProduct?.name || lp.name}
-                      {isAppProduct ? " (this application)" : ""}
-                    </option>
-                  );
-                })}
-            </select>
-
-            <div className="absolute right-3 top-2.5 text-gray-400 flex items-center gap-2">
-              {loadingProducts && (
-                <Loader2 className="w-4 h-4 animate-spin text-[#3e86b7]" />
-              )}
-            </div>
-          </div>
-
-          {isApplicationDefaultSelected ? (
-            <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] text-emerald-800 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300">
-              <span className="font-semibold">Selected by default:</span> this
-              application was submitted for{" "}
-              <span className="font-semibold">
-                {selectedLenderProduct?.loanProduct?.name ||
-                  selectedLenderProduct?.name ||
-                  formatLoanProduct(applicationLoanProductCode)}
-              </span>
-              , so its documents are loaded first. You can switch to another
-              program if needed.
-            </div>
-          ) : applicationLoanProductCode && selectedLoanProduct ? (
-            <p className="text-[11px] text-amber-600 dark:text-amber-400">
-              Application program is{" "}
-              <button
-                type="button"
-                className="underline font-medium"
-                onClick={() => {
-                  if (defaultLoanProductCode) {
-                    setSelectedLoanProduct(defaultLoanProductCode);
-                  }
-                }}
-              >
-                {formatLoanProduct(applicationLoanProductCode)}
-              </button>
-              . Showing documents for a different program.
-            </p>
-          ) : applicationLoanProductCode && !defaultLoanProductCode ? (
-            <p className="text-[11px] text-amber-600 dark:text-amber-400">
-              This application is for{" "}
-              <span className="font-medium">
-                {formatLoanProduct(applicationLoanProductCode)}
-              </span>
-              , but that program is not assigned on your account yet.
-            </p>
-          ) : (
-            <p className="text-[11px] text-slate-500">
-              Choose a loan program to load product-wise documents.
-            </p>
-          )}
+      <div className="space-y-4">
+        <div className="rounded-xl border border-slate-200 bg-white px-5 py-4 dark:border-slate-700 dark:bg-slate-900">
+          <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-[#183B57]">
+            Document workflow
+          </p>
+          <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
+            Request Documents
+          </h2>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            Choose required documents for {selectedProductLabel}, then send the
+            request to the broker / borrower.
+          </p>
         </div>
 
-        {!selectedLoanProduct && !docSelectModal.loading && (
-          <div
-            className="flex flex-col items-center justify-center py-12 px-6 text-center 
-  border-2 border-dashed border-slate-200 rounded-2xl 
-  bg-slate-50 dark:border-slate-700 dark:bg-slate-800/40"
-          >
-            <div className="w-14 h-14 rounded-full bg-slate-200/70 dark:bg-slate-700 flex items-center justify-center mb-4">
-              <FileText className="w-6 h-6 text-slate-500" />
+        <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
+          <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+            <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+              Loan program
+            </label>
+            <div className="relative">
+              <select
+                value={selectedLoanProduct}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setSelectedLoanProduct(value);
+                  setRequestDocsSearch("");
+                  if (!value) {
+                    setDocSelectModal({
+                      documents: [],
+                      selectedDocs: [],
+                      loading: false,
+                    });
+                  }
+                }}
+                disabled={loadingProducts}
+                className="w-full appearance-none rounded-lg border border-slate-200 bg-white px-3 py-2.5 pr-9 text-sm text-slate-800 outline-none transition focus:border-[#183B57] focus:ring-2 focus:ring-[#183B57]/20 disabled:cursor-not-allowed disabled:bg-slate-50 dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:disabled:bg-slate-800"
+              >
+                <option value="">
+                  {loadingProducts
+                    ? "Loading loan products..."
+                    : "Select loan program"}
+                </option>
+                {!loadingProducts &&
+                  loanProducts.map((lp) => {
+                    const optionCode = String(lp.loanProductCode || "");
+                    const isAppProduct = isSameLoanProgramCode(
+                      applicationLoanProductCode,
+                      optionCode,
+                    );
+                    return (
+                      <option key={lp.id} value={optionCode}>
+                        {lp.loanProduct?.name || lp.name}
+                        {isAppProduct ? " (this application)" : ""}
+                      </option>
+                    );
+                  })}
+              </select>
+              <div className="pointer-events-none absolute right-3 top-1/2 flex -translate-y-1/2 items-center gap-2 text-slate-400">
+                {loadingProducts ? (
+                  <Loader2 className="h-4 w-4 animate-spin text-[#183B57]" />
+                ) : (
+                  <ChevronDown size={16} />
+                )}
+              </div>
             </div>
-            <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-              Select a Loan Program
+
+            {isApplicationDefaultSelected ? (
+              <p className="mt-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-300">
+                <span className="font-semibold">Default:</span> this application
+                was submitted for{" "}
+                <span className="font-semibold">
+                  {selectedLenderProduct?.loanProduct?.name ||
+                    selectedLenderProduct?.name ||
+                    formatLoanProduct(applicationLoanProductCode)}
+                </span>
+                .
+              </p>
+            ) : applicationLoanProductCode && selectedLoanProduct ? (
+              <p className="mt-2 text-[11px] text-amber-600 dark:text-amber-400">
+                Application program is{" "}
+                <button
+                  type="button"
+                  className="font-medium underline"
+                  onClick={() => {
+                    if (defaultLoanProductCode) {
+                      setSelectedLoanProduct(defaultLoanProductCode);
+                    }
+                  }}
+                >
+                  {formatLoanProduct(applicationLoanProductCode)}
+                </button>
+                . Showing a different program.
+              </p>
+            ) : applicationLoanProductCode && !defaultLoanProductCode ? (
+              <p className="mt-2 text-[11px] text-amber-600 dark:text-amber-400">
+                This application is for{" "}
+                <span className="font-medium">
+                  {formatLoanProduct(applicationLoanProductCode)}
+                </span>
+                , but that program is not assigned yet.
+              </p>
+            ) : (
+              <p className="mt-2 text-xs text-slate-500">
+                Choose a loan program to load product documents.
+              </p>
+            )}
+          </div>
+
+          <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+            <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+              Custom document
+            </label>
+            {!selectedLoanProduct ? (
+              <p className="rounded-lg border border-dashed border-slate-200 px-3 py-3 text-xs text-slate-500 dark:border-slate-700">
+                Select a loan program first to add a custom document.
+              </p>
+            ) : !selectedLenderProductId ? (
+              <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-700 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
+                This program is not assigned on your account, so new documents
+                cannot be saved to it.
+              </p>
+            ) : (
+              <>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <input
+                    value={newDocName}
+                    onChange={(e) => setNewDocName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        handleAddProductDocument();
+                      }
+                    }}
+                    placeholder="Enter document name..."
+                    disabled={addingDocument}
+                    className="h-11 flex-1 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-[#183B57] focus:ring-2 focus:ring-[#183B57]/20 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddProductDocument}
+                    disabled={addingDocument || newDocName.trim().length < 2}
+                    className="inline-flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-[#183B57] px-4 text-sm font-semibold text-white transition hover:bg-[#122d42] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
+                  >
+                    {addingDocument ? (
+                      <Loader2 size={16} className="animate-spin" />
+                    ) : (
+                      <Plus size={16} />
+                    )}
+                    {addingDocument ? "Adding..." : "Add Document"}
+                  </button>
+                </div>
+                <label className="mt-2.5 inline-flex cursor-pointer select-none items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
+                  <input
+                    type="checkbox"
+                    checked={newDocRequired}
+                    onChange={(e) => setNewDocRequired(e.target.checked)}
+                    className="h-3.5 w-3.5 accent-[#183B57]"
+                  />
+                  Required for this loan program
+                </label>
+              </>
+            )}
+          </div>
+        </div>
+
+        {!selectedLoanProduct && !docSelectModal.loading ? (
+          <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-white py-14 text-center dark:border-slate-700 dark:bg-slate-900">
+            <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-[#183B57]/10 text-[#183B57]">
+              <FileText size={22} />
+            </div>
+            <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+              Select a loan program
             </p>
-            <p className="text-xs text-slate-500 mt-1 max-w-sm">
-              Pick a loan program to view and request its documents.
+            <p className="mt-1 max-w-sm text-xs text-slate-500">
+              Pick a program to view and request its documents.
             </p>
           </div>
-        )}
+        ) : (
+          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-4 py-3 dark:border-slate-800">
+              <div className="flex min-w-0 items-center gap-2">
+                <FileText size={15} className="shrink-0 text-[#183B57]" />
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-slate-800 dark:text-white">
+                    Available documents
+                  </p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    {docSelectModal.documents.length} document
+                    {docSelectModal.documents.length === 1 ? "" : "s"}
+                    {(docSelectModal.selectedDocs?.length || 0) > 0
+                      ? ` · ${docSelectModal.selectedDocs.length} selected`
+                      : ""}
+                  </p>
+                </div>
+              </div>
 
-        {/* HEADER */}
-        {selectedLoanProduct && (
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h2 className="text-lg font-semibold">Select Documents</h2>
-              <p className="text-sm text-slate-500">
-                Product-wise documents for {selectedProductLabel}. Add a custom
-                document to this program if needed.
-              </p>
-            </div>
-
-            {docSelectModal.documents.length > 0 && (
-              <div className="flex gap-2">
+              <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:flex-nowrap">
+                <div className="relative min-w-[200px] flex-1 sm:w-64 sm:flex-none">
+                  <Search
+                    size={16}
+                    className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                  />
+                  <input
+                    type="search"
+                    value={requestDocsSearch}
+                    onChange={(e) => setRequestDocsSearch(e.target.value)}
+                    placeholder="Search documents..."
+                    className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-9 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-[#183B57] focus:ring-2 focus:ring-[#183B57]/20 dark:border-slate-700 dark:bg-slate-950 dark:text-white [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden"
+                  />
+                  {requestDocsSearch.trim() ? (
+                    <button
+                      type="button"
+                      onClick={() => setRequestDocsSearch("")}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800"
+                      aria-label="Clear search"
+                    >
+                      <X size={14} />
+                    </button>
+                  ) : null}
+                </div>
                 <button
+                  type="button"
                   onClick={() =>
                     setDocSelectModal((prev) => ({
                       ...prev,
@@ -2262,240 +2375,228 @@ export default function LoanPreview() {
                         ) || [],
                     }))
                   }
-                  className="px-3 py-1.5 text-xs rounded-lg bg-[#183b57] text-white dark:bg-[#183b57]/80 dark:hover:bg-[#183b57] transition-all"
+                  disabled={docSelectModal.documents.length === 0}
+                  className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
                 >
                   Select All
                 </button>
-
                 <button
+                  type="button"
                   onClick={() =>
                     setDocSelectModal((prev) => ({
                       ...prev,
                       selectedDocs: [],
                     }))
                   }
-                  className="px-3 py-1.5 text-xs rounded-lg bg-red-600 text-white"
+                  disabled={(docSelectModal.selectedDocs?.length || 0) === 0}
+                  className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
                 >
                   Clear
                 </button>
+              </div>
+            </div>
+
+            {docSelectModal.loading ? (
+              <div className="flex flex-col items-center justify-center py-14">
+                <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#183B57] border-t-transparent" />
+                <p className="mt-3 text-sm text-slate-500">Loading documents...</p>
+              </div>
+            ) : docSelectModal.documents.length === 0 ? (
+              <div className="flex flex-col items-center justify-center px-4 py-14 text-center">
+                <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-[#183B57]/10 text-[#183B57]">
+                  <FileText size={22} />
+                </div>
+                <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+                  No documents configured
+                </p>
+                <p className="mt-1 max-w-sm text-xs text-slate-500">
+                  No product documents yet for {selectedProductLabel}. Add one
+                  above to request it.
+                </p>
+              </div>
+            ) : filteredRequestDocs.length === 0 ? (
+              <div className="flex flex-col items-center justify-center px-4 py-14 text-center">
+                <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-[#183B57]/10 text-[#183B57]">
+                  <SearchX size={22} />
+                </div>
+                <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+                  No matches
+                </p>
+                <p className="mt-1 text-xs text-slate-500">
+                  No documents match “{requestDocsSearch.trim()}”.
+                </p>
+              </div>
+            ) : (
+              <div className="max-h-[min(480px,55vh)] overflow-auto">
+                <table className="w-full min-w-[720px] table-fixed text-sm">
+                  <colgroup>
+                    <col className="w-12" />
+                    <col />
+                    <col className="w-[100px]" />
+                    <col className="w-[110px]" />
+                    <col className="w-[100px]" />
+                    <col className="w-[180px]" />
+                  </colgroup>
+                  <thead className="sticky top-0 z-10 border-b border-slate-200 bg-slate-50/95 backdrop-blur dark:border-slate-800 dark:bg-slate-900/95">
+                    <tr className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                      <th className="px-4 py-2.5 text-left">
+                        <span className="sr-only">Select</span>
+                      </th>
+                      <th className="px-3 py-2.5 text-left">Document</th>
+                      <th className="px-3 py-2.5 text-left">Type</th>
+                      <th className="px-3 py-2.5 text-left">Requirement</th>
+                      <th className="px-3 py-2.5 text-left">Status</th>
+                      <th className="px-3 py-2.5 text-left">Last requested</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {filteredRequestDocs.map((doc: any, rowIndex: number) => {
+                      const docId = doc.documentTypeId ?? doc.id ?? doc._id;
+                      if (!docId) return null;
+                      const isChecked =
+                        docSelectModal.selectedDocs?.includes(docId) ?? false;
+                      const requestHistory =
+                        requestDocHistoryByTypeId[String(docId)];
+                      const isAlreadyRequested = Boolean(requestHistory);
+                      const documentName =
+                        doc.documentName ||
+                        doc.documentType?.name ||
+                        "Document";
+
+                      return (
+                        <tr
+                          key={docId}
+                          onClick={() => toggleRequestDoc(docId, isChecked)}
+                          className={`cursor-pointer transition-colors ${
+                            isChecked
+                              ? "bg-[#183B57]/8 dark:bg-sky-950/25"
+                              : rowIndex % 2 === 1
+                                ? "bg-slate-50/40 dark:bg-slate-900/30"
+                                : "bg-white dark:bg-slate-900"
+                          } hover:bg-slate-50 dark:hover:bg-slate-800/40`}
+                        >
+                          <td className="px-4 py-3 align-middle">
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={() =>
+                                toggleRequestDoc(docId, isChecked)
+                              }
+                              onClick={(e) => e.stopPropagation()}
+                              className="h-4 w-4 cursor-pointer accent-[#183B57]"
+                              aria-label={`Select ${documentName}`}
+                            />
+                          </td>
+                          <td className="px-3 py-3 align-middle">
+                            <div className="flex min-w-0 items-center gap-2">
+                              <p
+                                className="truncate font-semibold text-slate-800 dark:text-slate-100"
+                                title={documentName}
+                              >
+                                {documentName}
+                              </p>
+                              {isChecked ? (
+                                <Check
+                                  size={14}
+                                  className="shrink-0 text-[#183B57]"
+                                  strokeWidth={2.5}
+                                />
+                              ) : null}
+                            </div>
+                          </td>
+                          <td className="px-3 py-3 align-middle">
+                            {doc.isCustom ? (
+                              <span className="inline-flex rounded-md bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
+                                Custom
+                              </span>
+                            ) : (
+                              <span className="text-[11px] font-medium text-slate-400">
+                                Standard
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-3 py-3 align-middle">
+                            <span
+                              className={`text-[11px] font-medium ${
+                                doc.isRequired === false
+                                  ? "text-slate-400"
+                                  : "text-slate-600 dark:text-slate-300"
+                              }`}
+                            >
+                              {doc.isRequired === false
+                                ? "Optional"
+                                : "Required"}
+                            </span>
+                          </td>
+                          <td className="px-3 py-3 align-middle">
+                            {isAlreadyRequested ? (
+                              <span className="inline-flex rounded-md bg-violet-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-violet-700 dark:bg-violet-500/20 dark:text-violet-300">
+                                Requested
+                              </span>
+                            ) : (
+                              <span className="inline-flex rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                                Available
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-3 py-3 align-middle">
+                            {requestHistory ? (
+                              <span className="text-[11px] font-medium text-slate-600 dark:text-slate-300">
+                                {formatDocumentTimelineDate(
+                                  requestHistory.requestedAt,
+                                )}
+                              </span>
+                            ) : (
+                              <span className="text-[11px] text-slate-400">
+                                —
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
             )}
           </div>
         )}
 
-        {/* LOADING */}
-        {selectedLoanProduct && docSelectModal.loading && (
-          <div className="text-center py-10 text-slate-400">
-            Loading documents...
-          </div>
-        )}
-
-        {/* EMPTY */}
-        {!docSelectModal.loading &&
-          selectedLoanProduct &&
-          docSelectModal.documents.length === 0 && (
-            <div
-              className="flex flex-col items-center justify-center py-10 px-6 text-center 
-  border-2 border-dashed border-[#3e86b7]/40 rounded-2xl 
-  bg-gradient-to-br from-[#e8f1f7] to-white
-  dark:from-slate-800 dark:to-slate-900"
+        <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold text-slate-800 dark:text-white">
+                {docSelectModal.selectedDocs?.length || 0} document
+                {(docSelectModal.selectedDocs?.length || 0) === 1 ? "" : "s"}{" "}
+                selected
+              </p>
+              <p className="text-xs text-slate-500">
+                Broker / borrower will be notified after you send the request.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleRequestDocuments}
+              disabled={
+                requestLoading ||
+                !selectedLoanProduct ||
+                (docSelectModal.selectedDocs?.length || 0) === 0
+              }
+              className="inline-flex min-w-[170px] items-center justify-center gap-2 rounded-lg bg-[#183B57] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#122d42] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
             >
-              <div className="w-14 h-14 rounded-full bg-[#3e86b7]/10 flex items-center justify-center mb-4">
-                <FileText className="w-6 h-6 text-[#3e86b7]" />
-              </div>
-              <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-                No Documents Configured
-              </p>
-              <p className="text-xs text-slate-500 mt-1 max-w-sm">
-                No product documents yet for {selectedProductLabel}. Add one
-                below to request it from the borrower.
-              </p>
-            </div>
-          )}
-
-        {/* DOCUMENT CARDS */}
-        {!docSelectModal.loading &&
-          selectedLoanProduct &&
-          docSelectModal.documents.length > 0 && (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 max-h-[420px] overflow-y-auto pr-1 dark:scrollbar-thumb-slate-700/80 dark:scrollbar-track-slate-800/50 scrollbar-thin scrollbar-thumb-rounded-full">
-              {docSelectModal.documents.map((doc: any) => {
-                const docId = doc.documentTypeId ?? doc.id ?? doc._id;
-                if (!docId) return null;
-                const isChecked =
-                  docSelectModal.selectedDocs?.includes(docId) ?? false;
-                const requestHistory = requestDocHistoryByTypeId[String(docId)];
-                const isAlreadyRequested = Boolean(requestHistory);
-                const documentName =
-                  doc.documentName || doc.documentType?.name || "Document";
-
-                return (
-                  <div
-                    key={docId}
-                    onClick={() => {
-                      const updated = isChecked
-                        ? docSelectModal.selectedDocs.filter(
-                            (id) => id !== docId,
-                          )
-                        : [
-                            ...new Set([
-                              ...(docSelectModal.selectedDocs || []),
-                              docId,
-                            ]),
-                          ];
-
-                      setDocSelectModal((prev) => ({
-                        ...prev,
-                        selectedDocs: updated,
-                      }));
-                    }}
-                    className={`group flex items-center justify-between px-3 py-2 rounded-lg border cursor-pointer transition-all duration-200
-          ${
-            isChecked
-              ? "border-[#3e86b7] bg-[#e8f1f7] dark:bg-[#3e86b7]/10"
-              : isAlreadyRequested
-                ? "border-indigo-200 bg-indigo-50/50 dark:border-indigo-500/30 dark:bg-indigo-500/5"
-                : "border-gray-200 hover:border-[#3e86b7] dark:border-slate-700"
-          }`}
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <div
-                        className={`w-8 h-8 rounded-md flex items-center justify-center shrink-0
-              ${
-                isChecked
-                  ? "bg-[#3e86b7] text-white"
-                  : "bg-brand-50 text-brand-500 dark:bg-slate-700"
-              }`}
-                      >
-                        <FileText size={16} />
-                      </div>
-
-                      <div className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          <p className="text-xs font-semibold text-gray-800 truncate dark:text-[#3e86b7]">
-                            {documentName}
-                          </p>
-                          {doc.isCustom ? (
-                            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-amber-700 dark:bg-amber-500/20 dark:text-amber-300">
-                              Custom
-                            </span>
-                          ) : null}
-                          {isAlreadyRequested ? (
-                            <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300">
-                              Requested
-                            </span>
-                          ) : null}
-                        </div>
-                        <p className="text-[10px] text-gray-400 truncate">
-                          {doc.isCustom ? "Custom" : "Standard"}
-                          {doc.isRequired === false ? " · Optional" : " · Required"}
-                        </p>
-                        {requestHistory ? (
-                          <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
-                            {formatDocumentTimelineDate(requestHistory.requestedAt)}
-                          </p>
-                        ) : null}
-                      </div>
-                    </div>
-
-                    <div
-                      className={`w-4 h-4 rounded border flex items-center justify-center transition
-              ${
-                isChecked
-                  ? "bg-[#3e86b7] border-[#3e86b7]"
-                  : "border-gray-300 group-hover:border-[#3e86b7]"
-              }`}
-                    >
-                      {isChecked && <Check size={10} className="text-white" />}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-        {/* PRODUCT-WISE ADD DOCUMENT */}
-        {selectedLoanProduct && (
-          <div className="space-y-3">
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded-full bg-[#3e86b7] text-white text-xs flex items-center justify-center">
-                <Plus size={12} />
-              </div>
-              <p className="text-xs font-semibold text-gray-500 tracking-wide">
-                ADD DOCUMENT TO THIS PROGRAM
-              </p>
-            </div>
-
-            <div className="border border-dashed border-gray-300 rounded-xl p-4 space-y-3 dark:border-slate-700">
-              {!selectedLenderProductId ? (
-                <p className="text-xs text-amber-600 dark:text-amber-400">
-                  This program is not assigned on your account, so new documents
-                  cannot be saved to it. Assign the product first, then add
-                  documents.
-                </p>
+              {requestLoading ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  Requesting...
+                </>
               ) : (
                 <>
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                    <input
-                      value={newDocName}
-                      onChange={(e) => setNewDocName(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          handleAddProductDocument();
-                        }
-                      }}
-                      placeholder="Enter document name..."
-                      disabled={addingDocument}
-                      className="flex-1 text-sm px-3 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-[#3e86b7] dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200 disabled:opacity-60"
-                    />
-
-                    <button
-                      type="button"
-                      onClick={handleAddProductDocument}
-                      disabled={addingDocument || newDocName.trim().length < 2}
-                      className="inline-flex items-center justify-center gap-1.5 text-sm px-3 py-2 rounded-lg bg-[#3e86b7] text-white hover:bg-[#2e6f99] transition disabled:opacity-40"
-                    >
-                      {addingDocument ? (
-                        <Loader2 size={14} className="animate-spin" />
-                      ) : (
-                        <Plus size={14} />
-                      )}
-                      {addingDocument ? "Adding..." : "Add Document"}
-                    </button>
-                  </div>
-
-                  <label className="inline-flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300 cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={newDocRequired}
-                      onChange={(e) => setNewDocRequired(e.target.checked)}
-                      className="rounded border-slate-300 text-[#3e86b7] focus:ring-[#3e86b7]"
-                    />
-                    Required document for this loan program
-                  </label>
+                  <Send size={16} />
+                  Request Documents
                 </>
               )}
-            </div>
+            </button>
           </div>
-        )}
-
-        {/* FOOTER */}
-        <div className="flex items-center justify-between pt-4 border-t dark:border-slate-700">
-          <p className="text-sm text-slate-500">
-            {docSelectModal.selectedDocs?.length || 0} selected
-          </p>
-
-          <button
-            onClick={handleRequestDocuments}
-            disabled={
-              requestLoading ||
-              !selectedLoanProduct ||
-              (docSelectModal.selectedDocs?.length || 0) === 0
-            }
-            className="px-5 py-2 rounded-xl bg-[#183b57] text-white font-medium disabled:opacity-40"
-          >
-            {requestLoading ? "Requesting..." : "Request Documents"}
-          </button>
         </div>
       </div>
     );
@@ -2505,7 +2606,7 @@ export default function LoanPreview() {
     if (detailLoading && (loiGenerated || isLoi)) {
       return (
         <div className="flex flex-col items-center justify-center gap-3 py-20">
-          <Loader2 className="animate-spin w-8 h-8 text-brand-500" />
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#183B57] border-t-transparent" />
           <p className="text-sm text-slate-500">Loading LOI preview...</p>
         </div>
       );
@@ -2514,7 +2615,7 @@ export default function LoanPreview() {
     if (loiLoading) {
       return (
         <div className="flex flex-col items-center justify-center gap-3 py-20">
-          <Loader2 className="animate-spin w-8 h-8 text-brand-500" />
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#183B57] border-t-transparent" />
           <p className="text-sm text-slate-500">Loading LOI preview...</p>
         </div>
       );
@@ -2523,16 +2624,24 @@ export default function LoanPreview() {
     if (!loiGenerated && !hasSignedBrokerLoi && !loiUrl && !signedBrokerLoiUrl) {
       if (!canCreateLoi) {
         return (
-          <div className="text-center py-16 text-slate-500">
-            LOI has not been generated for this application yet.
+          <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-white py-14 text-center dark:border-slate-700 dark:bg-slate-900">
+            <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-[#183B57]/10 text-[#183B57]">
+              <FileText size={22} />
+            </div>
+            <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+              No LOI yet
+            </p>
+            <p className="mt-1 max-w-sm text-xs text-slate-500">
+              LOI has not been generated for this application yet.
+            </p>
           </div>
         );
       }
 
       return (
-        <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
-          <div className="w-16 h-16 rounded-2xl bg-brand-50 dark:bg-brand-900/20 text-brand-600 flex items-center justify-center mb-4">
-            <FileText size={28} />
+        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-white px-4 py-16 text-center dark:border-slate-700 dark:bg-slate-900">
+          <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-[#183B57]/10 text-[#183B57]">
+            <FileText size={26} />
           </div>
           <h3 className="text-lg font-semibold text-slate-800 dark:text-white">
             Generate Term Sheet / LOI
@@ -2545,7 +2654,7 @@ export default function LoanPreview() {
             type="button"
             onClick={openCreateLoiForm}
             disabled={detailLoading}
-            className="mt-6 inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-brand-600 text-white text-sm font-semibold hover:bg-brand-700 transition disabled:opacity-50"
+            className="mt-6 inline-flex items-center gap-2 rounded-lg bg-[#183B57] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#122d42] disabled:opacity-50"
           >
             <FileText size={16} />
             Enter Terms & Generate LOI
@@ -2558,15 +2667,23 @@ export default function LoanPreview() {
       if (loiLoading || detailLoading || location.state?.refreshLoi) {
         return (
           <div className="flex flex-col items-center justify-center gap-3 py-20">
-            <Loader2 className="animate-spin w-8 h-8 text-brand-500" />
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#183B57] border-t-transparent" />
             <p className="text-sm text-slate-500">Loading LOI preview...</p>
           </div>
         );
       }
 
       return (
-        <div className="text-center py-16 text-slate-500">
-          LOI preview not available.
+        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-white py-14 text-center dark:border-slate-700 dark:bg-slate-900">
+          <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-[#183B57]/10 text-[#183B57]">
+            <FileText size={22} />
+          </div>
+          <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+            Preview unavailable
+          </p>
+          <p className="mt-1 text-xs text-slate-500">
+            LOI preview not available.
+          </p>
         </div>
       );
     }
@@ -2579,11 +2696,25 @@ export default function LoanPreview() {
       loiViewMode === "signed-broker"
         ? signedBrokerLoi?.signedUpload?.fileName || "Signed-Broker-LOI.pdf"
         : "Loan-LOI.pdf";
+    const activePreviewLabel =
+      loiViewMode === "signed-broker"
+        ? "Signed Broker LOI"
+        : currentLoiVersion
+          ? `Term Sheet · Version ${currentLoiVersion.versionNumber}`
+          : "Loan Term Sheet";
 
     if (!activePreviewUrl) {
       return (
-        <div className="text-center py-16 text-slate-500">
-          LOI preview not available.
+        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-white py-14 text-center dark:border-slate-700 dark:bg-slate-900">
+          <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-[#183B57]/10 text-[#183B57]">
+            <FileText size={22} />
+          </div>
+          <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+            Preview unavailable
+          </p>
+          <p className="mt-1 text-xs text-slate-500">
+            LOI preview not available.
+          </p>
         </div>
       );
     }
@@ -2591,19 +2722,26 @@ export default function LoanPreview() {
     return (
       <div className="space-y-4">
         {loiGenerated && !loiSentToBroker && (
-          <div className="flex flex-col gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="font-semibold">Review before sending</p>
-              <p className="mt-1 text-amber-800/90 dark:text-amber-100/90">
-                This term sheet is saved as a draft. The broker will only see it
-                after you send it.
-              </p>
+          <div className="flex flex-col gap-3 rounded-xl border border-amber-200/90 bg-amber-50 px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between dark:border-amber-500/30 dark:bg-amber-500/10">
+            <div className="flex min-w-0 items-start gap-3">
+              <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-200">
+                <Eye size={16} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-amber-950 dark:text-amber-100">
+                  Review before sending
+                </p>
+                <p className="mt-0.5 text-xs leading-relaxed text-amber-800/90 dark:text-amber-100/85">
+                  This term sheet is saved as a draft. The broker will only see
+                  it after you send it.
+                </p>
+              </div>
             </div>
             <button
               type="button"
               onClick={handleSendLoiToBroker}
               disabled={loiSendingToBroker}
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#183b57] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#264863] disabled:opacity-50"
+              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-[#183B57] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#122d42] disabled:opacity-50"
             >
               {loiSendingToBroker ? (
                 <Loader2 size={16} className="animate-spin" />
@@ -2616,127 +2754,168 @@ export default function LoanPreview() {
         )}
 
         {loiGenerated && loiSentToBroker && !currentLoiIsDraft && (
-          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-100">
-            Sent to broker
-            {submissionDetail?.loiSentToBrokerAt
-              ? ` · ${new Date(submissionDetail.loiSentToBrokerAt).toLocaleString()}`
-              : ""}
-            {currentLoiVersion
-              ? ` · Version ${currentLoiVersion.versionNumber}`
-              : ""}
-          </div>
-        )}
-
-        {loiVersions.length > 0 && (
-          <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-900/40">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-              LOI Version History
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {loiVersions.map((version) => (
-                <span
-                  key={version.id}
-                  className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium ${
-                    version.isCurrent
-                      ? "bg-brand-100 text-brand-800"
-                      : "bg-white text-slate-600 border border-slate-200"
-                  }`}
-                >
-                  Version {version.versionNumber}
-                  {version.status === "SENT_TO_BROKER" && " · Sent"}
-                  {version.status === "SUPERSEDED" && " · Superseded"}
-                  {version.isCurrent && version.status === "DRAFT" && " · Current draft"}
-                </span>
-              ))}
+          <div className="flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 dark:border-emerald-500/30 dark:bg-emerald-500/10">
+            <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-200">
+              <CheckCircle size={16} />
+            </div>
+            <div className="min-w-0 text-sm text-emerald-900 dark:text-emerald-100">
+              <p className="font-semibold">Sent to broker</p>
+              <p className="mt-0.5 text-xs text-emerald-800/90 dark:text-emerald-100/85">
+                {submissionDetail?.loiSentToBrokerAt
+                  ? new Date(submissionDetail.loiSentToBrokerAt).toLocaleString()
+                  : "Delivered"}
+                {currentLoiVersion
+                  ? ` · Version ${currentLoiVersion.versionNumber}`
+                  : ""}
+              </p>
             </div>
           </div>
         )}
 
-        {hasSignedBrokerLoi && loiUrl && (
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => setLoiViewMode("lender")}
-              className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${
-                loiViewMode === "lender"
-                  ? "bg-brand-600 text-white"
-                  : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-              }`}
-            >
-              Your LOI
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setLoiViewMode("signed-broker");
-                void loadLoiPreview(undefined, true);
-              }}
-              className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${
+        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
+          {loiVersions.length > 0 && (
+            <div className="border-b border-slate-100 px-4 py-3 dark:border-slate-800">
+              <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-[#183B57]/80">
+                LOI Version History
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {loiVersions.map((version) => (
+                  <span
+                    key={version.id}
+                    className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium ${
+                      version.isCurrent
+                        ? "bg-[#183B57] text-white"
+                        : "border border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300"
+                    }`}
+                  >
+                    Version {version.versionNumber}
+                    {version.status === "SENT_TO_BROKER" && " · Sent"}
+                    {version.status === "SUPERSEDED" && " · Superseded"}
+                    {version.isCurrent &&
+                      version.status === "DRAFT" &&
+                      " · Current draft"}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="flex flex-col gap-3 border-b border-slate-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between dark:border-slate-800">
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
+              {hasSignedBrokerLoi && loiUrl ? (
+                <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-0.5 dark:border-slate-600 dark:bg-slate-800">
+                  <button
+                    type="button"
+                    onClick={() => setLoiViewMode("lender")}
+                    className={`rounded-md px-3.5 py-1.5 text-sm font-semibold transition ${
+                      loiViewMode === "lender"
+                        ? "bg-[#183B57] text-white shadow-sm"
+                        : "text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white"
+                    }`}
+                  >
+                    Your LOI
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLoiViewMode("signed-broker");
+                      void loadLoiPreview(undefined, true);
+                    }}
+                    className={`rounded-md px-3.5 py-1.5 text-sm font-semibold transition ${
+                      loiViewMode === "signed-broker"
+                        ? "bg-emerald-600 text-white shadow-sm"
+                        : "text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white"
+                    }`}
+                  >
+                    Signed LOI
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 text-sm font-semibold text-slate-800 dark:text-slate-100">
+                  <FileText size={15} className="shrink-0 text-[#183B57]" />
+                  Term Sheet / LOI
+                </div>
+              )}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              {canCreateLoi && loiGenerated && loiViewMode === "lender" ? (
+                currentLoiIsDraft ? (
+                  <button
+                    type="button"
+                    onClick={openRegenerateLoiForm}
+                    disabled={loiLoading}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-[#183B57]/25 bg-[#183B57]/5 px-3.5 py-2 text-sm font-semibold text-[#183B57] transition hover:bg-[#183B57]/10 disabled:opacity-50"
+                  >
+                    <RotateCcw size={15} />
+                    Update Draft
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={openRevisedLoiForm}
+                    disabled={loiLoading}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-[#183B57]/25 bg-[#183B57]/5 px-3.5 py-2 text-sm font-semibold text-[#183B57] transition hover:bg-[#183B57]/10 disabled:opacity-50"
+                  >
+                    <RotateCcw size={15} />
+                    Create Revised LOI (Version {nextRevisedVersionNumber})
+                  </button>
+                )
+              ) : null}
+              <button
+                type="button"
+                onClick={() =>
+                  handleDownload(activePreviewUrl, activeDownloadName)
+                }
+                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+              >
+                <Download size={15} />
+                Download
+              </button>
+            </div>
+          </div>
+
+          {loiViewMode === "signed-broker" && signedBrokerLoi && (
+            <div className="flex items-start gap-3 border-b border-emerald-100 bg-emerald-50/80 px-4 py-3 dark:border-emerald-500/20 dark:bg-emerald-500/10">
+              <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-200">
+                <CheckCircle size={15} />
+              </div>
+              <div className="min-w-0 text-sm text-emerald-900 dark:text-emerald-100">
+                <p className="font-semibold">Client-signed broker LOI</p>
+                <p className="mt-0.5 text-xs text-emerald-800/90 dark:text-emerald-100/85">
+                  Forwarded by the broker
+                  {signedBrokerLoi.versionLabel
+                    ? ` · ${signedBrokerLoi.versionLabel}`
+                    : ""}
+                  {signedBrokerLoi.clientSignedAt
+                    ? ` · signed ${new Date(signedBrokerLoi.clientSignedAt).toLocaleDateString()}`
+                    : ""}
+                </p>
+              </div>
+            </div>
+          )}
+
+          <div className="flex items-center gap-2 border-b border-slate-100 bg-[#183B57]/[0.04] px-4 py-2.5 dark:border-slate-800 dark:bg-[#183B57]/15">
+            <FileText size={14} className="shrink-0 text-[#183B57]" />
+            <span className="truncate text-xs font-semibold text-[#183B57] dark:text-sky-200">
+              {activePreviewLabel}
+            </span>
+            <span className="ml-auto hidden text-[11px] text-slate-500 sm:inline dark:text-slate-400">
+              {activeDownloadName}
+            </span>
+          </div>
+
+          <div className="h-[70vh] bg-slate-100 dark:bg-slate-950">
+            <iframe
+              src={activePreviewUrl}
+              title={
                 loiViewMode === "signed-broker"
-                  ? "bg-emerald-600 text-white"
-                  : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-              }`}
-            >
-              Signed LOI
-            </button>
+                  ? "Signed Broker LOI"
+                  : "Loan LOI"
+              }
+              className="h-full w-full"
+            />
           </div>
-        )}
-
-        {loiViewMode === "signed-broker" && signedBrokerLoi && (
-          <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-            Client-signed broker LOI forwarded by the broker
-            {signedBrokerLoi.versionLabel
-              ? ` · ${signedBrokerLoi.versionLabel}`
-              : ""}
-            {signedBrokerLoi.clientSignedAt
-              ? ` · signed ${new Date(signedBrokerLoi.clientSignedAt).toLocaleDateString()}`
-              : ""}
-          </div>
-        )}
-
-        <div className="flex flex-wrap items-center justify-end gap-2">
-          {canCreateLoi && loiGenerated && loiViewMode === "lender" ? (
-            currentLoiIsDraft ? (
-              <button
-                type="button"
-                onClick={openRegenerateLoiForm}
-                disabled={loiLoading}
-                className="inline-flex items-center gap-2 rounded-xl border border-brand-200 bg-brand-50 px-4 py-2 text-sm font-semibold text-brand-700 transition hover:bg-brand-100 disabled:opacity-50"
-              >
-                <RotateCcw size={16} />
-                Update Draft
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={openRevisedLoiForm}
-                disabled={loiLoading}
-                className="inline-flex items-center gap-2 rounded-xl border border-brand-200 bg-brand-50 px-4 py-2 text-sm font-semibold text-brand-700 transition hover:bg-brand-100 disabled:opacity-50"
-              >
-                <RotateCcw size={16} />
-                Create Revised LOI (Version {nextRevisedVersionNumber})
-              </button>
-            )
-          ) : null}
-          <button
-            onClick={() => handleDownload(activePreviewUrl, activeDownloadName)}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-100 text-sm font-semibold hover:bg-slate-200 transition"
-          >
-            <Download size={16} />
-            Download
-          </button>
-        </div>
-
-        <div className="overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-950 h-[70vh]">
-          <iframe
-            src={activePreviewUrl}
-            title={
-              loiViewMode === "signed-broker"
-                ? "Signed Broker LOI"
-                : "Loan LOI"
-            }
-            className="w-full h-full"
-          />
         </div>
       </div>
     );
@@ -2880,7 +3059,7 @@ export default function LoanPreview() {
                   <button
                     type="button"
                     onClick={() => openDecisionModal("APPROVED")}
-                    className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700"
+                    className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700"
                   >
                     <CheckCircle size={16} />
                     {approvalButtonLabel}
@@ -2890,7 +3069,7 @@ export default function LoanPreview() {
                   <button
                     type="button"
                     onClick={() => openDecisionModal("DECLINED")}
-                    className="inline-flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700 transition hover:bg-rose-100 dark:border-rose-900/40 dark:bg-rose-950/30 dark:text-rose-300 dark:hover:bg-rose-950/50"
+                    className="inline-flex items-center gap-2 rounded-lg border border-rose-300 bg-white px-4 py-2.5 text-sm font-semibold text-rose-700 transition hover:border-rose-400 hover:bg-rose-50 dark:border-rose-800 dark:bg-slate-900 dark:text-rose-300 dark:hover:bg-rose-950/40"
                   >
                     <XCircle size={16} />
                     Declined
@@ -2902,18 +3081,19 @@ export default function LoanPreview() {
         </div>
 
         {submissionDetail && (
-          <div className="mt-3 grid w-full grid-cols-1 items-stretch gap-3 sm:grid-cols-2 lg:grid-cols-5">
-            {/* BORROWER NAME */}
-            <div className="flex min-w-0 items-center gap-3 rounded-2xl border border-brand-300 bg-gradient-to-br from-brand-100 to-brand-50 px-5 py-3 shadow-md ring-2 ring-brand-400/40 dark:border-brand-700 dark:from-brand-900/40 dark:to-brand-800/20 dark:ring-brand-500/35">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-600 text-white shadow-sm">
-                <User size={18} />
+          <div className="mt-3 grid w-full grid-cols-1 items-stretch gap-2.5 sm:grid-cols-2 xl:grid-cols-5">
+            <div className="flex min-w-0 items-center gap-3 rounded-xl border-2 border-[#183B57] bg-[#183B57]/10 px-3.5 py-3 ring-1 ring-[#183B57]/25 dark:border-[#183B57] dark:bg-[#183B57]/30 dark:ring-[#183B57]/40">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#183B57] text-white">
+                <User size={16} />
               </div>
-
               <div className="flex min-w-0 flex-col leading-tight">
-                <span className="text-[10px] font-semibold uppercase tracking-wide text-brand-700 dark:text-brand-300">
+                <span className="text-[10px] font-bold uppercase tracking-wide text-[#183B57] dark:text-sky-300">
                   Borrower Name
                 </span>
-                <span className="truncate text-base font-bold text-brand-950 dark:text-white">
+                <span
+                  className="truncate text-sm font-bold text-[#183B57] dark:text-white"
+                  title={borrowerDisplayName || undefined}
+                >
                   {borrowerDisplayName || "-"}
                 </span>
               </div>
@@ -2921,80 +3101,81 @@ export default function LoanPreview() {
 
             {submissionDetail.loanApplication?.brokerOrg && (
               <>
-                {/* BROKER NAME */}
-                <div className="flex min-w-0 items-center gap-3 rounded-2xl border border-brand-300 bg-gradient-to-br from-brand-100 to-brand-50 px-5 py-3 shadow-md ring-2 ring-brand-400/40 dark:border-brand-700 dark:from-brand-900/40 dark:to-brand-800/20 dark:ring-brand-500/35">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-600 text-white shadow-sm">
-                    <User size={18} />
+                <div className="flex min-w-0 items-center gap-3 rounded-xl border-2 border-[#183B57] bg-[#183B57]/10 px-3.5 py-3 ring-1 ring-[#183B57]/25 dark:border-[#183B57] dark:bg-[#183B57]/30 dark:ring-[#183B57]/40">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#183B57] text-white">
+                    <User size={16} />
                   </div>
-
                   <div
                     className="group/broker relative flex min-w-0 flex-col leading-tight"
                     tabIndex={0}
                     aria-label={`Broker name: ${submissionDetail.loanApplication.brokerOrg.name}`}
                   >
-                    <span className="text-[10px] font-semibold uppercase tracking-wide text-brand-700 dark:text-brand-300">
+                    <span className="text-[10px] font-bold uppercase tracking-wide text-[#183B57] dark:text-sky-300">
                       Broker Name
                     </span>
                     <span
-                      className="truncate text-base font-bold text-brand-950 dark:text-white"
+                      className="truncate text-sm font-bold text-[#183B57] dark:text-white"
                       title={submissionDetail.loanApplication.brokerOrg.name}
                     >
                       {submissionDetail.loanApplication.brokerOrg.name}
                     </span>
                     <span
                       role="tooltip"
-                      className="pointer-events-none absolute bottom-full left-0 z-50 mb-2 hidden w-max max-w-72 whitespace-normal rounded-lg bg-slate-950 px-3 py-2 text-xs font-medium leading-snug text-white shadow-xl group-hover/broker:block group-focus-within/broker:block dark:bg-white dark:text-slate-900"
+                      className="pointer-events-none absolute bottom-full left-0 z-50 mb-2 hidden w-max max-w-72 whitespace-normal rounded-lg bg-slate-950 px-3 py-2 text-xs font-medium leading-snug text-white group-hover/broker:block group-focus-within/broker:block dark:bg-white dark:text-slate-900"
                     >
                       {submissionDetail.loanApplication.brokerOrg.name}
                     </span>
                   </div>
                 </div>
 
-                {/* EMAIL */}
-                <div className="flex min-w-0 items-center gap-3 rounded-xl border border-brand-200 bg-gradient-to-r from-brand-50 to-brand-100 px-4 py-2.5 dark:border-brand-800 dark:from-brand-900/30 dark:to-brand-800/20">
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-500 text-white">
-                    <MdEmail />
+                <div className="flex min-w-0 items-center gap-3 rounded-xl border border-[#183B57]/15 bg-[#183B57]/[0.04] px-3.5 py-3 dark:border-[#183B57]/40 dark:bg-[#183B57]/20">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#183B57] text-white">
+                    <MdEmail size={16} />
                   </div>
-
                   <div className="flex min-w-0 flex-col leading-tight">
-                    <span className="text-[10px] font-semibold uppercase tracking-wide text-brand-500 dark:text-brand-400">
+                    <span className="text-[10px] font-semibold uppercase tracking-wide text-[#183B57]/80 dark:text-sky-300/80">
                       Email
                     </span>
-                    <span className="truncate text-sm font-medium text-brand-900 dark:text-brand-100">
-                      {submissionDetail.loanApplication.brokerOrg.email}
+                    <span
+                      className="truncate text-sm font-semibold text-slate-900 dark:text-white"
+                      title={
+                        submissionDetail.loanApplication.brokerOrg.email ||
+                        undefined
+                      }
+                    >
+                      {submissionDetail.loanApplication.brokerOrg.email || "-"}
                     </span>
                   </div>
                 </div>
               </>
             )}
 
-            {/* LOAN PRODUCT */}
-            <div className="flex min-w-0 items-center gap-3 rounded-xl border border-brand-200 bg-gradient-to-r from-brand-50 to-brand-100 px-4 py-2.5 dark:border-brand-800 dark:from-brand-900/30 dark:to-brand-800/20">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-500 text-white text-xs font-bold">
-                <BiLogoProductHunt size={14} />
+            <div className="flex min-w-0 items-center gap-3 rounded-xl border border-[#183B57]/15 bg-[#183B57]/[0.04] px-3.5 py-3 dark:border-[#183B57]/40 dark:bg-[#183B57]/20">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#183B57] text-white">
+                <BiLogoProductHunt size={16} />
               </div>
-
               <div className="flex min-w-0 flex-col leading-tight">
-                <span className="text-[10px] font-semibold uppercase tracking-wide text-brand-500 dark:text-brand-400">
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-[#183B57]/80 dark:text-sky-300/80">
                   Loan Product
                 </span>
-                <span className="truncate text-sm font-semibold text-brand-900 dark:text-brand-100">
-                  {resolvedLoanProductName}
+                <span
+                  className="truncate text-sm font-semibold text-slate-900 dark:text-white"
+                  title={resolvedLoanProductName || undefined}
+                >
+                  {resolvedLoanProductName || "-"}
                 </span>
               </div>
             </div>
 
-            {/* LOAN AMOUNT */}
-            <div className="flex min-w-0 items-center gap-3 rounded-xl border border-brand-200 bg-gradient-to-r from-brand-50 to-brand-100 px-4 py-2.5 dark:border-brand-800 dark:from-brand-900/30 dark:to-brand-800/20">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-500 text-white">
-                <FaDollarSign />
+            <div className="flex min-w-0 items-center gap-3 rounded-xl border border-[#183B57]/15 bg-[#183B57]/[0.04] px-3.5 py-3 dark:border-[#183B57]/40 dark:bg-[#183B57]/20">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#183B57] text-white">
+                <FaDollarSign size={14} />
               </div>
-
               <div className="flex min-w-0 flex-col leading-tight">
-                <span className="text-[10px] font-semibold uppercase tracking-wide text-brand-500 dark:text-brand-400">
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-[#183B57]/80 dark:text-sky-300/80">
                   Loan Amount Requested
                 </span>
-                <span className="text-sm font-bold text-orange-900 dark:text-orange-100">
+                <span className="truncate text-sm font-bold tabular-nums text-[#183B57] dark:text-sky-200">
                   {loanAmount
                     ? `$${Number(loanAmount).toLocaleString()}`
                     : "-"}
@@ -3259,31 +3440,63 @@ export default function LoanPreview() {
 
       {decisionModal.type &&
         createPortal(
-          <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-            <div className="w-full max-w-lg bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800">
-              <div className="flex items-center justify-between px-6 py-4 border-b dark:border-slate-800">
-                <h2 className="text-lg font-bold">
-                  {decisionModal.type === "APPROVED"
-                    ? "Final Approval"
-                    : "Declined Application"}
-                </h2>
+          <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-[#183B57]/40 p-4 backdrop-blur-[2px]">
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="decision-modal-title"
+              className="w-full max-w-lg overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900"
+            >
+              <div
+                className={`flex items-start justify-between gap-3 border-b px-5 py-4 dark:border-slate-800 ${
+                  decisionModal.type === "APPROVED"
+                    ? "border-emerald-100 bg-emerald-50/50 dark:bg-emerald-950/20"
+                    : "border-rose-100 bg-rose-50/50 dark:bg-rose-950/20"
+                }`}
+              >
+                <div className="min-w-0">
+                  <p
+                    className={`mb-0.5 text-[11px] font-semibold uppercase tracking-wide ${
+                      decisionModal.type === "APPROVED"
+                        ? "text-emerald-700 dark:text-emerald-300"
+                        : "text-rose-700 dark:text-rose-300"
+                    }`}
+                  >
+                    Lender decision
+                  </p>
+                  <h2
+                    id="decision-modal-title"
+                    className="text-lg font-bold tracking-tight text-slate-900 dark:text-white"
+                  >
+                    {decisionModal.type === "APPROVED"
+                      ? "Final Approval"
+                      : "Declined Application"}
+                  </h2>
+                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                    {decisionModal.type === "APPROVED"
+                      ? "Confirm approved amount, rate, and notes for this application."
+                      : "Provide a clear reason before declining this application."}
+                  </p>
+                </div>
 
                 <button
                   type="button"
                   onClick={closeDecisionModal}
-                  className="text-sm px-3 py-1 rounded-lg bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400"
+                  disabled={decisionSubmitting}
+                  className="rounded-lg border border-slate-200 bg-white p-2 text-slate-500 transition hover:bg-slate-50 hover:text-slate-700 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800"
+                  aria-label="Close"
                 >
-                  Close
+                  <X size={16} />
                 </button>
               </div>
 
-              <div className="p-6 space-y-5">
+              <div className="space-y-4 p-5">
                 {decisionModal.type === "APPROVED" && (
                   <>
                     <div>
-                      <label className="block text-sm font-medium mb-1">
+                      <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                         Approved Amount{" "}
-                        <span className="text-red-500">*</span>
+                        <span className="text-rose-500">*</span>
                       </label>
                       <input
                         type="text"
@@ -3306,23 +3519,23 @@ export default function LoanPreview() {
                             }));
                           }
                         }}
-                        className={`w-full px-3 py-2 rounded-xl border bg-white dark:bg-slate-800 focus:ring-2 focus:ring-emerald-500 outline-none ${
+                        className={`w-full rounded-lg border bg-white px-3 py-2.5 text-sm outline-none transition focus:ring-2 dark:bg-slate-950 ${
                           decisionFormErrors.approvedAmount
-                            ? "border-red-500"
-                            : "border-slate-200 dark:border-slate-700"
+                            ? "border-rose-500 focus:border-rose-500 focus:ring-rose-500/20"
+                            : "border-slate-200 focus:border-emerald-500 focus:ring-emerald-500/20 dark:border-slate-700"
                         }`}
                       />
                       {decisionFormErrors.approvedAmount && (
-                        <p className="mt-1 text-xs text-red-500">
+                        <p className="mt-1.5 text-xs text-rose-600">
                           {decisionFormErrors.approvedAmount}
                         </p>
                       )}
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium mb-1">
+                      <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                         Interest Rate (%){" "}
-                        <span className="text-red-500">*</span>
+                        <span className="text-rose-500">*</span>
                       </label>
                       <input
                         type="text"
@@ -3354,18 +3567,18 @@ export default function LoanPreview() {
                           }));
                         }}
                         placeholder="e.g. 7.25"
-                        className={`w-full px-3 py-2 rounded-xl border bg-white dark:bg-slate-800 focus:ring-2 focus:ring-emerald-500 outline-none ${
+                        className={`w-full rounded-lg border bg-white px-3 py-2.5 text-sm outline-none transition focus:ring-2 dark:bg-slate-950 ${
                           decisionFormErrors.interestRate
-                            ? "border-red-500"
-                            : "border-slate-200 dark:border-slate-700"
+                            ? "border-rose-500 focus:border-rose-500 focus:ring-rose-500/20"
+                            : "border-slate-200 focus:border-emerald-500 focus:ring-emerald-500/20 dark:border-slate-700"
                         }`}
                       />
                       {decisionFormErrors.interestRate ? (
-                        <p className="mt-1 text-xs text-red-500">
+                        <p className="mt-1.5 text-xs text-rose-600">
                           {decisionFormErrors.interestRate}
                         </p>
                       ) : (
-                        <p className="mt-1 text-xs text-slate-500">
+                        <p className="mt-1.5 text-xs text-slate-500">
                           Enter a rate greater than 0 and up to 100 (max 2
                           decimal places).
                         </p>
@@ -3375,8 +3588,8 @@ export default function LoanPreview() {
                 )}
 
                 <div>
-                  <label className="block text-sm font-medium mb-1">
-                    Notes <span className="text-red-500">*</span>
+                  <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                    Notes <span className="text-rose-500">*</span>
                   </label>
                   <textarea
                     required
@@ -3399,55 +3612,68 @@ export default function LoanPreview() {
                         ? "Approval notes..."
                         : "Reason for rejection..."
                     }
-                    className={`w-full px-3 py-2 rounded-xl border bg-white dark:bg-slate-800 focus:ring-2 focus:ring-brand-500 outline-none ${
+                    className={`w-full resize-y rounded-lg border bg-white px-3 py-2.5 text-sm outline-none transition focus:ring-2 dark:bg-slate-950 ${
                       decisionFormErrors.notes
-                        ? "border-red-500"
-                        : "border-slate-200 dark:border-slate-700"
+                        ? "border-rose-500 focus:border-rose-500 focus:ring-rose-500/20"
+                        : decisionModal.type === "APPROVED"
+                          ? "border-slate-200 focus:border-emerald-500 focus:ring-emerald-500/20 dark:border-slate-700"
+                          : "border-slate-200 focus:border-rose-400 focus:ring-rose-500/20 dark:border-slate-700"
                     }`}
                   />
                   {decisionFormErrors.notes && (
-                    <p className="mt-1 text-xs text-red-500">
+                    <p className="mt-1.5 text-xs text-rose-600">
                       {decisionFormErrors.notes}
                     </p>
                   )}
                 </div>
+              </div>
 
-                <div className="flex justify-end gap-3 pt-4">
-                  <button
-                    type="button"
-                    onClick={closeDecisionModal}
-                    disabled={decisionSubmitting}
-                    className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 disabled:opacity-60"
-                  >
-                    Cancel
-                  </button>
+              <div className="flex flex-col-reverse gap-2 border-t border-slate-100 px-5 py-4 sm:flex-row sm:justify-end dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={closeDecisionModal}
+                  disabled={decisionSubmitting}
+                  className="rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+                >
+                  Cancel
+                </button>
 
-                  <button
-                    type="button"
-                    onClick={handleDecisionSubmit}
-                    disabled={
-                      decisionSubmitting ||
-                      Boolean(decisionFormErrors.approvedAmount) ||
-                      Boolean(decisionFormErrors.interestRate) ||
-                      Boolean(decisionFormErrors.notes) ||
-                      (decisionModal.type === "APPROVED" &&
-                        (!stripNumberFormatting(decisionForm.approvedAmount) ||
-                          !stripNumberFormatting(decisionForm.interestRate))) ||
-                      !decisionForm.notes.trim()
-                    }
-                    className={`px-4 py-2 rounded-xl text-white font-semibold disabled:opacity-60 ${
-                      decisionModal.type === "APPROVED"
-                        ? "bg-emerald-600 hover:bg-emerald-700"
-                        : "bg-rose-600 hover:bg-rose-700"
-                    }`}
-                  >
-                    {decisionSubmitting
-                      ? "Processing..."
-                      : decisionModal.type === "APPROVED"
-                        ? "Confirm Final Approval"
-                        : "Confirm Declined"}
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={handleDecisionSubmit}
+                  disabled={
+                    decisionSubmitting ||
+                    Boolean(decisionFormErrors.approvedAmount) ||
+                    Boolean(decisionFormErrors.interestRate) ||
+                    Boolean(decisionFormErrors.notes) ||
+                    (decisionModal.type === "APPROVED" &&
+                      (!stripNumberFormatting(decisionForm.approvedAmount) ||
+                        !stripNumberFormatting(decisionForm.interestRate))) ||
+                    !decisionForm.notes.trim()
+                  }
+                  className={`inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 ${
+                    decisionModal.type === "APPROVED"
+                      ? "bg-emerald-600 hover:bg-emerald-700"
+                      : "bg-rose-600 hover:bg-rose-700"
+                  }`}
+                >
+                  {decisionSubmitting ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      Processing...
+                    </>
+                  ) : decisionModal.type === "APPROVED" ? (
+                    <>
+                      <CheckCircle size={16} />
+                      Confirm Final Approval
+                    </>
+                  ) : (
+                    <>
+                      <XCircle size={16} />
+                      Confirm Declined
+                    </>
+                  )}
+                </button>
               </div>
             </div>
           </div>,

@@ -14,10 +14,12 @@ import {
   MessageSquare,
   MoreVertical,
   Pencil,
+  Plus,
   Search,
   SearchX,
   Send,
   Upload,
+  X,
 } from "lucide-react";
 
 import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
@@ -441,7 +443,8 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const lendersSectionRef = useRef<HTMLDivElement | null>(null);
   const navigate = useNavigate();
-  const previewConfig = getLoanPreviewConfig(portal);
+  // Stable per portal — avoid new api object every render (was re-firing LOI count fetch on search typing).
+  const previewConfig = useMemo(() => getLoanPreviewConfig(portal), [portal]);
   const isLoPortal = portal === "loanOfficer";
   const isCoBrokerPortal = portal === "coBroker";
   const permissionPortal = isLoPortal
@@ -1101,10 +1104,11 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
     }
 
     let cancelled = false;
+    const loisUrl = previewApi.lois(applicationId, "page=1&limit=1");
 
     (async () => {
       try {
-        const res = await fetch(previewApi.lois(applicationId, "page=1&limit=1"), {
+        const res = await fetch(loisUrl, {
           headers: getAuthHeaders(),
         });
         const json = await res.json();
@@ -1120,7 +1124,7 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
     return () => {
       cancelled = true;
     };
-  }, [applicationId, loDocPermissions.loi, previewApi]);
+  }, [applicationId, loDocPermissions.loi, previewApi, getAuthHeaders]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -1946,10 +1950,13 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
     submissionDetail?.loanProduct?.id,
   ]);
 
+  // Debounce Available documents search so typing does not hit the API every keystroke.
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedRequestDocSearch(requestDocSearch);
-    }, 300);
+      // Reset to first page together with the debounced query (batched → one fetch).
+      setRequestDocPage(1);
+    }, 400);
     return () => clearTimeout(timer);
   }, [requestDocSearch]);
 
@@ -2316,9 +2323,12 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
   const renderRequestDocument = () => {
     if (!effectiveCanRequestDocuments) {
       return (
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-950">
-          <h2 className="text-lg font-semibold text-gray-800 dark:text-slate-100">
-            Request Document
+        <div className="rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-700 dark:bg-slate-900">
+          <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-[#3A99D8]">
+            Document workflow
+          </p>
+          <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
+            Request Documents
           </h2>
           <p className="mt-2 text-sm text-slate-500">
             {documentRequestBlockedReason ||
@@ -2336,284 +2346,370 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
       requestDocPagination.page * REQUEST_DOC_LIMIT,
       requestDocPagination.total,
     );
+    const productName =
+      submissionDetail?.loanProduct?.name || "this loan product";
 
     return (
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-950">
-        <div className="mb-4 flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-semibold text-gray-800 dark:text-slate-100">
-              Select Documents
-            </h2>
-            <p className="text-sm text-gray-500">
-              Select which documents are required
-              {submissionDetail?.loanProduct?.name
-                ? ` for ${submissionDetail.loanProduct.name}`
-                : ""}
-              .
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={handleSelectAllRequestDocs}
-              disabled={selectingAllRequestDocs || requestDocsLoading}
-              className="rounded-md border bg-gray-50 px-3 py-1 text-xs hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900"
-            >
-              {selectingAllRequestDocs ? "Selecting..." : "Select All"}
-            </button>
-            <button
-              type="button"
-              onClick={clearRequestedDocuments}
-              disabled={
-                selectedRequestDocs.length === 0 || selectingAllRequestDocs
-              }
-              className="rounded-md border bg-gray-50 px-3 py-1 text-xs hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900"
-            >
-              Clear All
-            </button>
-          </div>
-        </div>
-
-        <div className="mb-4 w-full max-w-md">
-          <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Loan product
-          </label>
-          <select
-            value={submissionDetail?.loanProduct?.id || ""}
-            disabled
-            className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-700 outline-none disabled:cursor-not-allowed disabled:opacity-80 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
-          >
-            <option value={submissionDetail?.loanProduct?.id || ""}>
-              {submissionDetail?.loanProduct?.name ||
-                "Application loan product"}
-            </option>
-          </select>
-          <p className="mt-1.5 text-xs text-slate-500">
-            Documents are filtered for this application&apos;s loan product.
+      <div className="space-y-4">
+        <div className="rounded-xl border border-slate-200 bg-white px-5 py-4 dark:border-slate-700 dark:bg-slate-900">
+          <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-[#3A99D8]">
+            Document workflow
+          </p>
+          <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
+            Request Documents
+          </h2>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            Choose required documents for {productName}, then send the request
+            to the client.
           </p>
         </div>
 
-        <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center">
-          <input
-            type="text"
-            placeholder="Enter custom document name..."
-            value={customDocumentName}
-            onChange={(e) => setCustomDocumentName(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                handleAddCustomDocument();
-              }
-            }}
-            className="h-12 flex-1 rounded-xl border border-slate-300 bg-white px-4 text-sm shadow-sm transition focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-          />
-          <button
-            type="button"
-            onClick={handleAddCustomDocument}
-            disabled={addingCustomDoc}
-            className="flex h-12 shrink-0 items-center justify-center rounded-xl bg-emerald-600 px-6 text-sm font-semibold text-white transition hover:bg-emerald-700 active:scale-[0.98] disabled:opacity-60"
-          >
-            {addingCustomDoc ? "Adding..." : "+ Add Document"}
-          </button>
-        </div>
-
-        <div className="mb-5 flex justify-end">
-          <div className="relative w-full max-w-md">
-            <Search
-              size={16}
-              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-            />
-            <input
-              type="search"
-              value={requestDocSearch}
-              onChange={(e) => {
-                setRequestDocSearch(e.target.value);
-                setRequestDocPage(1);
-              }}
-              placeholder="Search documents..."
-              className="w-full rounded-xl border border-slate-200 bg-slate-50/80 py-2.5 pl-9 pr-9 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/15 dark:border-slate-700 dark:bg-slate-800/80 dark:text-white"
-            />
-            {requestDocSearch ? (
-              <button
-                type="button"
-                onClick={() => {
-                  setRequestDocSearch("");
-                  setRequestDocPage(1);
-                }}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-400 transition hover:bg-slate-200/80 hover:text-slate-600"
-                aria-label="Clear search"
-              >
-                <SearchX size={14} />
-              </button>
-            ) : null}
-          </div>
-        </div>
-
-        {requestDocsLoading ? (
-          <div className="py-10 text-center text-gray-500">
-            Loading documents...
-          </div>
-        ) : requestDocs.length === 0 ? (
-          <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-gray-50 py-12 dark:border-slate-700 dark:bg-slate-900/40">
-            <FileText size={42} className="mb-3 text-gray-400" />
-            <h3 className="text-base font-semibold text-gray-700 dark:text-slate-200">
-              No documents found
-            </h3>
-            <p className="mt-1 text-center text-sm text-gray-500">
-              {requestDocSearch.trim()
-                ? `No documents found for "${requestDocSearch}".`
-                : submissionDetail?.loanProduct?.name
-                  ? `No document types are available for ${submissionDetail.loanProduct.name}.`
-                  : "No document types are available."}
+        <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
+          <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+            <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+              Loan product
+            </label>
+            <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
+              {submissionDetail?.loanProduct?.name ||
+                "Application loan product"}
+            </div>
+            <p className="mt-1.5 text-xs text-slate-500">
+              Document list is filtered for this application&apos;s product.
             </p>
           </div>
-        ) : (
-          <>
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-              {requestDocs.map((doc: any) => {
-                const isSelected = selectedRequestDocs.includes(
-                  doc.documentTypeId,
-                );
-                const requestHistory =
-                  requestDocHistoryByTypeId[String(doc.documentTypeId)];
-                const isAlreadyRequested = Boolean(requestHistory);
-                return (
-                  <label
-                    key={doc.documentTypeId}
-                    className={`group relative flex cursor-pointer items-start gap-3 rounded-2xl border px-4 py-3 transition-all duration-200 ${
-                      isSelected
-                        ? "scale-[1.01] border-emerald-500 bg-emerald-50 shadow-sm dark:bg-emerald-500/10"
-                        : isAlreadyRequested
-                          ? "border-indigo-200 bg-indigo-50/40 dark:border-indigo-500/30 dark:bg-indigo-500/5"
-                          : "border-gray-200 bg-white hover:border-emerald-300 hover:bg-gray-50 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-emerald-500/40"
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={isSelected}
-                      onChange={() => toggleRequestDocument(doc)}
-                      className="mt-1 cursor-pointer accent-emerald-600"
-                    />
 
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <div
-                          className={`h-2.5 w-2.5 rounded-full ${getRequestDocColor(
-                            doc.documentType.name,
-                          )}`}
-                        />
-                        <p className="text-sm font-medium leading-tight text-gray-800 dark:text-slate-200">
-                          {doc.documentType.name}
-                        </p>
-                        {doc.isCustom ? (
-                          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-amber-700">
-                            Custom
-                          </span>
-                        ) : null}
-                        {isAlreadyRequested ? (
-                          <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300">
-                            Requested
-                          </span>
-                        ) : null}
-                      </div>
-                      {requestHistory ? (
-                        <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
-                          {formatDocumentTimelineDate(requestHistory.requestedAt)}
-                        </p>
-                      ) : null}
-                    </div>
+          <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+            <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+              Custom document
+            </label>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <input
+                type="text"
+                placeholder="Enter custom document name..."
+                value={customDocumentName}
+                onChange={(e) => setCustomDocumentName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleAddCustomDocument();
+                  }
+                }}
+                className="h-11 flex-1 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-[#3A99D8] focus:ring-2 focus:ring-[#3A99D8]/20 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+              />
+              <button
+                type="button"
+                onClick={handleAddCustomDocument}
+                disabled={addingCustomDoc || !customDocumentName.trim()}
+                className="inline-flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-[#3A99D8] px-4 text-sm font-semibold text-white transition hover:bg-[#2f87c2] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
+              >
+                {addingCustomDoc ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <Plus size={16} />
+                )}
+                {addingCustomDoc ? "Adding..." : "Add Document"}
+              </button>
+            </div>
+          </div>
+        </div>
 
-                    {isSelected ? (
-                      <CheckCircle2
-                        size={18}
-                        className="shrink-0 text-emerald-600"
-                      />
-                    ) : null}
-                  </label>
-                );
-              })}
+        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-4 py-3 dark:border-slate-800">
+            <div className="flex min-w-0 items-center gap-2">
+              <FileText size={15} className="shrink-0 text-[#3A99D8]" />
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-slate-800 dark:text-white">
+                  Available documents
+                </p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  {requestDocPagination.total} document
+                  {requestDocPagination.total === 1 ? "" : "s"}
+                  {selectedRequestDocs.length > 0
+                    ? ` · ${selectedRequestDocs.length} selected`
+                    : ""}
+                </p>
+              </div>
             </div>
 
-            {requestDocPagination.total > 0 ? (
-              <div className="mt-6 flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between dark:border-slate-700">
-                <div className="text-sm text-gray-500">
-                  Showing{" "}
-                  <span className="font-semibold text-gray-700 dark:text-slate-200">
-                    {showingFrom}
-                  </span>
-                  {" - "}
-                  <span className="font-semibold text-gray-700 dark:text-slate-200">
-                    {showingTo}
-                  </span>{" "}
-                  of{" "}
-                  <span className="font-semibold text-gray-700 dark:text-slate-200">
-                    {requestDocPagination.total}
-                  </span>{" "}
-                  documents
-                </div>
-
-                <div className="flex items-center gap-3">
+            <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:flex-nowrap">
+              <div className="relative min-w-[200px] flex-1 sm:w-64 sm:flex-none">
+                <Search
+                  size={16}
+                  className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                />
+                <input
+                  type="search"
+                  value={requestDocSearch}
+                  onChange={(e) => setRequestDocSearch(e.target.value)}
+                  placeholder="Search documents..."
+                  className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-9 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-[#3A99D8] focus:ring-2 focus:ring-[#3A99D8]/20 dark:border-slate-700 dark:bg-slate-950 dark:text-white [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden"
+                />
+                {requestDocSearch.trim() ? (
                   <button
                     type="button"
-                    disabled={!requestDocPagination.hasPreviousPage}
-                    onClick={() =>
-                      setRequestDocPage((prev) => Math.max(1, prev - 1))
-                    }
-                    className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:border-emerald-500 hover:text-emerald-600 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                    onClick={() => {
+                      setRequestDocSearch("");
+                      setDebouncedRequestDocSearch("");
+                      setRequestDocPage(1);
+                    }}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800"
+                    aria-label="Clear search"
                   >
-                    ← Previous
+                    <X size={14} />
                   </button>
-
-                  <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-2 text-sm font-medium text-gray-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
-                    Page {requestDocPagination.page} of{" "}
-                    {requestDocPagination.totalPages || 1}
-                  </div>
-
-                  <button
-                    type="button"
-                    disabled={!requestDocPagination.hasNextPage}
-                    onClick={() => setRequestDocPage((prev) => prev + 1)}
-                    className="rounded-lg border border-emerald-600 bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:border-gray-300 disabled:bg-gray-300"
-                  >
-                    Next →
-                  </button>
-                </div>
+                ) : null}
               </div>
-            ) : null}
-          </>
-        )}
+              <button
+                type="button"
+                onClick={handleSelectAllRequestDocs}
+                disabled={selectingAllRequestDocs || requestDocsLoading}
+                className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+              >
+                {selectingAllRequestDocs ? "Selecting..." : "Select All"}
+              </button>
+              <button
+                type="button"
+                onClick={clearRequestedDocuments}
+                disabled={
+                  selectedRequestDocs.length === 0 || selectingAllRequestDocs
+                }
+                className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+              >
+                Clear
+              </button>
+            </div>
+          </div>
+
+          {requestDocsLoading ? (
+            <div className="flex flex-col items-center justify-center py-14">
+              <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#3A99D8] border-t-transparent" />
+              <p className="mt-3 text-sm text-slate-500">Loading documents...</p>
+            </div>
+          ) : requestDocs.length === 0 ? (
+            <div className="flex flex-col items-center justify-center px-4 py-14 text-center">
+              <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-[#3A99D8]/10 text-[#3A99D8]">
+                <FileText size={22} />
+              </div>
+              <h3 className="text-base font-semibold text-slate-800 dark:text-slate-200">
+                No documents found
+              </h3>
+              <p className="mt-1 max-w-sm text-sm text-slate-500">
+                {requestDocSearch.trim()
+                  ? `No documents match “${requestDocSearch.trim()}”.`
+                  : submissionDetail?.loanProduct?.name
+                    ? `No document types are available for ${submissionDetail.loanProduct.name}.`
+                    : "No document types are available."}
+              </p>
+            </div>
+          ) : (
+            <>
+              <div className="max-h-[min(520px,55vh)] overflow-auto">
+                <table className="w-full min-w-[720px] table-fixed text-sm">
+                  <colgroup>
+                    <col className="w-12" />
+                    <col />
+                    <col className="w-[110px]" />
+                    <col className="w-[130px]" />
+                    <col className="w-[200px]" />
+                  </colgroup>
+                  <thead className="sticky top-0 z-10 border-b border-slate-200 bg-slate-50/95 backdrop-blur dark:border-slate-800 dark:bg-slate-900/95">
+                    <tr className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                      <th className="px-4 py-2.5 text-left">
+                        <span className="sr-only">Select</span>
+                      </th>
+                      <th className="px-3 py-2.5 text-left">Document</th>
+                      <th className="px-3 py-2.5 text-left">Type</th>
+                      <th className="px-3 py-2.5 text-left">Status</th>
+                      <th className="px-3 py-2.5 text-left">Last requested</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {requestDocs.map((doc: any, rowIndex: number) => {
+                      const isSelected = selectedRequestDocs.includes(
+                        doc.documentTypeId,
+                      );
+                      const requestHistory =
+                        requestDocHistoryByTypeId[String(doc.documentTypeId)];
+                      const isAlreadyRequested = Boolean(requestHistory);
+
+                      return (
+                        <tr
+                          key={doc.documentTypeId}
+                          onClick={() => toggleRequestDocument(doc)}
+                          className={`cursor-pointer transition-colors ${
+                            isSelected
+                              ? "bg-[#3A99D8]/8 dark:bg-sky-950/25"
+                              : rowIndex % 2 === 1
+                                ? "bg-slate-50/40 dark:bg-slate-900/30"
+                                : "bg-white dark:bg-slate-900"
+                          } hover:bg-slate-50 dark:hover:bg-slate-800/40`}
+                        >
+                          <td className="px-4 py-3 align-middle">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => toggleRequestDocument(doc)}
+                              onClick={(e) => e.stopPropagation()}
+                              className="h-4 w-4 cursor-pointer accent-[#3A99D8]"
+                              aria-label={`Select ${doc.documentType.name}`}
+                            />
+                          </td>
+                          <td className="px-3 py-3 align-middle">
+                            <div className="flex min-w-0 items-center gap-2.5">
+                              <span
+                                className={`h-2 w-2 shrink-0 rounded-full ${getRequestDocColor(
+                                  doc.documentType.name,
+                                )}`}
+                              />
+                              <p
+                                className="truncate font-semibold text-slate-800 dark:text-slate-100"
+                                title={doc.documentType.name}
+                              >
+                                {doc.documentType.name}
+                              </p>
+                              {isSelected ? (
+                                <CheckCircle2
+                                  size={15}
+                                  className="shrink-0 text-[#3A99D8]"
+                                />
+                              ) : null}
+                            </div>
+                          </td>
+                          <td className="px-3 py-3 align-middle">
+                            {doc.isCustom ? (
+                              <span className="inline-flex rounded-md bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
+                                Custom
+                              </span>
+                            ) : (
+                              <span className="text-[11px] font-medium text-slate-400">
+                                Standard
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-3 py-3 align-middle">
+                            {isAlreadyRequested ? (
+                              <span className="inline-flex rounded-md bg-violet-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-violet-700 dark:bg-violet-500/20 dark:text-violet-300">
+                                Requested
+                              </span>
+                            ) : (
+                              <span className="inline-flex rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                                Available
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-3 py-3 align-middle">
+                            {requestHistory ? (
+                              <span className="text-[11px] font-medium text-slate-600 dark:text-slate-300">
+                                {formatDocumentTimelineDate(
+                                  requestHistory.requestedAt,
+                                )}
+                              </span>
+                            ) : (
+                              <span className="text-[11px] text-slate-400">
+                                —
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {requestDocPagination.total > 0 ? (
+                <div className="flex flex-col gap-3 border-t border-slate-200 bg-slate-50/80 px-4 py-3 sm:flex-row sm:items-center sm:justify-between dark:border-slate-800 dark:bg-slate-900/60">
+                  <p className="text-sm text-slate-500 dark:text-slate-400">
+                    Showing{" "}
+                    <span className="font-semibold text-slate-700 dark:text-slate-200">
+                      {showingFrom}
+                    </span>
+                    {" – "}
+                    <span className="font-semibold text-slate-700 dark:text-slate-200">
+                      {showingTo}
+                    </span>{" "}
+                    of{" "}
+                    <span className="font-semibold text-slate-700 dark:text-slate-200">
+                      {requestDocPagination.total}
+                    </span>
+                  </p>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={!requestDocPagination.hasPreviousPage}
+                      onClick={() =>
+                        setRequestDocPage((prev) => Math.max(1, prev - 1))
+                      }
+                      className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                    >
+                      <ChevronLeft size={16} />
+                      Previous
+                    </button>
+
+                    <span className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                      Page {requestDocPagination.page} of{" "}
+                      {requestDocPagination.totalPages || 1}
+                    </span>
+
+                    <button
+                      type="button"
+                      disabled={!requestDocPagination.hasNextPage}
+                      onClick={() => setRequestDocPage((prev) => prev + 1)}
+                      className="inline-flex items-center gap-1 rounded-lg bg-[#3A99D8] px-3 py-2 text-sm font-medium text-white transition hover:bg-[#2f87c2] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
+                    >
+                      Next
+                      <ChevronRight size={16} />
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+            </>
+          )}
+        </div>
 
         {!requestDocsLoading ? (
-          <>
-            <div className="mt-4">
-              <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-slate-200">
-                Message
-              </label>
-              <textarea
-                placeholder="Enter a message for the client (optional)..."
-                className="min-h-[90px] w-full resize-none rounded-xl border border-gray-300 px-3 py-2 text-sm transition focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 dark:border-slate-700 dark:bg-slate-900"
-                value={requestMessage}
-                onChange={(e) => setRequestMessage(e.target.value)}
-              />
-              <p className="mt-1 text-xs text-gray-400">
-                This message will be sent along with the document request.
-              </p>
-            </div>
+          <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+            <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+              Message to client
+            </label>
+            <textarea
+              placeholder="Optional note included with this document request..."
+              className="min-h-[88px] w-full resize-none rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-[#3A99D8] focus:ring-2 focus:ring-[#3A99D8]/20 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+              value={requestMessage}
+              onChange={(e) => setRequestMessage(e.target.value)}
+            />
 
-            <div className="mt-6 flex items-center justify-between">
-              <p className="text-sm text-gray-500">
-                {selectedRequestDocs.length} selected
-              </p>
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4 dark:border-slate-800">
+              <div>
+                <p className="text-sm font-semibold text-slate-800 dark:text-white">
+                  {selectedRequestDocs.length} document
+                  {selectedRequestDocs.length === 1 ? "" : "s"} selected
+                </p>
+                <p className="text-xs text-slate-500">
+                  Client will be notified after you send the request.
+                </p>
+              </div>
               <button
                 type="button"
                 onClick={handleRequestDocuments}
                 disabled={selectedRequestDocs.length === 0 || requestSubmitting}
-                className="rounded-lg bg-emerald-600 px-5 py-2 text-sm text-white hover:bg-emerald-700 disabled:opacity-50"
+                className="inline-flex min-w-[170px] items-center justify-center gap-2 rounded-lg bg-[#3A99D8] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#2f87c2] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
               >
-                {requestSubmitting ? "Requesting..." : "Request Documents"}
+                {requestSubmitting ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin" />
+                    Requesting...
+                  </>
+                ) : (
+                  <>
+                    <Send size={16} />
+                    Request Documents
+                  </>
+                )}
               </button>
             </div>
-          </>
+          </div>
         ) : null}
       </div>
     );
@@ -3154,11 +3250,14 @@ dark:bg-red-900/20 dark:text-red-400"
 
   const renderDocuments = () => (
     <div className="h-[90vh] min-h-screen w-full">
-      <div className="mb-2">
-        <h2 className="text-xl font-bold text-slate-800 dark:text-white">
+      <div className="mb-4 rounded-xl border border-slate-200 bg-white px-5 py-4 dark:border-slate-700 dark:bg-slate-900">
+        <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-[#3A99D8]">
+          Document workflow
+        </p>
+        <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
           Requested Documents
         </h2>
-        <p className="mt-1 text-sm text-slate-500">
+        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
           {isCoBrokerPortal
             ? "Request documents from your client, upload files, then forward them to the Principal Broker for review."
             : "Upload, filter, and send documents to lenders on this application."}
@@ -3195,10 +3294,10 @@ dark:bg-red-900/20 dark:text-red-400"
       />
 
       {isCoBrokerPortal && selectedCoBrokerPbSendableIds.length > 0 && (
-        <div className="mb-4 overflow-visible rounded-2xl border border-blue-200 bg-blue-50/70 shadow-sm dark:border-blue-900/40 dark:bg-slate-900">
+        <div className="mb-4 overflow-visible rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
           <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
             <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-white">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#3A99D8] text-white">
                 <FiSend size={15} />
               </div>
               <div>
@@ -3218,7 +3317,7 @@ dark:bg-red-900/20 dark:text-red-400"
                 handleSendToPrincipalBroker(selectedCoBrokerPbSendableIds)
               }
               disabled={sendingToBroker}
-              className="inline-flex min-w-[170px] items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-600 px-5 py-3 text-sm font-semibold text-white shadow-md transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg active:translate-y-0 disabled:cursor-not-allowed disabled:from-slate-300 disabled:to-slate-300 disabled:text-slate-500"
+              className="inline-flex min-w-[170px] items-center justify-center gap-2 rounded-lg bg-[#3A99D8] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#2f87c2] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
             >
               {sendingToBroker ? (
                 <>
@@ -3237,10 +3336,10 @@ dark:bg-red-900/20 dark:text-red-400"
       )}
 
       {!isCoBrokerPortal && !autoForwardEnabled && selectedRows.length > 0 && (
-        <div className="mb-4 overflow-visible rounded-2xl border border-blue-200 bg-blue-50/70 shadow-sm dark:border-blue-900/40 dark:bg-slate-900">
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-blue-200/70 px-5 py-3 dark:border-blue-900/40">
+        <div className="mb-4 overflow-visible rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-3 dark:border-slate-800">
             <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-white">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#3A99D8] text-white">
                 <FiSend size={15} />
               </div>
               <div>
@@ -3254,15 +3353,15 @@ dark:bg-red-900/20 dark:text-red-400"
             </div>
 
             <div className="flex items-center gap-2">
-              <span className="rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-blue-700 ring-1 ring-blue-200 dark:bg-slate-800 dark:text-blue-300 dark:ring-blue-900">
+              <span className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
                 {selectedRows.length} document
                 {selectedRows.length === 1 ? "" : "s"}
               </span>
               <span
-                className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 ${
+                className={`rounded-md border px-2.5 py-1 text-[11px] font-semibold ${
                   selectedLenders.length > 0
-                    ? "bg-emerald-50 text-emerald-700 ring-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:ring-emerald-900"
-                    : "bg-amber-50 text-amber-700 ring-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:ring-amber-900"
+                    ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"
+                    : "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
                 }`}
               >
                 {selectedLenders.length} lender
@@ -3272,7 +3371,7 @@ dark:bg-red-900/20 dark:text-red-400"
           </div>
 
           <div className="grid gap-4 p-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
-            <div className="min-w-0 rounded-xl border border-blue-100 bg-white p-3 dark:border-slate-700 dark:bg-slate-800/70">
+            <div className="min-w-0 rounded-lg border border-slate-200 bg-slate-50/50 p-3 dark:border-slate-700 dark:bg-slate-800/50">
               <div className="mb-2 flex items-center justify-between gap-3">
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-200">
                   Select lender recipients
@@ -3281,7 +3380,7 @@ dark:bg-red-900/20 dark:text-red-400"
                   <button
                     type="button"
                     onClick={() => setSelectedLenders([])}
-                    className="text-[11px] font-medium text-blue-600 hover:underline dark:text-blue-400"
+                    className="text-[11px] font-medium text-[#3A99D8] hover:underline"
                   >
                     Clear lenders
                   </button>
@@ -3340,9 +3439,9 @@ dark:bg-red-900/20 dark:text-red-400"
                         ...base,
                         minHeight: "46px",
                         borderRadius: "12px",
-                        borderColor: state.isFocused ? "#2563eb" : "#bfdbfe",
+                        borderColor: state.isFocused ? "#3A99D8" : "#e2e8f0",
                         boxShadow: state.isFocused
-                          ? "0 0 0 2px rgba(37, 99, 235, 0.15)"
+                          ? "0 0 0 2px rgba(58, 153, 216, 0.2)"
                           : "none",
                         backgroundColor: "#ffffff",
                         cursor: "pointer",
@@ -3351,7 +3450,7 @@ dark:bg-red-900/20 dark:text-red-400"
                         ...base,
                         zIndex: 80,
                         overflow: "hidden",
-                        borderRadius: "12px",
+                        borderRadius: "8px",
                       }),
                       valueContainer: (base) => ({
                         ...base,
@@ -3362,7 +3461,7 @@ dark:bg-red-900/20 dark:text-red-400"
                   />
                 </div>
               ) : (
-                <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-700 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
+                <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-700 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
                   No active lenders available. Approved, declined, or withdrawn
                   lenders cannot receive documents.
                 </p>
@@ -3393,7 +3492,7 @@ dark:bg-red-900/20 dark:text-red-400"
                     ? "Select lender recipients first"
                     : "Send selected documents to chosen lenders"
                 }
-                className="inline-flex min-w-[170px] items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-600 px-5 py-3 text-sm font-semibold text-white shadow-md transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg active:translate-y-0 disabled:cursor-not-allowed disabled:from-slate-300 disabled:to-slate-300 disabled:text-slate-500 disabled:shadow-none dark:disabled:from-slate-700 dark:disabled:to-slate-700 dark:disabled:text-slate-400"
+                className="inline-flex min-w-[170px] items-center justify-center gap-2 rounded-lg bg-[#3A99D8] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#2f87c2] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 dark:disabled:bg-slate-700 dark:disabled:text-slate-400"
               >
                 {sending ? (
                   <>
@@ -3421,7 +3520,7 @@ dark:bg-red-900/20 dark:text-red-400"
                     handleForwardToClient(selectedClientSendableIds)
                   }
                   disabled={forwardingToClient}
-                  className="inline-flex min-w-[170px] items-center justify-center gap-2 rounded-xl border border-indigo-200 bg-white px-5 py-2.5 text-xs font-semibold text-indigo-700 transition-all hover:bg-indigo-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-indigo-900 dark:bg-slate-800 dark:text-indigo-300 dark:hover:bg-indigo-950/30"
+                  className="inline-flex min-w-[170px] items-center justify-center gap-2 rounded-lg bg-[#3A99D8] px-5 py-2.5 text-xs font-semibold text-white transition hover:bg-[#2f87c2] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {forwardingToClient ? (
                     "Sending..."
@@ -3439,8 +3538,8 @@ dark:bg-red-900/20 dark:text-red-400"
       )}
 
       {!isCoBrokerPortal && autoForwardEnabled && selectedClientSendableIds.length > 0 && (
-        <div className="mb-4 flex items-center justify-between rounded-2xl border border-indigo-200 bg-gradient-to-r from-indigo-50 to-violet-50 px-5 py-3 shadow-sm dark:border-indigo-900/40 dark:from-slate-900 dark:to-slate-800">
-          <p className="text-sm font-medium text-indigo-700 dark:text-indigo-300">
+        <div className="mb-4 flex items-center justify-between rounded-xl border border-slate-200 bg-white px-5 py-3 dark:border-slate-700 dark:bg-slate-900">
+          <p className="text-sm font-medium text-slate-700 dark:text-slate-200">
             {selectedClientSendableIds.length} document(s) ready to send to
             client
           </p>
@@ -3448,7 +3547,7 @@ dark:bg-red-900/20 dark:text-red-400"
             type="button"
             onClick={() => handleForwardToClient(selectedClientSendableIds)}
             disabled={forwardingToClient}
-            className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-3 py-2 text-xs font-semibold text-white shadow-md transition-all hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex items-center gap-2 rounded-lg bg-[#3A99D8] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[#2f87c2] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {forwardingToClient ? (
               "Sending..."
@@ -3463,13 +3562,13 @@ dark:bg-red-900/20 dark:text-red-400"
       )}
 
       {documentsLoading ? (
-        <div className="flex flex-col items-center justify-center py-16">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-blue-500 border-t-transparent"></div>
+        <div className="flex flex-col items-center justify-center rounded-xl border border-slate-200 bg-white py-16 dark:border-slate-700 dark:bg-slate-900">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#3A99D8] border-t-transparent" />
           <p className="mt-3 text-sm text-slate-500">Loading documents...</p>
         </div>
       ) : displayDocuments.length > 0 ? (
-        <div className="my-4 flex max-h-[calc(100vh-220px)] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <div className="flex items-center justify-between gap-3 border-b border-slate-100 bg-slate-50/80 px-5 py-3 dark:border-slate-800 dark:bg-slate-900/80">
+        <div className="my-4 flex max-h-[calc(100vh-220px)] flex-col overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
+          <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-5 py-3 dark:border-slate-800">
             <div>
               <p className="text-sm font-semibold text-slate-800 dark:text-white">
                 Requested documents
@@ -3483,21 +3582,21 @@ dark:bg-red-900/20 dark:text-red-400"
               </p>
             </div>
             {selectedRows.length > 0 && (
-              <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700 dark:bg-blue-950/50 dark:text-blue-300">
+              <span className="rounded-md bg-[#3A99D8]/15 px-2.5 py-1 text-xs font-semibold text-[#2f87c2]">
                 {selectedRows.length} selected
               </span>
             )}
           </div>
 
           <div className="min-h-0 flex-1 overflow-auto">
-            <table className="w-full min-w-[920px] table-fixed text-sm">
+            <table className="w-full min-w-[980px] table-fixed text-sm">
               <colgroup>
                 <col className="w-12" />
-                <col className="w-[24%]" />
-                <col className="w-[12%]" />
-                <col className="w-[16%]" />
                 <col className="w-[22%]" />
+                <col className="w-[10%]" />
                 <col className="w-[14%]" />
+                <col className="w-[30%]" />
+                <col className="w-[12%]" />
                 <col className="w-16" />
               </colgroup>
 
@@ -3508,14 +3607,19 @@ dark:bg-red-900/20 dark:text-red-400"
                       type="checkbox"
                       checked={isAllSelected}
                       onChange={handleSelectAll}
-                      className="h-4 w-4 cursor-pointer accent-blue-600"
+                      className="h-4 w-4 cursor-pointer accent-[#3A99D8]"
                       aria-label="Select all documents"
                     />
                   </th>
                   <th className="px-4 py-3 text-left">Document</th>
                   <th className="px-4 py-3 text-left">Source</th>
                   <th className="px-4 py-3 text-left">Requested</th>
-                  <th className="px-4 py-3 text-left">Status</th>
+                  <th className="px-4 py-3 text-left">
+                    <span className="block">Status</span>
+                    <span className="mt-0.5 block text-[10px] font-medium normal-case tracking-normal text-slate-400">
+                      Uploaded · Lender · Client
+                    </span>
+                  </th>
                   <th className="px-4 py-3 text-left">Files</th>
                   <th className="px-4 py-3 text-center">Actions</th>
                 </tr>
@@ -3538,26 +3642,26 @@ dark:bg-red-900/20 dark:text-red-400"
                       key={doc.rowKey}
                       className={`group transition-colors ${
                         isSelected
-                          ? "bg-blue-50/70 dark:bg-blue-950/20"
+                          ? "bg-[#3A99D8]/8 dark:bg-sky-950/20"
                           : rowIndex % 2 === 1
                             ? "bg-slate-50/40 dark:bg-slate-900/20"
                             : "bg-white dark:bg-slate-900"
                       } hover:bg-slate-50 dark:hover:bg-slate-800/40`}
                     >
-                      <td className="px-4 py-3 align-middle">
+                      <td className="px-4 py-3.5 align-middle">
                         <input
                           type="checkbox"
                           disabled={doc.status === "SKIPPED"}
                           checked={isSelected}
                           onChange={() => handleSelectRow(doc.rowKey)}
-                          className="h-4 w-4 cursor-pointer accent-blue-600 disabled:opacity-40"
+                          className="h-4 w-4 cursor-pointer accent-[#3A99D8] disabled:opacity-40"
                           aria-label={`Select ${doc.documentName}`}
                         />
                       </td>
 
-                      <td className="px-4 py-3 align-middle">
+                      <td className="px-4 py-3.5 align-middle">
                         <div className="flex min-w-0 items-center gap-3">
-                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-blue-50 to-indigo-50 text-blue-600 ring-1 ring-blue-100 dark:from-blue-950/40 dark:to-indigo-950/30 dark:text-blue-400 dark:ring-blue-900/40">
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#3A99D8]/10 text-[#3A99D8]">
                             <FileText size={16} />
                           </div>
                           <div className="min-w-0">
@@ -3568,7 +3672,7 @@ dark:bg-red-900/20 dark:text-red-400"
                               {doc.documentName}
                             </p>
                             {doc.isRequired && (
-                              <span className="mt-0.5 inline-flex rounded-md bg-rose-50 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-rose-600 ring-1 ring-rose-100 dark:bg-rose-950/30 dark:text-rose-400 dark:ring-rose-900/40">
+                              <span className="mt-0.5 inline-flex rounded-md bg-rose-50 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-rose-600 dark:bg-rose-950/30 dark:text-rose-400">
                                 Required
                               </span>
                             )}
@@ -3576,18 +3680,18 @@ dark:bg-red-900/20 dark:text-red-400"
                         </div>
                       </td>
 
-                      <td className="px-4 py-3 align-middle">
+                      <td className="px-4 py-3.5 align-middle">
                         <span
-                          className={`inline-flex max-w-full truncate rounded-full px-2.5 py-1 text-[11px] font-semibold ${sourceClass}`}
+                          className={`inline-flex max-w-full truncate rounded-md px-2 py-1 text-[11px] font-semibold ${sourceClass}`}
                           title={sourceLabel}
                         >
                           {sourceLabel}
                         </span>
                       </td>
 
-                      <td className="px-4 py-3 align-middle">
+                      <td className="px-4 py-3.5 align-middle">
                         {requestDisplay?.date ? (
-                          <span className="text-[11px] font-medium text-slate-700 dark:text-slate-200">
+                          <span className="text-[11px] font-medium leading-snug text-slate-700 dark:text-slate-200">
                             {requestDisplay.date}
                           </span>
                         ) : (
@@ -3595,17 +3699,16 @@ dark:bg-red-900/20 dark:text-red-400"
                         )}
                       </td>
 
-                      <td className="px-4 py-3 align-middle">
+                      <td className="px-4 py-3.5 align-middle">
                         <DocumentStatusCell
                           doc={doc}
-                          hideUploadChip
                           viewerPortal={
                             isCoBrokerPortal ? "coBroker" : undefined
                           }
                         />
                       </td>
 
-                      <td className="px-4 py-3 align-middle">
+                      <td className="px-4 py-3.5 align-middle">
                         {uploadedCount > 0 ? (
                           <button
                             type="button"
@@ -3615,7 +3718,7 @@ dark:bg-red-900/20 dark:text-red-400"
                               );
                               setActiveIndex(0);
                             }}
-                            className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-700 transition hover:border-emerald-300 hover:bg-emerald-100 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-300 dark:hover:bg-emerald-950/50"
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-700 transition hover:border-emerald-300 hover:bg-emerald-100 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-300 dark:hover:bg-emerald-950/50"
                           >
                             <span>
                               {uploadedCount} file
@@ -3630,7 +3733,7 @@ dark:bg-red-900/20 dark:text-red-400"
                         )}
                       </td>
 
-                      <td className="px-4 py-3 text-center align-middle">
+                      <td className="px-4 py-3.5 text-center align-middle">
                         <button
                           type="button"
                           ref={(el) => {
@@ -3639,9 +3742,9 @@ dark:bg-red-900/20 dark:text-red-400"
                           onClick={(event) =>
                             openDocumentActionMenu(doc.rowKey, event)
                           }
-                          className={`rounded-xl border p-2 transition ${
+                          className={`rounded-lg border p-2 transition ${
                             isOpen
-                              ? "border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-300"
+                              ? "border-[#3A99D8]/40 bg-[#3A99D8]/10 text-[#2f87c2] dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-300"
                               : "border-transparent text-slate-500 hover:border-slate-200 hover:bg-white hover:text-slate-700 dark:hover:border-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
                           }`}
                           aria-label={`Actions for ${doc.documentName}`}
@@ -3657,8 +3760,7 @@ dark:bg-red-900/20 dark:text-red-400"
             </table>
           </div>
 
-          {/* PAGINATION */}
-          <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-t border-slate-200 bg-slate-50/80 dark:border-slate-800 dark:bg-slate-900/60">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 bg-slate-50/80 px-4 py-3 dark:border-slate-800 dark:bg-slate-900/60">
             <p className="text-sm text-slate-500 dark:text-slate-400">
               Page{" "}
               <span className="font-semibold text-slate-700 dark:text-slate-200">
@@ -3680,7 +3782,7 @@ dark:bg-red-900/20 dark:text-red-400"
                 type="button"
                 disabled={page === 1}
                 onClick={() => setPage((p) => p - 1)}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 dark:disabled:border-slate-800 dark:disabled:bg-slate-800/50 dark:disabled:text-slate-600"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 dark:disabled:border-slate-800 dark:disabled:bg-slate-800/50 dark:disabled:text-slate-600"
               >
                 <ChevronLeft size={16} />
                 Previous
@@ -3697,10 +3799,10 @@ dark:bg-red-900/20 dark:text-red-400"
                         key={pageNum}
                         type="button"
                         onClick={() => setPage(pageNum)}
-                        className={`h-9 min-w-9 rounded-xl px-2.5 text-sm font-semibold transition ${
+                        className={`h-9 min-w-9 rounded-lg px-2.5 text-sm font-semibold transition ${
                           page === pageNum
-                            ? "bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-sm"
-                            : "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+                            ? "bg-[#3A99D8] text-white"
+                            : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
                         }`}
                       >
                         {pageNum}
@@ -3713,7 +3815,7 @@ dark:bg-red-900/20 dark:text-red-400"
                 type="button"
                 disabled={page === documentsPagination?.totalPages}
                 onClick={() => setPage((p) => p + 1)}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 dark:disabled:border-slate-800 dark:disabled:bg-slate-800/50 dark:disabled:text-slate-600"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 dark:disabled:border-slate-800 dark:disabled:bg-slate-800/50 dark:disabled:text-slate-600"
               >
                 Next
                 <ChevronRight size={16} />
@@ -3722,27 +3824,20 @@ dark:bg-red-900/20 dark:text-red-400"
           </div>
         </div>
       ) : (
-        <div className="flex flex-col items-center justify-center py-20 text-center">
-          {/* ICON */}
-          <motion.div
-            initial={{ scale: 0.8, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ duration: 0.4 }}
-            className="mb-6 flex h-20 w-20 items-center justify-center rounded-full 
-    bg-gradient-to-br from-blue-100 to-cyan-100 
-    text-blue-600 shadow-md"
-          >
-            <FiFolder size={36} />
-          </motion.div>
-
-          {/* TITLE */}
-          <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200">
-            No Documents Found
+        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-white py-16 text-center dark:border-slate-700 dark:bg-slate-900">
+          <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-[#3A99D8]/10 text-[#3A99D8]">
+            <FiFolder size={28} />
+          </div>
+          <h3 className="text-base font-semibold text-slate-800 dark:text-slate-200">
+            No documents found
           </h3>
-
-          {/* DESCRIPTION */}
-          <p className="mt-2 max-w-sm text-sm text-slate-500 dark:text-slate-400">
-            You haven&apos;t requested documents yet.
+          <p className="mt-1.5 max-w-sm text-sm text-slate-500 dark:text-slate-400">
+            {searchInput.trim() ||
+            documentSentFilter !== "all" ||
+            documentSourceFilter !== "all" ||
+            documentLenderFilter
+              ? "No documents match your current filters. Try clearing search or filters."
+              : "You haven't requested documents yet."}
           </p>
         </div>
       )}
@@ -3757,7 +3852,7 @@ dark:bg-red-900/20 dark:text-red-400"
               left: actionMenuPos.left,
               zIndex: 9999,
             }}
-            className="w-52 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-900"
+            className="w-52 overflow-hidden rounded-lg border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900"
           >
             {loDocPermissions.upload ? (
               <label className="flex cursor-pointer items-center gap-2 px-4 py-2.5 text-sm text-amber-700 transition hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950/20">
@@ -3825,7 +3920,7 @@ dark:bg-red-900/20 dark:text-red-400"
                     closeDocumentActionMenu();
                   }}
                   disabled={sendingToBroker}
-                  className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-blue-600 transition hover:bg-blue-50 disabled:opacity-60 dark:text-blue-400 dark:hover:bg-blue-500/10"
+                  className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-[#3A99D8] transition hover:bg-[#3A99D8]/10 disabled:opacity-60"
                 >
                   <FiSend size={14} />
                   Send To PB
@@ -3853,7 +3948,7 @@ dark:bg-red-900/20 dark:text-red-400"
                     ])
                   }
                   disabled={forwardingToClient}
-                  className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-indigo-600 transition hover:bg-indigo-50 disabled:opacity-60 dark:text-indigo-400 dark:hover:bg-indigo-950/20"
+                  className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-[#3A99D8] transition hover:bg-[#3A99D8]/10 disabled:opacity-60"
                 >
                   <Mail size={14} />
                   Send to Client
@@ -4059,11 +4154,11 @@ dark:bg-red-900/20 dark:text-red-400"
       <div
         key={section.id}
         className={
-          opts?.compact ? "contents" : sectionIndex > 0 ? "mt-5" : ""
+          opts?.compact ? "contents" : sectionIndex > 0 ? "mt-4" : ""
         }
       >
         {!opts?.compact ? (
-          <h2 className="mb-2.5 px-3 text-[10px] font-bold uppercase tracking-[0.14em] text-gray-400 dark:text-gray-500">
+          <h2 className="mb-1.5 px-2.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400 dark:text-slate-500">
             {section.label}
           </h2>
         ) : null}
@@ -4093,31 +4188,34 @@ dark:bg-red-900/20 dark:text-red-400"
                   }}
                   className={
                     opts?.compact
-                      ? `inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold transition ${
+                      ? `inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition ${
                           isActive
-                            ? "bg-[#13538A]/10 text-[#13538A] shadow-[inset_3px_0_0_0_#13538A]"
+                            ? "bg-[#3A99D8]/15 text-[#2f87c2]"
                             : isDisabled
-                              ? "cursor-not-allowed text-gray-300"
-                              : "bg-gray-50 text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                              ? "cursor-not-allowed text-slate-300"
+                              : "bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900"
                         }`
-                      : `relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[13px] font-semibold transition-all duration-200 ${
+                      : `relative flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[13px] font-medium transition ${
                           isActive
-                            ? "bg-[#13538A]/10 text-[#13538A] shadow-[inset_3px_0_0_0_#13538A] dark:bg-[#13538A]/20 dark:text-cyan-300"
+                            ? "bg-[#3A99D8]/12 text-[#2f87c2] dark:bg-[#3A99D8]/20 dark:text-sky-300"
                             : isDisabled
-                              ? "cursor-not-allowed text-gray-300 opacity-50"
-                              : "text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white"
+                              ? "cursor-not-allowed text-slate-300 opacity-50"
+                              : "text-slate-600 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800/80 dark:hover:text-white"
                         }`
                   }
                 >
+                  {isActive && !opts?.compact ? (
+                    <span className="absolute inset-y-1.5 left-0 w-[3px] rounded-full bg-[#3A99D8]" />
+                  ) : null}
                   <Icon
-                    size={opts?.compact ? 14 : 18}
-                    strokeWidth={2.15}
+                    size={opts?.compact ? 14 : 17}
+                    strokeWidth={isActive ? 2.25 : 2}
                     className={
                       isActive
-                        ? "shrink-0 text-[#13538A] dark:text-cyan-300"
+                        ? "shrink-0 text-[#3A99D8] dark:text-sky-300"
                         : isDisabled
-                          ? "shrink-0 text-gray-300"
-                          : "shrink-0 text-[#2C92D5]"
+                          ? "shrink-0 text-slate-300"
+                          : "shrink-0 text-slate-400"
                     }
                   />
                   <span className="min-w-0 flex-1 truncate whitespace-nowrap">
@@ -4125,10 +4223,10 @@ dark:bg-red-900/20 dark:text-red-400"
                   </span>
                   {tab.key === "view-loi" && loiCount > 0 ? (
                     <span
-                      className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums ${
+                      className={`shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-bold tabular-nums ${
                         isActive
-                          ? "bg-[#13538A]/15 text-[#13538A]"
-                          : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300"
+                          ? "bg-[#3A99D8]/20 text-[#2f87c2]"
+                          : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"
                       }`}
                     >
                       {loiCount}
@@ -4145,12 +4243,10 @@ dark:bg-red-900/20 dark:text-red-400"
   return (
     <>
       <div className="flex h-dvh w-full overflow-hidden bg-[#F5F7FA] dark:bg-[#0b1120] dark:text-slate-100">
-        {/* Deal portal sidebar — AppSidebar-matched fonts/design */}
-        <aside className="hidden h-full w-[260px] shrink-0 flex-col border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 lg:flex">
-          <div className="relative shrink-0 overflow-hidden border-b border-gray-100 px-4 py-5 dark:border-gray-800">
-            <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-[#13538A]/6 via-transparent to-[#2C92D5]/8 dark:from-[#13538A]/12 dark:to-[#2C92D5]/12" />
-            <div className="relative flex items-center gap-3">
-              <div className="h-11 w-11 shrink-0 overflow-hidden rounded-xl shadow-sm ring-2 ring-white dark:ring-gray-800">
+        <aside className="hidden h-full w-[248px] shrink-0 flex-col border-r border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950 lg:flex">
+          <div className="shrink-0 border-b border-slate-100 px-4 py-4 dark:border-slate-800">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 shrink-0 overflow-hidden rounded-lg border border-slate-200 dark:border-slate-700">
                 <img
                   src="/loanAutomation.jpeg"
                   alt="Loan Automation"
@@ -4158,10 +4254,10 @@ dark:bg-red-900/20 dark:text-red-400"
                 />
               </div>
               <div className="min-w-0">
-                <p className="truncate text-sm font-bold text-gray-900 dark:text-white">
+                <p className="truncate text-sm font-bold tracking-tight text-slate-900 dark:text-white">
                   Loan Automation
                 </p>
-                <p className="truncate text-[10px] font-semibold uppercase tracking-[0.12em] text-[#13538A] dark:text-cyan-400">
+                <p className="truncate text-[10px] font-semibold uppercase tracking-[0.12em] text-[#3A99D8]">
                   {portalSubtitle}
                 </p>
               </div>
@@ -4170,21 +4266,21 @@ dark:bg-red-900/20 dark:text-red-400"
 
           <nav
             aria-label="Loan application sections"
-            className="sidebar-scrollbar-light min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-3 py-4"
+            className="sidebar-scrollbar-light min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-2.5 py-3"
           >
             {renderSidebarNavItems()}
           </nav>
 
-          <div className="shrink-0 border-t border-gray-100 p-3 dark:border-gray-800">
+          <div className="shrink-0 border-t border-slate-100 p-2.5 dark:border-slate-800">
             <button
               type="button"
               onClick={() => navigate(previewConfig.pipelineListPath)}
-              className="relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-semibold text-gray-600 transition-all duration-200 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white"
+              className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
             >
               <ArrowLeft
-                size={18}
-                strokeWidth={2.15}
-                className="shrink-0 text-[#2C92D5]"
+                size={17}
+                strokeWidth={2}
+                className="shrink-0 text-slate-400"
               />
               <span className="truncate">Back</span>
             </button>
@@ -4196,7 +4292,7 @@ dark:bg-red-900/20 dark:text-red-400"
           {/* Mobile top bar */}
           <div className="flex items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3 dark:border-slate-800 dark:bg-slate-950 lg:hidden">
             <div className="flex min-w-0 items-center gap-2.5">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[#2C92D5]/10 ring-1 ring-[#2C92D5]/20">
+              <div className="h-9 w-9 shrink-0 overflow-hidden rounded-lg border border-slate-200 dark:border-slate-700">
                 <img
                   src="/loanAutomation.jpeg"
                   alt="Loan Automation"
@@ -4204,10 +4300,10 @@ dark:bg-red-900/20 dark:text-red-400"
                 />
               </div>
               <div className="min-w-0">
-                <p className="truncate text-sm font-bold text-gray-900">
+                <p className="truncate text-sm font-bold text-slate-900 dark:text-white">
                   Loan Automation
                 </p>
-                <p className="truncate text-[10px] font-semibold uppercase tracking-[0.12em] text-[#13538A]">
+                <p className="truncate text-[10px] font-semibold uppercase tracking-[0.12em] text-[#3A99D8]">
                   {portalSubtitle}
                 </p>
               </div>
@@ -4215,7 +4311,7 @@ dark:bg-red-900/20 dark:text-red-400"
             <button
               type="button"
               onClick={() => navigate(previewConfig.pipelineListPath)}
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-semibold text-gray-600 hover:bg-gray-50"
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800"
             >
               <ArrowLeft size={15} />
               Back

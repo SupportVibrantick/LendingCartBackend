@@ -67,8 +67,6 @@ function getAuthHeaders(): HeadersInit {
   };
 }
 
-const normalizeStatus = (status?: string) => status?.toUpperCase().trim();
-
 /* ================= COMPONENT ================= */
 export default function LoanPipeline() {
   const navigate = useNavigate();
@@ -139,9 +137,10 @@ export default function LoanPipeline() {
     }
   };
 
-const newCount = stats.newApplications;
-const approvedCount = stats.approvedApplications;
-const totalVolume = stats.totalVolume;
+  const newCount = stats.newApplications;
+  const approvedCount = stats.approvedApplications;
+  const totalVolume = stats.totalVolume;
+  const hasActiveFilters = Boolean(debouncedSearch || decisionFilter);
 
   const loadStats = useCallback(async () => {
     try {
@@ -169,86 +168,116 @@ const totalVolume = stats.totalVolume;
     }
   }, []);
 
-  const loadSubmissions = useCallback(async () => {
-    try {
-      setLoading(true);
+  const loadSubmissions = useCallback(
+    async (signal?: AbortSignal) => {
+      try {
+        setLoading(true);
 
-      const params = new URLSearchParams({
-        page: String(currentPage),
-        limit: String(ROWS_PER_PAGE),
-        search: debouncedSearch,
-      });
+        const params = new URLSearchParams({
+          page: String(currentPage),
+          limit: String(ROWS_PER_PAGE),
+        });
 
-      if (
-        decisionFilter &&
-        decisionFilter !== "PENDING" &&
-        ["CONDITIONAL", "APPROVED", "DECLINED"].includes(decisionFilter)
-      ) {
-        params.set("decision", decisionFilter);
-      }
+        if (debouncedSearch) {
+          params.set("search", debouncedSearch);
+        }
 
-      const res = await fetch(
-        `${API_BASE}/lender/loan-pipeline?${params.toString()}`,
-        {
-          headers: getAuthHeaders(),
-        },
-      );
+        if (
+          decisionFilter &&
+          ["PENDING", "CONDITIONAL", "APPROVED", "DECLINED"].includes(
+            decisionFilter,
+          )
+        ) {
+          params.set("decision", decisionFilter);
+        }
 
-      const json = await res.json();
-
-      if (!res.ok || !json.success) {
-        throw new Error(json.message || "Failed to load loan pipeline");
-      }
-
-      setPagination({
-        page: json.page,
-        limit: json.limit,
-        total: json.total,
-        totalPages: json.totalPages,
-      });
-
-      let mappedRows: TableRow[] = json.data.map((item: any) => ({
-        applicationLenderId: item.applicationLenderId,
-        applicationNumber: item.applicationNumber,
-        borrowerFirstName: item.borrowerFirstName || "",
-        borrowerLastName: item.borrowerLastName || "",
-        borrowerName: buildBorrowerDisplayName(item),
-        entityType:
-          item.borrowerEntityType || item.client?.entityType || "-",
-        loanType: item.loanProductCode,
-        amount: Number(item.amountRequested || 0),
-        lenderStatus: item.lenderPipelineStatus || item.lenderStatus,
-        applicationStatus: item.applicationStatus,
-        sentAt: item.sentAt,
-        brokerName: item.broker?.name || "—",
-        lenderDecision: item.lenderDecision,
-        pendingDocumentsCount: item.pendingDocumentsCount ?? 0,
-        loiGenerated: item.loiGenerated,
-        loiSentToBroker: item.loiSentToBroker,
-      }));
-
-      if (decisionFilter === "PENDING") {
-        mappedRows = mappedRows.filter(
-          (row) =>
-            !row.lenderDecision ||
-            ["SENT", "IN_REVIEW", "PENDING"].includes(
-              normalizeStatus(row.lenderStatus) || "",
-            ),
+        const res = await fetch(
+          `${API_BASE}/lender/loan-pipeline?${params.toString()}`,
+          {
+            headers: getAuthHeaders(),
+            signal,
+          },
         );
+
+        const json = await res.json();
+
+        if (!res.ok || !json.success) {
+          throw new Error(json.message || "Failed to load loan pipeline");
+        }
+
+        if (signal?.aborted) return;
+
+        const totalPages = Math.max(Number(json.totalPages) || 1, 1);
+        const responsePage = Number(json.page) || currentPage;
+
+        setPagination({
+          page: responsePage,
+          limit: Number(json.limit) || ROWS_PER_PAGE,
+          total: Number(json.total) || 0,
+          totalPages,
+        });
+
+        if (responsePage !== currentPage && responsePage >= 1) {
+          setCurrentPage(responsePage);
+        }
+
+        setRows(
+          (json.data || []).map((item: any) => ({
+            applicationLenderId: item.applicationLenderId,
+            applicationNumber: item.applicationNumber,
+            borrowerFirstName: item.borrowerFirstName || "",
+            borrowerLastName: item.borrowerLastName || "",
+            borrowerName: buildBorrowerDisplayName(item),
+            entityType:
+              item.borrowerEntityType || item.client?.entityType || "-",
+            loanType: item.loanProductCode,
+            amount: Number(item.amountRequested || 0),
+            lenderStatus: item.lenderPipelineStatus || item.lenderStatus,
+            applicationStatus: item.applicationStatus,
+            sentAt: item.sentAt,
+            brokerName: item.broker?.name || "—",
+            lenderDecision: item.lenderDecision,
+            pendingDocumentsCount: item.pendingDocumentsCount ?? 0,
+            loiGenerated: item.loiGenerated,
+            loiSentToBroker: item.loiSentToBroker,
+          })),
+        );
+      } catch (err: any) {
+        if (err?.name === "AbortError") return;
+        toast.error(err.message || "Something went wrong");
+      } finally {
+        if (!signal?.aborted) {
+          setLoading(false);
+        }
       }
+    },
+    [currentPage, debouncedSearch, decisionFilter],
+  );
 
-      setRows(mappedRows);
-    } catch (err: any) {
-      toast.error(err.message || "Something went wrong");
-    } finally {
-      setLoading(false);
-    }
-  }, [currentPage, debouncedSearch, decisionFilter]);
+  // Debounce search and reset to page 1 together (avoids page-reset race).
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const nextSearch = searchTerm.trim();
+      setDebouncedSearch((prev) => {
+        if (prev !== nextSearch) {
+          setCurrentPage(1);
+        }
+        return nextSearch;
+      });
+    }, 400);
 
-useEffect(() => {
-  loadSubmissions();
-  loadStats();
-}, [loadSubmissions, loadStats]);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void loadSubmissions(controller.signal);
+    return () => controller.abort();
+  }, [loadSubmissions]);
+
+  useEffect(() => {
+    void loadStats();
+  }, [loadStats]);
 
   const openApplicationPreview = (row: TableRow) => {
     navigate("/loan-preview", {
@@ -264,42 +293,26 @@ useEffect(() => {
     [currentPage, pagination.totalPages],
   );
 
-  const isEmpty = !loading && pagination.total === 0;
-  const isSearchEmpty = !loading && pagination.total > 0 && rows.length === 0;
-
-  // Reset page when search or filter changes
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm, decisionFilter]);
-
-  useEffect(() => {
-    if (currentPage > pagination.totalPages && pagination.totalPages > 0) {
-      setCurrentPage(pagination.totalPages);
-    }
-  }, [pagination.totalPages, currentPage]);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearch(searchTerm.trim());
-    }, 400);
-
-    return () => clearTimeout(timer);
-  }, [searchTerm]);
+  const isEmpty = !loading && pagination.total === 0 && !hasActiveFilters;
+  const isSearchEmpty =
+    !loading && pagination.total === 0 && hasActiveFilters;
 
   const refreshPipeline = () => {
-    loadSubmissions();
-    loadStats();
+    void loadSubmissions();
+    void loadStats();
   };
 
   const multiFileModalPortal =
     multiFileModal.isOpen && multiFileModal.doc
       ? createPortal(
-          <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-            <div className="flex max-h-[80vh] w-full max-w-3xl flex-col rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
-              <div className="flex items-center justify-between border-b px-6 py-4 dark:border-slate-800">
-                <div>
-                  <h2 className="text-lg font-bold">Select File to Preview</h2>
-                  <p className="text-xs text-slate-500">
+          <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-[#183B57]/40 p-4 backdrop-blur-[2px]">
+            <div className="flex max-h-[80vh] w-full max-w-3xl flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-900">
+              <div className="flex items-center justify-between border-b border-slate-100 bg-[#183B57]/[0.04] px-5 py-4 dark:border-slate-800 dark:bg-[#183B57]/15">
+                <div className="min-w-0">
+                  <h2 className="text-base font-semibold text-slate-900 dark:text-white">
+                    Select File to Preview
+                  </h2>
+                  <p className="mt-0.5 truncate text-xs text-slate-500">
                     {multiFileModal.doc.documentName} (
                     {multiFileModal.doc.uploadedCount} uploads)
                   </p>
@@ -309,31 +322,32 @@ useEffect(() => {
                   onClick={() =>
                     setMultiFileModal({ isOpen: false, doc: null })
                   }
-                  className="rounded-lg bg-slate-100 px-3 py-1 text-sm text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-400"
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300"
+                  aria-label="Close"
                 >
-                  Back
+                  <X size={16} />
                 </button>
               </div>
 
-              <div className="flex-1 overflow-y-auto p-6">
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="flex-1 overflow-y-auto p-5">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   {multiFileModal.doc.uploadedFiles?.map((file: any) => (
                     <div
                       key={file.uploadId}
-                      className="group rounded-xl border border-slate-200 bg-white p-4 transition-all hover:border-blue-500 dark:border-slate-800 dark:bg-slate-900/50"
+                      className="rounded-xl border border-slate-200 bg-white p-4 transition hover:border-[#183B57]/40 hover:bg-[#183B57]/[0.03] dark:border-slate-700 dark:bg-slate-900/50"
                     >
                       <div className="flex items-start gap-3">
-                        <div className="rounded-lg bg-slate-50 p-2 text-slate-400 dark:bg-slate-800">
-                          <FileIcon size={20} />
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#183B57]/10 text-[#183B57]">
+                          <FileIcon size={18} />
                         </div>
                         <div className="min-w-0 flex-1">
                           <p
-                            className="truncate text-sm font-semibold"
+                            className="truncate text-sm font-semibold text-slate-800 dark:text-slate-100"
                             title={file.fileName}
                           >
                             {file.fileName}
                           </p>
-                          <p className="mt-1 text-[10px] uppercase text-slate-500">
+                          <p className="mt-1 text-[10px] font-medium uppercase tracking-wide text-slate-500">
                             {file.fileMimeType.split("/")[1] || "FILE"}
                           </p>
                         </div>
@@ -348,7 +362,7 @@ useEffect(() => {
                               name: file.fileName,
                             })
                           }
-                          className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-blue-50 py-2 text-xs font-bold text-blue-600 transition-all hover:bg-blue-600 hover:text-white dark:bg-blue-600/10 dark:text-blue-400"
+                          className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-[#183B57] py-2 text-xs font-semibold text-white transition hover:bg-[#122d42]"
                         >
                           <Eye size={14} /> Preview
                         </button>
@@ -360,7 +374,7 @@ useEffect(() => {
                               file.fileName,
                             )
                           }
-                          className="rounded-lg bg-slate-50 p-2 text-slate-600 transition-all hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-400"
+                          className="rounded-lg border border-slate-200 bg-white p-2 text-slate-600 transition hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300"
                         >
                           <Download size={14} />
                         </button>
@@ -377,33 +391,34 @@ useEffect(() => {
 
   const previewFilePortal = previewFile
     ? createPortal(
-        <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/80 p-4 backdrop-blur-md">
-          <div className="flex h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white dark:bg-slate-900">
-            <div className="flex shrink-0 items-center justify-between border-b px-6 py-4 dark:border-slate-800">
-              <div>
-                <h2 className="max-w-md truncate text-lg font-bold dark:text-white">
+        <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-[#183B57]/50 p-4 backdrop-blur-[2px]">
+          <div className="flex h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-900">
+            <div className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-100 bg-[#183B57]/[0.04] px-5 py-3.5 dark:border-slate-800 dark:bg-[#183B57]/15">
+              <div className="min-w-0">
+                <h2 className="max-w-md truncate text-base font-semibold text-slate-900 dark:text-white">
                   {previewFile.name}
                 </h2>
                 <p className="text-xs text-slate-500">{previewFile.type}</p>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex shrink-0 items-center gap-2">
                 <button
                   type="button"
                   onClick={() =>
                     handleDownload(previewFile.url, previewFile.name)
                   }
-                  className="flex items-center gap-2 rounded-xl bg-slate-100 px-4 py-2 text-sm font-semibold transition hover:bg-slate-200"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
                 >
-                  <Download size={16} />
+                  <Download size={15} />
                   Download
                 </button>
                 <button
                   type="button"
                   onClick={() => setPreviewFile(null)}
-                  className="rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700"
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-rose-200 bg-rose-50 text-rose-600 transition hover:bg-rose-100"
+                  aria-label="Close"
                 >
-                  Close
+                  <X size={16} />
                 </button>
               </div>
             </div>
@@ -423,10 +438,10 @@ useEffect(() => {
                 />
               ) : (
                 <div className="space-y-4 text-center">
-                  <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-2xl bg-slate-200 dark:bg-slate-800">
-                    <FileIcon size={40} className="text-slate-400" />
+                  <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-xl bg-[#183B57]/10 text-[#183B57]">
+                    <FileIcon size={32} />
                   </div>
-                  <p className="text-slate-500">
+                  <p className="text-sm text-slate-500">
                     Preview not available for this file type.
                   </p>
                   <button
@@ -434,9 +449,9 @@ useEffect(() => {
                     onClick={() =>
                       handleDownload(previewFile.url, previewFile.name)
                     }
-                    className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-6 py-3 font-bold text-white transition hover:bg-blue-700"
+                    className="inline-flex items-center gap-2 rounded-lg bg-[#183B57] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#122d42]"
                   >
-                    <Download size={18} />
+                    <Download size={16} />
                     Download instead
                   </button>
                 </div>
@@ -450,38 +465,87 @@ useEffect(() => {
 
   return (
     <div className="min-h-screen bg-slate-50 p-4 text-slate-900 dark:bg-[#0b1120] dark:text-slate-100 md:p-6">
-      <header className="mx-auto mb-8 max-w-7xl">
-        <div className="flex flex-col justify-between gap-6 lg:flex-row lg:items-start">
-          <div className="space-y-1">
-            <h1 className="text-2xl font-bold tracking-tight text-[#3e86b7] dark:text-[#5ba8d4]">
-              Loan Pipeline
-            </h1>
-            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
-              {statsLoading ? (
-                "Loading pipeline overview..."
-              ) : (
-                <>
-                  <span className="font-semibold text-slate-700 dark:text-slate-200">
-                    {stats.totalApplications}
-                  </span>{" "}
-                  total applications ·{" "}
-                  <span className="font-semibold text-[#3e86b7] dark:text-[#5ba8d4]">
-                    {pagination.total}
-                  </span>{" "}
-                  matching current view
-                </>
-              )}
-            </p>
-          </div>
+      <div className="mx-auto max-w-7xl space-y-5">
+        <section className="overflow-hidden rounded-xl bg-[#183B57] text-white">
+          <div className="flex flex-col gap-6 p-5 sm:p-6 lg:flex-row lg:items-start lg:justify-between">
+            <div className="min-w-0">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-white/70">
+                Lender Portal
+              </p>
+              <h1 className="mt-1 text-2xl font-semibold tracking-tight">
+                Loan Pipeline
+              </h1>
+              <p className="mt-1.5 text-sm text-white/80">
+                {statsLoading ? (
+                  "Loading pipeline overview..."
+                ) : (
+                  <>
+                    <span className="font-semibold text-white">
+                      {stats.totalApplications}
+                    </span>{" "}
+                    total applications ·{" "}
+                    <span className="font-semibold text-white">
+                      {pagination.total}
+                    </span>{" "}
+                    matching current view
+                  </>
+                )}
+              </p>
+            </div>
 
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <div className="relative group">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 transition-colors group-focus-within:text-[#3e86b7]" />
+            <div className="grid w-full grid-cols-2 gap-2 sm:grid-cols-4 lg:w-[min(100%,520px)] lg:shrink-0">
+              {[
+                {
+                  label: "Total Volume",
+                  value: formatCompactAmount(totalVolume),
+                  icon: DollarSign,
+                },
+                {
+                  label: "Needs Review",
+                  value: newCount,
+                  icon: Clock3,
+                },
+                {
+                  label: "Approved",
+                  value: approvedCount,
+                  icon: CheckCircle,
+                },
+                {
+                  label: "In Pipeline",
+                  value: stats.totalApplications,
+                  icon: FileText,
+                },
+              ].map((card) => (
+                <div
+                  key={card.label}
+                  className="rounded-lg bg-white/10 px-3 py-2.5 ring-1 ring-white/15"
+                >
+                  <div className="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wide text-white/70">
+                    <card.icon className="h-3 w-3" />
+                    {card.label}
+                  </div>
+                  <p className="mt-1 truncate text-lg font-semibold tabular-nums">
+                    {statsLoading ? (
+                      <span className="inline-block h-5 w-12 animate-pulse rounded bg-white/20" />
+                    ) : (
+                      card.value
+                    )}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+            <div className="relative min-w-0 flex-1 group">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 transition-colors group-focus-within:text-[#183B57]" />
               <input
                 value={searchTerm}
                 placeholder="Search application # or borrower..."
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-10 text-sm text-slate-800 outline-none transition-all placeholder:text-slate-400 focus:border-[#3e86b7] focus:ring-2 focus:ring-[#3e86b7]/20 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100 sm:w-80"
+                className="h-10 w-full rounded-lg border border-slate-200 bg-white py-2 pl-10 pr-10 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-[#183B57] focus:ring-2 focus:ring-[#183B57]/20 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
               />
               {searchTerm && (
                 <button
@@ -497,93 +561,34 @@ useEffect(() => {
               type="button"
               onClick={refreshPipeline}
               disabled={loading || statsLoading}
-              className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition-all hover:border-[#3e86b7] active:scale-95 disabled:opacity-60 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200"
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-[#183B57]/40 hover:bg-[#183B57]/5 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
             >
               <RefreshCw
-                size={16}
+                size={15}
                 className={loading || statsLoading ? "animate-spin" : ""}
               />
               Refresh
             </button>
           </div>
-        </div>
 
-        <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {[
-            {
-              label: "Total Volume",
-              value: formatCompactAmount(totalVolume),
-              icon: DollarSign,
-              tone: "bg-indigo-600",
-            },
-            {
-              label: "Needs Review",
-              value: newCount,
-              icon: Clock3,
-              tone: "bg-blue-600",
-            },
-            {
-              label: "Approved",
-              value: approvedCount,
-              icon: CheckCircle,
-              tone: "bg-emerald-600",
-            },
-            {
-              label: "In Pipeline",
-              value: stats.totalApplications,
-              icon: FileText,
-              tone: "bg-[#3e86b7]",
-            },
-          ].map((card) => (
-            <div
-              key={card.label}
-              className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900"
-            >
-              <div>
-                <p className="text-sm text-slate-500 dark:text-slate-400">
-                  {card.label}
-                </p>
-                <h3 className="mt-1 text-2xl font-semibold text-slate-900 dark:text-white">
-                  {statsLoading ? (
-                    <span className="inline-block h-7 w-16 animate-pulse rounded bg-slate-100 dark:bg-slate-800" />
-                  ) : (
-                    card.value
-                  )}
-                </h3>
-              </div>
-              <div
-                className={`flex h-10 w-10 items-center justify-center rounded-xl text-white ${card.tone}`}
-              >
-                <card.icon className="h-5 w-5" />
-              </div>
-            </div>
-          ))}
-        </div>
-      </header>
-
-      <div className="mx-auto max-w-[100%] overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 xl:max-w-7xl">
-        <div className="flex flex-col gap-4 border-b border-slate-200 px-5 py-4 dark:border-slate-800 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <h2 className="text-base font-semibold text-slate-900 dark:text-white">
-              Applications
-            </h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              Click a row to open the application preview.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap gap-2">
+          <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3 dark:border-slate-800">
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-[#183B57]/80">
+              Decision
+            </span>
             {DECISION_FILTERS.map((filter) => {
               const active = decisionFilter === filter.value;
               return (
                 <button
                   key={filter.value || "all"}
                   type="button"
-                  onClick={() => setDecisionFilter(filter.value)}
-                  className={`rounded-full px-3 py-1.5 text-xs font-medium transition-all ${
+                  onClick={() => {
+                    setDecisionFilter(filter.value);
+                    setCurrentPage(1);
+                  }}
+                  className={`rounded-md px-3 py-1.5 text-xs font-semibold transition ${
                     active
-                      ? "bg-[#3e86b7] text-white shadow-sm"
-                      : "border border-slate-200 bg-slate-50 text-slate-600 hover:border-[#3e86b7]/40 hover:text-[#3e86b7] dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                      ? "bg-[#183B57] text-white"
+                      : "border border-slate-200 bg-slate-50 text-slate-600 hover:border-[#183B57]/35 hover:text-[#183B57] dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
                   }`}
                 >
                   {filter.label}
@@ -593,103 +598,135 @@ useEffect(() => {
           </div>
         </div>
 
-        <div className="w-full overflow-hidden">
-          <table className="w-full border-separate border-spacing-0">
-            <thead>
-              <tr className="bg-slate-50/80 dark:bg-slate-800/40">
-                {[
-                  "Application",
-                  "Borrower",
-                  "Broker",
-                  "Loan Type",
-                  "Amount",
-                  "Status",
-                  "Decision",
-                  "Received",
-                  "",
-                ].map((label) => (
-                  <th
-                    key={label || "actions"}
-                    className="whitespace-nowrap border-b border-slate-200 px-3 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:border-slate-800 dark:text-slate-400 last:w-[1%] last:whitespace-nowrap"
-                  >
-                    {label}
-                  </th>
-                ))}
-              </tr>
-            </thead>
+        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
+          <div className="flex flex-col gap-1 border-b border-slate-100 px-4 py-3.5 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-sm font-semibold text-slate-900 dark:text-white">
+                Applications
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Click a row to open the application preview.
+              </p>
+            </div>
+            {!loading && pagination.total > 0 && (
+              <p className="text-xs font-medium text-slate-500">
+                {rows.length} shown
+                {pagination.total > rows.length ? ` of ${pagination.total}` : ""}
+              </p>
+            )}
+          </div>
 
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-              {loading ? (
-                Array.from({ length: 6 }).map((_, index) => (
-                  <tr key={index}>
-                    {Array.from({ length: TABLE_COLUMNS }).map((__, cellIndex) => (
-                      <td key={cellIndex} className="whitespace-nowrap px-3 py-3">
-                        <div className="h-4 animate-pulse rounded bg-slate-100 dark:bg-slate-800" />
-                      </td>
-                    ))}
-                  </tr>
-                ))
-              ) : rows.length > 0 ? (
-                rows.map((row) => {
-                  return (
+          <div className="w-full overflow-x-auto">
+            <table className="w-full min-w-[900px] border-separate border-spacing-0">
+              <thead>
+                <tr className="bg-[#183B57]/[0.04] dark:bg-[#183B57]/20">
+                  {[
+                    "Application",
+                    "Borrower",
+                    "Broker",
+                    "Loan Type",
+                    "Amount",
+                    "Status",
+                    "Decision",
+                    "Received",
+                    "",
+                  ].map((label) => (
+                    <th
+                      key={label || "actions"}
+                      className="whitespace-nowrap border-b border-slate-200 px-3 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-[#183B57]/80 dark:border-slate-700 dark:text-sky-200/80 last:w-[1%]"
+                    >
+                      {label}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+
+              <tbody>
+                {loading ? (
+                  Array.from({ length: 6 }).map((_, index) => (
+                    <tr key={index}>
+                      {Array.from({ length: TABLE_COLUMNS }).map(
+                        (__, cellIndex) => (
+                          <td
+                            key={cellIndex}
+                            className="whitespace-nowrap border-b border-slate-100 px-3 py-3 dark:border-slate-800"
+                          >
+                            <div className="h-4 animate-pulse rounded bg-slate-100 dark:bg-slate-800" />
+                          </td>
+                        ),
+                      )}
+                    </tr>
+                  ))
+                ) : rows.length > 0 ? (
+                  rows.map((row) => (
                     <tr
                       key={row.applicationLenderId}
                       onClick={() => openApplicationPreview(row)}
-                      className="cursor-pointer transition-colors hover:bg-[#3e86b7]/5 dark:hover:bg-[#3e86b7]/10"
+                      className="cursor-pointer transition-colors hover:bg-[#183B57]/[0.04] dark:hover:bg-[#183B57]/15"
                     >
-                      <td className="whitespace-nowrap px-3 py-3 align-middle">
+                      <td className="whitespace-nowrap border-b border-slate-100 px-3 py-3 align-middle dark:border-slate-800">
                         <span
-                          className="font-mono text-xs font-medium text-slate-700 dark:text-slate-200"
+                          className="font-mono text-xs font-semibold text-[#183B57] dark:text-sky-300"
                           title={row.applicationNumber}
                         >
                           {row.applicationNumber}
                         </span>
                       </td>
 
-                      <td className="whitespace-nowrap px-3 py-3">
-                        <div className="flex items-center gap-2">
-                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#3e86b7]/10 text-[10px] font-semibold text-[#183b57] dark:bg-[#3e86b7]/20 dark:text-[#5ba8d4]">
+                      <td className="whitespace-nowrap border-b border-slate-100 px-3 py-3 dark:border-slate-800">
+                        <div className="flex items-center gap-2.5">
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#183B57] text-[10px] font-bold text-white">
                             {getBorrowerInitials(row.borrowerName)}
                           </div>
-                          <span
-                            className="text-sm font-semibold text-slate-900 dark:text-slate-100"
-                            title={`${row.borrowerName} (${formatEntityTypeLabel(row.entityType)})`}
-                          >
-                            {row.borrowerName}
+                          <div className="min-w-0">
+                            <p
+                              className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100"
+                              title={row.borrowerName}
+                            >
+                              {row.borrowerName}
+                            </p>
+                            <p className="truncate text-[11px] text-slate-500">
+                              {formatEntityTypeLabel(row.entityType)}
+                            </p>
+                          </div>
+                        </div>
+                      </td>
+
+                      <td className="whitespace-nowrap border-b border-slate-100 px-3 py-3 dark:border-slate-800">
+                        <div className="flex items-center gap-1.5 text-sm text-slate-600 dark:text-slate-300">
+                          <Building2
+                            size={14}
+                            className="shrink-0 text-[#183B57]/70"
+                          />
+                          <span className="truncate" title={row.brokerName}>
+                            {row.brokerName}
                           </span>
                         </div>
                       </td>
 
-                      <td className="whitespace-nowrap px-3 py-3">
-                        <div className="flex items-center gap-1.5 text-sm text-slate-600 dark:text-slate-300">
-                          <Building2 size={14} className="shrink-0 text-slate-400" />
-                          <span title={row.brokerName}>{row.brokerName}</span>
-                        </div>
-                      </td>
-
-                      <td className="whitespace-nowrap px-3 py-3">
-                        <span className="inline-flex whitespace-nowrap rounded-lg bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                      <td className="whitespace-nowrap border-b border-slate-100 px-3 py-3 dark:border-slate-800">
+                        <span className="inline-flex max-w-[180px] truncate rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-medium text-slate-700 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300">
                           {formatLoanProduct(row.loanType)}
                         </span>
                       </td>
 
-                      <td className="whitespace-nowrap px-3 py-3">
-                        <span className="font-mono text-sm font-medium text-slate-800 dark:text-slate-200">
+                      <td className="whitespace-nowrap border-b border-slate-100 px-3 py-3 dark:border-slate-800">
+                        <span className="text-sm font-semibold tabular-nums text-slate-800 dark:text-slate-200">
                           {formatCompactAmount(row.amount)}
                         </span>
                       </td>
 
-                      <td className="whitespace-nowrap px-3 py-3">
+                      <td className="whitespace-nowrap border-b border-slate-100 px-3 py-3 dark:border-slate-800">
                         <span
-                          className={`inline-flex whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-medium ${getApplicationStatusColor(row.applicationStatus)}`}
+                          className={`inline-flex whitespace-nowrap rounded-md px-2 py-0.5 text-[11px] font-semibold ${getApplicationStatusColor(row.applicationStatus)}`}
                         >
                           {formatApplicationStatus(row.applicationStatus)}
                         </span>
                       </td>
 
-                      <td className="whitespace-nowrap px-3 py-3">
+                      <td className="whitespace-nowrap border-b border-slate-100 px-3 py-3 dark:border-slate-800">
                         <span
-                          className={`inline-flex whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-medium ${getApplicationStatusColor(row.lenderDecision || row.lenderStatus)}`}
+                          className={`inline-flex whitespace-nowrap rounded-md px-2 py-0.5 text-[11px] font-semibold ${getApplicationStatusColor(row.lenderDecision || row.lenderStatus)}`}
                         >
                           {formatApplicationStatus(
                             row.lenderDecision || row.lenderStatus,
@@ -697,39 +734,24 @@ useEffect(() => {
                         </span>
                       </td>
 
-                      <td className="whitespace-nowrap px-3 py-3 text-sm text-slate-500">
+                      <td className="whitespace-nowrap border-b border-slate-100 px-3 py-3 text-sm text-slate-500 dark:border-slate-800">
                         {formatShortDate(row.sentAt)}
                       </td>
 
                       <td
-                        className="whitespace-nowrap px-3 py-3"
+                        className="whitespace-nowrap border-b border-slate-100 px-3 py-3 dark:border-slate-800"
                         onClick={(event) => event.stopPropagation()}
                       >
-                        <div className="relative flex items-center justify-end gap-1">
-                          {/* <button
+                        <div className="relative flex items-center justify-end gap-1.5">
+                          <button
                             type="button"
-                            title="View application"
+                            title="Open application"
                             onClick={() => openApplicationPreview(row)}
-                            className="inline-flex shrink-0 items-center justify-center rounded-lg border border-slate-200 p-1.5 text-[#3e86b7] transition hover:bg-[#3e86b7]/10 dark:border-slate-700"
+                            className="inline-flex shrink-0 items-center justify-center gap-1 rounded-lg bg-[#183B57] px-2.5 py-1.5 text-xs font-semibold text-white transition hover:bg-[#122d42]"
                           >
-                            <Eye size={15} />
-                          </button> */}
-
-                          {/* <button
-                            type="button"
-                            title="Open chat"
-                            onClick={() =>
-                              navigate("/loan-preview", {
-                                state: {
-                                  applicationLenderId: row.applicationLenderId,
-                                  initialTab: "chat",
-                                },
-                              })
-                            }
-                            className="inline-flex shrink-0 items-center justify-center rounded-lg border border-slate-200 p-1.5 text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-                          >
-                            <MessageCircle size={15} />
-                          </button> */}
+                            <Eye size={14} />
+                            Open
+                          </button>
 
                           <button
                             type="button"
@@ -748,61 +770,58 @@ useEffect(() => {
                                   : row.applicationLenderId,
                               );
                             }}
-                            className="inline-flex shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 p-1.5 text-slate-600 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                            className="inline-flex shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white p-1.5 text-slate-600 transition hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300"
                           >
                             <EllipsisVertical size={15} />
                           </button>
 
-                            {activeDropdown === row.applicationLenderId &&
-                              dropdownPos &&
-                              createPortal(
-                                <>
-                                  {/* Overlay */}
-                                  <div
-                                    className="fixed inset-0 z-40"
-                                    onClick={() => setActiveDropdown(null)}
-                                  />
-
-                                  {/* Dropdown */}
-                                  <div
-                                    style={{
-                                      position: "absolute",
-                                      top: dropdownPos.top,
-                                      left: dropdownPos.left,
+                          {activeDropdown === row.applicationLenderId &&
+                            dropdownPos &&
+                            createPortal(
+                              <>
+                                <div
+                                  className="fixed inset-0 z-40"
+                                  onClick={() => setActiveDropdown(null)}
+                                />
+                                <div
+                                  style={{
+                                    position: "absolute",
+                                    top: dropdownPos.top,
+                                    left: dropdownPos.left,
+                                  }}
+                                  className="z-50 w-48 rounded-xl border border-slate-200 bg-white py-1.5 shadow-lg dark:border-slate-700 dark:bg-slate-900"
+                                >
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      openApplicationPreview(row);
+                                      setActiveDropdown(null);
                                     }}
-                                    className="w-48 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 py-2 z-50 animate-in fade-in zoom-in-95 backdrop-blur"
+                                    className="mx-1 flex w-[calc(100%-0.5rem)] items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-[#183B57] transition hover:bg-[#183B57]/10"
                                   >
-                                    <button
-                                      onClick={() => {
-                                        openApplicationPreview(row);
-                                        setActiveDropdown(null);
-                                      }}
-                                      className="mx-1 flex w-full items-center gap-3 rounded-lg px-4 py-2.5 text-sm text-[#183b57] transition hover:bg-green-100 dark:hover:bg-green-900/20"
-                                    >
-                                      <Eye size={16} />
-                                      Open Application
-                                    </button>
-                                  </div>
-                                </>,
-                                document.body,
-                              )}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })
+                                    <Eye size={15} />
+                                    Open Application
+                                  </button>
+                                </div>
+                              </>,
+                              document.body,
+                            )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))
                 ) : (
                   <tr>
                     <td
                       colSpan={TABLE_COLUMNS}
-                      className="px-6 py-20 text-center align-middle"
+                      className="px-6 py-16 text-center align-middle"
                     >
                       <div className="mx-auto flex max-w-sm flex-col items-center">
-                        <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800">
+                        <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-[#183B57]/10 text-[#183B57]">
                           {isEmpty ? (
-                            <FileText className="h-6 w-6 text-slate-400" />
+                            <FileText className="h-5 w-5" />
                           ) : (
-                            <SearchX className="h-6 w-6 text-slate-400" />
+                            <SearchX className="h-5 w-5" />
                           )}
                         </div>
                         <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100">
@@ -812,7 +831,7 @@ useEffect(() => {
                               ? "No matches for this filter"
                               : "No applications found"}
                         </h3>
-                        <p className="mt-2 text-xs leading-6 text-slate-500 dark:text-slate-400">
+                        <p className="mt-1.5 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
                           {isEmpty
                             ? "When brokers send deals to your organization, they will appear here."
                             : "Try another search term or clear the active filter."}
@@ -822,9 +841,11 @@ useEffect(() => {
                             type="button"
                             onClick={() => {
                               setSearchTerm("");
+                              setDebouncedSearch("");
                               setDecisionFilter("");
+                              setCurrentPage(1);
                             }}
-                            className="mt-4 rounded-lg border border-slate-200 px-4 py-2 text-xs font-medium text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                            className="mt-4 rounded-lg bg-[#183B57] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#122d42]"
                           >
                             Clear filters
                           </button>
@@ -838,7 +859,7 @@ useEffect(() => {
           </div>
 
           {pagination.totalPages > 1 && (
-            <div className="flex flex-col items-center justify-between gap-4 border-t border-slate-200 bg-white px-6 py-4 dark:border-slate-800 dark:bg-slate-900 md:flex-row">
+            <div className="flex flex-col items-center justify-between gap-3 border-t border-slate-100 bg-[#183B57]/[0.03] px-4 py-3.5 dark:border-slate-800 dark:bg-[#183B57]/10 md:flex-row">
               <p className="text-sm text-slate-500 dark:text-slate-400">
                 Showing{" "}
                 <span className="font-semibold text-slate-700 dark:text-slate-200">
@@ -854,12 +875,12 @@ useEffect(() => {
                 </span>
               </p>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5">
                 <button
                   type="button"
                   disabled={currentPage === 1}
                   onClick={() => setCurrentPage((page) => page - 1)}
-                  className="rounded-lg border border-slate-200 p-2 transition hover:bg-slate-100 disabled:opacity-40 dark:border-slate-700 dark:hover:bg-slate-800"
+                  className="rounded-lg border border-slate-200 bg-white p-2 transition hover:bg-slate-50 disabled:opacity-40 dark:border-slate-600 dark:bg-slate-800 dark:hover:bg-slate-700"
                 >
                   <ChevronLeft size={16} />
                 </button>
@@ -869,10 +890,10 @@ useEffect(() => {
                     key={page}
                     type="button"
                     onClick={() => setCurrentPage(page)}
-                    className={`rounded-lg px-3 py-1 text-sm transition ${
+                    className={`min-w-8 rounded-lg px-2.5 py-1.5 text-sm font-semibold transition ${
                       currentPage === page
-                        ? "bg-[#3e86b7] text-white"
-                        : "border border-slate-200 hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"
+                        ? "bg-[#183B57] text-white"
+                        : "border border-slate-200 bg-white hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:hover:bg-slate-700"
                     }`}
                   >
                     {page}
@@ -883,7 +904,7 @@ useEffect(() => {
                   type="button"
                   disabled={currentPage === pagination.totalPages}
                   onClick={() => setCurrentPage((page) => page + 1)}
-                  className="rounded-lg border border-slate-200 p-2 transition hover:bg-slate-100 disabled:opacity-40 dark:border-slate-700 dark:hover:bg-slate-800"
+                  className="rounded-lg border border-slate-200 bg-white p-2 transition hover:bg-slate-50 disabled:opacity-40 dark:border-slate-600 dark:bg-slate-800 dark:hover:bg-slate-700"
                 >
                   <ChevronRight size={16} />
                 </button>
@@ -891,6 +912,7 @@ useEffect(() => {
             </div>
           )}
         </div>
+      </div>
 
       {multiFileModalPortal}
       {previewFilePortal}
