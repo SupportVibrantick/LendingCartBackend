@@ -11,7 +11,6 @@ import {
   CheckCircle,
   FileIcon,
   Download,
-  EllipsisVertical,
   X,
   RefreshCw,
   Building2,
@@ -78,11 +77,6 @@ export default function LoanPipeline() {
   const [decisionFilter, setDecisionFilter] =
     useState<DecisionFilterValue>("");
 
-  const [dropdownPos, setDropdownPos] = useState<{
-    top: number;
-    left: number;
-  } | null>(null);
-
   // File Preview State
   const [previewFile, setPreviewFile] = useState<{
     url: string;
@@ -99,7 +93,6 @@ export default function LoanPipeline() {
     doc: null,
   });
 
-  const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
 
   const [pagination, setPagination] = useState({
@@ -742,7 +735,7 @@ export default function LoanPipeline() {
                         className="whitespace-nowrap border-b border-slate-100 px-3 py-3 dark:border-slate-800"
                         onClick={(event) => event.stopPropagation()}
                       >
-                        <div className="relative flex items-center justify-end gap-1.5">
+                        <div className="flex items-center justify-end">
                           <button
                             type="button"
                             title="Open application"
@@ -752,60 +745,6 @@ export default function LoanPipeline() {
                             <Eye size={14} />
                             Open
                           </button>
-
-                          <button
-                            type="button"
-                            title="More actions"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              const rect =
-                                event.currentTarget.getBoundingClientRect();
-                              setDropdownPos({
-                                top: rect.bottom + window.scrollY + 6,
-                                left: rect.right - 208,
-                              });
-                              setActiveDropdown(
-                                activeDropdown === row.applicationLenderId
-                                  ? null
-                                  : row.applicationLenderId,
-                              );
-                            }}
-                            className="inline-flex shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white p-1.5 text-slate-600 transition hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300"
-                          >
-                            <EllipsisVertical size={15} />
-                          </button>
-
-                          {activeDropdown === row.applicationLenderId &&
-                            dropdownPos &&
-                            createPortal(
-                              <>
-                                <div
-                                  className="fixed inset-0 z-40"
-                                  onClick={() => setActiveDropdown(null)}
-                                />
-                                <div
-                                  style={{
-                                    position: "absolute",
-                                    top: dropdownPos.top,
-                                    left: dropdownPos.left,
-                                  }}
-                                  className="z-50 w-48 rounded-xl border border-slate-200 bg-white py-1.5 shadow-lg dark:border-slate-700 dark:bg-slate-900"
-                                >
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      openApplicationPreview(row);
-                                      setActiveDropdown(null);
-                                    }}
-                                    className="mx-1 flex w-[calc(100%-0.5rem)] items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-[#183B57] transition hover:bg-[#183B57]/10"
-                                  >
-                                    <Eye size={15} />
-                                    Open Application
-                                  </button>
-                                </div>
-                              </>,
-                              document.body,
-                            )}
                         </div>
                       </td>
                     </tr>

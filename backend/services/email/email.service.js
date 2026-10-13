@@ -37,14 +37,15 @@ const persistAttachmentContent = (att) => {
 
 const restoreAttachmentContent = (att) => {
   if (!att) return att;
-  // If we stored a path on disk, re-read the Buffer
-  if (att.path && !att.content && /^broker-logo-/.test(att.cid || "")) {
+  // Temp-file logos: rehydrate Buffer so nodemailer always has content.
+  // Also keep `path` so path-based platform logos still work.
+  if (att.path && !att.content) {
     try {
       if (fs.existsSync(att.path)) {
         return { ...att, content: fs.readFileSync(att.path) };
       }
     } catch (err) {
-      // fall through
+      // fall through — nodemailer may still open `path` if it exists later
     }
   }
   return att;

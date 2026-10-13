@@ -161,7 +161,10 @@ const makeBrokerLogoAttachment = (buffer, mime) => {
  *   shared DEFAULT_LOGO_CID.
  * - On any failure with the broker URL, falls back to the default.
  */
-async function resolveLogoForEmail({ brokerLogoUrl } = {}) {
+async function resolveLogoForEmail({
+  brokerLogoUrl,
+  allowDefault = true,
+} = {}) {
   // 1. Broker logo supplied as an inline data URI (base64)
   if (brokerLogoUrl) {
     const parsed = parseDataUri(brokerLogoUrl);
@@ -170,8 +173,13 @@ async function resolveLogoForEmail({ brokerLogoUrl } = {}) {
     }
   }
 
-  // 2. Broker logo supplied as a remote HTTP(S) URL
-  if (brokerLogoUrl && isAbsoluteHttpUrl(brokerLogoUrl)) {
+  // 2. Broker logo supplied as a remote HTTP(S) URL (skip localhost —
+  //    Gmail cannot fetch it, and worker download is unreliable).
+  if (
+    brokerLogoUrl &&
+    isAbsoluteHttpUrl(brokerLogoUrl) &&
+    !isUnreachableUrl(brokerLogoUrl)
+  ) {
     try {
       const buffer = await downloadImageBuffer(brokerLogoUrl);
       const m =
@@ -187,8 +195,12 @@ async function resolveLogoForEmail({ brokerLogoUrl } = {}) {
               : "image/png";
       return makeBrokerLogoAttachment(buffer, mime);
     } catch (err) {
-      // fall through to default
+      // fall through
     }
+  }
+
+  if (!allowDefault) {
+    return { logoUrl: "", logoAttachment: null };
   }
 
   // 3. Platform default
@@ -213,21 +225,48 @@ async function resolveLogoForEmail({ brokerLogoUrl } = {}) {
  * a renderable inline logo for the email. Safe to call without
  * brokerOrgId — returns the platform default.
  */
-async function resolveBrokerLogoForEmail(prisma, brokerOrgId) {
+async function resolveBrokerLogoForEmail(prisma, brokerOrgId, hintLogoUrl) {
+  const candidates = [];
+  if (hintLogoUrl) candidates.push(hintLogoUrl);
+
   if (prisma && brokerOrgId) {
     try {
       const settings = await prisma.brokerWhiteLabelSetting.findFirst({
         where: { brokerOrgId },
         select: { logoUrl: true },
       });
-      if (settings?.logoUrl) {
-        return resolveLogoForEmail({ brokerLogoUrl: settings.logoUrl });
-      }
+      if (settings?.logoUrl) candidates.push(settings.logoUrl);
     } catch (err) {
-      // fall through to default
+      // fall through
     }
   }
-  return resolveLogoForEmail({});
+
+  for (const raw of candidates) {
+    if (!raw) continue;
+    let brokerLogoUrl = raw;
+    // Relative /uploads paths → absolute API URL so we can download + CID-embed.
+    if (
+      !parseDataUri(brokerLogoUrl) &&
+      !isAbsoluteHttpUrl(brokerLogoUrl) &&
+      !String(brokerLogoUrl).startsWith("cid:")
+    ) {
+      const { resolveEmailAssetUrl } = require("../email/emailBranding");
+      brokerLogoUrl = resolveEmailAssetUrl(
+        brokerLogoUrl,
+        getEmailBranding().apiBase,
+      );
+    }
+
+    const resolved = await resolveLogoForEmail({
+      brokerLogoUrl,
+      allowDefault: false,
+    });
+    if (resolved?.logoAttachment && resolved?.logoUrl) {
+      return resolved;
+    }
+  }
+
+  return resolveLogoForEmail({ allowDefault: true });
 }
 
 const renderWithLogo = (template, merged, resolved) => {
@@ -241,14 +280,18 @@ const renderWithLogo = (template, merged, resolved) => {
 };
 
 const renderWithLogoAsync = (template, merged, resolved) => {
-  if (resolved.logoUrl) {
+  // Always replace caller logoUrl. Leaving http://localhost (or a raw
+  // data-URI) in HTML makes Gmail show a broken image icon.
+  if (resolved?.logoUrl) {
     merged.logoUrl = resolved.logoUrl;
+  } else if (merged.logoUrl && (isUnreachableUrl(merged.logoUrl) || parseDataUri(merged.logoUrl))) {
+    merged.logoUrl = "";
   }
-  if (resolved.logoAttachment) {
+  if (resolved?.logoAttachment) {
     merged.logoAttachment = resolved.logoAttachment;
   }
   const html = template(merged);
-  return { html, logoAttachment: resolved.logoAttachment || null };
+  return { html, logoAttachment: resolved?.logoAttachment || null };
 };
 
 const loadTemplate = (templateName, data = {}) => {
@@ -264,7 +307,9 @@ const loadTemplate = (templateName, data = {}) => {
     throw new Error(`Email template not found: ${templateName}`);
   }
 
-  if (!templateCache.has(templateName)) {
+  const shouldReloadTemplate =
+    process.env.NODE_ENV !== "production" || !templateCache.has(templateName);
+  if (shouldReloadTemplate) {
     const templateContent = fs.readFileSync(templatePath, "utf8");
     templateCache.set(templateName, Handlebars.compile(templateContent));
   }
@@ -325,7 +370,9 @@ const loadTemplateAsync = async (templateName, data = {}) => {
     throw new Error(`Email template not found: ${templateName}`);
   }
 
-  if (!templateCache.has(templateName)) {
+  const shouldReloadTemplate =
+    process.env.NODE_ENV !== "production" || !templateCache.has(templateName);
+  if (shouldReloadTemplate) {
     const templateContent = fs.readFileSync(templatePath, "utf8");
     templateCache.set(templateName, Handlebars.compile(templateContent));
   }
@@ -334,9 +381,18 @@ const loadTemplateAsync = async (templateName, data = {}) => {
   const branding = getEmailBranding();
   const merged = { ...branding, ...data };
 
+  // Prefer an already-resolved brand logo (data URI / absolute URL) from
+  // resolveBrokerEmailBranding, then fall back to DB white-label settings.
+  const hintLogoUrl =
+    merged.brokerLogoUrl ||
+    (merged.logoUrl && !String(merged.logoUrl).startsWith("cid:")
+      ? merged.logoUrl
+      : null);
+
   const resolved = await resolveBrokerLogoForEmail(
     merged.prisma,
     merged.brokerOrgId,
+    hintLogoUrl,
   );
 
   delete merged.prisma;

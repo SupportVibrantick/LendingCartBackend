@@ -1767,6 +1767,8 @@ model DocumentReminderSchedule {
   intervalUnit        CampaignIntervalUnit          @default(DAYS)
   status              DocumentReminderStatus        @default(ACTIVE)
   customMessage       String?
+  /** When set, only these ApplicationDocumentRequirement ids are reminded about. Null = all currently pending. */
+  selectedRequirementIds Json?                      @map("selected_requirement_ids")
   lastSentAt          DateTime?                     @db.Timestamptz(6)
   nextRunAt           DateTime?                     @db.Timestamptz(6)
   attempts            Int                           @default(0)

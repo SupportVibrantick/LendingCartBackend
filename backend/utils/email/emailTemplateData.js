@@ -188,6 +188,63 @@ const buildBrokerWelcomeEmailData = ({
   loginUrl: loginUrl || buildBrokerSignInUrl(),
 });
 
+function humanizeReminderDocumentStatus(doc = {}) {
+  const raw = String(doc.status || "").toUpperCase();
+
+  if (
+    typeof doc.uploadedCount === "number" &&
+    typeof doc.maxFiles === "number"
+  ) {
+    const remaining =
+      typeof doc.remainingSlots === "number"
+        ? doc.remainingSlots
+        : Math.max(0, doc.maxFiles - doc.uploadedCount);
+    if (doc.uploadedCount <= 0) {
+      return {
+        statusLabel: "Not started",
+        detail: `0 of ${doc.maxFiles} files uploaded`,
+      };
+    }
+    return {
+      statusLabel: "In progress",
+      detail: `${doc.uploadedCount} of ${doc.maxFiles} files uploaded${
+        remaining > 0 ? ` · ${remaining} still needed` : ""
+      }`,
+    };
+  }
+
+  if (
+    typeof doc.filledFields === "number" &&
+    typeof doc.totalFields === "number"
+  ) {
+    return {
+      statusLabel: "Awaiting signature",
+      detail: `${doc.filledFields} of ${doc.totalFields} fields completed`,
+    };
+  }
+
+  if (raw === "PARTIAL") {
+    return { statusLabel: "In progress", detail: "Some files are still needed" };
+  }
+  if (raw === "PENDING") {
+    return { statusLabel: "Not started", detail: "Upload has not started yet" };
+  }
+  if (raw === "SENT_TO_CLIENT") {
+    return {
+      statusLabel: "Awaiting your signature",
+      detail: "Open the portal to review and sign",
+    };
+  }
+  if (raw === "SUBMITTED" || raw === "FORWARDED_TO_LENDER") {
+    return { statusLabel: "Ready for review", detail: "" };
+  }
+
+  return {
+    statusLabel: "Action needed",
+    detail: "",
+  };
+}
+
 const buildDocumentReminderEmailData = ({
   recipientName,
   applicationNumber,
@@ -202,6 +259,26 @@ const buildDocumentReminderEmailData = ({
   const presetValues =
     CLIENT_LINK_PRESETS[preset] || CLIENT_LINK_PRESETS.documentsRequested;
 
+  const pendingList = (Array.isArray(pendingDocuments) ? pendingDocuments : []).map(
+    (doc) => {
+      const humanized = humanizeReminderDocumentStatus(doc);
+      return {
+        name: asDisplayText(doc?.name, "Document"),
+        status: asDisplayText(doc?.status, ""),
+        statusLabel: humanized.statusLabel,
+        detail: humanized.detail,
+      };
+    },
+  );
+
+  const pendingCount = pendingList.length;
+  const pendingItemsHeading =
+    pendingCount === 1
+      ? "1 item still needed"
+      : pendingCount > 1
+        ? `${pendingCount} items still needed`
+        : "Items still needed";
+
   return {
     recipientName: asDisplayText(recipientName, "there"),
     applicationNumber: asDisplayText(applicationNumber, "—"),
@@ -209,7 +286,9 @@ const buildDocumentReminderEmailData = ({
     portalLink: asDisplayText(portalLink, buildClientPortalUrl()),
     customMessage: asDisplayText(customMessage, ""),
     reminderTypeLabel: asDisplayText(reminderTypeLabel, "Document reminder"),
-    pendingDocuments: Array.isArray(pendingDocuments) ? pendingDocuments : [],
+    pendingDocuments: pendingList,
+    pendingCount,
+    pendingItemsHeading,
     intervalLabel: asDisplayText(intervalLabel, ""),
     emailTitle: presetValues.emailTitle,
     headline: presetValues.headline,
