@@ -186,16 +186,34 @@ function resolveEmailAssetUrl(url, apiBase) {
 
 async function resolveBrokerEmailBranding(prisma, brokerOrgId) {
   const platform = getEmailBranding();
-  const { getBrokerWhiteLabelBranding } = require("../../services/broker/brokerBranding");
-  const whiteLabel = await getBrokerWhiteLabelBranding(prisma, brokerOrgId);
+  if (!brokerOrgId || !prisma) {
+    return {
+      ...platform,
+      brokerBrandName: platform.brandName,
+      brokerLogoUrl: platform.logoUrl,
+    };
+  }
+
+  const settings = await prisma.brokerWhiteLabelSetting.findFirst({
+    where: { brokerOrgId },
+    select: {
+      logoUrl: true,
+      brandName: true,
+      supportEmail: true,
+      footerText: true,
+      primaryColor: true,
+    },
+  });
 
   const brokerBrandName =
-    asDisplayText(whiteLabel.brokerBrandName, "") ||
-    platform.brandName;
+    asDisplayText(settings?.brandName, "") || platform.brandName;
 
-  const brokerLogoUrl = whiteLabel.brokerLogoUrl
-    ? resolveEmailAssetUrl(whiteLabel.brokerLogoUrl, platform.apiBase)
+  const brokerLogoUrl = settings?.logoUrl
+    ? resolveEmailAssetUrl(settings.logoUrl, platform.apiBase)
     : platform.logoUrl;
+
+  const supportEmail =
+    asDisplayText(settings?.supportEmail, "") || platform.supportEmail;
 
   return {
     ...platform,
@@ -203,6 +221,9 @@ async function resolveBrokerEmailBranding(prisma, brokerOrgId) {
     logoUrl: brokerLogoUrl,
     brokerBrandName,
     brokerLogoUrl,
+    supportEmail,
+    footerText: asDisplayText(settings?.footerText, ""),
+    primaryColor: asDisplayText(settings?.primaryColor, "") || "#004aad",
   };
 }
 

@@ -82,7 +82,7 @@ interface DocumentItem {
   requestedAt?: string | null;
 }
 
-const MAX_FILES = 4;
+const MAX_FILES = 8;
 
 const inferUploadedFileMimeType = (
   fileName?: string,

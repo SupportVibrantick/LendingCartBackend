@@ -1,6 +1,6 @@
 const crypto = require("crypto");
 const sendMail = require("../emails/mail");
-const { loadTemplate } = require("../../utils/email/loadTemplate");
+const { loadTemplateAsync } = require("../../utils/email/loadTemplate");
 const { getWorkerId } = require("../jobs/lock.service");
 const {
   buildDocumentReminderEmailData,
@@ -20,6 +20,84 @@ const MS_PER_DAY = 24 * MS_PER_HOUR;
 const REMINDER_LOCK_MS = 60_000;
 const REMINDER_BATCH_SIZE = 50;
 const WORKER_ID = getWorkerId();
+/** Keep in sync with broker-dashboard ClientUpload MAX_FILES. */
+const CLIENT_DOCUMENT_MAX_FILES = 8;
+
+function isPendingClientUploadRequirement(doc) {
+  if (!doc || doc.requiresClientSignature) return false;
+  if (!["PENDING", "PARTIAL"].includes(doc.status)) return false;
+
+  const uploadCount = Array.isArray(doc.uploads) ? doc.uploads.length : 0;
+  // Client portal hides upload once the max is reached — don't keep emailing.
+  if (uploadCount >= CLIENT_DOCUMENT_MAX_FILES) return false;
+
+  return true;
+}
+
+function normalizeSelectedRequirementIds(value) {
+  if (value == null) return null;
+  if (!Array.isArray(value)) return null;
+  const ids = [
+    ...new Set(
+      value.filter((id) => typeof id === "string" && id.trim().length > 0),
+    ),
+  ];
+  return ids.length ? ids : null;
+}
+
+function filterItemsBySelectedRequirementIds(items, selectedRequirementIds) {
+  const selected = normalizeSelectedRequirementIds(selectedRequirementIds);
+  if (!selected) return items;
+  const set = new Set(selected);
+  return (items || []).filter((item) => set.has(item.id));
+}
+
+function mapUploadPendingItem(doc) {
+  const uploadedCount = Array.isArray(doc.uploads) ? doc.uploads.length : 0;
+  return {
+    id: doc.id,
+    name: doc.documentType?.name || doc.signDocumentTitle || "Document",
+    status: doc.status,
+    uploadedCount,
+    maxFiles: CLIENT_DOCUMENT_MAX_FILES,
+    remainingSlots: Math.max(0, CLIENT_DOCUMENT_MAX_FILES - uploadedCount),
+  };
+}
+
+function mapSignaturePendingItem(doc) {
+  let filledFields = null;
+  let totalFields = null;
+
+  if (doc.signMode === "DYNAMIC_FORM") {
+    const submission = (doc.signFormSubmissions || [])[0];
+    const values = {};
+    for (const item of submission?.values || []) {
+      values[item.fieldKey] = item.valueJson;
+    }
+    try {
+      const { computeProgress } = require("./signForm/submissionService");
+      const progress = computeProgress(
+        doc.activeFormVersion?.schemaJson,
+        values,
+      );
+      filledFields = progress?.client?.filled ?? null;
+      totalFields = progress?.client?.total ?? null;
+    } catch {
+      // keep nulls
+    }
+  }
+
+  return {
+    id: doc.id,
+    name: doc.signDocumentTitle || doc.documentType?.name || "Sign document",
+    status: doc.signStatus || "PENDING",
+    uploadedCount: null,
+    maxFiles: null,
+    remainingSlots: null,
+    filledFields,
+    totalFields,
+  };
+}
 
 function computeReminderBackoff(attempts) {
   const delaySeconds = Math.min(3600, Math.pow(2, Math.max(attempts, 1)) * 60);
@@ -164,21 +242,17 @@ async function fetchPendingItems(prisma, schedule) {
   });
 
   if (reminderType === "PENDING_UPLOAD") {
-    return requirements
-      .filter(
-        (doc) =>
-          !doc.requiresClientSignature &&
-          ["PENDING", "PARTIAL"].includes(doc.status),
-      )
-      .map((doc) => ({
-        id: doc.id,
-        name: doc.documentType?.name || doc.signDocumentTitle || "Document",
-        status: doc.status,
-      }));
+    const items = requirements
+      .filter((doc) => isPendingClientUploadRequirement(doc))
+      .map((doc) => mapUploadPendingItem(doc));
+    return filterItemsBySelectedRequirementIds(
+      items,
+      schedule.selectedRequirementIds,
+    );
   }
 
   if (reminderType === "SIGNATURE_REQUIRED") {
-    return requirements
+    const items = requirements
       .filter((doc) => {
         if (!doc.requiresClientSignature || !doc.signStatus) return false;
         if (
@@ -198,7 +272,7 @@ async function fetchPendingItems(prisma, schedule) {
           try {
             const {
               computeProgress,
-            } = require("../signForm/submissionService");
+            } = require("./signForm/submissionService");
             const progress = computeProgress(
               doc.activeFormVersion?.schemaJson,
               values,
@@ -210,11 +284,11 @@ async function fetchPendingItems(prisma, schedule) {
         }
         return true;
       })
-      .map((doc) => ({
-        id: doc.id,
-        name: doc.signDocumentTitle || doc.documentType?.name || "Sign document",
-        status: doc.signStatus || "PENDING",
-      }));
+      .map((doc) => mapSignaturePendingItem(doc));
+    return filterItemsBySelectedRequirementIds(
+      items,
+      schedule.selectedRequirementIds,
+    );
   }
 
   if (reminderType === "LENDER_REVIEW" && applicationLenderId) {
@@ -266,7 +340,13 @@ async function fetchPendingItems(prisma, schedule) {
   return [];
 }
 
-async function sendDocumentReminderEmail(prisma, schedule, loan, pendingItems) {
+async function sendDocumentReminderEmail(
+  prisma,
+  schedule,
+  loan,
+  pendingItems,
+  options = {},
+) {
   const emailBranding = await resolveBrokerEmailBranding(
     prisma,
     schedule.brokerOrgId,
@@ -333,13 +413,23 @@ async function sendDocumentReminderEmail(prisma, schedule, loan, pendingItems) {
     ),
   });
 
-  const html = loadTemplate("broker/documentReminder", {
-    ...emailBranding,
-    ...templateData,
-    emailTitle: templateData.emailTitle,
-  });
+  const { html, logoAttachment } = await loadTemplateAsync(
+    "broker/documentReminder",
+    {
+      ...emailBranding,
+      ...templateData,
+      emailTitle: templateData.emailTitle,
+      prisma,
+      brokerOrgId: schedule.brokerOrgId,
+    },
+  );
 
-  const documentLines = pendingItems.map((d) => `- ${d.name} (${d.status})`).join("\n");
+  const documentLines = (templateData.pendingDocuments || [])
+    .map((d) => {
+      const bits = [d.name, d.statusLabel].filter(Boolean);
+      return `- ${bits.join(" — ")}${d.detail ? ` (${d.detail})` : ""}`;
+    })
+    .join("\n");
 
   const text = `Hello ${recipientName},
 
@@ -352,21 +442,34 @@ ${schedule.customMessage || ""}
 
 Open: ${portalLink}
 
-— ${brokerName}`;
+Reminders stop automatically once nothing is left pending.
 
-  await sendMail({
+— ${brokerName}
+${emailBranding.brandName || ""}`;
+
+  const idempotencyKey = options.idempotencyKey
+    ? options.idempotencyKey
+    : `doc-reminder:${schedule.id}:${schedule.nextRunAt?.toISOString?.() || "immediate"}`;
+
+  const outbox = await sendMail({
     prisma,
     to: recipientEmail,
     subject,
     text,
     html,
-    idempotencyKey: `doc-reminder:${schedule.id}:${schedule.nextRunAt?.toISOString?.() || "immediate"}`,
+    logoAttachment,
+    idempotencyKey,
   });
 
-  return { recipientEmail, subject };
+  return {
+    recipientEmail,
+    subject,
+    outboxId: outbox?.id || null,
+    outboxStatus: outbox?.status || null,
+  };
 }
 
-async function processSingleReminder(prisma, io, schedule) {
+async function processSingleReminder(prisma, io, schedule, options = {}) {
   const loan = await prisma.loanApplication.findUnique({
     where: { id: schedule.loanApplicationId },
     include: {
@@ -404,12 +507,18 @@ async function processSingleReminder(prisma, io, schedule) {
     return { id: schedule.id, action: "completed", reason: "no_pending_items" };
   }
 
-  const { recipientEmail, subject } = await sendDocumentReminderEmail(
+  const mailResult = await sendDocumentReminderEmail(
     prisma,
     schedule,
     loan,
     pendingItems,
+    {
+      idempotencyKey: options.manual
+        ? `doc-reminder:manual:${schedule.id}:${Date.now()}`
+        : undefined,
+    },
   );
+  const { recipientEmail, subject, outboxId, outboxStatus } = mailResult;
 
   const now = new Date();
   const nextRunAt = computeAnchoredNextRunAt(schedule, now);
@@ -453,6 +562,9 @@ async function processSingleReminder(prisma, io, schedule) {
         reminderType: schedule.reminderType,
         documentCount: pendingItems.length,
         recipientEmail,
+        outboxId,
+        outboxStatus,
+        manual: Boolean(options.manual),
       },
       sentAt: now,
     },
@@ -502,6 +614,9 @@ async function processSingleReminder(prisma, io, schedule) {
     action: "sent",
     recipientEmail,
     documentCount: pendingItems.length,
+    outboxId,
+    outboxStatus,
+    manual: Boolean(options.manual),
   };
 }
 
@@ -631,9 +746,14 @@ async function upsertDocumentReminder(prisma, data) {
     intervalValue,
     intervalUnit,
     customMessage,
+    selectedRequirementIds,
     status,
     createdByUserId,
   } = data;
+
+  const normalizedSelectedIds = normalizeSelectedRequirementIds(
+    selectedRequirementIds,
+  );
 
   const existing = await prisma.documentReminderSchedule.findFirst({
     where: findExistingReminderWhere({
@@ -666,6 +786,10 @@ async function upsertDocumentReminder(prisma, data) {
         intervalValue,
         intervalUnit,
         customMessage: customMessage ?? existing.customMessage,
+        selectedRequirementIds:
+          selectedRequirementIds !== undefined
+            ? normalizedSelectedIds
+            : existing.selectedRequirementIds,
         status: nextStatus,
         nextRunAt,
         updatedAt: now,
@@ -684,6 +808,7 @@ async function upsertDocumentReminder(prisma, data) {
       intervalValue,
       intervalUnit,
       customMessage,
+      selectedRequirementIds: normalizedSelectedIds,
       status: status || "ACTIVE",
       nextRunAt: immediateNextRunAt(),
       createdByUserId,
@@ -691,7 +816,7 @@ async function upsertDocumentReminder(prisma, data) {
   });
 }
 
-function serializeReminder(reminder, pendingCount = null) {
+function serializeReminder(reminder, pendingCount = null, extras = {}) {
   return {
     id: reminder.id,
     loanApplicationId: reminder.loanApplicationId,
@@ -706,6 +831,13 @@ function serializeReminder(reminder, pendingCount = null) {
     ),
     status: reminder.status,
     customMessage: reminder.customMessage,
+    selectedRequirementIds: normalizeSelectedRequirementIds(
+      reminder.selectedRequirementIds,
+    ),
+    recipientEmail:
+      extras.recipientEmail !== undefined ? extras.recipientEmail : null,
+    recipientLabel:
+      extras.recipientLabel !== undefined ? extras.recipientLabel : null,
     lastSentAt: reminder.lastSentAt,
     nextRunAt: reminder.nextRunAt,
     pendingCount,
@@ -765,33 +897,52 @@ async function fetchPendingItemsForReminders(prisma, loanApplicationId, reminder
     const pending = [];
 
     if (reminder.reminderType === "PENDING_UPLOAD") {
-      const filtered = requirements
-        .filter(doc => !doc.requiresClientSignature && ["PENDING", "PARTIAL"].includes(doc.status))
-        .map(doc => ({ id: doc.id, name: doc.documentType?.name || doc.signDocumentTitle || "Document", status: doc.status }));
+      const filtered = filterItemsBySelectedRequirementIds(
+        requirements
+          .filter((doc) => isPendingClientUploadRequirement(doc))
+          .map((doc) => mapUploadPendingItem(doc)),
+        reminder.selectedRequirementIds,
+      );
       return { reminderId: reminder.id, items: filtered };
     }
 
     if (reminder.reminderType === "SIGNATURE_REQUIRED") {
-      const filtered = requirements
-        .filter(doc => {
-          if (!doc.requiresClientSignature || !doc.signStatus) return false;
-          if (["CLIENT_SIGNED", "FORWARDED_TO_LENDER", "LENDER_SEEN"].includes(doc.signStatus)) return false;
-          if (doc.signStatus !== "SENT_TO_CLIENT") return false;
-          if (doc.signMode === "DYNAMIC_FORM") {
-            const submission = (doc.signFormSubmissions || [])[0];
-            const values = {};
-            for (const item of submission?.values || []) {
-              values[item.fieldKey] = item.valueJson;
+      const filtered = filterItemsBySelectedRequirementIds(
+        requirements
+          .filter((doc) => {
+            if (!doc.requiresClientSignature || !doc.signStatus) return false;
+            if (
+              ["CLIENT_SIGNED", "FORWARDED_TO_LENDER", "LENDER_SEEN"].includes(
+                doc.signStatus,
+              )
+            ) {
+              return false;
             }
-            try {
-              const { computeProgress } = require("../signForm/submissionService");
-              const progress = computeProgress(doc.activeFormVersion?.schemaJson, values);
-              return !progress.client.complete;
-            } catch { return true; }
-          }
-          return true;
-        })
-        .map(doc => ({ id: doc.id, name: doc.signDocumentTitle || doc.documentType?.name || "Sign document", status: doc.signStatus || "PENDING" }));
+            if (doc.signStatus !== "SENT_TO_CLIENT") return false;
+            if (doc.signMode === "DYNAMIC_FORM") {
+              const submission = (doc.signFormSubmissions || [])[0];
+              const values = {};
+              for (const item of submission?.values || []) {
+                values[item.fieldKey] = item.valueJson;
+              }
+              try {
+                const {
+                  computeProgress,
+                } = require("./signForm/submissionService");
+                const progress = computeProgress(
+                  doc.activeFormVersion?.schemaJson,
+                  values,
+                );
+                return !progress.client.complete;
+              } catch {
+                return true;
+              }
+            }
+            return true;
+          })
+          .map((doc) => mapSignaturePendingItem(doc)),
+        reminder.selectedRequirementIds,
+      );
       return { reminderId: reminder.id, items: filtered };
     }
 
@@ -826,10 +977,12 @@ async function fetchPendingItemsForReminders(prisma, loanApplicationId, reminder
 
 module.exports = {
   REMINDER_TYPE_LABELS,
+  CLIENT_DOCUMENT_MAX_FILES,
   computeNextRunAt,
   computeAnchoredNextRunAt,
   immediateNextRunAt,
   formatIntervalLabel,
+  normalizeSelectedRequirementIds,
   fetchPendingItems,
   fetchPendingItemsForReminders,
   processDueDocumentReminders,

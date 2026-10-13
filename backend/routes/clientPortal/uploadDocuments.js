@@ -26,6 +26,9 @@ const {
   saveLoanDocumentFile,
 } = require("../../services/documents/saveLoanDocumentFile");
 
+/** Keep in sync with broker-dashboard ClientUpload MAX_FILES. */
+const CLIENT_DOCUMENT_MAX_FILES = 8;
+
 /**
  * @param {import("fastify").FastifyInstance} fastify
  */
@@ -186,6 +189,18 @@ async function uploadDocumentsRoute(fastify) {
            SAVE DOCUMENT
         ============================ */
 
+        const existingUploadCount =
+          await prisma.applicationDocumentUpload.count({
+            where: { documentRequirementId },
+          });
+
+        if (existingUploadCount >= CLIENT_DOCUMENT_MAX_FILES) {
+          return reply.code(400).send({
+            success: false,
+            message: `You can upload maximum ${CLIENT_DOCUMENT_MAX_FILES} files for this document`,
+          });
+        }
+
         const upload = await prisma.applicationDocumentUpload.create({
           data: {
             loanApplicationId,
@@ -203,9 +218,15 @@ async function uploadDocumentsRoute(fastify) {
            UPDATE STATUS
         ============================ */
 
+        const totalUploads = existingUploadCount + 1;
         await prisma.applicationDocumentRequirement.update({
           where: { id: documentRequirementId },
-          data: { status: "PARTIAL" },
+          data: {
+            status:
+              totalUploads >= CLIENT_DOCUMENT_MAX_FILES
+                ? "COMPLETE"
+                : "PARTIAL",
+          },
         });
 
         let autoForwardResult = null;
