@@ -3,7 +3,21 @@ import {
   Briefcase,
   ChevronDown,
   FileText,
+  Settings,
 } from "lucide-react";
+
+export const EQUIPMENT_TYPE_OPTIONS = [
+  "Heavy Machinery",
+  "Construction Equipment",
+  "Medical Equipment",
+  "Restaurant Equipment",
+  "IT / Technology Equipment",
+  "Manufacturing Equipment",
+  "Office Equipment",
+  "Vehicles / Fleet",
+  "Agricultural Equipment",
+  "Industrial Equipment",
+];
 
 /** Keep in sync with LoanCriteria/StepThree options */
 export const PROPERTY_TYPE_OPTIONS = [
@@ -285,7 +299,7 @@ export const BUSINESS_TYPE_OPTIONS = [
 
 type OptionItem = { name: string; subTypes: string[] };
 
-type Accent = "emerald" | "violet";
+type Accent = "emerald" | "violet" | "sky";
 
 const accentStyles: Record<
   Accent,
@@ -314,6 +328,15 @@ const accentStyles: Record<
     subOn: "border-violet-700 bg-violet-700 text-white",
     subOff:
       "border-slate-300 bg-white text-slate-600 hover:border-violet-400 hover:bg-violet-50",
+  },
+  sky: {
+    badge: "bg-sky-600 text-white",
+    parentOn: "border-sky-600 bg-sky-600 text-white shadow-sm",
+    parentOff:
+      "border-slate-300 bg-white text-slate-700 hover:border-sky-400 hover:bg-sky-50",
+    subOn: "border-sky-700 bg-sky-700 text-white",
+    subOff:
+      "border-slate-300 bg-white text-slate-600 hover:border-sky-400 hover:bg-sky-50",
   },
 };
 
@@ -461,15 +484,126 @@ function EligibilityPicker({
 type ProgramEligibilitySectionProps = {
   propertyTypes: Record<string, string[]>;
   setPropertyTypes: (next: Record<string, string[]>) => void;
+  propertyTypesTitle?: string;
   businessTypes: Record<string, string[]>;
   setBusinessTypes: (next: Record<string, string[]>) => void;
+  businessTypesTitle?: string;
+  equipmentTypes?: string[];
+  setEquipmentTypes?: (next: string[]) => void;
+  showEquipmentTypes?: boolean;
+  showBusinessTypes?: boolean;
+  showPropertyTypes?: boolean;
 };
+
+function EquipmentTypesPicker({
+  value,
+  setValue,
+  defaultOpen = true,
+}: {
+  value: string[];
+  setValue: (next: string[]) => void;
+  defaultOpen?: boolean;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  const selected = Array.isArray(value) ? value : [];
+  const styles = accentStyles.sky;
+
+  const toggle = (item: string) => {
+    setValue(
+      selected.includes(item)
+        ? selected.filter((entry) => entry !== item)
+        : [...selected, item],
+    );
+  };
+
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white">
+      <button
+        type="button"
+        onClick={() => setOpen((prev) => !prev)}
+        className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left hover:bg-slate-50"
+      >
+        <div className="flex min-w-0 items-center gap-2.5">
+          <span className="text-slate-500">
+            <Settings size={15} />
+          </span>
+          <span className="text-sm font-semibold text-slate-800">
+            Equipment Types Accepted
+          </span>
+          {selected.length > 0 && (
+            <span
+              className={`inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-bold ${styles.badge}`}
+            >
+              {selected.length}
+            </span>
+          )}
+        </div>
+        <ChevronDown
+          size={16}
+          className={`shrink-0 text-slate-400 transition ${open ? "rotate-180" : ""}`}
+        />
+      </button>
+
+      {open && (
+        <div className="border-t border-slate-100 px-4 pb-4 pt-3">
+          <div className="mb-3 flex items-start justify-between gap-3">
+            <p className="text-xs leading-relaxed text-slate-500">
+              Select equipment types this lender finances for Equipment Finance
+              (Asset Based Lending).
+            </p>
+            <div className="flex shrink-0 gap-3 text-[11px] font-medium">
+              <button
+                type="button"
+                onClick={() => setValue([...EQUIPMENT_TYPE_OPTIONS])}
+                className="text-sky-700 hover:underline"
+              >
+                Select all
+              </button>
+              {selected.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setValue([])}
+                  className="text-red-500 hover:underline"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            {EQUIPMENT_TYPE_OPTIONS.map((item) => {
+              const isSelected = selected.includes(item);
+              return (
+                <Chip
+                  key={item}
+                  label={item}
+                  selected={isSelected}
+                  onClick={() => toggle(item)}
+                  selectedClass={styles.parentOn}
+                  unselectedClass={styles.parentOff}
+                />
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function ProgramEligibilitySection({
   propertyTypes,
   setPropertyTypes,
+  propertyTypesTitle = "Eligible Property Types",
   businessTypes,
   setBusinessTypes,
+  businessTypesTitle = "Eligible Business Types",
+  equipmentTypes = [],
+  setEquipmentTypes,
+  showEquipmentTypes = false,
+  showBusinessTypes = true,
+  showPropertyTypes = true,
 }: ProgramEligibilitySectionProps) {
   return (
     <div className="mt-6">
@@ -478,25 +612,35 @@ export default function ProgramEligibilitySection({
       </h3>
 
       <div className="space-y-2">
-        <EligibilityPicker
-          title="Eligible Property Types"
-          description="Select the eligible property types eligible for this specific loan program. These are independent per program."
-          icon={<FileText size={15} />}
-          options={PROPERTY_TYPE_OPTIONS}
-          value={propertyTypes || {}}
-          setValue={setPropertyTypes}
-          defaultOpen
-          accent="emerald"
-        />
-        <EligibilityPicker
-          title="Eligible Business Types"
-          description="Select the eligible business types eligible for this specific loan program. These are independent per program."
-          icon={<Briefcase size={15} />}
-          options={BUSINESS_TYPE_OPTIONS}
-          value={businessTypes || {}}
-          setValue={setBusinessTypes}
-          accent="violet"
-        />
+        {showPropertyTypes && (
+          <EligibilityPicker
+            title={propertyTypesTitle}
+            description="Select the eligible property types eligible for this specific loan program. These are independent per program."
+            icon={<FileText size={15} />}
+            options={PROPERTY_TYPE_OPTIONS}
+            value={propertyTypes || {}}
+            setValue={setPropertyTypes}
+            defaultOpen
+            accent="emerald"
+          />
+        )}
+        {showBusinessTypes && (
+          <EligibilityPicker
+            title={businessTypesTitle}
+            description="Select the eligible business types eligible for this specific loan program. These are independent per program."
+            icon={<Briefcase size={15} />}
+            options={BUSINESS_TYPE_OPTIONS}
+            value={businessTypes || {}}
+            setValue={setBusinessTypes}
+            accent="violet"
+          />
+        )}
+        {showEquipmentTypes && typeof setEquipmentTypes === "function" && (
+          <EquipmentTypesPicker
+            value={equipmentTypes}
+            setValue={setEquipmentTypes}
+          />
+        )}
       </div>
     </div>
   );

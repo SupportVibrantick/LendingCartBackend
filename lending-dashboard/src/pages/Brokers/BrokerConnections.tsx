@@ -49,7 +49,7 @@ type Stats = {
 type MainTab = "requests" | "sent" | "connected";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
-const BRAND = "#3e86b7";
+const BRAND = "#102C41";
 
 function getAuthHeaders(): HeadersInit {
   const token = sessionStorage.getItem("lender_token");
@@ -333,7 +333,7 @@ export default function BrokerConnections() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search connected brokers..."
-                className="w-full pl-9 pr-3 py-2.5 rounded-xl text-sm border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#3e86b7]/30"
+                className="w-full pl-9 pr-3 py-2.5 rounded-xl text-sm border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#102C41]/30"
               />
             </div>
           )}
@@ -458,7 +458,7 @@ function StatPill({
       "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-500/20",
     amber:
       "bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-500/20",
-    blue: "bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-500/20",
+    blue: "border-[#102C41]/20 bg-[#102C41]/8 text-[#102C41] dark:bg-[#102C41]/20 dark:text-[#9eb6c8] dark:border-[#102C41]/30",
   };
 
   return (

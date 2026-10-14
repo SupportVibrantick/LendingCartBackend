@@ -1,16 +1,24 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import StepTwo from "./StepTwo";
 import StepFive from "./StepFive";
-import EquipmentFinancingStep from "./EquipmentFinancingStep";
 import { ChevronRight, ChevronLeft, ArrowLeft } from "lucide-react";
 import toast from "react-hot-toast";
 import {
   getLoanCriteriaFooterMessage,
+  mapApiProductToCriteriaForm,
+  productUsesEquipmentTypes,
   validateLoanProductCriteriaStep,
 } from "../../../lib/loanProductCriteriaFields";
-import { mapToAdminProductPayload } from "../../../lib/lenderProductAdminPayload";
-import { mapToCanonicalCatalogId } from "../../../lib/canonicalLoanProducts";
+import {
+  mapToAdminProductPayload,
+  normalizeGroupedSelectionFromApi,
+} from "../../../lib/lenderProductAdminPayload";
+import {
+  mapToCanonicalCatalogId,
+  resolveLenderOfferedProductCode,
+} from "../../../lib/canonicalLoanProducts";
+import { useDebouncedValue } from "../../../hooks/useDebouncedValue";
 
 type FormType = {
   lenderId: string;
@@ -27,11 +35,23 @@ type Product = {
   code: string;
 };
 
+type LenderOption = {
+  id: string;
+  name: string;
+  email: string;
+};
+
 type ExistingLenderProduct = {
   id: string;
   loanProductId?: string | null;
   loanProductCode?: string | null;
+  code?: string | null;
+  propertyTypes?: unknown;
+  businessTypes?: unknown;
+  equipmentTypes?: string[];
+  documents?: any[];
   loanProduct?: { id?: string; code?: string } | null;
+  [key: string]: any;
 };
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
@@ -53,11 +73,16 @@ export default function Main() {
   const [existingLenderProducts, setExistingLenderProducts] = useState<
     ExistingLenderProduct[]
   >([]);
-  const [lenders, setLenders] = useState<any[]>([]);
+  const [lenders, setLenders] = useState<LenderOption[]>([]);
+  const [selectedLenderInfo, setSelectedLenderInfo] =
+    useState<LenderOption | null>(null);
   const [loadingLenders, setLoadingLenders] = useState(false);
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebouncedValue(search.trim(), 350);
   const [page, setPage] = useState(1);
   const pageSize = 20;
+  const [lenderTotal, setLenderTotal] = useState(0);
+  const [lenderTotalPages, setLenderTotalPages] = useState(1);
   const [hasStep5Errors, setHasStep5Errors] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
@@ -79,7 +104,7 @@ export default function Main() {
           .map((item) =>
             mapToCanonicalCatalogId(
               products,
-              item.loanProductCode || item.loanProduct?.code,
+              item.loanProductCode || item.code || item.loanProduct?.code,
               item.loanProductId || item.loanProduct?.id,
             ),
           )
@@ -88,69 +113,137 @@ export default function Main() {
     ] as string[];
   }, [products, existingLenderProducts]);
 
-  useEffect(() => {
-    if (!alreadyAssignedIds.length) return;
-    setForm((prev) => {
-      const filtered = prev.loanPrograms.filter(
-        (id) => !alreadyAssignedIds.includes(id),
+  const lenderProductByProgramId = useMemo(() => {
+    const map: Record<string, ExistingLenderProduct> = {};
+    existingLenderProducts.forEach((item) => {
+      const programId = mapToCanonicalCatalogId(
+        products,
+        item.loanProductCode || item.code || item.loanProduct?.code,
+        item.loanProductId || item.loanProduct?.id,
       );
-      if (filtered.length === prev.loanPrograms.length) return prev;
-      return { ...prev, loanPrograms: filtered };
+      if (programId) {
+        map[String(programId)] = item;
+      }
     });
-  }, [alreadyAssignedIds]);
+    return map;
+  }, [existingLenderProducts, products]);
 
   const selectedProducts = useMemo(
-    () =>
-      products.filter(
-        (p) =>
-          form.loanPrograms.includes(p.id) &&
-          !alreadyAssignedIds.includes(p.id),
-      ),
-    [products, form.loanPrograms, alreadyAssignedIds],
+    () => products.filter((p) => form.loanPrograms.includes(p.id)),
+    [products, form.loanPrograms],
   );
 
-  const isEquipmentSelected = selectedProducts.some(
-    (p) => p.code === "EQUIPMENT_FINANCE",
-  );
-
-  const steps = [
-    "Select Lender",
-    "Loan Programs",
-    ...(isEquipmentSelected ? ["Equipment Types"] : []),
-    "Loan Criteria",
-  ];
+  const steps = ["Select Lender", "Loan Programs", "Loan Criteria"];
 
   const loanCriteriaStepIndex = steps.length - 1;
   const isLastStep = step === steps.length - 1;
+  const isUpdatingConfigured = selectedProducts.some((p) =>
+    Boolean(lenderProductByProgramId[p.id]),
+  );
 
   const validateStep5 = () =>
     validateLoanProductCriteriaStep(selectedProducts, form.loanCriteria);
 
-  const fetchLenders = async (searchValue?: string) => {
-    setLoadingLenders(true);
+  const handlePickProduct = (productId: string) => {
+    const existing = lenderProductByProgramId[productId];
+    const product = products.find((p) => p.id === productId);
 
-    try {
-      const url = searchValue
-        ? `${API_BASE}/admin/lenders/read?search=${encodeURIComponent(searchValue)}`
-        : `${API_BASE}/admin/lenders/read`;
+    let propertyTypes: Record<string, string[]> = {};
+    let businessTypes: Record<string, string[]> = {};
+    let equipmentFinance: string[] = [];
+    const loanCriteria: Record<string, any> = {};
 
-      const res = await fetch(url, { headers: getAuthHeaders() });
-      const json = await res.json();
-      const list = json?.data?.results || [];
-
-      setLenders(
-        list.map((o: any) => ({
-          id: o.id,
-          name: o.organizationName,
-          email: o.organizationEmail,
-        })),
+    if (existing) {
+      const code = resolveLenderOfferedProductCode(
+        existing.loanProductCode ||
+          existing.code ||
+          existing.loanProduct?.code ||
+          product?.code ||
+          "",
       );
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoadingLenders(false);
+
+      loanCriteria[productId] = mapApiProductToCriteriaForm({
+        ...existing,
+        loanProductCode: code,
+        code,
+      });
+
+      propertyTypes = normalizeGroupedSelectionFromApi(
+        existing.propertyTypes,
+        "type",
+      );
+      businessTypes = normalizeGroupedSelectionFromApi(
+        existing.businessTypes,
+        "name",
+      );
+
+      if (productUsesEquipmentTypes(code)) {
+        equipmentFinance = Array.isArray(existing.equipmentTypes)
+          ? existing.equipmentTypes
+          : [];
+      }
+    } else if (productUsesEquipmentTypes(product?.code)) {
+      equipmentFinance = [];
     }
+
+    setForm((prev) => ({
+      ...prev,
+      loanPrograms: [productId],
+      propertyTypes,
+      businessTypes,
+      loanCriteria,
+      equipmentFinance,
+    }));
+    setHasStep5Errors(false);
+    setStep(2);
   };
+
+  const fetchLenders = useCallback(
+    async (signal?: AbortSignal) => {
+      setLoadingLenders(true);
+
+      try {
+        const params = new URLSearchParams({
+          page: String(page),
+          limit: String(pageSize),
+        });
+        if (debouncedSearch) params.set("search", debouncedSearch);
+
+        const res = await fetch(
+          `${API_BASE}/admin/lenders/read?${params.toString()}`,
+          { headers: getAuthHeaders(), signal },
+        );
+        const json = await res.json();
+
+        if (!res.ok || json?.success === false) {
+          throw new Error(json?.message || "Failed to load lenders");
+        }
+
+        const list = json?.data?.results || [];
+        setLenders(
+          list.map((o: any) => ({
+            id: o.id,
+            name: o.organizationName || "",
+            email: o.organizationEmail || "",
+          })),
+        );
+        setLenderTotal(Number(json?.data?.total ?? list.length));
+        setLenderTotalPages(
+          Math.max(1, Number(json?.data?.totalPages) || 1),
+        );
+      } catch (err: any) {
+        if (err?.name === "AbortError") return;
+        console.error(err);
+        toast.error("Failed to load lenders");
+        setLenders([]);
+        setLenderTotal(0);
+        setLenderTotalPages(1);
+      } finally {
+        setLoadingLenders(false);
+      }
+    },
+    [page, pageSize, debouncedSearch],
+  );
 
   const handleSubmit = async () => {
     if (!form.lenderId) {
@@ -165,37 +258,53 @@ export default function Main() {
     }
 
     if (!selectedProducts.length) {
-      toast.error("Please select at least one loan program");
+      toast.error("Please select a loan program");
       return;
     }
 
     setSubmitting(true);
 
     try {
-      const mappedProducts = selectedProducts.map((product) =>
-        mapToAdminProductPayload(
-          product,
-          form,
-          form.loanCriteria?.[product.id] || {},
-        ),
+      const product = selectedProducts[0];
+      const criteria = form.loanCriteria?.[product.id] || {};
+      const existing = lenderProductByProgramId[product.id];
+      const payload = mapToAdminProductPayload(
+        product,
+        form,
+        criteria,
+        existing?.id,
       );
 
-      const res = await fetch(`${API_BASE}/admin/lender-products/create`, {
-        method: "POST",
-        headers: getAuthHeaders(),
-        body: JSON.stringify({
-          lenderOrgId: form.lenderId,
-          products: mappedProducts,
-        }),
-      });
+      const res = await fetch(
+        existing?.id
+          ? `${API_BASE}/admin/lender-products/update`
+          : `${API_BASE}/admin/lender-products/create`,
+        {
+          method: existing?.id ? "PATCH" : "POST",
+          headers: getAuthHeaders(),
+          body: JSON.stringify({
+            lenderOrgId: form.lenderId,
+            products: [payload],
+          }),
+        },
+      );
 
       const json = await res.json().catch(() => ({}));
 
       if (!res.ok || !json.success) {
-        throw new Error(json?.message || "Failed to assign products");
+        throw new Error(
+          json?.message ||
+            (existing?.id
+              ? "Failed to update loan product"
+              : "Failed to assign products"),
+        );
       }
 
-      toast.success("Loan products assigned successfully");
+      toast.success(
+        existing?.id
+          ? "Loan product updated successfully"
+          : "Loan product assigned successfully",
+      );
       navigate("/view-assigned-products");
     } catch (err: any) {
       console.error(err);
@@ -210,22 +319,22 @@ export default function Main() {
       handleSubmit();
       return;
     }
+    if (step === 1 && form.loanPrograms.length === 1) {
+      handlePickProduct(form.loanPrograms[0]);
+      return;
+    }
     setStep((prev) => prev + 1);
   };
 
   useEffect(() => {
-    fetchLenders();
-  }, []);
-
-  useEffect(() => {
     setPage(1);
-  }, [search]);
+  }, [debouncedSearch]);
 
   useEffect(() => {
-    if (!isEquipmentSelected) {
-      setForm((p) => ({ ...p, equipmentFinance: [] }));
-    }
-  }, [isEquipmentSelected]);
+    const controller = new AbortController();
+    fetchLenders(controller.signal);
+    return () => controller.abort();
+  }, [fetchLenders]);
 
   useEffect(() => {
     if (!form.lenderId) {
@@ -266,21 +375,51 @@ export default function Main() {
     };
   }, [form.lenderId]);
 
+  const getPageNumbers = () => {
+    const pages: (number | "ellipsis")[] = [];
+    if (lenderTotalPages <= 7) {
+      for (let i = 1; i <= lenderTotalPages; i += 1) pages.push(i);
+      return pages;
+    }
+    pages.push(1);
+    if (page > 3) pages.push("ellipsis");
+    const start = Math.max(2, page - 1);
+    const end = Math.min(lenderTotalPages - 1, page + 1);
+    for (let i = start; i <= end; i += 1) pages.push(i);
+    if (page < lenderTotalPages - 2) pages.push("ellipsis");
+    pages.push(lenderTotalPages);
+    return pages;
+  };
+
+  const selectLender = (lender: LenderOption) => {
+    setSelectedLenderInfo(lender);
+    setForm((p) =>
+      p.lenderId === lender.id
+        ? p
+        : {
+            lenderId: lender.id,
+            loanPrograms: [],
+            propertyTypes: {},
+            businessTypes: {},
+            loanCriteria: {},
+            equipmentFinance: [],
+          },
+    );
+  };
+
   const getStepContent = () => {
     if (step === 0) {
-      const filtered = lenders.filter((l) =>
-        l.name.toLowerCase().includes(search.toLowerCase()),
-      );
-      const totalPages = Math.ceil(filtered.length / pageSize) || 1;
-      const paginatedData = filtered.slice(
-        (page - 1) * pageSize,
-        page * pageSize,
-      );
-      const selectedLender = lenders.find((l) => l.id === form.lenderId);
+      const selectedLender =
+        selectedLenderInfo?.id === form.lenderId
+          ? selectedLenderInfo
+          : lenders.find((l) => l.id === form.lenderId) || selectedLenderInfo;
+      const showingFrom =
+        lenderTotal === 0 ? 0 : (page - 1) * pageSize + 1;
+      const showingTo = Math.min(page * pageSize, lenderTotal);
 
       return (
         <div className="border border-gray-200 rounded-2xl p-6 bg-white shadow-sm">
-          <div className="flex justify-between items-center mb-6">
+          <div className="flex flex-wrap justify-between items-center gap-3 mb-6">
             <div>
               <h2 className="text-lg font-semibold">Select Lender</h2>
               <p className="text-sm text-gray-500">
@@ -295,7 +434,7 @@ export default function Main() {
             />
           </div>
 
-          {selectedLender && (
+          {selectedLender && form.lenderId ? (
             <div className="mb-6 flex items-center justify-between bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl px-4 py-3 shadow-sm">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white flex items-center justify-center font-semibold">
@@ -312,30 +451,21 @@ export default function Main() {
                 Selected
               </span>
             </div>
-          )}
+          ) : null}
 
-          {filtered.length > 0 ? (
+          {loadingLenders && lenders.length === 0 ? (
+            <div className="py-14 text-center text-sm text-gray-400">
+              Loading lenders...
+            </div>
+          ) : lenders.length > 0 ? (
             <>
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-                {paginatedData.map((lender) => {
+                {lenders.map((lender) => {
                   const selected = form.lenderId === lender.id;
                   return (
                     <div
                       key={lender.id}
-                      onClick={() =>
-                        setForm((p) =>
-                          p.lenderId === lender.id
-                            ? p
-                            : {
-                                lenderId: lender.id,
-                                loanPrograms: [],
-                                propertyTypes: {},
-                                businessTypes: {},
-                                loanCriteria: {},
-                                equipmentFinance: [],
-                              },
-                        )
-                      }
+                      onClick={() => selectLender(lender)}
                       className={`relative cursor-pointer rounded-lg border px-3 py-2.5 transition-all
                         ${
                           selected
@@ -366,24 +496,36 @@ export default function Main() {
                 })}
               </div>
 
-              {totalPages > 1 && (
-                <div className="flex items-center justify-between mt-6">
-                  <p className="text-xs text-gray-500">
-                    Page {page} of {totalPages}
-                  </p>
-                  <div className="flex items-center gap-2">
+              <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-xs text-gray-500">
+                  {loadingLenders
+                    ? "Loading..."
+                    : `Showing ${showingFrom}–${showingTo} of ${lenderTotal}`}
+                </p>
+                {lenderTotalPages > 1 ? (
+                  <div className="flex flex-wrap items-center gap-2">
                     <button
-                      onClick={() => setPage((p) => p - 1)}
-                      disabled={page === 1}
+                      type="button"
+                      onClick={() => setPage((p) => Math.max(1, p - 1))}
+                      disabled={page === 1 || loadingLenders}
                       className="px-2 py-1 border rounded text-xs disabled:opacity-40"
                     >
                       Prev
                     </button>
-                    {Array.from({ length: totalPages }, (_, i) => i + 1).map(
-                      (p) => (
+                    {getPageNumbers().map((p, index) =>
+                      p === "ellipsis" ? (
+                        <span
+                          key={`ellipsis-${index}`}
+                          className="px-1 text-xs text-gray-400"
+                        >
+                          …
+                        </span>
+                      ) : (
                         <button
                           key={p}
+                          type="button"
                           onClick={() => setPage(p)}
+                          disabled={loadingLenders}
                           className={`px-2 py-1 text-xs rounded ${
                             page === p ? "bg-black text-white" : "border"
                           }`}
@@ -393,15 +535,18 @@ export default function Main() {
                       ),
                     )}
                     <button
-                      onClick={() => setPage((p) => p + 1)}
-                      disabled={page === totalPages}
+                      type="button"
+                      onClick={() =>
+                        setPage((p) => Math.min(lenderTotalPages, p + 1))
+                      }
+                      disabled={page === lenderTotalPages || loadingLenders}
                       className="px-2 py-1 border rounded text-xs disabled:opacity-40"
                     >
                       Next
                     </button>
                   </div>
-                </div>
-              )}
+                ) : null}
+              </div>
             </>
           ) : (
             <div className="flex flex-col items-center justify-center py-14 text-center">
@@ -409,14 +554,10 @@ export default function Main() {
                 No lenders found
               </p>
               <p className="text-xs text-gray-500 mt-1 max-w-xs">
-                We couldn&apos;t find any lenders matching your search.
+                {debouncedSearch
+                  ? `No lenders match “${debouncedSearch}”.`
+                  : "We couldn’t find any lenders."}
               </p>
-            </div>
-          )}
-
-          {loadingLenders && (
-            <div className="text-center text-sm text-gray-400 mt-4">
-              Loading lenders...
             </div>
           )}
         </div>
@@ -431,26 +572,15 @@ export default function Main() {
           setValue={(val) =>
             setForm((p) => ({
               ...p,
-              loanPrograms: (Array.isArray(val) ? val : []).filter(
-                (id) => !alreadyAssignedIds.includes(id),
-              ),
+              loanPrograms: Array.isArray(val) ? val.slice(0, 1) : [],
             }))
           }
           alreadyAddedIds={alreadyAssignedIds}
           onProductsLoad={setProducts}
-        />
-      );
-    }
-
-    const equipmentStepIndex = isEquipmentSelected ? 2 : -1;
-
-    if (isEquipmentSelected && step === equipmentStepIndex) {
-      return (
-        <EquipmentFinancingStep
-          value={form.equipmentFinance}
-          setValue={(val: string[]) =>
-            setForm((p) => ({ ...p, equipmentFinance: val }))
-          }
+          pickOneMode
+          configuredSelectable
+          onPickProduct={handlePickProduct}
+          description="Select one loan program to continue. Configured programs stay available."
         />
       );
     }
@@ -458,8 +588,15 @@ export default function Main() {
     if (step === loanCriteriaStepIndex) {
       return (
         <StepFive
+          key={`criteria-${form.loanPrograms.join("-")}`}
           authMode="admin"
+          mode={isUpdatingConfigured ? "update" : "create"}
           products={selectedProducts}
+          lenderProductIdByProgramId={Object.fromEntries(
+            Object.entries(lenderProductByProgramId).map(
+              ([programId, record]) => [programId, record.id],
+            ),
+          )}
           value={form.loanCriteria}
           setValue={(val: Record<string, any>) =>
             setForm((p) => ({ ...p, loanCriteria: val }))
@@ -472,6 +609,10 @@ export default function Main() {
           businessTypes={form.businessTypes}
           setBusinessTypes={(val: Record<string, string[]>) =>
             setForm((p) => ({ ...p, businessTypes: val }))
+          }
+          equipmentTypes={form.equipmentFinance}
+          setEquipmentTypes={(val: string[]) =>
+            setForm((p) => ({ ...p, equipmentFinance: val }))
           }
         />
       );
@@ -497,37 +638,55 @@ export default function Main() {
       (hasStep5Errors || footerValidationMessage !== null));
 
   return (
-    <div className="h-screen flex flex-col bg-gray-50">
-      <div className="sticky top-0 z-30">
-        <div className="max-w-6xl mx-auto px-6 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-3">
+    <div className="mx-auto max-w-6xl space-y-4 bg-transparent pb-4">
+      <div className="sticky top-16 z-40 rounded-xl border border-slate-200 bg-white/95 px-6 py-4 shadow-sm backdrop-blur lg:top-[4.75rem]">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3">
             <button
+              type="button"
               onClick={() => navigate("/all-lenders-Organization")}
-              className="flex items-center justify-center w-9 h-9 rounded-full border hover:bg-gray-100 transition"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border transition hover:bg-gray-100"
             >
               <ArrowLeft size={18} />
             </button>
-            <div>
-              <h1 className="text-lg font-semibold leading-tight">
-                {steps[step]}
-              </h1>
-              <p className="text-xs text-gray-500">
-                Step {step + 1} of {steps.length}
-              </p>
+            <div className="min-w-0">
+              {selectedProducts[0]?.name && step > 0 ? (
+                <>
+                  <h1 className="truncate text-lg font-semibold leading-tight">
+                    {selectedProducts[0].name}
+                  </h1>
+                  <p className="truncate text-xs text-gray-500">
+                    {steps[step]} · Step {step + 1} of {steps.length}
+                    {selectedLenderInfo?.name
+                      ? ` · ${selectedLenderInfo.name}`
+                      : ""}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <h1 className="text-lg font-semibold leading-tight">
+                    {steps[step]}
+                  </h1>
+                  <p className="text-xs text-gray-500">
+                    Step {step + 1} of {steps.length}
+                    {selectedLenderInfo?.name && step > 0
+                      ? ` · ${selectedLenderInfo.name}`
+                      : ""}
+                  </p>
+                </>
+              )}
             </div>
           </div>
         </div>
 
-        <div className="max-w-6xl mx-auto px-6">
-          <div className="w-full h-[3px] bg-gray-100 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-black transition-all duration-300"
-              style={{ width: `${((step + 1) / steps.length) * 100}%` }}
-            />
-          </div>
+        <div className="mt-4 h-[3px] w-full overflow-hidden rounded-full bg-gray-100">
+          <div
+            className="h-full bg-[#102B40] transition-all duration-300"
+            style={{ width: `${((step + 1) / steps.length) * 100}%` }}
+          />
         </div>
 
-        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center gap-3 flex-wrap">
+        <div className="mt-4 flex flex-wrap items-center gap-3">
           {steps.map((label, i) => {
             const isActive = step === i;
             const isCompleted = step > i;
@@ -535,21 +694,20 @@ export default function Main() {
             return (
               <div key={label} className="flex items-center gap-2">
                 <div
-                  className={`flex items-center gap-1 px-4 py-1.5 rounded-full text-xs font-medium transition-all duration-200
-                    ${
-                      isActive
-                        ? "bg-black text-white shadow"
-                        : isCompleted
-                          ? "bg-green-500 text-white"
-                          : "bg-gray-100 text-gray-400"
-                    }`}
+                  className={`flex items-center gap-1 rounded-full px-4 py-1.5 text-xs font-medium transition-all duration-200 ${
+                    isActive
+                      ? "bg-[#102B40] text-white shadow"
+                      : isCompleted
+                        ? "bg-green-500 text-white"
+                        : "bg-gray-100 text-gray-400"
+                  }`}
                 >
                   {isCompleted ? "✓" : i + 1}
                   <span className="ml-1">{label}</span>
                 </div>
                 {i < steps.length - 1 && (
                   <div
-                    className={`w-6 h-[2px] transition-all ${
+                    className={`h-[2px] w-6 transition-all ${
                       step > i ? "bg-green-400" : "bg-gray-300"
                     }`}
                   />
@@ -560,12 +718,12 @@ export default function Main() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
-        <div className="max-w-6xl mx-auto p-6">{getStepContent()}</div>
+      <div className="rounded-xl border border-slate-200 bg-white p-6">
+        {getStepContent()}
       </div>
 
-      <div className="sticky bottom-0 z-30 bg-white/80 backdrop-blur border-t shadow-[0_-2px_10px_rgba(0,0,0,0.04)]">
-        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+      <div className="rounded-xl border border-slate-200 bg-white px-6 py-4">
+        <div className="flex items-center justify-between gap-3">
           <div className="text-xs text-gray-500">
             Step <span className="font-semibold text-gray-700">{step + 1}</span>{" "}
             of{" "}
@@ -579,23 +737,29 @@ export default function Main() {
 
           <div className="flex items-center gap-3">
             <button
+              type="button"
               disabled={step === 0 || submitting}
               onClick={() => setStep((p) => p - 1)}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm border border-gray-300 bg-white hover:bg-gray-50 transition disabled:opacity-40"
+              className="flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm transition hover:bg-gray-50 disabled:opacity-40"
             >
               <ChevronLeft size={16} />
               Previous
             </button>
 
             <button
+              type="button"
               onClick={handleNext}
               disabled={nextDisabled}
-              className="flex items-center gap-2 px-6 py-2 rounded-lg text-sm font-medium bg-gradient-to-r from-black to-gray-800 text-white shadow hover:scale-[1.03] active:scale-[0.98] transition disabled:opacity-40"
+              className="flex items-center gap-2 rounded-lg bg-[#102B40] px-6 py-2 text-sm font-medium text-white shadow transition hover:bg-[#163a54] disabled:opacity-40"
             >
               {isLastStep
                 ? submitting
-                  ? "Submitting..."
-                  : "Submit"
+                  ? isUpdatingConfigured
+                    ? "Updating..."
+                    : "Submitting..."
+                  : isUpdatingConfigured
+                    ? "Update"
+                    : "Submit"
                 : "Next Step"}
               {!isLastStep && <ChevronRight size={16} />}
             </button>

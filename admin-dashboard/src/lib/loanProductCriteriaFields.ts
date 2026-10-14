@@ -1025,6 +1025,13 @@ const CONSTRUCTION_CRITERIA_FIELDS: CriteriaField[] = [
   bridgeToggle("Draw Schedule", "drawScheduleRequired"),
   bridgeToggle("Inspection Required for Draws", "inspectionRequiredForDraws"),
   bridgeToggle("Prepayment Penalty", "prepaymentPenalty"),
+  bridgeToggle("Non-Recourse Available", "nonRecourseAvailable"),
+  bridgeToggle("Environmental Required", "environmentalReportRequired"),
+  bridgeToggle(
+    "Property Condition Assessment Required",
+    "propertyConditionAssessmentRequired",
+  ),
+  bridgeToggle("Appraisal Required", "appraisalRequired"),
   {
     label: "Property Types Excluded",
     key: "propertyTypesExcluded",
@@ -3387,6 +3394,29 @@ export const isPurchaseOrderFinanceProduct = (productCode?: string | null) =>
 
 export const isEquipmentFinanceProduct = (productCode?: string | null) =>
   productCode ? EQUIPMENT_FINANCE_LOAN_CODES.has(productCode) : false;
+
+/** Products that collect Equipment Types on Loan Criteria (Asset Based Lending only). */
+export const productUsesEquipmentTypes = (productCode?: string | null) =>
+  isEquipmentFinanceProduct(productCode) ||
+  isSba7aEquipmentPurchaseProduct(productCode);
+
+/** Bridge / DSCR / Fix & Flip / Construction / CRE / Agency / Mezz-Pref / CMBS use property types only — not business types. */
+export const productUsesAcceptedPropertyTypes = (
+  productCode?: string | null,
+) =>
+  isBridgeLoanProduct(productCode) ||
+  isDscrRentalProduct(productCode) ||
+  isFixAndFlipProduct(productCode) ||
+  isConstructionLoanProduct(productCode) ||
+  isCrePermanentProduct(productCode) ||
+  isAgencyMultifamilyProduct(productCode) ||
+  isMezzOrPreferredEquityProduct(productCode) ||
+  isCmbsProduct(productCode) ||
+  isRentalPortfolioProduct(productCode) ||
+  isCPaceProduct(productCode);
+
+export const productUsesBusinessTypes = (productCode?: string | null) =>
+  !productUsesAcceptedPropertyTypes(productCode);
 
 export const isArFactoringProduct = (productCode?: string | null) =>
   productCode ? INVOICE_FACTORING_LOAN_CODES.has(productCode) : false;

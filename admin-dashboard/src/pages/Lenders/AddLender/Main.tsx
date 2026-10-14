@@ -1,8 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import StepTwo from "./LoanCriteria/StepTwo";
-import StepFive from "./LoanCriteria/StepFive";
-import EquipmentFinancingStep from "./LoanCriteria/EquipmentFinancingStep";
+import StepTwo from "../LoanCriteria/StepTwo";
+import StepFive from "../LoanCriteria/StepFive";
 import {
   ChevronRight,
   ChevronLeft,
@@ -13,9 +12,11 @@ import {
 import toast from "react-hot-toast";
 import {
   getLoanCriteriaFooterMessage,
+  mapApiProductToCriteriaForm,
   validateLoanProductCriteriaStep,
 } from "../../../lib/loanProductCriteriaFields";
 import { mapToAdminProductPayload } from "../../../lib/lenderProductAdminPayload";
+import { resolveLenderOfferedProductCode } from "../../../lib/canonicalLoanProducts";
 
 type FormType = {
   lenderId: string;
@@ -97,19 +98,32 @@ export default function Main() {
     [products, form.loanPrograms],
   );
 
-  const isEquipmentSelected = selectedProducts.some(
-    (p) => p.code === "EQUIPMENT_FINANCE",
-  );
-
-  const steps = [
-    "Create Lender",
-    "Loan Programs",
-    ...(isEquipmentSelected ? ["Equipment Types"] : []),
-    "Loan Criteria",
-  ];
+  const steps = ["Create Lender", "Loan Programs", "Loan Criteria"];
 
   const loanCriteriaStepIndex = steps.length - 1;
   const isLastStep = step === steps.length - 1;
+
+  const handlePickProduct = (productId: string) => {
+    const product = products.find((p) => p.id === productId);
+    const code = resolveLenderOfferedProductCode(product?.code || "");
+    const loanCriteria: Record<string, any> = {
+      [productId]: mapApiProductToCriteriaForm({
+        loanProductCode: code,
+        code,
+      }),
+    };
+
+    setForm((prev) => ({
+      ...prev,
+      loanPrograms: [productId],
+      propertyTypes: {},
+      businessTypes: {},
+      loanCriteria,
+      equipmentFinance: [],
+    }));
+    setHasStep5Errors(false);
+    setStep(2);
+  };
 
   const validateStep0 = () => {
     if (!form.organizationName?.trim()) return "Organization name is required";
@@ -217,7 +231,7 @@ export default function Main() {
     }
 
     if (!selectedProducts.length) {
-      toast.error("Please select at least one loan program");
+      toast.error("Please select a loan program");
       return;
     }
 
@@ -225,13 +239,11 @@ export default function Main() {
 
     try {
       const lenderOrgId = await createLender();
-
-      const mappedProducts = selectedProducts.map((product) =>
-        mapToAdminProductPayload(
-          product,
-          form,
-          form.loanCriteria?.[product.id] || {},
-        ),
+      const product = selectedProducts[0];
+      const payload = mapToAdminProductPayload(
+        product,
+        form,
+        form.loanCriteria?.[product.id] || {},
       );
 
       const res = await fetch(`${API_BASE}/admin/lender-products/create`, {
@@ -239,18 +251,18 @@ export default function Main() {
         headers: getAuthHeaders(),
         body: JSON.stringify({
           lenderOrgId,
-          products: mappedProducts,
+          products: [payload],
         }),
       });
 
       const json = await res.json().catch(() => ({}));
 
       if (!res.ok || !json.success) {
-        throw new Error(json?.message || "Failed to create lender products");
+        throw new Error(json?.message || "Failed to create lender product");
       }
 
-      toast.success("Lender and loan products created successfully");
-      navigate("/all-lenders-Organization");
+      toast.success("Lender and loan product created successfully");
+      navigate("/view-assigned-products");
     } catch (err: any) {
       console.error(err);
       if (err?.message) {
@@ -277,120 +289,98 @@ export default function Main() {
       return;
     }
 
+    if (step === 1 && form.loanPrograms.length === 1) {
+      handlePickProduct(form.loanPrograms[0]);
+      return;
+    }
+
     setStep((prev) => prev + 1);
   };
-
-  useEffect(() => {
-    if (!isEquipmentSelected) {
-      setForm((p) => ({ ...p, equipmentFinance: [] }));
-    }
-  }, [isEquipmentSelected]);
 
   const getStepContent = () => {
     if (step === 0) {
       return (
-        <div className="max-w-6xl mx-auto">
-          <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-8">
-            <div className="mb-8">
-              <h2 className="text-xl font-semibold text-gray-900">
-                Create Lender
-              </h2>
-              <p className="text-sm text-gray-500">
-                Enter organization and admin details
-              </p>
-            </div>
+        <div>
+          <div className="mb-8">
+            <h2 className="text-xl font-semibold text-gray-900">
+              Create Lender
+            </h2>
+            <p className="text-sm text-gray-500">
+              Enter organization and admin details, then assign one loan
+              program.
+            </p>
+          </div>
 
-            <div className="mb-8">
-              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4">
-                Organization Details
-              </h3>
-              <div className="grid grid-cols-2 gap-4">
-                <InputField
-                  label="Organization Name"
-                  required
-                  value={form.organizationName}
-                  onChange={(v) =>
-                    setForm((p) => ({ ...p, organizationName: v }))
-                  }
-                />
-                <InputField
-                  label="Organization Email"
-                  required
-                  value={form.organizationEmail}
-                  onChange={(v) =>
-                    setForm((p) => ({ ...p, organizationEmail: v }))
-                  }
-                />
-                <div className="col-span-2">
-                  <InputField
-                    label="Phone Number"
-                    required
-                    value={form.organizationPhone}
-                    onChange={(v) =>
-                      setForm((p) => ({
-                        ...p,
-                        organizationPhone: formatPhone(v),
-                      }))
-                    }
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="mb-8">
-              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4">
-                Admin Details
-              </h3>
-              <div className="grid grid-cols-2 gap-4">
-                <InputField
-                  label="First Name"
-                  required
-                  value={form.firstName}
-                  onChange={(v) => setForm((p) => ({ ...p, firstName: v }))}
-                />
-                <InputField
-                  label="Last Name"
-                  required
-                  value={form.lastName}
-                  onChange={(v) => setForm((p) => ({ ...p, lastName: v }))}
-                />
-                <InputField
-                  label="Email Address"
-                  required
-                  value={form.adminEmail}
-                  onChange={(v) => setForm((p) => ({ ...p, adminEmail: v }))}
-                />
-                <InputField
-                  label="Password"
-                  required
-                  isPassword
-                  showPassword={showPassword}
-                  togglePassword={() => setShowPassword((p) => !p)}
-                  value={form.password}
-                  onChange={(v) => setForm((p) => ({ ...p, password: v }))}
-                />
-              </div>
-            </div>
-
-            {/* <div>
-              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4">
-                Broker (Optional)
-              </h3>
-              <select
-                value={form.brokerId || ""}
-                onChange={(e) =>
-                  setForm((p) => ({ ...p, brokerId: e.target.value }))
+          <div className="mb-8">
+            <h3 className="mb-4 text-xs font-semibold uppercase tracking-wider text-gray-500">
+              Organization Details
+            </h3>
+            <div className="grid grid-cols-2 gap-4">
+              <InputField
+                label="Organization Name"
+                required
+                value={form.organizationName}
+                onChange={(v) =>
+                  setForm((p) => ({ ...p, organizationName: v }))
                 }
-                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-black focus:border-black outline-none transition"
-              >
-                <option value="">Select broker</option>
-                {brokers.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.name} — {b.email}
-                  </option>
-                ))}
-              </select>
-            </div> */}
+              />
+              <InputField
+                label="Organization Email"
+                required
+                value={form.organizationEmail}
+                onChange={(v) =>
+                  setForm((p) => ({ ...p, organizationEmail: v }))
+                }
+              />
+              <div className="col-span-2">
+                <InputField
+                  label="Phone Number"
+                  required
+                  value={form.organizationPhone}
+                  onChange={(v) =>
+                    setForm((p) => ({
+                      ...p,
+                      organizationPhone: formatPhone(v),
+                    }))
+                  }
+                />
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <h3 className="mb-4 text-xs font-semibold uppercase tracking-wider text-gray-500">
+              Admin Details
+            </h3>
+            <div className="grid grid-cols-2 gap-4">
+              <InputField
+                label="First Name"
+                required
+                value={form.firstName}
+                onChange={(v) => setForm((p) => ({ ...p, firstName: v }))}
+              />
+              <InputField
+                label="Last Name"
+                required
+                value={form.lastName}
+                onChange={(v) => setForm((p) => ({ ...p, lastName: v }))}
+              />
+              <InputField
+                label="Email Address"
+                required
+                value={form.adminEmail}
+                onChange={(v) => setForm((p) => ({ ...p, adminEmail: v }))}
+              />
+              <InputField
+                label="Password"
+                required
+                isPassword
+                showPassword={showPassword}
+                togglePassword={() => setShowPassword((p) => !p)}
+                value={form.password}
+                onChange={(v) => setForm((p) => ({ ...p, password: v }))}
+              />
+            </div>
           </div>
         </div>
       );
@@ -402,22 +392,16 @@ export default function Main() {
           mode="admin"
           value={form.loanPrograms}
           setValue={(val) =>
-            setForm((p) => ({ ...p, loanPrograms: val }))
+            setForm((p) => ({
+              ...p,
+              loanPrograms: Array.isArray(val) ? val.slice(0, 1) : [],
+            }))
           }
           onProductsLoad={setProducts}
-        />
-      );
-    }
-
-    const equipmentStepIndex = isEquipmentSelected ? 2 : -1;
-
-    if (isEquipmentSelected && step === equipmentStepIndex) {
-      return (
-        <EquipmentFinancingStep
-          value={form.equipmentFinance}
-          setValue={(val: string[]) =>
-            setForm((p) => ({ ...p, equipmentFinance: val }))
-          }
+          pickOneMode
+          configuredSelectable
+          onPickProduct={handlePickProduct}
+          description="Select one loan program to continue."
         />
       );
     }
@@ -425,7 +409,9 @@ export default function Main() {
     if (step === loanCriteriaStepIndex) {
       return (
         <StepFive
+          key={`criteria-${form.loanPrograms.join("-")}`}
           authMode="admin"
+          mode="create"
           products={selectedProducts}
           value={form.loanCriteria}
           setValue={(val: Record<string, any>) =>
@@ -439,6 +425,10 @@ export default function Main() {
           businessTypes={form.businessTypes}
           setBusinessTypes={(val: Record<string, string[]>) =>
             setForm((p) => ({ ...p, businessTypes: val }))
+          }
+          equipmentTypes={form.equipmentFinance}
+          setEquipmentTypes={(val: string[]) =>
+            setForm((p) => ({ ...p, equipmentFinance: val }))
           }
         />
       );
@@ -474,37 +464,52 @@ export default function Main() {
       (hasStep5Errors || step5ValidationMessage !== null));
 
   return (
-    <div className="h-screen flex flex-col bg-gray-50">
-      <div className="sticky top-0 z-30">
-        <div className="max-w-6xl mx-auto px-6 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-3">
+    <div className="mx-auto max-w-6xl space-y-4 bg-transparent pb-4">
+      <div className="sticky top-16 z-40 rounded-xl border border-slate-200 bg-white/95 px-6 py-4 shadow-sm backdrop-blur lg:top-[4.75rem]">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3">
             <button
+              type="button"
               onClick={() => navigate("/all-lenders-Organization")}
-              className="flex items-center justify-center w-9 h-9 rounded-full border hover:bg-gray-100 transition"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border transition hover:bg-gray-100"
             >
               <ArrowLeft size={18} />
             </button>
-            <div>
-              <h1 className="text-lg font-semibold leading-tight">
-                {steps[step]}
-              </h1>
-              <p className="text-xs text-gray-500">
-                Step {step + 1} of {steps.length}
-              </p>
+            <div className="min-w-0">
+              {selectedProducts[0]?.name && step > 0 ? (
+                <>
+                  <h1 className="truncate text-lg font-semibold leading-tight">
+                    {selectedProducts[0].name}
+                  </h1>
+                  <p className="truncate text-xs text-gray-500">
+                    {steps[step]} · Step {step + 1} of {steps.length}
+                    {form.organizationName
+                      ? ` · ${form.organizationName}`
+                      : ""}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <h1 className="text-lg font-semibold leading-tight">
+                    {steps[step]}
+                  </h1>
+                  <p className="text-xs text-gray-500">
+                    Step {step + 1} of {steps.length}
+                  </p>
+                </>
+              )}
             </div>
           </div>
         </div>
 
-        <div className="max-w-6xl mx-auto px-6">
-          <div className="w-full h-[3px] bg-gray-100 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-black transition-all duration-300"
-              style={{ width: `${((step + 1) / steps.length) * 100}%` }}
-            />
-          </div>
+        <div className="mt-4 h-[3px] w-full overflow-hidden rounded-full bg-gray-100">
+          <div
+            className="h-full bg-[#102B40] transition-all duration-300"
+            style={{ width: `${((step + 1) / steps.length) * 100}%` }}
+          />
         </div>
 
-        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center gap-3 flex-wrap">
+        <div className="mt-4 flex flex-wrap items-center gap-3">
           {steps.map((label, i) => {
             const isActive = step === i;
             const isCompleted = step > i;
@@ -512,21 +517,20 @@ export default function Main() {
             return (
               <div key={label} className="flex items-center gap-2">
                 <div
-                  className={`flex items-center gap-1 px-4 py-1.5 rounded-full text-xs font-medium transition-all duration-200
-                    ${
-                      isActive
-                        ? "bg-black text-white shadow"
-                        : isCompleted
-                          ? "bg-green-500 text-white"
-                          : "bg-gray-100 text-gray-400"
-                    }`}
+                  className={`flex items-center gap-1 rounded-full px-4 py-1.5 text-xs font-medium transition-all duration-200 ${
+                    isActive
+                      ? "bg-[#102B40] text-white shadow"
+                      : isCompleted
+                        ? "bg-green-500 text-white"
+                        : "bg-gray-100 text-gray-400"
+                  }`}
                 >
                   {isCompleted ? "✓" : i + 1}
                   <span className="ml-1">{label}</span>
                 </div>
                 {i < steps.length - 1 && (
                   <div
-                    className={`w-6 h-[2px] transition-all ${
+                    className={`h-[2px] w-6 transition-all ${
                       step > i ? "bg-green-400" : "bg-gray-300"
                     }`}
                   />
@@ -537,35 +541,39 @@ export default function Main() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
-        <div className="max-w-6xl mx-auto p-6">{getStepContent()}</div>
+      <div className="rounded-xl border border-slate-200 bg-white p-6">
+        {getStepContent()}
       </div>
 
-      <div className="sticky bottom-0 z-30 bg-white/80 backdrop-blur border-t shadow-[0_-2px_10px_rgba(0,0,0,0.04)]">
-        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+      <div className="rounded-xl border border-slate-200 bg-white px-6 py-4">
+        <div className="flex items-center justify-between gap-3">
           <div className="text-xs text-gray-500">
             Step <span className="font-semibold text-gray-700">{step + 1}</span>{" "}
             of{" "}
             <span className="font-semibold text-gray-700">{steps.length}</span>
             {isLastStep && step5ValidationMessage && (
-              <p className="mt-1 text-red-600">{step5ValidationMessage}</p>
+              <p className="mt-1 max-w-xl text-sm text-red-600">
+                {step5ValidationMessage}
+              </p>
             )}
           </div>
 
           <div className="flex items-center gap-3">
             <button
+              type="button"
               disabled={step === 0 || submitting}
               onClick={() => setStep((p) => p - 1)}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm border border-gray-300 bg-white hover:bg-gray-50 transition disabled:opacity-40"
+              className="flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm transition hover:bg-gray-50 disabled:opacity-40"
             >
               <ChevronLeft size={16} />
               Previous
             </button>
 
             <button
+              type="button"
               onClick={handleNext}
               disabled={nextDisabled}
-              className="flex items-center gap-2 px-6 py-2 rounded-lg text-sm font-medium bg-gradient-to-r from-black to-gray-800 text-white shadow hover:scale-[1.03] active:scale-[0.98] transition disabled:opacity-40"
+              className="flex items-center gap-2 rounded-lg bg-[#102B40] px-6 py-2 text-sm font-medium text-white shadow transition hover:bg-[#163a54] disabled:opacity-40"
             >
               {isLastStep
                 ? submitting

@@ -25,6 +25,7 @@ import {
   mapApiProductToCriteriaForm,
   type CriteriaField,
 } from "./loanProductCriteriaFields";
+import { resolveLenderOfferedProductCode } from "./canonicalLoanProducts";
 
 type ProductLike = {
   loanProductCode?: string | null;
@@ -59,10 +60,12 @@ const usesYearTerms = (productCode: string) =>
   isUsdaBiProduct(productCode);
 
 export const resolveProductCode = (product: ProductLike) =>
-  product.loanProductCode ||
-  product.loanProduct?.code ||
-  product.code ||
-  "";
+  resolveLenderOfferedProductCode(
+    product.loanProductCode ||
+      product.loanProduct?.code ||
+      product.code ||
+      "",
+  );
 
 export const formatLoanProductName = (product: ProductLike) => {
   const name =
@@ -274,8 +277,10 @@ export const formatListKeyCriteria = (
 };
 
 export type LoanProductDetailRow = {
+  key: string;
   label: string;
   value: string;
+  fieldType: CriteriaField["type"] | "number";
   fullWidth?: boolean;
 };
 
@@ -322,6 +327,18 @@ const formatDetailFieldValue = (
     if (raw === true) return "Yes";
     if (raw === false) return "No";
     return DETAIL_EMPTY;
+  }
+
+  if (fieldType === "choice") {
+    const text =
+      typeof raw === "string"
+        ? raw.trim()
+        : raw == null
+          ? ""
+          : String(raw).trim();
+    if (!text) return DETAIL_EMPTY;
+    const option = field.options?.find((entry) => entry.value === text);
+    return option?.label || text;
   }
 
   if (fieldType === "textarea" || fieldType === "text") {
@@ -382,8 +399,10 @@ export const buildLoanProductDetailFields = (
   });
 
   return getCriteriaFieldsForProduct(productCode).map((field) => ({
+    key: field.key,
     label: field.label,
     value: formatDetailFieldValue(field, criteria, formatAmount),
-    fullWidth: field.type === "textarea",
+    fieldType: field.type || "number",
+    fullWidth: field.type === "textarea" || field.type === "text",
   }));
 };

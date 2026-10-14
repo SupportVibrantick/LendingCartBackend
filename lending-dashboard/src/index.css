@@ -190,6 +190,14 @@ layer(base);
   }
 }
 
+/* Dashboard shell: one scrollbar only (main content pane). */
+html.dashboard-scroll-lock,
+html.dashboard-scroll-lock body,
+html.dashboard-scroll-lock #root {
+  height: 100%;
+  overflow: hidden;
+}
+
 @utility sidebar-scrollbar {
   &::-webkit-scrollbar {
     width: 6px;

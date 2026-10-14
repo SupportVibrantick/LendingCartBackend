@@ -229,6 +229,13 @@ export default function EditFullProfile() {
   const hydrateFromExisting = (
     lenderProducts: ExistingLenderProduct[],
     catalogProducts: Product[],
+    options?: {
+      preserveLoanPrograms?: string[];
+      preservePropertyTypes?: Record<string, string[]>;
+      preserveBusinessTypes?: Record<string, string[]>;
+      preserveEquipmentFinance?: string[];
+      preserveCriteriaByProgramId?: Record<string, any>;
+    },
   ) => {
     const activeProducts = lenderProducts.filter(
       (product) => product !== null,
@@ -244,14 +251,39 @@ export default function EditFullProfile() {
       mapApiProductToCriteriaForm,
     );
 
+    const preservePrograms = (options?.preserveLoanPrograms || []).filter(
+      (programId) =>
+        catalogProducts.some((product) => product.id === programId),
+    );
+
     // Keep criteria cache for configured products; user picks one program at a time.
+    // When refreshing after "Save Profile", preserve the in-progress program selection
+    // so Loan Criteria step does not go blank.
     setForm((previous) => ({
       ...previous,
-      loanPrograms: [],
-      propertyTypes: {},
-      businessTypes: {},
-      loanCriteria,
-      equipmentFinance: [],
+      loanPrograms: preservePrograms,
+      propertyTypes: preservePrograms.length
+        ? options?.preservePropertyTypes || previous.propertyTypes
+        : {},
+      businessTypes: preservePrograms.length
+        ? options?.preserveBusinessTypes || previous.businessTypes
+        : {},
+      loanCriteria: {
+        ...loanCriteria,
+        ...(preservePrograms.length
+          ? Object.fromEntries(
+              preservePrograms.map((programId) => [
+                programId,
+                options?.preserveCriteriaByProgramId?.[programId] ||
+                  previous.loanCriteria?.[programId] ||
+                  loanCriteria[programId],
+              ]),
+            )
+          : {}),
+      },
+      equipmentFinance: preservePrograms.length
+        ? options?.preserveEquipmentFinance || previous.equipmentFinance
+        : [],
     }));
   };
 
@@ -336,69 +368,78 @@ export default function EditFullProfile() {
       );
     });
 
-  const loadProfileData = useCallback(async () => {
-    const [profileRes, lenderProductsRes, catalogRes] = await Promise.all([
-      fetch(`${API_BASE}/lender/auth/me`, {
-        headers: getLenderAuthHeaders(),
-      }),
-      fetch(`${API_BASE}/lender/loan-products/list?limit=100`, {
-        headers: getLenderAuthHeaders(),
-      }),
-      fetch(`${API_BASE}/common/loan-products/loan-product-code`),
-    ]);
-
-    const profileJson = await profileRes.json();
-    const lenderProductsJson = await lenderProductsRes.json();
-    const catalogJson = await catalogRes.json();
-
-    if (!profileRes.ok || profileJson.ok !== true) {
-      throw new Error("Failed to load profile");
-    }
-
-    const { user, lenderProfile, organization } = profileJson.data;
-    const catalogProducts: Product[] = filterLenderCatalogProducts(
-      (catalogJson.data || []).map(
-        (item: { id: string; code: string; name: string }) => ({
-          id: String(item.id),
-          code: item.code,
-          name: item.name,
+  const loadProfileData = useCallback(
+    async (options?: {
+      preserveLoanPrograms?: string[];
+      preservePropertyTypes?: Record<string, string[]>;
+      preserveBusinessTypes?: Record<string, string[]>;
+      preserveEquipmentFinance?: string[];
+      preserveCriteriaByProgramId?: Record<string, any>;
+    }) => {
+      const [profileRes, lenderProductsRes, catalogRes] = await Promise.all([
+        fetch(`${API_BASE}/lender/auth/me`, {
+          headers: getLenderAuthHeaders(),
         }),
-      ),
-    );
+        fetch(`${API_BASE}/lender/loan-products/list?limit=100`, {
+          headers: getLenderAuthHeaders(),
+        }),
+        fetch(`${API_BASE}/common/loan-products/loan-product-code`),
+      ]);
 
-    setProducts(catalogProducts);
-    setCompany({
-      companyName: organization?.name || "",
-      lenderType: lenderProfile?.lenderType || "",
-      firstName: user.firstName || "",
-      lastName: user.lastName || "",
-      organizationEmail: organization?.email || user.email || "",
-      organizationPhone: formatUSPhone(organization?.phone || ""),
-      website: lenderProfile?.website || "",
-      nmls: lenderProfile?.nmls || "",
-      address: lenderProfile?.address || "",
-      city: lenderProfile?.city || "",
-      state: normalizeUSState(lenderProfile?.state || ""),
-      zip: formatUSZip(lenderProfile?.zip || ""),
-      summary: lenderProfile?.summary || "",
-      fundingSpeedDays: lenderProfile?.fundingSpeedDays
-        ? String(lenderProfile.fundingSpeedDays)
-        : "",
-    });
+      const profileJson = await profileRes.json();
+      const lenderProductsJson = await lenderProductsRes.json();
+      const catalogJson = await catalogRes.json();
 
-    const lenderProducts: ExistingLenderProduct[] =
-      lenderProductsRes.ok && lenderProductsJson.success
-        ? (lenderProductsJson.data || []).map((product: any) => ({
-            ...product,
-            loanProductId:
-              product.loanProductId || product.loanProduct?.id || null,
-            code: product.code || product.loanProduct?.code || null,
-          }))
-        : [];
+      if (!profileRes.ok || profileJson.ok !== true) {
+        throw new Error("Failed to load profile");
+      }
 
-    setExistingProducts(lenderProducts);
-    hydrateFromExisting(lenderProducts, catalogProducts);
-  }, []);
+      const { user, lenderProfile, organization } = profileJson.data;
+      const catalogProducts: Product[] = filterLenderCatalogProducts(
+        (catalogJson.data || []).map(
+          (item: { id: string; code: string; name: string }) => ({
+            id: String(item.id),
+            code: item.code,
+            name: item.name,
+          }),
+        ),
+      );
+
+      setProducts(catalogProducts);
+      setCompany({
+        companyName: organization?.name || "",
+        lenderType: lenderProfile?.lenderType || "",
+        firstName: user.firstName || "",
+        lastName: user.lastName || "",
+        organizationEmail: organization?.email || user.email || "",
+        organizationPhone: formatUSPhone(organization?.phone || ""),
+        website: lenderProfile?.website || "",
+        nmls: lenderProfile?.nmls || "",
+        address: lenderProfile?.address || "",
+        city: lenderProfile?.city || "",
+        state: normalizeUSState(lenderProfile?.state || ""),
+        zip: formatUSZip(lenderProfile?.zip || ""),
+        summary: lenderProfile?.summary || "",
+        fundingSpeedDays: lenderProfile?.fundingSpeedDays
+          ? String(lenderProfile.fundingSpeedDays)
+          : "",
+      });
+
+      const lenderProducts: ExistingLenderProduct[] =
+        lenderProductsRes.ok && lenderProductsJson.success
+          ? (lenderProductsJson.data || []).map((product: any) => ({
+              ...product,
+              loanProductId:
+                product.loanProductId || product.loanProduct?.id || null,
+              code: product.code || product.loanProduct?.code || null,
+            }))
+          : [];
+
+      setExistingProducts(lenderProducts);
+      hydrateFromExisting(lenderProducts, catalogProducts, options);
+    },
+    [],
+  );
 
   useEffect(() => {
     const load = async () => {
@@ -535,7 +576,22 @@ export default function EditFullProfile() {
         toast.success("Profile saved");
       }
 
-      await loadProfileData();
+      // Preserve in-progress loan-criteria selection so Save Profile does not
+      // drop the user onto an empty Step 3 (loanPrograms cleared by hydrate).
+      await loadProfileData({
+        preserveLoanPrograms: [...form.loanPrograms],
+        preservePropertyTypes: form.propertyTypes,
+        preserveBusinessTypes: form.businessTypes,
+        preserveEquipmentFinance: form.equipmentFinance,
+        preserveCriteriaByProgramId: form.loanPrograms.reduce<
+          Record<string, any>
+        >((acc, programId) => {
+          if (form.loanCriteria?.[programId]) {
+            acc[programId] = form.loanCriteria[programId];
+          }
+          return acc;
+        }, {}),
+      });
       return true;
     } catch (error: any) {
       toast.error(error.message || "Failed to save profile");
@@ -727,6 +783,27 @@ export default function EditFullProfile() {
     }
 
     if (step === loanCriteriaStepIndex) {
+      if (!selectedProducts.length) {
+        return (
+          <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-6 py-10 text-center">
+            <p className="text-sm font-medium text-slate-800">
+              No loan program selected
+            </p>
+            <p className="mt-1 text-xs text-slate-500">
+              Go back to Loan Programs and choose a program to configure
+              criteria.
+            </p>
+            <button
+              type="button"
+              onClick={() => setStep(1)}
+              className="mt-4 inline-flex items-center rounded-lg bg-[#102B40] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#163a54]"
+            >
+              Select loan program
+            </button>
+          </div>
+        );
+      }
+
       return (
         <StepFive
           mode="update"
@@ -791,16 +868,16 @@ export default function EditFullProfile() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50">
-        <Loader2 className="h-8 w-8 animate-spin text-[#183b57]" />
+      <div className="flex items-center justify-center py-24">
+        <Loader2 className="h-8 w-8 animate-spin text-[#102B40]" />
       </div>
     );
   }
 
   return (
-    <div className="flex h-screen flex-col bg-gray-50">
-      <div className="sticky top-0 z-30 bg-gray-50">
-        <div className="mx-auto flex max-w-screen-2xl items-center justify-between px-6 py-4">
+    <div className="space-y-4 bg-gray-50 pb-4">
+      <div className="sticky top-0 z-30 rounded-xl border border-slate-200 bg-white/95 px-6 py-4 shadow-sm backdrop-blur">
+        <div className="flex items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
             <button
               type="button"
@@ -851,16 +928,14 @@ export default function EditFullProfile() {
           </button>
         </div>
 
-        <div className="mx-auto max-w-screen-2xl px-6">
-          <div className="h-[3px] overflow-hidden rounded-full bg-gray-100">
-            <div
-              className="h-full bg-[#183b57] transition-all duration-300"
-              style={{ width: `${((step + 1) / steps.length) * 100}%` }}
-            />
-          </div>
+        <div className="mt-4 h-[3px] overflow-hidden rounded-full bg-gray-100">
+          <div
+            className="h-full bg-[#102B40] transition-all duration-300"
+            style={{ width: `${((step + 1) / steps.length) * 100}%` }}
+          />
         </div>
 
-        <div className="mx-auto flex max-w-screen-2xl flex-wrap items-center gap-3 px-6 py-4">
+        <div className="mt-4 flex flex-wrap items-center gap-3">
           {steps.map((label, index) => {
             const isActive = step === index;
             const isCompleted = step > index;
@@ -870,7 +945,7 @@ export default function EditFullProfile() {
                 <div
                   className={`flex items-center gap-1 rounded-full px-4 py-1.5 text-xs font-medium transition-all duration-200 ${
                     isActive
-                      ? "bg-[#183b57] text-white shadow"
+                      ? "bg-[#102B40] text-white shadow"
                       : isCompleted
                         ? "bg-emerald-500 text-white"
                         : "bg-gray-100 text-gray-400"
@@ -893,12 +968,12 @@ export default function EditFullProfile() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
-        <div className="mx-auto max-w-screen-2xl p-6">{getStepContent()}</div>
+      <div className="rounded-xl border border-slate-200 bg-white p-6">
+        {getStepContent()}
       </div>
 
-      <div className="sticky bottom-0 z-30 border-t bg-white/80 shadow-[0_-2px_10px_rgba(0,0,0,0.04)] backdrop-blur">
-        <div className="mx-auto flex max-w-screen-2xl items-center justify-between px-6 py-4">
+      <div className="rounded-xl border border-slate-200 bg-white px-6 py-4">
+        <div className="flex items-center justify-between gap-3">
           <div className="text-xs text-gray-500">
             Step <span className="font-semibold text-gray-700">{step + 1}</span>{" "}
             of{" "}
@@ -923,7 +998,7 @@ export default function EditFullProfile() {
               type="button"
               onClick={isLastStep ? handleSubmit : goNext}
               disabled={nextDisabled}
-              className="flex items-center gap-2 rounded-lg bg-[#183b57] px-6 py-2 text-sm font-medium text-white shadow transition hover:bg-[#264863] disabled:opacity-40"
+              className="flex items-center gap-2 rounded-lg bg-[#102B40] px-6 py-2 text-sm font-medium text-white shadow transition hover:bg-[#163a54] disabled:opacity-40"
             >
               {isLastStep
                 ? submitting

@@ -77,13 +77,17 @@ async function listLenderProductRoutes(fastify) {
                   id: true,
                   name: true,
                   email: true,
+                  phone: true,
                   status: true,
                 },
               },
               loanProduct: {
                 select: {
+                  id: true,
                   code: true,
                   name: true,
+                  isActive: true,
+                  description: true,
                 },
               },
               lenderDocumentRequirements: {

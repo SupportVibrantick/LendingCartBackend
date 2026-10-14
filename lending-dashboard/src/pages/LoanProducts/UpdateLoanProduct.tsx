@@ -731,14 +731,14 @@ export default function UpdateLoanProduct() {
   }, [form.loanPrograms, products, loadingExisting]);
 
   return (
-    <div className="h-[calc(100vh-80px)] flex flex-col bg-gray-50">
-      <div className="sticky top-0 z-30 bg-gray-50">
-        <div className="max-w-screen-2xl mx-auto px-6 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-3 min-w-0">
+    <div className="space-y-4 bg-gray-50 pb-4">
+      <div className="sticky top-0 z-30 rounded-xl border border-slate-200 bg-white/95 px-6 py-4 shadow-sm backdrop-blur">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3">
             <button
               type="button"
               onClick={() => navigate("/all-loan-products")}
-              className="flex items-center justify-center w-9 h-9 shrink-0 rounded-full border hover:bg-gray-100 transition"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border transition hover:bg-gray-100"
             >
               <ArrowLeft size={18} />
             </button>
@@ -746,12 +746,12 @@ export default function UpdateLoanProduct() {
             <div className="min-w-0">
               {selectedProducts.length > 0 ? (
                 <>
-                  <h1 className="text-lg font-semibold leading-tight truncate">
+                  <h1 className="truncate text-lg font-semibold leading-tight">
                     {selectedProducts.length === 1
                       ? selectedProducts[0].name
                       : `${selectedProducts[0].name} +${selectedProducts.length - 1} more`}
                   </h1>
-                  <p className="text-xs text-gray-500 truncate">
+                  <p className="truncate text-xs text-gray-500">
                     {steps[step]} · Step {step + 1} of {steps.length}
                   </p>
                 </>
@@ -769,16 +769,14 @@ export default function UpdateLoanProduct() {
           </div>
         </div>
 
-        <div className="max-w-screen-2xl mx-auto px-6">
-          <div className="w-full h-[3px] bg-gray-100 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-black transition-all duration-300"
-              style={{ width: `${((step + 1) / steps.length) * 100}%` }}
-            />
-          </div>
+        <div className="mt-4 h-[3px] w-full overflow-hidden rounded-full bg-gray-100">
+          <div
+            className="h-full bg-black transition-all duration-300"
+            style={{ width: `${((step + 1) / steps.length) * 100}%` }}
+          />
         </div>
 
-        <div className="max-w-screen-2xl mx-auto px-6 py-4 flex items-center gap-3 flex-wrap">
+        <div className="mt-4 flex flex-wrap items-center gap-3">
           {steps.map((label, index) => {
             const isActive = step === index;
             const isCompleted = step > index;
@@ -786,14 +784,13 @@ export default function UpdateLoanProduct() {
             return (
               <div key={label} className="flex items-center gap-2">
                 <div
-                  className={`flex items-center gap-1 px-4 py-1.5 rounded-full text-xs font-medium transition-all duration-200
-                    ${
-                      isActive
-                        ? "bg-black text-white shadow"
-                        : isCompleted
-                          ? "bg-green-500 text-white"
-                          : "bg-gray-100 text-gray-400"
-                    }`}
+                  className={`flex items-center gap-1 rounded-full px-4 py-1.5 text-xs font-medium transition-all duration-200 ${
+                    isActive
+                      ? "bg-black text-white shadow"
+                      : isCompleted
+                        ? "bg-green-500 text-white"
+                        : "bg-gray-100 text-gray-400"
+                  }`}
                 >
                   {isCompleted ? "✓" : index + 1}
                   <span className="ml-1">{label}</span>
@@ -801,7 +798,7 @@ export default function UpdateLoanProduct() {
 
                 {index < steps.length - 1 && (
                   <div
-                    className={`w-6 h-[2px] transition-all ${
+                    className={`h-[2px] w-6 transition-all ${
                       step > index ? "bg-green-400" : "bg-gray-300"
                     }`}
                   />
@@ -812,17 +809,19 @@ export default function UpdateLoanProduct() {
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 overflow-y-auto">
-        <div className="max-w-screen-2xl mx-auto p-6">{getStepContent()}</div>
+      <div className="rounded-xl border border-slate-200 bg-white p-6">
+        {getStepContent()}
       </div>
 
-      <div className="sticky bottom-0 z-30 bg-white/80 backdrop-blur border-t shadow-[0_-2px_10px_rgba(0,0,0,0.04)]">
-        <div className="max-w-screen-2xl mx-auto px-6 py-4 flex items-center justify-between">
+      <div className="rounded-xl border border-slate-200 bg-white px-6 py-4">
+        <div className="flex items-center justify-between gap-3">
           <div className="text-xs text-gray-500">
             Step <span className="font-semibold text-gray-700">{step + 1}</span>{" "}
             of{" "}
             <span className="font-semibold text-gray-700">{steps.length}</span>
-            {step === 0 && !isSingleProductUpdate && lockedProgramIds.length > 0 ? (
+            {step === 0 &&
+            !isSingleProductUpdate &&
+            lockedProgramIds.length > 0 ? (
               <span className="ml-2 text-emerald-600">
                 {lockedProgramIds.length} active
                 {newProgramIds.length > 0
@@ -841,7 +840,7 @@ export default function UpdateLoanProduct() {
             <button
               disabled={step === 0 || isSingleProductUpdate || submitting}
               onClick={() => setStep((prev) => prev - 1)}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm border border-gray-300 bg-white hover:bg-gray-50 transition disabled:opacity-40"
+              className="flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm transition hover:bg-gray-50 disabled:opacity-40"
             >
               <ChevronLeft size={16} />
               Previous
@@ -852,7 +851,7 @@ export default function UpdateLoanProduct() {
                 isLastStep ? handleSubmit : () => setStep((prev) => prev + 1)
               }
               disabled={nextDisabled}
-              className="flex items-center gap-2 px-6 py-2 rounded-lg text-sm font-medium bg-gradient-to-r from-black to-gray-800 text-white shadow hover:scale-[1.03] active:scale-[0.98] transition disabled:opacity-40"
+              className="flex items-center gap-2 rounded-lg bg-[#102B40] px-6 py-2 text-sm font-medium text-white shadow transition hover:bg-[#163a54] disabled:opacity-40"
             >
               {isLastStep
                 ? submitting

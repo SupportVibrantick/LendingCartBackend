@@ -425,13 +425,39 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
     });
   }, []);
 
-  // Full-screen route: ensure page scroll works even if a prior modal left body locked.
+  // Full-screen shell: one scrollbar only (main content pane). Lock html/body/#root.
   useEffect(() => {
-    const previousBodyOverflow = document.body.style.overflow;
-    document.body.style.overflow = "";
+    const html = document.documentElement;
+    const body = document.body;
+    const root = document.getElementById("root");
+
+    const previous = {
+      htmlOverflow: html.style.overflow,
+      htmlHeight: html.style.height,
+      bodyOverflow: body.style.overflow,
+      bodyHeight: body.style.height,
+      rootOverflow: root?.style.overflow ?? "",
+      rootHeight: root?.style.height ?? "",
+    };
+
+    html.style.overflow = "hidden";
+    html.style.height = "100%";
+    body.style.overflow = "hidden";
+    body.style.height = "100%";
+    if (root) {
+      root.style.overflow = "hidden";
+      root.style.height = "100%";
+    }
 
     return () => {
-      document.body.style.overflow = previousBodyOverflow;
+      html.style.overflow = previous.htmlOverflow;
+      html.style.height = previous.htmlHeight;
+      body.style.overflow = previous.bodyOverflow;
+      body.style.height = previous.bodyHeight;
+      if (root) {
+        root.style.overflow = previous.rootOverflow;
+        root.style.height = previous.rootHeight;
+      }
     };
   }, []);
   const actionMenuRef = useRef<HTMLDivElement | null>(null);
@@ -2503,7 +2529,7 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
             </div>
           ) : (
             <>
-              <div className="max-h-[min(520px,55vh)] overflow-auto">
+              <div className="overflow-x-auto">
                 <table className="w-full min-w-[720px] table-fixed text-sm">
                   <colgroup>
                     <col className="w-12" />
@@ -2512,7 +2538,7 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
                     <col className="w-[130px]" />
                     <col className="w-[200px]" />
                   </colgroup>
-                  <thead className="sticky top-0 z-10 border-b border-slate-200 bg-slate-50/95 backdrop-blur dark:border-slate-800 dark:bg-slate-900/95">
+                  <thead className="border-b border-slate-200 bg-slate-50/95 dark:border-slate-800 dark:bg-slate-900/95">
                     <tr className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                       <th className="px-4 py-2.5 text-left">
                         <span className="sr-only">Select</span>
@@ -4242,7 +4268,7 @@ dark:bg-red-900/20 dark:text-red-400"
 
   return (
     <>
-      <div className="flex h-dvh w-full overflow-hidden bg-[#F5F7FA] dark:bg-[#0b1120] dark:text-slate-100">
+      <div className="flex h-dvh max-h-dvh w-full overflow-hidden bg-[#F5F7FA] dark:bg-[#0b1120] dark:text-slate-100">
         <aside className="hidden h-full w-[248px] shrink-0 flex-col border-r border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950 lg:flex">
           <div className="shrink-0 border-b border-slate-100 px-4 py-4 dark:border-slate-800">
             <div className="flex items-center gap-3">

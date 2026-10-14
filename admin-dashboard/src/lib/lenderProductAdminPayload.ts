@@ -1,4 +1,7 @@
-import { buildLenderProductCriteriaPayload } from "./loanProductCriteriaFields";
+import {
+  buildLenderProductCriteriaPayload,
+  productUsesEquipmentTypes,
+} from "./loanProductCriteriaFields";
 
 type ProductRef = {
   id: string;
@@ -85,6 +88,21 @@ export function mergeGroupedSelections(
   }, {});
 }
 
+/**
+ * Convert API/DB grouped JSON into the array shape used by detail UIs.
+ * Accepts object maps, [{ type|name, subTypes }], or plain string lists.
+ */
+export function toGroupedTypeArray(
+  value: unknown,
+  keyField: GroupedKeyField,
+): Array<{ type?: string; name?: string; subTypes: string[] }> {
+  const map = normalizeGroupedSelectionFromApi(value, keyField);
+  return Object.entries(map).map(([key, subTypes]) => ({
+    [keyField]: key,
+    subTypes,
+  }));
+}
+
 export function mapToAdminProductPayload(
   product: ProductRef,
   form: LenderProductFormSlice,
@@ -113,7 +131,7 @@ export function mapToAdminProductPayload(
     documents: (criteria.documents || []).map((doc: any) => ({
       documentTypeId: doc.documentTypeId || doc.id,
     })),
-    ...(product.code === "EQUIPMENT_FINANCE" &&
+    ...(productUsesEquipmentTypes(product.code) &&
       form.equipmentFinance?.length && {
         equipmentTypes: form.equipmentFinance,
         otherEquipmentExplanation: "",

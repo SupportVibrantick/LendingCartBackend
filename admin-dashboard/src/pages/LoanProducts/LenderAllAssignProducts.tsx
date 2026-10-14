@@ -327,15 +327,28 @@ export default function LenderAllProductAssign() {
   useEffect(() => {
     async function loadData() {
       try {
-        const [lendersRes, productsRes] = await Promise.all([
-          api.get("/admin/lenders/read"),
-          api.get("/admin/loan-products/list"),
-        ]);
+        const productsRes = await api.get("/admin/loan-products/list");
 
-        // LENDERS → paginated
-        setLenders(lendersRes.data?.data?.results ?? []);
+        // LENDERS → API defaults to 20 / max 100; page through all.
+        const limit = 100;
+        let pageNum = 1;
+        let totalPages = 1;
+        const allLenders: Lender[] = [];
+        do {
+          const lendersRes = await api.get("/admin/lenders/read", {
+            params: { page: pageNum, limit },
+          });
+          const batch = (lendersRes.data?.data?.results ?? []) as Lender[];
+          allLenders.push(...batch);
+          totalPages = Math.max(
+            1,
+            Number(lendersRes.data?.data?.totalPages) || 1,
+          );
+          pageNum += 1;
+        } while (pageNum <= totalPages);
 
-        // PRODUCTS → direct array
+        setLenders(allLenders);
+
         setLoanProducts(
           filterLenderCatalogProducts(productsRes.data?.data ?? []),
         );
