@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import {
   Building2,
   Calendar,
+  ChevronDown,
   FileText,
   Loader2,
   Mail,
@@ -17,6 +18,7 @@ import {
   formatLoanProductName,
 } from "../../lib/loanProductListDisplay";
 import { resolveLenderOfferedProductCode } from "../../lib/canonicalLoanProducts";
+import { toGroupedTypeArray } from "../../lib/lenderProductAdminPayload";
 
 type LenderSummary = {
   id: string;
@@ -154,8 +156,8 @@ function mapProductRow(raw: Record<string, unknown>): AssignedProductDetail {
     createdAt: raw.createdAt as string | undefined,
     criteriaNotes: raw.criteriaNotes as string | null,
     statesSupported: normalizeArray(raw.statesSupported),
-    businessTypes: Array.isArray(raw.businessTypes) ? raw.businessTypes : [],
-    propertyTypes: Array.isArray(raw.propertyTypes) ? raw.propertyTypes : [],
+    businessTypes: toGroupedTypeArray(raw.businessTypes, "name"),
+    propertyTypes: toGroupedTypeArray(raw.propertyTypes, "type"),
     equipmentTypes: normalizeArray(raw.equipmentTypes),
     documents: mapDocuments(raw.documents ?? raw.lenderDocumentRequirements),
   };
@@ -165,19 +167,32 @@ function FieldCard({
   label,
   value,
   fullWidth,
+  fieldType,
 }: {
   label: string;
   value: unknown;
   fullWidth?: boolean;
+  fieldType?: string;
 }) {
   const display =
     value === null || value === undefined || value === "" ? "—" : String(value);
+  const isYes = fieldType === "toggle" && display === "Yes";
+  const isNo = fieldType === "toggle" && display === "No";
+
   return (
     <div className={`space-y-1 ${fullWidth ? "sm:col-span-2 lg:col-span-3" : ""}`}>
       <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
         {label}
       </p>
-      <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-800 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 whitespace-pre-wrap">
+      <div
+        className={`rounded-lg border px-3 py-2 text-xs whitespace-pre-wrap ${
+          isYes
+            ? "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300"
+            : isNo
+              ? "border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+              : "border-slate-200 bg-slate-50 text-slate-800 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+        }`}
+      >
         {display}
       </div>
     </div>
@@ -225,7 +240,35 @@ function DetailRow({
   );
 }
 
-function AssignedProductCard({ product }: { product: AssignedProductDetail }) {
+function ProductSubSection({
+  title,
+  children,
+  count,
+}: {
+  title: string;
+  children: React.ReactNode;
+  count?: number;
+}) {
+  return (
+    <div className="border-t border-slate-100 px-4 py-4 dark:border-slate-700">
+      <p className="mb-3 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+        {title}
+        {typeof count === "number" ? ` (${count})` : ""}
+      </p>
+      {children}
+    </div>
+  );
+}
+
+function AssignedProductCard({
+  product,
+  expanded,
+  onToggle,
+}: {
+  product: AssignedProductDetail;
+  expanded: boolean;
+  onToggle: () => void;
+}) {
   const programName = formatLoanProductName(product);
   const programCode = formatLoanProductCode(product);
   const criteriaFields = buildLoanProductDetailFields(
@@ -233,21 +276,56 @@ function AssignedProductCard({ product }: { product: AssignedProductDetail }) {
     formatCurrencyAmount,
   );
 
+  const states = product.statesSupported || [];
+  const businessTypes = product.businessTypes || [];
+  const propertyTypes = product.propertyTypes || [];
+  const equipmentTypes = product.equipmentTypes || [];
+  const documents = product.documents || [];
+
   return (
-    <div className="rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800/30">
-      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 px-4 py-3 dark:border-slate-700">
-        <div className="min-w-0">
-          <p className="font-semibold text-slate-900 dark:text-white">
-            {programName !== "-" ? programName : programCode}
-          </p>
-          <p className="mt-0.5 text-[11px] uppercase tracking-wide text-slate-500">
-            {programCode}
-          </p>
-          {product.loanProduct?.description ? (
-            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-              {product.loanProduct.description}
+    <article className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800/30">
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={expanded}
+        className="flex w-full items-start justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/60"
+      >
+        <div className="flex min-w-0 items-start gap-3">
+          <ChevronDown
+            size={18}
+            className={`mt-0.5 shrink-0 text-slate-400 transition-transform duration-200 ${
+              expanded ? "rotate-180" : ""
+            }`}
+          />
+          <div className="min-w-0">
+            <p className="font-semibold text-slate-900 dark:text-white">
+              {programName !== "-" ? programName : programCode}
             </p>
-          ) : null}
+            <p className="mt-0.5 text-[11px] uppercase tracking-wide text-slate-500">
+              {programCode}
+            </p>
+            {!expanded ? (
+              <p className="mt-1 text-[11px] text-slate-400">
+                {[
+                  `${criteriaFields.length} criteria`,
+                  states.length ? `${states.length} states` : null,
+                  propertyTypes.length
+                    ? `${propertyTypes.length} property types`
+                    : null,
+                  businessTypes.length
+                    ? `${businessTypes.length} business types`
+                    : null,
+                  documents.length ? `${documents.length} docs` : null,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </p>
+            ) : product.loanProduct?.description ? (
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                {product.loanProduct.description}
+              </p>
+            ) : null}
+          </div>
         </div>
         <div className="flex shrink-0 flex-col items-end gap-2">
           <span
@@ -265,137 +343,168 @@ function AssignedProductCard({ product }: { product: AssignedProductDetail }) {
             </span>
           ) : null}
         </div>
-      </div>
+      </button>
 
-      <div className="grid grid-cols-1 gap-4 p-4 sm:grid-cols-2 lg:grid-cols-3">
-        {criteriaFields.map((field, index) => (
-          <FieldCard
-            key={`${field.label}-${index}`}
-            label={field.label}
-            value={field.value}
-            fullWidth={field.fullWidth}
-          />
-        ))}
-      </div>
-
-      {product.statesSupported?.length ? (
-        <div className="border-t border-slate-100 px-4 py-3 dark:border-slate-700">
-          <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-            States Supported ({product.statesSupported.length})
-          </p>
-          <div className="flex flex-wrap gap-1.5">
-            {product.statesSupported.map((state) => (
-              <span
-                key={state}
-                className="rounded bg-slate-100 px-2 py-0.5 text-[10px] text-slate-700 dark:bg-slate-700 dark:text-slate-200"
-              >
-                {state}
-              </span>
-            ))}
-          </div>
-        </div>
-      ) : null}
-
-      {product.businessTypes?.length ? (
-        <div className="border-t border-slate-100 px-4 py-3 dark:border-slate-700">
-          <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-            Business Types
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {product.businessTypes.map((item, idx) => (
-              <div
-                key={`${item.name}-${idx}`}
-                className="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-xs dark:border-blue-500/20 dark:bg-blue-500/10"
-              >
-                <span className="font-medium text-blue-700 dark:text-blue-300">
-                  {item.name}
-                </span>
-                {item.subTypes?.length ? (
-                  <span className="ml-1 text-slate-500">
-                    ({item.subTypes.join(", ")})
-                  </span>
-                ) : null}
+      {expanded ? (
+        <div className="border-t border-slate-100 dark:border-slate-700">
+          <ProductSubSection
+            title="Loan Criteria"
+            count={criteriaFields.length}
+          >
+            {criteriaFields.length ? (
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {criteriaFields.map((field) => (
+                  <FieldCard
+                    key={field.key}
+                    label={field.label}
+                    value={field.value}
+                    fieldType={field.fieldType}
+                    fullWidth={field.fullWidth}
+                  />
+                ))}
               </div>
-            ))}
-          </div>
-        </div>
-      ) : null}
+            ) : (
+              <p className="text-xs text-slate-500">
+                No loan criteria configured for this program.
+              </p>
+            )}
+          </ProductSubSection>
 
-      {product.propertyTypes?.length ? (
-        <div className="border-t border-slate-100 px-4 py-3 dark:border-slate-700">
-          <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-            Property Types
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {product.propertyTypes.map((item, idx) => (
-              <div
-                key={`${item.type}-${idx}`}
-                className="rounded-lg border border-green-100 bg-green-50 px-3 py-2 text-xs dark:border-green-500/20 dark:bg-green-500/10"
-              >
-                <span className="font-medium text-green-700 dark:text-green-300">
-                  {item.type}
-                </span>
-                {item.subTypes?.length ? (
-                  <span className="ml-1 text-slate-500">
-                    ({item.subTypes.join(", ")})
+          <ProductSubSection title="States Supported" count={states.length}>
+            {states.length ? (
+              <div className="flex flex-wrap gap-1.5">
+                {states.map((state) => (
+                  <span
+                    key={state}
+                    className="rounded bg-slate-100 px-2 py-0.5 text-[10px] text-slate-700 dark:bg-slate-700 dark:text-slate-200"
+                  >
+                    {state}
                   </span>
-                ) : null}
+                ))}
               </div>
-            ))}
-          </div>
-        </div>
-      ) : null}
+            ) : (
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                No states configured for this program.
+              </p>
+            )}
+          </ProductSubSection>
 
-      {product.equipmentTypes?.length ? (
-        <div className="border-t border-slate-100 px-4 py-3 dark:border-slate-700">
-          <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-            Equipment Types
-          </p>
-          <div className="flex flex-wrap gap-1.5">
-            {product.equipmentTypes.map((type) => (
-              <span
-                key={type}
-                className="rounded-full bg-purple-100 px-2.5 py-0.5 text-[10px] text-purple-700 dark:bg-purple-500/15 dark:text-purple-300"
-              >
-                {type}
-              </span>
-            ))}
-          </div>
-        </div>
-      ) : null}
+          <ProductSubSection
+            title="Business Types"
+            count={businessTypes.length}
+          >
+            {businessTypes.length ? (
+              <div className="flex flex-wrap gap-2">
+                {businessTypes.map((item, idx) => (
+                  <div
+                    key={`${item.name}-${idx}`}
+                    className="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-xs dark:border-blue-500/20 dark:bg-blue-500/10"
+                  >
+                    <span className="font-medium text-blue-700 dark:text-blue-300">
+                      {item.name}
+                    </span>
+                    {item.subTypes?.length ? (
+                      <span className="ml-1 text-slate-500">
+                        ({item.subTypes.join(", ")})
+                      </span>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                No business types configured.
+              </p>
+            )}
+          </ProductSubSection>
 
-      <div className="border-t border-slate-100 px-4 py-3 dark:border-slate-700">
-        <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-          Documents ({product.documents?.length || 0})
-        </p>
-        {product.documents?.length ? (
-          <div className="flex flex-wrap gap-2">
-            {product.documents.map((doc) => (
-              <span
-                key={doc.documentTypeId || doc.id}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-amber-100 bg-amber-50 px-3 py-1.5 text-xs text-amber-900 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-200"
-              >
-                <FileText size={12} className="shrink-0 opacity-70" />
-                <span>
-                  {doc.documentName || doc.name || doc.documentCode || "Document"}
-                </span>
-                {doc.isRequired === false ? (
-                  <span className="text-[10px] text-slate-500">(optional)</span>
-                ) : (
-                  <span className="text-[10px] text-amber-700/80 dark:text-amber-300/80">
-                    (required)
+          <ProductSubSection
+            title="Property Types"
+            count={propertyTypes.length}
+          >
+            {propertyTypes.length ? (
+              <div className="flex flex-wrap gap-2">
+                {propertyTypes.map((item, idx) => (
+                  <div
+                    key={`${item.type}-${idx}`}
+                    className="rounded-lg border border-green-100 bg-green-50 px-3 py-2 text-xs dark:border-green-500/20 dark:bg-green-500/10"
+                  >
+                    <span className="font-medium text-green-700 dark:text-green-300">
+                      {item.type}
+                    </span>
+                    {item.subTypes?.length ? (
+                      <span className="ml-1 text-slate-500">
+                        ({item.subTypes.join(", ")})
+                      </span>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                No property types configured.
+              </p>
+            )}
+          </ProductSubSection>
+
+          <ProductSubSection
+            title="Equipment Types"
+            count={equipmentTypes.length}
+          >
+            {equipmentTypes.length ? (
+              <div className="flex flex-wrap gap-1.5">
+                {equipmentTypes.map((type) => (
+                  <span
+                    key={type}
+                    className="rounded-full bg-purple-100 px-2.5 py-0.5 text-[10px] text-purple-700 dark:bg-purple-500/15 dark:text-purple-300"
+                  >
+                    {type}
                   </span>
-                )}
-              </span>
-            ))}
-          </div>
-        ) : (
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            No documents configured for this program.
-          </p>
-        )}
-      </div>
-    </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                No equipment types configured.
+              </p>
+            )}
+          </ProductSubSection>
+
+          <ProductSubSection title="Documents" count={documents.length}>
+            {documents.length ? (
+              <div className="flex flex-wrap gap-2">
+                {documents.map((doc) => (
+                  <span
+                    key={doc.documentTypeId || doc.id}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-amber-100 bg-amber-50 px-3 py-1.5 text-xs text-amber-900 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-200"
+                  >
+                    <FileText size={12} className="shrink-0 opacity-70" />
+                    <span>
+                      {doc.documentName ||
+                        doc.name ||
+                        doc.documentCode ||
+                        "Document"}
+                    </span>
+                    {doc.isRequired === false ? (
+                      <span className="text-[10px] text-slate-500">
+                        (optional)
+                      </span>
+                    ) : (
+                      <span className="text-[10px] text-amber-700/80 dark:text-amber-300/80">
+                        (required)
+                      </span>
+                    )}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                No documents configured for this program.
+              </p>
+            )}
+          </ProductSubSection>
+        </div>
+      ) : null}
+    </article>
   );
 }
 
@@ -407,16 +516,21 @@ export default function LenderDetailsModal({
   const [loading, setLoading] = useState(false);
   const [detail, setDetail] = useState<LenderSummary | null>(lender);
   const [assignedProducts, setAssignedProducts] = useState<AssignedProductDetail[]>([]);
+  const [expandedProductIds, setExpandedProductIds] = useState<Set<string>>(
+    () => new Set(),
+  );
 
   useEffect(() => {
     if (!lender) {
       setDetail(null);
       setAssignedProducts([]);
+      setExpandedProductIds(new Set());
       return;
     }
 
     const currentLender = lender;
     setDetail(currentLender);
+    setExpandedProductIds(new Set());
 
     let cancelled = false;
 
@@ -624,9 +738,41 @@ export default function LenderDetailsModal({
                   No loan products assigned to this lender yet.
                 </div>
               ) : (
-                <div className="space-y-4">
+                <div className="space-y-3">
+                  <div className="flex flex-wrap items-center justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setExpandedProductIds(
+                          new Set(assignedProducts.map((p) => p.id)),
+                        )
+                      }
+                      className="rounded-lg border border-slate-200 px-2.5 py-1 text-[11px] font-medium text-slate-600 transition hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
+                    >
+                      Expand all
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setExpandedProductIds(new Set())}
+                      className="rounded-lg border border-slate-200 px-2.5 py-1 text-[11px] font-medium text-slate-600 transition hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
+                    >
+                      Collapse all
+                    </button>
+                  </div>
                   {assignedProducts.map((product) => (
-                    <AssignedProductCard key={product.id} product={product} />
+                    <AssignedProductCard
+                      key={product.id}
+                      product={product}
+                      expanded={expandedProductIds.has(product.id)}
+                      onToggle={() =>
+                        setExpandedProductIds((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(product.id)) next.delete(product.id);
+                          else next.add(product.id);
+                          return next;
+                        })
+                      }
+                    />
                   ))}
                 </div>
               )}

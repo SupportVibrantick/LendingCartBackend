@@ -450,7 +450,7 @@ function EligibilityPicker({
               return (
                 <div
                   key={item.name}
-                  className="flex flex-nowrap items-center gap-2 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:thin]"
+                  className="flex flex-nowrap items-center gap-2 overflow-x-auto overflow-y-hidden pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none]"
                 >
                   <Chip
                     label={item.name}

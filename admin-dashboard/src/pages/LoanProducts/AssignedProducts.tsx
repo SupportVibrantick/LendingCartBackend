@@ -1,9 +1,20 @@
 import React, { useCallback, useEffect, useState } from "react";
 import axios from "axios";
 import { createPortal } from "react-dom";
-import { Eye, FileText, Loader2, Plus, SearchX } from "lucide-react";
+import {
+  ArrowLeft,
+  Building2,
+  Eye,
+  FileText,
+  Loader2,
+  Mail,
+  Package,
+  Phone,
+  Plus,
+  SearchX,
+  X,
+} from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
 import {
   buildLoanProductDetailFields,
   formatListKeyCriteria,
@@ -12,6 +23,7 @@ import {
   formatLoanProductName,
 } from "../../lib/loanProductListDisplay";
 import { resolveLenderOfferedProductCode } from "../../lib/canonicalLoanProducts";
+import { toGroupedTypeArray } from "../../lib/lenderProductAdminPayload";
 import { useDebouncedValue } from "../../hooks/useDebouncedValue";
 
 /* ================= API ================= */
@@ -238,8 +250,8 @@ const AssignedProducts: React.FC = () => {
       firstTimeBorrowersAllowed: a.firstTimeBorrowersAllowed as boolean | undefined,
       criteriaNotes: a.criteriaNotes as string | undefined,
 
-      businessTypes: Array.isArray(a.businessTypes) ? a.businessTypes : [],
-      propertyTypes: Array.isArray(a.propertyTypes) ? a.propertyTypes : [],
+      businessTypes: toGroupedTypeArray(a.businessTypes, "name"),
+      propertyTypes: toGroupedTypeArray(a.propertyTypes, "type"),
       equipmentTypes: normalizeArray(a.equipmentTypes),
       statesSupported: normalizeArray(a.statesSupported),
       documents: mapDocuments(a.documents ?? a.lenderDocumentRequirements),
@@ -253,8 +265,8 @@ const AssignedProducts: React.FC = () => {
       (row.loanProduct as { code?: string } | undefined)?.code ||
         String(row.loanProductCode || ""),
     ),
-    businessTypes: Array.isArray(row.businessTypes) ? row.businessTypes : [],
-    propertyTypes: Array.isArray(row.propertyTypes) ? row.propertyTypes : [],
+    businessTypes: toGroupedTypeArray(row.businessTypes, "name"),
+    propertyTypes: toGroupedTypeArray(row.propertyTypes, "type"),
     statesSupported: normalizeArray(row.statesSupported),
     equipmentTypes: normalizeArray(row.equipmentTypes),
     documents: mapDocuments(row.documents ?? row.lenderDocumentRequirements),
@@ -262,12 +274,23 @@ const AssignedProducts: React.FC = () => {
 
   const fetchLenders = useCallback(async () => {
     try {
-      const res = await api.get("/admin/lenders/read", {
-        params: { page: 1, limit: 100 },
-      });
-      const list = res.data?.data?.results || [];
+      const limit = 100;
+      let pageNum = 1;
+      let totalPages = 1;
+      const list: { id?: string; organizationName?: string }[] = [];
+
+      do {
+        const res = await api.get("/admin/lenders/read", {
+          params: { page: pageNum, limit },
+        });
+        const batch = res.data?.data?.results || [];
+        list.push(...batch);
+        totalPages = Math.max(1, Number(res.data?.data?.totalPages) || 1);
+        pageNum += 1;
+      } while (pageNum <= totalPages);
+
       const options: LenderOption[] = list
-        .map((o: { id?: string; organizationName?: string }) => ({
+        .map((o) => ({
           id: String(o.id || ""),
           name: String(o.organizationName || "").trim(),
         }))
@@ -348,12 +371,53 @@ const AssignedProducts: React.FC = () => {
     if (currentPage > totalPages) setCurrentPage(totalPages);
   }, [currentPage, totalPages]);
 
-  const openAssignmentDetail = (assignment: AssignedProduct) => {
+  const openAssignmentDetail = async (assignment: AssignedProduct) => {
     setViewId(assignment.id);
     setDetailLoading(true);
     setDetail(null);
+
     try {
-      setDetail(buildDetailFromRow(assignment.raw || {}));
+      let row: Record<string, unknown> = { ...(assignment.raw || {}) };
+
+      if (assignment.lenderOrgId) {
+        try {
+          const [productsRes, lenderRes] = await Promise.all([
+            api.get(`/admin/lender-products/lender/${assignment.lenderOrgId}`),
+            api.get("/admin/lenders/read", {
+              params: { search: assignment.lenderOrgId, page: 1, limit: 1 },
+            }),
+          ]);
+
+          const match = (productsRes.data?.data || []).find(
+            (item: { id?: string }) => String(item.id) === assignment.id,
+          );
+          if (match && typeof match === "object") {
+            row = {
+              ...row,
+              ...match,
+              lender: (row.lender as object) || undefined,
+            };
+          }
+
+          const lender = lenderRes.data?.data?.results?.[0];
+          if (lender) {
+            row = {
+              ...row,
+              lender: {
+                id: lender.id,
+                name: lender.organizationName,
+                email: lender.organizationEmail,
+                phone: lender.organizationPhone,
+                status: lender.organizationStatus,
+              },
+            };
+          }
+        } catch (enrichErr) {
+          console.error("Failed to enrich assignment detail", enrichErr);
+        }
+      }
+
+      setDetail(buildDetailFromRow(row));
     } finally {
       setDetailLoading(false);
     }
@@ -649,266 +713,58 @@ const AssignedProducts: React.FC = () => {
 
       {viewId &&
         createPortal(
-          <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/50 px-4 backdrop-blur-sm dark:bg-black/70">
+          <div
+            className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/50 px-4 backdrop-blur-sm dark:bg-black/70"
+            onClick={() => {
+              setViewId(null);
+              setDetail(null);
+            }}
+          >
             <div
-              className="relative flex max-h-[90vh] w-full max-w-5xl flex-col rounded-xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900"
+              className="relative flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white px-6 py-4 dark:border-slate-700 dark:bg-slate-900">
-                <div>
+              <div className="flex items-start justify-between gap-3 border-b border-slate-200 bg-white px-6 py-4 dark:border-slate-700 dark:bg-slate-900">
+                <div className="min-w-0">
                   <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
                     Assignment Details
                   </h3>
-                  {detail && (
-                    <p className="text-xs text-slate-500 dark:text-slate-400">
-                      {(detail.lender as { name?: string })?.name} ·{" "}
-                      {productCodeLabel(
-                        String(detail.loanProductCode || "") ||
-                          (detail.loanProduct as { code?: string })?.code,
-                      )}
+                  {detail ? (
+                    <p className="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400">
+                      {(detail.lender as { name?: string })?.name || "Lender"} ·{" "}
+                      {formatLoanProductName(detail)}
                     </p>
-                  )}
+                  ) : null}
                 </div>
 
                 <button
+                  type="button"
                   onClick={() => {
                     setViewId(null);
                     setDetail(null);
                   }}
-                  className="text-xl text-slate-500 transition-colors hover:text-red-500 dark:text-slate-400 dark:hover:text-red-400"
+                  className="rounded-lg p-1.5 text-slate-500 transition hover:bg-slate-100 hover:text-slate-800 dark:hover:bg-slate-800 dark:hover:text-white"
+                  aria-label="Close"
                 >
-                  ✕
+                  <X size={18} />
                 </button>
               </div>
 
               <div className="overflow-y-auto px-6 py-5 text-sm">
                 {detailLoading ? (
-                  <div className="flex items-center justify-center py-10 text-blue-600 dark:text-blue-400">
-                    Loading details...
+                  <div className="flex flex-col items-center justify-center gap-3 py-16 text-[#13538A]">
+                    <Loader2 className="h-8 w-8 animate-spin" />
+                    <p className="text-sm text-slate-500">Loading details...</p>
                   </div>
                 ) : !detail ? (
-                  <div className="flex items-center justify-center py-10 text-amber-600 dark:text-amber-400">
+                  <div className="flex items-center justify-center py-16 text-amber-600 dark:text-amber-400">
                     No data found
                   </div>
                 ) : (
-                  <div className="space-y-8">
-                    <Section title="Basic Info">
-                      <FieldCard label="Active" value={detail.isActive ? "Yes" : "No"} />
-                      <FieldCard
-                        label="Created At"
-                        value={
-                          detail.createdAt
-                            ? new Date(String(detail.createdAt)).toLocaleString()
-                            : "-"
-                        }
-                      />
-                    </Section>
-
-                    <Section title="Lender Info">
-                      <FieldCard
-                        label="Name"
-                        value={(detail.lender as { name?: string })?.name}
-                      />
-                      <FieldCard
-                        label="Email"
-                        value={(detail.lender as { email?: string })?.email}
-                      />
-                      <FieldCard
-                        label="Phone"
-                        value={(detail.lender as { phone?: string })?.phone}
-                      />
-                      <FieldCard
-                        label="Status"
-                        value={(detail.lender as { status?: string })?.status}
-                      />
-                    </Section>
-
-                    <Section title="Loan Product">
-                      <FieldCard
-                        label="Program"
-                        value={productCodeLabel(
-                          String(detail.loanProductCode || "") ||
-                            (detail.loanProduct as { code?: string })?.code,
-                        )}
-                      />
-                      <FieldCard
-                        label="Name"
-                        value={formatLoanProductName(detail)}
-                      />
-                      <FieldCard
-                        label="Code"
-                        value={formatLoanProductCode(detail)}
-                      />
-                      <FieldCard
-                        label="Product Active"
-                        value={
-                          (detail.loanProduct as { isActive?: boolean })?.isActive
-                            ? "Yes"
-                            : "No"
-                        }
-                      />
-                    </Section>
-
-                    <Section title="Loan Criteria">
-                      {buildLoanProductDetailFields(
-                        detail,
-                        formatCurrencyAmount,
-                      ).map((field, index) => (
-                        <div
-                          key={`${field.label}-${index}`}
-                          className={field.fullWidth ? "md:col-span-2" : undefined}
-                        >
-                          <FieldCard label={field.label} value={field.value} />
-                        </div>
-                      ))}
-                    </Section>
-
-                    <TagSection title="Business Types">
-                      {Array.isArray(detail.businessTypes) &&
-                      detail.businessTypes.length ? (
-                        (
-                          detail.businessTypes as Array<{
-                            name?: string;
-                            subTypes?: string[];
-                          }>
-                        ).map((item, idx) => (
-                          <div
-                            key={idx}
-                            className="rounded-lg border border-blue-100 bg-blue-50 p-3 dark:border-blue-500/20 dark:bg-blue-500/10"
-                          >
-                            <div className="font-medium text-blue-700 dark:text-blue-300">
-                              {item.name}
-                            </div>
-                            {item.subTypes?.length ? (
-                              <div className="mt-2 flex flex-wrap gap-2">
-                                {item.subTypes.map((sub) => (
-                                  <span
-                                    key={sub}
-                                    className="rounded-full bg-white px-2 py-1 text-xs dark:bg-slate-800"
-                                  >
-                                    {sub}
-                                  </span>
-                                ))}
-                              </div>
-                            ) : null}
-                          </div>
-                        ))
-                      ) : (
-                        <span className="text-slate-500">-</span>
-                      )}
-                    </TagSection>
-
-                    <TagSection title="Property Types">
-                      {Array.isArray(detail.propertyTypes) &&
-                      detail.propertyTypes.length ? (
-                        (
-                          detail.propertyTypes as Array<{
-                            type?: string;
-                            subTypes?: string[];
-                          }>
-                        ).map((item, idx) => (
-                          <div
-                            key={idx}
-                            className="rounded-lg border border-green-100 bg-green-50 p-3 dark:border-green-500/20 dark:bg-green-500/10"
-                          >
-                            <div className="font-medium text-green-700 dark:text-green-300">
-                              {item.type}
-                            </div>
-                            {item.subTypes?.length ? (
-                              <div className="mt-2 flex flex-wrap gap-2">
-                                {item.subTypes.map((sub) => (
-                                  <span
-                                    key={sub}
-                                    className="rounded-full bg-white px-2 py-1 text-xs dark:bg-slate-800"
-                                  >
-                                    {sub}
-                                  </span>
-                                ))}
-                              </div>
-                            ) : null}
-                          </div>
-                        ))
-                      ) : (
-                        <span className="text-slate-500">-</span>
-                      )}
-                    </TagSection>
-
-                    <TagSection title="Equipment Types">
-                      {normalizeArray(detail.equipmentTypes).length ? (
-                        normalizeArray(detail.equipmentTypes).map((e) => (
-                          <span
-                            key={e}
-                            className="rounded-full bg-purple-100 px-3 py-1 text-xs text-purple-700 dark:bg-purple-500/15 dark:text-purple-400"
-                          >
-                            {e}
-                          </span>
-                        ))
-                      ) : (
-                        <span className="text-slate-500 dark:text-slate-400">-</span>
-                      )}
-                    </TagSection>
-
-                    <div>
-                      <h4 className="mb-3 font-semibold text-slate-900 dark:text-white">
-                        States Supported
-                      </h4>
-                      <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
-                        {normalizeArray(detail.statesSupported).length ? (
-                          normalizeArray(detail.statesSupported).map((s) => (
-                            <div
-                              key={s}
-                              className="rounded bg-slate-100 px-2 py-1 text-center text-xs text-slate-700 dark:bg-slate-800 dark:text-slate-300"
-                            >
-                              {s}
-                            </div>
-                          ))
-                        ) : (
-                          <span className="text-slate-500 dark:text-slate-400">-</span>
-                        )}
-                      </div>
-                    </div>
-
-                    <div>
-                      <h4 className="mb-3 font-semibold text-slate-900 dark:text-white">
-                        Documents (
-                        {Array.isArray(detail.documents)
-                          ? detail.documents.length
-                          : 0}
-                        )
-                      </h4>
-                      {Array.isArray(detail.documents) &&
-                      detail.documents.length ? (
-                        <div className="flex flex-wrap gap-2">
-                          {(detail.documents as ProductDocument[]).map((doc) => (
-                            <span
-                              key={doc.documentTypeId || doc.id}
-                              className="inline-flex items-center gap-1.5 rounded-lg border border-amber-100 bg-amber-50 px-3 py-1.5 text-xs text-amber-900 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-200"
-                            >
-                              <FileText size={12} className="shrink-0 opacity-70" />
-                              <span>
-                                {doc.documentName ||
-                                  doc.documentCode ||
-                                  "Document"}
-                              </span>
-                              {doc.isRequired === false ? (
-                                <span className="text-[10px] text-slate-500">
-                                  (optional)
-                                </span>
-                              ) : (
-                                <span className="text-[10px] text-amber-700/80 dark:text-amber-300/80">
-                                  (required)
-                                </span>
-                              )}
-                            </span>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="text-xs text-slate-500 dark:text-slate-400">
-                          No documents configured for this assignment.
-                        </p>
-                      )}
-                    </div>
-                  </div>
+                  <AssignmentDetailBody
+                    detail={detail}
+                    formatCurrencyAmount={formatCurrencyAmount}
+                  />
                 )}
               </div>
             </div>
@@ -919,43 +775,384 @@ const AssignedProducts: React.FC = () => {
   );
 };
 
-const FieldCard = ({ label, value }: { label: string; value: unknown }) => (
-  <div className="space-y-1">
-    <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-      {label}
-    </div>
-    <div className="w-full cursor-not-allowed rounded-lg border border-slate-200 bg-slate-100 px-4 py-2.5 text-xs text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
-      {value === null || value === undefined || value === "" ? "-" : String(value)}
-    </div>
-  </div>
-);
+function AssignmentDetailBody({
+  detail,
+  formatCurrencyAmount,
+}: {
+  detail: Record<string, unknown>;
+  formatCurrencyAmount: (amount?: number | null) => string;
+}) {
+  const lender = (detail.lender || {}) as {
+    name?: string;
+    email?: string;
+    phone?: string;
+    status?: string;
+  };
+  const loanProduct = (detail.loanProduct || {}) as {
+    name?: string;
+    code?: string;
+    isActive?: boolean;
+    description?: string;
+  };
+  const criteriaFields = buildLoanProductDetailFields(
+    detail,
+    formatCurrencyAmount,
+  );
+  const businessTypes = Array.isArray(detail.businessTypes)
+    ? (detail.businessTypes as Array<{ name?: string; subTypes?: string[] }>)
+    : [];
+  const propertyTypes = Array.isArray(detail.propertyTypes)
+    ? (detail.propertyTypes as Array<{ type?: string; subTypes?: string[] }>)
+    : [];
+  const equipmentTypes = normalizeArray(detail.equipmentTypes);
+  const states = normalizeArray(detail.statesSupported);
+  const documents = Array.isArray(detail.documents)
+    ? (detail.documents as ProductDocument[])
+    : [];
+  const keyCriteria = formatListKeyCriteria(detail, formatCurrencyAmount);
+  const tenure = formatListTenure(detail);
+  const loanRange = formatLoanRange(
+    detail.minLoanAmount as string | number | null | undefined,
+    detail.maxLoanAmount as string | number | null | undefined,
+  );
 
-const Section = ({
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center gap-2">
+        <span
+          className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase ${
+            detail.isActive
+              ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300"
+              : "bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-300"
+          }`}
+        >
+          {detail.isActive ? "Active Assignment" : "Inactive Assignment"}
+        </span>
+        <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[10px] font-semibold uppercase text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+          {formatLoanProductCode(detail)}
+        </span>
+        {detail.createdAt ? (
+          <span className="text-[11px] text-slate-400">
+            Assigned {new Date(String(detail.createdAt)).toLocaleString()}
+          </span>
+        ) : null}
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <SummaryStat label="Loan amount" value={loanRange} />
+        <SummaryStat label="Term" value={tenure} />
+        <SummaryStat
+          label="States"
+          value={
+            states.length >= 50
+              ? "Nationwide"
+              : states.length
+                ? `${states.length}`
+                : "—"
+          }
+        />
+        <SummaryStat
+          label="Documents"
+          value={documents.length ? String(documents.length) : "—"}
+        />
+      </div>
+
+      {keyCriteria && keyCriteria !== "-" ? (
+        <div className="rounded-xl border border-[#13538A]/15 bg-[#13538A]/5 px-4 py-3">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-[#13538A]">
+            Key criteria
+          </p>
+          <p className="mt-1 text-sm text-slate-700 dark:text-slate-200">
+            {keyCriteria}
+          </p>
+        </div>
+      ) : null}
+
+      <DetailSection title="Lender">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <InfoRow
+            icon={<Building2 size={14} />}
+            label="Name"
+            value={lender.name}
+          />
+          <InfoRow
+            icon={<Mail size={14} />}
+            label="Email"
+            value={lender.email}
+          />
+          <InfoRow
+            icon={<Phone size={14} />}
+            label="Phone"
+            value={lender.phone}
+          />
+          <InfoRow
+            icon={<Package size={14} />}
+            label="Status"
+            value={lender.status}
+          />
+        </div>
+      </DetailSection>
+
+      <DetailSection title="Loan product">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <InfoRow
+            icon={<Package size={14} />}
+            label="Program"
+            value={formatLoanProductName(detail)}
+          />
+          <InfoRow label="Code" value={formatLoanProductCode(detail)} />
+          <InfoRow
+            label="Catalog name"
+            value={loanProduct.name || formatLoanProductName(detail)}
+          />
+          <InfoRow
+            label="Catalog active"
+            value={
+              loanProduct.isActive === true
+                ? "Yes"
+                : loanProduct.isActive === false
+                  ? "No"
+                  : "—"
+            }
+          />
+        </div>
+        {loanProduct.description ? (
+          <p className="mt-3 text-xs leading-relaxed text-slate-500">
+            {loanProduct.description}
+          </p>
+        ) : null}
+      </DetailSection>
+
+      <DetailSection
+        title="Loan criteria"
+        count={criteriaFields.length}
+      >
+        {criteriaFields.length ? (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {criteriaFields.map((field) => (
+              <CriteriaFieldCard
+                key={field.key}
+                label={field.label}
+                value={field.value}
+                fieldType={field.fieldType}
+                fullWidth={field.fullWidth}
+              />
+            ))}
+          </div>
+        ) : (
+          <p className="text-xs text-slate-500">
+            No loan criteria configured for this program.
+          </p>
+        )}
+      </DetailSection>
+
+      <DetailSection title="States supported" count={states.length}>
+        {states.length ? (
+          <div className="flex flex-wrap gap-1.5">
+            {states.map((state) => (
+              <span
+                key={state}
+                className="rounded bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-200"
+              >
+                {state}
+              </span>
+            ))}
+          </div>
+        ) : (
+          <p className="text-xs text-slate-500">No states configured.</p>
+        )}
+      </DetailSection>
+
+      <DetailSection title="Property types" count={propertyTypes.length}>
+        {propertyTypes.length ? (
+          <div className="flex flex-wrap gap-2">
+            {propertyTypes.map((item, idx) => (
+              <div
+                key={`${item.type}-${idx}`}
+                className="rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-2 text-xs dark:border-emerald-500/20 dark:bg-emerald-500/10"
+              >
+                <span className="font-medium text-emerald-700 dark:text-emerald-300">
+                  {item.type}
+                </span>
+                {item.subTypes?.length ? (
+                  <span className="ml-1 text-slate-500">
+                    ({item.subTypes.join(", ")})
+                  </span>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-xs text-slate-500">No property types configured.</p>
+        )}
+      </DetailSection>
+
+      <DetailSection title="Business types" count={businessTypes.length}>
+        {businessTypes.length ? (
+          <div className="flex flex-wrap gap-2">
+            {businessTypes.map((item, idx) => (
+              <div
+                key={`${item.name}-${idx}`}
+                className="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-xs dark:border-blue-500/20 dark:bg-blue-500/10"
+              >
+                <span className="font-medium text-blue-700 dark:text-blue-300">
+                  {item.name}
+                </span>
+                {item.subTypes?.length ? (
+                  <span className="ml-1 text-slate-500">
+                    ({item.subTypes.join(", ")})
+                  </span>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-xs text-slate-500">No business types configured.</p>
+        )}
+      </DetailSection>
+
+      <DetailSection title="Equipment types" count={equipmentTypes.length}>
+        {equipmentTypes.length ? (
+          <div className="flex flex-wrap gap-1.5">
+            {equipmentTypes.map((type) => (
+              <span
+                key={type}
+                className="rounded-full bg-violet-100 px-2.5 py-0.5 text-[10px] font-medium text-violet-700 dark:bg-violet-500/15 dark:text-violet-300"
+              >
+                {type}
+              </span>
+            ))}
+          </div>
+        ) : (
+          <p className="text-xs text-slate-500">No equipment types configured.</p>
+        )}
+      </DetailSection>
+
+      <DetailSection title="Upfront documents" count={documents.length}>
+        {documents.length ? (
+          <div className="flex flex-wrap gap-2">
+            {documents.map((doc) => (
+              <span
+                key={doc.documentTypeId || doc.id}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-amber-100 bg-amber-50 px-3 py-1.5 text-xs text-amber-900 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-200"
+              >
+                <FileText size={12} className="shrink-0 opacity-70" />
+                <span>
+                  {doc.documentName || doc.documentCode || "Document"}
+                </span>
+                <span className="text-[10px] opacity-70">
+                  {doc.isRequired === false ? "(optional)" : "(required)"}
+                </span>
+                {doc.isCustom ? (
+                  <span className="rounded bg-white/70 px-1 text-[9px] font-bold uppercase text-amber-700">
+                    Custom
+                  </span>
+                ) : null}
+              </span>
+            ))}
+          </div>
+        ) : (
+          <p className="text-xs text-slate-500">
+            No documents configured for this assignment.
+          </p>
+        )}
+      </DetailSection>
+    </div>
+  );
+}
+
+function SummaryStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 dark:border-slate-700 dark:bg-slate-800/50">
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+        {label}
+      </p>
+      <p className="mt-0.5 text-sm font-semibold text-slate-800 dark:text-slate-100">
+        {value || "—"}
+      </p>
+    </div>
+  );
+}
+
+function DetailSection({
   title,
+  count,
   children,
 }: {
   title: string;
+  count?: number;
   children: React.ReactNode;
-}) => (
-  <div className="space-y-4">
-    <h4 className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-900 dark:text-white">
-      {title}
-    </h4>
-    <div className="grid grid-cols-1 gap-6 md:grid-cols-2">{children}</div>
-  </div>
-);
+}) {
+  return (
+    <section className="space-y-3">
+      <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+        {title}
+        {typeof count === "number" ? ` (${count})` : ""}
+      </h4>
+      {children}
+    </section>
+  );
+}
 
-const TagSection = ({
-  title,
-  children,
+function InfoRow({
+  icon,
+  label,
+  value,
 }: {
-  title: string;
-  children: React.ReactNode;
-}) => (
-  <div>
-    <h4 className="mb-3 font-semibold text-slate-900 dark:text-white">{title}</h4>
-    <div className="flex flex-wrap gap-2">{children}</div>
-  </div>
-);
+  icon?: React.ReactNode;
+  label: string;
+  value?: string | null;
+}) {
+  return (
+    <div className="flex items-start gap-3 rounded-lg border border-slate-100 bg-slate-50/80 p-3 dark:border-slate-800 dark:bg-slate-800/40">
+      {icon ? <div className="mt-0.5 text-slate-400">{icon}</div> : null}
+      <div className="min-w-0 flex-1">
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+          {label}
+        </p>
+        <p className="mt-0.5 break-all text-sm text-slate-800 dark:text-slate-100">
+          {value?.trim() || "—"}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function CriteriaFieldCard({
+  label,
+  value,
+  fieldType,
+  fullWidth,
+}: {
+  label: string;
+  value: string;
+  fieldType?: string;
+  fullWidth?: boolean;
+}) {
+  const display = value?.trim() || "—";
+  const isYes = fieldType === "toggle" && display === "Yes";
+  const isNo = fieldType === "toggle" && display === "No";
+
+  return (
+    <div
+      className={`space-y-1 ${fullWidth ? "sm:col-span-2 lg:col-span-3" : ""}`}
+    >
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+        {label}
+      </p>
+      <div
+        className={`rounded-lg border px-3 py-2 text-xs whitespace-pre-wrap ${
+          isYes
+            ? "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300"
+            : isNo
+              ? "border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+              : "border-slate-200 bg-slate-50 text-slate-800 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+        }`}
+      >
+        {display}
+      </div>
+    </div>
+  );
+}
 
 export default AssignedProducts;

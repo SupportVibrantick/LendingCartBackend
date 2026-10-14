@@ -417,18 +417,7 @@ export default function LenderAllLendersPage() {
   }
 
   const openAdd = () => {
-    setForm({
-      organizationName: "",
-      organizationEmail: "",
-      organizationPhone: "",
-      adminFirstName: "",
-      adminLastName: "",
-      adminEmail: "",
-      adminPassword: "",
-      brokerOrgId: "",
-    });
-    setFormError(null);
-    setIsAddOpen(true);
+    navigate("/add-lender");
   };
 
   const handleDelete = async (lender: Lender) => {

@@ -1,11 +1,33 @@
 import { useEffect, useState } from "react";
-import { ChevronDown, Settings, FileText, CheckCircle2 } from "lucide-react";
+import {
+  CheckCircle2,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  FileText,
+  Plus,
+  Search,
+  Settings,
+  X,
+} from "lucide-react";
 import toast from "react-hot-toast";
 import {
   getCriteriaFieldsForProduct,
   getCriteriaFieldInputSuffix,
   isSba7aBusinessAcquisitionProduct,
   isSbaExpressProduct,
+  isEquipmentFinanceProduct,
+  isArFactoringProduct,
+  isApSupplyChainProduct,
+  isPurchaseOrderFinanceProduct,
+  isSba7aWorkingCapitalProduct,
+  isSba7aRealEstateProduct,
+  isSba7aEquipmentPurchaseProduct,
+  isSba504Product,
+  isUsdaBiProduct,
+  productUsesAcceptedPropertyTypes,
+  productUsesBusinessTypes,
+  productUsesEquipmentTypes,
   type CriteriaField,
 } from "../../../lib/loanProductCriteriaFields";
 import {
@@ -111,6 +133,7 @@ type ProductDocumentState = {
   documents: any[];
   pagination: DocumentPagination;
   loading: boolean;
+  sectionOpen: boolean;
 };
 
 type StepFiveProps = {
@@ -125,6 +148,8 @@ type StepFiveProps = {
   setPropertyTypes?: (next: Record<string, string[]>) => void;
   businessTypes?: Record<string, string[]>;
   setBusinessTypes?: (next: Record<string, string[]>) => void;
+  equipmentTypes?: string[];
+  setEquipmentTypes?: (next: string[]) => void;
 };
 
 const createDefaultDocumentState = (): ProductDocumentState => ({
@@ -141,6 +166,7 @@ const createDefaultDocumentState = (): ProductDocumentState => ({
     hasPreviousPage: false,
   },
   loading: false,
+  sectionOpen: false,
 });
 
 const normalizePagination = (
@@ -185,6 +211,8 @@ const StepFive = ({
   setPropertyTypes,
   businessTypes = {},
   setBusinessTypes,
+  equipmentTypes = [],
+  setEquipmentTypes,
 }: StepFiveProps) => {
   const getProductKey = (product: { id: string | number }) =>
     String(product.id);
@@ -1123,7 +1151,7 @@ const StepFive = ({
                   </div>
 
                   <div
-                    className={`border rounded-xl p-3 max-h-44 overflow-y-auto bg-white
+                    className={`border rounded-xl p-3 bg-white
   ${errors?.[getProductKey(product)]?.states ? "border-red-500" : "border-gray-300"}`}
                   >
                     <div className="grid grid-cols-4 gap-2">
@@ -1172,214 +1200,425 @@ const StepFive = ({
                     <ProgramEligibilitySection
                       propertyTypes={propertyTypes}
                       setPropertyTypes={setPropertyTypes}
+                      propertyTypesTitle={
+                        productUsesAcceptedPropertyTypes(product.code)
+                          ? "Property Types Accepted"
+                          : "Eligible Property Types"
+                      }
                       businessTypes={businessTypes}
                       setBusinessTypes={setBusinessTypes}
+                      businessTypesTitle={
+                        isEquipmentFinanceProduct(product.code) ||
+                        isArFactoringProduct(product.code) ||
+                        isApSupplyChainProduct(product.code) ||
+                        isPurchaseOrderFinanceProduct(product.code) ||
+                        isSba7aWorkingCapitalProduct(product.code) ||
+                        isSba7aRealEstateProduct(product.code) ||
+                        isSba7aEquipmentPurchaseProduct(product.code) ||
+                        isSba504Product(product.code) ||
+                        isUsdaBiProduct(product.code)
+                          ? "Industries Accepted"
+                          : "Eligible Business Types"
+                      }
+                      showBusinessTypes={productUsesBusinessTypes(
+                        product?.code,
+                      )}
+                      showPropertyTypes={productUsesAcceptedPropertyTypes(
+                        product?.code,
+                      )}
+                      showEquipmentTypes={productUsesEquipmentTypes(
+                        product?.code,
+                      )}
+                      equipmentTypes={equipmentTypes}
+                      setEquipmentTypes={setEquipmentTypes}
                     />
                   )}
 
-                <div className="mt-6">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      <FileText size={16} className="text-indigo-600" />
+                {(() => {
+                  const productKey = getProductKey(product);
+                  const selectedDocs =
+                    value?.[productKey]?.documents || [];
+                  const selectedCount = selectedDocs.length;
+                  const showingFrom =
+                    docState.pagination.total === 0
+                      ? 0
+                      : (docState.pagination.page - 1) * DOCUMENT_LIMIT + 1;
+                  const showingTo = Math.min(
+                    docState.pagination.page * DOCUMENT_LIMIT,
+                    docState.pagination.total,
+                  );
 
-                      <h3 className="text-sm font-semibold">
-                        Upfront Documents (optional)
-                      </h3>
-
-                      {!!value?.[getProductKey(product)]?.documents?.length && (
-                        <span className="text-xs bg-indigo-100 text-indigo-600 px-2 py-0.5 rounded-full">
-                          {
-                            value?.[getProductKey(product)]?.documents?.length
-                          }{" "}
-                          selected
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="flex gap-3 text-xs">
+                  return (
+                    <div
+                      className={`${
+                        typeof setPropertyTypes === "function" &&
+                        typeof setBusinessTypes === "function"
+                          ? "mt-2"
+                          : "mt-6"
+                      } space-y-3`}
+                    >
                       <button
                         type="button"
                         onClick={() =>
-                          selectAllDocuments(getProductKey(product))
+                          patchDocState(productKey, {
+                            sectionOpen: !docState.sectionOpen,
+                          })
                         }
-                        className="text-indigo-600 font-medium hover:underline"
+                        className="flex w-full items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-left transition hover:bg-slate-50"
                       >
-                        Select All
+                        <div className="flex min-w-0 items-center gap-2.5">
+                          <FileText
+                            size={15}
+                            className="shrink-0 text-[#13538A]"
+                          />
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="text-sm font-semibold text-slate-800">
+                                Upfront Documents
+                              </span>
+                              <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                                Optional
+                              </span>
+                              {selectedCount > 0 ? (
+                                <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[#13538A] px-1.5 text-[11px] font-bold text-white">
+                                  {selectedCount}
+                                </span>
+                              ) : null}
+                            </div>
+                            {!docState.sectionOpen ? (
+                              <p className="mt-0.5 text-xs text-slate-500">
+                                {selectedCount > 0
+                                  ? `${selectedCount} selected`
+                                  : "No documents selected"}
+                              </p>
+                            ) : null}
+                          </div>
+                        </div>
+                        <ChevronDown
+                          size={16}
+                          className={`shrink-0 text-slate-400 transition ${
+                            docState.sectionOpen ? "rotate-180" : ""
+                          }`}
+                        />
                       </button>
 
-                      <button
-                        type="button"
-                        onClick={() => clearDocuments(getProductKey(product))}
-                        className="text-red-500 font-medium hover:underline"
-                      >
-                        Clear All
-                      </button>
-                    </div>
-                  </div>
-                  <div className="mb-4">
-                    <input
-                      type="text"
-                      placeholder="Search documents..."
-                      value={docState.search}
-                      onChange={(e) =>
-                        patchDocState(getProductKey(product), {
-                          search: e.target.value,
-                        })
-                      }
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
-                    />
-                  </div>
-                  <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center">
-                    <input
-                      type="text"
-                      placeholder="Enter custom document name..."
-                      value={docState.customDocumentName}
-                      onChange={(e) =>
-                        patchDocState(getProductKey(product), {
-                          customDocumentName: e.target.value,
-                        })
-                      }
-                      className="h-12 flex-1 rounded-xl border border-slate-300 bg-white px-4 text-sm shadow-sm transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none"
-                    />
-
-                    <button
-                      type="button"
-                      onClick={() => addCustomDocument(getProductKey(product))}
-                      className="flex h-12 shrink-0 items-center justify-center rounded-xl bg-indigo-600 px-6 text-sm font-semibold text-white transition hover:bg-indigo-700 active:scale-[0.98] md:w-auto"
-                    >
-                      + Add Document
-                    </button>
-                  </div>
-                  {isOpen && docState.loading ? (
-                    <div className="flex items-center justify-center py-12 text-sm text-gray-500">
-                      Loading documents...
-                    </div>
-                  ) : docState.documents.length > 0 ? (
-                    <>
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                        {docState.documents.map((doc) => {
-                          const checked = value?.[
-                            getProductKey(product)
-                          ]?.documents?.some(
-                            (d: any) =>
-                              d.id === doc.id || d.documentTypeId === doc.id,
-                          );
-
-                          return (
-                            <label
-                              key={doc.id}
-                              className={`group relative flex items-start gap-3 rounded-2xl border px-4 py-3 cursor-pointer transition-all duration-200
-              ${
-                checked
-                  ? "border-indigo-500 bg-indigo-50 shadow-sm scale-[1.01]"
-                  : "border-gray-200 bg-white hover:border-indigo-300 hover:bg-gray-50"
-              }`}
-                            >
+                      {docState.sectionOpen ? (
+                        <>
+                          <div className="rounded-xl border border-slate-200 bg-white p-4">
+                            <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                              Custom document
+                            </label>
+                            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                               <input
-                                type="checkbox"
-                                checked={checked || false}
-                                onChange={() =>
-                                  toggleDocument(getProductKey(product), doc)
+                                type="text"
+                                placeholder="Enter custom document name..."
+                                value={docState.customDocumentName}
+                                onChange={(e) =>
+                                  patchDocState(productKey, {
+                                    customDocumentName: e.target.value,
+                                  })
                                 }
-                                className="mt-1 accent-indigo-600 cursor-pointer"
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") {
+                                    e.preventDefault();
+                                    addCustomDocument(productKey);
+                                  }
+                                }}
+                                className="h-11 flex-1 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-[#13538A] focus:ring-2 focus:ring-[#13538A]/20"
                               />
+                              <button
+                                type="button"
+                                onClick={() => addCustomDocument(productKey)}
+                                disabled={!docState.customDocumentName.trim()}
+                                className="inline-flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-[#13538A] px-4 text-sm font-semibold text-white transition hover:bg-[#0f4570] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
+                              >
+                                <Plus size={16} />
+                                Add Document
+                              </button>
+                            </div>
+                          </div>
 
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2">
-                                  <div
-                                    className={`w-2.5 h-2.5 rounded-full ${getColor(doc.name)}`}
-                                  />
-
-                                  <p className="text-sm font-medium text-gray-800 leading-tight">
-                                    {doc.name}
+                          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+                            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
+                              <div className="flex min-w-0 items-center gap-2">
+                                <FileText
+                                  size={15}
+                                  className="shrink-0 text-[#13538A]"
+                                />
+                                <div className="min-w-0">
+                                  <p className="text-sm font-semibold text-slate-800">
+                                    Available documents
+                                  </p>
+                                  <p className="text-xs text-slate-500">
+                                    {docState.pagination.total} document
+                                    {docState.pagination.total === 1
+                                      ? ""
+                                      : "s"}
+                                    {selectedCount > 0
+                                      ? ` · ${selectedCount} selected`
+                                      : ""}
                                   </p>
                                 </div>
                               </div>
 
-                              {checked && (
-                                <CheckCircle2
-                                  size={18}
-                                  className="text-indigo-600 shrink-0"
-                                />
-                              )}
-                            </label>
-                          );
-                        })}
-                      </div>
-
-                      {docState.pagination.total > 0 && (
-                        <div className="mt-6 flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
-                          <div className="text-sm text-gray-500">
-                            Showing{" "}
-                            <span className="font-semibold text-gray-700">
-                              {(docState.pagination.page - 1) * DOCUMENT_LIMIT +
-                                1}
-                            </span>
-                            {" - "}
-                            <span className="font-semibold text-gray-700">
-                              {Math.min(
-                                docState.pagination.page * DOCUMENT_LIMIT,
-                                docState.pagination.total,
-                              )}
-                            </span>{" "}
-                            of{" "}
-                            <span className="font-semibold text-gray-700">
-                              {docState.pagination.total}
-                            </span>{" "}
-                            documents
-                          </div>
-
-                          <div className="flex items-center gap-3">
-                            <button
-                              type="button"
-                              disabled={!docState.pagination.hasPreviousPage}
-                              onClick={() =>
-                                patchDocState(getProductKey(product), {
-                                  page: docState.page - 1,
-                                })
-                              }
-                              className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:border-indigo-500 hover:text-indigo-600 disabled:cursor-not-allowed disabled:opacity-50"
-                            >
-                              ← Previous
-                            </button>
-
-                            <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-2 text-sm font-medium text-gray-700">
-                              Page {docState.pagination.page} of{" "}
-                              {docState.pagination.totalPages}
+                              <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:flex-nowrap">
+                                <div className="relative min-w-[200px] flex-1 sm:w-64 sm:flex-none">
+                                  <Search
+                                    size={16}
+                                    className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                                  />
+                                  <input
+                                    type="search"
+                                    value={docState.search}
+                                    onChange={(e) =>
+                                      patchDocState(productKey, {
+                                        search: e.target.value,
+                                      })
+                                    }
+                                    placeholder="Search documents..."
+                                    className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-9 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-[#13538A] focus:ring-2 focus:ring-[#13538A]/20 [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden"
+                                  />
+                                  {docState.search.trim() ? (
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        patchDocState(productKey, {
+                                          search: "",
+                                          debouncedSearch: "",
+                                          page: 1,
+                                        })
+                                      }
+                                      className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+                                      aria-label="Clear search"
+                                    >
+                                      <X size={14} />
+                                    </button>
+                                  ) : null}
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    selectAllDocuments(productKey)
+                                  }
+                                  disabled={docState.loading}
+                                  className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                  Select All
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => clearDocuments(productKey)}
+                                  disabled={selectedCount === 0}
+                                  className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                  Clear
+                                </button>
+                              </div>
                             </div>
 
-                            <button
-                              type="button"
-                              disabled={!docState.pagination.hasNextPage}
-                              onClick={() =>
-                                patchDocState(getProductKey(product), {
-                                  page: docState.page + 1,
-                                })
-                              }
-                              className="rounded-lg border border-indigo-600 bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:border-gray-300 disabled:bg-gray-300"
-                            >
-                              Next →
-                            </button>
+                            {isOpen && docState.loading ? (
+                              <div className="flex flex-col items-center justify-center py-14">
+                                <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#13538A] border-t-transparent" />
+                                <p className="mt-3 text-sm text-slate-500">
+                                  Loading documents...
+                                </p>
+                              </div>
+                            ) : docState.documents.length === 0 ? (
+                              <div className="flex flex-col items-center justify-center px-4 py-14 text-center">
+                                <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-[#13538A]/10 text-[#13538A]">
+                                  <FileText size={22} />
+                                </div>
+                                <h3 className="text-base font-semibold text-slate-800">
+                                  No documents found
+                                </h3>
+                                <p className="mt-1 max-w-sm text-sm text-slate-500">
+                                  {docState.search.trim()
+                                    ? `No documents match “${docState.search.trim()}”.`
+                                    : "No documents configured for this loan product yet. Add a custom document above."}
+                                </p>
+                              </div>
+                            ) : (
+                              <>
+                                <div className="w-full overflow-x-auto">
+                                  <table className="w-full min-w-[560px] table-fixed text-sm">
+                                    <colgroup>
+                                      <col className="w-10 sm:w-12" />
+                                      <col />
+                                      <col className="w-[88px] sm:w-[110px]" />
+                                      <col className="w-[100px] sm:w-[130px]" />
+                                    </colgroup>
+                                    <thead className="border-b border-slate-200 bg-slate-50">
+                                      <tr className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                                        <th className="px-4 py-2.5 text-left">
+                                          <span className="sr-only">
+                                            Select
+                                          </span>
+                                        </th>
+                                        <th className="px-3 py-2.5 text-left">
+                                          Document
+                                        </th>
+                                        <th className="px-3 py-2.5 text-left">
+                                          Type
+                                        </th>
+                                        <th className="px-3 py-2.5 text-left">
+                                          Status
+                                        </th>
+                                      </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100">
+                                      {docState.documents.map(
+                                        (doc: any, rowIndex: number) => {
+                                          const checked = selectedDocs.some(
+                                            (d: any) =>
+                                              d.id === doc.id ||
+                                              d.documentTypeId === doc.id,
+                                          );
+
+                                          return (
+                                            <tr
+                                              key={doc.id}
+                                              onClick={() =>
+                                                toggleDocument(productKey, doc)
+                                              }
+                                              className={`cursor-pointer transition-colors ${
+                                                checked
+                                                  ? "bg-[#13538A]/8"
+                                                  : rowIndex % 2 === 1
+                                                    ? "bg-slate-50/40"
+                                                    : "bg-white"
+                                              } hover:bg-slate-50`}
+                                            >
+                                              <td className="px-4 py-3 align-middle">
+                                                <input
+                                                  type="checkbox"
+                                                  checked={checked || false}
+                                                  onChange={() =>
+                                                    toggleDocument(
+                                                      productKey,
+                                                      doc,
+                                                    )
+                                                  }
+                                                  onClick={(e) =>
+                                                    e.stopPropagation()
+                                                  }
+                                                  className="h-4 w-4 cursor-pointer accent-[#13538A]"
+                                                  aria-label={`Select ${doc.name}`}
+                                                />
+                                              </td>
+                                              <td className="px-3 py-3 align-middle">
+                                                <div className="flex min-w-0 items-center gap-2.5">
+                                                  <span
+                                                    className={`h-2 w-2 shrink-0 rounded-full ${getColor(doc.name)}`}
+                                                  />
+                                                  <p
+                                                    className="truncate font-semibold text-slate-800"
+                                                    title={doc.name}
+                                                  >
+                                                    {doc.name}
+                                                  </p>
+                                                  {checked ? (
+                                                    <CheckCircle2
+                                                      size={15}
+                                                      className="shrink-0 text-[#13538A]"
+                                                    />
+                                                  ) : null}
+                                                </div>
+                                              </td>
+                                              <td className="px-3 py-3 align-middle">
+                                                {doc.isCustom ? (
+                                                  <span className="inline-flex rounded-md bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-700">
+                                                    Custom
+                                                  </span>
+                                                ) : (
+                                                  <span className="text-[11px] font-medium text-slate-400">
+                                                    Standard
+                                                  </span>
+                                                )}
+                                              </td>
+                                              <td className="px-3 py-3 align-middle">
+                                                {checked ? (
+                                                  <span className="inline-flex rounded-md bg-[#13538A]/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#0f4570]">
+                                                    Selected
+                                                  </span>
+                                                ) : (
+                                                  <span className="inline-flex rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                                                    Available
+                                                  </span>
+                                                )}
+                                              </td>
+                                            </tr>
+                                          );
+                                        },
+                                      )}
+                                    </tbody>
+                                  </table>
+                                </div>
+
+                                {docState.pagination.total > 0 ? (
+                                  <div className="flex flex-col gap-3 border-t border-slate-200 bg-slate-50/80 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                                    <p className="text-sm text-slate-500">
+                                      Showing{" "}
+                                      <span className="font-semibold text-slate-700">
+                                        {showingFrom}
+                                      </span>
+                                      {" – "}
+                                      <span className="font-semibold text-slate-700">
+                                        {showingTo}
+                                      </span>{" "}
+                                      of{" "}
+                                      <span className="font-semibold text-slate-700">
+                                        {docState.pagination.total}
+                                      </span>
+                                    </p>
+
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <button
+                                        type="button"
+                                        disabled={
+                                          !docState.pagination.hasPreviousPage
+                                        }
+                                        onClick={() =>
+                                          patchDocState(productKey, {
+                                            page: docState.page - 1,
+                                          })
+                                        }
+                                        className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                                      >
+                                        <ChevronLeft size={16} />
+                                        Previous
+                                      </button>
+
+                                      <span className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700">
+                                        Page {docState.pagination.page} of{" "}
+                                        {docState.pagination.totalPages || 1}
+                                      </span>
+
+                                      <button
+                                        type="button"
+                                        disabled={
+                                          !docState.pagination.hasNextPage
+                                        }
+                                        onClick={() =>
+                                          patchDocState(productKey, {
+                                            page: docState.page + 1,
+                                          })
+                                        }
+                                        className="inline-flex items-center gap-1 rounded-lg bg-[#13538A] px-3 py-2 text-sm font-medium text-white transition hover:bg-[#0f4570] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
+                                      >
+                                        Next
+                                        <ChevronRight size={16} />
+                                      </button>
+                                    </div>
+                                  </div>
+                                ) : null}
+                              </>
+                            )}
                           </div>
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-gray-50 py-12">
-                      <FileText size={42} className="mb-3 text-gray-400" />
-
-                      <h3 className="text-base font-semibold text-gray-700">
-                        No documents found
-                      </h3>
-
-                      <p className="mt-1 text-sm text-gray-500 text-center">
-                        {docState.search.trim()
-                          ? `No documents found for "${docState.search}".`
-                          : "No documents configured for this loan product yet. Add a custom document or ask admin to assign document types."}
-                      </p>
+                        </>
+                      ) : null}
                     </div>
-                  )}
-                </div>
+                  );
+                })()}
               </div>
             )}
           </div>
