@@ -1,6 +1,9 @@
 const {
   createAndSendEmailVerification,
 } = require("../../../services/auth/emailVerification");
+const {
+  notifyLenderSignedUpToGhl,
+} = require("../../../services/ghl/notifyLenderLifecycleToGhl");
 
 /**
  * @param {import("fastify").FastifyInstance} fastify
@@ -53,9 +56,20 @@ async function lenderVerifyEmailRoutes(fastify) {
             select: {
               id: true,
               email: true,
+              firstName: true,
+              lastName: true,
+              phone: true,
               emailVerifiedAt: true,
               isDeleted: true,
               status: true,
+              organizationId: true,
+              organization: {
+                select: {
+                  id: true,
+                  name: true,
+                  type: true,
+                },
+              },
             },
           },
         },
@@ -120,6 +134,21 @@ async function lenderVerifyEmailRoutes(fastify) {
           data: { usedAt: new Date() },
         }),
       ]);
+
+      // Public lender partner signup: GHL "signed up" after email verify
+      if (record.user?.organization?.type === "LENDER") {
+        notifyLenderSignedUpToGhl(
+          {
+            email: record.user.email,
+            firstName: record.user.firstName,
+            lastName: record.user.lastName,
+            phone: record.user.phone,
+            company: record.user.organization.name,
+            lenderId: record.user.organization.id,
+          },
+          { logger: req.log },
+        );
+      }
 
       return reply.send({
         success: true,

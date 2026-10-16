@@ -21,6 +21,9 @@ const {
   isPublicSignupCaptchaRequired,
   getCaptchaSiteKey,
 } = require("../../../utils/security/recaptcha");
+const {
+  notifyLenderSignedUpToGhl,
+} = require("../../../services/ghl/notifyLenderLifecycleToGhl");
 
 function getOptionalAuthenticatedUser(req) {
   const authHeader = req.headers["authorization"] || "";
@@ -432,6 +435,22 @@ async function lenderRegisterRoutes(fastify) {
         });
       } catch (notifyErr) {
         req.log.error(notifyErr, "Lender register platform notification failed");
+      }
+
+      // Invite/claim: email already verified → notify GHL immediately.
+      // Public partner: wait until email verification (see verifyEmail route).
+      if (invite || adminUser.emailVerifiedAt) {
+        notifyLenderSignedUpToGhl(
+          {
+            email: adminUser.email,
+            firstName: adminUser.firstName,
+            lastName: adminUser.lastName,
+            phone: adminUser.phone,
+            company: lenderOrg.name,
+            lenderId: lenderOrg.id,
+          },
+          { logger: req.log },
+        );
       }
 
       // Hard gate: public signup must verify email before receiving a session token
