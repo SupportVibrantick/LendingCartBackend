@@ -1,21 +1,15 @@
 import { Link } from "react-router-dom";
 import { Home } from "lucide-react";
 
-const LEGAL_LINKS = [
-  { label: "Terms & Conditions", href: "#terms" },
-  { label: "Privacy Policy", href: "#privacy" },
-];
-
 const Footer = () => {
   const year = new Date().getFullYear();
 
   return (
     <footer id="contact" className="scroll-mt-24">
-      {/* Promo strip */}
-      <div className="border-t border-slate-200/80 bg-gradient-to-b from-slate-50 to-white px-4 py-4 text-center dark:border-white/10 dark:from-slate-950 dark:to-black">
-        <p className="mx-auto flex max-w-4xl flex-wrap items-center justify-center gap-x-2 gap-y-1 text-[12px] leading-relaxed text-slate-500 sm:text-[13px] dark:text-slate-400">
+      <div className="border-t border-slate-200/80 bg-gradient-to-b from-slate-50 to-white px-4 py-2.5 text-center dark:border-white/10 dark:from-slate-950 dark:to-black">
+        <p className="mx-auto flex max-w-4xl flex-wrap items-center justify-center gap-x-2 gap-y-0.5 text-[11px] leading-snug text-slate-500 sm:text-[12px] dark:text-slate-400">
           <Home
-            size={14}
+            size={12}
             className="shrink-0 text-amber-500 dark:text-amber-400"
             aria-hidden
           />
@@ -44,65 +38,58 @@ const Footer = () => {
         </p>
       </div>
 
-      {/* Dark brand footer */}
-      <div className="relative overflow-hidden bg-black px-6 py-12 text-center md:py-14">
-        <div
-          className="pointer-events-none absolute left-1/2 top-0 h-40 w-40 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#4B83FF]/20 blur-[80px]"
-          aria-hidden
-        />
-
-        <div className="relative mx-auto flex max-w-2xl flex-col items-center">
+      <div className="bg-gradient-to-b from-[#f4f6fb] via-[#f8f9fd] to-[#eef1f8] px-4 py-5 text-center sm:px-6 sm:py-6 dark:from-[#0b0f2a] dark:via-[#0b0f2a] dark:to-[#080b1c]">
+        <div className="mx-auto flex w-full max-w-[720px] flex-col items-center">
           <Link
             to="/"
-            className="group mb-8 inline-flex transition-transform hover:scale-[1.03]"
+            className="mb-3 inline-flex"
             aria-label="Loan Automation home"
           >
-            <span className="relative flex h-20 w-20 items-center justify-center sm:h-[88px] sm:w-[88px]">
-              <span
-                className="absolute inset-[-6px] rounded-full bg-[#4B83FF]/25 blur-md transition group-hover:bg-[#4B83FF]/40"
-                aria-hidden
-              />
-              <img
-                src="/loanAutomation.jpeg"
-                alt="Loan Automation"
-                className="relative h-full w-full rounded-full object-cover ring-2 ring-[#4B83FF]/70 shadow-[0_0_40px_rgba(75,131,255,0.45)]"
-              />
-            </span>
+            <img
+              src="/loanAutomation.jpeg"
+              alt="Loan Automation"
+              className="h-12 w-12 rounded-full object-cover shadow-[0_0_16px_rgba(34,211,238,0.3)] ring-2 ring-cyan-300/80 sm:h-14 sm:w-14 dark:ring-[#4B83FF]/70"
+            />
           </Link>
 
-          <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-[13px] text-slate-400">
-            <span>© {year}. CLM &amp; Loan Automation. All rights reserved.</span>
-            {LEGAL_LINKS.map((item) => (
-              <span key={item.href} className="inline-flex items-center gap-x-2">
-                <span className="text-slate-600" aria-hidden>
-                  |
-                </span>
-                <a
-                  href={item.href}
-                  className="underline-offset-2 transition hover:text-white hover:underline"
-                >
-                  {item.label}
-                </a>
-              </span>
-            ))}
-          </div>
-
-          <p className="mt-5 max-w-xl text-[13px] leading-relaxed text-slate-400 sm:text-sm">
-            LOAN AUTOMATION software is created for loan advisors and brokers to
-            accelerate the loan process and save time.
+          <p className="text-[11px] leading-snug text-[#6b7280] sm:text-[12px] dark:text-slate-400">
+            © {year}. CLM &amp; Loan Automation. All rights reserved.{" "}
+            <span className="text-[#9ca3af]" aria-hidden>
+              |
+            </span>{" "}
+            <a
+              href="#terms"
+              className="text-[#6b7280] transition hover:text-slate-800 dark:text-slate-400 dark:hover:text-white"
+            >
+              Terms &amp; Conditions
+            </a>{" "}
+            <span className="text-[#9ca3af]" aria-hidden>
+              |
+            </span>{" "}
+            <a
+              href="#privacy"
+              className="text-[#6b7280] transition hover:text-slate-800 dark:text-slate-400 dark:hover:text-white"
+            >
+              Privacy Policy
+            </a>
           </p>
 
-          <div className="mt-7 w-full max-w-xl rounded-xl border border-white/[0.06] bg-white/[0.03] px-5 py-4">
-            <p className="text-left text-[12px] leading-relaxed text-slate-500 sm:text-center sm:text-[13px]">
-              <span className="font-medium text-slate-400">Disclaimer:</span>{" "}
-              The success stories you see from our students are real—but
-              they&apos;re not guaranteed for everyone. Your results will depend
-              on your background, experience, work ethic, and how much effort you
-              put in. Commercial lending is a business that takes consistent
-              action, focus, and risk-taking. If you&apos;re not ready to commit
-              and put in the work, this business is not for you.
-            </p>
-          </div>
+          <p className="mt-1.5 text-[11px] leading-snug text-[#6b7280] sm:text-[12px] dark:text-slate-400">
+            LOAN AUTOMATION software is created for loan advisors and brokers to
+            accelerate the loan process and save time
+          </p>
+
+          <p className="mt-2 w-full text-[10px] leading-snug text-[#9ca3af] sm:text-[11px] dark:text-slate-500">
+            Disclaimer: The success stories you see from our students are
+            real—but they&apos;re not guaranteed for everyone. Your results may
+            vary depending on your experience, work ethic, and efforts.
+          </p>
+
+          <p className="mt-0.5 w-full text-[10px] leading-snug text-[#9ca3af] sm:text-[11px] dark:text-slate-500">
+            Commercial lending takes consistent action, focus, and risk-taking.
+            If you&apos;re not ready to commit and put in the work, this
+            business is not for you.
+          </p>
         </div>
       </div>
     </footer>
