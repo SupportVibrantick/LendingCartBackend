@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import {
+  BookOpen,
   ChevronDown,
   ExternalLink,
   LayoutDashboard,
@@ -15,11 +16,20 @@ import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import { getBrokerSignInUrl } from "../lib/brokerAuth";
 
+const USER_MANUAL_URL =
+  import.meta.env.VITE_USER_MANUAL_URL ||
+  "https://tusharjain30.github.io/LoanAutomation-User-Manual/LoanAutomation-User-Manual.html";
+
 const NAV_LINKS = [
   { name: "How it Works", link: "/#how-it-works", hash: "#how-it-works" },
   { name: "Features", link: "/#features", hash: "#features" },
   { name: "Pricing", link: "/#pricing", hash: "#pricing" },
   { name: "Compare", link: "/#plan-comparison", hash: "#plan-comparison" },
+  {
+    name: "User Guide",
+    link: USER_MANUAL_URL,
+    external: true,
+  },
 ];
 
 function getUserInitials(user) {
@@ -47,7 +57,7 @@ function ThemeToggle({ className = "" }) {
 
 function NavLink({ href, label, active, onClick, external = false }) {
   const isRoute = !external && href.startsWith("/") && !href.startsWith("/#");
-  const className = `group relative cursor-pointer px-1 py-2 text-sm font-medium transition-colors ${
+  const className = `group relative inline-flex cursor-pointer items-center gap-1 px-1 py-2 text-sm font-medium transition-colors ${
     active
       ? "text-slate-900 dark:text-white"
       : "text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
@@ -66,6 +76,27 @@ function NavLink({ href, label, active, onClick, external = false }) {
         {label}
         {underline}
       </Link>
+    );
+  }
+
+  if (external) {
+    return (
+      <a
+        href={href}
+        onClick={onClick}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={className}
+        aria-label={`${label} (opens in a new tab)`}
+      >
+        {label}
+        <ExternalLink
+          size={12}
+          className="opacity-50 transition group-hover:opacity-80"
+          aria-hidden
+        />
+        {underline}
+      </a>
     );
   }
 
@@ -315,16 +346,35 @@ const Navbar = () => {
                   ? "bg-slate-100 text-slate-900 dark:bg-white/10 dark:text-white"
                   : "text-slate-500 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-white"
               }`;
-              return isRoute ? (
-                <Link
-                  key={item.link}
-                  to={item.link}
-                  onClick={closeMobile}
-                  className={className}
-                >
-                  {item.name}
-                </Link>
-              ) : (
+              if (isRoute) {
+                return (
+                  <Link
+                    key={item.link}
+                    to={item.link}
+                    onClick={closeMobile}
+                    className={className}
+                  >
+                    {item.name}
+                  </Link>
+                );
+              }
+              if (item.external) {
+                return (
+                  <a
+                    key={item.link}
+                    href={item.link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={closeMobile}
+                    className={`${className} inline-flex items-center gap-2`}
+                  >
+                    <BookOpen size={16} className="shrink-0 opacity-70" aria-hidden />
+                    {item.name}
+                    <ExternalLink size={12} className="ml-auto opacity-50" aria-hidden />
+                  </a>
+                );
+              }
+              return (
                 <a
                   key={item.link}
                   href={item.link}
