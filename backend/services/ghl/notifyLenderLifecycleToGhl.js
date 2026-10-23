@@ -5,7 +5,10 @@ const { commonLogs } = require("../logger/contextLogger");
  * Outbound lifecycle events → GHL Inbound Webhook (CRM / outreach stop).
  * NOT payment/CLM billing webhooks (/api/webhooks/ghl).
  *
- * Env: GHL_LENDER_LIFECYCLE_WEBHOOK_URL
+ * Env:
+ *   GHL_LENDER_LIFECYCLE_WEBHOOK_URL — one URL, or comma-separated for multiple
+ *     workflows (e.g. live + copy). Each GHL copy gets a unique webhook URL.
+ *   GHL_LENDER_LIFECYCLE_WEBHOOK_URL_2 — optional extra URL (same payload).
  */
 
 const LENDER_LIFECYCLE_EVENTS = Object.freeze({
@@ -17,12 +20,75 @@ const LENDER_LIFECYCLE_EVENTS = Object.freeze({
   INACTIVE_14_DAYS: "inactive_14_days",
 });
 
+function splitWebhookUrls(raw) {
+  return String(raw || "")
+    .split(/[\s,]+/)
+    .map((u) => u.trim())
+    .filter(Boolean);
+}
+
+/**
+ * All configured lifecycle webhook URLs (deduped, order preserved).
+ */
+function getLenderLifecycleWebhookUrls() {
+  const primary = splitWebhookUrls(process.env.GHL_LENDER_LIFECYCLE_WEBHOOK_URL);
+  const secondary = splitWebhookUrls(process.env.GHL_LENDER_LIFECYCLE_WEBHOOK_URL_2);
+  const seen = new Set();
+  const urls = [];
+  for (const url of [...primary, ...secondary]) {
+    if (seen.has(url)) continue;
+    seen.add(url);
+    urls.push(url);
+  }
+  return urls;
+}
+
+/** First configured URL (backward compatible). */
 function getLenderLifecycleWebhookUrl() {
-  return String(process.env.GHL_LENDER_LIFECYCLE_WEBHOOK_URL || "").trim();
+  return getLenderLifecycleWebhookUrls()[0] || "";
 }
 
 function isLenderLifecycleWebhookConfigured() {
-  return Boolean(getLenderLifecycleWebhookUrl());
+  return getLenderLifecycleWebhookUrls().length > 0;
+}
+
+async function postLifecycleWebhook(url, payload, log) {
+  try {
+    const res = await axios.post(url, payload, {
+      timeout: 10000,
+      headers: { "Content-Type": "application/json" },
+      validateStatus: (s) => s >= 200 && s < 300,
+    });
+    log.info("GHL lender lifecycle webhook ok", {
+      event: payload.event,
+      email: payload.email,
+      status: res.status,
+      lenderId: payload.lender_id || undefined,
+      urlHost: (() => {
+        try {
+          return new URL(url).pathname.slice(-36);
+        } catch {
+          return "invalid-url";
+        }
+      })(),
+    });
+    return { ok: true, status: res.status, data: res.data, url };
+  } catch (err) {
+    log.warn("GHL lender lifecycle webhook failed", {
+      event: payload.event,
+      email: payload.email,
+      status: err.response?.status || null,
+      message: err.message,
+      data: err.response?.data ?? null,
+    });
+    return {
+      ok: false,
+      failed: true,
+      status: err.response?.status || null,
+      error: err.message,
+      url,
+    };
+  }
 }
 
 /**
@@ -41,13 +107,16 @@ function isLenderLifecycleWebhookConfigured() {
  */
 async function notifyLenderLifecycleToGhl(input = {}, { logger } = {}) {
   const log = logger || commonLogs;
-  const url = getLenderLifecycleWebhookUrl();
+  const urls = getLenderLifecycleWebhookUrls();
 
-  if (!url) {
-    log.info("GHL lender lifecycle webhook skipped — GHL_LENDER_LIFECYCLE_WEBHOOK_URL unset", {
-      event: input.event,
-      email: input.email,
-    });
+  if (!urls.length) {
+    log.info(
+      "GHL lender lifecycle webhook skipped — GHL_LENDER_LIFECYCLE_WEBHOOK_URL unset",
+      {
+        event: input.event,
+        email: input.email,
+      },
+    );
     return { skipped: true, reason: "WEBHOOK_URL_UNSET" };
   }
 
@@ -86,36 +155,21 @@ async function notifyLenderLifecycleToGhl(input = {}, { logger } = {}) {
     payload.last_login = String(input.lastLogin);
   }
 
-  try {
-    const res = await axios.post(url, payload, {
-      timeout: 10000,
-      headers: { "Content-Type": "application/json" },
-      validateStatus: (s) => s >= 200 && s < 300,
-    });
+  const results = await Promise.all(
+    urls.map((url) => postLifecycleWebhook(url, payload, log)),
+  );
 
-    log.info("GHL lender lifecycle webhook ok", {
-      event,
-      email,
-      status: res.status,
-      lenderId: payload.lender_id || undefined,
-    });
+  const anyOk = results.some((r) => r.ok);
+  const anyFailed = results.some((r) => r.failed);
 
-    return { skipped: false, status: res.status, data: res.data };
-  } catch (err) {
-    log.warn("GHL lender lifecycle webhook failed", {
-      event,
-      email,
-      status: err.response?.status || null,
-      message: err.message,
-      data: err.response?.data ?? null,
-    });
-    return {
-      skipped: false,
-      failed: true,
-      status: err.response?.status || null,
-      error: err.message,
-    };
-  }
+  return {
+    skipped: false,
+    urlCount: urls.length,
+    results,
+    status: anyOk ? 200 : results[0]?.status || null,
+    failed: anyFailed && !anyOk,
+    partialFailure: anyOk && anyFailed,
+  };
 }
 
 /**
@@ -140,6 +194,7 @@ function notifyLenderSignedUpToGhl(input, opts) {
 module.exports = {
   LENDER_LIFECYCLE_EVENTS,
   getLenderLifecycleWebhookUrl,
+  getLenderLifecycleWebhookUrls,
   isLenderLifecycleWebhookConfigured,
   notifyLenderLifecycleToGhl,
   notifyLenderSignedUpToGhl,
