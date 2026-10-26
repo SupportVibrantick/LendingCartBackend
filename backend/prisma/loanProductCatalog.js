@@ -12,24 +12,28 @@ const LOAN_PRODUCTS = [
     name: "DSCR / Rental (1-4 Units Residential)",
   },
   {
-    code: "BRIDGE_LOAN",
-    name: "Bridge Loan (1-4 Units Residential / CRE & Multifamily)",
-  },
-  {
     code: "BRIDGE_LOAN_1_TO_4_UNITS",
-    name: "Bridge",
-  },
-  {
-    code: "CONSTRUCTION_LOAN",
-    name: "Construction (1-4 Units Residential / CRE & Multifamily)",
+    name: "Bridge Loan (1-4 Units Residential)",
   },
   {
     code: "CONSTRUCTION_LOAN_1_TO_4_UNITS",
-    name: "Construction (1-4 Units)",
+    name: "Construction (1-4 Units Residential)",
   },
   {
     code: "RENTAL_PORTFOLIO",
-    name: "Rental Portfolio (1-4 Units Residential / CRE & Multifamily)",
+    name: "Rental Portfolio (1-4 Units Residential)",
+  },
+  {
+    code: "BRIDGE_LOAN",
+    name: "Bridge Loan (CRE & Multifamily)",
+  },
+  {
+    code: "CONSTRUCTION_LOAN",
+    name: "Construction (CRE & Multifamily)",
+  },
+  {
+    code: "RENTAL_PORTFOLIO_CRE",
+    name: "Rental Portfolio (CRE & Multifamily)",
   },
   {
     code: "CRE_PERMANENT_LOAN",
@@ -77,7 +81,7 @@ const LOAN_PRODUCTS = [
   },
   {
     code: "C_PACE",
-    name: "C-Pace Loans",
+    name: "C-Pace Loans (CRE & Multifamily)",
   },
   {
     code: "ACCOUNTS_RECEIVABLE",

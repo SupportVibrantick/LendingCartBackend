@@ -1,18 +1,13 @@
 /**
- * Shared loan-product alias groups for Residential 1-4 ↔ CRE variants.
- * Used by lender discovery, documents, and any exact product-code match.
+ * Shared loan-product alias helpers.
+ * Bridge / Construction / Rental Portfolio residential vs CRE codes are distinct
+ * products and are not aliased together.
  */
 
-const LOAN_PRODUCT_ALIAS_GROUPS = [
-  ["BRIDGE_LOAN", "BRIDGE_LOAN_1_TO_4_UNITS"],
-  ["CONSTRUCTION_LOAN", "CONSTRUCTION_LOAN_1_TO_4_UNITS"],
-];
+const LOAN_PRODUCT_ALIAS_GROUPS = [];
 
-/** Residential / duplicate variant → canonical catalog code. */
-const CANONICAL_LOAN_PRODUCT_CODE = {
-  BRIDGE_LOAN_1_TO_4_UNITS: "BRIDGE_LOAN",
-  CONSTRUCTION_LOAN_1_TO_4_UNITS: "CONSTRUCTION_LOAN",
-};
+/** Legacy map kept for callers; identity for all current catalog codes. */
+const CANONICAL_LOAN_PRODUCT_CODE = {};
 
 /**
  * @param {string | null | undefined} code

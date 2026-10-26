@@ -495,7 +495,10 @@ const getLoanRequestPurchaseDateLabel = (product: string, purpose: string) =>
     ? "Original Purchase Date"
     : "Purchase Date";
 
-const RENTAL_PORTFOLIO_LOAN_TYPES = new Set(["RENTAL_PORTFOLIO"]);
+const RENTAL_PORTFOLIO_LOAN_TYPES = new Set([
+  "RENTAL_PORTFOLIO",
+  "RENTAL_PORTFOLIO_CRE",
+]);
 
 const isResidential14Category = (category: LoanCategory) =>
   category === "RESIDENTIAL_1_4";
@@ -3455,8 +3458,7 @@ focus:border-blue-500 outline-none text-sm ${
                         </p>
                       )}
                     </div>
-                    {/* Sub-Loan Purpose - shown only when the selected product has a
-                        top-level/sub-purpose split CONSTRUCTION_LOAN_1_TO_4_UNITS & MEZZANINE_FINANCE. */}
+                    {/* Sub-Loan Purpose - shown for Construction (1-4 + CRE) & Mezzanine. */}
                     {subPurposeOptions.length > 0 && (
                       <div className="md:col-span-2">
                         <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">

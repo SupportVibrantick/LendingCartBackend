@@ -144,11 +144,12 @@ export const CATEGORY_LOAN_TYPES: Record<
     "VALUE_ADDED_PROPERTY",
     "BRIDGE_LOAN",
     "CONSTRUCTION_LOAN",
-    "RENTAL_PORTFOLIO",
+    "RENTAL_PORTFOLIO_CRE",
     "CRE_PERMANENT_LOAN",
     "AGENCY_LOAN_MULTIFAMILY",
     "CMBS",
     "MEZZANINE_FINANCE",
+    // C_PACE temporarily hidden from CRE & Multifamily loan application picker
   ],
 
   /**
@@ -184,14 +185,15 @@ export const CATEGORY_LOAN_TYPES: Record<
 
 export const PRODUCT_LABELS: Record<string, string> = {
   // Residential
-  BRIDGE_LOAN_1_TO_4_UNITS: "Bridge",
+  BRIDGE_LOAN_1_TO_4_UNITS: "Bridge Loan",
   FIX_AND_FLIP_LOAN_1_TO_4_UNITS: "Fix & Flip",
   DSCR_LOAN_1_TO_4_UNITS: "DSCR",
   CONSTRUCTION_LOAN_1_TO_4_UNITS: "Construction",
   RENTAL_PORTFOLIO: "Rental Portfolio",
 
   // CRE
-  BRIDGE_LOAN: "Bridge",
+  BRIDGE_LOAN: "Bridge Loan",
+  RENTAL_PORTFOLIO_CRE: "Rental Portfolio",
   CONSTRUCTION_LOAN: "Construction",
   CRE_PERMANENT_LOAN: "CRE Permanent",
   AGENCY_LOAN_MULTIFAMILY: "Agency Multifamily",
@@ -199,6 +201,7 @@ export const PRODUCT_LABELS: Record<string, string> = {
   MEZZANINE_FINANCE: "Mezz/Pref Equity",
   PREFERRED_EQUITY: "Preferred Equity",
   VALUE_ADDED_PROPERTY: "Value added property",
+  C_PACE: "C-Pace Loans",
 
   // SBA
   SBA_7A_BUSINESS_ACQUISITION: "SBA 7a Acquisition",
@@ -393,6 +396,12 @@ export const LOAN_PURPOSE_MAP: Record<string, string[]> = {
     "Cash Out Refinance",
   ],
 
+  RENTAL_PORTFOLIO_CRE: [
+    "Purchase",
+    "Refinance (Rate & Term)",
+    "Cash Out Refinance",
+  ],
+
   /* 6️⃣ Mezz Finance / Pref Equity */
   // MEZZ_FINANCE_PREF_EQUITY: [
   //   "Gap Finance",
@@ -508,19 +517,25 @@ export const LOAN_PURPOSE_MAP: Record<string, string[]> = {
 };
 
 /* ================= Top-level purpose + sub-purpose maps =================
- * Some products (currently CONSTRUCTION_LOAN_1_TO_4_UNITS) split loan purpose
- * into a broad category shown first ("Loan Purpose") and a specific item
- * shown beneath it ("Sub-Loan Purpose"). For all other products the
- * LOAN_PURPOSE_MAP above is used directly.
+ * Construction (residential + CRE) and Mezzanine split loan purpose into a
+ * broad category ("Loan Purpose") and a specific item ("Sub-Loan Purpose").
+ * For all other products the LOAN_PURPOSE_MAP above is used directly.
  */
 
 export const LOAN_TOP_PURPOSE_MAP: Record<string, string[]> = {
   CONSTRUCTION_LOAN_1_TO_4_UNITS: ["Purchase", "Refinance"],
-  MEZZANINE_FINANCE: ["Purchase", "Refinance"]
+  CONSTRUCTION_LOAN: ["Purchase", "Refinance"],
+  MEZZANINE_FINANCE: ["Purchase", "Refinance"],
 };
 
 export const LOAN_SUB_PURPOSE_MAP: Record<string, string[]> = {
   CONSTRUCTION_LOAN_1_TO_4_UNITS: [
+    "Ground-up Construction",
+    "Major Renovation (>50% of value)",
+    "Tenant Improvements",
+    "Infrastructure Development",
+  ],
+  CONSTRUCTION_LOAN: [
     "Ground-up Construction",
     "Major Renovation (>50% of value)",
     "Tenant Improvements",
@@ -532,8 +547,7 @@ export const LOAN_SUB_PURPOSE_MAP: Record<string, string[]> = {
     "JV Equity",
     "Acquisition Bridge",
     "Construction Project",
-  ]
-
+  ],
 };
 
 /* ================= Property-type / sub-type map ================= */
@@ -587,16 +601,8 @@ export const PROPERTY_TYPE_MAP: Record<string, string[]> = {
 
 /* ================= Product code alias groups ================= */
 
-/** Shared Bridge / Construction codes across Residential 1-4 and CRE. */
-export const LOAN_PRODUCT_CODE_ALIASES: Record<string, string[]> = {
-  BRIDGE_LOAN: ["BRIDGE_LOAN", "BRIDGE_LOAN_1_TO_4_UNITS"],
-  BRIDGE_LOAN_1_TO_4_UNITS: ["BRIDGE_LOAN_1_TO_4_UNITS", "BRIDGE_LOAN"],
-  CONSTRUCTION_LOAN: ["CONSTRUCTION_LOAN", "CONSTRUCTION_LOAN_1_TO_4_UNITS"],
-  CONSTRUCTION_LOAN_1_TO_4_UNITS: [
-    "CONSTRUCTION_LOAN_1_TO_4_UNITS",
-    "CONSTRUCTION_LOAN",
-  ],
-};
+/** No cross-category aliases — residential vs CRE products are distinct. */
+export const LOAN_PRODUCT_CODE_ALIASES: Record<string, string[]> = {};
 
 /* ================= API base =================
  * In the embedded public-embed app we want the production URL to remain
@@ -609,6 +615,7 @@ export const API_BASE =
 export const PURCHASE_DATE_WITH_AMORTIZATION_LOAN_TYPES = new Set([
   "DSCR_LOAN_1_TO_4_UNITS",
   "RENTAL_PORTFOLIO",
+  "RENTAL_PORTFOLIO_CRE",
   "CRE_PERMANENT_LOAN",
   "AGENCY_LOAN_MULTIFAMILY",
   "CMBS",
@@ -649,11 +656,13 @@ export const CRE_RESIDENTIAL_LIKE_LOAN_TYPES = new Set([
   "CONSTRUCTION_LOAN",
   "CONSTRUCTION_LOAN_1_TO_4_UNITS",
   "RENTAL_PORTFOLIO",
+  "RENTAL_PORTFOLIO_CRE",
 ]);
 
 export const RENTAL_UNDERWRITING_LOAN_TYPES = new Set([
   "DSCR_LOAN_1_TO_4_UNITS",
   "RENTAL_PORTFOLIO",
+  "RENTAL_PORTFOLIO_CRE",
 ]);
 
 export const RESIDENTIAL_PURCHASE_PRICE_PURPOSES = new Set([

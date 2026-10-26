@@ -66,7 +66,7 @@ const getEmailBranding = () => {
     frontendUrl,
     brokerDashboardUrl,
     lenderDashboardUrl,
-    logoUrl: `${apiBase}/public/images/loanAutomation.jpeg`,
+    logoUrl: `${apiBase}/public/images/LoanAutomation_new.jpeg`,
   };
 };
 

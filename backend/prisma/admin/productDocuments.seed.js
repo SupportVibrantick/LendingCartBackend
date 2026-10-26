@@ -86,7 +86,8 @@ const DSCR_DOCS = [
   "Existing Property Income & Expense Statement",
 ];
 
-const CONSTRUCTION_1_TO_4_DOCS = [
+/** Shared by Construction 1-4 Units and Construction CRE & Multifamily. */
+const CONSTRUCTION_DOCS = [
   "Completed Loan Application",
   "Personal Financial Statement (PFS)",
   "Most Recent Personal Tax Return",
@@ -138,39 +139,6 @@ const CRE_PERMANENT_DOCS = [
   "Property Survey / Site Plan",
   "Preliminary Title Report",
   "Business Bank Statements",
-  "Credit Authorization",
-];
-
-const CRE_CONSTRUCTION_DOCS = [
-  "Completed Commercial Loan Application",
-  "Personal Financial Statement for all guarantors",
-  "Personal Tax Returns — Most Recent 2–3 Years",
-  "Borrower / Entity Tax Returns — Most Recent 2–3 Years, if applicable",
-  "Interim P&L and Balance Sheet",
-  "Last 6 months Business Bank Statements",
-  "Proof of Equity / Available Liquidity",
-  "Purchase & Sale Agreement / Land Contract",
-  "Current Deed, if owned",
-  "Detailed Construction Budget",
-  "Detailed Scope of Work",
-  "Architectural / Building Plans",
-  "Site Plan",
-  "Civil / Engineering Plans, if applicable",
-  "Contractor Agreement",
-  "Contractor License & Insurance",
-  "Contractor Resume / Development Experience",
-  "Construction Schedule",
-  "Building Permits / Permit Status",
-  "Sources & Uses",
-  "Project Pro Forma",
-  "Stabilized NOI Projection",
-  "Rent Roll / Lease-Up Assumptions",
-  "Property Tax Information",
-  "Property Insurance Information",
-  "Environmental / Phase I",
-  "Preliminary Title Report",
-  "Schedule of Real Estate Owned",
-  "Entity Formation Documents",
   "Credit Authorization",
 ];
 
@@ -500,12 +468,13 @@ const PRODUCT_DOCUMENTS_BY_CODE = {
   BRIDGE_LOAN_1_TO_4_UNITS: BRIDGE_DOCS,
   FIX_AND_FLIP_LOAN_1_TO_4_UNITS: FIX_AND_FLIP_DOCS,
   DSCR_LOAN_1_TO_4_UNITS: DSCR_DOCS,
-  CONSTRUCTION_LOAN_1_TO_4_UNITS: CONSTRUCTION_1_TO_4_DOCS,
-  CONSTRUCTION_LOAN: CRE_CONSTRUCTION_DOCS,
+  CONSTRUCTION_LOAN_1_TO_4_UNITS: CONSTRUCTION_DOCS,
+  CONSTRUCTION_LOAN: CONSTRUCTION_DOCS,
   CRE_PERMANENT_LOAN: CRE_PERMANENT_DOCS,
   CMBS: CMBS_DOCS,
   AGENCY_LOAN_MULTIFAMILY: AGENCY_MULTIFAMILY_DOCS,
   RENTAL_PORTFOLIO: RENTAL_PORTFOLIO_DOCS,
+  RENTAL_PORTFOLIO_CRE: RENTAL_PORTFOLIO_DOCS,
   MEZZANINE_FINANCE: MEZZANINE_PREFERRED_EQUITY_DOCS,
   PREFERRED_EQUITY: MEZZANINE_PREFERRED_EQUITY_DOCS,
   SBA_504_REAL_ESTATE_AND_EQUIPMENT: SBA_504_DOCS,
@@ -678,12 +647,17 @@ async function seedProductDocuments() {
     }
 
     let productLinked = 0;
+    const desiredNames = new Set(
+      docNames.map((name) => cleanDocName(name).toLowerCase()).filter(Boolean),
+    );
+    const desiredTypeIds = new Set();
 
     for (let index = 0; index < docNames.length; index += 1) {
       const name = cleanDocName(docNames[index]);
       const documentType = documentTypeByName.get(name.toLowerCase());
       if (!documentType) continue;
 
+      desiredTypeIds.add(documentType.id);
       await ensureProductRequirement({
         loanProduct,
         documentType,
@@ -691,6 +665,39 @@ async function seedProductDocuments() {
       });
       productLinked += 1;
       linked += 1;
+    }
+
+    // Drop platform (non-custom) links that are no longer in the catalog list
+    // so Construction CRE/residential stay in sync after shared-list updates.
+    if (desiredTypeIds.size > 0) {
+      const staleLinks = await prisma.productDocumentRequirement.findMany({
+        where: {
+          OR: [
+            { loanProductId: loanProduct.id },
+            { loanProductCode: loanProduct.code },
+          ],
+          documentTypeId: { notIn: [...desiredTypeIds] },
+          documentType: { isCustom: false },
+        },
+        select: {
+          id: true,
+          documentType: { select: { name: true } },
+        },
+      });
+
+      const staleToRemove = staleLinks.filter((row) => {
+        const name = cleanDocName(row.documentType?.name).toLowerCase();
+        return name && !desiredNames.has(name);
+      });
+
+      if (staleToRemove.length > 0) {
+        await prisma.productDocumentRequirement.deleteMany({
+          where: { id: { in: staleToRemove.map((row) => row.id) } },
+        });
+        console.log(
+          `🧹 ${loanProduct.code}: removed ${staleToRemove.length} stale document link(s)`,
+        );
+      }
     }
 
     console.log(

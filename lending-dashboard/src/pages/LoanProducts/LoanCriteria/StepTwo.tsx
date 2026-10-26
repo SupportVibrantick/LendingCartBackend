@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ChevronRight } from "lucide-react";
 import toast from "react-hot-toast";
+import { groupLoanProductsByCategory } from "../../../lib/loanProductCategories";
 import { filterLenderCatalogProducts } from "../../../lib/lenderLoanProducts";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
@@ -104,6 +105,11 @@ const StepTwo = ({
       configuredSelectable || pickOneMode
         ? true
         : !alreadyAddedSet.has(product.id),
+  );
+
+  const categorizedProducts = useMemo(
+    () => groupLoanProductsByCategory(visibleProducts),
+    [visibleProducts],
   );
 
   const toggle = (id: string) => {
@@ -287,49 +293,65 @@ const StepTwo = ({
         )}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 max-h-[600px] overflow-y-auto pr-2">
-        {visibleProducts.map((item) => {
-          const isConfigured = alreadyAddedSet.has(item.id);
-          const isChecked = safeValue.includes(item.id);
-          const isLocked = lockedSet.has(item.id) && isChecked;
-          const isDisabled =
-            isLocked ||
-            (isConfigured && !configuredSelectable && !pickOneMode);
+      <div className="space-y-6">
+        {categorizedProducts.map((category) => (
+          <section key={category.key} className="space-y-3">
+            <div className="border-b border-slate-200 pb-2">
+              <h3 className="text-sm font-semibold text-slate-800">
+                {category.label}
+              </h3>
+              <p className="text-[11px] text-slate-500">
+                {category.products.length} program
+                {category.products.length === 1 ? "" : "s"}
+              </p>
+            </div>
 
-          if (pickOneMode) {
-            return (
-              <button
-                type="button"
-                key={item.id}
-                onClick={() => toggle(item.id)}
-                className={`flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-left transition-all duration-200 ${
-                  isChecked
-                    ? "border-blue-500 bg-blue-50 shadow-sm scale-[1.01]"
-                    : "border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50"
-                }`}
-              >
-                <span
-                  className={`h-2.5 w-2.5 shrink-0 rounded-full ${getColor(
-                    item.name,
-                  )} shadow-sm ring-2 ring-white`}
-                />
-                <span className="flex-1 text-xs font-medium text-slate-800">
-                  {item.name}
-                </span>
-                {isConfigured ? (
-                  <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
-                    Configured
-                  </span>
-                ) : null}
-                <ChevronRight size={16} className="shrink-0 text-slate-400" />
-              </button>
-            );
-          }
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {category.products.map((item) => {
+                const isConfigured = alreadyAddedSet.has(item.id);
+                const isChecked = safeValue.includes(item.id);
+                const isLocked = lockedSet.has(item.id) && isChecked;
+                const isDisabled =
+                  isLocked ||
+                  (isConfigured && !configuredSelectable && !pickOneMode);
 
-          return (
-            <label
-              key={item.id}
-              className={`flex items-center gap-3 rounded-xl px-4 py-3 transition-all duration-200 border
+                if (pickOneMode) {
+                  return (
+                    <button
+                      type="button"
+                      key={item.id}
+                      onClick={() => toggle(item.id)}
+                      className={`flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-left transition-all duration-200 ${
+                        isChecked
+                          ? "border-blue-500 bg-blue-50 shadow-sm scale-[1.01]"
+                          : "border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50"
+                      }`}
+                    >
+                      <span
+                        className={`h-2.5 w-2.5 shrink-0 rounded-full ${getColor(
+                          item.name,
+                        )} shadow-sm ring-2 ring-white`}
+                      />
+                      <span className="flex-1 text-xs font-medium text-slate-800">
+                        {item.name}
+                      </span>
+                      {isConfigured ? (
+                        <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
+                          Configured
+                        </span>
+                      ) : null}
+                      <ChevronRight
+                        size={16}
+                        className="shrink-0 text-slate-400"
+                      />
+                    </button>
+                  );
+                }
+
+                return (
+                  <label
+                    key={item.id}
+                    className={`flex items-center gap-3 rounded-xl px-4 py-3 transition-all duration-200 border
   ${
     isDisabled
       ? "cursor-not-allowed border-amber-200 bg-amber-50/70 opacity-80"
@@ -346,45 +368,50 @@ const StepTwo = ({
         ? ""
         : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
   }`}
-            >
-              <input
-                type="checkbox"
-                checked={isChecked || (isConfigured && !configuredSelectable)}
-                disabled={isDisabled}
-                onChange={() => toggle(item.id)}
-                className={`${
-                  isDisabled
-                    ? "cursor-not-allowed opacity-70"
-                    : "cursor-pointer"
-                }`}
-              />
+                  >
+                    <input
+                      type="checkbox"
+                      checked={
+                        isChecked || (isConfigured && !configuredSelectable)
+                      }
+                      disabled={isDisabled}
+                      onChange={() => toggle(item.id)}
+                      className={`${
+                        isDisabled
+                          ? "cursor-not-allowed opacity-70"
+                          : "cursor-pointer"
+                      }`}
+                    />
 
-              <span
-                className={`w-2.5 h-2.5 rounded-full ${getColor(
-                  item.name,
-                )} shadow-sm ring-2 ring-white`}
-              />
+                    <span
+                      className={`h-2.5 w-2.5 rounded-full ${getColor(
+                        item.name,
+                      )} shadow-sm ring-2 ring-white`}
+                    />
 
-              <span className="flex-1 text-xs">{item.name}</span>
+                    <span className="flex-1 text-xs">{item.name}</span>
 
-              {isConfigured ? (
-                <span
-                  className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${
-                    configuredSelectable
-                      ? "bg-emerald-100 text-emerald-700"
-                      : "bg-amber-100 text-amber-700"
-                  }`}
-                >
-                  {configuredSelectable ? "Configured" : "Already Added"}
-                </span>
-              ) : isLocked ? (
-                <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-emerald-700">
-                  Active
-                </span>
-              ) : null}
-            </label>
-          );
-        })}
+                    {isConfigured ? (
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${
+                          configuredSelectable
+                            ? "bg-emerald-100 text-emerald-700"
+                            : "bg-amber-100 text-amber-700"
+                        }`}
+                      >
+                        {configuredSelectable ? "Configured" : "Already Added"}
+                      </span>
+                    ) : isLocked ? (
+                      <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-emerald-700">
+                        Active
+                      </span>
+                    ) : null}
+                  </label>
+                );
+              })}
+            </div>
+          </section>
+        ))}
       </div>
     </div>
   );

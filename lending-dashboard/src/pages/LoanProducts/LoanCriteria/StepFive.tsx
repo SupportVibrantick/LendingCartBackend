@@ -655,7 +655,7 @@ const StepFive = ({
         }
 
         if (key === "maxArv") {
-          return "LTARV cannot exceed 100%";
+          return "ARV cannot exceed 100%";
         }
 
         if (key === "maxLtc") {

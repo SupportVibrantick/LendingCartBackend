@@ -20,6 +20,7 @@ export const LTC_LOAN_CODES = new Set([
   "AGENCY_LOAN_MULTIFAMILY",
   "CMBS",
   "RENTAL_PORTFOLIO",
+  "RENTAL_PORTFOLIO_CRE",
   "EQUIPMENT_FINANCE",
   "PREFERRED_EQUITY",
   "MEZZ_FINANCE_PREF_EQUITY",
@@ -66,7 +67,10 @@ export const DSCR_RENTAL_CODES = new Set([
   "DSCR_RENTAL",
 ]);
 
-export const RENTAL_PORTFOLIO_CODES = new Set(["RENTAL_PORTFOLIO"]);
+export const RENTAL_PORTFOLIO_CODES = new Set([
+  "RENTAL_PORTFOLIO",
+  "RENTAL_PORTFOLIO_CRE",
+]);
 
 export const CONSTRUCTION_LOAN_CODES = new Set([
   "CONSTRUCTION_LOAN",
@@ -430,7 +434,7 @@ const BRIDGE_CRITERIA_FIELDS: CriteriaField[] = [
     inputSuffix: "%",
   },
   {
-    label: "Max LTARV (%)",
+    label: "Max ARV (%)",
     key: "maxArv",
     required: true,
     decimal: true,
@@ -469,7 +473,7 @@ const BRIDGE_CRITERIA_FIELDS: CriteriaField[] = [
     decimal: true,
     inputSuffix: "x",
   },
-  { label: "Min Annual Revenue ($)", key: "minAnnualRevenue", required: true },
+  { label: "Min Annual Revenue ($)", key: "minAnnualRevenue", required: false },
   {
     label: "Property Value – Min ($)",
     key: "minPropertyValue",
@@ -478,7 +482,7 @@ const BRIDGE_CRITERIA_FIELDS: CriteriaField[] = [
   {
     label: "Property Value – Max ($)",
     key: "maxPropertyValue",
-    required: true,
+    required: false,
   },
   bridgeToggle("1 Unit", "unit1Allowed"),
   bridgeToggle("2 Units", "unit2Allowed"),
@@ -786,7 +790,7 @@ const RENTAL_PORTFOLIO_CRITERIA_FIELDS: CriteriaField[] = [
   {
     label: "Min Debt Yield (%)",
     key: "minDebtYield",
-    required: true,
+    required: false,
     decimal: true,
     inputSuffix: "%",
   },
@@ -864,7 +868,7 @@ const RENTAL_PORTFOLIO_CRITERIA_FIELDS: CriteriaField[] = [
   {
     label: "Maximum Property Value ($)",
     key: "maxPropertyValue",
-    required: true,
+    required: false,
   },
   {
     label: "Minimum Portfolio NOI ($)",
@@ -1081,7 +1085,7 @@ const CRE_PERMANENT_CRITERIA_FIELDS: CriteriaField[] = [
   {
     label: "Min Debt Yield (%)",
     key: "minDebtYield",
-    required: true,
+    required: false,
     decimal: true,
     inputSuffix: "%",
   },
@@ -1149,7 +1153,7 @@ const CRE_PERMANENT_CRITERIA_FIELDS: CriteriaField[] = [
     inputSuffix: "%",
   },
   { label: "Minimum Property Value ($)", key: "minPropertyValue", required: true },
-  { label: "Maximum Property Value ($)", key: "maxPropertyValue", required: true },
+  { label: "Maximum Property Value ($)", key: "maxPropertyValue", required: false },
   { label: "Minimum Annual NOI ($)", key: "minAnnualNoi", required: true },
   { label: "Minimum Units – Multifamily", key: "minUnits", required: true },
   { label: "Maximum Units – Multifamily", key: "maxUnits", required: true },
@@ -1222,7 +1226,7 @@ const CMBS_CRITERIA_FIELDS: CriteriaField[] = [
   {
     label: "Min Debt Yield (%)",
     key: "minDebtYield",
-    required: true,
+    required: false,
     decimal: true,
     inputSuffix: "%",
   },
@@ -1296,7 +1300,7 @@ const CMBS_CRITERIA_FIELDS: CriteriaField[] = [
   {
     label: "Maximum Property Value ($)",
     key: "maxPropertyValue",
-    required: true,
+    required: false,
   },
   { label: "Minimum Annual NOI ($)", key: "minAnnualNoi", required: true },
   {
@@ -1392,7 +1396,7 @@ const AGENCY_MULTIFAMILY_CRITERIA_FIELDS: CriteriaField[] = [
   {
     label: "Min Debt Yield (%)",
     key: "minDebtYield",
-    required: true,
+    required: false,
     decimal: true,
     inputSuffix: "%",
   },
@@ -1467,7 +1471,7 @@ const AGENCY_MULTIFAMILY_CRITERIA_FIELDS: CriteriaField[] = [
   {
     label: "Maximum Property Value ($)",
     key: "maxPropertyValue",
-    required: true,
+    required: false,
   },
   { label: "Minimum Annual NOI ($)", key: "minAnnualNoi", required: true },
   {
@@ -1580,7 +1584,7 @@ const MEZZ_PREFERRED_EQUITY_CRITERIA_FIELDS: CriteriaField[] = [
   {
     label: "Min Debt Yield (%)",
     key: "minDebtYield",
-    required: true,
+    required: false,
     decimal: true,
     inputSuffix: "%",
   },
@@ -1643,7 +1647,7 @@ const MEZZ_PREFERRED_EQUITY_CRITERIA_FIELDS: CriteriaField[] = [
   {
     label: "Maximum Property Value ($)",
     key: "maxPropertyValue",
-    required: true,
+    required: false,
   },
   {
     label: "Minimum Loan-to-Value (%)",
@@ -2074,7 +2078,7 @@ const SBA_7A_WORKING_CAPITAL_CRITERIA_FIELDS: CriteriaField[] = [
     decimal: true,
     inputSuffix: "x",
   },
-  { label: "Min Annual Revenue ($)", key: "minAnnualRevenue", required: true },
+  { label: "Min Annual Revenue ($)", key: "minAnnualRevenue", required: false },
   { label: "Minimum EBITDA ($)", key: "minEbitda", required: true },
   bridgeToggle("Working Capital Allowed", "workingCapitalEligible"),
   bridgeToggle("Revolving Line Available", "lineOfCreditAvailable"),
@@ -2176,7 +2180,7 @@ const SBA_7A_EQUIPMENT_PURCHASE_CRITERIA_FIELDS: CriteriaField[] = [
     decimal: true,
     inputSuffix: "x",
   },
-  { label: "Min Annual Revenue ($)", key: "minAnnualRevenue", required: true },
+  { label: "Min Annual Revenue ($)", key: "minAnnualRevenue", required: false },
   { label: "Minimum EBITDA ($)", key: "minEbitda", required: true },
   bridgeToggle("New Equipment", "newEquipmentAllowed"),
   bridgeToggle("Used Equipment", "usedEquipmentAllowed"),
@@ -2315,7 +2319,7 @@ const SBA_7A_REAL_ESTATE_CRITERIA_FIELDS: CriteriaField[] = [
     decimal: true,
     inputSuffix: "x",
   },
-  { label: "Min Annual Revenue ($)", key: "minAnnualRevenue", required: true },
+  { label: "Min Annual Revenue ($)", key: "minAnnualRevenue", required: false },
   { label: "Minimum EBITDA ($)", key: "minEbitda", required: true },
   bridgeToggle("Owner-Occupied Real Estate", "ownerOccupiedAllowed"),
   bridgeToggle("Investment Property", "investmentPropertyAllowed"),
@@ -2428,7 +2432,7 @@ const SBA_504_CRITERIA_FIELDS: CriteriaField[] = [
     decimal: true,
     inputSuffix: "x",
   },
-  { label: "Min Annual Revenue ($)", key: "minAnnualRevenue", required: true },
+  { label: "Min Annual Revenue ($)", key: "minAnnualRevenue", required: false },
   { label: "Minimum EBITDA ($)", key: "minEbitda", required: true },
   bridgeToggle("Owner-Occupied Real Estate", "ownerOccupiedAllowed"),
   bridgeToggle("Commercial Real Estate Purchase", "commercialRealEstateAllowed"),
@@ -2552,7 +2556,7 @@ const USDA_BI_CRITERIA_FIELDS: CriteriaField[] = [
     decimal: true,
     inputSuffix: "x",
   },
-  { label: "Min Annual Revenue ($)", key: "minAnnualRevenue", required: true },
+  { label: "Min Annual Revenue ($)", key: "minAnnualRevenue", required: false },
   { label: "Minimum EBITDA ($)", key: "minEbitda", required: true },
   bridgeToggle("Owner-Occupied Real Estate", "ownerOccupiedAllowed"),
   bridgeToggle("Commercial Real Estate", "commercialRealEstateAllowed"),
@@ -2629,7 +2633,7 @@ const C_PACE_CRITERIA_FIELDS: CriteriaField[] = [
   {
     label: "Min Debt Yield (%)",
     key: "minDebtYield",
-    required: true,
+    required: false,
     decimal: true,
     inputSuffix: "%",
   },
@@ -2716,7 +2720,7 @@ const C_PACE_CRITERIA_FIELDS: CriteriaField[] = [
   {
     label: "Maximum Property Value ($)",
     key: "maxPropertyValue",
-    required: true,
+    required: false,
   },
   { label: "Minimum Annual NOI ($)", key: "minAnnualNoi", required: true },
   {
@@ -2809,7 +2813,7 @@ const PURCHASE_ORDER_FINANCE_CRITERIA_FIELDS: CriteriaField[] = [
     required: true,
     inputSuffix: "yr",
   },
-  { label: "Min Annual Revenue ($)", key: "minAnnualRevenue", required: true },
+  { label: "Min Annual Revenue ($)", key: "minAnnualRevenue", required: false },
   {
     label: "Min Gross Margin (%)",
     key: "minGrossMargin",
@@ -2955,7 +2959,7 @@ const INVOICE_FACTORING_CRITERIA_FIELDS: CriteriaField[] = [
     required: true,
     inputSuffix: "yr",
   },
-  { label: "Min Annual Revenue ($)", key: "minAnnualRevenue", required: true },
+  { label: "Min Annual Revenue ($)", key: "minAnnualRevenue", required: false },
   { label: "Min Monthly A/R ($)", key: "minMonthlyAr", required: true },
   {
     label: "Min DSCR",
@@ -3093,7 +3097,7 @@ const ACCOUNTS_PAYABLE_FINANCE_CRITERIA_FIELDS: CriteriaField[] = [
     required: true,
     inputSuffix: "yr",
   },
-  { label: "Min Annual Revenue ($)", key: "minAnnualRevenue", required: true },
+  { label: "Min Annual Revenue ($)", key: "minAnnualRevenue", required: false },
   {
     label: "Min Monthly Payables ($)",
     key: "minMonthlyPayables",
@@ -3255,7 +3259,7 @@ const EQUIPMENT_FINANCE_CRITERIA_FIELDS: CriteriaField[] = [
     decimal: true,
     inputSuffix: "x",
   },
-  { label: "Min Annual Revenue ($)", key: "minAnnualRevenue", required: true },
+  { label: "Min Annual Revenue ($)", key: "minAnnualRevenue", required: false },
   { label: "Minimum EBITDA ($)", key: "minEbitda", required: true },
   bridgeToggle("New Equipment", "newEquipmentAllowed"),
   bridgeToggle("Used Equipment", "usedEquipmentAllowed"),
@@ -3762,15 +3766,27 @@ export const validateLoanProductCriteriaStep = (
       isCmbsProduct(product.code) ||
       isRentalPortfolioProduct(product.code)
     ) {
-      const minPropertyValue = Number(data.minPropertyValue);
-      const maxPropertyValue = Number(data.maxPropertyValue);
+      const hasMinPropertyValue =
+        data.minPropertyValue !== undefined &&
+        data.minPropertyValue !== null &&
+        data.minPropertyValue !== "";
+      const hasMaxPropertyValue =
+        data.maxPropertyValue !== undefined &&
+        data.maxPropertyValue !== null &&
+        data.maxPropertyValue !== "";
 
-      if (
-        Number.isFinite(minPropertyValue) &&
-        Number.isFinite(maxPropertyValue) &&
-        minPropertyValue > maxPropertyValue
-      ) {
-        return `${product.name}: Property value minimum cannot exceed maximum`;
+      // Max is optional ? only compare when both values are filled
+      if (hasMinPropertyValue && hasMaxPropertyValue) {
+        const minPropertyValue = Number(data.minPropertyValue);
+        const maxPropertyValue = Number(data.maxPropertyValue);
+
+        if (
+          Number.isFinite(minPropertyValue) &&
+          Number.isFinite(maxPropertyValue) &&
+          minPropertyValue > maxPropertyValue
+        ) {
+          return `${product.name}: Property value minimum cannot exceed maximum`;
+        }
       }
     }
   }

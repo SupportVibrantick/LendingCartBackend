@@ -124,6 +124,7 @@ export const isFixAndFlipProduct = (product: string) =>
 const PURCHASE_DATE_WITH_AMORTIZATION_LOAN_TYPES = new Set([
   "DSCR_LOAN_1_TO_4_UNITS",
   "RENTAL_PORTFOLIO",
+  "RENTAL_PORTFOLIO_CRE",
   "CRE_PERMANENT_LOAN",
   "AGENCY_LOAN_MULTIFAMILY",
   "CMBS",
@@ -439,6 +440,7 @@ const CRE_RESIDENTIAL_LIKE_LOAN_TYPES = new Set([
   "CONSTRUCTION_LOAN",
   "CONSTRUCTION_LOAN_1_TO_4_UNITS",
   "RENTAL_PORTFOLIO",
+  "RENTAL_PORTFOLIO_CRE",
 ]);
 
 export const isCreResidentialLikeCategoryProduct = (
@@ -482,10 +484,14 @@ export const showCreBase44EntityEbitda = (product: string) =>
 
 /* ================= Rental portfolio predicates ================= */
 
-const RENTAL_PORTFOLIO_LOAN_TYPES = new Set(["RENTAL_PORTFOLIO"]);
+const RENTAL_PORTFOLIO_LOAN_TYPES = new Set([
+  "RENTAL_PORTFOLIO",
+  "RENTAL_PORTFOLIO_CRE",
+]);
 const RENTAL_UNDERWRITING_LOAN_TYPES = new Set([
   "DSCR_LOAN_1_TO_4_UNITS",
   "RENTAL_PORTFOLIO",
+  "RENTAL_PORTFOLIO_CRE",
 ]);
 
 export const isRentalPortfolioProduct = (product: string) =>
@@ -542,13 +548,15 @@ export const showValuationCostEquity = (
   purpose: string
 ) => {
   if (
-    (purpose === "Refinance & Rehab" && product === "FIX_AND_FLIP_LOAN_1_TO_4_UNITS") ||
-    (purpose === "Refinance" && product === "CONSTRUCTION_LOAN_1_TO_4_UNITS") ||
-    (product === "FIX_AND_FLIP_LOAN_1_TO_4_UNITS")
+    (purpose === "Refinance & Rehab" &&
+      product === "FIX_AND_FLIP_LOAN_1_TO_4_UNITS") ||
+    (purpose === "Refinance" && isConstructionLoanProduct(product)) ||
+    product === "FIX_AND_FLIP_LOAN_1_TO_4_UNITS"
   ) {
-    return true
+    return true;
   }
-}
+  return false;
+};
 
 /*
   "Equity / Down Payment" block.
@@ -559,10 +567,11 @@ export const showEquityDownPaymentBlock = (
   selectedCategory: LoanCategory,
 ) => {
   if (
-    (purpose === "Refinance & Rehab" && product === "FIX_AND_FLIP_LOAN_1_TO_4_UNITS") ||
-    (purpose === "Refinance" && product === "CONSTRUCTION_LOAN_1_TO_4_UNITS")
+    (purpose === "Refinance & Rehab" &&
+      product === "FIX_AND_FLIP_LOAN_1_TO_4_UNITS") ||
+    (purpose === "Refinance" && isConstructionLoanProduct(product))
   ) {
-    return false
+    return false;
   }
 
   if ((purpose == "Purchase/Acquisition") ||
@@ -593,13 +602,11 @@ export const showEquityDownPaymentBlock = (
   );
 };
 
-export const isConstructionPurchase = (purpose: string, selectedProduct: string) => {
-  if ((selectedProduct === "CONSTRUCTION_LOAN_1_TO_4_UNITS" && purpose === "Purchase")
-  ) {
-    return true
-  }
-  // return true
-}
+export const isConstructionPurchase = (
+  purpose: string,
+  selectedProduct: string,
+) =>
+  isConstructionLoanProduct(selectedProduct) && purpose === "Purchase";
 
 /** "Valuation & Equity" block: visible for refinance-style purposes. */
 export const showValuationEquityBlock = (product: string, purpose: string) => {
@@ -615,8 +622,7 @@ export const showValuationEquityBlock = (product: string, purpose: string) => {
     (purpose === "Refinance Existing Equipment") ||
     (purpose === "Refinance & Rehab") ||
     (purpose === "Refinance (504 Debt)") ||
-    (purpose === "CONSTRUCTION_LOAN_1_TO_4_UNITS" && product === "Refinance") ||
-    (purpose === "Refinance" && product === "CONSTRUCTION_LOAN_1_TO_4_UNITS")
+    (purpose === "Refinance" && isConstructionLoanProduct(product))
   ) {
     return false;
   }
@@ -638,19 +644,11 @@ export const showValuationEquityBlock = (product: string, purpose: string) => {
 };
 
 
-export const showPrivateDetails = (product: string, purpose: string) => {
-  if (product === "CONSTRUCTION_LOAN_1_TO_4_UNITS") {
-    return false
-  }
-  return true
+export const showPrivateDetails = (product: string, _purpose?: string) =>
+  !isConstructionLoanProduct(product);
 
-}
-
-export const showConstructionCostLable = (product: string) => {
-  if (product === "CONSTRUCTION_LOAN_1_TO_4_UNITS") {
-    return true
-  }
-}
+export const showConstructionCostLable = (product: string) =>
+  isConstructionLoanProduct(product);
 
 
 
@@ -675,6 +673,7 @@ export const isBase44CollateralStep = (
 const HIDE_EXIT_STRATEGY_PRODUCTS = new Set([
   "DSCR_LOAN_1_TO_4_UNITS",
   "RENTAL_PORTFOLIO",
+  "RENTAL_PORTFOLIO_CRE",
   "CRE_PERMANENT_LOAN",
   "AGENCY_LOAN_MULTIFAMILY",
   "CMBS",

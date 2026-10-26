@@ -4,17 +4,11 @@ export type CatalogProduct = {
   name: string;
 };
 
-/** Hidden from lender loan-program picker (canonical codes are shown instead). */
-export const LENDER_HIDDEN_PRODUCT_CODES = new Set([
-  "BRIDGE_LOAN_1_TO_4_UNITS",
-  "CONSTRUCTION_LOAN_1_TO_4_UNITS",
-]);
+/** No products are hidden — residential and CRE variants are separate catalog rows. */
+export const LENDER_HIDDEN_PRODUCT_CODES = new Set<string>();
 
-/** Residential variant → canonical lender-facing code. */
-export const LENDER_CANONICAL_PRODUCT_CODE: Record<string, string> = {
-  BRIDGE_LOAN_1_TO_4_UNITS: "BRIDGE_LOAN",
-  CONSTRUCTION_LOAN_1_TO_4_UNITS: "CONSTRUCTION_LOAN",
-};
+/** Identity map — residential vs CRE codes stay distinct. */
+export const LENDER_CANONICAL_PRODUCT_CODE: Record<string, string> = {};
 
 export function resolveLenderOfferedProductCode(code: string) {
   return LENDER_CANONICAL_PRODUCT_CODE[code] || code;
@@ -96,7 +90,7 @@ export function buildLoanCriteriaFromLenderProducts(
   return loanCriteria;
 }
 
-/** Map a saved lender product to the canonical catalog row id. */
+/** Map a saved lender product to the catalog row id (exact code match). */
 export function mapToCanonicalCatalogId(
   catalogProducts: CatalogProduct[],
   lenderProductCode?: string | null,
