@@ -44,10 +44,12 @@ const LOAN_TYPES_BY_CATEGORY = {
   CRE_MULTIFAMILY: [
     "BRIDGE_LOAN",
     "CONSTRUCTION_LOAN",
+    "RENTAL_PORTFOLIO_CRE",
     "CRE_PERMANENT_LOAN",
     "AGENCY_LOAN_MULTIFAMILY",
     "CMBS",
     "MEZZANINE_FINANCE",
+    // C_PACE temporarily hidden from CRE & Multifamily
   ],
   SBA_USDA: [
     "SBA_7A_BUSINESS_ACQUISITION",
@@ -55,6 +57,7 @@ const LOAN_TYPES_BY_CATEGORY = {
     "SBA_7A_EQUIPMENT_PURCHASE",
     "SBA_7A_REAL_ESTATE",
     "SBA_504_REAL_ESTATE_AND_EQUIPMENT",
+    "SBA_EXPRESS",
     "USDA_BI",
   ],
   ABL: [
@@ -94,39 +97,13 @@ function loanTypeCodesForCategory(category) {
 }
 
 /**
- * Residential Bridge/Construction are stored as canonical CRE codes
- * (BRIDGE_LOAN / CONSTRUCTION_LOAN) after submit canonicalization, but Starter
- * entitlements grant the *_1_TO_4_UNITS variants. Map both directions.
+ * Residential vs CRE Bridge / Construction / Rental Portfolio are distinct
+ * catalog products — entitlement checks use the exact selected loan type.
  */
-const RESIDENTIAL_PRODUCT_CANONICAL = {
-  BRIDGE_LOAN_1_TO_4_UNITS: "BRIDGE_LOAN",
-  CONSTRUCTION_LOAN_1_TO_4_UNITS: "CONSTRUCTION_LOAN",
-};
-
-const CANONICAL_TO_RESIDENTIAL_PRODUCT = {
-  BRIDGE_LOAN: "BRIDGE_LOAN_1_TO_4_UNITS",
-  CONSTRUCTION_LOAN: "CONSTRUCTION_LOAN_1_TO_4_UNITS",
-};
-
 function loanTypeEntitlementCandidates(loanCategory, loanType) {
   const type = String(loanType || "").trim().toUpperCase();
   if (!type) return [];
-
-  const cat = String(loanCategory || "")
-    .trim()
-    .toUpperCase()
-    .replace(/^LOAN_CAT_/, "");
-
-  const candidates = new Set([type]);
-
-  if (cat === "RESIDENTIAL_1_4" && CANONICAL_TO_RESIDENTIAL_PRODUCT[type]) {
-    candidates.add(CANONICAL_TO_RESIDENTIAL_PRODUCT[type]);
-  }
-  if (RESIDENTIAL_PRODUCT_CANONICAL[type]) {
-    candidates.add(RESIDENTIAL_PRODUCT_CANONICAL[type]);
-  }
-
-  return [...candidates];
+  return [type];
 }
 
 function normalizeLoanCategoryCode(loanCategory) {
@@ -139,8 +116,7 @@ function normalizeLoanCategoryCode(loanCategory) {
 
 /**
  * Prefer explicit category from the client. Only infer from product code when
- * the code uniquely belongs to one category (never invent CRE from a
- * canonicalized residential Bridge/Construction code).
+ * the code uniquely belongs to one category.
  */
 function resolveLoanCategoryForAccess({ loanCategory, loanType } = {}) {
   const explicit = normalizeLoanCategoryCode(loanCategory);
@@ -148,12 +124,6 @@ function resolveLoanCategoryForAccess({ loanCategory, loanType } = {}) {
 
   const type = String(loanType || "").trim().toUpperCase();
   if (!type) return null;
-
-  // Canonical Bridge/Construction are shared with CRE after submit
-  // canonicalization — never infer CRE without an explicit category.
-  if (CANONICAL_TO_RESIDENTIAL_PRODUCT[type]) {
-    return null;
-  }
 
   const exactMatches = [];
   for (const [cat, codes] of Object.entries(LOAN_TYPES_BY_CATEGORY)) {

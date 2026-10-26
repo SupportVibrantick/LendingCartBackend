@@ -308,6 +308,14 @@ RENTAL_PORTFOLIO: [
     sortOrder: 100,
   },
 ],
+
+RENTAL_PORTFOLIO_CRE: [
+  {
+    name: "Portfolio Details",
+    description: "Rental portfolio information",
+    sortOrder: 100,
+  },
+],
 };
 
 const dynamicFields = {
@@ -620,6 +628,30 @@ CRE_PERMANENT_LOAN: [
 ],
 
 RENTAL_PORTFOLIO: [
+  {
+    sectionName: "Portfolio Details",
+    fieldKey: "propertyCount",
+    label: "Property Count",
+    fieldType: "NUMBER",
+    sortOrder: 1,
+  },
+  {
+    sectionName: "Portfolio Details",
+    fieldKey: "totalUnits",
+    label: "Total Units",
+    fieldType: "NUMBER",
+    sortOrder: 2,
+  },
+  {
+    sectionName: "Portfolio Details",
+    fieldKey: "monthlyRentalIncome",
+    label: "Monthly Rental Income",
+    fieldType: "NUMBER",
+    sortOrder: 3,
+  },
+],
+
+RENTAL_PORTFOLIO_CRE: [
   {
     sectionName: "Portfolio Details",
     fieldKey: "propertyCount",

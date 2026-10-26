@@ -49,14 +49,8 @@ export type LoanProductOption = {
   name: string;
 };
 
-/**
- * Residential 1-4 and CRE variants share the same loan type in the UI.
- * Keep one selectable option, but persist links to every code in the group.
- */
-const LOAN_PRODUCT_ALIAS_GROUPS: string[][] = [
-  ["BRIDGE_LOAN", "BRIDGE_LOAN_1_TO_4_UNITS"],
-  ["CONSTRUCTION_LOAN", "CONSTRUCTION_LOAN_1_TO_4_UNITS"],
-];
+/** No cross-category aliases — residential vs CRE products are distinct. */
+const LOAN_PRODUCT_ALIAS_GROUPS: string[][] = [];
 
 function aliasGroupForCode(code: string): string[] {
   return (

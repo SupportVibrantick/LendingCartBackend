@@ -8,7 +8,7 @@ const { getEmailBranding } = require("../email/emailBranding");
 
 const DEFAULT_LOGO_PATH = path.join(
   __dirname,
-  "../../public/images/loanAutomation.jpeg",
+  "../../public/images/LoanAutomation_new.jpeg",
 );
 const DEFAULT_LOGO_CID = "loan-automation-logo@lendingcart";
 

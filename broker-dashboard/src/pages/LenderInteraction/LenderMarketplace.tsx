@@ -91,8 +91,24 @@ const LOAN_PRODUCT_FILTER_OPTIONS = [
   { value: "", label: "Any product" },
   { value: "FIX_AND_FLIP_LOAN_1_TO_4_UNITS", label: "Fix And Flip 1-4 Units" },
   { value: "DSCR_LOAN_1_TO_4_UNITS", label: "DSCR 1-4 Units" },
-  { value: "BRIDGE_LOAN", label: "Bridge Loan" },
-  { value: "CONSTRUCTION_LOAN", label: "Construction Loan" },
+  {
+    value: "BRIDGE_LOAN_1_TO_4_UNITS",
+    label: "Bridge Loan (1-4 Units Residential)",
+  },
+  {
+    value: "CONSTRUCTION_LOAN_1_TO_4_UNITS",
+    label: "Construction (1-4 Units Residential)",
+  },
+  {
+    value: "RENTAL_PORTFOLIO",
+    label: "Rental Portfolio (1-4 Units Residential)",
+  },
+  { value: "BRIDGE_LOAN", label: "Bridge Loan (CRE & Multifamily)" },
+  { value: "CONSTRUCTION_LOAN", label: "Construction (CRE & Multifamily)" },
+  {
+    value: "RENTAL_PORTFOLIO_CRE",
+    label: "Rental Portfolio (CRE & Multifamily)",
+  },
   { value: "SBA_7A_WORKING_CAPITAL", label: "SBA 7(a) Working Capital" },
   { value: "CRE_PERMANENT_LOAN", label: "CRE Permanent Loan" },
   { value: "CMBS", label: "CMBS" },

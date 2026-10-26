@@ -269,6 +269,7 @@ const formatLoanProductLabel = (code?: string | null) => {
     AGENCY_LOAN_MULTIFAMILY: "Agency Multifamily",
     CRE_PERMANENT_LOAN: "CRE Permanent",
     RENTAL_PORTFOLIO: "Rental Portfolio",
+    RENTAL_PORTFOLIO_CRE: "Rental Portfolio",
     PURCHASE_ORDER_FINANCE: "Purchase Order Finance",
     ACCOUNTS_PAYABLE_FINANCE: "AP Supply Chain",
     ACCOUNTS_RECEIVABLE: "Accounts Receivable",
