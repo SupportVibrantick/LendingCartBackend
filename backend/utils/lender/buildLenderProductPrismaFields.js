@@ -4,6 +4,7 @@ const {
   isFixAndFlipProduct,
   isDscrRentalProduct,
   isRentalPortfolioProduct,
+  isResidential1To4Product,
   isConstructionLoanProduct,
   isCrePermanentProduct,
   isCmbsProduct,
@@ -50,11 +51,10 @@ function buildLenderProductPrismaFields(item) {
   const code = item.loanProductCode;
   const isEquipmentFinance = code === "EQUIPMENT_FINANCE";
   const usesEquipmentTypes = isEquipmentFinance;
-  const residential1To4 =
-    isBridgeLoanProduct(code) ||
-    isDscrRentalProduct(code) ||
-    isFixAndFlipProduct(code) ||
-    isConstructionLoanProduct(code);
+  const residential1To4 = isResidential1To4Product(code);
+  const creUnitCountProduct =
+    code === "BRIDGE_LOAN" || code === "CONSTRUCTION_LOAN";
+  const usesUnitAllowedFlags = residential1To4 || creUnitCountProduct;
   const mezzOrPref =
     isMezzanineProduct(code) || isPreferredEquityProduct(code);
   const cmbsProduct = isCmbsProduct(code);
@@ -64,8 +64,12 @@ function buildLenderProductPrismaFields(item) {
   const apSupplyChainProduct = isApSupplyChainProduct(code);
   const purchaseOrderProduct = isPurchaseOrderFinanceProduct(code);
   const cPaceProduct = isCPaceProduct(code);
+  // Occupancy / purpose toggles apply to CRE Bridge/Construction too (not only 1-4).
   const occupancyBorrowerFlags =
-    residential1To4 ||
+    isBridgeLoanProduct(code) ||
+    isDscrRentalProduct(code) ||
+    isFixAndFlipProduct(code) ||
+    isConstructionLoanProduct(code) ||
     isCrePermanentProduct(code) ||
     isAgencyMultifamilyProduct(code) ||
     mezzOrPref ||
@@ -654,10 +658,11 @@ function buildLenderProductPrismaFields(item) {
       item.maxPropertyValueAmount
         ? toDecimal(item.maxPropertyValueAmount)
         : null,
-    unit1Allowed: residential1To4 ? item.unit1Allowed ?? false : false,
-    unit2Allowed: residential1To4 ? item.unit2Allowed ?? false : false,
-    unit3Allowed: residential1To4 ? item.unit3Allowed ?? false : false,
-    unit4Allowed: residential1To4 ? item.unit4Allowed ?? false : false,
+    unit1Allowed: usesUnitAllowedFlags ? item.unit1Allowed ?? false : false,
+    unit2Allowed: usesUnitAllowedFlags ? item.unit2Allowed ?? false : false,
+    unit3Allowed: usesUnitAllowedFlags ? item.unit3Allowed ?? false : false,
+    // Residential 1-4 uses unit1–3 as SFR/Condo/Town Home; CRE Bridge/Construction keep unit4.
+    unit4Allowed: creUnitCountProduct ? item.unit4Allowed ?? false : false,
     ownerOccupiedAllowed:
       occupancyBorrowerFlags ||
       isSba7aRealEstateProduct(code) ||
@@ -711,7 +716,11 @@ function buildLenderProductPrismaFields(item) {
         ? item.lightRehabAllowed ?? false
         : false,
     vacantPropertyAllowed:
-      residential1To4 || rentalPortfolioProduct
+      isBridgeLoanProduct(code) ||
+      isDscrRentalProduct(code) ||
+      isFixAndFlipProduct(code) ||
+      isConstructionLoanProduct(code) ||
+      rentalPortfolioProduct
         ? item.vacantPropertyAllowed ?? false
         : false,
     tenantOccupiedAllowed: isBridgeLoanProduct(code)

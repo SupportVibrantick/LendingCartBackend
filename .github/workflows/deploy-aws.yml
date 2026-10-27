@@ -52,10 +52,6 @@ jobs:
             npx prisma generate
             npx prisma migrate deploy
 
-            echo "Seeding loan products and product documents..."
-            node prisma/admin/loanProduct.seed.js
-            node prisma/admin/productDocuments.seed.js
-
             echo "Building Admin Dashboard..."
             cd ../admin-dashboard
             npm ci

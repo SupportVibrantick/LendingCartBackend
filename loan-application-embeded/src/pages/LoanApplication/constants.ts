@@ -309,10 +309,9 @@ export const ENTITY_TYPE_OPTIONS = [
 ] as const;
 
 export const RESIDENTIAL_1_4_PROPERTY_TYPES = [
-  "Single Family (1-Unit)",
-  "Duplex (2-Unit)",
-  "Triplex (3-Unit)",
-  "Fourplex (4-Unit)",
+  "Single Family Residential",
+  "Condo",
+  "Town Home",
 ] as const;
 
 /* ================= Category display data ================= */
