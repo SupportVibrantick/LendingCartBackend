@@ -132,6 +132,13 @@ function getNotificationStyle(eventType?: string) {
         label: "Assignment",
         tone: "bg-indigo-100 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300",
       };
+    case "LOAN_OFFICER_JOINED":
+    case "CO_BROKER_JOINED":
+      return {
+        icon: FiUserPlus,
+        label: "Team",
+        tone: "bg-teal-100 text-teal-700 dark:bg-teal-500/15 dark:text-teal-300",
+      };
     case "APPLICATION_SENT_TO_LENDERS":
       return {
         icon: FiSend,

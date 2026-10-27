@@ -83,6 +83,38 @@ const ALL_LO_PERMISSION_KEYS = [
   "VIEW_DASHBOARD_LOGS",
 ];
 
+/**
+ * Baseline permissions for LOs who join via public invite link.
+ * Broker can still expand/restrict later from User Management.
+ * Intentionally omits destructive / admin-style keys (delete apps/docs,
+ * manage other officers, branding, GHL, etc.).
+ */
+const DEFAULT_PUBLIC_JOIN_LO_PERMISSIONS = [
+  "VIEW_DASHBOARD_STATS",
+  "VIEW_DASHBOARD_RECENT",
+  "VIEW_APPLICATIONS",
+  "CREATE_APPLICATION",
+  "EDIT_APPLICATION",
+  "SHARE_APPLICATION_LINK",
+  "UPLOAD_DOCUMENTS",
+  "REQUEST_DOCUMENTS",
+  "DOCUMENTS_TO_SIGN",
+  "VIEW_LOI_TERM_SHEET",
+  "VIEW_FEE_AGREEMENT",
+  "VIEW_LENDER_HUB",
+  "VIEW_BORROWERS",
+  "CREATE_BORROWERS",
+  "EDIT_BORROWERS",
+  "VIEW_CONTACTS",
+  "CREATE_CONTACTS",
+  "EDIT_CONTACTS",
+  "VIEW_MARKETPLACE",
+  "VIEW_CUSTOM_DOCUMENTS",
+  "CHAT",
+  "VIEW_COMMISSIONS",
+  "VIEW_INVOICES",
+];
+
 function normalizeLoanOfficerPermissions(keys = []) {
   const normalized = new Set();
 
@@ -132,6 +164,7 @@ function userHasLoPermission(userPermissions = [], required = []) {
 module.exports = {
   LEGACY_LO_PERMISSION_MAP,
   ALL_LO_PERMISSION_KEYS,
+  DEFAULT_PUBLIC_JOIN_LO_PERMISSIONS,
   normalizeLoanOfficerPermissions,
   userHasLoPermission,
 };

@@ -3,6 +3,8 @@ import { Navigate } from "react-router-dom";
 import SignIn from "./pages/AuthPages/SignIn";
 // import SignUp from "./pages/AuthPages/SignUp";
 import ResetPassword from "./pages/AuthPages/ResetPassword";
+import JoinLoanOfficer from "./pages/AuthPages/JoinLoanOfficer";
+import JoinCoBroker from "./pages/AuthPages/JoinCoBroker";
 import NotFound from "./pages/OtherPage/NotFound";
 import UserProfiles from "./pages/UserProfiles";
 import Videos from "./pages/UiElements/Videos";
@@ -492,6 +494,8 @@ export default function App() {
           <Route path="/signin" element={<SignIn />} />
           {/* <Route path="/signup" element={<SignUp />} /> */}
           <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/join/loan-officer" element={<JoinLoanOfficer />} />
+          <Route path="/join/co-broker" element={<JoinCoBroker />} />
           <Route path="/client-upload" element={<ClientAuth />} />
           <Route path="/client-upload/:token" element={<ClientAuth />} />
           <Route

@@ -19,6 +19,7 @@ import {
   UserX,
   Activity,
   ExternalLink,
+  Link2,
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -31,6 +32,7 @@ import PageMeta from "../../components/common/PageMeta";
 import ViewLoanOfficerModal from "./ViewLoanOfficerModal";
 import { formatPhone, normalizeLoanOfficerPermissions, LO_HIDDEN_PERMISSION_KEYS, countGrantedLoPermissionUiSlots, getLoPermissionUiSlotTotal } from "./loanOfficerShared";
 import { buildImpersonatePortalUrl } from "../../lib/impersonateUrl";
+import { copyBrokerTeamInviteLink } from "../../lib/brokerTeamInvite";
 import LoanOfficerFormModal from "../../components/loanOfficer/LoanOfficerFormModal";
 import { LoanOfficerActivityPanel } from "./LoanOfficerActivity";
 
@@ -369,11 +371,26 @@ export default function LoanOfficersPage() {
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
   const [impersonatingId, setImpersonatingId] = useState<string | null>(null);
+  const [copyingInvite, setCopyingInvite] = useState(false);
   const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
   const menuRef = useRef<HTMLDivElement | null>(null);
 
   const openCreateModal = () => {
     setFormModal({ open: true, mode: "create" });
+  };
+
+  const handleCopyInviteLink = async () => {
+    try {
+      setCopyingInvite(true);
+      const invite = await copyBrokerTeamInviteLink("LOAN_OFFICER");
+      toast.success(
+        `Invite link copied (expires in ${invite.expiresInHours}h)`,
+      );
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to create invite link");
+    } finally {
+      setCopyingInvite(false);
+    }
   };
 
   const openEditModal = (o: LoanOfficer) => {
@@ -826,6 +843,17 @@ export default function LoanOfficersPage() {
                     className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
                   />
                   Refresh
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCopyInviteLink}
+                  disabled={copyingInvite}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/25 bg-white/10 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-white/20 disabled:opacity-60"
+                >
+                  <Link2
+                    className={`h-4 w-4 ${copyingInvite ? "animate-pulse" : ""}`}
+                  />
+                  {copyingInvite ? "Creating link..." : "Copy invite link"}
                 </button>
                 <button
                   type="button"

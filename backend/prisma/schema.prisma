@@ -48,6 +48,7 @@ model Organization {
   subscriptionInvoices        SubscriptionInvoice[]
   users                       UserAccount[]
   adminLenderInvites          AdminLenderInvite[]
+  brokerTeamInvites           BrokerTeamInvite[]
   ghlConnection               OrganizationGhlConnection?
   /// Platform-owned Agency Pro/Elite location mapping (separate from broker OAuth).
   ghlAgencyLocation           OrganizationGhlAgencyLocation?
@@ -140,6 +141,7 @@ model UserAccount {
   loanOfficerSubBrokers         SubBrokerLoanOfficer[]           @relation("LoanOfficerSubBrokerLinks")
   subBrokerLoanOfficers         SubBrokerLoanOfficer[]           @relation("SubBrokerAssignedLoanOfficers")
   subBrokerProfile              SubBrokerProfile?
+  bankingProfile                UserBankingProfile?
   createdBy                     UserAccount?                     @relation("CreatedSubBrokers", fields: [createdById], references: [id])
   createdSubBrokers             UserAccount[]                    @relation("CreatedSubBrokers")
   organization                  Organization?                    @relation(fields: [organizationId], references: [id])
@@ -152,9 +154,52 @@ model UserAccount {
   signFormVersionsPublished     SignFormVersion[]                @relation("SignFormVersionPublishedBy")
   signFormSubmissionValues      SignFormSubmissionValue[]        @relation("SignFormValueFilledByUser")
   signFormLibraryTemplatesCreated SignFormLibraryTemplate[]      @relation("SignFormLibraryTemplateCreatedBy")
+  brokerTeamInvitesCreated      BrokerTeamInvite[]               @relation("BrokerTeamInviteCreatedBy")
+  brokerTeamInvitesUsed         BrokerTeamInvite[]               @relation("BrokerTeamInviteUsedBy")
 
   @@map("user_accounts")
   @@index([organizationId, isDeleted])
+}
+
+/// Time-limited public join invite for Loan Officers / Co-Brokers.
+model BrokerTeamInvite {
+  id             String               @id @default(uuid()) @db.Uuid
+  organizationId String               @db.Uuid
+  role           BrokerTeamInviteRole
+  token          String               @unique
+  expiresAt      DateTime             @db.Timestamptz(6)
+  usedAt         DateTime?            @db.Timestamptz(6)
+  usedByUserId   String?              @db.Uuid
+  createdById    String?              @db.Uuid
+  createdAt      DateTime             @default(now()) @db.Timestamptz(6)
+  organization   Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy      UserAccount?         @relation("BrokerTeamInviteCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  usedBy         UserAccount?         @relation("BrokerTeamInviteUsedBy", fields: [usedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, role, usedAt])
+  @@index([token])
+  @@map("broker_team_invites")
+}
+
+/// Banking details collected on public LO / Co-Broker join only.
+model UserBankingProfile {
+  id               String             @id @default(uuid()) @db.Uuid
+  userId           String             @unique @db.Uuid
+  accountType      BankingAccountType
+  partyName        String             @map("party_name")
+  partyAddress     String?            @map("party_address")
+  partyTel         String?            @map("party_tel")
+  partyEmail       String?            @map("party_email")
+  bankName         String             @map("bank_name")
+  bankTel          String?            @map("bank_tel")
+  accountName      String             @map("account_name")
+  accountNumber    String             @map("account_number")
+  abaRoutingNumber String             @map("aba_routing_number")
+  createdAt        DateTime           @default(now()) @db.Timestamptz(6)
+  updatedAt        DateTime           @updatedAt @db.Timestamptz(6)
+  user             UserAccount        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_banking_profiles")
 }
 
 model PasswordResetToken {
@@ -2298,6 +2343,16 @@ enum AdminLenderInviteStatus {
 enum LenderInviteSource {
   ADMIN
   BROKER
+}
+
+enum BrokerTeamInviteRole {
+  LOAN_OFFICER
+  SUB_BROKER
+}
+
+enum BankingAccountType {
+  PERSONAL
+  BUSINESS
 }
 
 enum FeeAgreementStatus {
