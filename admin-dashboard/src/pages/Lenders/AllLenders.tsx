@@ -1050,8 +1050,11 @@ export default function LenderAllLendersPage() {
               type="button"
               onClick={copyPublicPartnerLink}
               title={publicPartnerLink}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-white/30 bg-white/10 px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-white/20"
+              className="relative inline-flex items-center gap-1.5 rounded-lg bg-amber-300 px-3.5 py-2 text-xs font-bold text-[#0f3d66] shadow-[0_0_0_3px_rgba(251,191,36,0.45),0_8px_24px_rgba(0,0,0,0.18)] transition hover:bg-amber-200 hover:shadow-[0_0_0_4px_rgba(251,191,36,0.55),0_10px_28px_rgba(0,0,0,0.22)]"
             >
+              <span className="absolute -right-1.5 -top-1.5 rounded-full bg-white px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-[#13538A] shadow-sm ring-1 ring-amber-200">
+                Share
+              </span>
               <Link2 className="h-3.5 w-3.5" />
               Signup Link
             </button>
