@@ -13,6 +13,10 @@ const {
   parseJsonField,
   syncLoanOfficerSubBrokers,
 } = require("../../../utils/broker/subBrokerProfileHelpers");
+const {
+  requireBankingFromFields,
+  upsertUserBankingProfile,
+} = require("../../../services/broker/userBankingProfile.service");
 
 module.exports = async function createBrokerUser(fastify) {
   fastify.post(
@@ -150,6 +154,14 @@ module.exports = async function createBrokerUser(fastify) {
           });
         }
 
+        const bankingResult = requireBankingFromFields(fields);
+        if (bankingResult.error) {
+          return reply.code(400).send({
+            success: false,
+            message: bankingResult.error,
+          });
+        }
+
         const existingUser = await prisma.userAccount.findUnique({
           where: { email },
         });
@@ -227,6 +239,8 @@ module.exports = async function createBrokerUser(fastify) {
             assignedCoBrokerIds,
             brokerOrgId,
           );
+
+          await upsertUserBankingProfile(tx, user.id, bankingResult.banking);
 
           return user;
         });

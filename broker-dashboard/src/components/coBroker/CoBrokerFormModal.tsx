@@ -25,6 +25,8 @@ import {
   type LoanTypeOption,
 } from "../../lib/coBrokerApi";
 import { isLoanOfficerPortalPath } from "../../lib/portalAuth";
+import BankingDetailsFields from "../form/BankingDetailsFields";
+import { INITIAL_BANKING_FORM } from "../../lib/bankingForm";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
@@ -162,7 +164,10 @@ export default function CoBrokerFormModal({
     })();
 
     if (!isEdit || !subBrokerId) {
-      setForm(INITIAL_CO_BROKER_FORM);
+      setForm({
+        ...INITIAL_CO_BROKER_FORM,
+        banking: { ...INITIAL_BANKING_FORM },
+      });
     } else {
       (async () => {
         try {
@@ -318,7 +323,13 @@ export default function CoBrokerFormModal({
       if (hasFiles) {
         const formData = new FormData();
         for (const [key, value] of Object.entries(body)) {
-          formData.append(key, String(value));
+          if (value == null) continue;
+          formData.append(
+            key,
+            typeof value === "string" || typeof value === "boolean"
+              ? String(value)
+              : JSON.stringify(value),
+          );
         }
         if (files.logo) formData.append("logo", files.logo);
         if (files.w9) formData.append("w9", files.w9);
@@ -779,6 +790,22 @@ export default function CoBrokerFormModal({
                     />
                   </FormField>
                 </div>
+              </section>
+
+              <section className="space-y-4">
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
+                  Banking details
+                </h3>
+                <BankingDetailsFields
+                  value={form.banking}
+                  errors={errors}
+                  onChange={(key, value) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      banking: { ...prev.banking, [key]: value },
+                    }))
+                  }
+                />
               </section>
 
               <section className="space-y-4">

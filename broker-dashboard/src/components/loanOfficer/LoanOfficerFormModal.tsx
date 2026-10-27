@@ -20,6 +20,8 @@ import {
 import LoanOfficerPermissionsPanel from "./LoanOfficerPermissionsPanel";
 import { useBrokerEntitlements } from "../../lib/brokerEntitlements";
 import { normalizeLoanOfficerPermissions } from "../../pages/UserManagement/loanOfficerShared";
+import BankingDetailsFields from "../form/BankingDetailsFields";
+import { INITIAL_BANKING_FORM } from "../../lib/bankingForm";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
@@ -157,7 +159,10 @@ export default function LoanOfficerFormModal({
     setShowConfirmPassword(false);
 
     if (!isEdit || !officerId) {
-      setForm(INITIAL_LOAN_OFFICER_FORM);
+      setForm({
+        ...INITIAL_LOAN_OFFICER_FORM,
+        banking: { ...INITIAL_BANKING_FORM },
+      });
       return;
     }
 
@@ -536,6 +541,22 @@ export default function LoanOfficerFormModal({
                     />
                   </FormField>
                 </div>
+              </section>
+
+              <section className="space-y-4">
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
+                  Banking details
+                </h3>
+                <BankingDetailsFields
+                  value={form.banking}
+                  errors={errors}
+                  onChange={(key, value) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      banking: { ...prev.banking, [key]: value },
+                    }))
+                  }
+                />
               </section>
 
               <section className="space-y-4">

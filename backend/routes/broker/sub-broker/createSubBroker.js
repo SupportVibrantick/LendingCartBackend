@@ -15,6 +15,10 @@ const {
   requireLoOfficerPermission,
   isLoanOfficerActor,
 } = require("../../../services/broker/loanOfficerAccess");
+const {
+  requireBankingFromFields,
+  upsertUserBankingProfile,
+} = require("../../../services/broker/userBankingProfile.service");
 
 function buildFreedDeletedEmail(user) {
   const at = user.email.lastIndexOf("@");
@@ -186,6 +190,14 @@ async function createSubBrokerRoutes(fastify) {
           });
         }
 
+        const bankingResult = requireBankingFromFields(fields);
+        if (bankingResult.error) {
+          return reply.code(400).send({
+            success: false,
+            message: bankingResult.error,
+          });
+        }
+
         const {
           email,
           firstName,
@@ -325,6 +337,8 @@ async function createSubBrokerRoutes(fastify) {
           brokerOrgId,
         );
 
+        await upsertUserBankingProfile(prisma, user.id, bankingResult.banking);
+
         if (allowedToLogin) {
           await sendSubBrokerWelcomeEmail(fastify, prisma, {
             brokerOrgId,
@@ -348,6 +362,7 @@ async function createSubBrokerRoutes(fastify) {
             updatedAt: true,
             createdById: true,
             subBrokerProfile: true,
+            bankingProfile: true,
             subBrokerLoanOfficers: {
               include: {
                 loanOfficer: {
