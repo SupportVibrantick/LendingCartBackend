@@ -1,4 +1,12 @@
 import { US_STATES, formatPhone } from "../pages/UserManagement/loanOfficerShared";
+import {
+  bankingFieldsForJsonBody,
+  INITIAL_BANKING_FORM,
+  mapBankingDetailToForm,
+  validateBankingForm,
+  type BankingDetail,
+  type BankingFormState,
+} from "./bankingForm";
 
 export { US_STATES, formatPhone };
 
@@ -97,6 +105,7 @@ export interface CoBrokerDetail {
   profile?: CoBrokerProfile;
   assignedLoanOfficers?: CoBrokerLoanOfficer[];
   assignedLoanOfficerIds?: string[];
+  banking?: BankingDetail;
 }
 
 export interface CoBrokerFormState {
@@ -143,9 +152,12 @@ export interface CoBrokerFormState {
   logoFile: File | null;
   logoPreview: string | null;
   w9File: File | null;
+  banking: BankingFormState;
 }
 
-export type CoBrokerFormErrors = Partial<Record<keyof CoBrokerFormState, string>>;
+export type CoBrokerFormErrors = Partial<
+  Record<keyof CoBrokerFormState | keyof BankingFormState, string>
+>;
 
 export const INITIAL_CO_BROKER_FORM: CoBrokerFormState = {
   firstName: "",
@@ -191,6 +203,7 @@ export const INITIAL_CO_BROKER_FORM: CoBrokerFormState = {
   logoFile: null,
   logoPreview: null,
   w9File: null,
+  banking: { ...INITIAL_BANKING_FORM },
 };
 
 export function syncPrimaryContactFromBasic(
@@ -272,6 +285,15 @@ export function mapDetailToForm(detail: CoBrokerDetail): CoBrokerFormState {
         detail.assignedLoanOfficers?.map((officer) => officer.id) ||
         [],
       logoPreview: profile.logoUrl || null,
+      banking: mapBankingDetailToForm(detail.banking, {
+        partyName:
+          `${detail.firstName || ""} ${detail.lastName || ""}`.trim() ||
+          profile.company ||
+          "",
+        partyAddress: profile.address || "",
+        partyTel: detail.phone || "",
+        partyEmail: detail.email || "",
+      }),
     };
   }
 
@@ -323,6 +345,15 @@ export function mapDetailToForm(detail: CoBrokerDetail): CoBrokerFormState {
       detail.assignedLoanOfficers?.map((officer) => officer.id) ||
       [],
     logoPreview: profile.logoUrl || null,
+    banking: mapBankingDetailToForm(detail.banking, {
+      partyName:
+        `${detail.firstName || ""} ${detail.lastName || ""}`.trim() ||
+        profile.company ||
+        "",
+      partyAddress: profile.address || "",
+      partyTel: detail.phone || "",
+      partyEmail: detail.email || "",
+    }),
   };
 }
 
@@ -386,6 +417,8 @@ export function validateCoBrokerForm(
       }
     }
   }
+
+  Object.assign(errors, validateBankingForm(form.banking));
 
   return errors;
 }
@@ -451,6 +484,8 @@ export function buildCoBrokerFormData(
   const files: { logo?: File; w9?: File } = {};
   if (resolvedForm.logoFile) files.logo = resolvedForm.logoFile;
   if (resolvedForm.w9File) files.w9 = resolvedForm.w9File;
+
+  Object.assign(body, bankingFieldsForJsonBody(resolvedForm.banking));
 
   return { body, files };
 }

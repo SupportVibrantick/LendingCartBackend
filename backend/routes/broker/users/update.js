@@ -14,6 +14,10 @@ const {
 const {
   sendLoanOfficerCredentialsEmail,
 } = require("../../../services/emails/loanOfficerCredentialsEmail");
+const {
+  requireBankingFromFields,
+  upsertUserBankingProfile,
+} = require("../../../services/broker/userBankingProfile.service");
 
 module.exports = async function updateBrokerUser(fastify) {
   fastify.put(
@@ -169,6 +173,14 @@ module.exports = async function updateBrokerUser(fastify) {
           ? parseJsonField(fields.assignedCoBrokerIds, [])
           : null;
 
+        const bankingResult = requireBankingFromFields(fields);
+        if (bankingResult.error) {
+          return reply.code(400).send({
+            success: false,
+            message: bankingResult.error,
+          });
+        }
+
         await prisma.$transaction(async (tx) => {
           if (Object.keys(userUpdateData).length > 0) {
             await tx.userAccount.update({
@@ -196,6 +208,8 @@ module.exports = async function updateBrokerUser(fastify) {
               brokerOrgId,
             );
           }
+
+          await upsertUserBankingProfile(tx, id, bankingResult.banking);
         });
 
         if (avatarUrl && existingUser.brokerProfile?.avatarUrl) {

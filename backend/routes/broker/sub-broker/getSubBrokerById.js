@@ -80,6 +80,7 @@ module.exports = async function getSubBrokerByIdRoutes(fastify) {
             updatedAt: true,
             createdById: true,
             subBrokerProfile: true,
+            bankingProfile: true,
             subBrokerLoanOfficers: {
               include: {
                 loanOfficer: {

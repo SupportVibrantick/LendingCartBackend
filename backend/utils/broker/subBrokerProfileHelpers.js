@@ -362,6 +362,10 @@ function formatAssignedSubBrokers(links = []) {
 }
 
 function formatSubBrokerDetail(user, profile, loanOfficerLinks = []) {
+  const {
+    formatBankingForAdmin,
+  } = require("../../services/broker/userBankingProfile.service");
+
   return {
     id: user.id,
     email: user.email,
@@ -379,6 +383,7 @@ function formatSubBrokerDetail(user, profile, loanOfficerLinks = []) {
           ...(profile.profileData || {}),
         }
       : {},
+    banking: formatBankingForAdmin(user.bankingProfile),
     assignedLoanOfficers: formatAssignedLoanOfficers(loanOfficerLinks),
     assignedLoanOfficerIds: formatAssignedLoanOfficers(loanOfficerLinks).map(
       (officer) => officer.id,

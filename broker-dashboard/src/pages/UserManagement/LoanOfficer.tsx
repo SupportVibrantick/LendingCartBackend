@@ -30,11 +30,12 @@ import toast from "react-hot-toast";
 // import Select from "react-select";
 import PageMeta from "../../components/common/PageMeta";
 import ViewLoanOfficerModal from "./ViewLoanOfficerModal";
-import { formatPhone, normalizeLoanOfficerPermissions, LO_HIDDEN_PERMISSION_KEYS, countGrantedLoPermissionUiSlots, getLoPermissionUiSlotTotal } from "./loanOfficerShared";
+import { formatPhone, countGrantedLoPermissionUiSlots, getLoPermissionUiSlotTotal } from "./loanOfficerShared";
 import { buildImpersonatePortalUrl } from "../../lib/impersonateUrl";
 import { copyBrokerTeamInviteLink } from "../../lib/brokerTeamInvite";
 import LoanOfficerFormModal from "../../components/loanOfficer/LoanOfficerFormModal";
 import { LoanOfficerActivityPanel } from "./LoanOfficerActivity";
+import { useBrokerEntitlements } from "../../lib/brokerEntitlements";
 
 export { LO_PERMISSION_CATEGORIES as PERMISSIONS } from "./loanOfficerShared";
 
@@ -99,18 +100,6 @@ function formatDate(value?: string) {
     day: "numeric",
     year: "numeric",
   });
-}
-
-function formatTeamAssignments(
-  members?: { firstName?: string; lastName?: string; email?: string }[],
-) {
-  if (!members?.length) return "—";
-  const names = members
-    .map((member) => `${member.firstName || ""} ${member.lastName || ""}`.trim())
-    .filter(Boolean);
-  if (!names.length) return "—";
-  if (names.length === 1) return names[0];
-  return `${names[0]} +${names.length - 1}`;
 }
 
 function getTeamAssignmentTitle(
@@ -222,17 +211,25 @@ function OfficerStatusBadge({
   );
 }
 
-function PermissionsBadge({ permissions }: { permissions?: string[] }) {
-  const visibleGranted = normalizeLoanOfficerPermissions(permissions || []).filter(
-    (key) => !LO_HIDDEN_PERMISSION_KEYS.includes(key),
+function PermissionsBadge({
+  permissions,
+  allowedKeys,
+}: {
+  permissions?: string[];
+  allowedKeys?: string[] | null;
+}) {
+  const total = getLoPermissionUiSlotTotal(allowedKeys);
+  const slotCount = countGrantedLoPermissionUiSlots(
+    permissions || [],
+    allowedKeys,
   );
-  const slotCount = countGrantedLoPermissionUiSlots(permissions || []);
-  const total = getLoPermissionUiSlotTotal();
+  const pct = total > 0 ? Math.round((slotCount / total) * 100) : 0;
+  const isComplete = total > 0 && slotCount >= total;
 
-  if (!visibleGranted.length) {
+  if (!slotCount) {
     return (
-      <span className="inline-flex items-center rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700 ring-1 ring-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:ring-amber-500/20">
-        No permissions
+      <span className="inline-flex items-center rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700 ring-1 ring-amber-200/80 dark:bg-amber-500/10 dark:text-amber-300 dark:ring-amber-500/20">
+        None
       </span>
     );
   }
@@ -240,33 +237,79 @@ function PermissionsBadge({ permissions }: { permissions?: string[] }) {
   return (
     <span
       title={`${slotCount} of ${total} permissions granted`}
-      className="inline-flex items-center gap-1 rounded-full bg-[#13538A]/10 px-2.5 py-1 text-xs font-semibold text-[#13538A] ring-1 ring-[#13538A]/15 dark:bg-[#13538A]/20 dark:text-cyan-300"
+      className={`inline-flex min-w-[5.5rem] items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${
+        isComplete
+          ? "bg-emerald-50 text-emerald-700 ring-emerald-200/80 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-500/25"
+          : "bg-[#13538A]/10 text-[#13538A] ring-[#13538A]/15 dark:bg-[#13538A]/20 dark:text-cyan-300 dark:ring-cyan-500/20"
+      }`}
     >
-      <Shield className="h-3 w-3" />
-      {slotCount}/{total}
+      <Shield className="h-3 w-3 shrink-0" />
+      <span className="tabular-nums">
+        {isComplete ? "All" : `${slotCount}/${total}`}
+      </span>
+      <span
+        className="ml-0.5 h-1 w-8 overflow-hidden rounded-full bg-black/10 dark:bg-white/15"
+        aria-hidden
+      >
+        <span
+          className={`block h-full rounded-full ${
+            isComplete ? "bg-emerald-500" : "bg-[#13538A] dark:bg-cyan-400"
+          }`}
+          style={{ width: `${pct}%` }}
+        />
+      </span>
     </span>
   );
 }
 
 function CoBrokerBadge({
-  label,
-  title,
+  brokers,
 }: {
-  label: string;
-  title?: string;
+  brokers?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email?: string;
+  }[];
 }) {
-  if (label === "—") {
+  if (!brokers?.length) {
     return <span className="text-sm text-gray-400">—</span>;
   }
 
+  const visible = brokers.slice(0, 3);
+  const remaining = brokers.length - visible.length;
+  const title = getTeamAssignmentTitle(brokers);
+
   return (
-    <span
-      title={title}
-      className="inline-flex max-w-full items-center rounded-md bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700 dark:bg-gray-800 dark:text-gray-300"
-    >
-      <Users className="mr-1 h-3 w-3 shrink-0 text-gray-400" />
-      <span className="truncate">{label}</span>
-    </span>
+    <div className="flex min-w-0 items-center gap-2" title={title}>
+      <div className="flex -space-x-2">
+        {visible.map((broker) => {
+          const name =
+            `${broker.firstName || ""} ${broker.lastName || ""}`.trim() ||
+            broker.email ||
+            "?";
+          return (
+            <span
+              key={broker.id}
+              className={`inline-flex h-7 w-7 items-center justify-center rounded-full text-[10px] font-bold ring-2 ring-white dark:ring-gray-900 ${getAvatarTone(name)}`}
+            >
+              {getInitials(broker.firstName, broker.lastName)}
+            </span>
+          );
+        })}
+        {remaining > 0 ? (
+          <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-gray-200 text-[10px] font-bold text-gray-700 ring-2 ring-white dark:bg-gray-700 dark:text-gray-200 dark:ring-gray-900">
+            +{remaining}
+          </span>
+        ) : null}
+      </div>
+      <span className="truncate text-xs text-gray-600 dark:text-gray-300">
+        {brokers.length === 1
+          ? `${brokers[0].firstName || ""} ${brokers[0].lastName || ""}`.trim() ||
+            brokers[0].email
+          : `${brokers.length} assigned`}
+      </span>
+    </div>
   );
 }
 
@@ -308,6 +351,8 @@ export default function LoanOfficersPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const { entitlements } = useBrokerEntitlements();
+  const allowedPermissionKeys = entitlements?.permissions ?? null;
   const initialQuery = searchParams.get("q") || "";
   const activeTab: OfficersPageTab =
     searchParams.get("tab") === "activity" ? "activity" : "officers";
@@ -848,8 +893,11 @@ export default function LoanOfficersPage() {
                   type="button"
                   onClick={handleCopyInviteLink}
                   disabled={copyingInvite}
-                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/25 bg-white/10 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-white/20 disabled:opacity-60"
+                  className="relative inline-flex items-center justify-center gap-2 rounded-xl bg-amber-300 px-4 py-2.5 text-sm font-bold text-[#0f3d66] shadow-[0_0_0_3px_rgba(251,191,36,0.45),0_8px_24px_rgba(0,0,0,0.18)] transition hover:bg-amber-200 hover:shadow-[0_0_0_4px_rgba(251,191,36,0.55),0_10px_28px_rgba(0,0,0,0.22)] disabled:opacity-60"
                 >
+                  <span className="absolute -right-1.5 -top-1.5 rounded-full bg-white px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-[#13538A] shadow-sm ring-1 ring-amber-200">
+                    Share
+                  </span>
                   <Link2
                     className={`h-4 w-4 ${copyingInvite ? "animate-pulse" : ""}`}
                   />
@@ -858,7 +906,7 @@ export default function LoanOfficersPage() {
                 <button
                   type="button"
                   onClick={openCreateModal}
-                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-[#13538A] transition hover:bg-white/90"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/30 bg-white/10 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-white/20"
                 >
                   <Plus className="h-4 w-4" />
                   Create loan officer
@@ -1052,34 +1100,26 @@ export default function LoanOfficersPage() {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[960px] border-collapse text-left">
-                <thead className="sticky top-0 z-[1] bg-slate-50/95 backdrop-blur dark:bg-gray-800/90">
-                  <tr className="border-b border-gray-200 dark:border-gray-700">
-                    <th className="w-10 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-400">
+              <table className="w-full min-w-[880px] border-collapse text-left">
+                <thead className="sticky top-0 z-[1] border-b border-gray-200/80 bg-gradient-to-b from-slate-50 to-slate-50/90 backdrop-blur dark:border-gray-800 dark:from-gray-950 dark:to-gray-950/90">
+                  <tr>
+                    <th className="w-12 px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-400">
                       #
                     </th>
                     <th className="px-4 py-3 text-left">
                       <SortHeader
-                        label="Name"
+                        label="Officer"
                         active={sortKey === "name"}
                         direction={sortDir}
                         onClick={() => toggleSort("name")}
                       />
                     </th>
-                    <th className="px-4 py-3 text-left">
+                    <th className="hidden px-4 py-3 text-left lg:table-cell">
                       <SortHeader
-                        label="Email"
+                        label="Contact"
                         active={sortKey === "email"}
                         direction={sortDir}
                         onClick={() => toggleSort("email")}
-                      />
-                    </th>
-                    <th className="hidden px-4 py-3 text-left md:table-cell">
-                      <SortHeader
-                        label="Phone"
-                        active={sortKey === "phone"}
-                        direction={sortDir}
-                        onClick={() => toggleSort("phone")}
                       />
                     </th>
                     <th className="px-4 py-3 text-left">
@@ -1090,54 +1130,52 @@ export default function LoanOfficersPage() {
                         onClick={() => toggleSort("status")}
                       />
                     </th>
-                    <th className="hidden px-4 py-3 text-left lg:table-cell">
-                      <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                    <th className="hidden px-4 py-3 text-left md:table-cell">
+                      <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-500 dark:text-gray-400">
                         Co-Brokers
                       </span>
                     </th>
-                    <th className="hidden px-4 py-3 text-left xl:table-cell">
-                      <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                    <th className="hidden px-4 py-3 text-left sm:table-cell">
+                      <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-500 dark:text-gray-400">
                         Permissions
                       </span>
                     </th>
-                    <th className="hidden px-4 py-3 text-left sm:table-cell">
+                    <th className="hidden px-4 py-3 text-left xl:table-cell">
                       <SortHeader
-                        label="Created"
+                        label="Joined"
                         active={sortKey === "createdAt"}
                         direction={sortDir}
                         onClick={() => toggleSort("createdAt")}
                       />
                     </th>
-                    <th className="w-[72px] px-4 py-3 text-right">
-                      <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                    <th className="sticky right-0 w-[72px] bg-slate-50/95 px-4 py-3 text-right dark:bg-gray-950/95">
+                      <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-500 dark:text-gray-400">
                         Actions
                       </span>
                     </th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                <tbody>
                   {officers.map((o, index) => {
                     const fullName = `${o.firstName} ${o.lastName}`.trim();
                     const isActive = o.status === "ACTIVE";
-                    const coBrokerLabel = formatTeamAssignments(o.assignedCoBrokers);
-                    const coBrokerTitle = getTeamAssignmentTitle(o.assignedCoBrokers);
 
                     return (
                       <tr
                         key={o.id}
-                        className={`group transition-colors ${
+                        className={`group border-b border-gray-100 transition-colors last:border-b-0 dark:border-gray-800/80 ${
                           isActive
-                            ? "hover:bg-[#13538A]/[0.03] dark:hover:bg-gray-800/40"
-                            : "bg-gray-50/40 hover:bg-gray-100/60 dark:bg-gray-900/20 dark:hover:bg-gray-800/40"
+                            ? "hover:bg-[#13538A]/[0.04] dark:hover:bg-cyan-500/[0.04]"
+                            : "bg-slate-50/50 hover:bg-slate-100/70 dark:bg-gray-950/40 dark:hover:bg-gray-900/60"
                         }`}
                       >
-                        <td className="px-4 py-3.5 text-sm font-medium tabular-nums text-gray-400">
+                        <td className="px-4 py-3.5 text-xs font-medium tabular-nums text-gray-400">
                           {(page - 1) * limit + index + 1}
                         </td>
 
                         <td className="px-4 py-3.5">
                           <div className="flex min-w-0 items-center gap-3">
-                            <span className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl ring-1 ring-gray-200/80 dark:ring-gray-700">
+                            <span className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-gray-200/80 dark:bg-gray-900 dark:ring-gray-700">
                               {o.profile?.avatarUrl ? (
                                 <img
                                   src={`${API_BASE}${o.profile.avatarUrl}`}
@@ -1152,7 +1190,7 @@ export default function LoanOfficersPage() {
                                 </span>
                               )}
                               <span
-                                className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-white dark:border-gray-900 ${
+                                className={`absolute bottom-0.5 right-0.5 h-2.5 w-2.5 rounded-full border-2 border-white dark:border-gray-900 ${
                                   isActive ? "bg-emerald-500" : "bg-gray-400"
                                 }`}
                               />
@@ -1164,34 +1202,51 @@ export default function LoanOfficersPage() {
                               <p className="truncate text-xs text-gray-500 dark:text-gray-400">
                                 {o.profile?.agentType || "Loan Officer"}
                               </p>
+                              <div className="mt-1 space-y-0.5 lg:hidden">
+                                <a
+                                  href={`mailto:${o.email}`}
+                                  className="flex max-w-[220px] items-center gap-1.5 truncate text-xs text-gray-500 hover:text-[#13538A]"
+                                >
+                                  <Mail className="h-3 w-3 shrink-0" />
+                                  <span className="truncate">{o.email}</span>
+                                </a>
+                                {o.phone ? (
+                                  <a
+                                    href={`tel:${o.phone}`}
+                                    className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-[#13538A]"
+                                  >
+                                    <Phone className="h-3 w-3 shrink-0" />
+                                    {formatPhone(o.phone)}
+                                  </a>
+                                ) : null}
+                              </div>
                             </div>
                           </div>
                         </td>
 
-                        <td className="px-4 py-3.5">
-                          <a
-                            href={`mailto:${o.email}`}
-                            className="flex min-w-0 max-w-full items-center gap-2 text-sm text-gray-600 transition hover:text-[#13538A] dark:text-gray-300 dark:hover:text-cyan-400"
-                            title={o.email}
-                          >
-                            <Mail className="h-3.5 w-3.5 shrink-0 text-gray-400" />
-                            <span className="truncate">{o.email}</span>
-                          </a>
-                        </td>
-
-                        <td className="hidden px-4 py-3.5 md:table-cell">
-                          {o.phone ? (
+                        <td className="hidden px-4 py-3.5 lg:table-cell">
+                          <div className="min-w-0 space-y-1">
                             <a
-                              href={`tel:${o.phone}`}
-                              className="flex min-w-0 max-w-full items-center gap-2 text-sm text-gray-600 transition hover:text-[#13538A] dark:text-gray-300 dark:hover:text-cyan-400"
-                              title={formatPhone(o.phone)}
+                              href={`mailto:${o.email}`}
+                              className="flex max-w-[240px] items-center gap-2 text-sm text-gray-600 transition hover:text-[#13538A] dark:text-gray-300 dark:hover:text-cyan-400"
+                              title={o.email}
                             >
-                              <Phone className="h-3.5 w-3.5 shrink-0 text-gray-400" />
-                              <span className="truncate">{formatPhone(o.phone)}</span>
+                              <Mail className="h-3.5 w-3.5 shrink-0 text-gray-400" />
+                              <span className="truncate">{o.email}</span>
                             </a>
-                          ) : (
-                            <span className="text-sm text-gray-400">—</span>
-                          )}
+                            {o.phone ? (
+                              <a
+                                href={`tel:${o.phone}`}
+                                className="flex items-center gap-2 text-xs text-gray-500 transition hover:text-[#13538A] dark:text-gray-400"
+                                title={formatPhone(o.phone)}
+                              >
+                                <Phone className="h-3.5 w-3.5 shrink-0 text-gray-400" />
+                                <span>{formatPhone(o.phone)}</span>
+                              </a>
+                            ) : (
+                              <span className="text-xs text-gray-400">No phone</span>
+                            )}
+                          </div>
                         </td>
 
                         <td className="px-4 py-3.5">
@@ -1202,21 +1257,27 @@ export default function LoanOfficersPage() {
                           />
                         </td>
 
-                        <td className="hidden min-w-0 px-4 py-3.5 lg:table-cell">
-                          <CoBrokerBadge label={coBrokerLabel} title={coBrokerTitle} />
-                        </td>
-
-                        <td className="hidden px-4 py-3.5 xl:table-cell">
-                          <PermissionsBadge permissions={o.permissions} />
+                        <td className="hidden min-w-0 px-4 py-3.5 md:table-cell">
+                          <CoBrokerBadge brokers={o.assignedCoBrokers} />
                         </td>
 
                         <td className="hidden px-4 py-3.5 sm:table-cell">
-                          <span className="block truncate text-sm text-gray-600 dark:text-gray-300" title={formatDate(o.createdAt)}>
+                          <PermissionsBadge
+                            permissions={o.permissions}
+                            allowedKeys={allowedPermissionKeys}
+                          />
+                        </td>
+
+                        <td className="hidden px-4 py-3.5 xl:table-cell">
+                          <span
+                            className="block truncate text-sm text-gray-600 dark:text-gray-300"
+                            title={formatDate(o.createdAt)}
+                          >
                             {formatDate(o.createdAt)}
                           </span>
                         </td>
 
-                        <td className="px-4 py-3.5 text-right">
+                        <td className="sticky right-0 bg-white/90 px-4 py-3.5 text-right backdrop-blur group-hover:bg-[#13538A]/[0.04] dark:bg-gray-900/90 dark:group-hover:bg-cyan-500/[0.04]">
                           <button
                             type="button"
                             data-menu-id={o.id}

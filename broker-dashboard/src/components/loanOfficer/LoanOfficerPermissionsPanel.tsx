@@ -2,7 +2,6 @@ import { ChevronDown, ShieldCheck } from "lucide-react";
 import { useMemo, useState } from "react";
 import {
   LO_PERMISSION_CATEGORIES,
-  LO_PERMISSION_SELECT_ALL_KEYS,
   LO_RADIO_PERMISSION_CATEGORIES,
   countGrantedLoPermissionUiSlots,
   getLoPermissionUiSlotTotal,
@@ -91,18 +90,29 @@ export default function LoanOfficerPermissionsPanel({
     Object.fromEntries(LO_PERMISSION_CATEGORIES.map((category) => [category.title, true])),
   );
 
-  const selectableKeys = useMemo(
-    () => categories.flatMap((c) => c.items.map((i) => i.key)),
-    [categories],
-  );
-  const totalSelectable = allowedSet
-    ? selectableKeys.length
-    : getLoPermissionUiSlotTotal();
-  const grantedSlotCount = allowedSet
-    ? value.filter((k) => allowedSet.has(k)).length
-    : countGrantedLoPermissionUiSlots(value);
-
   const isKeyAllowed = (key: string) => !allowedSet || allowedSet.has(key);
+
+  const selectableKeys = useMemo(() => {
+    return categories.flatMap((category) => {
+      const radioKeys = LO_RADIO_PERMISSION_CATEGORIES[category.title];
+      if (radioKeys) {
+        const scoped = radioKeys.filter(
+          (key) => !allowedSet || allowedSet.has(key),
+        );
+        const defaultKey =
+          scoped.find((key) => key.startsWith("MANAGE_")) || scoped[0];
+        return defaultKey ? [defaultKey] : [];
+      }
+      return category.items.map((item) => item.key);
+    });
+  }, [categories, allowedSet]);
+
+  const allowedKeysList = allowedSet ? [...allowedSet] : null;
+  const totalSelectable = getLoPermissionUiSlotTotal(allowedKeysList);
+  const grantedSlotCount = countGrantedLoPermissionUiSlots(
+    value,
+    allowedKeysList,
+  );
 
   const togglePermission = (key: string) => {
     if (disabled || !isKeyAllowed(key)) return;
@@ -153,11 +163,8 @@ export default function LoanOfficerPermissionsPanel({
 
   const selectAll = () => {
     if (disabled) return;
-    onChange(
-      normalizeLoanOfficerPermissions(
-        allowedSet ? selectableKeys : [...LO_PERMISSION_SELECT_ALL_KEYS],
-      ),
-    );
+    // Always use slot-aware keys so radio categories count as one selection.
+    onChange(normalizeLoanOfficerPermissions(selectableKeys));
   };
 
   const clearAll = () => {

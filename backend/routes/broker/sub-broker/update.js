@@ -18,6 +18,10 @@ module.exports = async function updateSubBrokerRoutes(fastify) {
   const {
     sendSubBrokerCredentialsEmail,
   } = require("../../../services/emails/subBrokerCredentialsEmail");
+  const {
+    requireBankingFromFields,
+    upsertUserBankingProfile,
+  } = require("../../../services/broker/userBankingProfile.service");
 
   fastify.patch(
     "/:id/update",
@@ -104,6 +108,14 @@ module.exports = async function updateSubBrokerRoutes(fastify) {
           });
         }
 
+        const bankingResult = requireBankingFromFields(fields);
+        if (bankingResult.error) {
+          return reply.code(400).send({
+            success: false,
+            message: bankingResult.error,
+          });
+        }
+
         const { account } = contactValidation;
         updateData.firstName = account.firstName;
         updateData.lastName = account.lastName;
@@ -163,6 +175,8 @@ module.exports = async function updateSubBrokerRoutes(fastify) {
           );
         }
 
+        await upsertUserBankingProfile(prisma, id, bankingResult.banking);
+
         const detail = await prisma.userAccount.findUnique({
           where: { id },
           select: {
@@ -176,6 +190,7 @@ module.exports = async function updateSubBrokerRoutes(fastify) {
             updatedAt: true,
             createdById: true,
             subBrokerProfile: true,
+            bankingProfile: true,
             subBrokerLoanOfficers: {
               include: {
                 loanOfficer: {

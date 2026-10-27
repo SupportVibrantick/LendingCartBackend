@@ -281,27 +281,55 @@ export const LO_PERMISSION_SELECT_ALL_KEYS = LO_PERMISSION_CATEGORIES.flatMap(
   },
 );
 
-export function getLoPermissionUiSlotTotal() {
+function resolveAllowedPermissionSet(allowedKeys?: string[] | null) {
+  if (!allowedKeys) return null;
+  return new Set(normalizeLoanOfficerPermissions(allowedKeys));
+}
+
+function categoryItemsForCount(
+  category: LoanOfficerPermissionCategory,
+  allowedSet: Set<string> | null,
+) {
+  if (!allowedSet) return category.items;
+  return category.items.filter((item) => allowedSet.has(item.key));
+}
+
+/** UI slots = checkboxes + 1 per radio category (Settings / Custom Documents). */
+export function getLoPermissionUiSlotTotal(allowedKeys?: string[] | null) {
+  const allowedSet = resolveAllowedPermissionSet(allowedKeys);
+
   return LO_PERMISSION_CATEGORIES.reduce((total, category) => {
+    const items = categoryItemsForCount(category, allowedSet);
+    if (!items.length) return total;
     if (LO_RADIO_PERMISSION_CATEGORIES[category.title]) {
       return total + 1;
     }
-    return total + category.items.length;
+    return total + items.length;
   }, 0);
 }
 
-export function countGrantedLoPermissionUiSlots(keys: string[] = []) {
+export function countGrantedLoPermissionUiSlots(
+  keys: string[] = [],
+  allowedKeys?: string[] | null,
+) {
   const granted = new Set(normalizeLoanOfficerPermissions(keys));
+  const allowedSet = resolveAllowedPermissionSet(allowedKeys);
   let count = 0;
 
   for (const category of LO_PERMISSION_CATEGORIES) {
+    const items = categoryItemsForCount(category, allowedSet);
+    if (!items.length) continue;
+
     const radioKeys = LO_RADIO_PERMISSION_CATEGORIES[category.title];
     if (radioKeys) {
-      if (radioKeys.some((key) => granted.has(key))) count += 1;
+      const scopedRadioKeys = radioKeys.filter(
+        (key) => !allowedSet || allowedSet.has(key),
+      );
+      if (scopedRadioKeys.some((key) => granted.has(key))) count += 1;
       continue;
     }
 
-    count += category.items.filter((item) => granted.has(item.key)).length;
+    count += items.filter((item) => granted.has(item.key)).length;
   }
 
   return count;

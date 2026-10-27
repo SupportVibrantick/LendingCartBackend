@@ -9,6 +9,14 @@ import {
   formatPhone,
   normalizeLoanOfficerPermissions,
 } from "../pages/UserManagement/loanOfficerShared";
+import {
+  appendBankingToFormData,
+  INITIAL_BANKING_FORM,
+  mapBankingDetailToForm,
+  validateBankingForm,
+  type BankingDetail,
+  type BankingFormState,
+} from "./bankingForm";
 
 export { US_STATES, formatPhone, FINDERS_FEE_OPTIONS, PREFERRED_COMMUNICATION };
 
@@ -75,6 +83,7 @@ export interface LoanOfficerDetail {
   roles?: string[];
   permissions?: string[];
   profile?: LoanOfficerProfile | null;
+  banking?: BankingDetail;
 }
 
 export interface LoanOfficerFormState {
@@ -111,9 +120,12 @@ export interface LoanOfficerFormState {
   avatarFile: File | null;
   avatarPreview: string | null;
   w9File: File | null;
+  banking: BankingFormState;
 }
 
-export type LoanOfficerFormErrors = Partial<Record<keyof LoanOfficerFormState, string>>;
+export type LoanOfficerFormErrors = Partial<
+  Record<keyof LoanOfficerFormState | keyof BankingFormState, string>
+>;
 
 export const INITIAL_LOAN_OFFICER_FORM: LoanOfficerFormState = {
   email: "",
@@ -149,6 +161,7 @@ export const INITIAL_LOAN_OFFICER_FORM: LoanOfficerFormState = {
   avatarFile: null,
   avatarPreview: null,
   w9File: null,
+  banking: { ...INITIAL_BANKING_FORM },
 };
 
 export function mapDetailToLoanOfficerForm(detail: LoanOfficerDetail): LoanOfficerFormState {
@@ -190,6 +203,12 @@ export function mapDetailToLoanOfficerForm(detail: LoanOfficerDetail): LoanOffic
       detail.assignedCoBrokers?.map((broker) => broker.id) ||
       [],
     avatarPreview: profile.avatarUrl || null,
+    banking: mapBankingDetailToForm(detail.banking, {
+      partyName: `${detail.firstName || ""} ${detail.lastName || ""}`.trim(),
+      partyAddress: profile.address || "",
+      partyTel: detail.phone || "",
+      partyEmail: detail.email || "",
+    }),
   };
 }
 
@@ -240,6 +259,8 @@ export function validateLoanOfficerForm(
   if (!normalizedPermissions.length) {
     errors.permissions = "Select at least one permission";
   }
+
+  Object.assign(errors, validateBankingForm(form.banking));
 
   return errors;
 }
@@ -312,6 +333,8 @@ export function buildLoanOfficerFormData(form: LoanOfficerFormState): FormData {
 
   if (form.avatarFile) formData.append("avatar", form.avatarFile);
   if (form.w9File) formData.append("w9", form.w9File);
+
+  appendBankingToFormData(formData, form.banking);
 
   return formData;
 }

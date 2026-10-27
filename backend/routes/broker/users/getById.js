@@ -4,6 +4,9 @@ const {
 const {
   formatAssignedSubBrokers,
 } = require("../../../utils/broker/subBrokerProfileHelpers");
+const {
+  formatBankingForAdmin,
+} = require("../../../services/broker/userBankingProfile.service");
 
 module.exports = async function getBrokerUserById(fastify) {
   fastify.get(
@@ -56,6 +59,7 @@ module.exports = async function getBrokerUserById(fastify) {
               },
             },
             brokerProfile: true,
+            bankingProfile: true,
             userPermissions: {
               include: {
                 permission: { select: { key: true } },
@@ -107,6 +111,7 @@ module.exports = async function getBrokerUserById(fastify) {
               user.loanOfficerSubBrokers,
             ).map((item) => item.id),
             profile: mergeBrokerProfileResponse(user.brokerProfile),
+            banking: formatBankingForAdmin(user.bankingProfile),
           },
         });
       } catch (error) {
