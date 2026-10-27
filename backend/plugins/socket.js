@@ -90,7 +90,14 @@ async function socketPlugin(fastify) {
     transports: ["websocket"],
   });
 
-  commonLogs.info("Socket.IO server initialized");
+  commonLogs.info("Socket.IO server initialized", {
+    transports: ["websocket"],
+    corsOrigins: Array.isArray(socketCors.origin)
+      ? socketCors.origin
+      : typeof socketCors.origin === "function"
+        ? "callback"
+        : socketCors.origin,
+  });
 
   const redisOk = await attachRedisAdapter(io);
   if (!redisOk) {
@@ -98,6 +105,18 @@ async function socketPlugin(fastify) {
       "Socket.IO using default in-memory adapter (realtime works on this process)",
     );
   }
+
+  io.engine.on("connection_error", (err) => {
+    commonLogs.warn("Socket.IO connection_error", {
+      code: err?.code,
+      message: err?.message,
+      context: err?.context,
+      origin: err?.req?.headers?.origin,
+      host: err?.req?.headers?.host,
+      upgrade: err?.req?.headers?.upgrade,
+      connection: err?.req?.headers?.connection,
+    });
+  });
 
   fastify.decorate("io", io);
 

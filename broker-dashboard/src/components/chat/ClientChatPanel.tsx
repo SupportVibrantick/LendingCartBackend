@@ -145,7 +145,9 @@ const ClientChatPanel = ({
         ? [conversation.id]
         : [],
     onMessage: handleRealtimeMessage,
-    onError: (message) => toast.error(message),
+    onError: (message) => {
+      toast.error(message, { id: "chat-socket-error" });
+    },
   });
 
   const fetchConversation = useCallback(async () => {
