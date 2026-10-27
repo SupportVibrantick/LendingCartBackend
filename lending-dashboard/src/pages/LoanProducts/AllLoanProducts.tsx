@@ -935,39 +935,41 @@ export default function AlloanProducts() {
               </div>
               )}
 
-              {/* PROPERTY TYPES */}
-              <div className="col-span-2">
-                <p className="font-medium text-gray-700 dark:text-slate-300 mb-1">
-                  {productUsesAcceptedPropertyTypes(resolveProductCode(viewDetails))
-                    ? "Property Types Accepted"
-                    : "Property Types"}
-                </p>
-                {safeGroupedEntries(viewDetails.propertyTypes, "type")
-                  .length ? (
-                  safeGroupedEntries(viewDetails.propertyTypes, "type").map(
-                    ([category, list]) => (
-                      <div key={category} className="mb-2">
-                        <p className="text-xs font-semibold text-gray-500">
-                          {category}
-                        </p>
-                        <ul className="list-disc ml-5 text-gray-700 dark:text-slate-300">
-                          {list.length ? (
-                            list.map((item: string) => (
-                              <li key={item}>{item}</li>
-                            ))
-                          ) : (
-                            <li>No sub-types configured</li>
-                          )}
-                        </ul>
-                      </div>
-                    ),
-                  )
-                ) : (
-                  <div className="text-xs text-gray-400">
-                    No property types configured
-                  </div>
-                )}
-              </div>
+              {/* PROPERTY TYPES — CRE / SBA-style programs only; residential uses SFR/Condo/Town Home toggles */}
+              {productUsesAcceptedPropertyTypes(
+                resolveProductCode(viewDetails),
+              ) && (
+                <div className="col-span-2">
+                  <p className="font-medium text-gray-700 dark:text-slate-300 mb-1">
+                    Property Types Accepted
+                  </p>
+                  {safeGroupedEntries(viewDetails.propertyTypes, "type")
+                    .length ? (
+                    safeGroupedEntries(viewDetails.propertyTypes, "type").map(
+                      ([category, list]) => (
+                        <div key={category} className="mb-2">
+                          <p className="text-xs font-semibold text-gray-500">
+                            {category}
+                          </p>
+                          <ul className="list-disc ml-5 text-gray-700 dark:text-slate-300">
+                            {list.length ? (
+                              list.map((item: string) => (
+                                <li key={item}>{item}</li>
+                              ))
+                            ) : (
+                              <li>No sub-types configured</li>
+                            )}
+                          </ul>
+                        </div>
+                      ),
+                    )
+                  ) : (
+                    <div className="text-xs text-gray-400">
+                      No property types configured
+                    </div>
+                  )}
+                </div>
+              )}
 
               {viewDetails.equipmentTypes?.length ? (
                 <div className="col-span-2">

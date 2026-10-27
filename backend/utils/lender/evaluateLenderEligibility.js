@@ -1,4 +1,7 @@
-const { getProductEligibilityRules } = require("../lender/lenderProductCriteria");
+const {
+  getProductEligibilityRules,
+  isResidential1To4Product,
+} = require("../lender/lenderProductCriteria");
 
 const STATE_NAME_TO_CODE = {
   alabama: "AL",
@@ -197,7 +200,15 @@ const matchesSelection = (configuredValues, applicantValue) => {
 };
 
 const PROPERTY_TYPE_APPLICANT_ALIASES = {
+  "single family residential": [
+    "single family (1-unit)",
+    "single family (1-4 units)",
+    "single family detached",
+    "single family",
+    "1-unit",
+  ],
   "single family (1-unit)": [
+    "single family residential",
     "single family (1-4 units)",
     "single family detached",
     "single family",
@@ -206,7 +217,23 @@ const PROPERTY_TYPE_APPLICANT_ALIASES = {
   "duplex (2-unit)": ["duplex", "single family (1-4 units)", "2-unit"],
   "triplex (3-unit)": ["triplex", "single family (1-4 units)", "3-unit"],
   "fourplex (4-unit)": ["fourplex", "single family (1-4 units)", "4-unit"],
-  "condo / townhome": ["condo", "townhome", "townhouse"],
+  condo: ["condo / townhome", "condominium"],
+  "town home": ["townhome", "townhouse", "condo / townhome"],
+  townhome: ["town home", "townhouse", "condo / townhome"],
+  "condo / townhome": ["condo", "townhome", "townhouse", "town home"],
+};
+
+/** unit1/2/3Allowed = Single Family Residential / Condo / Town Home for residential 1-4 products. */
+const RESIDENTIAL_PROPERTY_TYPE_FLAG_ALIASES = {
+  unit1Allowed: [
+    "single family residential",
+    "single family (1-unit)",
+    "single family",
+    "single family detached",
+    "1-unit",
+  ],
+  unit2Allowed: ["condo", "condo / townhome", "condominium"],
+  unit3Allowed: ["town home", "townhome", "townhouse", "condo / townhome"],
 };
 
 const expandApplicantSelectionTokens = (applicantValue) => {
@@ -234,6 +261,24 @@ const matchesPropertyTypeSelection = (configuredValues, applicantValue) => {
         configured.includes(applicantToken),
     ),
   );
+};
+
+const matchesResidentialPropertyTypeFlags = (lenderProduct, applicantValue) => {
+  const configuredTokens = [];
+
+  for (const [flagKey, aliases] of Object.entries(
+    RESIDENTIAL_PROPERTY_TYPE_FLAG_ALIASES,
+  )) {
+    if (lenderProduct?.[flagKey] === true) {
+      configuredTokens.push(...aliases);
+    }
+  }
+
+  if (configuredTokens.length === 0) {
+    return true;
+  }
+
+  return matchesPropertyTypeSelection(configuredTokens, applicantValue);
 };
 
 const resolveFundingRange = (lenderProduct, lenderProfile) => {
@@ -501,17 +546,37 @@ function evaluateLenderProductEligibility(lenderProduct, applicant, lenderProfil
     }
   }
 
-  const lenderPropertyTypes = flattenGroupedSelections(
-    lenderProduct?.propertyTypes,
-  );
+  if (rules.checkPropertyType && applicant.propertyType) {
+    const residentialProductCode =
+      productCode ||
+      lenderProduct?.loanProduct?.code ||
+      lenderProduct?.code ||
+      null;
 
-  if (
-    rules.checkPropertyType &&
-    applicant.propertyType &&
-    lenderPropertyTypes.length > 0 &&
-    !matchesPropertyTypeSelection(lenderPropertyTypes, applicant.propertyType)
-  ) {
-    reasons.push("Property type not supported");
+    if (isResidential1To4Product(residentialProductCode)) {
+      if (
+        !matchesResidentialPropertyTypeFlags(
+          lenderProduct,
+          applicant.propertyType,
+        )
+      ) {
+        reasons.push("Property type not supported");
+      }
+    } else {
+      const lenderPropertyTypes = flattenGroupedSelections(
+        lenderProduct?.propertyTypes,
+      );
+
+      if (
+        lenderPropertyTypes.length > 0 &&
+        !matchesPropertyTypeSelection(
+          lenderPropertyTypes,
+          applicant.propertyType,
+        )
+      ) {
+        reasons.push("Property type not supported");
+      }
+    }
   }
 
   const lenderBusinessTypes = resolveBusinessTypes(

@@ -81,6 +81,15 @@ export const CONSTRUCTION_LOAN_CODES = new Set([
   "COMMERCIAL_CONSTRUCTION",
 ]);
 
+/** Catalog codes under the "1-4 Units Residential" program category. */
+export const RESIDENTIAL_1_4_PRODUCT_CODES = new Set([
+  "BRIDGE_LOAN_1_TO_4_UNITS",
+  "FIX_AND_FLIP_LOAN_1_TO_4_UNITS",
+  "DSCR_LOAN_1_TO_4_UNITS",
+  "CONSTRUCTION_LOAN_1_TO_4_UNITS",
+  "RENTAL_PORTFOLIO",
+]);
+
 export const CRE_PERMANENT_LOAN_CODES = new Set(["CRE_PERMANENT_LOAN"]);
 
 export const CMBS_LOAN_CODES = new Set(["CMBS"]);
@@ -395,12 +404,48 @@ const DEFAULT_CRITERIA_FIELDS: CriteriaField[] = [
   { label: "Max Term (months)", key: "maxTerm", required: true },
 ];
 
-const bridgeToggle = (label: string, key: string): CriteriaField => ({
+const bridgeToggle = (
+  label: string,
+  key: string,
+  options?: Pick<CriteriaField, "products" | "excludeProducts">,
+): CriteriaField => ({
   label,
   key,
   type: "toggle",
   required: false,
+  ...options,
 });
+
+/** SFR / Condo / Town Home — residential 1-4 products only (replaces unit-count toggles). */
+const RESIDENTIAL_PROPERTY_TYPE_TOGGLES: CriteriaField[] = [
+  bridgeToggle("Single Family Residential", "unit1Allowed", {
+    products: [...RESIDENTIAL_1_4_PRODUCT_CODES],
+  }),
+  bridgeToggle("Condo", "unit2Allowed", {
+    products: [...RESIDENTIAL_1_4_PRODUCT_CODES],
+  }),
+  bridgeToggle("Town Home", "unit3Allowed", {
+    products: [...RESIDENTIAL_1_4_PRODUCT_CODES],
+  }),
+];
+
+/** Unit-count toggles — CRE Bridge & Construction only. */
+const CRE_BRIDGE_CONSTRUCTION_CODES = ["BRIDGE_LOAN", "CONSTRUCTION_LOAN"] as const;
+
+const CRE_UNIT_COUNT_TOGGLES: CriteriaField[] = [
+  bridgeToggle("1 Unit", "unit1Allowed", {
+    products: [...CRE_BRIDGE_CONSTRUCTION_CODES],
+  }),
+  bridgeToggle("2 Units", "unit2Allowed", {
+    products: [...CRE_BRIDGE_CONSTRUCTION_CODES],
+  }),
+  bridgeToggle("3 Units", "unit3Allowed", {
+    products: [...CRE_BRIDGE_CONSTRUCTION_CODES],
+  }),
+  bridgeToggle("4 Units", "unit4Allowed", {
+    products: [...CRE_BRIDGE_CONSTRUCTION_CODES],
+  }),
+];
 
 const BRIDGE_CRITERIA_FIELDS: CriteriaField[] = [
   { label: "Min Loan Amount ($)", key: "minLoan", required: true },
@@ -484,10 +529,8 @@ const BRIDGE_CRITERIA_FIELDS: CriteriaField[] = [
     key: "maxPropertyValue",
     required: false,
   },
-  bridgeToggle("1 Unit", "unit1Allowed"),
-  bridgeToggle("2 Units", "unit2Allowed"),
-  bridgeToggle("3 Units", "unit3Allowed"),
-  bridgeToggle("4 Units", "unit4Allowed"),
+  ...RESIDENTIAL_PROPERTY_TYPE_TOGGLES,
+  ...CRE_UNIT_COUNT_TOGGLES,
   bridgeToggle("Owner-Occupied", "ownerOccupiedAllowed"),
   bridgeToggle("Non-Owner Occupied", "nonOwnerOccupiedAllowed"),
   bridgeToggle("Purchase", "purchaseAllowed"),
@@ -590,10 +633,7 @@ const FIX_AND_FLIP_CRITERIA_FIELDS: CriteriaField[] = [
     termUnit: "months",
   },
   bridgeToggle("Interest-Only Available", "interestOnlyAvailable"),
-  bridgeToggle("1 Unit", "unit1Allowed"),
-  bridgeToggle("2 Units", "unit2Allowed"),
-  bridgeToggle("3 Units", "unit3Allowed"),
-  bridgeToggle("4 Units", "unit4Allowed"),
+  ...RESIDENTIAL_PROPERTY_TYPE_TOGGLES,
   bridgeToggle("Owner-Occupied", "ownerOccupiedAllowed"),
   bridgeToggle("Non-Owner Occupied", "nonOwnerOccupiedAllowed"),
   bridgeToggle("Purchase", "purchaseAllowed"),
@@ -708,10 +748,7 @@ const DSCR_RENTAL_CRITERIA_FIELDS: CriteriaField[] = [
     termUnit: "months",
   },
   bridgeToggle("Interest-Only Available", "interestOnlyAvailable"),
-  bridgeToggle("1 Unit", "unit1Allowed"),
-  bridgeToggle("2 Units", "unit2Allowed"),
-  bridgeToggle("3 Units", "unit3Allowed"),
-  bridgeToggle("4 Units", "unit4Allowed"),
+  ...RESIDENTIAL_PROPERTY_TYPE_TOGGLES,
   bridgeToggle("Owner-Occupied", "ownerOccupiedAllowed"),
   bridgeToggle("Non-Owner Occupied", "nonOwnerOccupiedAllowed"),
   bridgeToggle("Purchase", "purchaseAllowed"),
@@ -840,6 +877,7 @@ const RENTAL_PORTFOLIO_CRITERIA_FIELDS: CriteriaField[] = [
   bridgeToggle("Cross-Collateralization", "crossCollateralizationAllowed"),
   bridgeToggle("1–4 Unit Properties", "residential1To4Allowed"),
   bridgeToggle("Multifamily 5+ Units", "multifamily5PlusAllowed"),
+  ...RESIDENTIAL_PROPERTY_TYPE_TOGGLES,
   {
     label: "Minimum Properties in Portfolio",
     key: "minProperties",
@@ -1003,10 +1041,8 @@ const CONSTRUCTION_CRITERIA_FIELDS: CriteriaField[] = [
     termUnit: "months",
   },
   bridgeToggle("Interest-Only During Construction", "interestOnlyAvailable"),
-  bridgeToggle("1 Unit", "unit1Allowed"),
-  bridgeToggle("2 Units", "unit2Allowed"),
-  bridgeToggle("3 Units", "unit3Allowed"),
-  bridgeToggle("4 Units", "unit4Allowed"),
+  ...RESIDENTIAL_PROPERTY_TYPE_TOGGLES,
+  ...CRE_UNIT_COUNT_TOGGLES,
   bridgeToggle("Owner-Occupied", "ownerOccupiedAllowed"),
   bridgeToggle("Non-Owner Occupied", "nonOwnerOccupiedAllowed"),
   bridgeToggle("Ground-Up Construction", "groundUpConstructionAllowed"),
@@ -3338,6 +3374,9 @@ export const isDscrRentalProduct = (productCode?: string | null) =>
 export const isRentalPortfolioProduct = (productCode?: string | null) =>
   productCode ? RENTAL_PORTFOLIO_CODES.has(productCode) : false;
 
+export const isResidential1To4Product = (productCode?: string | null) =>
+  productCode ? RESIDENTIAL_1_4_PRODUCT_CODES.has(productCode) : false;
+
 export const isConstructionLoanProduct = (productCode?: string | null) =>
   productCode ? CONSTRUCTION_LOAN_CODES.has(productCode) : false;
 
@@ -3398,23 +3437,31 @@ export const productUsesEquipmentTypes = (productCode?: string | null) =>
   isEquipmentFinanceProduct(productCode) ||
   isSba7aEquipmentPurchaseProduct(productCode);
 
-/** Bridge / DSCR / Fix & Flip / Construction / CRE / Agency / Mezz-Pref / CMBS use property types only — not business types. */
+/** CRE / Agency / Mezz-Pref / CMBS / C-Pace use Property Types Accepted. Residential 1-4 uses SFR/Condo/Town Home toggles instead. */
 export const productUsesAcceptedPropertyTypes = (
   productCode?: string | null,
-) =>
-  isBridgeLoanProduct(productCode) ||
-  isDscrRentalProduct(productCode) ||
-  isFixAndFlipProduct(productCode) ||
-  isConstructionLoanProduct(productCode) ||
-  isCrePermanentProduct(productCode) ||
-  isAgencyMultifamilyProduct(productCode) ||
-  isMezzOrPreferredEquityProduct(productCode) ||
-  isCmbsProduct(productCode) ||
-  isRentalPortfolioProduct(productCode) ||
-  isCPaceProduct(productCode);
+) => {
+  if (isResidential1To4Product(productCode)) return false;
 
-export const productUsesBusinessTypes = (productCode?: string | null) =>
-  !productUsesAcceptedPropertyTypes(productCode);
+  return (
+    isBridgeLoanProduct(productCode) ||
+    isDscrRentalProduct(productCode) ||
+    isFixAndFlipProduct(productCode) ||
+    isConstructionLoanProduct(productCode) ||
+    isCrePermanentProduct(productCode) ||
+    isAgencyMultifamilyProduct(productCode) ||
+    isMezzOrPreferredEquityProduct(productCode) ||
+    isCmbsProduct(productCode) ||
+    isRentalPortfolioProduct(productCode) ||
+    isCPaceProduct(productCode)
+  );
+};
+
+export const productUsesBusinessTypes = (productCode?: string | null) => {
+  // Residential 1-4 uses SFR/Condo/Town Home toggles — no business or property-type pickers.
+  if (isResidential1To4Product(productCode)) return false;
+  return !productUsesAcceptedPropertyTypes(productCode);
+};
 
 export const isArFactoringProduct = (productCode?: string | null) =>
   productCode ? INVOICE_FACTORING_LOAN_CODES.has(productCode) : false;
@@ -3590,97 +3637,71 @@ const getProductSpecificCriteriaFields = (
   });
 };
 
+const filterCriteriaFieldsForProduct = (
+  productCode: string,
+  fields: CriteriaField[],
+): CriteriaField[] =>
+  fields.filter((field) => {
+    if (field.excludeProducts?.includes(productCode)) return false;
+    if (field.products && !field.products.includes(productCode)) return false;
+    return true;
+  });
+
 export const getCriteriaFieldsForProduct = (
   productCode: string,
 ): CriteriaField[] => {
+  let fields: CriteriaField[];
+
   if (isBridgeLoanProduct(productCode)) {
-    return BRIDGE_CRITERIA_FIELDS;
+    fields = BRIDGE_CRITERIA_FIELDS;
+  } else if (isDscrRentalProduct(productCode)) {
+    fields = DSCR_RENTAL_CRITERIA_FIELDS;
+  } else if (isFixAndFlipProduct(productCode)) {
+    fields = FIX_AND_FLIP_CRITERIA_FIELDS;
+  } else if (isConstructionLoanProduct(productCode)) {
+    fields = CONSTRUCTION_CRITERIA_FIELDS;
+  } else if (isCrePermanentProduct(productCode)) {
+    fields = CRE_PERMANENT_CRITERIA_FIELDS;
+  } else if (isAgencyMultifamilyProduct(productCode)) {
+    fields = AGENCY_MULTIFAMILY_CRITERIA_FIELDS;
+  } else if (isMezzOrPreferredEquityProduct(productCode)) {
+    fields = MEZZ_PREFERRED_EQUITY_CRITERIA_FIELDS;
+  } else if (isCmbsProduct(productCode)) {
+    fields = CMBS_CRITERIA_FIELDS;
+  } else if (isRentalPortfolioProduct(productCode)) {
+    fields = RENTAL_PORTFOLIO_CRITERIA_FIELDS;
+  } else if (isSba7aBusinessAcquisitionProduct(productCode)) {
+    fields = SBA_7A_BUSINESS_ACQUISITION_CRITERIA_FIELDS;
+  } else if (isSbaExpressProduct(productCode)) {
+    fields = SBA_EXPRESS_CRITERIA_FIELDS;
+  } else if (isSba7aWorkingCapitalProduct(productCode)) {
+    fields = SBA_7A_WORKING_CAPITAL_CRITERIA_FIELDS;
+  } else if (isSba7aRealEstateProduct(productCode)) {
+    fields = SBA_7A_REAL_ESTATE_CRITERIA_FIELDS;
+  } else if (isSba7aEquipmentPurchaseProduct(productCode)) {
+    fields = SBA_7A_EQUIPMENT_PURCHASE_CRITERIA_FIELDS;
+  } else if (isSba504Product(productCode)) {
+    fields = SBA_504_CRITERIA_FIELDS;
+  } else if (isUsdaBiProduct(productCode)) {
+    fields = USDA_BI_CRITERIA_FIELDS;
+  } else if (isCPaceProduct(productCode)) {
+    fields = C_PACE_CRITERIA_FIELDS;
+  } else if (isEquipmentFinanceProduct(productCode)) {
+    fields = EQUIPMENT_FINANCE_CRITERIA_FIELDS;
+  } else if (isArFactoringProduct(productCode)) {
+    fields = INVOICE_FACTORING_CRITERIA_FIELDS;
+  } else if (isApSupplyChainProduct(productCode)) {
+    fields = ACCOUNTS_PAYABLE_FINANCE_CRITERIA_FIELDS;
+  } else if (isPurchaseOrderFinanceProduct(productCode)) {
+    fields = PURCHASE_ORDER_FINANCE_CRITERIA_FIELDS;
+  } else {
+    fields = mergeWithUniversalCriteriaFields(
+      productCode,
+      getProductSpecificCriteriaFields(productCode),
+    );
   }
 
-  if (isDscrRentalProduct(productCode)) {
-    return DSCR_RENTAL_CRITERIA_FIELDS;
-  }
-
-  if (isFixAndFlipProduct(productCode)) {
-    return FIX_AND_FLIP_CRITERIA_FIELDS;
-  }
-
-  if (isConstructionLoanProduct(productCode)) {
-    return CONSTRUCTION_CRITERIA_FIELDS;
-  }
-
-  if (isCrePermanentProduct(productCode)) {
-    return CRE_PERMANENT_CRITERIA_FIELDS;
-  }
-
-  if (isAgencyMultifamilyProduct(productCode)) {
-    return AGENCY_MULTIFAMILY_CRITERIA_FIELDS;
-  }
-
-  if (isMezzOrPreferredEquityProduct(productCode)) {
-    return MEZZ_PREFERRED_EQUITY_CRITERIA_FIELDS;
-  }
-
-  if (isCmbsProduct(productCode)) {
-    return CMBS_CRITERIA_FIELDS;
-  }
-
-  if (isRentalPortfolioProduct(productCode)) {
-    return RENTAL_PORTFOLIO_CRITERIA_FIELDS;
-  }
-
-  if (isSba7aBusinessAcquisitionProduct(productCode)) {
-    return SBA_7A_BUSINESS_ACQUISITION_CRITERIA_FIELDS;
-  }
-
-  if (isSbaExpressProduct(productCode)) {
-    return SBA_EXPRESS_CRITERIA_FIELDS;
-  }
-
-  if (isSba7aWorkingCapitalProduct(productCode)) {
-    return SBA_7A_WORKING_CAPITAL_CRITERIA_FIELDS;
-  }
-
-  if (isSba7aRealEstateProduct(productCode)) {
-    return SBA_7A_REAL_ESTATE_CRITERIA_FIELDS;
-  }
-
-  if (isSba7aEquipmentPurchaseProduct(productCode)) {
-    return SBA_7A_EQUIPMENT_PURCHASE_CRITERIA_FIELDS;
-  }
-
-  if (isSba504Product(productCode)) {
-    return SBA_504_CRITERIA_FIELDS;
-  }
-
-  if (isUsdaBiProduct(productCode)) {
-    return USDA_BI_CRITERIA_FIELDS;
-  }
-
-  if (isCPaceProduct(productCode)) {
-    return C_PACE_CRITERIA_FIELDS;
-  }
-
-  if (isEquipmentFinanceProduct(productCode)) {
-    return EQUIPMENT_FINANCE_CRITERIA_FIELDS;
-  }
-
-  if (isArFactoringProduct(productCode)) {
-    return INVOICE_FACTORING_CRITERIA_FIELDS;
-  }
-
-  if (isApSupplyChainProduct(productCode)) {
-    return ACCOUNTS_PAYABLE_FINANCE_CRITERIA_FIELDS;
-  }
-
-  if (isPurchaseOrderFinanceProduct(productCode)) {
-    return PURCHASE_ORDER_FINANCE_CRITERIA_FIELDS;
-  }
-
-  return mergeWithUniversalCriteriaFields(
-    productCode,
-    getProductSpecificCriteriaFields(productCode),
-  );
+  return filterCriteriaFieldsForProduct(productCode, fields);
 };
 
 export const getRequiredCriteriaKeysForProduct = (
@@ -3829,18 +3850,21 @@ export const buildLenderProductCriteriaPayload = (
   const constructionProduct = isConstructionLoanProduct(productCode);
   const crePermanentProduct = isCrePermanentProduct(productCode);
   const agencyMultifamilyProduct = isAgencyMultifamilyProduct(productCode);
-  const residential1To4 =
-    bridgeProduct ||
-    dscrRentalProduct ||
-    fixAndFlipProduct ||
-    constructionProduct;
+  const residential1To4 = isResidential1To4Product(productCode);
+  const creUnitCountProduct =
+    productCode === "BRIDGE_LOAN" || productCode === "CONSTRUCTION_LOAN";
+  const usesUnitAllowedFlags = residential1To4 || creUnitCountProduct;
   const mezzanineProduct = isMezzanineProduct(productCode);
   const preferredEquityProduct = isPreferredEquityProduct(productCode);
   const mezzOrPrefProduct = mezzanineProduct || preferredEquityProduct;
   const rentalPortfolioProduct = isRentalPortfolioProduct(productCode);
   const cmbsProduct = isCmbsProduct(productCode);
+  // Occupancy / purpose toggles apply to CRE Bridge/Construction too (not only 1-4).
   const occupancyBorrowerFlags =
-    residential1To4 ||
+    bridgeProduct ||
+    dscrRentalProduct ||
+    fixAndFlipProduct ||
+    constructionProduct ||
     crePermanentProduct ||
     agencyMultifamilyProduct ||
     mezzOrPrefProduct ||
@@ -4075,15 +4099,23 @@ export const buildLenderProductCriteriaPayload = (
         : false,
     bankruptcyAllowed:
       sbaExpressProduct ||
-      residential1To4 ||
+      bridgeProduct ||
+      dscrRentalProduct ||
+      fixAndFlipProduct ||
+      constructionProduct ||
       rentalPortfolioProduct ||
       equipmentFinanceProduct ||
       sba7aEquipmentPurchaseProduct
         ? Boolean(criteria.bankruptcyAllowed)
         : false,
-    prepaymentPenalty: sbaExpressProduct || residential1To4
-      ? Boolean(criteria.prepaymentPenalty)
-      : false,
+    prepaymentPenalty:
+      sbaExpressProduct ||
+      bridgeProduct ||
+      dscrRentalProduct ||
+      fixAndFlipProduct ||
+      constructionProduct
+        ? Boolean(criteria.prepaymentPenalty)
+        : false,
     minLiquidityRequirement:
       sba7aBusinessAcquisitionProduct &&
       criteria.minLiquidityRequirement?.trim()
@@ -4156,7 +4188,10 @@ export const buildLenderProductCriteriaPayload = (
     refinanceAllowed:
       sbaExpressProduct ||
       sba504Product ||
-      residential1To4 ||
+      bridgeProduct ||
+      dscrRentalProduct ||
+      fixAndFlipProduct ||
+      constructionProduct ||
       mezzOrPrefProduct ||
       sba7aWorkingCapitalProduct ||
       sba7aRealEstateProduct ||
@@ -4507,10 +4542,19 @@ export const buildLenderProductCriteriaPayload = (
       criteria.maxPropertyValue !== ""
         ? Number(criteria.maxPropertyValue)
         : null,
-    unit1Allowed: residential1To4 ? Boolean(criteria.unit1Allowed) : false,
-    unit2Allowed: residential1To4 ? Boolean(criteria.unit2Allowed) : false,
-    unit3Allowed: residential1To4 ? Boolean(criteria.unit3Allowed) : false,
-    unit4Allowed: residential1To4 ? Boolean(criteria.unit4Allowed) : false,
+    unit1Allowed: usesUnitAllowedFlags
+      ? Boolean(criteria.unit1Allowed)
+      : false,
+    unit2Allowed: usesUnitAllowedFlags
+      ? Boolean(criteria.unit2Allowed)
+      : false,
+    unit3Allowed: usesUnitAllowedFlags
+      ? Boolean(criteria.unit3Allowed)
+      : false,
+    // Residential 1-4 uses unit1–3 as SFR/Condo/Town Home; CRE Bridge/Construction keep unit4.
+    unit4Allowed: creUnitCountProduct
+      ? Boolean(criteria.unit4Allowed)
+      : false,
     ownerOccupiedAllowed:
       occupancyBorrowerFlags ||
       sba7aRealEstateProduct ||
@@ -4551,7 +4595,11 @@ export const buildLenderProductCriteriaPayload = (
         ? Boolean(criteria.lightRehabAllowed)
         : false,
     vacantPropertyAllowed:
-      residential1To4 || rentalPortfolioProduct
+      bridgeProduct ||
+      dscrRentalProduct ||
+      fixAndFlipProduct ||
+      constructionProduct ||
+      rentalPortfolioProduct
         ? Boolean(criteria.vacantPropertyAllowed)
         : false,
     tenantOccupiedAllowed: bridgeProduct

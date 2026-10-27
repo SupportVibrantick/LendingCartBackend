@@ -1300,7 +1300,10 @@ const StepFive = ({
                 )}
 
                 {typeof setPropertyTypes === "function" &&
-                  typeof setBusinessTypes === "function" && (
+                  typeof setBusinessTypes === "function" &&
+                  (productUsesAcceptedPropertyTypes(product?.code) ||
+                    productUsesBusinessTypes(product?.code) ||
+                    productUsesEquipmentTypes(product?.code)) && (
                     <ProgramEligibilitySection
                       propertyTypes={propertyTypes}
                       setPropertyTypes={setPropertyTypes}

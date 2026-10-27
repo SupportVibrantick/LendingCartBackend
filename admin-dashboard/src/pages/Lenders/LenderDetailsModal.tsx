@@ -16,7 +16,13 @@ import {
   buildLoanProductDetailFields,
   formatLoanProductCode,
   formatLoanProductName,
+  resolveProductCode,
 } from "../../lib/loanProductListDisplay";
+import {
+  productUsesAcceptedPropertyTypes,
+  productUsesBusinessTypes,
+  productUsesEquipmentTypes,
+} from "../../lib/loanProductCriteriaFields";
 import { resolveLenderOfferedProductCode } from "../../lib/canonicalLoanProducts";
 import { toGroupedTypeArray } from "../../lib/lenderProductAdminPayload";
 
@@ -389,85 +395,91 @@ function AssignedProductCard({
             )}
           </ProductSubSection>
 
-          <ProductSubSection
-            title="Business Types"
-            count={businessTypes.length}
-          >
-            {businessTypes.length ? (
-              <div className="flex flex-wrap gap-2">
-                {businessTypes.map((item, idx) => (
-                  <div
-                    key={`${item.name}-${idx}`}
-                    className="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-xs dark:border-blue-500/20 dark:bg-blue-500/10"
-                  >
-                    <span className="font-medium text-blue-700 dark:text-blue-300">
-                      {item.name}
-                    </span>
-                    {item.subTypes?.length ? (
-                      <span className="ml-1 text-slate-500">
-                        ({item.subTypes.join(", ")})
+          {productUsesBusinessTypes(resolveProductCode(product)) && (
+            <ProductSubSection
+              title="Business Types"
+              count={businessTypes.length}
+            >
+              {businessTypes.length ? (
+                <div className="flex flex-wrap gap-2">
+                  {businessTypes.map((item, idx) => (
+                    <div
+                      key={`${item.name}-${idx}`}
+                      className="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-xs dark:border-blue-500/20 dark:bg-blue-500/10"
+                    >
+                      <span className="font-medium text-blue-700 dark:text-blue-300">
+                        {item.name}
                       </span>
-                    ) : null}
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                No business types configured.
-              </p>
-            )}
-          </ProductSubSection>
+                      {item.subTypes?.length ? (
+                        <span className="ml-1 text-slate-500">
+                          ({item.subTypes.join(", ")})
+                        </span>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  No business types configured.
+                </p>
+              )}
+            </ProductSubSection>
+          )}
 
-          <ProductSubSection
-            title="Property Types"
-            count={propertyTypes.length}
-          >
-            {propertyTypes.length ? (
-              <div className="flex flex-wrap gap-2">
-                {propertyTypes.map((item, idx) => (
-                  <div
-                    key={`${item.type}-${idx}`}
-                    className="rounded-lg border border-green-100 bg-green-50 px-3 py-2 text-xs dark:border-green-500/20 dark:bg-green-500/10"
-                  >
-                    <span className="font-medium text-green-700 dark:text-green-300">
-                      {item.type}
-                    </span>
-                    {item.subTypes?.length ? (
-                      <span className="ml-1 text-slate-500">
-                        ({item.subTypes.join(", ")})
+          {productUsesAcceptedPropertyTypes(resolveProductCode(product)) && (
+            <ProductSubSection
+              title="Property Types Accepted"
+              count={propertyTypes.length}
+            >
+              {propertyTypes.length ? (
+                <div className="flex flex-wrap gap-2">
+                  {propertyTypes.map((item, idx) => (
+                    <div
+                      key={`${item.type}-${idx}`}
+                      className="rounded-lg border border-green-100 bg-green-50 px-3 py-2 text-xs dark:border-green-500/20 dark:bg-green-500/10"
+                    >
+                      <span className="font-medium text-green-700 dark:text-green-300">
+                        {item.type}
                       </span>
-                    ) : null}
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                No property types configured.
-              </p>
-            )}
-          </ProductSubSection>
+                      {item.subTypes?.length ? (
+                        <span className="ml-1 text-slate-500">
+                          ({item.subTypes.join(", ")})
+                        </span>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  No property types configured.
+                </p>
+              )}
+            </ProductSubSection>
+          )}
 
-          <ProductSubSection
-            title="Equipment Types"
-            count={equipmentTypes.length}
-          >
-            {equipmentTypes.length ? (
-              <div className="flex flex-wrap gap-1.5">
-                {equipmentTypes.map((type) => (
-                  <span
-                    key={type}
-                    className="rounded-full bg-purple-100 px-2.5 py-0.5 text-[10px] text-purple-700 dark:bg-purple-500/15 dark:text-purple-300"
-                  >
-                    {type}
-                  </span>
-                ))}
-              </div>
-            ) : (
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                No equipment types configured.
-              </p>
-            )}
-          </ProductSubSection>
+          {productUsesEquipmentTypes(resolveProductCode(product)) && (
+            <ProductSubSection
+              title="Equipment Types"
+              count={equipmentTypes.length}
+            >
+              {equipmentTypes.length ? (
+                <div className="flex flex-wrap gap-1.5">
+                  {equipmentTypes.map((type) => (
+                    <span
+                      key={type}
+                      className="rounded-full bg-purple-100 px-2.5 py-0.5 text-[10px] text-purple-700 dark:bg-purple-500/15 dark:text-purple-300"
+                    >
+                      {type}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  No equipment types configured.
+                </p>
+              )}
+            </ProductSubSection>
+          )}
 
           <ProductSubSection title="Documents" count={documents.length}>
             {documents.length ? (

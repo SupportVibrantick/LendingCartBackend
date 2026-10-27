@@ -29,6 +29,15 @@ const CONSTRUCTION_LOAN_CODES = new Set([
   "COMMERCIAL_CONSTRUCTION",
 ]);
 
+/** Catalog codes under the "1-4 Units Residential" program category. */
+const RESIDENTIAL_1_4_PRODUCT_CODES = new Set([
+  "BRIDGE_LOAN_1_TO_4_UNITS",
+  "FIX_AND_FLIP_LOAN_1_TO_4_UNITS",
+  "DSCR_LOAN_1_TO_4_UNITS",
+  "CONSTRUCTION_LOAN_1_TO_4_UNITS",
+  "RENTAL_PORTFOLIO",
+]);
+
 const CRE_PERMANENT_LOAN_CODES = new Set(["CRE_PERMANENT_LOAN"]);
 
 const CMBS_LOAN_CODES = new Set(["CMBS"]);
@@ -124,6 +133,9 @@ const isDscrRentalProduct = (loanProductCode) =>
 
 const isRentalPortfolioProduct = (loanProductCode) =>
   RENTAL_PORTFOLIO_CODES.has(loanProductCode);
+
+const isResidential1To4Product = (loanProductCode) =>
+  RESIDENTIAL_1_4_PRODUCT_CODES.has(loanProductCode);
 
 const isConstructionLoanProduct = (loanProductCode) =>
   CONSTRUCTION_LOAN_CODES.has(loanProductCode);
@@ -371,6 +383,7 @@ module.exports = {
   FIX_AND_FLIP_CODES,
   DSCR_RENTAL_CODES,
   RENTAL_PORTFOLIO_CODES,
+  RESIDENTIAL_1_4_PRODUCT_CODES,
   CONSTRUCTION_LOAN_CODES,
   CRE_PERMANENT_LOAN_CODES,
   CMBS_LOAN_CODES,
@@ -396,6 +409,7 @@ module.exports = {
   isFixAndFlipProduct,
   isDscrRentalProduct,
   isRentalPortfolioProduct,
+  isResidential1To4Product,
   isConstructionLoanProduct,
   isCrePermanentProduct,
   isCmbsProduct,

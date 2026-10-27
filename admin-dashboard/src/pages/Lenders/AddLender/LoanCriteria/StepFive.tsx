@@ -6,6 +6,9 @@ import {
   getCriteriaFieldInputSuffix,
   isSba7aBusinessAcquisitionProduct,
   isSbaExpressProduct,
+  productUsesAcceptedPropertyTypes,
+  productUsesBusinessTypes,
+  productUsesEquipmentTypes,
   type CriteriaField,
 } from "../../../../lib/loanProductCriteriaFields";
 import {
@@ -1168,7 +1171,10 @@ const StepFive = ({
                 )}
 
                 {typeof setPropertyTypes === "function" &&
-                  typeof setBusinessTypes === "function" && (
+                  typeof setBusinessTypes === "function" &&
+                  (productUsesAcceptedPropertyTypes(product?.code) ||
+                    productUsesBusinessTypes(product?.code) ||
+                    productUsesEquipmentTypes(product?.code)) && (
                     <ProgramEligibilitySection
                       propertyTypes={propertyTypes}
                       setPropertyTypes={setPropertyTypes}
