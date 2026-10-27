@@ -13,11 +13,14 @@ import {
 export function isLoanOfficerPortalPath(
   pathname = typeof window !== "undefined" ? window.location.pathname : "",
 ): boolean {
-  return (
-    pathname.startsWith("/loan-officer") &&
-    !pathname.startsWith("/loan-officer/login") &&
-    !pathname.startsWith("/loan-officer/impersonate")
-  );
+  // Must not match broker-admin "/loan-officers" (plural) — only LO portal routes.
+  if (
+    pathname.startsWith("/loan-officer/login") ||
+    pathname.startsWith("/loan-officer/impersonate")
+  ) {
+    return false;
+  }
+  return pathname === "/loan-officer" || pathname.startsWith("/loan-officer/");
 }
 
 export function isCoBrokerPortalPath(

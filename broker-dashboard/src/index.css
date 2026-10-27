@@ -315,6 +315,43 @@ layer(base);
   background-color: #344054;
 }
 
+@utility auth-form-scrollbar {
+  &::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+    margin-block: 12px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    border-radius: 9999px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+    background-color: rgb(19 83 138 / 0.35);
+  }
+
+  &::-webkit-scrollbar-thumb:hover {
+    background-color: rgb(19 83 138 / 0.55);
+  }
+
+  scrollbar-width: thin;
+  scrollbar-color: rgb(19 83 138 / 0.4) transparent;
+}
+
+.dark .auth-form-scrollbar::-webkit-scrollbar-thumb {
+  background-color: rgb(34 211 238 / 0.35);
+}
+
+.dark .auth-form-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: rgb(34 211 238 / 0.55);
+}
+
+.dark .auth-form-scrollbar {
+  scrollbar-color: rgb(34 211 238 / 0.4) transparent;
+}
+
 @layer utilities {
   /* For Remove Date Icon */
   input[type="date"]::-webkit-inner-spin-button,

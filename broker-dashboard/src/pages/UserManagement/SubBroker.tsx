@@ -6,6 +6,7 @@ import {
   ChevronUp,
   ExternalLink,
   Eye,
+  Link2,
   Mail,
   Pencil,
   Phone,
@@ -32,6 +33,7 @@ import { buildImpersonatePortalUrl } from "../../lib/impersonateUrl";
 import { getBrokerAuthHeaders } from "../../lib/brokerApi";
 import { hasPermission } from "../../lib/brokerPermissions";
 import { isLoanOfficerPortalPath } from "../../lib/portalAuth";
+import { copyBrokerTeamInviteLink } from "../../lib/brokerTeamInvite";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 const SEARCH_DEBOUNCE_MS = 400;
@@ -291,6 +293,7 @@ export default function SubBroker() {
   );
   const [viewLoading, setViewLoading] = useState(false);
   const [impersonatingId, setImpersonatingId] = useState<string | null>(null);
+  const [copyingInvite, setCopyingInvite] = useState(false);
   // const [deletingId, setDeletingId] = useState<string | null>(null);
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
   const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
@@ -704,6 +707,24 @@ export default function SubBroker() {
     setFormModalOpen(true);
   };
 
+  const handleCopyInviteLink = async () => {
+    if (!canEditCoBrokers) {
+      toast.error("You don't have permission to create invite links");
+      return;
+    }
+    try {
+      setCopyingInvite(true);
+      const invite = await copyBrokerTeamInviteLink("SUB_BROKER");
+      toast.success(
+        `Invite link copied (expires in ${invite.expiresInHours}h)`,
+      );
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to create invite link");
+    } finally {
+      setCopyingInvite(false);
+    }
+  };
+
   const closeFormModal = () => {
     setFormModalOpen(false);
     setEditSubBrokerId(null);
@@ -747,14 +768,27 @@ export default function SubBroker() {
                 Refresh
               </button>
               {canEditCoBrokers ? (
-                <button
-                  type="button"
-                  onClick={openCreateModal}
-                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-[#13538A] transition hover:bg-white/90"
-                >
-                  <Plus className="h-4 w-4" />
-                  Create co broker
-                </button>
+                <>
+                  <button
+                    type="button"
+                    onClick={handleCopyInviteLink}
+                    disabled={copyingInvite}
+                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/25 bg-white/10 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-white/20 disabled:opacity-60"
+                  >
+                    <Link2
+                      className={`h-4 w-4 ${copyingInvite ? "animate-pulse" : ""}`}
+                    />
+                    {copyingInvite ? "Creating link..." : "Copy invite link"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={openCreateModal}
+                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-[#13538A] transition hover:bg-white/90"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Create co broker
+                  </button>
+                </>
               ) : null}
             </div>
           </div>

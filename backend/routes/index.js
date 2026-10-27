@@ -46,6 +46,10 @@ async function indexRoutes(fastify, options) {
     prefix: "/public/lender-invites",
   });
 
+  fastify.register(require("./public/brokerTeamInvites"), {
+    prefix: "/public/broker-team-invites",
+  });
+
   // =========================
   // CLIENT PORTAL (NEW)
   // =========================

@@ -7,7 +7,11 @@ const { loginSchema } = require("../../../schemas/loanOfficer/auth/login.schema"
 const jwtSecret = require("../../../utils/auth/jwtSecret");
 const {
   normalizeLoanOfficerPermissions,
+  DEFAULT_PUBLIC_JOIN_LO_PERMISSIONS,
 } = require("../../../utils/broker/loanOfficerPermissions");
+const {
+  syncUserPermissions,
+} = require("../../../utils/broker/brokerUserProfileHelpers");
 
 async function loginRoute(fastify) {
   fastify.post(
@@ -87,9 +91,32 @@ async function loginRoute(fastify) {
         data: { lastLoginAt: new Date() },
       });
 
-      const permissions = normalizeLoanOfficerPermissions(
-        user.userPermissions.map((p) => p.permission.key),
-      );
+      let permissionKeys = user.userPermissions.map((p) => p.permission.key);
+
+      // Heal LOs who joined via public invite before defaults were assigned.
+      if (permissionKeys.length === 0) {
+        const profile = await prisma.brokerUserProfile.findUnique({
+          where: { userId: user.id },
+          select: { profileData: true },
+        });
+        const source =
+          profile?.profileData &&
+          typeof profile.profileData === "object" &&
+          !Array.isArray(profile.profileData)
+            ? profile.profileData.source
+            : null;
+
+        if (source === "PUBLIC_TEAM_INVITE") {
+          await syncUserPermissions(
+            prisma,
+            user.id,
+            DEFAULT_PUBLIC_JOIN_LO_PERMISSIONS,
+          );
+          permissionKeys = [...DEFAULT_PUBLIC_JOIN_LO_PERMISSIONS];
+        }
+      }
+
+      const permissions = normalizeLoanOfficerPermissions(permissionKeys);
 
       const token = jwt.sign(
         {
