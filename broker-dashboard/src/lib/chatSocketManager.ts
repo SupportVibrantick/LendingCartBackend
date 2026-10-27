@@ -85,7 +85,13 @@ function bindSocketHandlers(token: string) {
   });
 
   socket.on("connect_error", (err: Error) => {
-    errorListeners.forEach((listener) => listener(err.message));
+    const raw = err?.message || "Connection failed";
+    // Engine.IO surfaces failed WS upgrades as the opaque "websocket error".
+    const message =
+      /websocket error/i.test(raw) || /transport error/i.test(raw)
+        ? "Realtime chat could not connect. Check API WebSocket proxy / CORS."
+        : raw;
+    errorListeners.forEach((listener) => listener(message));
   });
 
   socket.on("error", (err: { message?: string } | string) => {

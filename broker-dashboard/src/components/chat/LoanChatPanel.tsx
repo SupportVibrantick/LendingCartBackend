@@ -300,7 +300,10 @@ const LoanChatPanel = ({
     conversationId: selectedConversation?.id,
     conversationIds: trackedConversationIds,
     onMessage: handleRealtimeMessage,
-    onError: (message) => toast.error(message),
+    onError: (message) => {
+      // Reconnect loops would spam identical toasts without an id.
+      toast.error(message, { id: "chat-socket-error" });
+    },
   });
 
   const isSearching = searchTerm.trim() !== debouncedSearch;
