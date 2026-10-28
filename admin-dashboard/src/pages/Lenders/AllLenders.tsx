@@ -1050,12 +1050,14 @@ export default function LenderAllLendersPage() {
               type="button"
               onClick={copyPublicPartnerLink}
               title={publicPartnerLink}
-              className="relative inline-flex items-center gap-1.5 rounded-lg bg-amber-300 px-3.5 py-2 text-xs font-bold text-[#0f3d66] shadow-[0_0_0_3px_rgba(251,191,36,0.45),0_8px_24px_rgba(0,0,0,0.18)] transition hover:bg-amber-200 hover:shadow-[0_0_0_4px_rgba(251,191,36,0.55),0_10px_28px_rgba(0,0,0,0.22)]"
+              className="group relative inline-flex items-center gap-1.5 rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-[#13538A] shadow-[0_6px_16px_rgba(0,0,0,0.16)] ring-1 ring-cyan-200/90 transition hover:-translate-y-0.5 hover:bg-cyan-50 hover:shadow-[0_8px_20px_rgba(0,0,0,0.2)] hover:ring-cyan-300"
             >
-              <span className="absolute -right-1.5 -top-1.5 rounded-full bg-white px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-[#13538A] shadow-sm ring-1 ring-amber-200">
+              <span className="absolute -right-1 -top-1 rounded bg-gradient-to-r from-[#13538A] to-[#1a6aad] px-1 py-px text-[8px] font-bold uppercase tracking-wide text-white shadow-sm">
                 Share
               </span>
-              <Link2 className="h-3.5 w-3.5" />
+              <span className="flex h-5 w-5 items-center justify-center rounded-md bg-[#13538A]/10 text-[#13538A] transition group-hover:bg-[#13538A]/15">
+                <Link2 className="h-3 w-3" />
+              </span>
               Signup Link
             </button>
           </div>
