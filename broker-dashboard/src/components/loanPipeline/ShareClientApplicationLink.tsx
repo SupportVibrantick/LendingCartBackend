@@ -40,6 +40,8 @@ type ShareLinkData = {
 
 type ShareClientApplicationLinkProps = {
   portal?: ShareClientApplicationPortal;
+  /** Full card (pipeline) or compact copy button (new application header). */
+  variant?: "card" | "button";
 };
 
 function getBrokerAuthHeaders(): Record<string, string> {
@@ -72,8 +74,10 @@ function resolveAuthHeaders(portal: ShareClientApplicationPortal): HeadersInit {
 
 export default function ShareClientApplicationLink({
   portal = "broker",
+  variant = "card",
 }: ShareClientApplicationLinkProps) {
   const [loading, setLoading] = useState(true);
+  const [copying, setCopying] = useState(false);
   const [data, setData] = useState<ShareLinkData | null>(null);
   const { entitlements, loading: entitlementsLoading } = useBrokerEntitlements();
 
@@ -112,19 +116,22 @@ export default function ShareClientApplicationLink({
             ? buildFallbackShareUrl(payload.brokerOrgId, payload.ref)
             : "";
 
-      setData({
+      const next: ShareLinkData = {
         brokerOrgId: payload.brokerOrgId,
         brokerName: payload.brokerName,
         brokerEmail: payload.brokerEmail,
         shareUrl,
         ref: payload.ref || null,
         sourcePortal: payload.sourcePortal || null,
-      });
+      };
+      setData(next);
+      return next;
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Failed to load share link",
       );
       setData(null);
+      return null;
     } finally {
       setLoading(false);
     }
@@ -136,22 +143,44 @@ export default function ShareClientApplicationLink({
       setData(null);
       return;
     }
+    // Button variant loads on demand when clicked.
+    if (variant === "button") {
+      setLoading(false);
+      return;
+    }
     fetchShareLink();
-  }, [canShare, fetchShareLink]);
+  }, [canShare, fetchShareLink, variant]);
 
   const shareMessage = useMemo(() => {
     if (!data?.shareUrl) return "";
     return `Hi,\n\nPlease complete your loan application using this secure link:\n${data.shareUrl}\n\nThank you,\n${data.brokerName}`;
   }, [data]);
 
-  const copyLink = async () => {
-    if (!data?.shareUrl) return;
+  const copyLink = async (url?: string) => {
+    const shareUrl = url || data?.shareUrl;
+    if (!shareUrl) return;
 
     try {
-      await navigator.clipboard.writeText(data.shareUrl);
+      await navigator.clipboard.writeText(shareUrl);
       toast.success("Link copied to clipboard");
     } catch {
       toast.error("Could not copy link");
+    }
+  };
+
+  const handleButtonClick = async () => {
+    if (copying) return;
+    setCopying(true);
+    try {
+      let shareUrl = data?.shareUrl;
+      if (!shareUrl) {
+        const next = await fetchShareLink();
+        shareUrl = next?.shareUrl;
+      }
+      if (!shareUrl) return;
+      await copyLink(shareUrl);
+    } finally {
+      setCopying(false);
     }
   };
 
@@ -180,6 +209,30 @@ export default function ShareClientApplicationLink({
   }
 
   if (!canShare) return null;
+
+  if (variant === "button") {
+    return (
+      <button
+        type="button"
+        onClick={handleButtonClick}
+        disabled={copying || loading}
+        title="Copy your public client loan application link"
+        className="group relative inline-flex items-center justify-center gap-1.5 rounded-lg border border-[#13538A]/20 bg-white px-3 py-1.5 text-xs font-semibold text-[#13538A] shadow-sm ring-1 ring-cyan-200/70 transition hover:-translate-y-0.5 hover:bg-cyan-50 hover:ring-cyan-300 disabled:translate-y-0 disabled:opacity-60 dark:border-cyan-500/30 dark:bg-gray-900 dark:text-cyan-300 dark:ring-cyan-500/20"
+      >
+        <span className="absolute -right-1 -top-1 rounded bg-gradient-to-r from-[#13538A] to-[#1a6aad] px-1 py-px text-[8px] font-bold uppercase tracking-wide text-white shadow-sm">
+          Share
+        </span>
+        <span className="flex h-5 w-5 items-center justify-center rounded-md bg-[#13538A]/10 text-[#13538A] transition group-hover:bg-[#13538A]/15 dark:bg-cyan-500/15 dark:text-cyan-300">
+          <Link2
+            className={`h-3 w-3 ${copying || loading ? "animate-pulse" : ""}`}
+          />
+        </span>
+        {copying || loading
+          ? "Copying..."
+          : "Share Your Loan Application Link"}
+      </button>
+    );
+  }
 
   return (
     <div className="rounded-2xl border border-sky-200 bg-gradient-to-br from-sky-50 to-blue-50 p-4 shadow-sm dark:border-sky-900/40 dark:from-sky-950/30 dark:to-blue-950/20 sm:p-5">
@@ -225,7 +278,7 @@ export default function ShareClientApplicationLink({
             />
             <button
               type="button"
-              onClick={copyLink}
+              onClick={() => copyLink()}
               className="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl bg-[#13538A] px-4 text-sm font-medium text-white hover:bg-[#1a6aad]"
             >
               <Copy className="h-4 w-4" />
