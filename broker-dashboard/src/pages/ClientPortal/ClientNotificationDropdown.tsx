@@ -301,15 +301,42 @@ export default function ClientNotificationDropdown({
 
             <div className="max-h-[420px] overflow-y-auto">
               {loading && notifications.length === 0 ? (
-                <p className="py-8 text-center text-sm text-gray-500">Loading...</p>
+                <div className="space-y-2 px-3 py-4">
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <div
+                      key={i}
+                      className="h-16 animate-pulse rounded-xl bg-gray-100"
+                    />
+                  ))}
+                </div>
               ) : notifications.length === 0 ? (
-                <p className="py-8 text-center text-sm text-gray-500">
-                  No notifications yet
-                </p>
+                <div className="flex flex-col items-center justify-center py-10 text-center">
+                  <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-gray-100">
+                    <FiBell className="h-5 w-5 text-slate-400" />
+                  </div>
+                  <p className="text-sm font-semibold text-gray-700">
+                    No notifications
+                  </p>
+                  <p className="mt-1 text-xs text-gray-500">
+                    You&apos;re all caught up
+                  </p>
+                </div>
               ) : (
                 notifications.map((notification) => {
                   const style = getNotificationStyle(notification.eventType);
                   const Icon = style.icon;
+                  const isUnread = !notification.isRead;
+                  const appNumber = notification.metadata?.applicationNumber
+                    ? `#${String(notification.metadata.applicationNumber).replace(/^#/, "")}`
+                    : null;
+                  const title =
+                    notification.subject?.trim() ||
+                    notification.body?.trim() ||
+                    "Update";
+                  const showBody =
+                    Boolean(notification.subject?.trim()) &&
+                    Boolean(notification.body?.trim()) &&
+                    notification.subject?.trim() !== notification.body?.trim();
 
                   return (
                     <button
@@ -317,36 +344,51 @@ export default function ClientNotificationDropdown({
                       type="button"
                       onClick={() => handleItemClick(notification)}
                       className={`flex w-full items-start gap-3 border-b border-gray-50 px-4 py-3 text-left transition hover:bg-gray-50 ${
-                        !notification.isRead ? "bg-blue-50/40" : ""
+                        isUnread
+                          ? "border-l-[3px] border-l-blue-500 bg-blue-50/50"
+                          : ""
                       }`}
                     >
                       <div
-                        className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${style.tone}`}
+                        className={`relative mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${style.tone}`}
                       >
                         <Icon size={16} />
+                        {isUnread && (
+                          <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-blue-500" />
+                        )}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium text-gray-900">
-                          {notification.subject || "Update"}
+                        <div className="mb-1 flex flex-wrap items-center gap-1.5">
+                          {appNumber && (
+                            <span className="rounded-md bg-sky-50 px-1.5 py-0.5 text-[10px] font-semibold text-sky-700">
+                              {appNumber}
+                            </span>
+                          )}
+                          {notification.eventType === "NEW_MESSAGE" && (
+                            <span className="rounded-md bg-violet-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-violet-700">
+                              Message
+                            </span>
+                          )}
+                        </div>
+                        <p className="line-clamp-2 text-sm font-medium text-gray-900">
+                          {title}
                         </p>
-                        <p className="mt-1 line-clamp-2 text-xs text-gray-600">
-                          {notification.body}
-                        </p>
-                        <p className="mt-2 text-[11px] text-gray-400">
+                        {showBody && (
+                          <p className="mt-0.5 line-clamp-2 text-xs text-gray-600">
+                            {notification.body}
+                          </p>
+                        )}
+                        <p className="mt-1.5 text-[11px] text-gray-400">
                           {[
-                            notification.metadata?.applicationNumber
-                              ? `#${String(notification.metadata.applicationNumber).replace(/^#/, "")}`
+                            notification.metadata?.senderName
+                              ? `From ${notification.metadata.senderName}`
                               : null,
-                            notification.metadata?.senderName,
                             formatRelativeTime(notification.createdAt),
                           ]
                             .filter(Boolean)
                             .join(" · ")}
                         </p>
                       </div>
-                      {!notification.isRead && (
-                        <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-blue-500" />
-                      )}
                     </button>
                   );
                 })
