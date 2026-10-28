@@ -43,6 +43,76 @@ function toCsv(arr) {
     : null;
 }
 
+/** Prisma `@db.Decimal(5, 2)` — absolute value must be < 1000. */
+const DECIMAL_5_2_FIELD_KEYS = new Set([
+  "maxLtvPercent",
+  "maxArvPercent",
+  "maxLtcPercent",
+  "minMezzLtvPercent",
+  "maxMezzLtvPercent",
+  "exitFeePercent",
+  "preferredReturnPercent",
+  "originationPointsPercent",
+  "minDscr",
+  "minDebtYieldPercent",
+  "maxRateSpreadPercent",
+  "minRateSpreadPercent",
+  "sbaGuaranteePercent",
+  "maxFinancingPercent",
+  "requiredInjectionPercent",
+  "preferredDscr",
+  "usdaGuaranteePercent",
+  "advanceRatePercent",
+  "transactionFeePercent",
+  "minGrossMarginPercent",
+  "discountFeePercent",
+  "earlyPaymentDiscountPercent",
+  "maxLtvCashOutPercent",
+  "rehabFundsMaxPercent",
+  "minOccupancyPercent",
+  "minDscrFixedRate",
+  "minDscrArm",
+  "maxStabilizedLtvPercent",
+  "maxAdvanceRatePercent",
+  "concentrationLimitPercent",
+  "maxInvoiceDilutionPercent",
+  "maxArConcentrationPercent",
+  "maxVendorConcentrationPercent",
+  "maxPayablesConcentrationPercent",
+  "maxCustomerConcentrationPercent",
+  "minGrossProfitMarginPercent",
+  "minCustomerDepositPercent",
+  "maxPoConcentrationPercent",
+]);
+
+function assertDecimal52Fits(payload) {
+  const overflows = [];
+
+  for (const key of DECIMAL_5_2_FIELD_KEYS) {
+    const raw = payload[key];
+    if (raw === undefined || raw === null || raw === "") continue;
+
+    const numeric = Number(typeof raw === "object" && raw?.toString
+      ? raw.toString()
+      : raw);
+
+    if (!Number.isFinite(numeric)) continue;
+
+    if (Math.abs(numeric) >= 1000) {
+      overflows.push(`${key}=${numeric}`);
+    }
+  }
+
+  if (!overflows.length) return;
+
+  const error = new Error(
+    `Numeric field overflow: ${overflows.join(", ")}. Percent/ratio fields must be under 1000 (usually 0–100). Check occupancy, LTV, rates, and points — do not enter dollar amounts in % fields.`,
+  );
+  error.statusCode = 400;
+  error.code = "DECIMAL_OVERFLOW";
+  throw error;
+}
+
 /**
  * Map a lender-product API item to Prisma `lenderProduct` data fields.
  * Shared by lender and admin create/update routes.
@@ -81,7 +151,7 @@ function buildLenderProductPrismaFields(item) {
     mezzOrPref ||
     cmbsProduct;
 
-  return {
+  const payload = {
     businessTypes: item.businessTypes ?? null,
     propertyTypes: item.propertyTypes ?? null,
 
@@ -106,11 +176,7 @@ function buildLenderProductPrismaFields(item) {
       item.minMezzLtvPercent !== null &&
       item.minMezzLtvPercent !== ""
         ? toDecimal(item.minMezzLtvPercent)
-        : item.minMezzLtvPercent !== undefined &&
-            item.minMezzLtvPercent !== null &&
-            item.minMezzLtvPercent !== ""
-          ? toDecimal(item.minMezzLtvPercent)
-          : null,
+        : null,
     maxMezzLtvPercent:
       mezzOrPref && item.maxMezzLtvPercent
         ? toDecimal(item.maxMezzLtvPercent)
@@ -1405,10 +1471,15 @@ function buildLenderProductPrismaFields(item) {
 
     isActive: item.isActive ?? true,
   };
+
+  assertDecimal52Fits(payload);
+  return payload;
 }
 
 module.exports = {
   buildLenderProductPrismaFields,
+  assertDecimal52Fits,
+  DECIMAL_5_2_FIELD_KEYS,
   toDecimal,
   toCsv,
 };

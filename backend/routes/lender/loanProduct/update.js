@@ -146,7 +146,12 @@ async function updateLenderLoanProductRoutes(fastify) {
       } catch (error) {
         req.log.error(error);
 
-        return reply.status(500).send({
+        const statusCode =
+          error.statusCode === 400 || error.code === "DECIMAL_OVERFLOW"
+            ? 400
+            : 500;
+
+        return reply.status(statusCode).send({
           success: false,
           message: error.message || "Server error while updating loan product",
         });

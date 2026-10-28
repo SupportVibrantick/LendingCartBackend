@@ -214,6 +214,13 @@ async function updateLenderProductRoutes(fastify) {
         });
       }
 
+      if (error.statusCode === 400 || error.code === "DECIMAL_OVERFLOW") {
+        return reply.status(400).send({
+          success: false,
+          message: error.message,
+        });
+      }
+
       return reply.status(500).send({
         success: false,
         message: error.message || "Server error",

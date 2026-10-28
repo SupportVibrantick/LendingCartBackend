@@ -1,5 +1,5 @@
 import { Eye, EyeOff, Loader2, Upload, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import MultiSelect from "../form/MultiSelect";
 import {
@@ -27,6 +27,11 @@ import {
 import { isLoanOfficerPortalPath } from "../../lib/portalAuth";
 import BankingDetailsFields from "../form/BankingDetailsFields";
 import { INITIAL_BANKING_FORM } from "../../lib/bankingForm";
+import {
+  CO_BROKER_FORM_FIELD_ORDER,
+  getFirstErrorField,
+  scrollToFormField,
+} from "../../lib/formScroll";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
@@ -76,17 +81,19 @@ function FormField({
   label,
   required,
   error,
+  field,
   children,
   className = "",
 }: {
   label: string;
   required?: boolean;
   error?: string;
+  field?: string;
   children: React.ReactNode;
   className?: string;
 }) {
   return (
-    <div className={className}>
+    <div className={className} data-field={field || undefined}>
       <label className={labelClass}>
         {label}
         {required ? <span className="text-red-500"> *</span> : null}
@@ -117,6 +124,7 @@ export default function CoBrokerFormModal({
   const [form, setForm] = useState<CoBrokerFormState>(INITIAL_CO_BROKER_FORM);
   const [errors, setErrors] = useState<CoBrokerFormErrors>({});
   const [saving, setSaving] = useState(false);
+  const scrollBodyRef = useRef<HTMLDivElement>(null);
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -290,10 +298,18 @@ export default function CoBrokerFormModal({
     const validationErrors = validateCoBrokerForm(form, { isEdit });
     setErrors(validationErrors);
     if (Object.keys(validationErrors).length > 0) {
-      const firstKey = (
-        Object.keys(validationErrors) as (keyof typeof validationErrors)[]
-      )[0];
-      toast.error(`${validationErrors[firstKey]}`);
+      const firstKey = getFirstErrorField(
+        validationErrors,
+        [...CO_BROKER_FORM_FIELD_ORDER],
+      );
+      toast.error(
+        (firstKey &&
+          validationErrors[firstKey as keyof typeof validationErrors]) ||
+          "Please fix the highlighted fields",
+      );
+      requestAnimationFrame(() => {
+        if (firstKey) scrollToFormField(scrollBodyRef.current, firstKey);
+      });
       return;
     }
 
@@ -417,7 +433,10 @@ export default function CoBrokerFormModal({
             onSubmit={handleSubmit}
             className="flex min-h-0 flex-1 flex-col"
           >
-            <div className="space-y-6 overflow-y-auto p-6">
+            <div
+              ref={scrollBodyRef}
+              className="space-y-6 overflow-y-auto p-6"
+            >
               <section className="space-y-4">
                 <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
                   Basic Information
@@ -432,6 +451,7 @@ export default function CoBrokerFormModal({
                   <FormField
                     label="Broker/Partner Type"
                     required
+                    field="partnerType"
                     error={errors.partnerType}
                   >
                     <select
@@ -450,7 +470,12 @@ export default function CoBrokerFormModal({
                     </select>
                   </FormField>
 
-                  <FormField label="Company" required error={errors.company}>
+                  <FormField
+                    label="Company"
+                    required
+                    field="company"
+                    error={errors.company}
+                  >
                     <input
                       className={inputClass}
                       value={form.company}
@@ -462,6 +487,7 @@ export default function CoBrokerFormModal({
                   <FormField
                     label="First Name"
                     required
+                    field="firstName"
                     error={errors.firstName}
                   >
                     <input
@@ -471,7 +497,12 @@ export default function CoBrokerFormModal({
                     />
                   </FormField>
 
-                  <FormField label="Last Name" required error={errors.lastName}>
+                  <FormField
+                    label="Last Name"
+                    required
+                    field="lastName"
+                    error={errors.lastName}
+                  >
                     <input
                       className={inputClass}
                       value={form.lastName}
@@ -482,6 +513,7 @@ export default function CoBrokerFormModal({
                   <FormField
                     label="Email"
                     required
+                    field="email"
                     error={errors.email}
                     className="sm:col-span-2"
                   >
@@ -502,7 +534,12 @@ export default function CoBrokerFormModal({
 
                   <div className="sm:col-span-2" />
 
-                  <FormField label="Phone Number" required error={errors.phone}>
+                  <FormField
+                    label="Phone Number"
+                    required
+                    field="phone"
+                    error={errors.phone}
+                  >
                     <input
                       className={inputClass}
                       value={formatPhone(form.phone)}
@@ -542,6 +579,7 @@ export default function CoBrokerFormModal({
                   <FormField
                     label="Agent Type"
                     required
+                    field="agentType"
                     error={errors.agentType}
                   >
                     <select
@@ -799,12 +837,13 @@ export default function CoBrokerFormModal({
                 <BankingDetailsFields
                   value={form.banking}
                   errors={errors}
-                  onChange={(key, value) =>
+                  onChange={(key, value) => {
                     setForm((prev) => ({
                       ...prev,
                       banking: { ...prev.banking, [key]: value },
-                    }))
-                  }
+                    }));
+                    setErrors((prev) => ({ ...prev, [key]: undefined }));
+                  }}
                 />
               </section>
 
@@ -872,6 +911,7 @@ export default function CoBrokerFormModal({
                   <FormField
                     label="Contact First Name"
                     required
+                    field="contactFirstName"
                     error={errors.contactFirstName}
                   >
                     <input
@@ -887,6 +927,7 @@ export default function CoBrokerFormModal({
                   <FormField
                     label="Contact Last Name"
                     required
+                    field="contactLastName"
                     error={errors.contactLastName}
                   >
                     <input
@@ -902,6 +943,7 @@ export default function CoBrokerFormModal({
                   <FormField
                     label="Contact Phone"
                     required
+                    field="contactPhone"
                     error={errors.contactPhone}
                   >
                     <input
@@ -920,6 +962,7 @@ export default function CoBrokerFormModal({
                   <FormField
                     label="Contact Email"
                     required
+                    field="contactEmail"
                     error={errors.contactEmail}
                   >
                     <input
@@ -940,6 +983,7 @@ export default function CoBrokerFormModal({
                     <FormField
                       label={isEdit ? "New Password" : "Password"}
                       required={!isEdit}
+                      field="password"
                       error={errors.password}
                     >
                       <div className="relative">
@@ -977,6 +1021,7 @@ export default function CoBrokerFormModal({
                     <FormField
                       label="Confirm Password"
                       required={!isEdit || !!form.password}
+                      field="confirmPassword"
                       error={errors.confirmPassword}
                     >
                       <div className="relative">

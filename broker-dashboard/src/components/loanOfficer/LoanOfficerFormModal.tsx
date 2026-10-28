@@ -1,5 +1,5 @@
 import { Eye, EyeOff, Loader2, Upload, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import MultiSelect from "../form/MultiSelect";
 import {
@@ -22,6 +22,11 @@ import { useBrokerEntitlements } from "../../lib/brokerEntitlements";
 import { normalizeLoanOfficerPermissions } from "../../pages/UserManagement/loanOfficerShared";
 import BankingDetailsFields from "../form/BankingDetailsFields";
 import { INITIAL_BANKING_FORM } from "../../lib/bankingForm";
+import {
+  getFirstErrorField,
+  LOAN_OFFICER_FORM_FIELD_ORDER,
+  scrollToFormField,
+} from "../../lib/formScroll";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
@@ -71,17 +76,19 @@ function FormField({
   label,
   required,
   error,
+  field,
   children,
   className = "",
 }: {
   label: string;
   required?: boolean;
   error?: string;
+  field?: string;
   children: React.ReactNode;
   className?: string;
 }) {
   return (
-    <div className={className}>
+    <div className={className} data-field={field || undefined}>
       <label className={labelClass}>
         {label}
         {required ? <span className="text-red-500"> *</span> : null}
@@ -117,6 +124,7 @@ export default function LoanOfficerFormModal({
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [coBrokers, setCoBrokers] = useState<LoanOfficerCoBroker[]>([]);
+  const scrollBodyRef = useRef<HTMLDivElement>(null);
   const [loadingCoBrokers, setLoadingCoBrokers] = useState(false);
   const { entitlements } = useBrokerEntitlements();
   const allowedPermissionKeys = entitlements?.permissions ?? null;
@@ -224,10 +232,17 @@ export default function LoanOfficerFormModal({
     const validationErrors = validateLoanOfficerForm(form, { isEdit });
     setErrors(validationErrors);
     if (Object.keys(validationErrors).length > 0) {
-      let firstKey = (
-        Object.keys(validationErrors) as (keyof typeof validationErrors)[]
-      )[0];
-      toast.error(`${validationErrors[firstKey]}`);
+      const firstKey = getFirstErrorField(
+        validationErrors,
+        [...LOAN_OFFICER_FORM_FIELD_ORDER],
+      );
+      toast.error(
+        (firstKey && validationErrors[firstKey as keyof typeof validationErrors]) ||
+          "Please fix the highlighted fields",
+      );
+      requestAnimationFrame(() => {
+        if (firstKey) scrollToFormField(scrollBodyRef.current, firstKey);
+      });
       return;
     }
 
@@ -295,10 +310,18 @@ export default function LoanOfficerFormModal({
             onSubmit={handleSubmit}
             className="flex min-h-0 flex-1 flex-col"
           >
-            <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-6 py-5">
+            <div
+              ref={scrollBodyRef}
+              className="min-h-0 flex-1 space-y-6 overflow-y-auto px-6 py-5"
+            >
               <section className="space-y-4">
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <FormField label="Email" required error={errors.email}>
+                  <FormField
+                    label="Email"
+                    required
+                    field="email"
+                    error={errors.email}
+                  >
                     <input
                       type="email"
                       className={`${inputClass} ${isEdit ? "cursor-not-allowed opacity-70" : ""}`}
@@ -313,6 +336,7 @@ export default function LoanOfficerFormModal({
                     <FormField
                       label="Confirm Email"
                       required
+                      field="confirmEmail"
                       error={errors.confirmEmail}
                     >
                       <input
@@ -330,6 +354,7 @@ export default function LoanOfficerFormModal({
                   <FormField
                     label="First Name"
                     required
+                    field="firstName"
                     error={errors.firstName}
                   >
                     <input
@@ -340,7 +365,12 @@ export default function LoanOfficerFormModal({
                     />
                   </FormField>
 
-                  <FormField label="Last Name" required error={errors.lastName}>
+                  <FormField
+                    label="Last Name"
+                    required
+                    field="lastName"
+                    error={errors.lastName}
+                  >
                     <input
                       className={inputClass}
                       value={form.lastName}
@@ -352,6 +382,7 @@ export default function LoanOfficerFormModal({
                   <FormField
                     label="Company"
                     required
+                    field="company"
                     error={errors.company}
                     className="sm:col-span-2"
                   >
@@ -374,7 +405,12 @@ export default function LoanOfficerFormModal({
                     </p>
                   </div>
 
-                  <FormField label="Phone Number" required error={errors.phone}>
+                  <FormField
+                    label="Phone Number"
+                    required
+                    field="phone"
+                    error={errors.phone}
+                  >
                     <input
                       className={inputClass}
                       value={formatPhone(form.phone)}
@@ -388,7 +424,7 @@ export default function LoanOfficerFormModal({
                     />
                   </FormField>
 
-                  <FormField label="Address">
+                  <FormField label="Address" field="address">
                     <input
                       className={inputClass}
                       value={form.address}
@@ -550,12 +586,19 @@ export default function LoanOfficerFormModal({
                 <BankingDetailsFields
                   value={form.banking}
                   errors={errors}
-                  onChange={(key, value) =>
+                  onChange={(key, value) => {
                     setForm((prev) => ({
                       ...prev,
                       banking: { ...prev.banking, [key]: value },
-                    }))
-                  }
+                    }));
+                    if (errors[key]) {
+                      setErrors((prev) => {
+                        const next = { ...prev };
+                        delete next[key];
+                        return next;
+                      });
+                    }
+                  }}
                 />
               </section>
 
@@ -670,6 +713,7 @@ export default function LoanOfficerFormModal({
                     <FormField
                       label={isEdit ? "New Password" : "Password"}
                       required={!isEdit}
+                      field="password"
                       error={errors.password}
                     >
                       <div className="relative">
@@ -707,6 +751,7 @@ export default function LoanOfficerFormModal({
                     <FormField
                       label="Confirm Password"
                       required={!isEdit || !!form.password}
+                      field="confirmPassword"
                       error={errors.confirmPassword}
                     >
                       <div className="relative">
@@ -777,7 +822,7 @@ export default function LoanOfficerFormModal({
                 </div>
               </section>
 
-              <section className="space-y-4">
+              <section className="space-y-4" data-field="permissions">
                 <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
                   User Permissions
                 </h3>

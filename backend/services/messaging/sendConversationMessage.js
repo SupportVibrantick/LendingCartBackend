@@ -8,6 +8,10 @@ const {
   LENDER_NOTIFICATION_EVENTS,
 } = require("../notifications/lenderNotifications");
 const {
+  notifyBroker,
+  BROKER_NOTIFICATION_EVENTS,
+} = require("../notifications/brokerNotifications");
+const {
   assertCanAccessConversation,
   assertCanSendMessage,
   resolveAuditDashboard,
@@ -16,6 +20,23 @@ const {
   emitRealtimeMessage,
 } = require("./messagingAccess");
 const { resolveClientDisplayName } = require("./resolveClientDisplayName");
+
+const CLIENT_THREAD_TYPES = ["CLIENT_BROKER", "CLIENT_OFFICER"];
+const BROKER_SIDE_SENDER_TYPES = ["BROKER", "SUB_BROKER"];
+
+function messagePreview(message) {
+  if (message.type === "TEXT") {
+    return message.text?.slice(0, 120) || "New message";
+  }
+  return message.fileName || "New file shared";
+}
+
+function formatAppLabel(applicationNumber) {
+  if (!applicationNumber) return null;
+  return String(applicationNumber).startsWith("#")
+    ? String(applicationNumber)
+    : `#${applicationNumber}`;
+}
 
 async function resolveSenderName(prisma, user, senderType, conversation) {
   const userId = getUserId(user);
@@ -38,61 +59,35 @@ async function resolveSenderName(prisma, user, senderType, conversation) {
     include: { organization: true },
   });
 
-  return (
-    account?.organization?.name ||
-    `${account?.firstName || ""} ${account?.lastName || ""}`.trim() ||
-    senderType
-  );
+  const personName =
+    `${account?.firstName || ""} ${account?.lastName || ""}`.trim();
+
+  return personName || account?.organization?.name || senderType;
 }
 
-async function notifyMessageRecipients(prisma, io, {
-  conversation,
-  message,
-  senderType,
-  senderName,
-}) {
-  if (
-    senderType !== "CLIENT" &&
-    ["CLIENT_BROKER", "CLIENT_OFFICER"].includes(conversation.type) &&
-    conversation.loanApplicationId
-  ) {
+async function resolveLoanContext(prisma, conversation) {
+  if (conversation.loanApplicationId) {
     const loan = await prisma.loanApplication.findUnique({
       where: { id: conversation.loanApplicationId },
       select: {
         id: true,
         clientId: true,
+        brokerOrgId: true,
         applicationNumber: true,
       },
     });
 
-    if (loan?.clientId) {
-      const preview =
-        message.type === "TEXT"
-          ? message.text?.slice(0, 120) || "New message"
-          : message.fileName || "New file shared";
-
-      await notifyClient(prisma, io, {
+    if (loan) {
+      return {
+        applicationId: loan.id,
+        applicationNumber: loan.applicationNumber,
         clientId: loan.clientId,
-        eventType: CLIENT_NOTIFICATION_EVENTS.NEW_MESSAGE,
-        category: "MESSAGE",
-        subject: `New message from ${senderName || senderType}`,
-        body: preview,
-        metadata: {
-          applicationId: loan.id,
-          applicationNumber: loan.applicationNumber,
-          conversationId: conversation.id,
-          senderName,
-          senderType,
-        },
-      });
+        brokerOrgId: loan.brokerOrgId,
+      };
     }
   }
 
-  if (
-    senderType === "BROKER" &&
-    conversation.type === "BROKER_LENDER" &&
-    conversation.applicationLenderId
-  ) {
+  if (conversation.applicationLenderId) {
     const appLender = await prisma.applicationLender.findUnique({
       where: { id: conversation.applicationLenderId },
       select: {
@@ -101,32 +96,170 @@ async function notifyMessageRecipients(prisma, io, {
         loanApplication: {
           select: {
             id: true,
+            clientId: true,
+            brokerOrgId: true,
             applicationNumber: true,
           },
         },
       },
     });
 
-    if (appLender?.lenderOrgId) {
-      const preview =
-        message.type === "TEXT"
-          ? message.text?.slice(0, 120) || "New message"
-          : message.fileName || "New file shared";
-
-      await notifyLender(prisma, io, {
+    if (appLender?.loanApplication) {
+      return {
+        applicationId: appLender.loanApplication.id,
+        applicationNumber: appLender.loanApplication.applicationNumber,
+        clientId: appLender.loanApplication.clientId,
+        brokerOrgId: appLender.loanApplication.brokerOrgId,
+        applicationLenderId: appLender.id,
         lenderOrgId: appLender.lenderOrgId,
+      };
+    }
+
+    return {
+      applicationLenderId: appLender?.id || null,
+      lenderOrgId: appLender?.lenderOrgId || null,
+    };
+  }
+
+  return {};
+}
+
+function buildMessageMetadata({
+  conversation,
+  message,
+  senderType,
+  senderName,
+  loanContext,
+}) {
+  return {
+    applicationId: loanContext.applicationId || conversation.loanApplicationId || null,
+    applicationNumber: loanContext.applicationNumber || null,
+    applicationLenderId:
+      loanContext.applicationLenderId || conversation.applicationLenderId || null,
+    conversationId: conversation.id,
+    messageId: message.id,
+    senderName,
+    senderType,
+  };
+}
+
+async function notifyMessageRecipients(prisma, io, {
+  conversation,
+  message,
+  senderType,
+  senderName,
+}) {
+  const preview = messagePreview(message);
+  const loanContext = await resolveLoanContext(prisma, conversation);
+  const appLabel = formatAppLabel(loanContext.applicationNumber);
+  const who = senderName || senderType || "Someone";
+  const subject = appLabel
+    ? `New message from ${who} · ${appLabel}`
+    : `New message from ${who}`;
+  const body = appLabel ? `${who} on ${appLabel}: ${preview}` : `${who}: ${preview}`;
+  const metadata = buildMessageMetadata({
+    conversation,
+    message,
+    senderType,
+    senderName,
+    loanContext,
+  });
+
+  // Client: staff → borrower threads
+  if (
+    senderType !== "CLIENT" &&
+    CLIENT_THREAD_TYPES.includes(conversation.type) &&
+    loanContext.clientId
+  ) {
+    await notifyClient(prisma, io, {
+      clientId: loanContext.clientId,
+      eventType: CLIENT_NOTIFICATION_EVENTS.NEW_MESSAGE,
+      category: "MESSAGE",
+      subject,
+      body: preview,
+      metadata,
+    });
+  }
+
+  // Lender: broker-side → lender threads
+  if (
+    BROKER_SIDE_SENDER_TYPES.includes(senderType) &&
+    conversation.type === "BROKER_LENDER"
+  ) {
+    let lenderOrgId = loanContext.lenderOrgId || null;
+    let applicationLenderId =
+      loanContext.applicationLenderId || conversation.applicationLenderId || null;
+
+    if (!lenderOrgId && conversation.applicationLenderId) {
+      const appLender = await prisma.applicationLender.findUnique({
+        where: { id: conversation.applicationLenderId },
+        select: {
+          id: true,
+          lenderOrgId: true,
+          loanApplication: {
+            select: { id: true, applicationNumber: true },
+          },
+        },
+      });
+      lenderOrgId = appLender?.lenderOrgId || null;
+      applicationLenderId = appLender?.id || applicationLenderId;
+      if (!metadata.applicationId && appLender?.loanApplication) {
+        metadata.applicationId = appLender.loanApplication.id;
+        metadata.applicationNumber = appLender.loanApplication.applicationNumber;
+      }
+    }
+
+    if (lenderOrgId) {
+      await notifyLender(prisma, io, {
+        lenderOrgId,
         eventType: LENDER_NOTIFICATION_EVENTS.NEW_MESSAGE,
         category: "MESSAGE",
-        subject: `New message from ${senderName || "Broker"}`,
-        body: `${senderName || "Broker"}: ${preview}`,
+        subject,
+        body,
         metadata: {
-          applicationId: appLender.loanApplication?.id,
-          applicationNumber: appLender.loanApplication?.applicationNumber,
-          applicationLenderId: appLender.id,
-          conversationId: conversation.id,
-          senderName,
-          senderType,
+          ...metadata,
+          applicationLenderId,
         },
+      });
+    }
+  }
+
+  // Broker org (admin + LO + co-broker via shared notification list):
+  // inbound from client / lender, or staff threads from the other party.
+  const shouldNotifyBroker =
+    (senderType === "CLIENT" &&
+      CLIENT_THREAD_TYPES.includes(conversation.type)) ||
+    (senderType === "LENDER" && conversation.type === "BROKER_LENDER") ||
+    (["SUBBROKER_BROKER", "BROKER_OFFICER"].includes(conversation.type) &&
+      senderType !== "BROKER");
+
+  if (shouldNotifyBroker) {
+    let brokerOrgId = loanContext.brokerOrgId || null;
+
+    if (!brokerOrgId && conversation.loanApplicationId) {
+      const loan = await prisma.loanApplication.findUnique({
+        where: { id: conversation.loanApplicationId },
+        select: { brokerOrgId: true },
+      });
+      brokerOrgId = loan?.brokerOrgId || null;
+    }
+
+    if (!brokerOrgId && conversation.brokerLenderAccessId) {
+      const access = await prisma.brokerLenderAccess.findUnique({
+        where: { id: conversation.brokerLenderAccessId },
+        select: { brokerOrgId: true },
+      });
+      brokerOrgId = access?.brokerOrgId || null;
+    }
+
+    if (brokerOrgId) {
+      await notifyBroker(prisma, io, {
+        brokerOrgId,
+        eventType: BROKER_NOTIFICATION_EVENTS.NEW_MESSAGE,
+        category: "MESSAGE",
+        subject,
+        body,
+        metadata,
       });
     }
   }

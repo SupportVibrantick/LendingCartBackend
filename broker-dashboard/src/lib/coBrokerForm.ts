@@ -357,6 +357,8 @@ export function mapDetailToForm(detail: CoBrokerDetail): CoBrokerFormState {
   };
 }
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export function validateCoBrokerForm(
   form: CoBrokerFormState,
   options?: { isEdit?: boolean },
@@ -364,40 +366,53 @@ export function validateCoBrokerForm(
   const errors: CoBrokerFormErrors = {};
   const isEdit = options?.isEdit ?? false;
 
+  if (!form.partnerType.trim()) {
+    errors.partnerType = "Partner type is required";
+  }
+
   if (!form.company.trim()) errors.company = "Company is required";
+
+  if (!form.firstName.trim()) errors.firstName = "First name is required";
+  else if (form.firstName.trim().length < 2) {
+    errors.firstName = "Minimum 2 characters";
+  }
+  if (!form.lastName.trim()) errors.lastName = "Last name is required";
+  else if (form.lastName.trim().length < 2) {
+    errors.lastName = "Minimum 2 characters";
+  }
+
+  if (!form.email.trim()) errors.email = "Email is required";
+  else if (!EMAIL_RE.test(form.email.trim())) {
+    errors.email = "Invalid email format";
+  }
+
+  const cleanPhone = form.phone.replace(/\D/g, "");
+  if (!cleanPhone) errors.phone = "Phone is required";
+  else if (cleanPhone.length !== 10) {
+    errors.phone = "Enter a valid 10-digit phone number";
+  }
+
   if (!form.agentType) errors.agentType = "Agent type is required";
 
-  if (form.useSameContact) {
-    if (!form.firstName.trim()) errors.firstName = "First name is required";
-    else if (form.firstName.trim().length < 2) errors.firstName = "Minimum 2 characters";
-    if (!form.lastName.trim()) errors.lastName = "Last name is required";
-    if (!form.email.trim()) errors.email = "Email is required";
-    else if (!/^\S+@\S+\.\S+$/.test(form.email)) errors.email = "Invalid email format";
+  Object.assign(errors, validateBankingForm(form.banking));
 
-    const cleanPhone = form.phone.replace(/\D/g, "");
-    if (!cleanPhone) errors.phone = "Phone is required";
-    else if (cleanPhone.length < 10) errors.phone = "Enter 10-digit phone number";
-  } else {
-    if (!form.firstName.trim()) errors.firstName = "First name is required";
-    if (!form.lastName.trim()) errors.lastName = "Last name is required";
-    if (!form.email.trim()) errors.email = "Email is required";
-    else if (!/^\S+@\S+\.\S+$/.test(form.email)) errors.email = "Invalid email format";
-
-    const cleanBusinessPhone = form.phone.replace(/\D/g, "");
-    if (!cleanBusinessPhone) errors.phone = "Phone is required";
-    else if (cleanBusinessPhone.length < 10) errors.phone = "Enter 10-digit phone number";
-
-    if (!form.contactFirstName.trim()) errors.contactFirstName = "Contact first name is required";
-    if (!form.contactLastName.trim()) errors.contactLastName = "Contact last name is required";
-    if (!form.contactEmail.trim()) errors.contactEmail = "Contact email is required";
-    else if (!/^\S+@\S+\.\S+$/.test(form.contactEmail)) {
+  if (!form.useSameContact) {
+    if (!form.contactFirstName.trim()) {
+      errors.contactFirstName = "Contact first name is required";
+    }
+    if (!form.contactLastName.trim()) {
+      errors.contactLastName = "Contact last name is required";
+    }
+    if (!form.contactEmail.trim()) {
+      errors.contactEmail = "Contact email is required";
+    } else if (!EMAIL_RE.test(form.contactEmail.trim())) {
       errors.contactEmail = "Invalid contact email format";
     }
 
     const cleanContactPhone = form.contactPhone.replace(/\D/g, "");
     if (!cleanContactPhone) errors.contactPhone = "Contact phone is required";
-    else if (cleanContactPhone.length < 10) {
-      errors.contactPhone = "Enter 10-digit contact phone number";
+    else if (cleanContactPhone.length !== 10) {
+      errors.contactPhone = "Enter a valid 10-digit contact phone number";
     }
   }
 
@@ -417,8 +432,6 @@ export function validateCoBrokerForm(
       }
     }
   }
-
-  Object.assign(errors, validateBankingForm(form.banking));
 
   return errors;
 }
