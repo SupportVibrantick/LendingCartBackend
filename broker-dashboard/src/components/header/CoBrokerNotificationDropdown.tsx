@@ -4,10 +4,17 @@ import { FiBell, FiCheck } from "react-icons/fi";
 import { Dropdown } from "../ui/dropdown/Dropdown";
 import {
   CO_BROKER_API_BASE,
+  CO_BROKER_USER_KEY,
   checkCoBrokerResponse,
   getCoBrokerAuthHeaders,
+  getCoBrokerToken,
 } from "../../lib/coBrokerPortal";
 import { isSessionExpiredError } from "../../lib/sessionExpiry";
+import { getOrgIdsFromToken } from "../../lib/chatSocket";
+import {
+  ensureChatSocket,
+  subscribeSocketEvent,
+} from "../../lib/chatSocketManager";
 
 type CoBrokerNotification = {
   id: string;
@@ -22,8 +29,63 @@ type CoBrokerNotification = {
     loanApplicationId?: string;
     submissionId?: string;
     conversationId?: string;
+    messageId?: string;
+    senderName?: string;
   };
 };
+
+function getCoBrokerOrgId(): string | null {
+  try {
+    const raw = sessionStorage.getItem(CO_BROKER_USER_KEY);
+    if (raw) {
+      const user = JSON.parse(raw) as { organizationId?: string };
+      if (user.organizationId) return user.organizationId;
+    }
+  } catch {
+    /* ignore */
+  }
+  const token = getCoBrokerToken();
+  return token ? getOrgIdsFromToken(token).brokerOrgId : null;
+}
+
+function buildMessageNotification(
+  msg: Record<string, unknown>,
+): CoBrokerNotification {
+  const preview =
+    (msg.text as string | undefined) ||
+    ((msg.fileName as string | undefined) ? "Sent a file" : "New message");
+  const senderName = (msg.senderName as string | undefined) || "Someone";
+  const applicationNumber = msg.applicationNumber as string | undefined;
+  const applicationId =
+    (msg.applicationId as string | undefined) ||
+    (msg.loanApplicationId as string | undefined);
+  const appLabel = applicationNumber
+    ? String(applicationNumber).startsWith("#")
+      ? String(applicationNumber)
+      : `#${applicationNumber}`
+    : null;
+
+  return {
+    id: `msg-${String(msg.id || Date.now())}`,
+    eventType: "NEW_MESSAGE",
+    subject: appLabel
+      ? `New message from ${senderName} · ${appLabel}`
+      : `New message from ${senderName}`,
+    body: appLabel
+      ? `${senderName} on ${appLabel}: ${preview}`
+      : `${senderName}: ${preview}`,
+    metadata: {
+      conversationId: msg.conversationId as string | undefined,
+      senderName,
+      applicationId,
+      applicationNumber,
+      loanApplicationId: msg.loanApplicationId as string | undefined,
+      messageId: msg.id as string | undefined,
+    },
+    createdAt: (msg.createdAt as string | undefined) || new Date().toISOString(),
+    isRead: false,
+  };
+}
 
 export default function CoBrokerNotificationDropdown() {
   const navigate = useNavigate();
@@ -62,18 +124,98 @@ export default function CoBrokerNotificationDropdown() {
     return () => window.clearInterval(interval);
   }, [load]);
 
+  useEffect(() => {
+    const token = getCoBrokerToken();
+    const brokerOrgId = getCoBrokerOrgId();
+    if (!token || !brokerOrgId) return;
+
+    ensureChatSocket(token, {
+      getBrokerOrgId: () => getCoBrokerOrgId(),
+    });
+
+    const unsubscribeNotification = subscribeSocketEvent(
+      "NOTIFICATION",
+      (payload) => {
+        if (!payload || typeof payload !== "object") return;
+        const notification = payload as CoBrokerNotification;
+        if (!notification.id) return;
+
+        const messageId = notification.metadata?.messageId;
+        const syntheticId =
+          notification.eventType === "NEW_MESSAGE" && messageId
+            ? `msg-${messageId}`
+            : null;
+
+        let shouldBumpUnread = false;
+        setNotifications((prev) => {
+          const hadSynthetic = Boolean(
+            syntheticId && prev.some((item) => item.id === syntheticId),
+          );
+          const withoutSynthetic = syntheticId
+            ? prev.filter((item) => item.id !== syntheticId)
+            : prev;
+          if (withoutSynthetic.some((item) => item.id === notification.id)) {
+            return withoutSynthetic;
+          }
+          shouldBumpUnread = !hadSynthetic;
+          return [
+            { ...notification, isRead: false },
+            ...withoutSynthetic,
+          ].slice(0, 20);
+        });
+        if (shouldBumpUnread) {
+          setUnreadCount((count) => count + 1);
+        }
+      },
+    );
+
+    const unsubscribeChat = subscribeSocketEvent("newMessage", (payload) => {
+      if (!payload || typeof payload !== "object") return;
+      const msg = payload as Record<string, unknown>;
+      let currentUserId: string | null = null;
+      try {
+        const user = JSON.parse(
+          sessionStorage.getItem(CO_BROKER_USER_KEY) || "{}",
+        ) as { id?: string; userId?: string };
+        currentUserId = user.id || user.userId || null;
+      } catch {
+        currentUserId = null;
+      }
+      if (
+        currentUserId &&
+        (msg.senderUserId === currentUserId ||
+          msg.senderClientUserId === currentUserId)
+      ) {
+        return;
+      }
+      const incoming = buildMessageNotification(msg);
+      setNotifications((prev) => {
+        if (prev.some((item) => item.id === incoming.id)) return prev;
+        return [incoming, ...prev].slice(0, 20);
+      });
+      setUnreadCount((count) => count + 1);
+    });
+
+    return () => {
+      unsubscribeNotification();
+      unsubscribeChat();
+    };
+  }, []);
+
   const markRead = async (id: string) => {
     try {
-      const res = await fetch(
-        `${CO_BROKER_API_BASE}/subbroker/notifications/${id}/read`,
-        {
-          method: "PATCH",
-          headers: getCoBrokerAuthHeaders(),
-        },
-      );
-      const json = await res.json();
-      checkCoBrokerResponse(res, json);
-      if (!res.ok) return;
+      if (!id.startsWith("msg-")) {
+        const res = await fetch(
+          `${CO_BROKER_API_BASE}/subbroker/notifications/${id}/read`,
+          {
+            method: "PATCH",
+            headers: getCoBrokerAuthHeaders(),
+          },
+        );
+        const json = await res.json();
+        checkCoBrokerResponse(res, json);
+        if (!res.ok) return;
+      }
 
       setNotifications((prev) =>
         prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)),
@@ -116,6 +258,11 @@ export default function CoBrokerNotificationDropdown() {
       return;
     }
 
+    if (n.eventType === "NEW_MESSAGE" || n.metadata?.conversationId) {
+      navigate("/sub-broker/loan-pipeline");
+      return;
+    }
+
     if (
       n.metadata?.applicationId ||
       n.metadata?.loanApplicationId ||
@@ -125,11 +272,6 @@ export default function CoBrokerNotificationDropdown() {
       n.eventType?.includes("LENDER") ||
       n.eventType?.includes("LOI")
     ) {
-      navigate("/sub-broker/loan-pipeline");
-      return;
-    }
-
-    if (n.metadata?.conversationId) {
       navigate("/sub-broker/loan-pipeline");
     }
   };
@@ -220,7 +362,15 @@ export default function CoBrokerNotificationDropdown() {
                           </p>
                         )}
                         <p className="mt-1 text-[10px] text-gray-400">
-                          {new Date(n.createdAt).toLocaleString()}
+                          {[
+                            n.metadata?.applicationNumber
+                              ? `#${String(n.metadata.applicationNumber).replace(/^#/, "")}`
+                              : null,
+                            n.metadata?.senderName,
+                            new Date(n.createdAt).toLocaleString(),
+                          ]
+                            .filter(Boolean)
+                            .join(" · ")}
                         </p>
                       </div>
                     </div>

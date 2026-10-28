@@ -14,12 +14,10 @@ import ProfileCompanyStep, {
 import StepTwo from "../LoanProducts/LoanCriteria/StepTwo";
 import StepFive from "../LoanProducts/LoanCriteria/StepFive";
 import {
-  getRequiredCriteriaKeysForProduct,
-  isMezzanineProduct,
-  isNoMinLoanCriteriaProduct,
   isSba504Product,
   mapApiProductToCriteriaForm,
   productUsesEquipmentTypes,
+  validateLoanProductCriteriaStep,
 } from "../../lib/loanProductCriteriaFields";
 import {
   mapToLenderProductUpdatePayload,
@@ -173,24 +171,15 @@ export default function EditFullProfile() {
   };
 
   const validateStep5 = () => {
+    const baseError = validateLoanProductCriteriaStep(
+      selectedProducts,
+      form.loanCriteria,
+    );
+    if (baseError) return baseError;
+
     for (const product of selectedProducts) {
       const data = form.loanCriteria?.[product.id];
-
-      if (!data) {
-        return `Please fill details for ${product.name}`;
-      }
-
-      const requiredFields = getRequiredCriteriaKeysForProduct(product.code);
-
-      for (const field of requiredFields) {
-        if (!data[field] && data[field] !== 0) {
-          return `${product.name}: ${field} is required`;
-        }
-      }
-
-      if (!data.states || data.states.length === 0) {
-        return `${product.name}: Select at least one state`;
-      }
+      if (!data) continue;
 
       if (isSba504Product(product.code)) {
         const total = Number(data.maxTotalProject);
@@ -202,25 +191,11 @@ export default function EditFullProfile() {
         ) {
           return `${product.name}: SBA 504 debenture cannot exceed total project amount`;
         }
-      } else if (
-        !isNoMinLoanCriteriaProduct(product.code) &&
-        !isMezzanineProduct(product.code)
-      ) {
-        const minAmount = Number(
-          data.minFacilitySize ?? data.minProgramSize ?? data.minLoan,
-        );
-        const maxAmount = Number(
-          data.maxFacilitySize ?? data.maxProgramSize ?? data.maxLoan,
-        );
-
-        if (
-          Number.isFinite(minAmount) &&
-          Number.isFinite(maxAmount) &&
-          minAmount > maxAmount
-        ) {
-          return `${product.name}: Minimum amount cannot exceed maximum amount`;
-        }
       }
+    }
+
+    if (hasStep5Errors) {
+      return "Please correct the highlighted errors in the loan criteria form.";
     }
 
     return null;
@@ -659,6 +634,7 @@ export default function EditFullProfile() {
     const step5Error = validateStep5();
     if (step5Error) {
       toast.error(step5Error);
+      setStep(loanCriteriaStepIndex);
       return;
     }
 

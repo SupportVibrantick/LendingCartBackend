@@ -347,15 +347,23 @@ async function emitRealtimeMessage(io, prisma, message, conversationId) {
     fileName: message.fileName,
     fileSize: message.fileSize,
     mimeType: message.mimeType,
+    loanApplicationId: null,
+    applicationId: null,
+    applicationNumber: null,
+    applicationLenderId: null,
     createdAt:
       message.createdAt instanceof Date
         ? message.createdAt.toISOString()
         : message.createdAt,
   };
 
-  io.to(`conversation_${conversationId}`).emit("newMessage", payload);
+  if (!prisma) {
+    io.to(`conversation_${conversationId}`).emit("newMessage", payload);
+    return;
+  }
 
-  if (!prisma) return;
+  let brokerOrgId = null;
+  let lenderOrgId = null;
 
   try {
     const conversation = await prisma.conversation.findUnique({
@@ -367,24 +375,26 @@ async function emitRealtimeMessage(io, prisma, message, conversationId) {
       },
     });
 
-    let brokerOrgId = null;
-    let lenderOrgId = null;
+    payload.loanApplicationId = conversation?.loanApplicationId || null;
+    payload.applicationId = conversation?.loanApplicationId || null;
+    payload.applicationLenderId = conversation?.applicationLenderId || null;
+
+    if (conversation?.loanApplicationId) {
+      const loan = await prisma.loanApplication.findUnique({
+        where: { id: conversation.loanApplicationId },
+        select: { applicationNumber: true, brokerOrgId: true },
+      });
+      payload.applicationNumber = loan?.applicationNumber || null;
+      brokerOrgId = loan?.brokerOrgId || null;
+    }
 
     if (conversation?.brokerLenderAccessId) {
       const access = await prisma.brokerLenderAccess.findUnique({
         where: { id: conversation.brokerLenderAccessId },
         select: { brokerOrgId: true, lenderOrgId: true },
       });
-      brokerOrgId = access?.brokerOrgId || null;
+      brokerOrgId = access?.brokerOrgId || brokerOrgId;
       lenderOrgId = access?.lenderOrgId || null;
-    }
-
-    if (!brokerOrgId && conversation?.loanApplicationId) {
-      const loan = await prisma.loanApplication.findUnique({
-        where: { id: conversation.loanApplicationId },
-        select: { brokerOrgId: true },
-      });
-      brokerOrgId = loan?.brokerOrgId || null;
     }
 
     if (!lenderOrgId && conversation?.applicationLenderId) {
@@ -394,7 +404,13 @@ async function emitRealtimeMessage(io, prisma, message, conversationId) {
       });
       lenderOrgId = appLender?.lenderOrgId || null;
     }
+  } catch (err) {
+    console.error("Realtime message context lookup failed:", err.message);
+  }
 
+  io.to(`conversation_${conversationId}`).emit("newMessage", payload);
+
+  try {
     if (brokerOrgId) {
       io.to(`broker_${brokerOrgId}`).emit("newMessage", payload);
     }

@@ -2,7 +2,18 @@ import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { FiBell, FiCheck } from "react-icons/fi";
 import { Dropdown } from "../ui/dropdown/Dropdown";
-import { LO_API_BASE, loAuthHeaders } from "../../lib/loanOfficerApi";
+import {
+  LO_API_BASE,
+  LO_USER_KEY,
+  getLoanOfficerToken,
+  loAuthHeaders,
+} from "../../lib/loanOfficerApi";
+import { getLoanOfficerUserId } from "../../lib/useLoanOfficerMessaging";
+import { getOrgIdsFromToken } from "../../lib/chatSocket";
+import {
+  ensureChatSocket,
+  subscribeSocketEvent,
+} from "../../lib/chatSocketManager";
 
 type LoNotification = {
   id: string;
@@ -16,8 +27,61 @@ type LoNotification = {
     applicationNumber?: string;
     loanApplicationId?: string;
     conversationId?: string;
+    messageId?: string;
+    senderName?: string;
   };
 };
+
+function getLoanOfficerBrokerOrgId(): string | null {
+  try {
+    const raw = sessionStorage.getItem(LO_USER_KEY);
+    if (raw) {
+      const user = JSON.parse(raw) as { organizationId?: string };
+      if (user.organizationId) return user.organizationId;
+    }
+  } catch {
+    /* ignore */
+  }
+  const token = getLoanOfficerToken();
+  return token ? getOrgIdsFromToken(token).brokerOrgId : null;
+}
+
+function buildMessageNotification(msg: Record<string, unknown>): LoNotification {
+  const preview =
+    (msg.text as string | undefined) ||
+    ((msg.fileName as string | undefined) ? "Sent a file" : "New message");
+  const senderName = (msg.senderName as string | undefined) || "Someone";
+  const applicationNumber = msg.applicationNumber as string | undefined;
+  const applicationId =
+    (msg.applicationId as string | undefined) ||
+    (msg.loanApplicationId as string | undefined);
+  const appLabel = applicationNumber
+    ? String(applicationNumber).startsWith("#")
+      ? String(applicationNumber)
+      : `#${applicationNumber}`
+    : null;
+
+  return {
+    id: `msg-${String(msg.id || Date.now())}`,
+    eventType: "NEW_MESSAGE",
+    subject: appLabel
+      ? `New message from ${senderName} · ${appLabel}`
+      : `New message from ${senderName}`,
+    body: appLabel
+      ? `${senderName} on ${appLabel}: ${preview}`
+      : `${senderName}: ${preview}`,
+    metadata: {
+      conversationId: msg.conversationId as string | undefined,
+      senderName,
+      applicationId,
+      applicationNumber,
+      loanApplicationId: msg.loanApplicationId as string | undefined,
+      messageId: msg.id as string | undefined,
+    },
+    createdAt: (msg.createdAt as string | undefined) || new Date().toISOString(),
+    isRead: false,
+  };
+}
 
 export default function LoanOfficerNotificationDropdown() {
   const navigate = useNavigate();
@@ -50,11 +114,83 @@ export default function LoanOfficerNotificationDropdown() {
     return () => window.clearInterval(interval);
   }, [load]);
 
-  const markRead = async (id: string) => {
-    await fetch(`${LO_API_BASE}/loanofficer/notifications/${id}/read`, {
-      method: "PATCH",
-      headers: loAuthHeaders(),
+  useEffect(() => {
+    const token = getLoanOfficerToken();
+    const brokerOrgId = getLoanOfficerBrokerOrgId();
+    if (!token || !brokerOrgId) return;
+
+    ensureChatSocket(token, {
+      getBrokerOrgId: () => getLoanOfficerBrokerOrgId(),
     });
+
+    const unsubscribeNotification = subscribeSocketEvent(
+      "NOTIFICATION",
+      (payload) => {
+        if (!payload || typeof payload !== "object") return;
+        const notification = payload as LoNotification;
+        if (!notification.id) return;
+
+        const messageId = notification.metadata?.messageId;
+        const syntheticId =
+          notification.eventType === "NEW_MESSAGE" && messageId
+            ? `msg-${messageId}`
+            : null;
+
+        let shouldBumpUnread = false;
+        setNotifications((prev) => {
+          const hadSynthetic = Boolean(
+            syntheticId && prev.some((item) => item.id === syntheticId),
+          );
+          const withoutSynthetic = syntheticId
+            ? prev.filter((item) => item.id !== syntheticId)
+            : prev;
+          if (withoutSynthetic.some((item) => item.id === notification.id)) {
+            return withoutSynthetic;
+          }
+          shouldBumpUnread = !hadSynthetic;
+          return [
+            { ...notification, isRead: false },
+            ...withoutSynthetic,
+          ].slice(0, 20);
+        });
+        if (shouldBumpUnread) {
+          setUnreadCount((count) => count + 1);
+        }
+      },
+    );
+
+    const unsubscribeChat = subscribeSocketEvent("newMessage", (payload) => {
+      if (!payload || typeof payload !== "object") return;
+      const msg = payload as Record<string, unknown>;
+      const currentUserId = getLoanOfficerUserId();
+      if (
+        currentUserId &&
+        (msg.senderUserId === currentUserId ||
+          msg.senderClientUserId === currentUserId)
+      ) {
+        return;
+      }
+      const incoming = buildMessageNotification(msg);
+      setNotifications((prev) => {
+        if (prev.some((item) => item.id === incoming.id)) return prev;
+        return [incoming, ...prev].slice(0, 20);
+      });
+      setUnreadCount((count) => count + 1);
+    });
+
+    return () => {
+      unsubscribeNotification();
+      unsubscribeChat();
+    };
+  }, []);
+
+  const markRead = async (id: string) => {
+    if (!id.startsWith("msg-")) {
+      await fetch(`${LO_API_BASE}/loanofficer/notifications/${id}/read`, {
+        method: "PATCH",
+        headers: loAuthHeaders(),
+      });
+    }
     setNotifications((prev) =>
       prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)),
     );
@@ -74,14 +210,15 @@ export default function LoanOfficerNotificationDropdown() {
     if (!n.isRead) await markRead(n.id);
     setIsOpen(false);
 
+    if (n.eventType === "NEW_MESSAGE" || n.metadata?.conversationId) {
+      navigate("/loan-officer/messages");
+      return;
+    }
+
     const appId =
       n.metadata?.applicationId || n.metadata?.loanApplicationId;
     if (appId) {
       navigate("/loan-officer/loan-pipeline");
-      return;
-    }
-    if (n.metadata?.conversationId) {
-      navigate("/loan-officer/messages");
     }
   };
 
@@ -155,7 +292,15 @@ export default function LoanOfficerNotificationDropdown() {
                       <p className="mt-0.5 line-clamp-2 text-xs text-gray-500">{n.body}</p>
                     )}
                     <p className="mt-1 text-[10px] text-gray-400">
-                      {new Date(n.createdAt).toLocaleString()}
+                      {[
+                        n.metadata?.applicationNumber
+                          ? `#${String(n.metadata.applicationNumber).replace(/^#/, "")}`
+                          : null,
+                        n.metadata?.senderName,
+                        new Date(n.createdAt).toLocaleString(),
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
                     </p>
                   </button>
                 </li>

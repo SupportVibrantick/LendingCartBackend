@@ -3735,6 +3735,46 @@ type LoanProductCriteriaValidationProduct = {
   code: string;
 };
 
+const PERCENT_CRITERIA_KEYS = [
+  "minLtv",
+  "maxLtv",
+  "maxArv",
+  "maxLtc",
+  "maxLtvCashOut",
+  "mezzLtvMin",
+  "mezzLtvMax",
+  "minRate",
+  "maxRate",
+  "minOccupancy",
+  "originationPoints",
+  "minDebtYield",
+  "exitFee",
+  "preferredReturn",
+  "rehabFundsMaxPercent",
+  "maxRateSpread",
+  "minRateSpread",
+  "sbaGuaranteePercent",
+  "requiredInjection",
+  "advanceRate",
+  "maxAdvanceRate",
+  "transactionFee",
+  "minGrossMargin",
+  "discountFee",
+  "earlyPaymentDiscount",
+  "usdaGuaranteePercent",
+  "maxFinancingPercent",
+  "concentrationLimit",
+  "maxInvoiceDilution",
+  "maxArConcentration",
+  "maxVendorConcentration",
+  "maxPayablesConcentration",
+  "maxCustomerConcentration",
+  "minGrossProfitMargin",
+  "minCustomerDeposit",
+  "maxPoConcentration",
+  "maxStabilizedLtv",
+] as const;
+
 export const validateLoanProductCriteriaStep = (
   selectedProducts: LoanProductCriteriaValidationProduct[],
   loanCriteria: Record<string, any>,
@@ -3752,6 +3792,28 @@ export const validateLoanProductCriteriaStep = (
       if (!data[fieldKey] && data[fieldKey] !== 0) {
         const label = getCriteriaFieldLabel(product.code, fieldKey);
         return `${product.name}: ${label} is required`;
+      }
+    }
+
+    for (const fieldKey of PERCENT_CRITERIA_KEYS) {
+      const raw = data[fieldKey];
+      if (raw === undefined || raw === null || raw === "") continue;
+      const numeric = Number(raw);
+      if (!Number.isFinite(numeric)) continue;
+      if (Math.abs(numeric) >= 1000) {
+        const label = getCriteriaFieldLabel(product.code, fieldKey);
+        return `${product.name}: ${label} must be under 1000 (got ${numeric}). Do not enter dollar amounts in % fields.`;
+      }
+      if (Math.abs(numeric) > 100) {
+        const label = getCriteriaFieldLabel(product.code, fieldKey);
+        return `${product.name}: ${label} cannot exceed 100%`;
+      }
+    }
+
+    if (data.minDscr !== undefined && data.minDscr !== null && data.minDscr !== "") {
+      const dscr = Number(data.minDscr);
+      if (Number.isFinite(dscr) && (dscr <= 0 || dscr > 10)) {
+        return `${product.name}: Min DSCR must be between 0 and 10`;
       }
     }
 
@@ -3941,8 +4003,7 @@ export const buildLenderProductCriteriaPayload = (
         ? Number(criteria.maxLtv)
         : null,
     minMezzLtvPercent:
-      (mezzOrPrefProduct ||
-        (criteria.minLtv !== undefined && criteria.minLtv !== "")) &&
+      mezzOrPrefProduct &&
       ((criteria.mezzLtvMin !== undefined && criteria.mezzLtvMin !== "") ||
         (criteria.minLtv !== undefined && criteria.minLtv !== ""))
         ? Number(

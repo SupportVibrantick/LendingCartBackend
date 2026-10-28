@@ -227,7 +227,12 @@ async function createLenderProductRoutes(fastify) {
       } catch (error) {
         adminLogs.error("LenderProduct bulk create failed", error);
 
-        return reply.status(500).send({
+        const statusCode =
+          error.statusCode === 400 || error.code === "DECIMAL_OVERFLOW"
+            ? 400
+            : 500;
+
+        return reply.status(statusCode).send({
           success: false,
           message:
             error.message ||

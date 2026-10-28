@@ -333,7 +333,15 @@ export default function ClientNotificationDropdown({
                           {notification.body}
                         </p>
                         <p className="mt-2 text-[11px] text-gray-400">
-                          {formatRelativeTime(notification.createdAt)}
+                          {[
+                            notification.metadata?.applicationNumber
+                              ? `#${String(notification.metadata.applicationNumber).replace(/^#/, "")}`
+                              : null,
+                            notification.metadata?.senderName,
+                            formatRelativeTime(notification.createdAt),
+                          ]
+                            .filter(Boolean)
+                            .join(" · ")}
                         </p>
                       </div>
                       {!notification.isRead && (

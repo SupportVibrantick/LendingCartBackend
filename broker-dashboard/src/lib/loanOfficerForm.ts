@@ -212,6 +212,8 @@ export function mapDetailToLoanOfficerForm(detail: LoanOfficerDetail): LoanOffic
   };
 }
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export function validateLoanOfficerForm(
   form: LoanOfficerFormState,
   options?: { isEdit?: boolean },
@@ -219,11 +221,8 @@ export function validateLoanOfficerForm(
   const errors: LoanOfficerFormErrors = {};
   const isEdit = options?.isEdit ?? false;
 
-  if (!form.firstName.trim()) errors.firstName = "First name is required";
-  if (!form.lastName.trim()) errors.lastName = "Last name is required";
-
   if (!form.email.trim()) errors.email = "Email is required";
-  else if (!/^\S+@\S+\.\S+$/.test(form.email)) errors.email = "Invalid email format";
+  else if (!EMAIL_RE.test(form.email.trim())) errors.email = "Invalid email format";
 
   if (!isEdit) {
     if (!form.confirmEmail.trim()) errors.confirmEmail = "Confirm email is required";
@@ -232,11 +231,24 @@ export function validateLoanOfficerForm(
     }
   }
 
-  const cleanPhone = form.phone.replace(/\D/g, "");
-  if (!cleanPhone) errors.phone = "Phone is required";
-  else if (cleanPhone.length < 10) errors.phone = "Enter a 10-digit phone number";
+  if (!form.firstName.trim()) errors.firstName = "First name is required";
+  else if (form.firstName.trim().length < 2) {
+    errors.firstName = "Minimum 2 characters";
+  }
+  if (!form.lastName.trim()) errors.lastName = "Last name is required";
+  else if (form.lastName.trim().length < 2) {
+    errors.lastName = "Minimum 2 characters";
+  }
 
   if (!form.company.trim()) errors.company = "Company is required";
+
+  const cleanPhone = form.phone.replace(/\D/g, "");
+  if (!cleanPhone) errors.phone = "Phone is required";
+  else if (cleanPhone.length !== 10) {
+    errors.phone = "Enter a valid 10-digit phone number";
+  }
+
+  Object.assign(errors, validateBankingForm(form.banking));
 
   if (form.allowedToLogin) {
     if (!isEdit) {
@@ -259,8 +271,6 @@ export function validateLoanOfficerForm(
   if (!normalizedPermissions.length) {
     errors.permissions = "Select at least one permission";
   }
-
-  Object.assign(errors, validateBankingForm(form.banking));
 
   return errors;
 }

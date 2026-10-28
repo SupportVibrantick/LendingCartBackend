@@ -32,6 +32,7 @@ type NotificationMetadata = {
   applicationLenderId?: string;
   loanApplicationId?: string;
   conversationId?: string;
+  messageId?: string;
   senderName?: string;
   officerName?: string;
   subBrokerName?: string;
@@ -70,6 +71,18 @@ function getBrokerOrgId(): string | null {
   }
   const token = getBrokerToken();
   return token ? getOrgIdsFromToken(token).brokerOrgId : null;
+}
+
+function getBrokerUserId(): string | null {
+  try {
+    const user = JSON.parse(sessionStorage.getItem("broker_user") || "{}") as {
+      id?: string;
+      userId?: string;
+    };
+    return user.id || user.userId || null;
+  } catch {
+    return null;
+  }
 }
 
 function formatRelativeTime(value?: string | Date) {
@@ -507,9 +520,31 @@ export default function NotificationDropdown() {
 
     const unsubscribeNotification = subscribeSocketEvent("NOTIFICATION", (payload) => {
       if (!payload || typeof payload !== "object") return;
-      pushRealtimeNotification(
-        normalizeNotification(payload as Record<string, unknown>),
+      const notification = normalizeNotification(payload as Record<string, unknown>);
+      const messageId = notification.metadata?.messageId;
+      const syntheticId =
+        notification.eventType === "NEW_MESSAGE" && messageId
+          ? `msg-${messageId}`
+          : null;
+      const alreadyNotifiedViaSocket = Boolean(
+        syntheticId && seenRealtimeIds.current.has(syntheticId),
       );
+
+      if (syntheticId) {
+        setNotifications((prev) =>
+          prev.filter((item) => item.id !== syntheticId),
+        );
+        seenRealtimeIds.current.delete(syntheticId);
+      }
+
+      if (alreadyNotifiedViaSocket) {
+        if (seenRealtimeIds.current.has(notification.id)) return;
+        seenRealtimeIds.current.add(notification.id);
+        setNotifications((prev) => prependNotification(prev, notification));
+        return;
+      }
+
+      pushRealtimeNotification(notification);
     });
 
     const unsubscribeLoi = subscribeSocketEvent("LOI_GENERATED", (payload) => {
@@ -522,18 +557,47 @@ export default function NotificationDropdown() {
     const unsubscribeChat = subscribeSocketEvent("newMessage", (payload) => {
       if (!payload || typeof payload !== "object") return;
       const msg = payload as Record<string, unknown>;
+      const currentUserId = getBrokerUserId();
+      if (
+        currentUserId &&
+        (msg.senderUserId === currentUserId ||
+          msg.senderClientUserId === currentUserId)
+      ) {
+        return;
+      }
       const preview =
         (msg.text as string | undefined) ||
         ((msg.fileName as string | undefined) ? "Sent a file" : "New message");
+      const senderName = (msg.senderName as string | undefined) || "Someone";
+      const applicationNumber = msg.applicationNumber as string | undefined;
+      const applicationId =
+        (msg.applicationId as string | undefined) ||
+        (msg.loanApplicationId as string | undefined);
+      const appLabel = applicationNumber
+        ? String(applicationNumber).startsWith("#")
+          ? String(applicationNumber)
+          : `#${applicationNumber}`
+        : null;
+      const body = appLabel
+        ? `${senderName} on ${appLabel}: ${preview}`
+        : `${senderName}: ${preview}`;
 
       pushRealtimeNotification({
         id: `msg-${String(msg.id || Date.now())}`,
         eventType: "NEW_MESSAGE",
         category: "MESSAGE",
-        body: `${msg.senderName || "Someone"}: ${preview}`,
+        subject: appLabel
+          ? `New message from ${senderName} · ${appLabel}`
+          : `New message from ${senderName}`,
+        body,
         metadata: {
           conversationId: msg.conversationId as string | undefined,
-          senderName: msg.senderName as string | undefined,
+          senderName,
+          applicationId,
+          applicationNumber,
+          applicationLenderId: msg.applicationLenderId as string | undefined,
+          loanApplicationId: msg.loanApplicationId as string | undefined,
+          messageId: msg.id as string | undefined,
         },
         createdAt: (msg.createdAt as string | undefined) || new Date().toISOString(),
         isRead: false,

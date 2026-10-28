@@ -635,6 +635,18 @@ const StepFive = ({
       }
     }
 
+    if (key === "minRate" || key === "maxRate") {
+      if (numVal > 100) {
+        return "Interest rate cannot exceed 100%";
+      }
+    }
+
+    if (key === "minOccupancy") {
+      if (numVal > 100) {
+        return "Occupancy cannot exceed 100%";
+      }
+    }
+
     if (
       key === "minLtv" ||
       key === "maxLtv" ||
