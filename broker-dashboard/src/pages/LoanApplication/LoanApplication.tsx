@@ -54,6 +54,7 @@ import { buildResidentialReviewSections } from "../../lib/residentialReviewHelpe
 import { resolveCanonicalLoanProductCode } from "../../lib/canonicalLoanProducts";
 import LoanDateField from "../../components/form/LoanDateField";
 import LoanApplicationStepper from "../../components/loanApplication/LoanApplicationStepper";
+import ShareClientApplicationLink from "../../components/loanPipeline/ShareClientApplicationLink";
 import ResidentialBorrowerPanel from "../../components/loanApplication/ResidentialBorrowerPanel";
 import ResidentialFinancialsStep from "../../components/loanApplication/ResidentialFinancialsStep";
 import ResidentialDocumentsStep from "../../components/loanApplication/ResidentialDocumentsStep";
@@ -3180,20 +3181,30 @@ const LoanApplication = ({
               </button>
             )}
 
-            {/* TITLE */}
+            {/* TITLE + SHARE LINK */}
             {!embedded && (
-              <div>
-                <h2 className="text-xl font-bold leading-tight text-[#2C92D5]">
-                  {mode === "update"
-                    ? "Update Loan Application"
-                    : "New Loan Application"}
-                </h2>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0">
+                  <h2 className="text-xl font-bold leading-tight text-[#2C92D5]">
+                    {mode === "update"
+                      ? "Update Loan Application"
+                      : "New Loan Application"}
+                  </h2>
 
-                <p className="mt-0.5 text-xs text-slate-500">
-                  {mode === "update"
-                    ? "Review and update the submitted application details"
-                    : "Complete all steps to submit your loan request for lender matching."}
-                </p>
+                  <p className="mt-0.5 text-xs text-slate-500">
+                    {mode === "update"
+                      ? "Review and update the submitted application details"
+                      : "Complete all steps to submit your loan request for lender matching."}
+                  </p>
+                </div>
+                {mode !== "update" ? (
+                  <div className="shrink-0 self-start">
+                    <ShareClientApplicationLink
+                      portal={portal}
+                      variant="button"
+                    />
+                  </div>
+                ) : null}
               </div>
             )}
           </div>
