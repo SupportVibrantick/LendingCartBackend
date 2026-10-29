@@ -517,9 +517,24 @@ model ClientPortalUser {
   deletedAt    DateTime?                   @map("deleted_at") @db.Timestamptz(6)
   uploadedDocs         ApplicationDocumentUpload[] @relation("UploadedByClient")
   signFormSubmissions  SignFormSubmission[]        @relation("SignFormSubmittedByClient")
+  passwordResetTokens  ClientPortalPasswordResetToken[]
   client               Client                      @relation(fields: [clientId], references: [id])
 
   @@map("client_portal_users")
+}
+
+model ClientPortalPasswordResetToken {
+  id        String          @id @default(uuid()) @db.Uuid
+  userId    String          @db.Uuid
+  token     String          @unique
+  expiresAt DateTime        @db.Timestamptz(6)
+  usedAt    DateTime?       @db.Timestamptz(6)
+  createdAt DateTime        @default(now()) @db.Timestamptz(6)
+  user      ClientPortalUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+  @@map("client_portal_password_reset_tokens")
 }
 
 model LoanProduct {
