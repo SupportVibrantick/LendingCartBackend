@@ -41,12 +41,8 @@ module.exports = async function impersonateLoanOfficerRoute(fastify) {
           });
         }
 
-        if (req.user.impersonatedBy) {
-          return reply.code(400).send({
-            success: false,
-            message: "Exit the current impersonation session first",
-          });
-        }
+        // Platform-admin → broker sessions also set impersonatedBy.
+        // Broker admins must still be able to open loan officer dashboards.
 
         const brokerUserId = req.user.userId || req.user.id;
         const brokerOrgId = req.user.organizationId;

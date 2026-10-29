@@ -57,12 +57,8 @@ module.exports = async function impersonateSubBrokerRoutes(fastify) {
           });
         }
 
-        if (req.user.impersonatedBy) {
-          return reply.code(400).send({
-            success: false,
-            message: "Exit the current impersonation session first",
-          });
-        }
+        // Platform-admin → broker sessions also set impersonatedBy.
+        // Broker users must still be able to open co-broker dashboards.
 
         const brokerUserId = req.user.userId || req.user.id;
         const brokerOrgId = req.user.organizationId;

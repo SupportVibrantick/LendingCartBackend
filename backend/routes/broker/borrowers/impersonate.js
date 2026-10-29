@@ -58,12 +58,8 @@ module.exports = async function impersonateBorrowerRoute(fastify) {
           });
         }
 
-        if (req.user.impersonatedBy) {
-          return reply.code(400).send({
-            success: false,
-            message: "Exit the current impersonation session first",
-          });
-        }
+        // Platform-admin → broker sessions also set impersonatedBy.
+        // Those broker users must still be able to open borrower portals.
 
         const brokerUserId = req.user.userId || req.user.id;
         const brokerOrgId = req.user.organizationId;

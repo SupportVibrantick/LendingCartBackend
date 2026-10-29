@@ -38,12 +38,8 @@ module.exports = async function subBrokerImpersonateBorrowerRoute(fastify) {
           });
         }
 
-        if (req.user.impersonatedBy) {
-          return reply.code(400).send({
-            success: false,
-            message: "Exit the current impersonation session first",
-          });
-        }
+        // Broker → co-broker (or platform → broker) view mode also sets
+        // impersonatedBy. Co-brokers must still be able to open borrower portals.
 
         const { clientId } = req.params;
 

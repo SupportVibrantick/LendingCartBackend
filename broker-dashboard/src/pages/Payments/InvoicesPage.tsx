@@ -7,7 +7,9 @@ import {
   RefreshCw,
   Search,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { MouseEvent as ReactMouseEvent } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router";
 import toast from "react-hot-toast";
 import PageMeta from "../../components/common/PageMeta";
@@ -29,12 +31,39 @@ type StatusFilter =
   | "RECEIVED"
   | "OVERDUE";
 
+const ACTION_MENU_WIDTH = 176;
+const ACTION_MENU_HEIGHT = 120;
+
 const AVATAR_TONES = [
   "bg-orange-100 text-orange-700",
   "bg-amber-100 text-amber-700",
   "bg-blue-100 text-blue-700",
   "bg-violet-100 text-violet-700",
 ];
+
+function computeActionMenuPosition(rect: DOMRect) {
+  const padding = 8;
+  const spaceBelow = window.innerHeight - rect.bottom;
+  const spaceAbove = rect.top;
+  const openUpward =
+    spaceBelow < ACTION_MENU_HEIGHT + padding && spaceAbove > spaceBelow;
+
+  let top = openUpward ? rect.top - ACTION_MENU_HEIGHT - 6 : rect.bottom + 6;
+  top = Math.max(
+    padding,
+    Math.min(top, window.innerHeight - ACTION_MENU_HEIGHT - padding),
+  );
+
+  const left = Math.max(
+    padding,
+    Math.min(
+      rect.right - ACTION_MENU_WIDTH,
+      window.innerWidth - ACTION_MENU_WIDTH - padding,
+    ),
+  );
+
+  return { top, left };
+}
 
 function getInitials(name?: string | null) {
   const parts = (name || "").trim().split(/\s+/).filter(Boolean);
@@ -109,7 +138,9 @@ export default function InvoicesPage() {
   const [limit, setLimit] = useState(10);
   const [totalPages, setTotalPages] = useState(1);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
 
   const isBrokerAdmin = useMemo(() => {
     try {
@@ -161,6 +192,69 @@ export default function InvoicesPage() {
     return () => window.clearTimeout(timer);
   }, [searchInput]);
 
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (
+        menuRef.current?.contains(target) ||
+        (target instanceof Element && target.closest("[data-menu-id]"))
+      ) {
+        return;
+      }
+      setOpenMenuId(null);
+    };
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpenMenuId(null);
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleEscape);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!openMenuId) return;
+
+    const reposition = () => {
+      const btn = document.querySelector(
+        `[data-menu-id="${openMenuId}"]`,
+      ) as HTMLElement | null;
+      if (!btn) return;
+      setMenuPos(computeActionMenuPosition(btn.getBoundingClientRect()));
+    };
+
+    reposition();
+    window.addEventListener("scroll", reposition, true);
+    window.addEventListener("resize", reposition);
+
+    return () => {
+      window.removeEventListener("scroll", reposition, true);
+      window.removeEventListener("resize", reposition);
+    };
+  }, [openMenuId]);
+
+  const activeMenuRow = useMemo(
+    () => rows.find((row) => row.id === openMenuId) ?? null,
+    [rows, openMenuId],
+  );
+
+  const openRowMenu = (
+    id: string,
+    event: ReactMouseEvent<HTMLButtonElement>,
+  ) => {
+    event.stopPropagation();
+    setMenuPos(
+      computeActionMenuPosition(event.currentTarget.getBoundingClientRect()),
+    );
+    setOpenMenuId((current) => (current === id ? null : id));
+  };
+
+  const closeRowMenu = () => setOpenMenuId(null);
+
   const handleDownload = async (row: InvoiceListRecord) => {
     try {
       setDownloadingId(row.id);
@@ -183,8 +277,22 @@ export default function InvoicesPage() {
       toast.error(error.message || "Failed to download invoice");
     } finally {
       setDownloadingId(null);
-      setOpenMenuId(null);
+      closeRowMenu();
     }
+  };
+
+  const handleViewDeal = (row: InvoiceListRecord) => {
+    closeRowMenu();
+    if (row.submissionId) {
+      navigate("/loan-preview", {
+        state: {
+          submissionId: row.submissionId,
+          activeTab: "commissions",
+        },
+      });
+      return;
+    }
+    navigate("/payments/commissions");
   };
 
   const handleStatusCardClick = (status: StatusFilter) => {
@@ -376,52 +484,21 @@ export default function InvoicesPage() {
                           {formatInvoicePaymentStatus(row.paymentStatus)}
                         </span>
                       </td>
-                      <td className="relative px-6 py-4 text-right">
+                      <td className="px-6 py-4 text-right">
                         <button
                           type="button"
-                          onClick={() =>
-                            setOpenMenuId((current) =>
-                              current === row.id ? null : row.id,
-                            )
-                          }
-                          className="inline-flex rounded-lg p-2 text-slate-500 hover:bg-slate-100"
+                          data-menu-id={row.id}
+                          onClick={(event) => openRowMenu(row.id, event)}
+                          className={`inline-flex h-8 w-8 items-center justify-center rounded-lg border transition ${
+                            openMenuId === row.id
+                              ? "border-[#13538A]/30 bg-[#13538A]/5 text-[#13538A]"
+                              : "border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-800"
+                          }`}
+                          title="More actions"
+                          aria-label="Open actions menu"
                         >
                           <MoreVertical className="h-4 w-4" />
                         </button>
-
-                        {openMenuId === row.id ? (
-                          <div className="absolute right-6 top-12 z-20 w-44 rounded-xl border border-slate-200 bg-white py-1 shadow-lg">
-                            <button
-                              type="button"
-                              onClick={() => handleDownload(row)}
-                              disabled={downloadingId === row.id}
-                              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-60"
-                            >
-                              <Download className="h-4 w-4" />
-                              {downloadingId === row.id ? "Downloading..." : "Download PDF"}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setOpenMenuId(null);
-                                if (row.submissionId) {
-                                  navigate("/loan-preview", {
-                                    state: {
-                                      submissionId: row.submissionId,
-                                      activeTab: "commissions",
-                                    },
-                                  });
-                                  return;
-                                }
-                                navigate("/payments/commissions");
-                              }}
-                              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
-                            >
-                              <ExternalLink className="h-4 w-4" />
-                              View Deal
-                            </button>
-                          </div>
-                        ) : null}
                       </td>
                     </tr>
                   ))}
@@ -469,6 +546,50 @@ export default function InvoicesPage() {
           </div>
         </div>
       </div>
+
+      {activeMenuRow &&
+        openMenuId &&
+        createPortal(
+          <div
+            ref={menuRef}
+            style={{ position: "fixed", top: menuPos.top, left: menuPos.left }}
+            className="z-[9999] w-[176px] overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg"
+          >
+            <div className="border-b border-slate-100 px-3 py-2">
+              <p className="truncate text-[11px] font-semibold text-slate-900">
+                {activeMenuRow.invoiceNumber}
+              </p>
+              <p className="truncate text-[10px] text-slate-500">
+                {activeMenuRow.recipientName ||
+                  activeMenuRow.dealName ||
+                  "Invoice"}
+              </p>
+            </div>
+
+            <div className="py-0.5">
+              <button
+                type="button"
+                onClick={() => void handleDownload(activeMenuRow)}
+                disabled={downloadingId === activeMenuRow.id}
+                className="flex w-full items-center gap-2 px-3 py-2 text-xs text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+              >
+                <Download className="h-3.5 w-3.5 text-[#13538A]" />
+                {downloadingId === activeMenuRow.id
+                  ? "Downloading..."
+                  : "Download PDF"}
+              </button>
+              <button
+                type="button"
+                onClick={() => handleViewDeal(activeMenuRow)}
+                className="flex w-full items-center gap-2 px-3 py-2 text-xs text-slate-700 transition hover:bg-slate-50"
+              >
+                <ExternalLink className="h-3.5 w-3.5 text-cyan-600" />
+                View Deal
+              </button>
+            </div>
+          </div>,
+          document.body,
+        )}
     </>
   );
 }
