@@ -29,7 +29,9 @@ export default function LoiBrandingFields({
     }
 
     if (file.size > 2 * 1024 * 1024) {
-      toast.error("Logo must be 2MB or smaller");
+      toast.error(
+        "This logo is larger than 2 MB. Please compress it or choose a smaller file.",
+      );
       return;
     }
 
@@ -39,6 +41,11 @@ export default function LoiBrandingFields({
         ...value,
         logoUrl: reader.result as string,
       });
+    };
+    reader.onerror = () => {
+      toast.error(
+        "We couldn’t read that image. Please try a PNG or JPG file instead.",
+      );
     };
     reader.readAsDataURL(file);
   };
