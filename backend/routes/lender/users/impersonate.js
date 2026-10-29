@@ -43,12 +43,9 @@ module.exports = async function impersonateLenderTeamMemberRoute(fastify) {
           });
         }
 
-        if (req.user.impersonatedBy) {
-          return reply.code(400).send({
-            success: false,
-            message: "Exit the current view mode first",
-          });
-        }
+        // Note: platform-admin → lender-admin sessions also set impersonatedBy.
+        // Those admins must still be able to open team-member dashboards.
+        // Exit View Mode on the member tab restores this lender admin.
 
         const adminUserId = req.user.userId || req.user.id;
         const lenderOrgId = req.user.organizationId;

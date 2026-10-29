@@ -280,7 +280,14 @@ export default function TeamMembers() {
         `Opened dashboard for ${formatTeamMemberName(member)}`,
       );
     } catch (error: any) {
-      toast.error(error.message || "Failed to access team member dashboard");
+      const message = String(error?.message || "");
+      if (/exit the current view mode/i.test(message)) {
+        toast.error(
+          "Exit View Mode first (red button in the header), then try Access dashboard again.",
+        );
+      } else {
+        toast.error(message || "Failed to access team member dashboard");
+      }
     } finally {
       setAccessingId(null);
     }
