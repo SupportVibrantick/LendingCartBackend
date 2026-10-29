@@ -8,6 +8,7 @@ import {
   ExternalLink,
   FileText,
   Mail,
+  MoreVertical,
   Phone,
   RefreshCw,
   Search,
@@ -15,7 +16,9 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { MouseEvent as ReactMouseEvent } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate, useSearchParams } from "react-router";
 import toast from "react-hot-toast";
 import PageMeta from "../../components/common/PageMeta";
@@ -26,6 +29,33 @@ import {
   isCoBrokerPortalPath,
   isLoanOfficerPortalPath,
 } from "../../lib/portalAuth";
+
+const ACTION_MENU_WIDTH = 180;
+const ACTION_MENU_HEIGHT = 148;
+
+function computeActionMenuPosition(rect: DOMRect) {
+  const padding = 8;
+  const spaceBelow = window.innerHeight - rect.bottom;
+  const spaceAbove = rect.top;
+  const openUpward =
+    spaceBelow < ACTION_MENU_HEIGHT + padding && spaceAbove > spaceBelow;
+
+  let top = openUpward ? rect.top - ACTION_MENU_HEIGHT - 6 : rect.bottom + 6;
+  top = Math.max(
+    padding,
+    Math.min(top, window.innerHeight - ACTION_MENU_HEIGHT - padding),
+  );
+
+  const left = Math.max(
+    padding,
+    Math.min(
+      rect.right - ACTION_MENU_WIDTH,
+      window.innerWidth - ACTION_MENU_WIDTH - padding,
+    ),
+  );
+
+  return { top, left };
+}
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 const SEARCH_DEBOUNCE_MS = 400;
@@ -225,6 +255,9 @@ export default function BorrowersPage() {
   const [sortKey, setSortKey] = useState<SortKey>("createdAt");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [impersonatingId, setImpersonatingId] = useState<string | null>(null);
+  const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+  const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
+  const menuRef = useRef<HTMLDivElement | null>(null);
 
   const fetchBorrowers = useCallback(async () => {
     try {
@@ -312,6 +345,66 @@ export default function BorrowersPage() {
     setSortDir("asc");
   };
 
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (
+        menuRef.current?.contains(target) ||
+        (target instanceof Element && target.closest("[data-menu-id]"))
+      ) {
+        return;
+      }
+      setActiveMenuId(null);
+    };
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setActiveMenuId(null);
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleEscape);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!activeMenuId) return;
+
+    const reposition = () => {
+      const btn = document.querySelector(
+        `[data-menu-id="${activeMenuId}"]`,
+      ) as HTMLElement | null;
+      if (!btn) return;
+      setMenuPos(computeActionMenuPosition(btn.getBoundingClientRect()));
+    };
+
+    reposition();
+    window.addEventListener("scroll", reposition, true);
+    window.addEventListener("resize", reposition);
+
+    return () => {
+      window.removeEventListener("scroll", reposition, true);
+      window.removeEventListener("resize", reposition);
+    };
+  }, [activeMenuId]);
+
+  const openRowMenu = (id: string, event: ReactMouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    setMenuPos(
+      computeActionMenuPosition(event.currentTarget.getBoundingClientRect()),
+    );
+    setActiveMenuId((current) => (current === id ? null : id));
+  };
+
+  const closeRowMenu = () => setActiveMenuId(null);
+
+  const activeMenuBorrower = useMemo(
+    () => borrowers.find((row) => row.id === activeMenuId) ?? null,
+    [borrowers, activeMenuId],
+  );
+
   const openApplication = (row: BorrowerRow) => {
     if (!row.submissionId) {
       toast.error("No submission found for this application");
@@ -359,9 +452,15 @@ export default function BorrowersPage() {
 
       toast.success(`Opened client portal for ${row.name || row.email}`);
     } catch (err: unknown) {
-      toast.error(
-        err instanceof Error ? err.message : "Failed to open client portal",
-      );
+      const message =
+        err instanceof Error ? err.message : "Failed to open client portal";
+      if (/exit the current impersonation/i.test(message)) {
+        toast.error(
+          "Exit view mode first (red button in the header), then try again.",
+        );
+      } else {
+        toast.error(message);
+      }
     } finally {
       setImpersonatingId(null);
     }
@@ -663,41 +762,20 @@ export default function BorrowersPage() {
                       </td>
 
                       <td className="px-4 py-3.5 text-right">
-                        <div className="inline-flex items-center gap-1">
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openApplication(row);
-                            }}
-                            disabled={!row.submissionId}
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 transition hover:border-gray-300 hover:bg-gray-50 hover:text-[#13538A] disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400 dark:hover:border-gray-600 dark:hover:bg-gray-800 dark:hover:text-cyan-400"
-                            title="View application"
-                          >
-                            <Eye className="h-4 w-4" />
-                          </button>
-                          {canAccessBorrowerPortal ? (
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                void handleImpersonate(row);
-                              }}
-                              disabled={
-                                !row.clientId ||
-                                impersonatingId === row.clientId
-                              }
-                              className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 transition hover:border-gray-300 hover:bg-gray-50 hover:text-cyan-700 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400 dark:hover:border-gray-600 dark:hover:bg-gray-800 dark:hover:text-cyan-400"
-                              title={
-                                impersonatingId === row.clientId
-                                  ? "Opening portal..."
-                                  : "Access client portal"
-                              }
-                            >
-                              <ExternalLink className="h-4 w-4" />
-                            </button>
-                          ) : null}
-                        </div>
+                        <button
+                          type="button"
+                          data-menu-id={row.id}
+                          onClick={(event) => openRowMenu(row.id, event)}
+                          className={`inline-flex h-8 w-8 items-center justify-center rounded-lg border transition ${
+                            activeMenuId === row.id
+                              ? "border-[#13538A]/30 bg-[#13538A]/5 text-[#13538A] dark:border-cyan-500/30 dark:bg-cyan-500/10 dark:text-cyan-400"
+                              : "border-gray-200 bg-white text-gray-500 hover:border-gray-300 hover:bg-gray-50 hover:text-gray-800 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400 dark:hover:border-gray-600 dark:hover:bg-gray-800 dark:hover:text-white"
+                          }`}
+                          title="More actions"
+                          aria-label="Open actions menu"
+                        >
+                          <MoreVertical className="h-4 w-4" />
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -777,6 +855,61 @@ export default function BorrowersPage() {
           )}
         </div>
       </div>
+
+      {activeMenuBorrower &&
+        activeMenuId &&
+        createPortal(
+          <div
+            ref={menuRef}
+            style={{ position: "fixed", top: menuPos.top, left: menuPos.left }}
+            className="z-[9999] w-[180px] overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-900"
+          >
+            <div className="border-b border-gray-100 px-3 py-2 dark:border-gray-800">
+              <p className="truncate text-[11px] font-semibold text-gray-900 dark:text-white">
+                {activeMenuBorrower.name || "Borrower"}
+              </p>
+              <p className="truncate text-[10px] text-gray-500 dark:text-gray-400">
+                {activeMenuBorrower.email || activeMenuBorrower.applicationNumber}
+              </p>
+            </div>
+
+            <div className="py-0.5">
+              <button
+                type="button"
+                disabled={!activeMenuBorrower.submissionId}
+                onClick={() => {
+                  closeRowMenu();
+                  openApplication(activeMenuBorrower);
+                }}
+                className="flex w-full items-center gap-2 px-3 py-2 text-xs text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40 dark:text-gray-200 dark:hover:bg-gray-800"
+              >
+                <Eye className="h-3.5 w-3.5 text-[#13538A]" />
+                View application
+              </button>
+
+              {canAccessBorrowerPortal ? (
+                <button
+                  type="button"
+                  disabled={
+                    !activeMenuBorrower.clientId ||
+                    impersonatingId === activeMenuBorrower.clientId
+                  }
+                  onClick={() => {
+                    closeRowMenu();
+                    void handleImpersonate(activeMenuBorrower);
+                  }}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-xs text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40 dark:text-gray-200 dark:hover:bg-gray-800"
+                >
+                  <ExternalLink className="h-3.5 w-3.5 text-cyan-600" />
+                  {impersonatingId === activeMenuBorrower.clientId
+                    ? "Opening portal..."
+                    : "Access client portal"}
+                </button>
+              ) : null}
+            </div>
+          </div>,
+          document.body,
+        )}
     </>
   );
 }
