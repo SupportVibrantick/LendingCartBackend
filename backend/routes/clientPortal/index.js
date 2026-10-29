@@ -10,12 +10,24 @@ async function clientPortalRoutes(fastify) {
   });
 
   fastify.register(require("./setPassword"), {
-  prefix: "/auth",
-});
+    prefix: "/auth",
+  });
 
-fastify.register(require("./login"), {
-  prefix: "/auth",
-});
+  fastify.register(require("./login"), {
+    prefix: "/auth",
+  });
+
+  fastify.register(require("./forgotPassword"), {
+    prefix: "/auth",
+  });
+
+  fastify.register(require("./validateResetToken"), {
+    prefix: "/auth",
+  });
+
+  fastify.register(require("./resetPassword"), {
+    prefix: "/auth",
+  });
 
 fastify.register(require("./verifyToken"));
 fastify.register(require("./uploadDocuments"));
