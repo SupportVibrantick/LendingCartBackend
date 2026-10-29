@@ -63,6 +63,11 @@ const navItems: NavItem[] = [
         path: "/sub-broker/invoices",
         permission: "VIEW_INVOICES",
       },
+      {
+        name: "Banking",
+        path: "/sub-broker/banking",
+        always: true,
+      },
     ],
   },
   {

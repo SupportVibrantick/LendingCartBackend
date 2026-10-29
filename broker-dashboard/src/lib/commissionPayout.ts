@@ -5,12 +5,19 @@ import {
   type CommissionRecord,
 } from "./commissionApi";
 
-export const PAYMENT_METHODS = ["ACH", "WIRE", "CHECK", "CASH", "MANUAL"] as const;
+export const PAYMENT_METHODS = [
+  "ACH",
+  "ZELLE",
+  "WIRE",
+  "CHECK",
+  "CASH",
+  "MANUAL",
+] as const;
 
 export function getRemainingPayoutAmount(row: CommissionRecord) {
   const total = Number(row.commissionAmount || 0);
   const paid = (row.payouts || [])
-    .filter((payout) => payout.status === "COMPLETED")
+    .filter((payout) => payout.status === "COMPLETED" || payout.status === "PROCESSING")
     .reduce((sum, payout) => sum + Number(payout.amount || 0), 0);
   return Math.max(0, Math.round((total - paid) * 100) / 100);
 }
@@ -20,6 +27,7 @@ export type PayoutFormValues = {
   paymentReference: string;
   notes: string;
   amount: number;
+  sendToBank?: boolean;
 };
 
 export async function promptRecordCommissionPayout(
@@ -126,6 +134,30 @@ export async function submitCommissionPayout(
   const json = await res.json();
   if (!res.ok || !json.success) {
     throw new Error(json.message || "Failed to record payout");
+  }
+  return json;
+}
+
+export async function submitCommissionAchPayout(
+  commissionId: string,
+  formValues: Pick<PayoutFormValues, "amount" | "notes">,
+  getAuthHeaders: () => HeadersInit,
+) {
+  const base = getCommissionApiBase("broker");
+  const res = await fetch(`${base}/${commissionId}/payouts/ach`, {
+    method: "POST",
+    headers: {
+      ...getAuthHeaders(),
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      amount: formValues.amount,
+      notes: formValues.notes,
+    }),
+  });
+  const json = await res.json();
+  if (!res.ok || !json.success) {
+    throw new Error(json.message || "Failed to send bank payout");
   }
   return json;
 }

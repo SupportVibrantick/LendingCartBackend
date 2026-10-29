@@ -3,6 +3,8 @@ const {
   decimalToNumber,
   roundMoney,
   derivePayoutStatus,
+  isReservedPayout,
+  sumPayoutAmounts,
 } = require("../../utils/commission/commissionHelpers");
 const { logCommissionAuditEvent } = require("./auditCommissionEvent");
 
@@ -40,7 +42,11 @@ const ALLOWED_PAYMENT_METHODS = new Set([
   "CASH",
   "MANUAL",
   "STRIPE",
+  "ZELLE",
 ]);
+const {
+  sendCommissionPayoutRecordedEmail,
+} = require("../emails/commissionEmails");
 
 /**
  * @param {import("@prisma/client").PrismaClient | import("@prisma/client").Prisma.TransactionClient} db
@@ -71,8 +77,8 @@ async function recordCommissionPayout(
     },
     include: {
       payouts: {
-        where: { status: "COMPLETED" },
-        select: { amount: true },
+        where: { status: { in: ["COMPLETED", "PROCESSING"] } },
+        select: { amount: true, status: true },
       },
     },
   });
@@ -82,10 +88,7 @@ async function recordCommissionPayout(
   }
 
   const commissionAmount = decimalToNumber(commission.commissionAmount) || 0;
-  const alreadyPaid = commission.payouts.reduce(
-    (sum, payout) => sum + (decimalToNumber(payout.amount) || 0),
-    0,
-  );
+  const alreadyPaid = sumPayoutAmounts(commission.payouts, isReservedPayout);
 
   if (alreadyPaid >= commissionAmount && commissionAmount > 0) {
     throw new Error("Commission is already fully paid");
@@ -149,6 +152,31 @@ async function recordCommissionPayout(
       notes: notes || null,
     },
   });
+
+  try {
+    const notify = await db.dealCommission.findUnique({
+      where: { id: dealCommissionId },
+      include: {
+        recipientUser: {
+          select: { id: true, firstName: true, lastName: true, email: true },
+        },
+        loanApplication: { select: { applicationNumber: true } },
+        brokerOrg: { select: { name: true } },
+      },
+    });
+    if (notify) {
+      await sendCommissionPayoutRecordedEmail({
+        prisma: db,
+        recipientUser: notify.recipientUser,
+        organizationName: notify.brokerOrg?.name,
+        applicationNumber: notify.loanApplication?.applicationNumber,
+        amount: payoutAmount,
+        paymentMethod: normalizedMethod,
+      });
+    }
+  } catch (_) {
+    // Non-blocking.
+  }
 
   return payout;
 }

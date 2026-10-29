@@ -4,10 +4,25 @@ const {
   resolveCommissionLoanAmount,
 } = require("../../utils/commission/commissionHelpers");
 const { logCommissionAuditEvent } = require("../commission/auditCommissionEvent");
+const {
+  sendCommissionCalculatedEmails,
+} = require("../emails/commissionEmails");
 
 const commissionLineInclude = {
   recipientUser: {
-    select: { id: true, firstName: true, lastName: true, email: true },
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      email: true,
+      bankingProfile: {
+        select: {
+          bankName: true,
+          accountName: true,
+          accountNumber: true,
+        },
+      },
+    },
   },
   loanApplication: {
     select: {
@@ -21,7 +36,7 @@ const commissionLineInclude = {
     take: 5,
   },
   payouts: {
-    where: { status: "COMPLETED" },
+    where: { status: { in: ["COMPLETED", "PROCESSING", "FAILED", "REVERSED"] } },
     orderBy: { paidAt: "desc" },
     include: {
       paidByUser: {
@@ -284,6 +299,22 @@ async function calculateDealCommissions(db, loanApplicationId) {
   }
 
   const brokerRow = created.find((row) => row.recipientRole === "BROKER");
+
+  try {
+    const org = await db.organization.findUnique({
+      where: { id: loan.brokerOrgId },
+      select: { name: true },
+    });
+    await sendCommissionCalculatedEmails({
+      prisma: db,
+      organizationName: org?.name,
+      applicationNumber: loan.applicationNumber,
+      commissionPool,
+      commissions: created,
+    });
+  } catch (_) {
+    // Email enqueue must not block commission calculation.
+  }
 
   return {
     alreadyCalculated: false,

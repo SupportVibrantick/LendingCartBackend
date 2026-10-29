@@ -120,6 +120,11 @@ const navItems: NavItem[] = [
         path: "/loan-officer/invoices",
         permission: "VIEW_INVOICES",
       },
+      {
+        name: "Banking",
+        path: "/loan-officer/banking",
+        always: true,
+      },
     ],
   },
   {

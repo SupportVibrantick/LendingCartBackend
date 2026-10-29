@@ -56,8 +56,35 @@ model Organization {
   ghlAgencyUsers              OrganizationGhlAgencyUser[]
   signFormDefinitions         SignFormDefinition[]
   signFormLibraryTemplates    SignFormLibraryTemplate[]
+  /// Principal broker / firm bank account used to fund LO & co-broker ACH payouts.
+  bankingProfile              OrganizationBankingProfile?
 
   @@map("organizations")
+}
+
+/// Firm bank details for commission ACH debit (principal broker → staff).
+model OrganizationBankingProfile {
+  id                       String             @id @default(uuid()) @db.Uuid
+  organizationId           String             @unique @map("organization_id") @db.Uuid
+  accountType              BankingAccountType
+  partyName                String             @map("party_name")
+  partyAddress             String?            @map("party_address")
+  partyTel                 String?            @map("party_tel")
+  partyEmail               String?            @map("party_email")
+  bankName                 String             @map("bank_name")
+  bankTel                  String?            @map("bank_tel")
+  accountName              String             @map("account_name")
+  accountNumber            String             @map("account_number")
+  abaRoutingNumber         String             @map("aba_routing_number")
+  stripeCustomerId         String?            @unique @map("stripe_customer_id")
+  stripePaymentMethodId    String?            @map("stripe_payment_method_id")
+  achDebitAuthorizedAt     DateTime?          @map("ach_debit_authorized_at") @db.Timestamptz(6)
+  achDebitAuthorizedById   String?            @map("ach_debit_authorized_by_id") @db.Uuid
+  createdAt                DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization             Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("organization_banking_profiles")
 }
 
 model AdminLenderInvite {
@@ -181,7 +208,7 @@ model BrokerTeamInvite {
   @@map("broker_team_invites")
 }
 
-/// Banking details collected on public LO / Co-Broker join only.
+/// Banking details for LO / Co-Broker payout destinations (invite join + admin edit).
 model UserBankingProfile {
   id               String             @id @default(uuid()) @db.Uuid
   userId           String             @unique @db.Uuid
@@ -192,11 +219,13 @@ model UserBankingProfile {
   partyEmail       String?            @map("party_email")
   bankName         String             @map("bank_name")
   bankTel          String?            @map("bank_tel")
-  accountName      String             @map("account_name")
-  accountNumber    String             @map("account_number")
-  abaRoutingNumber String             @map("aba_routing_number")
-  createdAt        DateTime           @default(now()) @db.Timestamptz(6)
-  updatedAt        DateTime           @updatedAt @db.Timestamptz(6)
+  accountName              String             @map("account_name")
+  accountNumber            String             @map("account_number")
+  abaRoutingNumber         String             @map("aba_routing_number")
+  stripeConnectedAccountId String?            @unique @map("stripe_connected_account_id")
+  stripeExternalAccountId  String?            @map("stripe_external_account_id")
+  createdAt                DateTime           @default(now()) @db.Timestamptz(6)
+  updatedAt                DateTime           @updatedAt @db.Timestamptz(6)
   user             UserAccount        @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("user_banking_profiles")
@@ -1305,15 +1334,20 @@ model CommissionPayout {
   paymentReference    String?                 @map("payment_reference")
   notes               String?
   status              CommissionPayoutStatus  @default(COMPLETED)
-  paidAt              DateTime                @default(now()) @map("paid_at") @db.Timestamptz(6)
-  paidByUserId        String                  @map("paid_by_user_id") @db.Uuid
-  createdAt           DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
-  dealCommission      DealCommission          @relation(fields: [dealCommissionId], references: [id])
-  commissionInvoice   CommissionInvoice?      @relation(fields: [commissionInvoiceId], references: [id])
-  brokerOrg           Organization            @relation(fields: [brokerOrgId], references: [id])
-  loanApplication     LoanApplication         @relation(fields: [loanApplicationId], references: [id])
-  paidByUser          UserAccount             @relation("CommissionPayoutRecordedBy", fields: [paidByUserId], references: [id])
-  auditEvents         CommissionAuditEvent[]
+  stripeTransferId       String?                 @unique @map("stripe_transfer_id")
+  stripePayoutId         String?                 @unique @map("stripe_payout_id")
+  stripePaymentIntentId  String?                 @unique @map("stripe_payment_intent_id")
+  stripeReversalId       String?                 @map("stripe_reversal_id")
+  failureReason          String?                 @map("failure_reason")
+  paidAt                 DateTime                @default(now()) @map("paid_at") @db.Timestamptz(6)
+  paidByUserId           String                  @map("paid_by_user_id") @db.Uuid
+  createdAt              DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  dealCommission         DealCommission          @relation(fields: [dealCommissionId], references: [id])
+  commissionInvoice      CommissionInvoice?      @relation(fields: [commissionInvoiceId], references: [id])
+  brokerOrg              Organization            @relation(fields: [brokerOrgId], references: [id])
+  loanApplication        LoanApplication         @relation(fields: [loanApplicationId], references: [id])
+  paidByUser             UserAccount             @relation("CommissionPayoutRecordedBy", fields: [paidByUserId], references: [id])
+  auditEvents            CommissionAuditEvent[]
 
   @@index([dealCommissionId])
   @@index([brokerOrgId])
@@ -2829,6 +2863,8 @@ enum CommissionInvoiceStatus {
 
 enum CommissionPayoutStatus {
   COMPLETED
+  PROCESSING
+  FAILED
   REVERSED
 }
 
@@ -2839,6 +2875,7 @@ enum CommissionPaymentMethod {
   CASH
   MANUAL
   STRIPE
+  ZELLE
 }
 
 enum CommissionAuditEventType {
@@ -2848,6 +2885,9 @@ enum CommissionAuditEventType {
   INVOICE_VIEWED
   INVOICE_DOWNLOADED
   PAYOUT_RECORDED
+  PAYOUT_SUBMITTED
+  PAYOUT_SETTLED
+  PAYOUT_FAILED
   PAYOUT_REVERSED
 }
 

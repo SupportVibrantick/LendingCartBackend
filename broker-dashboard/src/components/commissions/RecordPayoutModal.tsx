@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState } from "react";
 import { Banknote, Loader2 } from "lucide-react";
 import { Modal } from "../ui/modal";
 import {
@@ -45,7 +45,13 @@ export default function RecordPayoutModal({
 
   if (!row) return null;
 
-  const handleSubmit = async (event: FormEvent) => {
+  const canSendAch =
+    paymentMethod === "ACH" && Boolean(row.bankPayout?.available);
+
+  const handleSubmit = async (
+    event: { preventDefault(): void },
+    sendToBank = false,
+  ) => {
     event.preventDefault();
     const parsedAmount = Number(amount);
 
@@ -63,9 +69,10 @@ export default function RecordPayoutModal({
     setError(null);
     await onSubmit({
       amount: Math.round(parsedAmount * 100) / 100,
-      paymentMethod,
+      paymentMethod: sendToBank ? "ACH" : paymentMethod,
       paymentReference: paymentReference.trim(),
       notes: notes.trim(),
+      sendToBank,
     });
   };
 
@@ -76,7 +83,10 @@ export default function RecordPayoutModal({
       className="max-w-lg p-0 shadow-2xl"
       showCloseButton={!submitting}
     >
-      <form onSubmit={handleSubmit} className="overflow-hidden rounded-3xl">
+      <form
+        onSubmit={(event) => handleSubmit(event, canSendAch)}
+        className="overflow-hidden rounded-3xl"
+      >
         <div className="border-b border-slate-100 bg-gradient-to-br from-emerald-50 to-white px-6 py-5">
           <div className="flex items-start gap-3 pr-8">
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-600 text-white shadow-sm">
@@ -84,7 +94,7 @@ export default function RecordPayoutModal({
             </div>
             <div>
               <h2 className="text-lg font-semibold text-slate-900">
-                Record Payout
+                {canSendAch ? "Send payout" : "Record Payout"}
               </h2>
               <p className="mt-1 text-sm text-slate-600">
                 Pay{" "}
@@ -180,6 +190,29 @@ export default function RecordPayoutModal({
             />
           </div>
 
+          {canSendAch ? (
+            <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+              Debits your firm bank account (Payments → Banking), then pays{" "}
+              {row.bankPayout?.bankName || "the bank on file"}
+              {row.bankPayout?.accountLast4
+                ? ` ····${row.bankPayout.accountLast4}`
+                : ""}{" "}
+              via US ACH. Status stays Sending until both banks settle.
+            </p>
+          ) : null}
+          {paymentMethod === "ACH" && !row.bankPayout?.available ? (
+            <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+              No bank account is on file for this person. Record a Zelle/wire payout
+              after you pay outside the app, or have them join again with banking details.
+            </p>
+          ) : null}
+          {paymentMethod === "ZELLE" ? (
+            <p className="rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-900">
+              Zelle is recorded here after you send it from your bank app. Automatic
+              Zelle is not available — use ACH Send to bank for in-app transfers.
+            </p>
+          ) : null}
+
           {error ? (
             <p className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
               {error}
@@ -196,6 +229,16 @@ export default function RecordPayoutModal({
           >
             Cancel
           </button>
+          {canSendAch ? (
+            <button
+              type="button"
+              onClick={(event) => handleSubmit(event, false)}
+              disabled={submitting}
+              className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+            >
+              Record only
+            </button>
+          ) : null}
           <button
             type="submit"
             disabled={submitting}
@@ -204,8 +247,10 @@ export default function RecordPayoutModal({
             {submitting ? (
               <>
                 <Loader2 size={16} className="animate-spin" />
-                Recording...
+                {canSendAch ? "Sending..." : "Recording..."}
               </>
+            ) : canSendAch ? (
+              "Send to bank"
             ) : (
               "Record Payout"
             )}

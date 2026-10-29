@@ -81,18 +81,32 @@ function resolveCommissionLoanAmount(loan) {
   return null;
 }
 
+function isSettledPayout(payout) {
+  return payout?.status == null || payout.status === "COMPLETED";
+}
+
+function isReservedPayout(payout) {
+  return isSettledPayout(payout) || payout?.status === "PROCESSING";
+}
+
+function sumPayoutAmounts(payouts = [], predicate) {
+  return payouts
+    .filter(predicate)
+    .reduce((sum, payout) => sum + (decimalToNumber(payout.amount) || 0), 0);
+}
+
 function derivePayoutStatus(commissionAmount, payouts = []) {
   const total = decimalToNumber(commissionAmount) || 0;
-  const paid = payouts
-    .filter(
-      (payout) =>
-        payout.status == null || payout.status === "COMPLETED",
-    )
-    .reduce((sum, payout) => sum + (decimalToNumber(payout.amount) || 0), 0);
+  const paid = sumPayoutAmounts(payouts, isSettledPayout);
+  const processing = sumPayoutAmounts(
+    payouts,
+    (payout) => payout?.status === "PROCESSING",
+  );
 
-  if (paid <= 0) return "UNPAID";
-  if (roundMoney(paid) >= roundMoney(total) && total > 0) return "PAID";
-  return "PARTIAL";
+  if (total > 0 && roundMoney(paid) >= roundMoney(total)) return "PAID";
+  if (processing > 0) return "PROCESSING";
+  if (paid > 0) return "PARTIAL";
+  return "UNPAID";
 }
 
 function formatInvoiceRecord(invoice) {
@@ -126,8 +140,15 @@ function formatPayoutRecord(payout) {
       : null,
     invoiceNumber: payout.commissionInvoice?.invoiceNumber || null,
     invoiceId: payout.commissionInvoiceId || null,
+    failureReason: payout.failureReason || null,
     createdAt: payout.createdAt,
   };
+}
+
+function maskAccountLast4(value) {
+  const digits = String(value || "").replace(/\D/g, "");
+  if (!digits) return null;
+  return digits.slice(-4);
 }
 
 function formatCommissionRecord(record, recipient = null) {
@@ -141,6 +162,8 @@ function formatCommissionRecord(record, recipient = null) {
   const latestInvoice = invoices[0] || null;
   const payoutStatus = derivePayoutStatus(record.commissionAmount, record.payouts || []);
   const latestPayout = payouts[0] || null;
+  const banking = record.recipientUser?.bankingProfile || null;
+  const bankLast4 = maskAccountLast4(banking?.accountNumber);
 
   return {
     id: record.id,
@@ -151,6 +174,14 @@ function formatCommissionRecord(record, recipient = null) {
     recipientRole: record.recipientRole,
     recipientName: name,
     recipientEmail: recipientUser?.email || null,
+    bankPayout: banking
+      ? {
+          available: record.recipientRole !== "BROKER" && Boolean(bankLast4),
+          bankName: banking.bankName || null,
+          accountName: banking.accountName || null,
+          accountLast4: bankLast4,
+        }
+      : null,
     loanAmount: decimalToNumber(record.loanAmount),
     brokerPoints: decimalToNumber(record.brokerPoints),
     upfrontFee: decimalToNumber(record.upfrontFee),
@@ -468,6 +499,9 @@ module.exports = {
   decimalToNumber,
   roundMoney,
   derivePayoutStatus,
+  isReservedPayout,
+  sumPayoutAmounts,
+  maskAccountLast4,
   formatCommissionRecord,
   formatInvoiceRecord,
   formatInvoiceListRecord,

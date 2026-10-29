@@ -8,6 +8,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState, Fragment } from "react";
+import { Link } from "react-router";
 import toast from "react-hot-toast";
 import CommissionHistoryModal from "../../components/commissions/CommissionHistoryModal";
 import CommissionSummaryChart from "../../components/commissions/CommissionSummaryChart";
@@ -23,6 +24,7 @@ import {
 } from "../../lib/commissionApi";
 import {
   getRemainingPayoutAmount,
+  submitCommissionAchPayout,
   submitCommissionPayout,
   type PayoutFormValues,
 } from "../../lib/commissionPayout";
@@ -68,7 +70,9 @@ function roleBadgeClass(role?: string) {
 
 function payoutBadgeClass(status?: string) {
   if (status === "PAID") return "bg-emerald-50 text-emerald-700 ring-emerald-100";
-  if (status === "PARTIAL") return "bg-sky-50 text-sky-700 ring-sky-100";
+  if (status === "PARTIAL" || status === "PROCESSING") {
+    return "bg-sky-50 text-sky-700 ring-sky-100";
+  }
   return "bg-amber-50 text-amber-700 ring-amber-100";
 }
 
@@ -249,8 +253,15 @@ export default function CommissionsPage() {
 
     try {
       setMarkingId(payoutRow.id);
-      await submitCommissionPayout(payoutRow.id, values, getAuthHeaders, "broker");
-      toast.success("Payout recorded");
+      if (values.sendToBank) {
+        await submitCommissionAchPayout(payoutRow.id, values, getAuthHeaders);
+        toast.success(
+          "Bank transfer started from your firm account. It shows as paid when ACH settles.",
+        );
+      } else {
+        await submitCommissionPayout(payoutRow.id, values, getAuthHeaders, "broker");
+        toast.success("Payout recorded");
+      }
       setPayoutRow(null);
       await loadCommissions();
     } catch (error: any) {
@@ -348,7 +359,14 @@ export default function CommissionsPage() {
         <div>
           <h2 className="text-xl font-semibold text-slate-900">Commissions</h2>
           <p className="mt-1 text-sm text-slate-500">
-            Track funded-deal commission lines, generate invoices, and record payouts.
+            Track funded-deal commissions, then send a US ACH from your{" "}
+            <Link
+              to="/payments/banking"
+              className="font-medium text-[#13538A] underline-offset-2 hover:underline"
+            >
+              firm bank account
+            </Link>{" "}
+            to the loan officer / co-broker bank on file, or record Zelle/wire manually.
           </p>
         </div>
 
@@ -625,7 +643,7 @@ export default function CommissionsPage() {
                               {canPay ? (
                                 <button
                                   type="button"
-                                  title="Record payout"
+                                  title="Pay commission"
                                   onClick={() => setPayoutRow(row)}
                                   disabled={markingId === row.id}
                                   className="rounded-md bg-emerald-600 p-1.5 text-white transition hover:bg-emerald-700 disabled:opacity-50"

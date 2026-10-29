@@ -11,17 +11,19 @@ function Field({
   label,
   required,
   error,
+  field,
   children,
   className = "",
 }: {
   label: string;
   required?: boolean;
   error?: string;
+  field?: string;
   children: React.ReactNode;
   className?: string;
 }) {
   return (
-    <div className={className}>
+    <div className={className} data-field={field || undefined}>
       <label className={labelClass}>
         {label}
         {required ? <span className="text-red-500"> *</span> : null}
@@ -51,7 +53,7 @@ export default function BankingDetailsFields({
 
   return (
     <div className="space-y-4">
-      <div>
+      <div data-field="accountType">
         <p className={labelClass}>
           Account type <span className="text-red-500">*</span>
         </p>
@@ -107,6 +109,7 @@ export default function BankingDetailsFields({
         <Field
           label={isBusiness ? "Business Name" : `${personalLabel} Name`}
           required
+          field="partyName"
           error={errors.partyName}
         >
           <input
@@ -118,6 +121,7 @@ export default function BankingDetailsFields({
         <Field
           label={isBusiness ? "Business Address" : `${personalLabel} Address`}
           required
+          field="partyAddress"
           error={errors.partyAddress}
         >
           <input
@@ -129,6 +133,7 @@ export default function BankingDetailsFields({
         <Field
           label={isBusiness ? "Business Tel#" : `${personalLabel} Tel#`}
           required
+          field="partyTel"
           error={errors.partyTel}
         >
           <input
@@ -143,6 +148,7 @@ export default function BankingDetailsFields({
         <Field
           label={isBusiness ? "Business Email" : `${personalLabel} Email`}
           required
+          field="partyEmail"
           error={errors.partyEmail}
         >
           <input
@@ -152,14 +158,24 @@ export default function BankingDetailsFields({
             onChange={(e) => onChange("partyEmail", e.target.value)}
           />
         </Field>
-        <Field label="Bank Name" required error={errors.bankName}>
+        <Field
+          label="Bank Name"
+          required
+          field="bankName"
+          error={errors.bankName}
+        >
           <input
             className={inputClass}
             value={value.bankName}
             onChange={(e) => onChange("bankName", e.target.value)}
           />
         </Field>
-        <Field label="Bank Tel#" required error={errors.bankTel}>
+        <Field
+          label="Bank Tel#"
+          required
+          field="bankTel"
+          error={errors.bankTel}
+        >
           <input
             className={inputClass}
             value={value.bankTel}
@@ -169,14 +185,24 @@ export default function BankingDetailsFields({
             placeholder="555-555-5555"
           />
         </Field>
-        <Field label="Account Name" required error={errors.accountName}>
+        <Field
+          label="Account Name"
+          required
+          field="accountName"
+          error={errors.accountName}
+        >
           <input
             className={inputClass}
             value={value.accountName}
             onChange={(e) => onChange("accountName", e.target.value)}
           />
         </Field>
-        <Field label="Account Number" required error={errors.accountNumber}>
+        <Field
+          label="Account Number"
+          required
+          field="accountNumber"
+          error={errors.accountNumber}
+        >
           <input
             className={inputClass}
             inputMode="numeric"
@@ -192,6 +218,7 @@ export default function BankingDetailsFields({
         <Field
           label="ABA / Routing Number"
           required
+          field="abaRoutingNumber"
           error={errors.abaRoutingNumber}
           className="sm:col-span-2"
         >
