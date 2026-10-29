@@ -1,5 +1,7 @@
 import {
   Banknote,
+  ChevronLeft,
+  ChevronRight,
   Download,
   FileText,
   History,
@@ -28,6 +30,15 @@ import {
   submitCommissionPayout,
   type PayoutFormValues,
 } from "../../lib/commissionPayout";
+
+type CommissionStats = {
+  totalCount: number;
+  pendingCount: number;
+  paidCount: number;
+  pendingAmount: number;
+  paidAmount: number;
+  totalAmount: number;
+};
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
@@ -125,8 +136,14 @@ export default function CommissionsPage() {
   const [invoiceLoadingId, setInvoiceLoadingId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
   const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalRecords, setTotalRecords] = useState(0);
   const [rows, setRows] = useState<CommissionRecord[]>([]);
   const [summary, setSummary] = useState<CommissionSummary | null>(null);
+  const [stats, setStats] = useState<CommissionStats | null>(null);
   const [payoutRow, setPayoutRow] = useState<CommissionRecord | null>(null);
   const [historyRow, setHistoryRow] = useState<CommissionRecord | null>(null);
   const [historyData, setHistoryData] = useState<CommissionHistory | null>(null);
@@ -147,9 +164,11 @@ export default function CommissionsPage() {
     try {
       setLoading(true);
       const params = new URLSearchParams({
-        limit: "50",
-        ...(statusFilter !== "ALL" ? { status: statusFilter } : {}),
+        page: String(page),
+        limit: String(limit),
       });
+      if (statusFilter !== "ALL") params.set("status", statusFilter);
+      if (search) params.set("search", search);
 
       const res = await fetch(`${API_BASE}/broker/commissions?${params}`, {
         headers: getAuthHeaders(),
@@ -162,42 +181,32 @@ export default function CommissionsPage() {
 
       setRows(json.data || []);
       setSummary(json.summary || null);
+      setStats(json.stats || null);
+      setTotalPages(json.pagination?.totalPages || 1);
+      setTotalRecords(json.pagination?.total || 0);
     } catch (error: any) {
       toast.error(error.message || "Failed to load commissions");
     } finally {
       setLoading(false);
     }
-  }, [isBrokerAdmin, statusFilter]);
+  }, [isBrokerAdmin, limit, page, search, statusFilter]);
 
   useEffect(() => {
     loadCommissions();
   }, [loadCommissions]);
 
-  const filteredRows = useMemo(() => {
-    const term = searchInput.trim().toLowerCase();
-    if (!term) return rows;
-
-    return rows.filter((row) => {
-      const haystack = [
-        row.applicationNumber,
-        row.clientName,
-        row.recipientName,
-        row.recipientEmail,
-        formatCommissionRole(row.recipientRole),
-        row.latestInvoice?.invoiceNumber,
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
-
-      return haystack.includes(term);
-    });
-  }, [rows, searchInput]);
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setSearch(searchInput.trim());
+      setPage(1);
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [searchInput]);
 
   const groupedDeals = useMemo(() => {
     const groups = new Map<string, CommissionRecord[]>();
 
-    for (const row of filteredRows) {
+    for (const row of rows) {
       const key = row.loanApplicationId;
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key)!.push(row);
@@ -222,31 +231,24 @@ export default function CommissionsPage() {
         rows: dealRows,
       };
     });
-  }, [filteredRows]);
-
-  const tableStats = useMemo(() => {
-    const pending = rows.filter(
-      (row) => (row.payoutStatus || row.status) !== "PAID",
-    );
-    const paid = rows.filter((row) => (row.payoutStatus || row.status) === "PAID");
-    const pendingAmount = pending.reduce(
-      (sum, row) => sum + Number(row.commissionAmount || 0),
-      0,
-    );
-    const paidAmount = paid.reduce(
-      (sum, row) => sum + Number(row.commissionAmount || 0),
-      0,
-    );
-
-    return {
-      pendingCount: pending.length,
-      paidCount: paid.length,
-      pendingAmount,
-      paidAmount,
-      totalAmount: pendingAmount + paidAmount,
-      totalCount: rows.length,
-    };
   }, [rows]);
+
+  const tableStats = useMemo<CommissionStats>(() => {
+    if (stats) return stats;
+    return {
+      pendingCount: 0,
+      paidCount: 0,
+      pendingAmount: 0,
+      paidAmount: 0,
+      totalAmount: 0,
+      totalCount: 0,
+    };
+  }, [stats]);
+
+  const setStatusAndResetPage = (next: StatusFilter) => {
+    setStatusFilter(next);
+    setPage(1);
+  };
 
   const handleRecordPayout = async (values: PayoutFormValues) => {
     if (!payoutRow) return;
@@ -387,14 +389,14 @@ export default function CommissionsPage() {
           amount={tableStats.totalAmount}
           count={tableStats.totalCount}
           active={statusFilter === "ALL"}
-          onClick={() => setStatusFilter("ALL")}
+          onClick={() => setStatusAndResetPage("ALL")}
         />
         <SummaryCard
           title="Pending payout"
           amount={tableStats.pendingAmount}
           count={tableStats.pendingCount}
           active={statusFilter === "PENDING"}
-          onClick={() => setStatusFilter("PENDING")}
+          onClick={() => setStatusAndResetPage("PENDING")}
           tone="warning"
         />
         <SummaryCard
@@ -402,7 +404,7 @@ export default function CommissionsPage() {
           amount={tableStats.paidAmount}
           count={tableStats.paidCount}
           active={statusFilter === "PAID"}
-          onClick={() => setStatusFilter("PAID")}
+          onClick={() => setStatusAndResetPage("PAID")}
           tone="success"
         />
         <SummaryCard
@@ -440,7 +442,7 @@ export default function CommissionsPage() {
 
             <select
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
+              onChange={(e) => setStatusAndResetPage(e.target.value as StatusFilter)}
               className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none focus:border-[#13538A]/40"
             >
               <option value="ALL">All statuses</option>
@@ -459,7 +461,7 @@ export default function CommissionsPage() {
               />
             ))}
           </div>
-        ) : filteredRows.length === 0 ? (
+        ) : rows.length === 0 ? (
           <div className="px-6 py-14 text-center">
             <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
               <Banknote size={24} />
@@ -468,7 +470,7 @@ export default function CommissionsPage() {
               No commission records found
             </p>
             <p className="mt-1 text-sm text-slate-500">
-              {searchInput
+              {search
                 ? "Try a different search term or clear filters."
                 : "Mark a deal as funded to generate commissions."}
             </p>
@@ -662,6 +664,49 @@ export default function CommissionsPage() {
             </table>
           </div>
         )}
+
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 px-4 py-4 md:px-6">
+          <p className="text-sm text-slate-500">
+            Page {page} of {totalPages}
+            {totalRecords > 0 ? (
+              <span className="ml-1 text-slate-400">
+                · {totalRecords} record{totalRecords === 1 ? "" : "s"}
+              </span>
+            ) : null}
+          </p>
+          <div className="flex items-center gap-2">
+            <select
+              value={limit}
+              onChange={(e) => {
+                setLimit(Number(e.target.value));
+                setPage(1);
+              }}
+              className="rounded-lg border border-slate-200 px-2 py-1.5 text-sm text-slate-700"
+            >
+              <option value={10}>10 / page</option>
+              <option value={20}>20 / page</option>
+              <option value={50}>50 / page</option>
+            </select>
+            <button
+              type="button"
+              disabled={page <= 1 || loading}
+              onClick={() => setPage((current) => Math.max(1, current - 1))}
+              className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-700 disabled:opacity-50"
+            >
+              <ChevronLeft className="h-4 w-4" />
+              Previous
+            </button>
+            <button
+              type="button"
+              disabled={page >= totalPages || loading}
+              onClick={() => setPage((current) => current + 1)}
+              className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-700 disabled:opacity-50"
+            >
+              Next
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
       </div>
 
       <RecordPayoutModal

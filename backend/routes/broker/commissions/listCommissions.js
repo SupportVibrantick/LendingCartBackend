@@ -26,6 +26,7 @@ module.exports = async function listCommissions(fastify) {
               type: "string",
               enum: ["LOAN_OFFICER", "CO_BROKER", "BROKER"],
             },
+            search: { type: "string" },
             page: { type: "integer", minimum: 1 },
             limit: { type: "integer", minimum: 1, maximum: 100 },
           },
@@ -50,11 +51,17 @@ module.exports = async function listCommissions(fastify) {
         const brokerOrgId = req.user.organizationId;
         const status = String(req.query?.status || "ALL").toUpperCase();
         const role = req.query?.role ? String(req.query.role).toUpperCase() : null;
+        const search = String(req.query?.search || "").trim();
         const page = Math.max(1, Number(req.query?.page) || 1);
         const limit = Math.min(100, Math.max(1, Number(req.query?.limit) || 20));
         const skip = (page - 1) * limit;
 
-        const where = buildCommissionListWhere({ brokerOrgId, status, role });
+        const where = buildCommissionListWhere({
+          brokerOrgId,
+          status,
+          role,
+          search,
+        });
 
         const [rows, total, allForSummary] = await Promise.all([
           prisma.dealCommission.findMany({
@@ -69,7 +76,7 @@ module.exports = async function listCommissions(fastify) {
             where: { brokerOrgId, status: "CALCULATED" },
             include: {
               payouts: {
-                where: { status: "COMPLETED" },
+                where: { status: { in: ["COMPLETED", "PROCESSING"] } },
                 select: { amount: true, paidAt: true, status: true },
               },
             },
@@ -86,6 +93,21 @@ module.exports = async function listCommissions(fastify) {
 
         const summary = buildMonthlySummary(summaryRows, 6);
 
+        let pendingCount = 0;
+        let paidCount = 0;
+        let pendingAmount = 0;
+        let paidAmount = 0;
+        for (const row of summaryRows) {
+          const amount = Number(row.commissionAmount || 0);
+          if (row.payoutStatus === "PAID") {
+            paidCount += 1;
+            paidAmount += amount;
+          } else {
+            pendingCount += 1;
+            pendingAmount += amount;
+          }
+        }
+
         return reply.send({
           success: true,
           data: rows.map((row) => formatCommissionRecord(row)),
@@ -95,7 +117,22 @@ module.exports = async function listCommissions(fastify) {
             total,
             totalPages: Math.ceil(total / limit) || 1,
           },
-          summary,
+          stats: {
+            totalCount: summaryRows.length,
+            pendingCount,
+            paidCount,
+            pendingAmount: Math.round(pendingAmount * 100) / 100,
+            paidAmount: Math.round(paidAmount * 100) / 100,
+            totalAmount: Math.round((pendingAmount + paidAmount) * 100) / 100,
+          },
+          summary: {
+            ...summary,
+            counts: {
+              pending: pendingCount,
+              paid: paidCount,
+              total: summaryRows.length,
+            },
+          },
         });
       } catch (error) {
         fastify.log.error({ error: error.message }, "List commissions failed");

@@ -65,46 +65,83 @@ export default function LoiBrandingFields({
       </div>
 
       <div className="grid gap-4 md:grid-cols-[140px_minmax(0,1fr)]">
-        <label
-          className={`group relative flex min-h-[120px] cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed px-3 py-4 transition ${
-            value.logoUrl
-              ? "border-emerald-200 bg-emerald-50/40 dark:border-emerald-500/30 dark:bg-emerald-500/5"
-              : "border-slate-300 bg-slate-50 hover:border-[#183b57] hover:bg-brand-50/60 dark:border-slate-700 dark:bg-slate-900/40"
-          } ${disabled ? "cursor-not-allowed opacity-60" : ""}`}
-        >
-          <input
-            key={fileInputKey}
-            type="file"
-            accept="image/png,image/jpeg,image/jpg,image/webp,image/svg+xml"
-            className="hidden"
-            disabled={disabled}
-            onChange={(e) => handleLogoUpload(e.target.files?.[0])}
-          />
-
-          {value.logoUrl ? (
-            <img
-              src={value.logoUrl}
-              alt="Logo preview"
-              className="max-h-16 max-w-full object-contain"
+        <div className="space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Logo
+            </span>
+            <span
+              className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                value.logoUrl
+                  ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300"
+                  : "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300"
+              }`}
+            >
+              {value.logoUrl ? "Added" : "Required"}
+            </span>
+          </div>
+          <label
+            className={`group relative flex min-h-[120px] cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed px-3 py-4 transition ${
+              value.logoUrl
+                ? "border-emerald-200 bg-emerald-50/40 dark:border-emerald-500/30 dark:bg-emerald-500/5"
+                : "border-amber-300 bg-amber-50/40 hover:border-amber-500 hover:bg-amber-50 dark:border-amber-500/40 dark:bg-amber-500/5"
+            } ${disabled ? "cursor-not-allowed opacity-60" : ""}`}
+          >
+            <input
+              key={fileInputKey}
+              type="file"
+              accept="image/png,image/jpeg,image/jpg,image/webp,image/svg+xml"
+              className="hidden"
+              disabled={disabled}
+              required={!value.logoUrl}
+              aria-required="true"
+              onChange={(e) => handleLogoUpload(e.target.files?.[0])}
             />
-          ) : (
-            <>
-              <Upload className="mb-2 h-5 w-5 text-slate-400" />
-              <span className="text-center text-[11px] font-medium text-slate-500">
-                Upload logo
-              </span>
-            </>
-          )}
-        </label>
+
+            {value.logoUrl ? (
+              <img
+                src={value.logoUrl}
+                alt="Logo preview"
+                className="max-h-16 max-w-full object-contain"
+              />
+            ) : (
+              <>
+                <Upload className="mb-2 h-5 w-5 text-amber-500" />
+                <span className="text-center text-[11px] font-medium text-slate-600 dark:text-slate-300">
+                  Upload logo
+                </span>
+                <span className="mt-1 text-center text-[10px] font-semibold text-amber-700 dark:text-amber-300">
+                  Required for term sheet
+                </span>
+              </>
+            )}
+          </label>
+        </div>
 
         <div className="space-y-3">
           <label className="block">
-            <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Brand Name
+            <span className="mb-1 flex items-center justify-between gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <span>
+                Brand Name
+                <span className="ml-1 text-amber-600" aria-hidden="true">
+                  *
+                </span>
+              </span>
+              <span
+                className={`rounded-full px-2 py-0.5 text-[10px] font-semibold normal-case tracking-normal ${
+                  value.brandName.trim()
+                    ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300"
+                    : "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300"
+                }`}
+              >
+                {value.brandName.trim() ? "Added" : "Required"}
+              </span>
             </span>
             <input
               value={value.brandName}
               disabled={disabled}
+              required
+              aria-required="true"
               onChange={(e) =>
                 onChange({ ...value, brandName: e.target.value })
               }

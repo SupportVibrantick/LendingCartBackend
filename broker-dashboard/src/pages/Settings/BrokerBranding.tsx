@@ -17,7 +17,10 @@ import { getBrokerAuthHeaders } from "../../lib/brokerApi";
 import { hasPermission } from "../../lib/brokerPermissions";
 import { isLoanOfficerPortalPath } from "../../lib/portalAuth";
 import { patchBrokerSessionUser } from "../../lib/brokerSession";
-import { readBrandingApiResponse } from "../../lib/brandingApiErrors";
+import {
+  getBrandingCatchMessage,
+  readBrandingApiResponse,
+} from "../../lib/brandingApiErrors";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
@@ -103,7 +106,11 @@ export default function BrokerBranding() {
       );
 
       if (!ok) {
-        throw new Error(errorMessage || undefined);
+        toast.error(
+          errorMessage ||
+            "We couldn’t load your branding settings. Please refresh the page and try again.",
+        );
+        return;
       }
 
       const next = {
@@ -113,22 +120,24 @@ export default function BrokerBranding() {
 
       setForm(next);
       setSaved(next);
-    } catch (error: any) {
-      toast.error(
-        error.message ||
-          "We couldn’t load your branding settings. Please refresh the page and try again.",
-      );
+    } catch (error: unknown) {
+      toast.error(getBrandingCatchMessage(error, "load"));
     } finally {
       setLoading(false);
     }
   };
 
   const handleLogoUpload = (file?: File) => {
-    if (!canManageBranding) return;
+    if (!canManageBranding) {
+      toast.error(
+        "You have view-only access. Contact your broker admin to change branding.",
+      );
+      return;
+    }
     if (!file) return;
 
     if (!file.type.startsWith("image/")) {
-      toast.error("Please upload an image file (PNG, JPG, or SVG)");
+      toast.error("Please upload an image file (PNG, JPG, or SVG).");
       return;
     }
 
@@ -156,11 +165,21 @@ export default function BrokerBranding() {
 
   const handleSave = async () => {
     if (!canManageBranding) {
-      toast.error("You have view-only access to branding settings");
+      toast.error(
+        "You have view-only access. Contact your broker admin to change branding.",
+      );
       return;
     }
-    if (!isFormComplete) {
-      toast.error("Please upload a logo and enter your company name");
+    if (!hasLogo && !hasBrandName) {
+      toast.error("Please upload a logo and enter your company name.");
+      return;
+    }
+    if (!hasLogo) {
+      toast.error("Please upload your company logo before saving.");
+      return;
+    }
+    if (!hasBrandName) {
+      toast.error("Please enter your company name before saving.");
       return;
     }
 
@@ -184,7 +203,11 @@ export default function BrokerBranding() {
       );
 
       if (!ok) {
-        throw new Error(errorMessage || undefined);
+        toast.error(
+          errorMessage ||
+            "We couldn’t save your branding. Please check your logo and company name, then try again.",
+        );
+        return;
       }
 
       const next = {
@@ -203,11 +226,8 @@ export default function BrokerBranding() {
         );
       }
       toast.success("Branding saved. New fee agreements will use this logo.");
-    } catch (error: any) {
-      toast.error(
-        error.message ||
-          "We couldn’t save your branding. Please check your logo and company name, then try again.",
-      );
+    } catch (error: unknown) {
+      toast.error(getBrandingCatchMessage(error, "save"));
     } finally {
       setSaving(false);
     }
