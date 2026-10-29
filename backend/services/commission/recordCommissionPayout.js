@@ -42,7 +42,6 @@ const ALLOWED_PAYMENT_METHODS = new Set([
   "CASH",
   "MANUAL",
   "STRIPE",
-  "ZELLE",
 ]);
 const {
   sendCommissionPayoutRecordedEmail,
