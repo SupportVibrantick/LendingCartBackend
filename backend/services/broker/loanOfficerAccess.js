@@ -187,7 +187,11 @@ async function requireLoAddOwnLender(req, reply, fastify) {
 
 async function requireLoSendApplications(req, reply, fastify) {
   if (!req.user?.roles?.includes("BROKER_OFFICER")) return;
-  await fastify.requirePermission("SEND_APPLICATIONS")(req, reply);
+  // Pipeline matched-lenders send (core) OR marketplace send (Elite).
+  await fastify.requirePermission([
+    "SUBMIT_TO_LENDERS",
+    "SEND_APPLICATIONS",
+  ])(req, reply);
 }
 
 async function requireLoOfficerPermission(req, reply, fastify, permission) {
