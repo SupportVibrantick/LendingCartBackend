@@ -56,7 +56,7 @@ function buildDefaultPaymentInstructions(brokerOrg, orgBanking = null) {
   }
 
   lines.push(
-    "US ACH bank transfer preferred. Wire / Check / Zelle also accepted when arranged with the broker.",
+    "US ACH bank transfer preferred. Wire / Check also accepted when arranged with the broker.",
     "Include invoice number in the payment reference.",
   );
 

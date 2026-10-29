@@ -368,7 +368,7 @@ export default function CommissionsPage() {
             >
               firm bank account
             </Link>{" "}
-            to the loan officer / co-broker bank on file, or record Zelle/wire manually.
+            to the loan officer / co-broker bank on file, or record wire/check manually.
           </p>
         </div>
 

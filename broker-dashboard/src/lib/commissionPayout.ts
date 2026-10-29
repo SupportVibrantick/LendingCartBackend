@@ -7,7 +7,6 @@ import {
 
 export const PAYMENT_METHODS = [
   "ACH",
-  "ZELLE",
   "WIRE",
   "CHECK",
   "CASH",
