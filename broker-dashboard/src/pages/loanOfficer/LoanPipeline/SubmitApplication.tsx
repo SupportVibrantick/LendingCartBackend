@@ -39,6 +39,7 @@ import {
   getBrokerReassignmentBlockedReason,
 } from "../../../lib/brokerApplicationAssignment";
 import { hasPermission } from "../../../lib/brokerPermissions";
+import { getFixedMenuPosition } from "../../../lib/fixedMenuPosition";
 
 /* ================= TYPES ================= */
 // type SubmissionListItem = {
@@ -1039,27 +1040,28 @@ export default function LoanApplicationsPage() {
   useEffect(() => {
     if (!activeDropdown) return;
 
-    const handleScroll = () => {
+    const updatePos = () => {
       const btn = document.querySelector(
         `[data-id="${activeDropdown}"]`,
-      ) as HTMLElement;
+      ) as HTMLElement | null;
 
       if (!btn) return;
 
-      const rect = btn.getBoundingClientRect();
-
-      setDropdownPos({
-        top: rect.top - 8,
-        left: rect.right - 192,
-      });
+      setDropdownPos(
+        getFixedMenuPosition(btn.getBoundingClientRect(), {
+          width: 192,
+          height: dropdownRef.current?.offsetHeight || 200,
+        }),
+      );
     };
 
-    window.addEventListener("scroll", handleScroll, true);
-    window.addEventListener("resize", handleScroll);
+    updatePos();
+    window.addEventListener("scroll", updatePos, true);
+    window.addEventListener("resize", updatePos);
 
     return () => {
-      window.removeEventListener("scroll", handleScroll, true);
-      window.removeEventListener("resize", handleScroll);
+      window.removeEventListener("scroll", updatePos, true);
+      window.removeEventListener("resize", updatePos);
     };
   }, [activeDropdown]);
 
@@ -1623,10 +1625,12 @@ export default function LoanApplicationsPage() {
                             e.stopPropagation();
                             const rect =
                               e.currentTarget.getBoundingClientRect();
-                            setDropdownPos({
-                              top: rect.top - 8,
-                              left: rect.right - 192,
-                            });
+                            setDropdownPos(
+                              getFixedMenuPosition(rect, {
+                                width: 192,
+                                height: 200,
+                              }),
+                            );
                             setActiveDropdown(
                               activeDropdown === row.submissionId
                                 ? null
