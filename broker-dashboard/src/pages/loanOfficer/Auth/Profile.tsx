@@ -26,6 +26,7 @@ import {
 } from "../../../lib/loanOfficerApi";
 import { buildApiPublicFileUrl } from "../../../lib/publicFileUrl";
 import { isSessionExpiredError } from "../../../lib/sessionExpiry";
+import SelfBankingPanel from "../../../components/banking/SelfBankingPanel";
 
 const inputClass =
   "w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-gray-900 outline-none transition focus:border-[#13538A]/40 focus:bg-white focus:ring-2 focus:ring-[#13538A]/10 dark:border-gray-700 dark:bg-gray-800 dark:text-white";
@@ -563,6 +564,18 @@ export default function Profile() {
                 />
               </div>
             </section>
+
+            <SelfBankingPanel
+              portal="loanOfficer"
+              apiBase={LO_API_BASE}
+              getAuthHeaders={() => ({
+                "Content-Type": "application/json",
+                ...(getLoanOfficerToken()
+                  ? { Authorization: `Bearer ${getLoanOfficerToken()}` }
+                  : {}),
+              })}
+              checkResponse={checkLoanOfficerResponse}
+            />
 
             <section className="overflow-hidden rounded-2xl border border-gray-100 dark:border-gray-800">
               <div className="flex flex-wrap items-start justify-between gap-4 border-b border-gray-100 px-4 py-4 dark:border-gray-800 sm:px-5">

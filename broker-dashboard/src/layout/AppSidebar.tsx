@@ -312,6 +312,11 @@ const AppSidebar: React.FC = () => {
                     path: "/payments/invoices",
                     permission: "VIEW_INVOICES" as PermissionKey,
                   },
+                  {
+                    name: "Banking",
+                    path: "/payments/banking",
+                    permission: "VIEW_COMMISSIONS" as PermissionKey,
+                  },
                 ],
               },
             ]

@@ -113,6 +113,7 @@ function requireBankingFromFields(fields) {
 
 module.exports = {
   formatBankingForAdmin,
+  bankingFingerprint,
   upsertUserBankingProfile,
   requireBankingFromFields,
 };

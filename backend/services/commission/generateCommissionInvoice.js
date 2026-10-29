@@ -6,6 +6,9 @@ const {
   generateCommissionInvoicePdf,
   saveCommissionInvoicePdf,
 } = require("./generateCommissionInvoicePdf");
+const { getOrganizationBanking } = require("../broker/organizationBanking.service");
+const { sendCommissionInvoiceEmail } = require("../emails/commissionEmails");
+const { maskAccountLast4 } = require("../../utils/commission/commissionHelpers");
 
 async function generateSequentialInvoiceNumber(db, brokerOrgId) {
   const year = new Date().getFullYear();
@@ -32,15 +35,32 @@ async function generateSequentialInvoiceNumber(db, brokerOrgId) {
   return `${prefix}${String(sequence).padStart(5, "0")}`;
 }
 
-function buildDefaultPaymentInstructions(brokerOrg) {
+function buildDefaultPaymentInstructions(brokerOrg, orgBanking = null) {
   const lines = [
     brokerOrg?.name ? `Pay to: ${brokerOrg.name}` : null,
     brokerOrg?.email ? `Email: ${brokerOrg.email}` : null,
     brokerOrg?.phone ? `Phone: ${brokerOrg.phone}` : null,
-    "ACH / Wire / Check payments accepted. Include invoice number in payment reference.",
-  ].filter(Boolean);
+  ];
 
-  return lines.join("\n");
+  if (orgBanking) {
+    lines.push(
+      orgBanking.bankName ? `Bank: ${orgBanking.bankName}` : null,
+      orgBanking.accountName ? `Account name: ${orgBanking.accountName}` : null,
+      orgBanking.abaRoutingNumber
+        ? `ABA routing: ${String(orgBanking.abaRoutingNumber).replace(/\D/g, "")}`
+        : null,
+      maskAccountLast4(orgBanking.accountNumber)
+        ? `Account ending: ····${maskAccountLast4(orgBanking.accountNumber)}`
+        : null,
+    );
+  }
+
+  lines.push(
+    "US ACH bank transfer preferred. Wire / Check / Zelle also accepted when arranged with the broker.",
+    "Include invoice number in the payment reference.",
+  );
+
+  return lines.filter(Boolean).join("\n");
 }
 
 const commissionIncludeForInvoice = {
@@ -99,9 +119,10 @@ async function generateCommissionInvoice(
   }
 
   const invoiceNumber = await generateSequentialInvoiceNumber(db, brokerOrgId);
+  const orgBanking = await getOrganizationBanking(db, brokerOrgId);
   const instructions =
     paymentInstructions ||
-    buildDefaultPaymentInstructions(commission.brokerOrg);
+    buildDefaultPaymentInstructions(commission.brokerOrg, orgBanking);
 
   const pdfBuffer = await generateCommissionInvoicePdf({
     brokerOrg: commission.brokerOrg,
@@ -155,6 +176,20 @@ async function generateCommissionInvoice(
     },
   });
 
+  try {
+    await sendCommissionInvoiceEmail({
+      prisma: db,
+      recipientUser: commission.recipientUser,
+      organizationName: commission.brokerOrg?.name,
+      applicationNumber: commission.loanApplication?.applicationNumber,
+      invoiceNumber,
+      amount: Number(commission.commissionAmount),
+      paymentInstructions: instructions,
+    });
+  } catch (_) {
+    // Non-blocking.
+  }
+
   return invoice;
 }
 
@@ -184,9 +219,10 @@ async function ensureCommissionInvoicePdf(db, invoice) {
     throw new Error("Commission record not found");
   }
 
+  const orgBankingForPdf = await getOrganizationBanking(db, commission.brokerOrgId);
   const instructions =
     invoice.paymentInstructions ||
-    buildDefaultPaymentInstructions(commission.brokerOrg);
+    buildDefaultPaymentInstructions(commission.brokerOrg, orgBankingForPdf);
 
   const pdfBuffer = await generateCommissionInvoicePdf({
     brokerOrg: commission.brokerOrg,

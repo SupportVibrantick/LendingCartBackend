@@ -16,6 +16,9 @@ const {
 const {
   fulfillStripeCheckoutSession,
 } = require("./syncPaidCheckoutFromStripe.service");
+const {
+  applyCommissionAchWebhook,
+} = require("./commissionAchPayout.service");
 
 async function findOrgSubByStripeIds(prisma, { stripeSubscriptionId, stripeCustomerId }) {
   if (stripeSubscriptionId) {
@@ -170,6 +173,19 @@ async function processStripeWebhookEvent(prisma, event, io = null) {
 
   if (type === "checkout.session.completed") {
     return fulfillStripeCheckoutSession(prisma, io, object);
+  }
+
+  if (
+    type === "payout.paid"
+    || type === "payout.failed"
+    || type === "payout.canceled"
+    || type === "payment_intent.succeeded"
+    || type === "payment_intent.payment_failed"
+    || type === "payment_intent.canceled"
+  ) {
+    const commissionResult = await applyCommissionAchWebhook(prisma, event);
+    if (commissionResult) return commissionResult;
+    return { action: "stripe_event_ignored", type };
   }
 
   if (

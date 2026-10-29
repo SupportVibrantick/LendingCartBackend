@@ -77,6 +77,8 @@ export function mapBankingDetailToForm(
   };
 }
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export function validateBankingForm(
   banking: BankingFormState,
 ): BankingFormErrors {
@@ -95,7 +97,7 @@ export function validateBankingForm(
   }
 
   if (!banking.partyEmail.trim()) errors.partyEmail = "Email is required";
-  else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(banking.partyEmail.trim())) {
+  else if (!EMAIL_RE.test(banking.partyEmail.trim())) {
     errors.partyEmail = "Enter a valid email";
   }
 

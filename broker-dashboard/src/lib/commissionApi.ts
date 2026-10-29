@@ -16,6 +16,7 @@ export type CommissionPayout = {
   paymentReference?: string | null;
   notes?: string | null;
   status?: string | null;
+  failureReason?: string | null;
   paidAt?: string | null;
   paidByUserId?: string | null;
   paidByName?: string | null;
@@ -46,6 +47,12 @@ export type CommissionRecord = {
   recipientRole: "BROKER" | "LOAN_OFFICER" | "CO_BROKER";
   recipientName?: string | null;
   recipientEmail?: string | null;
+  bankPayout?: {
+    available: boolean;
+    bankName?: string | null;
+    accountName?: string | null;
+    accountLast4?: string | null;
+  } | null;
   loanAmount?: number | null;
   brokerPoints?: number | null;
   upfrontFee?: number | null;
@@ -53,7 +60,7 @@ export type CommissionRecord = {
   findersFeePercent?: number | null;
   commissionAmount?: number | null;
   lineStatus?: "CALCULATED" | "VOID" | "SUPERSEDED";
-  payoutStatus?: "UNPAID" | "PARTIAL" | "PAID";
+  payoutStatus?: "UNPAID" | "PARTIAL" | "PAID" | "PROCESSING";
   status: "UNPAID" | "PARTIAL" | "PAID" | string;
   invoiceNumber?: string | null;
   latestInvoice?: CommissionInvoice | null;
@@ -173,6 +180,7 @@ export function formatCommissionRole(role?: string) {
 export function formatPayoutStatus(status?: string) {
   if (status === "PAID") return "Paid";
   if (status === "PARTIAL") return "Partial";
+  if (status === "PROCESSING") return "Sending";
   if (status === "UNPAID") return "Pending";
   return status || "Pending";
 }

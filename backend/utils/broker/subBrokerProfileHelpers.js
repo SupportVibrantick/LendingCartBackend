@@ -428,6 +428,7 @@ function formatCoBrokerAuthResponse(user, branding, assignedApplicationsCount) {
       roles: (user.roles || []).map((entry) => entry.role.name),
       assignedApplications: assignedApplicationsCount,
       profile: detail.profile,
+      banking: detail.banking || null,
       assignedLoanOfficers: detail.assignedLoanOfficers,
     },
     organization: user.organization
@@ -474,6 +475,7 @@ const subBrokerAuthInclude = {
     },
   },
   subBrokerProfile: true,
+  bankingProfile: true,
   subBrokerLoanOfficers: {
     include: {
       loanOfficer: {

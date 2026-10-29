@@ -70,6 +70,7 @@ import CoBrokerImpersonateLogin from "./pages/subBroker/Auth/ImpersonateLogin";
 import CoBrokerDashboard from "./pages/subBroker/Dashboard/CoBrokerDashboard";
 import CoBrokerInvoicesPage from "./pages/subBroker/Invoices/CoBrokerInvoicesPage";
 import CoBrokerCommissionsPage from "./pages/subBroker/Commissions/CoBrokerCommissionsPage";
+import CoBrokerBankingPage from "./pages/subBroker/Payments/CoBrokerBankingPage";
 // import Dashboard from "./pages/subBroker/Dashboard/Dashboard";
 import LoanPipeline from "./pages/subBroker/LoanPipeline/LoanPipeline";
 import CoBrokerLoanPreview from "./pages/subBroker/LoanPipeline/LoanPreview";
@@ -87,6 +88,7 @@ import LoanOfficerProfile from "./pages/loanOfficer/Auth/Profile";
 import LoanOfficerDashboard from "./pages/loanOfficer/Dashboard/LoanOfficerDashboard";
 import LoanOfficerInvoicesPage from "./pages/loanOfficer/Invoices/LoanOfficerInvoicesPage";
 import LoanOfficerCommissionsPage from "./pages/loanOfficer/Commissions/LoanOfficerCommissionsPage";
+import LoanOfficerBankingPage from "./pages/loanOfficer/Payments/LoanOfficerBankingPage";
 import LoanOfficerMessagesPage from "./pages/loanOfficer/Messages/LoanOfficerMessagesPage";
 import LoanOfficerApplication from "./pages/loanOfficer/LoanApplication/LoanApplication";
 import LoanOfficerContacts from "./pages/loanOfficer/Contacts/ContactPage";
@@ -97,6 +99,7 @@ import BrokerCustomDocuments from "./pages/Documents/BrokerCustomDocuments";
 import CommissionsPage from "./pages/Commissions/CommissionsPage";
 import PaymentsLayout from "./pages/Payments/PaymentsLayout";
 import InvoicesPage from "./pages/Payments/InvoicesPage";
+import BankingPage from "./pages/Payments/BankingPage";
 import RequirePermission from "./components/auth/RequirePermission";
 import type { PermissionKey } from "./lib/brokerPermissions";
 
@@ -366,6 +369,14 @@ export default function App() {
                   </BrokerRequirePermission>
                 }
               />
+              <Route
+                path="banking"
+                element={
+                  <BrokerRequirePermission permission="VIEW_COMMISSIONS">
+                    <BankingPage />
+                  </BrokerRequirePermission>
+                }
+              />
             </Route>
             <Route
               path="/commissions"
@@ -578,6 +589,8 @@ export default function App() {
               }
             />
 
+            <Route path="banking" element={<CoBrokerBankingPage />} />
+
             <Route
               path="loan-pipeline"
               element={
@@ -662,6 +675,7 @@ export default function App() {
                 </LoRequirePermission>
               }
             />
+            <Route path="banking" element={<LoanOfficerBankingPage />} />
             <Route
               path="loan-pipeline"
               element={

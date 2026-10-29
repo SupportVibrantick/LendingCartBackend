@@ -2,6 +2,9 @@ const { officerPreHandler, officerAssignedApplicationWhere } = require("../../..
 const {
   normalizeLoanOfficerPermissions,
 } = require("../../../utils/broker/loanOfficerPermissions");
+const {
+  formatOwnBanking,
+} = require("../../../services/broker/selfBankingProfile.service");
 
 async function loanOfficerMeRoutes(fastify) {
   fastify.get(
@@ -25,6 +28,7 @@ async function loanOfficerMeRoutes(fastify) {
             organization: true,
             roles: { include: { role: true } },
             brokerProfile: true,
+            bankingProfile: true,
             userPermissions: {
               include: { permission: { select: { key: true } } },
             },
@@ -78,6 +82,7 @@ async function loanOfficerMeRoutes(fastify) {
                     website: user.brokerProfile.website,
                   }
                 : null,
+              banking: formatOwnBanking(user.bankingProfile),
             },
             organization: {
               id: user.organization.id,

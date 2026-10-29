@@ -35,6 +35,7 @@ import {
 import { formatPhone } from "../../../lib/coBrokerForm";
 import { buildApiPublicFileUrl } from "../../../lib/publicFileUrl";
 import { isSessionExpiredError } from "../../../lib/sessionExpiry";
+import SelfBankingPanel from "../../../components/banking/SelfBankingPanel";
 
 const API_BASE = CO_BROKER_API_BASE;
 
@@ -687,6 +688,13 @@ export default function UserProfileCard() {
                 </div>
               )}
             </section>
+
+            <SelfBankingPanel
+              portal="coBroker"
+              apiBase={API_BASE}
+              getAuthHeaders={() => getCoBrokerAuthHeaders("application/json")}
+              checkResponse={checkCoBrokerResponse}
+            />
 
             {editing && (
               <div className="flex justify-end rounded-2xl border border-gray-200 bg-white px-5 py-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
