@@ -30,11 +30,14 @@ const {
 } = require("./config/env");
 const { getRateLimitRedisClient } = require("./config/redis");
 // Configure Fastify with built-in logger
+// JSON branding payloads send logos as base64 data URLs (frontend allows ~2MB
+// files → ~2.7MB+ body). Default Fastify bodyLimit is 1MB and returns 413.
 const app = Fastify({
   // Trust X-Forwarded-* headers so request.ip reflects the real client IP
   // behind reverse proxies / load balancers (otherwise rate limiting keys
   // every request to the proxy's IP and is effectively disabled).
   trustProxy: true,
+  bodyLimit: getUploadMaxBytes(),
   logger:
     process.env.NODE_ENV === "production"
       ? { level: "info" }
@@ -197,29 +200,53 @@ app.setErrorHandler((error, request, reply) => {
   }
 
   // Determine if we should return JSON or HTML
+  const accept = String(request.headers.accept || "");
+  const contentType = String(request.headers["content-type"] || "");
+  const pathOnly = String(request.url || "").split("?")[0];
   const isApiRequest =
-    request.url.startsWith("/api") ||
-    request.headers["accept"]?.includes("application/json") ||
-    request.url.includes("/auth") ||
-    request.url.includes("/login");
+    pathOnly.startsWith("/api") ||
+    pathOnly.startsWith("/admin") ||
+    pathOnly.startsWith("/broker") ||
+    pathOnly.startsWith("/lender") ||
+    pathOnly.startsWith("/loanofficer") ||
+    pathOnly.startsWith("/subbroker") ||
+    pathOnly.startsWith("/client-portal") ||
+    pathOnly.startsWith("/messaging") ||
+    pathOnly.startsWith("/common") ||
+    pathOnly.startsWith("/public") ||
+    accept.includes("application/json") ||
+    contentType.includes("application/json") ||
+    pathOnly.includes("/auth") ||
+    pathOnly.includes("/login");
 
   if (isApiRequest) {
     const statusCode = error.statusCode || error.status || 500;
     const isProduction = process.env.NODE_ENV === "production";
+    const isBodyTooLarge =
+      statusCode === 413 ||
+      error.code === "FST_ERR_CTP_BODY_TOO_LARGE" ||
+      /request body is too large/i.test(String(error.message || ""));
+
+    let message =
+      statusCode === 500 && isProduction
+        ? "An internal server error occurred"
+        : error.message || "Internal Server Error";
+
+    if (isBodyTooLarge) {
+      message =
+        "Your logo is too large to upload. Please use a smaller image (under 2 MB) or compress it, then try again.";
+    }
 
     const response = {
       success: false,
-      message:
-        statusCode === 500 && isProduction
-          ? "An internal server error occurred"
-          : error.message || "Internal Server Error",
+      message,
     };
 
     if (!isProduction && error.stack) {
       response.stack = error.stack;
     }
 
-    return reply.status(statusCode).send(response);
+    return reply.status(isBodyTooLarge ? 413 : statusCode).send(response);
   }
   // Handle http-errors (from createError)
   if (error.status) {

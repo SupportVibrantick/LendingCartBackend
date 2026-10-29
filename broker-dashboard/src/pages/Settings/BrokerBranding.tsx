@@ -17,6 +17,7 @@ import { getBrokerAuthHeaders } from "../../lib/brokerApi";
 import { hasPermission } from "../../lib/brokerPermissions";
 import { isLoanOfficerPortalPath } from "../../lib/portalAuth";
 import { patchBrokerSessionUser } from "../../lib/brokerSession";
+import { readBrandingApiResponse } from "../../lib/brandingApiErrors";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
@@ -96,21 +97,27 @@ export default function BrokerBranding() {
       const res = await fetch(`${API_BASE}/broker/white-label/`, {
         headers: getAuthHeaders(),
       });
-      const json = await res.json();
+      const { ok, json, errorMessage } = await readBrandingApiResponse(
+        res,
+        "load",
+      );
 
-      if (!res.ok || !json.success) {
-        throw new Error(json.message || "Failed to load branding settings");
+      if (!ok) {
+        throw new Error(errorMessage || undefined);
       }
 
       const next = {
-        brandName: json.data?.brandName || "",
-        logoUrl: json.data?.logoUrl || "",
+        brandName: json?.data?.brandName || "",
+        logoUrl: json?.data?.logoUrl || "",
       };
 
       setForm(next);
       setSaved(next);
     } catch (error: any) {
-      toast.error(error.message || "Failed to load branding settings");
+      toast.error(
+        error.message ||
+          "We couldn’t load your branding settings. Please refresh the page and try again.",
+      );
     } finally {
       setLoading(false);
     }
@@ -126,7 +133,9 @@ export default function BrokerBranding() {
     }
 
     if (file.size > 2 * 1024 * 1024) {
-      toast.error("Logo must be 2MB or smaller");
+      toast.error(
+        "This logo is larger than 2 MB. Please compress it or choose a smaller file.",
+      );
       return;
     }
 
@@ -136,6 +145,11 @@ export default function BrokerBranding() {
         ...prev,
         logoUrl: reader.result as string,
       }));
+    };
+    reader.onerror = () => {
+      toast.error(
+        "We couldn’t read that image. Please try a PNG or JPG file instead.",
+      );
     };
     reader.readAsDataURL(file);
   };
@@ -164,15 +178,18 @@ export default function BrokerBranding() {
         body: JSON.stringify(payload),
       });
 
-      const json = await res.json();
+      const { ok, json, errorMessage } = await readBrandingApiResponse(
+        res,
+        "save",
+      );
 
-      if (!res.ok || !json.success) {
-        throw new Error(json.message || "Failed to save branding settings");
+      if (!ok) {
+        throw new Error(errorMessage || undefined);
       }
 
       const next = {
-        brandName: json.data?.brandName || payload.brandName,
-        logoUrl: json.data?.logoUrl || payload.logoUrl,
+        brandName: json?.data?.brandName || payload.brandName,
+        logoUrl: json?.data?.logoUrl || payload.logoUrl,
       };
 
       setForm(next);
@@ -187,7 +204,10 @@ export default function BrokerBranding() {
       }
       toast.success("Branding saved. New fee agreements will use this logo.");
     } catch (error: any) {
-      toast.error(error.message || "Failed to save branding settings");
+      toast.error(
+        error.message ||
+          "We couldn’t save your branding. Please check your logo and company name, then try again.",
+      );
     } finally {
       setSaving(false);
     }
