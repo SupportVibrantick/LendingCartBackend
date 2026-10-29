@@ -17,7 +17,10 @@ module.exports = async function sendToLenders(fastify) {
   fastify.post(
     "/applications/:applicationId/submissions/:submissionId/send-to-lenders",
     {
-      preHandler: extraOfficerPermission(fastify, "SEND_APPLICATIONS"),
+      preHandler: extraOfficerPermission(fastify, [
+        "SUBMIT_TO_LENDERS",
+        "SEND_APPLICATIONS",
+      ]),
       schema: {
         tags: ["Broker -> Lender Discovery"],
         summary: "Send submission to selected lenders",

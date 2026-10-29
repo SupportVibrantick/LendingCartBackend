@@ -1075,6 +1075,12 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
   );
 
   const loDocPermissions = useMemo(() => {
+    // Matched-lenders send is a pipeline action (core SUBMIT_TO_LENDERS).
+    // SEND_APPLICATIONS is Elite marketplace-only — do not require it alone.
+    const canSendToLenders =
+      hasPermission("SUBMIT_TO_LENDERS", permissionPortal) ||
+      hasPermission("SEND_APPLICATIONS", permissionPortal);
+
     if (isCoBrokerPortal) {
       return {
         upload: true,
@@ -1109,7 +1115,7 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
         permissionPortal,
       ),
       delete: hasPermission("DELETE_DOCUMENTS", permissionPortal),
-      sendApplications: hasPermission("SEND_APPLICATIONS", permissionPortal),
+      sendApplications: canSendToLenders,
       chat: hasPermission("CHAT", permissionPortal),
       sendEmails: hasPermission("SEND_EMAILS", permissionPortal),
     };
@@ -1768,7 +1774,19 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
   };
 
   const sendApplicationToLender = async (lenderProductId: string) => {
-    if (!submissionId || !applicationId) return;
+    if (!loDocPermissions.sendApplications) {
+      toast.error(
+        "You do not have permission to send applications to lenders.",
+      );
+      return;
+    }
+
+    if (!submissionId || !applicationId) {
+      toast.error(
+        "Missing application context. Open this deal again from the loan pipeline.",
+      );
+      return;
+    }
 
     try {
       setSendingId(lenderProductId);
@@ -1791,10 +1809,6 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
       }
 
       toast.success("Submission processed successfully");
-      // setSentLenders((prev) => ({
-      //   ...prev,
-      //   [lenderProductId]: true,
-      // }));
 
       await fetchSubmissionDetails(submissionId);
       await fetchLenders(submissionId);
@@ -3088,43 +3102,64 @@ dark:bg-red-900/20 dark:text-red-400"
 
                   {/* BUTTON ALWAYS BOTTOM */}
                   <div ref={bottomRef} className="mt-4 pt-4 border-t">
-                    <button
-                      disabled={
-                        sendingId === lender.lenderProductId ||
-                        lender.alreadySent ||
-                        !lender.canSend ||
-                        !loDocPermissions.sendApplications
-                      }
-                      onClick={() =>
-                        sendApplicationToLender(lender.lenderProductId)
-                      }
-                      className={`w-full py-2 rounded-lg text-white font-semibold transition-all duration-300
-
-     ${
-       sendingId === lender.lenderProductId
-         ? "bg-slate-400 cursor-wait"
-         : lender.alreadySent
-           ? "bg-blue-500 cursor-not-allowed"
-           : lender.type === "rejected"
-             ? "bg-red-500 cursor-not-allowed"
-             : lender.type === "ineligible"
-               ? "bg-amber-500 cursor-not-allowed"
-               : "bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-indigo-600 hover:to-blue-500 shadow-md hover:shadow-lg"
-     }
-
-      disabled:opacity-70
-      `}
-                    >
-                      {sendingId === lender.lenderProductId
+                    {(() => {
+                      const isSending =
+                        sendingId === lender.lenderProductId;
+                      const canClick =
+                        !isSending &&
+                        !lender.alreadySent &&
+                        Boolean(lender.canSend) &&
+                        loDocPermissions.sendApplications;
+                      const disabledReason = isSending
                         ? "Sending..."
                         : lender.alreadySent
-                          ? "Already Sent"
-                          : lender.type === "rejected"
-                            ? "Rejected"
-                            : lender.type === "ineligible"
-                              ? "Not Eligible"
-                              : "Send to Lender"}
-                    </button>
+                          ? "Already sent to this lender"
+                          : !lender.canSend
+                            ? lender.type === "ineligible"
+                              ? "Lender is not eligible for this deal"
+                              : lender.type === "rejected"
+                                ? "Lender declined this submission"
+                                : "Cannot send to this lender"
+                            : !loDocPermissions.sendApplications
+                              ? "You do not have permission to send applications"
+                              : undefined;
+
+                      return (
+                        <button
+                          type="button"
+                          disabled={!canClick}
+                          title={disabledReason}
+                          onClick={() =>
+                            sendApplicationToLender(lender.lenderProductId)
+                          }
+                          className={`w-full rounded-lg py-2 font-semibold text-white transition-all duration-300 disabled:cursor-not-allowed disabled:opacity-70 ${
+                            isSending
+                              ? "cursor-wait bg-slate-400"
+                              : lender.alreadySent
+                                ? "bg-blue-500"
+                                : lender.type === "rejected"
+                                  ? "bg-red-500"
+                                  : lender.type === "ineligible"
+                                    ? "bg-amber-500"
+                                    : !loDocPermissions.sendApplications
+                                      ? "bg-slate-400"
+                                      : "bg-gradient-to-r from-blue-500 to-indigo-600 shadow-md hover:from-indigo-600 hover:to-blue-500 hover:shadow-lg"
+                          }`}
+                        >
+                          {isSending
+                            ? "Sending..."
+                            : lender.alreadySent
+                              ? "Already Sent"
+                              : lender.type === "rejected"
+                                ? "Rejected"
+                                : lender.type === "ineligible"
+                                  ? "Not Eligible"
+                                  : !loDocPermissions.sendApplications
+                                    ? "No Send Permission"
+                                    : "Send to Lender"}
+                        </button>
+                      );
+                    })()}
                   </div>
                 </div>
               ))}
