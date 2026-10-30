@@ -54,10 +54,6 @@ function sanitizePaymentInstructions(text) {
     .trim();
 }
 
-function drawRoundedRect(doc, x, y, w, h, r = 6) {
-  doc.roundedRect(x, y, w, h, r);
-}
-
 function parseInstructionLines(paymentInstructions) {
   const raw = sanitizePaymentInstructions(
     paymentInstructions ||
@@ -83,127 +79,146 @@ function generateCommissionInvoicePdf({
 }) {
   return new Promise((resolve, reject) => {
     try {
-      const margin = 48;
-      const doc = new PDFDocument({ size: "LETTER", margin });
+      const margin = 36;
+      // Zero margins + absolute positioning keeps the invoice on one page.
+      const doc = new PDFDocument({
+        size: "LETTER",
+        margins: { top: 0, bottom: 0, left: 0, right: 0 },
+      });
       const buffers = [];
       const pageWidth = doc.page.width;
+      const pageHeight = doc.page.height;
       const contentWidth = pageWidth - margin * 2;
 
       doc.on("data", (chunk) => buffers.push(chunk));
       doc.on("end", () => resolve(Buffer.concat(buffers)));
       doc.on("error", reject);
 
-      // —— Header bar ——
+      // —— Header ——
+      const headerH = 58;
       doc.save();
-      doc.rect(0, 0, pageWidth, 92).fill(COLORS.accent);
+      doc.rect(0, 0, pageWidth, headerH).fill(COLORS.accent);
       doc
         .font("Helvetica-Bold")
-        .fontSize(22)
+        .fontSize(17)
         .fillColor(COLORS.white)
-        .text("Commission Invoice", margin, 28, {
-          width: contentWidth * 0.58,
+        .text("Commission Invoice", margin, 14, {
+          width: contentWidth * 0.55,
+          lineBreak: false,
         });
-      doc
-        .font("Helvetica")
-        .fontSize(10)
-        .fillColor("#cbd5e1")
-        .text("Loan Automation", margin, 56, {
-          width: contentWidth * 0.58,
-        });
-
-      const metaX = margin + contentWidth * 0.55;
       doc
         .font("Helvetica")
         .fontSize(8)
+        .fillColor("#cbd5e1")
+        .text("Loan Automation", margin, 36, {
+          width: contentWidth * 0.55,
+          lineBreak: false,
+        });
+
+      const metaX = margin + contentWidth * 0.52;
+      doc
+        .font("Helvetica")
+        .fontSize(7)
         .fillColor("#94a3b8")
-        .text("INVOICE NUMBER", metaX, 28, {
-          width: contentWidth * 0.45,
+        .text("INVOICE NUMBER", metaX, 12, {
+          width: contentWidth * 0.48,
           align: "right",
+          lineBreak: false,
         });
       doc
         .font("Helvetica-Bold")
-        .fontSize(12)
+        .fontSize(10)
         .fillColor(COLORS.white)
-        .text(invoiceNumber || "—", metaX, 42, {
-          width: contentWidth * 0.45,
+        .text(invoiceNumber || "—", metaX, 24, {
+          width: contentWidth * 0.48,
           align: "right",
+          lineBreak: false,
         });
       doc
         .font("Helvetica")
-        .fontSize(9)
+        .fontSize(8)
         .fillColor("#cbd5e1")
-        .text(formatDate(invoiceDate), metaX, 60, {
-          width: contentWidth * 0.45,
+        .text(formatDate(invoiceDate), metaX, 38, {
+          width: contentWidth * 0.48,
           align: "right",
+          lineBreak: false,
         });
       doc.restore();
 
-      let y = 116;
-
-      // —— From / Bill to ——
-      const colGap = 16;
-      const colWidth = (contentWidth - colGap) / 2;
+      let y = headerH + 14;
       const leftX = margin;
+      const colGap = 10;
+      const colWidth = (contentWidth - colGap) / 2;
       const rightX = margin + colWidth + colGap;
 
-      drawRoundedRect(doc, leftX, y, colWidth, 72, 8);
-      doc.fillAndStroke(COLORS.panel, COLORS.border);
-      drawRoundedRect(doc, rightX, y, colWidth, 72, 8);
-      doc.fillAndStroke(COLORS.panel, COLORS.border);
+      // —— From / Bill to ——
+      const partyH = 48;
+      doc.roundedRect(leftX, y, colWidth, partyH, 5).fillAndStroke(
+        COLORS.panel,
+        COLORS.border,
+      );
+      doc.roundedRect(rightX, y, colWidth, partyH, 5).fillAndStroke(
+        COLORS.panel,
+        COLORS.border,
+      );
 
       doc
         .font("Helvetica")
-        .fontSize(8)
+        .fontSize(7)
         .fillColor(COLORS.slate)
-        .text("FROM", leftX + 14, y + 14);
+        .text("FROM", leftX + 10, y + 8, { lineBreak: false });
       doc
         .font("Helvetica-Bold")
-        .fontSize(12)
+        .fontSize(10)
         .fillColor(COLORS.black)
-        .text(brokerOrg?.name || "Broker", leftX + 14, y + 30, {
-          width: colWidth - 28,
+        .text(brokerOrg?.name || "Broker", leftX + 10, y + 20, {
+          width: colWidth - 20,
+          lineBreak: false,
         });
       if (brokerOrg?.email) {
         doc
           .font("Helvetica")
-          .fontSize(9)
+          .fontSize(8)
           .fillColor(COLORS.slate)
-          .text(brokerOrg.email, leftX + 14, y + 48, {
-            width: colWidth - 28,
+          .text(brokerOrg.email, leftX + 10, y + 33, {
+            width: colWidth - 20,
+            lineBreak: false,
           });
       }
 
       doc
         .font("Helvetica")
-        .fontSize(8)
+        .fontSize(7)
         .fillColor(COLORS.slate)
-        .text("BILL TO", rightX + 14, y + 14);
+        .text("BILL TO", rightX + 10, y + 8, { lineBreak: false });
       doc
         .font("Helvetica-Bold")
-        .fontSize(12)
+        .fontSize(10)
         .fillColor(COLORS.black)
-        .text(formatPerson(recipientUser), rightX + 14, y + 30, {
-          width: colWidth - 28,
+        .text(formatPerson(recipientUser), rightX + 10, y + 20, {
+          width: colWidth - 20,
+          lineBreak: false,
         });
       if (recipientUser?.email) {
         doc
           .font("Helvetica")
-          .fontSize(9)
+          .fontSize(8)
           .fillColor(COLORS.slate)
-          .text(recipientUser.email, rightX + 14, y + 48, {
-            width: colWidth - 28,
+          .text(recipientUser.email, rightX + 10, y + 33, {
+            width: colWidth - 20,
+            lineBreak: false,
           });
       }
 
-      y += 92;
+      y += partyH + 12;
 
-      // —— Deal summary table ——
+      // —— Deal summary ——
       doc
         .font("Helvetica-Bold")
-        .fontSize(10)
+        .fontSize(9)
         .fillColor(COLORS.navy)
-        .text("Deal summary", leftX, y);
-      y += 18;
+        .text("Deal summary", leftX, y, { lineBreak: false });
+      y += 12;
 
       const rows = [
         ["Deal number", applicationNumber || "—"],
@@ -221,153 +236,183 @@ function generateCommissionInvoicePdf({
       ];
 
       const tableTop = y;
-      const rowH = 28;
-      const labelColW = contentWidth * 0.42;
+      const rowH = 20;
+      const labelColW = contentWidth * 0.4;
       const tableH = rows.length * rowH;
 
-      drawRoundedRect(doc, leftX, tableTop, contentWidth, tableH, 8);
-      doc.fillAndStroke(COLORS.white, COLORS.border);
+      doc
+        .roundedRect(leftX, tableTop, contentWidth, tableH, 5)
+        .fillAndStroke(COLORS.white, COLORS.border);
 
       rows.forEach(([label, value], index) => {
         const rowY = tableTop + index * rowH;
         if (index % 2 === 1) {
-          doc
-            .rect(leftX + 1, rowY, contentWidth - 2, rowH)
-            .fill(COLORS.panel);
+          doc.rect(leftX + 1, rowY, contentWidth - 2, rowH).fill(COLORS.panel);
         }
         if (index > 0) {
           doc
-            .moveTo(leftX + 12, rowY)
-            .lineTo(leftX + contentWidth - 12, rowY)
+            .moveTo(leftX + 8, rowY)
+            .lineTo(leftX + contentWidth - 8, rowY)
             .strokeColor(COLORS.border)
-            .lineWidth(0.6)
+            .lineWidth(0.5)
             .stroke();
         }
         doc
           .font("Helvetica")
-          .fontSize(10)
+          .fontSize(9)
           .fillColor(COLORS.slate)
-          .text(label, leftX + 16, rowY + 9, { width: labelColW - 20 });
+          .text(label, leftX + 12, rowY + 5, {
+            width: labelColW - 14,
+            lineBreak: false,
+          });
         doc
           .font("Helvetica-Bold")
-          .fontSize(10)
+          .fontSize(9)
           .fillColor(COLORS.black)
-          .text(value, leftX + labelColW, rowY + 9, {
-            width: contentWidth - labelColW - 20,
+          .text(value, leftX + labelColW, rowY + 5, {
+            width: contentWidth - labelColW - 14,
             align: "right",
+            lineBreak: false,
           });
       });
 
-      y = tableTop + tableH + 20;
+      y = tableTop + tableH + 10;
 
       // —— Amount due ——
-      drawRoundedRect(doc, leftX, y, contentWidth, 64, 10);
-      doc.fillAndStroke(COLORS.amountBg, COLORS.amountBorder);
-
+      const amountH = 42;
+      doc
+        .roundedRect(leftX, y, contentWidth, amountH, 6)
+        .fillAndStroke(COLORS.amountBg, COLORS.amountBorder);
       doc
         .font("Helvetica")
-        .fontSize(9)
+        .fontSize(7)
         .fillColor(COLORS.slate)
-        .text("AMOUNT DUE", leftX + 20, y + 16);
+        .text("AMOUNT DUE", leftX + 14, y + 8, { lineBreak: false });
       doc
         .font("Helvetica-Bold")
-        .fontSize(24)
+        .fontSize(18)
         .fillColor(COLORS.accent)
-        .text(formatCurrency(commissionAmount), leftX + 20, y + 30, {
-          width: contentWidth - 40,
+        .text(formatCurrency(commissionAmount), leftX + 14, y + 19, {
+          width: contentWidth - 28,
+          lineBreak: false,
         });
 
-      y += 84;
+      y += amountH + 10;
 
-      // —— Payment instructions ——
+      // —— Payment instructions (2-col) ——
       const instructionLines = parseInstructionLines(paymentInstructions);
       const pairLines = [];
       const noteLines = [];
-
       for (const line of instructionLines) {
         const match = line.match(/^([^:]+):\s*(.+)$/);
-        if (match) {
-          pairLines.push([match[1].trim(), match[2].trim()]);
-        } else {
-          noteLines.push(line);
-        }
+        if (match) pairLines.push([match[1].trim(), match[2].trim()]);
+        else noteLines.push(line);
       }
 
-      doc.font("Helvetica").fontSize(9);
-      const pairsH = Math.max(pairLines.length, 0) * 22;
-      const notesH = noteLines.reduce((sum, line) => {
-        const h = doc.heightOfString(line, { width: contentWidth - 32 });
-        return sum + h + 6;
-      }, noteLines.length ? 8 : 0);
-      const emptyH = pairLines.length === 0 && noteLines.length === 0 ? 28 : 0;
-      const panelH = 36 + pairsH + notesH + emptyH + 16;
+      const pairRowH = 15;
+      const pairRows = Math.max(1, Math.ceil(pairLines.length / 2));
+      const notesJoined = noteLines.join(" ");
+      const notesH = notesJoined ? 22 : 0;
+      const panelH = 24 + pairRows * pairRowH + notesH + 8;
 
-      drawRoundedRect(doc, leftX, y, contentWidth, panelH, 10);
-      doc.fillAndStroke(COLORS.panel, COLORS.border);
+      doc
+        .roundedRect(leftX, y, contentWidth, panelH, 6)
+        .fillAndStroke(COLORS.panel, COLORS.border);
 
       doc
         .font("Helvetica-Bold")
-        .fontSize(11)
+        .fontSize(9)
         .fillColor(COLORS.navy)
-        .text("Payment instructions", leftX + 16, y + 14);
+        .text("Payment instructions", leftX + 12, y + 8, { lineBreak: false });
 
-      let py = y + 36;
-      if (pairLines.length === 0 && noteLines.length === 0) {
+      let py = y + 22;
+      if (!pairLines.length && !notesJoined) {
         doc
           .font("Helvetica")
-          .fontSize(10)
+          .fontSize(8)
           .fillColor(COLORS.slate)
           .text(
             "Please contact your broker administrator for payment instructions.",
-            leftX + 16,
+            leftX + 12,
             py,
-            { width: contentWidth - 32 },
+            { width: contentWidth - 24, lineBreak: false },
           );
       } else {
-        for (const [label, value] of pairLines) {
+        const pairColW = (contentWidth - 24) / 2;
+        for (let i = 0; i < pairLines.length; i += 2) {
+          const left = pairLines[i];
+          const right = pairLines[i + 1];
+          const rowY = py + (i / 2) * pairRowH;
+
           doc
             .font("Helvetica")
-            .fontSize(9)
+            .fontSize(8)
             .fillColor(COLORS.slate)
-            .text(label, leftX + 16, py, { width: 120 });
+            .text(`${left[0]}:`, leftX + 12, rowY, {
+              width: 72,
+              lineBreak: false,
+            });
           doc
             .font("Helvetica-Bold")
-            .fontSize(9)
+            .fontSize(8)
             .fillColor(COLORS.black)
-            .text(value, leftX + 140, py, { width: contentWidth - 164 });
-          py += 22;
+            .text(left[1], leftX + 84, rowY, {
+              width: pairColW - 84,
+              lineBreak: false,
+            });
+
+          if (right) {
+            doc
+              .font("Helvetica")
+              .fontSize(8)
+              .fillColor(COLORS.slate)
+              .text(`${right[0]}:`, leftX + 12 + pairColW, rowY, {
+                width: 72,
+                lineBreak: false,
+              });
+            doc
+              .font("Helvetica-Bold")
+              .fontSize(8)
+              .fillColor(COLORS.black)
+              .text(right[1], leftX + 84 + pairColW, rowY, {
+                width: pairColW - 84,
+                lineBreak: false,
+              });
+          }
         }
-        for (const note of noteLines) {
+        py += pairRows * pairRowH + 2;
+
+        if (notesJoined) {
           doc
             .font("Helvetica")
-            .fontSize(9)
+            .fontSize(7.5)
             .fillColor(COLORS.slate)
-            .text(note, leftX + 16, py, { width: contentWidth - 32 });
-          py +=
-            doc.heightOfString(note, {
-              width: contentWidth - 32,
-              fontSize: 9,
-            }) + 6;
+            .text(notesJoined, leftX + 12, py, {
+              width: contentWidth - 24,
+              height: 20,
+              ellipsis: true,
+              lineBreak: false,
+            });
         }
       }
 
       // —— Footer ——
-      const footerY = doc.page.height - 48;
+      const footerY = pageHeight - 24;
       doc
-        .moveTo(margin, footerY)
-        .lineTo(pageWidth - margin, footerY)
+        .moveTo(margin, footerY - 8)
+        .lineTo(pageWidth - margin, footerY - 8)
         .strokeColor(COLORS.border)
-        .lineWidth(0.8)
+        .lineWidth(0.6)
         .stroke();
       doc
         .font("Helvetica")
-        .fontSize(8)
+        .fontSize(7)
         .fillColor(COLORS.slate)
         .text(
           "This invoice documents earned commission. Payment is recorded separately by the broker. · Template v2",
           margin,
-          footerY + 10,
-          { width: contentWidth, align: "center" },
+          footerY - 2,
+          { width: contentWidth, align: "center", lineBreak: false },
         );
 
       doc.end();
@@ -388,7 +433,6 @@ function ensureInvoiceStorageDir() {
 function saveCommissionInvoicePdf(buffer, invoiceNumber, existingPdfUrl = null) {
   const uploadDir = ensureInvoiceStorageDir();
 
-  // Prefer overwriting the existing public URL so downloads / static links refresh.
   if (existingPdfUrl) {
     const relative = String(existingPdfUrl).replace(/^\/+/, "");
     if (relative.startsWith("public/broker/commission-invoices/")) {
