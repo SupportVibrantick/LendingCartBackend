@@ -17,6 +17,7 @@ import {
 import toast from "react-hot-toast";
 import { BROKER_API_BASE } from "../lib/brokerApi";
 import { buildApiPublicFileUrl } from "../lib/publicFileUrl";
+import { formatPhone } from "./UserManagement/loanOfficerShared";
 
 const API_BASE = BROKER_API_BASE;
 
@@ -114,7 +115,7 @@ const FIELD_LIMITS: Record<
 > = {
   firstName: { required: true, min: 2, max: 50 },
   lastName: { max: 50 },
-  phone: { digitMin: 10, digitMax: 15 },
+  phone: { digitMin: 10, digitMax: 10 },
   company: { max: 100 },
   licenseNumber: {
     max: 30,
@@ -197,7 +198,11 @@ function getFieldCounter(key: string, value: string): string | null {
 
   if (rules.digitMin !== undefined) {
     const digits = (value || "").replace(/\D/g, "");
-    return `${rules.digitMin}–${rules.digitMax ?? 15} digits · ${digits.length}/${rules.digitMax ?? 15}`;
+    const max = rules.digitMax ?? 15;
+    if (rules.digitMin === max) {
+      return `${max} digits · ${digits.length}/${max}`;
+    }
+    return `${rules.digitMin}–${max} digits · ${digits.length}/${max}`;
   }
 
   if (rules.pattern) {
@@ -305,7 +310,7 @@ export default function UserProfileCard() {
       });
       setFirstName(profile.user.firstName || "");
       setLastName(profile.user.lastName || "");
-      setPhone(profile.user.phone || "");
+      setPhone(profile.user.phone ? formatPhone(profile.user.phone) : "");
       const bp = profile.user.brokerProfile || {};
       setCompany(
         profile.organization?.name || profile.user.brokerProfile?.company || "",
@@ -366,7 +371,7 @@ export default function UserProfileCard() {
   const isChanged =
     firstName !== user.firstName ||
     lastName !== user.lastName ||
-    phone !== (user.phone || "") ||
+    phone.replace(/\D/g, "") !== String(user.phone || "").replace(/\D/g, "") ||
     company !== resolveSavedCompanyName(user) ||
     licenseNumber !== (user.brokerProfile?.licenseNumber || "") ||
     address !== (user.brokerProfile?.address || "") ||
@@ -476,7 +481,7 @@ export default function UserProfileCard() {
     const formData = new FormData();
     formData.append("firstName", firstName.trim());
     formData.append("lastName", lastName.trim());
-    formData.append("phone", phone.trim());
+    formData.append("phone", phone.replace(/\D/g, ""));
     formData.append("company", company.trim());
     formData.append("licenseNumber", licenseNumber.trim());
     formData.append("address", address.trim());
@@ -571,7 +576,7 @@ export default function UserProfileCard() {
     setFormErrors({});
     setFirstName(user.firstName || "");
     setLastName(user.lastName || "");
-    setPhone(user.phone || "");
+    setPhone(user.phone ? formatPhone(user.phone) : "");
     const bp = user.brokerProfile || {};
     setCompany(resolveSavedCompanyName(user));
     setLicenseNumber(bp.licenseNumber || "");
@@ -854,7 +859,7 @@ export default function UserProfileCard() {
                   value={phone}
                   editing={editing}
                   onChange={(v) => {
-                    setPhone(v);
+                    setPhone(formatPhone(v));
                     if (formErrors.phone)
                       setFormErrors((e) => {
                         const { phone: _drop, ...rest } = e;
@@ -863,8 +868,9 @@ export default function UserProfileCard() {
                   }}
                   icon={<Phone size={14} />}
                   error={formErrors.phone}
-                  maxLength={20}
+                  maxLength={12}
                   type="tel"
+                  placeholder="888-888-8888"
                   fieldKey="phone"
                 />
               </div>
@@ -1164,6 +1170,7 @@ function ProfileField({
   error,
   maxLength,
   type = "text",
+  placeholder,
   fieldKey,
 }: {
   label: string;
@@ -1174,6 +1181,7 @@ function ProfileField({
   error?: string;
   maxLength?: number;
   type?: string;
+  placeholder?: string;
   fieldKey?: string;
 }) {
   const warning = fieldKey ? getFieldWarning(fieldKey, value || "") : null;
@@ -1191,6 +1199,8 @@ function ProfileField({
             type={type}
             value={value}
             maxLength={maxLength}
+            placeholder={placeholder}
+            inputMode={type === "tel" ? "numeric" : undefined}
             onChange={(e) => onChange(e.target.value)}
             className={`${inputClass} ${
               error
