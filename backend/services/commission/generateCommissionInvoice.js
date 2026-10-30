@@ -5,6 +5,7 @@ const { logCommissionAuditEvent } = require("./auditCommissionEvent");
 const {
   generateCommissionInvoicePdf,
   saveCommissionInvoicePdf,
+  sanitizePaymentInstructions,
 } = require("./generateCommissionInvoicePdf");
 const { getOrganizationBanking } = require("../broker/organizationBanking.service");
 const { sendCommissionInvoiceEmail } = require("../emails/commissionEmails");
@@ -205,11 +206,6 @@ function resolveInvoicePdfPath(pdfUrl) {
  * @param {import("@prisma/client").PrismaClient | import("@prisma/client").Prisma.TransactionClient} db
  */
 async function ensureCommissionInvoicePdf(db, invoice) {
-  const existingPath = resolveInvoicePdfPath(invoice.pdfUrl);
-  if (existingPath) {
-    return { filePath: existingPath, pdfUrl: invoice.pdfUrl };
-  }
-
   const commission = await db.dealCommission.findFirst({
     where: { id: invoice.dealCommissionId },
     include: commissionIncludeForInvoice,
@@ -220,10 +216,15 @@ async function ensureCommissionInvoicePdf(db, invoice) {
   }
 
   const orgBankingForPdf = await getOrganizationBanking(db, commission.brokerOrgId);
-  const instructions =
-    invoice.paymentInstructions ||
-    buildDefaultPaymentInstructions(commission.brokerOrg, orgBankingForPdf);
+  const freshInstructions = buildDefaultPaymentInstructions(
+    commission.brokerOrg,
+    orgBankingForPdf,
+  );
+  const instructions = sanitizePaymentInstructions(
+    invoice.paymentInstructions || freshInstructions,
+  );
 
+  // Always regenerate so template / instruction copy updates apply on download.
   const pdfBuffer = await generateCommissionInvoicePdf({
     brokerOrg: commission.brokerOrg,
     recipientUser: commission.recipientUser,
@@ -237,7 +238,11 @@ async function ensureCommissionInvoicePdf(db, invoice) {
     paymentInstructions: instructions,
   });
 
-  const pdfUrl = saveCommissionInvoicePdf(pdfBuffer, invoice.invoiceNumber);
+  const pdfUrl = saveCommissionInvoicePdf(
+    pdfBuffer,
+    invoice.invoiceNumber,
+    invoice.pdfUrl,
+  );
   const filePath = resolveInvoicePdfPath(pdfUrl);
 
   if (!filePath) {
@@ -248,7 +253,7 @@ async function ensureCommissionInvoicePdf(db, invoice) {
     where: { id: invoice.id },
     data: {
       pdfUrl,
-      ...(invoice.paymentInstructions ? {} : { paymentInstructions: instructions }),
+      paymentInstructions: instructions,
     },
   });
 

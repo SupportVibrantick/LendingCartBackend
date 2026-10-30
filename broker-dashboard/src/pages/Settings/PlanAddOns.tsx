@@ -56,6 +56,7 @@ const ADDON_BLURBS: Record<string, string> = {
   LENDER_MARKETPLACE_PACK: "Match deals and add your own lender network.",
   GHL_STARTER: "GoHighLevel CRM starter suite for your brokerage.",
   GHL_GROWTH: "GoHighLevel Growth automation and marketing tools.",
+  GHL_BASIC_SYNC: "GoHighLevel Growth automation and marketing tools.",
   WHITE_LABEL: "White-label branding across your broker portal.",
 };
 
@@ -267,7 +268,9 @@ export default function PlanAddOns() {
                 </div>
                 {data.purchasedAddOns.length === 0 ? (
                   <p className="text-sm text-gray-500">
-                    No paid add-ons yet. Pick upgrades below to expand your plan.
+                    {data.availableAddOns.length === 0
+                      ? "Your current plan already includes the full upgrade set. You can still add team seats below."
+                      : "No paid add-ons yet. Pick upgrades below to expand your plan."}
                   </p>
                 ) : (
                   <ul className="grid gap-2 sm:grid-cols-2">
@@ -305,8 +308,16 @@ export default function PlanAddOns() {
                       "Add loan officer or co-broker seats. You can only increase seats here."}
                   </p>
                   <p className="mt-2 text-sm font-medium text-gray-700 dark:text-gray-200">
-                    {formatMoney(data.extraUser.unitPriceMonthly)} per seat
-                    {periodSuffix.replace("/", " / ")}
+                    {formatMoney(data.extraUser.unitPriceMonthly)}
+                    /mo per seat
+                    {isYearly ? (
+                      <span className="ml-1 font-normal text-gray-500">
+                        ({formatMoney(
+                          (Number(data.extraUser.unitPriceMonthly) || 0) * 12,
+                        )}
+                        /yr at checkout)
+                      </span>
+                    ) : null}
                   </p>
                 </div>
 
