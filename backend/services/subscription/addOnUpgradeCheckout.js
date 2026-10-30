@@ -38,6 +38,7 @@ const ADDON_DESCRIPTIONS = {
   LENDER_MARKETPLACE_PACK: "Discover lenders and connect your own network.",
   GHL_STARTER: "GoHighLevel CRM starter suite for your brokerage.",
   GHL_GROWTH: "GoHighLevel Growth automation and marketing suite.",
+  GHL_BASIC_SYNC: "GoHighLevel Growth automation and marketing tools.",
   WHITE_LABEL: "White-label branding for your broker portal.",
   EXTRA_USER: "Add loan officer or co-broker seats to your plan.",
 };

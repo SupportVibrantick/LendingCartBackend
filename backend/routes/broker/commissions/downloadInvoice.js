@@ -111,6 +111,8 @@ module.exports = async function downloadCommissionInvoiceRoute(fastify) {
         return reply
           .header("Content-Type", "application/pdf")
           .header("Content-Disposition", `attachment; filename="${fileName}"`)
+          .header("Cache-Control", "no-store, no-cache, must-revalidate")
+          .header("Pragma", "no-cache")
           .send(fs.createReadStream(filePath));
       } catch (error) {
         fastify.log.error({ error: error.message }, "Download commission invoice failed");

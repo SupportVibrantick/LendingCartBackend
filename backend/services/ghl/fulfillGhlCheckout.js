@@ -24,6 +24,83 @@ const {
 const {
   resolvePurchasedAddOns,
 } = require("../../utils/subscription/addOnCatalog");
+const {
+  sendLoanAiPurchaseConfirmationEmail,
+} = require("../emails/loanAiPurchaseConfirmationEmail");
+
+/**
+ * Best-effort purchase confirmation to the buyer email after paid checkout.
+ * Never throws — fulfillment must not fail because of mail errors.
+ */
+async function sendPurchaseConfirmationEmail(prisma, checkout, extras = {}) {
+  try {
+    const user = checkout?.loanAiUser;
+    const email = String(
+      extras.email ||
+        checkout?.metadata?.organizationEmail ||
+        user?.email ||
+        "",
+    )
+      .trim()
+      .toLowerCase();
+    if (!email || !checkout?.id) return null;
+
+    const meta =
+      checkout.metadata && typeof checkout.metadata === "object"
+        ? checkout.metadata
+        : {};
+    const addOnCodes = Array.isArray(extras.addOnCodes)
+      ? extras.addOnCodes
+      : Array.isArray(meta.addOnCodes)
+        ? meta.addOnCodes
+        : [];
+
+    const queued = await sendLoanAiPurchaseConfirmationEmail({
+      prisma,
+      email,
+      firstName:
+        extras.firstName ||
+        meta.firstName ||
+        user?.firstName ||
+        String(email).split("@")[0],
+      organizationName:
+        extras.organizationName ||
+        meta.organizationName ||
+        deriveOrgName(user || { email }),
+      packageName:
+        extras.packageName ||
+        checkout.package?.name ||
+        checkout.package?.code ||
+        "Selected Plan",
+      billingCycle: checkout.billingCycle || "MONTHLY",
+      amount: checkout.amount,
+      currency: checkout.currency || "USD",
+      addOnCodes,
+      isAddOnUpgrade: Boolean(extras.isAddOnUpgrade),
+      checkoutId: checkout.id,
+    });
+
+    // Best-effort immediate flush so confirmation is not stuck if the
+    // dedicated email worker is not running (common in local/dev).
+    try {
+      const { processEmailOutbox } = require("../email");
+      await processEmailOutbox(prisma);
+    } catch (flushErr) {
+      console.error(
+        "Loan AI purchase confirmation outbox flush failed:",
+        flushErr.message || flushErr,
+      );
+    }
+
+    return queued;
+  } catch (err) {
+    console.error(
+      "Loan AI purchase confirmation email failed:",
+      err.message || err,
+    );
+    return null;
+  }
+}
 
 function deriveOrgName(user) {
   const name = [user.firstName, user.lastName].filter(Boolean).join(" ").trim();
@@ -237,6 +314,12 @@ async function fulfillPaidGhlCheckout(prisma, io, checkout, paymentMeta = {}) {
           amount: fresh.amount,
           currency: fresh.currency,
           reason: "addon_upgrade_fulfilled",
+        });
+
+        await sendPurchaseConfirmationEmail(prisma, fresh, {
+          ...orgDetails,
+          addOnCodes: deltaCodes,
+          isAddOnUpgrade: true,
         });
 
         return {
@@ -505,6 +588,17 @@ async function fulfillPaidGhlCheckout(prisma, io, checkout, paymentMeta = {}) {
     currency: fresh.currency,
     reason: "checkout_fulfilled",
   });
+
+  // Always notify the buyer that payment succeeded (in addition to
+  // credentials/welcome emails sent during first-time provision).
+  {
+    const orgDetails = resolveOrganizationDetailsFromCheckout(
+      fresh,
+      user,
+      paymentMeta,
+    );
+    await sendPurchaseConfirmationEmail(prisma, fresh, orgDetails);
+  }
 
   return {
     alreadyProcessed: false,

@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>{{title}}</title>
+    <style>
+      body, html { margin: 0; padding: 0; background: #f3f6f9; font-family: "Segoe UI", Roboto, Arial, sans-serif; color: #243142; }
+      .wrap { padding: 28px 12px; }
+      .card { max-width: 640px; margin: 0 auto; background: #fff; border-radius: 12px; box-shadow: 0 8px 30px rgba(20, 30, 40, 0.06); overflow: hidden; }
+      .header { padding: 28px 36px 20px; text-align: center; border-bottom: 1px solid #eef4fb; background: #ffffff; }
+      .logo { display: block; margin: 0 auto 12px auto; max-width: 168px; width: 168px; height: auto; border-radius: 50%; }
+      .brand { font-size: 13px; letter-spacing: 0.04em; text-transform: uppercase; color: #64748b; font-weight: 600; margin: 0 0 8px 0; }
+      .title { font-size: 22px; color: #0f172a; font-weight: 700; margin: 0; }
+      .badge { display: inline-block; margin-top: 12px; background: #e8f5e9; color: #1b5e20; padding: 6px 12px; border-radius: 20px; font-size: 13px; font-weight: 600; }
+      .body { padding: 28px 40px; line-height: 1.6; }
+      .lead { color: #394954; margin: 0 0 14px 0; }
+      .panel { background: #f5f9ff; border-left: 4px solid #0b66d0; padding: 14px 18px; border-radius: 8px; margin: 18px 0; }
+      .panel p { margin: 6px 0; }
+      .btn { display: inline-block; background: #0b66d0; color: #fff !important; padding: 12px 20px; border-radius: 8px; font-weight: 600; text-decoration: none; }
+      .cta-wrap { text-align: center; margin-top: 22px; }
+      .note { margin-top: 18px; font-size: 13px; color: #60707b; }
+      .footer { background: #fbfdff; padding: 18px 36px; border-top: 1px solid #eef4fb; text-align: center; color: #7c8a95; font-size: 13px; }
+      @media (max-width: 520px) {
+        .body { padding: 20px; }
+        .header { padding: 20px; }
+        .title { font-size: 20px; }
+        .logo { max-width: 160px; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="card" role="article" aria-label="Purchase confirmation">
+        <div class="header">
+          {{#if logoUrl}}
+          <img class="logo" src="{{logoUrl}}" alt="{{brandName}} logo" width="200" />
+          {{/if}}
+          <p class="brand">{{brandName}}</p>
+          <div class="title">{{title}}</div>
+          <div class="badge">Payment confirmed</div>
+        </div>
+        <div class="body">
+          <p>Hi <strong>{{name}}</strong>,</p>
+          <p class="lead">
+            Thanks for your purchase. Your <strong>{{packageName}}</strong> plan
+            {{#if isAddOnUpgrade}}add-ons have{{else}}subscription has{{/if}}
+            been activated for <strong>{{organizationName}}</strong>.
+          </p>
+
+          <div class="panel" role="region" aria-label="Purchase details">
+            <p><strong>Plan:</strong> {{packageName}}</p>
+            <p><strong>Billing:</strong> {{billingCycleLabel}}</p>
+            {{#if amountLabel}}
+            <p><strong>Amount paid:</strong> {{amountLabel}}</p>
+            {{/if}}
+            {{#if addOnsLabel}}
+            <p><strong>Add-ons:</strong> {{addOnsLabel}}</p>
+            {{/if}}
+            <p><strong>Account email:</strong> {{email}}</p>
+          </div>
+
+          <p class="lead">
+            You can manage your subscription and start using the broker dashboard anytime.
+          </p>
+
+          <div class="cta-wrap">
+            <a href="{{loginUrl}}" class="btn" target="_blank" rel="noopener">Open broker dashboard</a>
+          </div>
+
+          <p class="note">
+            If you did not make this purchase, contact support right away.
+            A separate email with login credentials may also arrive if this is your first account.
+          </p>
+        </div>
+        <div class="footer">&copy; {{currentYear}} {{brandName}}. All rights reserved.</div>
+      </div>
+    </div>
+  </body>
+</html>
