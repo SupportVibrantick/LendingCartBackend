@@ -27,6 +27,7 @@ import {
 import { buildApiPublicFileUrl } from "../../../lib/publicFileUrl";
 import { isSessionExpiredError } from "../../../lib/sessionExpiry";
 import SelfBankingPanel from "../../../components/banking/SelfBankingPanel";
+import { formatPhone } from "../../UserManagement/loanOfficerShared";
 
 const inputClass =
   "w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-gray-900 outline-none transition focus:border-[#13538A]/40 focus:bg-white focus:ring-2 focus:ring-[#13538A]/10 dark:border-gray-700 dark:bg-gray-800 dark:text-white";
@@ -93,7 +94,7 @@ export default function Profile() {
       });
       setFirstName(profile.user.firstName || "");
       setLastName(profile.user.lastName || "");
-      setPhone(profile.user.phone || "");
+      setPhone(profile.user.phone ? formatPhone(profile.user.phone) : "");
       const bp = profile.user.brokerProfile || {};
       setCompany(bp.company || "");
       setLicenseNumber(bp.licenseNumber || "");
@@ -148,7 +149,7 @@ export default function Profile() {
   const isChanged =
     firstName !== user.firstName ||
     lastName !== user.lastName ||
-    phone !== (user.phone || "") ||
+    phone.replace(/\D/g, "") !== String(user.phone || "").replace(/\D/g, "") ||
     company !== (user.brokerProfile?.company || "") ||
     licenseNumber !== (user.brokerProfile?.licenseNumber || "") ||
     address !== (user.brokerProfile?.address || "") ||
@@ -168,7 +169,7 @@ export default function Profile() {
     const formData = new FormData();
     formData.append("firstName", firstName.trim());
     formData.append("lastName", lastName.trim());
-    formData.append("phone", phone.trim());
+    formData.append("phone", phone.replace(/\D/g, ""));
     formData.append("company", company.trim());
     formData.append("licenseNumber", licenseNumber.trim());
     formData.append("address", address.trim());
@@ -244,7 +245,7 @@ export default function Profile() {
     setAvatarLoadFailed(false);
     setFirstName(user.firstName || "");
     setLastName(user.lastName || "");
-    setPhone(user.phone || "");
+    setPhone(user.phone ? formatPhone(user.phone) : "");
     const bp = user.brokerProfile || {};
     setCompany(bp.company || "");
     setLicenseNumber(bp.licenseNumber || "");
@@ -484,8 +485,11 @@ export default function Profile() {
                   label="Phone"
                   value={phone}
                   editing={editing}
-                  onChange={setPhone}
+                  onChange={(v) => setPhone(formatPhone(v))}
                   icon={<Phone size={14} />}
+                  type="tel"
+                  maxLength={12}
+                  placeholder="888-888-8888"
                 />
               </div>
             </section>
@@ -722,12 +726,18 @@ function ProfileField({
   editing,
   onChange,
   icon,
+  type = "text",
+  maxLength,
+  placeholder,
 }: {
   label: string;
   value: string;
   editing: boolean;
   onChange?: (value: string) => void;
   icon: React.ReactNode;
+  type?: string;
+  maxLength?: number;
+  placeholder?: string;
 }) {
   return (
     <div className="space-y-2">
@@ -737,7 +747,11 @@ function ProfileField({
       </label>
       {editing && onChange ? (
         <input
+          type={type}
           value={value}
+          maxLength={maxLength}
+          placeholder={placeholder}
+          inputMode={type === "tel" ? "numeric" : undefined}
           onChange={(e) => onChange(e.target.value)}
           className={inputClass}
         />
