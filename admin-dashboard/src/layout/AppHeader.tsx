@@ -151,16 +151,14 @@ const AppHeader: React.FC = () => {
             )}
           </button>
 
-          <Link to="/" className="lg:hidden">
+          <Link
+            to="/"
+            className="flex h-11 w-11 shrink-0 overflow-hidden rounded-full border border-slate-200 bg-[#0b1f3a] shadow-sm dark:border-slate-700 lg:hidden"
+          >
             <img
-              className="h-12 w-45 dark:hidden"
-              src="/ACOM_LOGO.png"
-              alt="Logo"
-            />
-            <img
-              className="hidden h-12 w-45 dark:block"
-              src="/ACOM_LOGO.png"
-              alt="Logo"
+              className="h-full w-full object-cover"
+              src="/loanAutomation.jpeg"
+              alt="Loan Automation"
             />
           </Link>
 
