@@ -29,8 +29,6 @@ const ROLE_PERMISSIONS: Record<string, RolePermissions> = {
     LENDER_PERMISSION.DECIDE_APPLICATION,
     LENDER_PERMISSION.REQUEST_DOCUMENTS,
     LENDER_PERMISSION.GENERATE_LOI,
-    LENDER_PERMISSION.UPLOAD_SIGN_DOCUMENTS,
-    LENDER_PERMISSION.MARK_SIGN_SEEN,
     LENDER_PERMISSION.SEND_CHAT,
   ],
   LENDER_ANALYST: [
@@ -54,7 +52,6 @@ export const ROLE_CAPABILITY_LABELS: Record<LenderTeamRole, string[]> = {
     "Approve / decline applications",
     "Request documents",
     "Generate & send LOI",
-    "Upload / manage sign documents",
     "Chat with brokers",
   ],
   LENDER_ANALYST: [

@@ -33,7 +33,7 @@ export const LENDER_TEAM_ROLE_OPTIONS: Array<{
     value: "LENDER_UNDERWRITER",
     label: "Underwriter",
     description:
-      "Decide deals, request documents, generate/send LOI, manage sign docs, and chat.",
+      "Decide deals, request documents, generate/send LOI, and chat.",
   },
   {
     value: "LENDER_ANALYST",
