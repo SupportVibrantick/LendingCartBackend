@@ -509,7 +509,7 @@ export default function TeamMembers() {
                 <strong>Admin</strong> — full access + team / settings
               </li>
               <li>
-                <strong>Underwriter</strong> — decide, LOI, sign docs, chat
+                <strong>Underwriter</strong> — decide, request docs, LOI, chat
               </li>
               <li>
                 <strong>Analyst</strong> — request docs + chat (no decide/LOI)
