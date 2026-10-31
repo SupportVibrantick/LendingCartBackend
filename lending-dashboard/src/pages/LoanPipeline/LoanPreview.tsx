@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import Chat from "./Chat";
+import NotificationDropdown from "../../components/header/NotificationDropdown";
 import { MdEmail } from "react-icons/md";
 import { BiLogoProductHunt } from "react-icons/bi";
 import { FaDollarSign } from "react-icons/fa6";
@@ -3045,13 +3046,16 @@ export default function LoanPreview() {
           </div>
 
           <div className="flex flex-col items-end gap-3">
-            {submissionDetail?.status ? (
-              <span
-                className={`rounded-md px-2 py-1 text-xs font-semibold ${getApplicationStatusColor(submissionDetail.status)}`}
-              >
-                {formatApplicationStatus(submissionDetail.status)}
-              </span>
-            ) : null}
+            <div className="flex items-center gap-2">
+              <NotificationDropdown />
+              {submissionDetail?.status ? (
+                <span
+                  className={`rounded-md px-2 py-1 text-xs font-semibold ${getApplicationStatusColor(submissionDetail.status)}`}
+                >
+                  {formatApplicationStatus(submissionDetail.status)}
+                </span>
+              ) : null}
+            </div>
 
             {(showApproval || showReject) && (
               <div className="flex flex-wrap items-center justify-end gap-2">
