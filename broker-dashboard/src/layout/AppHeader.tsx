@@ -8,6 +8,7 @@ import { jwtDecode } from "jwt-decode";
 import { Menu, MoreHorizontal, X } from "lucide-react";
 import { BROKER_API_BASE, getBrokerAuthHeaders } from "../lib/brokerApi";
 import { handleBrokerUnauthorized } from "../lib/brokerSession";
+import BrokerPlanBadge from "../components/subscription/BrokerPlanBadge";
 
 const API_BASE = BROKER_API_BASE;
 
@@ -178,6 +179,8 @@ const AppHeader: React.FC = () => {
             </button>
           ) : null}
 
+          <BrokerPlanBadge autoLoad />
+
           <span className="whitespace-nowrap text-sm font-semibold text-[#3e86b7] dark:text-[#5ba8d4]">
             {time}
           </span>
@@ -203,9 +206,12 @@ const AppHeader: React.FC = () => {
           </div>
 
           <div className="flex items-center justify-between gap-2">
-            <span className="text-sm font-semibold text-[#3e86b7] dark:text-[#5ba8d4]">
-              {time}
-            </span>
+            <div className="flex min-w-0 items-center gap-2">
+              <BrokerPlanBadge autoLoad />
+              <span className="text-sm font-semibold text-[#3e86b7] dark:text-[#5ba8d4]">
+                {time}
+              </span>
+            </div>
             <div className="flex items-center gap-2">
               <ThemeToggleButton />
               <NotificationDropdown />
