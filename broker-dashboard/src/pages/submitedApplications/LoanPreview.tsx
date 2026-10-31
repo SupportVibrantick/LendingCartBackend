@@ -79,6 +79,7 @@ import { getOrgIdsFromToken } from "../../lib/chatSocket";
 import NotificationDropdown from "../../components/header/NotificationDropdown";
 import LoanOfficerNotificationDropdown from "../../components/header/LoanOfficerNotificationDropdown";
 import CoBrokerNotificationDropdown from "../../components/header/CoBrokerNotificationDropdown";
+import BrokerPlanBadge from "../../components/subscription/BrokerPlanBadge";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
@@ -4370,7 +4371,8 @@ dark:bg-red-900/20 dark:text-red-400"
               <ArrowLeft size={15} className="shrink-0" />
               <span className="truncate">{previewConfig.backLabel}</span>
             </button>
-            <div className="flex shrink-0 items-center">
+            <div className="flex shrink-0 items-center gap-2">
+              <BrokerPlanBadge autoLoad />
               <PreviewNotifications />
             </div>
           </div>
