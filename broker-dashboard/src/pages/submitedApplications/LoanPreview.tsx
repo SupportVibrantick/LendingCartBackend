@@ -4360,35 +4360,18 @@ dark:bg-red-900/20 dark:text-red-400"
 
         {/* Main column */}
         <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-          {/* Top bar — notifications (full-screen preview has no AppHeader) */}
+          {/* Top bar — back + notifications (full-screen preview has no AppHeader) */}
           <div className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-2.5 dark:border-slate-800 dark:bg-slate-950">
-            <div className="flex min-w-0 items-center gap-2.5 lg:invisible lg:pointer-events-none">
-              <div className="h-9 w-9 shrink-0 overflow-hidden rounded-lg border border-slate-200 dark:border-slate-700">
-                <img
-                  src="/loanAutomation.jpeg"
-                  alt="Loan Automation"
-                  className="h-full w-full object-cover"
-                />
-              </div>
-              <div className="min-w-0">
-                <p className="truncate text-sm font-bold text-slate-900 dark:text-white">
-                  Loan Automation
-                </p>
-                <p className="truncate text-[10px] font-semibold uppercase tracking-[0.12em] text-[#3A99D8]">
-                  {portalSubtitle}
-                </p>
-              </div>
-            </div>
-            <div className="flex shrink-0 items-center gap-2">
+            <button
+              type="button"
+              onClick={() => navigate(previewConfig.pipelineListPath)}
+              className="inline-flex min-w-0 items-center gap-1.5 rounded-lg px-1 py-1 text-sm font-medium text-slate-500 transition hover:bg-slate-50 hover:text-[#13538A] dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
+            >
+              <ArrowLeft size={15} className="shrink-0" />
+              <span className="truncate">{previewConfig.backLabel}</span>
+            </button>
+            <div className="flex shrink-0 items-center">
               <PreviewNotifications />
-              <button
-                type="button"
-                onClick={() => navigate(previewConfig.pipelineListPath)}
-                className="inline-flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800 lg:hidden"
-              >
-                <ArrowLeft size={15} />
-                Back
-              </button>
             </div>
           </div>
 
@@ -4412,15 +4395,6 @@ dark:bg-red-900/20 dark:text-red-400"
             >
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0">
-                  <button
-                    type="button"
-                    onClick={() => navigate(previewConfig.pipelineListPath)}
-                    className="mb-3 hidden items-center gap-1.5 text-sm text-slate-500 transition hover:text-[#13538A] lg:inline-flex"
-                  >
-                    <ArrowLeft size={15} />
-                    {previewConfig.backLabel}
-                  </button>
-
                   <div className="flex flex-wrap items-center gap-2">
                     <h1 className="truncate text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
                       {borrowerName !== "-" ? borrowerName : "Loan application"}
