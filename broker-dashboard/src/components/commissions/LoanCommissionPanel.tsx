@@ -1,17 +1,23 @@
+import { Banknote, Download, FileText, History } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
+import CommissionHistoryModal from "./CommissionHistoryModal";
+import RecordPayoutModal from "./RecordPayoutModal";
 import {
   formatCommissionCurrency,
   formatCommissionRole,
   formatPayoutStatus,
   getCommissionApiBase,
   getInvoicePdfUrl,
+  type CommissionHistory,
+  type CommissionRecord,
   type LoanCommissionBreakdown,
 } from "../../lib/commissionApi";
 import {
   getRemainingPayoutAmount,
-  promptRecordCommissionPayout,
+  submitCommissionAchPayout,
   submitCommissionPayout,
+  type PayoutFormValues,
 } from "../../lib/commissionPayout";
 
 type Portal = "broker" | "loanofficer" | "subbroker";
@@ -23,6 +29,21 @@ type Props = {
   canMarkPaid?: boolean;
 };
 
+function payoutBadgeClass(status?: string) {
+  if (status === "PAID") return "bg-emerald-50 text-emerald-700 ring-emerald-100";
+  if (status === "PARTIAL" || status === "PROCESSING") {
+    return "bg-sky-50 text-sky-700 ring-sky-100";
+  }
+  return "bg-amber-50 text-amber-700 ring-amber-100";
+}
+
+function roleBadgeClass(role?: string) {
+  if (role === "LOAN_OFFICER") return "bg-violet-50 text-violet-700 ring-violet-100";
+  if (role === "CO_BROKER") return "bg-amber-50 text-amber-700 ring-amber-100";
+  if (role === "BROKER") return "bg-slate-100 text-slate-700 ring-slate-200";
+  return "bg-slate-100 text-slate-600 ring-slate-200";
+}
+
 export default function LoanCommissionPanel({
   loanApplicationId,
   getAuthHeaders,
@@ -32,9 +53,16 @@ export default function LoanCommissionPanel({
   const [loading, setLoading] = useState(false);
   const [markingId, setMarkingId] = useState<string | null>(null);
   const [invoiceLoadingId, setInvoiceLoadingId] = useState<string | null>(null);
-  const [breakdown, setBreakdown] = useState<LoanCommissionBreakdown | null>(null);
+  const [breakdown, setBreakdown] = useState<LoanCommissionBreakdown | null>(
+    null,
+  );
+  const [payoutRow, setPayoutRow] = useState<CommissionRecord | null>(null);
+  const [historyRow, setHistoryRow] = useState<CommissionRecord | null>(null);
+  const [historyData, setHistoryData] = useState<CommissionHistory | null>(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
 
   const commissionsBase = getCommissionApiBase(portal);
+  const canUseAch = portal === "broker" && canMarkPaid;
 
   const loadBreakdown = useCallback(async () => {
     if (!loanApplicationId) return;
@@ -63,17 +91,26 @@ export default function LoanCommissionPanel({
     loadBreakdown();
   }, [loadBreakdown]);
 
-  const handleMarkPaid = async (
-    commissionId: string,
-    row: LoanCommissionBreakdown["commissions"][number],
-  ) => {
-    const formValues = await promptRecordCommissionPayout(row);
-    if (!formValues) return;
+  const handleRecordPayout = async (values: PayoutFormValues) => {
+    if (!payoutRow) return;
 
     try {
-      setMarkingId(commissionId);
-      await submitCommissionPayout(commissionId, formValues, getAuthHeaders, portal);
-      toast.success("Payout recorded");
+      setMarkingId(payoutRow.id);
+      if (values.sendToBank && canUseAch) {
+        await submitCommissionAchPayout(payoutRow.id, values, getAuthHeaders);
+        toast.success(
+          "Bank transfer started from your firm account. It shows as paid when ACH settles.",
+        );
+      } else {
+        await submitCommissionPayout(
+          payoutRow.id,
+          values,
+          getAuthHeaders,
+          portal,
+        );
+        toast.success("Payout recorded");
+      }
+      setPayoutRow(null);
       await loadBreakdown();
     } catch (error: any) {
       toast.error(error.message || "Failed to record payout");
@@ -106,7 +143,10 @@ export default function LoanCommissionPanel({
     }
   };
 
-  const handleDownloadInvoice = async (invoiceId: string, invoiceNumber?: string) => {
+  const handleDownloadInvoice = async (
+    invoiceId: string,
+    invoiceNumber?: string,
+  ) => {
     try {
       const res = await fetch(getInvoicePdfUrl(invoiceId, portal), {
         headers: getAuthHeaders(),
@@ -124,6 +164,28 @@ export default function LoanCommissionPanel({
       window.URL.revokeObjectURL(url);
     } catch (error: any) {
       toast.error(error.message || "Failed to download invoice");
+    }
+  };
+
+  const openHistory = async (row: CommissionRecord) => {
+    setHistoryRow(row);
+    setHistoryData(null);
+    setHistoryLoading(true);
+
+    try {
+      const res = await fetch(`${commissionsBase}/${row.id}/history`, {
+        headers: getAuthHeaders(),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || "Failed to load history");
+      }
+      setHistoryData(json.data as CommissionHistory);
+    } catch (error: any) {
+      toast.error(error.message || "Failed to load history");
+      setHistoryRow(null);
+    } finally {
+      setHistoryLoading(false);
     }
   };
 
@@ -268,7 +330,7 @@ export default function LoanCommissionPanel({
                   <th className="px-6 py-3 font-medium">Amount</th>
                   <th className="px-6 py-3 font-medium">Invoice</th>
                   <th className="px-6 py-3 font-medium">Payout</th>
-                  <th className="px-6 py-3 font-medium">Actions</th>
+                  <th className="px-6 py-3 font-medium text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -293,62 +355,99 @@ export default function LoanCommissionPanel({
                         </td>
                       ) : null}
                       <td className="px-6 py-4">
-                        {formatCommissionRole(row.recipientRole)}
+                        <span
+                          className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium ring-1 ring-inset ${roleBadgeClass(row.recipientRole)}`}
+                        >
+                          {formatCommissionRole(row.recipientRole)}
+                        </span>
                       </td>
                       <td className="px-6 py-4">{row.findersFeePercent}%</td>
                       <td className="px-6 py-4 font-semibold text-slate-900">
                         {formatCommissionCurrency(row.commissionAmount)}
                       </td>
                       <td className="px-6 py-4 text-slate-600">
-                        {row.latestInvoice?.invoiceNumber || "—"}
+                        {isBroker ? (
+                          <span className="text-xs text-slate-400">
+                            Firm retained
+                          </span>
+                        ) : row.latestInvoice?.invoiceNumber ? (
+                          <span
+                            className="inline-flex max-w-full items-center gap-1 truncate rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700"
+                            title={row.latestInvoice.invoiceNumber}
+                          >
+                            <FileText size={12} className="shrink-0" />
+                            <span className="truncate">
+                              {row.latestInvoice.invoiceNumber}
+                            </span>
+                          </span>
+                        ) : (
+                          <span className="text-xs text-slate-400">
+                            Not generated
+                          </span>
+                        )}
                       </td>
                       <td className="px-6 py-4">
-                        <span
-                          className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${
-                            isFullyPaid
-                              ? "bg-emerald-50 text-emerald-700"
-                              : payoutStatus === "PARTIAL"
-                                ? "bg-sky-50 text-sky-700"
-                                : "bg-amber-50 text-amber-700"
-                          }`}
-                        >
-                          {formatPayoutStatus(payoutStatus)}
-                        </span>
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span
+                            className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset ${payoutBadgeClass(payoutStatus)}`}
+                          >
+                            {formatPayoutStatus(payoutStatus)}
+                          </span>
+                          {!isFullyPaid && remaining > 0 ? (
+                            <span className="text-xs text-slate-500">
+                              {formatCommissionCurrency(remaining)} left
+                            </span>
+                          ) : null}
+                        </div>
                       </td>
-                      <td className="px-6 py-4">
-                        <div className="flex flex-wrap gap-2">
+                      <td className="px-6 py-4 text-right">
+                        <div className="inline-flex items-center rounded-lg border border-slate-200 bg-white p-0.5 shadow-sm">
+                          <button
+                            type="button"
+                            title="View history"
+                            onClick={() => openHistory(row)}
+                            className="rounded-md p-1.5 text-slate-500 transition hover:bg-slate-100 hover:text-slate-700"
+                          >
+                            <History size={15} />
+                          </button>
+
                           {canInvoice ? (
                             <button
                               type="button"
+                              title="Generate invoice"
                               onClick={() => handleGenerateInvoice(row.id)}
                               disabled={invoiceLoadingId === row.id}
-                              className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                              className="rounded-md p-1.5 text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 disabled:opacity-50"
                             >
-                              {invoiceLoadingId === row.id ? "..." : "Invoice"}
+                              <FileText size={15} />
                             </button>
                           ) : null}
+
                           {row.latestInvoice?.id ? (
                             <button
                               type="button"
+                              title="Download PDF"
                               onClick={() =>
                                 handleDownloadInvoice(
                                   row.latestInvoice!.id,
                                   row.latestInvoice?.invoiceNumber || undefined,
                                 )
                               }
-                              className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                              className="rounded-md p-1.5 text-slate-500 transition hover:bg-slate-100 hover:text-slate-700"
                             >
-                              PDF
+                              <Download size={15} />
                             </button>
                           ) : null}
+
                           {canPay ? (
                             <button
                               type="button"
-                              onClick={() => handleMarkPaid(row.id, row)}
+                              title="Pay commission"
+                              onClick={() => setPayoutRow(row)}
                               disabled={markingId === row.id}
-                              className="rounded-lg bg-emerald-600 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-60"
+                              className="rounded-md bg-emerald-600 p-1.5 text-white transition hover:bg-emerald-700 disabled:opacity-50"
                             >
-                              {markingId === row.id ? "..." : "Pay"}
+                              <Banknote size={15} />
                             </button>
                           ) : null}
                         </div>
@@ -361,6 +460,27 @@ export default function LoanCommissionPanel({
           </div>
         )}
       </div>
+
+      <RecordPayoutModal
+        row={payoutRow}
+        isOpen={Boolean(payoutRow)}
+        submitting={Boolean(payoutRow && markingId === payoutRow.id)}
+        onClose={() => {
+          if (!markingId) setPayoutRow(null);
+        }}
+        onSubmit={handleRecordPayout}
+      />
+
+      <CommissionHistoryModal
+        row={historyRow}
+        history={historyData}
+        loading={historyLoading}
+        isOpen={Boolean(historyRow)}
+        onClose={() => {
+          setHistoryRow(null);
+          setHistoryData(null);
+        }}
+      />
     </div>
   );
 }
