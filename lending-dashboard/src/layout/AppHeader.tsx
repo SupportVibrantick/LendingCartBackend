@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Link } from "react-router";
 import { useSidebar } from "../context/SidebarContext";
@@ -8,6 +8,28 @@ import { UserDropdown } from "../components/header/UserDropdown";
 import { jwtDecode } from "jwt-decode";
 import { LENDER_API_BASE, getLenderAuthHeaders } from "../lib/lenderApi";
 import { handleLenderUnauthorized } from "../lib/lenderSession";
+import {
+  getLenderRoles,
+  getRoleOption,
+  roleBadgeClass,
+  type LenderTeamRole,
+} from "../lib/lenderTeamMembers";
+
+const ROLE_PRIORITY: LenderTeamRole[] = [
+  "LENDER_ADMIN",
+  "LENDER_UNDERWRITER",
+  "LENDER_ANALYST",
+  "LENDER_VIEWER",
+];
+
+function resolvePrimaryRole(roles?: string[] | null): LenderTeamRole | null {
+  const list = Array.isArray(roles) && roles.length ? roles : getLenderRoles();
+  for (const role of ROLE_PRIORITY) {
+    if (list.includes(role)) return role;
+  }
+  const first = list.find((role) => role.startsWith("LENDER_"));
+  return (first as LenderTeamRole) || null;
+}
 
 const API_BASE = LENDER_API_BASE;
 
@@ -69,12 +91,26 @@ const AppHeader: React.FC = () => {
         return;
       }
 
-      const user = json.data ?? json;
-      setUser(user);
+      const payload = json.data ?? json;
+      setUser(payload);
+
+      const roles = payload?.user?.roles;
+      if (Array.isArray(roles)) {
+        sessionStorage.setItem("roles", JSON.stringify(roles));
+      }
+      if (payload?.user) {
+        sessionStorage.setItem("lender_user", JSON.stringify(payload.user));
+      }
     } catch (err) {
       console.error("Failed to load user:", err);
     }
   };
+
+  const primaryRole = useMemo(
+    () => resolvePrimaryRole(user?.user?.roles),
+    [user?.user?.roles],
+  );
+  const roleOption = getRoleOption(primaryRole);
 
   const toTitleCase = (value?: string) =>
     value
@@ -256,13 +292,32 @@ const AppHeader: React.FC = () => {
             </svg>
           </button>
 
-          <div className="hidden lg:block">
+          <div className="hidden min-w-0 lg:block">
             <h1 className="text-lg font-semibold text-gray-900 dark:text-white">
               Welcome{" "}
               <span className="text-[#3e86b7] dark:text-[#5ba8d4]">
                 {toTitleCase(user?.user?.name)}
               </span>
             </h1>
+            {roleOption ? (
+              <div className="mt-1 flex items-center gap-2">
+                <span
+                  title={roleOption.description}
+                  className={`inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-semibold ring-1 ring-inset ${roleBadgeClass(primaryRole)}`}
+                >
+                  {roleOption.label}
+                </span>
+                {user?.organization?.name ? (
+                  <span className="truncate text-xs text-gray-500 dark:text-gray-400">
+                    {user.organization.name}
+                  </span>
+                ) : null}
+              </div>
+            ) : user?.organization?.name ? (
+              <p className="mt-0.5 truncate text-xs text-gray-500 dark:text-gray-400">
+                {user.organization.name}
+              </p>
+            ) : null}
           </div>
 
           {isImpersonation && (
@@ -280,6 +335,14 @@ const AppHeader: React.FC = () => {
           } items-center justify-between w-full gap-4 px-5 py-4 lg:flex shadow-theme-md lg:justify-end lg:px-0 lg:shadow-none`}
         >
           <div className="flex items-center gap-2 2xsm:gap-3">
+            {roleOption ? (
+              <span
+                title={roleOption.description}
+                className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 ring-inset lg:hidden ${roleBadgeClass(primaryRole)}`}
+              >
+                {roleOption.label}
+              </span>
+            ) : null}
             <div className="flex items-center gap-2">
               <span className="text-sm font-semibold text-[#3e86b7] dark:text-[#5ba8d4]">
                 {time}
