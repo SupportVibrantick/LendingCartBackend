@@ -549,15 +549,15 @@ export default function LoanPipeline() {
         </div>
 
         <div className="min-w-0 overflow-x-auto">
-          <table className="w-full min-w-[860px] table-fixed text-left">
+          <table className="w-full min-w-[920px] table-fixed text-left">
             <colgroup>
-              <col className="w-[18%]" />
+              <col className="w-[16%]" />
+              <col className="w-[11%]" />
+              <col className="w-[9%]" />
+              <col className="w-[12%]" />
               <col className="w-[12%]" />
               <col className="w-[10%]" />
-              <col className="w-[14%]" />
-              <col className="w-[13%]" />
-              <col className="w-[11%]" />
-              <col className="w-[10%]" />
+              <col className="w-[18%]" />
               <col className="w-[8%]" />
             </colgroup>
             <thead className="bg-slate-50/80 dark:bg-slate-800/50">
@@ -663,24 +663,51 @@ export default function LoanPipeline() {
                       <span className="block truncate">{formatShortDate(row.createdAt)}</span>
                     </td>
 
-                    <td className="overflow-hidden px-3 py-3 align-middle text-center">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setLenderModalQuery("");
-                          setViewLenders(row.lenders);
-                        }}
-                        className="relative inline-flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 transition hover:bg-indigo-100 dark:bg-indigo-500/10 dark:text-indigo-400 dark:hover:bg-indigo-500/20"
-                        title="View lenders"
-                      >
-                        <Building2 size={15} />
-                        {row.lenders.length > 0 && (
-                          <span className="absolute -right-1 -top-1 rounded-full bg-indigo-600 px-1.5 py-0.5 text-[10px] text-white">
-                            {row.lenders.length}
-                          </span>
-                        )}
-                      </button>
+                    <td className="overflow-hidden px-3 py-3 align-middle">
+                      {row.lenders.length === 0 ? (
+                        <span className="text-xs text-slate-400">—</span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setLenderModalQuery("");
+                            setViewLenders(row.lenders);
+                          }}
+                          className="group/lender flex w-full max-w-[220px] items-start gap-2 rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-2 text-left transition hover:border-[#13538A]/35 hover:bg-white hover:shadow-sm dark:border-slate-700 dark:bg-slate-800/60 dark:hover:border-[#3e86b7]/40 dark:hover:bg-slate-800"
+                          title={
+                            row.lenders.length === 1
+                              ? row.lenders[0].lenderName
+                              : `View ${row.lenders.length} lenders`
+                          }
+                        >
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#13538A]/10 text-[#13538A] dark:bg-[#13538A]/20 dark:text-[#5ba8d4]">
+                            <Building2 size={14} />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5">
+                              <p className="truncate text-xs font-semibold text-slate-900 dark:text-slate-100">
+                                {row.lenders[0].lenderName}
+                              </p>
+                              {row.lenders.length > 1 ? (
+                                <span className="shrink-0 rounded-full bg-indigo-600 px-1.5 py-0.5 text-[9px] font-bold text-white">
+                                  +{row.lenders.length - 1}
+                                </span>
+                              ) : null}
+                            </div>
+                            <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                              <span
+                                className={`inline-flex rounded-full border px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide ${getApplicationStatusColor(row.lenders[0].lenderStatus)}`}
+                              >
+                                {formatStatusLabel(row.lenders[0].lenderStatus)}
+                              </span>
+                              <span className="truncate text-[10px] text-slate-500">
+                                {formatLoanType(row.lenders[0].lenderProduct)}
+                              </span>
+                            </div>
+                          </div>
+                        </button>
+                      )}
                     </td>
 
                     <td
@@ -914,38 +941,36 @@ export default function LoanPipeline() {
                     </button>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <div className="grid gap-3 sm:grid-cols-2">
                     {filteredViewLenders.map((lender) => (
                       <div
                         key={lender.lenderOrgId}
-                        className="flex items-center gap-2.5 rounded-xl border border-slate-200 bg-slate-50/80 px-3 py-2.5 dark:border-slate-700 dark:bg-slate-800/60"
+                        className="rounded-xl border border-slate-100 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/60"
                       >
-                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400">
-                          <Building2 size={14} />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-start gap-3">
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#13538A]/10 text-[#13538A] dark:bg-[#13538A]/20 dark:text-[#5ba8d4]">
+                            <Building2 className="h-4 w-4" />
+                          </div>
+                          <div className="min-w-0 flex-1">
                             <p
-                              className="truncate text-[13px] font-semibold text-slate-900 dark:text-slate-100"
+                              className="truncate font-semibold text-slate-900 dark:text-slate-100"
                               title={lender.lenderName}
                             >
-                              {lender.lenderName}
+                              {lender.lenderName || "Lender"}
                             </p>
-                            <span
-                              className={`inline-flex shrink-0 rounded-full border px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide ${getApplicationStatusColor(lender.lenderStatus)}`}
-                            >
-                              {formatStatusLabel(lender.lenderStatus)}
-                            </span>
-                          </div>
-                          <div className="mt-0.5 flex items-center justify-between gap-2 text-[11px] text-slate-500">
-                            <span className="truncate">
+                            <p className="mt-0.5 truncate text-xs text-slate-500">
                               {formatLoanType(lender.lenderProduct)}
-                            </span>
-                            <span className="shrink-0 tabular-nums">
-                              {lender.sentAt
-                                ? formatShortDate(lender.sentAt)
-                                : "—"}
-                            </span>
+                            </p>
+                            <div className="mt-3 flex flex-wrap items-center gap-2">
+                              <span
+                                className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase ${getApplicationStatusColor(lender.lenderStatus)}`}
+                              >
+                                {formatStatusLabel(lender.lenderStatus)}
+                              </span>
+                              <span className="text-[10px] text-slate-400">
+                                Sent {formatShortDate(lender.sentAt)}
+                              </span>
+                            </div>
                           </div>
                         </div>
                       </div>
