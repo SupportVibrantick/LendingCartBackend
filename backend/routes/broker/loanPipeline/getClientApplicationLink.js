@@ -7,6 +7,9 @@ const {
 const {
   getOrgEnabledFeatures,
 } = require("../../../services/subscription/brokerOrgFeatures");
+const {
+  resolveBrokerPublicBaseUrl,
+} = require("../../../services/broker/customDomain.service");
 
 const SHARE_APPLICATION_LINK = "SHARE_APPLICATION_LINK";
 
@@ -128,11 +131,18 @@ module.exports = function createGetClientApplicationLink(options = {}) {
             sourcePortal: forcedSourcePortal,
           });
 
-          const embedBase = (
+          const embedFallback = (
             process.env.EMBED_APP_URL ||
             process.env.VITE_EMBED_APP_URL ||
             ""
           ).replace(/\/$/, "");
+
+          // Verified custom domain when set; otherwise same EMBED_APP_URL fallback.
+          const embedBase = await resolveBrokerPublicBaseUrl(
+            prisma,
+            brokerOrgId,
+            { fallback: embedFallback },
+          );
 
           const sharePath = buildPublicApplicationSharePath(link.token);
           const shareUrl = embedBase ? `${embedBase}${sharePath}` : sharePath;

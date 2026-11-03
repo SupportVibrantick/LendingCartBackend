@@ -1,16 +1,48 @@
-const LO_BRANDING_VIEW_PERMISSIONS = ["VIEW_COMPANY_SETTINGS", "MANAGE_BRANDING"];
 const {
   syncBrokerCompanyAndBrandName,
 } = require("../../../services/broker/syncBrokerDisplayName");
-
-async function requireLoanOfficerBrandingView(req, reply, fastify) {
-  if (!req.user?.roles?.includes("BROKER_OFFICER")) return;
-  await fastify.requirePermission(LO_BRANDING_VIEW_PERMISSIONS)(req, reply);
-}
+const {
+  normalizeCustomDomain,
+  getDnsInstructions,
+  buildCustomDomainBaseUrl,
+} = require("../../../services/broker/customDomain.service");
+const {
+  forgetHostname,
+  rememberHostname,
+} = require("../../../services/broker/verifiedCustomDomainCache");
 
 async function requireLoanOfficerBrandingManage(req, reply, fastify) {
   if (!req.user?.roles?.includes("BROKER_OFFICER")) return;
   await fastify.requirePermission("MANAGE_BRANDING")(req, reply);
+}
+
+function serializeSettings(settings, brokerOrgId) {
+  const publicBaseUrl =
+    settings.customDomain && settings.domainVerified
+      ? buildCustomDomainBaseUrl(settings.customDomain)
+      : null;
+
+  return {
+    id: settings.id,
+    platformSubdomain: settings.platformSubdomain,
+    customDomain: settings.customDomain,
+    domainVerified: settings.domainVerified,
+    sslStatus: settings.sslStatus,
+    brandName: settings.brandName,
+    logoUrl: settings.logoUrl,
+    faviconUrl: settings.faviconUrl,
+    primaryColor: settings.primaryColor,
+    secondaryColor: settings.secondaryColor,
+    fontFamily: settings.fontFamily,
+    footerText: settings.footerText,
+    supportEmail: settings.supportEmail,
+    fullWhiteLabel: settings.fullWhiteLabel,
+    showBrokerBrandOnApproval: settings.showBrokerBrandOnApproval,
+    companyName: settings.brandName,
+    publicBaseUrl,
+    dnsInstructions: getDnsInstructions(settings.customDomain, brokerOrgId),
+    updatedAt: settings.updatedAt,
+  };
 }
 
 /**
@@ -27,7 +59,7 @@ async function updateWhiteLabelSettings(fastify) {
         tags: ["Broker -> White Label"],
         summary: "Update broker white-label settings",
         description:
-          "Update branding, theme, and white-label configuration for broker. Brand name also updates company name.",
+          "Update branding, theme, custom domain, and white-label configuration for broker. Brand name also updates company name.",
         body: {
           type: "object",
           additionalProperties: false,
@@ -69,12 +101,53 @@ async function updateWhiteLabelSettings(fastify) {
           ? payload.brandName.trim()
           : undefined;
 
+      const hasCustomDomainField = Object.prototype.hasOwnProperty.call(
+        payload,
+        "customDomain",
+      );
+
+      let nextCustomDomain;
+      if (hasCustomDomainField) {
+        try {
+          nextCustomDomain = normalizeCustomDomain(payload.customDomain);
+        } catch (err) {
+          return reply.code(err.statusCode || 400).send({
+            success: false,
+            message: err.message,
+          });
+        }
+        payload.customDomain = nextCustomDomain;
+      }
+
       try {
+        const existing = await prisma.brokerWhiteLabelSetting.findFirst({
+          where: { brokerOrgId },
+          select: {
+            id: true,
+            customDomain: true,
+            domainVerified: true,
+            sslStatus: true,
+          },
+        });
+
         if (brandName) {
           await syncBrokerCompanyAndBrandName(prisma, brokerOrgId, brandName, {
             userId,
           });
           delete payload.brandName;
+        }
+
+        if (hasCustomDomainField) {
+          const prev = existing?.customDomain || null;
+          if (prev !== nextCustomDomain) {
+            payload.domainVerified = false;
+            payload.sslStatus = nextCustomDomain ? "PENDING" : null;
+            if (prev) forgetHostname(prev);
+          } else if (nextCustomDomain == null) {
+            payload.domainVerified = false;
+            payload.sslStatus = null;
+            if (prev) forgetHostname(prev);
+          }
         }
 
         const settings = await prisma.brokerWhiteLabelSetting.upsert({
@@ -88,34 +161,27 @@ async function updateWhiteLabelSettings(fastify) {
             ...(brandName ? { brandName } : {}),
             ...payload,
             domainVerified: false,
-            sslStatus: "PENDING",
+            sslStatus: payload.customDomain ? "PENDING" : "PENDING",
           },
         });
+
+        if (settings.domainVerified && settings.customDomain) {
+          rememberHostname(settings.customDomain);
+        }
 
         return reply.send({
           success: true,
           message: "White-label settings updated successfully",
-          data: {
-            id: settings.id,
-            platformSubdomain: settings.platformSubdomain,
-            customDomain: settings.customDomain,
-            domainVerified: settings.domainVerified,
-            sslStatus: settings.sslStatus,
-            brandName: settings.brandName,
-            logoUrl: settings.logoUrl,
-            faviconUrl: settings.faviconUrl,
-            primaryColor: settings.primaryColor,
-            secondaryColor: settings.secondaryColor,
-            fontFamily: settings.fontFamily,
-            footerText: settings.footerText,
-            supportEmail: settings.supportEmail,
-            fullWhiteLabel: settings.fullWhiteLabel,
-            showBrokerBrandOnApproval: settings.showBrokerBrandOnApproval,
-            companyName: settings.brandName,
-            updatedAt: settings.updatedAt,
-          },
+          data: serializeSettings(settings, brokerOrgId),
         });
       } catch (err) {
+        if (err?.code === "P2002") {
+          return reply.code(409).send({
+            success: false,
+            message:
+              "That domain is already connected to another brokerage. Choose a different hostname.",
+          });
+        }
         return reply.code(err.statusCode || 500).send({
           success: false,
           message: err.message || "Failed to update white-label settings",

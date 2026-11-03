@@ -520,6 +520,7 @@ async function brokerLoanOfficersRoutes(fastify) {
             email: user.email,
             password,
             organizationName: org.name,
+            organizationId: orgId,
             prisma: fastify.prisma,
           });
         } catch (mailErr) {

@@ -6,7 +6,6 @@ const {
   buildDocumentReminderEmailData,
 } = require("../../utils/email/emailTemplateData");
 const {
-  buildClientPortalUrl,
   ensureAbsoluteUrl,
   resolveBrokerEmailBranding,
 } = require("../../utils/email/emailBranding");
@@ -370,7 +369,14 @@ async function sendDocumentReminderEmail(
       contacts: loan.client?.contacts || [],
     });
     const token = await ensureClientUploadToken(prisma, loan);
-    portalLink = buildClientPortalUrl({ token });
+    const {
+      buildClientPortalUrlForBroker,
+    } = require("../../utils/email/emailBranding");
+    portalLink = await buildClientPortalUrlForBroker(
+      prisma,
+      schedule.brokerOrgId,
+      { token },
+    );
     preset =
       schedule.reminderType === "SIGNATURE_REQUIRED"
         ? "signatureRequired"

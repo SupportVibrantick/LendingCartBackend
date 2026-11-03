@@ -29,14 +29,28 @@ function joinPathForRole(role) {
   return role === "SUB_BROKER" ? "/join/co-broker" : "/join/loan-officer";
 }
 
-function buildInviteUrl(token, role) {
+async function buildInviteUrl(prisma, organizationId, token, role) {
   const { brokerDashboardUrl } = getEmailBranding();
-  const base = String(brokerDashboardUrl || "")
-    .trim()
-    .replace(/\/$/, "");
+  const {
+    getVerifiedCustomDomainBaseUrl,
+    stripTrailingSlash,
+  } = require("./customDomain.service");
+  const customBase = await getVerifiedCustomDomainBaseUrl(
+    prisma,
+    organizationId,
+  );
+  const base = stripTrailingSlash(customBase || brokerDashboardUrl || "");
   const path = joinPathForRole(role);
-  if (!base) return `${path}?token=${encodeURIComponent(token)}`;
-  return `${base}${path}?token=${encodeURIComponent(token)}`;
+  if (!base) {
+    return {
+      inviteUrl: `${path}?token=${encodeURIComponent(token)}`,
+      usesCustomDomain: false,
+    };
+  }
+  return {
+    inviteUrl: `${base}${path}?token=${encodeURIComponent(token)}`,
+    usesCustomDomain: Boolean(customBase),
+  };
 }
 
 function generateTempPassword() {
@@ -147,12 +161,20 @@ async function createBrokerTeamInvite(prisma, {
     });
   });
 
+  const { inviteUrl, usesCustomDomain } = await buildInviteUrl(
+    prisma,
+    organizationId,
+    invite.token,
+    invite.role,
+  );
+
   return {
     id: invite.id,
     role: invite.role,
     token: invite.token,
     expiresAt: invite.expiresAt,
-    inviteUrl: buildInviteUrl(invite.token, invite.role),
+    inviteUrl,
+    usesCustomDomain,
     expiresInHours: INVITE_EXPIRY_HOURS,
   };
 }
@@ -377,6 +399,7 @@ async function sendJoinCredentialsEmail({
   email,
   password,
   organizationName,
+  organizationId,
   prisma,
 }) {
   if (role === "SUB_BROKER") {
@@ -385,6 +408,7 @@ async function sendJoinCredentialsEmail({
       email,
       password,
       organizationName,
+      organizationId,
       prisma,
     });
   }
@@ -394,6 +418,7 @@ async function sendJoinCredentialsEmail({
     email,
     password,
     organizationName,
+    organizationId,
     prisma,
   });
 }

@@ -254,6 +254,7 @@ module.exports = async function updateBrokerUser(fastify) {
               email: resolvedEmail,
               password,
               organizationName: organization?.name,
+              organizationId: brokerOrgId,
               prisma,
               isPasswordReset: true,
             });

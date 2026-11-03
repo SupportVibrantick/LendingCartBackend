@@ -1,4 +1,8 @@
 const LO_BRANDING_VIEW_PERMISSIONS = ["VIEW_COMPANY_SETTINGS", "MANAGE_BRANDING"];
+const {
+  getDnsInstructions,
+  buildCustomDomainBaseUrl,
+} = require("../../../services/broker/customDomain.service");
 
 async function requireLoanOfficerBrandingView(req, reply, fastify) {
   if (!req.user?.roles?.includes("BROKER_OFFICER")) return;
@@ -61,6 +65,11 @@ async function getWhiteLabelSettings(fastify) {
         });
       }
 
+      const publicBaseUrl =
+        settings.customDomain && settings.domainVerified
+          ? buildCustomDomainBaseUrl(settings.customDomain)
+          : null;
+
       return reply.send({
         success: true,
         data: {
@@ -79,6 +88,11 @@ async function getWhiteLabelSettings(fastify) {
           supportEmail: settings.supportEmail,
           fullWhiteLabel: settings.fullWhiteLabel,
           showBrokerBrandOnApproval: settings.showBrokerBrandOnApproval,
+          publicBaseUrl,
+          dnsInstructions: getDnsInstructions(
+            settings.customDomain,
+            brokerOrgId,
+          ),
           createdAt: settings.createdAt,
           updatedAt: settings.updatedAt,
         },

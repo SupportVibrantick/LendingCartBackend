@@ -220,6 +220,7 @@ module.exports = async function updateSubBrokerRoutes(fastify) {
               email: detail.email,
               password: String(fields.password),
               organizationName: organization?.name,
+              organizationId: brokerOrgId,
               prisma,
               isPasswordReset: true,
             });

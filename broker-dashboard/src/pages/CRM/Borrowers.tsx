@@ -438,11 +438,15 @@ export default function BorrowersPage() {
         throw new Error(json.message || "Failed to access client portal");
       }
 
-      const portalUrl = buildImpersonatePortalUrl("/client-portal/impersonate", {
-        token: json.token,
-        user: JSON.stringify(json.user),
-        redirectTo: json.redirectTo || "/client-portal",
-      });
+      const portalUrl = buildImpersonatePortalUrl(
+        "/client-portal/impersonate",
+        {
+          token: json.token,
+          user: JSON.stringify(json.user),
+          redirectTo: json.redirectTo || "/client-portal",
+        },
+        json.portalBaseUrl || null,
+      );
       const newTab = window.open(portalUrl, "_blank", "noopener,noreferrer");
 
       if (!newTab) {

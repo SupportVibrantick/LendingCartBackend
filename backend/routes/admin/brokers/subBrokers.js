@@ -175,6 +175,7 @@ async function sendWelcomeEmail(fastify, prisma, {
       email,
       password,
       organizationName: organization?.name,
+      organizationId: brokerOrgId,
       prisma: fastify.prisma,
     });
 
@@ -677,6 +678,7 @@ async function adminBrokerSubBrokersRoutes(fastify) {
             email: detail.email,
             password: String(fields.password),
             organizationName: organization?.name,
+            organizationId: orgId,
             prisma,
             isPasswordReset: true,
           });

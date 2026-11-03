@@ -165,6 +165,14 @@ module.exports = async function impersonateBorrowerRoute(fastify) {
           "Broker impersonated client portal",
         );
 
+        const {
+          getVerifiedCustomDomainBaseUrl,
+        } = require("../../../services/broker/customDomain.service");
+        const portalBaseUrl = await getVerifiedCustomDomainBaseUrl(
+          prisma,
+          brokerOrgId,
+        );
+
         return reply.send({
           success: true,
           token,
@@ -175,6 +183,7 @@ module.exports = async function impersonateBorrowerRoute(fastify) {
             clientName,
           },
           redirectTo: "/client-portal",
+          portalBaseUrl,
         });
       } catch (error) {
         fastify.log.error(

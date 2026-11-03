@@ -3,8 +3,6 @@ const { loadTemplateAsync } = require("../../../utils/email/loadTemplate");
 const { buildClientLinkEmailData } = require("../../../utils/email/emailTemplateData");
 const sendMail = require("../../../services/emails/mail");
 const { extraOfficerPermission } = require("../../../services/broker/loanOfficerAccess");
-const { buildClientPortalUrl } = require("../../../utils/email/emailBranding");
-
 async function sendClientLinkRoute(fastify) {
   fastify.post(
     "/:loanId/send-client-link",
@@ -114,7 +112,14 @@ async function sendClientLinkRoute(fastify) {
         throw new Error("FRONTEND_URL not configured");
       }
 
-      const uploadLink = buildClientPortalUrl({ token: tokenRecord.token });
+      const {
+        buildClientPortalUrlForBroker,
+      } = require("../../../utils/email/emailBranding");
+      const uploadLink = await buildClientPortalUrlForBroker(
+        prisma,
+        req.user.organizationId,
+        { token: tokenRecord.token },
+      );
 
       const { html, logoAttachment } = await loadTemplateAsync(
         "broker/clientLink",

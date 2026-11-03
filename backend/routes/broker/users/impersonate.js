@@ -122,6 +122,14 @@ module.exports = async function impersonateLoanOfficerRoute(fastify) {
           "Broker impersonated loan officer portal",
         );
 
+        const {
+          getVerifiedCustomDomainBaseUrl,
+        } = require("../../../services/broker/customDomain.service");
+        const portalBaseUrl = await getVerifiedCustomDomainBaseUrl(
+          prisma,
+          brokerOrgId,
+        );
+
         return reply.send({
           success: true,
           token,
@@ -138,6 +146,7 @@ module.exports = async function impersonateLoanOfficerRoute(fastify) {
             userType: "LOAN_OFFICER",
           },
           redirectTo: "/loan-officer/dashboard",
+          portalBaseUrl,
         });
       } catch (error) {
         fastify.log.error(
