@@ -521,6 +521,7 @@ export default function LoanOfficersPage() {
       const portalUrl = buildImpersonatePortalUrl(
         "/loan-officer/impersonate",
         impersonateParams,
+        json.portalBaseUrl || null,
       );
       const newTab = window.open(portalUrl, "_blank", "noopener,noreferrer");
 

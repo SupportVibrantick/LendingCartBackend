@@ -5,9 +5,15 @@
 export function buildImpersonatePortalUrl(
   basePath: string,
   params: Record<string, string>,
+  portalBaseUrl?: string | null,
 ): string {
   const payload = new URLSearchParams(params).toString();
-  return `${basePath}#${payload}`;
+  const relative = `${basePath}#${payload}`;
+  const base = String(portalBaseUrl || "")
+    .trim()
+    .replace(/\/$/, "");
+  if (!base) return relative;
+  return `${base}${relative.startsWith("/") ? relative : `/${relative}`}`;
 }
 
 /**

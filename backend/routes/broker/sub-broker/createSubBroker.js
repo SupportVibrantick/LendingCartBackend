@@ -49,6 +49,7 @@ async function sendSubBrokerWelcomeEmail(fastify, prisma, {
       email,
       password,
       organizationName: organization?.name,
+      organizationId: brokerOrgId,
       prisma: fastify.prisma,
     });
 

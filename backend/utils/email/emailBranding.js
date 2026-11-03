@@ -133,12 +133,13 @@ const buildLenderVerifyEmailUrl = (token) => {
   );
 };
 
-const buildClientPortalUrl = ({ token, path = "" } = {}) => {
+const buildClientPortalUrl = ({ token, path = "", baseUrl } = {}) => {
   const { frontendUrl } = getEmailBranding();
-  if (!frontendUrl) return "";
+  const resolvedBase = stripTrailingSlash(baseUrl || frontendUrl);
+  if (!resolvedBase) return "";
 
   const normalizedPath = path ? `/${String(path).replace(/^\/+/, "")}` : "";
-  const base = stripTrailingSlash(frontendUrl);
+  const base = resolvedBase;
 
   if (token) {
     return ensureAbsoluteUrl(
@@ -150,6 +151,24 @@ const buildClientPortalUrl = ({ token, path = "" } = {}) => {
     `${base}${normalizedPath || "/client-portal"}`,
   );
 };
+
+/**
+ * Client portal URL preferring a verified broker custom domain when available.
+ */
+async function buildClientPortalUrlForBroker(
+  prisma,
+  brokerOrgId,
+  { token, path = "" } = {},
+) {
+  const { frontendUrl } = getEmailBranding();
+  const {
+    resolveBrokerPublicBaseUrl,
+  } = require("../../services/broker/customDomain.service");
+  const baseUrl = await resolveBrokerPublicBaseUrl(prisma, brokerOrgId, {
+    fallback: frontendUrl,
+  });
+  return buildClientPortalUrl({ token, path, baseUrl });
+}
 
 const buildLoanPreviewUrl = (applicationId) => {
   const { frontendUrl } = getEmailBranding();
@@ -239,6 +258,7 @@ module.exports = {
   buildLenderPartnerUrl,
   buildLenderVerifyEmailUrl,
   buildClientPortalUrl,
+  buildClientPortalUrlForBroker,
   buildLoanPreviewUrl,
   buildLenderLoanPreviewUrl,
   asDisplayText,

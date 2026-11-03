@@ -2,8 +2,6 @@ const { loadTemplate } = require("../../../utils/email/loadTemplate");
 const { buildClientLinkEmailData } = require("../../../utils/email/emailTemplateData");
 
 const sendMail = require("../../../services/emails/mail");
-const { buildClientPortalUrl } = require("../../../utils/email/emailBranding");
-
 /**
  * @param {import("fastify").FastifyInstance} fastify
  */
@@ -241,7 +239,14 @@ async function subBrokerRequestDocumentsRoute(fastify) {
            EMAIL TEMPLATE
         =============================== */
 
-        const portalLink = buildClientPortalUrl({ path: "/client-portal" });
+        const {
+          buildClientPortalUrlForBroker,
+        } = require("../../../utils/email/emailBranding");
+        const portalLink = await buildClientPortalUrlForBroker(
+          prisma,
+          req.user.organizationId,
+          { path: "/client-portal" },
+        );
 
         const html = loadTemplate(
           "broker/clientLink",

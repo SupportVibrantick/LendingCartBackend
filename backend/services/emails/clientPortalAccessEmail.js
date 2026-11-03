@@ -1,6 +1,8 @@
 const crypto = require("crypto");
 const { loadTemplateAsync } = require("../../utils/email/loadTemplate");
-const { buildClientPortalUrl } = require("../../utils/email/emailBranding");
+const {
+  buildClientPortalUrlForBroker,
+} = require("../../utils/email/emailBranding");
 const { buildClientLinkEmailData } = require("../../utils/email/emailTemplateData");
 const sendMail = require("./mail");
 
@@ -45,7 +47,9 @@ async function sendClientPortalAccessEmail({
   idempotencyKey,
   message = DEFAULT_PORTAL_MESSAGE,
 }) {
-  const uploadLink = buildClientPortalUrl({ token: portalToken });
+  const uploadLink = await buildClientPortalUrlForBroker(prisma, brokerOrgId, {
+    token: portalToken,
+  });
   const { html, logoAttachment } = await loadTemplateAsync(
     "broker/clientLink",
     {

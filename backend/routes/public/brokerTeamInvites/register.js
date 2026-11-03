@@ -116,6 +116,7 @@ module.exports = async function registerBrokerTeamInviteRoute(fastify) {
             email: registered.user.email,
             password: registered.tempPassword,
             organizationName: registered.organizationName,
+            organizationId: registered.organizationId,
             prisma: fastify.prisma,
           });
         } catch (mailErr) {

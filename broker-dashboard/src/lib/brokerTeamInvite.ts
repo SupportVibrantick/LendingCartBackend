@@ -30,11 +30,17 @@ export async function createBrokerTeamInvite(
     throw new Error(json.message || "Failed to create invite link");
   }
 
-  const data = json.data as BrokerTeamInviteResult;
+  const data = json.data as BrokerTeamInviteResult & {
+    usesCustomDomain?: boolean;
+  };
+  // Verified custom domain from API; otherwise current origin (local/prod host).
+  const inviteUrl =
+    data.usesCustomDomain && data.inviteUrl?.startsWith("http")
+      ? data.inviteUrl
+      : buildLocalInviteUrl(role, data.token);
   return {
     ...data,
-    // Prefer current origin so local/prod host always matches the open app.
-    inviteUrl: buildLocalInviteUrl(role, data.token),
+    inviteUrl,
   };
 }
 

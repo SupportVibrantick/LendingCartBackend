@@ -12,7 +12,7 @@ const {
 } = require("../../../services/documents/documentAutoForwardSetting");
 const { requireLoOfficerPermission } = require("../../../services/broker/loanOfficerAccess");
 const {
-  buildClientPortalUrl,
+  buildClientPortalUrlForBroker,
   stripLegacyCustomerPath,
 } = require("../../../utils/email/emailBranding");
 
@@ -26,7 +26,9 @@ async function notifyClientDocumentsForwarded(prisma, io, loan, logger) {
 
   const clientEmail = contact?.email;
   const portalLink =
-    buildClientPortalUrl({ path: "/client-portal" }) ||
+    (await buildClientPortalUrlForBroker(prisma, loan.brokerOrgId, {
+      path: "/client-portal",
+    })) ||
     `${stripLegacyCustomerPath(
       process.env.FRONTEND_URL || "http://localhost:5173",
     )}/client-portal`;

@@ -8,11 +8,18 @@ async function sendSubBrokerCredentialsEmail({
   email,
   password,
   organizationName,
+  organizationId,
   prisma,
   isPasswordReset = false,
 }) {
   const { brokerDashboardUrl } = getEmailBranding();
-  const loginUrl = `${brokerDashboardUrl}/sub-broker/login`;
+  const {
+    resolveBrokerPublicBaseUrl,
+  } = require("../broker/customDomain.service");
+  const base = await resolveBrokerPublicBaseUrl(prisma, organizationId, {
+    fallback: brokerDashboardUrl,
+  });
+  const loginUrl = `${base}/sub-broker/login`;
   const name = firstName || "there";
 
   const orgName = organizationName || "your broker organization";

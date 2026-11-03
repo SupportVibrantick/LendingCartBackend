@@ -9,8 +9,6 @@ const {
   canBrokerRequestDocuments,
 } = require("../../../utils/applications/resolveApplicationStatus");
 const { extraOfficerPermission } = require("../../../services/broker/loanOfficerAccess");
-const { buildClientPortalUrl } = require("../../../utils/email/emailBranding");
-
 /**
  * @param {import("fastify").FastifyInstance} fastify
  */
@@ -205,7 +203,14 @@ async function requestDocumentsRoute(fastify) {
            EMAIL PREPARATION
         =============================== */
 
-        const portalLink = buildClientPortalUrl({ path: "/client-portal" });
+        const {
+          buildClientPortalUrlForBroker,
+        } = require("../../../utils/email/emailBranding");
+        const portalLink = await buildClientPortalUrlForBroker(
+          prisma,
+          req.user.organizationId,
+          { path: "/client-portal" },
+        );
 
         const html = loadTemplate(
           "broker/clientLink",

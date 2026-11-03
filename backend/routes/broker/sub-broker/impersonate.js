@@ -121,6 +121,14 @@ module.exports = async function impersonateSubBrokerRoutes(fastify) {
           "Broker impersonated co-broker portal",
         );
 
+        const {
+          getVerifiedCustomDomainBaseUrl,
+        } = require("../../../services/broker/customDomain.service");
+        const portalBaseUrl = await getVerifiedCustomDomainBaseUrl(
+          prisma,
+          brokerOrgId,
+        );
+
         return reply.send({
           success: true,
           token,
@@ -134,6 +142,7 @@ module.exports = async function impersonateSubBrokerRoutes(fastify) {
           },
           branding,
           redirectTo: "/sub-broker/dashboard",
+          portalBaseUrl,
         });
       } catch (error) {
         fastify.log.error(

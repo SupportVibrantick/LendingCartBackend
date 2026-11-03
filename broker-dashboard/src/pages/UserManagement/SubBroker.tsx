@@ -523,6 +523,7 @@ export default function SubBroker() {
       const portalUrl = buildImpersonatePortalUrl(
         "/sub-broker/impersonate",
         impersonateParams,
+        json.portalBaseUrl || null,
       );
       const newTab = window.open(portalUrl, "_blank", "noopener,noreferrer");
 

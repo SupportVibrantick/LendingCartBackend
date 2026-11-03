@@ -16,8 +16,6 @@ const {
   notifyBroker,
   BROKER_NOTIFICATION_EVENTS,
 } = require("../../../services/notifications/brokerNotifications");
-const { buildClientPortalUrl } = require("../../../utils/email/emailBranding");
-
 /**
  * @param {import("fastify").FastifyInstance} fastify
  */
@@ -218,7 +216,14 @@ async function requestDocumentsRoute(fastify) {
         =============================== */
 
         if (shouldNotifyClient) {
-          const portalLink = buildClientPortalUrl({ path: "/client-portal" });
+          const {
+            buildClientPortalUrlForBroker,
+          } = require("../../../utils/email/emailBranding");
+          const portalLink = await buildClientPortalUrlForBroker(
+            prisma,
+            req.user.organizationId,
+            { path: "/client-portal" },
+          );
 
           const html = loadTemplate(
             "broker/clientLink",

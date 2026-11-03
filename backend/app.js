@@ -86,6 +86,11 @@ if (rateLimitRedis) {
   );
 }
 
+const {
+  ensureLoaded: ensureVerifiedCustomDomainsLoaded,
+  isVerifiedCustomDomainOrigin,
+} = require("./services/broker/verifiedCustomDomainCache");
+
 app.register(cors, {
   origin: (origin, cb) => {
     const allowedOrigins = process.env.CORS_ORIGINS
@@ -93,12 +98,26 @@ app.register(cors, {
       : [];
     if (!origin || allowedOrigins.includes(origin)) {
       cb(null, true);
-    } else {
-      // Do not pass an Error here — @fastify/cors turns that into a 500.
-      // Rejecting with false omits ACAO; the browser blocks the response.
-      commonLogs.warn("CORS origin not allowlisted", { origin });
-      cb(null, false);
+      return;
     }
+
+    // Allow verified broker white-label custom domains (async cache).
+    const prisma = require("./config/prisma");
+    Promise.resolve(ensureVerifiedCustomDomainsLoaded(prisma))
+      .then(() => {
+        if (isVerifiedCustomDomainOrigin(origin)) {
+          cb(null, true);
+          return;
+        }
+        // Do not pass an Error here — @fastify/cors turns that into a 500.
+        // Rejecting with false omits ACAO; the browser blocks the response.
+        commonLogs.warn("CORS origin not allowlisted", { origin });
+        cb(null, false);
+      })
+      .catch(() => {
+        commonLogs.warn("CORS origin not allowlisted", { origin });
+        cb(null, false);
+      });
   },
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
   credentials: true,

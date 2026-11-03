@@ -144,6 +144,17 @@ function isSocketOriginAllowed(origin) {
     return true;
   }
 
+  try {
+    const {
+      isVerifiedCustomDomainOrigin,
+    } = require("../services/broker/verifiedCustomDomainCache");
+    if (isVerifiedCustomDomainOrigin(normalized)) {
+      return true;
+    }
+  } catch {
+    // Cache module optional during early boot / tests.
+  }
+
   const suffixes = getSocketCorsDomainSuffixes();
   if (suffixes.length === 0) {
     return false;
@@ -196,12 +207,27 @@ function getSocketIoCorsOptions() {
 
   return {
     origin: (origin, callback) => {
-      if (isSocketOriginAllowed(origin)) {
-        callback(null, true);
-        return;
-      }
+      const finish = () => {
+        if (isSocketOriginAllowed(origin)) {
+          callback(null, true);
+          return;
+        }
+        callback(
+          new Error(`Socket CORS blocked for origin: ${origin || "(none)"}`),
+        );
+      };
 
-      callback(new Error(`Socket CORS blocked for origin: ${origin || "(none)"}`));
+      try {
+        const prisma = require("./prisma");
+        const {
+          ensureLoaded,
+        } = require("../services/broker/verifiedCustomDomainCache");
+        Promise.resolve(ensureLoaded(prisma))
+          .then(finish)
+          .catch(finish);
+      } catch {
+        finish();
+      }
     },
     methods: ["GET", "POST"],
     credentials: true,
