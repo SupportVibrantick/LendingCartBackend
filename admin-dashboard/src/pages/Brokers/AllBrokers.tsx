@@ -400,6 +400,18 @@ export default function BrokersPage() {
 
       setIsAddOpen(false);
       await fetchBrokers();
+
+      const emailQueued = Boolean(json?.emailQueued);
+      await Swal.fire({
+        icon: emailQueued ? "success" : "warning",
+        title: emailQueued ? "Broker created" : "Broker created — email issue",
+        text:
+          json?.message ||
+          (emailQueued
+            ? "Login credentials have been emailed to the broker admin."
+            : "Broker was created, but the credentials email could not be sent."),
+        confirmButtonColor: "#13538A",
+      });
     } catch (err: any) {
       console.error(err);
       setFormError(err.message || "Network error");
