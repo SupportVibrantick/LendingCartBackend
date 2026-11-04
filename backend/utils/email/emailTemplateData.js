@@ -178,14 +178,22 @@ const buildBrokerWelcomeEmailData = ({
   organizationEmail,
   organizationPhone,
   adminEmail,
+  temporaryPassword,
   loginUrl,
+  currentYear,
+  logoUrl,
+  brandName,
 } = {}) => ({
   name: asDisplayText(name, "there"),
   organizationName: asDisplayText(organizationName, "—"),
   organizationEmail: asDisplayText(organizationEmail, "—"),
   organizationPhone: asDisplayText(organizationPhone, "—"),
   adminEmail: asDisplayText(adminEmail, "—"),
+  temporaryPassword: asDisplayText(temporaryPassword, ""),
   loginUrl: loginUrl || buildBrokerSignInUrl(),
+  currentYear: currentYear || new Date().getFullYear(),
+  logoUrl: logoUrl || "",
+  brandName: asDisplayText(brandName, "Loan Automation"),
 });
 
 function humanizeReminderDocumentStatus(doc = {}) {

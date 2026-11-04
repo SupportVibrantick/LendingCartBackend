@@ -4,11 +4,9 @@ const {
 } = require("../../../schemas/admin/brokers/create.schema.js");
 const bcrypt = require("bcrypt");
 
-// Mail + Kafka
-const { loadTemplate } = require("../../../utils/email/loadTemplate");
-const { buildBrokerSignInUrl } = require("../../../utils/email/emailBranding");
-const { buildBrokerWelcomeEmailData } = require("../../../utils/email/emailTemplateData");
-const sendMail = require("../../../services/emails/mail");
+const {
+  sendAdminBrokerCreatedEmail,
+} = require("../../../services/emails/adminBrokerCreatedEmail");
 const {
   notifyPlatform,
   PLATFORM_NOTIFICATION_EVENTS,
@@ -206,40 +204,25 @@ async function createBrokerRoutes(fastify) {
           adminUserId: newAdmin.id,
         });
 
-        // -----------------------------
-        // 📧 SEND EMAIL (AFTER SUCCESS)
-        // -----------------------------
+        let emailQueued = false;
         try {
-          const html = loadTemplate(
-            "admin/broker/create",
-            buildBrokerWelcomeEmailData({
-              name: adminFirstName,
-              organizationName,
-              organizationEmail,
-              organizationPhone,
-              adminEmail,
-              loginUrl: buildBrokerSignInUrl(),
-            }),
-          );
-
-
-          const subject = "Your Broker Account Has Been Created";
-          const text = `Hello ${adminFirstName}, your broker account is ready.`;
-
-          await sendMail({
+          await sendAdminBrokerCreatedEmail({
             prisma,
-            to: adminEmail,
-            subject,
-            text,
-            html,
-            idempotencyKey: `admin-broker-create:${adminEmail}`,
+            adminFirstName,
+            adminEmail,
+            adminPassword,
+            organizationName,
+            organizationEmail,
+            organizationPhone,
+            organizationId: newOrganization.id,
           });
-
+          emailQueued = true;
           adminLogs.info("Broker creation email enqueued", {
             to: adminEmail,
+            organizationId: newOrganization.id,
           });
         } catch (mailErr) {
-          adminLogs.error("Broker created but all email attempts failed", mailErr);
+          adminLogs.error("Broker created but credentials email failed", mailErr);
         }
 
         try {
@@ -261,7 +244,10 @@ async function createBrokerRoutes(fastify) {
 
         return reply.status(201).send({
           success: true,
-          message: "Broker created successfully.",
+          message: emailQueued
+            ? "Broker created successfully. Login credentials have been emailed to the admin."
+            : "Broker created successfully, but the credentials email could not be sent.",
+          emailQueued,
           data: {
             organizationId: newOrganization.id,
             adminUserId: newAdmin.id,

@@ -6,10 +6,13 @@ import {
   Check,
   Eye,
   EyeOff,
+  Globe,
   LockKeyhole,
   Mail,
+  MapPin,
   Pencil,
   Phone,
+  ShieldCheck,
   Trash2,
   User,
   X,
@@ -17,9 +20,15 @@ import {
 import toast from "react-hot-toast";
 import { BROKER_API_BASE } from "../lib/brokerApi";
 import { buildApiPublicFileUrl } from "../lib/publicFileUrl";
-import { formatPhone } from "./UserManagement/loanOfficerShared";
+import { formatPhone, US_STATES } from "./UserManagement/loanOfficerShared";
 
 const API_BASE = BROKER_API_BASE;
+const WEBSITE_PREFIX = "https://";
+const US_STATE_CODES = new Set(US_STATES.map((s) => s.code));
+const STATE_OPTIONS = US_STATES.map((s) => ({
+  value: s.code,
+  label: `${s.name} (${s.code})`,
+}));
 
 const inputClass =
   "w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-gray-900 outline-none transition focus:border-[#13538A]/40 focus:bg-white focus:ring-2 focus:ring-[#13538A]/10 dark:border-gray-700 dark:bg-gray-800 dark:text-white";
@@ -27,11 +36,18 @@ const inputClass =
 const displayClass =
   "truncate rounded-xl border border-gray-100 bg-gray-50 px-4 py-2.5 text-sm text-gray-800 dark:border-gray-700 dark:bg-gray-800/80 dark:text-gray-200";
 
-const warningClass = "text-xs font-medium text-amber-500";
+const errorTextClass = "text-xs font-medium text-red-500";
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const MAX_IMAGE_EDGE = 1600;
 const JPEG_QUALITY = 0.85;
+
+const NAME_PATTERN = /^[A-Za-z][A-Za-z\s'.-]*$/;
+const CITY_PATTERN = /^[A-Za-z][A-Za-z\s'.-]*$/;
+const LICENSE_PATTERN = /^[A-Za-z0-9][A-Za-z0-9-]*$/;
+const ZIP_PATTERN = /^\d{5}(-\d{4})?$/;
+const WEBSITE_HOST_PATTERN =
+  /^(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}(?:\/[\w\-./?#%&=]*)?$/;
 
 function formatBytes(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;
@@ -113,40 +129,111 @@ const FIELD_LIMITS: Record<
     url?: boolean;
   }
 > = {
-  firstName: { required: true, min: 2, max: 50 },
-  lastName: { max: 50 },
+  firstName: {
+    required: true,
+    min: 2,
+    max: 50,
+    pattern: {
+      regex: NAME_PATTERN,
+      message: "Use letters only (spaces, hyphens, and apostrophes allowed)",
+    },
+  },
+  lastName: {
+    max: 50,
+    pattern: {
+      regex: NAME_PATTERN,
+      message: "Use letters only (spaces, hyphens, and apostrophes allowed)",
+    },
+  },
   phone: { digitMin: 10, digitMax: 10 },
   company: { max: 100 },
   licenseNumber: {
     max: 30,
     pattern: {
-      regex: /^[A-Za-z0-9-]+$/,
+      regex: LICENSE_PATTERN,
       message: "Only letters, numbers, and dashes are allowed",
     },
   },
   address: { max: 200 },
-  city: { max: 50 },
-  state: { max: 50 },
+  city: {
+    max: 50,
+    pattern: {
+      regex: CITY_PATTERN,
+      message: "Use letters only (spaces, hyphens, and apostrophes allowed)",
+    },
+  },
+  state: {
+    pattern: {
+      regex: /^[A-Z]{2}$/,
+      message: "Select a valid US state",
+    },
+  },
   zipCode: {
     pattern: {
-      regex: /^\d{5}(-\d{4})?$/,
+      regex: ZIP_PATTERN,
       message: "Use 5 digits or ZIP+4 (e.g. 12345 or 12345-6789)",
     },
   },
-  website: { url: true },
+  website: {
+    max: 180,
+    pattern: {
+      regex: WEBSITE_HOST_PATTERN,
+      message: "Enter a domain like example.com",
+    },
+  },
 };
 
-function isValidUrl(value: string) {
-  if (!value) return true;
-  try {
-    const u = new URL(value);
-    return u.protocol === "http:" || u.protocol === "https:";
-  } catch {
-    return false;
-  }
+function sanitizeZipCode(value: string) {
+  const raw = value.replace(/[^\d-]/g, "");
+  const digits = raw.replace(/\D/g, "").slice(0, 9);
+  if (digits.length <= 5) return digits;
+  return `${digits.slice(0, 5)}-${digits.slice(5)}`;
 }
 
-function getFieldWarning(key: string, value: string): string | null {
+function sanitizeLicenseNumber(value: string) {
+  return value.replace(/[^A-Za-z0-9-]/g, "").slice(0, 30);
+}
+
+function sanitizeName(value: string) {
+  return value.replace(/[^A-Za-z\s'.-]/g, "").slice(0, 50);
+}
+
+function sanitizeCity(value: string) {
+  return value.replace(/[^A-Za-z\s'.-]/g, "").slice(0, 50);
+}
+
+function normalizeStateCode(value: string): string {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  const upper = raw.toUpperCase();
+  if (US_STATE_CODES.has(upper)) return upper;
+  const byName = US_STATES.find(
+    (s) => s.name.toLowerCase() === raw.toLowerCase(),
+  );
+  return byName?.code || "";
+}
+
+function stripWebsitePrefix(value: string): string {
+  return String(value || "")
+    .trim()
+    .replace(/^https?:\/\//i, "")
+    .replace(/^\/+/, "")
+    .replace(/\/$/, "");
+}
+
+function toWebsiteUrl(host: string): string {
+  const cleaned = stripWebsitePrefix(host);
+  if (!cleaned) return "";
+  return `${WEBSITE_PREFIX}${cleaned}`;
+}
+
+function sanitizeWebsiteHost(value: string): string {
+  return stripWebsitePrefix(value)
+    .replace(/\s+/g, "")
+    .slice(0, 180);
+}
+
+function getFieldError(key: string, value: string): string | null {
   const rules = FIELD_LIMITS[key];
   if (!rules) return null;
   const trimmed = value ?? "";
@@ -156,6 +243,11 @@ function getFieldWarning(key: string, value: string): string | null {
 
   if (rules.required && trimmedLen === 0) {
     return "This field is required";
+  }
+
+  // Optional empty fields are valid
+  if (!rules.required && trimmedLen === 0) {
+    return null;
   }
 
   if (rules.min !== undefined && trimmedLen > 0 && trimmedLen < rules.min) {
@@ -168,16 +260,16 @@ function getFieldWarning(key: string, value: string): string | null {
 
   if (rules.digitMin !== undefined) {
     const digits = trimmed.replace(/\D/g, "");
-    if (trimmedStr && digits.length < rules.digitMin) {
-      return `Needs at least ${rules.digitMin} digits (${digits.length}/${rules.digitMin})`;
+    if (digits.length < rules.digitMin) {
+      return `Enter a valid ${rules.digitMin}-digit phone number (${digits.length}/${rules.digitMin})`;
     }
     if (rules.digitMax !== undefined && digits.length > rules.digitMax) {
       return `Maximum ${rules.digitMax} digits allowed`;
     }
   }
 
-  if (rules.url && trimmedStr && !isValidUrl(trimmedStr)) {
-    return "Enter a valid URL (e.g. https://example.com)";
+  if (key === "state" && trimmedStr && !US_STATE_CODES.has(trimmedStr)) {
+    return "Select a valid US state";
   }
 
   if (rules.pattern && trimmedStr && !rules.pattern.regex.test(trimmedStr)) {
@@ -226,11 +318,9 @@ function validateProfileForm(fields: {
 }) {
   const errors: Record<string, string> = {};
 
-  const warn = (key: keyof typeof fields) =>
-    getFieldWarning(key, fields[key] || "");
   const pick = (key: keyof typeof fields) => {
-    const w = warn(key);
-    if (w) errors[key] = w;
+    const message = getFieldError(key, fields[key] || "");
+    if (message) errors[key] = message;
   };
 
   pick("firstName");
@@ -279,6 +369,7 @@ export default function UserProfileCard() {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
 
   const [showPasswordSection, setShowPasswordSection] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
@@ -287,6 +378,22 @@ export default function UserProfileCard() {
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [changingPassword, setChangingPassword] = useState(false);
+  const [passwordErrors, setPasswordErrors] = useState<Record<string, string>>(
+    {},
+  );
+
+  const setFieldError = (key: string, value: string) => {
+    const message = getFieldError(key, value);
+    setFormErrors((prev) => {
+      if (!message) {
+        if (!prev[key]) return prev;
+        const { [key]: _drop, ...rest } = prev;
+        return rest;
+      }
+      if (prev[key] === message) return prev;
+      return { ...prev, [key]: message };
+    });
+  };
 
   async function loadUser() {
     try {
@@ -318,9 +425,9 @@ export default function UserProfileCard() {
       setLicenseNumber(bp.licenseNumber || "");
       setAddress(bp.address || "");
       setCity(bp.city || "");
-      setState(bp.state || "");
+      setState(normalizeStateCode(bp.state || ""));
       setZipCode(bp.zipCode || "");
-      setWebsite(bp.website || "");
+      setWebsite(stripWebsitePrefix(bp.website || ""));
     } catch {
       toast.error("Unable to load profile");
     }
@@ -338,9 +445,12 @@ export default function UserProfileCard() {
 
   if (!user) {
     return (
-      <div className="space-y-6 p-4 md:p-6">
-        <div className="h-32 animate-pulse rounded-2xl bg-gray-200 dark:bg-gray-800" />
-        <div className="h-96 animate-pulse rounded-2xl border border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900" />
+      <div className="mx-auto max-w-6xl space-y-5 p-4 md:p-6">
+        <div className="h-40 animate-pulse rounded-2xl bg-gradient-to-br from-[#13538A]/40 to-[#2C92D5]/30" />
+        <div className="grid gap-5 lg:grid-cols-3">
+          <div className="h-96 animate-pulse rounded-2xl border border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900 lg:col-span-2" />
+          <div className="h-64 animate-pulse rounded-2xl border border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900" />
+        </div>
       </div>
     );
   }
@@ -376,9 +486,10 @@ export default function UserProfileCard() {
     licenseNumber !== (user.brokerProfile?.licenseNumber || "") ||
     address !== (user.brokerProfile?.address || "") ||
     city !== (user.brokerProfile?.city || "") ||
-    state !== (user.brokerProfile?.state || "") ||
+    state !== normalizeStateCode(user.brokerProfile?.state || "") ||
     zipCode !== (user.brokerProfile?.zipCode || "") ||
-    website !== (user.brokerProfile?.website || "") ||
+    stripWebsitePrefix(website) !==
+      stripWebsitePrefix(user.brokerProfile?.website || "") ||
     Boolean(profileImage) ||
     removeProfileImage;
 
@@ -401,22 +512,29 @@ export default function UserProfileCard() {
     setConfirmPassword("");
     setShowCurrentPassword(false);
     setShowNewPassword(false);
+    setPasswordErrors({});
   };
 
   const handleChangePassword = async () => {
+    const nextErrors: Record<string, string> = {};
     if (!currentPassword.trim()) {
-      toast.error("Current password is required");
-      return;
+      nextErrors.currentPassword = "Current password is required";
     }
 
     const passwordError = validateNewPassword(newPassword);
     if (passwordError) {
-      toast.error(passwordError);
-      return;
+      nextErrors.newPassword = passwordError;
     }
 
-    if (newPassword !== confirmPassword) {
-      toast.error("Passwords do not match");
+    if (!confirmPassword.trim()) {
+      nextErrors.confirmPassword = "Please confirm your new password";
+    } else if (newPassword !== confirmPassword) {
+      nextErrors.confirmPassword = "Passwords do not match";
+    }
+
+    setPasswordErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) {
+      toast.error(Object.values(nextErrors)[0]);
       return;
     }
 
@@ -471,6 +589,18 @@ export default function UserProfileCard() {
       website,
     });
     setFormErrors(errors);
+    setTouched({
+      firstName: true,
+      lastName: true,
+      phone: true,
+      company: true,
+      licenseNumber: true,
+      address: true,
+      city: true,
+      state: true,
+      zipCode: true,
+      website: true,
+    });
 
     if (Object.keys(errors).length > 0) {
       const firstError = Object.values(errors)[0];
@@ -486,9 +616,9 @@ export default function UserProfileCard() {
     formData.append("licenseNumber", licenseNumber.trim());
     formData.append("address", address.trim());
     formData.append("city", city.trim());
-    formData.append("state", state.trim());
+    formData.append("state", normalizeStateCode(state));
     formData.append("zipCode", zipCode.trim());
-    formData.append("website", website.trim());
+    formData.append("website", toWebsiteUrl(website));
     if (profileImage) {
       formData.append("profileImage", profileImage);
     } else if (removeProfileImage) {
@@ -574,6 +704,7 @@ export default function UserProfileCard() {
     setImageProcessing(false);
     setAvatarLoadFailed(false);
     setFormErrors({});
+    setTouched({});
     setFirstName(user.firstName || "");
     setLastName(user.lastName || "");
     setPhone(user.phone ? formatPhone(user.phone) : "");
@@ -582,119 +713,105 @@ export default function UserProfileCard() {
     setLicenseNumber(bp.licenseNumber || "");
     setAddress(bp.address || "");
     setCity(bp.city || "");
-    setState(bp.state || "");
+    setState(normalizeStateCode(bp.state || ""));
     setZipCode(bp.zipCode || "");
-    setWebsite(bp.website || "");
+    setWebsite(stripWebsitePrefix(bp.website || ""));
   };
 
+  const handleAvatarFileChange = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setAvatarLoadFailed(false);
+    setRemoveProfileImage(false);
+    if (!file.type.startsWith("image/")) {
+      toast.error("Only image files allowed");
+      return;
+    }
+
+    setImageError(null);
+    setImageProcessing(true);
+    try {
+      const wasOverLimit = file.size > MAX_IMAGE_BYTES;
+      const compressed = await compressImage(file);
+
+      if (compressed.size > MAX_IMAGE_BYTES) {
+        setProfileImage(null);
+        setOriginalImageSize(0);
+        setImageError(
+          `Image is too large (${formatBytes(
+            compressed.size,
+          )}). Please choose one under ${formatBytes(MAX_IMAGE_BYTES)}.`,
+        );
+        toast.error(
+          `Image is ${formatBytes(
+            compressed.size,
+          )} after compression. Max allowed is ${formatBytes(MAX_IMAGE_BYTES)}.`,
+        );
+        return;
+      }
+
+      setProfileImage(compressed);
+      setOriginalImageSize(file.size);
+      if (wasOverLimit) {
+        toast.success(
+          `Image compressed from ${formatBytes(file.size)} to ${formatBytes(
+            compressed.size,
+          )}`,
+        );
+      }
+    } catch {
+      setImageError("Unable to process this image.");
+      toast.error("Unable to process this image");
+    } finally {
+      setImageProcessing(false);
+    }
+  };
+
+  const companyLabel = editing ? company.trim() : user.organizationName;
+  const stateDisplay =
+    state ? US_STATES.find((s) => s.code === state)?.name || state : "";
+
   return (
-    <div className="space-y-6 p-4 md:p-6">
-      <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
-        <div className="relative bg-gradient-to-br from-[#13538A] via-[#1a6aad] to-[#2C92D5] px-5 pb-16 pt-6 text-white sm:px-8 sm:pb-20 sm:pt-7">
-          <div className="pointer-events-none absolute inset-0 overflow-hidden">
-            <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
-            <div className="absolute -bottom-16 left-1/3 h-36 w-36 rounded-full bg-cyan-300/20 blur-2xl" />
-          </div>
+    <div className="mx-auto max-w-6xl space-y-5 p-4 md:p-6">
+      <section className="relative overflow-hidden rounded-2xl border border-[#13538A]/15 bg-gradient-to-br from-[#13538A] via-[#1a6aad] to-[#2C92D5] p-5 text-white shadow-sm sm:p-7">
+        <div className="pointer-events-none absolute inset-0 overflow-hidden">
+          <div className="absolute -right-12 -top-12 h-44 w-44 rounded-full bg-white/10 blur-2xl" />
+          <div className="absolute -bottom-20 left-1/4 h-40 w-40 rounded-full bg-cyan-300/20 blur-2xl" />
+        </div>
 
-          <div className="relative flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div className="min-w-0 max-w-xl">
-              <p className="text-xs font-semibold uppercase tracking-widest text-white/70">
-                Account · Settings
-              </p>
-              <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">
-                My Profile
-              </h1>
-              <p className="mt-2 text-sm text-white/80">
-                Manage your personal information, professional details, and
-                account settings for the broker portal.
-              </p>
-            </div>
-
-            <span className="inline-flex shrink-0 items-center gap-2 self-start rounded-full border border-white/25 bg-white/10 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-white backdrop-blur-sm">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-300" />
-              {roleLabel}
-            </span>
-          </div>
-
-          <div className="absolute -bottom-14 left-4 z-10 sm:left-8">
-            <div className="group relative">
-              <div className="absolute -inset-1 rounded-full bg-white/90 dark:bg-gray-900" />
-              <div className="relative h-28 w-28 overflow-hidden rounded-full border-4 border-white shadow-lg dark:border-gray-900 sm:h-32 sm:w-32">
+        <div className="relative flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
+          <div className="flex flex-col gap-5 sm:flex-row sm:items-end">
+            <div className="group relative shrink-0">
+              <div className="relative h-24 w-24 overflow-hidden rounded-2xl border-4 border-white/30 bg-white/10 shadow-lg sm:h-28 sm:w-28">
                 <img
                   key={remoteAvatarSrcFresh || "avatar-fallback"}
                   src={avatarSrc}
                   alt={displayName}
-                  className="h-full w-full bg-slate-50 object-contain dark:bg-gray-800"
+                  className="h-full w-full bg-white/20 object-contain"
                   onError={(e) => {
-                    const src = e.currentTarget.currentSrc || e.currentTarget.src;
-                    // Ignore stale errors from a previous src and fallback failures.
+                    const src =
+                      e.currentTarget.currentSrc || e.currentTarget.src;
                     if (!src || src.includes("ui-avatars.com")) return;
-                    if (remoteAvatarSrcFresh && src.startsWith(remoteAvatarSrc!)) {
+                    if (
+                      remoteAvatarSrcFresh &&
+                      src.startsWith(remoteAvatarSrc!)
+                    ) {
                       setAvatarLoadFailed(true);
                     }
                   }}
                 />
                 {editing && (
                   <label className="absolute inset-0 flex cursor-pointer flex-col items-center justify-center bg-black/55 text-white opacity-0 transition group-hover:opacity-100">
-                    <Camera size={22} />
+                    <Camera size={20} />
                     <span className="mt-1 text-[10px] font-medium">Change</span>
                     <input
                       type="file"
                       accept="image/*"
                       className="hidden"
-                      onChange={async (e) => {
-                        const file = e.target.files?.[0];
-                        e.target.value = "";
-                        if (!file) return;
-                        setAvatarLoadFailed(false);
-                        setRemoveProfileImage(false);
-                        if (!file.type.startsWith("image/")) {
-                          toast.error("Only image files allowed");
-                          return;
-                        }
-
-                        setImageError(null);
-                        setImageProcessing(true);
-                        try {
-                          const wasOverLimit = file.size > MAX_IMAGE_BYTES;
-                          const compressed = await compressImage(file);
-
-                          if (compressed.size > MAX_IMAGE_BYTES) {
-                            setProfileImage(null);
-                            setOriginalImageSize(0);
-                            setImageError(
-                              `Image is too large (${formatBytes(
-                                compressed.size,
-                              )}). Please choose one under ${formatBytes(
-                                MAX_IMAGE_BYTES,
-                              )}.`,
-                            );
-                            toast.error(
-                              `Image is ${formatBytes(
-                                compressed.size,
-                              )} after compression. Max allowed is ${formatBytes(
-                                MAX_IMAGE_BYTES,
-                              )}.`,
-                            );
-                            return;
-                          }
-
-                          setProfileImage(compressed);
-                          setOriginalImageSize(file.size);
-                          if (wasOverLimit) {
-                            toast.success(
-                              `Image compressed from ${formatBytes(
-                                file.size,
-                              )} to ${formatBytes(compressed.size)}`,
-                            );
-                          }
-                        } catch {
-                          setImageError("Unable to process this image.");
-                          toast.error("Unable to process this image");
-                        } finally {
-                          setImageProcessing(false);
-                        }
-                      }}
+                      onChange={handleAvatarFileChange}
                     />
                   </label>
                 )}
@@ -709,7 +826,7 @@ export default function UserProfileCard() {
                     setRemoveProfileImage(true);
                     setAvatarLoadFailed(false);
                   }}
-                  className="absolute -bottom-1 -right-1 inline-flex items-center justify-center rounded-full border border-white bg-red-500 p-1.5 text-white shadow-md transition hover:bg-red-600 dark:border-gray-900"
+                  className="absolute -bottom-1 -right-1 inline-flex items-center justify-center rounded-full border border-white bg-red-500 p-1.5 text-white shadow-md transition hover:bg-red-600"
                   title="Remove photo"
                   aria-label="Remove profile photo"
                 >
@@ -717,86 +834,83 @@ export default function UserProfileCard() {
                 </button>
               )}
             </div>
-          </div>
-        </div>
 
-        <div className="flex flex-wrap items-start justify-between gap-4 px-4 pb-6 pt-16 sm:px-8 sm:pt-20">
-          <div className="min-w-0 flex-1">
-            <h2
-              className="truncate text-xl font-bold text-gray-900 dark:text-white"
-              title={displayName}
-            >
-              {displayName}
-            </h2>
-            <p
-              className="mt-1 flex items-center gap-2 truncate text-sm font-medium text-[#13538A] dark:text-[#6ba3d8]"
-              title={roleLabel}
-            >
-              <Briefcase size={14} className="shrink-0" />
-              <span className="truncate">{roleLabel}</span>
-            </p>
-            {(editing ? company.trim() : user.organizationName) && (
-              <p
-                className="mt-1 flex items-center gap-2 truncate text-sm text-gray-500 dark:text-gray-400"
-                title={editing ? company.trim() : user.organizationName}
-              >
-                <Building2 size={14} className="shrink-0" />
-                <span className="truncate">
-                  {editing ? company.trim() : user.organizationName}
-                </span>
+            <div className="min-w-0">
+              <p className="text-xs font-semibold uppercase tracking-widest text-white/70">
+                Broker Profile
               </p>
-            )}
-
-            {editing && (imageProcessing || profileImage || imageError || removeProfileImage) && (
-              <div className="mt-3 max-w-md">
-                {imageProcessing && (
-                  <p className="flex items-center gap-2 text-xs text-blue-600 dark:text-blue-400">
-                    <span className="h-2 w-2 animate-pulse rounded-full bg-blue-500" />
-                    Processing image…
-                  </p>
-                )}
-                {!imageProcessing && removeProfileImage && !profileImage && (
-                  <p className="text-xs font-medium text-amber-600 dark:text-amber-400">
-                    Photo will be removed when you save.
-                  </p>
-                )}
-                {!imageProcessing && profileImage && (
-                  <p
-                    className={`flex flex-wrap items-center gap-x-2 gap-y-1 text-xs ${
-                      originalImageSize > MAX_IMAGE_BYTES
-                        ? "text-amber-600 dark:text-amber-400"
-                        : "text-gray-500 dark:text-gray-400"
-                    }`}
-                  >
-                    <span className="font-medium">
-                      {formatBytes(profileImage.size)}
+              <h1
+                className="mt-1 truncate text-2xl font-bold tracking-tight sm:text-3xl"
+                title={displayName}
+              >
+                {displayName}
+              </h1>
+              <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-white/85">
+                <span className="inline-flex items-center gap-1.5">
+                  <Briefcase size={14} />
+                  {roleLabel}
+                </span>
+                {companyLabel ? (
+                  <>
+                    <span className="text-white/35">·</span>
+                    <span className="inline-flex min-w-0 items-center gap-1.5">
+                      <Building2 size={14} className="shrink-0" />
+                      <span className="truncate">{companyLabel}</span>
                     </span>
-                    {originalImageSize > MAX_IMAGE_BYTES && (
-                      <>
-                        <span>(compressed from {formatBytes(originalImageSize)})</span>
-                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
-                          Was over {formatBytes(MAX_IMAGE_BYTES)}
-                        </span>
-                      </>
+                  </>
+                ) : null}
+              </p>
+              {user.email ? (
+                <p className="mt-1.5 flex items-center gap-1.5 truncate text-sm text-white/75">
+                  <Mail size={14} className="shrink-0" />
+                  <span className="truncate">{user.email}</span>
+                </p>
+              ) : null}
+
+              {editing &&
+                (imageProcessing ||
+                  profileImage ||
+                  imageError ||
+                  removeProfileImage) && (
+                  <div className="mt-3 max-w-md space-y-1">
+                    {imageProcessing && (
+                      <p className="flex items-center gap-2 text-xs text-cyan-100">
+                        <span className="h-2 w-2 animate-pulse rounded-full bg-cyan-200" />
+                        Processing image…
+                      </p>
                     )}
-                  </p>
+                    {!imageProcessing &&
+                      removeProfileImage &&
+                      !profileImage && (
+                        <p className="text-xs font-medium text-amber-200">
+                          Photo will be removed when you save.
+                        </p>
+                      )}
+                    {!imageProcessing && profileImage && (
+                      <p className="text-xs text-white/80">
+                        {formatBytes(profileImage.size)}
+                        {originalImageSize > MAX_IMAGE_BYTES
+                          ? ` · compressed from ${formatBytes(originalImageSize)}`
+                          : ""}
+                      </p>
+                    )}
+                    {!imageProcessing && imageError && (
+                      <p className="text-xs font-medium text-amber-200">
+                        {imageError}
+                      </p>
+                    )}
+                  </div>
                 )}
-                {!imageProcessing && imageError && (
-                  <p className="mt-1 text-xs font-medium text-red-500">
-                    {imageError}
-                  </p>
-                )}
-              </div>
-            )}
+            </div>
           </div>
 
           <button
             type="button"
             onClick={() => (editing ? cancelEdit() : setEditing(true))}
-            className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition ${
+            className={`inline-flex items-center gap-2 self-start rounded-xl px-4 py-2.5 text-sm font-semibold transition ${
               editing
-                ? "border border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
-                : "bg-[#13538A] text-white shadow-sm hover:bg-[#1a6aad]"
+                ? "border border-white/25 bg-white/10 text-white hover:bg-white/20"
+                : "bg-white text-[#13538A] shadow-sm hover:bg-white/90"
             }`}
           >
             {editing ? (
@@ -812,28 +926,35 @@ export default function UserProfileCard() {
             )}
           </button>
         </div>
+      </section>
 
-        <div className="grid gap-6 border-t border-gray-100 p-4 dark:border-gray-800 sm:p-8 lg:grid-cols-3">
-          <div className="space-y-6 lg:col-span-2">
-            <section>
-              <h3 className="mb-4 text-sm font-semibold text-gray-900 dark:text-white">
-                Personal Information
-              </h3>
-              <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-5 lg:grid-cols-3">
+        <div className="space-y-5 lg:col-span-2">
+          <SectionCard
+            title="Personal Information"
+            description="Your name and phone as shown across the broker portal."
+          >
+            <div className="grid gap-4 md:grid-cols-2">
                 <ProfileField
                   label="First Name"
                   value={firstName}
                   editing={editing}
                   onChange={(v) => {
-                    setFirstName(v);
-                    if (formErrors.firstName)
-                      setFormErrors((e) => {
-                        const { firstName: _drop, ...rest } = e;
-                        return rest;
-                      });
+                    const next = sanitizeName(v);
+                    setFirstName(next);
+                    setTouched((t) => ({ ...t, firstName: true }));
+                    setFieldError("firstName", next);
+                  }}
+                  onBlur={() => {
+                    setTouched((t) => ({ ...t, firstName: true }));
+                    setFieldError("firstName", firstName);
                   }}
                   icon={<User size={14} />}
-                  error={formErrors.firstName}
+                  error={
+                    touched.firstName || formErrors.firstName
+                      ? formErrors.firstName || getFieldError("firstName", firstName) || undefined
+                      : undefined
+                  }
                   maxLength={50}
                   fieldKey="firstName"
                 />
@@ -842,15 +963,21 @@ export default function UserProfileCard() {
                   value={lastName}
                   editing={editing}
                   onChange={(v) => {
-                    setLastName(v);
-                    if (formErrors.lastName)
-                      setFormErrors((e) => {
-                        const { lastName: _drop, ...rest } = e;
-                        return rest;
-                      });
+                    const next = sanitizeName(v);
+                    setLastName(next);
+                    setTouched((t) => ({ ...t, lastName: true }));
+                    setFieldError("lastName", next);
+                  }}
+                  onBlur={() => {
+                    setTouched((t) => ({ ...t, lastName: true }));
+                    setFieldError("lastName", lastName);
                   }}
                   icon={<User size={14} />}
-                  error={formErrors.lastName}
+                  error={
+                    touched.lastName || formErrors.lastName
+                      ? formErrors.lastName || getFieldError("lastName", lastName) || undefined
+                      : undefined
+                  }
                   maxLength={50}
                   fieldKey="lastName"
                 />
@@ -859,27 +986,41 @@ export default function UserProfileCard() {
                   value={phone}
                   editing={editing}
                   onChange={(v) => {
-                    setPhone(formatPhone(v));
-                    if (formErrors.phone)
-                      setFormErrors((e) => {
-                        const { phone: _drop, ...rest } = e;
-                        return rest;
-                      });
+                    const next = formatPhone(v);
+                    setPhone(next);
+                    setTouched((t) => ({ ...t, phone: true }));
+                    setFieldError("phone", next);
+                  }}
+                  onBlur={() => {
+                    setTouched((t) => ({ ...t, phone: true }));
+                    setFieldError("phone", phone);
                   }}
                   icon={<Phone size={14} />}
-                  error={formErrors.phone}
+                  error={
+                    touched.phone || formErrors.phone
+                      ? formErrors.phone || getFieldError("phone", phone) || undefined
+                      : undefined
+                  }
                   maxLength={12}
                   type="tel"
                   placeholder="888-888-8888"
                   fieldKey="phone"
                 />
+                <div className="md:col-span-2">
+                  <InfoCard
+                    label="Email"
+                    value={user.email}
+                    icon={<Mail size={18} />}
+                    hint="Managed by your account — contact support to change."
+                  />
+                </div>
               </div>
-            </section>
+          </SectionCard>
 
-            <section>
-              <h3 className="mb-4 text-sm font-semibold text-gray-900 dark:text-white">
-                Professional Information
-              </h3>
+          <SectionCard
+            title="Professional Information"
+            description="Company, license, and location details used on applications and branding."
+          >
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="md:col-span-2">
                   <ProfileField
@@ -887,15 +1028,21 @@ export default function UserProfileCard() {
                     value={company}
                     editing={editing}
                     onChange={(v) => {
-                      setCompany(v);
-                      if (formErrors.company)
-                        setFormErrors((e) => {
-                          const { company: _drop, ...rest } = e;
-                          return rest;
-                        });
+                      const next = v.slice(0, 100);
+                      setCompany(next);
+                      setTouched((t) => ({ ...t, company: true }));
+                      setFieldError("company", next);
+                    }}
+                    onBlur={() => {
+                      setTouched((t) => ({ ...t, company: true }));
+                      setFieldError("company", company);
                     }}
                     icon={<Building2 size={14} />}
-                    error={formErrors.company}
+                    error={
+                      touched.company || formErrors.company
+                        ? formErrors.company || getFieldError("company", company) || undefined
+                        : undefined
+                    }
                     maxLength={100}
                     fieldKey="company"
                   />
@@ -911,32 +1058,47 @@ export default function UserProfileCard() {
                   value={licenseNumber}
                   editing={editing}
                   onChange={(v) => {
-                    setLicenseNumber(v);
-                    if (formErrors.licenseNumber)
-                      setFormErrors((e) => {
-                        const { licenseNumber: _drop, ...rest } = e;
-                        return rest;
-                      });
+                    const next = sanitizeLicenseNumber(v);
+                    setLicenseNumber(next);
+                    setTouched((t) => ({ ...t, licenseNumber: true }));
+                    setFieldError("licenseNumber", next);
+                  }}
+                  onBlur={() => {
+                    setTouched((t) => ({ ...t, licenseNumber: true }));
+                    setFieldError("licenseNumber", licenseNumber);
                   }}
                   icon={<Briefcase size={14} />}
-                  error={formErrors.licenseNumber}
+                  error={
+                    touched.licenseNumber || formErrors.licenseNumber
+                      ? formErrors.licenseNumber ||
+                        getFieldError("licenseNumber", licenseNumber) ||
+                        undefined
+                      : undefined
+                  }
                   maxLength={30}
                   fieldKey="licenseNumber"
+                  placeholder="e.g. CA-123456"
                 />
                 <ProfileField
                   label="Address"
                   value={address}
                   editing={editing}
                   onChange={(v) => {
-                    setAddress(v);
-                    if (formErrors.address)
-                      setFormErrors((e) => {
-                        const { address: _drop, ...rest } = e;
-                        return rest;
-                      });
+                    const next = v.slice(0, 200);
+                    setAddress(next);
+                    setTouched((t) => ({ ...t, address: true }));
+                    setFieldError("address", next);
                   }}
-                  icon={<Building2 size={14} />}
-                  error={formErrors.address}
+                  onBlur={() => {
+                    setTouched((t) => ({ ...t, address: true }));
+                    setFieldError("address", address);
+                  }}
+                  icon={<MapPin size={14} />}
+                  error={
+                    touched.address || formErrors.address
+                      ? formErrors.address || getFieldError("address", address) || undefined
+                      : undefined
+                  }
                   maxLength={200}
                   fieldKey="address"
                 />
@@ -945,15 +1107,21 @@ export default function UserProfileCard() {
                   value={city}
                   editing={editing}
                   onChange={(v) => {
-                    setCity(v);
-                    if (formErrors.city)
-                      setFormErrors((e) => {
-                        const { city: _drop, ...rest } = e;
-                        return rest;
-                      });
+                    const next = sanitizeCity(v);
+                    setCity(next);
+                    setTouched((t) => ({ ...t, city: true }));
+                    setFieldError("city", next);
                   }}
-                  icon={<Building2 size={14} />}
-                  error={formErrors.city}
+                  onBlur={() => {
+                    setTouched((t) => ({ ...t, city: true }));
+                    setFieldError("city", city);
+                  }}
+                  icon={<MapPin size={14} />}
+                  error={
+                    touched.city || formErrors.city
+                      ? formErrors.city || getFieldError("city", city) || undefined
+                      : undefined
+                  }
                   maxLength={50}
                   fieldKey="city"
                 />
@@ -962,74 +1130,85 @@ export default function UserProfileCard() {
                   value={state}
                   editing={editing}
                   onChange={(v) => {
-                    setState(v);
-                    if (formErrors.state)
-                      setFormErrors((e) => {
-                        const { state: _drop, ...rest } = e;
-                        return rest;
-                      });
+                    const next = normalizeStateCode(v);
+                    setState(next);
+                    setTouched((t) => ({ ...t, state: true }));
+                    setFieldError("state", next);
                   }}
-                  icon={<Building2 size={14} />}
-                  error={formErrors.state}
-                  maxLength={50}
+                  onBlur={() => {
+                    setTouched((t) => ({ ...t, state: true }));
+                    setFieldError("state", state);
+                  }}
+                  icon={<MapPin size={14} />}
+                  error={
+                    touched.state || formErrors.state
+                      ? formErrors.state || getFieldError("state", state) || undefined
+                      : undefined
+                  }
                   fieldKey="state"
+                  placeholder="Select state"
+                  options={STATE_OPTIONS}
+                  displayValue={stateDisplay}
                 />
                 <ProfileField
                   label="ZIP Code"
                   value={zipCode}
                   editing={editing}
                   onChange={(v) => {
-                    setZipCode(v);
-                    if (formErrors.zipCode)
-                      setFormErrors((e) => {
-                        const { zipCode: _drop, ...rest } = e;
-                        return rest;
-                      });
+                    const next = sanitizeZipCode(v);
+                    setZipCode(next);
+                    setTouched((t) => ({ ...t, zipCode: true }));
+                    setFieldError("zipCode", next);
                   }}
-                  icon={<Building2 size={14} />}
-                  error={formErrors.zipCode}
+                  onBlur={() => {
+                    setTouched((t) => ({ ...t, zipCode: true }));
+                    setFieldError("zipCode", zipCode);
+                  }}
+                  icon={<MapPin size={14} />}
+                  error={
+                    touched.zipCode || formErrors.zipCode
+                      ? formErrors.zipCode || getFieldError("zipCode", zipCode) || undefined
+                      : undefined
+                  }
                   maxLength={10}
                   fieldKey="zipCode"
+                  type="tel"
+                  placeholder="12345"
                 />
                 <ProfileField
                   label="Website"
                   value={website}
                   editing={editing}
                   onChange={(v) => {
-                    setWebsite(v);
-                    if (formErrors.website)
-                      setFormErrors((e) => {
-                        const { website: _drop, ...rest } = e;
-                        return rest;
-                      });
+                    const next = sanitizeWebsiteHost(v);
+                    setWebsite(next);
+                    setTouched((t) => ({ ...t, website: true }));
+                    setFieldError("website", next);
                   }}
-                  icon={<Briefcase size={14} />}
-                  error={formErrors.website}
-                  maxLength={200}
-                  type="url"
+                  onBlur={() => {
+                    setTouched((t) => ({ ...t, website: true }));
+                    setFieldError("website", website);
+                  }}
+                  icon={<Globe size={14} />}
+                  error={
+                    touched.website || formErrors.website
+                      ? formErrors.website || getFieldError("website", website) || undefined
+                      : undefined
+                  }
+                  maxLength={180}
                   fieldKey="website"
+                  placeholder="example.com"
+                  prefix={WEBSITE_PREFIX}
+                  displayValue={website ? toWebsiteUrl(website) : ""}
                 />
               </div>
-            </section>
+          </SectionCard>
 
-            <section>
-              <h3 className="mb-4 text-sm font-semibold text-gray-900 dark:text-white">
-                Contact
-              </h3>
-              <div className="grid gap-4 md:grid-cols-2">
-                <InfoCard
-                  label="Email"
-                  value={user.email}
-                  icon={<Mail size={18} />}
-                />
-              </div>
-            </section>
-
-            <section>
-              <h3 className="mb-4 text-sm font-semibold text-gray-900 dark:text-white">
-                Security
-              </h3>
-              <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900/60">
+          <SectionCard
+            title="Security"
+            description="Keep your broker account secure with a strong password."
+          >
+              <div className="rounded-xl border border-gray-100 bg-gray-50/80 p-4 dark:border-gray-800 dark:bg-gray-800/40">
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div>
                     <p className="flex items-center gap-2 text-sm font-medium text-gray-900 dark:text-white">
@@ -1037,8 +1216,8 @@ export default function UserProfileCard() {
                       Password
                     </p>
                     <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                      Update your account password. Use at least 8 characters
-                      with upper, lower, number, and special character.
+                      Use at least 8 characters with upper, lower, number, and
+                      special character.
                     </p>
                   </div>
                   <button
@@ -1047,7 +1226,7 @@ export default function UserProfileCard() {
                       setShowPasswordSection((prev) => !prev);
                       resetPasswordForm();
                     }}
-                    className="rounded-xl bg-blue-50 px-4 py-2 text-sm font-medium text-blue-600 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-300"
+                    className="rounded-xl border border-[#13538A]/20 bg-[#13538A]/5 px-4 py-2 text-sm font-medium text-[#13538A] transition hover:bg-[#13538A]/10 dark:border-cyan-500/30 dark:bg-cyan-500/10 dark:text-cyan-300"
                   >
                     {showPasswordSection ? "Cancel" : "Change Password"}
                   </button>
@@ -1060,21 +1239,61 @@ export default function UserProfileCard() {
                       value={currentPassword}
                       show={showCurrentPassword}
                       onToggle={() => setShowCurrentPassword((prev) => !prev)}
-                      onChange={setCurrentPassword}
+                      onChange={(v) => {
+                        setCurrentPassword(v);
+                        setPasswordErrors((prev) => {
+                          const { currentPassword: _drop, ...rest } = prev;
+                          return rest;
+                        });
+                      }}
+                      error={passwordErrors.currentPassword}
                     />
                     <PasswordField
                       label="New password"
                       value={newPassword}
                       show={showNewPassword}
                       onToggle={() => setShowNewPassword((prev) => !prev)}
-                      onChange={setNewPassword}
+                      onChange={(v) => {
+                        setNewPassword(v);
+                        const message = validateNewPassword(v);
+                        setPasswordErrors((prev) => {
+                          const next = { ...prev };
+                          if (message) next.newPassword = message;
+                          else delete next.newPassword;
+                          if (
+                            confirmPassword &&
+                            v !== confirmPassword
+                          ) {
+                            next.confirmPassword = "Passwords do not match";
+                          } else if (confirmPassword) {
+                            delete next.confirmPassword;
+                          }
+                          return next;
+                        });
+                      }}
+                      error={passwordErrors.newPassword}
                     />
                     <PasswordField
                       label="Confirm new password"
                       value={confirmPassword}
                       show={showNewPassword}
                       onToggle={() => setShowNewPassword((prev) => !prev)}
-                      onChange={setConfirmPassword}
+                      onChange={(v) => {
+                        setConfirmPassword(v);
+                        setPasswordErrors((prev) => {
+                          const next = { ...prev };
+                          if (!v.trim()) {
+                            next.confirmPassword =
+                              "Please confirm your new password";
+                          } else if (v !== newPassword) {
+                            next.confirmPassword = "Passwords do not match";
+                          } else {
+                            delete next.confirmPassword;
+                          }
+                          return next;
+                        });
+                      }}
+                      error={passwordErrors.confirmPassword}
                     />
                     <div className="flex justify-end md:col-span-2">
                       <button
@@ -1089,75 +1308,141 @@ export default function UserProfileCard() {
                   </div>
                 )}
               </div>
-            </section>
-          </div>
+          </SectionCard>
+        </div>
 
-          <aside className="space-y-4">
-            <div className="rounded-2xl border border-gray-100 bg-gray-50 p-5 dark:border-gray-700 dark:bg-gray-800/50">
-              <h4 className="font-semibold text-gray-900 dark:text-white">
+        <aside className="space-y-5 lg:sticky lg:top-6 lg:self-start">
+          <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
+            <div className="border-b border-gray-100 px-5 py-4 dark:border-gray-800">
+              <h4 className="text-sm font-semibold text-gray-900 dark:text-white">
                 Account Overview
               </h4>
-              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                Your broker portal activity at a glance.
+              <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                Your broker portal at a glance.
               </p>
-
-              <div className="mt-4 flex items-center gap-2 rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2.5 text-sm font-medium text-emerald-700 dark:border-emerald-800/50 dark:bg-emerald-900/20 dark:text-emerald-400">
+            </div>
+            <div className="space-y-4 p-5">
+              <div
+                className={`flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium ${
+                  user.status === "DISABLED"
+                    ? "border border-amber-100 bg-amber-50 text-amber-700 dark:border-amber-800/50 dark:bg-amber-900/20 dark:text-amber-300"
+                    : "border border-emerald-100 bg-emerald-50 text-emerald-700 dark:border-emerald-800/50 dark:bg-emerald-900/20 dark:text-emerald-400"
+                }`}
+              >
                 <span className="relative flex h-2 w-2">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-40" />
-                  <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+                  {user.status !== "DISABLED" && (
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-40" />
+                  )}
+                  <span
+                    className={`relative inline-flex h-2 w-2 rounded-full ${
+                      user.status === "DISABLED"
+                        ? "bg-amber-500"
+                        : "bg-emerald-500"
+                    }`}
+                  />
                 </span>
                 {user.status === "DISABLED" ? "Inactive Account" : "Active Account"}
               </div>
 
-              <div className="mt-4 grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-3">
                 <StatTile
                   label="Applications"
                   value={String(user.applicationCount ?? 0)}
                 />
                 <StatTile label="Role" value={roleLabel} compact />
               </div>
-            </div>
 
-            <div className="rounded-2xl border border-[#13538A]/15 bg-[#13538A]/5 p-5 dark:border-[#13538A]/25 dark:bg-[#13538A]/10">
-              <p className="text-xs font-semibold uppercase tracking-wider text-[#13538A]">
-                Tip
-              </p>
-              <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
-                Keep your company name, license, and contact details updated so
-                lenders and clients see accurate information across the platform.
-              </p>
+              <div className="rounded-xl border border-gray-100 bg-gray-50 px-3 py-3 dark:border-gray-800 dark:bg-gray-800/50">
+                <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                  <ShieldCheck size={12} />
+                  Sign-in email
+                </p>
+                <p className="mt-1 truncate text-sm font-medium text-gray-800 dark:text-gray-200">
+                  {user.email}
+                </p>
+              </div>
             </div>
-          </aside>
-        </div>
-
-        {editing && (
-          <div className="flex justify-end gap-3 border-t border-gray-100 px-4 py-4 dark:border-gray-800 sm:px-8">
-            <button
-              type="button"
-              onClick={cancelEdit}
-              className="rounded-xl border border-gray-200 px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
-            >
-              Discard
-            </button>
-            <button
-              type="button"
-              onClick={handleSave}
-              disabled={saving || !isChanged}
-              className="inline-flex items-center gap-2 rounded-xl bg-[#13538A] px-6 py-2.5 text-sm font-semibold text-white hover:bg-[#1a6aad] disabled:opacity-50"
-            >
-              {saving ? (
-                "Saving..."
-              ) : (
-                <>
-                  <Check size={16} />
-                  Save Changes
-                </>
-              )}
-            </button>
           </div>
-        )}
+
+          <div className="rounded-2xl border border-[#13538A]/15 bg-gradient-to-br from-[#13538A]/8 to-transparent p-5 dark:border-[#13538A]/25 dark:from-[#13538A]/15">
+            <p className="text-xs font-semibold uppercase tracking-wider text-[#13538A]">
+              Tip
+            </p>
+            <p className="mt-2 text-sm leading-relaxed text-gray-600 dark:text-gray-300">
+              Keep your company name, license, and contact details updated so
+              lenders and clients see accurate information across the platform.
+            </p>
+          </div>
+        </aside>
       </div>
+
+      {editing && (
+        <div className="sticky bottom-4 z-20 mt-2 rounded-2xl border border-gray-200 bg-white/95 p-4 shadow-lg backdrop-blur dark:border-gray-800 dark:bg-gray-950/95">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-gray-900 dark:text-white">
+                {isChanged ? "Unsaved changes" : "Editing profile"}
+              </p>
+              <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                {isChanged
+                  ? "Save to update your broker profile across the portal."
+                  : "Make a change to enable Save."}
+              </p>
+            </div>
+            <div className="flex shrink-0 items-center gap-3">
+              <button
+                type="button"
+                onClick={cancelEdit}
+                className="rounded-xl border border-gray-200 px-5 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
+              >
+                Discard
+              </button>
+              <button
+                type="button"
+                onClick={handleSave}
+                disabled={saving || !isChanged}
+                className="inline-flex items-center gap-2 rounded-xl bg-[#13538A] px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-[#1a6aad] disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500 dark:disabled:bg-gray-800 dark:disabled:text-gray-500"
+              >
+                {saving ? (
+                  "Saving..."
+                ) : (
+                  <>
+                    <Check size={16} />
+                    Save Changes
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
+  );
+}
+
+function SectionCard({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
+      <div className="border-b border-gray-100 px-5 py-4 dark:border-gray-800">
+        <h2 className="text-sm font-semibold text-gray-900 dark:text-white">
+          {title}
+        </h2>
+        {description ? (
+          <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+            {description}
+          </p>
+        ) : null}
+      </div>
+      <div className="p-5">{children}</div>
+    </section>
   );
 }
 
@@ -1166,60 +1451,109 @@ function ProfileField({
   value,
   editing,
   onChange,
+  onBlur,
   icon,
   error,
   maxLength,
   type = "text",
   placeholder,
   fieldKey,
+  options,
+  prefix,
+  displayValue,
 }: {
   label: string;
   value: string;
   editing: boolean;
   onChange?: (value: string) => void;
+  onBlur?: () => void;
   icon: React.ReactNode;
   error?: string;
   maxLength?: number;
   type?: string;
   placeholder?: string;
   fieldKey?: string;
+  options?: { value: string; label: string }[];
+  prefix?: string;
+  displayValue?: string;
 }) {
-  const warning = fieldKey ? getFieldWarning(fieldKey, value || "") : null;
   const counter = fieldKey ? getFieldCounter(fieldKey, value || "") : null;
+  const hasError = Boolean(error);
+  const errorBorderClass = hasError
+    ? "border-red-400 bg-red-50/60 focus:border-red-500 focus:ring-red-500/10 dark:bg-red-950/20"
+    : "";
+  const shownValue = displayValue ?? value;
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-1.5">
       <label className="flex items-center gap-2 text-xs font-medium text-gray-500 dark:text-gray-400">
         {icon}
         {label}
       </label>
       {editing && onChange ? (
         <>
-          <input
-            type={type}
-            value={value}
-            maxLength={maxLength}
-            placeholder={placeholder}
-            inputMode={type === "tel" ? "numeric" : undefined}
-            onChange={(e) => onChange(e.target.value)}
-            className={`${inputClass} ${
-              error
-                ? "border-red-400 focus:border-red-500 focus:ring-red-500/10"
-                : warning
-                  ? "border-amber-400 focus:border-amber-500 focus:ring-amber-500/10"
-                  : ""
-            }`}
-          />
-          <div className="flex items-center justify-between gap-2">
-            <p
-              className={`min-h-[1rem] flex-1 text-xs ${error ? "text-red-500" : warning ? warningClass : "text-transparent"}`}
+          {options ? (
+            <select
+              value={value}
+              onChange={(e) => onChange(e.target.value)}
+              onBlur={onBlur}
+              aria-invalid={hasError}
+              className={`${inputClass} ${errorBorderClass} ${
+                !value ? "text-gray-400" : ""
+              }`}
             >
-              {error || warning || "·"}
+              <option value="">{placeholder || "Select"}</option>
+              {options.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          ) : prefix ? (
+            <div
+              className={`flex overflow-hidden rounded-xl border bg-gray-50 transition focus-within:ring-2 dark:bg-gray-800 ${
+                hasError
+                  ? "border-red-400 focus-within:border-red-500 focus-within:ring-red-500/10"
+                  : "border-gray-200 focus-within:border-[#13538A]/40 focus-within:ring-[#13538A]/10 dark:border-gray-700"
+              }`}
+            >
+              <span className="flex shrink-0 items-center border-r border-gray-200 bg-gray-100 px-3 text-sm text-gray-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400">
+                {prefix}
+              </span>
+              <input
+                type={type === "url" ? "text" : type}
+                value={value}
+                maxLength={maxLength}
+                placeholder={placeholder}
+                onChange={(e) => onChange(e.target.value)}
+                onBlur={onBlur}
+                aria-invalid={hasError}
+                className="w-full bg-transparent px-3 py-2.5 text-sm text-gray-900 outline-none dark:text-white"
+              />
+            </div>
+          ) : (
+            <input
+              type={type}
+              value={value}
+              maxLength={maxLength}
+              placeholder={placeholder}
+              inputMode={type === "tel" ? "numeric" : undefined}
+              onChange={(e) => onChange(e.target.value)}
+              onBlur={onBlur}
+              aria-invalid={hasError}
+              className={`${inputClass} ${errorBorderClass}`}
+            />
+          )}
+          <div className="flex items-start justify-between gap-2">
+            <p
+              className={`min-h-[1rem] flex-1 ${hasError ? errorTextClass : "text-transparent text-xs"}`}
+            >
+              {error || "·"}
             </p>
-            {counter && (
+            {counter && !options && (
               <p
                 className={`shrink-0 text-xs ${
-                  error || warning
+                  hasError
                     ? "text-red-400"
                     : value.length === maxLength
                       ? "text-amber-500"
@@ -1232,8 +1566,11 @@ function ProfileField({
           </div>
         </>
       ) : (
-        <div className={displayClass} title={value || undefined}>
-          {truncateText(value || "", maxLength && maxLength < 60 ? maxLength : 60)}
+        <div className={displayClass} title={shownValue || undefined}>
+          {truncateText(
+            shownValue || "",
+            maxLength && maxLength < 60 ? maxLength : 60,
+          )}
         </div>
       )}
     </div>
@@ -1244,21 +1581,28 @@ function InfoCard({
   label,
   value,
   icon,
+  hint,
 }: {
   label: string;
   value: string;
   icon: React.ReactNode;
+  hint?: string;
 }) {
   return (
-    <div className="flex items-start gap-3 rounded-xl border border-gray-100 bg-white p-4 dark:border-gray-800 dark:bg-gray-900/60">
+    <div className="flex items-start gap-3 rounded-xl border border-gray-100 bg-gray-50/80 p-4 dark:border-gray-800 dark:bg-gray-800/40">
       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#13538A]/10 text-[#13538A]">
         {icon}
       </div>
       <div className="min-w-0">
         <p className="text-xs font-medium text-gray-400">{label}</p>
         <p className="mt-0.5 truncate text-sm font-medium text-gray-900 dark:text-white">
-          {value}
+          {value || "—"}
         </p>
+        {hint ? (
+          <p className="mt-1 text-[11px] text-gray-400 dark:text-gray-500">
+            {hint}
+          </p>
+        ) : null}
       </div>
     </div>
   );
@@ -1295,22 +1639,30 @@ function PasswordField({
   show,
   onToggle,
   onChange,
+  error,
 }: {
   label: string;
   value: string;
   show: boolean;
   onToggle: () => void;
   onChange: (value: string) => void;
+  error?: string;
 }) {
+  const hasError = Boolean(error);
   return (
-    <div className="space-y-2">
+    <div className="space-y-1.5">
       <label className="text-xs text-gray-500 dark:text-gray-400">{label}</label>
       <div className="relative">
         <input
           type={show ? "text" : "password"}
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className={`${inputClass} pr-11`}
+          aria-invalid={hasError}
+          className={`${inputClass} pr-11 ${
+            hasError
+              ? "border-red-400 bg-red-50/60 focus:border-red-500 focus:ring-red-500/10 dark:bg-red-950/20"
+              : ""
+          }`}
         />
         <button
           type="button"
@@ -1320,6 +1672,7 @@ function PasswordField({
           {show ? <EyeOff size={16} /> : <Eye size={16} />}
         </button>
       </div>
+      {hasError ? <p className={errorTextClass}>{error}</p> : null}
     </div>
   );
 }
