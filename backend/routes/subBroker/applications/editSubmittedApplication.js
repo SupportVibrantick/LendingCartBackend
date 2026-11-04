@@ -7,6 +7,9 @@ const {
   getFeeAgreementRequestError,
   tryAttachFeeAgreementIfRequested,
 } = require("../../../services/feeAgreement/attachFeeAgreementToApplication");
+const {
+  parseRequestedAmountFromFields,
+} = require("../../../utils/applications/resolveRequestedAmount");
 
 async function editSubmittedApplication(fastify) {
   fastify.put("/:applicationId/edit", async (req, reply) => {
@@ -125,6 +128,14 @@ async function editSubmittedApplication(fastify) {
           where: { id: latestSubmission.id },
           data: { status: "SUPERSEDED" },
         });
+
+        const parsedAmount = parseRequestedAmountFromFields(fields);
+        if (parsedAmount != null) {
+          await tx.loanApplication.update({
+            where: { id: application.id },
+            data: { amountRequested: parsedAmount },
+          });
+        }
 
         return { newSubmission };
       });

@@ -267,6 +267,10 @@ async function listSubmittedApplications(fastify) {
                         },
                       },
                       submissions: {
+                        // Broker edits create a new submission and mark the old
+                        // one SUPERSEDED — always read the latest live version.
+                        where: { status: { not: "SUPERSEDED" } },
+                        orderBy: { createdAt: "desc" },
                         take: 1,
                         include: {
                           fields: true,
@@ -328,6 +332,15 @@ async function listSubmittedApplications(fastify) {
             } else if (minTerm) {
               termMonthsRequested = minTerm;
             }
+          }
+
+          // Fallback when submission fields are missing/stale but the loan row
+          // was updated (keeps lender list aligned with broker pipeline).
+          if (amountRequested == null && app.amountRequested != null) {
+            const fallbackAmount = Number(app.amountRequested);
+            amountRequested = Number.isFinite(fallbackAmount)
+              ? fallbackAmount
+              : null;
           }
 
           const pendingDocumentsCount =

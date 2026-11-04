@@ -42,8 +42,9 @@ async function getLoanPipelineStats(fastify) {
             loanApplication: {
               include: {
                 submissions: {
+                  where: { status: { not: "SUPERSEDED" } },
+                  orderBy: { createdAt: "desc" },
                   take: 1,
-
                   include: {
                     fields: true,
                   },
@@ -79,7 +80,8 @@ async function getLoanPipelineStats(fastify) {
         }).length;
 
         const totalVolume = applications.reduce((sum, app) => {
-          const fields = app.loanApplication?.submissions?.[0]?.fields || [];
+          const loan = app.loanApplication;
+          const fields = loan?.submissions?.[0]?.fields || [];
 
           const amountField = fields.find((f) =>
             ["amountRequested", "loan_amount"].includes(
@@ -87,7 +89,11 @@ async function getLoanPipelineStats(fastify) {
             ),
           );
 
-          return sum + Number(amountField?.value || 0);
+          const fromFields = Number(amountField?.value || 0);
+          if (fromFields) return sum + fromFields;
+
+          const fromLoan = Number(loan?.amountRequested || 0);
+          return sum + (Number.isFinite(fromLoan) ? fromLoan : 0);
         }, 0);
 
         return reply.send({
