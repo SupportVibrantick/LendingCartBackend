@@ -1,5 +1,6 @@
 const {
   enqueueEmail,
+  enqueueAndFlushEmail,
   enqueueGhlEmail,
   processEmailOutbox,
   listEmailOutbox,
@@ -8,6 +9,7 @@ const {
 
 module.exports = {
   enqueueEmail,
+  enqueueAndFlushEmail,
   enqueueGhlEmail,
   processEmailOutbox,
   listEmailOutbox,
