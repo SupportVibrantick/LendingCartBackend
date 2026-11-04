@@ -5,7 +5,7 @@ const {
   stripTrailingSlash,
   ensureAbsoluteUrl,
 } = require("../../utils/email/emailBranding");
-const { enqueueEmail } = require("../email");
+const { enqueueAndFlushEmail } = require("../email");
 
 function buildClientPortalResetUrl(resetToken) {
   const { frontendUrl } = getEmailBranding();
@@ -46,7 +46,7 @@ If you did not request this, you can ignore this email.
 
 — Loan Automation`;
 
-  return enqueueEmail({
+  return enqueueAndFlushEmail({
     prisma,
     to: email,
     subject,

@@ -24,14 +24,15 @@ async function forgotPasswordRoutes(fastify) {
     {
       config: {
         rateLimit: {
-          max: 3,
-          timeWindow: "1 hr",
-          errorResponseBuilder: (request, context) => {
+          max: 10,
+          timeWindow: "1 hour",
+          errorResponseBuilder: () => {
             return {
               statusCode: 429,
               error: "Too Many Requests",
               success: false,
-              message: "Too many login attempts. Please try again after a hour",
+              message:
+                "Too many reset attempts. Please try again after an hour.",
             };
           },
         },
@@ -87,12 +88,19 @@ async function forgotPasswordRoutes(fastify) {
             });
           });
 
-          await sendBrokerPasswordResetEmail({
-            firstName: user.firstName,
-            email: user.email,
-            resetToken: token,
-            prisma,
-          });
+          try {
+            await sendBrokerPasswordResetEmail({
+              firstName: user.firstName,
+              email: user.email,
+              resetToken: token,
+              prisma,
+            });
+          } catch (mailErr) {
+            fastify.log.error(
+              { error: mailErr.message, userId: user.id },
+              "Broker password reset email failed",
+            );
+          }
         }
 
         return reply.send({

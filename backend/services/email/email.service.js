@@ -177,6 +177,25 @@ async function enqueueGhlEmail(options) {
   });
 }
 
+/**
+ * Enqueue then best-effort drain the outbox so time-sensitive mail
+ * (password reset, verification) is not stuck if the worker is slow/down.
+ */
+async function enqueueAndFlushEmail(options) {
+  const queued = await enqueueEmail(options);
+  try {
+    await processEmailOutbox(options.prisma);
+  } catch (flushErr) {
+    commonLogs.error("Email outbox flush failed", {
+      error: flushErr?.message || String(flushErr),
+      to: options?.to,
+      subject: options?.subject,
+      idempotencyKey: options?.idempotencyKey,
+    });
+  }
+  return queued;
+}
+
 async function dispatchOutboxRecord(record) {
   const providerMeta = record.providerMeta || {};
   const attachments = Array.isArray(providerMeta.attachments)
@@ -331,6 +350,7 @@ function startEmailOutboxWorker(prisma, intervalMs = 15_000) {
 
 module.exports = {
   enqueueEmail,
+  enqueueAndFlushEmail,
   enqueueGhlEmail,
   processEmailOutbox,
   listEmailOutbox,

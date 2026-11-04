@@ -46,10 +46,19 @@ const getEmailBranding = () => {
       ),
     ),
   );
-  const brokerDashboardUrl = firstConfigured(
-    process.env.VITE_BROKER_DASHBOARD_URL,
-    process.env.BROKER_DASHBOARD_URL,
-    frontendUrl,
+  // Prefer broker-specific origins. FRONTEND_URL is often the marketing or admin
+  // app, which would break password-reset / welcome links if used as fallback.
+  const brokerDashboardUrl = ensureAbsoluteUrl(
+    firstConfigured(
+      process.env.VITE_BROKER_DASHBOARD_URL,
+      process.env.BROKER_DASHBOARD_URL,
+      process.env.VITE_BROKER_URI,
+      // Production broker app (must match the site users sign in on).
+      process.env.NODE_ENV === "production"
+        ? "https://broker.loanautomation.ai"
+        : "",
+      frontendUrl,
+    ),
   );
   const lenderDashboardUrl = firstConfigured(
     process.env.VITE_LENDER_DASHBOARD_URL,
@@ -72,10 +81,9 @@ const getEmailBranding = () => {
 
 const buildBrokerSignInUrl = () => {
   const { brokerDashboardUrl } = getEmailBranding();
-  if (!brokerDashboardUrl) return "";
-  return brokerDashboardUrl.includes("/signin")
-    ? brokerDashboardUrl
-    : `${brokerDashboardUrl}/signin`;
+  const base = stripTrailingSlash(ensureAbsoluteUrl(brokerDashboardUrl));
+  if (!base) return "";
+  return /\/signin$/i.test(base) ? base : `${base}/signin`;
 };
 
 /** Platform admin dashboard sign-in (FRONTEND_URL / ADMIN_DASHBOARD_URL). */

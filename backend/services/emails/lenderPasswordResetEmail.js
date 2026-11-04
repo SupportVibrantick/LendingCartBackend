@@ -1,6 +1,6 @@
 const { loadTemplate } = require("../../utils/email/loadTemplate");
 const { buildLenderSignInUrl } = require("../../utils/email/emailBranding");
-const { enqueueEmail } = require("../email");
+const { enqueueAndFlushEmail } = require("../email");
 
 async function sendLenderPasswordResetEmail({
   firstName,
@@ -8,7 +8,7 @@ async function sendLenderPasswordResetEmail({
   resetToken,
   prisma,
 }) {
-  const baseUrl = buildLenderSignInUrl().replace(/\/signin$/, "");
+  const baseUrl = buildLenderSignInUrl().replace(/\/signin$/i, "");
   const resetUrl = `${baseUrl}/reset-password?token=${encodeURIComponent(resetToken)}`;
   const expiryHours = process.env.PASSWORD_RESET_EXPIRY_HOURS || "1";
   const name = firstName || "there";
@@ -33,7 +33,7 @@ If you did not request this, you can ignore this email.
 
 — Loan Automation`;
 
-  return enqueueEmail({
+  return enqueueAndFlushEmail({
     prisma,
     to: email,
     subject,
