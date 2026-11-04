@@ -31,10 +31,10 @@ const STATE_OPTIONS = US_STATES.map((s) => ({
 }));
 
 const inputClass =
-  "w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-gray-900 outline-none transition focus:border-[#13538A]/40 focus:bg-white focus:ring-2 focus:ring-[#13538A]/10 dark:border-gray-700 dark:bg-gray-800 dark:text-white";
+  "min-w-0 w-full overflow-hidden text-ellipsis whitespace-nowrap rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-gray-900 outline-none transition focus:border-[#13538A]/40 focus:bg-white focus:ring-2 focus:ring-[#13538A]/10 dark:border-gray-700 dark:bg-gray-800 dark:text-white";
 
 const displayClass =
-  "truncate rounded-xl border border-gray-100 bg-gray-50 px-4 py-2.5 text-sm text-gray-800 dark:border-gray-700 dark:bg-gray-800/80 dark:text-gray-200";
+  "min-w-0 w-full overflow-hidden text-ellipsis whitespace-nowrap rounded-xl border border-gray-100 bg-gray-50 px-4 py-2.5 text-sm text-gray-800 dark:border-gray-700 dark:bg-gray-800/80 dark:text-gray-200";
 
 const errorTextClass = "text-xs font-medium text-red-500";
 
@@ -111,11 +111,6 @@ async function compressImage(
   if (compressedFile.size > maxBytes) return compressedFile;
   return compressedFile;
 }
-
-const truncateText = (value: string, max = 40) => {
-  if (!value) return "—";
-  return value.length > max ? `${value.slice(0, max - 1)}…` : value;
-};
 
 const FIELD_LIMITS: Record<
   string,
@@ -782,8 +777,8 @@ export default function UserProfileCard() {
           <div className="absolute -bottom-20 left-1/4 h-40 w-40 rounded-full bg-cyan-300/20 blur-2xl" />
         </div>
 
-        <div className="relative flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
-          <div className="flex flex-col gap-5 sm:flex-row sm:items-end">
+        <div className="relative flex min-w-0 flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
+          <div className="flex min-w-0 flex-1 flex-col gap-5 sm:flex-row sm:items-end">
             <div className="group relative shrink-0">
               <div className="relative h-24 w-24 overflow-hidden rounded-2xl border-4 border-white/30 bg-white/10 shadow-lg sm:h-28 sm:w-28">
                 <img
@@ -835,37 +830,40 @@ export default function UserProfileCard() {
               )}
             </div>
 
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1 overflow-hidden">
               <p className="text-xs font-semibold uppercase tracking-widest text-white/70">
                 Broker Profile
               </p>
               <h1
-                className="mt-1 truncate text-2xl font-bold tracking-tight sm:text-3xl"
+                className="mt-1 max-w-full overflow-hidden text-ellipsis whitespace-nowrap text-2xl font-bold tracking-tight sm:text-3xl"
                 title={displayName}
               >
                 {displayName}
               </h1>
-              <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-white/85">
-                <span className="inline-flex items-center gap-1.5">
-                  <Briefcase size={14} />
-                  {roleLabel}
-                </span>
-                {companyLabel ? (
-                  <>
-                    <span className="text-white/35">·</span>
-                    <span className="inline-flex min-w-0 items-center gap-1.5">
-                      <Building2 size={14} className="shrink-0" />
-                      <span className="truncate">{companyLabel}</span>
-                    </span>
-                  </>
-                ) : null}
-              </p>
-              {user.email ? (
-                <p className="mt-1.5 flex items-center gap-1.5 truncate text-sm text-white/75">
-                  <Mail size={14} className="shrink-0" />
-                  <span className="truncate">{user.email}</span>
+              <div className="mt-2 space-y-1 text-sm text-white/85">
+                <p className="flex min-w-0 items-center gap-1.5 overflow-hidden">
+                  <Briefcase size={14} className="shrink-0" />
+                  <span className="truncate" title={roleLabel}>
+                    {roleLabel}
+                  </span>
                 </p>
-              ) : null}
+                {companyLabel ? (
+                  <p className="flex min-w-0 items-center gap-1.5 overflow-hidden">
+                    <Building2 size={14} className="shrink-0" />
+                    <span className="truncate" title={companyLabel}>
+                      {companyLabel}
+                    </span>
+                  </p>
+                ) : null}
+                {user.email ? (
+                  <p className="flex min-w-0 items-center gap-1.5 overflow-hidden text-white/75">
+                    <Mail size={14} className="shrink-0" />
+                    <span className="truncate" title={user.email}>
+                      {user.email}
+                    </span>
+                  </p>
+                ) : null}
+              </div>
 
               {editing &&
                 (imageProcessing ||
@@ -907,7 +905,7 @@ export default function UserProfileCard() {
           <button
             type="button"
             onClick={() => (editing ? cancelEdit() : setEditing(true))}
-            className={`inline-flex items-center gap-2 self-start rounded-xl px-4 py-2.5 text-sm font-semibold transition ${
+            className={`inline-flex shrink-0 items-center gap-2 self-start rounded-xl px-4 py-2.5 text-sm font-semibold transition ${
               editing
                 ? "border border-white/25 bg-white/10 text-white hover:bg-white/20"
                 : "bg-white text-[#13538A] shadow-sm hover:bg-white/90"
@@ -934,7 +932,7 @@ export default function UserProfileCard() {
             title="Personal Information"
             description="Your name and phone as shown across the broker portal."
           >
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid min-w-0 gap-4 md:grid-cols-2">
                 <ProfileField
                   label="First Name"
                   value={firstName}
@@ -1021,8 +1019,8 @@ export default function UserProfileCard() {
             title="Professional Information"
             description="Company, license, and location details used on applications and branding."
           >
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="md:col-span-2">
+              <div className="grid min-w-0 gap-4 md:grid-cols-2">
+                <div className="min-w-0 md:col-span-2">
                   <ProfileField
                     label="Company Name"
                     value={company}
@@ -1357,7 +1355,10 @@ export default function UserProfileCard() {
                   <ShieldCheck size={12} />
                   Sign-in email
                 </p>
-                <p className="mt-1 truncate text-sm font-medium text-gray-800 dark:text-gray-200">
+                <p
+                  className="mt-1 overflow-hidden text-ellipsis whitespace-nowrap text-sm font-medium text-gray-800 dark:text-gray-200"
+                  title={user.email}
+                >
                   {user.email}
                 </p>
               </div>
@@ -1485,10 +1486,10 @@ function ProfileField({
   const shownValue = displayValue ?? value;
 
   return (
-    <div className="space-y-1.5">
+    <div className="min-w-0 space-y-1.5">
       <label className="flex items-center gap-2 text-xs font-medium text-gray-500 dark:text-gray-400">
-        {icon}
-        {label}
+        <span className="shrink-0">{icon}</span>
+        <span className="truncate">{label}</span>
       </label>
       {editing && onChange ? (
         <>
@@ -1498,6 +1499,7 @@ function ProfileField({
               onChange={(e) => onChange(e.target.value)}
               onBlur={onBlur}
               aria-invalid={hasError}
+              title={value || undefined}
               className={`${inputClass} ${errorBorderClass} ${
                 !value ? "text-gray-400" : ""
               }`}
@@ -1511,7 +1513,7 @@ function ProfileField({
             </select>
           ) : prefix ? (
             <div
-              className={`flex overflow-hidden rounded-xl border bg-gray-50 transition focus-within:ring-2 dark:bg-gray-800 ${
+              className={`flex min-w-0 overflow-hidden rounded-xl border bg-gray-50 transition focus-within:ring-2 dark:bg-gray-800 ${
                 hasError
                   ? "border-red-400 focus-within:border-red-500 focus-within:ring-red-500/10"
                   : "border-gray-200 focus-within:border-[#13538A]/40 focus-within:ring-[#13538A]/10 dark:border-gray-700"
@@ -1525,10 +1527,11 @@ function ProfileField({
                 value={value}
                 maxLength={maxLength}
                 placeholder={placeholder}
+                title={value || undefined}
                 onChange={(e) => onChange(e.target.value)}
                 onBlur={onBlur}
                 aria-invalid={hasError}
-                className="w-full bg-transparent px-3 py-2.5 text-sm text-gray-900 outline-none dark:text-white"
+                className="min-w-0 w-full overflow-hidden text-ellipsis whitespace-nowrap bg-transparent px-3 py-2.5 text-sm text-gray-900 outline-none dark:text-white"
               />
             </div>
           ) : (
@@ -1537,6 +1540,7 @@ function ProfileField({
               value={value}
               maxLength={maxLength}
               placeholder={placeholder}
+              title={value || undefined}
               inputMode={type === "tel" ? "numeric" : undefined}
               onChange={(e) => onChange(e.target.value)}
               onBlur={onBlur}
@@ -1544,9 +1548,9 @@ function ProfileField({
               className={`${inputClass} ${errorBorderClass}`}
             />
           )}
-          <div className="flex items-start justify-between gap-2">
+          <div className="flex min-w-0 items-start justify-between gap-2">
             <p
-              className={`min-h-[1rem] flex-1 ${hasError ? errorTextClass : "text-transparent text-xs"}`}
+              className={`min-h-[1rem] min-w-0 flex-1 break-words ${hasError ? errorTextClass : "text-transparent text-xs"}`}
             >
               {error || "·"}
             </p>
@@ -1567,10 +1571,7 @@ function ProfileField({
         </>
       ) : (
         <div className={displayClass} title={shownValue || undefined}>
-          {truncateText(
-            shownValue || "",
-            maxLength && maxLength < 60 ? maxLength : 60,
-          )}
+          {shownValue?.trim() ? shownValue : "—"}
         </div>
       )}
     </div>
@@ -1589,17 +1590,20 @@ function InfoCard({
   hint?: string;
 }) {
   return (
-    <div className="flex items-start gap-3 rounded-xl border border-gray-100 bg-gray-50/80 p-4 dark:border-gray-800 dark:bg-gray-800/40">
+    <div className="flex min-w-0 items-start gap-3 rounded-xl border border-gray-100 bg-gray-50/80 p-4 dark:border-gray-800 dark:bg-gray-800/40">
       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#13538A]/10 text-[#13538A]">
         {icon}
       </div>
-      <div className="min-w-0">
+      <div className="min-w-0 flex-1 overflow-hidden">
         <p className="text-xs font-medium text-gray-400">{label}</p>
-        <p className="mt-0.5 truncate text-sm font-medium text-gray-900 dark:text-white">
+        <p
+          className="mt-0.5 overflow-hidden text-ellipsis whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white"
+          title={value || undefined}
+        >
           {value || "—"}
         </p>
         {hint ? (
-          <p className="mt-1 text-[11px] text-gray-400 dark:text-gray-500">
+          <p className="mt-1 text-[11px] leading-snug text-gray-400 dark:text-gray-500">
             {hint}
           </p>
         ) : null}
@@ -1618,14 +1622,15 @@ function StatTile({
   compact?: boolean;
 }) {
   return (
-    <div className="rounded-xl border border-gray-100 bg-white p-3 dark:border-gray-700 dark:bg-gray-900">
+    <div className="min-w-0 rounded-xl border border-gray-100 bg-white p-3 dark:border-gray-700 dark:bg-gray-900">
       <p className="text-[10px] font-medium uppercase tracking-wider text-gray-400">
         {label}
       </p>
       <p
-        className={`mt-1 font-bold text-gray-900 dark:text-white ${
+        className={`mt-1 overflow-hidden text-ellipsis whitespace-nowrap font-bold text-gray-900 dark:text-white ${
           compact ? "text-sm" : "text-2xl"
         }`}
+        title={value}
       >
         {value}
       </p>

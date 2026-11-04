@@ -10,6 +10,9 @@ const {
   getFeeAgreementRequestError,
   tryAttachFeeAgreementIfRequested,
 } = require("../../../services/feeAgreement/attachFeeAgreementToApplication");
+const {
+  parseRequestedAmountFromFields,
+} = require("../../../utils/applications/resolveRequestedAmount");
 
 async function editSubmittedApplication(fastify) {
   fastify.put(
@@ -151,16 +154,24 @@ async function editSubmittedApplication(fastify) {
             data: { status: "SUPERSEDED" }
           });
 
-          /* 5️⃣ Persist requestedDocumentTypes on the loan row (only when the
-                caller actually passed a value — passing `null` clears it,
-                omitting it leaves the existing selection in place). */
+          /* 5️⃣ Keep denormalized loan amount + optional document selection in sync.
+                Broker/lender lists read both submission fields and LoanApplication.amountRequested. */
+          const parsedAmount = parseRequestedAmountFromFields(fields);
+          const loanUpdate = {};
+
+          if (parsedAmount != null) {
+            loanUpdate.amountRequested = parsedAmount;
+          }
 
           if (hasRequestedDocumentTypesUpdate) {
+            loanUpdate.requestedDocumentTypes =
+              sanitizedRequestedDocumentTypes ?? null;
+          }
+
+          if (Object.keys(loanUpdate).length > 0) {
             await tx.loanApplication.update({
               where: { id: application.id },
-              data: {
-                requestedDocumentTypes: sanitizedRequestedDocumentTypes ?? null,
-              },
+              data: loanUpdate,
             });
           }
 
