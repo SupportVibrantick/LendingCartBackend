@@ -68,7 +68,7 @@ bg-slate-50 py-20 px-6 text-center flex flex-col items-center gap-4
 dark:border-slate-700 dark:bg-slate-900"
       >
         <div
-          className="h-16 w-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-cyan-500 
+          className="h-16 w-16 rounded-2xl bg-[#13538A] 
           flex items-center justify-center shadow-sm"
         >
           <FileText className="text-white" size={28} />
@@ -100,7 +100,7 @@ bg-slate-50 dark:bg-slate-900 dark:border-slate-800"
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400">
             Status:{" "}
-            <span className="font-semibold text-indigo-600 dark:text-indigo-400">
+            <span className="font-semibold text-[#13538A] dark:text-sky-300">
               {data.status}
             </span>
           </p>

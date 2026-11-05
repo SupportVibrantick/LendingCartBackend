@@ -84,8 +84,8 @@ export default function ResidentialDocumentsStep({
           }}
           className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed px-6 py-12 transition ${
             dragActive
-              ? "border-[#2C92D5] bg-[#2C92D5]/5"
-              : "border-slate-300 bg-slate-50/50 hover:border-[#2C92D5]/60 dark:border-slate-600 dark:bg-slate-900/20"
+              ? "border-[#13538A] bg-[#13538A]/5"
+              : "border-slate-300 bg-slate-50/50 hover:border-[#13538A]/60 dark:border-slate-600 dark:bg-slate-900/20"
           } ${uploading ? "pointer-events-none opacity-60" : ""}`}
         >
           <Upload className="mb-3 h-8 w-8 text-slate-400" />

@@ -67,7 +67,7 @@ export default function AddCollateralChips({
         <button
           type="button"
           onClick={addChip}
-          className="inline-flex items-center gap-1.5 rounded-md border border-[#2C92D5] bg-[#2C92D5] px-4 text-sm font-medium text-white transition hover:bg-[#2579b3] focus:outline-none focus:ring-2 focus:ring-blue-500/30 disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex items-center gap-1.5 rounded-md border border-[#13538A] bg-[#13538A] px-4 text-sm font-medium text-white transition hover:bg-[#0E426E] focus:outline-none focus:ring-2 focus:ring-blue-500/30 disabled:cursor-not-allowed disabled:opacity-60"
           disabled={!draft.trim()}
         >
           <Plus className="h-4 w-4" />
@@ -80,13 +80,13 @@ export default function AddCollateralChips({
           {items.map((item) => (
             <span
               key={item}
-              className="inline-flex items-center gap-1.5 rounded-full border border-[#2C92D5]/30 bg-blue-50 px-3 py-1 text-xs font-medium text-[#2C92D5] dark:border-[#2C92D5]/40 dark:bg-blue-900/30 dark:text-blue-200"
+              className="inline-flex items-center gap-1.5 rounded-full border border-[#13538A]/30 bg-blue-50 px-3 py-1 text-xs font-medium text-[#13538A] dark:border-[#13538A]/40 dark:bg-blue-900/30 dark:text-blue-200"
             >
               {item}
               <button
                 type="button"
                 onClick={() => removeChip(item)}
-                className="inline-flex h-4 w-4 items-center justify-center rounded-full text-[#2C92D5] hover:bg-[#2C92D5]/15 dark:text-blue-200 dark:hover:bg-blue-800/40"
+                className="inline-flex h-4 w-4 items-center justify-center rounded-full text-[#13538A] hover:bg-[#13538A]/15 dark:text-blue-200 dark:hover:bg-blue-800/40"
                 aria-label={`Remove ${item}`}
               >
                 <X className="h-3 w-3" />

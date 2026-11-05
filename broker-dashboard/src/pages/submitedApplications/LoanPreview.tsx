@@ -7,15 +7,20 @@ import {
   Download,
   DollarSign,
   Eye,
-  FileSearch,
   FileText,
+  FolderOpen,
+  Building2,
+  ClipboardList,
   Loader2,
   Mail,
   MessageSquare,
   MoreVertical,
   Pencil,
+  PenLine,
   Plus,
+  Receipt,
   Search,
+  ScrollText,
   SearchX,
   Send,
   Upload,
@@ -55,7 +60,11 @@ import DocumentReminderPanel from "../../components/loanPipeline/DocumentReminde
 import BrokerLoiPanel from "../../components/loi/BrokerLoiPanel";
 import SubmissionDetailsView from "../../components/submissions/SubmissionDetailsView";
 import LoanCommissionPanel from "../../components/commissions/LoanCommissionPanel";
-import { mapSubmissionDetailFields } from "../../lib/submissionFieldUtils";
+import {
+  mapSubmissionDetailFields,
+  parseNumericValue,
+  parseSubmissionFieldValue,
+} from "../../lib/submissionFieldUtils";
 import {
   canLenderReceiveDocuments,
   getLenderStatusBadgeClass,
@@ -198,6 +207,15 @@ const getDisplayApplicationStatus = (detail?: {
   return application || submission || undefined;
 };
 
+function borrowerInitials(name: string) {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (!parts.length || name === "-") return "—";
+  const first = parts[0]?.[0] || "";
+  const second =
+    parts.length > 1 ? parts[parts.length - 1]?.[0] || "" : parts[0]?.[1] || "";
+  return `${first}${second}`.toUpperCase();
+}
+
 const getStatusChip = (status?: string) => {
   switch (status) {
     case "DRAFT":
@@ -272,58 +290,6 @@ const getFieldValue = <T extends FieldLike>(fields: T[], key: string) => {
 //     .trim()
 //     .replace(/\b\w/g, (char) => char.toUpperCase());
 // };
-
-const Metric = ({
-  label,
-  value,
-  variant = "hero",
-}: {
-  label: string;
-  value: string;
-  variant?: "hero" | "panel";
-}) => {
-  const isHero = variant === "hero";
-
-  return (
-    <motion.div
-      whileHover={{ y: -6, scale: 1.03 }}
-      whileTap={{ scale: 0.97 }}
-      transition={{ duration: 0.25 }}
-      className="group relative cursor-pointer overflow-hidden rounded-2xl p-4 transition-all duration-300"
-    >
-      <div
-        className={`absolute inset-0 opacity-0 blur-xl transition duration-300 group-hover:opacity-100 ${
-          isHero ? "bg-white/10" : "bg-gradient-to-r from-cyan-400/10 to-blue-500/10"
-        }`}
-      />
-      <p
-        className={`text-[11px] font-semibold uppercase tracking-widest transition ${
-          isHero
-            ? "text-white/70 group-hover:text-white"
-            : "text-slate-500 group-hover:text-slate-700"
-        }`}
-      >
-        {label}
-      </p>
-      <p
-        className={`mt-2 text-md font-bold transition-all duration-300 ${
-          isHero
-            ? "text-white group-hover:scale-105"
-            : "bg-gradient-to-r from-cyan-600 to-blue-600 bg-clip-text text-transparent group-hover:from-blue-600 group-hover:to-cyan-500"
-        }`}
-      >
-        {value}
-      </p>
-      <div
-        className={`mt-3 h-[3px] w-0 rounded-full transition-all duration-300 group-hover:w-full ${
-          isHero
-            ? "bg-white/80"
-            : "bg-gradient-to-r from-cyan-500 to-blue-500"
-        }`}
-      />
-    </motion.div>
-  );
-};
 
 const formatCompactAmount = (value: number) => {
   if (!value || !isFinite(value)) return "$0";
@@ -767,7 +733,7 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
       showCancelButton: true,
       confirmButtonText: "Yes, send",
       cancelButtonText: "Cancel",
-      confirmButtonColor: "#2563eb",
+      confirmButtonColor: "#13538A",
       cancelButtonColor: "#ef4444",
     });
 
@@ -968,7 +934,7 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
       icon: "question",
       showCancelButton: true,
       confirmButtonText: "Send to Client",
-      confirmButtonColor: "#4f46e5",
+      confirmButtonColor: "#13538A",
     });
 
     if (!result.isConfirmed) return;
@@ -1013,7 +979,7 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
       icon: "question",
       showCancelButton: true,
       confirmButtonText: "Send to PB",
-      confirmButtonColor: "#2563eb",
+      confirmButtonColor: "#13538A",
     });
 
     if (!result.isConfirmed) return;
@@ -2078,7 +2044,20 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
     return () => clearTimeout(timer);
   }, [searchInput]);
 
-  const loanAmount = Number(getFieldValue(fields, "amountRequested") ?? 0) || 0;
+  const resolveNumericField = (...keys: string[]) => {
+    for (const key of keys) {
+      const field = fields.find((item) => item.fieldKey === key);
+      if (!field) continue;
+      const parsed = parseNumericValue(parseSubmissionFieldValue(field.value));
+      if (parsed != null && parsed !== 0) return parsed;
+    }
+    return 0;
+  };
+
+  const loanAmount =
+    resolveNumericField("amountRequested", "loan_amount") ||
+    parseNumericValue(submissionDetail?.amountRequested) ||
+    0;
   const ltv = Number(getFieldValue(fields, "ltvPercentage") ?? 0) || 0;
   const ltc = Number(getFieldValue(fields, "ltcPercentage") ?? 0) || 0;
   const arv = Number(getFieldValue(fields, "arvPercentage") ?? 0) || 0;
@@ -2111,7 +2090,7 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
       documentItems.push({
         key: "documents",
         label: "Documents",
-        icon: Upload,
+        icon: FolderOpen,
         color: "text-slate-500",
       });
     }
@@ -2133,7 +2112,7 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
       documentItems.push({
         key: "sign-documents",
         label: "Fill & Sign Forms",
-        icon: FileText,
+        icon: PenLine,
         color: "text-slate-500",
       });
     }
@@ -2142,7 +2121,7 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
       documentItems.push({
         key: "view-loi",
         label: "LOI / Term Sheets",
-        icon: FileText,
+        icon: ScrollText,
         color: "text-slate-500",
       });
     }
@@ -2151,7 +2130,7 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
       documentItems.push({
         key: "fee-agreement",
         label: "Fee Agreement",
-        icon: FileText,
+        icon: Receipt,
         color: "text-slate-500",
       });
     }
@@ -2160,7 +2139,7 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
       {
         key: "view-details",
         label: "Loan Application",
-        icon: Eye,
+        icon: ClipboardList,
         color: "text-[#13538A]",
       },
     ];
@@ -2235,7 +2214,7 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
           {
             key: "find-lenders",
             label: "Matched Lenders",
-            icon: FileSearch,
+            icon: Building2,
             color: "text-slate-500",
           },
         ],
@@ -2368,7 +2347,7 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
     if (!effectiveCanRequestDocuments) {
       return (
         <div className="rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-700 dark:bg-slate-900">
-          <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-[#3A99D8]">
+          <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-[#13538A]">
             Document workflow
           </p>
           <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
@@ -2396,7 +2375,7 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
     return (
       <div className="space-y-4">
         <div className="rounded-xl border border-slate-200 bg-white px-5 py-4 dark:border-slate-700 dark:bg-slate-900">
-          <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-[#3A99D8]">
+          <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-[#13538A]">
             Document workflow
           </p>
           <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
@@ -2438,13 +2417,13 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
                     handleAddCustomDocument();
                   }
                 }}
-                className="h-11 flex-1 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-[#3A99D8] focus:ring-2 focus:ring-[#3A99D8]/20 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+                className="h-11 flex-1 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-[#13538A] focus:ring-2 focus:ring-[#13538A]/20 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
               />
               <button
                 type="button"
                 onClick={handleAddCustomDocument}
                 disabled={addingCustomDoc || !customDocumentName.trim()}
-                className="inline-flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-[#3A99D8] px-4 text-sm font-semibold text-white transition hover:bg-[#2f87c2] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
+                className="inline-flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-[#13538A] px-4 text-sm font-semibold text-white transition hover:bg-[#0E426E] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
               >
                 {addingCustomDoc ? (
                   <Loader2 size={16} className="animate-spin" />
@@ -2460,7 +2439,7 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
         <div className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-4 py-3 dark:border-slate-800">
             <div className="flex min-w-0 items-center gap-2">
-              <FileText size={15} className="shrink-0 text-[#3A99D8]" />
+              <FileText size={15} className="shrink-0 text-[#13538A]" />
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-slate-800 dark:text-white">
                   Available documents
@@ -2486,7 +2465,7 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
                   value={requestDocSearch}
                   onChange={(e) => setRequestDocSearch(e.target.value)}
                   placeholder="Search documents..."
-                  className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-9 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-[#3A99D8] focus:ring-2 focus:ring-[#3A99D8]/20 dark:border-slate-700 dark:bg-slate-950 dark:text-white [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden"
+                  className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-9 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-[#13538A] focus:ring-2 focus:ring-[#13538A]/20 dark:border-slate-700 dark:bg-slate-950 dark:text-white [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden"
                 />
                 {requestDocSearch.trim() ? (
                   <button
@@ -2526,12 +2505,12 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
 
           {requestDocsLoading ? (
             <div className="flex flex-col items-center justify-center py-14">
-              <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#3A99D8] border-t-transparent" />
+              <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#13538A] border-t-transparent" />
               <p className="mt-3 text-sm text-slate-500">Loading documents...</p>
             </div>
           ) : requestDocs.length === 0 ? (
             <div className="flex flex-col items-center justify-center px-4 py-14 text-center">
-              <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-[#3A99D8]/10 text-[#3A99D8]">
+              <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-[#13538A]/10 text-[#13538A]">
                 <FileText size={22} />
               </div>
               <h3 className="text-base font-semibold text-slate-800 dark:text-slate-200">
@@ -2582,7 +2561,7 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
                           onClick={() => toggleRequestDocument(doc)}
                           className={`cursor-pointer transition-colors ${
                             isSelected
-                              ? "bg-[#3A99D8]/8 dark:bg-sky-950/25"
+                              ? "bg-[#13538A]/8 dark:bg-sky-950/25"
                               : rowIndex % 2 === 1
                                 ? "bg-slate-50/40 dark:bg-slate-900/30"
                                 : "bg-white dark:bg-slate-900"
@@ -2594,7 +2573,7 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
                               checked={isSelected}
                               onChange={() => toggleRequestDocument(doc)}
                               onClick={(e) => e.stopPropagation()}
-                              className="h-4 w-4 cursor-pointer accent-[#3A99D8]"
+                              className="h-4 w-4 cursor-pointer accent-[#13538A]"
                               aria-label={`Select ${doc.documentType.name}`}
                             />
                           </td>
@@ -2614,7 +2593,7 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
                               {isSelected ? (
                                 <CheckCircle2
                                   size={15}
-                                  className="shrink-0 text-[#3A99D8]"
+                                  className="shrink-0 text-[#13538A]"
                                 />
                               ) : null}
                             </div>
@@ -2700,7 +2679,7 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
                       type="button"
                       disabled={!requestDocPagination.hasNextPage}
                       onClick={() => setRequestDocPage((prev) => prev + 1)}
-                      className="inline-flex items-center gap-1 rounded-lg bg-[#3A99D8] px-3 py-2 text-sm font-medium text-white transition hover:bg-[#2f87c2] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
+                      className="inline-flex items-center gap-1 rounded-lg bg-[#13538A] px-3 py-2 text-sm font-medium text-white transition hover:bg-[#0E426E] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
                     >
                       Next
                       <ChevronRight size={16} />
@@ -2719,7 +2698,7 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
             </label>
             <textarea
               placeholder="Optional note included with this document request..."
-              className="min-h-[88px] w-full resize-none rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-[#3A99D8] focus:ring-2 focus:ring-[#3A99D8]/20 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+              className="min-h-[88px] w-full resize-none rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-[#13538A] focus:ring-2 focus:ring-[#13538A]/20 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
               value={requestMessage}
               onChange={(e) => setRequestMessage(e.target.value)}
             />
@@ -2738,7 +2717,7 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
                 type="button"
                 onClick={handleRequestDocuments}
                 disabled={selectedRequestDocs.length === 0 || requestSubmitting}
-                className="inline-flex min-w-[170px] items-center justify-center gap-2 rounded-lg bg-[#3A99D8] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#2f87c2] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
+                className="inline-flex min-w-[170px] items-center justify-center gap-2 rounded-lg bg-[#13538A] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0E426E] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
               >
                 {requestSubmitting ? (
                   <>
@@ -2830,7 +2809,7 @@ dark:border-slate-800 dark:bg-slate-900"
             : type === "rejected"
               ? "bg-red-600 text-white"
               : type === "sent"
-                ? "bg-blue-600 text-white"
+                ? "bg-[#13538A] text-white"
                 : "bg-slate-800 text-white dark:bg-white dark:text-black"
           : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
       }
@@ -2903,63 +2882,63 @@ dark:border-slate-800 dark:bg-slate-900"
             <div className="grid grid-cols-2 gap-4 text-sm md:grid-cols-4">
               <div>
                 <b>Loan:</b>
-                <div className="text-blue-400 font-semibold">
+                <div className="text-[#13538A] font-semibold dark:text-sky-300">
                   ${Number(borrowerSummary.loanAmount).toLocaleString()}
                 </div>
               </div>
 
               <div>
                 <b>Term:</b>
-                <div className="text-blue-400 font-semibold">
+                <div className="text-[#13538A] font-semibold dark:text-sky-300">
                   {borrowerSummary.termMonths ?? "-"} Months
                 </div>
               </div>
 
               <div>
                 <b>Score:</b>
-                <div className="text-blue-400 font-semibold">
+                <div className="text-[#13538A] font-semibold dark:text-sky-300">
                   {borrowerSummary.creditScore}
                 </div>
               </div>
 
               <div>
                 <b>LTV:</b>
-                <div className="text-blue-400 font-semibold">
+                <div className="text-[#13538A] font-semibold dark:text-sky-300">
                   {borrowerSummary.ltv ?? "-"}%
                 </div>
               </div>
 
               <div>
                 <b>LTC:</b>
-                <div className="text-blue-400 font-semibold">
+                <div className="text-[#13538A] font-semibold dark:text-sky-300">
                   {borrowerSummary.ltc ?? "-"}%
                 </div>
               </div>
 
               <div>
                 <b>ARV:</b>
-                <div className="text-blue-400 font-semibold">
+                <div className="text-[#13538A] font-semibold dark:text-sky-300">
                   {borrowerSummary.arv ?? "-"}%
                 </div>
               </div>
 
               <div>
                 <b>Property:</b>
-                <div className="text-blue-400 font-semibold">
+                <div className="text-[#13538A] font-semibold dark:text-sky-300">
                   {borrowerSummary.propertyType ?? "-"}
                 </div>
               </div>
 
               <div>
                 <b>State:</b>
-                <div className="text-blue-400 font-semibold">
+                <div className="text-[#13538A] font-semibold dark:text-sky-300">
                   {borrowerSummary.propertyState ?? "-"}
                 </div>
               </div>
 
               <div>
                 <b>Total Lenders:</b>
-                <div className="text-blue-400 font-semibold">
+                <div className="text-[#13538A] font-semibold dark:text-sky-300">
                   {lenderPagination?.total ?? lenders.length}
                 </div>
               </div>
@@ -3044,7 +3023,7 @@ dark:border-slate-800 dark:bg-slate-900"
                               ? "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400"
                               : lender.type === "rejected"
                                 ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
-                                : "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                                : "bg-[#13538A]/10 text-[#13538A] dark:bg-[#13538A]/20 dark:text-sky-300"
                         }`}
                       >
                         {lender.type === "ineligible"
@@ -3140,14 +3119,14 @@ dark:bg-red-900/20 dark:text-red-400"
                             isSending
                               ? "cursor-wait bg-slate-400"
                               : lender.alreadySent
-                                ? "bg-blue-500"
+                                ? "bg-[#13538A]"
                                 : lender.type === "rejected"
                                   ? "bg-red-500"
                                   : lender.type === "ineligible"
                                     ? "bg-amber-500"
                                     : !loDocPermissions.sendApplications
                                       ? "bg-slate-400"
-                                      : "bg-gradient-to-r from-blue-500 to-indigo-600 shadow-md hover:from-indigo-600 hover:to-blue-500 hover:shadow-lg"
+                                      : "bg-[#13538A] shadow-sm hover:bg-[#0E426E]"
                           }`}
                         >
                           {isSending
@@ -3317,7 +3296,7 @@ dark:bg-red-900/20 dark:text-red-400"
   const renderDocuments = () => (
     <div className="h-[90vh] min-h-screen w-full">
       <div className="mb-4 rounded-xl border border-slate-200 bg-white px-5 py-4 dark:border-slate-700 dark:bg-slate-900">
-        <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-[#3A99D8]">
+        <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-[#13538A]">
           Document workflow
         </p>
         <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
@@ -3363,7 +3342,7 @@ dark:bg-red-900/20 dark:text-red-400"
         <div className="mb-4 overflow-visible rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
           <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
             <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#3A99D8] text-white">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#13538A] text-white">
                 <FiSend size={15} />
               </div>
               <div>
@@ -3383,7 +3362,7 @@ dark:bg-red-900/20 dark:text-red-400"
                 handleSendToPrincipalBroker(selectedCoBrokerPbSendableIds)
               }
               disabled={sendingToBroker}
-              className="inline-flex min-w-[170px] items-center justify-center gap-2 rounded-lg bg-[#3A99D8] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#2f87c2] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
+              className="inline-flex min-w-[170px] items-center justify-center gap-2 rounded-lg bg-[#13538A] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#0E426E] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
             >
               {sendingToBroker ? (
                 <>
@@ -3405,7 +3384,7 @@ dark:bg-red-900/20 dark:text-red-400"
         <div className="mb-4 overflow-visible rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-3 dark:border-slate-800">
             <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#3A99D8] text-white">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#13538A] text-white">
                 <FiSend size={15} />
               </div>
               <div>
@@ -3446,7 +3425,7 @@ dark:bg-red-900/20 dark:text-red-400"
                   <button
                     type="button"
                     onClick={() => setSelectedLenders([])}
-                    className="text-[11px] font-medium text-[#3A99D8] hover:underline"
+                    className="text-[11px] font-medium text-[#13538A] hover:underline"
                   >
                     Clear lenders
                   </button>
@@ -3505,7 +3484,7 @@ dark:bg-red-900/20 dark:text-red-400"
                         ...base,
                         minHeight: "46px",
                         borderRadius: "12px",
-                        borderColor: state.isFocused ? "#3A99D8" : "#e2e8f0",
+                        borderColor: state.isFocused ? "#13538A" : "#e2e8f0",
                         boxShadow: state.isFocused
                           ? "0 0 0 2px rgba(58, 153, 216, 0.2)"
                           : "none",
@@ -3558,7 +3537,7 @@ dark:bg-red-900/20 dark:text-red-400"
                     ? "Select lender recipients first"
                     : "Send selected documents to chosen lenders"
                 }
-                className="inline-flex min-w-[170px] items-center justify-center gap-2 rounded-lg bg-[#3A99D8] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#2f87c2] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 dark:disabled:bg-slate-700 dark:disabled:text-slate-400"
+                className="inline-flex min-w-[170px] items-center justify-center gap-2 rounded-lg bg-[#13538A] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#0E426E] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 dark:disabled:bg-slate-700 dark:disabled:text-slate-400"
               >
                 {sending ? (
                   <>
@@ -3586,7 +3565,7 @@ dark:bg-red-900/20 dark:text-red-400"
                     handleForwardToClient(selectedClientSendableIds)
                   }
                   disabled={forwardingToClient}
-                  className="inline-flex min-w-[170px] items-center justify-center gap-2 rounded-lg bg-[#3A99D8] px-5 py-2.5 text-xs font-semibold text-white transition hover:bg-[#2f87c2] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex min-w-[170px] items-center justify-center gap-2 rounded-lg bg-[#13538A] px-5 py-2.5 text-xs font-semibold text-white transition hover:bg-[#0E426E] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {forwardingToClient ? (
                     "Sending..."
@@ -3613,7 +3592,7 @@ dark:bg-red-900/20 dark:text-red-400"
             type="button"
             onClick={() => handleForwardToClient(selectedClientSendableIds)}
             disabled={forwardingToClient}
-            className="inline-flex items-center gap-2 rounded-lg bg-[#3A99D8] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[#2f87c2] disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex items-center gap-2 rounded-lg bg-[#13538A] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[#0E426E] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {forwardingToClient ? (
               "Sending..."
@@ -3629,7 +3608,7 @@ dark:bg-red-900/20 dark:text-red-400"
 
       {documentsLoading ? (
         <div className="flex flex-col items-center justify-center rounded-xl border border-slate-200 bg-white py-16 dark:border-slate-700 dark:bg-slate-900">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#3A99D8] border-t-transparent" />
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#13538A] border-t-transparent" />
           <p className="mt-3 text-sm text-slate-500">Loading documents...</p>
         </div>
       ) : displayDocuments.length > 0 ? (
@@ -3648,7 +3627,7 @@ dark:bg-red-900/20 dark:text-red-400"
               </p>
             </div>
             {selectedRows.length > 0 && (
-              <span className="rounded-md bg-[#3A99D8]/15 px-2.5 py-1 text-xs font-semibold text-[#2f87c2]">
+              <span className="rounded-md bg-[#13538A]/15 px-2.5 py-1 text-xs font-semibold text-[#0E426E]">
                 {selectedRows.length} selected
               </span>
             )}
@@ -3673,7 +3652,7 @@ dark:bg-red-900/20 dark:text-red-400"
                       type="checkbox"
                       checked={isAllSelected}
                       onChange={handleSelectAll}
-                      className="h-4 w-4 cursor-pointer accent-[#3A99D8]"
+                      className="h-4 w-4 cursor-pointer accent-[#13538A]"
                       aria-label="Select all documents"
                     />
                   </th>
@@ -3708,7 +3687,7 @@ dark:bg-red-900/20 dark:text-red-400"
                       key={doc.rowKey}
                       className={`group transition-colors ${
                         isSelected
-                          ? "bg-[#3A99D8]/8 dark:bg-sky-950/20"
+                          ? "bg-[#13538A]/8 dark:bg-sky-950/20"
                           : rowIndex % 2 === 1
                             ? "bg-slate-50/40 dark:bg-slate-900/20"
                             : "bg-white dark:bg-slate-900"
@@ -3720,14 +3699,14 @@ dark:bg-red-900/20 dark:text-red-400"
                           disabled={doc.status === "SKIPPED"}
                           checked={isSelected}
                           onChange={() => handleSelectRow(doc.rowKey)}
-                          className="h-4 w-4 cursor-pointer accent-[#3A99D8] disabled:opacity-40"
+                          className="h-4 w-4 cursor-pointer accent-[#13538A] disabled:opacity-40"
                           aria-label={`Select ${doc.documentName}`}
                         />
                       </td>
 
                       <td className="px-4 py-3.5 align-middle">
                         <div className="flex min-w-0 items-center gap-3">
-                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#3A99D8]/10 text-[#3A99D8]">
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#13538A]/10 text-[#13538A]">
                             <FileText size={16} />
                           </div>
                           <div className="min-w-0">
@@ -3810,7 +3789,7 @@ dark:bg-red-900/20 dark:text-red-400"
                           }
                           className={`rounded-lg border p-2 transition ${
                             isOpen
-                              ? "border-[#3A99D8]/40 bg-[#3A99D8]/10 text-[#2f87c2] dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-300"
+                              ? "border-[#13538A]/40 bg-[#13538A]/10 text-[#0E426E] dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-300"
                               : "border-transparent text-slate-500 hover:border-slate-200 hover:bg-white hover:text-slate-700 dark:hover:border-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
                           }`}
                           aria-label={`Actions for ${doc.documentName}`}
@@ -3867,7 +3846,7 @@ dark:bg-red-900/20 dark:text-red-400"
                         onClick={() => setPage(pageNum)}
                         className={`h-9 min-w-9 rounded-lg px-2.5 text-sm font-semibold transition ${
                           page === pageNum
-                            ? "bg-[#3A99D8] text-white"
+                            ? "bg-[#13538A] text-white"
                             : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
                         }`}
                       >
@@ -3891,7 +3870,7 @@ dark:bg-red-900/20 dark:text-red-400"
         </div>
       ) : (
         <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-white py-16 text-center dark:border-slate-700 dark:bg-slate-900">
-          <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-[#3A99D8]/10 text-[#3A99D8]">
+          <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-[#13538A]/10 text-[#13538A]">
             <FiFolder size={28} />
           </div>
           <h3 className="text-base font-semibold text-slate-800 dark:text-slate-200">
@@ -3986,7 +3965,7 @@ dark:bg-red-900/20 dark:text-red-400"
                     closeDocumentActionMenu();
                   }}
                   disabled={sendingToBroker}
-                  className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-[#3A99D8] transition hover:bg-[#3A99D8]/10 disabled:opacity-60"
+                  className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-[#13538A] transition hover:bg-[#13538A]/10 disabled:opacity-60"
                 >
                   <FiSend size={14} />
                   Send To PB
@@ -4014,7 +3993,7 @@ dark:bg-red-900/20 dark:text-red-400"
                     ])
                   }
                   disabled={forwardingToClient}
-                  className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-[#3A99D8] transition hover:bg-[#3A99D8]/10 disabled:opacity-60"
+                  className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-[#13538A] transition hover:bg-[#13538A]/10 disabled:opacity-60"
                 >
                   <Mail size={14} />
                   Send to Client
@@ -4226,18 +4205,16 @@ dark:bg-red-900/20 dark:text-red-400"
       <div
         key={section.id}
         className={
-          opts?.compact ? "contents" : sectionIndex > 0 ? "mt-4" : ""
+          opts?.compact ? "contents" : sectionIndex > 0 ? "mt-5" : ""
         }
       >
         {!opts?.compact ? (
-          <h2 className="mb-1.5 px-2.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400 dark:text-slate-500">
+          <h2 className="mb-1.5 px-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">
             {section.label}
           </h2>
         ) : null}
         <ul
-          className={
-            opts?.compact ? "flex gap-1.5" : "flex flex-col gap-0.5"
-          }
+          className={opts?.compact ? "flex gap-1.5" : "flex flex-col gap-0.5"}
         >
           {section.items.map((tab) => {
             const Icon = tab.icon;
@@ -4260,36 +4237,37 @@ dark:bg-red-900/20 dark:text-red-400"
                   }}
                   className={
                     opts?.compact
-                      ? `inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition ${
+                      ? `inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
                           isActive
-                            ? "bg-[#3A99D8]/15 text-[#2f87c2]"
+                            ? "border-[#13538A]/25 bg-[#13538A] text-white"
+                            : isDisabled
+                              ? "cursor-not-allowed border-slate-200 text-slate-300"
+                              : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900"
+                        }`
+                      : `group flex w-full items-center gap-2.5 rounded-lg px-1.5 py-1.5 text-left text-[13px] font-medium transition ${
+                          isActive
+                            ? "bg-[#13538A] text-white shadow-sm"
                             : isDisabled
                               ? "cursor-not-allowed text-slate-300"
-                              : "bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-                        }`
-                      : `relative flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[13px] font-medium transition ${
-                          isActive
-                            ? "bg-[#3A99D8]/12 text-[#2f87c2] dark:bg-[#3A99D8]/20 dark:text-sky-300"
-                            : isDisabled
-                              ? "cursor-not-allowed text-slate-300 opacity-50"
-                              : "text-slate-600 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800/80 dark:hover:text-white"
+                              : "text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
                         }`
                   }
                 >
-                  {isActive && !opts?.compact ? (
-                    <span className="absolute inset-y-1.5 left-0 w-[3px] rounded-full bg-[#3A99D8]" />
-                  ) : null}
-                  <Icon
-                    size={opts?.compact ? 14 : 17}
-                    strokeWidth={isActive ? 2.25 : 2}
-                    className={
-                      isActive
-                        ? "shrink-0 text-[#3A99D8] dark:text-sky-300"
-                        : isDisabled
-                          ? "shrink-0 text-slate-300"
-                          : "shrink-0 text-slate-400"
-                    }
-                  />
+                  {opts?.compact ? (
+                    <Icon size={14} strokeWidth={2} className="shrink-0" />
+                  ) : (
+                    <span
+                      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md ${
+                        isActive
+                          ? "bg-white/15 text-white"
+                          : isDisabled
+                            ? "bg-slate-50 text-slate-300 dark:bg-slate-900"
+                            : "bg-slate-100 text-slate-500 group-hover:bg-white group-hover:text-[#13538A] dark:bg-slate-800 dark:text-slate-400 dark:group-hover:bg-slate-700 dark:group-hover:text-white"
+                      }`}
+                    >
+                      <Icon size={15} strokeWidth={2} />
+                    </span>
+                  )}
                   <span className="min-w-0 flex-1 truncate whitespace-nowrap">
                     {tab.label}
                   </span>
@@ -4297,7 +4275,7 @@ dark:bg-red-900/20 dark:text-red-400"
                     <span
                       className={`shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-bold tabular-nums ${
                         isActive
-                          ? "bg-[#3A99D8]/20 text-[#2f87c2]"
+                          ? "bg-white/20 text-white"
                           : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"
                       }`}
                     >
@@ -4315,10 +4293,10 @@ dark:bg-red-900/20 dark:text-red-400"
   return (
     <>
       <div className="flex h-dvh max-h-dvh w-full overflow-hidden bg-[#F5F7FA] dark:bg-[#0b1120] dark:text-slate-100">
-        <aside className="hidden h-full w-[248px] shrink-0 flex-col border-r border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950 lg:flex">
+        <aside className="hidden h-full w-[260px] shrink-0 flex-col border-r border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950 lg:flex">
           <div className="shrink-0 border-b border-slate-100 px-4 py-4 dark:border-slate-800">
             <div className="flex items-center gap-3">
-              <div className="h-10 w-10 shrink-0 overflow-hidden rounded-lg border border-slate-200 dark:border-slate-700">
+              <div className="h-9 w-9 shrink-0 overflow-hidden rounded-lg bg-slate-100 dark:bg-slate-800">
                 <img
                   src="/loanAutomation.jpeg"
                   alt="Loan Automation"
@@ -4326,10 +4304,10 @@ dark:bg-red-900/20 dark:text-red-400"
                 />
               </div>
               <div className="min-w-0">
-                <p className="truncate text-sm font-bold tracking-tight text-slate-900 dark:text-white">
+                <p className="truncate text-sm font-semibold tracking-tight text-slate-900 dark:text-white">
                   Loan Automation
                 </p>
-                <p className="truncate text-[10px] font-semibold uppercase tracking-[0.12em] text-[#3A99D8]">
+                <p className="truncate text-xs text-slate-500 dark:text-slate-400">
                   {portalSubtitle}
                 </p>
               </div>
@@ -4338,23 +4316,29 @@ dark:bg-red-900/20 dark:text-red-400"
 
           <nav
             aria-label="Loan application sections"
-            className="sidebar-scrollbar-light min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-2.5 py-3"
+            className="sidebar-scrollbar-light min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-3 py-4"
           >
             {renderSidebarNavItems()}
           </nav>
 
-          <div className="shrink-0 border-t border-slate-100 p-2.5 dark:border-slate-800">
+          <div className="shrink-0 border-t border-slate-100 p-3 dark:border-slate-800">
             <button
               type="button"
+              title={previewConfig.backLabel}
               onClick={() => navigate(previewConfig.pipelineListPath)}
-              className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
+              className="group flex w-full items-center gap-2.5 rounded-lg px-1.5 py-1.5 text-left transition hover:bg-slate-100 dark:hover:bg-slate-800"
             >
-              <ArrowLeft
-                size={17}
-                strokeWidth={2}
-                className="shrink-0 text-slate-400"
-              />
-              <span className="truncate">Back</span>
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-slate-100 text-slate-500 group-hover:bg-white group-hover:text-[#13538A] dark:bg-slate-800 dark:text-slate-400 dark:group-hover:bg-slate-700 dark:group-hover:text-white">
+                <ArrowLeft size={15} strokeWidth={2} />
+              </span>
+              <span className="min-w-0">
+                <span className="block truncate text-[13px] font-medium text-slate-700 group-hover:text-slate-900 dark:text-slate-200 dark:group-hover:text-white">
+                  Back
+                </span>
+                <span className="block truncate text-[11px] text-slate-400">
+                  {previewConfig.backLabel.replace(/^Back to /i, "")}
+                </span>
+              </span>
             </button>
           </div>
         </aside>
@@ -4395,94 +4379,120 @@ dark:bg-red-900/20 dark:text-red-400"
                   : ""
               }`}
             >
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h1 className="truncate text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
-                      {borrowerName !== "-" ? borrowerName : "Loan application"}
-                    </h1>
-                  </div>
-                  <p className="mt-1 truncate text-sm font-semibold text-[#13538A]">
-                    {productCode !== "-" ? productCode : "Loan product"}
-                  </p>
-                  <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-slate-500">
-                    <span>
-                      {submissionDetail?.applicationNumber || submissionId}
-                    </span>
-                    <span
-                      className={`rounded-full px-2.5 py-0.5 text-xs font-semibold tracking-wide ${getStatusChip(
-                        getDisplayApplicationStatus(submissionDetail),
-                      )}`}
-                    >
-                      {formatSubmissionStatus(
-                        getDisplayApplicationStatus(submissionDetail),
-                      )}
-                    </span>
-                    <span className="hidden text-slate-300 sm:inline">·</span>
-                    <span className="hidden text-xs font-medium uppercase tracking-wide text-slate-400 sm:inline">
-                      {portalSubtitle}
-                    </span>
-                  </div>
-                </div>
+              {(() => {
+                const displayName =
+                  borrowerName !== "-" ? borrowerName : "Loan application";
+                const displayProduct =
+                  productCode !== "-" ? productCode : "Loan product";
+                const applicationNumber =
+                  submissionDetail?.applicationNumber || submissionId || "";
+                const displayStatus = getDisplayApplicationStatus(submissionDetail);
+                const metrics =
+                  activeTab === "view-details"
+                    ? ([
+                        loanAmount
+                          ? {
+                              label: "Loan amount",
+                              value: formatCompactAmount(loanAmount),
+                            }
+                          : null,
+                        monthlyPaymentDisplay && monthlyPaymentDisplay !== "-"
+                          ? {
+                              label: "Monthly payment",
+                              value: monthlyPaymentDisplay,
+                            }
+                          : null,
+                        ltv
+                          ? { label: "LTV", value: `${formatStatNumber(ltv)}%` }
+                          : null,
+                        ltc
+                          ? { label: "LTC", value: `${formatStatNumber(ltc)}%` }
+                          : null,
+                        arv
+                          ? {
+                              label: "ARV",
+                              value: `${formatStatNumber(arv)}%`,
+                            }
+                          : null,
+                        dscr
+                          ? { label: "DSCR", value: formatStatNumber(dscr) }
+                          : null,
+                        netWorth
+                          ? { label: "Net worth", value: netWorthDisplay }
+                          : null,
+                      ].filter(Boolean) as Array<{ label: string; value: string }>)
+                    : [];
 
-                {canEditApplication ? (
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab("update-application")}
-                    className="inline-flex shrink-0 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-[#13538A]/30 hover:text-[#13538A] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
-                  >
-                    <Pencil size={15} />
-                    Edit Application
-                  </button>
-                ) : null}
-              </div>
+                return (
+                  <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-950">
+                    <div className="flex flex-col gap-4 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+                      <div className="flex min-w-0 items-center gap-3.5">
+                        <div
+                          aria-hidden
+                          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#13538A] text-sm font-semibold tracking-wide text-white"
+                        >
+                          {borrowerInitials(displayName)}
+                        </div>
+                        <div className="min-w-0">
+                          <h1 className="truncate text-xl font-semibold tracking-tight text-slate-900 dark:text-white">
+                            {displayName}
+                          </h1>
+                          <p className="mt-0.5 truncate text-sm text-slate-500 dark:text-slate-400">
+                            {displayProduct}
+                          </p>
+                          <div className="mt-2 flex flex-wrap items-center gap-2">
+                            {applicationNumber ? (
+                              <span className="rounded-md bg-slate-100 px-2 py-0.5 font-mono text-[11px] font-medium tracking-tight text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                                {applicationNumber}
+                              </span>
+                            ) : null}
+                            <span
+                              className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${getStatusChip(
+                                displayStatus,
+                              )}`}
+                            >
+                              {formatSubmissionStatus(displayStatus)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {canEditApplication ? (
+                        <button
+                          type="button"
+                          onClick={() => setActiveTab("update-application")}
+                          className="inline-flex w-full shrink-0 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm font-semibold text-slate-700 transition hover:border-[#13538A]/40 hover:bg-slate-50 hover:text-[#13538A] sm:w-auto dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800 dark:hover:text-white"
+                        >
+                          <Pencil size={15} />
+                          Edit Application
+                        </button>
+                      ) : null}
+                    </div>
+
+                    {!loading && metrics.length ? (
+                      <div className="border-t border-white/10 bg-[#13538A] px-4 py-4 text-white sm:px-5">
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-4 sm:grid-cols-3 lg:flex lg:items-start lg:justify-between lg:gap-x-8">
+                          {metrics.map((item) => (
+                            <div key={item.label} className="min-w-0 lg:shrink-0">
+                              <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-white/70">
+                                {item.label}
+                              </p>
+                              <p className="mt-1 truncate text-lg font-semibold tracking-tight">
+                                {item.value}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+                  </section>
+                );
+              })()}
 
               {loading ? (
                 <div className="py-20 text-center text-slate-500">Loading...</div>
               ) : (
                 <>
-                  {(() => {
-                    const metrics = [
-                      {
-                        label: "Monthly Payment",
-                        value: monthlyPaymentDisplay || "-",
-                      },
-                      {
-                        label: "LTV",
-                        value: ltv ? `${formatStatNumber(ltv)}%` : "-",
-                      },
-                      {
-                        label: "LTC",
-                        value: ltc ? `${formatStatNumber(ltc)}%` : "-",
-                      },
-                      {
-                        label: "ARV %",
-                        value: arv ? `${formatStatNumber(arv)}%` : "-",
-                      },
-                      {
-                        label: "DSCR Ratio",
-                        value: dscr ? formatStatNumber(dscr) : "-",
-                      },
-                      {
-                        label: "Net Worth",
-                        value: netWorthDisplay || "-",
-                      },
-                    ];
-
-                    return (
-                      <div className="overflow-hidden rounded-xl bg-[#2C92D5] px-4 py-4 text-white shadow-sm sm:px-5">
-                        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
-                          {metrics.map((item) => (
-                            <Metric
-                              key={item.label}
-                              label={item.label}
-                              value={item.value}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })()}
 
                   <div
                     className={`min-w-0 ${
@@ -4521,7 +4531,7 @@ dark:bg-red-900/20 dark:text-red-400"
             className="flex h-[90vh] max-h-[90vh] w-full max-w-6xl min-h-0 flex-col overflow-hidden rounded-3xl bg-white shadow-2xl dark:bg-slate-900"
           >
             {/* HEADER */}
-            <div className="flex shrink-0 items-center justify-between bg-gradient-to-r from-blue-600 to-teal-600 px-6 py-4 text-white">
+            <div className="flex shrink-0 items-center justify-between bg-[#13538A] px-6 py-4 text-white">
               {/* LEFT */}
               <div>
                 <h2 className="text-sm font-semibold truncate max-w-md">

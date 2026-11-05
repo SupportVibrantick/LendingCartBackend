@@ -1,17 +1,9 @@
-import {
-  Building2,
-  ChevronDown,
-  Eye,
-  FileText,
-  Search,
-  X,
-} from "lucide-react";
+import { ChevronDown, Eye, Search, X } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useMemo, useState, type ReactNode } from "react";
 import ApplicationDetailsDownloadButton from "./ApplicationDetailsDownloadButton";
 import {
   formatSubmissionFieldValue,
-  getEntityTypeFromFields,
   getSubmissionFieldLabel,
   groupSubmissionFieldsForDisplay,
   parseSubmissionFieldValue,
@@ -64,6 +56,10 @@ type SubmissionDetailsViewProps = {
   showPdfDownload?: boolean;
 };
 
+/**
+ * Fields already shown in the page header or metrics ribbon.
+ * They stay out of the detail sections so values are not repeated.
+ */
 const TOP_SUMMARY_FIELD_KEYS = new Set([
   "applicationid",
   "applicationnumber",
@@ -73,10 +69,6 @@ const TOP_SUMMARY_FIELD_KEYS = new Set([
   "borrowername",
   "firstname",
   "lastname",
-  "borroweremail",
-  "email",
-  "brokername",
-  "brokeremail",
   "loanproduct",
   "loanproductcode",
   "loanprogram",
@@ -103,34 +95,6 @@ function isDisplayedInTopSummary(field: SubmissionDetailField) {
 }
 
 // ─── Sub-components ───────
-
-function InfoCell({
-  label,
-  value,
-  icon,
-}: {
-  label: string;
-  value: ReactNode;
-  icon?: ReactNode;
-}) {
-  return (
-    <div className="group relative rounded-xl border border-slate-200/80 bg-gradient-to-b from-white to-slate-50/80 p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition hover:border-slate-300 hover:shadow-sm dark:border-slate-700/80 dark:from-slate-900 dark:to-slate-950 dark:hover:border-slate-600">
-      <div className="mb-2 flex items-center gap-2">
-        {icon ? (
-          <span className="flex h-6 w-6 items-center justify-center rounded-md bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400">
-            {icon}
-          </span>
-        ) : null}
-        <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">
-          {label}
-        </span>
-      </div>
-      <div className="text-[15px] font-semibold leading-snug text-slate-900 dark:text-slate-100">
-        {value ?? "—"}
-      </div>
-    </div>
-  );
-}
 
 function FieldItem({ field }: { field: SubmissionDetailField }) {
   const display = formatSubmissionFieldValue(field);
@@ -466,34 +430,6 @@ export default function SubmissionDetailsView({
     [filteredSections],
   );
 
-  // Page header already shows borrower / app # / product / status / credit.
-  // Keep only facts that aren't repeated above.
-  const entityType = getEntityTypeFromFields(fields);
-  const detailFacts = [
-    entityType && entityType !== "—"
-      ? { label: "Entity type", icon: <Building2 size={12} />, value: entityType }
-      : null,
-    submittedDate
-      ? {
-          label: "Submitted",
-          icon: <FileText size={12} />,
-          value: (
-            <span>
-              {submittedDate.toLocaleDateString()}
-              <span className="mx-1.5 text-slate-300">·</span>
-              <span className="font-medium text-slate-500 dark:text-slate-400">
-                {submittedDate.toLocaleTimeString()}
-              </span>
-            </span>
-          ),
-        }
-      : null,
-  ].filter(Boolean) as Array<{
-    label: string;
-    icon: ReactNode;
-    value: ReactNode;
-  }>;
-
   return (
     <div className="space-y-5">
       {!showMarkFundedActions &&
@@ -540,62 +476,42 @@ export default function SubmissionDetailsView({
         </div>
       )}
 
-      {/* Compact details toolbar — identity lives in the page header */}
       <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-950">
         <div className="flex flex-col gap-3 border-b border-slate-100 px-4 py-3.5 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between sm:px-5">
           <div className="min-w-0">
             <h2 className="text-sm font-semibold text-slate-900 dark:text-white">
-              Application details
+              Application answers
             </h2>
             <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-              Full field answers for this submission
+              Fields not already shown in the summary above
             </p>
           </div>
-
-          {showPdfDownload && (
-            <div className="shrink-0">
-              <ApplicationDetailsDownloadButton
-                submissionDetail={submissionDetail}
-                fields={fields}
-                formatSubmissionStatus={formatSubmissionStatus}
-                formatCompactAmount={formatCompactAmount}
-                loanAmount={loanAmount}
-                ltv={ltv}
-                dscr={dscr}
-                monthlyPayment={monthlyPayment}
-                monthlyPaymentDisplay={monthlyPaymentDisplay}
-                submittedDate={submittedDate}
-                className="shrink-0"
-              />
-            </div>
-          )}
+          {showPdfDownload ? (
+            <ApplicationDetailsDownloadButton
+              submissionDetail={submissionDetail}
+              fields={fields}
+              formatSubmissionStatus={formatSubmissionStatus}
+              formatCompactAmount={formatCompactAmount}
+              loanAmount={loanAmount}
+              ltv={ltv}
+              dscr={dscr}
+              monthlyPayment={monthlyPayment}
+              monthlyPaymentDisplay={monthlyPaymentDisplay}
+              submittedDate={submittedDate}
+              className="shrink-0"
+            />
+          ) : null}
         </div>
 
-        {detailFacts.length > 0 ? (
-          <div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-2 sm:p-5">
-            {detailFacts.map((fact) => (
-              <InfoCell
-                key={fact.label}
-                label={fact.label}
-                icon={fact.icon}
-                value={fact.value}
-              />
-            ))}
-          </div>
-        ) : null}
-      </section>
-
-      {/* Fields panel */}
-      <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[0_8px_30px_-20px_rgba(15,23,42,0.28)] dark:border-slate-700 dark:bg-slate-950">
         {showEditHint && submissionDetail?.canEdit !== false && (
-          <div className="flex items-center gap-2.5 border-b border-slate-100 bg-slate-50/80 px-5 py-3 dark:border-slate-800 dark:bg-slate-900/50">
+          <div className="flex items-center gap-2.5 border-b border-slate-100 bg-slate-50/70 px-5 py-2.5 dark:border-slate-800 dark:bg-slate-900/40">
             <Eye size={14} className="shrink-0 text-slate-400" />
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Read-only preview. To edit, open the{" "}
+              Read-only. Use{" "}
               <span className="font-semibold text-slate-700 dark:text-slate-200">
-                Update Application
+                Edit Application
               </span>{" "}
-              tab.
+              to change these answers.
             </p>
           </div>
         )}
@@ -650,6 +566,7 @@ export default function SubmissionDetailsView({
               const visibleFields = section.fields.filter(
                 (f) => !isFieldEmpty(f),
               );
+              if (visibleFields.length === 0) return null;
               const originalSection = sections.find(
                 (candidate) => candidate.id === section.id,
               );

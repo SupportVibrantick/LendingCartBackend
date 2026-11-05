@@ -326,7 +326,7 @@ function SummaryStat({
       ? "border-emerald-100 bg-emerald-50/80 text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300"
       : accent === "sky"
         ? "border-sky-100 bg-sky-50/80 text-sky-700 dark:border-sky-500/20 dark:bg-sky-500/10 dark:text-sky-300"
-        : "border-violet-100 bg-violet-50/80 text-violet-700 dark:border-violet-500/20 dark:bg-violet-500/10 dark:text-violet-300";
+        : "border-[#13538A]/15 bg-[#13538A]/8 text-[#13538A] dark:border-[#13538A]/30 dark:bg-[#13538A]/15 dark:text-sky-300";
 
   return (
     <div className={`rounded-xl border p-3 ${accentClass}`}>
@@ -508,8 +508,8 @@ function LoiListItem({
       onClick={onSelect}
       className={`w-full rounded-xl border p-3.5 text-left transition ${
         selected
-          ? "border-violet-400 bg-violet-50 shadow-sm ring-1 ring-violet-200 dark:border-violet-500/50 dark:bg-violet-500/10 dark:ring-violet-500/20"
-          : "border-slate-200 bg-white hover:border-violet-200 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-950 dark:hover:border-violet-500/30 dark:hover:bg-slate-900"
+          ? "border-[#13538A] bg-[#13538A]/8 shadow-sm ring-1 ring-[#13538A]/20 dark:border-[#13538A]/50 dark:bg-[#13538A]/15 dark:ring-[#13538A]/30"
+          : "border-slate-200 bg-white hover:border-[#13538A]/30 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-950 dark:hover:border-[#13538A]/40 dark:hover:bg-slate-900"
       }`}
     >
       <div className="min-w-0">
@@ -688,7 +688,7 @@ function LoiDetailDrawer({
             <button
               type="button"
               onClick={onViewPdf}
-              className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-violet-700"
+              className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#13538A] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0E426E]"
             >
               <ExternalLink size={15} />
               View PDF
@@ -917,7 +917,7 @@ export default function BrokerLoiPanel({
         showCancelButton: true,
         confirmButtonText: "Regenerate",
         cancelButtonText: "Cancel",
-        confirmButtonColor: "#7C3AED",
+        confirmButtonColor: "#13538A",
       });
 
       if (!result.isConfirmed) return;
@@ -1001,7 +1001,7 @@ export default function BrokerLoiPanel({
           showCancelButton: true,
           confirmButtonText: "Regenerate",
           cancelButtonText: "Cancel",
-          confirmButtonColor: "#7C3AED",
+          confirmButtonColor: "#13538A",
         });
 
         if (!result.isConfirmed) return;
@@ -1077,7 +1077,7 @@ export default function BrokerLoiPanel({
         showCancelButton: true,
         confirmButtonText: "Regenerate",
         cancelButtonText: "Cancel",
-        confirmButtonColor: "#7C3AED",
+        confirmButtonColor: "#13538A",
       });
 
       if (!result.isConfirmed) return;
@@ -1193,7 +1193,7 @@ export default function BrokerLoiPanel({
       showCancelButton: true,
       confirmButtonText: "Create Revised LOI",
       cancelButtonText: "Cancel",
-      confirmButtonColor: "#7C3AED",
+      confirmButtonColor: "#13538A",
     });
 
     if (!result.isConfirmed) return;
@@ -1436,7 +1436,7 @@ export default function BrokerLoiPanel({
       showCancelButton: true,
       confirmButtonText: "Forward Signed LOI",
       cancelButtonText: "Cancel",
-      confirmButtonColor: "#7C3AED",
+      confirmButtonColor: "#13538A",
     });
     if (!confirm.isConfirmed) return;
 
@@ -1694,7 +1694,7 @@ export default function BrokerLoiPanel({
   return (
     <>
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-950">
-        <div className="border-b border-slate-100 bg-gradient-to-r from-violet-50/80 via-white to-white px-5 py-4 dark:border-slate-800 dark:from-violet-500/10 dark:via-slate-950 dark:to-slate-950">
+        <div className="border-b border-slate-100 bg-gradient-to-r from-[#13538A]/8 via-white to-white px-5 py-4 dark:border-slate-800 dark:from-[#13538A]/10 dark:via-slate-950 dark:to-slate-950">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <h2 className="text-lg font-bold text-slate-900 dark:text-white">
@@ -1722,13 +1722,13 @@ export default function BrokerLoiPanel({
                   value={searchInput}
                   onChange={(e) => setSearchInput(e.target.value)}
                   placeholder="Search lender or product..."
-                  className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-9 text-sm outline-none transition focus:border-violet-400 focus:ring-2 focus:ring-violet-100 dark:border-slate-700 dark:bg-slate-900 dark:focus:ring-violet-500/20"
+                  className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-9 text-sm outline-none transition focus:border-[#13538A] focus:ring-2 focus:ring-[#13538A]/15 dark:border-slate-700 dark:bg-slate-900 dark:focus:ring-[#13538A]/30"
                   aria-label="Search lender LOIs"
                 />
                 {loading && searchInput.trim() ? (
                   <Loader2
                     size={14}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-violet-600"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-[#13538A]"
                   />
                 ) : searchInput ? (
                   <button
@@ -1750,7 +1750,7 @@ export default function BrokerLoiPanel({
                 <select
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value as LoiSortOption)}
-                  className="w-full appearance-none rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-8 text-sm outline-none transition focus:border-violet-400 focus:ring-2 focus:ring-violet-100 dark:border-slate-700 dark:bg-slate-900 dark:focus:ring-violet-500/20"
+                  className="w-full appearance-none rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-8 text-sm outline-none transition focus:border-[#13538A] focus:ring-2 focus:ring-[#13538A]/15 dark:border-slate-700 dark:bg-slate-900 dark:focus:ring-[#13538A]/30"
                 >
                   {SORT_OPTIONS.map((option) => (
                     <option key={option.value} value={option.value}>
@@ -1763,10 +1763,10 @@ export default function BrokerLoiPanel({
           </div>
 
           {canManageBrokerLoi && (
-            <div className="mt-4 rounded-xl border border-violet-100 bg-white/80 p-3 dark:border-violet-500/20 dark:bg-slate-900/40">
+            <div className="mt-4 rounded-xl border border-[#13538A]/15 bg-white/80 p-3 dark:border-[#13538A]/30 dark:bg-slate-900/40">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="min-w-0 flex-1">
-                  <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-violet-600 dark:text-violet-300">
+                  <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-[#13538A] dark:text-sky-300">
                     Broker LOI Workflow
                   </p>
                   <div className="flex flex-wrap items-center gap-1.5 text-xs">
@@ -1781,9 +1781,9 @@ export default function BrokerLoiPanel({
                             {step.label}
                           </span>
                         ) : step.current ? (
-                          <span className="inline-flex items-center gap-1 font-semibold text-violet-700 dark:text-violet-300">
+                          <span className="inline-flex items-center gap-1 font-semibold text-[#13538A] dark:text-sky-300">
                             <span className="inline-flex h-3.5 w-3.5 items-center justify-center">
-                              <span className="h-2.5 w-2.5 rounded-full bg-violet-600 dark:bg-violet-400" />
+                              <span className="h-2.5 w-2.5 rounded-full bg-[#13538A] dark:bg-sky-300" />
                             </span>
                             {step.label}
                           </span>
@@ -1807,7 +1807,7 @@ export default function BrokerLoiPanel({
                     type="button"
                     disabled={prefillLoading}
                     onClick={() => void handleCreateOwnTermSheet()}
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-violet-700 disabled:opacity-50"
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-[#13538A] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[#0E426E] disabled:opacity-50"
                   >
                     {prefillLoading ? (
                       <Loader2 size={14} className="animate-spin" />
@@ -1832,7 +1832,7 @@ export default function BrokerLoiPanel({
                       ? "border-blue-200 bg-blue-50/80 dark:border-blue-500/20 dark:bg-blue-500/10"
                       : nextAction.tone === "slate"
                         ? "border-slate-200 bg-slate-50/80 dark:border-slate-700 dark:bg-slate-900/50"
-                        : "border-violet-200 bg-violet-50/80 dark:border-violet-500/20 dark:bg-violet-500/10"
+                        : "border-[#13538A]/25 bg-[#13538A]/8 dark:border-[#13538A]/30 dark:bg-[#13538A]/15"
               }`}
             >
               <span
@@ -1845,7 +1845,7 @@ export default function BrokerLoiPanel({
                         ? "bg-blue-600 text-white"
                         : nextAction.tone === "slate"
                           ? "bg-slate-600 text-white"
-                          : "bg-violet-600 text-white"
+                          : "bg-[#13538A] text-white"
                 }`}
               >
                 {nextAction.badge}
@@ -1876,7 +1876,7 @@ export default function BrokerLoiPanel({
                           : brokerCardBadge.tone === "blue"
                             ? "bg-blue-600 text-white"
                             : brokerCardBadge.tone === "violet"
-                              ? "bg-violet-600 text-white"
+                              ? "bg-[#13538A] text-white"
                               : "bg-slate-600 text-white"
                       }`}
                     >
@@ -1945,7 +1945,7 @@ export default function BrokerLoiPanel({
                       type="button"
                       disabled={prefillLoading}
                       onClick={() => void handleEditBrokerLoi()}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-purple-200 bg-white px-3 py-1.5 text-xs font-semibold text-purple-700 transition hover:bg-purple-50 disabled:opacity-50 dark:border-purple-500/30 dark:bg-purple-950 dark:text-purple-200"
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-[#13538A]/25 bg-white px-3 py-1.5 text-xs font-semibold text-[#13538A] transition hover:bg-[#13538A]/8 disabled:opacity-50 dark:border-[#13538A]/40 dark:bg-[#13538A]/20 dark:text-sky-200"
                     >
                       {prefillLoading ? (
                         <Loader2 size={13} className="animate-spin" />
@@ -1961,7 +1961,7 @@ export default function BrokerLoiPanel({
                       type="button"
                       disabled={prefillLoading}
                       onClick={() => void handleCreateRevisedBrokerLoi()}
-                      className="inline-flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-violet-700 disabled:opacity-50"
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-[#13538A] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-[#0E426E] disabled:opacity-50"
                     >
                       {prefillLoading ? (
                         <Loader2 size={13} className="animate-spin" />
@@ -1991,13 +1991,13 @@ export default function BrokerLoiPanel({
                     <div className="flex w-full flex-col gap-2 sm:w-auto sm:min-w-[220px]">
                       {requiresLenderSelectionForForward ? (
                         <label className="block">
-                          <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-violet-700 dark:text-violet-300">
+                          <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[#13538A] dark:text-sky-300">
                             Select Lender to Forward
                           </span>
                           <select
                             value={forwardLenderId}
                             onChange={(e) => setForwardLenderId(e.target.value)}
-                            className="w-full rounded-lg border border-violet-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-800 outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100 dark:border-violet-500/30 dark:bg-slate-950 dark:text-slate-100"
+                            className="w-full rounded-lg border border-[#13538A]/25 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-800 outline-none focus:border-[#13538A] focus:ring-2 focus:ring-[#13538A]/15 dark:border-[#13538A]/40 dark:bg-slate-950 dark:text-slate-100"
                           >
                             <option value="">Select a lender</option>
                             {forwardableLenders.map((lender) => (
@@ -2026,7 +2026,7 @@ export default function BrokerLoiPanel({
                           (requiresLenderSelectionForForward && !forwardLenderId)
                         }
                         onClick={handleForwardBrokerLoiToLender}
-                        className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-violet-700 disabled:opacity-50"
+                        className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#13538A] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#0E426E] disabled:opacity-50"
                       >
                         {signActionLoading ? (
                           <Loader2 size={13} className="animate-spin" />
@@ -2083,7 +2083,7 @@ export default function BrokerLoiPanel({
 
         {loading ? (
           <div className="flex items-center justify-center py-24 text-slate-500">
-            <Loader2 className="mr-2 h-5 w-5 animate-spin text-violet-600" />
+            <Loader2 className="mr-2 h-5 w-5 animate-spin text-[#13538A]" />
             Loading LOIs...
           </div>
         ) : previewMode === "broker-edit" && prefillData ? (
@@ -2189,31 +2189,31 @@ export default function BrokerLoiPanel({
               </>
             ) : (
               <div className="flex items-center justify-center py-16 text-sm text-slate-500">
-                <Loader2 className="mr-2 h-4 w-4 animate-spin text-violet-600" />
+                <Loader2 className="mr-2 h-4 w-4 animate-spin text-[#13538A]" />
                 Loading PDF...
               </div>
             )}
           </div>
         ) : previewMode === "broker-pdf" && !sortedLois.length ? (
           <div className="flex items-center justify-center py-24 text-slate-500">
-            <Loader2 className="mr-2 h-5 w-5 animate-spin text-violet-600" />
+            <Loader2 className="mr-2 h-5 w-5 animate-spin text-[#13538A]" />
             Loading term sheet PDF...
           </div>
         ) : hasStandaloneBrokerLoiOnly ? (
           <div className="flex flex-col items-center justify-center px-6 py-20 text-center">
-            <Loader2 className="mb-3 h-6 w-6 animate-spin text-violet-600" />
+            <Loader2 className="mb-3 h-6 w-6 animate-spin text-[#13538A]" />
             <p className="text-sm text-slate-500">Loading your term sheet...</p>
           </div>
         ) : !sortedLois.length &&
           (brokerLoiStatusLoading || !brokerLoiStatusLoaded) ? (
           <div className="flex flex-col items-center justify-center px-6 py-20 text-center">
-            <Loader2 className="mb-3 h-6 w-6 animate-spin text-violet-600" />
+            <Loader2 className="mb-3 h-6 w-6 animate-spin text-[#13538A]" />
             <p className="text-sm text-slate-500">Checking term sheet status...</p>
           </div>
         ) : !sortedLois.length ? (
           <div className="flex flex-col items-center justify-center px-6 py-20 text-center">
-            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-violet-100 dark:bg-violet-500/10">
-              <FileText className="h-7 w-7 text-violet-600 dark:text-violet-400" />
+            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-[#13538A]/10 dark:bg-[#13538A]/15">
+              <FileText className="h-7 w-7 text-[#13538A] dark:text-sky-300" />
             </div>
             <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200">
               {canShowCreateTermSheet
@@ -2232,7 +2232,7 @@ export default function BrokerLoiPanel({
                 type="button"
                 disabled={prefillLoading || brokerLoiLocked}
                 onClick={() => void handleCreateOwnTermSheet()}
-                className="mt-5 inline-flex items-center gap-2 rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-violet-700 disabled:opacity-50"
+                className="mt-5 inline-flex items-center gap-2 rounded-xl bg-[#13538A] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0E426E] disabled:opacity-50"
               >
                 {prefillLoading ? (
                   <Loader2 size={16} className="animate-spin" />
@@ -2312,13 +2312,13 @@ export default function BrokerLoiPanel({
                             onClick={() => handleSwitchPreviewMode("lender")}
                             className={`relative px-3 py-2.5 text-xs font-semibold transition ${
                               previewMode === "lender"
-                                ? "text-violet-700 dark:text-violet-300"
+                                ? "text-[#13538A] dark:text-sky-300"
                                 : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
                             }`}
                           >
                             Lender LOI
                             {previewMode === "lender" && (
-                              <span className="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-violet-600" />
+                              <span className="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-[#13538A]" />
                             )}
                           </button>
                         )}
@@ -2414,7 +2414,7 @@ export default function BrokerLoiPanel({
                               type="button"
                               disabled={prefillLoading || brokerLoiLocked}
                               onClick={() => void handleOpenBrokerLoiForm()}
-                              className="inline-flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
+                              className="inline-flex items-center gap-1.5 rounded-lg bg-[#13538A] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-[#0E426E] disabled:cursor-not-allowed disabled:opacity-50"
                             >
                               {prefillLoading ? (
                                 <Loader2 size={13} className="animate-spin" />
@@ -2497,7 +2497,7 @@ export default function BrokerLoiPanel({
                     <div className="flex flex-1 items-center justify-center p-8 text-center text-sm text-slate-500">
                       {prefillLoading ? (
                         <span className="inline-flex items-center gap-2">
-                          <Loader2 className="h-4 w-4 animate-spin text-violet-600" />
+                          <Loader2 className="h-4 w-4 animate-spin text-[#13538A]" />
                           Loading broker LOI editor...
                         </span>
                       ) : (

@@ -32,7 +32,7 @@ export default function LoanApplicationStepper({
                 <span
                   className={`flex h-9 w-9 items-center justify-center rounded-full text-sm font-semibold transition ${
                     isCompleted || isActive
-                      ? "bg-[#2C92D5] text-white shadow-sm"
+                      ? "bg-[#13538A] text-white shadow-sm"
                       : "bg-slate-200 text-slate-500 dark:bg-slate-700 dark:text-slate-400"
                   }`}
                 >
@@ -46,7 +46,7 @@ export default function LoanApplicationStepper({
                 <span
                   className={`max-w-[5.5rem] text-center text-[11px] font-medium leading-tight sm:max-w-[7rem] sm:text-xs ${
                     isActive
-                      ? "text-[#2C92D5]"
+                      ? "text-[#13538A]"
                       : isCompleted
                         ? "text-slate-700 dark:text-slate-300"
                         : "text-slate-400 dark:text-slate-500"
@@ -61,7 +61,7 @@ export default function LoanApplicationStepper({
                   aria-hidden
                   className={`mx-1 mt-[18px] h-0.5 min-w-3 flex-1 rounded-full ${
                     index < currentStep
-                      ? "bg-[#2C92D5]"
+                      ? "bg-[#13538A]"
                       : "bg-slate-200 dark:bg-slate-700"
                   }`}
                 />

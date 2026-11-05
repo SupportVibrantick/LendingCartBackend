@@ -42,7 +42,7 @@ const ToggleSwitch = ({
       disabled
         ? "cursor-not-allowed bg-slate-200 opacity-50 dark:bg-slate-700"
         : checked
-          ? "bg-[#2C92D5]"
+          ? "bg-[#13538A]"
           : "bg-slate-200 dark:bg-slate-700"
     }`}
   >
@@ -303,7 +303,7 @@ export default function ResidentialFinancialsStep({
         <button
           type="button"
           onClick={() => onChange(addFinancialYearColumn(financials))}
-          className="mt-3 flex items-center gap-1 text-sm font-medium text-[#2C92D5] hover:underline"
+          className="mt-3 flex items-center gap-1 text-sm font-medium text-[#13538A] hover:underline"
         >
           <Plus className="h-4 w-4" />
           Add Year
@@ -387,7 +387,7 @@ export default function ResidentialFinancialsStep({
                 ],
               })
             }
-            className="flex items-center gap-1 text-sm font-medium text-[#2C92D5] hover:underline"
+            className="flex items-center gap-1 text-sm font-medium text-[#13538A] hover:underline"
           >
             <Plus className="h-4 w-4" />
             Add Year
@@ -407,7 +407,7 @@ export default function ResidentialFinancialsStep({
               name="dscrCalculationMethod"
               checked={financials.dscrCalculationMethod === "noi"}
               onChange={() => patch({ dscrCalculationMethod: "noi" })}
-              className="text-[#2C92D5]"
+              className="text-[#13538A]"
             />
             Use NOI
           </label>
@@ -417,7 +417,7 @@ export default function ResidentialFinancialsStep({
               name="dscrCalculationMethod"
               checked={financials.dscrCalculationMethod === "proForma"}
               onChange={() => patch({ dscrCalculationMethod: "proForma" })}
-              className="text-[#2C92D5]"
+              className="text-[#13538A]"
             />
             Use Pro-Forma NOI
           </label>
