@@ -4238,11 +4238,22 @@ dark:bg-red-900/20 dark:text-red-400"
               >
                 <button
                   type="button"
-                  disabled={isDisabled}
+                  aria-disabled={isDisabled || undefined}
                   title={isDisabled ? tab.disabledReason : tab.label}
                   aria-current={isActive ? "page" : undefined}
                   onClick={() => {
-                    if (isDisabled) return;
+                    if (isDisabled) {
+                      void Swal.fire({
+                        title: tab.label,
+                        text:
+                          tab.disabledReason ||
+                          "This action is not available for this application.",
+                        icon: "info",
+                        confirmButtonText: "OK",
+                        confirmButtonColor: "#13538A",
+                      });
+                      return;
+                    }
                     setActiveTab(tab.key);
                   }}
                   className={
