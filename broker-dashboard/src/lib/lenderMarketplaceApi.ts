@@ -555,6 +555,7 @@ export type LenderProfileProduct = {
   id: string;
   loanProductCode: string;
   loanProductName: string;
+  description?: string | null;
   minLoanAmount?: string | number | null;
   maxLoanAmount?: string | number | null;
   minCreditScore?: number | null;
@@ -562,6 +563,19 @@ export type LenderProfileProduct = {
   interestRateRange?: string | null;
   statesSupported?: string | null;
   termRange?: string | null;
+  maxLtvPercent?: string | number | null;
+  maxLtcPercent?: string | number | null;
+  maxArvPercent?: string | number | null;
+  originationPointsPercent?: string | number | null;
+  minExperience?: string | null;
+  avgTurnaroundDays?: number | null;
+  personalGuaranteeRequired?: boolean | null;
+  firstTimeBorrowersAllowed?: boolean | null;
+  interestOnlyAvailable?: boolean | null;
+  criteriaNotes?: string | null;
+  propertyTypes?: string[];
+  businessTypes?: string[];
+  equipmentTypes?: string[];
   documents?: LenderProfileDocument[];
 };
 
@@ -817,15 +831,34 @@ export function formatDisplayPhone(value?: string | null) {
   return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
 }
 
+export function normalizeLoanTypes(value: unknown): string[] {
+  if (!value) return [];
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item || "").trim()).filter(Boolean);
+  }
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) return normalizeLoanTypes(parsed);
+    } catch {
+      /* delimited string */
+    }
+    return parseDelimitedList(value);
+  }
+  return [];
+}
+
 export function mergeDiscoverProfile(
   detail: LenderFullProfile | null,
   lender: DiscoverLender,
 ): LenderFullProfile["profile"] & { loanTypes: string[] } {
   const profile = detail?.profile;
+  const loanTypes = normalizeLoanTypes(
+    profile?.loanTypes?.length ? profile.loanTypes : lender.loanTypes,
+  );
   return {
     summary: profile?.summary ?? lender.summary ?? null,
-    loanTypes:
-      profile?.loanTypes?.length ? profile.loanTypes : lender.loanTypes ?? [],
+    loanTypes,
     minFunding: profile?.minFunding ?? lender.minFunding ?? null,
     maxFunding: profile?.maxFunding ?? lender.maxFunding ?? null,
     statesSupported: profile?.statesSupported ?? lender.statesSupported ?? null,

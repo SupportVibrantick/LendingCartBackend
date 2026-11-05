@@ -28,19 +28,18 @@ export default function RichEditor({
   if (!editor) return null;
 
   const btnClass = (active: boolean) =>
-    `p-2 rounded-lg transition-all ${
+    `rounded-lg p-2 transition-all ${
       active
-        ? "bg-blue-100 text-blue-600"
-        : "text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+        ? "bg-[#13538A]/10 text-[#13538A]"
+        : "text-slate-500 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
     }`;
 
   return (
-    <div className="rounded-2xl border bg-white overflow-hidden focus-within:ring-2 focus-within:ring-blue-500 transition">
-      {/* Toolbar */}
-      <div className="flex items-center justify-between px-4 py-2 border-b bg-gradient-to-r from-gray-50 to-gray-100">
-        {/* Left Controls */}
+    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white transition focus-within:border-[#13538A] focus-within:ring-2 focus-within:ring-[#13538A]/20 dark:border-slate-700 dark:bg-slate-900">
+      <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50 px-3 py-2 dark:border-slate-800 dark:bg-slate-800/50">
         <div className="flex items-center gap-1">
           <button
+            type="button"
             onClick={() => editor.chain().focus().toggleBold().run()}
             className={btnClass(editor.isActive("bold"))}
           >
@@ -48,15 +47,17 @@ export default function RichEditor({
           </button>
 
           <button
+            type="button"
             onClick={() => editor.chain().focus().toggleItalic().run()}
             className={btnClass(editor.isActive("italic"))}
           >
             <Italic size={16} />
           </button>
 
-          <div className="w-px h-5 bg-gray-300 mx-2" />
+          <div className="mx-2 h-5 w-px bg-slate-200 dark:bg-slate-700" />
 
           <button
+            type="button"
             onClick={() => editor.chain().focus().toggleBulletList().run()}
             className={btnClass(editor.isActive("bulletList"))}
           >
@@ -64,24 +65,18 @@ export default function RichEditor({
           </button>
 
           <button
+            type="button"
             onClick={() => editor.chain().focus().toggleOrderedList().run()}
             className={btnClass(editor.isActive("orderedList"))}
           >
             <ListOrdered size={16} />
           </button>
         </div>
-
-        {/* Right Side (AI Badge) */}
-        {/* <div className="flex items-center gap-1 text-xs font-semibold text-amber-500">
-          <Sparkles size={14} />
-          AI Assist
-        </div> */}
       </div>
 
-      {/* Editor Area */}
       <EditorContent
         editor={editor}
-        className="tiptap-content px-5 py-4 min-h-[220px] focus:outline-none"
+        className="tiptap-content min-h-[220px] px-5 py-4 focus:outline-none"
       />
     </div>
   );

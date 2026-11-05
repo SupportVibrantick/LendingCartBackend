@@ -320,11 +320,11 @@ const statusClass = (status?: string | null) => {
     case "AWAITING_BROKER":
       return "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800/60 dark:bg-amber-950/30 dark:text-amber-200";
     case "SENT_TO_CLIENT":
-      return "border-blue-200 bg-blue-50 text-blue-800 dark:border-blue-800/60 dark:bg-blue-950/30 dark:text-blue-200";
+      return "border-[#13538A]/25 bg-[#13538A]/8 text-[#0E426E] dark:border-[#13538A]/40 dark:bg-[#13538A]/15 dark:text-sky-200";
     case "CLIENT_SIGNED":
       return "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800/60 dark:bg-emerald-950/30 dark:text-emerald-200";
     case "FORWARDED_TO_LENDER":
-      return "border-violet-200 bg-violet-50 text-violet-800 dark:border-violet-800/60 dark:bg-violet-950/30 dark:text-violet-200";
+      return "border-[#13538A]/25 bg-[#13538A]/8 text-[#0E426E] dark:border-[#13538A]/40 dark:bg-[#13538A]/15 dark:text-sky-200";
     case "LENDER_SEEN":
       return "border-teal-200 bg-teal-50 text-teal-800 dark:border-teal-800/60 dark:bg-teal-950/30 dark:text-teal-200";
     default:
@@ -1627,13 +1627,13 @@ export default function SignDocumentsPanel({
         key={row.requirementId}
         className={`flex flex-col rounded-xl border bg-white dark:bg-slate-900 ${
           isSelected
-            ? "border-[#13538A] dark:border-blue-500"
+            ? "border-[#13538A] bg-[#13538A]/5 shadow-sm ring-1 ring-[#13538A]/20 dark:border-[#13538A]/50 dark:bg-[#13538A]/10"
             : "border-slate-200 dark:border-slate-700"
         }`}
       >
         <div className="flex flex-1 flex-col gap-3 p-3.5">
           <div className="flex items-start gap-2.5">
-            <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-300">
+            <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#13538A] text-white">
               {isImageTemplate(row.templateMimeType, row.templateFileUrl) ? (
                 <FileImage size={16} />
               ) : (
@@ -1828,7 +1828,7 @@ export default function SignDocumentsPanel({
 
           {row.signStatus === "FORWARDED_TO_LENDER" && (
             <p className="flex items-center gap-1.5 text-xs font-medium text-slate-600 dark:text-slate-300">
-              <CheckCircle2 size={14} className="shrink-0 text-violet-600" />
+              <CheckCircle2 size={14} className="shrink-0 text-[#13538A]" />
               Forwarded to {row.lenderName || "lender"}
             </p>
           )}
@@ -2206,7 +2206,7 @@ export default function SignDocumentsPanel({
         >
           <div className="flex items-start justify-between gap-4 border-b border-slate-200 bg-gradient-to-r from-[#13538A]/8 to-white px-5 py-4 sm:px-6">
             <div className="min-w-0">
-              <p className="text-xs font-semibold uppercase tracking-wide text-blue-600">
+              <p className="text-xs font-semibold uppercase tracking-wide text-[#13538A]">
                 Review & Sign
               </p>
               <h3
@@ -2215,7 +2215,7 @@ export default function SignDocumentsPanel({
               >
                 {activeSigningDoc.documentName}
                 {activeSigningDoc.loiVersionLabel ? (
-                  <span className="ml-2 text-sm font-medium text-violet-600">
+                  <span className="ml-2 text-sm font-medium text-[#13538A]">
                     ({activeSigningDoc.loiVersionLabel})
                   </span>
                 ) : null}
@@ -2228,7 +2228,7 @@ export default function SignDocumentsPanel({
                   : "Read the document, add your signature, then submit."}
               </p>
               {isBrokerTermSheetDoc(activeSigningDoc) && (
-                <p className="mt-1 text-xs font-medium text-violet-700">
+                <p className="mt-1 text-xs font-medium text-[#0E426E]">
                   {isStandaloneBrokerTermSheet(activeSigningDoc)
                     ? "Broker Term Sheet"
                     : activeSigningDoc.lenderName
@@ -2324,9 +2324,9 @@ export default function SignDocumentsPanel({
           className="flex max-h-[94vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
           onClick={(event) => event.stopPropagation()}
         >
-          <div className="flex items-start justify-between gap-4 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-blue-50 px-5 py-4 sm:px-6">
+          <div className="flex items-start justify-between gap-4 border-b border-slate-200 bg-[#13538A]/8 px-5 py-4 sm:px-6">
             <div className="min-w-0">
-              <p className="text-xs font-semibold uppercase tracking-wide text-blue-600">
+              <p className="text-xs font-semibold uppercase tracking-wide text-[#13538A]">
                 Template Preview
               </p>
               <h3
@@ -2397,25 +2397,25 @@ export default function SignDocumentsPanel({
         label: "Awaiting you",
         count: brokerSummary.awaitingYou,
         color: "text-amber-700 dark:text-amber-300",
-        wrap: "border-amber-200 bg-amber-50/60 dark:border-amber-800/50 dark:bg-amber-950/20",
+        wrap: "border-amber-200 bg-amber-50/70 dark:border-amber-800/50 dark:bg-amber-950/20",
       },
       {
         label: "With client",
         count: brokerSummary.withClient,
-        color: "text-[#13538A]",
-        wrap: "border-sky-200 bg-sky-50/60 dark:border-sky-800/50 dark:bg-sky-950/20",
+        color: "text-[#13538A] dark:text-sky-300",
+        wrap: "border-[#13538A]/20 bg-[#13538A]/8 dark:border-[#13538A]/30 dark:bg-[#13538A]/15",
       },
       {
         label: "Ready to forward",
         count: brokerSummary.readyToForward,
         color: "text-emerald-700 dark:text-emerald-300",
-        wrap: "border-emerald-200 bg-emerald-50/60 dark:border-emerald-800/50 dark:bg-emerald-950/20",
+        wrap: "border-emerald-200 bg-emerald-50/70 dark:border-emerald-800/50 dark:bg-emerald-950/20",
       },
       {
         label: "Forwarded",
         count: brokerSummary.forwarded,
-        color: "text-violet-700 dark:text-violet-300",
-        wrap: "border-violet-200 bg-violet-50/60 dark:border-violet-800/50 dark:bg-violet-950/20",
+        color: "text-[#0E426E] dark:text-sky-200",
+        wrap: "border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-900/50",
       },
     ];
 
@@ -2435,22 +2435,20 @@ export default function SignDocumentsPanel({
       selectedOnPageCount < eligibleOnPage.length;
 
     return (
-      <div className="space-y-5">
-        <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-700 dark:bg-slate-900">
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+      <>
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-950">
+        <div className="border-b border-slate-100 px-5 py-5 dark:border-slate-800 sm:px-6">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div className="min-w-0 flex-1">
-              <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-[#13538A]">
-                E-signature workflow
-              </p>
-              <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
+              <h2 className="text-lg font-semibold tracking-tight text-slate-900 dark:text-white">
                 Fill & Sign Forms
               </h2>
-              <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-slate-500 dark:text-slate-400">
+              <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">
                 Upload PDFs, map or fill fields, send to the client, then forward
                 completed forms to eligible lenders.
               </p>
               {(brokerLenderGroups.length > 0 || totalDocuments > 0) && (
-                <p className="mt-2 text-xs font-medium text-slate-600 dark:text-slate-300">
+                <p className="mt-1.5 text-xs font-medium text-slate-400">
                   {totalDocuments} document{totalDocuments === 1 ? "" : "s"}
                   {brokerLenderGroups.length > 0
                     ? ` · ${brokerLenderGroups.length} lender${brokerLenderGroups.length === 1 ? "" : "s"}`
@@ -2459,68 +2457,68 @@ export default function SignDocumentsPanel({
                 </p>
               )}
             </div>
+          </div>
 
-            <div className="grid w-full grid-cols-2 gap-2 sm:grid-cols-4 lg:w-auto lg:min-w-[380px]">
-              {statCards.map((stat) => (
-                <div
-                  key={stat.label}
-                  className={`rounded-lg border px-3 py-2.5 text-center ${stat.wrap}`}
+          <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {statCards.map((stat) => (
+              <div
+                key={stat.label}
+                className={`rounded-lg border px-3 py-2.5 ${stat.wrap}`}
+              >
+                <p className={`text-xl font-semibold tabular-nums ${stat.color}`}>
+                  {stat.count}
+                </p>
+                <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                  {stat.label}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-4 inline-flex w-full gap-1 rounded-lg bg-slate-100 p-1 dark:bg-slate-800 sm:w-auto">
+            <button
+              type="button"
+              onClick={() => {
+                setBrokerViewTab("upload");
+                void fetchLibraryTemplates();
+              }}
+              className={`inline-flex flex-1 items-center justify-center gap-2 rounded-md px-3.5 py-1.5 text-xs font-semibold transition sm:flex-none ${
+                brokerViewTab === "upload"
+                  ? "bg-[#13538A] text-white shadow-sm"
+                  : "text-slate-500 hover:bg-white hover:text-slate-800 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-white"
+              }`}
+            >
+              <Upload size={14} />
+              Upload form
+            </button>
+            <button
+              type="button"
+              onClick={() => setBrokerViewTab("documents")}
+              className={`inline-flex flex-1 items-center justify-center gap-2 rounded-md px-3.5 py-1.5 text-xs font-semibold transition sm:flex-none ${
+                brokerViewTab === "documents"
+                  ? "bg-[#13538A] text-white shadow-sm"
+                  : "text-slate-500 hover:bg-white hover:text-slate-800 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-white"
+              }`}
+            >
+              <FileText size={14} />
+              Documents
+              {totalDocuments > 0 ? (
+                <span
+                  className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+                    brokerViewTab === "documents"
+                      ? "bg-white/20 text-white"
+                      : "bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300"
+                  }`}
                 >
-                  <p className={`text-xl font-bold tabular-nums ${stat.color}`}>
-                    {stat.count}
-                  </p>
-                  <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                    {stat.label}
-                  </p>
-                </div>
-              ))}
-            </div>
+                  {totalDocuments}
+                </span>
+              ) : null}
+            </button>
           </div>
         </div>
 
-        <div className="inline-flex w-full gap-1 rounded-lg border border-slate-200 bg-slate-50 p-1 dark:border-slate-700 dark:bg-slate-800/50 sm:w-auto">
-          <button
-            type="button"
-            onClick={() => {
-              setBrokerViewTab("upload");
-              void fetchLibraryTemplates();
-            }}
-            className={`inline-flex flex-1 items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-semibold transition sm:flex-none ${
-              brokerViewTab === "upload"
-                ? "bg-white text-slate-900 ring-1 ring-slate-200 dark:bg-slate-900 dark:text-white dark:ring-slate-600"
-                : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200"
-            }`}
-          >
-            <Upload size={15} />
-            Upload form
-          </button>
-          <button
-            type="button"
-            onClick={() => setBrokerViewTab("documents")}
-            className={`inline-flex flex-1 items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-semibold transition sm:flex-none ${
-              brokerViewTab === "documents"
-                ? "bg-white text-slate-900 ring-1 ring-slate-200 dark:bg-slate-900 dark:text-white dark:ring-slate-600"
-                : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200"
-            }`}
-          >
-            <FileText size={15} />
-            Documents
-            {totalDocuments > 0 ? (
-              <span
-                className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
-                  brokerViewTab === "documents"
-                    ? "bg-[#13538A]/15 text-[#0E426E]"
-                    : "bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300"
-                }`}
-              >
-                {totalDocuments}
-              </span>
-            ) : null}
-          </button>
-        </div>
-
         {brokerViewTab === "upload" ? (
-        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
+        <div>
           <div className="border-b border-slate-100 px-5 py-4 dark:border-slate-800">
             <div className="flex items-start gap-3">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#13538A] text-white">
@@ -2545,7 +2543,7 @@ export default function SignDocumentsPanel({
               </p>
               <ol className="mt-2 space-y-2 text-xs leading-relaxed text-slate-600 dark:text-slate-300">
                 <li className="flex gap-2.5">
-                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-200 text-[10px] font-bold text-slate-700 dark:bg-slate-700 dark:text-slate-100">
+                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#13538A] text-[10px] font-bold text-white">
                     1
                   </span>
                   <span>
@@ -2653,16 +2651,16 @@ export default function SignDocumentsPanel({
                 }}
                 className={`flex min-h-[132px] w-full flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-4 py-6 text-center transition ${
                   uploadFile
-                    ? "border-violet-300 bg-violet-50/50 dark:border-violet-500/40 dark:bg-violet-950/20"
+                    ? "border-[#13538A] bg-[#13538A]/8 dark:border-[#13538A]/50 dark:bg-[#13538A]/15"
                     : uploadDragOver
-                      ? "border-violet-400 bg-violet-50/60 dark:border-violet-500/50 dark:bg-violet-950/30"
-                      : "border-slate-200 bg-slate-50/50 hover:border-violet-300 hover:bg-violet-50/30 dark:border-slate-700 dark:bg-slate-900/50 dark:hover:border-violet-500/40"
+                      ? "border-[#13538A] bg-[#13538A]/10 dark:border-[#13538A]/60 dark:bg-[#13538A]/20"
+                      : "border-slate-200 bg-slate-50/50 hover:border-[#13538A] hover:bg-[#13538A]/8 dark:border-slate-700 dark:bg-slate-900/50 dark:hover:border-[#13538A]/40"
                 }`}
               >
                 <div
-                  className={`flex h-12 w-12 items-center justify-center rounded-2xl ${
+                  className={`flex h-12 w-12 items-center justify-center rounded-xl ${
                     uploadFile
-                      ? "bg-violet-100 text-violet-700 dark:bg-violet-900/50 dark:text-violet-300"
+                      ? "bg-[#13538A] text-white"
                       : "bg-white text-slate-400 shadow-sm dark:bg-slate-800"
                   }`}
                 >
@@ -2776,8 +2774,9 @@ export default function SignDocumentsPanel({
           </div>
         </div>
         ) : (
-          <div className="space-y-4">
-            <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900 lg:flex-row lg:items-end lg:justify-between">
+          <div className="space-y-4 p-5 sm:p-6">
+            {(totalDocuments > 0 || hasActiveFilters) && (
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
               <div>
                 <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
                   Documents
@@ -2860,9 +2859,10 @@ export default function SignDocumentsPanel({
                 </label>
               </div>
             </div>
+            )}
 
             {loading && rows.length === 0 ? (
-              <div className="flex min-h-[220px] items-center justify-center rounded-xl border border-dashed border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
+              <div className="flex min-h-[220px] items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-900/40">
                 <div className="text-center">
                   <Loader2 className="mx-auto h-7 w-7 animate-spin text-[#13538A]" />
                   <p className="mt-3 text-sm text-slate-500">
@@ -2871,21 +2871,25 @@ export default function SignDocumentsPanel({
                 </div>
               </div>
             ) : rows.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-slate-200 bg-white px-6 py-12 text-center dark:border-slate-700 dark:bg-slate-900">
-                <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-300">
-                  <SearchX size={22} />
+              <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-6 py-16 text-center dark:border-slate-700 dark:bg-slate-900/40">
+                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-[#13538A] text-white">
+                  {hasActiveFilters ? (
+                    <SearchX size={22} />
+                  ) : (
+                    <FileText size={22} />
+                  )}
                 </div>
-                <p className="text-sm font-semibold text-slate-800 dark:text-white">
+                <h3 className="text-base font-semibold text-slate-800 dark:text-slate-200">
                   {hasActiveFilters
                     ? "No matching documents"
                     : "No sign documents yet"}
-                </p>
-                <p className="mx-auto mt-1.5 max-w-md text-sm text-slate-500">
+                </h3>
+                <p className="mx-auto mt-1 max-w-md text-sm text-slate-500 dark:text-slate-400">
                   {hasActiveFilters
                     ? hasSearchQuery
                       ? `Nothing matched “${debouncedBrokerSearch.trim()}”. Clear search or try another name.`
                       : "Nothing matched this source filter. Switch back to All forms."
-                    : "Upload a PDF form or wait for a lender to send one requiring client signature."}
+                    : "Upload a PDF form, or wait for a lender to send one that needs a client signature."}
                 </p>
                 <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
                   {hasActiveFilters ? (
@@ -3006,9 +3010,9 @@ export default function SignDocumentsPanel({
 
                 {selectedForwardCount > 0 && (
                   <div
-                    className={`${selectedSendCount > 0 ? "mt-4 border-t border-violet-200/80 pt-4 dark:border-violet-500/20" : "mt-3"}`}
+                    className={`${selectedSendCount > 0 ? "mt-4 border-t border-slate-200 pt-4 dark:border-slate-700" : "mt-3"}`}
                   >
-                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-violet-800 dark:text-violet-200">
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">
                       Forward {selectedForwardCount} completed form
                       {selectedForwardCount === 1 ? "" : "s"} to lenders
                     </p>
@@ -3067,7 +3071,7 @@ export default function SignDocumentsPanel({
             <div className="relative">
               {listLoading && (
                 <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-white/70 backdrop-blur-[1px] dark:bg-slate-900/70">
-                  <Loader2 className="h-7 w-7 animate-spin text-violet-600" />
+                  <Loader2 className="h-7 w-7 animate-spin text-[#13538A]" />
                 </div>
               )}
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -3209,6 +3213,7 @@ export default function SignDocumentsPanel({
           }
         />
       </div>
+      </>
     );
   };
 

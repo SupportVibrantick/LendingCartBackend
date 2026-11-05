@@ -364,7 +364,7 @@ export default function BrokerLoiEditorPanel({
   const brandingComplete = isLoiBrandingComplete(branding);
   const fieldsDisabled = submitting || readOnly;
   const inputClassName =
-    "w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-950 disabled:cursor-not-allowed disabled:opacity-60";
+    "w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-[#13538A] focus:ring-2 focus:ring-[#13538A]/20 dark:border-slate-700 dark:bg-slate-950 dark:focus:ring-[#13538A]/30 disabled:cursor-not-allowed disabled:opacity-60";
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden bg-white dark:bg-slate-900">
@@ -381,8 +381,8 @@ export default function BrokerLoiEditorPanel({
           </div>
         )}
 
-        <div className="mb-4 rounded-xl border border-violet-100 bg-violet-50/60 px-4 py-3 dark:border-violet-500/20 dark:bg-violet-500/10">
-          <p className="text-xs font-semibold uppercase tracking-wide text-violet-600 dark:text-violet-300">
+        <div className="mb-4 rounded-xl border border-[#13538A]/20 bg-[#13538A]/8 px-4 py-3 dark:border-[#13538A]/30 dark:bg-[#13538A]/15">
+          <p className="text-xs font-semibold uppercase tracking-wide text-[#13538A] dark:text-sky-300">
             {mode === "revised"
               ? revisedVersionNumber
                 ? `Create Revised Term Sheet (Version ${revisedVersionNumber})`
@@ -652,7 +652,7 @@ export default function BrokerLoiEditorPanel({
             ) : null}
 
             {bindingMaxLoan ? (
-              <div className="md:col-span-2 rounded-xl border border-violet-100 bg-violet-50/70 px-3 py-2.5 text-xs text-violet-900 dark:border-violet-500/20 dark:bg-violet-500/10 dark:text-violet-100">
+              <div className="md:col-span-2 rounded-xl border border-[#13538A]/20 bg-[#13538A]/8 px-3 py-2.5 text-xs text-[#13538A] dark:border-[#13538A]/30 dark:bg-[#13538A]/15 dark:text-sky-100">
                 Binding max loan (whichever is lower):{" "}
                 {formatMoney(bindingMaxLoan.amount)} via{" "}
                 {bindingMaxLoan.bindingLabel}
@@ -682,7 +682,7 @@ export default function BrokerLoiEditorPanel({
                     }
                     className={`flex-1 rounded-xl px-3 py-2.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${
                       terms.interestOnly === value
-                        ? "bg-violet-600 text-white"
+                        ? "bg-[#13538A] text-white"
                         : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300"
                     }`}
                   >
@@ -713,7 +713,7 @@ export default function BrokerLoiEditorPanel({
                     }}
                     className={`rounded-full px-4 py-2 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${
                       terms.loanTerm === option
-                        ? "bg-violet-600 text-white"
+                        ? "bg-[#13538A] text-white"
                         : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300"
                     }`}
                   >
@@ -1023,7 +1023,7 @@ export default function BrokerLoiEditorPanel({
               ? "Broker LOI was forwarded to the lender and cannot be regenerated"
               : undefined
           }
-          className="inline-flex items-center gap-2 rounded-xl bg-violet-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex items-center gap-2 rounded-xl bg-[#13538A] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#0E426E] disabled:cursor-not-allowed disabled:opacity-50"
         >
           {submitting ? (
             <>

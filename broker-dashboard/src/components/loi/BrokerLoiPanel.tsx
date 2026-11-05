@@ -4,7 +4,6 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
-  Circle,
   Download,
   ExternalLink,
   FileText,
@@ -501,6 +500,13 @@ function LoiListItem({
   const interestDisplay = formatLoiInterestDisplay(loi);
   const pdfReady = hasLoiPdf(loi);
   const statusLabel = formatLoiStatusLabel(loi.reviewStatus || loi.status);
+  const initials = String(loi.lenderName || "L")
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase();
 
   return (
     <button
@@ -513,12 +519,19 @@ function LoiListItem({
       }`}
     >
       <div className="min-w-0">
-        <p className="line-clamp-2 text-sm font-bold leading-snug text-slate-900 dark:text-white">
-          {loi.lenderName}
-        </p>
-        <p className="mt-1 line-clamp-2 text-[11px] leading-relaxed text-slate-500">
-          {productLabel}
-        </p>
+        <div className="flex items-start gap-2.5">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#13538A] text-[11px] font-semibold tracking-wide text-white">
+            {initials || "L"}
+          </div>
+          <div className="min-w-0">
+            <p className="line-clamp-2 text-sm font-semibold leading-snug text-slate-900 dark:text-white">
+              {loi.lenderName}
+            </p>
+            <p className="mt-0.5 line-clamp-2 text-[11px] leading-relaxed text-slate-500">
+              {productLabel}
+            </p>
+          </div>
+        </div>
 
         <div className="mt-2">
           <span
@@ -1694,13 +1707,13 @@ export default function BrokerLoiPanel({
   return (
     <>
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-950">
-        <div className="border-b border-slate-100 bg-gradient-to-r from-[#13538A]/8 via-white to-white px-5 py-4 dark:border-slate-800 dark:from-[#13538A]/10 dark:via-slate-950 dark:to-slate-950">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div className="border-b border-slate-100 px-5 py-5 dark:border-slate-800 sm:px-6">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div>
-              <h2 className="text-lg font-bold text-slate-900 dark:text-white">
+              <h2 className="text-lg font-semibold tracking-tight text-slate-900 dark:text-white">
                 LOI / Term Sheets
               </h2>
-              <p className="mt-1 text-sm text-slate-500">
+              <p className="mt-0.5 text-sm text-slate-500">
                 Review and manage lender LOIs for this application.
               </p>
               {data?.applicationNumber && (
@@ -1711,8 +1724,8 @@ export default function BrokerLoiPanel({
               )}
             </div>
 
-            <div className="flex w-full flex-col gap-2 sm:flex-row lg:max-w-xl">
-              <div className="relative flex-1">
+            <div className="flex w-full flex-col gap-2 sm:flex-row lg:w-auto">
+              <div className="relative min-w-0 flex-1 lg:w-72">
                 <Search
                   size={16}
                   className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
@@ -1722,7 +1735,7 @@ export default function BrokerLoiPanel({
                   value={searchInput}
                   onChange={(e) => setSearchInput(e.target.value)}
                   placeholder="Search lender or product..."
-                  className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-9 text-sm outline-none transition focus:border-[#13538A] focus:ring-2 focus:ring-[#13538A]/15 dark:border-slate-700 dark:bg-slate-900 dark:focus:ring-[#13538A]/30"
+                  className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-9 text-sm outline-none transition focus:border-[#13538A] focus:ring-2 focus:ring-[#13538A]/20 dark:border-slate-700 dark:bg-slate-900 dark:focus:ring-[#13538A]/30"
                   aria-label="Search lender LOIs"
                 />
                 {loading && searchInput.trim() ? (
@@ -1750,7 +1763,7 @@ export default function BrokerLoiPanel({
                 <select
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value as LoiSortOption)}
-                  className="w-full appearance-none rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-8 text-sm outline-none transition focus:border-[#13538A] focus:ring-2 focus:ring-[#13538A]/15 dark:border-slate-700 dark:bg-slate-900 dark:focus:ring-[#13538A]/30"
+                  className="w-full appearance-none rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-8 text-sm outline-none transition focus:border-[#13538A] focus:ring-2 focus:ring-[#13538A]/20 dark:border-slate-700 dark:bg-slate-900 dark:focus:ring-[#13538A]/30"
                 >
                   {SORT_OPTIONS.map((option) => (
                     <option key={option.value} value={option.value}>
@@ -1763,46 +1776,58 @@ export default function BrokerLoiPanel({
           </div>
 
           {canManageBrokerLoi && (
-            <div className="mt-4 rounded-xl border border-[#13538A]/15 bg-white/80 p-3 dark:border-[#13538A]/30 dark:bg-slate-900/40">
+            <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50/80 p-3.5 dark:border-slate-800 dark:bg-slate-900/40">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="min-w-0 flex-1">
-                  <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-[#13538A] dark:text-sky-300">
+                  <p className="mb-2.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">
                     Broker LOI Workflow
                   </p>
-                  <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                  <div className="flex flex-wrap items-center gap-y-1.5">
                     {workflowSteps.map((step, index) => (
                       <span
                         key={step.key}
-                        className="inline-flex items-center gap-1.5"
+                        className="inline-flex items-center"
                       >
-                        {step.done ? (
-                          <span className="inline-flex items-center gap-1 font-semibold text-emerald-700 dark:text-emerald-300">
-                            <Check size={13} className="shrink-0" strokeWidth={2.5} />
-                            {step.label}
+                        <span
+                          className={`inline-flex items-center gap-1.5 text-[11px] font-semibold ${
+                            step.done
+                              ? "text-emerald-700 dark:text-emerald-300"
+                              : step.current
+                                ? "text-[#13538A] dark:text-sky-300"
+                                : "text-slate-400"
+                          }`}
+                        >
+                          <span
+                            className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold ${
+                              step.done
+                                ? "bg-emerald-600 text-white"
+                                : step.current
+                                  ? "bg-[#13538A] text-white"
+                                  : "bg-slate-200 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
+                            }`}
+                          >
+                            {step.done ? (
+                              <Check size={11} strokeWidth={3} />
+                            ) : (
+                              index + 1
+                            )}
                           </span>
-                        ) : step.current ? (
-                          <span className="inline-flex items-center gap-1 font-semibold text-[#13538A] dark:text-sky-300">
-                            <span className="inline-flex h-3.5 w-3.5 items-center justify-center">
-                              <span className="h-2.5 w-2.5 rounded-full bg-[#13538A] dark:bg-sky-300" />
-                            </span>
-                            {step.label}
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 text-slate-400">
-                            <Circle size={13} className="shrink-0" strokeWidth={2} />
-                            {step.label}
-                          </span>
-                        )}
+                          {step.label}
+                        </span>
                         {index < workflowSteps.length - 1 && (
-                          <span className="text-slate-300 dark:text-slate-600">
-                            →
-                          </span>
+                          <span
+                            className={`mx-1.5 hidden h-px w-4 sm:block ${
+                              step.done
+                                ? "bg-emerald-300"
+                                : "bg-slate-200 dark:bg-slate-700"
+                            }`}
+                          />
                         )}
                       </span>
                     ))}
                   </div>
                 </div>
-                {canShowCreateTermSheet && (
+                {canShowCreateTermSheet && previewMode !== "broker-edit" && (
                   <button
                     type="button"
                     disabled={prefillLoading}
@@ -1821,18 +1846,18 @@ export default function BrokerLoiPanel({
             </div>
           )}
 
-          {canManageBrokerLoi && nextAction && (
+          {canManageBrokerLoi &&
+            nextAction &&
+            (hasExistingBrokerLoi || sortedLois.length > 0) && (
             <div
               className={`mt-3 flex flex-wrap items-start gap-3 rounded-xl border px-3.5 py-2.5 ${
                 nextAction.tone === "emerald"
                   ? "border-emerald-200 bg-emerald-50/80 dark:border-emerald-500/20 dark:bg-emerald-500/10"
                   : nextAction.tone === "amber"
                     ? "border-amber-200 bg-amber-50/80 dark:border-amber-500/20 dark:bg-amber-500/10"
-                    : nextAction.tone === "blue"
-                      ? "border-blue-200 bg-blue-50/80 dark:border-blue-500/20 dark:bg-blue-500/10"
-                      : nextAction.tone === "slate"
-                        ? "border-slate-200 bg-slate-50/80 dark:border-slate-700 dark:bg-slate-900/50"
-                        : "border-[#13538A]/25 bg-[#13538A]/8 dark:border-[#13538A]/30 dark:bg-[#13538A]/15"
+                    : nextAction.tone === "slate"
+                      ? "border-slate-200 bg-slate-50/80 dark:border-slate-700 dark:bg-slate-900/50"
+                      : "border-[#13538A]/25 bg-[#13538A]/8 dark:border-[#13538A]/30 dark:bg-[#13538A]/15"
               }`}
             >
               <span
@@ -1841,11 +1866,9 @@ export default function BrokerLoiPanel({
                     ? "bg-emerald-600 text-white"
                     : nextAction.tone === "amber"
                       ? "bg-amber-500 text-white"
-                      : nextAction.tone === "blue"
-                        ? "bg-blue-600 text-white"
-                        : nextAction.tone === "slate"
-                          ? "bg-slate-600 text-white"
-                          : "bg-[#13538A] text-white"
+                      : nextAction.tone === "slate"
+                        ? "bg-slate-600 text-white"
+                        : "bg-[#13538A] text-white"
                 }`}
               >
                 {nextAction.badge}
@@ -1873,10 +1896,9 @@ export default function BrokerLoiPanel({
                       className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
                         brokerCardBadge.tone === "emerald"
                           ? "bg-emerald-600 text-white"
-                          : brokerCardBadge.tone === "blue"
-                            ? "bg-blue-600 text-white"
-                            : brokerCardBadge.tone === "violet"
-                              ? "bg-[#13538A] text-white"
+                          : brokerCardBadge.tone === "blue" ||
+                              brokerCardBadge.tone === "violet"
+                            ? "bg-[#13538A] text-white"
                               : "bg-slate-600 text-white"
                       }`}
                     >
@@ -1976,7 +1998,7 @@ export default function BrokerLoiPanel({
                       type="button"
                       disabled={signActionLoading}
                       onClick={handleSendBrokerLoiToClient}
-                      className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-[#13538A] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#0E426E] disabled:opacity-50"
                     >
                       {signActionLoading ? (
                         <Loader2 size={13} className="animate-spin" />
@@ -2165,7 +2187,7 @@ export default function BrokerLoiPanel({
                       href={previewUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-slate-700 dark:bg-white dark:text-slate-900"
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-[#13538A] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-[#0E426E]"
                     >
                       <ExternalLink size={13} />
                       Open Tab
@@ -2211,37 +2233,39 @@ export default function BrokerLoiPanel({
             <p className="text-sm text-slate-500">Checking term sheet status...</p>
           </div>
         ) : !sortedLois.length ? (
-          <div className="flex flex-col items-center justify-center px-6 py-20 text-center">
-            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-[#13538A]/10 dark:bg-[#13538A]/15">
-              <FileText className="h-7 w-7 text-[#13538A] dark:text-sky-300" />
+          <div className="p-5 sm:p-6">
+            <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-6 py-16 text-center dark:border-slate-700 dark:bg-slate-900/40">
+              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-[#13538A] text-white">
+                <FileText className="h-6 w-6" />
+              </div>
+              <h3 className="text-base font-semibold text-slate-800 dark:text-slate-200">
+                {canShowCreateTermSheet
+                  ? "Create your term sheet"
+                  : "No LOIs yet"}
+              </h3>
+              <p className="mt-1 max-w-md text-sm text-slate-500 dark:text-slate-400">
+                {debouncedSearch
+                  ? "No LOIs match your search. Try a different lender name."
+                  : canShowCreateTermSheet
+                    ? "No lender LOIs yet. Create a broker term sheet to start the client signature workflow, or wait for lenders to issue one."
+                    : "No lenders have issued a Letter of Intent for this application yet. They will appear here once generated."}
+              </p>
+              {canShowCreateTermSheet && !debouncedSearch && (
+                <button
+                  type="button"
+                  disabled={prefillLoading || brokerLoiLocked}
+                  onClick={() => void handleCreateOwnTermSheet()}
+                  className="mt-5 inline-flex items-center gap-2 rounded-lg bg-[#13538A] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0E426E] disabled:opacity-50"
+                >
+                  {prefillLoading ? (
+                    <Loader2 size={16} className="animate-spin" />
+                  ) : (
+                    <Sparkles size={16} />
+                  )}
+                  Create Term Sheet
+                </button>
+              )}
             </div>
-            <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200">
-              {canShowCreateTermSheet
-                ? "Create your Term Sheet"
-                : "No LOIs Available"}
-            </h3>
-            <p className="mt-1 max-w-md text-sm text-slate-500 dark:text-slate-400">
-              {debouncedSearch
-                ? "No LOIs match your search. Try a different lender name."
-                : canShowCreateTermSheet
-                  ? "No lender LOIs yet. You can still create your own broker term sheet for this application, or wait for lenders to issue LOIs."
-                  : "No lenders have issued a Letter of Intent for this application yet. LOIs will appear here once lenders generate them."}
-            </p>
-            {canShowCreateTermSheet && !debouncedSearch && (
-              <button
-                type="button"
-                disabled={prefillLoading || brokerLoiLocked}
-                onClick={() => void handleCreateOwnTermSheet()}
-                className="mt-5 inline-flex items-center gap-2 rounded-xl bg-[#13538A] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0E426E] disabled:opacity-50"
-              >
-                {prefillLoading ? (
-                  <Loader2 size={16} className="animate-spin" />
-                ) : (
-                  <Sparkles size={16} />
-                )}
-                Create Term Sheet
-              </button>
-            )}
           </div>
         ) : (
           <div className="grid min-h-[560px] lg:grid-cols-[minmax(300px,360px)_minmax(0,1fr)]">
@@ -2447,7 +2471,7 @@ export default function BrokerLoiPanel({
                               href={previewUrl}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-slate-700 dark:bg-white dark:text-slate-900"
+                              className="inline-flex items-center gap-1.5 rounded-lg bg-[#13538A] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-[#0E426E]"
                             >
                               <ExternalLink size={13} />
                               Open Tab

@@ -32,7 +32,7 @@ export default function BrokerLoiFormModal({
         <div className="flex items-start justify-between gap-3 border-b border-slate-200 px-5 py-4 dark:border-slate-800">
           <div>
             <div className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-violet-600" />
+              <Sparkles className="h-5 w-5 text-[#13538A]" />
               <h3 className="text-lg font-bold text-slate-900 dark:text-white">
                 Create Broker LOI
               </h3>

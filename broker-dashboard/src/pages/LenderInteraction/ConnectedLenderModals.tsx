@@ -9,7 +9,6 @@ import {
   Check,
   CheckCircle2,
   ChevronLeft,
-  Clock,
   DollarSign,
   FileText,
   Globe,
@@ -52,7 +51,7 @@ import {
   type PipelineSubmissionOption,
 } from "../../lib/lenderMarketplaceApi";
 
-const BRAND = "#2C92D5";
+const BRAND = "#13538A";
 
 type ModalShellProps = {
   title: string;
@@ -86,13 +85,13 @@ function ModalShell({
       <div
         className={`relative w-full ${maxWidth} max-h-[90vh] overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-2xl flex flex-col min-h-0`}
       >
-        <div className="flex shrink-0 items-start justify-between gap-4 px-5 py-4 border-b border-slate-100 dark:border-slate-800">
+        <div className="flex shrink-0 items-start justify-between gap-4 border-b border-slate-100 px-5 py-4 dark:border-slate-800">
           <div>
-            <h2 className="text-lg font-bold text-slate-900 dark:text-white">
+            <h2 className="text-lg font-semibold tracking-tight text-slate-900 dark:text-white">
               {title}
             </h2>
             {subtitle && (
-              <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+              <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">
                 {subtitle}
               </p>
             )}
@@ -211,7 +210,7 @@ export function LenderProductsModal({
       ) : (
         <div className="space-y-5 pb-2">
           {/* Lender header */}
-          <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-gradient-to-br from-slate-50 to-blue-50/30 dark:from-slate-800/60 dark:to-blue-500/5 p-4">
+          <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 p-4">
             <div className="flex flex-col sm:flex-row gap-4 sm:items-center">
               <LenderLogo
                 brandLogoUrl={profile?.brandLogoUrl}
@@ -300,7 +299,7 @@ function ProductCard({ product, index }: { product: LenderProduct; index: number
   const codeLabel = formatLoanTypeLabel(product.loanProductCode);
 
   return (
-    <article className="rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden bg-white dark:bg-slate-900/50 hover:border-blue-200 dark:hover:border-blue-500/30 transition-colors">
+    <article className="rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden bg-white dark:bg-slate-900/50 hover:border-[#13538A]/30 dark:hover:border-blue-500/30 transition-colors">
       <div className="flex items-start gap-3 px-4 py-3.5 bg-slate-50/80 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
         <div
           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-sm font-bold text-white"
@@ -458,11 +457,11 @@ export function LenderLogo({
   if (!src || failed) {
     return (
       <div
-        className={`${className} rounded-2xl overflow-hidden bg-gradient-to-br from-blue-50 to-slate-100 dark:from-blue-500/10 dark:to-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center shrink-0 shadow-sm`}
+        className={`${className} flex shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[#13538A] shadow-sm`}
         aria-label={alt}
       >
         {initials ? (
-          <span className="text-base font-bold text-blue-600 dark:text-blue-400">
+          <span className="text-sm font-semibold tracking-wide text-white">
             {initials}
           </span>
         ) : (
@@ -543,8 +542,23 @@ export function LenderDiscoverProfileModal({
     () => parseDelimitedList(profile.industries),
     [profile.industries],
   );
-  const products = detail?.products ?? [];
-  const fallbackLoanTypes = (profile.loanTypes || []).map(formatLoanTypeLabel);
+  const products = useMemo<LenderProfileProduct[]>(() => {
+    if (detail?.products?.length) return detail.products;
+    return (profile.loanTypes || []).map((code, index) => ({
+      id: `listing-${code}-${index}`,
+      loanProductCode: code,
+      loanProductName: formatLoanTypeLabel(code),
+      minLoanAmount: profile.minFunding,
+      maxLoanAmount: profile.maxFunding,
+      statesSupported: profile.statesSupported,
+    }));
+  }, [
+    detail?.products,
+    profile.loanTypes,
+    profile.minFunding,
+    profile.maxFunding,
+    profile.statesSupported,
+  ]);
   const isEligible =
     profile.profileStatus === "COMPLETED" || lender.isEligible;
   const displayName = getLenderDisplayName(
@@ -569,11 +583,6 @@ export function LenderDiscoverProfileModal({
     { label: "Property Requirements", value: profile.propertyRequirements },
   ].filter((block) => block.value?.trim());
 
-  const hasFundingMetrics =
-    Boolean(profile.fundingSpeedDays) ||
-    Boolean(profile.minFunding) ||
-    Boolean(profile.maxFunding);
-
   const hasContactInfo =
     Boolean(formattedPhone) ||
     Boolean(detail?.email || lender.email) ||
@@ -594,8 +603,7 @@ export function LenderDiscoverProfileModal({
           type="button"
           disabled={inviting}
           onClick={onInvite}
-          className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-50"
-          style={{ backgroundColor: BRAND }}
+          className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg bg-[#13538A] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#0E426E] disabled:opacity-50"
         >
           {inviting ? (
             <RefreshCcw size={16} className="animate-spin" />
@@ -629,52 +637,64 @@ export function LenderDiscoverProfileModal({
           )}
 
           {/* Logo + Company */}
-          <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-gradient-to-br from-slate-50 to-blue-50/30 dark:from-slate-800/60 dark:to-blue-500/5 p-5">
-            <div className="flex flex-col sm:flex-row gap-4">
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/60 sm:p-5">
+            <div className="flex flex-col gap-4 sm:flex-row">
               <LenderLogo
                 brandLogoUrl={detail?.brandLogoUrl ?? lender.brandLogoUrl}
                 profileImage={detail?.profileImage ?? lender.profileImage}
                 name={displayName}
                 alt={`${displayName} logo`}
+                className="h-14 w-14"
               />
-              <div className="flex-1 min-w-0">
-                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+              <div className="min-w-0 flex-1">
+                <p className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
                   Company
                 </p>
-                <h3 className="text-xl font-bold text-slate-900 dark:text-white">
+                <h3 className="text-lg font-semibold tracking-tight text-slate-900 dark:text-white">
                   {displayName}
                 </h3>
                 {(detail?.name || lender.name) !== displayName && (
-                  <p className="text-xs text-slate-500 mt-0.5">
+                  <p className="mt-0.5 text-xs text-slate-500">
                     {detail?.name || lender.name}
                   </p>
                 )}
                 <div className="mt-2 flex flex-wrap items-center gap-2">
                   <StarRating count={isEligible ? 5 : 4} />
                   {isEligible && (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">
                       Eligible ✓
                     </span>
                   )}
                   {profile.lenderType && (
-                    <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-white/80 dark:bg-slate-900/80 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                    <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-600 dark:border-slate-700 dark:bg-slate-900/80 dark:text-slate-300">
                       {formatLenderType(profile.lenderType)}
                     </span>
                   )}
-                </div>
-                <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
-                  {profile.nmls && <span>NMLS #{profile.nmls}</span>}
-                  {industries.length > 0 && (
-                    <span>{industries.join(" · ")}</span>
+                  {profile.nmls && (
+                    <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-600 dark:border-slate-700 dark:bg-slate-900/80 dark:text-slate-300">
+                      NMLS #{profile.nmls}
+                    </span>
                   )}
                 </div>
+                {industries.length > 0 && (
+                  <div className="mt-3 flex flex-wrap gap-1.5">
+                    {industries.map((industry) => (
+                      <span
+                        key={industry}
+                        className="rounded-md bg-white px-2 py-0.5 text-[10px] font-semibold text-slate-600 ring-1 ring-slate-200 dark:bg-slate-900/80 dark:text-slate-300 dark:ring-slate-700"
+                      >
+                        {formatTypeChip(industry)}
+                      </span>
+                    ))}
+                  </div>
+                )}
                 {states.length > 0 && (
                   <div className="mt-3 flex flex-wrap gap-1.5">
                     {states.map((st) => (
                       <span
                         key={st}
                         title={st}
-                        className="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-300 border border-blue-100 dark:border-blue-500/20"
+                        className="rounded-md border border-[#13538A]/20 bg-[#13538A]/8 px-2 py-0.5 text-[10px] font-semibold text-[#0E426E] dark:border-[#13538A]/30 dark:bg-[#13538A]/15 dark:text-sky-200"
                       >
                         {abbreviateStateCode(st)}
                       </span>
@@ -686,7 +706,7 @@ export function LenderDiscoverProfileModal({
           </div>
 
           {/* Quick metrics */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <FundingMetric
               label="Loan Range"
               value={formatLoanAmountRange(
@@ -705,38 +725,35 @@ export function LenderDiscoverProfileModal({
             />
           </div>
 
-          {/* About */}
-          {profile.summary?.trim() && (
-            <ProfileBlock icon={<Building2 size={16} />} title="About">
-              <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">
-                {profile.summary.trim()}
-              </p>
-            </ProfileBlock>
-          )}
-
           {/* Loan Products */}
-          <ProfileBlock icon={<Layers size={16} />} title="Loan Products">
+          <ProfileBlock
+            icon={<Layers size={16} />}
+            title="Loan Products"
+            badge={
+              products.length
+                ? `${products.length} program${products.length === 1 ? "" : "s"}`
+                : undefined
+            }
+          >
             {products.length > 0 ? (
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {products.map((product) => (
                   <DiscoverProductCard key={product.id} product={product} />
-                ))}
-              </div>
-            ) : fallbackLoanTypes.length > 0 ? (
-              <div className="flex flex-wrap gap-2">
-                {fallbackLoanTypes.map((t) => (
-                  <span
-                    key={t}
-                    className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200"
-                  >
-                    {t}
-                  </span>
                 ))}
               </div>
             ) : (
               <p className="text-sm text-slate-500">No loan products listed.</p>
             )}
           </ProfileBlock>
+
+          {/* About */}
+          {profile.summary?.trim() && (
+            <ProfileBlock icon={<Building2 size={16} />} title="About">
+              <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-700 dark:text-slate-300">
+                {profile.summary.trim()}
+              </p>
+            </ProfileBlock>
+          )}
 
           {/* Criteria */}
           {criteriaBlocks.length > 0 && (
@@ -756,23 +773,6 @@ export function LenderDiscoverProfileModal({
             </ProfileBlock>
           )}
 
-          {/* Contact */}
-          {hasFundingMetrics && !profile.fundingSpeedDays && (
-            <ProfileBlock icon={<Clock size={16} />} title="Funding">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <FundingMetric
-                  label="Min Funding"
-                  value={formatCompactMoney(String(profile.minFunding ?? ""))}
-                />
-                <FundingMetric
-                  label="Max Funding"
-                  value={formatCompactMoney(String(profile.maxFunding ?? ""))}
-                />
-              </div>
-            </ProfileBlock>
-          )}
-
-          {/* Contact */}
           {hasContactInfo && (
             <ProfileBlock icon={<Phone size={16} />} title="Contact">
               <div className="grid gap-3 sm:grid-cols-2">
@@ -803,7 +803,7 @@ export function LenderDiscoverProfileModal({
                         }
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-blue-600 hover:underline break-all"
+                        className="text-[#13538A] hover:underline break-all"
                       >
                         {profile.website}
                       </a>
@@ -827,73 +827,242 @@ export function LenderDiscoverProfileModal({
   );
 }
 
+function formatProfilePercent(value?: string | number | null) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || numeric <= 0) return "";
+  return `${numeric}%`;
+}
+
+function formatTypeChip(value: string) {
+  return formatLoanTypeLabel(value);
+}
+
 function DiscoverProductCard({ product }: { product: LenderProfileProduct }) {
-  const productStates = formatStatesSummary(
-    parseStatesList(product.statesSupported),
-  );
+  const productStates = parseStatesList(product.statesSupported);
   const documents = product.documents ?? [];
+  const propertyTypes = (product.propertyTypes ?? []).filter(Boolean);
+  const businessTypes = (product.businessTypes ?? []).filter(Boolean);
+  const equipmentTypes = (product.equipmentTypes ?? []).filter(Boolean);
+  const amount = formatLoanAmountRange(
+    product.minLoanAmount,
+    product.maxLoanAmount,
+  );
+  const highlightFacts = [
+    { label: "Loan amount", value: amount !== "—" ? amount : "" },
+    { label: "Term", value: product.termRange || "" },
+    { label: "Rate", value: product.interestRateRange || "" },
+  ].filter((fact) => fact.value);
+  const detailFacts = [
+    {
+      label: "Min FICO",
+      value:
+        product.minCreditScore != null ? String(product.minCreditScore) : "",
+    },
+    {
+      label: "Min DSCR",
+      value:
+        product.minDscr != null && product.minDscr !== ""
+          ? `${product.minDscr}x`
+          : "",
+    },
+    { label: "Max LTV", value: formatProfilePercent(product.maxLtvPercent) },
+    { label: "Max LTC", value: formatProfilePercent(product.maxLtcPercent) },
+    { label: "Max ARV", value: formatProfilePercent(product.maxArvPercent) },
+    {
+      label: "Origination",
+      value: formatProfilePercent(product.originationPointsPercent),
+    },
+    { label: "Experience", value: product.minExperience || "" },
+    {
+      label: "Turnaround",
+      value: product.avgTurnaroundDays
+        ? formatFundingTime(product.avgTurnaroundDays)
+        : "",
+    },
+  ].filter((fact) => fact.value && fact.value !== "—");
+  const programFlags = [
+    product.personalGuaranteeRequired ? "Personal guarantee required" : "",
+    product.firstTimeBorrowersAllowed ? "First-time borrowers OK" : "",
+    product.interestOnlyAvailable ? "Interest-only available" : "",
+  ].filter(Boolean);
+  const productTitle =
+    product.loanProductName || formatLoanTypeLabel(product.loanProductCode);
+  const productSubtitle = formatLoanTypeLabel(product.loanProductCode);
+  const initials = productSubtitle
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase();
 
   return (
-    <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 p-3.5">
-      <p className="font-semibold text-sm text-slate-900 dark:text-white">
-        {product.loanProductName}
-      </p>
-      <div className="mt-2 flex flex-wrap gap-2">
-        {(product.minLoanAmount || product.maxLoanAmount) && (
-          <ProductFact
-            label="Amount"
-            value={formatLoanAmountRange(
-              product.minLoanAmount,
-              product.maxLoanAmount,
-            )}
-          />
-        )}
-        {product.termRange && (
-          <ProductFact label="Term" value={product.termRange} />
-        )}
-        {product.interestRateRange && (
-          <ProductFact label="Rate" value={product.interestRateRange} />
-        )}
-        {product.minCreditScore != null && (
-          <ProductFact label="Min FICO" value={String(product.minCreditScore)} />
-        )}
-        {product.minDscr != null && product.minDscr !== "" && (
-          <ProductFact label="Min DSCR" value={`${product.minDscr}x`} />
-        )}
-        {productStates.display !== "—" && (
-          <ProductFact
-            label="States"
-            value={productStates.display}
-            title={productStates.tooltip || undefined}
-          />
-        )}
+    <article className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900/50">
+      <div className="flex items-start gap-3 border-b border-slate-100 bg-slate-50/70 px-3.5 py-3 dark:border-slate-800 dark:bg-slate-800/40">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#13538A] text-[11px] font-semibold text-white">
+          {initials || "LP"}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold text-slate-900 dark:text-white">
+            {productTitle}
+          </p>
+          {productTitle !== productSubtitle && (
+            <p className="mt-0.5 text-[11px] text-slate-500">{productSubtitle}</p>
+          )}
+        </div>
       </div>
 
-      {documents.length > 0 && (
-        <div className="mt-3 border-t border-slate-100 pt-3 dark:border-slate-800">
-          <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400 mb-2">
-            Required Documents
+      <div className="space-y-3 p-3.5">
+        {product.description?.trim() ? (
+          <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+            {product.description.trim()}
           </p>
-          <ul className="grid gap-1.5 sm:grid-cols-2">
-            {documents.map((doc) => (
-              <li
-                key={doc.id}
-                className="flex items-center gap-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-800/40 px-2.5 py-2 text-xs text-slate-700 dark:text-slate-200"
+        ) : null}
+
+        {highlightFacts.length > 0 && (
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+            {highlightFacts.map((fact) => (
+              <div
+                key={fact.label}
+                className="rounded-lg border border-[#13538A]/15 bg-[#13538A]/5 px-3 py-2.5 dark:border-[#13538A]/30 dark:bg-[#13538A]/10"
               >
-                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500" />
-                <span className="min-w-0 truncate">
-                  {doc.name || doc.code || "Document"}
-                </span>
-                {doc.isRequired === false && (
-                  <span className="ml-auto shrink-0 text-[10px] text-slate-400">
-                    Optional
-                  </span>
-                )}
-              </li>
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-[#13538A]">
+                  {fact.label}
+                </p>
+                <p className="mt-0.5 text-sm font-semibold text-slate-900 dark:text-white">
+                  {fact.value}
+                </p>
+              </div>
             ))}
-          </ul>
-        </div>
-      )}
+          </div>
+        )}
+
+        {detailFacts.length > 0 && (
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {detailFacts.map((fact) => (
+              <ProductFact
+                key={fact.label}
+                label={fact.label}
+                value={fact.value}
+              />
+            ))}
+          </div>
+        )}
+
+        {productStates.length > 0 && (
+          <ChipRow label="States">
+            {productStates.map((st) => (
+              <span
+                key={st}
+                title={st}
+                className="rounded-md border border-[#13538A]/20 bg-[#13538A]/8 px-2 py-0.5 text-[10px] font-semibold text-[#0E426E] dark:border-[#13538A]/30 dark:bg-[#13538A]/15 dark:text-sky-200"
+              >
+                {abbreviateStateCode(st)}
+              </span>
+            ))}
+          </ChipRow>
+        )}
+
+        {propertyTypes.length > 0 && (
+          <ChipRow label="Property types">
+            {propertyTypes.map((type) => (
+              <span
+                key={type}
+                className="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300"
+              >
+                {formatTypeChip(type)}
+              </span>
+            ))}
+          </ChipRow>
+        )}
+
+        {businessTypes.length > 0 && (
+          <ChipRow label="Business types">
+            {businessTypes.map((type) => (
+              <span
+                key={type}
+                className="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300"
+              >
+                {formatTypeChip(type)}
+              </span>
+            ))}
+          </ChipRow>
+        )}
+
+        {equipmentTypes.length > 0 && (
+          <ChipRow label="Equipment">
+            {equipmentTypes.map((type) => (
+              <span
+                key={type}
+                className="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300"
+              >
+                {formatTypeChip(type)}
+              </span>
+            ))}
+          </ChipRow>
+        )}
+
+        {programFlags.length > 0 && (
+          <ChipRow label="Program notes">
+            {programFlags.map((flag) => (
+              <span
+                key={flag}
+                className="rounded-md bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300"
+              >
+                {flag}
+              </span>
+            ))}
+          </ChipRow>
+        )}
+
+        {product.criteriaNotes?.trim() ? (
+          <p className="text-xs leading-relaxed text-slate-600 dark:text-slate-300">
+            {product.criteriaNotes.trim()}
+          </p>
+        ) : null}
+
+        {documents.length > 0 && (
+          <div className="border-t border-slate-100 pt-3 dark:border-slate-800">
+            <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+              Required documents
+            </p>
+            <ul className="grid gap-1.5 sm:grid-cols-2">
+              {documents.map((doc) => (
+                <li
+                  key={doc.id}
+                  className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50/60 px-2.5 py-2 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-800/40 dark:text-slate-200"
+                >
+                  <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#13538A]" />
+                  <span className="min-w-0 truncate">
+                    {doc.name || doc.code || "Document"}
+                  </span>
+                  {doc.isRequired === false && (
+                    <span className="ml-auto shrink-0 text-[10px] text-slate-400">
+                      Optional
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+    </article>
+  );
+}
+
+function ChipRow({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+        {label}
+      </p>
+      <div className="flex flex-wrap gap-1.5">{children}</div>
     </div>
   );
 }
@@ -910,12 +1079,14 @@ function ProductFact({
   return (
     <span
       title={title}
-      className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-2.5 py-1 text-[11px] text-slate-600 dark:bg-slate-800 dark:text-slate-300"
+      className="rounded-lg bg-slate-50 px-2.5 py-2 dark:bg-slate-800/80"
     >
-      <span className="font-semibold uppercase tracking-wide text-slate-400">
+      <span className="block text-[10px] font-semibold uppercase tracking-wide text-slate-400">
         {label}
       </span>
-      {value}
+      <span className="mt-0.5 block text-xs font-semibold text-slate-800 dark:text-slate-100">
+        {value}
+      </span>
     </span>
   );
 }
@@ -923,19 +1094,26 @@ function ProductFact({
 function ProfileBlock({
   icon,
   title,
+  badge,
   children,
 }: {
   icon: React.ReactNode;
   title: string;
+  badge?: string;
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden">
-      <div className="flex items-center gap-2 px-4 py-3 bg-slate-50/80 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
-        <span className="text-slate-400">{icon}</span>
-        <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100">
+    <section className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700">
+      <div className="flex items-center gap-2 border-b border-slate-100 bg-slate-50/80 px-4 py-3 dark:border-slate-800 dark:bg-slate-800/50">
+        <span className="text-[#13538A]">{icon}</span>
+        <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100">
           {title}
         </h3>
+        {badge ? (
+          <span className="ml-auto rounded-full bg-[#13538A]/10 px-2 py-0.5 text-[10px] font-semibold text-[#0E426E] dark:bg-[#13538A]/20 dark:text-sky-200">
+            {badge}
+          </span>
+        ) : null}
       </div>
       <div className="p-4">{children}</div>
     </section>
@@ -1419,7 +1597,7 @@ export function SendApplicationModal({
         />
 
         <div className="rounded-xl border border-blue-100 dark:border-blue-500/20 bg-blue-50/60 dark:bg-blue-500/5 px-4 py-3">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-blue-600/80 dark:text-blue-400/80 mb-2">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-[#13538A]/80 dark:text-blue-400/80 mb-2">
             Sending to
           </p>
           <div className="flex flex-wrap gap-2">
@@ -1479,7 +1657,7 @@ export function SendApplicationModal({
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search by borrower, product, or application ID..."
-                className="w-full pl-9 pr-3 py-3 rounded-xl text-sm border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-400/30"
+                className="w-full pl-9 pr-3 py-3 rounded-xl text-sm border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-[#13538A]/20"
               />
             </div>
 
@@ -1526,7 +1704,7 @@ export function SendApplicationModal({
                       className={`group w-full text-left rounded-xl border p-4 transition-all ${
                         selected
                           ? "border-blue-400 bg-blue-50/60 dark:bg-blue-500/10 shadow-sm ring-2 ring-blue-400/25"
-                          : "border-slate-200 dark:border-slate-700 hover:border-blue-200 hover:bg-slate-50/80 dark:hover:bg-slate-800/40"
+                          : "border-slate-200 dark:border-slate-700 hover:border-[#13538A]/30 hover:bg-slate-50/80 dark:hover:bg-slate-800/40"
                       }`}
                     >
                       <div className="flex items-start gap-3">
@@ -1614,7 +1792,7 @@ export function SendApplicationModal({
               <button
                 type="button"
                 onClick={() => setStep(1)}
-                className="text-xs font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400"
+                className="text-xs font-medium text-[#13538A] hover:text-blue-700 dark:text-blue-400"
               >
                 Change application
               </button>
@@ -1703,7 +1881,7 @@ function StepIndicator({
                     active
                       ? "text-slate-900 dark:text-white"
                       : done
-                        ? "text-blue-600 dark:text-blue-400"
+                        ? "text-[#13538A] dark:text-blue-400"
                         : "text-slate-400"
                   }`}
                 >
