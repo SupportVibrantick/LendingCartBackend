@@ -1182,7 +1182,7 @@ const LoanApplication = ({
   const Stat = ({ label, value }: { label: string; value: string }) => (
     <div>
       <p className="text-xs text-slate-500 uppercase">{label}</p>
-      <p className="text-[14px] font-semibold text-[#2C92D5]">{value}</p>
+      <p className="text-[14px] font-semibold text-[#13538A]">{value}</p>
     </div>
   );
 
@@ -3141,7 +3141,7 @@ const LoanApplication = ({
                 className="
       mb-1 flex items-center gap-1.5
       text-xs font-medium text-slate-600
-      hover:text-[#2C92D5]
+      hover:text-[#13538A]
       transition
     "
               >
@@ -3153,7 +3153,7 @@ const LoanApplication = ({
             {/* TITLE */}
             {!embedded && (
               <div>
-                <h2 className="text-xl font-bold leading-tight text-[#2C92D5]">
+                <h2 className="text-xl font-bold leading-tight text-[#13538A]">
                   {mode === "update"
                     ? "Update Loan Application"
                     : "New Loan Application"}
@@ -3183,7 +3183,7 @@ rounded-2xl p-6 shadow-sm
 "
           >
             {selectionBannerText && (
-              <div className="mb-4 rounded-lg bg-[#2C92D5] px-4 py-2.5 text-center text-sm font-semibold text-white">
+              <div className="mb-4 rounded-lg bg-[#13538A] px-4 py-2.5 text-center text-sm font-semibold text-white">
                 {selectionBannerText}
               </div>
             )}
@@ -3241,7 +3241,7 @@ rounded-2xl p-6 shadow-sm
           locked
             ? "bg-slate-50 dark:bg-slate-900/60 border-slate-200 dark:border-slate-700 text-slate-400 dark:text-slate-500 opacity-80"
             : isSelected
-              ? "bg-[#2C92D5] text-white border-[#2C92D5] shadow-md"
+              ? "bg-[#13538A] text-white border-[#13538A] shadow-md"
               : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:shadow-md"
         }`}
                       >
@@ -3252,7 +3252,7 @@ rounded-2xl p-6 shadow-sm
                               ? "text-slate-400 dark:text-slate-500"
                               : isSelected
                                 ? "text-white"
-                                : "text-[#2C92D5]"
+                                : "text-[#13538A]"
                           }
                         />
 
@@ -3473,7 +3473,7 @@ focus:border-blue-500 outline-none text-sm ${
                           }}
                           className={`relative inline-flex h-6 w-11 shrink-0 rounded-full transition ${
                             formData.loanRequest.sellerFinancing === "yes"
-                              ? "bg-[#2C92D5]"
+                              ? "bg-[#13538A]"
                               : "bg-slate-200 dark:bg-slate-700"
                           }`}
                         >
@@ -4280,7 +4280,7 @@ focus:border-blue-500 outline-none text-sm ${
           {/* step-1 — Entity Info */}
           {currentStep === 1 && (
             <div className="mt-6 relative z-10 border border-slate-200 dark:border-slate-700 rounded-2xl p-6 bg-white dark:bg-slate-800">
-              <h3 className="mb-1 inline-block border-b-2 border-[#2C92D5] pb-2 text-lg font-semibold dark:text-white">
+              <h3 className="mb-1 inline-block border-b-2 border-[#13538A] pb-2 text-lg font-semibold dark:text-white">
                 Step 2: Entity Info
               </h3>
 
@@ -4470,7 +4470,7 @@ focus:border-blue-500 outline-none text-sm ${
           {currentStep === 2 && (
             <div className="mt-6 relative z-10 border border-slate-200 dark:border-slate-700 rounded-2xl p-6 bg-white dark:bg-slate-800">
               <div className="mb-1 flex items-center gap-2">
-                <h3 className="inline-block border-b-2 border-[#2C92D5] pb-2 text-lg font-semibold dark:text-white">
+                <h3 className="inline-block border-b-2 border-[#13538A] pb-2 text-lg font-semibold dark:text-white">
                   Step 3:{" "}
                   {selectedCategory === "SBA_USDA" || selectedCategory === "ABL"
                     ? "Collateral Info"
@@ -4479,7 +4479,7 @@ focus:border-blue-500 outline-none text-sm ${
                 {selectedCategory &&
                   (selectedCategory === "SBA_USDA" ||
                     selectedCategory === "ABL") && (
-                    <span className="inline-flex items-center gap-1 rounded-full border border-[#2C92D5]/30 bg-blue-50 px-2.5 py-1 text-xs font-medium text-[#2C92D5] dark:bg-blue-900/30">
+                    <span className="inline-flex items-center gap-1 rounded-full border border-[#13538A]/30 bg-blue-50 px-2.5 py-1 text-xs font-medium text-[#13538A] dark:bg-blue-900/30">
                       {(() => {
                         const Icon = CATEGORY_ICONS[selectedCategory];
                         return Icon ? <Icon className="h-3.5 w-3.5" /> : null;
@@ -5350,7 +5350,7 @@ focus:border-blue-500 outline-none text-sm ${
           {includeCoBrokerBorrowerInformationTab &&
             baseSteps[currentStep] === CO_BROKER_BORROWER_INFO_STEP && (
               <div className="mt-6 relative z-10 rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-700 dark:bg-slate-800">
-                <h3 className="mb-1 inline-block border-b-2 border-[#2C92D5] pb-2 text-lg font-semibold dark:text-white">
+                <h3 className="mb-1 inline-block border-b-2 border-[#13538A] pb-2 text-lg font-semibold dark:text-white">
                   Step 4: {CO_BROKER_BORROWER_INFO_STEP}
                 </h3>
                 <p className="mb-4 text-xs text-slate-500">
@@ -5385,7 +5385,7 @@ focus:border-blue-500 outline-none text-sm ${
                                 .value as WorkingWithMortgageBrokerAnswer,
                             }))
                           }
-                          className="h-4 w-4 text-[#2C92D5] focus:ring-[#2C92D5]"
+                          className="h-4 w-4 text-[#13538A] focus:ring-[#13538A]"
                         />
                         {opt.label}
                       </label>
@@ -5599,7 +5599,7 @@ focus:border-blue-500 outline-none text-sm ${
             <>
               {useResidentialBorrowerPanel ? (
                 <div className="mt-6 relative z-10 rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-700 dark:bg-slate-800">
-                  <h3 className="mb-1 inline-block border-b-2 border-[#2C92D5] pb-2 text-lg font-semibold dark:text-white">
+                  <h3 className="mb-1 inline-block border-b-2 border-[#13538A] pb-2 text-lg font-semibold dark:text-white">
                     Step 4: Borrower Info
                   </h3>
 
@@ -6667,7 +6667,7 @@ focus:border-blue-500 outline-none text-sm ${
             baseSteps[currentStep] === "Loan Term & Income") &&
             (useStandardSevenStepFlow ? (
               <div className="mt-6 relative z-10 rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-700 dark:bg-slate-800">
-                <h3 className="mb-1 inline-block border-b-2 border-[#2C92D5] pb-2 text-lg font-semibold dark:text-white">
+                <h3 className="mb-1 inline-block border-b-2 border-[#13538A] pb-2 text-lg font-semibold dark:text-white">
                   Step 5: Financials
                 </h3>
 
@@ -7040,7 +7040,7 @@ focus:border-blue-500 outline-none text-sm ${
           {baseSteps[currentStep] === "Documents" &&
             useStandardSevenStepFlow && (
               <div className="mt-6 relative z-10 rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-700 dark:bg-slate-800">
-                <h3 className="mb-1 inline-block border-b-2 border-[#2C92D5] pb-2 text-lg font-semibold dark:text-white">
+                <h3 className="mb-1 inline-block border-b-2 border-[#13538A] pb-2 text-lg font-semibold dark:text-white">
                   Step {currentStep + 1}: Documents
                 </h3>
 
@@ -7074,7 +7074,7 @@ focus:border-blue-500 outline-none text-sm ${
           {/* step — Review & Submit */}
           {isReviewStep && (
             <div className="mt-6 relative z-10 rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-700 dark:bg-slate-800">
-              <h3 className="mb-1 inline-block border-b-2 border-[#2C92D5] pb-2 text-lg font-semibold dark:text-white">
+              <h3 className="mb-1 inline-block border-b-2 border-[#13538A] pb-2 text-lg font-semibold dark:text-white">
                 Step {currentStep + 1}: Review & Submit
               </h3>
 
@@ -7201,7 +7201,7 @@ focus:border-blue-500 outline-none text-sm ${
                   goToStep(currentStep + 1);
                 }}
                 disabled={submitting}
-                className="px-6 py-2 rounded-md bg-[#2C92D5] hover:bg-[#19679b] text-white 
+                className="px-6 py-2 rounded-md bg-[#13538A] hover:bg-[#0E426E] text-white 
      transition shadow-sm text-sm disabled:opacity-50"
               >
                 {currentStep === allSteps.length - 1

@@ -54,7 +54,7 @@ export default function LoanApplicationFeeAgreementStep({
 }: LoanApplicationFeeAgreementStepProps) {
   return (
     <div className="mt-6 relative z-10 rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-700 dark:bg-slate-800">
-      <h3 className="mb-1 inline-block border-b-2 border-[#2C92D5] pb-2 text-lg font-semibold dark:text-white">
+      <h3 className="mb-1 inline-block border-b-2 border-[#13538A] pb-2 text-lg font-semibold dark:text-white">
         Step {stepNumber}: Fee Agreement
       </h3>
       <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">
@@ -69,7 +69,7 @@ export default function LoanApplicationFeeAgreementStep({
           onChange={(event) =>
             onChange({ ...draft, include: event.target.checked })
           }
-          className="mt-1 h-4 w-4 rounded border-slate-300 text-[#2C92D5]"
+          className="mt-1 h-4 w-4 rounded border-slate-300 text-[#13538A]"
         />
         <span>
           <span className="flex items-center gap-2 text-sm font-semibold text-slate-800 dark:text-slate-100">

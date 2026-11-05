@@ -170,7 +170,7 @@ bg-slate-50 py-20 px-6 text-center flex flex-col items-center gap-4
 dark:border-slate-700 dark:bg-slate-900"
       >
         <div
-          className="h-16 w-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-cyan-500 
+          className="h-16 w-16 rounded-2xl bg-[#13538A] 
           flex items-center justify-center shadow-sm"
         >
           <FileText className="text-white" size={28} />
@@ -205,7 +205,7 @@ bg-slate-50 dark:bg-slate-900 dark:border-slate-800"
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400">
             Status:{" "}
-            <span className="font-semibold text-indigo-600 dark:text-indigo-400">
+            <span className="font-semibold text-[#13538A] dark:text-sky-300">
               {data.status}
             </span>
           </p>
@@ -227,7 +227,7 @@ bg-slate-50 dark:bg-slate-900 dark:border-slate-800"
                 setIsModalOpen(true);
               }}
               className="flex items-center gap-2 px-4 py-2 text-xs rounded-lg 
-    bg-[#2C92D5] text-white hover:bg-indigo-500 transition"
+    bg-[#13538A] text-white hover:bg-[#0E426E] transition"
             >
               <Pencil size={14} />
               Update
@@ -334,7 +334,7 @@ dark:border-slate-700 dark:bg-slate-800"
   ${
     errors.upfrontFee
       ? "border-red-500 focus:ring-2 focus:ring-red-500"
-      : "focus:ring-2 focus:ring-indigo-500"
+      : "focus:ring-2 focus:ring-[#13538A]"
   }`}
                 />
                 {errors.upfrontFee && (
@@ -366,7 +366,7 @@ dark:border-slate-700 dark:bg-slate-800"
     ${
       errors.exclusivityMonths
         ? "border-red-500 focus:ring-2 focus:ring-red-500"
-        : "focus:ring-2 focus:ring-indigo-500"
+        : "focus:ring-2 focus:ring-[#13538A]"
     }`}
 />
 
@@ -390,7 +390,7 @@ dark:border-slate-700 dark:bg-slate-800"
               <button
                 onClick={handleUpdate}
                 disabled={updating}
-                className="px-4 py-2 text-sm rounded-lg bg-[#2C92D5] text-white hover:bg-indigo-500 disabled:opacity-50"
+                className="px-4 py-2 text-sm rounded-lg bg-[#13538A] text-white hover:bg-[#0E426E] disabled:opacity-50"
               >
                 {updating ? "Updating..." : "Update"}
               </button>

@@ -20,6 +20,36 @@ const FIELD_LABELS: Record<string, string> = {
   business_industry: "Business / Industry Type",
   naicsCode: "Industry Code (NAICS)",
   naics: "Industry Code (NAICS)",
+  annualTaxes: "Annual Property Taxes",
+  annualPropertyTaxes: "Annual Property Taxes",
+  insurancePremium: "Annual Insurance",
+  annualInsurance: "Annual Insurance",
+  inFloodZone: "Property in Flood Zone",
+  dscrCalculationMethod: "DSCR Calculation Method",
+  hasRentalIncome: "Has Rental Income",
+  rentalProperty: "Rental Property",
+  proFormaNoiAverage: "Pro Forma NOI (Average)",
+  projectSummary: "Project Summary",
+  totalAssets: "Total Assets",
+  totalLiabilities: "Total Liabilities",
+  totalCashReserves: "Total Cash Reserves",
+  existingDebt: "Existing Debt",
+  sreoTotalMarketValue: "Total Market Value (Real Estate Owned)",
+  useOfFunds: "Use of Funds",
+  sellerFinancing: "Seller Financing",
+  sellerNoteAmount: "Seller Note Amount",
+  downPayment: "Down Payment",
+  constructionBudget: "Construction Budget",
+  currentMarketValue: "Current Market Value",
+  afterRepairValue: "After Repair Value",
+  purchasePrice: "Purchase Price",
+  purchaseDate: "Purchase Date",
+  numberOfUnits: "Number of Units",
+  additionalCollateral: "Additional Collateral",
+  privateSale: "Private Sale",
+  vendorName: "Vendor Name",
+  vendorPhone: "Vendor Phone",
+  creditAuthorizationConsent: "Credit Authorization Consent",
 };
 
 const METRIC_ONLY_FIELD_KEYS = new Set([
@@ -28,8 +58,6 @@ const METRIC_ONLY_FIELD_KEYS = new Set([
   "arvPercentage",
   "dscr",
   "netWorth",
-  "totalAssets",
-  "totalLiabilities",
 ]);
 
 /** Shown in Application Overview / Key Metrics — avoid repeating in field sections. */
@@ -42,17 +70,10 @@ const OVERVIEW_ONLY_FIELD_KEYS = new Set([
   "brokerPoints",
 ]);
 
-/** Stored for calculations / duplicates — not shown in read-only details. */
+/** Year-column bookkeeping. The year is shown on each financial row label. */
 const INTERNAL_SUBMISSION_FIELD_KEYS = new Set([
-  "annualTaxes",
-  "insurancePremium",
-  "inFloodZone",
   "financialReferenceYear",
   "financialYearColumnCount",
-  "sreoTotalMarketValue",
-  "dscrCalculationMethod",
-  "hasRentalIncome",
-  "rentalProperty",
 ]);
 
 const ENUM_VALUE_LABELS: Record<string, string> = {
@@ -92,7 +113,77 @@ function stripCoBorrowerPrefix(fieldKey: string) {
 const FIELD_ALIAS_GROUPS: string[][] = [
   ["businessIndustry", "business_industry"],
   ["naicsCode", "naics", "naics_code"],
+  ["annualPropertyTaxes", "annualTaxes"],
+  ["annualInsurance", "insurancePremium"],
+  ["inFloodZone", "floodZone"],
+  ["proFormaNoiAverage", "noiProforma"],
 ];
+
+const ASSET_LINE_LABELS: Record<string, string> = {
+  cashOnHand: "Cash on Hand & in Banks",
+  savingsAccounts: "Savings Accounts",
+  iraRetirement: "IRA or Other Retirement Account",
+  accountsReceivable: "Accounts & Notes Receivable",
+  lifeInsuranceCashValue: "Life Insurance Cash Surrender Value",
+  stocksAndBonds: "Stocks and Bonds",
+  realEstate: "Real Estate",
+  automobileValue: "Automobile Present Value",
+  otherPersonalProperty: "Other Personal Property",
+  otherAssets: "Other Assets",
+};
+
+const LIABILITY_LINE_LABELS: Record<string, string> = {
+  accountsPayable: "Accounts Payable",
+  notesPayable: "Notes Payable to Bank and Others",
+  autoMonthlyPayments: "Auto Monthly Payments",
+  otherInstallmentPayments: "Other Installment Account Payments",
+  loanOnLifeInsurance: "Loan on Life Insurance",
+  mortgagesOnRealEstate: "Mortgages on Real Estate",
+  unpaidTaxes: "Unpaid Taxes",
+  otherLiabilities: "Other Liabilities",
+};
+
+const DECLARATION_LINE_LABELS: Record<string, string> = {
+  outstandingJudgments: "Outstanding judgments against you?",
+  declaredBankrupt: "Declared bankrupt in past 7 years?",
+  propertyForeclosed: "Property foreclosed or deed in lieu in last 7 years?",
+  partyToLawsuit: "Party to a lawsuit?",
+  obligatedOnForeclosureLoan:
+    "Obligated on any loan resulting in foreclosure or judgment?",
+  delinquentFederalDebt:
+    "Presently delinquent or in default on any federal debt?",
+  convictedFelony: "Convicted of a felony in past 10 years?",
+  usCitizen: "Are you a US citizen?",
+  permanentResidentAlien: "Are you a permanent resident alien?",
+  intendToOccupy: "Do you intend to occupy the subject property?",
+};
+
+const FINANCIAL_ROW_LABELS: Record<string, string> = {
+  grossRevenue: "Gross Revenue",
+  grossRentalIncome: "Gross Rental Income",
+  vacancyCreditLoss: "Vacancy & Credit Loss",
+  operatingExpenses: "Operating Expenses",
+  mortgageDebtService: "Mortgage / Debt Service",
+  effectiveGrossIncomeOverride: "Effective Gross Income",
+  noiOverride: "NOI (Net Operating Income)",
+  cashFlowAfterDebtOverride: "Cash Flow After Debt Service",
+};
+
+const SREO_LINE_LABELS: Record<string, string> = {
+  propertyAddress: "Property Address",
+  entityNameOnTitle: "Entity Name on Title",
+  ownershipPercent: "Ownership %",
+  propertyType: "Property Type",
+  acquisitionDate: "Acquisition Date",
+  rehabUpgradeCost: "Rehab / Upgrade Cost",
+  currentMarketValue: "Current Market Value",
+  mortgageHolderNameAddress: "Mortgage Holder",
+  loanMortgageBalance: "Loan / Mortgage Balance",
+  grossRentalIncome: "Gross Rental Income",
+  loanTaxInsurancePaymentYr: "Annual Tax & Insurance Payment",
+  noiPerYear: "NOI per Year",
+  totalEquity: "Total Equity",
+};
 
 const FIELD_ALIAS_TO_CANONICAL = (() => {
   const map = new Map<string, string>();
@@ -128,7 +219,7 @@ function isApplicationDocumentField(
   );
 }
 
-/** Derived/computed financial columns — hide from Financial Details display. */
+/** Calculated statement rows. A $0 row is omitted when that year was left blank. */
 function isComputedFinancialField(
   fieldKey: string,
   label?: string | null,
@@ -143,33 +234,43 @@ function isComputedFinancialField(
   );
 }
 
+/** Calculated $0 rows add noise when the borrower left that year blank. */
+function isBlankDerivedFinancial(field: SubmissionDetailField) {
+  const key = field.fieldKey || "";
+  const bare = stripCoBorrowerPrefix(key);
+  const derived =
+    isComputedFinancialField(key, field.label) ||
+    /^proFormaNoi_year_\d+$/i.test(bare);
+  if (!derived) return false;
+  const numeric = parseNumericValue(parseSubmissionFieldValue(field.value));
+  return numeric === null || numeric === 0;
+}
+
+/** Blank currency lines are stored as 0. Keep a real zero only off these breakdown keys. */
+function isUnenteredZeroLine(field: SubmissionDetailField) {
+  const bare = stripCoBorrowerPrefix(field.fieldKey || "");
+  const line =
+    /^(asset_|liability_|financial_)/i.test(bare) ||
+    /^proFormaNoi_year_\d+$/i.test(bare) ||
+    /^(totalAssets|totalLiabilities|totalCashReserves|existingDebt|sreoTotalMarketValue|proFormaNoiAverage)$/i.test(
+      bare,
+    );
+  if (!line) return false;
+  return parseNumericValue(parseSubmissionFieldValue(field.value)) === 0;
+}
+
 /**
- * Internal storage keys, override columns, and granular breakdown rows
- * that should not appear on lender read-only View Details.
+ * Bookkeeping keys only. Product answers (assets, liabilities, financial
+ * statement rows, taxes, insurance, flood, rental) stay visible.
  */
-function isInternalBackOfficeField(
-  fieldKey: string,
-  label?: string | null,
-) {
+function isInternalBackOfficeField(fieldKey: string) {
   const key = fieldKey.trim();
   if (!key) return true;
 
   const bareKey = stripCoBorrowerPrefix(key);
-  const labelText = (label || "").trim();
-
   if (INTERNAL_SUBMISSION_FIELD_KEYS.has(key)) return true;
   if (INTERNAL_SUBMISSION_FIELD_KEYS.has(bareKey)) return true;
-
-  if (/^asset_/i.test(bareKey)) return true;
-  if (/^liability_/i.test(bareKey)) return true;
-  if (/^financial_/i.test(bareKey)) return true;
   if (/^financialYear_/i.test(bareKey)) return true;
-  if (/^proFormaNoi_year_/i.test(bareKey)) return true;
-
-  if (/override/i.test(key) || /override/i.test(bareKey)) return true;
-  if (/\boverride\b/i.test(labelText)) return true;
-
-  if (/_col\d+$/i.test(key)) return true;
   if (/^col\d+$/i.test(bareKey)) return true;
 
   return false;
@@ -182,8 +283,7 @@ function shouldOmitSubmissionFieldFromDetails(
   if (OVERVIEW_ONLY_FIELD_KEYS.has(fieldKey)) return true;
   return (
     isApplicationDocumentField(fieldKey, label) ||
-    isComputedFinancialField(fieldKey, label) ||
-    isInternalBackOfficeField(fieldKey, label)
+    isInternalBackOfficeField(fieldKey)
   );
 }
 
@@ -205,16 +305,56 @@ export type SubmissionFieldSection = {
   fields: SubmissionDetailField[];
 };
 
-export function formatFieldLabel(fieldKey: string) {
-  if (FIELD_LABELS[fieldKey]) return FIELD_LABELS[fieldKey];
-
+function humanizeFieldKey(fieldKey: string) {
   return fieldKey
-    .replace(/^coBorrower_\d+_/, "")
     .replace(/([a-z])([A-Z])/g, "$1 $2")
     .replace(/_/g, " ")
     .replace(/\s+/g, " ")
     .trim()
     .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+export function formatFieldLabel(fieldKey: string, yearLabel?: string) {
+  if (FIELD_LABELS[fieldKey]) return FIELD_LABELS[fieldKey];
+
+  const bare = stripCoBorrowerPrefix(fieldKey);
+  if (FIELD_LABELS[bare]) return FIELD_LABELS[bare];
+
+  const asset = bare.match(/^asset_(.+)$/i);
+  if (asset) return ASSET_LINE_LABELS[asset[1]] || humanizeFieldKey(asset[1]);
+
+  const liability = bare.match(/^liability_(.+)$/i);
+  if (liability) {
+    return LIABILITY_LINE_LABELS[liability[1]] || humanizeFieldKey(liability[1]);
+  }
+
+  const declaration = bare.match(/^declaration_(.+)$/i);
+  if (declaration) {
+    return (
+      DECLARATION_LINE_LABELS[declaration[1]] || humanizeFieldKey(declaration[1])
+    );
+  }
+
+  const sreo = bare.match(/^sreo_(\d+)_(.+)$/i);
+  if (sreo) {
+    const line = SREO_LINE_LABELS[sreo[2]] || humanizeFieldKey(sreo[2]);
+    return `Property ${Number(sreo[1]) + 1} · ${line}`;
+  }
+
+  const financial = bare.match(/^financial_(.+)_col(\d+)(?:_computed)?$/i);
+  if (financial) {
+    const row =
+      FINANCIAL_ROW_LABELS[financial[1]] ||
+      humanizeFieldKey(financial[1].replace(/Override$/i, ""));
+    const column =
+      yearLabel || (financial[2] === "0" ? "Interim" : `Year ${financial[2]}`);
+    return `${row} (${column})`;
+  }
+
+  const proForma = bare.match(/^proFormaNoi_year_(\d+)$/i);
+  if (proForma) return `Pro Forma NOI (Year ${proForma[1]})`;
+
+  return humanizeFieldKey(bare);
 }
 
 export function parseNumericValue(value: unknown): number | null {
@@ -241,17 +381,31 @@ export function parseSubmissionFieldValue(value: string | unknown) {
 export function formatFieldDisplayValue(fieldKey: string, value: unknown) {
   if (value === undefined || value === null || value === "") return "—";
 
+  if (Array.isArray(value)) {
+    const parts = value
+      .map((item) => String(item ?? "").trim())
+      .filter(Boolean);
+    return parts.length ? parts.join(", ") : "—";
+  }
+
+  const bareKey = stripCoBorrowerPrefix(fieldKey);
+  if (bareKey === "dscrCalculationMethod") {
+    const method = String(value).trim();
+    if (method === "noi") return "NOI";
+    if (method === "proForma") return "Pro Forma";
+  }
+
   const normalizedYesNo = String(value).trim().toLowerCase();
   if (normalizedYesNo === "yes") return "Yes";
   if (normalizedYesNo === "no") return "No";
 
-  if (fieldKey === "floodZone") {
+  if (bareKey === "floodZone" || bareKey === "inFloodZone") {
     if (normalizedYesNo === "yes") return "Yes";
     if (normalizedYesNo === "no") return "No";
   }
 
   if (
-    /amount|price|value|rent|tax|premium|dues|assets|liabilities|networth|budget|revenue|noi/i.test(
+    /amount|price|value|rent|tax|premium|dues|assets?|liabilit|networth|budget|revenue|noi|income|expense|loss|payable|receivable|reserve|equity|mortgage|debt|cashflow|service/i.test(
       fieldKey,
     )
   ) {
@@ -364,7 +518,56 @@ function resolveHeuristicSection(fieldKey: string) {
     };
   }
 
-  if (/property/i.test(fieldKey)) {
+  const bare = stripCoBorrowerPrefix(fieldKey);
+
+  if (/^declaration_/i.test(bare)) {
+    return { id: "declarations", title: "Declarations", sortOrder: 700 };
+  }
+
+  if (/^sreo_/i.test(bare) || bare === "sreoTotalMarketValue") {
+    return {
+      id: "real-estate-owned",
+      title: "Real Estate Owned",
+      sortOrder: 650,
+    };
+  }
+
+  if (
+    /^asset_/i.test(bare) ||
+    bare === "totalAssets" ||
+    bare === "totalCashReserves"
+  ) {
+    return { id: "assets", title: "Assets", sortOrder: 560 };
+  }
+
+  if (
+    /^liability_/i.test(bare) ||
+    bare === "totalLiabilities" ||
+    bare === "existingDebt"
+  ) {
+    return { id: "liabilities", title: "Liabilities", sortOrder: 570 };
+  }
+
+  if (
+    /^financial_/i.test(bare) ||
+    /^proFormaNoi/i.test(bare) ||
+    /^(annualPropertyTaxes|annualTaxes|annualInsurance|insurancePremium|hoaDues|floodZone|inFloodZone|rentalProperty|hasRentalIncome|monthlyRent|interimMonthsReported|dscrCalculationMethod|noiActual|noiProforma|grossRevenueActual|grossRevenueProforma|proFormaNoiAverage|projectSummary)$/i.test(
+      bare,
+    )
+  ) {
+    return {
+      id: "financial-details",
+      title: "Financial Details",
+      sortOrder: 500,
+    };
+  }
+
+  if (
+    /property/i.test(fieldKey) ||
+    /^(numberOfUnits|currentMarketValue|afterRepairValue|additionalCollateral)$/i.test(
+      bare,
+    )
+  ) {
     return {
       id: "property-details",
       title: "Property Details",
@@ -391,7 +594,11 @@ function resolveHeuristicSection(fieldKey: string) {
     };
   }
 
-  if (/loan|amount|interest|term|purpose|recourse|ltv|ltc|dscr|product/i.test(fieldKey)) {
+  if (
+    /loan|amount|interest|term|purpose|recourse|ltv|ltc|dscr|product|rehab|construction|purchase|downPayment|useOfFunds|seller|vendor|budget|amortization|rateType|privateSale|closing|exitStrategy/i.test(
+      fieldKey,
+    )
+  ) {
     return {
       id: "loan-details",
       title: "Loan Details",
@@ -448,12 +655,54 @@ export function groupSubmissionFieldsForDisplay(
   const sectionMap = new Map<string, SubmissionFieldSection>();
   const seenAliasKeys = new Set<string>();
   const seenLabelValues = new Set<string>();
+  const yearByColumn = new Map<string, string>();
+  const enteredFinancialRows = new Set<string>();
+  let hasFinancialNoi = false;
+  let hasFinancialGrossRevenue = false;
+
+  const scopeOf = (key: string) => key.match(/^(coBorrower_\d+_)/)?.[1] || "";
+
+  for (const field of fields) {
+    const fieldKey = field.fieldKey || "";
+    const bare = stripCoBorrowerPrefix(fieldKey);
+    const yearMatch = bare.match(/^financialYear_(col\d+)$/i);
+    if (yearMatch) {
+      const year = String(parseSubmissionFieldValue(field.value) ?? "").trim();
+      if (year) {
+        const index = Number(yearMatch[1].replace(/col/i, ""));
+        yearByColumn.set(
+          `${scopeOf(fieldKey)}${yearMatch[1].toLowerCase()}`,
+          index === 0 ? `${year} (Interim)` : year,
+        );
+      }
+    }
+    if (/^financial_.+_col\d+$/i.test(bare) && !/_computed$/i.test(bare)) {
+      enteredFinancialRows.add(`${scopeOf(fieldKey)}${bare.toLowerCase()}`);
+    }
+    if (/^financial_noi/i.test(bare)) hasFinancialNoi = true;
+    if (/^financial_grossRevenue_/i.test(bare)) hasFinancialGrossRevenue = true;
+  }
 
   fields.forEach((field) => {
     const fieldKey = field.fieldKey || "";
     if (!fieldKey || fieldKey === "borrowerSignature") return;
     if (METRIC_ONLY_FIELD_KEYS.has(fieldKey)) return;
     if (shouldOmitSubmissionFieldFromDetails(fieldKey, field.label)) return;
+    if (fieldKey === "noiActual" && hasFinancialNoi) return;
+    if (fieldKey === "grossRevenueActual" && hasFinancialGrossRevenue) return;
+
+    const bare = stripCoBorrowerPrefix(fieldKey);
+    const computedMatch = bare.match(/^(financial_.+_col\d+)_computed$/i);
+    if (
+      computedMatch &&
+      enteredFinancialRows.has(
+        `${scopeOf(fieldKey)}${computedMatch[1].toLowerCase()}`,
+      )
+    ) {
+      return;
+    }
+    if (isBlankDerivedFinancial(field)) return;
+    if (isUnenteredZeroLine(field)) return;
 
     const aliasKey = getFieldAliasCanonical(fieldKey);
     if (FIELD_ALIAS_TO_CANONICAL.has(fieldKey)) {
@@ -464,11 +713,26 @@ export function groupSubmissionFieldsForDisplay(
       seenAliasKeys.add(aliasKey);
     }
 
-    const label = getSubmissionFieldLabel(field)
+    const columnMatch = bare.match(/_col(\d+)(?:_computed)?$/i);
+    const yearLabel = columnMatch
+      ? yearByColumn.get(`${scopeOf(fieldKey)}col${columnMatch[1]}`)
+      : undefined;
+    const generatedLabel = formatFieldLabel(fieldKey, yearLabel);
+    const existingLabel = (field.label || "").trim();
+    const structured =
+      /^(asset_|liability_|financial_|declaration_|sreo_\d+_|proFormaNoi_)/i.test(
+        bare,
+      );
+    const displayField: SubmissionDetailField =
+      !existingLabel || existingLabel === fieldKey || structured
+        ? { ...field, label: generatedLabel }
+        : field;
+
+    const label = getSubmissionFieldLabel(displayField)
       .trim()
       .toLowerCase()
       .replace(/[\s/_-]+/g, "");
-    const valueNorm = String(field.value ?? "")
+    const valueNorm = String(displayField.value ?? "")
       .trim()
       .toLowerCase();
     const labelValueKey = `${label}::${valueNorm}`;
@@ -502,7 +766,7 @@ export function groupSubmissionFieldsForDisplay(
       });
     }
 
-    sectionMap.get(resolvedSectionId)!.fields.push(field);
+    sectionMap.get(resolvedSectionId)!.fields.push(displayField);
   });
 
   const sections = Array.from(sectionMap.values())

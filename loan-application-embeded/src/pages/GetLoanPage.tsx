@@ -183,7 +183,7 @@ export default function GetLoanPage() {
           <button
             type="button"
             onClick={() => setSubmitted(false)}
-            className="mt-6 rounded-lg bg-[#2C92D5] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#19679b]"
+            className="mt-6 rounded-lg bg-[#13538A] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#0E426E]"
           >
             Submit Another Application
           </button>

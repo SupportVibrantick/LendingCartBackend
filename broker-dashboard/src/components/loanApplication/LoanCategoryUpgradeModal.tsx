@@ -293,7 +293,7 @@ export default function LoanCategoryUpgradeModal({
 
           {canPurchase && loading && (
             <div className="flex items-center justify-center gap-2 py-8 text-sm text-slate-500">
-              <Loader2 className="h-4 w-4 animate-spin text-[#2C92D5]" />
+              <Loader2 className="h-4 w-4 animate-spin text-[#13538A]" />
               Loading upgrade options…
             </div>
           )}
@@ -374,7 +374,7 @@ export default function LoanCategoryUpgradeModal({
                 type="button"
                 onClick={() => void handleCheckout()}
                 disabled={submitting}
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#2C92D5] px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#247bb4] disabled:opacity-50"
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#13538A] px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#0E426E] disabled:opacity-50"
               >
                 {submitting ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -419,7 +419,7 @@ export default function LoanCategoryUpgradeModal({
                 type="button"
                 onClick={goToPlanSettings}
                 disabled={submitting}
-                className="text-sm font-medium text-[#2C92D5] transition hover:text-[#247bb4] disabled:opacity-50"
+                className="text-sm font-medium text-[#13538A] transition hover:text-[#0E426E] disabled:opacity-50"
               >
                 View all plan options →
               </button>

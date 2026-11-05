@@ -65,7 +65,7 @@ const ReviewAccordion = ({
         <button
           type="button"
           onClick={onEdit}
-          className="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-[#2C92D5] hover:bg-[#2C92D5]/10"
+          className="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-[#13538A] hover:bg-[#13538A]/10"
         >
           <Pencil className="h-3.5 w-3.5" />
           Edit
@@ -107,9 +107,9 @@ const ReviewAccordion = ({
           )}
 
           {section.title === "Documents & Signature" && (
-            <div className="mt-3 rounded-lg border border-[#2C92D5]/20 bg-[#2C92D5]/5 p-4">
+            <div className="mt-3 rounded-lg border border-[#13538A]/20 bg-[#13538A]/5 p-4">
               <div className="flex gap-3">
-                <FileText className="mt-0.5 h-5 w-5 shrink-0 text-[#2C92D5]" />
+                <FileText className="mt-0.5 h-5 w-5 shrink-0 text-[#13538A]" />
                 <p className="text-sm text-slate-700 dark:text-slate-300">
                   <span className="font-semibold">Broker Notice:</span> The
                   signature section has been removed from this form. Brokers and
@@ -224,7 +224,7 @@ export default function ResidentialReviewStep({
             type="checkbox"
             checked={consentAgreed}
             onChange={(e) => setConsentAgreed(e.target.checked)}
-            className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 text-[#2C92D5] focus:ring-[#2C92D5]"
+            className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 text-[#13538A] focus:ring-[#13538A]"
           />
           <span className="text-sm text-slate-700 dark:text-slate-300">
             I/We agree to the Credit Authorization Consent above.{" "}
@@ -264,7 +264,7 @@ export default function ResidentialReviewStep({
         type="button"
         onClick={onSubmit}
         disabled={!canSubmit || submitting}
-        className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#2C92D5] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#19679b] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 dark:disabled:bg-slate-700"
+        className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#13538A] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#0E426E] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 dark:disabled:bg-slate-700"
       >
         <Send className="h-4 w-4" />
         {submitting ? "Submitting..." : "Submit Application"}
