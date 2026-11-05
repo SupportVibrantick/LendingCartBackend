@@ -28,7 +28,39 @@ function resolveRequestedAmount(fields = [], fallbackAmount = null) {
   return Number.isFinite(fallback) && fallback !== 0 ? fallback : null;
 }
 
+function readFieldValue(fields, keys) {
+  const field = (fields || []).find((item) =>
+    keys.includes(item?.fieldKey || item?.builderField?.fieldKey),
+  );
+  if (!field || field.value == null || field.value === "") return null;
+  return field.value;
+}
+
+/**
+ * Columns on LoanApplication that lists and other portals read directly.
+ * Submission fields stay the source of truth; these stay aligned after an edit.
+ */
+function buildLoanApplicationSyncFromFields(fields = []) {
+  const data = {};
+
+  const amount = parseRequestedAmountFromFields(fields);
+  if (amount != null) data.amountRequested = amount;
+
+  const purpose = readFieldValue(fields, ["purpose"]);
+  if (typeof purpose === "string" && purpose.trim()) {
+    data.purpose = purpose.trim();
+  }
+
+  const term = Number(readFieldValue(fields, ["loanTerm", "loan_term"]));
+  if (Number.isFinite(term) && term > 0) {
+    data.termMonthsRequested = Math.round(term);
+  }
+
+  return data;
+}
+
 module.exports = {
   parseRequestedAmountFromFields,
   resolveRequestedAmount,
+  buildLoanApplicationSyncFromFields,
 };

@@ -13,7 +13,7 @@ const {
   tryAttachFeeAgreementIfRequested,
 } = require("../../../services/feeAgreement/attachFeeAgreementToApplication");
 const {
-  parseRequestedAmountFromFields,
+  buildLoanApplicationSyncFromFields,
 } = require("../../../utils/applications/resolveRequestedAmount");
 
 async function editSubmittedApplication(fastify) {
@@ -108,11 +108,11 @@ async function editSubmittedApplication(fastify) {
           data: { status: "SUPERSEDED" },
         });
 
-        const parsedAmount = parseRequestedAmountFromFields(fields);
-        if (parsedAmount != null) {
+        const loanUpdate = buildLoanApplicationSyncFromFields(fields);
+        if (Object.keys(loanUpdate).length > 0) {
           await tx.loanApplication.update({
             where: { id: application.id },
-            data: { amountRequested: parsedAmount },
+            data: loanUpdate,
           });
         }
 

@@ -13,6 +13,9 @@ module.exports = async function viewSubmission(fastify) {
     APPLICATION_LENDER_SUBMISSION_INCLUDE,
     formatSubmissionApplicationLenders,
   } = require("../../../../utils/applications/submissionApplicationLenders");
+  const {
+    findActiveSubmissionId,
+  } = require("../../../../utils/applications/clientPortalSubmission");
 
   fastify.get(
     "/submissions/:submissionId",
@@ -37,17 +40,7 @@ module.exports = async function viewSubmission(fastify) {
     /* ===============================
        FETCH SUBMISSION + EXTRA DATA
     =============================== */
-    const submission =
-      await fastify.prisma.applicationSubmission.findFirst({
-        where: {
-          id: submissionId,
-          application: {
-            brokerOrgId: req.user?.roles?.includes("PLATFORM_ADMIN")
-              ? undefined
-              : req.user.organizationId,
-          },
-        },
-        include: {
+    const submissionInclude = {
           fields: {
             include: {
               builderField: {
@@ -90,8 +83,39 @@ module.exports = async function viewSubmission(fastify) {
               },
             },
           },
-        },
+    };
+
+    const submissionWhere = {
+      id: submissionId,
+      application: {
+        brokerOrgId: req.user?.roles?.includes("PLATFORM_ADMIN")
+          ? undefined
+          : req.user.organizationId,
+      },
+    };
+
+    let submission =
+      await fastify.prisma.applicationSubmission.findFirst({
+        where: submissionWhere,
+        include: submissionInclude,
       });
+
+    if (submission?.status === "SUPERSEDED") {
+      const activeId = await findActiveSubmissionId(
+        fastify.prisma,
+        submission.applicationId,
+        submission.id,
+      );
+      if (activeId && activeId !== submission.id) {
+        submission = await fastify.prisma.applicationSubmission.findFirst({
+          where: {
+            ...submissionWhere,
+            id: activeId,
+          },
+          include: submissionInclude,
+        });
+      }
+    }
 
     if (!submission) {
       return reply.code(404).send({

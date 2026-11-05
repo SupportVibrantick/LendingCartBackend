@@ -9,6 +9,9 @@ module.exports = async function viewSubmission(fastify) {
     APPLICATION_LENDER_SUBMISSION_INCLUDE,
     formatSubmissionApplicationLenders,
   } = require("../../../utils/applications/submissionApplicationLenders");
+  const {
+    findActiveSubmissionId,
+  } = require("../../../utils/applications/clientPortalSubmission");
   fastify.get("/submissions/:submissionId", async (req, reply) => {
     const { submissionId } = req.params;
 
@@ -23,9 +26,7 @@ module.exports = async function viewSubmission(fastify) {
     /* ===============================
        FETCH SUBMISSION + EXTRA DATA
     =============================== */
-    const submission = await fastify.prisma.applicationSubmission.findUnique({
-      where: { id: submissionId },
-      select: {
+    const submissionSelect = {
         id: true,
         applicationId: true,
         applicationProductId: true,
@@ -44,8 +45,26 @@ module.exports = async function viewSubmission(fastify) {
             },
           },
         },
-      },
+    };
+
+    let submission = await fastify.prisma.applicationSubmission.findUnique({
+      where: { id: submissionId },
+      select: submissionSelect,
     });
+
+    if (submission?.status === "SUPERSEDED") {
+      const activeId = await findActiveSubmissionId(
+        fastify.prisma,
+        submission.applicationId,
+        submission.id,
+      );
+      if (activeId && activeId !== submission.id) {
+        submission = await fastify.prisma.applicationSubmission.findUnique({
+          where: { id: activeId },
+          select: submissionSelect,
+        });
+      }
+    }
 
     if (!submission) {
       return reply.code(404).send({

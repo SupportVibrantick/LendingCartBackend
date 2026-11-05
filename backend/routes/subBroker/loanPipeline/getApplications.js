@@ -275,6 +275,8 @@ async function getApplicationsRoute(fastify, options) {
             },
 
             submissions: {
+              where: { status: { not: "SUPERSEDED" } },
+
               orderBy: {
                 createdAt: "desc",
               },

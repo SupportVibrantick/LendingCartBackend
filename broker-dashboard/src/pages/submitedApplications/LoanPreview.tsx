@@ -1181,6 +1181,16 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
       const json = await res.json();
       assertPortalApiOk(res, json, "Failed to fetch submission");
       setSubmissionDetail(json.data);
+      const currentSubmissionId = json.data?.submissionId;
+      if (currentSubmissionId && currentSubmissionId !== id) {
+        navigate(previewConfig.previewNavigatePath, {
+          replace: true,
+          state: {
+            ...(Location.state || {}),
+            submissionId: currentSubmissionId,
+          },
+        });
+      }
     } catch (err: any) {
       if (isSessionExpiredError(err)) return;
       toast.error(err.message || "Failed to fetch submission details");

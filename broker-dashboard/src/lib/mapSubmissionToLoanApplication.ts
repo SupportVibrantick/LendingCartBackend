@@ -1,5 +1,9 @@
 import { CATEGORY_LOAN_TYPES } from "../pages/LoanApplication/constants";
-import { getLoanProductAliasGroup } from "../pages/LoanApplication/productRules";
+import {
+  getLoanProductAliasGroup,
+  isAblCollateralProduct,
+  isSbaUsdaCollateralProduct,
+} from "../pages/LoanApplication/productRules";
 import type { FormDataType, LoanCategory } from "../pages/LoanApplication/types";
 import {
   createEmptyReferringBrokerFormState,
@@ -44,8 +48,17 @@ const STATIC_SUBMIT_KEYS = new Set([
   "amountRequested",
   "interestRate",
   "purpose",
+  "subPurpose",
   "propertyType",
   "subPropertyType",
+  "businessIndustry",
+  "business_industry",
+  "collateralType",
+  "additionalCollateral",
+  "privateSale",
+  "vendorName",
+  "vendorPhone",
+  "currentLoanBalance",
   "recourse",
   "propertyAddress",
   "propertyCity",
@@ -70,8 +83,11 @@ const STATIC_SUBMIT_KEYS = new Set([
   "grossRevenueProforma",
   "noiProforma",
   "annualTaxes",
+  "annualPropertyTaxes",
   "floodZone",
+  "inFloodZone",
   "insurancePremium",
+  "annualInsurance",
   "hoaDues",
   "ltvPercentage",
   "ltcPercentage",
@@ -152,6 +168,28 @@ const normalizeYesNo = (val: unknown): boolean => {
   return ["yes", "y", "true", "1"].includes(normalized);
 };
 
+const asDateInput = (val: unknown): string => {
+  const text = asString(val).trim();
+  if (!text) return "";
+  const iso = text.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (iso) return iso[1];
+  const dayFirst = text.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+  if (dayFirst) return `${dayFirst[3]}-${dayFirst[2]}-${dayFirst[1]}`;
+  return text;
+};
+
+const asStringList = (val: unknown): string[] => {
+  if (Array.isArray(val)) {
+    return val.map((item) => asString(item).trim()).filter(Boolean);
+  }
+  const text = asString(val).trim();
+  if (!text) return [];
+  return text
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+};
+
 const mapResidentialFinancialsFromFields = (
   fields: SubmissionField[],
 ): ResidentialFinancials => {
@@ -171,10 +209,10 @@ const mapResidentialFinancialsFromFields = (
       ? "proForma"
       : "noi";
   financials.annualPropertyTaxes = asFormNumber(
-    getFieldValue(fields, "annualTaxes"),
+    getFieldValueByKeys(fields, ["annualPropertyTaxes", "annualTaxes"]),
   );
   financials.annualInsurance = asFormNumber(
-    getFieldValue(fields, "insurancePremium"),
+    getFieldValueByKeys(fields, ["annualInsurance", "insurancePremium"]),
   );
   financials.hoaDues = asFormNumber(getFieldValue(fields, "hoaDues"));
   financials.inFloodZone = normalizeYesNo(
@@ -350,7 +388,7 @@ export function mapSubmissionToLoanApplication(fields: SubmissionField[]) {
     email: asString(getFieldValue(fields, "email")),
     phone: asString(getFieldValue(fields, "phone")),
     employer: asString(getFieldValue(fields, "employer")),
-    dob: asString(getFieldValue(fields, "dob")),
+    dob: asDateInput(getFieldValue(fields, "dob")),
     ssn: asString(getFieldValue(fields, "ssn")),
     creditScore: asString(getFieldValue(fields, "creditScore")),
     address: asString(getFieldValue(fields, "address")),
@@ -359,36 +397,53 @@ export function mapSubmissionToLoanApplication(fields: SubmissionField[]) {
     mailingAddress: asString(getFieldValue(fields, "mailingAddress")),
   };
 
+  const selectedProduct = asString(getFieldValue(fields, "loanProductCode"));
+  const usesCollateralType =
+    isSbaUsdaCollateralProduct(selectedProduct) ||
+    isAblCollateralProduct(selectedProduct);
+  const businessIndustry = asString(
+    getFieldValueByKeys(fields, ["businessIndustry", "business_industry"]),
+  );
+
   formData.loanRequest = {
     ...formData.loanRequest,
     purpose: asString(getFieldValue(fields, "purpose")),
+    subPurpose: asString(getFieldValue(fields, "subPurpose")),
     amount: asFormNumber(getFieldValue(fields, "amountRequested")),
     interestRate: asString(getFieldValue(fields, "interestRate")),
     sellerFinancing:
       asString(getFieldValue(fields, "sellerFinancing")) || "no",
     sellerNoteAmount: asFormNumber(getFieldValue(fields, "sellerNoteAmount")),
-    estimatedClosingDate: asString(
+    estimatedClosingDate: asDateInput(
       getFieldValue(fields, "estimatedClosingDate"),
     ),
     rateType: asString(getFieldValue(fields, "rateType")) || "FIXED",
     brokerPoints: asString(getFieldValue(fields, "brokerPoints")),
     amortization: asString(getFieldValue(fields, "amortization")),
     currentMarketValue: asFormNumber(getFieldValue(fields, "currentMarketValue")),
+    currentLoanBalance: asFormNumber(
+      getFieldValue(fields, "currentLoanBalance"),
+    ),
     purchasePrice: asFormNumber(getFieldValue(fields, "purchasePrice")),
     rehabCost: asFormNumber(getFieldValue(fields, "rehabBudget")),
     constructionCost: asFormNumber(getFieldValue(fields, "constructionBudget")),
-    purchaseDate: asString(getFieldValue(fields, "purchaseDate")),
+    purchaseDate: asDateInput(getFieldValue(fields, "purchaseDate")),
     totalAssets: asFormNumber(getFieldValue(fields, "totalAssets")),
     totalLiabilities: asFormNumber(getFieldValue(fields, "totalLiabilities")),
     afterRepairValue: asFormNumber(getFieldValue(fields, "afterRepairValue")),
-    propertyType: asString(
-      getFieldValueByKeys(fields, [
-        "propertyType",
-        "businessIndustry",
-        "business_industry",
-      ]),
-    ),
+    propertyType:
+      asString(getFieldValue(fields, "propertyType")) ||
+      (usesCollateralType ? "" : businessIndustry),
     subPropertyType: asString(getFieldValue(fields, "subPropertyType")),
+    collateralType:
+      asString(getFieldValue(fields, "collateralType")) ||
+      (usesCollateralType ? businessIndustry : ""),
+    additionalCollateral: asStringList(
+      getFieldValue(fields, "additionalCollateral"),
+    ),
+    privateSale: normalizeYesNo(getFieldValue(fields, "privateSale")),
+    vendorName: asString(getFieldValue(fields, "vendorName")),
+    vendorPhone: asString(getFieldValue(fields, "vendorPhone")),
     recourse: asString(getFieldValue(fields, "recourse")),
     businessAddress: asString(getFieldValue(fields, "propertyAddress")),
     city: asString(getFieldValue(fields, "propertyCity")),
@@ -397,7 +452,9 @@ export function mapSubmissionToLoanApplication(fields: SubmissionField[]) {
     numberOfUnits: asString(getFieldValue(fields, "numberOfUnits")),
     downPayment: asFormNumber(getFieldValue(fields, "downPayment")),
     useOfFunds: asString(getFieldValue(fields, "useOfFunds")),
-    exitStrategy: asString(getFieldValue(fields, "exitStrategy")),
+    exitStrategy: asString(
+      getFieldValueByKeys(fields, ["exitStrategy", "projectSummary"]),
+    ),
   };
 
   formData.loanTermIncome = {
@@ -410,16 +467,21 @@ export function mapSubmissionToLoanApplication(fields: SubmissionField[]) {
     ),
     noiActual: asFormNumber(getFieldValue(fields, "noiActual")),
     noiProforma: asFormNumber(getFieldValue(fields, "noiProforma")),
-    annualTaxes: asFormNumber(getFieldValue(fields, "annualTaxes")),
+    annualTaxes: asFormNumber(
+      getFieldValueByKeys(fields, ["annualTaxes", "annualPropertyTaxes"]),
+    ),
     floodZone: normalizeFloodZone(
       getFieldValueByKeys(fields, [
         "floodZone",
+        "inFloodZone",
         "propertyInFloodZone",
         "propertyFloodZone",
         "flood_zone",
       ]),
     ),
-    insurancePremium: asFormNumber(getFieldValue(fields, "insurancePremium")),
+    insurancePremium: asFormNumber(
+      getFieldValueByKeys(fields, ["insurancePremium", "annualInsurance"]),
+    ),
     hoaDues: asFormNumber(getFieldValue(fields, "hoaDues")),
   };
 
@@ -428,7 +490,7 @@ export function mapSubmissionToLoanApplication(fields: SubmissionField[]) {
     legalName: asString(getFieldValue(fields, "entityLegalName")),
     entityType: asString(getFieldValue(fields, "entityType")),
     dba: asString(getFieldValue(fields, "dba")),
-    formationDate: asString(getFieldValue(fields, "formationDate")),
+    formationDate: asDateInput(getFieldValue(fields, "formationDate")),
     yearsInBusiness: asString(getFieldValue(fields, "yearsInBusiness")),
     ebitdaWithNoi: asFormNumber(getFieldValue(fields, "ebitda")),
     naicsCode: asString(
@@ -553,7 +615,6 @@ export function mapSubmissionToLoanApplication(fields: SubmissionField[]) {
     dynamicFormData[field.fieldId] = parseValue(field.value);
   });
 
-  const selectedProduct = asString(getFieldValue(fields, "loanProductCode"));
   const storedCategory = asString(
     getFieldValue(fields, "loanCategory"),
   ) as LoanCategory;
