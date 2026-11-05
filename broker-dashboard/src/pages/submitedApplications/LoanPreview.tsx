@@ -4387,40 +4387,52 @@ dark:bg-red-900/20 dark:text-red-400"
                 const applicationNumber =
                   submissionDetail?.applicationNumber || submissionId || "";
                 const displayStatus = getDisplayApplicationStatus(submissionDetail);
+                const statOrDash = (filled: boolean, value: string) =>
+                  filled ? value : "—";
                 const metrics =
                   activeTab === "view-details"
-                    ? ([
-                        loanAmount
-                          ? {
-                              label: "Loan amount",
-                              value: formatCompactAmount(loanAmount),
-                            }
-                          : null,
-                        monthlyPaymentDisplay && monthlyPaymentDisplay !== "-"
-                          ? {
-                              label: "Monthly payment",
-                              value: monthlyPaymentDisplay,
-                            }
-                          : null,
-                        ltv
-                          ? { label: "LTV", value: `${formatStatNumber(ltv)}%` }
-                          : null,
-                        ltc
-                          ? { label: "LTC", value: `${formatStatNumber(ltc)}%` }
-                          : null,
-                        arv
-                          ? {
-                              label: "ARV",
-                              value: `${formatStatNumber(arv)}%`,
-                            }
-                          : null,
-                        dscr
-                          ? { label: "DSCR", value: formatStatNumber(dscr) }
-                          : null,
-                        netWorth
-                          ? { label: "Net worth", value: netWorthDisplay }
-                          : null,
-                      ].filter(Boolean) as Array<{ label: string; value: string }>)
+                    ? [
+                        {
+                          label: "Loan amount",
+                          value: statOrDash(
+                            loanAmount > 0,
+                            formatCompactAmount(loanAmount),
+                          ),
+                        },
+                        {
+                          label: "Monthly payment",
+                          value: statOrDash(
+                            Boolean(
+                              monthlyPaymentDisplay &&
+                                monthlyPaymentDisplay !== "-",
+                            ),
+                            monthlyPaymentDisplay,
+                          ),
+                        },
+                        {
+                          label: "LTV",
+                          value: statOrDash(ltv > 0, `${formatStatNumber(ltv)}%`),
+                        },
+                        {
+                          label: "LTC",
+                          value: statOrDash(ltc > 0, `${formatStatNumber(ltc)}%`),
+                        },
+                        {
+                          label: "ARV",
+                          value: statOrDash(arv > 0, `${formatStatNumber(arv)}%`),
+                        },
+                        {
+                          label: "DSCR",
+                          value: statOrDash(dscr > 0, formatStatNumber(dscr)),
+                        },
+                        {
+                          label: "Net worth",
+                          value: statOrDash(
+                            netWorth !== 0 && netWorthDisplay !== "-",
+                            netWorthDisplay,
+                          ),
+                        },
+                      ]
                     : [];
 
                 return (
@@ -4471,13 +4483,17 @@ dark:bg-red-900/20 dark:text-red-400"
 
                     {!loading && metrics.length ? (
                       <div className="border-t border-white/10 bg-[#13538A] px-4 py-4 text-white sm:px-5">
-                        <div className="grid grid-cols-2 gap-x-4 gap-y-4 sm:grid-cols-3 lg:flex lg:items-start lg:justify-between lg:gap-x-8">
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-4 sm:grid-cols-4 xl:grid-cols-7">
                           {metrics.map((item) => (
-                            <div key={item.label} className="min-w-0 lg:shrink-0">
+                            <div key={item.label} className="min-w-0">
                               <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-white/70">
                                 {item.label}
                               </p>
-                              <p className="mt-1 truncate text-lg font-semibold tracking-tight">
+                              <p
+                                className={`mt-1 truncate text-lg font-semibold tracking-tight ${
+                                  item.value === "—" ? "text-white/35" : ""
+                                }`}
+                              >
                                 {item.value}
                               </p>
                             </div>
