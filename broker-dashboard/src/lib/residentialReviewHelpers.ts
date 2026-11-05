@@ -60,6 +60,9 @@ export const buildResidentialReviewSections = ({
     purchasePrice: string;
     estimatedClosingDate: string;
     numberOfUnits: string;
+    privateSale?: boolean;
+    vendorName?: string;
+    vendorPhone?: string;
     rehabCost: string;
     afterRepairValue: string;
     currentMarketValue: string;
@@ -156,6 +159,31 @@ export const buildResidentialReviewSections = ({
     propertyRows.push({
       label: "Number of Units",
       value: displayValue(loanRequest.numberOfUnits),
+    });
+  }
+
+  if (
+    loanRequest.privateSale ||
+    loanRequest.vendorName?.trim() ||
+    loanRequest.vendorPhone?.trim()
+  ) {
+    propertyRows.push({
+      label: "Private Sale",
+      value: loanRequest.privateSale ? "Yes" : "No",
+    });
+  }
+
+  if (loanRequest.vendorName?.trim()) {
+    propertyRows.push({
+      label: "Equipment Vendor / Dealer / Seller",
+      value: loanRequest.vendorName.trim(),
+    });
+  }
+
+  if (loanRequest.vendorPhone?.trim()) {
+    propertyRows.push({
+      label: "Vendor / Dealer / Seller Phone",
+      value: loanRequest.vendorPhone.trim(),
     });
   }
 

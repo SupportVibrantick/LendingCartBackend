@@ -511,7 +511,7 @@ const AppSidebar: React.FC = () => {
                   ) : (
                     level > 0 && (
                       <span
-                        className={`ml-1 h-1.5 w-1.5 shrink-0 rounded-full ${linkActive ? "bg-[#13538A]" : "bg-gray-300"
+                        className={`ml-1 h-1.5 w-1.5 shrink-0 rounded-full ${linkActive ? "bg-[#13538A]" : "bg-[#13538A]/35"
                           }`}
                       />
                     )
@@ -547,7 +547,7 @@ const AppSidebar: React.FC = () => {
         className={`relative shrink-0 overflow-hidden border-b border-gray-100 dark:border-gray-800 ${!isExpanded && !isHovered ? "lg:flex lg:justify-center lg:px-2 lg:py-4" : "px-4 py-5"
           }`}
       >
-        <div className="absolute inset-0 bg-gradient-to-br from-[#13538A]/6 via-transparent to-[#2C92D5]/8 dark:from-[#13538A]/12 dark:to-[#2C92D5]/12" />
+        <div className="absolute inset-0 bg-gradient-to-br from-[#13538A]/10 via-transparent to-[#13538A]/5 dark:from-[#13538A]/20 dark:to-[#13538A]/10" />
         <Link to="/" className="relative block">
           {isExpanded || isHovered || isMobileOpen ? (
             <div className="flex items-center gap-3">
@@ -581,7 +581,7 @@ const AppSidebar: React.FC = () => {
 
       {(isExpanded || isHovered || isMobileOpen) && (
         <div className="shrink-0 border-b border-gray-100 px-4 py-4 dark:border-gray-800">
-          <div className="overflow-hidden rounded-2xl border border-[#13538A]/10 bg-gradient-to-br from-[#13538A]/5 via-white to-[#2C92D5]/5 p-3 dark:border-[#13538A]/20 dark:from-[#13538A]/10 dark:via-gray-950 dark:to-[#2C92D5]/10">
+          <div className="overflow-hidden rounded-2xl border border-[#13538A]/15 bg-gradient-to-br from-[#13538A]/10 via-white to-[#13538A]/5 p-3 dark:border-[#13538A]/25 dark:from-[#13538A]/15 dark:via-gray-950 dark:to-[#13538A]/10">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[#13538A] text-xs font-bold text-white">
                 {avatarSrc ? (

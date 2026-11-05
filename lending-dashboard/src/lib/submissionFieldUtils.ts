@@ -47,8 +47,8 @@ const FIELD_LABELS: Record<string, string> = {
   numberOfUnits: "Number of Units",
   additionalCollateral: "Additional Collateral",
   privateSale: "Private Sale",
-  vendorName: "Vendor Name",
-  vendorPhone: "Vendor Phone",
+  vendorName: "Equipment Vendor / Dealer / Seller",
+  vendorPhone: "Vendor / Dealer / Seller Phone",
   creditAuthorizationConsent: "Credit Authorization Consent",
 };
 
@@ -564,7 +564,7 @@ function resolveHeuristicSection(fieldKey: string) {
 
   if (
     /property/i.test(fieldKey) ||
-    /^(numberOfUnits|currentMarketValue|afterRepairValue|additionalCollateral)$/i.test(
+    /^(numberOfUnits|currentMarketValue|afterRepairValue|additionalCollateral|privateSale|vendorName|vendorPhone)$/i.test(
       bare,
     )
   ) {
@@ -595,7 +595,7 @@ function resolveHeuristicSection(fieldKey: string) {
   }
 
   if (
-    /loan|amount|interest|term|purpose|recourse|ltv|ltc|dscr|product|rehab|construction|purchase|downPayment|useOfFunds|seller|vendor|budget|amortization|rateType|privateSale|closing|exitStrategy/i.test(
+    /loan|amount|interest|term|purpose|recourse|ltv|ltc|dscr|product|rehab|construction|purchase|downPayment|useOfFunds|seller|budget|amortization|rateType|closing|exitStrategy/i.test(
       fieldKey,
     )
   ) {
@@ -724,7 +724,10 @@ export function groupSubmissionFieldsForDisplay(
         bare,
       );
     const displayField: SubmissionDetailField =
-      !existingLabel || existingLabel === fieldKey || structured
+      !existingLabel ||
+      existingLabel === fieldKey ||
+      structured ||
+      Boolean(FIELD_LABELS[fieldKey] || FIELD_LABELS[bare])
         ? { ...field, label: generatedLabel }
         : field;
 

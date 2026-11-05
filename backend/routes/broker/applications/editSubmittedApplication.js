@@ -11,7 +11,7 @@ const {
   tryAttachFeeAgreementIfRequested,
 } = require("../../../services/feeAgreement/attachFeeAgreementToApplication");
 const {
-  parseRequestedAmountFromFields,
+  buildLoanApplicationSyncFromFields,
 } = require("../../../utils/applications/resolveRequestedAmount");
 
 async function editSubmittedApplication(fastify) {
@@ -154,14 +154,9 @@ async function editSubmittedApplication(fastify) {
             data: { status: "SUPERSEDED" }
           });
 
-          /* 5️⃣ Keep denormalized loan amount + optional document selection in sync.
-                Broker/lender lists read both submission fields and LoanApplication.amountRequested. */
-          const parsedAmount = parseRequestedAmountFromFields(fields);
-          const loanUpdate = {};
-
-          if (parsedAmount != null) {
-            loanUpdate.amountRequested = parsedAmount;
-          }
+          /* 5️⃣ Keep denormalized loan columns in sync.
+                Other portals read both the latest submission and these columns. */
+          const loanUpdate = buildLoanApplicationSyncFromFields(fields);
 
           if (hasRequestedDocumentTypesUpdate) {
             loanUpdate.requestedDocumentTypes =

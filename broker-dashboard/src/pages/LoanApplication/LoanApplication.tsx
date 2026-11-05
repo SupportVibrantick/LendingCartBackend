@@ -1785,18 +1785,14 @@ const LoanApplication = ({
           : formData.loanRequest.propertyType,
       );
 
-      // Additional Collateral: emit as a single string[] field
-      if (
-        (isSbaUsdaCollateralFlow || isAblCollateralFlow) &&
-        formData.loanRequest.additionalCollateral.length > 0
-      ) {
+      addField("collateralType", formData.loanRequest.collateralType);
+      if (formData.loanRequest.additionalCollateral.length > 0) {
         addField("additionalCollateral", [
           ...formData.loanRequest.additionalCollateral,
         ]);
       }
 
-      // Sale Details (SBA/USDA + ABL only)
-      if (isSbaUsdaCollateralFlow || isAblCollateralFlow) {
+      if (showPrivateDetails(selectedProduct)) {
         addField(
           "privateSale",
           formData.loanRequest.privateSale ? "yes" : "no",
@@ -1809,6 +1805,12 @@ const LoanApplication = ({
         "currentMarketValue",
         toNumber(formData.loanRequest.currentMarketValue),
       );
+      if (String(formData.loanRequest.currentLoanBalance || "").trim()) {
+        addField(
+          "currentLoanBalance",
+          toNumber(formData.loanRequest.currentLoanBalance),
+        );
+      }
       addField(
         "afterRepairValue",
         toNumber(formData.loanRequest.afterRepairValue),

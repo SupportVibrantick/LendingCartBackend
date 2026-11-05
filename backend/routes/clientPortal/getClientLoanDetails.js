@@ -171,16 +171,13 @@ async function getClientLoanDetailsRoute(fastify) {
            EXTRACT FIELDS
         =============================== */
 
-        const allFields = [];
-
-        for (const sub of loan.submissions || []) {
-          for (const field of sub.fields || []) {
-            allFields.push({
-              key: field.fieldKey,
-              value: field.value,
-            });
-          }
-        }
+        const latestSubmission = resolveLatestActiveSubmission(
+          loan.submissions || [],
+        );
+        const allFields = (latestSubmission?.fields || []).map((field) => ({
+          key: field.fieldKey,
+          value: field.value,
+        }));
 
         const getField = (key) =>
           allFields.find((f) => f.key === key)?.value || null;
@@ -201,7 +198,6 @@ async function getClientLoanDetailsRoute(fastify) {
           .trim();
 
         const borrowerSignature = getField("borrowerSignature");
-        const latestSubmission = resolveLatestActiveSubmission(loan.submissions || []);
         const signatureState = canClientSignApplication({
           status: loan.status,
           submittedAt: loan.submittedAt,
@@ -277,11 +273,11 @@ async function getClientLoanDetailsRoute(fastify) {
             loanTerm:
               getField("loanTerm") ||
               getField("loan_term"),
-            loanPurpose: getField("loan_purpose"),
+            loanPurpose: getField("purpose") || getField("loan_purpose"),
           },
 
           property: {
-            address: getField("property_address"),
+            address: getField("propertyAddress") || getField("property_address"),
             value: getField("property_value"),
             rent: getField("monthly_rental_income"),
           },
