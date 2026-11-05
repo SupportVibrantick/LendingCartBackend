@@ -4,6 +4,27 @@
 const {
   mapLenderDocumentRequirements,
 } = require("../../../utils/lender/syncLenderProductDocuments");
+const {
+  normalizeEquipmentTypes,
+  normalizeGroupedTypes,
+} = require("../../../utils/lender/normalizeLenderProductResponse");
+
+function formatTermRange(minTermMonths, maxTermMonths) {
+  if (minTermMonths && maxTermMonths) {
+    return minTermMonths === maxTermMonths
+      ? `${minTermMonths} months`
+      : `${minTermMonths}–${maxTermMonths} months`;
+  }
+  if (minTermMonths) return `${minTermMonths}+ months`;
+  if (maxTermMonths) return `Up to ${maxTermMonths} months`;
+  return null;
+}
+
+function groupedTypeLabels(value, keyField) {
+  return normalizeGroupedTypes(value, keyField)
+    .map((item) => item[keyField])
+    .filter(Boolean);
+}
 
 async function lenderProfileRoutes(fastify) {
   fastify.get(
@@ -85,7 +106,7 @@ async function lenderProfileRoutes(fastify) {
             where: { isActive: true },
             include: {
               loanProduct: {
-                select: { name: true },
+                select: { name: true, description: true },
               },
               lenderDocumentRequirements: {
                 include: {
@@ -123,6 +144,7 @@ async function lenderProfileRoutes(fastify) {
           id: product.id,
           loanProductCode: product.loanProductCode,
           loanProductName: product.loanProduct?.name || product.loanProductCode,
+          description: product.loanProduct?.description || null,
           minLoanAmount:
             product.minLoanAmount?.toString?.() ?? product.minLoanAmount,
           maxLoanAmount:
@@ -131,10 +153,28 @@ async function lenderProfileRoutes(fastify) {
           minDscr: product.minDscr?.toString?.() ?? product.minDscr ?? null,
           interestRateRange: product.interestRateRange ?? null,
           statesSupported: product.statesSupported ?? null,
-          termRange:
-            product.minTermMonths && product.maxTermMonths
-              ? `${product.minTermMonths}–${product.maxTermMonths} months`
-              : null,
+          termRange: formatTermRange(
+            product.minTermMonths,
+            product.maxTermMonths,
+          ),
+          maxLtvPercent:
+            product.maxLtvPercent?.toString?.() ?? product.maxLtvPercent,
+          maxLtcPercent:
+            product.maxLtcPercent?.toString?.() ?? product.maxLtcPercent,
+          maxArvPercent:
+            product.maxArvPercent?.toString?.() ?? product.maxArvPercent,
+          originationPointsPercent:
+            product.originationPointsPercent?.toString?.() ??
+            product.originationPointsPercent,
+          minExperience: product.minExperience ?? null,
+          avgTurnaroundDays: product.avgTurnaroundDays ?? null,
+          personalGuaranteeRequired: product.personalGuaranteeRequired ?? null,
+          firstTimeBorrowersAllowed: product.firstTimeBorrowersAllowed ?? null,
+          interestOnlyAvailable: product.interestOnlyAvailable ?? null,
+          criteriaNotes: product.criteriaNotes ?? null,
+          propertyTypes: groupedTypeLabels(product.propertyTypes, "type"),
+          businessTypes: groupedTypeLabels(product.businessTypes, "name"),
+          equipmentTypes: normalizeEquipmentTypes(product.equipmentTypes),
           documents: documents.map((doc) => ({
             id: doc.documentTypeId || doc.id,
             name: doc.documentName || doc.name,

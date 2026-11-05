@@ -2788,336 +2788,331 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
     });
 
     const paginatedEligibleLenders = filteredLenders;
+    const lenderFilterTabs: Array<{
+      id: "all" | "eligible" | "rejected" | "sent";
+      label: string;
+    }> = [
+      { id: "all", label: "All" },
+      { id: "eligible", label: "Eligible" },
+      { id: "rejected", label: "Rejected" },
+      { id: "sent", label: "Sent" },
+    ];
+    const summaryStats = borrowerSummary
+      ? [
+          {
+            label: "Loan",
+            value: borrowerSummary.loanAmount
+              ? `$${Number(borrowerSummary.loanAmount).toLocaleString()}`
+              : "—",
+          },
+          {
+            label: "Term",
+            value: borrowerSummary.termMonths
+              ? `${borrowerSummary.termMonths} mo`
+              : "—",
+          },
+          {
+            label: "Score",
+            value: borrowerSummary.creditScore || "—",
+          },
+          {
+            label: "LTV",
+            value:
+              borrowerSummary.ltv != null && borrowerSummary.ltv !== ""
+                ? `${borrowerSummary.ltv}%`
+                : "—",
+          },
+          {
+            label: "LTC",
+            value:
+              borrowerSummary.ltc != null && borrowerSummary.ltc !== ""
+                ? `${borrowerSummary.ltc}%`
+                : "—",
+          },
+          {
+            label: "ARV",
+            value:
+              borrowerSummary.arv != null && borrowerSummary.arv !== ""
+                ? `${borrowerSummary.arv}%`
+                : "—",
+          },
+          {
+            label: "Property",
+            value: borrowerSummary.propertyType || "—",
+          },
+          {
+            label: "State",
+            value: borrowerSummary.propertyState || "—",
+          },
+          {
+            label: "Lenders",
+            value: String(lenderPagination?.total ?? lenders.length),
+          },
+        ]
+      : [];
 
     return (
-      <div
-        className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm 
-dark:border-slate-800 dark:bg-slate-900"
-      >
-        <div className="mb-4 flex gap-2 flex-wrap">
-          {["all", "eligible", "rejected", "sent"].map((type) => (
-            <button
-              key={type}
-              onClick={() => {
-                if (lenderFilter === type) return;
-
-                setFilterLoading(true);
-
-                setLenderFilter(
-                  type as "all" | "eligible" | "rejected" | "sent",
-                );
-
-                setLenderPage(1);
-
-                scrollToLenders();
-              }}
-              className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-all
-      ${
-        lenderFilter === type
-          ? type === "eligible"
-            ? "bg-green-600 text-white"
-            : type === "rejected"
-              ? "bg-red-600 text-white"
-              : type === "sent"
-                ? "bg-[#13538A] text-white"
-                : "bg-slate-800 text-white dark:bg-white dark:text-black"
-          : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
-      }
-`}
-            >
-              {type === "all"
-                ? "All"
-                : type === "eligible"
-                  ? "Eligible"
-                  : type === "rejected"
-                    ? "Rejected"
-                    : "Sent"}
-            </button>
-          ))}
-        </div>
-
-        {/* HEADER */}
-        <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div ref={lendersSectionRef} className="mb-4">
-            <h2 className="text-lg font-bold text-slate-900 dark:text-white">
-              Find Lenders
-            </h2>
-            <p className="text-sm text-slate-500">
-              Connect with verified lenders for this submission.
-            </p>
-          </div>
-
-          <div className="flex flex-col gap-3 md:flex-row">
-            <div className="relative md:w-80">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <input
-                value={lenderSearchQ}
-                onChange={(e) => {
-                  setLenderPage(1);
-                  setLenderSearchQ(e.target.value);
-                }}
-                placeholder="Search lenders..."
-                className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2 pl-10 text-sm 
-text-slate-800 outline-none
-focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200
-dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:focus:ring-cyan-800"
-              />
-            </div>
-            <select
-              value={lenderLimit}
-              onChange={(e) => {
-                setLenderLimit(Number(e.target.value));
-                setLenderPage(1);
-              }}
-              className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm"
-            >
-              <option value={6}>6</option>
-              <option value={9}>9</option>
-              <option value={12}>12</option>
-              <option value={18}>18</option>
-            </select>
-          </div>
-        </div>
-
-        {/* Borrower Summary */}
-        {borrowerSummary && (
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-950">
+        <div className="border-b border-slate-100 px-5 py-5 dark:border-slate-800 sm:px-6">
           <div
-            className="mb-6 rounded-xl border border-slate-200 bg-slate-50 p-4 
-dark:border-slate-800 dark:bg-slate-900"
+            ref={lendersSectionRef}
+            className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between"
           >
-            <h3 className="mb-2 font-semibold text-slate-600 dark:text-slate-400">
-              Borrower Summary
-            </h3>
-
-            <div className="grid grid-cols-2 gap-4 text-sm md:grid-cols-4">
-              <div>
-                <b>Loan:</b>
-                <div className="text-[#13538A] font-semibold dark:text-sky-300">
-                  ${Number(borrowerSummary.loanAmount).toLocaleString()}
-                </div>
+            <div>
+              <h2 className="text-lg font-semibold tracking-tight text-slate-900 dark:text-white">
+                Matched Lenders
+              </h2>
+              <p className="mt-0.5 text-sm text-slate-500">
+                Connect with verified lenders for this submission.
+              </p>
+            </div>
+            <div className="flex w-full flex-col gap-2 sm:flex-row lg:w-auto">
+              <div className="relative min-w-0 flex-1 lg:w-72">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <input
+                  value={lenderSearchQ}
+                  onChange={(e) => {
+                    setLenderPage(1);
+                    setLenderSearchQ(e.target.value);
+                  }}
+                  placeholder="Search lenders..."
+                  className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm text-slate-800 outline-none transition focus:border-[#13538A] focus:ring-2 focus:ring-[#13538A]/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                />
               </div>
-
-              <div>
-                <b>Term:</b>
-                <div className="text-[#13538A] font-semibold dark:text-sky-300">
-                  {borrowerSummary.termMonths ?? "-"} Months
-                </div>
-              </div>
-
-              <div>
-                <b>Score:</b>
-                <div className="text-[#13538A] font-semibold dark:text-sky-300">
-                  {borrowerSummary.creditScore}
-                </div>
-              </div>
-
-              <div>
-                <b>LTV:</b>
-                <div className="text-[#13538A] font-semibold dark:text-sky-300">
-                  {borrowerSummary.ltv ?? "-"}%
-                </div>
-              </div>
-
-              <div>
-                <b>LTC:</b>
-                <div className="text-[#13538A] font-semibold dark:text-sky-300">
-                  {borrowerSummary.ltc ?? "-"}%
-                </div>
-              </div>
-
-              <div>
-                <b>ARV:</b>
-                <div className="text-[#13538A] font-semibold dark:text-sky-300">
-                  {borrowerSummary.arv ?? "-"}%
-                </div>
-              </div>
-
-              <div>
-                <b>Property:</b>
-                <div className="text-[#13538A] font-semibold dark:text-sky-300">
-                  {borrowerSummary.propertyType ?? "-"}
-                </div>
-              </div>
-
-              <div>
-                <b>State:</b>
-                <div className="text-[#13538A] font-semibold dark:text-sky-300">
-                  {borrowerSummary.propertyState ?? "-"}
-                </div>
-              </div>
-
-              <div>
-                <b>Total Lenders:</b>
-                <div className="text-[#13538A] font-semibold dark:text-sky-300">
-                  {lenderPagination?.total ?? lenders.length}
-                </div>
-              </div>
+              <select
+                value={lenderLimit}
+                onChange={(e) => {
+                  setLenderLimit(Number(e.target.value));
+                  setLenderPage(1);
+                }}
+                className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-[#13538A] focus:ring-2 focus:ring-[#13538A]/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+              >
+                <option value={6}>6 / page</option>
+                <option value={9}>9 / page</option>
+                <option value={12}>12 / page</option>
+                <option value={18}>18 / page</option>
+              </select>
             </div>
           </div>
-        )}
 
-        {/* LOADING */}
-        {lenderLoading && <div>Loading...</div>}
+          <div className="mt-4 inline-flex flex-wrap gap-1 rounded-lg bg-slate-100 p-1 dark:bg-slate-800">
+            {lenderFilterTabs.map((tab) => {
+              const isActive = lenderFilter === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => {
+                    if (lenderFilter === tab.id) return;
+                    setFilterLoading(true);
+                    setLenderFilter(tab.id);
+                    setLenderPage(1);
+                    scrollToLenders();
+                  }}
+                  className={`rounded-md px-3.5 py-1.5 text-xs font-semibold transition ${
+                    isActive
+                      ? "bg-[#13538A] text-white shadow-sm"
+                      : "text-slate-500 hover:bg-white hover:text-slate-800 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-white"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
 
-        {/* EMPTY */}
-        {!lenderLoading &&
-          !filterLoading &&
-          paginatedEligibleLenders.length === 0 && (
-            <div
-              className="flex flex-col items-center justify-center rounded-3xl 
-    border border-dashed border-slate-300 bg-gradient-to-br 
-    from-slate-50 to-slate-100 px-6 py-14 text-center
-    shadow-sm dark:border-slate-700 dark:from-slate-900 dark:to-slate-950"
-            >
-              {/* ICON */}
-              <div
-                className="mb-5 flex h-14 w-14 items-center justify-center rounded-full 
-      bg-gradient-to-br from-cyan-500 to-blue-600 text-white shadow-lg"
-              >
-                <SearchX className="h-8 w-8" />
-              </div>
+        {summaryStats.length > 0 ? (
+          <div className="border-b border-white/10 bg-[#13538A] px-5 py-4 text-white sm:px-6">
+            <div className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3 xl:grid-cols-9">
+              {summaryStats.map((item) => (
+                <div key={item.label} className="min-w-0">
+                  <p className="text-[10px] font-medium uppercase tracking-[0.12em] text-white/65">
+                    {item.label}
+                  </p>
+                  <p
+                    className={`mt-1 truncate text-sm font-semibold tracking-tight ${
+                      item.value === "—" ? "text-white/35" : ""
+                    }`}
+                  >
+                    {item.value}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
 
-              {/* TITLE */}
-              <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100">
-                No Lenders Found
-              </h3>
-
-              {/* DESCRIPTION */}
-              <p
-                className="mt-2 max-w-md text-sm leading-relaxed 
-      text-slate-500 dark:text-slate-400"
-              >
-                We couldn&apos;t find any lenders matching your current filters
-                or search criteria. Try adjusting filters or searching with
-                different keywords.
-              </p>
+        <div className="p-5 sm:p-6">
+          {lenderLoading && (
+            <div className="flex items-center justify-center py-16 text-sm text-slate-500">
+              <Loader2 className="mr-2 h-5 w-5 animate-spin text-[#13538A]" />
+              Loading lenders...
             </div>
           )}
 
-        {filterLoading && (
-          <div className="flex items-center justify-center py-10">
-            <Loader2 className="h-8 w-8 animate-spin text-cyan-600" />
-          </div>
-        )}
+          {filterLoading && (
+            <div className="flex items-center justify-center py-16">
+              <Loader2 className="h-8 w-8 animate-spin text-[#13538A]" />
+            </div>
+          )}
 
-        {/* LIST */}
-        {!lenderLoading &&
-          !filterLoading &&
-          paginatedEligibleLenders.length > 0 && (
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {paginatedEligibleLenders.map((lender) => (
-                <div
-                  key={lender.id}
-                  className="rounded-xl border border-slate-200 bg-white p-5 
-hover:shadow-md transition flex flex-col h-full
-dark:border-slate-800 dark:bg-slate-900"
-                >
-                  {/* TOP CONTENT */}
-                  <div className="flex-1">
-                    {/* HEADER */}
-                    <div className="flex justify-between items-center mb-3">
-                      <div>
-                        <h3 className="font-bold text-slate-800 dark:text-slate-100">
-                          {lender.name}
-                        </h3>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">
-                          {lender.email || "-"}
-                        </p>
-                      </div>
+          {!lenderLoading &&
+            !filterLoading &&
+            paginatedEligibleLenders.length === 0 && (
+              <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-6 py-16 text-center dark:border-slate-700 dark:bg-slate-900/40">
+                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-[#13538A] text-white">
+                  <SearchX className="h-6 w-6" />
+                </div>
+                <h3 className="text-base font-semibold text-slate-800 dark:text-slate-100">
+                  No lenders found
+                </h3>
+                <p className="mt-1 max-w-md text-sm text-slate-500 dark:text-slate-400">
+                  No lenders match the current filters. Try another search or
+                  switch tabs.
+                </p>
+              </div>
+            )}
 
-                      <span
-                        className={`px-2 py-1 text-xs rounded-full capitalize ${
-                          lender.type === "eligible"
-                            ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                            : lender.type === "ineligible"
-                              ? "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400"
-                              : lender.type === "rejected"
-                                ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
-                                : "bg-[#13538A]/10 text-[#13538A] dark:bg-[#13538A]/20 dark:text-sky-300"
-                        }`}
-                      >
-                        {lender.type === "ineligible"
-                          ? "Not Eligible"
-                          : lender.type}
-                      </span>
-                    </div>
+          {!lenderLoading &&
+            !filterLoading &&
+            paginatedEligibleLenders.length > 0 && (
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                {paginatedEligibleLenders.map((lender) => {
+                  const initials = String(lender.name || "L")
+                    .split(/\s+/)
+                    .filter(Boolean)
+                    .slice(0, 2)
+                    .map((part) => part[0])
+                    .join("")
+                    .toUpperCase();
+                  const productLabel =
+                    PRODUCT_LABELS[lender.loanProductCode] ??
+                    lender.loanProductCode?.replace(/_/g, " ");
+                  const isSending = sendingId === lender.lenderProductId;
+                  const canClick =
+                    !isSending &&
+                    !lender.alreadySent &&
+                    Boolean(lender.canSend) &&
+                    loDocPermissions.sendApplications;
+                  const disabledReason = isSending
+                    ? "Sending..."
+                    : lender.alreadySent
+                      ? "Already sent to this lender"
+                      : !lender.canSend
+                        ? lender.type === "ineligible"
+                          ? "Lender is not eligible for this deal"
+                          : lender.type === "rejected"
+                            ? "Lender declined this submission"
+                            : "Cannot send to this lender"
+                        : !loDocPermissions.sendApplications
+                          ? "You do not have permission to send applications"
+                          : undefined;
 
-                    {/* DETAILS */}
-                    <div className="text-sm space-y-1">
-                      <div>
-                        Product:{" "}
-                        {PRODUCT_LABELS[lender.loanProductCode] ??
-                          lender.loanProductCode
-                            ?.replace(/_/g, " ")
-                            .toUpperCase()}
-                      </div>
-                      <div>
-                        Funding: ${Number(lender.minFunding).toLocaleString()} -
-                        ${Number(lender.maxFunding).toLocaleString()}
-                      </div>
-                      <div>
-                        Term: {lender.minMonths} - {lender.maxMonths}
-                      </div>
-                      <div>Interest: {lender.interestRateRange}</div>
-                      <div>Funding Speed: {lender.fundingSpeedDays} Days</div>
-                    </div>
-
-                    {/* REJECTION / INELIGIBILITY */}
-                    {lender.type === "ineligible" &&
-                      lender.rejectionReasons.length > 0 && (
-                        <div
-                          className="mt-3 rounded bg-amber-50 p-2 text-xs text-amber-800
-dark:bg-amber-900/20 dark:text-amber-300"
+                  return (
+                    <div
+                      key={lender.id}
+                      className="flex h-full flex-col rounded-xl border border-slate-200 bg-white p-4 transition hover:border-[#13538A]/30 hover:shadow-sm dark:border-slate-800 dark:bg-slate-900"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex min-w-0 items-start gap-3">
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#13538A] text-xs font-semibold tracking-wide text-white">
+                            {initials || "L"}
+                          </div>
+                          <div className="min-w-0">
+                            <h3 className="truncate text-sm font-semibold text-slate-900 dark:text-white">
+                              {lender.name}
+                            </h3>
+                            <p className="mt-0.5 truncate text-xs text-slate-500">
+                              {lender.email || "—"}
+                            </p>
+                          </div>
+                        </div>
+                        <span
+                          className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold capitalize ${
+                            lender.type === "eligible"
+                              ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+                              : lender.type === "ineligible"
+                                ? "bg-amber-50 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400"
+                                : lender.type === "rejected"
+                                  ? "bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                                  : "bg-[#13538A]/10 text-[#13538A] dark:bg-[#13538A]/20 dark:text-sky-300"
+                          }`}
                         >
-                          <p className="mb-1 font-semibold">
-                              Why is it not eligible?
-                          </p>
-                          <ul className="list-disc space-y-0.5 pl-4">
+                          {lender.type === "ineligible"
+                            ? "Not Eligible"
+                            : lender.type}
+                        </span>
+                      </div>
+
+                      <dl className="mt-4 grid grid-cols-2 gap-x-3 gap-y-2.5 text-xs">
+                        <div className="col-span-2">
+                          <dt className="text-[10px] font-medium uppercase tracking-[0.12em] text-slate-400">
+                            Product
+                          </dt>
+                          <dd className="mt-0.5 font-medium text-slate-800 dark:text-slate-200">
+                            {productLabel || "—"}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="text-[10px] font-medium uppercase tracking-[0.12em] text-slate-400">
+                            Funding
+                          </dt>
+                          <dd className="mt-0.5 font-medium text-slate-800 dark:text-slate-200">
+                            ${Number(lender.minFunding).toLocaleString()} – $
+                            {Number(lender.maxFunding).toLocaleString()}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="text-[10px] font-medium uppercase tracking-[0.12em] text-slate-400">
+                            Term
+                          </dt>
+                          <dd className="mt-0.5 font-medium text-slate-800 dark:text-slate-200">
+                            {lender.minMonths} – {lender.maxMonths} mo
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="text-[10px] font-medium uppercase tracking-[0.12em] text-slate-400">
+                            Interest
+                          </dt>
+                          <dd className="mt-0.5 font-medium text-slate-800 dark:text-slate-200">
+                            {lender.interestRateRange || "—"}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="text-[10px] font-medium uppercase tracking-[0.12em] text-slate-400">
+                            Funding speed
+                          </dt>
+                          <dd className="mt-0.5 font-medium text-slate-800 dark:text-slate-200">
+                            {lender.fundingSpeedDays} days
+                          </dd>
+                        </div>
+                      </dl>
+
+                      {lender.type === "ineligible" &&
+                      lender.rejectionReasons.length > 0 ? (
+                        <div className="mt-4 rounded-lg border border-amber-200/80 bg-amber-50/80 px-3 py-2.5 text-xs text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-300">
+                          <p className="font-semibold">Why is it not eligible?</p>
+                          <ul className="mt-1 list-disc space-y-0.5 pl-4">
                             {lender.rejectionReasons.map((reason) => (
                               <li key={reason}>{reason}</li>
                             ))}
                           </ul>
                         </div>
-                      )}
+                      ) : null}
 
-                    {lender.type === "rejected" && (
-                      <div
-                        className="mt-3 text-xs text-red-600 bg-red-50 p-2 rounded
-dark:bg-red-900/20 dark:text-red-400"
-                      >
-                        Lender declined this submission
-                        {lender.applicationStatus
-                          ? ` (${String(lender.applicationStatus).replace(/_/g, " ").toLowerCase()})`
-                          : ""}
-                      </div>
-                    )}
-                  </div>
+                      {lender.type === "rejected" ? (
+                        <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-xs text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-400">
+                          Lender declined this submission
+                          {lender.applicationStatus
+                            ? ` (${String(lender.applicationStatus)
+                                .replace(/_/g, " ")
+                                .toLowerCase()})`
+                            : ""}
+                        </div>
+                      ) : null}
 
-                  {/* BUTTON ALWAYS BOTTOM */}
-                  <div ref={bottomRef} className="mt-4 pt-4 border-t">
-                    {(() => {
-                      const isSending =
-                        sendingId === lender.lenderProductId;
-                      const canClick =
-                        !isSending &&
-                        !lender.alreadySent &&
-                        Boolean(lender.canSend) &&
-                        loDocPermissions.sendApplications;
-                      const disabledReason = isSending
-                        ? "Sending..."
-                        : lender.alreadySent
-                          ? "Already sent to this lender"
-                          : !lender.canSend
-                            ? lender.type === "ineligible"
-                              ? "Lender is not eligible for this deal"
-                              : lender.type === "rejected"
-                                ? "Lender declined this submission"
-                                : "Cannot send to this lender"
-                            : !loDocPermissions.sendApplications
-                              ? "You do not have permission to send applications"
-                              : undefined;
-
-                      return (
+                      <div ref={bottomRef} className="mt-auto pt-4">
                         <button
                           type="button"
                           disabled={!canClick}
@@ -3125,18 +3120,18 @@ dark:bg-red-900/20 dark:text-red-400"
                           onClick={() =>
                             sendApplicationToLender(lender.lenderProductId)
                           }
-                          className={`w-full rounded-lg py-2 font-semibold text-white transition-all duration-300 disabled:cursor-not-allowed disabled:opacity-70 ${
+                          className={`w-full rounded-lg py-2.5 text-sm font-semibold transition disabled:cursor-not-allowed ${
                             isSending
-                              ? "cursor-wait bg-slate-400"
+                              ? "cursor-wait bg-slate-300 text-white"
                               : lender.alreadySent
-                                ? "bg-[#13538A]"
+                                ? "bg-[#13538A] text-white"
                                 : lender.type === "rejected"
-                                  ? "bg-red-500"
+                                  ? "bg-red-50 text-red-700 ring-1 ring-inset ring-red-200"
                                   : lender.type === "ineligible"
-                                    ? "bg-amber-500"
+                                    ? "bg-slate-100 text-slate-500 ring-1 ring-inset ring-slate-200"
                                     : !loDocPermissions.sendApplications
-                                      ? "bg-slate-400"
-                                      : "bg-[#13538A] shadow-sm hover:bg-[#0E426E]"
+                                      ? "bg-slate-100 text-slate-400"
+                                      : "bg-[#13538A] text-white shadow-sm hover:bg-[#0E426E]"
                           }`}
                         >
                           {isSending
@@ -3151,60 +3146,51 @@ dark:bg-red-900/20 dark:text-red-400"
                                     ? "No Send Permission"
                                     : "Send to Lender"}
                         </button>
-                      );
-                    })()}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
 
-        {/* PAGINATION */}
-        {lenderPagination && lenderPagination.totalPages > 1 && (
-          <div className="mt-10 flex flex-wrap items-center justify-center gap-2">
-            {/* PREVIOUS */}
-            <button
-              disabled={!lenderPagination.hasPrevPage}
-              onClick={() => setLenderPage((prev) => Math.max(prev - 1, 1))}
-              className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Previous
-            </button>
-
-            {/* PAGE NUMBERS */}
-            {Array.from(
-              {
-                length: lenderPagination.totalPages,
-              },
-              (_, i) => {
+          {lenderPagination && lenderPagination.totalPages > 1 ? (
+            <div className="mt-8 flex flex-wrap items-center justify-center gap-1.5">
+              <button
+                type="button"
+                disabled={!lenderPagination.hasPrevPage}
+                onClick={() => setLenderPage((prev) => Math.max(prev - 1, 1))}
+                className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 transition hover:border-[#13538A]/30 hover:text-[#13538A] disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:bg-slate-900"
+              >
+                Previous
+              </button>
+              {Array.from({ length: lenderPagination.totalPages }, (_, i) => {
                 const pageNum = i + 1;
-
                 return (
                   <button
                     key={pageNum}
+                    type="button"
                     onClick={() => setLenderPage(pageNum)}
-                    className={`h-10 w-10 rounded-xl text-sm font-semibold transition ${
+                    className={`h-9 w-9 rounded-lg text-sm font-semibold transition ${
                       lenderPage === pageNum
-                        ? "bg-cyan-600 text-white"
-                        : "border border-slate-300 bg-white hover:bg-slate-50"
+                        ? "bg-[#13538A] text-white"
+                        : "border border-slate-200 bg-white text-slate-600 hover:border-[#13538A]/30 hover:text-[#13538A] dark:border-slate-700 dark:bg-slate-900"
                     }`}
                   >
                     {pageNum}
                   </button>
                 );
-              },
-            )}
-
-            {/* NEXT */}
-            <button
-              disabled={!lenderPagination.hasNextPage}
-              onClick={() => setLenderPage((prev) => prev + 1)}
-              className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Next
-            </button>
-          </div>
-        )}
+              })}
+              <button
+                type="button"
+                disabled={!lenderPagination.hasNextPage}
+                onClick={() => setLenderPage((prev) => prev + 1)}
+                className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 transition hover:border-[#13538A]/30 hover:text-[#13538A] disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:bg-slate-900"
+              >
+                Next
+              </button>
+            </div>
+          ) : null}
+        </div>
       </div>
     );
   };

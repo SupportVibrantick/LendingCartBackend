@@ -64,7 +64,10 @@ import {
 type MainTab = "discover" | "network" | "submissions";
 type NetworkFilter = "connected" | "sent" | "received";
 
-const BRAND = "#2C92D5";
+const PRIMARY_BTN =
+  "inline-flex items-center justify-center gap-2 rounded-lg bg-[#13538A] text-sm font-semibold text-white transition hover:bg-[#0E426E] disabled:opacity-60";
+const FOCUS =
+  "focus:outline-none focus:border-[#13538A] focus:ring-2 focus:ring-[#13538A]/20";
 const DISCOVER_DEBOUNCE_MS = 400;
 
 type DiscoverFilters = {
@@ -499,19 +502,15 @@ export default function LenderMarketplace() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 py-6">
-      <div className="max-w-7xl mx-auto space-y-6">
+    <div className="space-y-5">
+      <div className="space-y-5">
         {/* Header */}
         <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-1">
-              Network
-            </p>
-            <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white">
-              Lender{" "}
-              <span style={{ color: BRAND }}>Marketplace</span>
+            <h1 className="text-xl font-semibold tracking-tight text-slate-900 dark:text-white sm:text-2xl">
+              Lender Marketplace
             </h1>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-xl">
+            <p className="mt-0.5 max-w-xl text-sm text-slate-500 dark:text-slate-400">
               Discover verified lenders, manage your connections, and grow your
               funding network — all in one place.
             </p>
@@ -543,7 +542,7 @@ export default function LenderMarketplace() {
         </div>
 
         {/* Main tabs */}
-        <div className="flex gap-1 p-1 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 w-fit shadow-sm">
+        <div className="inline-flex w-full gap-1 rounded-lg bg-slate-100 p-1 dark:bg-slate-800 sm:w-fit">
           {(
             [
               { key: "discover" as const, label: "Discover", icon: Search },
@@ -558,12 +557,11 @@ export default function LenderMarketplace() {
             <button
               key={key}
               onClick={() => setMainTab(key)}
-              className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all ${
+              className={`inline-flex flex-1 items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-semibold transition sm:flex-none ${
                 mainTab === key
-                  ? "text-white shadow-md"
-                  : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"
+                  ? "bg-[#13538A] text-white shadow-sm"
+                  : "text-slate-500 hover:bg-white hover:text-slate-800 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-white"
               }`}
-              style={mainTab === key ? { backgroundColor: BRAND } : undefined}
             >
               <Icon size={16} />
               {label}
@@ -579,31 +577,28 @@ export default function LenderMarketplace() {
         {/* Discover tab */}
         {mainTab === "discover" && (
           <div className="space-y-5">
-            <div className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
+            <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:flex-row sm:items-center">
               <div className="relative flex-1">
                 <Search
-                  size={18}
-                  className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
+                  size={16}
+                  className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
                 />
                 <input
                   value={discoverQ}
                   onChange={(e) => setDiscoverQ(e.target.value)}
                   placeholder="Search lenders by name, state, or product..."
-                  className="w-full pl-10 pr-4 py-2.5 rounded-xl text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                  className={`w-full rounded-lg border border-slate-200 bg-white py-2.5 pl-9 pr-4 text-sm text-slate-800 placeholder:text-slate-400 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 ${FOCUS}`}
                 />
               </div>
               <button
                 type="button"
                 onClick={openFiltersDrawer}
-                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors shrink-0"
+                className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-[#13538A]/30 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
               >
                 <SlidersHorizontal size={16} />
                 Filters
                 {activeFilterCount > 0 && (
-                  <span
-                    className="inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full px-1.5 text-[10px] font-bold text-white"
-                    style={{ backgroundColor: BRAND }}
-                  >
+                  <span className="inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-[#13538A] px-1.5 text-[10px] font-bold text-white">
                     {activeFilterCount}
                   </span>
                 )}
@@ -612,8 +607,7 @@ export default function LenderMarketplace() {
                 <button
                   type="button"
                   onClick={() => setAddLenderOpen(true)}
-                  className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white shrink-0 hover:opacity-90 transition-opacity"
-                  style={{ backgroundColor: BRAND }}
+                  className={`${PRIMARY_BTN} shrink-0 px-4 py-2.5`}
                 >
                   <Plus size={16} />
                   Add Your Own Lender
@@ -643,7 +637,7 @@ export default function LenderMarketplace() {
                   <button
                     type="button"
                     onClick={clearDiscoverFilters}
-                    className="text-xs font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-400"
+                    className="text-xs font-semibold text-[#13538A] hover:text-[#0E426E] dark:text-sky-300"
                   >
                     Clear filters
                   </button>
@@ -659,7 +653,7 @@ export default function LenderMarketplace() {
                   debouncedDiscoverQ.trim() ? (
                     <SearchX size={40} className="text-orange-500" />
                   ) : (
-                    <Building2 size={40} style={{ color: BRAND }} />
+                    <Building2 size={40} className="text-[#13538A]" />
                   )
                 }
                 title={
@@ -678,8 +672,7 @@ export default function LenderMarketplace() {
                       {debouncedDiscoverQ.trim() && (
                         <button
                           onClick={() => setDiscoverQ("")}
-                          className="text-sm font-semibold hover:underline"
-                          style={{ color: BRAND }}
+                          className="text-sm font-semibold text-[#13538A] hover:underline"
                         >
                           Clear search
                         </button>
@@ -687,8 +680,7 @@ export default function LenderMarketplace() {
                       {activeFilterCount > 0 && (
                         <button
                           onClick={clearDiscoverFilters}
-                          className="text-sm font-semibold hover:underline"
-                          style={{ color: BRAND }}
+                          className="text-sm font-semibold text-[#13538A] hover:underline"
                         >
                           Clear filters
                         </button>
@@ -739,16 +731,11 @@ export default function LenderMarketplace() {
                   <button
                     key={key}
                     onClick={() => setNetworkFilter(key)}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium border transition-all ${
+                    className={`inline-flex items-center gap-2 rounded-lg px-3.5 py-1.5 text-xs font-semibold transition ${
                       networkFilter === key
-                        ? "border-transparent text-white shadow-sm"
-                        : "border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-900 hover:border-slate-300"
+                        ? "bg-[#13538A] text-white shadow-sm"
+                        : "border border-slate-200 bg-white text-slate-600 hover:border-[#13538A]/30 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400"
                     }`}
-                    style={
-                      networkFilter === key
-                        ? { backgroundColor: BRAND }
-                        : undefined
-                    }
                   >
                     {label}
                     <span
@@ -773,7 +760,7 @@ export default function LenderMarketplace() {
                   value={networkSearch}
                   onChange={(e) => setNetworkSearch(e.target.value)}
                   placeholder="Filter..."
-                  className="w-full pl-9 pr-3 py-2 rounded-xl text-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  className={`w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm dark:border-slate-700 dark:bg-slate-900 ${FOCUS}`}
                 />
               </div>
 
@@ -791,8 +778,8 @@ export default function LenderMarketplace() {
             </div>
 
             {networkFilter === "connected" && selectedConnectedIds.size > 0 && (
-              <div className="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-xl border border-blue-200 dark:border-blue-500/30 bg-blue-50/70 dark:bg-blue-500/10 px-4 py-3">
-                <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
+              <div className="mb-4 flex flex-col gap-3 rounded-xl border border-[#13538A]/25 bg-[#13538A]/8 px-4 py-3 dark:border-[#13538A]/30 dark:bg-[#13538A]/15 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-sm font-medium text-[#0E426E] dark:text-sky-100">
                   {selectedConnectedIds.size} lender
                   {selectedConnectedIds.size === 1 ? "" : "s"} selected
                 </p>
@@ -814,8 +801,7 @@ export default function LenderMarketplace() {
                           ),
                         )
                       }
-                      className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white hover:opacity-90"
-                      style={{ backgroundColor: BRAND }}
+                      className={`${PRIMARY_BTN} px-4 py-2`}
                     >
                       <Send size={14} />
                       Send Application
@@ -845,7 +831,7 @@ export default function LenderMarketplace() {
                         type="checkbox"
                         checked={allFilteredConnectedSelected}
                         onChange={toggleSelectAllConnected}
-                        className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                        className="h-4 w-4 rounded border-slate-300 text-[#13538A] focus:ring-[#13538A]"
                         aria-label="Select all lenders"
                       />
                     ) : undefined
@@ -865,7 +851,7 @@ export default function LenderMarketplace() {
                               type="checkbox"
                               checked={selectedConnectedIds.has(l.lenderId)}
                               onChange={() => toggleConnectedSelection(l.lenderId)}
-                              className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                              className="h-4 w-4 rounded border-slate-300 text-[#13538A] focus:ring-[#13538A]"
                               aria-label={`Select ${l.lenderName}`}
                             />,
                           ]
@@ -905,8 +891,7 @@ export default function LenderMarketplace() {
                           <button
                             type="button"
                             onClick={() => openSendApplication([l])}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white hover:opacity-90"
-                            style={{ backgroundColor: BRAND }}
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-[#13538A] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#0E426E]"
                           >
                             <Send size={12} />
                             Send Application
@@ -1006,15 +991,14 @@ export default function LenderMarketplace() {
                   value={submissionsSearch}
                   onChange={(e) => setSubmissionsSearch(e.target.value)}
                   placeholder="Search by company, contact, or email..."
-                  className="w-full pl-10 pr-4 py-2.5 rounded-xl text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                  className={`w-full rounded-lg border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm text-slate-800 placeholder:text-slate-400 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 ${FOCUS}`}
                 />
               </div>
               {canAddOwnLender && (
                 <button
                   type="button"
                   onClick={() => setAddLenderOpen(true)}
-                  className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white shrink-0 hover:opacity-90"
-                  style={{ backgroundColor: BRAND }}
+                  className={`${PRIMARY_BTN} shrink-0 px-4 py-2.5`}
                 >
                   <Plus size={16} />
                   Add Lender
@@ -1048,8 +1032,7 @@ export default function LenderMarketplace() {
                       <button
                         type="button"
                         onClick={() => setAddLenderOpen(true)}
-                        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white"
-                        style={{ backgroundColor: BRAND }}
+                        className={`${PRIMARY_BTN} px-4 py-2.5`}
                       >
                         <Plus size={16} />
                         Add Your Own Lender
@@ -1120,8 +1103,7 @@ export default function LenderMarketplace() {
                                 }
                               }}
                               disabled={connectingId === s.lenderOrgId}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white disabled:opacity-50"
-                              style={{ backgroundColor: BRAND }}
+                              className="inline-flex items-center gap-1.5 rounded-lg bg-[#13538A] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#0E426E] disabled:opacity-50"
                             >
                               <Handshake size={12} />
                               Connect
@@ -1225,12 +1207,12 @@ function StatPill({
   const colors = {
     emerald: "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-500/20",
     amber: "bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-500/20",
-    blue: "bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-500/20",
+    blue: "border-[#13538A]/20 bg-[#13538A]/8 text-[#13538A] dark:border-[#13538A]/30 dark:bg-[#13538A]/15 dark:text-sky-300",
   };
 
   return (
     <div
-      className={`flex items-center gap-2.5 px-4 py-2.5 rounded-xl border ${colors[color]} ${pulse ? "ring-2 ring-blue-400/30" : ""}`}
+      className={`flex items-center gap-2.5 rounded-xl border px-4 py-2.5 ${colors[color]} ${pulse ? "ring-2 ring-[#13538A]/30" : ""}`}
     >
       {icon}
       <div>
@@ -1275,7 +1257,7 @@ function DiscoverLenderCard({
   const fundingTime = formatFundingTime(lender.fundingSpeedDays);
 
   return (
-    <div className="flex flex-col rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm hover:shadow-md transition-all overflow-hidden">
+    <div className="flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition hover:border-[#13538A]/30 hover:shadow-md dark:border-slate-800 dark:bg-slate-900">
       <div className="p-5 pb-4">
         <div className="flex items-start gap-4">
           <LenderLogo
@@ -1283,12 +1265,12 @@ function DiscoverLenderCard({
             profileImage={lender.profileImage}
             name={displayName}
             alt={`${displayName} logo`}
-            className="h-16 w-16"
+            className="h-12 w-12"
           />
           <div className="min-w-0 flex-1">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
-                <h3 className="text-lg font-bold text-slate-900 dark:text-white truncate">
+                <h3 className="truncate text-base font-semibold text-slate-900 dark:text-white">
                   {displayName}
                 </h3>
                 <div className="mt-1.5">
@@ -1345,7 +1327,7 @@ function DiscoverLenderCard({
         <button
           type="button"
           onClick={onViewProfile}
-          className="py-2.5 rounded-xl text-sm font-semibold border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+          className="rounded-lg border border-slate-200 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-[#13538A]/30 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
         >
           View Profile
         </button>
@@ -1354,8 +1336,7 @@ function DiscoverLenderCard({
             type="button"
             onClick={onConnect}
             disabled={connecting}
-            className="inline-flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-60 transition-all hover:opacity-90"
-            style={{ backgroundColor: BRAND }}
+            className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#13538A] py-2.5 text-sm font-semibold text-white transition hover:bg-[#0E426E] disabled:opacity-60"
           >
             {connecting ? (
               <RefreshCcw size={14} className="animate-spin" />
@@ -1487,12 +1468,11 @@ function DiscoverPagination({
             key={p}
             type="button"
             onClick={() => onPageChange(p)}
-            className={`min-w-[2.25rem] h-9 px-2 rounded-lg text-sm font-semibold transition-colors ${
+            className={`h-9 min-w-[2.25rem] rounded-lg px-2 text-sm font-semibold transition-colors ${
               p === page
-                ? "text-white"
-                : "border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
+                ? "bg-[#13538A] text-white"
+                : "border border-slate-200 text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
             }`}
-            style={p === page ? { backgroundColor: BRAND } : undefined}
           >
             {p}
           </button>
@@ -1543,7 +1523,7 @@ function SubmissionStatusBadge({ status }: { status: string }) {
   const styles: Record<string, string> = {
     emerald:
       "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300",
-    blue: "bg-blue-100 text-blue-700 dark:bg-blue-500/10 dark:text-blue-300",
+    blue: "bg-[#13538A]/10 text-[#0E426E] dark:bg-[#13538A]/20 dark:text-sky-300",
     amber:
       "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300",
     rose: "bg-rose-100 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300",
@@ -1610,7 +1590,7 @@ function NetworkTable({
               key={row.id}
               className={`hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors ${
                 selectedIds?.has(row.id)
-                  ? "bg-blue-50/40 dark:bg-blue-500/5"
+                  ? "bg-[#13538A]/8 dark:bg-[#13538A]/10"
                   : ""
               }`}
             >
@@ -1639,9 +1619,11 @@ function EmptyState({
   action?: React.ReactNode;
 }) {
   return (
-    <div className="py-20 flex flex-col items-center text-center rounded-2xl border border-dashed border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
-      <div className="mb-4">{icon}</div>
-      <h3 className="text-lg font-bold text-slate-900 dark:text-white">{title}</h3>
+    <div className="flex flex-col items-center rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-6 py-16 text-center dark:border-slate-700 dark:bg-slate-900/40">
+      <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-[#13538A] text-white [&>svg]:h-6 [&>svg]:w-6 [&>svg]:text-white">
+        {icon}
+      </div>
+      <h3 className="text-base font-semibold text-slate-800 dark:text-slate-200">{title}</h3>
       <p className="text-sm text-slate-500 dark:text-slate-400 mt-2 max-w-md">
         {subtitle}
       </p>
@@ -1729,7 +1711,7 @@ function DiscoverFiltersDrawer({
             <select
               value={draft.loanProduct}
               onChange={(e) => update("loanProduct", e.target.value)}
-              className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400/30"
+              className={`w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-900 ${FOCUS}`}
             >
               {LOAN_PRODUCT_FILTER_OPTIONS.map((opt) => (
                 <option key={opt.value || "any"} value={opt.value}>
@@ -1743,7 +1725,7 @@ function DiscoverFiltersDrawer({
             <select
               value={draft.state}
               onChange={(e) => update("state", e.target.value)}
-              className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400/30"
+              className={`w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-900 ${FOCUS}`}
             >
               <option value="">Any state</option>
               {US_STATE_OPTIONS.map((opt) => (
@@ -1758,7 +1740,7 @@ function DiscoverFiltersDrawer({
             <select
               value={draft.fundingMax}
               onChange={(e) => update("fundingMax", e.target.value)}
-              className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400/30"
+              className={`w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-900 ${FOCUS}`}
             >
               {FUNDING_TIME_OPTIONS.map((opt) => (
                 <option key={opt.value || "any"} value={opt.value}>
@@ -1776,7 +1758,7 @@ function DiscoverFiltersDrawer({
                 value={draft.minAmount}
                 onChange={(e) => update("minAmount", e.target.value)}
                 placeholder="Min ($)"
-                className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400/30"
+                className={`w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-900 ${FOCUS}`}
               />
               <input
                 type="number"
@@ -1784,7 +1766,7 @@ function DiscoverFiltersDrawer({
                 value={draft.maxAmount}
                 onChange={(e) => update("maxAmount", e.target.value)}
                 placeholder="Max ($)"
-                className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400/30"
+                className={`w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-900 ${FOCUS}`}
               />
             </div>
           </FilterField>
@@ -1793,7 +1775,7 @@ function DiscoverFiltersDrawer({
             <select
               value={draft.industry}
               onChange={(e) => update("industry", e.target.value)}
-              className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400/30"
+              className={`w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-900 ${FOCUS}`}
             >
               {INDUSTRY_FILTER_OPTIONS.map((opt) => (
                 <option key={opt.value || "any"} value={opt.value}>
@@ -1809,7 +1791,7 @@ function DiscoverFiltersDrawer({
                 type="checkbox"
                 checked={draft.eligible}
                 onChange={(e) => update("eligible", e.target.checked)}
-                className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                className="h-4 w-4 rounded border-slate-300 text-[#13538A] focus:ring-[#13538A]"
               />
               <div>
                 <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">
@@ -1834,8 +1816,7 @@ function DiscoverFiltersDrawer({
           <button
             type="button"
             onClick={onApply}
-            className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold text-white hover:opacity-90"
-            style={{ backgroundColor: BRAND }}
+            className="flex-1 rounded-lg bg-[#13538A] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#0E426E]"
           >
             Apply filters
           </button>

@@ -32,7 +32,7 @@ export default function LoiRequiredDocumentsPicker({
   loanProductCode = null,
   includeProductConfig = true,
   onProductRequiredLoaded,
-  activeChipClassName = "bg-violet-600 text-white",
+  activeChipClassName = "bg-[#13538A] text-white",
   inactiveChipClassName = "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300",
   disabled = false,
 }: Props) {
@@ -230,7 +230,7 @@ export default function LoiRequiredDocumentsPicker({
           disabled={disabled}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Type in search to find and select documents."
-          className="w-full rounded-xl border border-slate-200 py-2.5 pl-9 pr-3 text-sm outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100 dark:border-slate-700 dark:bg-slate-950 dark:focus:ring-violet-500/20"
+          className="w-full rounded-xl border border-slate-200 py-2.5 pl-9 pr-3 text-sm outline-none focus:border-[#13538A] focus:ring-2 focus:ring-[#13538A]/20 dark:border-slate-700 dark:bg-slate-950 dark:focus:ring-[#13538A]/30"
         />
       </div>
 

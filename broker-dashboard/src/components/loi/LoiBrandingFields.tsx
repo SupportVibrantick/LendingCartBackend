@@ -46,7 +46,7 @@ export default function LoiBrandingFields({
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950">
       <div className="mb-4 flex items-start gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-50 text-violet-600 dark:bg-violet-500/10 dark:text-violet-300">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#13538A]/10 text-[#13538A] dark:bg-[#13538A]/15 dark:text-sky-300">
           <ImageIcon size={18} />
         </div>
         <div>
@@ -62,7 +62,7 @@ export default function LoiBrandingFields({
           className={`group relative flex min-h-[120px] cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed px-3 py-4 transition ${
             value.logoUrl
               ? "border-emerald-200 bg-emerald-50/40 dark:border-emerald-500/30 dark:bg-emerald-500/5"
-              : "border-slate-300 bg-slate-50 hover:border-violet-400 hover:bg-violet-50/60 dark:border-slate-700 dark:bg-slate-900/40"
+              : "border-slate-300 bg-slate-50 hover:border-[#13538A] hover:bg-[#13538A]/8 dark:border-slate-700 dark:bg-slate-900/40"
           } ${disabled ? "cursor-not-allowed opacity-60" : ""}`}
         >
           <input
@@ -102,7 +102,7 @@ export default function LoiBrandingFields({
                 onChange({ ...value, brandName: e.target.value })
               }
               placeholder="e.g. Your Brokerage Name"
-              className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-400/10 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+              className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#13538A] focus:ring-2 focus:ring-[#13538A]/20 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
             />
           </label>
 
@@ -114,7 +114,7 @@ export default function LoiBrandingFields({
                 className="h-8 w-auto max-w-[96px] object-contain"
               />
             ) : (
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-100 text-violet-600 dark:bg-violet-500/20">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#13538A]/10 text-[#13538A] dark:bg-[#13538A]/20">
                 <Building2 size={14} />
               </div>
             )}
