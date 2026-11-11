@@ -1,4 +1,4 @@
-const { mapSubmissionFieldResponse } = require("../../../services/applications/staticSubmissionFields");
+const { mapSubmissionFieldsResponse } = require("../../../services/applications/staticSubmissionFields");
 const {
   resolveClientDisplayNameFromData,
 } = require("../../../services/messaging/resolveClientDisplayName");
@@ -222,7 +222,7 @@ async function getApplicationDetails(fastify) {
         );
 
         const mappedFields = latestSubmission
-          ? latestSubmission.fields.map((field) => mapSubmissionFieldResponse(field))
+          ? mapSubmissionFieldsResponse(latestSubmission.fields)
           : [];
 
         const borrowerName = resolveClientDisplayNameFromData(

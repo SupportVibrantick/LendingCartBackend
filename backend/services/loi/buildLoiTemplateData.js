@@ -91,9 +91,16 @@ const pickNumericField = (fieldMap, ...keys) => {
 
 function buildSubmissionFieldMap(fields = []) {
   const fieldMap = {};
+  const productField = (fields || []).find((field) => {
+    const key = field.builderField?.fieldKey ?? field.fieldKey;
+    return key === "loanProductCode";
+  });
+  const productCode = productField
+    ? extractFieldValue(productField.value)
+    : "";
 
   for (const field of fields) {
-    const mapped = mapSubmissionFieldResponse(field);
+    const mapped = mapSubmissionFieldResponse(field, productCode);
     if (!mapped.fieldKey) continue;
     fieldMap[mapped.fieldKey] = extractFieldValue(field.value);
   }

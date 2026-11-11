@@ -6,11 +6,13 @@ type SaleDetailsCardProps = {
   onVendorNameChange: (value: string) => void;
   onVendorPhoneChange: (value: string) => void;
   formatUSPhone: (value: string) => string;
+  /** Equipment Finance keeps vendor/dealer wording; all other programs use Seller. */
+  isEquipmentFinance?: boolean;
 };
 
 /**
- * Sale Details card for the Collateral step. Shown for SBA/USDA + ABL
- * products. Captures a private-sale flag plus equipment vendor name & phone.
+ * Sale Details card for the Property Info step.
+ * Captures a private-sale flag plus seller (or equipment vendor) name & phone.
  */
 export default function SaleDetailsCard({
   privateSale,
@@ -20,7 +22,18 @@ export default function SaleDetailsCard({
   onVendorNameChange,
   onVendorPhoneChange,
   formatUSPhone,
+  isEquipmentFinance = false,
 }: SaleDetailsCardProps) {
+  const nameLabel = isEquipmentFinance
+    ? "Equipment Vendor / Dealer / Seller"
+    : "Seller";
+  const namePlaceholder = isEquipmentFinance
+    ? "Vendor / Dealer / Seller name"
+    : "Seller name";
+  const phoneLabel = isEquipmentFinance
+    ? "Vendor / Dealer / Seller Phone"
+    : "Seller Phone";
+
   return (
     <div className="mt-5 rounded-lg border border-slate-200 bg-slate-50/60 p-4 dark:border-slate-700 dark:bg-slate-900/40">
       <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">
@@ -53,20 +66,20 @@ export default function SaleDetailsCard({
       <div className="mt-3 grid grid-cols-1 gap-4 md:grid-cols-2">
         <div>
           <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
-            Equipment Vendor / Dealer / Seller
+            {nameLabel}
           </label>
           <input
             type="text"
             value={vendorName}
             onChange={(e) => onVendorNameChange(e.target.value)}
-            placeholder="Vendor / Dealer / Seller name"
+            placeholder={namePlaceholder}
             className="mt-1 w-full rounded-md border border-slate-300 px-4 py-1 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
           />
         </div>
 
         <div>
           <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
-            Vendor / Dealer / Seller Phone
+            {phoneLabel}
           </label>
           <input
             type="tel"

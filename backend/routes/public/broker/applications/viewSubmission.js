@@ -1,5 +1,5 @@
 module.exports = async function viewSubmission(fastify) {
-  const { mapSubmissionFieldResponse } = require("../../../../services/applications/staticSubmissionFields");
+  const { mapSubmissionFieldsResponse } = require("../../../../services/applications/staticSubmissionFields");
   const {
     resolveClientDisplayNameFromData,
   } = require("../../../../services/messaging/resolveClientDisplayName");
@@ -141,7 +141,7 @@ module.exports = async function viewSubmission(fastify) {
     /* ===============================
        BORROWER NAME
     =============================== */
-    const mappedFields = submission.fields.map((f) => mapSubmissionFieldResponse(f));
+    const mappedFields = mapSubmissionFieldsResponse(submission.fields);
     const borrowerName = resolveClientDisplayNameFromData(
       submission.application.client,
       [

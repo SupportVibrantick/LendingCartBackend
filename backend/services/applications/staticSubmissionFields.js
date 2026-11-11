@@ -86,11 +86,11 @@ const STATIC_SUBMISSION_FIELDS = {
   numberOfUnits: { label: "Number of Units", fieldType: "NUMBER" },
   privateSale: { label: "Private Sale", fieldType: "TEXT" },
   vendorName: {
-    label: "Equipment Vendor / Dealer / Seller",
+    label: "Seller",
     fieldType: "TEXT",
   },
   vendorPhone: {
-    label: "Vendor / Dealer / Seller Phone",
+    label: "Seller Phone",
     fieldType: "TEXT",
   },
   currentLoanBalance: { label: "Current Loan Balance", fieldType: "NUMBER" },
@@ -182,13 +182,26 @@ function humanizeFieldKey(fieldKey) {
     .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
-function resolveSubmissionFieldMeta(fieldKey) {
+function vendorFieldLabel(fieldKey, productCode) {
+  const isEquipment =
+    String(productCode || "").toUpperCase() === "EQUIPMENT_FINANCE";
+  if (fieldKey === "vendorName") {
+    return isEquipment ? "Equipment Vendor / Dealer / Seller" : "Seller";
+  }
+  if (fieldKey === "vendorPhone") {
+    return isEquipment ? "Vendor / Dealer / Seller Phone" : "Seller Phone";
+  }
+  return null;
+}
+
+function resolveSubmissionFieldMeta(fieldKey, productCode) {
   if (!fieldKey) return null;
 
+  const vendorLabel = vendorFieldLabel(fieldKey, productCode);
   const direct = STATIC_SUBMISSION_FIELDS[fieldKey];
   if (direct) {
     return {
-      label: direct.label,
+      label: vendorLabel || direct.label,
       fieldType: direct.fieldType,
       options: direct.options ?? null,
     };
@@ -255,9 +268,9 @@ function normalizeSubmissionFieldValue(value) {
   }
 }
 
-function mapSubmissionFieldResponse(field) {
+function mapSubmissionFieldResponse(field, productCode) {
   const fieldKey = field.builderField?.fieldKey ?? field.fieldKey;
-  const fallback = resolveSubmissionFieldMeta(fieldKey);
+  const fallback = resolveSubmissionFieldMeta(fieldKey, productCode);
 
   return {
     fieldId: field.fieldId,
@@ -300,10 +313,24 @@ async function loadProductFieldIdMap(prisma, applicationProductId) {
   return new Map(builderFields.map((field) => [field.fieldKey, field.id]));
 }
 
+function mapSubmissionFieldsResponse(fields = []) {
+  const productField = (fields || []).find((field) => {
+    const key = field.builderField?.fieldKey ?? field.fieldKey;
+    return key === "loanProductCode";
+  });
+  const productCode = productField
+    ? normalizeSubmissionFieldValue(productField.value)
+    : "";
+  return (fields || []).map((field) =>
+    mapSubmissionFieldResponse(field, productCode),
+  );
+}
+
 module.exports = {
   STATIC_SUBMISSION_FIELDS,
   resolveSubmissionFieldMeta,
   mapSubmissionFieldResponse,
+  mapSubmissionFieldsResponse,
   buildSubmissionFieldsPayload,
   loadProductFieldIdMap,
 };

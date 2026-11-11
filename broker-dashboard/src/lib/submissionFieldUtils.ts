@@ -107,8 +107,8 @@ const FIELD_LABELS: Record<string, string> = {
   numberOfUnits: "Number of Units",
   additionalCollateral: "Additional Collateral",
   privateSale: "Private Sale",
-  vendorName: "Equipment Vendor / Dealer / Seller",
-  vendorPhone: "Vendor / Dealer / Seller Phone",
+  vendorName: "Seller",
+  vendorPhone: "Seller Phone",
   creditAuthorizationConsent: "Credit Authorization Consent",
 };
 
@@ -296,7 +296,34 @@ function stripCoBorrowerPrefix(fieldKey: string) {
   return fieldKey.replace(/^coBorrower_\d+_/, "");
 }
 
-export function formatFieldLabel(fieldKey: string, yearLabel?: string) {
+function isEquipmentFinanceProductCode(productCode?: string | null) {
+  return String(productCode || "").toUpperCase() === "EQUIPMENT_FINANCE";
+}
+
+function vendorFieldLabel(fieldKey: string, productCode?: string | null) {
+  const isEquipment = isEquipmentFinanceProductCode(productCode);
+  if (fieldKey === "vendorName") {
+    return isEquipment ? "Equipment Vendor / Dealer / Seller" : "Seller";
+  }
+  if (fieldKey === "vendorPhone") {
+    return isEquipment
+      ? "Vendor / Dealer / Seller Phone"
+      : "Seller Phone";
+  }
+  return null;
+}
+
+export function formatFieldLabel(
+  fieldKey: string,
+  yearLabel?: string,
+  productCode?: string | null,
+) {
+  const vendorLabel = vendorFieldLabel(
+    stripCoBorrowerPrefix(fieldKey),
+    productCode,
+  );
+  if (vendorLabel) return vendorLabel;
+
   if (FIELD_LABELS[fieldKey]) return FIELD_LABELS[fieldKey];
 
   const bare = stripCoBorrowerPrefix(fieldKey);
@@ -747,6 +774,9 @@ export function groupSubmissionFieldsForDisplay(
 ) {
   const signatureField =
     fields.find((field) => field.fieldKey === "borrowerSignature") || null;
+  const productCode = String(
+    fields.find((field) => field.fieldKey === "loanProductCode")?.value || "",
+  );
 
   // Prefer canonical keys when aliases exist (e.g. businessIndustry over business_industry)
   const preferredByAlias = new Map<string, SubmissionDetailField>();
@@ -834,7 +864,7 @@ export function groupSubmissionFieldsForDisplay(
     const yearLabel = columnMatch
       ? yearByColumn.get(`${scopeOf(fieldKey)}col${columnMatch[1]}`)
       : undefined;
-    const generatedLabel = formatFieldLabel(fieldKey, yearLabel);
+    const generatedLabel = formatFieldLabel(fieldKey, yearLabel, productCode);
     const existingLabel = (field.label || "").trim();
     const structured =
       /^(asset_|liability_|financial_|declaration_|sreo_\d+_|proFormaNoi_)/i.test(

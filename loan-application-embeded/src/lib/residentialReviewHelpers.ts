@@ -173,14 +173,18 @@ export const buildResidentialReviewSections = ({
 
   if (loanRequest.vendorName?.trim()) {
     propertyRows.push({
-      label: "Equipment Vendor / Dealer / Seller",
+      label: isEquipmentFinance
+        ? "Equipment Vendor / Dealer / Seller"
+        : "Seller",
       value: loanRequest.vendorName.trim(),
     });
   }
 
   if (loanRequest.vendorPhone?.trim()) {
     propertyRows.push({
-      label: "Vendor / Dealer / Seller Phone",
+      label: isEquipmentFinance
+        ? "Vendor / Dealer / Seller Phone"
+        : "Seller Phone",
       value: loanRequest.vendorPhone.trim(),
     });
   }
