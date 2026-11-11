@@ -1,4 +1,4 @@
-const { PDFDocument } = require("pdf-lib");
+const { PDFDocument, PDFName } = require("pdf-lib");
 const { getStorage, keyFromFileUrl, getBufferFromRef } = require("../../storage");
 
 /** Options that tolerate LiveCycle / SBA / damaged AcroForm PDFs. */
@@ -8,22 +8,107 @@ const TOLERANT_PDF_LOAD = {
   updateMetadata: false,
 };
 
+const PRODUCER_MARK = "LendingCart-pdf-sanitize";
+const MAX_SANITIZE_BYTES = 25 * 1024 * 1024;
+
 /**
  * Load a PDF with tolerant parse options.
  * Strict pdf-lib loads fail on many production SBA templates
  * ("Failed to parse invalid PDF object").
  */
 async function loadPdfDocument(bytes, extra = {}) {
-  return PDFDocument.load(bytes, {
-    ...TOLERANT_PDF_LOAD,
-    ...extra,
-  });
+  try {
+    return await PDFDocument.load(bytes, {
+      ignoreEncryption: true,
+      updateMetadata: false,
+      ...extra,
+    });
+  } catch {
+    return PDFDocument.load(bytes, {
+      ...TOLERANT_PDF_LOAD,
+      ...extra,
+    });
+  }
 }
 
 function looksLikePdf(bytes) {
   if (!bytes || bytes.length < 5) return false;
   const head = Buffer.from(bytes).subarray(0, 5).toString("latin1");
   return head === "%PDF-";
+}
+
+function isInvalidPdfObject(obj) {
+  return Boolean(obj) && obj.constructor && obj.constructor.name === "PDFInvalidObject";
+}
+
+/**
+ * Celtic/LiveCycle files often have one truncated object (e.g. `621 0 R`)
+ * whose payload still contains /Rect and /T. Rebuild a minimal widget dict
+ * so pdf-lib can save and Chrome/pdf.js can open the file.
+ */
+function recoverInvalidObjectDict(pdfDoc, invalidObj) {
+  const raw = invalidObj?.data;
+  const text = raw
+    ? Buffer.from(raw).toString("latin1")
+    : "";
+  const rectMatch = text.match(
+    /\/Rect\s*\[\s*([0-9.-]+)\s+([0-9.-]+)\s+([0-9.-]+)\s+([0-9.-]+)\s*\]/,
+  );
+  const nameMatch = text.match(/\/T\s*\(([^\\)]*)\)/);
+  const dict = {
+    Type: "Annot",
+    Subtype: "Widget",
+    F: 4,
+    Rect: rectMatch
+      ? [
+          Number(rectMatch[1]),
+          Number(rectMatch[2]),
+          Number(rectMatch[3]),
+          Number(rectMatch[4]),
+        ]
+      : [0, 0, 1, 1],
+  };
+  if (nameMatch) dict.T = nameMatch[1];
+  return pdfDoc.context.obj(dict);
+}
+
+function replaceInvalidObjects(pdfDoc) {
+  let replaced = 0;
+  const objects = pdfDoc.context.enumerateIndirectObjects();
+  for (const [ref, obj] of objects) {
+    if (!isInvalidPdfObject(obj)) continue;
+    pdfDoc.context.assign(ref, recoverInvalidObjectDict(pdfDoc, obj));
+    replaced += 1;
+  }
+  return replaced;
+}
+
+function stripBrokenFormTrees(pdfDoc) {
+  try {
+    pdfDoc.catalog.delete(PDFName.of("AcroForm"));
+  } catch {
+    // ignore
+  }
+  for (const page of pdfDoc.getPages()) {
+    try {
+      page.node.delete(PDFName.of("Annots"));
+    } catch {
+      // ignore
+    }
+  }
+}
+
+async function saveSanitized(pdfDoc) {
+  try {
+    pdfDoc.setProducer(PRODUCER_MARK);
+  } catch {
+    // ignore
+  }
+  const out = await pdfDoc.save({
+    useObjectStreams: false,
+    addDefaultPage: false,
+  });
+  return Buffer.from(out);
 }
 
 /**
@@ -37,12 +122,38 @@ async function sanitizePdfBytes(bytes) {
     throw err;
   }
 
-  const pdfDoc = await loadPdfDocument(bytes);
-  const out = await pdfDoc.save({
-    useObjectStreams: false,
-    addDefaultPage: false,
-  });
-  return Buffer.from(out);
+  if (bytes.length > MAX_SANITIZE_BYTES) {
+    return Buffer.from(bytes);
+  }
+
+  const pdfDoc = await loadPdfDocument(bytes, { throwOnInvalidObject: false });
+  try {
+    if (String(pdfDoc.getProducer() || "").includes(PRODUCER_MARK)) {
+      return Buffer.from(bytes);
+    }
+  } catch {
+    // continue
+  }
+
+  const replaced = replaceInvalidObjects(pdfDoc);
+  if (replaced === 0) {
+    // Healthy PDFs: do not rewrite on every /uploads hit.
+    return Buffer.from(bytes);
+  }
+
+  try {
+    return await saveSanitized(pdfDoc);
+  } catch {
+    try {
+      stripBrokenFormTrees(pdfDoc);
+      return await saveSanitized(pdfDoc);
+    } catch {
+      const rebuilt = await PDFDocument.create();
+      const copied = await rebuilt.copyPages(pdfDoc, pdfDoc.getPageIndices());
+      copied.forEach((page) => rebuilt.addPage(page));
+      return saveSanitized(rebuilt);
+    }
+  }
 }
 
 /**

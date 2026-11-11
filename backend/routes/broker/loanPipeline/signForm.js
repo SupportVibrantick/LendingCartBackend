@@ -35,6 +35,18 @@ const {
 const {
   saveRequirementAsLibraryTemplate,
 } = require("../../../services/documents/signForm/libraryTemplate.service");
+const {
+  repairStoredPdfTemplate,
+} = require("../../../services/documents/signForm/pdfLoad");
+
+function withTemplateCacheBust(form, repaired) {
+  if (!form?.templateFileUrl || !repaired) return form;
+  const joiner = form.templateFileUrl.includes("?") ? "&" : "?";
+  return {
+    ...form,
+    templateFileUrl: `${form.templateFileUrl}${joiner}v=${Date.now()}`,
+  };
+}
 
 const MAPPING_ALLOWED_STATUSES = ["AWAITING_BROKER"];
 
@@ -427,6 +439,20 @@ module.exports = async function brokerSignFormRoutes(fastify) {
           });
         }
 
+        const repair = await repairStoredPdfTemplate({
+          templateFileUrl: loaded.requirement.templateFileUrl,
+          templateMimeType: loaded.requirement.templateMimeType,
+          templateFileName: loaded.requirement.templateFileName,
+          prisma: fastify.prisma,
+          logger: fastify.log,
+        }).catch((error) => {
+          fastify.log.warn(
+            { err: error, requirementId },
+            "Sign-form template repair skipped",
+          );
+          return { repaired: false };
+        });
+
         let form = await getFormForRequirement(fastify.prisma, requirementId, {
           preferPublished: false,
         });
@@ -448,6 +474,8 @@ module.exports = async function brokerSignFormRoutes(fastify) {
               loaded.requirement.documentType?.name,
           });
         }
+
+        form = withTemplateCacheBust(form, repair.repaired);
 
         return reply.send({ success: true, data: form });
       } catch (error) {

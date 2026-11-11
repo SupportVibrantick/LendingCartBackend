@@ -6,8 +6,11 @@ import { fileURLToPath } from "node:url";
 const require = createRequire(import.meta.url);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const source = require.resolve("pdfjs-dist/build/pdf.worker.min.mjs");
-const target = path.resolve(__dirname, "../public/pdf.worker.min.js");
+const publicDir = path.resolve(__dirname, "../public");
 
-fs.mkdirSync(path.dirname(target), { recursive: true });
-fs.copyFileSync(source, target);
-console.log(`Copied pdf.js worker → ${target}`);
+fs.mkdirSync(publicDir, { recursive: true });
+for (const name of ["pdf.worker.min.mjs", "pdf.worker.min.js"]) {
+  const target = path.join(publicDir, name);
+  fs.copyFileSync(source, target);
+  console.log(`Copied pdf.js worker → ${target}`);
+}
