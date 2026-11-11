@@ -1,12 +1,29 @@
 import { useEffect, useRef, useState } from "react";
 import * as pdfjs from "pdfjs-dist";
 
-// Bundled worker (hashed /assets/*.mjs) — more reliable in production than
-// copying the ESM worker to pdf.worker.min.js (classic Worker cannot parse it).
-pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-  "pdfjs-dist/build/pdf.worker.min.mjs",
-  import.meta.url,
-).toString();
+const PUBLIC_PDF_WORKER = `${import.meta.env.BASE_URL}pdf.worker.min.mjs`;
+let pdfWorkerReady: Promise<void> | null = null;
+
+/**
+ * Prefer a blob: worker URL so nginx MIME for .mjs cannot break module Workers.
+ * Falls back to the stable public path (never Vite-hashed /assets/*).
+ */
+function ensurePdfWorker() {
+  if (!pdfWorkerReady) {
+    pdfWorkerReady = (async () => {
+      try {
+        const res = await fetch(PUBLIC_PDF_WORKER);
+        if (!res.ok) throw new Error(`pdf worker HTTP ${res.status}`);
+        const blob = await res.blob();
+        const typed = new Blob([blob], { type: "text/javascript" });
+        pdfjs.GlobalWorkerOptions.workerSrc = URL.createObjectURL(typed);
+      } catch {
+        pdfjs.GlobalWorkerOptions.workerSrc = PUBLIC_PDF_WORKER;
+      }
+    })();
+  }
+  return pdfWorkerReady;
+}
 
 type PdfPageCanvasProps = {
   fileUrl: string;
@@ -115,16 +132,16 @@ export default function PdfPageCanvas({
           return;
         }
 
+        await ensurePdfWorker();
+        if (cancelled) return;
+
         const pdf = await pdfjs.getDocument({
           data: new Uint8Array(data.slice(0)),
           // LiveCycle / SBA templates often have broken xref objects.
           stopAtErrors: false,
-          // pdf.js v4 types omit this; still supported at runtime and avoids
-          // production Worker MIME failures with the ESM worker.
-          disableWorker: true,
           isEvalSupported: false,
           useSystemFonts: true,
-        } as Parameters<typeof pdfjs.getDocument>[0]).promise;
+        }).promise;
         const page = await pdf.getPage(pageNumber);
         const base = page.getViewport({ scale: 1 });
         const viewport = page.getViewport({
