@@ -5,6 +5,7 @@ const sharp = require("sharp");
 const {
   ensureLocalPathFromPublicUrl,
 } = require("./pageManifest");
+const { loadPdfDocument } = require("./pdfLoad");
 const { getStorage } = require("../../storage");
 const {
   decodeSignatureDataUrl,
@@ -210,10 +211,7 @@ async function flattenFieldsOntoPdf({
   values,
 }) {
   const pdfBytes = fs.readFileSync(templatePath);
-  const pdfDoc = await PDFDocument.load(pdfBytes, {
-    ignoreEncryption: true,
-    updateMetadata: false,
-  });
+  const pdfDoc = await loadPdfDocument(pdfBytes);
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const pages = pdfDoc.getPages();
   const valueMap = valueMapFromSubmission(values);

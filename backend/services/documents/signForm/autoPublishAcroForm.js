@@ -75,11 +75,8 @@ async function prepareAcroFormAutoPublish({
     prisma,
   }).catch(async () => {
     // When tests pass pdfBytes without a disk file, derive pages from bytes.
-    const { PDFDocument } = require("pdf-lib");
-    const pdfDoc = await PDFDocument.load(pdfBytes, {
-      ignoreEncryption: true,
-      updateMetadata: false,
-    });
+    const { loadPdfDocument } = require("./pdfLoad");
+    const pdfDoc = await loadPdfDocument(pdfBytes);
     return pdfDoc.getPages().map((page, index) => {
       const { width, height } = page.getSize();
       return {

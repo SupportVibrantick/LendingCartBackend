@@ -1,6 +1,6 @@
 const fs = require("fs");
 const path = require("path");
-const { PDFDocument, StandardFonts, rgb } = require("pdf-lib");
+const { StandardFonts, rgb } = require("pdf-lib");
 const sharp = require("sharp");
 const {
   estimateLoiSignatureAnchor,
@@ -9,6 +9,7 @@ const {
 const {
   ensureLocalPathFromPublicUrl,
 } = require("./signForm/pageManifest");
+const { loadPdfDocument } = require("./signForm/pdfLoad");
 const { getStorage } = require("../storage");
 
 function readLoiSigAnchor(pdfDoc, pageWidth, pageHeight) {
@@ -129,7 +130,7 @@ function resolveDiskPathFromPublicUrl(fileUrl) {
 
 async function mergeSignatureOntoPdf(pdfPath, signatureBuffer, options = {}) {
   const pdfBytes = fs.readFileSync(pdfPath);
-  const pdfDoc = await PDFDocument.load(pdfBytes);
+  const pdfDoc = await loadPdfDocument(pdfBytes);
   const pngImage = await pdfDoc.embedPng(signatureBuffer);
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const pages = pdfDoc.getPages();

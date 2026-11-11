@@ -1,10 +1,10 @@
 const {
-  PDFDocument,
   PDFName,
   PDFArray,
   PDFDict,
   PDFNumber,
 } = require("pdf-lib");
+const { loadPdfDocument } = require("./pdfLoad");
 
 function slugKey(name, index) {
   const base = String(name || `field_${index}`)
@@ -345,10 +345,7 @@ function collectPageWidgetAnnots(pdfDoc) {
  * Page Widget Annots already cover official fillable forms.
  */
 async function detectAcroFormFields(pdfBytes) {
-  const pdfDoc = await PDFDocument.load(pdfBytes, {
-    ignoreEncryption: true,
-    updateMetadata: false,
-  });
+  const pdfDoc = await loadPdfDocument(pdfBytes);
 
   const { widgets: pageWidgets } = collectPageWidgetAnnots(pdfDoc);
   const detected = [];
