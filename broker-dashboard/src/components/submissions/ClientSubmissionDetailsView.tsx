@@ -3,9 +3,11 @@ import {
   ChevronDown,
   FileText,
   Mail,
+  Search,
+  X,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
-import { useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import {
   formatSubmissionFieldValue,
   getBorrowerDisplayNameFromFields,
@@ -138,16 +140,25 @@ function isFieldEmpty(field: SubmissionDetailField): boolean {
   return false;
 }
 
+const ALWAYS_SHOW_EMPTY_SECTION_IDS = new Set([
+  "property-details",
+  "loan-details",
+  "entity-information",
+  "primary-borrower",
+]);
+
 function AccordionSection({
   title,
   fields,
   defaultOpen = false,
   filledCount,
+  totalCount,
 }: {
   title: string;
   fields: SubmissionDetailField[];
   defaultOpen?: boolean;
   filledCount: number;
+  totalCount: number;
 }) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
 
@@ -164,7 +175,7 @@ function AccordionSection({
           {title}
         </span>
         <span className="rounded-full bg-[#13538A]/10 px-2.5 py-0.5 text-[11px] font-semibold tabular-nums text-[#13538A]">
-          {filledCount} / {fields.length}
+          {filledCount} / {totalCount}
         </span>
         <ChevronDown
           size={15}
@@ -239,6 +250,7 @@ export default function ClientSubmissionDetailsView({
   hideSignature = false,
 }: ClientSubmissionDetailsViewProps) {
   const { sections, signatureField } = groupSubmissionFieldsForDisplay(fields);
+  const [searchQuery, setSearchQuery] = useState("");
   const loanProductCode =
     application?.loanProductCode ||
     fields.find((field) => field.fieldKey === "loanProductCode")?.value;
@@ -313,20 +325,56 @@ export default function ClientSubmissionDetailsView({
     value: ReactNode;
   }>;
 
+  const filteredSections = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    return sections
+      .map((section) => {
+        const showEmpty = ALWAYS_SHOW_EMPTY_SECTION_IDS.has(section.id);
+        const baseFields = showEmpty
+          ? section.fields
+          : section.fields.filter((field) => !isFieldEmpty(field));
+        const fields = q
+          ? baseFields.filter((field) => {
+              const label = getSubmissionFieldLabel(field).toLowerCase();
+              const value = formatSubmissionFieldValue(field)
+                .toString()
+                .toLowerCase();
+              const key = (field.fieldKey || "").toLowerCase();
+              return label.includes(q) || value.includes(q) || key.includes(q);
+            })
+          : baseFields;
+        return { ...section, fields };
+      })
+      .filter((section) => section.fields.length > 0);
+  }, [sections, searchQuery]);
+
   const sectionBlocks = (
     <div className="space-y-3">
-      {sections.map((section, index) => {
-        const visibleFields = section.fields.filter((f) => !isFieldEmpty(f));
-        return (
-          <AccordionSection
-            key={section.id}
-            title={section.title}
-            fields={visibleFields}
-            defaultOpen={index === 0}
-            filledCount={visibleFields.length}
-          />
-        );
-      })}
+      {filteredSections.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-gray-200 px-5 py-10 text-center text-sm text-gray-400">
+          {searchQuery.trim()
+            ? `No fields match “${searchQuery.trim()}”`
+            : "No application answers to show yet."}
+        </div>
+      ) : (
+        filteredSections.map((section) => {
+          const original = sections.find((item) => item.id === section.id);
+          const totalCount = original?.fields.length ?? section.fields.length;
+          const filledCount =
+            original?.fields.filter((field) => !isFieldEmpty(field)).length ??
+            section.fields.filter((field) => !isFieldEmpty(field)).length;
+          return (
+            <AccordionSection
+              key={section.id}
+              title={section.title}
+              fields={section.fields}
+              defaultOpen
+              filledCount={filledCount}
+              totalCount={totalCount}
+            />
+          );
+        })
+      )}
     </div>
   );
 
@@ -403,11 +451,36 @@ export default function ClientSubmissionDetailsView({
       ) : null}
 
       <section className="overflow-hidden rounded-xl border border-gray-100 bg-white p-4 sm:p-5">
-        <div className="mb-3 flex items-center gap-2 px-0.5">
-          <span className="h-4 w-1 rounded-full bg-[#13538A]" />
-          <h3 className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500">
-            Application details
-          </h3>
+        <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-2 px-0.5">
+            <span className="h-4 w-1 rounded-full bg-[#13538A]" />
+            <h3 className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500">
+              Application details
+            </h3>
+          </div>
+          <div className="relative w-full sm:max-w-xs">
+            <Search
+              size={14}
+              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+            />
+            <input
+              type="search"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search all fields…"
+              className="w-full rounded-lg border border-gray-200 bg-gray-50 py-2 pl-9 pr-9 text-sm text-gray-900 outline-none placeholder:text-gray-400 focus:border-[#13538A]/40 focus:bg-white focus:ring-4 focus:ring-[#13538A]/10"
+            />
+            {searchQuery ? (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                aria-label="Clear search"
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+              >
+                <X size={14} />
+              </button>
+            ) : null}
+          </div>
         </div>
         {sectionBlocks}
 

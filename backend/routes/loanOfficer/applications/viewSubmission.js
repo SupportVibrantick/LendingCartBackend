@@ -1,5 +1,5 @@
 module.exports = async function viewSubmission(fastify) {
-  const { mapSubmissionFieldResponse } = require("../../../services/applications/staticSubmissionFields");
+  const { mapSubmissionFieldsResponse } = require("../../../services/applications/staticSubmissionFields");
   const {
     resolveBrokerPipelineDisplayStatus,
     canBrokerRequestDocuments,
@@ -233,7 +233,7 @@ module.exports = async function viewSubmission(fastify) {
         submittedAt: submission.createdAt,
 
         /* ================= FIELDS ================= */
-        fields: submission.fields.map((f) => mapSubmissionFieldResponse(f)),
+        fields: mapSubmissionFieldsResponse(submission.fields),
 
         /* ================= LENDER REVIEWS ================= */
         lenders: formatSubmissionApplicationLenders(appLenders),

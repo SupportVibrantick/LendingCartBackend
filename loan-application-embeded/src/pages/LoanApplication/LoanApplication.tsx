@@ -5342,6 +5342,9 @@ focus:border-blue-500 outline-none text-sm ${
                       updateLoanRequest("vendorPhone", v)
                     }
                     formatUSPhone={formatUSPhone}
+                    isEquipmentFinance={isEquipmentFinanceProduct(
+                      selectedProduct,
+                    )}
                   />
                 </div>
               ) : null}
