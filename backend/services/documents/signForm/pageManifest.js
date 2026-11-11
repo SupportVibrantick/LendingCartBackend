@@ -2,13 +2,22 @@ const fs = require("fs");
 const path = require("path");
 const os = require("os");
 const crypto = require("crypto");
-const { PDFDocument } = require("pdf-lib");
 const sharp = require("sharp");
 const {
   getBufferFromRef,
   keyFromFileUrl,
   local,
 } = require("../../storage");
+const { loadPdfDocument } = require("./pdfLoad");
+
+/** US Letter fallback when pdf-lib cannot size a damaged template. */
+const DEFAULT_PDF_PAGE = {
+  page: 1,
+  widthPt: 612,
+  heightPt: 792,
+  imageUrl: null,
+  rotation: 0,
+};
 
 function resolveDiskPathFromPublicUrl(fileUrl) {
   const relative = String(fileUrl || "").replace(/^\/+/, "");
@@ -76,19 +85,31 @@ async function buildPageManifestFromTemplate({
     .toLowerCase();
 
   if (mime === "application/pdf" || ext === ".pdf") {
-    const pdfDoc = await PDFDocument.load(bytes);
-    const pages = pdfDoc.getPages();
+    try {
+      const pdfDoc = await loadPdfDocument(bytes);
+      const pages = pdfDoc.getPages();
 
-    return pages.map((page, index) => {
-      const { width, height } = page.getSize();
-      return {
-        page: index + 1,
-        widthPt: width,
-        heightPt: height,
-        imageUrl: null,
-        rotation: 0,
-      };
-    });
+      if (!pages.length) {
+        return [{ ...DEFAULT_PDF_PAGE }];
+      }
+
+      return pages.map((page, index) => {
+        const { width, height } = page.getSize();
+        return {
+          page: index + 1,
+          widthPt: width,
+          heightPt: height,
+          imageUrl: null,
+          rotation: 0,
+        };
+      });
+    } catch (err) {
+      console.warn(
+        "[pageManifest] Tolerant PDF load failed; using US Letter fallback:",
+        err?.message || err,
+      );
+      return [{ ...DEFAULT_PDF_PAGE }];
+    }
   }
 
   if (mime.startsWith("image/")) {
