@@ -50,6 +50,8 @@ jobs:
             cd backend
             npm ci
             npx prisma generate
+            # Clear failed price migration (wrong snake_case columns) so fixed SQL can re-apply.
+            npx prisma migrate resolve --rolled-back 20261111130000_update_plan_prices_199_399_699 || true
             npx prisma migrate deploy
             # Keeps SubscriptionPackage list prices in sync with catalog
             # (Starter $199 / Pro $399 / Elite $699) after migrate data updates.
