@@ -119,10 +119,12 @@ export default function PdfPageCanvas({
           data: new Uint8Array(data.slice(0)),
           // LiveCycle / SBA templates often have broken xref objects.
           stopAtErrors: false,
+          // pdf.js v4 types omit this; still supported at runtime and avoids
+          // production Worker MIME failures with the ESM worker.
           disableWorker: true,
           isEvalSupported: false,
           useSystemFonts: true,
-        }).promise;
+        } as Parameters<typeof pdfjs.getDocument>[0]).promise;
         const page = await pdf.getPage(pageNumber);
         const base = page.getViewport({ scale: 1 });
         const viewport = page.getViewport({
