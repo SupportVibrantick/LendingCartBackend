@@ -669,9 +669,9 @@ function ApplicationWorkspaceShell({
             <button
               type="button"
               onClick={onBackToApplications}
-              className="inline-flex shrink-0 items-center gap-1 rounded-lg px-2.5 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50"
+              className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-[#13538A]/25 bg-[#13538A]/10 px-2.5 py-1.5 text-sm font-semibold text-[#13538A] hover:border-[#13538A]/40 hover:bg-[#13538A]/15"
             >
-              <ChevronLeft size={16} className="text-[#2C92D5]" />
+              <ChevronLeft size={16} strokeWidth={2.5} />
               Back
             </button>
           </div>
@@ -700,9 +700,9 @@ function ApplicationWorkspaceShell({
                     <button
                       type="button"
                       onClick={onBackToApplications}
-                      className="mb-2.5 hidden items-center gap-1.5 text-sm font-medium text-gray-500 transition hover:text-[#13538A] lg:inline-flex"
+                      className="mb-3 hidden items-center gap-1.5 rounded-lg border border-[#13538A]/25 bg-[#13538A]/10 px-3 py-1.5 text-sm font-semibold text-[#13538A] shadow-sm transition hover:border-[#13538A]/40 hover:bg-[#13538A]/15 hover:text-[#0E426E] lg:inline-flex"
                     >
-                      <ChevronLeft size={15} strokeWidth={2.25} />
+                      <ChevronLeft size={16} strokeWidth={2.5} />
                       Back to Applications
                     </button>
                     <div className="flex flex-wrap items-start justify-between gap-3">
