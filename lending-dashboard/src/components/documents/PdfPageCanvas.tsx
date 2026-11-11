@@ -1,9 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import * as pdfjs from "pdfjs-dist";
 
-// Stable public URL (copied by vite copy-pdf-worker plugin). Avoids hashed
-// /assets/pdf.worker.min-*.mjs fetches that fail in production.
-pdfjs.GlobalWorkerOptions.workerSrc = `${import.meta.env.BASE_URL}pdf.worker.min.js`;
+// Bundled worker (hashed /assets/*.mjs) — more reliable in production than
+// copying the ESM worker to pdf.worker.min.js (classic Worker cannot parse it).
+pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+  "pdfjs-dist/build/pdf.worker.min.mjs",
+  import.meta.url,
+).toString();
 
 type PdfPageCanvasProps = {
   fileUrl: string;
@@ -17,13 +20,26 @@ type PdfPageCanvasProps = {
   children?: React.ReactNode;
 };
 
+function isPublicUploadUrl(fileUrl: string) {
+  return (
+    /\/uploads\//i.test(fileUrl) ||
+    /\/public\//i.test(fileUrl) ||
+    /\/(broker|lender)\/LOI\//i.test(fileUrl)
+  );
+}
+
 async function fetchFileBlob(
   fileUrl: string,
   authHeaders?: Record<string, string>,
 ) {
-  const res = await fetch(fileUrl, {
-    headers: authHeaders || {},
-  });
+  // Authorization on public /uploads triggers CORS preflight in production
+  // (lender.loanautomation.ai → api.loanautomation.ai) and can yield a
+  // non-PDF body that pdf.js reports as "Invalid PDF structure".
+  const headers =
+    fileUrl.startsWith("blob:") || isPublicUploadUrl(fileUrl)
+      ? undefined
+      : authHeaders;
+  const res = await fetch(fileUrl, { headers });
   if (!res.ok) {
     throw new Error("Failed to load document preview");
   }
@@ -100,9 +116,12 @@ export default function PdfPageCanvas({
         }
 
         const pdf = await pdfjs.getDocument({
-          data: data.slice(0),
+          data: new Uint8Array(data.slice(0)),
           // LiveCycle / SBA templates often have broken xref objects.
           stopAtErrors: false,
+          disableWorker: true,
+          isEvalSupported: false,
+          useSystemFonts: true,
         }).promise;
         const page = await pdf.getPage(pageNumber);
         const base = page.getViewport({ scale: 1 });

@@ -287,10 +287,15 @@ function collectPageWidgetAnnots(pdfDoc) {
   const rectPageMap = new Map();
 
   for (let pageIndex = 0; pageIndex < pages.length; pageIndex += 1) {
-    const annots = pages[pageIndex].node.lookupMaybe(
-      PDFName.of("Annots"),
-      PDFArray,
-    );
+    let annots;
+    try {
+      annots = pages[pageIndex].node.lookupMaybe(
+        PDFName.of("Annots"),
+        PDFArray,
+      );
+    } catch {
+      continue;
+    }
     if (!annots) continue;
 
     for (let j = 0; j < annots.size(); j += 1) {

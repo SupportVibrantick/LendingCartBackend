@@ -1,6 +1,6 @@
 const { getStorage, keyFromFileUrl, getBufferFromRef } = require("../../storage");
 const { getUploadMaxBytes } = require("./limits");
-const { sanitizePdfBytes } = require("./pdfLoad");
+const { looksLikePdf, sanitizePdfBytes } = require("./pdfLoad");
 
 const ALLOWED_MIME_TYPES = new Set([
   "application/pdf",
@@ -101,7 +101,7 @@ async function copySignAsset({
   fromStorageKey,
   fromStorageProvider,
 }) {
-  const buffer = await getBufferFromRef(
+  let buffer = await getBufferFromRef(
     {
       storageKey: fromStorageKey || keyFromFileUrl(fromPublicUrl),
       storageProvider: fromStorageProvider || null,
@@ -110,12 +110,22 @@ async function copySignAsset({
     prisma,
   );
 
+  const isPdf =
+    looksLikePdf(buffer) || String(filename || "").toLowerCase().endsWith(".pdf");
+  if (isPdf) {
+    try {
+      buffer = await sanitizePdfBytes(buffer);
+    } catch {
+      // Keep original bytes if sanitize cannot rewrite.
+    }
+  }
+
   const key = keyFromParts(relativeParts, filename);
   const storage = await getStorage(prisma);
   const stored = await storage.putBuffer({
     key,
     buffer,
-    contentType: "application/octet-stream",
+    contentType: isPdf ? "application/pdf" : "application/octet-stream",
   });
 
   return {
