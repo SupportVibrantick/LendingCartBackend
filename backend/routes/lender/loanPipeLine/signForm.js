@@ -10,6 +10,18 @@ const {
   publishForm,
 } = require("../../../services/documents/signForm/formService");
 const {
+  repairStoredPdfTemplate,
+} = require("../../../services/documents/signForm/pdfLoad");
+
+function withTemplateCacheBust(form, repaired) {
+  if (!form?.templateFileUrl || !repaired) return form;
+  const joiner = form.templateFileUrl.includes("?") ? "&" : "?";
+  return {
+    ...form,
+    templateFileUrl: `${form.templateFileUrl}${joiner}v=${Date.now()}`,
+  };
+}
+const {
   analyzeAndSaveDraftForm,
   getDetectionCapabilities,
 } = require("../../../services/documents/signForm/detectFields.service");
@@ -101,6 +113,20 @@ module.exports = async function lenderSignFormRoutes(fastify) {
           });
         }
 
+        const repair = await repairStoredPdfTemplate({
+          templateFileUrl: loaded.requirement.templateFileUrl,
+          templateMimeType: loaded.requirement.templateMimeType,
+          templateFileName: loaded.requirement.templateFileName,
+          prisma: fastify.prisma,
+          logger: fastify.log,
+        }).catch((error) => {
+          fastify.log.warn(
+            { err: error, requirementId },
+            "Sign-form template repair skipped",
+          );
+          return { repaired: false };
+        });
+
         let form = await getFormForRequirement(
           fastify.prisma,
           requirementId,
@@ -116,6 +142,8 @@ module.exports = async function lenderSignFormRoutes(fastify) {
               loaded.requirement.documentType?.name,
           });
         }
+
+        form = withTemplateCacheBust(form, repair.repaired);
 
         let values = {};
         let progress = null;
@@ -248,6 +276,19 @@ module.exports = async function lenderSignFormRoutes(fastify) {
               "Field detection is only available while awaiting broker",
           });
         }
+
+        await repairStoredPdfTemplate({
+          templateFileUrl: loaded.requirement.templateFileUrl,
+          templateMimeType: loaded.requirement.templateMimeType,
+          templateFileName: loaded.requirement.templateFileName,
+          prisma: fastify.prisma,
+          logger: fastify.log,
+        }).catch((error) => {
+          fastify.log.warn(
+            { err: error, requirementId },
+            "Sign-form template repair before analyze skipped",
+          );
+        });
 
         const parsed = analyzeSignFormSchema.safeParse(req.body || {});
         if (!parsed.success) {

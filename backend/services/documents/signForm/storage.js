@@ -1,5 +1,6 @@
 const { getStorage, keyFromFileUrl, getBufferFromRef } = require("../../storage");
 const { getUploadMaxBytes } = require("./limits");
+const { sanitizePdfBytes } = require("./pdfLoad");
 
 const ALLOWED_MIME_TYPES = new Set([
   "application/pdf",
@@ -46,6 +47,36 @@ async function writeSignAssetFromStream({
   assertAllowedUpload({ mimeType });
   const key = keyFromParts(relativeParts, filename);
   const storage = await getStorage(prisma);
+  const mime = String(mimeType || "").toLowerCase();
+  const isPdf = mime.includes("pdf") || String(filename || "").toLowerCase().endsWith(".pdf");
+
+  // Buffer + sanitize PDFs so Celtic/SBA LiveCycle files open in pdf.js mapper.
+  if (isPdf) {
+    const chunks = [];
+    for await (const chunk of stream) {
+      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    }
+    let buffer = Buffer.concat(chunks);
+    assertAllowedUpload({ mimeType, byteLength: buffer.length });
+    try {
+      buffer = await sanitizePdfBytes(buffer);
+    } catch (error) {
+      if (error.statusCode === 400) throw error;
+      // Keep original bytes if sanitize cannot rewrite; detection may still work.
+    }
+    const stored = await storage.putBuffer({
+      key,
+      buffer,
+      contentType: mimeType || "application/pdf",
+    });
+    return {
+      filePath: null,
+      storageKey: stored.key,
+      storageProvider: stored.provider,
+      publicUrl: stored.url || publicUrlFromParts(relativeParts, filename),
+    };
+  }
+
   const stored = await storage.putStream({
     key,
     stream,
