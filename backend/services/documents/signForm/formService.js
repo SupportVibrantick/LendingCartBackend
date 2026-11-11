@@ -50,6 +50,7 @@ async function ensureDraftFormForRequirement(prisma, {
       templateFileUrl: requirement.templateFileUrl,
       templateMimeType: requirement.templateMimeType,
       templateFileName: requirement.templateFileName,
+      prisma,
     });
     const schema = emptySchemaForPages(pages);
 
@@ -101,6 +102,7 @@ async function ensureDraftFormForRequirement(prisma, {
         templateFileUrl: requirement.templateFileUrl,
         templateMimeType: requirement.templateMimeType,
         templateFileName: requirement.templateFileName,
+        prisma,
       }));
 
     draft = await prisma.signFormVersion.create({

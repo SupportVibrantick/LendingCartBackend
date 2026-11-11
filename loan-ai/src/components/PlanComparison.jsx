@@ -59,19 +59,19 @@ export default function PlanComparison({ packages = [] }) {
       key: "basic",
       code: "BASIC",
       label: byCode.BASIC?.name || "Starter",
-      price: byCode.BASIC?.priceMonthly ?? 249,
+      price: byCode.BASIC?.priceMonthly ?? 199,
     },
     {
       key: "pro",
       code: "PRO",
       label: byCode.PRO?.name || "Pro",
-      price: byCode.PRO?.priceMonthly ?? 499,
+      price: byCode.PRO?.priceMonthly ?? 399,
     },
     {
       key: "elite",
       code: "ELITE",
       label: byCode.ELITE?.name || "Elite",
-      price: byCode.ELITE?.priceMonthly ?? 874,
+      price: byCode.ELITE?.priceMonthly ?? 699,
     },
   ];
 

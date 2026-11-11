@@ -59,13 +59,30 @@ module.exports = async function brokerSignDocuments(fastify) {
 
         const brokerOrgId = req.user.organizationId;
         const { submissionId } = req.params;
-        const { page = 1, limit = 9, search = "", lenderId = "" } = req.query;
+        const {
+          page = 1,
+          limit = 9,
+          search = "",
+          lenderId = "",
+          bucket = "all",
+        } = req.query;
         const pageNumber = Math.max(parseInt(page, 10) || 1, 1);
         const pageSize = Math.min(Math.max(parseInt(limit, 10) || 9, 1), 50);
         const searchTerm =
           typeof search === "string" ? search.trim() : "";
         const lenderFilter =
           typeof lenderId === "string" ? lenderId.trim() : "";
+        const allowedBuckets = new Set([
+          "all",
+          "awaitingYou",
+          "withClient",
+          "readyToForward",
+          "forwarded",
+        ]);
+        const bucketFilter =
+          typeof bucket === "string" && allowedBuckets.has(bucket.trim())
+            ? bucket.trim()
+            : "all";
 
         const submission = await fastify.prisma.applicationSubmission.findUnique({
           where: { id: submissionId },
@@ -86,6 +103,7 @@ module.exports = async function brokerSignDocuments(fastify) {
             pageSize,
             searchTerm,
             lenderId: lenderFilter,
+            bucket: bucketFilter,
             viewer: "broker",
           }),
           listForwardableLendersForApplication(

@@ -297,7 +297,7 @@ export default function ClientSignDocumentPage() {
     );
   }
 
-  const title = mode === "sign" ? "Review & Sign" : "Template Preview";
+  const title = mode === "sign" ? "Complete form" : "Template Preview";
   const displayName = doc?.documentName || documentNameParam;
   const templateUrl = buildApiPublicFileUrl(
     getClientPortalApiBase(),
@@ -343,9 +343,7 @@ export default function ClientSignDocumentPage() {
               className="inline-flex items-center gap-1.5 rounded-lg bg-sky-600 px-3.5 py-2 text-sm font-semibold text-white hover:bg-sky-700"
             >
               <LayoutGrid className="h-4 w-4" />
-              {doc?.hasSignatureField
-                ? "Fill & sign form"
-                : "Fill & save form"}
+              Open form
             </button>
           )}
           {mode === "template" && (
@@ -387,13 +385,8 @@ export default function ClientSignDocumentPage() {
                 Preview only — typing here is not saved.
               </p>
               <p className="mt-1 text-amber-800/90">
-                Use{" "}
-                <span className="font-semibold">
-                  {doc?.hasSignatureField
-                    ? "Fill & sign form"
-                    : "Fill & save form"}
-                </span>{" "}
-                to enter field values. Those saves sync for client and broker.
+                Use <span className="font-semibold">Open form</span> to enter
+                field values. Those saves sync for client and broker.
               </p>
             </div>
           )}

@@ -133,6 +133,7 @@ async function runFieldDetectionPipeline({
   templateFileName,
   documentName,
   options = {},
+  prisma = null,
 }) {
   const {
     useAzure = true,
@@ -142,7 +143,7 @@ async function runFieldDetectionPipeline({
     replaceExisting = false,
   } = options;
 
-  const localRef = await ensureLocalPathFromPublicUrl(templateFileUrl);
+  const localRef = await ensureLocalPathFromPublicUrl(templateFileUrl, prisma);
   const templatePath = localRef.path;
 
   try {
@@ -154,6 +155,7 @@ async function runFieldDetectionPipeline({
     templateFileUrl,
     templateMimeType,
     templateFileName,
+    prisma,
   });
 
   const parts = [];
@@ -408,6 +410,7 @@ async function analyzeAndSaveDraftForm(fastify, {
         requirement.signDocumentTitle ||
         "Sign document",
       options,
+      prisma,
     });
 
     let nextFields = pipeline.fields;

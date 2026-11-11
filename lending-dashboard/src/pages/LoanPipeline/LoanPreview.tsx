@@ -1347,18 +1347,16 @@ export default function LoanPreview() {
     return canLenderRequestDocuments(
       submissionDetail.status,
       latestReviewStatus,
-      loiGenerated,
     );
-  }, [submissionDetail, latestReviewStatus, loiGenerated]);
+  }, [submissionDetail, latestReviewStatus]);
 
   const requestDocumentsDisabledReason = useMemo(
     () =>
       getLenderRequestDocumentsDisabledReason(
         submissionDetail?.status,
         latestReviewStatus,
-        loiGenerated,
       ),
-    [submissionDetail?.status, latestReviewStatus, loiGenerated],
+    [submissionDetail?.status, latestReviewStatus],
   );
 
   const canTakeDecision = useMemo(
@@ -2105,16 +2103,6 @@ export default function LoanPreview() {
             {requestDocumentsDisabledReason ||
               "Documents cannot be requested for this application."}
           </p>
-          {!loiGenerated && canCreateLoi && (
-            <button
-              type="button"
-              onClick={() => onTabChange("loi")}
-              className="mt-4 inline-flex items-center gap-2 rounded-lg bg-[#183B57] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#122d42]"
-            >
-              <FileText size={16} />
-              Generate Term Sheet / LOI
-            </button>
-          )}
         </div>
       );
     }

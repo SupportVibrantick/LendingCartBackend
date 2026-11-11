@@ -8,7 +8,7 @@ const STATS = [
   { value: "100+", label: "Lenders" },
   { value: "12+", label: "Loan Types" },
   { value: "4", label: "Portals" },
-  { value: "$249", label: "Starting Price", key: "startingPrice" },
+  { value: "$199", label: "Starting Price", key: "startingPrice" },
 ];
 
 const ctaClass =
@@ -21,7 +21,7 @@ const secondaryClass =
  * Closing CTA for the free-trial marketing site.
  * @param {{ startingPrice?: number | null }} props
  */
-export default function PricingClosingCta({ startingPrice = 249 }) {
+export default function PricingClosingCta({ startingPrice = 199 }) {
   const { isAuthenticated, user, loading } = useAuth();
   const hasSubscription = Boolean(user?.hasBrokerSubscription);
   const trialDays = user?.freeTrialDays || 14;
@@ -30,7 +30,7 @@ export default function PricingClosingCta({ startingPrice = 249 }) {
   const priceLabel =
     startingPrice != null && Number.isFinite(Number(startingPrice))
       ? `$${Math.round(Number(startingPrice))}`
-      : "$249";
+      : "$199";
 
   const stats = STATS.map((stat) =>
     stat.key === "startingPrice" ? { ...stat, value: priceLabel } : stat,

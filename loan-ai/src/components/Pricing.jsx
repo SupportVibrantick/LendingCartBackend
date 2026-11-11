@@ -961,13 +961,7 @@ const Pricing = () => {
         </p>
 
         {!loading && !error && packages.length > 0 && (
-          <PricingClosingCta
-            startingPrice={packages.reduce((min, pkg) => {
-              const price = Number(pkg.priceMonthly);
-              if (!Number.isFinite(price)) return min;
-              return min == null ? price : Math.min(min, price);
-            }, null)}
-          />
+          <PricingClosingCta startingPrice={199} />
         )}
       </div>
     </section>

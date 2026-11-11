@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import {
   ChevronLeft,
@@ -31,6 +31,7 @@ type SignFormFilledViewerProps = {
 
 /**
  * Read-only PDF + field value overlays for lenders reviewing a completed form.
+ * Renders as a full-page overlay (not a centered modal).
  */
 export default function SignFormFilledViewer({
   open,
@@ -47,9 +48,11 @@ export default function SignFormFilledViewer({
   const [fields, setFields] = useState<SignFormField[]>([]);
   const [values, setValues] = useState<Record<string, unknown>>({});
   const [pageNumber, setPageNumber] = useState(1);
-  const [scale, setScale] = useState(1.1);
+  const [scale, setScale] = useState(1.35);
   const [filledCount, setFilledCount] = useState(0);
   const [downloading, setDownloading] = useState(false);
+  const scrollAreaRef = useRef<HTMLDivElement | null>(null);
+  const didAutoFitRef = useRef(false);
 
   const currentPage = pages.find((p) => p.page === pageNumber) || pages[0];
   const templateUrl = buildApiPublicFileUrl(
@@ -148,6 +151,23 @@ export default function SignFormFilledViewer({
       document.body.style.overflow = previous;
     };
   }, [open]);
+
+  useEffect(() => {
+    if (!open) {
+      didAutoFitRef.current = false;
+      return;
+    }
+    if (loading || !currentPage?.widthPt) return;
+    if (didAutoFitRef.current) return;
+    const el = scrollAreaRef.current;
+    if (!el) return;
+    const available = el.clientWidth - 24;
+    if (available <= 0) return;
+    setScale(
+      Math.min(2.2, Math.max(0.85, available / Number(currentPage.widthPt))),
+    );
+    didAutoFitRef.current = true;
+  }, [open, loading, currentPage?.widthPt, form?.versionId]);
 
   const renderFieldValue = (field: SignFormField) => {
     if (!currentPage) return null;
@@ -259,8 +279,8 @@ export default function SignFormFilledViewer({
   };
 
   return (
-    <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/50 p-3 md:p-6">
-      <div className="flex h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+    <div className="fixed inset-0 z-[100000] flex h-dvh min-h-0 w-screen flex-col bg-white">
+      <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden bg-white">
         <div className="flex shrink-0 items-start justify-between gap-3 border-b px-4 py-3">
           <div className="min-w-0 flex-1">
             <h2 className="text-lg font-semibold text-slate-900">
@@ -329,12 +349,14 @@ export default function SignFormFilledViewer({
               >
                 <ChevronRight className="h-4 w-4" />
               </button>
+              <span className="mx-1 hidden h-4 w-px bg-slate-200 sm:block" />
               <button
                 type="button"
                 onClick={() =>
                   setScale((s) => Math.max(0.6, Number((s - 0.1).toFixed(2))))
                 }
                 className="rounded-md border bg-white p-1.5"
+                title="Zoom out"
               >
                 <ZoomOut className="h-4 w-4" />
               </button>
@@ -344,24 +366,30 @@ export default function SignFormFilledViewer({
                   setScale((s) => Math.min(2.2, Number((s + 0.1).toFixed(2))))
                 }
                 className="rounded-md border bg-white p-1.5"
+                title="Zoom in"
               >
                 <ZoomIn className="h-4 w-4" />
               </button>
             </div>
 
-            <div className="min-h-0 flex-1 overflow-auto p-4">
-              <div className="flex justify-center">
-                <PdfPageCanvas
-                  fileUrl={templateUrl}
-                  mimeType={form.templateMimeType}
-                  pageNumber={pageNumber}
-                  widthPt={currentPage.widthPt}
-                  heightPt={currentPage.heightPt}
-                  scale={scale}
-                  authHeaders={getAuthHeaders()}
-                >
-                  {pageFields.map((field) => renderFieldValue(field))}
-                </PdfPageCanvas>
+            <div
+              ref={scrollAreaRef}
+              className="min-h-0 flex-1 overflow-auto bg-slate-200 p-1 sm:p-2"
+            >
+              <div className="flex min-h-full justify-center">
+                <div className="relative w-full max-w-none">
+                  <PdfPageCanvas
+                    fileUrl={templateUrl}
+                    mimeType={form.templateMimeType}
+                    pageNumber={pageNumber}
+                    widthPt={currentPage.widthPt}
+                    heightPt={currentPage.heightPt}
+                    scale={scale}
+                    authHeaders={getAuthHeaders()}
+                  >
+                    {pageFields.map((field) => renderFieldValue(field))}
+                  </PdfPageCanvas>
+                </div>
               </div>
             </div>
           </div>

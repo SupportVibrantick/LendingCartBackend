@@ -862,7 +862,12 @@ export default function SignDocumentsPanel({
     return null;
   };
 
-  const renderTemplatePreview = (row: SignDocumentRow) => {
+  const renderTemplatePreview = (
+    row: SignDocumentRow,
+    options?: { fullPage?: boolean },
+  ) => {
+    const fullPage = Boolean(options?.fullPage);
+
     if (!row.templateFileUrl) {
       return (
         <div className="flex h-full min-h-[320px] items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 text-sm text-slate-500">
@@ -911,8 +916,16 @@ export default function SignDocumentsPanel({
         )}
         fileName={row.documentName}
         getAuthHeaders={getAuthHeaders}
-        className="min-h-[min(70vh,720px)] overflow-hidden rounded-xl border border-slate-200 bg-slate-50"
-        iframeClassName="h-[min(70vh,720px)] w-full rounded-xl border border-slate-200 bg-white"
+        className={
+          fullPage
+            ? "flex h-full min-h-0 items-stretch overflow-hidden bg-slate-100"
+            : "min-h-[min(70vh,720px)] overflow-hidden rounded-xl border border-slate-200 bg-slate-50"
+        }
+        iframeClassName={
+          fullPage
+            ? "h-full min-h-0 w-full border-0 bg-white"
+            : "h-[min(70vh,720px)] w-full rounded-xl border border-slate-200 bg-white"
+        }
         imageClassName="max-h-full max-w-full rounded-lg object-contain shadow-sm"
       />
     );
@@ -977,64 +990,53 @@ export default function SignDocumentsPanel({
 
     return (
       <div
-        className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 p-3 backdrop-blur-sm sm:p-4"
-        onClick={() => setActiveTemplateViewDoc(null)}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="template-view-modal-title"
+        className="fixed inset-0 z-[9999] flex h-dvh w-screen flex-col bg-white"
       >
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="template-view-modal-title"
-          className="flex max-h-[94vh] min-h-0 w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
-          onClick={(event) => event.stopPropagation()}
-        >
-          <div className="flex items-start justify-between gap-4 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-brand-50 px-5 py-4 sm:px-6">
-            <div className="min-w-0">
-              <p className="text-xs font-semibold uppercase tracking-wide text-brand-600">
-                Template Preview
-              </p>
-              <h3
-                id="template-view-modal-title"
-                className="truncate text-lg font-semibold text-slate-900 sm:text-xl"
-              >
-                {activeTemplateViewDoc.documentName}
-              </h3>
-            </div>
-            <button
-              type="button"
-              onClick={() => setActiveTemplateViewDoc(null)}
-              className="rounded-xl border border-slate-200 bg-white p-2 text-slate-500 transition hover:bg-slate-50 hover:text-slate-700"
-              aria-label="Close"
+        <div className="flex shrink-0 items-start justify-between gap-4 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-brand-50 px-4 py-3 sm:px-6 sm:py-4">
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-wide text-brand-600">
+              Template Preview
+            </p>
+            <h3
+              id="template-view-modal-title"
+              className="truncate text-lg font-semibold text-slate-900 sm:text-xl"
             >
-              <X size={18} />
-            </button>
+              {activeTemplateViewDoc.documentName}
+            </h3>
           </div>
-
-          <div className="min-h-0 flex-1 overflow-y-auto p-5 sm:p-6">
-            {renderTemplatePreview(activeTemplateViewDoc)}
-          </div>
-
-          <div className="flex justify-end gap-3 border-t border-slate-200 bg-slate-50 px-5 py-4 sm:px-6">
-            <button
-              type="button"
-              onClick={() => setActiveTemplateViewDoc(null)}
-              className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
-            >
-              Close
-            </button>
+          <div className="flex shrink-0 items-center gap-2">
             <button
               type="button"
               onClick={() => downloadTemplate(activeTemplateViewDoc)}
-              disabled={downloadingId === `${activeTemplateViewDoc.requirementId}-template`}
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:opacity-60"
+              disabled={
+                downloadingId ===
+                `${activeTemplateViewDoc.requirementId}-template`
+              }
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:opacity-60"
             >
-              {downloadingId === `${activeTemplateViewDoc.requirementId}-template` ? (
+              {downloadingId ===
+              `${activeTemplateViewDoc.requirementId}-template` ? (
                 <Loader2 size={16} className="animate-spin" />
               ) : (
                 <Download size={16} />
               )}
               Download
             </button>
+            <button
+              type="button"
+              onClick={() => setActiveTemplateViewDoc(null)}
+              className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+            >
+              Close
+            </button>
           </div>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-hidden">
+          {renderTemplatePreview(activeTemplateViewDoc, { fullPage: true })}
         </div>
       </div>
     );
@@ -1263,36 +1265,56 @@ export default function SignDocumentsPanel({
         )}
 
         {!readOnly && (
-          <div className="inline-flex w-full gap-1 rounded-lg border border-slate-200 bg-slate-50 p-1 sm:w-auto">
+          <div
+            role="tablist"
+            aria-label="Upload forms view"
+            className="inline-flex w-full gap-1.5 rounded-xl border border-slate-200 bg-slate-50 p-1.5 shadow-inner sm:w-auto"
+          >
             <button
               type="button"
+              role="tab"
+              aria-selected={lenderViewTab === "upload"}
               onClick={() => setLenderViewTab("upload")}
-              className={`inline-flex flex-1 items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-semibold transition sm:flex-none ${
+              className={`inline-flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#183B57]/40 focus-visible:ring-offset-2 active:scale-[0.98] sm:flex-none ${
                 lenderViewTab === "upload"
-                  ? "bg-white text-slate-900 ring-1 ring-slate-200"
-                  : "text-slate-600 hover:text-slate-900"
+                  ? "bg-[#183B57] text-white shadow-md ring-1 ring-[#122d42]/30"
+                  : "border border-transparent bg-white text-slate-600 shadow-sm hover:border-slate-200 hover:text-slate-900 hover:shadow-md"
               }`}
             >
-              <Upload size={15} />
+              <Upload
+                size={16}
+                className={
+                  lenderViewTab === "upload" ? "text-white" : "text-slate-400"
+                }
+              />
               Upload form
             </button>
             <button
               type="button"
+              role="tab"
+              aria-selected={lenderViewTab === "documents"}
               onClick={() => setLenderViewTab("documents")}
-              className={`inline-flex flex-1 items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-semibold transition sm:flex-none ${
+              className={`inline-flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#183B57]/40 focus-visible:ring-offset-2 active:scale-[0.98] sm:flex-none ${
                 lenderViewTab === "documents"
-                  ? "bg-white text-slate-900 ring-1 ring-slate-200"
-                  : "text-slate-600 hover:text-slate-900"
+                  ? "bg-[#183B57] text-white shadow-md ring-1 ring-[#122d42]/30"
+                  : "border border-transparent bg-white text-slate-600 shadow-sm hover:border-slate-200 hover:text-slate-900 hover:shadow-md"
               }`}
             >
-              <FileText size={15} />
+              <FileText
+                size={16}
+                className={
+                  lenderViewTab === "documents"
+                    ? "text-white"
+                    : "text-slate-400"
+                }
+              />
               Documents
               {totalDocuments > 0 ? (
                 <span
-                  className={`rounded-md px-1.5 py-0.5 text-[10px] font-bold ${
+                  className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums ${
                     lenderViewTab === "documents"
-                      ? "bg-[#183B57]/15 text-[#122d42]"
-                      : "bg-slate-200 text-slate-600"
+                      ? "bg-white/20 text-white"
+                      : "bg-slate-100 text-slate-600 ring-1 ring-slate-200"
                   }`}
                 >
                   {totalDocuments}

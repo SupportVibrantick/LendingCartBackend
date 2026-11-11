@@ -11,7 +11,7 @@ import {
   ZoomIn,
   ZoomOut,
   CheckCircle2,
-  // ScanSearch,
+  ScanSearch,
   Table2,
   Bookmark,
   Sparkles,
@@ -510,7 +510,7 @@ export default function SignFormFieldBuilder({
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            {/* <button
+            <button
               type="button"
               onClick={() => detectFields(false)}
               disabled={detecting || loading}
@@ -522,7 +522,7 @@ export default function SignFormFieldBuilder({
                 <ScanSearch className="h-4 w-4" />
               )}
               {fields.length ? "Detect more" : "Detect fields"}
-            </button> */}
+            </button>
             <button
               type="button"
               onClick={saveAsTemplate}
@@ -606,16 +606,23 @@ export default function SignFormFieldBuilder({
                     {lastDetectionNote}
                   </p>
                 )}
-                {fields.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => detectFields(true)}
-                    disabled={detecting}
-                    className="mt-2 text-[11px] font-semibold text-teal-800 underline disabled:opacity-50"
-                  >
-                    Re-analyze & replace
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={() => detectFields(fields.length > 0)}
+                  disabled={detecting || loading}
+                  className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-teal-700 px-3 py-2 text-xs font-semibold text-white transition hover:bg-teal-800 disabled:opacity-50"
+                >
+                  {detecting ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <ScanSearch className="h-3.5 w-3.5" />
+                  )}
+                  {detecting
+                    ? "Detecting…"
+                    : fields.length > 0
+                      ? "Re-analyze & replace"
+                      : "Detect fields"}
+                </button>
               </section>
 
               <section>

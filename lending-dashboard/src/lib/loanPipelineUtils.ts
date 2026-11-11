@@ -216,7 +216,6 @@ export function canShowRequestDocumentsAction(input: {
   lenderDecision?: string | null;
   canRequestDocuments: boolean;
   canTakeDecision: boolean;
-  loiGenerated?: boolean;
 }) {
   const decision = normalizeLenderDecision(input.lenderDecision);
 
@@ -224,11 +223,7 @@ export function canShowRequestDocumentsAction(input: {
     return false;
   }
 
-  return (
-    input.canRequestDocuments &&
-    input.canTakeDecision &&
-    Boolean(input.loiGenerated)
-  );
+  return input.canRequestDocuments && input.canTakeDecision;
 }
 
 export function canShowRejectAction(input: {
@@ -248,13 +243,8 @@ export function canShowRejectAction(input: {
 export function canLenderRequestDocuments(
   lenderStatus?: string | null,
   latestReviewStatus?: string | null,
-  loiGenerated = false,
 ) {
   if (!canRequestDocuments()) {
-    return false;
-  }
-
-  if (!loiGenerated) {
     return false;
   }
 
@@ -270,14 +260,9 @@ export function canLenderRequestDocuments(
 export function getLenderRequestDocumentsDisabledReason(
   lenderStatus?: string | null,
   latestReviewStatus?: string | null,
-  loiGenerated = false,
 ) {
   if (!canRequestDocuments()) {
     return "You do not have permission to request documents.";
-  }
-
-  if (!loiGenerated) {
-    return "Generate the Term Sheet / LOI before requesting documents.";
   }
 
   const status = (lenderStatus || "").toUpperCase().trim();
