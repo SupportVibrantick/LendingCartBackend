@@ -114,13 +114,12 @@ export default function PdfPageCanvas({
           data: new Uint8Array(data.slice(0)),
           // LiveCycle / SBA templates often have broken xref objects.
           stopAtErrors: false,
-          // Production nginx often serves the ESM worker as text/javascript
-          // with a .js name, which crashes the Worker. Parse on the main
-          // thread instead (sign forms are typically 1–few pages).
+          // pdf.js v4 types omit this; still supported at runtime and avoids
+          // production Worker MIME failures with the ESM worker.
           disableWorker: true,
           isEvalSupported: false,
           useSystemFonts: true,
-        }).promise;
+        } as Parameters<typeof pdfjs.getDocument>[0]).promise;
         const page = await pdf.getPage(pageNumber);
         const base = page.getViewport({ scale: 1 });
         // Draw into the exact pageManifest box so overlays (pdfRectToCss) align 1:1.
