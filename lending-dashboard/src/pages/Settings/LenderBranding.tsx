@@ -222,22 +222,22 @@ export default function LenderBranding() {
       <PageBreadcrumb pageTitle="Branding" />
 
       <div className="mx-auto max-w-6xl space-y-6">
-        <div className="overflow-hidden rounded-3xl border border-slate-200 bg-gradient-to-br from-[#183b57] via-[#183b57] to-[#3e86b7] p-6 text-white shadow-lg dark:border-slate-800 sm:p-8">
+        <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-gray-900 sm:p-8">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="max-w-2xl">
-              <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold uppercase tracking-wide">
+              <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-[#183B57]/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-[#183B57]">
                 <Palette className="h-3.5 w-3.5" />
                 LOI / Term Sheet Branding
               </div>
-              <h1 className="text-2xl font-bold sm:text-3xl">Lender Branding</h1>
-              <p className="mt-2 text-sm leading-relaxed text-brand-50/90 sm:text-base">
+              <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl dark:text-white">Lender Branding</h1>
+              <p className="mt-2 text-sm leading-relaxed text-gray-500 sm:text-base dark:text-gray-400">
                 Set your company identity once. Generated LOI and term sheet
                 documents will show your logo and brand name in the header.
               </p>
             </div>
 
-            <div className="rounded-2xl border border-white/20 bg-white/10 p-4 backdrop-blur-sm">
-              <p className="text-xs font-semibold uppercase tracking-wide text-brand-100">
+            <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4 dark:border-gray-800 dark:bg-gray-800">
+              <p className="text-xs font-semibold uppercase tracking-wide text-[#183B57]">
                 Setup progress
               </p>
               <div className="mt-3 space-y-2">

@@ -459,25 +459,25 @@ export default function LoanPipeline() {
   return (
     <div className="min-h-screen bg-slate-50 p-4 text-slate-900 dark:bg-[#0b1120] dark:text-slate-100 md:p-6">
       <div className="mx-auto max-w-7xl space-y-5">
-        <section className="overflow-hidden rounded-xl bg-[#183B57] text-white">
+        <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white text-slate-900 shadow-sm dark:border-gray-800 dark:bg-gray-900 dark:text-white">
           <div className="flex flex-col gap-6 p-5 sm:p-6 lg:flex-row lg:items-start lg:justify-between">
             <div className="min-w-0">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-white/70">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-[#183B57]">
                 Lender Portal
               </p>
-              <h1 className="mt-1 text-2xl font-semibold tracking-tight">
+              <h1 className="mt-1 text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">
                 Loan Pipeline
               </h1>
-              <p className="mt-1.5 text-sm text-white/80">
+              <p className="mt-1.5 text-sm text-gray-500 dark:text-gray-400">
                 {statsLoading ? (
                   "Loading pipeline overview..."
                 ) : (
                   <>
-                    <span className="font-semibold text-white">
+                    <span className="font-semibold text-gray-800 dark:text-gray-100">
                       {stats.totalApplications}
                     </span>{" "}
                     total applications ·{" "}
-                    <span className="font-semibold text-white">
+                    <span className="font-semibold text-gray-800 dark:text-gray-100">
                       {pagination.total}
                     </span>{" "}
                     matching current view
@@ -511,15 +511,15 @@ export default function LoanPipeline() {
               ].map((card) => (
                 <div
                   key={card.label}
-                  className="rounded-lg bg-white/10 px-3 py-2.5 ring-1 ring-white/15"
+                  className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2.5 dark:border-gray-800 dark:bg-gray-800"
                 >
-                  <div className="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wide text-white/70">
+                  <div className="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
                     <card.icon className="h-3 w-3" />
                     {card.label}
                   </div>
                   <p className="mt-1 truncate text-lg font-semibold tabular-nums">
                     {statsLoading ? (
-                      <span className="inline-block h-5 w-12 animate-pulse rounded bg-white/20" />
+                      <span className="inline-block h-5 w-12 animate-pulse rounded bg-gray-200 dark:bg-gray-700" />
                     ) : (
                       card.value
                     )}

@@ -1685,18 +1685,18 @@ export default function LoanPreview() {
 
     return (
       <div className="space-y-5">
-        <section className="overflow-hidden rounded-xl bg-[#183B57] text-white">
-          <div className="grid grid-cols-2 divide-x divide-y divide-white/10 sm:grid-cols-3 xl:grid-cols-6 xl:divide-y-0">
+        <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white text-slate-900 shadow-sm dark:border-gray-800 dark:bg-gray-900 dark:text-white">
+          <div className="grid grid-cols-2 divide-x divide-y divide-gray-100 sm:grid-cols-3 xl:grid-cols-6 xl:divide-y-0 dark:divide-gray-800">
             {metrics.map((metric) => (
               <div
                 key={metric.label}
                 className="min-w-0 px-4 py-4 sm:px-5"
                 title={`${metric.label}: ${metric.value || "-"}`}
               >
-                <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-white/65">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#183B57]">
                   {metric.label}
                 </p>
-                <p className="mt-1.5 truncate text-lg font-bold tabular-nums tracking-tight">
+                <p className="mt-1.5 truncate text-lg font-bold tabular-nums tracking-tight text-gray-900 dark:text-white">
                   {metric.value || "-"}
                 </p>
               </div>

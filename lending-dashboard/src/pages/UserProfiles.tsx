@@ -975,11 +975,11 @@ export default function EditLenderProfile() {
       <div className="mx-auto max-w-7xl space-y-6">
         {/* Header */}
         <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <div className="relative bg-gradient-to-r from-[#183b57] to-[#183b57] px-6 pb-16 pt-5">
+          <div className="relative bg-gradient-to-br from-[#183B57]/8 via-white to-brand-50 px-6 pb-16 pt-5 dark:from-[#183B57]/20 dark:via-gray-900 dark:to-gray-900">
             <div className="mb-4">
               <Link
                 to="/profile"
-                className="inline-flex items-center gap-1.5 text-xs font-medium text-brand-100/90 hover:text-white"
+                className="inline-flex items-center gap-1.5 text-xs font-medium text-[#183B57] hover:text-[#122d42] dark:text-cyan-400"
               >
                 <ArrowLeft size={14} />
                 Back to profile
@@ -987,10 +987,10 @@ export default function EditLenderProfile() {
             </div>
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
-                <p className="text-xs font-medium uppercase tracking-wider text-brand-100/80">
+                <p className="text-xs font-medium uppercase tracking-wider text-[#183B57]">
                   Lending Guidelines
                 </p>
-                <h1 className="mt-1 text-xl font-semibold text-white">
+                <h1 className="mt-1 text-xl font-semibold text-gray-900 dark:text-white">
                   {orgName}
                 </h1>
               </div>
@@ -1000,7 +1000,7 @@ export default function EditLenderProfile() {
                 >
                   {profileStatus.replace("_", " ")}
                 </span>
-                <span className="rounded-full bg-white/15 px-2.5 py-1 text-[10px] font-semibold uppercase text-white ring-1 ring-white/20">
+                <span className="rounded-full bg-[#183B57]/10 px-2.5 py-1 text-[10px] font-semibold uppercase text-[#183B57] ring-1 ring-[#183B57]/20">
                   {completionPercent}% complete
                 </span>
               </div>
