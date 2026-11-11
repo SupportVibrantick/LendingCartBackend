@@ -1,10 +1,10 @@
 -- Update catalog list prices: Starter $199 / Pro $399 / Elite $699 (monthly).
--- Yearly display stays ~20% off (159 / 319 / 559). Applied on AWS via `prisma migrate deploy`.
+-- Column names match init schema (camelCase on subscription_packages).
 
 UPDATE "subscription_packages"
 SET
-  "price_monthly" = 199,
-  "price_yearly" = 1908,
+  "priceMonthly" = 199,
+  "priceYearly" = 1908,
   "features" = CASE
     WHEN "features" IS NOT NULL AND left(btrim("features"), 1) = '{'
       THEN jsonb_set(
@@ -15,13 +15,13 @@ SET
       )::text
     ELSE "features"
   END,
-  "updated_at" = CURRENT_TIMESTAMP
+  "updatedAt" = CURRENT_TIMESTAMP
 WHERE "code" = 'BASIC';
 
 UPDATE "subscription_packages"
 SET
-  "price_monthly" = 399,
-  "price_yearly" = 3828,
+  "priceMonthly" = 399,
+  "priceYearly" = 3828,
   "features" = CASE
     WHEN "features" IS NOT NULL AND left(btrim("features"), 1) = '{'
       THEN jsonb_set(
@@ -32,13 +32,13 @@ SET
       )::text
     ELSE "features"
   END,
-  "updated_at" = CURRENT_TIMESTAMP
+  "updatedAt" = CURRENT_TIMESTAMP
 WHERE "code" = 'PRO';
 
 UPDATE "subscription_packages"
 SET
-  "price_monthly" = 699,
-  "price_yearly" = 6708,
+  "priceMonthly" = 699,
+  "priceYearly" = 6708,
   "features" = CASE
     WHEN "features" IS NOT NULL AND left(btrim("features"), 1) = '{'
       THEN jsonb_set(
@@ -49,5 +49,5 @@ SET
       )::text
     ELSE "features"
   END,
-  "updated_at" = CURRENT_TIMESTAMP
+  "updatedAt" = CURRENT_TIMESTAMP
 WHERE "code" = 'ELITE';
