@@ -32,6 +32,7 @@ async function prepareAcroFormAutoPublish({
   templateMimeType,
   templateFileName,
   pdfBytes: pdfBytesOverride = null,
+  prisma = null,
 } = {}) {
   if (!isPdfTemplate({ templateMimeType, templateFileName })) {
     return { ok: false, reason: "not_pdf" };
@@ -71,6 +72,7 @@ async function prepareAcroFormAutoPublish({
     templateFileUrl,
     templateMimeType,
     templateFileName,
+    prisma,
   }).catch(async () => {
     // When tests pass pdfBytes without a disk file, derive pages from bytes.
     const { PDFDocument } = require("pdf-lib");
@@ -148,6 +150,7 @@ async function autoPublishAcroFormIfPresent(prisma, {
       templateMimeType: requirement.templateMimeType,
       templateFileName: requirement.templateFileName,
       pdfBytes,
+      prisma,
     });
   } catch (error) {
     logger?.error?.(

@@ -321,6 +321,26 @@ module.exports = async function lenderSignDocuments(fastify) {
           organizationId: lenderOrgId,
           userId: req.user?.userId || req.user?.id || null,
           logger: fastify.log,
+          pdfBytes: await (async () => {
+            try {
+              if (!String(result.templateMimeType || "").includes("pdf")) {
+                return null;
+              }
+              const {
+                loadBytesFromPublicUrl,
+              } = require("../../../services/documents/signForm/pageManifest");
+              return await loadBytesFromPublicUrl(
+                result.templateFileUrl,
+                fastify.prisma,
+              );
+            } catch (error) {
+              fastify.log.warn(
+                { err: error, requirementId: result.id },
+                "Could not preload PDF bytes for AcroForm auto-publish",
+              );
+              return null;
+            }
+          })(),
         });
 
         const refreshed = await fastify.prisma.applicationDocumentRequirement.findUnique({

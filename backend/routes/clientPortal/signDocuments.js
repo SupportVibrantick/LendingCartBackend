@@ -495,7 +495,7 @@ module.exports = async function clientSignDocuments(fastify) {
           email: req.user?.email || req.client?.email || null,
         });
 
-        const requirement = await prisma.applicationDocumentRequirement.findFirst({
+        let requirement = await prisma.applicationDocumentRequirement.findFirst({
           where: {
             id: requirementId,
             loanApplicationId,
@@ -504,6 +504,10 @@ module.exports = async function clientSignDocuments(fastify) {
             signStatus: {
               in: ["SENT_TO_CLIENT", "CLIENT_SIGNED", "FORWARDED_TO_LENDER", "LENDER_SEEN"],
             },
+          },
+          include: {
+            loanApplication: { select: { brokerOrgId: true } },
+            requestApplicationLender: { select: { lenderOrgId: true } },
           },
         });
 
@@ -515,6 +519,39 @@ module.exports = async function clientSignDocuments(fastify) {
         }
 
         if (requirement.signMode !== "DYNAMIC_FORM") {
+          // Lender/broker may have sent a fillable PDF before auto-publish ran.
+          // Promote AcroForm PDFs so the client can fill fields (not signature-only UI).
+          try {
+            const {
+              autoPublishAcroFormIfPresent,
+            } = require("../../services/documents/signForm/autoPublishAcroForm");
+            const organizationId =
+              requirement.requestApplicationLender?.lenderOrgId ||
+              requirement.loanApplication?.brokerOrgId ||
+              null;
+            const promoted = await autoPublishAcroFormIfPresent(prisma, {
+              requirement,
+              organizationId,
+              logger: fastify.log,
+            });
+            if (promoted?.published) {
+              requirement = await prisma.applicationDocumentRequirement.findFirst({
+                where: { id: requirementId },
+                include: {
+                  loanApplication: { select: { brokerOrgId: true } },
+                  requestApplicationLender: { select: { lenderOrgId: true } },
+                },
+              });
+            }
+          } catch (promoteErr) {
+            fastify.log.warn(
+              { err: promoteErr, requirementId },
+              "Client form open: AcroForm auto-publish skipped",
+            );
+          }
+        }
+
+        if (!requirement || requirement.signMode !== "DYNAMIC_FORM") {
           return reply.code(400).send({
             success: false,
             message: "This document is not a fillable form",
@@ -538,11 +575,27 @@ module.exports = async function clientSignDocuments(fastify) {
         });
         const values = valuesMapFromSubmission(draft);
         const progress = computeProgress(form.schema, values);
+        // Client may still be SENT_TO_CLIENT while waiting on broker fields.
+        // Only lock after a meaningful client completion (not vacuous 0/N).
+        const clientDone =
+          Boolean(progress?.client?.complete) &&
+          ((Number(progress?.client?.required) || 0) > 0 ||
+            (Number(progress?.client?.filled) || 0) > 0);
+        const readOnly =
+          requirement.signStatus !== "SENT_TO_CLIENT" || clientDone;
         const fields = annotateFieldsForRole(
           form.schema?.fields || [],
           "client",
           values,
           form.schema,
+        ).map((field) =>
+          readOnly
+            ? {
+                ...field,
+                editable: false,
+                readOnly: true,
+              }
+            : field,
         );
 
         return reply.send({
@@ -554,7 +607,7 @@ module.exports = async function clientSignDocuments(fastify) {
               fields,
             },
             progress,
-            readOnly: requirement.signStatus !== "SENT_TO_CLIENT",
+            readOnly,
             submission: {
               id: draft.id,
               status: draft.status,
@@ -665,6 +718,19 @@ module.exports = async function clientSignDocuments(fastify) {
           requirementId: requirement.id,
           formVersionId: requirement.activeFormVersionId,
         });
+        const existingValues = valuesMapFromSubmission(draft);
+        const existingProgress = computeProgress(schema, existingValues);
+        const clientAlreadyDone =
+          Boolean(existingProgress?.client?.complete) &&
+          ((Number(existingProgress?.client?.required) || 0) > 0 ||
+            (Number(existingProgress?.client?.filled) || 0) > 0);
+        if (clientAlreadyDone) {
+          return reply.code(400).send({
+            success: false,
+            message:
+              "Your answers are already submitted. You can view them, but editing is locked while your broker finishes the remaining fields.",
+          });
+        }
 
         const updatedSubmission = await saveSubmissionValues(prisma, {
           submissionId: draft.id,
@@ -821,6 +887,7 @@ module.exports = async function clientSignDocuments(fastify) {
           schema,
           submission: updatedSubmission,
           clientUserId: req.user?.id || null,
+          force: true,
         });
 
         await notifyBrokerFormProgress({

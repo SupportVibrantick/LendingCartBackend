@@ -59,7 +59,7 @@ test("lender copy uses second-person reviewed wording", () => {
   assert.equal(copy.workflowHint, "You reviewed this completed form");
 });
 
-test("awaiting broker with vacuously complete progress stays awaiting broker", () => {
+test("awaiting broker with vacuously complete progress is not treated as ready", () => {
   const workflow = getSignDocumentWorkflow(
     { signMode: "DYNAMIC_FORM", signStatus: "AWAITING_BROKER" },
     {
@@ -69,7 +69,7 @@ test("awaiting broker with vacuously complete progress stays awaiting broker", (
     },
   );
   assert.equal(workflow.brokerBucket, "awaitingYou");
-  assert.equal(workflow.signStatusLabel, "Ready to send");
+  assert.equal(workflow.signStatusLabel, "Broker setup needed");
   assert.match(workflow.workflowHint, /send to client/i);
 });
 
@@ -95,7 +95,7 @@ test("lender copy for awaiting broker does not claim client finished", () => {
   assert.match(copy.workflowHint, /preparing this form/i);
 });
 
-test("sent to client with vacuously complete progress stays with client", () => {
+test("sent to client with vacuously complete progress stays with client until they submit", () => {
   const workflow = getSignDocumentWorkflow(
     { signMode: "DYNAMIC_FORM", signStatus: "SENT_TO_CLIENT" },
     {
@@ -104,6 +104,9 @@ test("sent to client with vacuously complete progress stays with client", () => 
       all: { complete: true, filled: 0, total: 126, required: 0 },
     },
   );
+  // Vacuous complete must not lock the client into waitingOnBroker / view-only,
+  // and broker/lender stay "with client" until the client actually submits.
+  assert.equal(workflow.clientBucket, "actionRequired");
   assert.equal(workflow.brokerBucket, "withClient");
   assert.equal(workflow.signStatusLabel, "With client");
   assert.match(workflow.workflowHint, /waiting for the client/i);
@@ -158,6 +161,29 @@ test("client copy after form submit does not mention broker forward workflow", (
   assert.doesNotMatch(copy.workflowHint, /ready to forward/i);
 });
 
+test("lender copy for sent to client matches broker with-client until client submits", () => {
+  const {
+    getViewerWorkflowCopy,
+  } = require("../../utils/documents/signDocumentWorkflow");
+  const workflow = getSignDocumentWorkflow(
+    { signMode: "DYNAMIC_FORM", signStatus: "SENT_TO_CLIENT" },
+    {
+      client: { complete: true, filled: 0, total: 126, required: 0 },
+      broker: { complete: true, filled: 0, total: 126, required: 0 },
+      all: { complete: true, filled: 0, total: 126, required: 0 },
+    },
+  );
+  const copy = getViewerWorkflowCopy(
+    workflow,
+    { signStatus: "SENT_TO_CLIENT", signMode: "DYNAMIC_FORM" },
+    "lender",
+  );
+
+  assert.equal(workflow.signStatusLabel, "With client");
+  assert.equal(copy.signStatusLabel, "With client");
+  assert.match(copy.workflowHint, /waiting for the client/i);
+});
+
 test("lender copy for sent to client does not claim client finished", () => {
   const {
     getViewerWorkflowCopy,
@@ -177,5 +203,5 @@ test("lender copy for sent to client does not claim client finished", () => {
   );
 
   assert.equal(copy.signStatusLabel, "With client");
-  assert.match(copy.workflowHint, /completing the form/i);
+  assert.match(copy.workflowHint, /waiting for the client/i);
 });

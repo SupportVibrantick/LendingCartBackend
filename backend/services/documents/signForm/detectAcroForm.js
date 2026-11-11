@@ -91,6 +91,54 @@ function readPdfText(dict, key) {
   }
 }
 
+/**
+ * Walk Parent chain for inherited AcroForm keys (T / TU / FT / Ff).
+ * Many SBA widgets only store Rect on the annot; name/type live on Parent.
+ */
+function readInherited(pdfDoc, dict, key) {
+  let current = dict;
+  const seen = new Set();
+  for (let depth = 0; depth < 8 && current; depth += 1) {
+    try {
+      const refKey = String(current);
+      if (seen.has(refKey)) break;
+      seen.add(refKey);
+
+      if (key === "FT" || key === "Ff") {
+        const raw = current.get(PDFName.of(key));
+        if (raw != null) return raw;
+      } else {
+        const text = readPdfText(current, key);
+        if (text) return text;
+      }
+
+      const parentRef = current.get(PDFName.of("Parent"));
+      if (!parentRef) break;
+      current = pdfDoc.context.lookup(parentRef);
+      if (!(current instanceof PDFDict)) break;
+    } catch {
+      break;
+    }
+  }
+  return null;
+}
+
+function classifyAnnotFieldFromFt(ftRaw, flags) {
+  const ft = String(ftRaw || "");
+  if (ft.includes("Sig")) return "signature";
+  if (ft.includes("Tx")) {
+    if (flags & (1 << 12)) return "textarea";
+    return "text";
+  }
+  if (ft.includes("Ch")) return "dropdown";
+  if (ft.includes("Btn")) {
+    if (flags & (1 << 16)) return null;
+    if (flags & (1 << 15)) return "radio";
+    return "checkbox";
+  }
+  return null;
+}
+
 function readPdfRect(dict) {
   try {
     const rectObj = dict.lookup(PDFName.of("Rect"));
@@ -137,30 +185,30 @@ function readFieldFlags(dict) {
   }
 }
 
-function classifyAnnotField(dict) {
-  const ft = String(dict.get(PDFName.of("FT")) || "");
-  const flags = readFieldFlags(dict);
+function classifyAnnotField(dict, pdfDoc = null) {
+  const ftRaw = pdfDoc
+    ? readInherited(pdfDoc, dict, "FT")
+    : dict.get(PDFName.of("FT"));
+  const flagsRaw = pdfDoc
+    ? readInherited(pdfDoc, dict, "Ff")
+    : dict.get(PDFName.of("Ff"));
+  let flags = 0;
+  try {
+    if (flagsRaw instanceof PDFNumber) flags = flagsRaw.asNumber();
+    else if (typeof flagsRaw?.asNumber === "function") flags = flagsRaw.asNumber();
+    else if (flagsRaw != null) flags = Number(flagsRaw) || 0;
+  } catch {
+    flags = readFieldFlags(dict);
+  }
 
-  if (ft === "/Sig") return "signature";
-  if (ft === "/Tx") {
-    // Multiline
-    if (flags & (1 << 12)) return "textarea";
-    return "text";
-  }
-  if (ft === "/Ch") {
-    // Combo box
-    if (flags & (1 << 17)) return "dropdown";
-    return "dropdown";
-  }
-  if (ft === "/Btn") {
-    // Pushbutton
-    if (flags & (1 << 16)) return null;
-    // Radio
-    if (flags & (1 << 15)) return "radio";
-    return "checkbox";
-  }
+  const classified = classifyAnnotFieldFromFt(ftRaw, flags);
+  if (classified) return classified;
+
   // Some widgets omit FT; infer from name
-  const name = readPdfText(dict, "T") || "";
+  const name =
+    (pdfDoc ? readInherited(pdfDoc, dict, "T") : null) ||
+    readPdfText(dict, "T") ||
+    "";
   if (/signature|sign/i.test(name)) return "signature";
   return "text";
 }
@@ -258,11 +306,15 @@ function collectPageWidgetAnnots(pdfDoc) {
       const rect = readPdfRect(annot);
       if (!rect || rect.width <= 0 || rect.height <= 0) continue;
 
-      const type = classifyAnnotField(annot);
+      const type = classifyAnnotField(annot, pdfDoc);
       if (!type) continue;
 
-      const name = readPdfText(annot, "T") || `Field_${pageIndex + 1}_${j + 1}`;
-      const tooltip = readPdfText(annot, "TU");
+      const name =
+        readInherited(pdfDoc, annot, "T") ||
+        readPdfText(annot, "T") ||
+        `Field_${pageIndex + 1}_${j + 1}`;
+      const tooltip =
+        readInherited(pdfDoc, annot, "TU") || readPdfText(annot, "TU");
       const page = pageIndex + 1;
       rectPageMap.set(rectKey(rect), page);
 

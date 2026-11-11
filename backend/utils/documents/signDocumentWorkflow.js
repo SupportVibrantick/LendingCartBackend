@@ -14,6 +14,16 @@ function isDynamicForm(requirement) {
   return requirement?.signMode === "DYNAMIC_FORM";
 }
 
+function isMeaningfullyComplete(progressRole) {
+  if (!progressRole || !progressRole.complete) return false;
+  const total = Number(progressRole.total) || 0;
+  const filled = Number(progressRole.filled) || 0;
+  const required = Number(progressRole.required) || 0;
+  // Vacuous complete (0 required, 0 filled, many fields) is not "done".
+  if (total > 0 && required === 0 && filled === 0) return false;
+  return true;
+}
+
 function progressFlags(formProgress, isForm) {
   if (!isForm) {
     return {
@@ -24,11 +34,11 @@ function progressFlags(formProgress, isForm) {
   }
 
   return {
-    clientComplete: Boolean(formProgress?.client?.complete),
+    clientComplete: isMeaningfullyComplete(formProgress?.client),
     brokerComplete: formProgress?.broker
-      ? Boolean(formProgress.broker.complete)
+      ? isMeaningfullyComplete(formProgress.broker)
       : true,
-    allComplete: Boolean(formProgress?.all?.complete),
+    allComplete: isMeaningfullyComplete(formProgress?.all),
   };
 }
 
@@ -65,20 +75,16 @@ function getSignDocumentWorkflow(requirement, formProgress = requirement?.formPr
       ? "Form complete — ready to forward to lender"
       : "Client signed — awaiting broker forward";
   } else if (status === "SENT_TO_CLIENT") {
-    if (isForm && !brokerComplete) {
+    // Sequential: client fills and submits first. Broker only takes over when
+    // the client has meaningfully finished AND broker-required fields remain.
+    if (isForm && clientComplete && !brokerComplete) {
       brokerBucket = WORKFLOW_BUCKETS.AWAITING_YOU;
-      signStatusLabel = clientComplete
-        ? "Broker fields pending"
-        : "Form in progress";
-      workflowHint = clientComplete
-        ? "Client done — finish remaining broker fields"
-        : "Client and broker can both fill remaining fields";
+      signStatusLabel = "Broker fields pending";
+      workflowHint = "Client done — finish remaining broker fields";
     } else {
       brokerBucket = WORKFLOW_BUCKETS.WITH_CLIENT;
       signStatusLabel = isForm ? "With client" : "Sent to client";
-      workflowHint = isForm
-        ? "Waiting for the client to complete their fields"
-        : "Waiting for client signature";
+      workflowHint = "Waiting for the client to fill and submit";
     }
 
     if (isForm && clientComplete && !allComplete) {
@@ -164,10 +170,10 @@ function getViewerWorkflowCopy(workflow, requirement, viewer = "broker") {
       }
 
       return {
-        signStatusLabel: isForm ? "Action needed" : "Signature needed",
+        signStatusLabel: "Action needed",
         workflowHint: isForm
-          ? "Complete your assigned form fields"
-          : "Your signature is required on this document",
+          ? "Fill your assigned form fields, then submit"
+          : "Fill out this form and submit it to your broker",
       };
     }
 
@@ -210,22 +216,16 @@ function getViewerWorkflowCopy(workflow, requirement, viewer = "broker") {
   }
 
   if (status === "SENT_TO_CLIENT") {
-    if (isFormLender && !workflow.brokerComplete) {
+    if (isFormLender && workflow.clientComplete && !workflow.brokerComplete) {
       return {
-        signStatusLabel: workflow.clientComplete
-          ? "Broker fields pending"
-          : "With client",
-        workflowHint: workflow.clientComplete
-          ? "Client finished their fields — broker is completing the rest"
-          : "Client and broker are completing the form",
+        signStatusLabel: "Broker fields pending",
+        workflowHint: "Client finished their fields — broker is completing the rest",
       };
     }
 
     return {
       signStatusLabel: "With client",
-      workflowHint: isFormLender
-        ? "Client is completing the form"
-        : "Waiting for client signature",
+      workflowHint: "Waiting for the client to fill and submit",
     };
   }
 
@@ -238,7 +238,7 @@ function getViewerWorkflowCopy(workflow, requirement, viewer = "broker") {
         : "Awaiting broker",
       workflowHint: isFormLender
         ? "Broker is preparing this form before sending to the client"
-        : "Broker will send this to the client for signature",
+        : "Broker will send this to the client to fill",
     };
   }
 

@@ -112,18 +112,34 @@ function computeProgress(schema, values) {
     return true;
   };
 
+  /**
+   * Avoid vacuous complete=true when nothing is required and nothing is filled.
+   * That incorrectly locked clients into "View your answers" on large SBA forms.
+   */
+  const roleComplete = (role) => {
+    const bucket =
+      role === "client"
+        ? buckets.client
+        : role === "broker"
+          ? buckets.broker
+          : buckets.all;
+    if (bucket.total <= 0) return true;
+    if (bucket.required > 0) return roleRequiredComplete(role);
+    return bucket.filled >= bucket.total;
+  };
+
   return {
     client: {
       ...buckets.client,
-      complete: roleRequiredComplete("client"),
+      complete: roleComplete("client"),
     },
     broker: {
       ...buckets.broker,
-      complete: roleRequiredComplete("broker"),
+      complete: roleComplete("broker"),
     },
     all: {
       ...buckets.all,
-      complete: roleRequiredComplete("all"),
+      complete: roleComplete("all"),
     },
   };
 }
@@ -227,11 +243,14 @@ async function finalizeFormIfComplete(prisma, {
   submission,
   clientUserId = null,
   notify,
+  force = false,
 }) {
   const values = valuesMapFromSubmission(submission);
   const progress = computeProgress(schema, values);
 
-  if (!progress.all.complete) {
+  // Client explicit submit (`force`) marks the form CLIENT_SIGNED even when
+  // optional fields are still empty so broker can review and send to lender.
+  if (!force && !progress.all.complete) {
     return {
       finalized: false,
       progress,

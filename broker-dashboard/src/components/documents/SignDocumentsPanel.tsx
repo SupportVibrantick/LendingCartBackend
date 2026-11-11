@@ -145,19 +145,12 @@ function isBulkSelectableRow(row: SignDocumentRow) {
 const BROKER_SIGN_DOCUMENTS_FETCH_LIMIT = 50;
 
 function getForwardToLenderLabel(
-  row: SignDocumentRow,
+  _row: SignDocumentRow,
   selectedLenderCount = 0,
 ) {
-  const lenderSuffix =
-    selectedLenderCount > 1
-      ? ` to ${selectedLenderCount} lenders`
-      : row.lenderName
-        ? ` to ${row.lenderName}`
-        : "";
-  if (isBrokerTermSheetDoc(row)) {
-    return `Forward signed term sheet${lenderSuffix}`;
-  }
-  return `Forward signed form${lenderSuffix}`;
+  return selectedLenderCount > 1
+    ? `Send to lenders (${selectedLenderCount})`
+    : "Send to lender";
 }
 
 function isBrokerFormForwardedToLender(row: SignDocumentRow) {
@@ -198,11 +191,11 @@ function isClientActionNeeded(row: SignDocumentRow) {
 
 function getClientDynamicFormActionLabel(row: SignDocumentRow) {
   if (row.signMode !== "DYNAMIC_FORM") {
-    if (isClientActionNeeded(row)) return "Open to sign";
+    if (isClientActionNeeded(row)) return "Open form";
     if (row.signStatus === "SENT_TO_CLIENT") return "View document";
     return "View signed copy";
   }
-  if (isClientActionNeeded(row)) return "Fill this form";
+  if (isClientActionNeeded(row)) return "Open form";
   if (
     row.signStatus === "CLIENT_SIGNED" ||
     row.signStatus === "FORWARDED_TO_LENDER" ||
@@ -220,7 +213,7 @@ function getClientNeedsActionHeadline(row: SignDocumentRow) {
       ? "Your turn — fill and sign this form"
       : "Your turn — fill this form";
   }
-  return "Your turn — review and sign";
+  return "Your turn — open and complete this form";
 }
 
 type PreviousSignedLoiVersion = {
@@ -301,12 +294,65 @@ type SignDocumentsPagination = {
   totalPages: number;
 };
 
+type BrokerSignDocumentsBucket =
+  | "all"
+  | "awaitingYou"
+  | "withClient"
+  | "readyToForward"
+  | "forwarded";
+
 type BrokerSignDocumentsSummary = {
   awaitingYou: number;
   withClient: number;
   readyToForward: number;
   forwarded: number;
 };
+
+const BROKER_BUCKET_FILTERS: Array<{
+  key: Exclude<BrokerSignDocumentsBucket, "all">;
+  label: string;
+  summaryKey: keyof BrokerSignDocumentsSummary;
+  color: string;
+  idle: string;
+  active: string;
+}> = [
+  {
+    key: "awaitingYou",
+    label: "Awaiting you",
+    summaryKey: "awaitingYou",
+    color: "text-amber-700 dark:text-amber-300",
+    idle: "border-amber-200/80 bg-amber-50/60 hover:border-amber-300 hover:bg-amber-50 hover:shadow-md dark:border-amber-800/40 dark:bg-amber-950/15 dark:hover:border-amber-700 dark:hover:bg-amber-950/30",
+    active:
+      "border-amber-400 bg-amber-50 shadow-md ring-2 ring-amber-300/70 dark:border-amber-500 dark:bg-amber-950/40 dark:ring-amber-500/40",
+  },
+  {
+    key: "withClient",
+    label: "With client",
+    summaryKey: "withClient",
+    color: "text-[#13538A] dark:text-sky-300",
+    idle: "border-[#13538A]/20 bg-[#13538A]/8 hover:border-[#13538A]/40 hover:bg-[#13538A]/12 hover:shadow-md dark:border-[#13538A]/30 dark:bg-[#13538A]/10 dark:hover:border-[#13538A]/50",
+    active:
+      "border-[#13538A] bg-[#13538A]/10 shadow-md ring-2 ring-[#13538A]/35 dark:border-sky-400 dark:bg-[#13538A]/25 dark:ring-sky-400/40",
+  },
+  {
+    key: "readyToForward",
+    label: "Ready to forward",
+    summaryKey: "readyToForward",
+    color: "text-emerald-700 dark:text-emerald-300",
+    idle: "border-emerald-200/80 bg-emerald-50/60 hover:border-emerald-300 hover:bg-emerald-50 hover:shadow-md dark:border-emerald-800/40 dark:bg-emerald-950/15 dark:hover:border-emerald-700 dark:hover:bg-emerald-950/30",
+    active:
+      "border-emerald-400 bg-emerald-50 shadow-md ring-2 ring-emerald-300/70 dark:border-emerald-500 dark:bg-emerald-950/40 dark:ring-emerald-500/40",
+  },
+  {
+    key: "forwarded",
+    label: "Forwarded",
+    summaryKey: "forwarded",
+    color: "text-[#0E426E] dark:text-sky-200",
+    idle: "border-slate-200 bg-slate-50/80 hover:border-slate-300 hover:bg-white hover:shadow-md dark:border-slate-700 dark:bg-slate-900/40 dark:hover:border-slate-500 dark:hover:bg-slate-900",
+    active:
+      "border-[#13538A]/50 bg-slate-50 shadow-md ring-2 ring-[#13538A]/30 dark:border-sky-500 dark:bg-slate-900 dark:ring-sky-500/40",
+  },
+];
 
 type BrokerLenderGroupSummary = {
   key: string;
@@ -421,6 +467,8 @@ export default function SignDocumentsPanel({
     readyToForward: 0,
     forwarded: 0,
   });
+  const [brokerBucket, setBrokerBucket] =
+    useState<BrokerSignDocumentsBucket>("all");
   const [brokerLenderGroups, setBrokerLenderGroups] = useState<
     BrokerLenderGroupSummary[]
   >([]);
@@ -543,7 +591,7 @@ export default function SignDocumentsPanel({
     page?: number;
     search?: string;
     lenderId?: string;
-    bucket?: ClientSignDocumentsBucket;
+    bucket?: ClientSignDocumentsBucket | BrokerSignDocumentsBucket;
   }) => {
     try {
       setLoading(true);
@@ -555,9 +603,13 @@ export default function SignDocumentsPanel({
         const pageNumber = options?.page ?? brokerPage;
         const searchValue = options?.search ?? debouncedBrokerSearch;
         const lenderFilter = options?.lenderId ?? selectedLenderKey;
+        const bucketFilter =
+          (options?.bucket as BrokerSignDocumentsBucket | undefined) ??
+          brokerBucket;
         const params = new URLSearchParams({
           page: String(pageNumber),
           limit: String(BROKER_SIGN_DOCUMENTS_PAGE_SIZE),
+          bucket: bucketFilter,
         });
         if (searchValue.trim()) {
           params.set("search", searchValue.trim());
@@ -568,7 +620,9 @@ export default function SignDocumentsPanel({
         url = `${apiBase}/${apiRolePrefix}/loan-pipeline/submissions/${submissionId}/sign-documents?${params.toString()}`;
       } else if (isClientMode && loanApplicationId) {
         const pageNumber = options?.page ?? clientPage;
-        const bucketFilter = options?.bucket ?? clientBucket;
+        const bucketFilter =
+          (options?.bucket as ClientSignDocumentsBucket | undefined) ??
+          clientBucket;
         const searchValue = options?.search ?? debouncedClientSearch;
         const params = new URLSearchParams({
           page: String(pageNumber),
@@ -654,6 +708,15 @@ export default function SignDocumentsPanel({
 
   useEffect(() => {
     if (!isBrokerMode) return;
+    setBrokerPage(1);
+    setSelectedRequirementIds(new Set());
+    setSelectedRowStatuses({});
+    setSelectAllActive(false);
+    setBulkForwardLenderIds([]);
+  }, [brokerBucket, isBrokerMode]);
+
+  useEffect(() => {
+    if (!isBrokerMode) return;
     setSelectedRequirementIds(new Set());
     setSelectedRowStatuses({});
     setSelectAllActive(false);
@@ -704,6 +767,7 @@ export default function SignDocumentsPanel({
     debouncedBrokerSearch,
     brokerPage,
     selectedLenderKey,
+    brokerBucket,
     clientView,
     clientBucket,
     clientPage,
@@ -936,6 +1000,7 @@ export default function SignDocumentsPanel({
       const params = new URLSearchParams({
         page: String(page),
         limit: String(pageSize),
+        bucket: brokerBucket,
       });
       if (debouncedBrokerSearch.trim()) {
         params.set("search", debouncedBrokerSearch.trim());
@@ -1541,47 +1606,44 @@ export default function SignDocumentsPanel({
   };
 
   const renderForwardLenderPicker = (row: SignDocumentRow) => {
-    if (forwardableLenders.length > 0) {
+    if (forwardableLenders.length === 1) {
+      return (
+        <p className="flex items-center gap-1.5 truncate text-[11px] text-slate-500 dark:text-slate-400">
+          <Building2 size={12} className="shrink-0" />
+          To {forwardableLenders[0].lenderName}
+        </p>
+      );
+    }
+
+    if (forwardableLenders.length > 1) {
       const selectedIds = getForwardLenderIdsForRow(row);
       return (
-        <div className="mb-1 rounded-lg border border-slate-200 bg-slate-50/50 p-2.5 dark:border-slate-700 dark:bg-slate-800/40">
-          <MultiSelect
-            label="Select eligible lenders"
-            options={forwardableLenderSelectOptions}
-            value={selectedIds}
-            onChange={(next) =>
-              setForwardLenderIdsByRequirement((prev) => ({
-                ...prev,
-                [row.requirementId]: next,
-              }))
-            }
-            placeholder="Select one or more lenders..."
-          />
-          <p className="mt-1.5 text-[11px] text-slate-500">
-            Choose which funding lender(s) should receive this completed form.
-          </p>
-        </div>
+        <MultiSelect
+          label="Lenders"
+          options={forwardableLenderSelectOptions}
+          value={selectedIds}
+          onChange={(next) =>
+            setForwardLenderIdsByRequirement((prev) => ({
+              ...prev,
+              [row.requirementId]: next,
+            }))
+          }
+          placeholder="Select lenders..."
+        />
       );
     }
 
     return (
-      <div className="mb-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-300">
-        <p className="font-semibold text-slate-800 dark:text-slate-100">
-          No eligible lenders on this application
-        </p>
-        <p className="mt-1 leading-relaxed">
-          Submit this loan to at least one lender from{" "}
-          <span className="font-semibold">Lender Hub</span> first. Declined,
-          withdrawn, or already-approved lenders cannot receive documents.
-        </p>
+      <p className="text-[11px] leading-relaxed text-amber-800 dark:text-amber-200">
+        No eligible lenders. Submit this loan from Lender Hub first.{" "}
         <button
           type="button"
           onClick={() => void fetchForwardableLenders()}
-          className="mt-2 font-semibold text-[#13538A] underline hover:no-underline dark:text-blue-300"
+          className="font-semibold underline hover:no-underline"
         >
-          Refresh lender list
+          Refresh
         </button>
-      </div>
+      </p>
     );
   };
 
@@ -1592,48 +1654,66 @@ export default function SignDocumentsPanel({
     const canBulkSelect = isBulkSelectableRow(row);
     const hasSigned = Boolean(row.signedUpload?.fileUrl);
     const showInlineExtras =
-      hasSigned ||
       row.signStatus === "FORWARDED_TO_LENDER" ||
       row.signStatus === "LENDER_SEEN";
 
     const metaParts: string[] = [];
     if (isBrokerUploadedDoc(row)) metaParts.push("Your upload");
     else if (row.lenderName) metaParts.push(row.lenderName);
-    if (row.signMode === "DYNAMIC_FORM") {
-      metaParts.push(
-        typeof row.fieldCount === "number"
-          ? `${row.fieldCount} fields`
-          : "Fillable",
-      );
-      if (row.signStatus === "AWAITING_BROKER") metaParts.push("Not sent");
-      else if (row.signStatus === "SENT_TO_CLIENT") {
-        metaParts.push(
-          row.formProgress?.broker.complete ? "Broker done" : "Broker pending",
-        );
-      } else if (row.formProgress?.all.complete) {
-        metaParts.push("Ready to forward");
-      }
+    if (row.signMode === "DYNAMIC_FORM" && typeof row.fieldCount === "number") {
+      metaParts.push(`${row.fieldCount} fields`);
     }
 
     const secondaryBtn =
       "inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800";
     const primaryBtn =
-      "inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#13538A] px-3 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0E426E] disabled:cursor-not-allowed disabled:opacity-50";
+      "inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#13538A] px-3 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#0E426E] disabled:cursor-not-allowed disabled:opacity-50";
     const successBtn =
-      "inline-flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 px-3 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50";
+      "inline-flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 px-3 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50";
+    const lockedBtn =
+      "inline-flex w-full cursor-not-allowed items-center justify-center gap-2 rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-semibold text-slate-400 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-500";
+
+    const accentClass =
+      row.signStatus === "AWAITING_BROKER"
+        ? "border-t-amber-400"
+        : row.signStatus === "SENT_TO_CLIENT"
+          ? "border-t-sky-500"
+          : row.signStatus === "CLIENT_SIGNED"
+            ? "border-t-emerald-500"
+            : row.signStatus === "FORWARDED_TO_LENDER"
+              ? "border-t-[#13538A]"
+              : row.signStatus === "LENDER_SEEN"
+                ? "border-t-teal-500"
+                : "border-t-slate-200";
+
+    const iconWrapClass =
+      row.signStatus === "AWAITING_BROKER"
+        ? "bg-amber-100 text-amber-800"
+        : row.signStatus === "CLIENT_SIGNED"
+          ? "bg-emerald-100 text-emerald-800"
+          : row.signStatus === "LENDER_SEEN"
+            ? "bg-teal-100 text-teal-800"
+            : "bg-[#13538A]/10 text-[#13538A]";
+
+    const waitingHint =
+      row.brokerBucket === "awaitingYou"
+        ? "Client done — finish remaining broker fields"
+        : "Waiting for the client to fill and submit";
 
     return (
       <div
         key={row.requirementId}
-        className={`flex flex-col rounded-xl border bg-white dark:bg-slate-900 ${
+        className={`flex h-full flex-col overflow-hidden rounded-xl border border-t-[3px] bg-white shadow-sm dark:bg-slate-900 ${accentClass} ${
           isSelected
-            ? "border-[#13538A] bg-[#13538A]/5 shadow-sm ring-1 ring-[#13538A]/20 dark:border-[#13538A]/50 dark:bg-[#13538A]/10"
+            ? "border-[#13538A] ring-1 ring-[#13538A]/20 dark:border-[#13538A]/50"
             : "border-slate-200 dark:border-slate-700"
         }`}
       >
         <div className="flex flex-1 flex-col gap-3 p-3.5">
           <div className="flex items-start gap-2.5">
-            <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#13538A] text-white">
+            <div
+              className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${iconWrapClass}`}
+            >
               {isImageTemplate(row.templateMimeType, row.templateFileUrl) ? (
                 <FileImage size={16} />
               ) : (
@@ -1646,7 +1726,7 @@ export default function SignDocumentsPanel({
                 <div className="min-w-0 flex-1">{renderDocumentTitle(row)}</div>
                 <div className="flex shrink-0 items-center gap-1.5">
                   <span
-                    className={`inline-flex max-w-[7.5rem] truncate rounded-md border px-1.5 py-0.5 text-[10px] font-semibold ${statusClass(row.signStatus)}`}
+                    className={`inline-flex whitespace-nowrap rounded-md border px-1.5 py-0.5 text-[10px] font-semibold ${statusClass(row.signStatus)}`}
                     title={row.signStatusLabel || row.signStatus || undefined}
                   >
                     {row.signStatusLabel || row.signStatus || "-"}
@@ -1681,9 +1761,21 @@ export default function SignDocumentsPanel({
         <div className="mt-auto space-y-2 border-t border-slate-100 px-3.5 py-3 dark:border-slate-800">
           {row.signStatus === "AWAITING_BROKER" && (
             <>
-              {(row.signMode === "DYNAMIC_FORM" ||
+              {(row.templateFileUrl ||
+                row.signMode === "DYNAMIC_FORM" ||
                 (isBrokerUploadedDoc(row) && row.templateFileUrl)) && (
-                <div className="flex gap-1.5">
+                <div className="grid grid-cols-2 gap-1.5">
+                  {row.templateFileUrl ? (
+                    <button
+                      type="button"
+                      onClick={() => setActiveTemplateViewDoc(row)}
+                      className={secondaryBtn}
+                      title="Preview form before sending to client"
+                    >
+                      <Eye size={13} />
+                      View
+                    </button>
+                  ) : null}
                   {row.signMode === "DYNAMIC_FORM" && (
                     <button
                       type="button"
@@ -1706,6 +1798,19 @@ export default function SignDocumentsPanel({
                   )}
                 </div>
               )}
+              <button
+                type="button"
+                disabled={isActionLoading}
+                onClick={() => sendToClient(row.requirementId)}
+                className={primaryBtn}
+              >
+                {isActionLoading ? (
+                  <Loader2 size={15} className="animate-spin" />
+                ) : (
+                  <SendHorizonal size={15} />
+                )}
+                Send to client
+              </button>
               {isBrokerUploadedDoc(row) &&
                 row.templateFileUrl &&
                 row.signMode !== "DYNAMIC_FORM" && (
@@ -1721,109 +1826,131 @@ export default function SignDocumentsPanel({
                     How to make PDF fillable
                   </button>
                 )}
+            </>
+          )}
+
+          {row.signStatus === "SENT_TO_CLIENT" && (
+            <>
+              <p className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
+                <Clock size={13} className="shrink-0" />
+                <span className="truncate">
+                  {row.workflowHint || waitingHint}
+                </span>
+              </p>
+              <div className="grid grid-cols-2 gap-1.5">
+                {row.templateFileUrl ? (
+                  <button
+                    type="button"
+                    onClick={() => setActiveTemplateViewDoc(row)}
+                    className={secondaryBtn}
+                  >
+                    <Eye size={13} />
+                    View
+                  </button>
+                ) : null}
+                {row.signMode === "DYNAMIC_FORM" ? (
+                  <button
+                    type="button"
+                    onClick={() => openBrokerTemplate(row)}
+                    className={
+                      row.brokerBucket === "awaitingYou"
+                        ? `${primaryBtn} flex-1`
+                        : secondaryBtn
+                    }
+                  >
+                    <PenLine size={13} />
+                    {row.brokerBucket === "awaitingYou"
+                      ? "Fill broker fields"
+                      : "Review"}
+                  </button>
+                ) : null}
+              </div>
               <button
                 type="button"
-                disabled={isActionLoading}
-                onClick={() => sendToClient(row.requirementId)}
-                className={primaryBtn}
+                disabled
+                title="Available after the client submits this form"
+                className={lockedBtn}
+              >
+                <SendHorizonal size={15} />
+                Send to lender
+              </button>
+            </>
+          )}
+
+          {row.signStatus === "CLIENT_SIGNED" && (
+            <>
+              {isStandaloneBrokerTermSheet(row) ? (
+                <select
+                  value={forwardLenderByRequirement[row.requirementId] || ""}
+                  onChange={(e) =>
+                    setForwardLenderByRequirement((prev) => ({
+                      ...prev,
+                      [row.requirementId]: e.target.value,
+                    }))
+                  }
+                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-800 outline-none focus:border-[#13538A] focus:ring-2 focus:ring-[#13538A]/15 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                >
+                  <option value="">Select lender</option>
+                  {forwardableLenders.map((lender) => (
+                    <option
+                      key={lender.applicationLenderId}
+                      value={lender.applicationLenderId}
+                    >
+                      {lender.lenderName}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                renderForwardLenderPicker(row)
+              )}
+              <div className="grid grid-cols-2 gap-1.5">
+                {row.signMode === "DYNAMIC_FORM" && (
+                  <button
+                    type="button"
+                    onClick={() => openBrokerTemplate(row)}
+                    className={secondaryBtn}
+                  >
+                    <PenLine size={13} />
+                    Review
+                  </button>
+                )}
+                {hasSigned ? (
+                  <button
+                    type="button"
+                    onClick={() => downloadSignedCopy(row)}
+                    disabled={downloadingId === row.requirementId}
+                    className={secondaryBtn}
+                  >
+                    {downloadingId === row.requirementId ? (
+                      <Loader2 size={13} className="animate-spin" />
+                    ) : (
+                      <Download size={13} />
+                    )}
+                    Download
+                  </button>
+                ) : null}
+              </div>
+              <button
+                type="button"
+                disabled={
+                  isActionLoading ||
+                  (isStandaloneBrokerTermSheet(row) &&
+                    !forwardLenderByRequirement[row.requirementId] &&
+                    forwardableLenders.length !== 1) ||
+                  (!isStandaloneBrokerTermSheet(row) &&
+                    forwardLenderCount === 0)
+                }
+                onClick={() => forwardToLender(row)}
+                className={successBtn}
               >
                 {isActionLoading ? (
                   <Loader2 size={15} className="animate-spin" />
                 ) : (
                   <SendHorizonal size={15} />
                 )}
-                Send to client
+                {getForwardToLenderLabel(row, forwardLenderCount)}
               </button>
             </>
-          )}
-
-          {row.signStatus === "SENT_TO_CLIENT" && (
-            <div className="space-y-2">
-              <p className="flex items-start gap-1.5 text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
-                <Clock size={13} className="mt-0.5 shrink-0" />
-                {row.workflowHint ||
-                  (row.signMode === "DYNAMIC_FORM"
-                    ? "Waiting for client / broker fields"
-                    : "Waiting for client signature")}
-              </p>
-              {row.signMode === "DYNAMIC_FORM" &&
-                !row.formProgress?.broker.complete && (
-                  <button
-                    type="button"
-                    onClick={() => openBrokerTemplate(row)}
-                    className={`${secondaryBtn} w-full flex-none`}
-                  >
-                    <PenLine size={13} />
-                    Fill broker fields
-                  </button>
-                )}
-            </div>
-          )}
-
-          {row.signStatus === "CLIENT_SIGNED" && (
-            <div className="space-y-2">
-              {isStandaloneBrokerTermSheet(row) && (
-                <label className="block">
-                  <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                    Select lender to forward
-                  </span>
-                  <select
-                    value={forwardLenderByRequirement[row.requirementId] || ""}
-                    onChange={(e) =>
-                      setForwardLenderByRequirement((prev) => ({
-                        ...prev,
-                        [row.requirementId]: e.target.value,
-                      }))
-                    }
-                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-[#13538A] focus:ring-2 focus:ring-[#13538A]/15 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-                  >
-                    <option value="">Select a lender</option>
-                    {forwardableLenders.map((lender) => (
-                      <option
-                        key={lender.applicationLenderId}
-                        value={lender.applicationLenderId}
-                      >
-                        {lender.lenderName}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              )}
-              {!isStandaloneBrokerTermSheet(row) &&
-                renderForwardLenderPicker(row)}
-              <div className="flex flex-col gap-1.5">
-                {row.signMode === "DYNAMIC_FORM" && (
-                  <button
-                    type="button"
-                    onClick={() => openBrokerTemplate(row)}
-                    className={`${secondaryBtn} w-full flex-none`}
-                  >
-                    <PenLine size={13} />
-                    Review fields
-                  </button>
-                )}
-                <button
-                  type="button"
-                  disabled={
-                    isActionLoading ||
-                    (isStandaloneBrokerTermSheet(row) &&
-                      !forwardLenderByRequirement[row.requirementId] &&
-                      forwardableLenders.length !== 1) ||
-                    (!isStandaloneBrokerTermSheet(row) &&
-                      forwardLenderCount === 0)
-                  }
-                  onClick={() => forwardToLender(row)}
-                  className={successBtn}
-                >
-                  {isActionLoading ? (
-                    <Loader2 size={15} className="animate-spin" />
-                  ) : (
-                    <SendHorizonal size={15} />
-                  )}
-                  {getForwardToLenderLabel(row, forwardLenderCount)}
-                </button>
-              </div>
-            </div>
           )}
 
           {row.signStatus === "FORWARDED_TO_LENDER" && (
@@ -1942,7 +2069,12 @@ export default function SignDocumentsPanel({
     return mime || undefined;
   };
 
-  const renderTemplatePreview = (row: SignDocumentRow) => {
+  const renderTemplatePreview = (
+    row: SignDocumentRow,
+    options?: { fullPage?: boolean },
+  ) => {
+    const fullPage = Boolean(options?.fullPage);
+
     if (!row.templateFileUrl) {
       return (
         <div className="flex h-full min-h-[320px] items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 text-sm text-slate-500">
@@ -1987,8 +2119,16 @@ export default function SignDocumentsPanel({
         mimeType={previewMimeType}
         fileName={row.documentName}
         getAuthHeaders={getAuthHeaders}
-        className="flex h-[min(420px,50vh)] items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-50 p-4 lg:h-[min(520px,58vh)]"
-        iframeClassName="h-[min(420px,50vh)] w-full rounded-xl border border-slate-200 bg-white lg:h-[min(520px,58vh)]"
+        className={
+          fullPage
+            ? "flex h-full min-h-0 items-stretch justify-center overflow-hidden bg-slate-100"
+            : "flex h-[min(420px,50vh)] items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-50 p-4 lg:h-[min(520px,58vh)]"
+        }
+        iframeClassName={
+          fullPage
+            ? "h-full min-h-0 w-full border-0 bg-white"
+            : "h-[min(420px,50vh)] w-full rounded-xl border border-slate-200 bg-white lg:h-[min(520px,58vh)]"
+        }
         imageClassName="max-h-full max-w-full rounded-lg object-contain shadow-sm"
       />
     );
@@ -2181,9 +2321,6 @@ export default function SignDocumentsPanel({
     sigRef.current?.clear();
   };
 
-  const fillFormCtaLabel = (row: SignDocumentRow) =>
-    row.hasSignatureField ? "Fill & sign form" : "Fill & save form";
-
   const renderSigningModal = () => {
     if (!activeSigningDoc) return null;
 
@@ -2314,62 +2451,37 @@ export default function SignDocumentsPanel({
 
     return (
       <div
-        className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 p-3 backdrop-blur-sm sm:p-4"
-        onClick={() => setActiveTemplateViewDoc(null)}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="template-view-modal-title"
+        className="fixed inset-0 z-[9999] flex h-dvh w-screen flex-col bg-white"
       >
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="template-view-modal-title"
-          className="flex max-h-[94vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
-          onClick={(event) => event.stopPropagation()}
-        >
-          <div className="flex items-start justify-between gap-4 border-b border-slate-200 bg-[#13538A]/8 px-5 py-4 sm:px-6">
-            <div className="min-w-0">
-              <p className="text-xs font-semibold uppercase tracking-wide text-[#13538A]">
-                Template Preview
+        <div className="flex shrink-0 items-start justify-between gap-4 border-b border-slate-200 bg-[#13538A]/8 px-4 py-3 sm:px-6 sm:py-4">
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-wide text-[#13538A]">
+              Template Preview
+            </p>
+            <h3
+              id="template-view-modal-title"
+              className="truncate text-lg font-semibold text-slate-900 sm:text-xl"
+            >
+              {activeTemplateViewDoc.documentName}
+            </h3>
+            {activeTemplateViewDoc.lenderName && (
+              <p className="mt-1 text-sm text-slate-500">
+                Requested by {activeTemplateViewDoc.lenderName}
               </p>
-              <h3
-                id="template-view-modal-title"
-                className="truncate text-lg font-semibold text-slate-900 sm:text-xl"
-              >
-                {activeTemplateViewDoc.documentName}
-              </h3>
-              {activeTemplateViewDoc.lenderName && (
-                <p className="mt-1 text-sm text-slate-500">
-                  Requested by {activeTemplateViewDoc.lenderName}
-                </p>
-              )}
-            </div>
-            <button
-              type="button"
-              onClick={() => setActiveTemplateViewDoc(null)}
-              className="rounded-xl border border-slate-200 bg-white p-2 text-slate-500 transition hover:bg-slate-50 hover:text-slate-700"
-              aria-label="Close"
-            >
-              <X size={18} />
-            </button>
+            )}
           </div>
-
-          <div className="flex-1 overflow-y-auto p-5 sm:p-6">
-            {renderTemplatePreview(activeTemplateViewDoc)}
-          </div>
-
-          <div className="flex justify-end gap-3 border-t border-slate-200 bg-slate-50 px-5 py-4 sm:px-6">
-            <button
-              type="button"
-              onClick={() => setActiveTemplateViewDoc(null)}
-              className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
-            >
-              Close
-            </button>
+          <div className="flex shrink-0 items-center gap-2">
             <button
               type="button"
               onClick={() => downloadTemplate(activeTemplateViewDoc)}
               disabled={
-                downloadingId === `${activeTemplateViewDoc.requirementId}-template`
+                downloadingId ===
+                `${activeTemplateViewDoc.requirementId}-template`
               }
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#13538A] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0E426E] disabled:opacity-60"
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#13538A] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0E426E] disabled:opacity-60"
             >
               {downloadingId ===
               `${activeTemplateViewDoc.requirementId}-template` ? (
@@ -2379,7 +2491,18 @@ export default function SignDocumentsPanel({
               )}
               Download
             </button>
+            <button
+              type="button"
+              onClick={() => setActiveTemplateViewDoc(null)}
+              className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+            >
+              Close
+            </button>
           </div>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-hidden">
+          {renderTemplatePreview(activeTemplateViewDoc, { fullPage: true })}
         </div>
       </div>
     );
@@ -2388,36 +2511,13 @@ export default function SignDocumentsPanel({
   const renderBrokerView = () => {
     const totalDocuments = brokerPagination?.total ?? rows.length;
     const hasSearchQuery = Boolean(debouncedBrokerSearch.trim());
+    const hasBucketFilter = brokerBucket !== "all";
     const hasActiveFilters =
-      hasSearchQuery || selectedLenderKey !== "all";
+      hasSearchQuery || selectedLenderKey !== "all" || hasBucketFilter;
     const listLoading = loading && rows.length > 0;
-
-    const statCards = [
-      {
-        label: "Awaiting you",
-        count: brokerSummary.awaitingYou,
-        color: "text-amber-700 dark:text-amber-300",
-        wrap: "border-amber-200 bg-amber-50/70 dark:border-amber-800/50 dark:bg-amber-950/20",
-      },
-      {
-        label: "With client",
-        count: brokerSummary.withClient,
-        color: "text-[#13538A] dark:text-sky-300",
-        wrap: "border-[#13538A]/20 bg-[#13538A]/8 dark:border-[#13538A]/30 dark:bg-[#13538A]/15",
-      },
-      {
-        label: "Ready to forward",
-        count: brokerSummary.readyToForward,
-        color: "text-emerald-700 dark:text-emerald-300",
-        wrap: "border-emerald-200 bg-emerald-50/70 dark:border-emerald-800/50 dark:bg-emerald-950/20",
-      },
-      {
-        label: "Forwarded",
-        count: brokerSummary.forwarded,
-        color: "text-[#0E426E] dark:text-sky-200",
-        wrap: "border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-900/50",
-      },
-    ];
+    const activeBucketLabel =
+      BROKER_BUCKET_FILTERS.find((filter) => filter.key === brokerBucket)
+        ?.label || null;
 
     const allFormsCount = brokerLenderGroups.reduce(
       (sum, group) => sum + group.count,
@@ -2459,55 +2559,117 @@ export default function SignDocumentsPanel({
             </div>
           </div>
 
-          <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
-            {statCards.map((stat) => (
-              <div
-                key={stat.label}
-                className={`rounded-lg border px-3 py-2.5 ${stat.wrap}`}
-              >
-                <p className={`text-xl font-semibold tabular-nums ${stat.color}`}>
-                  {stat.count}
-                </p>
-                <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                  {stat.label}
-                </p>
-              </div>
-            ))}
+          <div className="mt-4">
+            <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+              Filter by status
+              {activeBucketLabel ? (
+                <span className="ml-1.5 font-medium normal-case tracking-normal text-slate-500">
+                  · showing {activeBucketLabel}
+                </span>
+              ) : null}
+            </p>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {BROKER_BUCKET_FILTERS.map((filter) => {
+                const isActive = brokerBucket === filter.key;
+                const count = brokerSummary[filter.summaryKey];
+
+                return (
+                  <button
+                    key={filter.key}
+                    type="button"
+                    aria-pressed={isActive}
+                    title={
+                      isActive
+                        ? `Clear “${filter.label}” filter`
+                        : `Show ${filter.label.toLowerCase()} forms`
+                    }
+                    onClick={() =>
+                      setBrokerBucket((prev) =>
+                        prev === filter.key ? "all" : filter.key,
+                      )
+                    }
+                    className={`group relative cursor-pointer rounded-xl border px-3 py-3 text-left transition duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#13538A]/40 focus-visible:ring-offset-2 active:scale-[0.98] dark:focus-visible:ring-offset-slate-950 ${
+                      isActive ? filter.active : filter.idle
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <p
+                        className={`text-xl font-semibold tabular-nums ${filter.color}`}
+                      >
+                        {count}
+                      </p>
+                      <span
+                        className={`mt-0.5 inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide transition ${
+                          isActive
+                            ? "bg-[#13538A] text-white"
+                            : "bg-white/80 text-slate-400 opacity-0 group-hover:opacity-100 dark:bg-slate-800/80 dark:text-slate-300"
+                        }`}
+                      >
+                        {isActive ? "Active" : "Filter"}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">
+                      {filter.label}
+                    </p>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
-          <div className="mt-4 inline-flex w-full gap-1 rounded-lg bg-slate-100 p-1 dark:bg-slate-800 sm:w-auto">
+          <div
+            role="tablist"
+            aria-label="Fill and sign view"
+            className="mt-4 inline-flex w-full gap-1.5 rounded-xl border border-slate-200 bg-slate-50 p-1.5 shadow-inner dark:border-slate-700 dark:bg-slate-900/70 sm:w-auto"
+          >
             <button
               type="button"
+              role="tab"
+              aria-selected={brokerViewTab === "upload"}
               onClick={() => {
                 setBrokerViewTab("upload");
                 void fetchLibraryTemplates();
               }}
-              className={`inline-flex flex-1 items-center justify-center gap-2 rounded-md px-3.5 py-1.5 text-xs font-semibold transition sm:flex-none ${
+              className={`inline-flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#13538A]/40 focus-visible:ring-offset-2 active:scale-[0.98] sm:flex-none dark:focus-visible:ring-offset-slate-950 ${
                 brokerViewTab === "upload"
-                  ? "bg-[#13538A] text-white shadow-sm"
-                  : "text-slate-500 hover:bg-white hover:text-slate-800 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-white"
+                  ? "bg-[#13538A] text-white shadow-md ring-1 ring-[#0E426E]/30"
+                  : "border border-transparent bg-white text-slate-600 shadow-sm hover:border-slate-200 hover:text-slate-900 hover:shadow-md dark:bg-slate-800 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-700 dark:hover:text-white"
               }`}
             >
-              <Upload size={14} />
+              <Upload
+                size={16}
+                className={
+                  brokerViewTab === "upload" ? "text-white" : "text-slate-400"
+                }
+              />
               Upload form
             </button>
             <button
               type="button"
+              role="tab"
+              aria-selected={brokerViewTab === "documents"}
               onClick={() => setBrokerViewTab("documents")}
-              className={`inline-flex flex-1 items-center justify-center gap-2 rounded-md px-3.5 py-1.5 text-xs font-semibold transition sm:flex-none ${
+              className={`inline-flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#13538A]/40 focus-visible:ring-offset-2 active:scale-[0.98] sm:flex-none dark:focus-visible:ring-offset-slate-950 ${
                 brokerViewTab === "documents"
-                  ? "bg-[#13538A] text-white shadow-sm"
-                  : "text-slate-500 hover:bg-white hover:text-slate-800 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-white"
+                  ? "bg-[#13538A] text-white shadow-md ring-1 ring-[#0E426E]/30"
+                  : "border border-transparent bg-white text-slate-600 shadow-sm hover:border-slate-200 hover:text-slate-900 hover:shadow-md dark:bg-slate-800 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-700 dark:hover:text-white"
               }`}
             >
-              <FileText size={14} />
+              <FileText
+                size={16}
+                className={
+                  brokerViewTab === "documents"
+                    ? "text-white"
+                    : "text-slate-400"
+                }
+              />
               Documents
               {totalDocuments > 0 ? (
                 <span
-                  className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+                  className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums ${
                     brokerViewTab === "documents"
                       ? "bg-white/20 text-white"
-                      : "bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300"
+                      : "bg-slate-100 text-slate-600 ring-1 ring-slate-200 dark:bg-slate-700 dark:text-slate-200 dark:ring-slate-600"
                   }`}
                 >
                   {totalDocuments}
@@ -2888,7 +3050,9 @@ export default function SignDocumentsPanel({
                   {hasActiveFilters
                     ? hasSearchQuery
                       ? `Nothing matched “${debouncedBrokerSearch.trim()}”. Clear search or try another name.`
-                      : "Nothing matched this source filter. Switch back to All forms."
+                      : hasBucketFilter
+                        ? `No forms in “${activeBucketLabel}”. Try another status tab or clear filters.`
+                        : "Nothing matched this source filter. Switch back to All forms."
                     : "Upload a PDF form, or wait for a lender to send one that needs a client signature."}
                 </p>
                 <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
@@ -2899,6 +3063,7 @@ export default function SignDocumentsPanel({
                         setBrokerSearchInput("");
                         setDebouncedBrokerSearch("");
                         setSelectedLenderKey("all");
+                        setBrokerBucket("all");
                       }}
                       className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
                     >
@@ -3158,6 +3323,7 @@ export default function SignDocumentsPanel({
         {fillingDoc && submissionId && (
           <SignFormFiller
             open={Boolean(fillingDoc)}
+            layout="page"
             mode="broker"
             onClose={() => setFillingDoc(null)}
             apiBase={apiBase}
@@ -3217,100 +3383,34 @@ export default function SignDocumentsPanel({
     );
   };
 
-  const renderClientDocumentActions = (row: SignDocumentRow) => {
-    const hasTemplate = Boolean(row.templateFileUrl);
-    const awaitingNewSignature = row.signStatus === "SENT_TO_CLIENT";
-    const hasSigned =
-      !awaitingNewSignature && Boolean(row.signedUpload?.fileUrl);
-    const actionNeeded = isClientActionNeeded(row);
-    const submitted = isClientFormSubmittedToBroker(row);
-
-    if (!hasTemplate && !hasSigned) return null;
-
-    // Pending forms use the primary CTA below — avoid a duplicate "View form".
-    if (actionNeeded) return null;
-
-    const actionClass =
-      "inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border px-2.5 py-2 text-xs font-semibold transition min-w-0";
-
-    return (
-      <div className="flex gap-2">
-        {hasTemplate && (
-          <button
-            type="button"
-            onClick={() =>
-              isClientMode
-                ? openClientSignPage(
-                    row.signMode === "DYNAMIC_FORM" ? "fill" : "template",
-                    row,
-                  )
-                : openBrokerTemplate(row)
-            }
-            className={`${actionClass} ${
-              submitted
-                ? "border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
-                : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-            }`}
-            title={getClientDynamicFormActionLabel(row)}
-          >
-            <Eye
-              size={14}
-              className={`shrink-0 ${submitted ? "text-emerald-600" : "text-sky-600"}`}
-            />
-            <span className="truncate">
-              {getClientDynamicFormActionLabel(row)}
-            </span>
-          </button>
-        )}
-        {hasSigned && clientView !== "signForms" && (
-          <>
-            <button
-              type="button"
-              onClick={() => setActiveSignedViewDoc(row)}
-              className={`${actionClass} border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100`}
-              title="View signed copy"
-            >
-              <Eye size={14} className="shrink-0" />
-              <span className="truncate">Signed</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => downloadSignedCopy(row)}
-              disabled={downloadingId === row.requirementId}
-              className={`${actionClass} border-violet-200 bg-violet-50 text-violet-800 hover:bg-violet-100 disabled:opacity-60`}
-              title="Download signed copy"
-            >
-              {downloadingId === row.requirementId ? (
-                <Loader2 size={14} className="shrink-0 animate-spin" />
-              ) : (
-                <Download size={14} className="shrink-0" />
-              )}
-              <span className="truncate">Save</span>
-            </button>
-          </>
-        )}
-      </div>
-    );
-  };
-
   const renderClientStatusFooter = (row: SignDocumentRow) => {
     const standalone = isStandaloneBrokerTermSheet(row);
     const brokerSheet = isBrokerTermSheetDoc(row);
+    const waitingBroker = row.clientBucket === "waitingOnBroker";
 
     switch (row.signStatus) {
       case "SENT_TO_CLIENT":
+        if (waitingBroker) {
+          return (
+            <div className="flex items-start gap-2 rounded-lg bg-sky-50 px-2.5 py-2 text-xs leading-relaxed text-sky-800">
+              <Clock size={14} className="mt-0.5 shrink-0" />
+              <span>
+                {row.workflowHint ||
+                  "You finished your part — your broker is completing the remaining fields"}
+              </span>
+            </div>
+          );
+        }
         return (
           <div className="flex items-start gap-2 rounded-lg bg-sky-50 px-2.5 py-2 text-xs leading-relaxed text-sky-800">
             <PenLine size={14} className="mt-0.5 shrink-0" />
             <span>
               {row.workflowHint ||
                 (row.signMode === "DYNAMIC_FORM"
-                  ? row.hasSignatureField
-                    ? "Complete your form fields and signature"
-                    : "Complete your assigned form fields"
+                  ? "Open this form and complete your fields"
                   : brokerSheet
-                    ? "Your signature is required on this term sheet"
-                    : "Your signature is required")}
+                    ? "Open this term sheet to review and complete it"
+                    : "Open this form to complete and send it to your broker")}
             </span>
           </div>
         );
@@ -3371,138 +3471,165 @@ export default function SignDocumentsPanel({
     }
   };
 
+  const openClientCardPrimaryAction = (row: SignDocumentRow) => {
+    // Lender or broker forms: always open the fillable form page (editable or view-only).
+    if (row.templateFileUrl && (row.signMode === "DYNAMIC_FORM" || isClientActionNeeded(row))) {
+      if (isClientMode) {
+        openClientSignPage("fill", row);
+        return;
+      }
+      if (row.signMode === "DYNAMIC_FORM") {
+        setFillingDoc(row);
+        return;
+      }
+    }
+
+    if (isClientActionNeeded(row)) {
+      if (isClientMode) {
+        openClientSignPage("sign", row);
+        return;
+      }
+      setActiveSigningDoc(row);
+      sigRef.current?.clear();
+      return;
+    }
+
+    if (row.templateFileUrl) {
+      if (isClientMode) {
+        openClientSignPage(
+          row.signMode === "DYNAMIC_FORM" ? "fill" : "template",
+          row,
+        );
+        return;
+      }
+      openBrokerTemplate(row);
+      return;
+    }
+
+    if (row.signedUpload?.fileUrl) {
+      setActiveSignedViewDoc(row);
+    }
+  };
+
   const renderClientDocumentCard = (row: SignDocumentRow) => {
     const isPending = isClientActionNeeded(row);
     const brokerSheet = isBrokerTermSheetDoc(row);
     const standalone = isStandaloneBrokerTermSheet(row);
     const waitingBroker = row.clientBucket === "waitingOnBroker";
     const submitted = isClientFormSubmittedToBroker(row);
+    const hasPrimaryAction = Boolean(
+      row.templateFileUrl || row.signedUpload?.fileUrl,
+    );
+    const viewOnlyLabel = getClientDynamicFormActionLabel(row);
 
     return (
       <article
         key={row.requirementId}
         className={`flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200 border-t-4 bg-white shadow-sm transition hover:shadow-md ${clientCardAccent(row)}`}
       >
-        <div className="flex items-start gap-3 border-b border-slate-100 p-4">
-          <div
-            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
-              isPending
-                ? brokerSheet
-                  ? "bg-violet-100 text-violet-700"
-                  : "bg-sky-100 text-sky-700"
-                : waitingBroker
-                  ? "bg-amber-100 text-amber-700"
-                  : "bg-emerald-100 text-emerald-700"
-            }`}
-          >
-            {isImageTemplate(row.templateMimeType, row.templateFileUrl) ? (
-              <FileImage size={18} />
-            ) : (
-              <FileText size={18} />
-            )}
-          </div>
-
-          <div className="min-w-0 flex-1">
-            <div className="flex items-start justify-between gap-2">
-              <h3
-                className="line-clamp-2 text-sm font-semibold leading-snug text-slate-900"
-                title={row.documentName}
-              >
-                {row.documentName}
-                {row.loiVersionLabel ? (
-                  <span className="ml-1.5 text-[11px] font-medium text-violet-600">
-                    ({row.loiVersionLabel})
-                  </span>
-                ) : null}
-              </h3>
-              <span
-                className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${statusClass(row.signStatus)}`}
-              >
-                {row.signStatusLabel || row.signStatus || "-"}
-              </span>
+        <div className="flex flex-1 flex-col gap-3 p-4">
+          <div className="flex items-start gap-3">
+            <div
+              className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
+                isPending
+                  ? brokerSheet
+                    ? "bg-violet-100 text-violet-700"
+                    : "bg-sky-100 text-sky-700"
+                  : waitingBroker
+                    ? "bg-sky-100 text-sky-700"
+                    : "bg-emerald-100 text-emerald-700"
+              }`}
+            >
+              {isImageTemplate(row.templateMimeType, row.templateFileUrl) ? (
+                <FileImage size={18} />
+              ) : (
+                <FileText size={18} />
+              )}
             </div>
 
-            {isPending ? (
-              <p className="mt-2 inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-1 text-[11px] font-semibold text-amber-800">
-                <PenLine size={12} className="shrink-0" />
-                {getClientNeedsActionHeadline(row)}
-              </p>
-            ) : waitingBroker ? (
-              <p className="mt-2 inline-flex items-center gap-1 rounded-md bg-sky-50 px-2 py-1 text-[11px] font-semibold text-sky-800">
-                <Clock size={12} className="shrink-0" />
-                No action needed — with your broker
-              </p>
-            ) : submitted ? (
-              <p className="mt-2 inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-1 text-[11px] font-semibold text-emerald-800">
-                <CheckCircle2 size={12} className="shrink-0" />
-                Submitted — no action needed
-              </p>
-            ) : null}
-
-            {brokerSheet ? (
-              <p className="mt-1.5 flex items-center gap-1 text-xs text-violet-700">
-                <FileText size={12} className="shrink-0" />
-                <span className="truncate">
-                  {standalone
-                    ? "Broker Term Sheet"
-                    : row.lenderName
-                      ? `Broker LOI · ${row.lenderName}`
-                      : "Broker LOI / Term Sheet"}
+            <div className="min-w-0 flex-1">
+              <div className="flex items-start justify-between gap-2">
+                <h3
+                  className="line-clamp-2 text-sm font-semibold leading-snug text-slate-900"
+                  title={row.documentName}
+                >
+                  {row.documentName}
+                  {row.loiVersionLabel ? (
+                    <span className="ml-1.5 text-[11px] font-medium text-violet-600">
+                      ({row.loiVersionLabel})
+                    </span>
+                  ) : null}
+                </h3>
+                <span
+                  className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${statusClass(row.signStatus)}`}
+                >
+                  {row.signStatusLabel || row.signStatus || "-"}
                 </span>
-              </p>
-            ) : row.lenderName ? (
-              <p className="mt-1.5 flex items-center gap-1 text-xs text-slate-500">
-                <Building2 size={12} className="shrink-0" />
-                <span className="truncate">Requested by {row.lenderName}</span>
-              </p>
-            ) : null}
-
-            {row.signMode === "DYNAMIC_FORM" && row.formProgress && (
-              <div className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-slate-50 px-2 py-1 text-[11px] font-medium text-slate-600">
-                Client {row.formProgress.client.complete ? "✓" : "…"}
-                <span className="text-slate-300">·</span>
-                Broker {row.formProgress.broker.complete ? "✓" : "…"}
               </div>
-            )}
+
+              {isPending ? (
+                <p className="mt-2 inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-1 text-[11px] font-semibold text-amber-800">
+                  <PenLine size={12} className="shrink-0" />
+                  {getClientNeedsActionHeadline(row)}
+                </p>
+              ) : waitingBroker ? (
+                <p className="mt-2 inline-flex items-center gap-1 rounded-md bg-sky-50 px-2 py-1 text-[11px] font-semibold text-sky-800">
+                  <Clock size={12} className="shrink-0" />
+                  No action needed — with your broker
+                </p>
+              ) : submitted ? (
+                <p className="mt-2 inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-1 text-[11px] font-semibold text-emerald-800">
+                  <CheckCircle2 size={12} className="shrink-0" />
+                  Submitted — no action needed
+                </p>
+              ) : null}
+
+              {brokerSheet ? (
+                <p className="mt-1.5 flex items-center gap-1 text-xs text-violet-700">
+                  <FileText size={12} className="shrink-0" />
+                  <span className="truncate">
+                    {standalone
+                      ? "Broker Term Sheet"
+                      : row.lenderName
+                        ? `Broker LOI · ${row.lenderName}`
+                        : "Broker LOI / Term Sheet"}
+                  </span>
+                </p>
+              ) : row.lenderName ? (
+                <p className="mt-1.5 flex items-center gap-1 text-xs text-slate-500">
+                  <Building2 size={12} className="shrink-0" />
+                  <span className="truncate">Requested by {row.lenderName}</span>
+                </p>
+              ) : null}
+
+              {row.signMode === "DYNAMIC_FORM" && row.formProgress && (
+                <div className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-slate-50 px-2 py-1 text-[11px] font-medium text-slate-600">
+                  Client {row.formProgress.client.complete ? "✓" : "…"}
+                  <span className="text-slate-300">·</span>
+                  Broker {row.formProgress.broker.complete ? "✓" : "…"}
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
-        <div className="flex flex-1 flex-col gap-3 p-4">
-          {renderClientDocumentActions(row)}
+        <div className="mt-auto space-y-2 border-t border-slate-100 p-4">
+          {renderClientStatusFooter(row)}
 
-          {isPending ? (
+          {hasPrimaryAction ? (
             <button
               type="button"
-              onClick={() => {
-                if (row.signMode === "DYNAMIC_FORM") {
-                  if (isClientMode) {
-                    openClientSignPage("fill", row);
-                    return;
-                  }
-                  setFillingDoc(row);
-                  return;
-                }
-                if (isClientMode) {
-                  openClientSignPage("sign", row);
-                  return;
-                }
-                setActiveSigningDoc(row);
-                sigRef.current?.clear();
-              }}
-              className={`mt-auto inline-flex w-full items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:brightness-105 ${
+              onClick={() => openClientCardPrimaryAction(row)}
+              className={`inline-flex w-full items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:brightness-105 ${
                 brokerSheet
                   ? "bg-gradient-to-r from-violet-600 to-fuchsia-600"
                   : "bg-gradient-to-r from-sky-600 to-blue-600"
               }`}
             >
-              <PenLine size={15} />
-              {row.signMode === "DYNAMIC_FORM"
-                ? fillFormCtaLabel(row)
-                : "Review & Sign"}
+              {isPending ? <PenLine size={15} /> : <Eye size={15} />}
+              {isPending ? "Open form" : viewOnlyLabel}
             </button>
-          ) : (
-            <div className="mt-auto">{renderClientStatusFooter(row)}</div>
-          )}
+          ) : null}
         </div>
       </article>
     );

@@ -98,6 +98,11 @@ function buildLenderGroupSummaries(rows) {
   );
 }
 
+function matchesBrokerBucket(row, bucket = "all") {
+  if (!bucket || bucket === "all") return true;
+  return row.brokerBucket === bucket;
+}
+
 async function listBrokerSignDocuments(
   prisma,
   {
@@ -106,6 +111,7 @@ async function listBrokerSignDocuments(
     pageSize = 9,
     searchTerm = "",
     lenderId = "",
+    bucket = "all",
     viewer = "broker",
   },
 ) {
@@ -114,37 +120,34 @@ async function listBrokerSignDocuments(
     lenderId,
   });
 
-  const [total, requirements, allForSummary] = await Promise.all([
-    prisma.applicationDocumentRequirement.count({ where }),
-    prisma.applicationDocumentRequirement.findMany({
-      where,
-      include: SIGN_DOCUMENT_LIST_INCLUDE,
-      orderBy: { createdAt: "desc" },
-      skip: (pageNumber - 1) * pageSize,
-      take: pageSize,
-    }),
-    prisma.applicationDocumentRequirement.findMany({
-      where,
-      include: SIGN_DOCUMENT_LIST_INCLUDE,
-      orderBy: { createdAt: "desc" },
-    }),
-  ]);
+  const requirements = await prisma.applicationDocumentRequirement.findMany({
+    where,
+    include: SIGN_DOCUMENT_LIST_INCLUDE,
+    orderBy: { createdAt: "desc" },
+  });
 
-  const formattedPage = requirements.map((item) =>
-    formatSignDocumentRequirement(item, { viewer }),
-  );
-  const formattedAll = allForSummary.map((item) =>
+  const formattedAll = requirements.map((item) =>
     formatSignDocumentRequirement(item, { viewer }),
   );
   const bucketCounts = countWorkflow(formattedAll, "broker");
+  const filteredRows = formattedAll.filter((row) =>
+    matchesBrokerBucket(row, bucket),
+  );
+  const total = filteredRows.length;
+  const safePageSize = Math.min(Math.max(pageSize, 1), 50);
+  const safePageNumber = Math.max(pageNumber, 1);
+  const data = filteredRows.slice(
+    (safePageNumber - 1) * safePageSize,
+    safePageNumber * safePageSize,
+  );
 
   return {
-    data: formattedPage,
+    data,
     pagination: {
-      page: pageNumber,
-      limit: pageSize,
+      page: safePageNumber,
+      limit: safePageSize,
       total,
-      totalPages: Math.max(Math.ceil(total / pageSize), 1),
+      totalPages: Math.max(Math.ceil(total / safePageSize), 1),
     },
     summary: {
       awaitingYou: bucketCounts.awaitingYou,
@@ -264,5 +267,6 @@ module.exports = {
   isBrokerLoiRequirement,
   matchesClientScope,
   matchesClientBucket,
+  matchesBrokerBucket,
   CLIENT_SIGN_STATUSES,
 };

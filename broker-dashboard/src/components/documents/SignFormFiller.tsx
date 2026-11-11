@@ -73,9 +73,11 @@ export default function SignFormFiller({
   const [progress, setProgress] = useState<FormProgress | null>(null);
   const [readOnly, setReadOnly] = useState(false);
   const [pageNumber, setPageNumber] = useState(1);
-  const [scale, setScale] = useState(1.1);
+  const [scale, setScale] = useState(layout === "page" ? 1.35 : 1.1);
   const [activeSigFieldId, setActiveSigFieldId] = useState<string | null>(null);
   const sigRef = useRef<SignatureCanvas | null>(null);
+  const scrollAreaRef = useRef<HTMLDivElement | null>(null);
+  const didAutoFitRef = useRef(false);
   const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const valuesRef = useRef(values);
   valuesRef.current = values;
@@ -183,6 +185,23 @@ export default function SignFormFiller({
       document.body.style.overflow = previous;
     };
   }, [open]);
+
+  useEffect(() => {
+    if (!open) {
+      didAutoFitRef.current = false;
+      return;
+    }
+    if (layout !== "page" || loading || !currentPage?.widthPt) return;
+    if (didAutoFitRef.current) return;
+    const el = scrollAreaRef.current;
+    if (!el) return;
+    const available = el.clientWidth - 24;
+    if (available <= 0) return;
+    setScale(
+      Math.min(2.2, Math.max(0.85, available / Number(currentPage.widthPt))),
+    );
+    didAutoFitRef.current = true;
+  }, [open, layout, loading, currentPage?.widthPt, form?.versionId]);
 
   useEffect(() => {
     return () => {
@@ -619,11 +638,11 @@ export default function SignFormFiller({
   const fieldsOnCurrentPage = pageFields.length;
 
   const shellClass = isPage
-    ? "flex h-dvh min-h-0 w-full flex-col bg-white"
+    ? "fixed inset-0 z-[100000] flex h-dvh min-h-0 w-screen flex-col bg-white"
     : "fixed inset-0 z-[100000] flex items-center justify-center bg-black/50 p-3 md:p-6";
 
   const panelClass = isPage
-    ? "flex min-h-0 flex-1 flex-col overflow-hidden bg-white"
+    ? "flex min-h-0 w-full flex-1 flex-col overflow-hidden bg-white"
     : "flex h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl";
 
   return (
@@ -632,16 +651,22 @@ export default function SignFormFiller({
         <div className="flex shrink-0 items-start justify-between gap-3 border-b px-4 py-3">
           <div className="min-w-0 flex-1">
             <h2 className="text-lg font-semibold text-slate-900">
-              {mode === "broker" ? "Fill & edit form" : "Fill form"}
+              {mode === "broker"
+                ? "Fill & edit form"
+                : readOnly
+                  ? "View your answers"
+                  : "Fill form"}
             </h2>
             <p className="truncate text-xs text-slate-500">{documentName}</p>
             <p className="mt-0.5 text-[11px] text-slate-500">
               {readOnly
-                ? "This form is locked after forwarding to the lender."
+                ? mode === "client"
+                  ? "You finished your part. Answers are view-only while your broker completes remaining fields."
+                  : "This form is locked after forwarding to the lender."
                 : mode === "broker" && awaitingBrokerSend
                   ? "Fill any fields, save, then send to the client. Client will see your values and can edit the full form."
                   : mode === "client"
-                    ? "Review values already filled in, update anything needed, then submit."
+                    ? "Fill your fields, then submit. You can review answers afterward."
                     : "Click the blue boxes on the PDF to type. Changes autosave."}
             </p>
             {progress && (
@@ -730,9 +755,12 @@ export default function SignFormFiller({
               )}
             </div>
 
-            <div className="min-h-0 flex-1 overflow-auto p-4">
-              <div className="flex justify-center">
-                <div className="relative">
+            <div
+              ref={scrollAreaRef}
+              className={`min-h-0 flex-1 overflow-auto ${isPage ? "bg-slate-200 p-1 sm:p-2" : "p-4"}`}
+            >
+              <div className={`flex ${isPage ? "min-h-full justify-center" : "justify-center"}`}>
+                <div className={`relative ${isPage ? "w-full max-w-none" : ""}`}>
                   {pageFields.length === 0 && (
                     <div className="mb-3 max-w-lg rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
                       {visibleFields.length === 0 ? (
@@ -769,7 +797,9 @@ export default function SignFormFiller({
         <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t bg-white px-4 py-3">
           {readOnly ? (
             <p className="mr-auto text-xs text-slate-500">
-              View only — form already forwarded to lender.
+              {mode === "client"
+                ? "View only — you already finished your part."
+                : "View only — form already forwarded to lender."}
             </p>
           ) : mode === "broker" && awaitingBrokerSend ? (
             <p className="mr-auto text-xs text-slate-500">

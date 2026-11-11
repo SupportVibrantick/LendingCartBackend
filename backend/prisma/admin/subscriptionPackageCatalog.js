@@ -22,9 +22,9 @@ const SUBSCRIPTION_PACKAGES = [
     name: "Starter",
     code: "BASIC",
     // Client source of truth — do not derive yearly display from monthly*0.8
-    priceMonthly: 249,
-    priceYearly: 2338, // actual annual charge
-    priceYearlyMonthly: 199, // yearly-toggle display only
+    priceMonthly: 199,
+    priceYearly: 1908, // actual annual charge (159*12)
+    priceYearlyMonthly: 159, // yearly-toggle display only
     description: "For independent brokers getting started",
     badge: null,
     usersLabel: "Add up to 5 users · Additional User Cost: $99/m",
@@ -71,9 +71,9 @@ const SUBSCRIPTION_PACKAGES = [
   {
     name: "Pro",
     code: "PRO",
-    priceMonthly: 499,
-    priceYearly: 4788,
-    priceYearlyMonthly: 399,
+    priceMonthly: 399,
+    priceYearly: 3828,
+    priceYearlyMonthly: 319,
     description: "For growing brokerages with a team",
     badge: "MOST POPULAR",
     usersLabel: "Add up to 10 users · Additional User Cost: $79/m",
@@ -130,9 +130,9 @@ const SUBSCRIPTION_PACKAGES = [
   {
     name: "Elite",
     code: "ELITE",
-    priceMonthly: 874,
-    priceYearly: 8388,
-    priceYearlyMonthly: 699,
+    priceMonthly: 699,
+    priceYearly: 6708,
+    priceYearlyMonthly: 559,
     description: "For teams at scale + full GHL suite",
     badge: "BEST VALUE",
     usersLabel: "Add up to 25 users · Additional User Cost: $49/m",
