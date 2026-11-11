@@ -463,23 +463,23 @@ export default function LoiUnderwritingFormModal({
   return (
     <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 pb-6">
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <div className="border-b border-slate-200 bg-gradient-to-r from-[#183b57] to-[#183b57] px-6 py-5 text-white dark:border-slate-800">
+        <div className="border-b border-slate-200 bg-gradient-to-br from-[#183B57]/8 via-white to-brand-50 px-6 py-5 text-slate-900 dark:border-slate-800 dark:from-[#183B57]/20 dark:via-gray-900 dark:to-gray-900 dark:text-white">
           <div className="flex items-start gap-3">
             <button
               type="button"
               onClick={onClose}
               disabled={submitting}
-              className="mt-0.5 rounded-lg p-2 text-white/80 hover:bg-white/10"
+              className="mt-0.5 rounded-lg p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-800 dark:text-gray-300 dark:hover:bg-gray-800"
               aria-label="Back"
             >
               <ArrowLeft size={18} />
             </button>
             <div>
-              <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide">
+              <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-[#183B57]/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-[#183B57]">
                 <FileText className="h-3.5 w-3.5" />
                 Term Sheet / LOI
               </div>
-              <h1 className="text-xl font-bold">
+              <h1 className="text-xl font-bold text-gray-900 dark:text-white">
                 {mode === "revised"
                   ? revisedVersionNumber
                     ? `Create Revised LOI (Version ${revisedVersionNumber})`
@@ -488,7 +488,7 @@ export default function LoiUnderwritingFormModal({
                     ? "Update LOI Draft"
                     : "Generate Loan Term Sheet"}
               </h1>
-              <p className="mt-1 max-w-3xl text-sm text-brand-50/90">
+              <p className="mt-1 max-w-3xl text-sm text-gray-500 dark:text-gray-400">
                 {mode === "revised"
                   ? "Previous versions are preserved for audit. Enter updated commercial terms below — the broker will receive a new version to review."
                   : mode === "regenerate"

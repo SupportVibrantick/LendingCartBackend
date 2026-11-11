@@ -19,7 +19,7 @@ const LayoutContent: React.FC = () => {
     isExpanded || isHovered || isMobileOpen ? "lg:pl-[280px]" : "lg:pl-[84px]";
 
   return (
-    <div className="flex h-full overflow-hidden">
+    <div className="flex h-full overflow-hidden bg-gray-50 dark:bg-gray-950">
       <AppSidebar />
       <Backdrop />
       <div

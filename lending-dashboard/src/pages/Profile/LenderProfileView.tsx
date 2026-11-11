@@ -239,11 +239,11 @@ export default function LenderProfileView() {
       )}
 
       <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <div className="border-b border-slate-100 bg-gradient-to-r from-[#183b57] to-[#183b57] px-6 py-5 dark:border-slate-800">
-          <h2 className="text-lg font-semibold text-white">{orgName}</h2>
-          <p className="mt-1 text-sm text-brand-100">{contactEmail}</p>
+        <div className="border-b border-slate-100 bg-gradient-to-br from-[#183B57]/8 via-white to-brand-50 px-6 py-5 dark:border-slate-800 dark:from-[#183B57]/20 dark:via-gray-900 dark:to-gray-900">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{orgName}</h2>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{contactEmail}</p>
           {productSummary && (
-            <p className="mt-2 text-xs text-brand-100/90">
+            <p className="mt-2 text-xs text-[#183B57] dark:text-cyan-400">
               {productSummary.programCount} active loan program
               {productSummary.programCount === 1 ? "" : "s"}
             </p>

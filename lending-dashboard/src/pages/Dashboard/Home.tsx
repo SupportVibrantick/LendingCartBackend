@@ -579,23 +579,23 @@ export default function Home() {
       />
 
       <div className="space-y-4">
-        <section className="overflow-hidden rounded-xl border border-[#183b57]/20 bg-gradient-to-r from-[#183b57] via-[#1e4a6b] to-[#2a5f82] px-4 py-4 shadow-sm sm:px-5 sm:py-5">
+        <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white px-4 py-4 shadow-sm sm:px-5 sm:py-5 dark:border-gray-800 dark:bg-gray-900">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div className="min-w-0">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/70">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#183B57]">
                 Lender Dashboard
               </p>
-              <h1 className="mt-1 truncate text-xl font-semibold text-white sm:text-2xl">
+              <h1 className="mt-1 truncate text-xl font-semibold text-gray-900 sm:text-2xl dark:text-white">
                 {greeting}, {firstName}
               </h1>
-              <p className="mt-0.5 text-sm text-white/80">
+              <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
                 Pipeline & funding analytics ·{" "}
                 {PERIOD_OPTIONS.find((p) => p.value === period)?.label} window
               </p>
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              <div className="inline-flex rounded-lg border border-white/20 bg-white/10 p-0.5 backdrop-blur-sm">
+              <div className="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-0.5 dark:border-gray-700 dark:bg-gray-800">
                 {PERIOD_OPTIONS.map((option) => (
                   <button
                     key={option.value}
@@ -603,8 +603,8 @@ export default function Home() {
                     onClick={() => setPeriod(option.value)}
                     className={`rounded-md px-2.5 py-1.5 text-xs font-semibold transition ${
                       period === option.value
-                        ? "bg-white text-[#183b57] shadow-sm"
-                        : "text-white/80 hover:bg-white/10 hover:text-white"
+                        ? "bg-[#183B57] text-white shadow-sm"
+                        : "text-gray-600 hover:bg-white hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-700"
                     }`}
                   >
                     {option.label}
@@ -615,7 +615,7 @@ export default function Home() {
                 type="button"
                 onClick={load}
                 disabled={loading}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-white/25 bg-white/10 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-white/20 disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
               >
                 <RefreshCw
                   className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`}
@@ -630,7 +630,7 @@ export default function Home() {
               <Link
                 key={action.path}
                 to={action.path}
-                className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-white/20"
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-semibold text-[#183B57] transition hover:bg-[#183B57]/10 dark:border-gray-700 dark:bg-gray-800 dark:text-cyan-400"
               >
                 <action.icon className="h-3.5 w-3.5" />
                 {action.label}

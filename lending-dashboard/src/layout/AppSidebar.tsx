@@ -182,24 +182,20 @@ const AppSidebar: React.FC = () => {
   const renderNavLink = (nav: NavItem) => {
     const active = isActive(nav);
     const Icon = nav.icon;
-    // #183b57
     return (
       <Link
         to={nav.path!}
         className={`group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 ${
           active
-            ? "bg-[#183b57] text-white shadow-md ring-1 ring-white/15"
-            : "text-white/85 hover:bg-[#36536c] hover:text-white"
+            ? "bg-[#183B57]/10 text-[#183B57] shadow-[inset_3px_0_0_0_#183B57]"
+            : "text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white"
         } ${!showLabels ? "lg:justify-center lg:px-2" : ""}`}
       >
-        {active && (
-          <span className="absolute left-0 top-1/2 hidden h-7 w-1 -translate-y-1/2 rounded-r-full bg-white lg:block" />
-        )}
         <span
           className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors ${
             active
-              ? "bg-white/15 text-white"
-              : "bg-white/8 text-white/90 group-hover:bg-white/12"
+              ? "bg-[#183B57]/10 text-[#183B57]"
+              : "bg-gray-50 text-[#183B57]/70 group-hover:bg-[#183B57]/10 dark:bg-gray-800 dark:text-[#5ba8d4]"
           }`}
         >
           <Icon size={18} strokeWidth={active ? 2.25 : 2} />
@@ -210,7 +206,9 @@ const AppSidebar: React.FC = () => {
             {nav.description && (
               <span
                 className={`mt-0.5 block truncate text-[11px] font-normal ${
-                  active ? "text-white/70" : "text-white/45"
+                  active
+                    ? "text-[#183B57]/70"
+                    : "text-gray-400 dark:text-gray-500"
                 }`}
               >
                 {nav.description}
@@ -238,15 +236,15 @@ const AppSidebar: React.FC = () => {
                   onClick={() => handleSubmenuToggle(index)}
                   className={`group relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 ${
                     active || isOpen
-                      ? "bg-[#183b57] text-white shadow-md ring-1 ring-white/15"
-                      : "text-white/85 hover:bg-[#36536c] hover:text-white"
+                      ? "bg-[#183B57]/10 text-[#183B57] shadow-[inset_3px_0_0_0_#183B57]"
+                      : "text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white"
                   } ${!showLabels ? "lg:justify-center lg:px-2" : ""}`}
                 >
                   <span
                     className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
                       active || isOpen
-                        ? "bg-white/15"
-                        : "bg-white/8 group-hover:bg-white/12"
+                        ? "bg-[#183B57]/10 text-[#183B57]"
+                        : "bg-gray-50 text-[#183B57]/70 group-hover:bg-[#183B57]/10 dark:bg-gray-800 dark:text-[#5ba8d4]"
                     }`}
                   >
                     <Icon size={18} />
@@ -258,7 +256,9 @@ const AppSidebar: React.FC = () => {
                       </span>
                       <ChevronDown
                         className={`ml-auto h-4 w-4 shrink-0 transition-transform duration-200 ${
-                          isOpen ? "rotate-180" : ""
+                          isOpen
+                            ? "rotate-180 text-[#183B57]"
+                            : "text-gray-400 group-hover:text-gray-600"
                         }`}
                       />
                     </>
@@ -277,7 +277,7 @@ const AppSidebar: React.FC = () => {
                         : "0px",
                     }}
                   >
-                    <ul className="ml-12 mt-1 space-y-0.5 border-l border-white/10 pl-3">
+                    <ul className="ml-12 mt-1 space-y-0.5 border-l border-[#183B57]/15 pl-3 dark:border-[#183B57]/30">
                       {nav.subItems.map((subItem) => {
                         const subActive = location.pathname === subItem.path;
                         return (
@@ -286,8 +286,8 @@ const AppSidebar: React.FC = () => {
                               to={subItem.path}
                               className={`block rounded-lg px-3 py-2 text-sm transition-colors ${
                                 subActive
-                                  ? "bg-white/15 font-medium text-white"
-                                  : "text-white/70 hover:bg-[#36536c] hover:text-white"
+                                  ? "bg-[#183B57]/10 font-semibold text-[#183B57]"
+                                  : "text-gray-500 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white"
                               }`}
                             >
                               {subItem.name}
@@ -310,7 +310,7 @@ const AppSidebar: React.FC = () => {
 
   return (
     <aside
-      className={`fixed top-0 left-0 z-50 mt-16 flex h-[calc(100vh-4rem)] flex-col border-r border-[#183b57]/80 bg-gradient-to-b from-[#0F2A3E] to-[#183b57] text-white shadow-xl transition-all duration-300 ease-in-out lg:mt-0 lg:h-screen dark:border-gray-800 dark:from-gray-900 dark:to-gray-950 ${
+      className={`fixed top-0 left-0 z-50 mt-16 flex h-[calc(100vh-4rem)] flex-col border-r border-gray-200 bg-white text-gray-800 shadow-[4px_0_24px_rgba(15,23,42,0.04)] transition-all duration-300 ease-in-out dark:border-gray-800 dark:bg-gray-950 dark:text-gray-100 dark:shadow-none lg:mt-0 lg:h-screen ${
         isExpanded || isMobileOpen
           ? "w-[280px]"
           : isHovered
@@ -320,16 +320,16 @@ const AppSidebar: React.FC = () => {
       onMouseEnter={() => !isExpanded && setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      {/* Logo */}
       <div
-        className={`shrink-0 border-b border-white/10 px-4 py-4 ${
-          !showLabels ? "lg:flex lg:justify-center" : ""
+        className={`relative shrink-0 overflow-hidden border-b border-gray-100 dark:border-gray-800 ${
+          !showLabels ? "lg:flex lg:justify-center lg:px-2 lg:py-4" : "px-4 py-5"
         }`}
       >
-        <Link to="/" className="block">
+        <div className="absolute inset-0 bg-gradient-to-br from-[#183B57]/10 via-transparent to-[#183B57]/5 dark:from-[#183B57]/20 dark:to-[#183B57]/10" />
+        <Link to="/" className="relative block">
           {showLabels ? (
             <div className="flex items-center gap-3">
-              <div className="h-11 w-11 shrink-0 overflow-hidden rounded-xl ring-2 ring-white/20 shadow-md">
+              <div className="h-11 w-11 shrink-0 overflow-hidden rounded-xl ring-2 ring-white shadow-sm dark:ring-gray-800">
                 <img
                   src="/loanAutomation.jpeg"
                   alt="Loan Automation"
@@ -337,16 +337,16 @@ const AppSidebar: React.FC = () => {
                 />
               </div>
               <div className="min-w-0">
-                <p className="truncate text-sm font-semibold leading-tight text-white">
+                <p className="truncate text-sm font-bold leading-tight text-gray-900 dark:text-white">
                   Loan Automation
                 </p>
-                <p className="truncate text-[11px] text-sky-100/60">
+                <p className="truncate text-[10px] font-semibold uppercase tracking-[0.12em] text-[#183B57] dark:text-cyan-400">
                   Lender Portal
                 </p>
               </div>
             </div>
           ) : (
-            <div className="mx-auto flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl ring-2 ring-white/20">
+            <div className="mx-auto flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl ring-2 ring-[#183B57]/15">
               <img
                 src="/loanAutomation.jpeg"
                 alt="Loan Automation"
@@ -357,51 +357,49 @@ const AppSidebar: React.FC = () => {
         </Link>
       </div>
 
-      {/* Navigation */}
-      <div className="sidebar-scrollbar min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-3 py-4">
+      <div className="sidebar-scrollbar-light min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-3 py-4">
         <nav>
           <h2
-            className={`mb-2 px-2 text-[11px] font-semibold uppercase tracking-wider text-white/40 ${
+            className={`mb-3 px-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-gray-400 dark:text-gray-500 ${
               !showLabels ? "lg:text-center" : ""
             }`}
           >
             {showLabels ? (
-              "Main Menu"
+              "Navigation"
             ) : (
-              <HorizontaLDots className="mx-auto size-5 opacity-60" />
+              <HorizontaLDots className="mx-auto size-5 text-gray-300" />
             )}
           </h2>
           {renderMenuItems()}
         </nav>
       </div>
 
-      {/* Footer */}
       <div
-        className={`shrink-0 border-t border-white/10 p-3 ${
+        className={`shrink-0 border-t border-gray-100 p-3 dark:border-gray-800 ${
           !showLabels ? "lg:flex lg:justify-center" : ""
         }`}
       >
         {showLabels ? (
           <Link
             to="/profile"
-            className={`flex items-center gap-3 rounded-xl p-3 transition-colors ${
+            className={`flex items-center gap-3 rounded-xl border p-3 transition-colors ${
               location.pathname === "/profile"
-                ? "bg-white/12 ring-1 ring-white/15"
-                : "bg-white/5 hover:bg-[#36536c]"
+                ? "border-[#183B57]/20 bg-[#183B57]/10"
+                : "border-gray-100 bg-gray-50 hover:bg-gray-100 dark:border-gray-800 dark:bg-gray-900 dark:hover:bg-gray-800"
             }`}
           >
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/10">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#183B57] text-white">
               <UserCircle size={18} />
             </span>
             <div className="min-w-0">
-              <p className="truncate text-xs font-semibold text-white">
+              <p className="truncate text-xs font-semibold text-gray-900 dark:text-white">
                 Lender Profile
               </p>
-              <p className="truncate text-[10px] text-white/50">
+              <p className="truncate text-[10px] text-gray-500 dark:text-gray-400">
                 Update your lending details
               </p>
             </div>
-            <ChevronDown className="ml-auto size-4 -rotate-90 text-white/40" />
+            <ChevronDown className="ml-auto size-4 -rotate-90 text-gray-400" />
           </Link>
         ) : (
           <Link
@@ -409,8 +407,8 @@ const AppSidebar: React.FC = () => {
             title="Profile"
             className={`flex h-10 w-10 items-center justify-center rounded-xl transition-colors ${
               location.pathname === "/profile"
-                ? "bg-white/15 text-white"
-                : "bg-white/5 text-white/80 hover:bg-[#36536c] hover:text-white"
+                ? "bg-[#183B57]/10 text-[#183B57]"
+                : "bg-gray-50 text-gray-500 hover:bg-gray-100 hover:text-[#183B57] dark:bg-gray-800 dark:text-gray-400"
             }`}
           >
             <UserCircle size={18} />
