@@ -99,7 +99,11 @@ export default function PdfPageCanvas({
           return;
         }
 
-        const pdf = await pdfjs.getDocument({ data: data.slice(0) }).promise;
+        const pdf = await pdfjs.getDocument({
+          data: data.slice(0),
+          // LiveCycle / SBA templates often have broken xref objects.
+          stopAtErrors: false,
+        }).promise;
         const page = await pdf.getPage(pageNumber);
         const base = page.getViewport({ scale: 1 });
         // Draw into the exact pageManifest box so overlays (pdfRectToCss) align 1:1.

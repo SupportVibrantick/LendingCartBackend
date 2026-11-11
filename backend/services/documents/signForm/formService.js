@@ -6,6 +6,7 @@ const {
   emptySchemaForPages,
 } = require("./pageManifest");
 const { assertSignFormLimits } = require("./limits");
+const { repairStoredPdfTemplate } = require("./pdfLoad");
 
 function formatFormPayload(definition, version, requirement) {
   const schema = version?.schemaJson || emptySchemaForPages([]);
@@ -46,6 +47,13 @@ async function ensureDraftFormForRequirement(prisma, {
   });
 
   if (!definition) {
+    await repairStoredPdfTemplate({
+      templateFileUrl: requirement.templateFileUrl,
+      templateMimeType: requirement.templateMimeType,
+      templateFileName: requirement.templateFileName,
+      prisma,
+    }).catch(() => null);
+
     const pages = await buildPageManifestFromTemplate({
       templateFileUrl: requirement.templateFileUrl,
       templateMimeType: requirement.templateMimeType,
