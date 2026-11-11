@@ -422,13 +422,13 @@ export default function LenderAllLendersPage() {
 
   const handleDelete = async (lender: Lender) => {
     const result = await Swal.fire({
-      title: "Are you sure?",
-      text: `Deleting lender "${lender.name}" will permanently remove the lender along with all associated applications and assigned products. This action cannot be undone.`,
+      title: "Delete this lender?",
+      html: `Remove <strong>${lender.name}</strong> from the Admin Portal?<br/><br/>This disables their login and broker access. Historical loan data is kept.`,
       icon: "warning",
       showCancelButton: true,
       confirmButtonColor: "#dc2626",
       cancelButtonColor: "#6b7280",
-      confirmButtonText: "Yes, delete it!",
+      confirmButtonText: "Yes, delete",
     });
 
     if (!result.isConfirmed) return;
@@ -439,32 +439,37 @@ export default function LenderAllLendersPage() {
       const token = sessionStorage.getItem("admin_token");
 
       const res = await fetch(
-        `${API_BASE}/admin/lenders/delete/${lender.id}/hard`,
+        `${API_BASE}/admin/lenders/delete/${lender.id}`,
         {
           method: "DELETE",
           headers: {
-            // "Content-Type": "application/json",
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
         },
       );
 
-      if (!res.ok) throw new Error("Delete failed");
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || json?.success === false) {
+        throw new Error(json?.message || "Delete failed");
+      }
 
       setLenders((prev) => prev.filter((b) => b.id !== lender.id));
+      setTotal((t) => Math.max(0, t - 1));
 
       Swal.fire({
         icon: "success",
-        title: "Deleted!",
-        text: "Lender removed successfully.",
-        timer: 1500,
+        title: "Deleted",
+        text:
+          json?.message ||
+          "Lender removed from Admin Portal. Access is disabled.",
+        timer: 1800,
         showConfirmButton: false,
       });
-    } catch (err) {
+    } catch (err: any) {
       Swal.fire({
         icon: "error",
-        title: "Failed",
-        text: "Could not delete lender. Try again.",
+        title: "Could not delete",
+        text: err?.message || "Could not delete lender. Try again.",
       });
     } finally {
       setRowLoadingId(null);

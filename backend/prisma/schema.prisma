@@ -442,7 +442,7 @@ model LenderBrandingSetting {
   logoUrl     String?
   createdAt   DateTime     @default(now()) @db.Timestamptz(6)
   updatedAt   DateTime     @updatedAt @db.Timestamptz(6)
-  lender      Organization @relation(fields: [lenderOrgId], references: [id])
+  lender      Organization @relation(fields: [lenderOrgId], references: [id], onDelete: Cascade)
 
   @@index([lenderOrgId])
   @@map("lender_branding_settings")
