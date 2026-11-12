@@ -6,7 +6,7 @@ import {
   MapPin,
   Search,
   Loader2,
-  MoreVertical,
+  MoreHorizontal,
   RefreshCw,
   X,
   TrendingUp,
@@ -72,7 +72,7 @@ function AssigneePills({
 }) {
   if (!people.length) {
     return (
-      <div className="flex items-center gap-1 text-xs text-gray-400">
+      <div className="inline-flex items-center gap-1.5 rounded-full border border-dashed border-[#13538A]/25 px-2 py-0.5 text-[11px] text-[#13538A]/55">
         <Users className="h-3 w-3" />
         Unassigned
       </div>
@@ -80,16 +80,20 @@ function AssigneePills({
   }
 
   const extra = people.length - 1;
+  const first = people[0];
 
   return (
     <div
-      className="flex min-w-0 items-center gap-1"
+      className="flex min-w-0 items-center gap-1.5"
       title={people.map((person) => person.name).join(", ")}
     >
       <span
-        className={`inline-flex max-w-[8.5rem] truncate rounded-full px-2 py-0.5 text-xs font-medium ${pillClassName}`}
+        className={`inline-flex max-w-[9.5rem] items-center gap-1.5 truncate rounded-full px-1.5 py-0.5 text-xs font-medium ${pillClassName}`}
       >
-        {people[0].name}
+        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/70 text-[9px] font-bold">
+          {getInitials(first.name)}
+        </span>
+        <span className="truncate">{first.name}</span>
       </span>
       {extra > 0 && (
         <button
@@ -98,7 +102,7 @@ function AssigneePills({
             event.stopPropagation();
             onShowAll?.(event);
           }}
-          className={`inline-flex shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${pillClassName}`}
+          className={`inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full px-1.5 text-[10px] font-semibold ${pillClassName}`}
         >
           +{extra}
         </button>
@@ -153,35 +157,37 @@ function getStatusColor(status?: string) {
 
   switch (s) {
     case "new":
-      return "bg-blue-500/10 border-blue-500/20 text-blue-600 dark:text-blue-400";
+      return "bg-[#13538A] text-white";
     case "pending":
-      return "bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400";
+      return "bg-amber-500 text-white";
     case "client_pending":
-      return "bg-rose-500/10 border-rose-500/20 text-rose-600 dark:text-rose-400";
+      return "bg-rose-500 text-white";
     case "submitted":
-      return "bg-violet-500/10 border-violet-500/20 text-violet-600 dark:text-violet-400";
+      return "bg-[#1a6aad] text-white";
     case "sent":
-      return "bg-indigo-500/10 border-indigo-500/20 text-indigo-600 dark:text-indigo-400";
+      return "bg-[#13538A] text-white";
     case "updated":
-      return "bg-cyan-500/10 border-cyan-500/20 text-cyan-600 dark:text-cyan-400";
+      return "bg-[#0e3d66] text-white";
     case "approved":
-      return "bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400";
+      return "bg-emerald-600 text-white";
     case "lender_approved":
-      return "bg-green-500/10 border-green-500/20 text-green-600 dark:text-green-400";
+      return "bg-green-600 text-white";
     case "declined":
-      return "bg-red-500/10 border-red-500/20 text-red-600 dark:text-red-400";
+      return "bg-red-600 text-white";
     case "lender_declined":
-      return "bg-rose-600/10 border-rose-600/20 text-rose-700 dark:text-rose-500";
+      return "bg-rose-700 text-white";
     case "in_review":
-      return "bg-sky-500/10 border-sky-500/20 text-sky-600 dark:text-sky-400";
+      return "bg-[#13538A] text-white";
     case "draft":
-      return "bg-gray-400/10 border-gray-400/20 text-gray-600 dark:text-gray-400";
+      return "bg-slate-500 text-white";
     case "completed":
-      return "bg-teal-500/10 border-teal-500/20 text-teal-600 dark:text-teal-400";
+      return "bg-teal-600 text-white";
     case "superseded":
-      return "bg-orange-400/10 border-orange-400/20 text-orange-600 dark:text-orange-400";
+      return "bg-orange-500 text-white";
+    case "funded":
+      return "bg-emerald-700 text-white";
     default:
-      return "bg-slate-500/10 border-slate-500/20 text-slate-600 dark:text-slate-400";
+      return "bg-slate-600 text-white";
   }
 }
 
@@ -833,15 +839,19 @@ export default function LoanApplicationsPage() {
         description="Track and manage assigned loan applications"
       />
 
-      <div className="mx-auto w-full min-w-0 max-w-[1400px] space-y-6">
-        <div className="overflow-hidden rounded-2xl border border-gray-200 bg-gradient-to-br from-[#13538A] via-[#1a6aad] to-[#2C92D5] p-6 text-white shadow-sm dark:border-gray-800 lg:p-8">
-          <div className="flex flex-col gap-6 xl:flex-row xl:items-start xl:gap-10">
+      <div className="mx-auto w-full min-w-0 max-w-[1400px] space-y-6 text-gray-900 dark:text-gray-100">
+        <div className="relative overflow-hidden rounded-2xl border border-[#13538A]/20 bg-[#13538A] p-6 text-white shadow-sm dark:border-[#13538A]/40 lg:p-8">
+          <div className="pointer-events-none absolute -right-16 -top-20 h-56 w-56 rounded-full bg-white/10" />
+          <div className="pointer-events-none absolute -bottom-24 right-28 h-44 w-44 rounded-full bg-white/5" />
+          <div className="relative flex flex-col gap-6 xl:flex-row xl:items-start xl:gap-10">
             <div className="min-w-0 flex-1">
               <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-medium backdrop-blur-sm">
                 <TrendingUp className="h-3.5 w-3.5" />
                 Pipeline Management
               </div>
-              <h1 className="text-2xl font-semibold tracking-tight">Loan Pipeline</h1>
+              <h1 className="text-2xl font-semibold tracking-tight">
+                Loan Pipeline
+              </h1>
               <p className="mt-1 max-w-2xl text-sm text-white/80">
                 {pipelineStats.totalApplications} total application
                 {pipelineStats.totalApplications === 1 ? "" : "s"} ·{" "}
@@ -868,50 +878,56 @@ export default function LoanApplicationsPage() {
           </div>
         </div>
 
-        <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900 lg:p-5">
+        <div className="rounded-2xl border border-[#13538A]/15 bg-white p-4 shadow-sm dark:border-[#13538A]/30 dark:bg-gray-900 lg:p-5">
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
               <div className="relative min-w-0 flex-1">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#13538A]/60" />
                 <input
                   placeholder="Search borrower, app no., officer..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="h-10 w-full rounded-xl border border-gray-200 bg-gray-50 pl-10 pr-10 text-sm outline-none focus:border-[#13538A]/40 focus:ring-2 focus:ring-[#13538A]/10 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100"
+                  className="h-10 w-full rounded-xl border border-[#13538A]/20 bg-[#13538A]/[0.03] pl-10 pr-10 text-sm outline-none transition focus:border-[#13538A] focus:bg-white focus:ring-2 focus:ring-[#13538A]/15 dark:border-[#13538A]/30 dark:bg-gray-950 dark:text-gray-100"
                 />
                 {searchTerm && (
                   <button
                     type="button"
                     onClick={() => setSearchTerm("")}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-[#13538A]"
                   >
                     <X className="h-4 w-4" />
                   </button>
                 )}
               </div>
 
-              <button
-                type="button"
-                onClick={() => navigate("/sub-broker/loan-application")}
-                className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#13538A] px-4 text-sm font-medium text-white transition hover:bg-[#1a6aad]"
-              >
-                <Plus className="h-4 w-4" />
-                New Application
-              </button>
+              <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
+                <button
+                  type="button"
+                  onClick={() => navigate("/sub-broker/loan-application")}
+                  className="inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-xl bg-[#13538A] px-4 text-sm font-medium text-white shadow-sm transition hover:bg-[#0e3d66] sm:flex-none"
+                >
+                  <Plus className="h-4 w-4" />
+                  New Application
+                </button>
 
-              <button
-                type="button"
-                onClick={handleRefresh}
-                disabled={loading}
-                className="inline-flex h-10 items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:opacity-60 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-200"
-              >
-                <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-                Refresh
-              </button>
+                <button
+                  type="button"
+                  onClick={handleRefresh}
+                  disabled={loading}
+                  className="inline-flex h-10 items-center gap-2 rounded-xl border border-[#13538A]/25 bg-white px-4 text-sm font-medium text-[#13538A] transition hover:bg-[#13538A]/5 disabled:opacity-60 dark:border-[#13538A]/40 dark:bg-gray-950 dark:text-[#9fd0f0]"
+                >
+                  <RefreshCw
+                    className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
+                  />
+                  Refresh
+                </button>
+              </div>
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs font-medium text-gray-500">Status:</span>
+              <span className="text-xs font-semibold uppercase tracking-wide text-[#13538A]/70">
+                Status
+              </span>
               {STATUS_FILTERS.map((filter) => {
                 const count = pipelineStats[filter.statKey] ?? 0;
                 const active = statusFilter === filter.value;
@@ -925,14 +941,16 @@ export default function LoanApplicationsPage() {
                     }}
                     className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition ${
                       active
-                        ? "bg-[#13538A] text-white"
-                        : "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300"
+                        ? "bg-[#13538A] text-white shadow-sm"
+                        : "border border-[#13538A]/15 bg-[#13538A]/[0.04] text-[#13538A] hover:bg-[#13538A]/10 dark:border-[#13538A]/30 dark:bg-[#13538A]/10 dark:text-[#9fd0f0]"
                     }`}
                   >
                     {filter.label}
                     <span
                       className={`rounded-full px-1.5 py-0.5 text-[10px] ${
-                        active ? "bg-white/20" : "bg-white dark:bg-gray-900"
+                        active
+                          ? "bg-white/20"
+                          : "bg-white text-[#13538A] dark:bg-gray-900 dark:text-[#9fd0f0]"
                       }`}
                     >
                       {count}
@@ -944,35 +962,38 @@ export default function LoanApplicationsPage() {
           </div>
         </div>
 
-        <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
-          <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4 dark:border-gray-800 lg:px-8">
-            <div>
-              <h2 className="text-sm font-semibold text-gray-900 dark:text-white">
+        <div className="overflow-hidden rounded-2xl border border-[#13538A]/15 bg-white shadow-sm dark:border-[#13538A]/30 dark:bg-gray-900">
+          <div className="flex items-center justify-between gap-3 border-b border-[#13538A]/10 bg-[#13538A]/[0.04] px-5 py-3.5 dark:border-[#13538A]/20 dark:bg-[#13538A]/10 lg:px-6">
+            <div className="min-w-0">
+              <h2 className="text-sm font-semibold text-[#13538A] dark:text-[#9fd0f0]">
                 Applications
               </h2>
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-[#13538A]/70 dark:text-[#9fd0f0]/80">
                 {loading && rows.length === 0
-                  ? "Loading..."
+                  ? "Loading pipeline…"
                   : `${rows.length} shown`}
                 {pagination.total > rows.length ? "+" : ""}
                 {statusFilter ? ` · ${formatStatusLabel(statusFilter)}` : ""}
               </p>
             </div>
+            <span className="inline-flex shrink-0 items-center rounded-full bg-[#13538A] px-2.5 py-1 text-[11px] font-semibold text-white">
+              {loading && rows.length === 0 ? "…" : rows.length}
+            </span>
           </div>
 
-          <div className="min-w-0">
+          <div className="min-w-0 overflow-hidden">
             <table className="w-full table-fixed text-left">
               <colgroup>
                 <col className="w-[20%]" />
-                <col className="w-[16%]" />
                 <col className="w-[14%]" />
-                <col className="w-[8%]" />
+                <col className="w-[14%]" />
+                <col className="w-[9%]" />
                 <col className="w-[10%]" />
+                <col className="w-[11%]" />
                 <col className="w-[12%]" />
-                <col className="w-[14%]" />
-                <col className="w-[6%]" />
+                <col className="w-[10%]" />
               </colgroup>
-              <thead className="bg-gray-50/80 dark:bg-gray-800/50">
+              <thead className="sticky top-0 z-[1] bg-[#13538A] text-white">
                 <tr>
                   {[
                     "Borrower",
@@ -982,11 +1003,15 @@ export default function LoanApplicationsPage() {
                     "Submitted",
                     "Status",
                     "Loan Officer",
-                    "",
+                    "Actions",
                   ].map((label) => (
                     <th
-                      key={label || "actions"}
-                      className="overflow-hidden px-3 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 first:pl-6 last:pr-6 lg:first:pl-8 lg:last:pr-8"
+                      key={label}
+                      className={`px-3 py-3 text-[11px] font-semibold uppercase tracking-wider first:pl-5 last:pr-5 lg:first:pl-6 lg:last:pr-6 ${
+                        label === "Amount" || label === "Actions"
+                          ? "text-right"
+                          : "text-left"
+                      }`}
                     >
                       <span className="block truncate">{label}</span>
                     </th>
@@ -994,91 +1019,96 @@ export default function LoanApplicationsPage() {
                 </tr>
               </thead>
 
-              <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+              <tbody className="divide-y divide-[#13538A]/10 dark:divide-[#13538A]/20">
                 {loading && rows.length === 0 ? (
-                  Array.from({ length: 4 }).map((_, i) => (
+                  Array.from({ length: 5 }).map((_, i) => (
                     <tr key={i}>
-                      <td
-                        colSpan={8}
-                        className="px-4 py-4 first:pl-6 last:pr-6 lg:px-5 lg:first:pl-8 lg:last:pr-8"
-                      >
-                        <div className="h-10 animate-pulse rounded-lg bg-gray-100 dark:bg-gray-800" />
-                      </td>
+                      {Array.from({ length: 8 }).map((__, cell) => (
+                        <td key={cell} className="px-4 py-4">
+                          <div className="h-8 animate-pulse rounded-lg bg-[#13538A]/10 dark:bg-[#13538A]/20" />
+                        </td>
+                      ))}
                     </tr>
                   ))
                 ) : rows.length > 0 ? (
                   rows.map((row) => (
                     <tr
                       key={row.submissionId}
-                      className="group cursor-pointer transition hover:bg-[#13538A]/[0.03] dark:hover:bg-gray-800/50"
+                      className="group cursor-pointer border-l-2 border-transparent transition hover:border-l-[#13538A] hover:bg-[#13538A]/[0.045] dark:hover:bg-[#13538A]/15"
                     >
                       <td
                         onClick={() => openPreview(row.submissionId, row)}
-                        className="overflow-hidden px-3 py-3 align-middle first:pl-6 lg:first:pl-8"
+                        className="px-4 py-3.5 align-middle first:pl-5 lg:first:pl-6"
                         title={row.borrowerName}
                       >
-                        <div className="flex min-w-0 items-center gap-2">
-                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#13538A]/10 text-xs font-semibold text-[#13538A]">
+                        <div className="flex min-w-0 items-center gap-3">
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#13538A] text-[11px] font-semibold text-white shadow-sm">
                             {getInitials(row.borrowerName)}
                           </div>
-                          <span className="truncate text-sm font-medium text-gray-900 dark:text-white">
-                            {row.borrowerName || "Untitled"}
-                          </span>
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-semibold text-slate-900 dark:text-white">
+                              {row.borrowerName || "Untitled"}
+                            </p>
+                            <p className="truncate text-[11px] text-slate-500">
+                              {formatFieldKey(
+                                row.loanType || row.company || "Loan application",
+                              )}
+                            </p>
+                          </div>
                         </div>
                       </td>
 
                       <td
                         onClick={() => openPreview(row.submissionId, row)}
-                        className="overflow-hidden px-3 py-3 align-middle"
+                        className="px-4 py-3.5 align-middle"
                         title={row.applicationNumber}
                       >
-                        <div className="flex min-w-0 items-center gap-1.5">
-                          <span className="truncate text-sm text-gray-800 dark:text-gray-200">
-                            {row.applicationNumber || "—"}
-                          </span>
-                          {row.pendingDocumentsCount ? (
-                            <span className="shrink-0 rounded bg-amber-50 px-1 py-0.5 text-[10px] font-medium text-amber-700">
-                              {row.pendingDocumentsCount}
-                            </span>
-                          ) : null}
-                        </div>
+                        <span className="inline-flex max-w-full truncate rounded-md bg-[#13538A]/10 px-2 py-0.5 font-mono text-[12px] font-medium text-[#13538A] dark:bg-[#13538A]/20 dark:text-[#9fd0f0]">
+                          {row.applicationNumber || "—"}
+                        </span>
                       </td>
 
                       <td
                         onClick={() => openPreview(row.submissionId, row)}
-                        className="overflow-hidden px-3 py-3 align-middle"
-                        title={[row.cityState, row.country].filter(Boolean).join(", ")}
+                        className="px-4 py-3.5 align-middle"
+                        title={[row.cityState, row.country]
+                          .filter(Boolean)
+                          .join(", ")}
                       >
-                        <div className="flex min-w-0 items-center gap-1 text-sm text-gray-700 dark:text-gray-300">
-                          <MapPin className="h-3.5 w-3.5 shrink-0 text-gray-400" />
+                        <div className="flex min-w-0 items-center gap-1.5 text-sm text-slate-600 dark:text-slate-300">
+                          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-[#13538A]/10 text-[#13538A]">
+                            <MapPin className="h-3.5 w-3.5" />
+                          </span>
                           <span className="truncate">
-                            {[row.cityState, row.country].filter(Boolean).join(", ") || "—"}
+                            {[row.cityState, row.country]
+                              .filter(Boolean)
+                              .join(", ") || "—"}
                           </span>
                         </div>
                       </td>
 
                       <td
                         onClick={() => openPreview(row.submissionId, row)}
-                        className="overflow-hidden px-3 py-3 align-middle font-mono text-sm text-gray-800 dark:text-gray-200"
+                        className="px-4 py-3.5 align-middle text-right"
                       >
-                        <span className="block truncate">
+                        <span className="text-sm font-semibold tabular-nums text-slate-900 dark:text-white">
                           {formatCompactAmount(Number(row.amount || 0))}
                         </span>
                       </td>
 
                       <td
                         onClick={() => openPreview(row.submissionId, row)}
-                        className="overflow-hidden px-3 py-3 align-middle text-sm text-gray-600 dark:text-gray-400"
+                        className="whitespace-nowrap px-4 py-3.5 align-middle text-sm text-slate-500 dark:text-slate-400"
                       >
-                        <span className="block truncate">{formatShortDate(row.date)}</span>
+                        {formatShortDate(row.date)}
                       </td>
 
                       <td
                         onClick={() => openPreview(row.submissionId, row)}
-                        className="overflow-hidden px-3 py-3 align-middle"
+                        className="px-4 py-3.5 align-middle"
                       >
                         <span
-                          className={`inline-flex max-w-full items-center truncate rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${getStatusColor(row.status)}`}
+                          className={`inline-flex max-w-full items-center truncate rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide ${getStatusColor(row.status)}`}
                           title={formatStatusLabel(row.status)}
                         >
                           {formatStatusLabel(row.status)}
@@ -1087,7 +1117,7 @@ export default function LoanApplicationsPage() {
 
                       <td
                         onClick={() => openPreview(row.submissionId, row)}
-                        className="overflow-hidden px-3 py-3 align-middle"
+                        className="px-4 py-3.5 align-middle"
                         title={
                           (row.assignedLoanOfficers || [])
                             .map((person) => person.name)
@@ -1096,7 +1126,7 @@ export default function LoanApplicationsPage() {
                       >
                         <AssigneePills
                           people={row.assignedLoanOfficers || []}
-                          pillClassName="bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300"
+                          pillClassName="bg-[#13538A]/10 text-[#13538A] dark:bg-[#13538A]/20 dark:text-[#9fd0f0]"
                           onShowAll={() =>
                             setPeopleModal({
                               open: true,
@@ -1109,10 +1139,21 @@ export default function LoanApplicationsPage() {
                       </td>
 
                       <td
-                        className="overflow-hidden px-2 py-3 pr-6 text-right align-middle lg:pr-8"
+                        className="overflow-visible px-2 py-3.5 pr-5 text-right align-middle lg:pr-6"
                         onClick={(e) => e.stopPropagation()}
                       >
-                        <div className="inline-flex items-center justify-end">
+                        <div className="flex shrink-0 items-center justify-end gap-1.5">
+                          <button
+                            type="button"
+                            title="Open application"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openPreview(row.submissionId, row);
+                            }}
+                            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#13538A] text-white shadow-sm transition hover:bg-[#0e3d66]"
+                          >
+                            <Eye size={15} />
+                          </button>
                           <button
                             type="button"
                             title="More actions"
@@ -1120,7 +1161,8 @@ export default function LoanApplicationsPage() {
                             data-dropdown-trigger
                             onClick={(e) => {
                               e.stopPropagation();
-                              const rect = e.currentTarget.getBoundingClientRect();
+                              const rect =
+                                e.currentTarget.getBoundingClientRect();
                               setDropdownPos(
                                 getFixedMenuPosition(rect, {
                                   width: 192,
@@ -1133,9 +1175,13 @@ export default function LoanApplicationsPage() {
                                   : row.submissionId,
                               );
                             }}
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
+                            className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-white shadow-sm transition ${
+                              activeDropdown === row.submissionId
+                                ? "bg-[#0e3d66]"
+                                : "bg-[#13538A] hover:bg-[#0e3d66]"
+                            }`}
                           >
-                            <MoreVertical size={16} />
+                            <MoreHorizontal size={16} />
                           </button>
                         </div>
 
@@ -1149,7 +1195,7 @@ export default function LoanApplicationsPage() {
                                 left: dropdownPos.left,
                               }}
                               onMouseDown={(e) => e.stopPropagation()}
-                              className="z-[9999] w-48 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl dark:border-gray-800 dark:bg-gray-900"
+                              className="z-[9999] w-48 overflow-hidden rounded-xl bg-[#13538A] shadow-xl"
                             >
                               <button
                                 type="button"
@@ -1159,7 +1205,7 @@ export default function LoanApplicationsPage() {
                                   setActiveDropdown(null);
                                   openPreview(row.submissionId, row);
                                 }}
-                                className="flex w-full items-center gap-3 px-4 py-3 text-sm text-[#13538A] hover:bg-gray-50 dark:hover:bg-gray-800"
+                                className="flex w-full items-center gap-3 px-4 py-3 text-sm font-medium text-white hover:bg-[#0e3d66]"
                               >
                                 <Eye size={14} />
                                 Open Application
@@ -1174,7 +1220,7 @@ export default function LoanApplicationsPage() {
                   <tr>
                     <td colSpan={8} className="px-6 py-20 text-center">
                       <div className="mx-auto flex max-w-sm flex-col items-center">
-                        <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gray-100 text-gray-400 dark:bg-gray-800">
+                        <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#13538A]/10 text-[#13538A]">
                           <SearchX className="h-6 w-6" />
                         </div>
                         <h3 className="text-base font-semibold text-gray-900 dark:text-white">
@@ -1194,32 +1240,37 @@ export default function LoanApplicationsPage() {
               </tbody>
             </table>
 
-            <div className="flex flex-col gap-3 border-t border-gray-100 px-6 py-4 sm:flex-row sm:items-center sm:justify-between dark:border-gray-800 lg:px-8">
-              <p className="text-xs text-gray-500">
-                Page {pagination.page} of {pagination.totalPages} · {pagination.total} total
-              </p>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  disabled={!pagination.hasPreviousPage || loading}
-                  onClick={() => setCurrentPage((prev) => prev - 1)}
-                  className="inline-flex h-9 items-center rounded-xl border border-gray-200 bg-white px-4 text-xs font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-200"
-                >
-                  Previous
-                </button>
-                <button
-                  type="button"
-                  disabled={!pagination.hasNextPage || loading}
-                  onClick={() => setCurrentPage((prev) => prev + 1)}
-                  className="inline-flex h-9 items-center rounded-xl bg-[#13538A] px-4 text-xs font-semibold text-white transition hover:bg-[#0f4370] disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  Next
-                </button>
+            {(pagination.totalPages > 1 ||
+              pagination.hasNextPage ||
+              pagination.hasPreviousPage) && (
+              <div className="flex flex-col gap-3 border-t border-[#13538A]/10 px-5 py-3.5 sm:flex-row sm:items-center sm:justify-between dark:border-[#13538A]/20 lg:px-6">
+                <p className="text-xs text-[#13538A]/70">
+                  Page {pagination.page} of {pagination.totalPages} ·{" "}
+                  {pagination.total} total
+                </p>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    disabled={!pagination.hasPreviousPage || loading}
+                    onClick={() => setCurrentPage((prev) => prev - 1)}
+                    className="inline-flex h-9 items-center rounded-xl border border-[#13538A]/25 bg-white px-4 text-xs font-medium text-[#13538A] transition hover:bg-[#13538A]/5 disabled:cursor-not-allowed disabled:opacity-40 dark:border-[#13538A]/40 dark:bg-gray-950 dark:text-[#9fd0f0]"
+                  >
+                    Previous
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!pagination.hasNextPage || loading}
+                    onClick={() => setCurrentPage((prev) => prev + 1)}
+                    className="inline-flex h-9 items-center rounded-xl bg-[#13538A] px-4 text-xs font-semibold text-white transition hover:bg-[#0e3d66] disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    Next
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
 
             {loading && rows.length > 0 && (
-              <div className="border-t border-gray-100 px-6 py-4 text-center dark:border-gray-800">
+              <div className="border-t border-[#13538A]/10 px-6 py-3 text-center dark:border-[#13538A]/20">
                 <Loader2 className="mx-auto h-5 w-5 animate-spin text-[#13538A]" />
               </div>
             )}
