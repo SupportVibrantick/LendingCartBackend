@@ -1484,7 +1484,11 @@ const LoanApplication = ({
           equityMismatchError
         )
           newErrors["loanRequest.downPayment"] =
-            "Loan Amount + Down Payment + Seller Financing must equal the Purchase Price";
+            isConstructionLoanProduct(selectedProduct)
+              ? "Loan Amount + Down Payment + Seller Financing must equal Purchase Price + Construction Cost"
+              : isFixAndFlipProduct(selectedProduct)
+                ? "Loan Amount + Down Payment + Seller Financing must equal Purchase Price + Rehab Cost"
+                : "Loan Amount + Down Payment + Seller Financing must equal the Purchase Price";
         if (
           showResidentialPropertyMarketValue(selectedProduct, purpose) &&
           toNumber(formData.loanRequest.currentMarketValue) <= 0
@@ -2371,13 +2375,16 @@ const LoanApplication = ({
     borrowerLiabilities,
     netWorth,
     rehabCost,
+    constructionCost,
     totalFlipCost,
+    totalConstructionCost,
     downPaymentTotal,
     hasSellerFinancing,
     sellerFinancingTotal,
     loanAmountTotal,
     purchasePriceTotal,
     hasPurchasePrice,
+    equityTargetTotal,
     equityGrandTotal,
     equityMismatchError,
     marketValue,
@@ -4052,9 +4059,11 @@ focus:border-blue-500 outline-none text-sm ${
                           Purchase, Equity, &amp; Costs
                         </p>
                         <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-                          Total Project Cost = Purchase Price + Rehab Cost. Loan
-                          Amount + Down Payment + Seller Financing must equal
-                          the Purchase Price.
+                          {isConstructionLoanProduct(selectedProduct)
+                            ? "Total Amount = Purchase Price + Construction Cost. Also, Total Amount = Loan Amount + Down Payment + Seller Financing."
+                            : isFixAndFlipProduct(selectedProduct)
+                              ? "Total Amount = Purchase Price + Rehab Cost. Also, Total Amount = Loan Amount + Down Payment + Seller Financing."
+                              : "Loan Amount + Down Payment + Seller Financing must equal the Purchase Price."}
                         </p>
 
                         <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -4169,15 +4178,19 @@ focus:border-blue-500 outline-none text-sm ${
                                     }
                                     placeholder="0"
                                     className={`w-full rounded-md border py-1 pl-7 pr-4 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
-                                      errors["loanRequest.rehabCost"]
+                                      errors["loanRequest.rehabCost"] ||
+                                      errors["loanRequest.constructionCost"] ||
+                                      equityMismatchError
                                         ? "border-red-500 bg-red-50"
                                         : "border-slate-300"
                                     }`}
                                   />
                                 </div>
-                                {errors["loanRequest.rehabCost"] && (
+                                {(errors["loanRequest.rehabCost"] ||
+                                  errors["loanRequest.constructionCost"]) && (
                                   <p className="mt-1 text-xs text-red-500">
-                                    {errors["loanRequest.rehabCost"]}
+                                    {errors["loanRequest.rehabCost"] ||
+                                      errors["loanRequest.constructionCost"]}
                                   </p>
                                 )}
                               </div>
@@ -4220,15 +4233,27 @@ focus:border-blue-500 outline-none text-sm ${
                             </div>
                           )}
 
-                        {isFixAndFlipProduct(selectedProduct) && (
+                        {(isFixAndFlipProduct(selectedProduct) ||
+                          isConstructionLoanProduct(selectedProduct)) && (
                           <div className="mt-3 rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 p-3 text-xs text-slate-600 dark:text-slate-300">
                             <span className="font-semibold">
-                              Total Project Cost (Auto):
+                              Total Amount / Project Cost (Auto):
                             </span>{" "}
-                            ${totalFlipCost.toLocaleString()} &nbsp;|&nbsp;
-                            Purchase Price: $
-                            {purchasePriceTotal.toLocaleString()} + Rehab Cost:
-                            ${rehabCost.toLocaleString()}
+                            $
+                            {(isConstructionLoanProduct(selectedProduct)
+                              ? totalConstructionCost
+                              : totalFlipCost
+                            ).toLocaleString()}{" "}
+                            &nbsp;|&nbsp; Purchase Price: $
+                            {purchasePriceTotal.toLocaleString()} +{" "}
+                            {isConstructionLoanProduct(selectedProduct)
+                              ? "Construction Cost"
+                              : "Rehab Cost"}
+                            : $
+                            {(isConstructionLoanProduct(selectedProduct)
+                              ? constructionCost
+                              : rehabCost
+                            ).toLocaleString()}
                           </div>
                         )}
 
@@ -4255,12 +4280,25 @@ focus:border-blue-500 outline-none text-sm ${
                             </div>
                           ) : equityMismatchError ? (
                             <div className="mt-1">
-                              Total must equal the Purchase Price ($
-                              {purchasePriceTotal.toLocaleString()}).
+                              {isConstructionLoanProduct(selectedProduct) ||
+                              isFixAndFlipProduct(selectedProduct)
+                                ? `Total must equal Purchase Price + ${
+                                    isConstructionLoanProduct(selectedProduct)
+                                      ? "Construction Cost"
+                                      : "Rehab Cost"
+                                  } ($${equityTargetTotal.toLocaleString()}).`
+                                : `Total must equal the Purchase Price ($${purchasePriceTotal.toLocaleString()}).`}
                             </div>
                           ) : (
                             <div className="mt-1">
-                              Total matches Purchase Price.
+                              {isConstructionLoanProduct(selectedProduct) ||
+                              isFixAndFlipProduct(selectedProduct)
+                                ? "Total matches Purchase Price + " +
+                                  (isConstructionLoanProduct(selectedProduct)
+                                    ? "Construction Cost"
+                                    : "Rehab Cost") +
+                                  "."
+                                : "Total matches Purchase Price."}
                             </div>
                           )}
                         </div>

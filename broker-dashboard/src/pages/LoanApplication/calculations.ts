@@ -71,6 +71,7 @@ export interface LoanMetrics {
   loanAmountTotal: number;
   purchasePriceTotal: number;
   hasPurchasePrice: boolean;
+  equityTargetTotal: number;
   equityGrandTotal: number;
   equityMismatchError: boolean;
 
@@ -124,13 +125,21 @@ export function computeLoanMetrics(ctx: LoanMetricsContext): LoanMetrics {
   const loanAmountTotal = loanAmount;
   const purchasePriceTotal = purchasePrice;
   const hasPurchasePrice = purchasePriceTotal > 0;
+  // Funding stack must cover total project cost for construction / F&F:
+  // Purchase + Construction/Rehab = Loan + Down (+ Seller Note).
+  // Other purchase products still balance against purchase price only.
+  const equityTargetTotal = isConstructionLoanProduct(selectedProduct)
+    ? purchasePrice + constructionCost
+    : isFixAndFlipProduct(selectedProduct)
+      ? purchasePrice + rehabCost
+      : purchasePrice;
   const equityGrandTotal =
     loanAmountTotal + downPaymentTotal + sellerFinancingTotal;
   // Small tolerance to avoid float-comparison false positives
   // (e.g. user-entered decimals like 100000.01 vs 100000.005).
   const equityMismatchError =
     hasPurchasePrice &&
-    Math.abs(equityGrandTotal - purchasePriceTotal) >= 0.01;
+    Math.abs(equityGrandTotal - equityTargetTotal) >= 0.01;
 
   // As-is = current market when entered, otherwise purchase price.
   const asIsValue = marketValue > 0 ? marketValue : purchasePrice;
@@ -242,6 +251,7 @@ export function computeLoanMetrics(ctx: LoanMetricsContext): LoanMetrics {
     loanAmountTotal,
     purchasePriceTotal,
     hasPurchasePrice,
+    equityTargetTotal,
     equityGrandTotal,
     equityMismatchError,
     totalFlipCost,
