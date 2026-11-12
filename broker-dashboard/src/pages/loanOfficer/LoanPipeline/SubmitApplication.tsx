@@ -875,7 +875,7 @@ export default function LoanApplicationsPage() {
   const Stat = ({ label, value }: { label: string; value: string }) => (
     <div>
       <p className="text-xs text-slate-500 uppercase">{label}</p>
-      <p className="text-[14px] font-semibold text-[#2C92D5]">{value}</p>
+      <p className="text-[14px] font-semibold text-[#13538A]">{value}</p>
     </div>
   );
 
@@ -1291,8 +1291,10 @@ export default function LoanApplicationsPage() {
   return (
     <div className="mx-auto w-full min-w-0 max-w-[1400px] space-y-6 text-gray-900 dark:text-gray-100">
       {/* Hero */}
-      <div className="overflow-hidden rounded-2xl border border-gray-200 bg-gradient-to-br from-[#13538A] via-[#1a6aad] to-[#2C92D5] p-6 text-white shadow-sm dark:border-gray-800 lg:p-8">
-        <div className="flex flex-col gap-6 xl:flex-row xl:items-start xl:gap-10">
+      <div className="relative overflow-hidden rounded-2xl border border-[#13538A]/20 bg-[#13538A] p-6 text-white shadow-sm dark:border-[#13538A]/40 lg:p-8">
+        <div className="pointer-events-none absolute -right-16 -top-20 h-56 w-56 rounded-full bg-white/10" />
+        <div className="pointer-events-none absolute -bottom-24 right-28 h-44 w-44 rounded-full bg-white/5" />
+        <div className="relative flex flex-col gap-6 xl:flex-row xl:items-start xl:gap-10">
           <div className="min-w-0 flex-1">
             <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-medium backdrop-blur-sm">
               <TrendingUp className="h-3.5 w-3.5" />
@@ -1303,7 +1305,7 @@ export default function LoanApplicationsPage() {
             </h1>
             <p className="mt-1 max-w-2xl text-sm text-white/80">
               {pipelineStats.totalApplications} total application
-              {pipelineStats.totalApplications === 1 ? "" : "s"} Â·{" "}
+              {pipelineStats.totalApplications === 1 ? "" : "s"} ·{" "}
               {formatCompactAmount(pipelineStats.totalVolume)} pipeline volume
             </p>
           </div>
@@ -1328,11 +1330,11 @@ export default function LoanApplicationsPage() {
       </div>
 
       {/* Toolbar */}
-      <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900 lg:p-5">
+      <div className="rounded-2xl border border-[#13538A]/15 bg-white p-4 shadow-sm dark:border-[#13538A]/30 dark:bg-gray-900 lg:p-5">
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
             <div className="relative min-w-0 flex-1">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#13538A]/60" />
               <input
                 placeholder="Search borrower, app no., officer..."
                 value={searchTerm}
@@ -1348,7 +1350,7 @@ export default function LoanApplicationsPage() {
                     loadSubmissions(undefined, value, statusFilter);
                   }, 500);
                 }}
-                className="h-10 w-full rounded-xl border border-gray-200 bg-gray-50 pl-10 pr-10 text-sm outline-none focus:border-[#13538A]/40 focus:ring-2 focus:ring-[#13538A]/10 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100"
+                className="h-10 w-full rounded-xl border border-[#13538A]/20 bg-[#13538A]/[0.03] pl-10 pr-10 text-sm outline-none transition focus:border-[#13538A] focus:bg-white focus:ring-2 focus:ring-[#13538A]/15 dark:border-[#13538A]/30 dark:bg-gray-950 dark:text-gray-100"
               />
               {searchTerm && (
                 <button
@@ -1357,7 +1359,7 @@ export default function LoanApplicationsPage() {
                     setSearchTerm("");
                     loadSubmissions(undefined, "", statusFilter);
                   }}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-[#13538A]"
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -1368,9 +1370,9 @@ export default function LoanApplicationsPage() {
               <button
                 type="button"
                 onClick={() => navigate("/loan-officer/loan-application")}
-                className="inline-flex h-10 flex-1 items-center justify-center rounded-xl bg-[#2C92D5] px-4 text-sm font-medium text-white transition hover:bg-[#2379b3] sm:flex-none"
+                className="inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-xl bg-[#13538A] px-4 text-sm font-medium text-white shadow-sm transition hover:bg-[#0e3d66] sm:flex-none"
               >
-                <Plus className="mr-1.5 h-4 w-4" />
+                <Plus className="h-4 w-4" />
                 New Application
               </button>
 
@@ -1378,7 +1380,7 @@ export default function LoanApplicationsPage() {
                 type="button"
                 onClick={handleRefresh}
                 disabled={loading}
-                className="inline-flex h-10 items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:opacity-60 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-200"
+                className="inline-flex h-10 items-center gap-2 rounded-xl border border-[#13538A]/25 bg-white px-4 text-sm font-medium text-[#13538A] transition hover:bg-[#13538A]/5 disabled:opacity-60 dark:border-[#13538A]/40 dark:bg-gray-950 dark:text-[#9fd0f0]"
               >
                 <RefreshCw
                   className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
@@ -1389,7 +1391,9 @@ export default function LoanApplicationsPage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs font-medium text-gray-500">Status:</span>
+            <span className="text-xs font-semibold uppercase tracking-wide text-[#13538A]/70">
+              Status
+            </span>
             {STATUS_FILTERS.map((filter) => {
               const count = pipelineStats[filter.statKey] ?? 0;
               const active = statusFilter === filter.value;
@@ -1400,14 +1404,16 @@ export default function LoanApplicationsPage() {
                   onClick={() => setStatusFilter(filter.value)}
                   className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition ${
                     active
-                      ? "bg-[#13538A] text-white"
-                      : "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300"
+                      ? "bg-[#13538A] text-white shadow-sm"
+                      : "border border-[#13538A]/15 bg-[#13538A]/[0.04] text-[#13538A] hover:bg-[#13538A]/10 dark:border-[#13538A]/30 dark:bg-[#13538A]/10 dark:text-[#9fd0f0]"
                   }`}
                 >
                   {filter.label}
                   <span
                     className={`rounded-full px-1.5 py-0.5 text-[10px] ${
-                      active ? "bg-white/20" : "bg-white dark:bg-gray-900"
+                      active
+                        ? "bg-white/20"
+                        : "bg-white text-[#13538A] dark:bg-gray-900 dark:text-[#9fd0f0]"
                     }`}
                   >
                     {count}
@@ -1420,17 +1426,17 @@ export default function LoanApplicationsPage() {
       </div>
 
       {/* Table */}
-      <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
-        <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4 dark:border-gray-800 lg:px-8">
+      <div className="overflow-hidden rounded-2xl border border-[#13538A]/15 bg-white shadow-sm dark:border-[#13538A]/30 dark:bg-gray-900">
+        <div className="flex items-center justify-between border-b border-[#13538A]/10 bg-[#13538A]/[0.04] px-6 py-4 dark:border-[#13538A]/20 dark:bg-[#13538A]/10 lg:px-8">
           <div>
-            <h2 className="text-sm font-semibold text-gray-900 dark:text-white">
+            <h2 className="text-sm font-semibold text-[#13538A] dark:text-[#9fd0f0]">
               Applications
             </h2>
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-[#13538A]/70 dark:text-[#9fd0f0]/80">
               {loading && rows.length === 0
                 ? "Loading..."
                 : `${rows.length} shown${hasMore ? "+" : ""}`}
-              {statusFilter ? ` Â· ${formatStatusLabel(statusFilter)}` : ""}
+              {statusFilter ? ` · ${formatStatusLabel(statusFilter)}` : ""}
             </p>
           </div>
         </div>
@@ -1448,7 +1454,7 @@ export default function LoanApplicationsPage() {
               <col className="w-[7%]" />
               <col className="w-[8%]" />
             </colgroup>
-            <thead className="bg-gray-50/80 dark:bg-gray-800/50">
+            <thead className="bg-[#13538A]/[0.06] dark:bg-[#13538A]/15">
               <tr>
                 {[
                   "Borrower",
@@ -1463,7 +1469,7 @@ export default function LoanApplicationsPage() {
                 ].map((label) => (
                   <th
                     key={label || "actions"}
-                    className="overflow-hidden px-3 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 first:pl-6 last:pr-6 lg:first:pl-8 lg:last:pr-8"
+                    className="overflow-hidden px-3 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-[#13538A] first:pl-6 last:pr-6 dark:text-[#9fd0f0] lg:first:pl-8 lg:last:pr-8"
                   >
                     <span className="block truncate">{label}</span>
                   </th>
@@ -1574,7 +1580,7 @@ export default function LoanApplicationsPage() {
                     >
                       <AssigneePills
                         people={row.assignedLoanOfficers || []}
-                        pillClassName="bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300"
+                        pillClassName="bg-[#13538A]/10 text-[#13538A] dark:bg-[#13538A]/20 dark:text-[#9fd0f0]"
                         onShowAll={() =>
                           setPeopleModal({
                             open: true,
@@ -1592,7 +1598,7 @@ export default function LoanApplicationsPage() {
                     >
                       <AssigneePills
                         people={row.assignedSubBrokers || []}
-                        pillClassName="bg-cyan-50 text-cyan-700 dark:bg-cyan-500/10 dark:text-cyan-300"
+                        pillClassName="bg-[#13538A]/[0.07] text-[#0e3d66] dark:bg-[#13538A]/15 dark:text-[#c5e4f6]"
                         onShowAll={() =>
                           setPeopleModal({
                             open: true,
@@ -1749,7 +1755,7 @@ export default function LoanApplicationsPage() {
                           onClick={() =>
                             navigate("/loan-officer/loan-application")
                           }
-                          className="mt-4 inline-flex items-center gap-2 rounded-xl bg-[#2C92D5] px-4 py-2 text-sm font-medium text-white hover:bg-[#2379b3]"
+                          className="mt-4 inline-flex items-center gap-2 rounded-xl bg-[#13538A] px-4 py-2 text-sm font-medium text-white hover:bg-[#0e3d66]"
                         >
                           <Plus className="h-4 w-4" />
                           Create Application
@@ -2541,7 +2547,7 @@ text-sm text-slate-600 dark:text-slate-400 flex justify-between"
       ${
         sentLenders[l.lenderProductId]
           ? "bg-emerald-500 text-white cursor-not-allowed"
-          : "bg-[#2C92D5] hover:bg-[#227dba] text-white"
+          : "bg-[#13538A] hover:bg-[#0e3d66] text-white"
       }
       disabled:opacity-60 disabled:cursor-not-allowed
     `}
@@ -3486,7 +3492,7 @@ dark:scrollbar-thumb-slate-700 w-full
                 <button
                   onClick={handleAssignSubBroker}
                   disabled={assigningSubBroker}
-                  className="h-12 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 px-5 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
+                  className="h-12 rounded-2xl bg-[#13538A] px-5 text-sm font-semibold text-white transition hover:bg-[#0e3d66] disabled:opacity-50"
                 >
                   {assigningSubBroker ? "Saving..." : "Save Assignments"}
                 </button>
