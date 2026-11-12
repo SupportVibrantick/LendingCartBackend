@@ -21,6 +21,8 @@ import {
 import { STATIC_FIELD_KEYS, OPTIONAL_LOAN_REQUEST_KEYS } from "./constants";
 import { CO_BROKER_BORROWER_INFO_STEP } from "./types";
 import {
+  isConstructionLoanProduct,
+  isFixAndFlipProduct,
   isLoanRequestOriginalPurchaseDate,
   isLoanRequestPurchaseDateField,
   shouldHidePropertyPurchaseDate,
@@ -365,7 +367,11 @@ export const collectStepValidationErrors = (
         equityMismatchError
       ) {
         newErrors["loanRequest.downPayment"] =
-          "Loan Amount + Down Payment + Seller Financing must equal the Purchase Price";
+          isConstructionLoanProduct(selectedProduct)
+            ? "Loan Amount + Down Payment + Seller Financing must equal Purchase Price + Construction Cost"
+            : isFixAndFlipProduct(selectedProduct)
+              ? "Loan Amount + Down Payment + Seller Financing must equal Purchase Price + Rehab Cost"
+              : "Loan Amount + Down Payment + Seller Financing must equal the Purchase Price";
       }
 
       if (
