@@ -12,15 +12,22 @@ import {
   isDeclarationAnswered,
   LEGAL_STATUS_OPTIONS,
   LIABILITY_FIELD_DEFS,
+  SREO_PROPERTY_TYPE_GROUPS,
+  calcSreoNetRent,
+  calcSreoTotalEquity,
+  calcSoldTotalProfit,
+  calcSoldTotalProjectCost,
+  formatSignedMoney,
   type BorrowerAssets,
   type BorrowerDeclarations,
   type BorrowerLiabilities,
   type RealEstateOwnedEntry,
+  type RecentlySoldPropertyEntry,
   type ResidentialBorrowerFields,
   type YesNo,
   sumBorrowerAssets,
   sumBorrowerLiabilities,
-  sumScheduleMarketValue,
+  sumScheduleTotalEquity,
   formatCurrencyInput,
 } from "../../lib/residentialBorrower";
 
@@ -29,6 +36,7 @@ type BorrowerPanelData = ResidentialBorrowerFields & {
   email: string;
   ssn: string;
   creditScore: string;
+  dob: string;
 };
 
 export type ResidentialBorrowerPanelProps = {
@@ -51,6 +59,13 @@ export type ResidentialBorrowerPanelProps = {
   onPropertyChange: (
     propertyId: number,
     field: keyof RealEstateOwnedEntry,
+    value: string,
+  ) => void;
+  onAddSoldProperty: () => void;
+  onRemoveSoldProperty: (propertyId: number) => void;
+  onSoldPropertyChange: (
+    propertyId: number,
+    field: keyof RecentlySoldPropertyEntry,
     value: string,
   ) => void;
   onRemove?: () => void;
@@ -198,6 +213,54 @@ const CurrencyField = ({
   </div>
 );
 
+const ReadOnlyCurrencyField = ({
+  label,
+  amount,
+}: {
+  label: string;
+  amount: number;
+}) => (
+  <div className="w-full">
+    <label className="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">
+      {label}
+    </label>
+    <div className="mt-1 rounded-md border border-slate-200 bg-slate-50 px-4 py-1 text-sm font-semibold text-slate-800 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100">
+      {formatSignedMoney(amount)}
+    </div>
+  </div>
+);
+
+const PropertyTypeSelect = ({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+}) => (
+  <select
+    value={value}
+    onChange={(e) => onChange(e.target.value)}
+    className={inputClass(false)}
+  >
+    <option value="">Select property type</option>
+    {SREO_PROPERTY_TYPE_GROUPS.map((group) => (
+      <optgroup key={group.group} label={group.group}>
+        {group.options.map((option) => (
+          <option key={`${group.group}-${option}`} value={option}>
+            {option}
+          </option>
+        ))}
+      </optgroup>
+    ))}
+    {value &&
+    !SREO_PROPERTY_TYPE_GROUPS.some((group) =>
+      group.options.includes(value),
+    ) ? (
+      <option value={value}>{value}</option>
+    ) : null}
+  </select>
+);
+
 export default function ResidentialBorrowerPanel({
   borrowerIndex,
   isPrimary,
@@ -213,6 +276,9 @@ export default function ResidentialBorrowerPanel({
   onAddProperty,
   onRemoveProperty,
   onPropertyChange,
+  onAddSoldProperty,
+  onRemoveSoldProperty,
+  onSoldPropertyChange,
   onRemove,
   onAmountChange,
 }: ResidentialBorrowerPanelProps) {
@@ -222,11 +288,12 @@ export default function ResidentialBorrowerPanel({
   const liabilities = borrower.liabilities ?? createEmptyLiabilities();
   const declarations = borrower.declarations ?? createEmptyDeclarations();
   const realEstateOwned = borrower.realEstateOwned ?? [];
+  const recentlySoldProperties = borrower.recentlySoldProperties ?? [];
 
   const totalAssets = sumBorrowerAssets(assets);
   const totalLiabilities = sumBorrowerLiabilities(liabilities);
   const netWorth = totalAssets - totalLiabilities;
-  const scheduleTotal = sumScheduleMarketValue(realEstateOwned);
+  const sreoTotalEquity = sumScheduleTotalEquity(realEstateOwned);
   const unansweredDeclarations = countUnansweredDeclarations(declarations);
   const hasDeclarationErrors = DECLARATION_QUESTIONS.some(({ key }) =>
     Boolean(errors[`${errorPrefix}.declarations.${key}`]),
@@ -311,6 +378,20 @@ export default function ResidentialBorrowerPanel({
               />
               {err("lastName") && (
                 <p className="mt-1 text-xs text-red-500">{err("lastName")}</p>
+              )}
+            </div>
+
+            <div>
+              <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                Date of Birth <span className="text-red-500">*</span>
+              </label>
+              <LoanDateField
+                value={borrower.dob || ""}
+                onChange={(val) => onFieldChange("dob", val)}
+                hasError={Boolean(err("dob"))}
+              />
+              {err("dob") && (
+                <p className="mt-1 text-xs text-red-500">{err("dob")}</p>
               )}
             </div>
 
@@ -513,13 +594,13 @@ export default function ResidentialBorrowerPanel({
             </div>
 
             <div className="mt-4 grid grid-cols-1 gap-2 border-t border-slate-200 pt-4 text-sm dark:border-slate-700 md:grid-cols-3">
-              <div className="flex justify-between md:block">
+              <div className="flex items-baseline justify-between gap-2 md:justify-start">
                 <span className="font-medium text-[#13538A]">Total Assets</span>
                 <span className="font-semibold text-[#13538A]">
                   ${totalAssets.toLocaleString()}
                 </span>
               </div>
-              <div className="flex justify-between md:block">
+              <div className="flex items-baseline justify-between gap-2 md:justify-start">
                 <span className="font-medium text-red-500">
                   Total Liabilities
                 </span>
@@ -527,7 +608,7 @@ export default function ResidentialBorrowerPanel({
                   ${totalLiabilities.toLocaleString()}
                 </span>
               </div>
-              <div className="flex justify-between rounded-md bg-green-50 px-3 py-2 md:block dark:bg-green-900/20">
+              <div className="flex items-baseline justify-between gap-2 rounded-md bg-green-50 px-3 py-2 md:justify-start dark:bg-green-900/20">
                 <span className="font-medium text-green-700 dark:text-green-400">
                   Net Worth
                 </span>
@@ -631,22 +712,17 @@ export default function ResidentialBorrowerPanel({
                         <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
                           Property Type
                         </label>
-                        <input
+                        <PropertyTypeSelect
                           value={property.propertyType}
-                          onChange={(e) =>
-                            onPropertyChange(
-                              property.id,
-                              "propertyType",
-                              e.target.value,
-                            )
+                          onChange={(value) =>
+                            onPropertyChange(property.id, "propertyType", value)
                           }
-                          className={inputClass(false)}
                         />
                       </div>
 
                       <div>
                         <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
-                          Acquisition Date
+                          Purchase Date
                         </label>
                         <LoanDateField
                           value={property.acquisitionDate}
@@ -662,7 +738,16 @@ export default function ResidentialBorrowerPanel({
 
                       <CurrencyField
                         inline={false}
-                        label="Rehab/Upgrade Cost ($) "
+                        label="Purchase Price ($)"
+                        value={property.purchasePrice ?? ""}
+                        onChange={(value) =>
+                          onPropertyChange(property.id, "purchasePrice", value)
+                        }
+                      />
+
+                      <CurrencyField
+                        inline={false}
+                        label="Rehab/Upgrade Cost ($)"
                         value={property.rehabUpgradeCost}
                         onChange={(value) =>
                           onPropertyChange(
@@ -686,6 +771,19 @@ export default function ResidentialBorrowerPanel({
                         }
                       />
 
+                      <CurrencyField
+                        inline={false}
+                        label="Loan/Mortgage Balance ($)"
+                        value={property.loanMortgageBalance}
+                        onChange={(value) =>
+                          onPropertyChange(
+                            property.id,
+                            "loanMortgageBalance",
+                            value,
+                          )
+                        }
+                      />
+
                       <div className="md:col-span-2">
                         <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
                           Name &amp; Address of Mortgage Holder
@@ -703,17 +801,9 @@ export default function ResidentialBorrowerPanel({
                         />
                       </div>
 
-                      <CurrencyField
-                        inline={false}
-                        label="Loan/Mortgage Balance ($)"
-                        value={property.loanMortgageBalance}
-                        onChange={(value) =>
-                          onPropertyChange(
-                            property.id,
-                            "loanMortgageBalance",
-                            value,
-                          )
-                        }
+                      <ReadOnlyCurrencyField
+                        label="Total Equity ($)"
+                        amount={calcSreoTotalEquity(property)}
                       />
 
                       <CurrencyField
@@ -744,20 +834,20 @@ export default function ResidentialBorrowerPanel({
 
                       <CurrencyField
                         inline={false}
-                        label="NOI per year ($)"
-                        value={property.noiPerYear}
+                        label="Total Annual Expenses ($)"
+                        value={property.totalAnnualExpenses ?? ""}
                         onChange={(value) =>
-                          onPropertyChange(property.id, "noiPerYear", value)
+                          onPropertyChange(
+                            property.id,
+                            "totalAnnualExpenses",
+                            value,
+                          )
                         }
                       />
 
-                      <CurrencyField
-                        inline={false}
-                        label="Total Equity ($)"
-                        value={property.totalEquity}
-                        onChange={(value) =>
-                          onPropertyChange(property.id, "totalEquity", value)
-                        }
+                      <ReadOnlyCurrencyField
+                        label="Net Rent ($)"
+                        amount={calcSreoNetRent(property)}
                       />
                     </div>
                   </div>
@@ -767,12 +857,209 @@ export default function ResidentialBorrowerPanel({
 
             <div className="mt-4 flex items-center justify-between rounded-md bg-slate-100 px-4 py-2 text-sm dark:bg-slate-800">
               <span className="font-medium text-slate-600 dark:text-slate-300">
-                Total Market Value (Schedule)
+                SREO Total Equity
               </span>
               <span className="font-semibold text-slate-800 dark:text-slate-100">
-                ${scheduleTotal.toLocaleString()}
+                {formatSignedMoney(sreoTotalEquity)}
               </span>
             </div>
+          </CollapsibleSection>
+
+          <CollapsibleSection title="Schedule of Recently Sold Properties">
+            <div className="mb-3 flex items-center justify-between">
+              <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                Schedule of Recently Sold Properties
+              </p>
+              <button
+                type="button"
+                onClick={onAddSoldProperty}
+                className="flex items-center gap-1 rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-800"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Add Property
+              </button>
+            </div>
+
+            {recentlySoldProperties.length === 0 ? (
+              <p className="text-sm text-slate-500">No sold properties added yet.</p>
+            ) : (
+              <div className="space-y-4">
+                {recentlySoldProperties.map((property, propertyIndex) => (
+                  <div
+                    key={property.id}
+                    className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900"
+                  >
+                    <div className="mb-3 flex items-center justify-between">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        Sold Property #{propertyIndex + 1}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => onRemoveSoldProperty(property.id)}
+                        className="text-lg text-red-500 hover:text-red-600"
+                      >
+                        <MdDeleteForever />
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                      <div className="md:col-span-2">
+                        <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                          Property Address
+                        </label>
+                        <input
+                          value={property.propertyAddress}
+                          onChange={(e) =>
+                            onSoldPropertyChange(
+                              property.id,
+                              "propertyAddress",
+                              e.target.value,
+                            )
+                          }
+                          className={inputClass(false)}
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                          Entity / Name on Title
+                        </label>
+                        <input
+                          value={property.entityNameOnTitle}
+                          onChange={(e) =>
+                            onSoldPropertyChange(
+                              property.id,
+                              "entityNameOnTitle",
+                              e.target.value,
+                            )
+                          }
+                          className={inputClass(false)}
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                          % of Ownership
+                        </label>
+                        <input
+                          value={property.ownershipPercent}
+                          onChange={(e) =>
+                            onSoldPropertyChange(
+                              property.id,
+                              "ownershipPercent",
+                              e.target.value,
+                            )
+                          }
+                          className={inputClass(false)}
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                          Property Type
+                        </label>
+                        <PropertyTypeSelect
+                          value={property.propertyType}
+                          onChange={(value) =>
+                            onSoldPropertyChange(
+                              property.id,
+                              "propertyType",
+                              value,
+                            )
+                          }
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                          Purchase Date
+                        </label>
+                        <LoanDateField
+                          value={property.purchaseDate}
+                          onChange={(val) =>
+                            onSoldPropertyChange(
+                              property.id,
+                              "purchaseDate",
+                              val,
+                            )
+                          }
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                          Sold Date
+                        </label>
+                        <LoanDateField
+                          value={property.soldDate}
+                          onChange={(val) =>
+                            onSoldPropertyChange(property.id, "soldDate", val)
+                          }
+                        />
+                      </div>
+
+                      <CurrencyField
+                        inline={false}
+                        label="Purchase Price ($)"
+                        value={property.purchasePrice}
+                        onChange={(value) =>
+                          onSoldPropertyChange(
+                            property.id,
+                            "purchasePrice",
+                            value,
+                          )
+                        }
+                      />
+
+                      <CurrencyField
+                        inline={false}
+                        label="Rehab/Construction/Upgrade Cost ($)"
+                        value={property.rehabConstructionUpgradeCost}
+                        onChange={(value) =>
+                          onSoldPropertyChange(
+                            property.id,
+                            "rehabConstructionUpgradeCost",
+                            value,
+                          )
+                        }
+                      />
+
+                      <CurrencyField
+                        inline={false}
+                        label="Cost of Borrowing ($)"
+                        value={property.costOfBorrowing}
+                        onChange={(value) =>
+                          onSoldPropertyChange(
+                            property.id,
+                            "costOfBorrowing",
+                            value,
+                          )
+                        }
+                      />
+
+                      <ReadOnlyCurrencyField
+                        label="Total Project Cost ($)"
+                        amount={calcSoldTotalProjectCost(property)}
+                      />
+
+                      <CurrencyField
+                        inline={false}
+                        label="Sold Price ($)"
+                        value={property.soldPrice}
+                        onChange={(value) =>
+                          onSoldPropertyChange(property.id, "soldPrice", value)
+                        }
+                      />
+
+                      <ReadOnlyCurrencyField
+                        label="Total Profit ($)"
+                        amount={calcSoldTotalProfit(property)}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </CollapsibleSection>
 
           <CollapsibleSection

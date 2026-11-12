@@ -10,6 +10,7 @@ export interface FieldValidationRule {
   pattern?: "email" | "phone" | "ssn" | "zip" | "futureDate" | "pastDate" | "currency" | "percent";
   minLength?: number;
   maxLength?: number;
+  minAge?: number;
 }
 
 export const FIELD_VALIDATION_RULES: Record<string, FieldValidationRule> = {
@@ -309,6 +310,7 @@ export const FIELD_VALIDATION_RULES: Record<string, FieldValidationRule> = {
   "borrower.dob": {
     required: true,
     pattern: "pastDate",
+    minAge: 18,
     errorMessage: "DOB must be in the past and borrower must be 18+",
   },
   "borrower.ssn": {
@@ -416,6 +418,7 @@ export const FIELD_VALIDATION_RULES: Record<string, FieldValidationRule> = {
   "coBorrower.dob": {
     required: true,
     pattern: "pastDate",
+    minAge: 18,
     errorMessage: "DOB must be in the past and co-borrower must be 18+",
   },
   "coBorrower.ssn": {

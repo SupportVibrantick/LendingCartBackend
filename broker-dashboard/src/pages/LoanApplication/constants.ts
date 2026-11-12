@@ -237,6 +237,7 @@ export const OPTIONAL_LOAN_REQUEST_KEYS = new Set([
   "useOfFunds",
   "exitStrategy",
   "currentLoanBalance",
+  "buildToRentOrSell",
 ]);
 
 /* ================= Static field keys (skipped by dynamic-section validation) ================= */
@@ -244,6 +245,8 @@ export const OPTIONAL_LOAN_REQUEST_KEYS = new Set([
 export const STATIC_FIELD_KEYS = [
   // Loan Request
   "purpose",
+  "subPurpose",
+  "buildToRentOrSell",
   "amount",
   "interestRate",
   "sellerFinancing",
@@ -597,6 +600,20 @@ export const PROPERTY_TYPE_MAP: Record<string, string[]> = {
   LAND: ["Raw", "Entitled", "Developed", "Agriculture"],
 
   MIXED_USE: ["Horizontal", "Vertical", "Live & Work"],
+
+  "Hotel/Motel": ["Hotel", "Motel", "Extended Stay"],
+
+  "Assisted Living Facility": [
+    "Assisted Living",
+    "Memory Care",
+    "Independent Living",
+  ],
+
+  "RV Park": ["RV Park"],
+
+  "Mobile Home Park": ["Mobile Home Park"],
+
+  "Manufactured Housing": ["Manufactured Housing Community"],
 };
 
 /* ================= Product code alias groups ================= */

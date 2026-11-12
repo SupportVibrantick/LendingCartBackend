@@ -157,7 +157,13 @@ async function lenderDecisionRoutes(fastify) {
           });
         }
 
-        if (["APPROVED", "DECLINED"].includes(record.status)) {
+        const hasFinalDecision = ["APPROVED", "DECLINED"].includes(
+          record.status,
+        );
+
+        // Approve/decline cannot be changed after a final decision, but
+        // CONDITIONAL (request documents) stays available forever.
+        if (hasFinalDecision && decision !== "CONDITIONAL") {
           return reply.status(400).send({
             success: false,
             message: "Final decision already made",
@@ -188,7 +194,8 @@ async function lenderDecisionRoutes(fastify) {
 
         switch (decision) {
           case "CONDITIONAL":
-            lenderStatus = "IN_REVIEW";
+            // Keep APPROVED/DECLINED as-is when requesting more docs later.
+            lenderStatus = hasFinalDecision ? record.status : "IN_REVIEW";
             reviewStatus = "CONDITIONAL";
             break;
           case "APPROVED":

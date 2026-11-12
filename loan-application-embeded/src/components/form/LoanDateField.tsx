@@ -3,6 +3,11 @@ import flatpickr from "flatpickr";
 import type { Instance } from "flatpickr/dist/types/instance";
 import { Calendar } from "lucide-react";
 import "flatpickr/dist/flatpickr.css";
+import {
+  FLATPICKR_DISPLAY_FORMAT,
+  FLATPICKR_VALUE_FORMAT,
+  US_DATE_PLACEHOLDER,
+} from "../../lib/usDateFormat";
 
 type LoanDateFieldProps = {
   value?: string;
@@ -24,7 +29,7 @@ const ERROR_INPUT_CLASS =
 export default function LoanDateField({
   value = "",
   onChange,
-  placeholder = "dd-mm-yyyy",
+  placeholder = US_DATE_PLACEHOLDER,
   className = "",
   id: idProp,
   disabled = false,
@@ -54,9 +59,10 @@ export default function LoanDateField({
     if (!inputRef.current) return;
 
     fpRef.current = flatpickr(inputRef.current, {
-      dateFormat: "Y-m-d",
+      dateFormat: FLATPICKR_VALUE_FORMAT,
       altInput: true,
-      altFormat: "d-m-Y",
+      altFormat: FLATPICKR_DISPLAY_FORMAT,
+      ariaDateFormat: FLATPICKR_DISPLAY_FORMAT,
       allowInput: true,
       disableMobile: true,
       defaultDate: value || undefined,
@@ -120,7 +126,9 @@ export default function LoanDateField({
 
     const next = value || "";
     const selected = fp.selectedDates[0];
-    const selectedIso = selected ? flatpickr.formatDate(selected, "Y-m-d") : "";
+    const selectedIso = selected
+      ? flatpickr.formatDate(selected, FLATPICKR_VALUE_FORMAT)
+      : "";
 
     if (selectedIso !== next) {
       fp.setDate(next || "", false);

@@ -131,13 +131,13 @@ export function validateValue(
         }
         // For DOB, also enforce 18+
         if (
-          (rule as any).minAge !== undefined &&
-          !isAtLeastYearsOld(str, (rule as any).minAge)
+          rule.minAge !== undefined &&
+          !isAtLeastYearsOld(str, rule.minAge)
         ) {
           return {
             error:
               rule.errorMessage ||
-              `Must be at least ${(rule as any).minAge} years old`,
+              `Must be at least ${rule.minAge} years old`,
             hasError: true,
           };
         }
@@ -191,7 +191,15 @@ export function getRuleForKey(fieldKey: string): FieldValidationRule | null {
   if (FIELD_VALIDATION_RULES[fieldKey]) {
     return FIELD_VALIDATION_RULES[fieldKey];
   }
-  // Try stripping the index for arrays: coBorrowers.0.name → coBorrower.name
+  // coBorrowers.0.dob → coBorrower.dob
+  const coBorrowerKey = fieldKey.replace(/^coBorrowers\.\d+\./, "coBorrower.");
+  if (
+    coBorrowerKey !== fieldKey &&
+    FIELD_VALIDATION_RULES[coBorrowerKey]
+  ) {
+    return FIELD_VALIDATION_RULES[coBorrowerKey];
+  }
+  // Try stripping the index for arrays: coBorrowers.0.name → name
   const stripped = fieldKey.replace(/^\w+\.\d+\./, "");
   if (stripped !== fieldKey && FIELD_VALIDATION_RULES[stripped]) {
     return FIELD_VALIDATION_RULES[stripped];

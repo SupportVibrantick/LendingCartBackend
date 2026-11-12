@@ -4,10 +4,6 @@
 // for the stats banner, equity-mismatch banner, the
 // `ResidentialFinancialsStep` annual debt service default, and the
 // `submitApplication` payload.
-//
-// All numeric semantics (string parsing, `.toFixed(2)`, em-dash fallback,
-// 0.01 equity tolerance) are preserved verbatim from the previous
-// inline block in `LoanApplication.tsx`.
 
 import {
   sumBorrowerAssets,
@@ -23,13 +19,8 @@ import {
   toNumber,
 } from "./formatters";
 import {
-  isBridgeProduct,
-  isConstruction14Product,
   isConstructionLoanProduct,
-  isCreBase44Product,
   isFixAndFlipProduct,
-  isRentalUnderwritingProduct,
-  isSbaBase44Product,
 } from "./productRules";
 import type { FormDataType } from "./types";
 
@@ -42,14 +33,14 @@ export interface LoanMetricsContext {
 /**
  * Flat record of every derived number the orchestrator needs to render
  * the stats banner, equity-mismatch banner, financials step default, and
- * the submission payload. Field names match what was previously inlined
- * inside `LoanApplication.tsx` so call-sites read as a one-for-one move.
+ * the submission payload.
  */
 export interface LoanMetrics {
   // Numeric inputs
   loanAmount: number;
   purchasePrice: number;
   marketValue: number;
+  currentLoanBalance: number;
   rehabCost: number;
   constructionCost: number;
   afterRepairValue: number;
@@ -58,6 +49,7 @@ export interface LoanMetrics {
   fallbackTermMonths: number;
   termMonths: number;
   monthlyPayment: number;
+  isInterestOnly: boolean;
 
   // Aggregates
   borrowerAssets: number;
@@ -86,6 +78,9 @@ export interface LoanMetrics {
   totalFlipCost: number;
   totalConstructionCost: number;
   asIsValue: number;
+  asIsEquity: number;
+  valuationCapex: number;
+  valuationProjectCost: number;
 
   // Formatted ratios (always `string` — `"-"` when undefined)
   ltv: string;
@@ -95,12 +90,12 @@ export interface LoanMetrics {
   monthlyPaymentDisplay: string;
 }
 
+const formatPercentRatio = (numerator: number, denominator: number) =>
+  denominator > 0 ? ((numerator / denominator) * 100).toFixed(2) : "-";
+
 export function computeLoanMetrics(ctx: LoanMetricsContext): LoanMetrics {
   const { selectedProduct, usesBase44Financials, formData } = ctx;
 
-  // -----------------------------------------------------------------
-  // Borrower net worth
-  // -----------------------------------------------------------------
   const borrowerAssets = usesBase44Financials
     ? sumBorrowerAssets(formData.borrower.assets)
     : toNumber(formData.loanRequest.totalAssets || "0");
@@ -109,21 +104,18 @@ export function computeLoanMetrics(ctx: LoanMetricsContext): LoanMetrics {
     : toNumber(formData.loanRequest.totalLiabilities || "0");
   const netWorth = borrowerAssets - borrowerLiabilities;
 
-  // -----------------------------------------------------------------
-  // Loan + property numeric inputs
-  // -----------------------------------------------------------------
   const loanAmount = toNumber(formData.loanRequest.amount);
   const purchasePrice = toNumber(formData.loanRequest.purchasePrice);
   const marketValue = toNumber(formData.loanRequest.currentMarketValue);
+  const currentLoanBalance = toNumber(formData.loanRequest.currentLoanBalance);
   const rehabCost = toNumber(formData.loanRequest.rehabCost);
   const constructionCost = toNumber(formData.loanRequest.constructionCost);
   const afterRepairValue = toNumber(formData.loanRequest.afterRepairValue);
+
+  // Purchase-deal project cost (price + capex). Refinance uses as-is + capex below.
   const totalFlipCost = purchasePrice + rehabCost;
   const totalConstructionCost = purchasePrice + constructionCost;
 
-  // -----------------------------------------------------------------
-  // Equity / down payment derived values (live validation)
-  // -----------------------------------------------------------------
   const downPaymentTotal = toNumber(formData.loanRequest.downPayment);
   const hasSellerFinancing = formData.loanRequest.sellerFinancing === "yes";
   const sellerFinancingTotal = hasSellerFinancing
@@ -140,45 +132,32 @@ export function computeLoanMetrics(ctx: LoanMetricsContext): LoanMetrics {
     hasPurchasePrice &&
     Math.abs(equityGrandTotal - purchasePriceTotal) >= 0.01;
 
-  // -----------------------------------------------------------------
-  // As-is value (depends on product family)
-  // -----------------------------------------------------------------
-  const asIsValue =
-    isFixAndFlipProduct(selectedProduct) ||
-    isBridgeProduct(selectedProduct) ||
-    isRentalUnderwritingProduct(selectedProduct) ||
-    isCreBase44Product(selectedProduct) ||
-    isSbaBase44Product(selectedProduct) ||
-    isConstruction14Product(selectedProduct)
-      ? marketValue > 0
-        ? marketValue
-        : purchasePrice
-      : marketValue;
+  // As-is = current market when entered, otherwise purchase price.
+  const asIsValue = marketValue > 0 ? marketValue : purchasePrice;
+  const asIsEquity = Math.max(marketValue - currentLoanBalance, 0);
+  const valuationCapex = isConstructionLoanProduct(selectedProduct)
+    ? constructionCost
+    : rehabCost;
+  const valuationProjectCost = marketValue + valuationCapex;
 
-  // -----------------------------------------------------------------
-  // LTV / LTC / ARV
-  // -----------------------------------------------------------------
-  const ltvBaseValue = afterRepairValue > 0 ? afterRepairValue : asIsValue;
-  const ltv =
-    ltvBaseValue > 0 ? ((loanAmount / ltvBaseValue) * 100).toFixed(2) : "-";
+  // LTV is always loan / as-is. ARV% is a separate metric (loan / ARV).
+  const ltv = formatPercentRatio(loanAmount, asIsValue);
 
-  const ltc =
-    isFixAndFlipProduct(selectedProduct) && totalFlipCost > 0
-      ? ((loanAmount / totalFlipCost) * 100).toFixed(2)
-      : isConstructionLoanProduct(selectedProduct) && totalConstructionCost > 0
-        ? ((loanAmount / totalConstructionCost) * 100).toFixed(2)
-        : purchasePrice > 0
-          ? ((loanAmount / purchasePrice) * 100).toFixed(2)
-          : "-";
+  // LTC = loan / total project cost.
+  // Purchase: purchase price + capex. Refinance (no purchase price): as-is + capex.
+  let ltcBase = 0;
+  if (isFixAndFlipProduct(selectedProduct)) {
+    ltcBase = (purchasePrice > 0 ? purchasePrice : asIsValue) + rehabCost;
+  } else if (isConstructionLoanProduct(selectedProduct)) {
+    ltcBase =
+      (purchasePrice > 0 ? purchasePrice : asIsValue) + constructionCost;
+  } else if (purchasePrice > 0) {
+    ltcBase = purchasePrice;
+  }
+  const ltc = formatPercentRatio(loanAmount, ltcBase);
 
-  const arv =
-    afterRepairValue > 0
-      ? ((loanAmount / afterRepairValue) * 100).toFixed(2)
-      : "-";
+  const arv = formatPercentRatio(loanAmount, afterRepairValue);
 
-  // -----------------------------------------------------------------
-  // Monthly payment / annual debt service
-  // -----------------------------------------------------------------
   const interestRate = toNumber(formData.loanRequest.interestRate);
   const amortizationYears = toNumber(formData.loanRequest.amortization);
   const fallbackTermMonths = toNumber(formData.loanTermIncome.loanTerm);
@@ -186,11 +165,6 @@ export function computeLoanMetrics(ctx: LoanMetricsContext): LoanMetrics {
     amortizationYears > 0 ? amortizationYears * 12 : fallbackTermMonths;
   const isInterestOnly = formData.loanRequest.rateType === "INTEREST_ONLY";
 
-  // For interest-only loans the borrower pays only the accrued interest
-  // each month (no principal amortization), so the term is irrelevant to
-  // the monthly payment. The Loan Term field is hidden on step 0 when the
-  // rate type is "Interest Only", and we fall back to a constant 12-month
-  // term only for DSCR consistency if no amortization/term is provided.
   const monthlyPayment = isInterestOnly
     ? calculateInterestOnlyMonthlyPayment(loanAmount, interestRate)
     : calculateMonthlyPayment(loanAmount, interestRate, termMonths);
@@ -204,14 +178,12 @@ export function computeLoanMetrics(ctx: LoanMetricsContext): LoanMetrics {
   const totalAnnualDebtPayment =
     annualPrincipalAndInterest + annualPropertyTaxes + annualInsurance;
 
-  // -----------------------------------------------------------------
-  // DSCR
-  // -----------------------------------------------------------------
   const crePermanentNoi = toNumber(formData.entity.ebitdaWithNoi);
 
+  // NOI Actual is labeled annual ("/ Year"). Do not multiply by 12.
   const residentialNoiForDscr = usesBase44Financials
     ? getResidentialNoiForDscr(formData.financials) || crePermanentNoi
-    : toNumber(formData.loanTermIncome.noiActual) * 12;
+    : toNumber(formData.loanTermIncome.noiActual);
 
   const residentialDebtService = usesBase44Financials
     ? getResidentialDebtServiceForDscr(
@@ -243,6 +215,7 @@ export function computeLoanMetrics(ctx: LoanMetricsContext): LoanMetrics {
     loanAmount,
     purchasePrice,
     marketValue,
+    currentLoanBalance,
     rehabCost,
     constructionCost,
     afterRepairValue,
@@ -251,6 +224,7 @@ export function computeLoanMetrics(ctx: LoanMetricsContext): LoanMetrics {
     fallbackTermMonths,
     termMonths,
     monthlyPayment,
+    isInterestOnly,
     borrowerAssets,
     borrowerLiabilities,
     netWorth,
@@ -273,6 +247,9 @@ export function computeLoanMetrics(ctx: LoanMetricsContext): LoanMetrics {
     totalFlipCost,
     totalConstructionCost,
     asIsValue,
+    asIsEquity,
+    valuationCapex,
+    valuationProjectCost,
     ltv,
     ltc,
     arv,
@@ -289,10 +266,8 @@ export interface CoBorrowerSummary {
 }
 
 /**
- * Per-co-borrower net worth / LTV / LTC / DSCR. The form only computes
- * these at submit time (the UI shows just net worth per co-borrower
- * card). Splitting the loan evenly across co-borrowers matches the
- * previous inline implementation.
+ * Per-co-borrower net worth / LTV / LTC / DSCR. The loan is split across
+ * the primary borrower plus every co-borrower (joint obligation).
  */
 export function getCoBorrowerSummaries(
   formData: FormDataType,
@@ -300,7 +275,8 @@ export function getCoBorrowerSummaries(
 ): CoBorrowerSummary[] {
   if (formData.coBorrowers.length === 0) return [];
 
-  const coLoanAmount = metrics.loanAmount / formData.coBorrowers.length;
+  const borrowerCount = formData.coBorrowers.length + 1;
+  const coLoanAmount = metrics.loanAmount / borrowerCount;
   const termMonths = metrics.termMonths;
   const interestRate = metrics.interestRate;
 
@@ -323,8 +299,10 @@ export function getCoBorrowerSummaries(
     const coLtc =
       coPurchasePrice > 0 ? (coLoanAmount / coPurchasePrice) * 100 : 0;
 
-    const coAnnualDebt =
-      calculateMonthlyPayment(coLoanAmount, coInterest, termMonths) * 12;
+    const coMonthlyPayment = metrics.isInterestOnly
+      ? calculateInterestOnlyMonthlyPayment(coLoanAmount, coInterest)
+      : calculateMonthlyPayment(coLoanAmount, coInterest, termMonths);
+    const coAnnualDebt = coMonthlyPayment * 12;
 
     const coDscr =
       coAnnualDebt > 0 && coNoi > 0 ? coNoi / coAnnualDebt : 0;

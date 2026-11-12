@@ -230,10 +230,14 @@ export default function ConnectedLendersTable() {
                         </td>
 
                         <td className="px-4 py-3 text-gray-600 dark:text-slate-400">
-                          {new Date(l.connectedAt).toLocaleDateString("en-IN")}{" "}
+                          {new Date(l.connectedAt).toLocaleDateString("en-US", {
+                            month: "2-digit",
+                            day: "2-digit",
+                            year: "2-digit",
+                          })}{" "}
                           <span className="text-xs">
                             {new Date(l.connectedAt).toLocaleTimeString(
-                              "en-IN",
+                              "en-US",
                               {
                                 hour: "2-digit",
                                 minute: "2-digit",

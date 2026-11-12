@@ -31,15 +31,108 @@ export interface RealEstateOwnedEntry {
   ownershipPercent: string;
   propertyType: string;
   acquisitionDate: string;
+  purchasePrice: string;
   rehabUpgradeCost: string;
   currentMarketValue: string;
   mortgageHolderNameAddress: string;
   loanMortgageBalance: string;
   grossRentalIncome: string;
   loanTaxInsurancePaymentYr: string;
-  noiPerYear: string;
+  totalAnnualExpenses: string;
+  netRent: string;
   totalEquity: string;
 }
+
+export interface RecentlySoldPropertyEntry {
+  id: number;
+  propertyAddress: string;
+  entityNameOnTitle: string;
+  ownershipPercent: string;
+  propertyType: string;
+  purchaseDate: string;
+  soldDate: string;
+  purchasePrice: string;
+  rehabConstructionUpgradeCost: string;
+  costOfBorrowing: string;
+  totalProjectCost: string;
+  soldPrice: string;
+  totalProfit: string;
+}
+
+export const SREO_PROPERTY_TYPE_GROUPS: { group: string; options: string[] }[] =
+  [
+    {
+      group: "1-4 Units Residential",
+      options: ["Single Family Residential", "Condo", "Town Home"],
+    },
+    {
+      group: "CRE & Multifamily",
+      options: [
+        "Multifamily",
+        "Garden",
+        "Mid-Rise",
+        "High-Rise",
+        "Senior Housing",
+        "Student Housing",
+        "Affordable Housing",
+        "Office",
+        "Central Business District",
+        "Medical",
+        "Creative",
+        "Government",
+        "Suburban",
+        "Retail",
+        "Strip Plaza",
+        "Mall",
+        "Single-Tenant",
+        "Restaurant",
+        "Automotive",
+        "Industrial",
+        "Warehouse",
+        "Manufacturing",
+        "Flex",
+        "Data Center",
+        "Cold Storage",
+        "Special Purpose",
+        "Car Wash",
+        "Gas Station",
+        "Self Storage",
+        "Hospital",
+        "School",
+        "Land",
+        "Raw",
+        "Entitled",
+        "Developed",
+        "Agriculture",
+        "Mixed Use",
+        "Horizontal",
+        "Vertical",
+        "Live & Work",
+        "Hotel/Motel",
+        "Assisted Living Facility",
+        "RV Park",
+        "Mobile Home Park",
+        "Manufactured Housing",
+      ],
+    },
+    {
+      group: "SBA / USDA",
+      options: [
+        "Restaurant / Food Service",
+        "Healthcare / Medical",
+        "Professional Services",
+        "Construction",
+        "Transportation / Logistics",
+        "Technology / Software",
+        "Hospitality / Hotel",
+        "Wholesale / Distribution",
+        "Education",
+        "Real Estate Services",
+        "Personal Services",
+        "Other",
+      ],
+    },
+  ];
 
 export interface BorrowerDeclarations {
   outstandingJudgments: YesNo;
@@ -66,6 +159,7 @@ export interface ResidentialBorrowerFields {
   assets: BorrowerAssets;
   liabilities: BorrowerLiabilities;
   realEstateOwned: RealEstateOwnedEntry[];
+  recentlySoldProperties: RecentlySoldPropertyEntry[];
   declarations: BorrowerDeclarations;
 }
 
@@ -221,14 +315,32 @@ export const createEmptyRealEstateProperty = (): RealEstateOwnedEntry => ({
   ownershipPercent: "",
   propertyType: "",
   acquisitionDate: "",
+  purchasePrice: "",
   rehabUpgradeCost: "",
   currentMarketValue: "",
   mortgageHolderNameAddress: "",
   loanMortgageBalance: "",
   grossRentalIncome: "",
   loanTaxInsurancePaymentYr: "",
-  noiPerYear: "",
+  totalAnnualExpenses: "",
+  netRent: "",
   totalEquity: "",
+});
+
+export const createEmptyRecentlySoldProperty = (): RecentlySoldPropertyEntry => ({
+  id: Date.now(),
+  propertyAddress: "",
+  entityNameOnTitle: "",
+  ownershipPercent: "",
+  propertyType: "",
+  purchaseDate: "",
+  soldDate: "",
+  purchasePrice: "",
+  rehabConstructionUpgradeCost: "",
+  costOfBorrowing: "",
+  totalProjectCost: "",
+  soldPrice: "",
+  totalProfit: "",
 });
 
 export const createResidentialBorrowerDefaults =
@@ -244,6 +356,7 @@ export const createResidentialBorrowerDefaults =
     assets: createEmptyAssets(),
     liabilities: createEmptyLiabilities(),
     realEstateOwned: [],
+    recentlySoldProperties: [],
     declarations: createEmptyDeclarations(),
   });
 
@@ -274,11 +387,62 @@ export const sumBorrowerLiabilities = (liabilities?: BorrowerLiabilities | null)
     0,
   );
 
+export const formatSignedMoney = (amount: number) => {
+  const sign = amount < 0 ? "-" : "";
+  return `${sign}$${Math.abs(amount).toLocaleString("en-US")}`;
+};
+
+export const formatSignedCurrencyInput = (amount: number) => {
+  if (!Number.isFinite(amount)) return "";
+  const sign = amount < 0 ? "-" : "";
+  return `${sign}${Math.abs(amount).toLocaleString("en-US")}`;
+};
+
+export const calcSreoTotalEquity = (entry: RealEstateOwnedEntry) =>
+  parseAmount(entry.currentMarketValue) - parseAmount(entry.loanMortgageBalance);
+
+export const calcSreoNetRent = (entry: RealEstateOwnedEntry) =>
+  parseAmount(entry.grossRentalIncome) -
+  parseAmount(entry.loanTaxInsurancePaymentYr) -
+  parseAmount(entry.totalAnnualExpenses);
+
+export const calcSoldTotalProjectCost = (entry: RecentlySoldPropertyEntry) =>
+  parseAmount(entry.purchasePrice) +
+  parseAmount(entry.rehabConstructionUpgradeCost) +
+  parseAmount(entry.costOfBorrowing);
+
+export const calcSoldTotalProfit = (entry: RecentlySoldPropertyEntry) =>
+  parseAmount(entry.soldPrice) - calcSoldTotalProjectCost(entry);
+
+export const withSreoDerivedFields = (
+  entry: RealEstateOwnedEntry,
+): RealEstateOwnedEntry => ({
+  ...entry,
+  totalEquity: formatSignedCurrencyInput(calcSreoTotalEquity(entry)),
+  netRent: formatSignedCurrencyInput(calcSreoNetRent(entry)),
+});
+
+export const withSoldDerivedFields = (
+  entry: RecentlySoldPropertyEntry,
+): RecentlySoldPropertyEntry => {
+  const totalProjectCost = calcSoldTotalProjectCost(entry);
+  return {
+    ...entry,
+    totalProjectCost: formatSignedCurrencyInput(totalProjectCost),
+    totalProfit: formatSignedCurrencyInput(
+      parseAmount(entry.soldPrice) - totalProjectCost,
+    ),
+  };
+};
+
 export const sumScheduleMarketValue = (entries?: RealEstateOwnedEntry[] | null) =>
   (entries || []).reduce(
     (total, entry) => total + parseAmount(entry.currentMarketValue),
     0,
   );
+
+export const sumScheduleTotalEquity = (entries?: RealEstateOwnedEntry[] | null) =>
+  (entries || []).reduce((total, entry) => total + calcSreoTotalEquity(entry), 0);
 
 type SubmissionFieldLike = {
   fieldKey?: string | null;
@@ -369,13 +533,16 @@ export const hydrateResidentialBorrowerFromFields = (
       const sreoGet = (suffix: string) =>
         getSubmissionFieldValue(fields, `${sreoPrefix}${suffix}`);
 
-      return {
+      return withSreoDerivedFields({
         id: index,
         propertyAddress: submissionValueToString(sreoGet("propertyAddress")),
         entityNameOnTitle: submissionValueToString(sreoGet("entityNameOnTitle")),
         ownershipPercent: submissionValueToString(sreoGet("ownershipPercent")),
         propertyType: submissionValueToString(sreoGet("propertyType")),
-        acquisitionDate: submissionValueToString(sreoGet("acquisitionDate")),
+        acquisitionDate: submissionValueToString(
+          sreoGet("purchaseDate") ?? sreoGet("acquisitionDate"),
+        ),
+        purchasePrice: submissionValueToFormNumber(sreoGet("purchasePrice")),
         rehabUpgradeCost: submissionValueToFormNumber(sreoGet("rehabUpgradeCost")),
         currentMarketValue: submissionValueToFormNumber(
           sreoGet("currentMarketValue"),
@@ -392,9 +559,53 @@ export const hydrateResidentialBorrowerFromFields = (
         loanTaxInsurancePaymentYr: submissionValueToFormNumber(
           sreoGet("loanTaxInsurancePaymentYr"),
         ),
-        noiPerYear: submissionValueToFormNumber(sreoGet("noiPerYear")),
+        totalAnnualExpenses: submissionValueToFormNumber(
+          sreoGet("totalAnnualExpenses"),
+        ),
+        netRent: submissionValueToFormNumber(
+          sreoGet("netRent") ?? sreoGet("noiPerYear"),
+        ),
         totalEquity: submissionValueToFormNumber(sreoGet("totalEquity")),
-      };
+      });
+    });
+
+  const soldIndexes = new Set<number>();
+  const soldPattern = new RegExp(`^${escapedPrefix}sold_(\\d+)_`);
+  fields.forEach((field) => {
+    const match = (field.fieldKey || "").match(soldPattern);
+    if (match) soldIndexes.add(Number(match[1]));
+  });
+
+  const recentlySoldProperties = Array.from(soldIndexes)
+    .sort((a, b) => a - b)
+    .map((index) => {
+      const soldPrefix = fieldKey(`sold_${index}_`);
+      const soldGet = (suffix: string) =>
+        getSubmissionFieldValue(fields, `${soldPrefix}${suffix}`);
+
+      return withSoldDerivedFields({
+        id: index,
+        propertyAddress: submissionValueToString(soldGet("propertyAddress")),
+        entityNameOnTitle: submissionValueToString(
+          soldGet("entityNameOnTitle"),
+        ),
+        ownershipPercent: submissionValueToString(soldGet("ownershipPercent")),
+        propertyType: submissionValueToString(soldGet("propertyType")),
+        purchaseDate: submissionValueToString(soldGet("purchaseDate")),
+        soldDate: submissionValueToString(soldGet("soldDate")),
+        purchasePrice: submissionValueToFormNumber(soldGet("purchasePrice")),
+        rehabConstructionUpgradeCost: submissionValueToFormNumber(
+          soldGet("rehabConstructionUpgradeCost"),
+        ),
+        costOfBorrowing: submissionValueToFormNumber(
+          soldGet("costOfBorrowing"),
+        ),
+        totalProjectCost: submissionValueToFormNumber(
+          soldGet("totalProjectCost"),
+        ),
+        soldPrice: submissionValueToFormNumber(soldGet("soldPrice")),
+        totalProfit: submissionValueToFormNumber(soldGet("totalProfit")),
+      });
     });
 
   return {
@@ -418,6 +629,7 @@ export const hydrateResidentialBorrowerFromFields = (
     assets,
     liabilities,
     realEstateOwned,
+    recentlySoldProperties,
     declarations,
   };
 };
@@ -431,6 +643,7 @@ export const appendResidentialBorrowerSubmission = (
     email: string;
     ssn: string;
     creditScore: string;
+    dob?: string;
   },
   prefix = "",
 ) => {
@@ -447,6 +660,7 @@ export const appendResidentialBorrowerSubmission = (
   addField(`${p}phone`, borrower.phone);
   addField(`${p}email`, borrower.email?.toLowerCase());
   addField(`${p}ssn`, borrower.ssn);
+  addField(`${p}dob`, borrower.dob || "");
   addField(`${p}creditScore`, borrower.creditScore);
 
   ASSET_FIELD_DEFS.forEach(({ key }) => {
@@ -464,44 +678,76 @@ export const appendResidentialBorrowerSubmission = (
   addField(`${p}netWorth`, totalAssets - totalLiabilities);
 
   borrower.realEstateOwned.forEach((entry, index) => {
+    const derived = withSreoDerivedFields(entry);
     const sreoPrefix = `${p}sreo_${index}_`;
-    addField(`${sreoPrefix}propertyAddress`, entry.propertyAddress);
-    addField(`${sreoPrefix}entityNameOnTitle`, entry.entityNameOnTitle);
-    addField(`${sreoPrefix}ownershipPercent`, entry.ownershipPercent);
-    addField(`${sreoPrefix}propertyType`, entry.propertyType);
-    addField(`${sreoPrefix}acquisitionDate`, entry.acquisitionDate);
+    addField(`${sreoPrefix}propertyAddress`, derived.propertyAddress);
+    addField(`${sreoPrefix}entityNameOnTitle`, derived.entityNameOnTitle);
+    addField(`${sreoPrefix}ownershipPercent`, derived.ownershipPercent);
+    addField(`${sreoPrefix}propertyType`, derived.propertyType);
+    addField(`${sreoPrefix}acquisitionDate`, derived.acquisitionDate);
+    addField(`${sreoPrefix}purchaseDate`, derived.acquisitionDate);
+    addField(`${sreoPrefix}purchasePrice`, parseAmount(derived.purchasePrice));
     addField(
       `${sreoPrefix}rehabUpgradeCost`,
-      parseAmount(entry.rehabUpgradeCost),
+      parseAmount(derived.rehabUpgradeCost),
     );
     addField(
       `${sreoPrefix}currentMarketValue`,
-      parseAmount(entry.currentMarketValue),
+      parseAmount(derived.currentMarketValue),
     );
     addField(
       `${sreoPrefix}mortgageHolderNameAddress`,
-      entry.mortgageHolderNameAddress,
+      derived.mortgageHolderNameAddress,
     );
     addField(
       `${sreoPrefix}loanMortgageBalance`,
-      parseAmount(entry.loanMortgageBalance),
+      parseAmount(derived.loanMortgageBalance),
     );
     addField(
       `${sreoPrefix}grossRentalIncome`,
-      parseAmount(entry.grossRentalIncome),
+      parseAmount(derived.grossRentalIncome),
     );
     addField(
       `${sreoPrefix}loanTaxInsurancePaymentYr`,
-      parseAmount(entry.loanTaxInsurancePaymentYr),
+      parseAmount(derived.loanTaxInsurancePaymentYr),
     );
-    addField(`${sreoPrefix}noiPerYear`, parseAmount(entry.noiPerYear));
-    addField(`${sreoPrefix}totalEquity`, parseAmount(entry.totalEquity));
+    addField(
+      `${sreoPrefix}totalAnnualExpenses`,
+      parseAmount(derived.totalAnnualExpenses),
+    );
+    addField(`${sreoPrefix}netRent`, calcSreoNetRent(derived));
+    addField(`${sreoPrefix}totalEquity`, calcSreoTotalEquity(derived));
   });
 
-  addField(
-    `${p}sreoTotalMarketValue`,
-    sumScheduleMarketValue(borrower.realEstateOwned),
-  );
+  const sreoTotalEquity = sumScheduleTotalEquity(borrower.realEstateOwned);
+  addField(`${p}sreoTotalEquity`, sreoTotalEquity);
+  addField(`${p}sreoTotalMarketValue`, sreoTotalEquity);
+
+  (borrower.recentlySoldProperties || []).forEach((entry, index) => {
+    const derived = withSoldDerivedFields(entry);
+    const soldPrefix = `${p}sold_${index}_`;
+    addField(`${soldPrefix}propertyAddress`, derived.propertyAddress);
+    addField(`${soldPrefix}entityNameOnTitle`, derived.entityNameOnTitle);
+    addField(`${soldPrefix}ownershipPercent`, derived.ownershipPercent);
+    addField(`${soldPrefix}propertyType`, derived.propertyType);
+    addField(`${soldPrefix}purchaseDate`, derived.purchaseDate);
+    addField(`${soldPrefix}soldDate`, derived.soldDate);
+    addField(`${soldPrefix}purchasePrice`, parseAmount(derived.purchasePrice));
+    addField(
+      `${soldPrefix}rehabConstructionUpgradeCost`,
+      parseAmount(derived.rehabConstructionUpgradeCost),
+    );
+    addField(
+      `${soldPrefix}costOfBorrowing`,
+      parseAmount(derived.costOfBorrowing),
+    );
+    addField(
+      `${soldPrefix}totalProjectCost`,
+      calcSoldTotalProjectCost(derived),
+    );
+    addField(`${soldPrefix}soldPrice`, parseAmount(derived.soldPrice));
+    addField(`${soldPrefix}totalProfit`, calcSoldTotalProfit(derived));
+  });
 
   DECLARATION_QUESTIONS.forEach(({ key }) => {
     addField(`${p}declaration_${key}`, borrower.declarations[key]);

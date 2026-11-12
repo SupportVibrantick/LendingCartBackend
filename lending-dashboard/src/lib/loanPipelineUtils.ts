@@ -241,39 +241,20 @@ export function canShowRejectAction(input: {
 }
 
 export function canLenderRequestDocuments(
-  lenderStatus?: string | null,
-  latestReviewStatus?: string | null,
+  _lenderStatus?: string | null,
+  _latestReviewStatus?: string | null,
 ) {
-  if (!canRequestDocuments()) {
-    return false;
-  }
-
-  const status = (lenderStatus || "").toUpperCase().trim();
-  const review = (latestReviewStatus || "").toUpperCase().trim();
-
-  if (["APPROVED", "DECLINED"].includes(status)) return false;
-  if (["APPROVED", "DECLINED"].includes(review)) return false;
-
-  return true;
+  // Always available once the lender role allows it — approval, decline,
+  // and LOI generation must not hide Request Documents.
+  return canRequestDocuments();
 }
 
 export function getLenderRequestDocumentsDisabledReason(
-  lenderStatus?: string | null,
-  latestReviewStatus?: string | null,
+  _lenderStatus?: string | null,
+  _latestReviewStatus?: string | null,
 ) {
   if (!canRequestDocuments()) {
     return "You do not have permission to request documents.";
-  }
-
-  const status = (lenderStatus || "").toUpperCase().trim();
-  const review = (latestReviewStatus || "").toUpperCase().trim();
-
-  if (status === "APPROVED" || review === "APPROVED") {
-    return "This application is already approved. Additional documents cannot be requested.";
-  }
-
-  if (status === "DECLINED" || review === "DECLINED") {
-    return "This application was declined. Documents cannot be requested.";
   }
 
   return "";

@@ -3,7 +3,8 @@
 // assembly that turns the form data into a fields[] array.
 
 import { API_BASE, PRODUCT_LABELS } from "./constants";
-import { toNumber, calculateMonthlyPayment } from "./formatters";
+import { toNumber, metricToNumber } from "./formatters";
+import { computeLoanMetrics, getCoBorrowerSummaries } from "./calculations";
 import { appendResidentialBorrowerSubmission } from "../../lib/residentialBorrower";
 import { appendResidentialFinancialsSubmission } from "../../lib/residentialFinancials";
 import { appendReferringBrokerSubmission } from "../../lib/referringBroker";
@@ -51,7 +52,7 @@ export function getPortalConfig(
     loanProductsUrl: `${apiBase}/common/loan-products/loan-product-code`,
     loanProductsAuth: false,
     successPath: "/submit-applications",
-    backLabel: "Back to Submit Applications",
+    backLabel: "Back to Submitted Applications",
   };
 }
 
@@ -174,6 +175,14 @@ export function buildSubmissionPayload(ctx: SubmissionContext): BuildPayloadResu
     dynamicFormData,
     pendingDocuments,
     creditAuthorizationConsent,
+  } = ctx;
+
+  const metrics = computeLoanMetrics({
+    selectedProduct,
+    usesBase44Financials,
+    formData,
+  });
+  const {
     borrowerAssets,
     borrowerLiabilities,
     netWorth,
@@ -181,10 +190,8 @@ export function buildSubmissionPayload(ctx: SubmissionContext): BuildPayloadResu
     ltc,
     arv,
     dscr,
-    loanAmount,
-    interestRate,
-    termMonths,
-  } = ctx;
+    totalAnnualDebtPayment,
+  } = metrics;
 
   const allProductFields = [
     ...(activeProduct?.unsectionedFields || []),
@@ -271,6 +278,8 @@ export function buildSubmissionPayload(ctx: SubmissionContext): BuildPayloadResu
   addField("amountRequested", toNumber(formData.loanRequest.amount));
   addField("interestRate", formData.loanRequest.interestRate);
   addField("purpose", formData.loanRequest.purpose);
+  addField("subPurpose", formData.loanRequest.subPurpose);
+  addField("buildToRentOrSell", formData.loanRequest.buildToRentOrSell);
   addField("propertyType", formData.loanRequest.propertyType);
   addField("subPropertyType", formData.loanRequest.subPropertyType);
   addField("recourse", formData.loanRequest.recourse);
@@ -335,7 +344,11 @@ export function buildSubmissionPayload(ctx: SubmissionContext): BuildPayloadResu
   addField("totalLiabilities", borrowerLiabilities);
 
   if (usesBase44Financials) {
-    appendResidentialFinancialsSubmission(addField, formData.financials);
+    appendResidentialFinancialsSubmission(
+      addField,
+      formData.financials,
+      totalAnnualDebtPayment,
+    );
   } else {
     addField("noiActual", formData.loanTermIncome.noiActual);
     addField("monthlyRent", formData.loanTermIncome.monthlyRent);
@@ -355,58 +368,21 @@ export function buildSubmissionPayload(ctx: SubmissionContext): BuildPayloadResu
   const coBorrowerSummaries: BuildPayloadResult["coBorrowerSummaries"] = [];
 
   if (!usesBase44Financials) {
+    const summaries = getCoBorrowerSummaries(formData, metrics);
     formData.coBorrowers.forEach((borrower, index) => {
       const i = index + 1;
+      const summary = summaries[index];
+      coBorrowerSummaries.push(summary);
 
-      const toNum = (v: string) => parseFloat(v?.replace(/,/g, "") || "0");
-
-      const coLoanAmount =
-        formData.coBorrowers.length > 0
-          ? loanAmount / formData.coBorrowers.length
-          : loanAmount;
-
-      const coMarketValue = toNum(borrower.currentMarketValue);
-      const coPurchasePrice = toNum(borrower.purchasePrice);
-      const coInterest = borrower.interestRate
-        ? toNum(borrower.interestRate)
-        : interestRate;
-
-      const coNoi = toNum(borrower.noi);
-      const coAssets = toNum(borrower.totalAssets);
-      const coLiabilities = toNum(borrower.totalLiabilities);
-
-      const coNetWorth = coAssets - coLiabilities;
-
-      const coLtv =
-        coMarketValue > 0 ? (coLoanAmount / coMarketValue) * 100 : 0;
-
-      const coLtc =
-        coPurchasePrice > 0 ? (coLoanAmount / coPurchasePrice) * 100 : 0;
-
-      const coAnnualDebt =
-        calculateMonthlyPayment(coLoanAmount, coInterest, termMonths) * 12;
-
-      const coDscr =
-        coAnnualDebt > 0 && coNoi > 0 ? coNoi / coAnnualDebt : 0;
-
-      coBorrowerSummaries.push({
-        netWorth: coNetWorth,
-        ltv: coLtv,
-        ltc: coLtc,
-        dscr: coDscr,
-      });
-
-      // original fields
       Object.entries(borrower).forEach(([key, value]) => {
         if (key === "id") return;
         addField(`coBorrower_${i}_${key}`, value);
       });
 
-      // calculated
-      addField(`coBorrower_${i}_netWorth`, coNetWorth);
-      addField(`coBorrower_${i}_ltv`, coLtv);
-      addField(`coBorrower_${i}_ltc`, coLtc);
-      addField(`coBorrower_${i}_dscr`, coDscr);
+      addField(`coBorrower_${i}_netWorth`, summary.netWorth);
+      addField(`coBorrower_${i}_ltv`, summary.ltv);
+      addField(`coBorrower_${i}_ltc`, summary.ltc);
+      addField(`coBorrower_${i}_dscr`, summary.dscr);
     });
   }
 
@@ -426,10 +402,10 @@ export function buildSubmissionPayload(ctx: SubmissionContext): BuildPayloadResu
   });
 
   /* ================= CALCULATED ================= */
-  addField("ltvPercentage", ltv !== "—" ? Number(ltv) : 0);
-  addField("ltcPercentage", ltc !== "—" ? Number(ltc) : 0);
-  addField("arvPercentage", arv !== "—" ? Number(arv) : 0);
-  addField("dscr", dscr !== "—" ? Number(dscr) : 0);
+  addField("ltvPercentage", metricToNumber(ltv));
+  addField("ltcPercentage", metricToNumber(ltc));
+  addField("arvPercentage", metricToNumber(arv));
+  addField("dscr", metricToNumber(dscr));
 
   addField("totalAssets", borrowerAssets);
   addField("totalLiabilities", borrowerLiabilities);

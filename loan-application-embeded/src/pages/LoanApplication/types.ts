@@ -3,7 +3,7 @@
 // as well as by the main LoanApplication.tsx orchestrator.
 
 import type { ReactNode } from "react";
-import type { ResidentialBorrowerFields, RealEstateOwnedEntry } from "../../lib/residentialBorrower";
+import type { ResidentialBorrowerFields, RealEstateOwnedEntry, RecentlySoldPropertyEntry } from "../../lib/residentialBorrower";
 import type { ResidentialFinancials } from "../../lib/residentialFinancials";
 
 export interface Borrower extends ResidentialBorrowerFields {
@@ -73,6 +73,7 @@ export interface FormDataType {
     downPayment: string;
     useOfFunds: string;
     exitStrategy: string;
+    buildToRentOrSell: "" | "BUILD_TO_RENT" | "BUILD_TO_SELL";
   };
   loanTermIncome: {
     loanTerm: string;
@@ -163,4 +164,4 @@ export type LoanApplicationProps = {
 };
 
 // Re-export so consumers can grab the underlying borrower types from this module.
-export type { ResidentialBorrowerFields, RealEstateOwnedEntry };
+export type { ResidentialBorrowerFields, RealEstateOwnedEntry, RecentlySoldPropertyEntry };

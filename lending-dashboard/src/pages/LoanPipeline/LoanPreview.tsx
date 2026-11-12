@@ -2965,9 +2965,7 @@ export default function LoanPreview() {
           icon: Send,
           color: "text-emerald-600",
           disabled: !canRequestDocuments,
-          disabledReason:
-            requestDocumentsDisabledReason ||
-            "Documents cannot be requested for this application.",
+          disabledReason: requestDocumentsDisabledReason || undefined,
         },
         {
           id: "signDocuments",

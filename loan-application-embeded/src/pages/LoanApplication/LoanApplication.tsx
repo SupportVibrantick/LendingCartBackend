@@ -29,18 +29,16 @@ import { uploadPendingApplicationDocuments, uploadPublicPendingDocuments } from 
 import {
   createResidentialFinancialsDefaults,
   appendResidentialFinancialsSubmission,
-  getResidentialDebtServiceForDscr,
-  getResidentialNoiForDscr,
   type ResidentialFinancials,
 } from "../../lib/residentialFinancials";
 import {
   createEmptyRealEstateProperty,
+  createEmptyRecentlySoldProperty,
   createResidentialBorrowerDefaults,
   appendResidentialBorrowerSubmission,
   countUnansweredDeclarations,
-  sumBorrowerAssets,
-  sumBorrowerLiabilities,
   type RealEstateOwnedEntry,
+  type RecentlySoldPropertyEntry,
   type ResidentialBorrowerFields,
 } from "../../lib/residentialBorrower";
 import { buildResidentialReviewSections } from "../../lib/residentialReviewHelpers";
@@ -79,19 +77,22 @@ import {
   PROPERTY_TYPE_MAP,
   PURCHASE_DATE_WITH_AMORTIZATION_LOAN_TYPES,
   PURCHASE_DATE_WITH_AMORTIZATION_PURPOSES,
-  RENTAL_UNDERWRITING_LOAN_TYPES,
   RESIDENTIAL_1_4_PROPERTY_TYPES,
   RESIDENTIAL_MARKET_VALUE_PURPOSES,
   RESIDENTIAL_PURCHASE_PRICE_PURPOSES,
   US_STATES,
 } from "./constants";
 import {
-  calculateMonthlyPayment,
   formatCurrency,
   formatSSN,
   formatUSPhone,
+  metricToNumber,
   toNumber,
 } from "./formatters";
+import {
+  computeLoanMetrics,
+  getCoBorrowerSummaries,
+} from "./calculations";
 import {
   getAblCollateralTypeOptions,
   getSbaCollateralTypeLabel,
@@ -112,11 +113,20 @@ import { validateFieldValue, CO_BROKER_BORROWER_INFO_STEP } from "./validation";
 import { getRuleForKey, validateValue } from "./liveValidation";
 import { withBorrowerNameFields } from "./submission";
 import {
+  clearApplicationDraft,
+  formatDraftSavedAt,
+  getApplicationDraftKey,
+  loadApplicationDraft,
+  mergeApplicationFormData,
+  useLoanApplicationAutosave,
+} from "./applicationDraft";
+import {
   appendReferringBrokerSubmission,
   createEmptyReferringBroker,
   createEmptyReferringBrokerFormState,
   loadReferringBrokerDraft,
   saveReferringBrokerDraft,
+  clearReferringBrokerDraft,
   validateReferringBrokerStep,
   type ReferringBrokerFormState,
   type WorkingWithMortgageBrokerAnswer,
@@ -189,6 +199,7 @@ export interface FormDataType {
     downPayment: string;
     useOfFunds: string;
     exitStrategy: string;
+    buildToRentOrSell: "" | "BUILD_TO_RENT" | "BUILD_TO_SELL";
   };
   loanTermIncome: {
     loanTerm: string;
@@ -217,8 +228,8 @@ export interface FormDataType {
     equipmentValue: string;
   };
   financials: ResidentialFinancials;
-  workingWithMortgageBroker?: "" | "yes" | "no";
-  referringBroker?: {
+  workingWithMortgageBroker: "" | "yes" | "no";
+  referringBroker: {
     email: string;
     firstName: string;
     lastName: string;
@@ -515,8 +526,6 @@ const isCreResidentialLikeCategoryProduct = (
   category === "CRE_MULTIFAMILY" &&
   CRE_RESIDENTIAL_LIKE_LOAN_TYPES.has(product);
 
-const isBridgeProduct = (product: string) => BRIDGE_LOAN_TYPES.has(product);
-
 const CRE_PERMANENT_LOAN_TYPE = "CRE_PERMANENT_LOAN";
 const AGENCY_MULTIFAMILY_LOAN_TYPE = "AGENCY_LOAN_MULTIFAMILY";
 const CMBS_LOAN_TYPE = "CMBS";
@@ -596,12 +605,6 @@ const isFixAndFlipProduct = (product: string) =>
 const isRentalPortfolioProduct = (product: string) =>
   RENTAL_PORTFOLIO_LOAN_TYPES.has(product);
 
-const isRentalUnderwritingProduct = (product: string) =>
-  RENTAL_UNDERWRITING_LOAN_TYPES.has(product);
-
-const isConstruction14Product = (product: string) =>
-  isConstructionLoanProduct(product);
-
 export type LoanApplicationMode = "create" | "update";
 
 export type LoanApplicationPortal = "broker" | "loan_officer" | "coBroker";
@@ -663,7 +666,7 @@ function getPortalConfig(portal: LoanApplicationPortal, apiBase: string) {
     loanProductsUrl: `${apiBase}/common/loan-products/loan-product-code`,
     loanProductsAuth: false,
     successPath: "/submit-applications",
-    backLabel: "Back to Submit Applications",
+    backLabel: "Back to Submitted Applications",
     documentPaths: {
       requestDocuments: (loanApplicationId: string) =>
         `${apiBase}/broker/loan-pipeline/${loanApplicationId}/request-documents`,
@@ -761,23 +764,48 @@ const LoanApplication = ({
   allowedLoanTypes = [],
   feeAgreementEnabled = false,
 }: LoanApplicationProps = {}) => {
+  const draftEnabled = mode === "create" && !initialFormData;
+  const draftStorageKey = getApplicationDraftKey({
+    portal,
+    publicEmbed,
+    brokerOrgId,
+    publicLinkRef,
+  });
+  const initialDraftRef = useRef<ReturnType<typeof loadApplicationDraft> | undefined>(
+    undefined,
+  );
+  if (initialDraftRef.current === undefined) {
+    initialDraftRef.current = draftEnabled
+      ? loadApplicationDraft(draftStorageKey)
+      : null;
+  }
+  const [restoredDraftSavedAt, setRestoredDraftSavedAt] = useState<
+    string | null
+  >(() => initialDraftRef.current?.savedAt ?? null);
+  const [confirmStartNewOpen, setConfirmStartNewOpen] = useState(false);
   const coBorrowerRefs = useRef<Record<number, HTMLDivElement | null>>({});
   const [lastAddedId, setLastAddedId] = useState<number | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<string>(
-    initialSelectedProduct,
+    () =>
+      initialSelectedProduct || initialDraftRef.current?.selectedProduct || "",
   );
   const [dynamicSections, setDynamicSections] = useState<any[]>([]);
   const [activeSectionIndex, setActiveSectionIndex] = useState<number | null>(
     null,
   );
   const [dynamicFormData, setDynamicFormData] = useState<Record<string, any>>(
-    initialDynamicFormData || {},
+    () =>
+      initialDynamicFormData ||
+      initialDraftRef.current?.dynamicFormData ||
+      {},
   );
   // const [applicationId, setApplicationId] = useState<string>("");
   const [productsMeta, setProductsMeta] = useState<any[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [creditAuthorizationConsent, setCreditAuthorizationConsent] = useState(
-    Boolean(initialCreditAuthorizationConsent),
+    () =>
+      Boolean(initialCreditAuthorizationConsent) ||
+      Boolean(initialDraftRef.current?.creditAuthorizationConsent),
   );
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [pendingDocuments, setPendingDocuments] = useState<
@@ -787,7 +815,9 @@ const LoanApplication = ({
   pendingDocumentsRef.current = pendingDocuments;
 
   const [selectedCategory, setSelectedCategory] = useState<LoanCategory>(
-    initialSelectedCategory,
+    () =>
+      initialSelectedCategory ||
+      ((initialDraftRef.current?.selectedCategory as LoanCategory) || ""),
   );
   const navigate = useNavigate();
   const portalConfig = useMemo(
@@ -927,9 +957,23 @@ const LoanApplication = ({
         ...dynamicSections.map((section) => toTitleCase(section.sectionName)),
       ];
 
-  const [currentStep, setCurrentStep] = useState(0);
+  const [currentStep, setCurrentStep] = useState(() => {
+    const step = initialDraftRef.current?.currentStep;
+    return typeof step === "number" && Number.isFinite(step) && step >= 0
+      ? Math.floor(step)
+      : 0;
+  });
   const [feeAgreementDraft, setFeeAgreementDraft] = useState<FeeAgreementDraft>(
-    EMPTY_FEE_AGREEMENT_DRAFT,
+    () => {
+      const draft = initialDraftRef.current?.feeAgreementDraft;
+      if (draft && typeof draft === "object") {
+        return {
+          ...EMPTY_FEE_AGREEMENT_DRAFT,
+          ...(draft as Partial<FeeAgreementDraft>),
+        };
+      }
+      return EMPTY_FEE_AGREEMENT_DRAFT;
+    },
   );
   const createEmptyBorrower = (): Borrower => ({
     ...createResidentialBorrowerDefaults(),
@@ -947,16 +991,7 @@ const LoanApplication = ({
     mailingAddress: "",
   });
 
-  const [formData, setFormData] = useState<FormDataType>(() => {
-    // Embedded-only: restore the referring-broker draft from local storage on mount.
-    const draft =
-      publicEmbed && (publicLinkRef || brokerOrgId)
-        ? loadReferringBrokerDraft(publicLinkRef || brokerOrgId)
-        : null;
-    const referring: ReferringBrokerFormState =
-      draft || createEmptyReferringBrokerFormState();
-
-    const base: FormDataType = initialFormData || {
+  const createBlankFormData = (): FormDataType => ({
       borrower: createEmptyBorrower(),
       coBorrowers: [],
       loanRequest: {
@@ -996,6 +1031,7 @@ const LoanApplication = ({
         downPayment: "",
         useOfFunds: "",
         exitStrategy: "",
+        buildToRentOrSell: "",
       },
       loanTermIncome: {
         loanTerm: "",
@@ -1027,24 +1063,96 @@ const LoanApplication = ({
         companyName: "",
         phone: "",
       },
-    };
+  });
+
+  const [formData, setFormData] = useState<FormDataType>(() => {
+    const blank = createBlankFormData();
+    if (initialFormData) return initialFormData;
+
+    const savedForm = initialDraftRef.current?.formData;
+    if (savedForm) {
+      return mergeApplicationFormData(blank, savedForm);
+    }
+
+    const referringDraft =
+      publicEmbed && (publicLinkRef || brokerOrgId)
+        ? loadReferringBrokerDraft(publicLinkRef || brokerOrgId)
+        : null;
+    const referring: ReferringBrokerFormState =
+      referringDraft || createEmptyReferringBrokerFormState();
 
     return {
-      ...base,
+      ...blank,
       workingWithMortgageBroker:
         referring.workingWithMortgageBroker ||
-        (base.workingWithMortgageBroker as WorkingWithMortgageBrokerAnswer) ||
+        (blank.workingWithMortgageBroker as WorkingWithMortgageBrokerAnswer) ||
         "",
       referringBroker: {
         ...createEmptyReferringBroker(),
-        ...(base.referringBroker || {}),
+        ...(blank.referringBroker || {}),
         ...referring.referringBroker,
       },
     };
   });
 
-  const [loanProducts, setLoanProducts] = useState<string[]>([]);
+  const [loanProducts, setLoanProducts] = useState<string[]>(() => {
+    const category =
+      initialSelectedCategory ||
+      (initialDraftRef.current?.selectedCategory as LoanCategory) ||
+      "";
+    return category ? [...(CATEGORY_LOAN_TYPES[category] || [])] : [];
+  });
   const [loadingProducts, setLoadingProducts] = useState(false);
+
+  useLoanApplicationAutosave(draftEnabled, draftStorageKey, {
+    currentStep,
+    selectedProduct,
+    selectedCategory,
+    formData: formData as unknown as Record<string, unknown>,
+    dynamicFormData,
+    creditAuthorizationConsent,
+    feeAgreementDraft: feeAgreementDraft as unknown as Record<string, unknown>,
+  });
+
+  useEffect(() => {
+    if (loadingProducts) return;
+    if (currentStep >= allSteps.length && allSteps.length > 0) {
+      setCurrentStep(allSteps.length - 1);
+    }
+  }, [loadingProducts, allSteps.length, currentStep]);
+
+  const discardSavedDraft = () => {
+    clearApplicationDraft(draftStorageKey);
+    if (publicEmbed) {
+      clearReferringBrokerDraft(publicLinkRef || brokerOrgId);
+    }
+  };
+
+  const resetApplicationForm = () => {
+    discardSavedDraft();
+    pendingDocuments.forEach((doc) => revokePendingDocumentPreview(doc));
+    setPendingDocuments([]);
+    setSelectedProduct("");
+    setSelectedCategory("");
+    setDynamicFormData({});
+    setCreditAuthorizationConsent(false);
+    setCurrentStep(0);
+    setFeeAgreementDraft(EMPTY_FEE_AGREEMENT_DRAFT);
+    setErrors({});
+    setLastAddedId(null);
+    setFormData(createBlankFormData());
+    setRestoredDraftSavedAt(null);
+  };
+
+  const handleStartNewApplication = () => {
+    setConfirmStartNewOpen(true);
+  };
+
+  const confirmStartNewApplication = () => {
+    setConfirmStartNewOpen(false);
+    resetApplicationForm();
+    toast.success("Started a new application");
+  };
 
   // Embedded-only: persist the referring-broker draft to local storage so
   // refreshing the page doesn't lose the "are you a broker?" answers.
@@ -1425,6 +1533,36 @@ const LoanApplication = ({
           newErrors["borrower.firstName"] = "First name is required";
         if (!formData.borrower.lastName?.trim())
           newErrors["borrower.lastName"] = "Last name is required";
+        {
+          const dobRule = getRuleForKey("borrower.dob");
+          if (dobRule) {
+            const dobResult = validateValue(
+              formData.borrower.dob || "",
+              dobRule,
+            );
+            if (dobResult.hasError)
+              newErrors["borrower.dob"] = dobResult.error;
+          } else if (!formData.borrower.dob?.trim()) {
+            newErrors["borrower.dob"] = "Date of Birth is required";
+          }
+        }
+        formData.coBorrowers.forEach((coBorrower, index) => {
+          if (!coBorrower.firstName?.trim())
+            newErrors[`coBorrowers.${index}.firstName`] =
+              "First name is required";
+          if (!coBorrower.lastName?.trim())
+            newErrors[`coBorrowers.${index}.lastName`] =
+              "Last name is required";
+          const coDobRule = getRuleForKey(`coBorrowers.${index}.dob`);
+          if (coDobRule) {
+            const dobResult = validateValue(coBorrower.dob || "", coDobRule);
+            if (dobResult.hasError)
+              newErrors[`coBorrowers.${index}.dob`] = dobResult.error;
+          } else if (!coBorrower.dob?.trim()) {
+            newErrors[`coBorrowers.${index}.dob`] =
+              "Date of Birth is required";
+          }
+        });
         if (formData.borrower.phone?.trim()) {
           const e = validateFieldValue("phone", formData.borrower.phone, false);
           if (e) newErrors["borrower.phone"] = e;
@@ -1509,6 +1647,7 @@ const LoanApplication = ({
     }
     if (useResidentialBorrowerPanel) {
       const borrowerStepIndex = includeCoBrokerBorrowerInformationTab ? 4 : 3;
+      add("Date of Birth", borrowerStepIndex, !formData.borrower.dob?.trim());
       add(
         "Borrower Email",
         borrowerStepIndex,
@@ -1527,6 +1666,13 @@ const LoanApplication = ({
         );
       }
       formData.coBorrowers.forEach((coBorrower, index) => {
+        if (!coBorrower.dob?.trim()) {
+          add(
+            `Co-Borrower ${index + 1} Date of Birth`,
+            borrowerStepIndex,
+            true,
+          );
+        }
         if (!coBorrower.email?.trim()) {
           add(`Co-Borrower ${index + 1} Email`, borrowerStepIndex, true);
         }
@@ -1739,6 +1885,7 @@ const LoanApplication = ({
       addField("interestRate", formData.loanRequest.interestRate);
       addField("purpose", formData.loanRequest.purpose);
       addField("subPurpose", formData.loanRequest.subPurpose);
+      addField("buildToRentOrSell", formData.loanRequest.buildToRentOrSell);
       addField("propertyType", formData.loanRequest.propertyType);
       addField("subPropertyType", formData.loanRequest.subPropertyType);
       addField("recourse", formData.loanRequest.recourse);
@@ -1838,7 +1985,11 @@ const LoanApplication = ({
       addField("totalLiabilities", borrowerLiabilities);
 
       if (usesBase44Financials) {
-        appendResidentialFinancialsSubmission(addField, formData.financials);
+        appendResidentialFinancialsSubmission(
+          addField,
+          formData.financials,
+          totalAnnualDebtPayment,
+        );
       } else {
         addField("noiActual", formData.loanTermIncome.noiActual);
         addField("monthlyRent", formData.loanTermIncome.monthlyRent);
@@ -1860,51 +2011,20 @@ const LoanApplication = ({
       /* ================= CO BORROWERS ================= */
 
       if (!usesBase44Financials) {
+        const coBorrowerSummaries = getCoBorrowerSummaries(formData, metrics);
         formData.coBorrowers.forEach((borrower, index) => {
           const i = index + 1;
+          const summary = coBorrowerSummaries[index];
 
-          const toNum = (v: string) => parseFloat(v?.replace(/,/g, "") || "0");
-
-          const coLoanAmount =
-            formData.coBorrowers.length > 0
-              ? loanAmount / formData.coBorrowers.length
-              : loanAmount;
-
-          const coMarketValue = toNum(borrower.currentMarketValue);
-          const coPurchasePrice = toNum(borrower.purchasePrice);
-          const coInterest = borrower.interestRate
-            ? toNum(borrower.interestRate)
-            : interestRate;
-
-          const coNoi = toNum(borrower.noi);
-          const coAssets = toNum(borrower.totalAssets);
-          const coLiabilities = toNum(borrower.totalLiabilities);
-
-          const coNetWorth = coAssets - coLiabilities;
-
-          const coLtv =
-            coMarketValue > 0 ? (coLoanAmount / coMarketValue) * 100 : 0;
-
-          const coLtc =
-            coPurchasePrice > 0 ? (coLoanAmount / coPurchasePrice) * 100 : 0;
-
-          const coAnnualDebt =
-            calculateMonthlyPayment(coLoanAmount, coInterest, termMonths) * 12;
-
-          const coDscr =
-            coAnnualDebt > 0 && coNoi > 0 ? coNoi / coAnnualDebt : 0;
-
-          // original fields
           Object.entries(borrower).forEach(([key, value]) => {
             if (key === "id") return;
             addField(`coBorrower_${i}_${key}`, value);
           });
 
-          // calculated
-          addField(`coBorrower_${i}_netWorth`, coNetWorth);
-          addField(`coBorrower_${i}_ltv`, coLtv);
-          addField(`coBorrower_${i}_ltc`, coLtc);
-          addField(`coBorrower_${i}_dscr`, coDscr);
+          addField(`coBorrower_${i}_netWorth`, summary.netWorth);
+          addField(`coBorrower_${i}_ltv`, summary.ltv);
+          addField(`coBorrower_${i}_ltc`, summary.ltc);
+          addField(`coBorrower_${i}_dscr`, summary.dscr);
         });
       }
 
@@ -1926,10 +2046,10 @@ const LoanApplication = ({
 
       /* ================= CALCULATED ================= */
 
-      addField("ltvPercentage", ltv !== "—" ? Number(ltv) : 0);
-      addField("ltcPercentage", ltc !== "—" ? Number(ltc) : 0);
-      addField("arvPercentage", arv !== "—" ? Number(arv) : 0);
-      addField("dscr", dscr !== "—" ? Number(dscr) : 0);
+      addField("ltvPercentage", metricToNumber(ltv));
+      addField("ltcPercentage", metricToNumber(ltc));
+      addField("arvPercentage", metricToNumber(arv));
+      addField("dscr", metricToNumber(dscr));
 
       addField("totalAssets", borrowerAssets);
       addField("totalLiabilities", borrowerLiabilities);
@@ -2125,6 +2245,7 @@ const LoanApplication = ({
               uploadError.message ||
                 "Application submitted but some documents failed to upload",
             );
+            discardSavedDraft();
             onPublicSubmitSuccess?.(publicSubmissionId);
             return;
           }
@@ -2140,6 +2261,7 @@ const LoanApplication = ({
           );
         }
 
+        discardSavedDraft();
         onPublicSubmitSuccess?.(publicSubmissionId);
         return;
       }
@@ -2179,11 +2301,13 @@ const LoanApplication = ({
             uploadError.message ||
               "Application saved but some documents failed to upload",
           );
+          discardSavedDraft();
           navigate(portalConfig.successPath);
           return;
         }
       }
 
+      discardSavedDraft();
       toast.success(
         "Application submitted. Client portal access link sent to borrower email.",
       );
@@ -2273,127 +2397,37 @@ const LoanApplication = ({
     }
   }, [lastAddedId]);
 
-  // toNumber / calculateMonthlyPayment are imported from ./formatters.
-
-  const borrowerAssets = usesBase44Financials
-    ? sumBorrowerAssets(formData.borrower.assets)
-    : toNumber(formData.loanRequest.totalAssets || "0");
-  const borrowerLiabilities = usesBase44Financials
-    ? sumBorrowerLiabilities(formData.borrower.liabilities)
-    : toNumber(formData.loanRequest.totalLiabilities || "0");
-
-  const netWorth = borrowerAssets - borrowerLiabilities;
-
-  const loanAmount = toNumber(formData.loanRequest.amount);
-  const purchasePrice = toNumber(formData.loanRequest.purchasePrice);
-  const marketValue = toNumber(formData.loanRequest.currentMarketValue);
-  const rehabCost = toNumber(formData.loanRequest.rehabCost);
-  const constructionCost = toNumber(formData.loanRequest.constructionCost);
-  const totalFlipCost = purchasePrice + rehabCost;
-  const totalConstructionCost = purchasePrice + constructionCost;
-
-  // Equity / Down Payment derived values (live validation)
-  const downPaymentTotal = toNumber(formData.loanRequest.downPayment);
-  const hasSellerFinancing = formData.loanRequest.sellerFinancing === "yes";
-  const sellerFinancingTotal = hasSellerFinancing
-    ? toNumber(formData.loanRequest.sellerNoteAmount)
-    : 0;
-  const loanAmountTotal = loanAmount;
-  const purchasePriceTotal = purchasePrice;
-  const hasPurchasePrice = purchasePriceTotal > 0;
-  const equityGrandTotal =
-    loanAmountTotal + downPaymentTotal + sellerFinancingTotal;
-  // Use a small tolerance to avoid float-comparison false positives
-  // (e.g. user-entered decimals like 100000.01 vs 100000.005).
-  const equityMismatchError =
-    hasPurchasePrice && Math.abs(equityGrandTotal - purchasePriceTotal) >= 0.01;
-
-  const asIsValue =
-    isFixAndFlipProduct(selectedProduct) ||
-    isBridgeProduct(selectedProduct) ||
-    isRentalUnderwritingProduct(selectedProduct) ||
-    isCreBase44Product(selectedProduct) ||
-    isSbaBase44Product(selectedProduct) ||
-    isConstruction14Product(selectedProduct)
-      ? marketValue > 0
-        ? marketValue
-        : purchasePrice
-      : marketValue;
-
-  const afterRepairValue = toNumber(formData.loanRequest.afterRepairValue);
-
-  const ltvBaseValue = afterRepairValue > 0 ? afterRepairValue : asIsValue;
-  const ltv =
-    ltvBaseValue > 0 ? ((loanAmount / ltvBaseValue) * 100).toFixed(2) : "-";
-
-  const ltc =
-    isFixAndFlipProduct(selectedProduct) && totalFlipCost > 0
-      ? ((loanAmount / totalFlipCost) * 100).toFixed(2)
-      : isConstructionLoanProduct(selectedProduct) && totalConstructionCost > 0
-        ? ((loanAmount / totalConstructionCost) * 100).toFixed(2)
-        : purchasePrice > 0
-          ? ((loanAmount / purchasePrice) * 100).toFixed(2)
-          : "-";
-
-  const arv =
-    afterRepairValue > 0
-      ? ((loanAmount / afterRepairValue) * 100).toFixed(2)
-      : "-";
-
-  const interestRate = toNumber(formData.loanRequest.interestRate);
-  const amortizationYears = toNumber(formData.loanRequest.amortization);
-  const fallbackTermMonths = toNumber(formData.loanTermIncome.loanTerm);
-  const termMonths =
-    amortizationYears > 0 ? amortizationYears * 12 : fallbackTermMonths;
-  const isInterestOnly = formData.loanRequest.rateType === "INTEREST_ONLY";
-
-  // Interest-only loans pay only accrued interest each month — the
-  // Loan Term field is hidden on step 0 in that case, so termMonths
-  // does not factor into the payment calculation.
-  const monthlyPayment = isInterestOnly
-    ? (loanAmount * (interestRate / 100)) / 12
-    : calculateMonthlyPayment(loanAmount, interestRate, termMonths);
-  const annualPrincipalAndInterest = monthlyPayment * 12;
-  const annualPropertyTaxes = usesBase44Financials
-    ? toNumber(formData.financials.annualPropertyTaxes)
-    : toNumber(formData.loanTermIncome.annualTaxes);
-  const annualInsurance = usesBase44Financials
-    ? toNumber(formData.financials.annualInsurance)
-    : toNumber(formData.loanTermIncome.insurancePremium);
-  const totalAnnualDebtPayment =
-    annualPrincipalAndInterest + annualPropertyTaxes + annualInsurance;
-
-  const crePermanentNoi = toNumber(formData.entity.ebitdaWithNoi);
-
-  const residentialNoiForDscr = usesBase44Financials
-    ? getResidentialNoiForDscr(formData.financials) || crePermanentNoi
-    : toNumber(formData.loanTermIncome.noiActual) * 12;
-
-  const residentialDebtService = usesBase44Financials
-    ? getResidentialDebtServiceForDscr(
-        formData.financials,
-        totalAnnualDebtPayment,
-      )
-    : 0;
-
-  const annualDebtService =
-    residentialDebtService > 0
-      ? residentialDebtService
-      : totalAnnualDebtPayment;
-
-  const dscr =
-    annualDebtService > 0 && residentialNoiForDscr > 0
-      ? (residentialNoiForDscr / annualDebtService).toFixed(2)
-      : "-";
-
-  const monthlyPaymentDisplay =
-    monthlyPayment > 0
-      ? "$" +
-        monthlyPayment.toLocaleString("en-US", {
-          minimumFractionDigits: 0,
-          maximumFractionDigits: 0,
-        })
-      : "-";
+  const metrics = computeLoanMetrics({
+    selectedProduct,
+    usesBase44Financials,
+    formData,
+  });
+  const {
+    borrowerAssets,
+    borrowerLiabilities,
+    netWorth,
+    rehabCost,
+    totalFlipCost,
+    downPaymentTotal,
+    hasSellerFinancing,
+    sellerFinancingTotal,
+    loanAmountTotal,
+    purchasePriceTotal,
+    hasPurchasePrice,
+    equityGrandTotal,
+    equityMismatchError,
+    marketValue,
+    currentLoanBalance,
+    asIsEquity,
+    valuationCapex,
+    valuationProjectCost,
+    ltv,
+    ltc,
+    arv,
+    dscr,
+    monthlyPaymentDisplay,
+    totalAnnualDebtPayment,
+  } = metrics;
 
   const handleDynamicFieldChange = (fieldId: string, value: any) => {
     setDynamicFormData((prev) => ({
@@ -2668,20 +2702,28 @@ const LoanApplication = ({
     );
 
     // Prefer catalog matches; if none match category mapping, show category codes.
-    setLoanProducts(
-      resolvedProducts.length > 0 ? resolvedProducts : categoryProducts,
-    );
+    const nextProducts =
+      resolvedProducts.length > 0 ? resolvedProducts : categoryProducts;
+    setLoanProducts(nextProducts);
 
-    if (mode === "update" && initialSelectedProduct) {
-      setSelectedProduct((prev) =>
+    setSelectedProduct((prev) => {
+      if (
+        mode === "update" &&
+        initialSelectedProduct &&
         isProductAllowedInCategory(initialSelectedProduct, selectedCategory)
-          ? initialSelectedProduct
-          : prev,
-      );
-      return;
-    }
-
-    setSelectedProduct("");
+      ) {
+        return initialSelectedProduct;
+      }
+      if (prev && nextProducts.includes(prev)) return prev;
+      if (
+        prev &&
+        nextProducts.length === 0 &&
+        isProductAllowedInCategory(prev, selectedCategory)
+      ) {
+        return prev;
+      }
+      return "";
+    });
   }, [
     selectedCategory,
     productsMeta,
@@ -2953,6 +2995,121 @@ const LoanApplication = ({
     updateBorrowerProperty(scope, propertyId, field, formatted, coIndex);
   };
 
+  const addBorrowerSoldProperty = (
+    scope: "borrower" | "coBorrower",
+    coIndex?: number,
+  ) => {
+    setFormData((prev) => {
+      const property = createEmptyRecentlySoldProperty();
+      if (scope === "borrower") {
+        return {
+          ...prev,
+          borrower: {
+            ...prev.borrower,
+            recentlySoldProperties: [
+              ...(prev.borrower.recentlySoldProperties || []),
+              property,
+            ],
+          },
+        };
+      }
+
+      const updated = [...prev.coBorrowers];
+      updated[coIndex!] = {
+        ...updated[coIndex!],
+        recentlySoldProperties: [
+          ...(updated[coIndex!].recentlySoldProperties || []),
+          property,
+        ],
+      };
+      return { ...prev, coBorrowers: updated };
+    });
+  };
+
+  const removeBorrowerSoldProperty = (
+    scope: "borrower" | "coBorrower",
+    propertyId: number,
+    coIndex?: number,
+  ) => {
+    setFormData((prev) => {
+      if (scope === "borrower") {
+        return {
+          ...prev,
+          borrower: {
+            ...prev.borrower,
+            recentlySoldProperties: (
+              prev.borrower.recentlySoldProperties || []
+            ).filter((entry) => entry.id !== propertyId),
+          },
+        };
+      }
+
+      const updated = [...prev.coBorrowers];
+      updated[coIndex!] = {
+        ...updated[coIndex!],
+        recentlySoldProperties: (
+          updated[coIndex!].recentlySoldProperties || []
+        ).filter((entry) => entry.id !== propertyId),
+      };
+      return { ...prev, coBorrowers: updated };
+    });
+  };
+
+  const updateBorrowerSoldProperty = (
+    scope: "borrower" | "coBorrower",
+    propertyId: number,
+    field: keyof RecentlySoldPropertyEntry,
+    value: string,
+    coIndex?: number,
+  ) => {
+    setFormData((prev) => {
+      const mapProperties = (entries: RecentlySoldPropertyEntry[]) =>
+        entries.map((entry) =>
+          entry.id === propertyId ? { ...entry, [field]: value } : entry,
+        );
+
+      if (scope === "borrower") {
+        return {
+          ...prev,
+          borrower: {
+            ...prev.borrower,
+            recentlySoldProperties: mapProperties(
+              prev.borrower.recentlySoldProperties || [],
+            ),
+          },
+        };
+      }
+
+      const updated = [...prev.coBorrowers];
+      updated[coIndex!] = {
+        ...updated[coIndex!],
+        recentlySoldProperties: mapProperties(
+          updated[coIndex!].recentlySoldProperties || [],
+        ),
+      };
+      return { ...prev, coBorrowers: updated };
+    });
+  };
+
+  const updateBorrowerSoldPropertyAmount = (
+    scope: "borrower" | "coBorrower",
+    propertyId: number,
+    field: keyof RecentlySoldPropertyEntry,
+    rawValue: string,
+    coIndex?: number,
+  ) => {
+    const cleaned = (rawValue ?? "").replace(/[^\d.]/g, "");
+    const parts = cleaned.split(".");
+    const normalized =
+      parts.length > 1
+        ? `${parts[0]}.${parts.slice(1).join("")}`
+        : parts[0] || "";
+    const formatted = normalized
+      ? Number(normalized).toLocaleString("en-US")
+      : "";
+    updateBorrowerSoldProperty(scope, propertyId, field, formatted, coIndex);
+  };
+
   const loanPurposeOptions = LOAN_PURPOSE_MAP[selectedProduct] || [];
   const topPurposeOptions = LOAN_TOP_PURPOSE_MAP[selectedProduct] || [];
   const subPurposeOptions = LOAN_SUB_PURPOSE_MAP[selectedProduct] || [];
@@ -2987,11 +3144,12 @@ const LoanApplication = ({
   // Clear category if broker plan no longer includes it
   useEffect(() => {
     if (!selectedCategory) return;
+    if (!allowedLoanCategories || allowedLoanCategories.length === 0) return;
     if (!isLoanCategoryAllowed(selectedCategory, allowedCategoriesForUi)) {
       setSelectedCategory("");
       setSelectedProduct("");
     }
-  }, [allowedCategoriesForUi, selectedCategory]);
+  }, [allowedCategoriesForUi, allowedLoanCategories, selectedCategory]);
 
   const CATEGORY_ICONS: Record<string, any> = {
     RESIDENTIAL_1_4: HomeIcon,
@@ -3140,14 +3298,9 @@ const LoanApplication = ({
               <button
                 type="button"
                 onClick={() => navigate(-1)}
-                className="
-      mb-1 flex items-center gap-1.5
-      text-xs font-medium text-slate-600
-      hover:text-[#13538A]
-      transition
-    "
+                className="mb-3 inline-flex items-center gap-2 rounded-lg border border-[#13538A]/25 bg-white px-3 py-2 text-sm font-semibold text-[#13538A] shadow-sm transition hover:border-[#13538A]/50 hover:bg-[#13538A]/5 hover:shadow dark:border-sky-500/30 dark:bg-slate-900 dark:text-sky-300 dark:hover:bg-sky-500/10"
               >
-                <IoArrowBack size={16} />
+                <IoArrowBack size={18} />
                 {portalConfig.backLabel}
               </button>
             )}
@@ -3168,6 +3321,23 @@ const LoanApplication = ({
                 </p>
               </div>
             )}
+            {draftEnabled ? (
+              <div className="mt-2 flex flex-col gap-2 rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-950 sm:flex-row sm:items-center sm:justify-between dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-100">
+                <p>
+                  {restoredDraftSavedAt
+                    ? `Progress restored from ${formatDraftSavedAt(restoredDraftSavedAt)}. It is saved automatically on this device.`
+                    : "Progress is saved automatically on this device, even if you close this page."}{" "}
+                  Re-attach documents if you added any.
+                </p>
+                <button
+                  type="button"
+                  onClick={handleStartNewApplication}
+                  className="shrink-0 font-semibold text-[#13538A] underline underline-offset-2 hover:text-[#0e3d66] dark:text-sky-200"
+                >
+                  Start new application
+                </button>
+              </div>
+            ) : null}
           </div>
           {/* STEPPER */}
           <LoanApplicationStepper
@@ -3295,6 +3465,7 @@ rounded-2xl p-6 shadow-sm
                       }
                       updateLoanRequest("purpose", "");
                       updateLoanRequest("subPurpose", "");
+                      updateLoanRequest("buildToRentOrSell", "");
                       updateLoanRequest("collateralType", "");
                       updateLoanRequest("additionalCollateral", []);
                       updateLoanRequest("privateSale", false);
@@ -3325,11 +3496,20 @@ focus:border-blue-500 outline-none text-sm disabled:cursor-not-allowed disabled:
                     {loadingProducts ? (
                       <option disabled>Loading...</option>
                     ) : (
-                      loanProducts.map((code) => (
-                        <option key={code} value={code}>
-                          {PRODUCT_LABELS[code] || code.replace(/_/g, " ")}
-                        </option>
-                      ))
+                      <>
+                        {loanProducts.map((code) => (
+                          <option key={code} value={code}>
+                            {PRODUCT_LABELS[code] || code.replace(/_/g, " ")}
+                          </option>
+                        ))}
+                        {selectedProduct &&
+                        !loanProducts.includes(selectedProduct) ? (
+                          <option value={selectedProduct}>
+                            {PRODUCT_LABELS[selectedProduct] ||
+                              selectedProduct.replace(/_/g, " ")}
+                          </option>
+                        ) : null}
+                      </>
                     )}
                   </select>
                   {errors["selectedProduct"] && (
@@ -3398,6 +3578,14 @@ focus:border-blue-500 outline-none text-sm ${
                             {purpose}
                           </option>
                         ))}
+                        {formData.loanRequest.purpose &&
+                        !purposesToShow.includes(
+                          formData.loanRequest.purpose,
+                        ) ? (
+                          <option value={formData.loanRequest.purpose}>
+                            {formData.loanRequest.purpose}
+                          </option>
+                        ) : null}
                       </select>
                       {errors["loanRequest.purpose"] && (
                         <p className="text-xs text-red-500 mt-1">
@@ -3434,12 +3622,65 @@ focus:border-blue-500 outline-none text-sm ${
                               {sub}
                             </option>
                           ))}
+                          {formData.loanRequest.subPurpose &&
+                          !subPurposeOptions.includes(
+                            formData.loanRequest.subPurpose,
+                          ) ? (
+                            <option value={formData.loanRequest.subPurpose}>
+                              {formData.loanRequest.subPurpose}
+                            </option>
+                          ) : null}
                         </select>
                         {errors["loanRequest.subPurpose"] && (
                           <p className="text-xs text-red-500 mt-1">
                             {errors["loanRequest.subPurpose"]}
                           </p>
                         )}
+                      </div>
+                    )}
+                    {(isFixAndFlipProduct(selectedProduct) ||
+                      isConstructionLoanProduct(selectedProduct)) && (
+                      <div className="md:col-span-2">
+                        <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">
+                          Build to Rent or Build to Sell
+                        </label>
+                        <div className="flex flex-wrap gap-2">
+                          {(
+                            [
+                              {
+                                value: "BUILD_TO_RENT",
+                                label: "Build to Rent",
+                              },
+                              {
+                                value: "BUILD_TO_SELL",
+                                label: "Build to Sell",
+                              },
+                            ] as const
+                          ).map((option) => {
+                            const selected =
+                              formData.loanRequest.buildToRentOrSell ===
+                              option.value;
+                            return (
+                              <button
+                                key={option.value}
+                                type="button"
+                                onClick={() =>
+                                  updateLoanRequest(
+                                    "buildToRentOrSell",
+                                    option.value,
+                                  )
+                                }
+                                className={`rounded-md border px-4 py-2 text-sm font-medium transition ${
+                                  selected
+                                    ? "border-[#13538A] bg-[#13538A] text-white"
+                                    : "border-slate-300 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+                                }`}
+                              >
+                                {option.label}
+                              </button>
+                            );
+                          })}
+                        </div>
                       </div>
                     )}
                     {/* Seller Financing */}
@@ -3830,11 +4071,11 @@ focus:border-blue-500 outline-none text-sm ${
                           </div>
                         </div>
 
-                        {isFixAndFlipProduct(selectedProduct) ||
-                          (isConstructionPurchase(
+                        {(isFixAndFlipProduct(selectedProduct) ||
+                          isConstructionPurchase(
                             formData.loanRequest.purpose,
                             selectedProduct,
-                          ) && (
+                          )) && (
                             <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-4">
                               <div>
                                 <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
@@ -3917,7 +4158,7 @@ focus:border-blue-500 outline-none text-sm ${
                                 )}
                               </div>
                             </div>
-                          ))}
+                          )}
 
                         {isFixAndFlipProduct(selectedProduct) && (
                           <div className="mt-3 rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 p-3 text-xs text-slate-600 dark:text-slate-300">
@@ -4033,28 +4274,11 @@ focus:border-blue-500 outline-none text-sm ${
 
                         <div className="mt-3 rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 p-3 text-xs text-slate-600 dark:text-slate-300">
                           <span className="font-semibold">Equity (Auto):</span>{" "}
-                          $
-                          {Math.max(
-                            (Number(
-                              formData.loanRequest.currentMarketValue || 0,
-                            ) || 0) -
-                              (Number(
-                                formData.loanRequest.currentLoanBalance || 0,
-                              ) || 0),
-                            0,
-                          ).toLocaleString()}{" "}
+                          ${asIsEquity.toLocaleString()}{" "}
                           &nbsp;|&nbsp; Current As-Is Value: $
-                          {(
-                            Number(
-                              formData.loanRequest.currentMarketValue || 0,
-                            ) || 0
-                          ).toLocaleString()}{" "}
+                          {marketValue.toLocaleString()}{" "}
                           – Current Loan Balance: $
-                          {(
-                            Number(
-                              formData.loanRequest.currentLoanBalance || 0,
-                            ) || 0
-                          ).toLocaleString()}
+                          {currentLoanBalance.toLocaleString()}
                         </div>
                       </div>
                     )}
@@ -4129,28 +4353,11 @@ focus:border-blue-500 outline-none text-sm ${
                         {/* Equity Auto Summary */}
                         <div className="mt-3 rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 p-3 text-xs text-slate-600 dark:text-slate-300">
                           <span className="font-semibold">Equity (Auto):</span>{" "}
-                          $
-                          {Math.max(
-                            (Number(
-                              formData.loanRequest.currentMarketValue || 0,
-                            ) || 0) -
-                              (Number(
-                                formData.loanRequest.currentLoanBalance || 0,
-                              ) || 0),
-                            0,
-                          ).toLocaleString()}{" "}
+                          ${asIsEquity.toLocaleString()}{" "}
                           &nbsp;|&nbsp; Current As-Is Value: $
-                          {(
-                            Number(
-                              formData.loanRequest.currentMarketValue || 0,
-                            ) || 0
-                          ).toLocaleString()}{" "}
+                          {marketValue.toLocaleString()}{" "}
                           – Current Loan Balance: $
-                          {(
-                            Number(
-                              formData.loanRequest.currentLoanBalance || 0,
-                            ) || 0
-                          ).toLocaleString()}
+                          {currentLoanBalance.toLocaleString()}
                         </div>
 
                         {/* Row 2: Rehab Cost + ARV */}
@@ -4221,23 +4428,14 @@ focus:border-blue-500 outline-none text-sm ${
                           <span className="font-semibold">
                             Total Project Cost (Auto):
                           </span>{" "}
-                          $
-                          {(
-                            (Number(
-                              formData.loanRequest.currentMarketValue || 0,
-                            ) || 0) +
-                            (Number(formData.loanRequest.rehabCost || 0) || 0)
-                          ).toLocaleString()}{" "}
+                          ${valuationProjectCost.toLocaleString()}{" "}
                           &nbsp;|&nbsp; Current As-Is Value: $
-                          {(
-                            Number(
-                              formData.loanRequest.currentMarketValue || 0,
-                            ) || 0
-                          ).toLocaleString()}{" "}
-                          + Rehab Cost: $
-                          {(
-                            Number(formData.loanRequest.rehabCost || 0) || 0
-                          ).toLocaleString()}
+                          {marketValue.toLocaleString()}{" "}
+                          +{" "}
+                          {showConstructionCostLable(selectedProduct)
+                            ? "Construction Cost"
+                            : "Rehab Cost"}
+                          : ${valuationCapex.toLocaleString()}
                         </div>
                       </div>
                     )}
@@ -5642,16 +5840,46 @@ focus:border-blue-500 outline-none text-sm ${
                     onRemoveProperty={(propertyId) =>
                       removeBorrowerProperty("borrower", propertyId)
                     }
+                    onAddSoldProperty={() =>
+                      addBorrowerSoldProperty("borrower")
+                    }
+                    onRemoveSoldProperty={(propertyId) =>
+                      removeBorrowerSoldProperty("borrower", propertyId)
+                    }
+                    onSoldPropertyChange={(propertyId, field, value) => {
+                      if (
+                        [
+                          "purchasePrice",
+                          "rehabConstructionUpgradeCost",
+                          "costOfBorrowing",
+                          "soldPrice",
+                        ].includes(field)
+                      ) {
+                        updateBorrowerSoldPropertyAmount(
+                          "borrower",
+                          propertyId,
+                          field,
+                          value,
+                        );
+                        return;
+                      }
+                      updateBorrowerSoldProperty(
+                        "borrower",
+                        propertyId,
+                        field,
+                        value,
+                      );
+                    }}
                     onPropertyChange={(propertyId, field, value) => {
                       if (
                         [
+                          "purchasePrice",
                           "rehabUpgradeCost",
                           "currentMarketValue",
                           "loanMortgageBalance",
                           "grossRentalIncome",
                           "loanTaxInsurancePaymentYr",
-                          "noiPerYear",
-                          "totalEquity",
+                          "totalAnnualExpenses",
                         ].includes(field)
                       ) {
                         updateBorrowerPropertyAmount(
@@ -5733,16 +5961,52 @@ focus:border-blue-500 outline-none text-sm ${
                             index,
                           )
                         }
+                        onAddSoldProperty={() =>
+                          addBorrowerSoldProperty("coBorrower", index)
+                        }
+                        onRemoveSoldProperty={(propertyId) =>
+                          removeBorrowerSoldProperty(
+                            "coBorrower",
+                            propertyId,
+                            index,
+                          )
+                        }
+                        onSoldPropertyChange={(propertyId, field, value) => {
+                          if (
+                            [
+                              "purchasePrice",
+                              "rehabConstructionUpgradeCost",
+                              "costOfBorrowing",
+                              "soldPrice",
+                            ].includes(field)
+                          ) {
+                            updateBorrowerSoldPropertyAmount(
+                              "coBorrower",
+                              propertyId,
+                              field,
+                              value,
+                              index,
+                            );
+                            return;
+                          }
+                          updateBorrowerSoldProperty(
+                            "coBorrower",
+                            propertyId,
+                            field,
+                            value,
+                            index,
+                          );
+                        }}
                         onPropertyChange={(propertyId, field, value) => {
                           if (
                             [
+                              "purchasePrice",
                               "rehabUpgradeCost",
                               "currentMarketValue",
                               "loanMortgageBalance",
                               "grossRentalIncome",
                               "loanTaxInsurancePaymentYr",
-                              "noiPerYear",
-                              "totalEquity",
+                              "totalAnnualExpenses",
                             ].includes(field)
                           ) {
                             updateBorrowerPropertyAmount(
@@ -7223,6 +7487,43 @@ focus:border-blue-500 outline-none text-sm ${
           </div>
         </div>
       </div>
+
+      {confirmStartNewOpen ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="start-new-application-title"
+        >
+          <div className="w-full max-w-md rounded-xl bg-white p-5 shadow-xl dark:bg-slate-900">
+            <h3
+              id="start-new-application-title"
+              className="text-base font-semibold text-slate-900 dark:text-white"
+            >
+              Start a new application?
+            </h3>
+            <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+              Saved progress on this device will be cleared.
+            </p>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setConfirmStartNewOpen(false)}
+                className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+              >
+                Keep progress
+              </button>
+              <button
+                type="button"
+                onClick={confirmStartNewApplication}
+                className="rounded-md bg-[#13538A] px-3 py-1.5 text-sm font-medium text-white hover:bg-[#0e3d66]"
+              >
+                Start new
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </>
   );
 };

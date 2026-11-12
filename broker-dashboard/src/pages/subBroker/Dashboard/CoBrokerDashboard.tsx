@@ -35,6 +35,7 @@ import {
 } from "../../../lib/brokerPermissions";
 import { hydrateOrgEntitlements } from "../../../lib/brokerEntitlements";
 import { isSessionExpiredError } from "../../../lib/sessionExpiry";
+import { formatUsDate } from "../../../lib/usDateFormat";
 import {
   formatCompactCurrency,
   type BrokerStats,
@@ -547,7 +548,7 @@ export default function CoBrokerDashboard() {
                       </td>
                       <td className="px-4 py-2.5 text-gray-500 sm:px-5">
                         {row.submittedOn
-                          ? new Date(row.submittedOn).toLocaleDateString()
+                          ? formatUsDate(row.submittedOn)
                           : "—"}
                       </td>
                       <td className="px-4 py-2.5 text-right sm:px-5">

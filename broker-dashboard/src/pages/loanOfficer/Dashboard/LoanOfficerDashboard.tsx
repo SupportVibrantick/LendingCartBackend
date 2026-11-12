@@ -21,6 +21,7 @@ import {
   checkLoanOfficerResponse,
 } from "../../../lib/loanOfficerApi";
 import { isSessionExpiredError } from "../../../lib/sessionExpiry";
+import { formatUsDate } from "../../../lib/usDateFormat";
 import StaffCommissionOverview from "../../../components/commissions/StaffCommissionOverview";
 import EcommerceMetrics from "../../../components/ecommerce/EcommerceMetrics";
 import StatisticsChart from "../../../components/ecommerce/StatisticsChart";
@@ -553,7 +554,7 @@ export default function LoanOfficerDashboard() {
                       </td>
                       <td className="px-4 py-2.5 text-gray-500 sm:px-5">
                         {row.submittedOn
-                          ? new Date(row.submittedOn).toLocaleDateString()
+                          ? formatUsDate(row.submittedOn)
                           : "—"}
                       </td>
                       <td className="px-4 py-2.5 text-right sm:px-5">

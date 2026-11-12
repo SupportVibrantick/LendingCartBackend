@@ -38,6 +38,7 @@ import {
 import ShareClientApplicationLink from "../../components/loanPipeline/ShareClientApplicationLink";
 import MultiSelect from "../../components/form/MultiSelect";
 import { getFixedMenuPosition } from "../../lib/fixedMenuPosition";
+import { formatUsDate } from "../../lib/usDateFormat";
 
 /* ================= TYPES ================= */
 // type SubmissionListItem = {
@@ -135,13 +136,8 @@ function getInitials(name?: string) {
 
 function formatShortDate(value?: string) {
   if (!value) return "—";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "—";
-  return date.toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
+  const formatted = formatUsDate(value);
+  return formatted || "—";
 }
 
 function formatStatusLabel(status?: string) {
@@ -2053,7 +2049,7 @@ export default function LoanApplicationsPage() {
                     const submittedDate = new Date(
                       submissionDetail.submittedAt,
                     );
-                    const formattedDate = submittedDate.toLocaleDateString();
+                    const formattedDate = formatUsDate(submittedDate);
                     const formattedTime = submittedDate.toLocaleTimeString();
                     const reviewsArray =
                       submissionDetail?.lenders?.[0]?.reviews || [];

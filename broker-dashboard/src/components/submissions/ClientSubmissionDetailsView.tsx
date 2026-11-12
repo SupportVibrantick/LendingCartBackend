@@ -268,6 +268,10 @@ export default function ClientSubmissionDetailsView({
         fields.find((field) => field.fieldKey === "creditScore")!,
       )
     : (application?.creditScore ?? "—");
+  const dateOfBirthField = fields.find((field) => field.fieldKey === "dob");
+  const dateOfBirth = dateOfBirthField
+    ? formatSubmissionFieldValue(dateOfBirthField)
+    : "";
 
   const kpis = [
     {
@@ -300,6 +304,9 @@ export default function ClientSubmissionDetailsView({
           icon: <Building2 size={12} />,
           value: entityType,
         }
+      : null,
+    dateOfBirth && dateOfBirth !== "—" && dateOfBirth !== "-"
+      ? { label: "Date of birth", value: dateOfBirth }
       : null,
     creditScore && creditScore !== "—"
       ? { label: "Credit score", value: creditScore }

@@ -973,7 +973,7 @@ export default function BrokerLoiEditorPanel({
                   value={terms.expirationDate}
                   disabled={fieldsDisabled}
                   disablePastDates
-                  placeholder="dd-mm-yyyy"
+                  placeholder="MM/DD/YY"
                   onChange={(next) =>
                     setTerms((prev) => ({
                       ...prev,
