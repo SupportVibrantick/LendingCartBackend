@@ -18,7 +18,6 @@ import {
 } from "lucide-react";
 
 import PageMeta from "../../../components/common/PageMeta";
-import ShareClientApplicationLink from "../../../components/loanPipeline/ShareClientApplicationLink";
 import { formatDocumentStatusLabel } from "../../../lib/documentStatus";
 import {
   CO_BROKER_API_BASE,
@@ -868,8 +867,6 @@ export default function LoanApplicationsPage() {
             </div>
           </div>
         </div>
-
-        <ShareClientApplicationLink portal="coBroker" />
 
         <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900 lg:p-5">
           <div className="flex flex-col gap-4">
