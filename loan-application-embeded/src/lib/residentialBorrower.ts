@@ -354,6 +354,41 @@ const validateOwnershipPercent = (
   }
 };
 
+const isValidIsoDate = (value: string) => {
+  const trimmed = value.trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return false;
+  const d = new Date(`${trimmed}T00:00:00`);
+  return !Number.isNaN(d.getTime());
+};
+
+const isPastOrTodayDate = (value: string) => {
+  if (!isValidIsoDate(value)) return false;
+  const d = new Date(`${value.trim()}T00:00:00`);
+  const today = new Date();
+  today.setHours(23, 59, 59, 999);
+  return d <= today;
+};
+
+const requirePastOrTodayDate = (
+  errors: Record<string, string>,
+  key: string,
+  value: string | undefined,
+  requiredMessage: string,
+  futureMessage: string,
+) => {
+  if (!value?.trim()) {
+    errors[key] = requiredMessage;
+    return;
+  }
+  if (!isValidIsoDate(value)) {
+    errors[key] = "Enter a valid date";
+    return;
+  }
+  if (!isPastOrTodayDate(value)) {
+    errors[key] = futureMessage;
+  }
+};
+
 /** When a SREO row exists, require core fields and validate optional amounts. */
 export const collectRealEstateOwnedErrors = (
   entries: RealEstateOwnedEntry[] | undefined | null,
@@ -375,9 +410,13 @@ export const collectRealEstateOwnedErrors = (
       errors[`${prefix}.propertyType`] = "Property type is required";
     }
 
-    if (!entry.acquisitionDate?.trim()) {
-      errors[`${prefix}.acquisitionDate`] = "Purchase date is required";
-    }
+    requirePastOrTodayDate(
+      errors,
+      `${prefix}.acquisitionDate`,
+      entry.acquisitionDate,
+      "Purchase date is required",
+      "Purchase date cannot be in the future",
+    );
 
     requireScheduleMoney(
       errors,
@@ -439,17 +478,27 @@ export const collectRecentlySoldErrors = (
       errors[`${prefix}.propertyType`] = "Property type is required";
     }
 
-    if (!entry.purchaseDate?.trim()) {
-      errors[`${prefix}.purchaseDate`] = "Purchase date is required";
-    }
+    requirePastOrTodayDate(
+      errors,
+      `${prefix}.purchaseDate`,
+      entry.purchaseDate,
+      "Purchase date is required",
+      "Purchase date cannot be in the future",
+    );
 
-    if (!entry.soldDate?.trim()) {
-      errors[`${prefix}.soldDate`] = "Sold date is required";
-    }
+    requirePastOrTodayDate(
+      errors,
+      `${prefix}.soldDate`,
+      entry.soldDate,
+      "Sold date is required",
+      "Sold date cannot be in the future",
+    );
 
     if (
       entry.purchaseDate?.trim() &&
       entry.soldDate?.trim() &&
+      isValidIsoDate(entry.purchaseDate) &&
+      isValidIsoDate(entry.soldDate) &&
       entry.soldDate < entry.purchaseDate
     ) {
       errors[`${prefix}.soldDate`] =
