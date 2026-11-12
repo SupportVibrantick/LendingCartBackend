@@ -471,8 +471,8 @@ export const FIELD_VALIDATION_RULES: Record<string, FieldValidationRule> = {
   "property.propertyAddress": {
     minLength: 5,
     maxLength: 200,
-    required: false,
-    errorMessage: "Property address must be between 5 and 200 characters",
+    required: true,
+    errorMessage: "Property address is required",
   },
   "property.entityNameOnTitle": {
     maxLength: 100,
@@ -487,10 +487,20 @@ export const FIELD_VALIDATION_RULES: Record<string, FieldValidationRule> = {
   },
   "property.propertyType": {
     maxLength: 100,
-    required: false,
-    errorMessage: "Property type must be at most 100 characters",
+    required: true,
+    errorMessage: "Property type is required",
   },
-  "property.acquisitionDate": { required: false },
+  "property.acquisitionDate": {
+    required: true,
+    errorMessage: "Purchase date is required",
+  },
+  "property.purchasePrice": {
+    min: 0,
+    max: 100000000,
+    required: true,
+    errorMessage: "Purchase price is required",
+    pattern: "currency",
+  },
   "property.rehabUpgradeCost": {
     min: 0,
     max: 100000000,
@@ -501,8 +511,8 @@ export const FIELD_VALIDATION_RULES: Record<string, FieldValidationRule> = {
   "property.currentMarketValue": {
     min: 0,
     max: 100000000,
-    required: false,
-    errorMessage: "Market value must be between $0 and $100,000,000",
+    required: true,
+    errorMessage: "Current market value is required",
     pattern: "currency",
   },
   "property.mortgageHolderNameAddress": {
@@ -531,6 +541,13 @@ export const FIELD_VALIDATION_RULES: Record<string, FieldValidationRule> = {
     errorMessage: "Payment must be between $0 and $100,000,000",
     pattern: "currency",
   },
+  "property.totalAnnualExpenses": {
+    min: 0,
+    max: 100000000,
+    required: false,
+    errorMessage: "Annual expenses must be between $0 and $100,000,000",
+    pattern: "currency",
+  },
   "property.noiPerYear": {
     min: 0,
     max: 100000000,
@@ -543,6 +560,68 @@ export const FIELD_VALIDATION_RULES: Record<string, FieldValidationRule> = {
     max: 100000000,
     required: false,
     errorMessage: "Total equity must be between $0 and $100,000,000",
+    pattern: "currency",
+  },
+
+  // ============================================================
+  // STEP 4 — Recently Sold Properties
+  // ============================================================
+  "soldProperty.propertyAddress": {
+    minLength: 5,
+    maxLength: 200,
+    required: true,
+    errorMessage: "Property address is required",
+  },
+  "soldProperty.entityNameOnTitle": {
+    maxLength: 100,
+    required: false,
+    errorMessage: "Title entity must be at most 100 characters",
+  },
+  "soldProperty.ownershipPercent": {
+    min: 0,
+    max: 100,
+    required: false,
+    errorMessage: "Ownership must be between 0% and 100%",
+  },
+  "soldProperty.propertyType": {
+    maxLength: 100,
+    required: true,
+    errorMessage: "Property type is required",
+  },
+  "soldProperty.purchaseDate": {
+    required: true,
+    errorMessage: "Purchase date is required",
+  },
+  "soldProperty.soldDate": {
+    required: true,
+    errorMessage: "Sold date is required",
+  },
+  "soldProperty.purchasePrice": {
+    min: 0,
+    max: 100000000,
+    required: true,
+    errorMessage: "Purchase price is required",
+    pattern: "currency",
+  },
+  "soldProperty.rehabConstructionUpgradeCost": {
+    min: 0,
+    max: 100000000,
+    required: false,
+    errorMessage: "Rehab/construction cost must be between $0 and $100,000,000",
+    pattern: "currency",
+  },
+  "soldProperty.costOfBorrowing": {
+    min: 0,
+    max: 100000000,
+    required: false,
+    errorMessage: "Cost of borrowing must be between $0 and $100,000,000",
+    pattern: "currency",
+  },
+  "soldProperty.soldPrice": {
+    min: 0,
+    max: 100000000,
+    required: true,
+    errorMessage: "Sold price is required",
     pattern: "currency",
   },
 

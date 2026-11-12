@@ -4,6 +4,8 @@
 
 import {
   collectDeclarationErrors,
+  collectRealEstateOwnedErrors,
+  collectRecentlySoldErrors,
   createEmptyDeclarations,
   DECLARATION_QUESTIONS,
   isDeclarationAnswered,
@@ -469,6 +471,14 @@ export const collectStepValidationErrors = (
           formData.borrower.declarations ?? createEmptyDeclarations(),
           "borrower",
         ),
+        collectRealEstateOwnedErrors(
+          formData.borrower.realEstateOwned,
+          "borrower",
+        ),
+        collectRecentlySoldErrors(
+          formData.borrower.recentlySoldProperties,
+          "borrower",
+        ),
       );
 
       formData.coBorrowers.forEach((b, index) => {
@@ -476,6 +486,14 @@ export const collectStepValidationErrors = (
           newErrors,
           collectDeclarationErrors(
             b.declarations ?? createEmptyDeclarations(),
+            `coBorrowers.${index}`,
+          ),
+          collectRealEstateOwnedErrors(
+            b.realEstateOwned,
+            `coBorrowers.${index}`,
+          ),
+          collectRecentlySoldErrors(
+            b.recentlySoldProperties,
             `coBorrowers.${index}`,
           ),
         );

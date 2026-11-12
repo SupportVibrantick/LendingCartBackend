@@ -307,6 +307,188 @@ export const collectDeclarationErrors = (
   return errors;
 };
 
+const parseScheduleMoney = (value?: string | null): number | null => {
+  if (!value?.trim()) return null;
+  const n = Number(String(value).replace(/[^0-9.-]/g, ""));
+  return Number.isFinite(n) ? n : NaN;
+};
+
+const requireScheduleMoney = (
+  errors: Record<string, string>,
+  key: string,
+  value: string | undefined,
+  requiredMessage: string,
+  invalidMessage = "Enter a valid amount",
+) => {
+  if (!value?.trim()) {
+    errors[key] = requiredMessage;
+    return;
+  }
+  const n = parseScheduleMoney(value);
+  if (n === null || Number.isNaN(n) || n < 0) {
+    errors[key] = invalidMessage;
+  }
+};
+
+const validateOptionalScheduleMoney = (
+  errors: Record<string, string>,
+  key: string,
+  value: string | undefined,
+) => {
+  if (!value?.trim()) return;
+  const n = parseScheduleMoney(value);
+  if (Number.isNaN(n) || (n !== null && n < 0)) {
+    errors[key] = "Enter a valid amount";
+  }
+};
+
+const validateOwnershipPercent = (
+  errors: Record<string, string>,
+  key: string,
+  value: string | undefined,
+) => {
+  if (!value?.trim()) return;
+  const n = Number(String(value).replace(/[^0-9.-]/g, ""));
+  if (!Number.isFinite(n) || n < 0 || n > 100) {
+    errors[key] = "Ownership must be between 0% and 100%";
+  }
+};
+
+/** When a SREO row exists, require core fields and validate optional amounts. */
+export const collectRealEstateOwnedErrors = (
+  entries: RealEstateOwnedEntry[] | undefined | null,
+  errorPrefix: string,
+): Record<string, string> => {
+  const errors: Record<string, string> = {};
+
+  (entries || []).forEach((entry) => {
+    const prefix = `${errorPrefix}.realEstateOwned.${entry.id}`;
+
+    if (!entry.propertyAddress?.trim()) {
+      errors[`${prefix}.propertyAddress`] = "Property address is required";
+    } else if (entry.propertyAddress.trim().length < 5) {
+      errors[`${prefix}.propertyAddress`] =
+        "Property address must be at least 5 characters";
+    }
+
+    if (!entry.propertyType?.trim()) {
+      errors[`${prefix}.propertyType`] = "Property type is required";
+    }
+
+    if (!entry.acquisitionDate?.trim()) {
+      errors[`${prefix}.acquisitionDate`] = "Purchase date is required";
+    }
+
+    requireScheduleMoney(
+      errors,
+      `${prefix}.purchasePrice`,
+      entry.purchasePrice,
+      "Purchase price is required",
+    );
+    requireScheduleMoney(
+      errors,
+      `${prefix}.currentMarketValue`,
+      entry.currentMarketValue,
+      "Current market value is required",
+    );
+
+    validateOwnershipPercent(
+      errors,
+      `${prefix}.ownershipPercent`,
+      entry.ownershipPercent,
+    );
+
+    (
+      [
+        "rehabUpgradeCost",
+        "loanMortgageBalance",
+        "grossRentalIncome",
+        "loanTaxInsurancePaymentYr",
+        "totalAnnualExpenses",
+      ] as const
+    ).forEach((field) => {
+      validateOptionalScheduleMoney(
+        errors,
+        `${prefix}.${field}`,
+        entry[field],
+      );
+    });
+  });
+
+  return errors;
+};
+
+/** When a Recently Sold row exists, require core fields and date order. */
+export const collectRecentlySoldErrors = (
+  entries: RecentlySoldPropertyEntry[] | undefined | null,
+  errorPrefix: string,
+): Record<string, string> => {
+  const errors: Record<string, string> = {};
+
+  (entries || []).forEach((entry) => {
+    const prefix = `${errorPrefix}.recentlySoldProperties.${entry.id}`;
+
+    if (!entry.propertyAddress?.trim()) {
+      errors[`${prefix}.propertyAddress`] = "Property address is required";
+    } else if (entry.propertyAddress.trim().length < 5) {
+      errors[`${prefix}.propertyAddress`] =
+        "Property address must be at least 5 characters";
+    }
+
+    if (!entry.propertyType?.trim()) {
+      errors[`${prefix}.propertyType`] = "Property type is required";
+    }
+
+    if (!entry.purchaseDate?.trim()) {
+      errors[`${prefix}.purchaseDate`] = "Purchase date is required";
+    }
+
+    if (!entry.soldDate?.trim()) {
+      errors[`${prefix}.soldDate`] = "Sold date is required";
+    }
+
+    if (
+      entry.purchaseDate?.trim() &&
+      entry.soldDate?.trim() &&
+      entry.soldDate < entry.purchaseDate
+    ) {
+      errors[`${prefix}.soldDate`] =
+        "Sold date must be on or after purchase date";
+    }
+
+    requireScheduleMoney(
+      errors,
+      `${prefix}.purchasePrice`,
+      entry.purchasePrice,
+      "Purchase price is required",
+    );
+    requireScheduleMoney(
+      errors,
+      `${prefix}.soldPrice`,
+      entry.soldPrice,
+      "Sold price is required",
+    );
+
+    validateOwnershipPercent(
+      errors,
+      `${prefix}.ownershipPercent`,
+      entry.ownershipPercent,
+    );
+
+    (
+      ["rehabConstructionUpgradeCost", "costOfBorrowing"] as const
+    ).forEach((field) => {
+      validateOptionalScheduleMoney(
+        errors,
+        `${prefix}.${field}`,
+        entry[field],
+      );
+    });
+  });
+
+  return errors;
+};
+
 export const createEmptyRealEstateProperty = (): RealEstateOwnedEntry => ({
   id: Date.now(),
   propertyAddress: "",
@@ -372,6 +554,22 @@ export const formatCurrencyInput = (rawValue?: string | null) => {
       ? `${parts[0]}.${parts.slice(1).join("")}`
       : parts[0] || "";
   return normalized ? Number(normalized).toLocaleString("en-US") : "";
+};
+
+/** Digits + optional decimal only; capped at 100 for ownership %. */
+export const formatOwnershipPercentInput = (rawValue?: string | null) => {
+  const cleaned = (rawValue ?? "").replace(/[^\d.]/g, "");
+  if (!cleaned) return "";
+  const parts = cleaned.split(".");
+  const whole = parts[0] || "";
+  const fraction = parts.length > 1 ? parts.slice(1).join("").slice(0, 2) : "";
+  const normalized =
+    parts.length > 1 ? `${whole}.${fraction}` : whole;
+  if (!normalized || normalized === ".") return normalized === "." ? "0." : "";
+  const n = Number(normalized);
+  if (!Number.isFinite(n)) return "";
+  if (n > 100) return "100";
+  return normalized;
 };
 
 export const sumBorrowerAssets = (assets?: BorrowerAssets | null) =>

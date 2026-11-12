@@ -2928,6 +2928,18 @@ const LoanApplication = ({
       };
       return { ...prev, coBorrowers: updated };
     });
+
+    const errorPrefix =
+      scope === "borrower"
+        ? `borrower.realEstateOwned.${propertyId}.`
+        : `coBorrowers.${coIndex}.realEstateOwned.${propertyId}.`;
+    setErrors((prev) => {
+      const updated = { ...prev };
+      Object.keys(updated).forEach((key) => {
+        if (key.startsWith(errorPrefix)) delete updated[key];
+      });
+      return updated;
+    });
   };
 
   const updateBorrowerProperty = (
@@ -3060,6 +3072,18 @@ const LoanApplication = ({
       };
       return { ...prev, coBorrowers: updated };
     });
+
+    const errorPrefix =
+      scope === "borrower"
+        ? `borrower.recentlySoldProperties.${propertyId}.`
+        : `coBorrowers.${coIndex}.recentlySoldProperties.${propertyId}.`;
+    setErrors((prev) => {
+      const updated = { ...prev };
+      Object.keys(updated).forEach((key) => {
+        if (key.startsWith(errorPrefix)) delete updated[key];
+      });
+      return updated;
+    });
   };
 
   const updateBorrowerSoldProperty = (
@@ -3095,6 +3119,55 @@ const LoanApplication = ({
         ),
       };
       return { ...prev, coBorrowers: updated };
+    });
+
+    const fieldKey = `soldProperty.${String(field)}`;
+    const rule = getRuleForKey(fieldKey);
+    const errorKey =
+      scope === "borrower"
+        ? `borrower.recentlySoldProperties.${propertyId}.${String(field)}`
+        : `coBorrowers.${coIndex}.recentlySoldProperties.${propertyId}.${String(field)}`;
+    const soldDateErrorKey =
+      scope === "borrower"
+        ? `borrower.recentlySoldProperties.${propertyId}.soldDate`
+        : `coBorrowers.${coIndex}.recentlySoldProperties.${propertyId}.soldDate`;
+
+    setErrors((prev) => {
+      const updated = { ...prev };
+      if (rule) {
+        const result = validateValue(value, rule);
+        if (result.hasError) {
+          updated[errorKey] = result.error;
+        } else {
+          delete updated[errorKey];
+        }
+      }
+
+      if (field === "purchaseDate" || field === "soldDate") {
+        const entries =
+          scope === "borrower"
+            ? formData.borrower.recentlySoldProperties || []
+            : formData.coBorrowers[coIndex!]?.recentlySoldProperties || [];
+        const entry = entries.find((item) => item.id === propertyId);
+        const purchaseDate =
+          field === "purchaseDate" ? value : entry?.purchaseDate || "";
+        const soldDate = field === "soldDate" ? value : entry?.soldDate || "";
+        if (
+          purchaseDate.trim() &&
+          soldDate.trim() &&
+          soldDate < purchaseDate
+        ) {
+          updated[soldDateErrorKey] =
+            "Sold date must be on or after purchase date";
+        } else if (
+          updated[soldDateErrorKey] ===
+          "Sold date must be on or after purchase date"
+        ) {
+          delete updated[soldDateErrorKey];
+        }
+      }
+
+      return updated;
     });
   };
 
