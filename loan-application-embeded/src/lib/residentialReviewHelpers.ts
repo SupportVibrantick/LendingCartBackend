@@ -10,6 +10,7 @@ import {
   showEquipmentFinanceMarketValue,
 } from "./ablBase44";
 import { isBase44BusinessCollateralProduct } from "./base44BusinessCollateral";
+import { formatUsDate } from "./usDateFormat";
 
 export type ReviewSummaryRow = {
   label: string;
@@ -30,6 +31,11 @@ export type ReviewValidationIssue = {
 
 const displayValue = (value: string | undefined | null, fallback = "—") =>
   value?.trim() ? value.trim() : fallback;
+
+const displayDate = (value: string | undefined | null, fallback = "—") => {
+  const formatted = formatUsDate(value);
+  return formatted || fallback;
+};
 
 const formatMoney = (value: string) => {
   const cleaned = (value || "").replace(/,/g, "");
@@ -67,6 +73,7 @@ export const buildResidentialReviewSections = ({
     afterRepairValue: string;
     currentMarketValue: string;
     constructionCost: string;
+    buildToRentOrSell?: string;
   };
   entity: {
     legalName: string;
@@ -85,6 +92,7 @@ export const buildResidentialReviewSections = ({
   borrower: {
     firstName: string;
     lastName: string;
+    dob?: string;
     entityOwnershipPercent: string;
     realEstateOwned: { id: number }[];
   };
@@ -94,7 +102,9 @@ export const buildResidentialReviewSections = ({
   selectedProduct: string;
 }): ReviewSummarySection[] => {
   const isFixAndFlip = selectedProduct === "FIX_AND_FLIP_LOAN_1_TO_4_UNITS";
-  const isConstruction = selectedProduct === "CONSTRUCTION_LOAN_1_TO_4_UNITS";
+  const isConstruction =
+    selectedProduct === "CONSTRUCTION_LOAN_1_TO_4_UNITS" ||
+    selectedProduct === "CONSTRUCTION_LOAN";
   const isRentalPortfolio =
     selectedProduct === "RENTAL_PORTFOLIO" ||
     selectedProduct === "RENTAL_PORTFOLIO_CRE";
@@ -231,6 +241,19 @@ export const buildResidentialReviewSections = ({
     rows: [
       { label: "Loan Type", value: displayValue(productLabel) },
       { label: "Loan Purpose", value: displayValue(loanRequest.purpose) },
+      ...(loanRequest.buildToRentOrSell
+        ? [
+            {
+              label: "Build to Rent or Build to Sell",
+              value:
+                loanRequest.buildToRentOrSell === "BUILD_TO_RENT"
+                  ? "Build to Rent"
+                  : loanRequest.buildToRentOrSell === "BUILD_TO_SELL"
+                    ? "Build to Sell"
+                    : displayValue(loanRequest.buildToRentOrSell),
+            },
+          ]
+        : []),
       { label: "Loan Amount", value: formatMoney(loanRequest.amount) },
       {
         label: "Rate Type",
@@ -246,7 +269,7 @@ export const buildResidentialReviewSections = ({
         : []),
       {
         label: "Closing Date",
-        value: displayValue(loanRequest.estimatedClosingDate),
+        value: displayDate(loanRequest.estimatedClosingDate),
       },
     ],
   },
@@ -257,7 +280,7 @@ export const buildResidentialReviewSections = ({
       { label: "Legal Name", value: displayValue(entity.legalName) },
       { label: "Entity Type", value: displayValue(entity.entityType) },
       { label: "DBA", value: displayValue(entity.dba, "—") },
-      { label: "Formation Date", value: displayValue(entity.formationDate) },
+      { label: "Formation Date", value: displayDate(entity.formationDate) },
       {
         label: "Years in Business",
         value: displayValue(entity.yearsInBusiness),
@@ -321,6 +344,10 @@ export const buildResidentialReviewSections = ({
       {
         label: "Borrower 1",
         value: [borrower.firstName, borrower.lastName].filter(Boolean).join(" ") || "—",
+      },
+      {
+        label: "Date of Birth",
+        value: displayDate(borrower.dob),
       },
       {
         label: "Ownership %",

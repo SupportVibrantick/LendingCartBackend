@@ -180,3 +180,14 @@ export function saveReferringBrokerDraft(
     /* ignore quota */
   }
 }
+
+export function clearReferringBrokerDraft(
+  storageKey: string | null | undefined,
+) {
+  if (!storageKey || typeof sessionStorage === "undefined") return;
+  try {
+    sessionStorage.removeItem(`${STORAGE_PREFIX}${storageKey}`);
+  } catch {
+    /* ignore */
+  }
+}

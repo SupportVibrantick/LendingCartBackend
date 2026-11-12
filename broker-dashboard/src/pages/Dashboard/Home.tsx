@@ -23,6 +23,7 @@ import ConversionFunnelChart from "../../components/ecommerce/ConversionFunnelCh
 import ConversionRatesChart from "../../components/ecommerce/ConversionRatesChart";
 import CommissionSummaryChart from "../../components/commissions/CommissionSummaryChart";
 import PageMeta from "../../components/common/PageMeta";
+import { formatUsDate } from "../../lib/usDateFormat";
 import { isSessionExpiredError } from "../../lib/sessionExpiry";
 import {
   formatCommissionCurrency,
@@ -600,7 +601,7 @@ export default function Home() {
                           </td>
                           <td className="px-4 py-2.5 text-gray-500 sm:px-5">
                             {row.submittedOn
-                              ? new Date(row.submittedOn).toLocaleDateString()
+                              ? formatUsDate(row.submittedOn)
                               : "—"}
                           </td>
                           <td className="px-4 py-2.5 text-right sm:px-5">

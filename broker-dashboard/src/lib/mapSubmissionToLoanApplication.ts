@@ -339,6 +339,7 @@ export function createEmptyFormData(): FormDataType {
       downPayment: "",
       useOfFunds: "",
       exitStrategy: "",
+      buildToRentOrSell: "",
     },
     loanTermIncome: {
       loanTerm: "",
@@ -455,6 +456,8 @@ export function mapSubmissionToLoanApplication(fields: SubmissionField[]) {
     exitStrategy: asString(
       getFieldValueByKeys(fields, ["exitStrategy", "projectSummary"]),
     ),
+    buildToRentOrSell: (asString(getFieldValue(fields, "buildToRentOrSell")) ||
+      "") as "" | "BUILD_TO_RENT" | "BUILD_TO_SELL",
   };
 
   formData.loanTermIncome = {
@@ -585,7 +588,9 @@ export function mapSubmissionToLoanApplication(fields: SubmissionField[]) {
           asString(legacy?.email) ||
           asString(getFieldValue(fields, `${prefix}_email`)),
         employer: asString(legacy?.employer),
-        dob: asString(legacy?.dob),
+        dob:
+          asDateInput(getFieldValue(fields, `${prefix}_dob`)) ||
+          asString(legacy?.dob),
         ssn:
           asString(legacy?.ssn) ||
           asString(getFieldValue(fields, `${prefix}_ssn`)),

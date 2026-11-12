@@ -122,3 +122,17 @@ export const calculateInterestOnlyMonthlyPayment = (
   if (!loanAmount || interestRate < 0) return 0;
   return (loanAmount * (interestRate / 100)) / 12;
 };
+
+/** Empty-ratio sentinels used by the stats banner (`"-"`) and older payloads. */
+const EMPTY_METRIC_SENTINELS = new Set(["", "-", "—", "–"]);
+
+/**
+ * Convert a formatted ratio string ("75.50", "-", "—") into a finite number
+ * for submission. `Number("-")` is NaN; this returns 0 instead.
+ */
+export const metricToNumber = (value?: string | null) => {
+  const trimmed = String(value ?? "").trim();
+  if (EMPTY_METRIC_SENTINELS.has(trimmed)) return 0;
+  const numeric = Number(trimmed);
+  return Number.isFinite(numeric) ? numeric : 0;
+};

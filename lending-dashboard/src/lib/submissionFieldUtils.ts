@@ -34,7 +34,8 @@ const FIELD_LABELS: Record<string, string> = {
   totalLiabilities: "Total Liabilities",
   totalCashReserves: "Total Cash Reserves",
   existingDebt: "Existing Debt",
-  sreoTotalMarketValue: "Total Market Value (Real Estate Owned)",
+  sreoTotalMarketValue: "SREO Total Equity",
+  sreoTotalEquity: "SREO Total Equity",
   useOfFunds: "Use of Funds",
   sellerFinancing: "Seller Financing",
   sellerNoteAmount: "Seller Note Amount",
@@ -50,6 +51,18 @@ const FIELD_LABELS: Record<string, string> = {
   vendorName: "Seller",
   vendorPhone: "Seller Phone",
   creditAuthorizationConsent: "Credit Authorization Consent",
+  dob: "Date of Birth",
+  buildToRentOrSell: "Build to Rent or Build to Sell",
+  subPurpose: "Sub-Loan Purpose",
+  entityOwnershipPercent: "Entity Ownership %",
+  legalStatus: "Legal Status",
+  constructionCost: "Construction Cost",
+  rehabCost: "Rehab Cost",
+  estimatedClosingDate: "Closing Date",
+  rateType: "Rate Type",
+  amortization: "Amortization",
+  loanCategory: "Loan Category",
+  loanTerm: "Loan Term",
 };
 
 const METRIC_ONLY_FIELD_KEYS = new Set([
@@ -84,6 +97,8 @@ const ENUM_VALUE_LABELS: Record<string, string> = {
   ABL: "Asset Based Lending",
   FULL_RECOURSE: "Full Recourse",
   NON_RECOURSE: "Non-Recourse",
+  BUILD_TO_RENT: "Build to Rent",
+  BUILD_TO_SELL: "Build to Sell",
 };
 
 function formatEnumLikeDisplayValue(value: unknown) {
@@ -105,6 +120,22 @@ function formatEnumLikeDisplayValue(value: unknown) {
 
 function stripCoBorrowerPrefix(fieldKey: string) {
   return fieldKey.replace(/^coBorrower_\d+_/, "");
+}
+
+function formatDisplayDate(value: unknown): string {
+  const raw = String(value ?? "").trim();
+  if (!raw) return "";
+  const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T\s].*)?$/);
+  if (iso && !raw.includes("T") && !raw.includes(" ")) {
+    return `${iso[2]}/${iso[3]}/${iso[1].slice(-2)}`;
+  }
+  const date = new Date(raw);
+  if (Number.isNaN(date.getTime())) return "";
+  return new Intl.DateTimeFormat("en-US", {
+    month: "2-digit",
+    day: "2-digit",
+    year: "2-digit",
+  }).format(date);
 }
 
 /**
@@ -174,15 +205,34 @@ const SREO_LINE_LABELS: Record<string, string> = {
   entityNameOnTitle: "Entity Name on Title",
   ownershipPercent: "Ownership %",
   propertyType: "Property Type",
-  acquisitionDate: "Acquisition Date",
+  acquisitionDate: "Purchase Date",
+  purchaseDate: "Purchase Date",
+  purchasePrice: "Purchase Price",
   rehabUpgradeCost: "Rehab / Upgrade Cost",
   currentMarketValue: "Current Market Value",
   mortgageHolderNameAddress: "Mortgage Holder",
   loanMortgageBalance: "Loan / Mortgage Balance",
   grossRentalIncome: "Gross Rental Income",
-  loanTaxInsurancePaymentYr: "Annual Tax & Insurance Payment",
-  noiPerYear: "NOI per Year",
+  loanTaxInsurancePaymentYr: "Loan / Tax / Insurance Payment / yr",
+  totalAnnualExpenses: "Total Annual Expenses",
+  netRent: "Net Rent",
+  noiPerYear: "Net Rent",
   totalEquity: "Total Equity",
+};
+
+const SOLD_LINE_LABELS: Record<string, string> = {
+  propertyAddress: "Property Address",
+  entityNameOnTitle: "Entity Name on Title",
+  ownershipPercent: "Ownership %",
+  propertyType: "Property Type",
+  purchaseDate: "Purchase Date",
+  soldDate: "Sold Date",
+  purchasePrice: "Purchase Price",
+  rehabConstructionUpgradeCost: "Rehab / Construction / Upgrade Cost",
+  costOfBorrowing: "Cost of Borrowing",
+  totalProjectCost: "Total Project Cost",
+  soldPrice: "Sold Price",
+  totalProfit: "Total Profit",
 };
 
 const FIELD_ALIAS_TO_CANONICAL = (() => {
@@ -252,7 +302,7 @@ function isUnenteredZeroLine(field: SubmissionDetailField) {
   const line =
     /^(asset_|liability_|financial_)/i.test(bare) ||
     /^proFormaNoi_year_\d+$/i.test(bare) ||
-    /^(totalAssets|totalLiabilities|totalCashReserves|existingDebt|sreoTotalMarketValue|proFormaNoiAverage)$/i.test(
+    /^(totalAssets|totalLiabilities|totalCashReserves|existingDebt|sreoTotalMarketValue|sreoTotalEquity|proFormaNoiAverage)$/i.test(
       bare,
     );
   if (!line) return false;
@@ -368,6 +418,12 @@ export function formatFieldLabel(
     return `Property ${Number(sreo[1]) + 1} · ${line}`;
   }
 
+  const sold = bare.match(/^sold_(\d+)_(.+)$/i);
+  if (sold) {
+    const line = SOLD_LINE_LABELS[sold[2]] || humanizeFieldKey(sold[2]);
+    return `Recently Sold ${Number(sold[1]) + 1} · ${line}`;
+  }
+
   const financial = bare.match(/^financial_(.+)_col(\d+)(?:_computed)?$/i);
   if (financial) {
     const row =
@@ -416,6 +472,22 @@ export function formatFieldDisplayValue(fieldKey: string, value: unknown) {
   }
 
   const bareKey = stripCoBorrowerPrefix(fieldKey);
+  if (bareKey === "buildToRentOrSell") {
+    const strategy = String(value).trim();
+    if (strategy === "BUILD_TO_RENT") return "Build to Rent";
+    if (strategy === "BUILD_TO_SELL") return "Build to Sell";
+  }
+
+  if (bareKey === "dob" || /date$/i.test(bareKey)) {
+    const formatted = formatDisplayDate(value);
+    if (formatted) return formatted;
+  }
+
+  if (/ownershipPercent$/i.test(bareKey) || bareKey === "entityOwnershipPercent") {
+    const raw = String(value).trim();
+    if (raw && !raw.endsWith("%")) return `${raw}%`;
+  }
+
   if (bareKey === "dscrCalculationMethod") {
     const method = String(value).trim();
     if (method === "noi") return "NOI";
@@ -534,6 +606,53 @@ export function formatSubmissionFieldValue(field: SubmissionDetailField) {
   return formatFieldDisplayValue(fieldKey, parsed);
 }
 
+const LOAN_DETAIL_BARE_KEYS = new Set([
+  "purpose",
+  "subPurpose",
+  "buildToRentOrSell",
+  "amountRequested",
+  "interestRate",
+  "rateType",
+  "amortization",
+  "estimatedClosingDate",
+  "sellerFinancing",
+  "sellerNoteAmount",
+  "rehabCost",
+  "rehabBudget",
+  "constructionCost",
+  "constructionBudget",
+  "downPayment",
+  "useOfFunds",
+  "exitStrategy",
+  "loanTerm",
+  "currentLoanBalance",
+  "brokerPoints",
+  "loanCategory",
+  "loanProductCode",
+  "purchasePrice",
+  "purchaseDate",
+]);
+
+const BORROWER_BARE_KEYS = new Set([
+  "dob",
+  "ssn",
+  "creditScore",
+  "entityOwnershipPercent",
+  "legalStatus",
+  "firstName",
+  "lastName",
+  "borrowerFirstName",
+  "borrowerLastName",
+  "email",
+  "phone",
+  "employer",
+  "address",
+  "mailingAddress",
+  "borrowerCity",
+  "borrowerState",
+  "borrowerCountry",
+]);
+
 function resolveHeuristicSection(fieldKey: string) {
   if (fieldKey.startsWith("coBorrower_")) {
     const match = fieldKey.match(/^coBorrower_(\d+)_/);
@@ -551,11 +670,19 @@ function resolveHeuristicSection(fieldKey: string) {
     return { id: "declarations", title: "Declarations", sortOrder: 700 };
   }
 
-  if (/^sreo_/i.test(bare) || bare === "sreoTotalMarketValue") {
+  if (/^sreo_/i.test(bare) || bare === "sreoTotalMarketValue" || bare === "sreoTotalEquity") {
     return {
       id: "real-estate-owned",
       title: "Real Estate Owned",
       sortOrder: 650,
+    };
+  }
+
+  if (/^sold_/i.test(bare)) {
+    return {
+      id: "recently-sold-properties",
+      title: "Recently Sold Properties",
+      sortOrder: 655,
     };
   }
 
@@ -586,6 +713,22 @@ function resolveHeuristicSection(fieldKey: string) {
       id: "financial-details",
       title: "Financial Details",
       sortOrder: 500,
+    };
+  }
+
+  if (LOAN_DETAIL_BARE_KEYS.has(bare)) {
+    return {
+      id: "loan-details",
+      title: "Loan Details",
+      sortOrder: 450,
+    };
+  }
+
+  if (BORROWER_BARE_KEYS.has(bare) || BORROWER_BARE_KEYS.has(fieldKey)) {
+    return {
+      id: "primary-borrower",
+      title: "Primary Borrower",
+      sortOrder: 100,
     };
   }
 
@@ -750,7 +893,7 @@ export function groupSubmissionFieldsForDisplay(
     const generatedLabel = formatFieldLabel(fieldKey, yearLabel, productCode);
     const existingLabel = (field.label || "").trim();
     const structured =
-      /^(asset_|liability_|financial_|declaration_|sreo_\d+_|proFormaNoi_)/i.test(
+      /^(asset_|liability_|financial_|declaration_|sreo_\d+_|sold_\d+_|proFormaNoi_)/i.test(
         bare,
       );
     const displayField: SubmissionDetailField =

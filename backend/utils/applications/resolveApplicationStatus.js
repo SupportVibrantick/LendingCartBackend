@@ -227,30 +227,14 @@ function canBrokerEditSubmittedApplication(application) {
 
 /**
  * Whether a broker may request additional documents from the client.
+ * Always allowed for a loaded application — approval, decline, LOI, and
+ * funded/withdrawn display status must not block requests.
  */
 function canBrokerRequestDocuments(application) {
   if (!application) {
     return {
       allowed: false,
       reason: "Application not found",
-    };
-  }
-
-  const displayStatus = resolveBrokerPipelineDisplayStatus(application);
-  const status = application.status;
-  const resolvedStatus = resolveApplicationStatus(application);
-
-  if (displayStatus === "DECLINED" || resolvedStatus === "LENDER_DECLINED") {
-    return {
-      allowed: false,
-      reason: "Documents cannot be requested for a declined application.",
-    };
-  }
-
-  if (["FUNDED", "WITHDRAWN", "SUSPENDED"].includes(status)) {
-    return {
-      allowed: false,
-      reason: `Documents cannot be requested for status: ${status}`,
     };
   }
 

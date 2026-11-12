@@ -428,6 +428,9 @@ export const collectStepValidationErrors = (
       if (!formData.borrower.lastName?.trim()) {
         newErrors["borrower.lastName"] = "Last name is required";
       }
+      if (!formData.borrower.dob?.trim()) {
+        newErrors["borrower.dob"] = "Date of Birth is required";
+      }
 
       if (formData.borrower.phone?.trim()) {
         const phoneError = validateFieldValue("phone", formData.borrower.phone, false);
@@ -448,6 +451,9 @@ export const collectStepValidationErrors = (
         }
         if (!b.lastName?.trim()) {
           newErrors[`coBorrowers.${index}.lastName`] = "Last name is required";
+        }
+        if (!b.dob?.trim()) {
+          newErrors[`coBorrowers.${index}.dob`] = "Date of Birth is required";
         }
       });
 
@@ -716,6 +722,7 @@ export const getReviewValidationIssues = (ctx: ValidationContext): ReviewValidat
 
   add("Borrower First Name", 3, !formData.borrower.firstName?.trim());
   add("Borrower Last Name", 3, !formData.borrower.lastName?.trim());
+  add("Date of Birth", 3, !formData.borrower.dob?.trim());
 
   if (!showDefaultBorrowerInfoFields) {
     add("Borrower Email", 3, !formData.borrower.email?.trim());
@@ -730,6 +737,7 @@ export const getReviewValidationIssues = (ctx: ValidationContext): ReviewValidat
       !borrower.firstName?.trim(),
     );
     add(`Co-Borrower ${index + 1} Last Name`, 3, !borrower.lastName?.trim());
+    add(`Co-Borrower ${index + 1} Date of Birth`, 3, !borrower.dob?.trim());
   });
 
   if (useResidentialBorrowerPanel) {

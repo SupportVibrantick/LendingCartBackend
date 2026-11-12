@@ -27,7 +27,7 @@ const GeneralSettingsCard = () => {
     timezone: "Asia/Kolkata",
     defaultLanguage: "en",
     financialYear: "April",
-    dateFormat: "dd/MM/yyyy",
+    dateFormat: "MM/dd/yy",
     currency: "₹",
   });
 
@@ -199,7 +199,7 @@ const GeneralSettingsCard = () => {
           label="Date Format"
           name="dateFormat"
           value={form.dateFormat}
-          options={["dd/MM/yyyy", "MM/dd/yyyy", "yyyy-MM-dd"]}
+          options={["MM/dd/yy", "MM/dd/yyyy", "yyyy-MM-dd"]}
           onChange={handleChange}
         />
 

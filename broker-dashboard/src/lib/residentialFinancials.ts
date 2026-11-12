@@ -444,6 +444,7 @@ type AddFieldFn = (key: string, value: unknown) => void;
 export const appendResidentialFinancialsSubmission = (
   addField: AddFieldFn,
   financials: ResidentialFinancials,
+  fallbackAnnualDebt = 0,
 ) => {
   const referenceYear = getCurrentFinancialReferenceYear();
   const columnKeys = getFinancialYearColumnKeys(
@@ -474,7 +475,7 @@ export const appendResidentialFinancialsSubmission = (
   });
 
   ANNUAL_FINANCIAL_CALCULATED_ROWS.forEach(({ overrideKey }) => {
-    columnKeys.forEach((column) => {
+    columnKeys.forEach((column, columnIndex) => {
       const rawOverride = String(financials[overrideKey][column] || "").trim();
       if (rawOverride) {
         addField(
@@ -488,7 +489,12 @@ export const appendResidentialFinancialsSubmission = (
           ? calcEffectiveGrossIncome(financials, column)
           : overrideKey === "noiOverride"
             ? calcNoi(financials, column)
-            : calcCashFlowAfterDebt(financials, column),
+            : calcCashFlowAfterDebt(
+                financials,
+                column,
+                columnIndex,
+                fallbackAnnualDebt,
+              ),
       );
     });
   });

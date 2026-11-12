@@ -422,6 +422,14 @@ export default function LenderSubmissionDetailsView({
             icon={<Building2 size={12} />}
             value={entityType}
           />
+          {fields.find((field) => field.fieldKey === "dob") ? (
+            <InfoCell
+              label="Date of birth"
+              value={formatSubmissionFieldValue(
+                fields.find((field) => field.fieldKey === "dob")!,
+              )}
+            />
+          ) : null}
           <InfoCell
             label="Credit score"
             value={

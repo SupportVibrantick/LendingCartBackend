@@ -1,4 +1,5 @@
 import { buildApiPublicFileUrl } from "./publicFileUrl";
+import { formatUsDate } from "./usDateFormat";
 
 export type BrokerLoiCondition = {
   conditionId: string;
@@ -146,13 +147,8 @@ export function hasLoiPdf(loi: BrokerLoiRecord) {
 
 export function formatLoiDate(value?: string | null) {
   if (!value) return "—";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "—";
-  return date.toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
+  const formatted = formatUsDate(value);
+  return formatted || "—";
 }
 
 export function formatLoiStatusLabel(status?: string | null) {

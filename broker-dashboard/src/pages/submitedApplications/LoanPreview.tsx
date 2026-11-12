@@ -2111,10 +2111,10 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
         label: "Request Documents",
         icon: Send,
         color: "text-slate-500",
-        disabled: !effectiveCanRequestDocuments,
-        disabledReason:
-          documentRequestBlockedReason ||
-          "Documents cannot be requested for this application.",
+        disabled: !loDocPermissions.request,
+        disabledReason: !loDocPermissions.request
+          ? "You do not have permission to request documents."
+          : undefined,
       });
     }
 
@@ -4333,16 +4333,16 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
               type="button"
               title={previewConfig.backLabel}
               onClick={() => navigate(previewConfig.pipelineListPath)}
-              className="group flex w-full items-center gap-2.5 rounded-lg px-1.5 py-1.5 text-left transition hover:bg-slate-100 dark:hover:bg-slate-800"
+              className="group flex w-full items-center gap-2.5 rounded-lg border border-[#13538A]/20 bg-[#13538A]/[0.04] px-2 py-2 text-left transition hover:border-[#13538A]/40 hover:bg-[#13538A]/10 dark:border-sky-500/25 dark:bg-sky-500/10 dark:hover:bg-sky-500/15"
             >
-              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-slate-100 text-slate-500 group-hover:bg-white group-hover:text-[#13538A] dark:bg-slate-800 dark:text-slate-400 dark:group-hover:bg-slate-700 dark:group-hover:text-white">
-                <ArrowLeft size={15} strokeWidth={2} />
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-white text-[#13538A] shadow-sm dark:bg-slate-900 dark:text-sky-300">
+                <ArrowLeft size={16} strokeWidth={2.25} />
               </span>
               <span className="min-w-0">
-                <span className="block truncate text-[13px] font-medium text-slate-700 group-hover:text-slate-900 dark:text-slate-200 dark:group-hover:text-white">
+                <span className="block truncate text-[13px] font-semibold text-[#13538A] dark:text-sky-300">
                   Back
                 </span>
-                <span className="block truncate text-[11px] text-slate-400">
+                <span className="block truncate text-[11px] font-medium text-slate-500 dark:text-slate-400">
                   {previewConfig.backLabel.replace(/^Back to /i, "")}
                 </span>
               </span>
@@ -4357,9 +4357,9 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
             <button
               type="button"
               onClick={() => navigate(previewConfig.pipelineListPath)}
-              className="inline-flex min-w-0 items-center gap-1.5 rounded-lg px-1 py-1 text-sm font-medium text-slate-500 transition hover:bg-slate-50 hover:text-[#13538A] dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
+              className="inline-flex min-w-0 items-center gap-2 rounded-lg border border-[#13538A]/25 bg-white px-3 py-1.5 text-sm font-semibold text-[#13538A] shadow-sm transition hover:border-[#13538A]/50 hover:bg-[#13538A]/5 dark:border-sky-500/30 dark:bg-slate-900 dark:text-sky-300 dark:hover:bg-sky-500/10"
             >
-              <ArrowLeft size={15} className="shrink-0" />
+              <ArrowLeft size={16} className="shrink-0" />
               <span className="truncate">{previewConfig.backLabel}</span>
             </button>
             <div className="flex shrink-0 items-center gap-2">
