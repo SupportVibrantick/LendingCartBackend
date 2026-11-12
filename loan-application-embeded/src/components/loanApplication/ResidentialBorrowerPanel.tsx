@@ -784,6 +784,7 @@ export default function ResidentialBorrowerPanel({
                         <LoanDateField
                           value={property.acquisitionDate}
                           hasError={Boolean(sreoFieldErr("acquisitionDate"))}
+                          disableFutureDates
                           onChange={(val) =>
                             onPropertyChange(
                               property.id,
@@ -1094,6 +1095,7 @@ export default function ResidentialBorrowerPanel({
                         <LoanDateField
                           value={property.purchaseDate}
                           hasError={Boolean(soldFieldErr("purchaseDate"))}
+                          disableFutureDates
                           onChange={(val) =>
                             onSoldPropertyChange(
                               property.id,
@@ -1116,6 +1118,7 @@ export default function ResidentialBorrowerPanel({
                         <LoanDateField
                           value={property.soldDate}
                           hasError={Boolean(soldFieldErr("soldDate"))}
+                          disableFutureDates
                           onChange={(val) =>
                             onSoldPropertyChange(property.id, "soldDate", val)
                           }

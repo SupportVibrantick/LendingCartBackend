@@ -17,6 +17,8 @@ type LoanDateFieldProps = {
   id?: string;
   disabled?: boolean;
   disablePastDates?: boolean;
+  /** When true, dates after today cannot be selected (purchase/sold dates). */
+  disableFutureDates?: boolean;
   hasError?: boolean;
 };
 
@@ -34,6 +36,7 @@ export default function LoanDateField({
   id: idProp,
   disabled = false,
   disablePastDates = false,
+  disableFutureDates = false,
   hasError = false,
 }: LoanDateFieldProps) {
   const autoId = useId().replace(/:/g, "");
@@ -68,6 +71,7 @@ export default function LoanDateField({
       disableMobile: true,
       defaultDate: value || undefined,
       minDate: disablePastDates ? "today" : undefined,
+      maxDate: disableFutureDates ? "today" : undefined,
       onChange: (_dates, dateStr) => {
         onChangeRef.current(dateStr || "");
       },
@@ -113,7 +117,7 @@ export default function LoanDateField({
       fpRef.current?.destroy();
       fpRef.current = null;
     };
-  }, [id, placeholder, disablePastDates]);
+  }, [id, placeholder, disablePastDates, disableFutureDates]);
 
   useEffect(() => {
     const fp = fpRef.current;

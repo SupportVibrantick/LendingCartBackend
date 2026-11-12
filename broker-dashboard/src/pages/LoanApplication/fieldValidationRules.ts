@@ -492,7 +492,8 @@ export const FIELD_VALIDATION_RULES: Record<string, FieldValidationRule> = {
   },
   "property.acquisitionDate": {
     required: true,
-    errorMessage: "Purchase date is required",
+    pattern: "pastDate",
+    errorMessage: "Purchase date is required and cannot be in the future",
   },
   "property.purchasePrice": {
     min: 0,
@@ -590,11 +591,13 @@ export const FIELD_VALIDATION_RULES: Record<string, FieldValidationRule> = {
   },
   "soldProperty.purchaseDate": {
     required: true,
-    errorMessage: "Purchase date is required",
+    pattern: "pastDate",
+    errorMessage: "Purchase date is required and cannot be in the future",
   },
   "soldProperty.soldDate": {
     required: true,
-    errorMessage: "Sold date is required",
+    pattern: "pastDate",
+    errorMessage: "Sold date is required and cannot be in the future",
   },
   "soldProperty.purchasePrice": {
     min: 0,
