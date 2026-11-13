@@ -4,6 +4,7 @@ const deleteRoutes = require("./status");
 const updateRoutes = require("./update");
 const harddeleteRoutes = require("./hardDelete");
 const softDeleteRoutes = require("./softDelete");
+const restoreRoutes = require("./restore");
 const transferPortalRoutes = require("./transferPortal");
 async function lendersRoutes(fastify, options) {
   fastify.register(createRoutes, { prefix: "/create" });
@@ -14,6 +15,7 @@ async function lendersRoutes(fastify, options) {
   // Hard wipe remains at DELETE /delete/:id/hard (ops/dev).
   fastify.register(softDeleteRoutes, { prefix: "/delete" });
   fastify.register(harddeleteRoutes, { prefix: "/delete" });
+  fastify.register(restoreRoutes, { prefix: "/restore" });
   fastify.register(transferPortalRoutes, { prefix: "/transfer-portal" });
 }
 

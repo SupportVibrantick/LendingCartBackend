@@ -2,6 +2,10 @@
 
 const { adminLogs } = require("../../../services/logger/contextLogger.js");
 const { findLenderAdminUser } = require("../../../utils/lender/findLenderAdminUser.js");
+const {
+  getPurgeAt,
+  getDeletedLenderRetentionDays,
+} = require("../../../services/lenders/purgeExpiredDeletedLenders");
 
 /**
  * @param {import("fastify").FastifyInstance} fastify
@@ -22,6 +26,12 @@ async function listLendersRoutes(fastify) {
             page: { type: "integer", minimum: 1, default: 1 },
             limit: { type: "integer", minimum: 1, maximum: 100, default: 20 },
             search: { type: "string" },
+            archived: {
+              type: "boolean",
+              default: false,
+              description:
+                "If true, list soft-deleted (archived) lenders only.",
+            },
           },
         },
       },
@@ -36,6 +46,10 @@ async function listLendersRoutes(fastify) {
         const skip = (page - 1) * limit;
 
         const search = (request.query.search || "").trim();
+        const archived =
+          request.query.archived === true ||
+          request.query.archived === "true" ||
+          request.query.archived === "1";
 
         // -----------------------------
         // UUID DETECTION
@@ -52,7 +66,9 @@ async function listLendersRoutes(fastify) {
 
         const where = {
           type: "LENDER",
-          isDeleted: { not: true },
+          ...(archived
+            ? { isDeleted: true }
+            : { isDeleted: { not: true } }),
 
           ...(search && {
             OR: [
@@ -76,7 +92,9 @@ async function listLendersRoutes(fastify) {
 
           prisma.organization.findMany({
             where,
-            orderBy: { createdAt: "desc" },
+            orderBy: archived
+              ? { deletedAt: "desc" }
+              : { createdAt: "desc" },
             skip,
             take: limit,
 
@@ -87,6 +105,8 @@ async function listLendersRoutes(fastify) {
               phone: true,
               status: true,
               createdAt: true,
+              deletedAt: true,
+              isDeleted: true,
 
               // BROKER ACCESS
               brokerLenderAccessAsLender: {
@@ -115,7 +135,9 @@ async function listLendersRoutes(fastify) {
             user: {
               organizationId: { in: lenderOrgIds },
               isDeleted: { not: true },
-              status: { in: ["ACTIVE", "INVITED"] },
+              ...(archived
+                ? { status: { in: ["ACTIVE", "INVITED", "DISABLED"] } }
+                : { status: { in: ["ACTIVE", "INVITED"] } }),
             },
           },
           include: { user: true },
@@ -134,9 +156,16 @@ async function listLendersRoutes(fastify) {
         // FORMAT RESPONSE
         // -----------------------------
 
+        const retentionDays = getDeletedLenderRetentionDays();
+        const now = new Date();
+
         const results = lenders.map((org) => {
             const adminUser = adminMap[org.id] || null;
             const brokerAccess = org.brokerLenderAccessAsLender?.[0];
+            const purgeInfo =
+              archived && org.deletedAt
+                ? getPurgeAt(org.deletedAt, now)
+                : null;
 
             return {
               id: org.id,
@@ -145,6 +174,11 @@ async function listLendersRoutes(fastify) {
               organizationEmail: org.email,
               organizationPhone: org.phone,
               organizationStatus: org.status,
+              isDeleted: org.isDeleted === true,
+              deletedAt: org.deletedAt || null,
+              purgeAt: purgeInfo?.purgeAt?.toISOString?.() || null,
+              daysUntilPurge: purgeInfo?.daysUntilPurge ?? null,
+              retentionDays: archived ? retentionDays : null,
 
               adminFirstName: adminUser?.firstName || null,
               adminLastName: adminUser?.lastName || null,
@@ -166,6 +200,8 @@ async function listLendersRoutes(fastify) {
             page,
             limit,
             totalPages: Math.ceil(total / limit),
+            archived,
+            retentionDays: archived ? retentionDays : undefined,
             results,
           },
         });

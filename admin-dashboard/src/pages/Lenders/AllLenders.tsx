@@ -24,6 +24,8 @@ import {
   Link2,
   ArrowRightLeft,
   X,
+  Trash2,
+  RotateCcw,
 } from "lucide-react";
 import Swal from "sweetalert2";
 Swal.mixin({
@@ -44,6 +46,11 @@ type Lender = {
   phone: string;
   status?: string;
   createdAt?: string;
+  deletedAt?: string | null;
+  isDeleted?: boolean;
+  purgeAt?: string | null;
+  daysUntilPurge?: number | null;
+  retentionDays?: number | null;
   brokerName?: string;
   profileImage?: string | null;
 
@@ -145,7 +152,16 @@ export default function LenderAllLendersPage() {
   const [isInviteOpen, setIsInviteOpen] = useState(false);
   const [isBulkInviteOpen, setIsBulkInviteOpen] = useState(false);
   const [inviteListKey, setInviteListKey] = useState(0);
-  const [listView, setListView] = useState<"lenders" | "invites">("lenders");
+  const [listView, setListView] = useState<"lenders" | "archived" | "invites">(
+    "lenders",
+  );
+  const [tabCounts, setTabCounts] = useState({
+    lenders: 0,
+    deleted: 0,
+    invites: 0,
+  });
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [bulkLoading, setBulkLoading] = useState(false);
 
   const publicPartnerLink = (() => {
     const lenderBase = String(
@@ -185,14 +201,67 @@ export default function LenderAllLendersPage() {
 
   const usPhoneRegex = /^\d{3}-\d{3}-\d{4}$/;
 
+  const fetchTabCounts = useCallback(
+    async (signal?: AbortSignal) => {
+      try {
+        const headers = getAuthHeaders();
+        const [activeRes, deletedRes, invitesRes] = await Promise.all([
+          fetch(`${API_BASE}/admin/lenders/read?page=1&limit=1`, {
+            method: "GET",
+            headers,
+            signal,
+          }),
+          fetch(
+            `${API_BASE}/admin/lenders/read?page=1&limit=1&archived=true`,
+            {
+              method: "GET",
+              headers,
+              signal,
+            },
+          ),
+          fetch(`${API_BASE}/admin/invite-lenders?page=1&limit=1`, {
+            method: "GET",
+            headers,
+            signal,
+          }),
+        ]);
+
+        const [activeJson, deletedJson, invitesJson] = await Promise.all([
+          activeRes.ok ? activeRes.json() : Promise.resolve({}),
+          deletedRes.ok ? deletedRes.json() : Promise.resolve({}),
+          invitesRes.ok ? invitesRes.json() : Promise.resolve({}),
+        ]);
+
+        setTabCounts({
+          lenders: Number(activeJson?.data?.total ?? 0),
+          deleted: Number(deletedJson?.data?.total ?? 0),
+          invites: Number(
+            invitesJson?.meta?.all ?? invitesJson?.meta?.total ?? 0,
+          ),
+        });
+      } catch (err: any) {
+        if (err?.name === "AbortError") return;
+        console.error("Fetch tab counts failed:", err);
+      }
+    },
+    [API_BASE],
+  );
+
   useEffect(() => {
     fetchBrokers();
+    const controller = new AbortController();
+    fetchTabCounts(controller.signal);
+    return () => controller.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     setCurrentPage(1);
   }, [debouncedSearch, pageSize]);
+
+  useEffect(() => {
+    setSelectedIds([]);
+  }, [listView, currentPage, debouncedSearch, pageSize]);
 
   function getAuthHeaders(): Record<string, string> {
     try {
@@ -319,16 +388,18 @@ export default function LenderAllLendersPage() {
 
   // -------- LENDERS LIST --------
   const fetchLenders = useCallback(
-    async (signal?: AbortSignal) => {
+    async (signal?: AbortSignal, pageOverride?: number) => {
       setLoading(true);
 
       try {
+        const page = pageOverride ?? currentPage;
         const headers = getAuthHeaders();
         const params = new URLSearchParams({
-          page: String(currentPage),
+          page: String(page),
           limit: String(pageSize),
         });
         if (debouncedSearch) params.set("search", debouncedSearch);
+        if (listView === "archived") params.set("archived", "true");
 
         const res = await fetch(
           `${API_BASE}/admin/lenders/read?${params.toString()}`,
@@ -350,6 +421,13 @@ export default function LenderAllLendersPage() {
           email: o.organizationEmail,
           phone: o.organizationPhone,
           status: o.organizationStatus,
+          isDeleted: o.isDeleted === true,
+          deletedAt: o.deletedAt || null,
+          purgeAt: o.purgeAt || null,
+          daysUntilPurge:
+            typeof o.daysUntilPurge === "number" ? o.daysUntilPurge : null,
+          retentionDays:
+            typeof o.retentionDays === "number" ? o.retentionDays : null,
           adminFirstName: o.adminFirstName,
           adminLastName: o.adminLastName,
           adminEmail: o.adminEmail,
@@ -372,14 +450,38 @@ export default function LenderAllLendersPage() {
         setLoading(false);
       }
     },
-    [API_BASE, currentPage, debouncedSearch, pageSize],
+    [API_BASE, currentPage, debouncedSearch, listView, pageSize],
+  );
+
+  /** After delete/restore: clamp page if emptied, then refetch list + tab counts. */
+  const refreshLendersAfterMutation = useCallback(
+    async (removedCount: number) => {
+      const nextTotal = Math.max(0, total - Math.max(0, removedCount));
+      const nextPages = Math.max(
+        1,
+        Math.ceil(nextTotal / Math.max(pageSize, 1)) || 1,
+      );
+      const nextPage = Math.min(currentPage, nextPages);
+
+      setSelectedIds([]);
+      if (nextPage !== currentPage) {
+        setCurrentPage(nextPage);
+      }
+
+      await Promise.all([
+        fetchLenders(undefined, nextPage),
+        fetchTabCounts(),
+      ]);
+    },
+    [currentPage, fetchLenders, fetchTabCounts, pageSize, total],
   );
 
   useEffect(() => {
+    if (listView === "invites") return;
     const controller = new AbortController();
     fetchLenders(controller.signal);
     return () => controller.abort();
-  }, [fetchLenders]);
+  }, [fetchLenders, listView]);
 
   // -------- BROKERS (for dropdown) --------
   async function fetchBrokers() {
@@ -420,15 +522,81 @@ export default function LenderAllLendersPage() {
     navigate("/add-lender");
   };
 
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
+  };
+
+  const pageIds = useMemo(
+    () => lenders.map((l) => String(l.id)),
+    [lenders],
+  );
+
+  const allPageSelected =
+    pageIds.length > 0 && pageIds.every((id) => selectedIds.includes(id));
+
+  const somePageSelected =
+    pageIds.some((id) => selectedIds.includes(id)) && !allPageSelected;
+
+  const toggleSelectAllPage = () => {
+    if (allPageSelected) {
+      setSelectedIds((prev) => prev.filter((id) => !pageIds.includes(id)));
+      return;
+    }
+    setSelectedIds((prev) => [...new Set([...prev, ...pageIds])]);
+  };
+
   const handleDelete = async (lender: Lender) => {
+    const safeName = String(lender.name || "this lender")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+
     const result = await Swal.fire({
       title: "Delete this lender?",
-      html: `Remove <strong>${lender.name}</strong> from the Admin Portal?<br/><br/>This disables their login and broker access. Historical loan data is kept.`,
       icon: "warning",
+      html: `
+        <div style="text-align:left;font-size:14px;line-height:1.5;color:#334155">
+          <p style="margin:0 0 12px">
+            Remove <strong style="color:#0f172a">${safeName}</strong> from the active list?
+          </p>
+          <ul style="margin:0 0 14px;padding-left:18px;color:#475569">
+            <li>Login &amp; broker access turn off</li>
+            <li>Data stays in <strong>Deleted</strong> for 30 days (restorable)</li>
+            <li>After 30 days it is permanently removed</li>
+          </ul>
+          <p style="margin:0;font-size:13px;color:#64748b">
+            Type <strong style="color:#dc2626;letter-spacing:0.04em">DELETE</strong> to confirm.
+          </p>
+        </div>
+      `,
+      input: "text",
+      inputPlaceholder: "Type DELETE",
+      inputAttributes: {
+        autocapitalize: "off",
+        autocomplete: "off",
+        spellcheck: "false",
+        "aria-label": "Type DELETE to confirm",
+      },
       showCancelButton: true,
+      focusCancel: true,
+      reverseButtons: true,
       confirmButtonColor: "#dc2626",
-      cancelButtonColor: "#6b7280",
+      cancelButtonColor: "#94a3b8",
       confirmButtonText: "Yes, delete",
+      cancelButtonText: "Cancel",
+      customClass: {
+        popup: "swal-high-z",
+        input: "swal2-input",
+      },
+      inputValidator: (value) => {
+        if ((value || "").trim() !== "DELETE") {
+          return "Type DELETE in all caps to confirm";
+        }
+        return null;
+      },
     });
 
     if (!result.isConfirmed) return;
@@ -453,16 +621,13 @@ export default function LenderAllLendersPage() {
         throw new Error(json?.message || "Delete failed");
       }
 
-      setLenders((prev) => prev.filter((b) => b.id !== lender.id));
-      setTotal((t) => Math.max(0, t - 1));
+      await refreshLendersAfterMutation(1);
 
       Swal.fire({
         icon: "success",
         title: "Deleted",
-        text:
-          json?.message ||
-          "Lender removed from Admin Portal. Access is disabled.",
-        timer: 1800,
+        text: "Lender moved to Deleted. Restore within 30 days, or it will be permanently removed.",
+        timer: 2200,
         showConfirmButton: false,
       });
     } catch (err: any) {
@@ -473,6 +638,254 @@ export default function LenderAllLendersPage() {
       });
     } finally {
       setRowLoadingId(null);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0 || bulkLoading) return;
+
+    const count = selectedIds.length;
+    const result = await Swal.fire({
+      title: `Delete ${count} lender${count === 1 ? "" : "s"}?`,
+      icon: "warning",
+      html: `
+        <div style="text-align:left;font-size:14px;line-height:1.5;color:#334155">
+          <p style="margin:0 0 12px">
+            Remove <strong style="color:#0f172a">${count}</strong> selected lender${
+              count === 1 ? "" : "s"
+            } from the active list?
+          </p>
+          <ul style="margin:0 0 14px;padding-left:18px;color:#475569">
+            <li>Login &amp; broker access turn off</li>
+            <li>Data stays in <strong>Deleted</strong> for 30 days (restorable)</li>
+            <li>After 30 days it is permanently removed</li>
+          </ul>
+          <p style="margin:0;font-size:13px;color:#64748b">
+            Type <strong style="color:#dc2626;letter-spacing:0.04em">DELETE</strong> to confirm.
+          </p>
+        </div>
+      `,
+      input: "text",
+      inputPlaceholder: "Type DELETE",
+      inputAttributes: {
+        autocapitalize: "off",
+        autocomplete: "off",
+        spellcheck: "false",
+        "aria-label": "Type DELETE to confirm",
+      },
+      showCancelButton: true,
+      focusCancel: true,
+      reverseButtons: true,
+      confirmButtonColor: "#dc2626",
+      cancelButtonColor: "#94a3b8",
+      confirmButtonText: `Delete ${count}`,
+      cancelButtonText: "Cancel",
+      customClass: {
+        popup: "swal-high-z",
+        input: "swal2-input",
+      },
+      inputValidator: (value) => {
+        if ((value || "").trim() !== "DELETE") {
+          return "Type DELETE in all caps to confirm";
+        }
+        return null;
+      },
+    });
+
+    if (!result.isConfirmed) return;
+
+    setBulkLoading(true);
+    try {
+      const token = sessionStorage.getItem("admin_token");
+      const res = await fetch(`${API_BASE}/admin/lenders/delete/bulk`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ ids: selectedIds }),
+      });
+
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || json?.success === false) {
+        throw new Error(json?.message || "Bulk delete failed");
+      }
+
+      const deletedCount = Array.isArray(json?.data?.deleted)
+        ? json.data.deleted.length
+        : selectedIds.length;
+      const failedCount = Number(json?.data?.failed?.length || 0);
+
+      await refreshLendersAfterMutation(deletedCount);
+
+      Swal.fire({
+        icon: failedCount ? "warning" : "success",
+        title: failedCount ? "Partially deleted" : "Deleted",
+        text: failedCount
+          ? `${deletedCount} deleted, ${failedCount} failed. Restore within 30 days from Deleted.`
+          : `${deletedCount} lender${deletedCount === 1 ? "" : "s"} moved to Deleted.`,
+        timer: 2400,
+        showConfirmButton: false,
+      });
+    } catch (err: any) {
+      Swal.fire({
+        icon: "error",
+        title: "Could not delete",
+        text: err?.message || "Could not delete lenders. Try again.",
+      });
+    } finally {
+      setBulkLoading(false);
+    }
+  };
+
+  const handleRestore = async (lender: Lender) => {
+    const safeName = String(lender.name || "this lender")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+
+    const result = await Swal.fire({
+      title: "Restore lender?",
+      icon: "question",
+      iconColor: "#13538A",
+      html: `
+        <div style="text-align:left;font-size:14px;line-height:1.5;color:#334155">
+          <p style="margin:0 0 12px">
+            Bring <strong style="color:#0f172a">${safeName}</strong> back to All Lenders?
+          </p>
+          <ul style="margin:0;padding-left:18px;color:#475569">
+            <li>Login access &amp; products turn back on</li>
+            <li>Broker links stay disconnected until reassigned</li>
+          </ul>
+        </div>
+      `,
+      showCancelButton: true,
+      reverseButtons: true,
+      confirmButtonColor: "#13538A",
+      cancelButtonColor: "#94a3b8",
+      confirmButtonText: "Restore lender",
+      cancelButtonText: "Keep deleted",
+      customClass: { popup: "swal-high-z" },
+    });
+
+    if (!result.isConfirmed) return;
+
+    setRowLoadingId(lender.id);
+
+    try {
+      const token = sessionStorage.getItem("admin_token");
+
+      const res = await fetch(
+        `${API_BASE}/admin/lenders/restore/${lender.id}`,
+        {
+          method: "POST",
+          headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        },
+      );
+
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || json?.success === false) {
+        throw new Error(json?.message || "Restore failed");
+      }
+
+      await refreshLendersAfterMutation(1);
+
+      Swal.fire({
+        icon: "success",
+        title: "Restored",
+        text:
+          json?.message ||
+          "Lender restored to the active list.",
+        timer: 1800,
+        showConfirmButton: false,
+      });
+    } catch (err: any) {
+      Swal.fire({
+        icon: "error",
+        title: "Could not restore",
+        text: err?.message || "Could not restore lender. Try again.",
+      });
+    } finally {
+      setRowLoadingId(null);
+    }
+  };
+
+  const handleBulkRestore = async () => {
+    if (selectedIds.length === 0 || bulkLoading) return;
+
+    const count = selectedIds.length;
+    const result = await Swal.fire({
+      title: `Restore ${count} lender${count === 1 ? "" : "s"}?`,
+      icon: "question",
+      iconColor: "#13538A",
+      html: `
+        <div style="text-align:left;font-size:14px;line-height:1.5;color:#334155">
+          <p style="margin:0 0 12px">
+            Bring <strong style="color:#0f172a">${count}</strong> selected lender${
+              count === 1 ? "" : "s"
+            } back to All Lenders?
+          </p>
+          <ul style="margin:0;padding-left:18px;color:#475569">
+            <li>Login access &amp; products turn back on</li>
+            <li>Broker links stay disconnected until reassigned</li>
+          </ul>
+        </div>
+      `,
+      showCancelButton: true,
+      reverseButtons: true,
+      confirmButtonColor: "#13538A",
+      cancelButtonColor: "#94a3b8",
+      confirmButtonText: `Restore ${count}`,
+      cancelButtonText: "Keep deleted",
+      customClass: { popup: "swal-high-z" },
+    });
+
+    if (!result.isConfirmed) return;
+
+    setBulkLoading(true);
+    try {
+      const token = sessionStorage.getItem("admin_token");
+      const res = await fetch(`${API_BASE}/admin/lenders/restore/bulk`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ ids: selectedIds }),
+      });
+
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || json?.success === false) {
+        throw new Error(json?.message || "Bulk restore failed");
+      }
+
+      const restoredCount = Array.isArray(json?.data?.restored)
+        ? json.data.restored.length
+        : selectedIds.length;
+      const failedCount = Number(json?.data?.failed?.length || 0);
+
+      await refreshLendersAfterMutation(restoredCount);
+
+      Swal.fire({
+        icon: failedCount ? "warning" : "success",
+        title: failedCount ? "Partially restored" : "Restored",
+        text: failedCount
+          ? `${restoredCount} restored, ${failedCount} failed.`
+          : `${restoredCount} lender${restoredCount === 1 ? "" : "s"} restored.`,
+        timer: 2200,
+        showConfirmButton: false,
+      });
+    } catch (err: any) {
+      Swal.fire({
+        icon: "error",
+        title: "Could not restore",
+        text: err?.message || "Could not restore lenders. Try again.",
+      });
+    } finally {
+      setBulkLoading(false);
     }
   };
 
@@ -577,12 +990,15 @@ export default function LenderAllLendersPage() {
       setIsInviteOpen(false);
       setListView("invites");
       setInviteListKey((k) => k + 1);
+      setTabCounts((prev) => ({ ...prev, invites: prev.invites + 1 }));
     } catch (err: any) {
       setInviteApiError("Something went wrong. Please try again.");
     } finally {
       setInviteLoading(false);
     }
   };
+
+  const formatTabCount = (n: number) => (n > 999 ? "999+" : String(n));
 
   const totalLenders = total;
   const showingFrom = total === 0 ? 0 : (currentPage - 1) * pageSize + 1;
@@ -931,6 +1347,7 @@ export default function LenderAllLendersPage() {
     [lenders],
   );
 
+  const isDeletedView = listView === "archived";
   const isSearchEmpty =
     debouncedSearch !== "" && lenders.length === 0 && !loading;
   const isTotalEmpty = debouncedSearch === "" && total === 0 && !loading;
@@ -988,7 +1405,10 @@ export default function LenderAllLendersPage() {
                 </h1>
                 <button
                   type="button"
-                  onClick={() => fetchLenders()}
+                  onClick={() => {
+                    fetchLenders();
+                    fetchTabCounts();
+                  }}
                   disabled={loading}
                   title="Refresh"
                   className="group inline-flex h-9 w-9 items-center justify-center rounded-lg border border-white/25 bg-white/10 text-white transition hover:bg-white/20 disabled:opacity-50"
@@ -1072,30 +1492,72 @@ export default function LenderAllLendersPage() {
         <div className="mb-4 inline-flex rounded-lg border border-slate-200 bg-white p-1 dark:border-slate-800 dark:bg-slate-900">
           <button
             type="button"
-            onClick={async () => {
+            onClick={() => {
               setListView("lenders");
               setCurrentPage(1);
               setQuery("");
-              await fetchLenders();
             }}
-            className={`rounded-md px-3.5 py-1.5 text-xs font-semibold transition ${
+            className={`inline-flex items-center gap-1.5 rounded-md px-3.5 py-1.5 text-xs font-semibold transition ${
               listView === "lenders"
                 ? "bg-[#13538A] text-white"
                 : "text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800"
             }`}
           >
             All Lenders
+            <span
+              className={`inline-flex min-w-5 items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums ${
+                listView === "lenders"
+                  ? "bg-white/20 text-white"
+                  : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"
+              }`}
+            >
+              {formatTabCount(tabCounts.lenders)}
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setListView("archived");
+              setCurrentPage(1);
+              setQuery("");
+            }}
+            className={`inline-flex items-center gap-1.5 rounded-md px-3.5 py-1.5 text-xs font-semibold transition ${
+              listView === "archived"
+                ? "bg-[#13538A] text-white"
+                : "text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800"
+            }`}
+          >
+            <Trash2 size={12} />
+            Deleted
+            <span
+              className={`inline-flex min-w-5 items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums ${
+                listView === "archived"
+                  ? "bg-white/20 text-white"
+                  : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"
+              }`}
+            >
+              {formatTabCount(tabCounts.deleted)}
+            </span>
           </button>
           <button
             type="button"
             onClick={() => setListView("invites")}
-            className={`rounded-md px-3.5 py-1.5 text-xs font-semibold transition ${
+            className={`inline-flex items-center gap-1.5 rounded-md px-3.5 py-1.5 text-xs font-semibold transition ${
               listView === "invites"
                 ? "bg-[#13538A] text-white"
                 : "text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800"
             }`}
           >
             Invitations
+            <span
+              className={`inline-flex min-w-5 items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums ${
+                listView === "invites"
+                  ? "bg-white/20 text-white"
+                  : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"
+              }`}
+            >
+              {formatTabCount(tabCounts.invites)}
+            </span>
           </button>
         </div>
 
@@ -1210,23 +1672,30 @@ export default function LenderAllLendersPage() {
             ) : isTotalEmpty ? (
               <div className="flex flex-col items-center justify-center rounded-xl border border-slate-200 bg-white px-6 py-16 text-center dark:border-slate-800 dark:bg-slate-900">
                 <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#13538A]/10 text-[#13538A]">
-                  <Building2 size={26} />
+                  {isDeletedView ? (
+                    <Trash2 size={26} />
+                  ) : (
+                    <Building2 size={26} />
+                  )}
                 </div>
                 <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
-                  No lenders yet
+                  {isDeletedView ? "No deleted lenders" : "No lenders yet"}
                 </h3>
                 <p className="mt-1.5 max-w-sm text-sm text-slate-500 dark:text-slate-400">
-                  Get started by adding the first lender organization to the
-                  platform.
+                  {isDeletedView
+                    ? "Deleted lenders appear here for 30 days. Restore before they are permanently removed."
+                    : "Get started by adding the first lender organization to the platform."}
                 </p>
-                <button
-                  type="button"
-                  onClick={openAdd}
-                  className="mt-5 inline-flex items-center gap-1.5 rounded-lg bg-[#13538A] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#10446f]"
-                >
-                  <TiPlus className="h-3.5 w-3.5" />
-                  Add Lender
-                </button>
+                {!isDeletedView && (
+                  <button
+                    type="button"
+                    onClick={openAdd}
+                    className="mt-5 inline-flex items-center gap-1.5 rounded-lg bg-[#13538A] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#10446f]"
+                  >
+                    <TiPlus className="h-3.5 w-3.5" />
+                    Add Lender
+                  </button>
+                )}
               </div>
             ) : isSearchEmpty ? (
               <div className="flex flex-col items-center justify-center rounded-xl border border-slate-200 bg-white px-6 py-16 text-center dark:border-slate-800 dark:bg-slate-900">
@@ -1237,7 +1706,8 @@ export default function LenderAllLendersPage() {
                   No results found
                 </h3>
                 <p className="mt-1.5 max-w-md text-sm text-slate-500 dark:text-slate-400">
-                  We couldn’t find any lender matching{" "}
+                  We couldn’t find any{" "}
+                  {isDeletedView ? "deleted lender" : "lender"} matching{" "}
                   <span className="font-semibold text-slate-800 dark:text-slate-200">
                     “{query}”
                   </span>
@@ -1252,19 +1722,104 @@ export default function LenderAllLendersPage() {
                     <X size={14} />
                     Clear search
                   </button>
-                  <button
-                    type="button"
-                    onClick={openAdd}
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-[#13538A] px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-[#10446f]"
-                  >
-                    <TiPlus className="h-3.5 w-3.5" />
-                    Add Lender
-                  </button>
+                  {!isDeletedView && (
+                    <button
+                      type="button"
+                      onClick={openAdd}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-[#13538A] px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-[#10446f]"
+                    >
+                      <TiPlus className="h-3.5 w-3.5" />
+                      Add Lender
+                    </button>
+                  )}
                 </div>
               </div>
             ) : (
+              <>
+              {lenders.length > 0 && (
+                <div className="mb-3 flex flex-col gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 dark:border-slate-800 dark:bg-slate-900 sm:flex-row sm:items-center sm:justify-between">
+                  <label className="inline-flex cursor-pointer items-center gap-2 text-xs font-semibold text-slate-600 dark:text-slate-300">
+                    <input
+                      type="checkbox"
+                      checked={allPageSelected}
+                      ref={(el) => {
+                        if (el) el.indeterminate = somePageSelected;
+                      }}
+                      onChange={toggleSelectAllPage}
+                      disabled={bulkLoading || !!rowLoadingId}
+                      className="h-4 w-4 rounded border-slate-300 text-[#13538A] focus:ring-[#13538A]/30"
+                    />
+                    {allPageSelected ? "Clear page" : "Select page"}
+                    {selectedIds.length > 0 && (
+                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold tabular-nums text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                        {selectedIds.length} selected
+                      </span>
+                    )}
+                  </label>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    {selectedIds.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setSelectedIds([])}
+                        disabled={bulkLoading}
+                        className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                      >
+                        Clear
+                      </button>
+                    )}
+                    {isDeletedView ? (
+                      <button
+                        type="button"
+                        onClick={handleBulkRestore}
+                        disabled={
+                          selectedIds.length === 0 ||
+                          bulkLoading ||
+                          !!rowLoadingId
+                        }
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-[#13538A] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-[#10446f] disabled:opacity-50"
+                      >
+                        {bulkLoading ? (
+                          <RefreshCcw size={13} className="animate-spin" />
+                        ) : (
+                          <RotateCcw size={13} />
+                        )}
+                        Restore selected
+                        {selectedIds.length > 0
+                          ? ` (${selectedIds.length})`
+                          : ""}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={handleBulkDelete}
+                        disabled={
+                          selectedIds.length === 0 ||
+                          bulkLoading ||
+                          !!rowLoadingId
+                        }
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-red-700 disabled:opacity-50"
+                      >
+                        {bulkLoading ? (
+                          <RefreshCcw size={13} className="animate-spin" />
+                        ) : (
+                          <Trash2 size={13} />
+                        )}
+                        Delete selected
+                        {selectedIds.length > 0
+                          ? ` (${selectedIds.length})`
+                          : ""}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {lenders.map((l) => (
+                {lenders.map((l) => {
+                  const id = String(l.id);
+                  const isSelected = selectedIds.includes(id);
+                  return (
                   <div
                     key={l.id}
                     role="button"
@@ -1276,12 +1831,30 @@ export default function LenderAllLendersPage() {
                         setViewingLender(l);
                       }
                     }}
-                    className="group flex cursor-pointer flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white transition-colors duration-200 hover:border-[#13538A]/35 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-blue-500/40"
+                    className={`group relative flex cursor-pointer flex-col overflow-hidden rounded-2xl border bg-white transition-colors duration-200 dark:bg-slate-900 ${
+                      isSelected
+                        ? "border-[#13538A] ring-2 ring-[#13538A]/20 dark:border-blue-500 dark:ring-blue-500/20"
+                        : "border-slate-200 hover:border-[#13538A]/35 dark:border-slate-800 dark:hover:border-blue-500/40"
+                    }`}
                   >
                     <div className="h-1 bg-gradient-to-r from-[#13538A] via-[#18B6B4] to-emerald-400 opacity-80 transition-opacity group-hover:opacity-100" />
 
                     <div className="flex flex-1 flex-col p-4">
                       <div className="flex items-start gap-3">
+                        <label
+                          className="mt-0.5 flex shrink-0 cursor-pointer items-center"
+                          onClick={(e) => e.stopPropagation()}
+                          onKeyDown={(e) => e.stopPropagation()}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            disabled={bulkLoading || !!rowLoadingId}
+                            onChange={() => toggleSelect(id)}
+                            className="h-4 w-4 rounded border-slate-300 text-[#13538A] focus:ring-[#13538A]/30"
+                            aria-label={`Select ${l.name}`}
+                          />
+                        </label>
                         <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-emerald-100 bg-gradient-to-br from-emerald-50 to-teal-50 dark:border-emerald-500/20 dark:from-emerald-500/10 dark:to-teal-500/10">
                           {l.profileImage ? (
                             <img
@@ -1312,18 +1885,35 @@ export default function LenderAllLendersPage() {
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                if (!rowLoadingId) changeStatusFor(l);
+                                if (!rowLoadingId && !isDeletedView) {
+                                  changeStatusFor(l);
+                                }
                               }}
-                              disabled={!!rowLoadingId}
-                              title="Toggle status"
-                              className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide transition hover:opacity-80 disabled:opacity-50 ${statusClass(
-                                l.status,
-                              )}`}
+                              disabled={!!rowLoadingId || isDeletedView}
+                              title={
+                                isDeletedView
+                                  ? "Deleted — restore to change status"
+                                  : "Toggle status"
+                              }
+                              className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide transition hover:opacity-80 disabled:opacity-50 ${
+                                isDeletedView
+                                  ? "bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-600/30 dark:text-slate-200 dark:border-slate-500"
+                                  : statusClass(l.status)
+                              }`}
                             >
-                              {l.status === "ACTIVE" && (
-                                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                              {isDeletedView ? (
+                                <>
+                                  <Trash2 size={10} />
+                                  DELETED
+                                </>
+                              ) : (
+                                <>
+                                  {l.status === "ACTIVE" && (
+                                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                                  )}
+                                  {l.status || "UNKNOWN"}
+                                </>
                               )}
-                              {l.status || "UNKNOWN"}
                             </button>
                           </div>
 
@@ -1372,65 +1962,115 @@ export default function LenderAllLendersPage() {
                     <div className="flex items-center justify-between gap-2 border-t border-slate-100 bg-slate-50/60 px-3 py-2.5 dark:border-slate-800 dark:bg-slate-800/30">
                       <div className="min-w-0">
                         <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-400">
-                          Created
+                          {isDeletedView ? "Deleted" : "Created"}
                         </p>
                         <p className="truncate text-[11px] font-medium text-slate-600 dark:text-slate-300">
-                          {l.createdAt
-                            ? new Date(l.createdAt).toLocaleDateString()
-                            : "—"}
+                          {isDeletedView
+                            ? l.deletedAt
+                              ? new Date(l.deletedAt).toLocaleDateString()
+                              : "—"
+                            : l.createdAt
+                              ? new Date(l.createdAt).toLocaleDateString()
+                              : "—"}
                         </p>
+                        {isDeletedView && (
+                          <p
+                            className={`mt-0.5 truncate text-[10px] font-semibold ${
+                              (l.daysUntilPurge ?? 30) <= 7
+                                ? "text-red-600 dark:text-red-400"
+                                : "text-amber-700 dark:text-amber-400"
+                            }`}
+                          >
+                            {typeof l.daysUntilPurge === "number"
+                              ? l.daysUntilPurge <= 0
+                                ? "Removes today"
+                                : `Removes in ${l.daysUntilPurge} day${
+                                    l.daysUntilPurge === 1 ? "" : "s"
+                                  }`
+                              : "Removes in 30 days"}
+                          </p>
+                        )}
                       </div>
 
                       <div className="flex items-center gap-1">
-                        <span className="mr-0.5 inline-flex items-center gap-0.5 text-[10px] font-semibold text-[#13538A] opacity-0 transition-opacity group-hover:opacity-100 dark:text-blue-400">
-                          View
-                          <ChevronRight size={12} />
-                        </span>
-                        <button
-                          type="button"
-                          disabled={!!rowLoadingId}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setTransferringLender(l);
-                          }}
-                          className="rounded-lg border border-transparent p-1.5 text-slate-400 transition hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700 dark:hover:border-emerald-500/30 dark:hover:bg-emerald-500/10"
-                          title="Transfer Lender Portal"
-                        >
-                          <ArrowRightLeft size={14} />
-                        </button>
-                        <button
-                          type="button"
-                          disabled={!!rowLoadingId}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            navigate(`/update-lender/${l.id}`);
-                          }}
-                          className="rounded-lg border border-transparent p-1.5 text-slate-400 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-600 dark:hover:border-blue-500/30 dark:hover:bg-blue-500/10"
-                          title="Edit Lender"
-                        >
-                          <MdModeEdit size={14} />
-                        </button>
-                        <button
-                          type="button"
-                          disabled={!!rowLoadingId}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDelete(l);
-                          }}
-                          className="rounded-lg border border-transparent p-1.5 text-slate-400 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600 dark:hover:border-red-500/30 dark:hover:bg-red-500/10"
-                          title="Delete Lender"
-                        >
-                          {rowLoadingId === l.id ? (
-                            <RefreshCcw size={14} className="animate-spin" />
-                          ) : (
-                            <MdDelete size={14} />
-                          )}
-                        </button>
+                        {!isDeletedView && (
+                          <span className="mr-0.5 inline-flex items-center gap-0.5 text-[10px] font-semibold text-[#13538A] opacity-0 transition-opacity group-hover:opacity-100 dark:text-blue-400">
+                            View
+                            <ChevronRight size={12} />
+                          </span>
+                        )}
+                        {isDeletedView ? (
+                          <button
+                            type="button"
+                            disabled={!!rowLoadingId}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleRestore(l);
+                            }}
+                            className="inline-flex items-center gap-1 rounded-lg border border-[#13538A]/20 bg-[#13538A]/5 px-2.5 py-1.5 text-[11px] font-semibold text-[#13538A] transition hover:bg-[#13538A]/10 disabled:opacity-50 dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-300"
+                            title="Restore Lender"
+                          >
+                            {rowLoadingId === l.id ? (
+                              <RefreshCcw size={14} className="animate-spin" />
+                            ) : (
+                              <RotateCcw size={14} />
+                            )}
+                            Restore
+                          </button>
+                        ) : (
+                          <>
+                            <button
+                              type="button"
+                              disabled={!!rowLoadingId}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setTransferringLender(l);
+                              }}
+                              className="rounded-lg border border-transparent p-1.5 text-slate-400 transition hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700 dark:hover:border-emerald-500/30 dark:hover:bg-emerald-500/10"
+                              title="Transfer Lender Portal"
+                            >
+                              <ArrowRightLeft size={14} />
+                            </button>
+                            <button
+                              type="button"
+                              disabled={!!rowLoadingId}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigate(`/update-lender/${l.id}`);
+                              }}
+                              className="rounded-lg border border-transparent p-1.5 text-slate-400 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-600 dark:hover:border-blue-500/30 dark:hover:bg-blue-500/10"
+                              title="Edit Lender"
+                            >
+                              <MdModeEdit size={14} />
+                            </button>
+                            <button
+                              type="button"
+                              disabled={!!rowLoadingId}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDelete(l);
+                              }}
+                              className="rounded-lg border border-transparent p-1.5 text-slate-400 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600 dark:hover:border-red-500/30 dark:hover:bg-red-500/10"
+                              title="Delete Lender"
+                            >
+                              {rowLoadingId === l.id ? (
+                                <RefreshCcw
+                                  size={14}
+                                  className="animate-spin"
+                                />
+                              ) : (
+                                <MdDelete size={14} />
+                              )}
+                            </button>
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
+              </>
             )}
 
             {/* Pagination */}
@@ -2047,7 +2687,7 @@ dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100`}
               onSuccess={async () => {
                 setShowAssignPopup(false);
                 setNewCreatedLenderId(null);
-                await fetchLenders();
+                await Promise.all([fetchLenders(), fetchTabCounts()]);
               }}
             />
           </div>
@@ -2269,9 +2909,10 @@ dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100`}
           apiBase={API_BASE}
           getAuthHeaders={getAuthHeaders}
           onClose={() => setIsBulkInviteOpen(false)}
-          onComplete={() => { 
+          onComplete={() => {
             setListView("invites");
             setInviteListKey((k) => k + 1);
+            fetchTabCounts();
           }}
         />
       )}
