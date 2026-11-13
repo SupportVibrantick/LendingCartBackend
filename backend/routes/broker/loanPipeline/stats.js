@@ -117,6 +117,7 @@ module.exports = async function loanPipelineStatsApi(fastify) {
             rejected: statusCounts.rejected,
             inReview: statusCounts.inReview,
             draft: statusCounts.draft,
+            incomplete: statusCounts.incomplete,
             funded: statusCounts.funded,
           },
         });

@@ -1209,7 +1209,7 @@ model LoanApplication {
   applicationNumber            String                           @unique
   brokerOrgId                  String                           @db.Uuid
   brokerUserId                 String?                          @db.Uuid
-  clientId                     String                           @db.Uuid
+  clientId                     String?                          @db.Uuid
   loanProductCode              LoanProductCode
   status                       LoanApplicationStatus            @default(DRAFT)
   amountRequested              Decimal?                         @db.Decimal(20, 2)
@@ -1230,6 +1230,7 @@ model LoanApplication {
   brokerLoiGeneratedByUserId String?                          @map("broker_loi_generated_by_user_id") @db.Uuid
   currentBrokerLoiVersionId  String?                          @unique @map("current_broker_loi_version_id") @db.Uuid
   requestedDocumentTypes     Json?                            @map("requested_document_types")
+  incompleteDraft            Json?                            @map("incomplete_draft")
   publicApplicationLinkId    String?                          @map("public_application_link_id") @db.Uuid
   publicSourcePortal         PublicApplicationSourcePortal?   @map("public_source_portal")
   publicCreatedByUserId      String?                          @map("public_created_by_user_id") @db.Uuid
@@ -1251,7 +1252,7 @@ model LoanApplication {
   lenderDocumentRequests       LenderDocumentRequest[]
   brokerOrg                    Organization                     @relation("BrokerLoanApplications", fields: [brokerOrgId], references: [id])
   brokerUser                   UserAccount?                     @relation("BrokerUserLoanApplications", fields: [brokerUserId], references: [id])
-  client                       Client                           @relation(fields: [clientId], references: [id])
+  client                       Client?                          @relation(fields: [clientId], references: [id])
   fundedApplicationLender      ApplicationLender?               @relation("FundedLenderDeal", fields: [fundedApplicationLenderId], references: [id])
   fundedByUser                 UserAccount?                     @relation("FundedByUser", fields: [fundedByUserId], references: [id])
   publicApplicationLink        PublicApplicationLink?           @relation(fields: [publicApplicationLinkId], references: [id])
@@ -2854,6 +2855,7 @@ enum LoanApplicationStatus {
   WITHDRAWN
   CLIENT_PENDING
   SUSPENDED
+  INCOMPLETE
 }
 
 enum CommissionRecipientRole {

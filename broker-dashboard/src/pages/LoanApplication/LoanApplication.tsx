@@ -1,7 +1,14 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import toast from "react-hot-toast";
 import Swal from "sweetalert2";
-import { useNavigate } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import { Building2, HomeIcon, Landmark, Settings } from "lucide-react";
 import { useBrokerEntitlements } from "../../lib/brokerEntitlements";
 import { hasPermission } from "../../lib/brokerPermissions";
@@ -103,6 +110,7 @@ import {
 } from "./calculations";
 import {
   getAblCollateralTypeOptions,
+  getDefaultRateTypeForProduct,
   getSbaCollateralTypeLabel,
   getSbaCollateralTypeOptions,
   isAblCollateralProduct,
@@ -122,10 +130,11 @@ import { getRuleForKey, validateValue } from "./liveValidation";
 import { withBorrowerNameFields } from "./submission";
 import {
   clearApplicationDraft,
-  formatDraftSavedAt,
   getApplicationDraftKey,
+  isMeaningfulApplicationDraft,
   loadApplicationDraft,
   mergeApplicationFormData,
+  toSerializableDraftPayload,
   useLoanApplicationAutosave,
 } from "./applicationDraft";
 
@@ -615,6 +624,10 @@ function getPortalConfig(portal: LoanApplicationPortal, apiBase: string) {
     return {
       tokenKey: "loan_officer_token",
       submitUrl: `${apiBase}/loanofficer/applications/submit`,
+      incompleteSaveUrl: `${apiBase}/loanofficer/applications/incomplete`,
+      incompleteGetUrl: (applicationId: string) =>
+        `${apiBase}/loanofficer/applications/${applicationId}/incomplete`,
+      newApplicationPath: "/loan-officer/loan-application",
       updateIdentityUrl: (clientId: string) =>
         `${apiBase}/loanofficer/borrowers/${clientId}/identity`,
       editUrl: (applicationId: string) =>
@@ -638,6 +651,10 @@ function getPortalConfig(portal: LoanApplicationPortal, apiBase: string) {
     return {
       tokenKey: "sub_broker_token",
       submitUrl: `${apiBase}/subbroker/applications/submit`,
+      incompleteSaveUrl: `${apiBase}/subbroker/applications/incomplete`,
+      incompleteGetUrl: (applicationId: string) =>
+        `${apiBase}/subbroker/applications/${applicationId}/incomplete`,
+      newApplicationPath: "/sub-broker/loan-application",
       updateIdentityUrl: (clientId: string) =>
         `${apiBase}/subbroker/borrowers/${clientId}/identity`,
       editUrl: (applicationId: string) =>
@@ -660,6 +677,10 @@ function getPortalConfig(portal: LoanApplicationPortal, apiBase: string) {
   return {
     tokenKey: "broker_token",
     submitUrl: `${apiBase}/broker/applications/submit`,
+    incompleteSaveUrl: `${apiBase}/broker/applications/incomplete`,
+    incompleteGetUrl: (applicationId: string) =>
+      `${apiBase}/broker/applications/${applicationId}/incomplete`,
+    newApplicationPath: "/loan-application",
     updateIdentityUrl: (clientId: string) =>
       `${apiBase}/broker/borrowers/${clientId}/identity`,
     editUrl: (applicationId: string) =>
@@ -838,7 +859,9 @@ const LoanApplication = ({
     loading: entitlementsLoading,
     refresh: refreshEntitlements,
   } = useBrokerEntitlements();
-  const draftEnabled = mode === "create" && !initialFormData;
+  const localDraftEnabled = publicEmbed && mode === "create" && !initialFormData;
+  const backendDraftEnabled =
+    !publicEmbed && mode === "create" && !initialFormData;
   const draftStorageKey = getApplicationDraftKey({
     portal,
     publicEmbed,
@@ -847,13 +870,54 @@ const LoanApplication = ({
     ReturnType<typeof loadApplicationDraft> | undefined
   >(undefined);
   if (initialDraftRef.current === undefined) {
-    initialDraftRef.current = draftEnabled
+    initialDraftRef.current = localDraftEnabled
       ? loadApplicationDraft(draftStorageKey)
       : null;
   }
-  const [restoredDraftSavedAt, setRestoredDraftSavedAt] = useState<
+  const [searchParams, setSearchParams] = useSearchParams();
+  const incompleteIdFromUrl = searchParams.get("incompleteId");
+  const [incompleteApplicationId, setIncompleteApplicationId] = useState<
     string | null
-  >(() => initialDraftRef.current?.savedAt ?? null);
+  >(() =>
+    backendDraftEnabled && incompleteIdFromUrl ? incompleteIdFromUrl : null,
+  );
+  const incompleteApplicationIdRef = useRef<string | null>(
+    incompleteApplicationId,
+  );
+  incompleteApplicationIdRef.current = incompleteApplicationId;
+  const persistIncompleteRef = useRef<
+    | ((options?: {
+        keepalive?: boolean;
+        force?: boolean;
+        draftOverride?: Partial<{
+          currentStep: number;
+          selectedProduct: string;
+          selectedCategory: string;
+          formData: Record<string, unknown>;
+          dynamicFormData: Record<string, unknown>;
+          creditAuthorizationConsent: boolean;
+          feeAgreementDraft: Record<string, unknown> | null;
+        }>;
+      }) => Promise<string | null>)
+    | null
+  >(null);
+  const persistIncompleteLockRef = useRef<Promise<string | null> | null>(null);
+  const lastSavedIncompleteHashRef = useRef<string | null>(null);
+  const incompleteSaveSeqRef = useRef(0);
+  const incompleteAbortRef = useRef<AbortController | null>(null);
+  const draftPayloadRef = useRef({
+    currentStep: 0,
+    selectedProduct: "",
+    selectedCategory: "" as LoanCategory | "",
+    formData: {} as Record<string, unknown>,
+    dynamicFormData: {} as Record<string, unknown>,
+    creditAuthorizationConsent: false,
+    feeAgreementDraft: null as Record<string, unknown> | null,
+  });
+  const selectedProductRef = useRef("");
+  const [incompleteHydrating, setIncompleteHydrating] = useState(
+    Boolean(backendDraftEnabled && incompleteIdFromUrl),
+  );
   const coBorrowerRefs = useRef<Record<number, HTMLDivElement | null>>({});
   const [lastAddedId, setLastAddedId] = useState<number | null>(null);
   const [upgradeCategory, setUpgradeCategory] = useState<LoanCategory | null>(
@@ -1152,15 +1216,328 @@ const LoanApplication = ({
   });
   const [loadingProducts, setLoadingProducts] = useState(false);
 
-  useLoanApplicationAutosave(draftEnabled, draftStorageKey, {
-    currentStep,
-    selectedProduct,
-    selectedCategory,
-    formData: formData as unknown as Record<string, unknown>,
-    dynamicFormData,
-    creditAuthorizationConsent,
-    feeAgreementDraft: feeAgreementDraft as unknown as Record<string, unknown>,
-  });
+  const draftPayload = useMemo(
+    () => ({
+      currentStep,
+      selectedProduct,
+      selectedCategory,
+      formData: formData as unknown as Record<string, unknown>,
+      dynamicFormData,
+      creditAuthorizationConsent,
+      feeAgreementDraft: feeAgreementDraft as unknown as Record<
+        string,
+        unknown
+      >,
+    }),
+    [
+      currentStep,
+      selectedProduct,
+      selectedCategory,
+      formData,
+      dynamicFormData,
+      creditAuthorizationConsent,
+      feeAgreementDraft,
+    ],
+  );
+
+  useLoanApplicationAutosave(localDraftEnabled, draftStorageKey, draftPayload);
+
+  draftPayloadRef.current = draftPayload;
+  selectedProductRef.current = selectedProduct;
+
+  const persistIncompleteApplication = useCallback(
+    async (options?: {
+      keepalive?: boolean;
+      force?: boolean;
+      draftOverride?: Partial<{
+        currentStep: number;
+        selectedProduct: string;
+        selectedCategory: string;
+        formData: Record<string, unknown>;
+        dynamicFormData: Record<string, unknown>;
+        creditAuthorizationConsent: boolean;
+        feeAgreementDraft: Record<string, unknown> | null;
+      }>;
+    }): Promise<string | null> => {
+      if (!backendDraftEnabled || incompleteHydrating || submitting) {
+        return incompleteApplicationIdRef.current;
+      }
+
+      const latestPayload = {
+        ...draftPayloadRef.current,
+        ...(options?.draftOverride || {}),
+      };
+      const productCode =
+        (options?.draftOverride?.selectedProduct as string | undefined) ||
+        selectedProductRef.current;
+
+      if (!productCode) return incompleteApplicationIdRef.current;
+      if (!isMeaningfulApplicationDraft(latestPayload)) {
+        return incompleteApplicationIdRef.current;
+      }
+
+      const serializableDraft = toSerializableDraftPayload(latestPayload);
+      const requestHash = JSON.stringify({
+        applicationId: incompleteApplicationIdRef.current || null,
+        loanProductCode: productCode,
+        draft: serializableDraft,
+      });
+
+      // Skip duplicate network writes (force only bypasses debounce timing).
+      if (requestHash === lastSavedIncompleteHashRef.current) {
+        return incompleteApplicationIdRef.current;
+      }
+
+      if (persistIncompleteLockRef.current && !options?.keepalive) {
+        try {
+          await persistIncompleteLockRef.current;
+        } catch {
+          // Previous save failed; continue with a new attempt.
+        }
+      }
+
+      // Re-check after waiting — another save may have already persisted this.
+      const latestAfterWait = {
+        ...draftPayloadRef.current,
+        ...(options?.draftOverride || {}),
+      };
+      const productAfterWait =
+        (options?.draftOverride?.selectedProduct as string | undefined) ||
+        selectedProductRef.current;
+      if (!productAfterWait) return incompleteApplicationIdRef.current;
+      const draftAfterWait = toSerializableDraftPayload(latestAfterWait);
+      const hashAfterWait = JSON.stringify({
+        applicationId: incompleteApplicationIdRef.current || null,
+        loanProductCode: productAfterWait,
+        draft: draftAfterWait,
+      });
+      // Identical payload already on server — skip even for forced step saves.
+      if (hashAfterWait === lastSavedIncompleteHashRef.current) {
+        return incompleteApplicationIdRef.current;
+      }
+
+      const token = sessionStorage.getItem(portalConfig.tokenKey);
+      if (!token) return incompleteApplicationIdRef.current;
+
+      if (!options?.keepalive) {
+        incompleteAbortRef.current?.abort();
+      }
+      const controller = options?.keepalive ? null : new AbortController();
+      if (controller) incompleteAbortRef.current = controller;
+
+      const seq = ++incompleteSaveSeqRef.current;
+      const body = JSON.stringify({
+        applicationId: incompleteApplicationIdRef.current || undefined,
+        loanProductCode: productAfterWait,
+        draft: draftAfterWait,
+      });
+
+      const run = (async () => {
+        try {
+          const response = await fetch(portalConfig.incompleteSaveUrl, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body,
+            keepalive: Boolean(options?.keepalive),
+            ...(controller ? { signal: controller.signal } : {}),
+          });
+          const result = await response.json().catch(() => null);
+          if (!response.ok || result?.success !== true) {
+            if (!options?.keepalive) {
+              throw new Error(
+                result?.message || "Failed to save incomplete application",
+              );
+            }
+            return incompleteApplicationIdRef.current;
+          }
+
+          // Ignore stale responses that finished after a newer save started.
+          if (seq !== incompleteSaveSeqRef.current) {
+            return incompleteApplicationIdRef.current;
+          }
+
+          lastSavedIncompleteHashRef.current = hashAfterWait;
+
+          const savedId = result?.data?.applicationId as string | undefined;
+          if (savedId && savedId !== incompleteApplicationIdRef.current) {
+            incompleteApplicationIdRef.current = savedId;
+            setIncompleteApplicationId(savedId);
+            setSearchParams(
+              (prev) => {
+                const next = new URLSearchParams(prev);
+                next.set("incompleteId", savedId);
+                return next;
+              },
+              { replace: true },
+            );
+            // Hash included null applicationId; refresh so later skips work.
+            lastSavedIncompleteHashRef.current = JSON.stringify({
+              applicationId: savedId,
+              loanProductCode: productAfterWait,
+              draft: draftAfterWait,
+            });
+          }
+          return savedId || incompleteApplicationIdRef.current;
+        } catch (error: any) {
+          if (error?.name === "AbortError") {
+            return incompleteApplicationIdRef.current;
+          }
+          throw error;
+        } finally {
+          if (incompleteAbortRef.current === controller) {
+            incompleteAbortRef.current = null;
+          }
+        }
+      })();
+
+      persistIncompleteLockRef.current = run;
+      return run;
+    },
+    [
+      backendDraftEnabled,
+      incompleteHydrating,
+      submitting,
+      portalConfig.tokenKey,
+      portalConfig.incompleteSaveUrl,
+      setSearchParams,
+    ],
+  );
+  persistIncompleteRef.current = persistIncompleteApplication;
+
+  useEffect(() => {
+    if (!backendDraftEnabled) return;
+    clearApplicationDraft(draftStorageKey);
+  }, [backendDraftEnabled, draftStorageKey]);
+
+  useEffect(() => {
+    if (!backendDraftEnabled || !incompleteIdFromUrl) {
+      setIncompleteHydrating(false);
+      return;
+    }
+
+    let cancelled = false;
+    const token = sessionStorage.getItem(portalConfig.tokenKey);
+    if (!token) {
+      setIncompleteHydrating(false);
+      return;
+    }
+
+    setIncompleteHydrating(true);
+    (async () => {
+      try {
+        const response = await fetch(
+          portalConfig.incompleteGetUrl(incompleteIdFromUrl),
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          },
+        );
+        const result = await response.json();
+        if (!response.ok || result?.success !== true || !result?.data?.draft) {
+          throw new Error(result?.message || "Incomplete application not found");
+        }
+        if (cancelled) return;
+
+        const draft = result.data.draft;
+        const blank = createBlankFormData();
+        setIncompleteApplicationId(result.data.applicationId);
+        incompleteApplicationIdRef.current = result.data.applicationId;
+        setSelectedProduct(draft.selectedProduct || "");
+        setSelectedCategory((draft.selectedCategory as LoanCategory) || "");
+        setDynamicFormData(draft.dynamicFormData || {});
+        setCreditAuthorizationConsent(Boolean(draft.creditAuthorizationConsent));
+        setCurrentStep(
+          typeof draft.currentStep === "number" && draft.currentStep >= 0
+            ? Math.floor(draft.currentStep)
+            : 0,
+        );
+        setFeeAgreementDraft({
+          ...EMPTY_FEE_AGREEMENT_DRAFT,
+          ...((draft.feeAgreementDraft as Partial<FeeAgreementDraft>) || {}),
+        });
+        setFormData(mergeApplicationFormData(blank, draft.formData));
+        lastSavedIncompleteHashRef.current = JSON.stringify({
+          applicationId: result.data.applicationId || null,
+          loanProductCode: draft.selectedProduct || "",
+          draft: toSerializableDraftPayload({
+            currentStep:
+              typeof draft.currentStep === "number" && draft.currentStep >= 0
+                ? Math.floor(draft.currentStep)
+                : 0,
+            selectedProduct: draft.selectedProduct || "",
+            selectedCategory: draft.selectedCategory || "",
+            formData: (draft.formData || {}) as Record<string, unknown>,
+            dynamicFormData: (draft.dynamicFormData || {}) as Record<
+              string,
+              unknown
+            >,
+            creditAuthorizationConsent: Boolean(
+              draft.creditAuthorizationConsent,
+            ),
+            feeAgreementDraft:
+              (draft.feeAgreementDraft as Record<string, unknown> | null) ||
+              null,
+          }),
+        });
+      } catch (error: any) {
+        if (!cancelled) {
+          toast.error(error.message || "Could not restore incomplete application");
+          setSearchParams(
+            (prev) => {
+              const next = new URLSearchParams(prev);
+              next.delete("incompleteId");
+              return next;
+            },
+            { replace: true },
+          );
+          setIncompleteApplicationId(null);
+          incompleteApplicationIdRef.current = null;
+        }
+      } finally {
+        if (!cancelled) setIncompleteHydrating(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // Hydrate once per incompleteId in the URL.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [backendDraftEnabled, incompleteIdFromUrl, portalConfig.incompleteGetUrl]);
+
+  useEffect(() => {
+    if (!backendDraftEnabled || incompleteHydrating) return;
+    const timer = window.setTimeout(() => {
+      void persistIncompleteApplication().catch(() => undefined);
+    }, 2000);
+    return () => window.clearTimeout(timer);
+  }, [
+    backendDraftEnabled,
+    incompleteHydrating,
+    draftPayload,
+    persistIncompleteApplication,
+  ]);
+
+  useEffect(() => {
+    if (!backendDraftEnabled) return;
+    const persist = () => {
+      void persistIncompleteRef.current?.({ keepalive: true });
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") persist();
+    };
+    window.addEventListener("pagehide", persist);
+    window.addEventListener("beforeunload", persist);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      persist();
+      window.removeEventListener("pagehide", persist);
+      window.removeEventListener("beforeunload", persist);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [backendDraftEnabled]);
 
   useEffect(() => {
     if (loadingProducts) return;
@@ -1171,38 +1548,6 @@ const LoanApplication = ({
 
   const discardSavedDraft = () => {
     clearApplicationDraft(draftStorageKey);
-  };
-
-  const resetApplicationForm = () => {
-    discardSavedDraft();
-    pendingDocuments.forEach((doc) => revokePendingDocumentPreview(doc));
-    setPendingDocuments([]);
-    setSelectedProduct("");
-    setSelectedCategory("");
-    setDynamicFormData({});
-    setCreditAuthorizationConsent(false);
-    setCurrentStep(0);
-    setFeeAgreementDraft(EMPTY_FEE_AGREEMENT_DRAFT);
-    setErrors({});
-    setLastAddedId(null);
-    setFormData(createBlankFormData());
-    setRestoredDraftSavedAt(null);
-  };
-
-  const handleStartNewApplication = async () => {
-    const decision = await Swal.fire({
-      icon: "warning",
-      title: "Start a new application?",
-      text: "Saved progress on this device will be cleared.",
-      showCancelButton: true,
-      confirmButtonText: "Start new",
-      cancelButtonText: "Keep progress",
-      confirmButtonColor: "#13538A",
-      reverseButtons: true,
-    });
-    if (!decision.isConfirmed) return;
-    resetApplicationForm();
-    toast.success("Started a new application");
   };
 
   const handleAddCoBorrower = () => {
@@ -2221,6 +2566,9 @@ const LoanApplication = ({
         body: JSON.stringify({
           ...payload,
           fields: withBorrowerNameFields(payload.fields),
+          ...(incompleteApplicationIdRef.current
+            ? { incompleteApplicationId: incompleteApplicationIdRef.current }
+            : {}),
         }),
       });
 
@@ -2388,7 +2736,6 @@ const LoanApplication = ({
     equityGrandTotal,
     equityMismatchError,
     marketValue,
-    currentLoanBalance,
     asIsEquity,
     valuationCapex,
     valuationProjectCost,
@@ -2616,8 +2963,20 @@ const LoanApplication = ({
     }
   };
 
-  const goToStep = (stepIndex: number) => {
+  const goToStep = async (stepIndex: number) => {
     setErrors({});
+
+    if (backendDraftEnabled) {
+      try {
+        await persistIncompleteApplication({
+          force: true,
+          draftOverride: { currentStep: stepIndex },
+        });
+      } catch {
+        // Step navigation should still proceed; background autosave will retry.
+      }
+    }
+
     setCurrentStep(stepIndex);
 
     if (
@@ -2633,7 +2992,7 @@ const LoanApplication = ({
 
   const handleStepClick = (index: number) => {
     if (index === currentStep) return;
-    goToStep(index);
+    void goToStep(index);
   };
 
   useEffect(() => {
@@ -3381,11 +3740,18 @@ const LoanApplication = ({
 
   return (
     <>
+      {incompleteHydrating ? (
+        <div className="flex min-h-[40vh] items-center justify-center text-sm text-slate-500">
+          Restoring incomplete application…
+        </div>
+      ) : null}
       <div
         className={
           embedded
-            ? "bg-transparent"
-            : "min-h-screen bg-slate-50 px-6 py-4 dark:bg-slate-900"
+            ? `bg-transparent${incompleteHydrating ? " hidden" : ""}`
+            : `min-h-screen bg-slate-50 px-6 py-4 dark:bg-slate-900${
+                incompleteHydrating ? " hidden" : ""
+              }`
         }
       >
         {/* ===== FIXED HEADER SECTION ===== */}
@@ -3402,7 +3768,18 @@ const LoanApplication = ({
             {!embedded && (
               <button
                 type="button"
-                onClick={() => navigate(-1)}
+                onClick={async () => {
+                  if (backendDraftEnabled) {
+                    try {
+                      await persistIncompleteApplication({ force: true });
+                    } catch (error: any) {
+                      toast.error(
+                        error.message || "Could not save incomplete application",
+                      );
+                    }
+                  }
+                  navigate(portalConfig.successPath);
+                }}
                 className="mb-3 inline-flex items-center gap-2 rounded-lg border border-[#13538A]/25 bg-white px-3 py-2 text-sm font-semibold text-[#13538A] shadow-sm transition hover:border-[#13538A]/50 hover:bg-[#13538A]/5 hover:shadow dark:border-sky-500/30 dark:bg-slate-900 dark:text-sky-300 dark:hover:bg-sky-500/10"
               >
                 <IoArrowBack size={18} />
@@ -3436,23 +3813,6 @@ const LoanApplication = ({
                 ) : null}
               </div>
             )}
-            {draftEnabled ? (
-              <div className="mt-2 flex flex-col gap-2 rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-950 sm:flex-row sm:items-center sm:justify-between dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-100">
-                <p>
-                  {restoredDraftSavedAt
-                    ? `Progress restored from ${formatDraftSavedAt(restoredDraftSavedAt)}. It is saved automatically on this device.`
-                    : "Progress is saved automatically on this device, even if you close this page."}{" "}
-                  Re-attach documents if you added any.
-                </p>
-                <button
-                  type="button"
-                  onClick={handleStartNewApplication}
-                  className="shrink-0 font-semibold text-[#13538A] underline underline-offset-2 hover:text-[#0e3d66] dark:text-sky-200"
-                >
-                  Start new application
-                </button>
-              </div>
-            ) : null}
           </div>
           {/* STEPPER */}
           <LoanApplicationStepper
@@ -3611,6 +3971,10 @@ rounded-2xl p-6 shadow-sm
                       updateLoanRequest("privateSale", false);
                       updateLoanRequest("vendorName", "");
                       updateLoanRequest("vendorPhone", "");
+                      updateLoanRequest(
+                        "rateType",
+                        getDefaultRateTypeForProduct(val),
+                      );
                       setDynamicSections([]);
                       setActiveSectionIndex(null);
                     }}
@@ -3989,8 +4353,8 @@ focus:border-blue-500 outline-none text-sm ${
                         </option>
                       </select>
                     </div>
-                    {/* Loan Term — hidden when rate type is Interest Only */}
-                    {formData.loanRequest.rateType !== "INTEREST_ONLY" && (
+                    {/* Loan Term + Rate Type — Loan Term stays visible for Interest Only */}
+                    <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-5">
                       <div>
                         <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">
                           Loan Term (in Months)
@@ -4014,24 +4378,23 @@ focus:border-blue-500 outline-none text-sm ${
                           </p>
                         )}
                       </div>
-                    )}
-                    {/* Rate Type */}
-                    <div>
-                      <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">
-                        Rate Type
-                      </label>
-                      <select
-                        value={formData.loanRequest.rateType}
-                        onChange={(e) =>
-                          updateLoanRequest("rateType", e.target.value)
-                        }
-                        className="w-full px-4 py-1 rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-sm"
-                      >
-                        <option value="INTEREST_ONLY">Interest Only</option>
-                        <option value="FIXED">Fixed</option>
-                        <option value="VARIABLE">Variable</option>
-                        <option value="HYBRID">Hybrid</option>
-                      </select>
+                      <div>
+                        <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">
+                          Rate Type
+                        </label>
+                        <select
+                          value={formData.loanRequest.rateType}
+                          onChange={(e) =>
+                            updateLoanRequest("rateType", e.target.value)
+                          }
+                          className="w-full px-4 py-1 rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-sm"
+                        >
+                          <option value="INTEREST_ONLY">Interest Only</option>
+                          <option value="FIXED">Fixed</option>
+                          <option value="VARIABLE">Variable</option>
+                          <option value="HYBRID">Hybrid</option>
+                        </select>
+                      </div>
                     </div>
                     {/* Broker Points */}
                     {/* <div>
@@ -4445,11 +4808,7 @@ focus:border-blue-500 outline-none text-sm ${
 
                         <div className="mt-3 rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 p-3 text-xs text-slate-600 dark:text-slate-300">
                           <span className="font-semibold">Equity (Auto):</span>{" "}
-                          ${asIsEquity.toLocaleString()}{" "}
-                          &nbsp;|&nbsp; Current As-Is Value: $
-                          {marketValue.toLocaleString()}{" "}
-                          – Current Loan Balance: $
-                          {currentLoanBalance.toLocaleString()}
+                          ${asIsEquity.toLocaleString()}
                         </div>
                       </div>
                     )}
@@ -4524,11 +4883,7 @@ focus:border-blue-500 outline-none text-sm ${
                         {/* Equity Auto Summary */}
                         <div className="mt-3 rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 p-3 text-xs text-slate-600 dark:text-slate-300">
                           <span className="font-semibold">Equity (Auto):</span>{" "}
-                          ${asIsEquity.toLocaleString()}{" "}
-                          &nbsp;|&nbsp; Current As-Is Value: $
-                          {marketValue.toLocaleString()}{" "}
-                          – Current Loan Balance: $
-                          {currentLoanBalance.toLocaleString()}
+                          ${asIsEquity.toLocaleString()}
                         </div>
 
                         {/* Row 2: Rehab Cost + ARV */}
@@ -7337,7 +7692,7 @@ focus:border-blue-500 outline-none text-sm ${
             <button
               onClick={() => {
                 if (currentStep > 0) {
-                  goToStep(currentStep - 1);
+                  void goToStep(currentStep - 1);
                 }
               }}
               disabled={currentStep === 0}
@@ -7391,7 +7746,7 @@ focus:border-blue-500 outline-none text-sm ${
                     fetchSectionsByProduct();
                   }
 
-                  goToStep(currentStep + 1);
+                  void goToStep(currentStep + 1);
                 }}
                 disabled={submitting}
                 className="px-6 py-2 rounded-md bg-[#13538A] hover:bg-[#0E426E] text-white 

@@ -95,6 +95,7 @@ import {
 } from "./calculations";
 import {
   getAblCollateralTypeOptions,
+  getDefaultRateTypeForProduct,
   getSbaCollateralTypeLabel,
   getSbaCollateralTypeOptions,
   isAblCollateralProduct,
@@ -2424,7 +2425,6 @@ const LoanApplication = ({
     equityGrandTotal,
     equityMismatchError,
     marketValue,
-    currentLoanBalance,
     asIsEquity,
     valuationCapex,
     valuationProjectCost,
@@ -3551,6 +3551,10 @@ rounded-2xl p-6 shadow-sm
                       updateLoanRequest("privateSale", false);
                       updateLoanRequest("vendorName", "");
                       updateLoanRequest("vendorPhone", "");
+                      updateLoanRequest(
+                        "rateType",
+                        getDefaultRateTypeForProduct(val),
+                      );
                       setDynamicSections([]);
                       setActiveSectionIndex(null);
                     }}
@@ -3929,8 +3933,8 @@ focus:border-blue-500 outline-none text-sm ${
                         </option>
                       </select>
                     </div>
-                    {/* Loan Term — hidden when rate type is Interest Only */}
-                    {formData.loanRequest.rateType !== "INTEREST_ONLY" && (
+                    {/* Loan Term + Rate Type — Loan Term stays visible for Interest Only */}
+                    <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-5">
                       <div>
                         <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">
                           Loan Term (in Months)
@@ -3954,24 +3958,23 @@ focus:border-blue-500 outline-none text-sm ${
                           </p>
                         )}
                       </div>
-                    )}
-                    {/* Rate Type */}
-                    <div>
-                      <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">
-                        Rate Type
-                      </label>
-                      <select
-                        value={formData.loanRequest.rateType}
-                        onChange={(e) =>
-                          updateLoanRequest("rateType", e.target.value)
-                        }
-                        className="w-full px-4 py-1 rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-sm"
-                      >
-                        <option value="INTEREST_ONLY">Interest Only</option>
-                        <option value="FIXED">Fixed</option>
-                        <option value="VARIABLE">Variable</option>
-                        <option value="HYBRID">Hybrid</option>
-                      </select>
+                      <div>
+                        <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">
+                          Rate Type
+                        </label>
+                        <select
+                          value={formData.loanRequest.rateType}
+                          onChange={(e) =>
+                            updateLoanRequest("rateType", e.target.value)
+                          }
+                          className="w-full px-4 py-1 rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-sm"
+                        >
+                          <option value="INTEREST_ONLY">Interest Only</option>
+                          <option value="FIXED">Fixed</option>
+                          <option value="VARIABLE">Variable</option>
+                          <option value="HYBRID">Hybrid</option>
+                        </select>
+                      </div>
                     </div>
                     {/* Broker Points */}
                     <div>
@@ -4385,11 +4388,7 @@ focus:border-blue-500 outline-none text-sm ${
 
                         <div className="mt-3 rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 p-3 text-xs text-slate-600 dark:text-slate-300">
                           <span className="font-semibold">Equity (Auto):</span>{" "}
-                          ${asIsEquity.toLocaleString()}{" "}
-                          &nbsp;|&nbsp; Current As-Is Value: $
-                          {marketValue.toLocaleString()}{" "}
-                          – Current Loan Balance: $
-                          {currentLoanBalance.toLocaleString()}
+                          ${asIsEquity.toLocaleString()}
                         </div>
                       </div>
                     )}
@@ -4464,11 +4463,7 @@ focus:border-blue-500 outline-none text-sm ${
                         {/* Equity Auto Summary */}
                         <div className="mt-3 rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 p-3 text-xs text-slate-600 dark:text-slate-300">
                           <span className="font-semibold">Equity (Auto):</span>{" "}
-                          ${asIsEquity.toLocaleString()}{" "}
-                          &nbsp;|&nbsp; Current As-Is Value: $
-                          {marketValue.toLocaleString()}{" "}
-                          – Current Loan Balance: $
-                          {currentLoanBalance.toLocaleString()}
+                          ${asIsEquity.toLocaleString()}
                         </div>
 
                         {/* Row 2: Rehab Cost + ARV */}

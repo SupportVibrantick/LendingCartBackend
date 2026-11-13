@@ -278,6 +278,7 @@ async function countMetricUsage(prisma, organizationId, metric, options = {}) {
         where: {
           brokerOrgId: organizationId,
           createdAt: { gte: start, lt: end },
+          status: { not: "INCOMPLETE" },
         },
       });
     }
