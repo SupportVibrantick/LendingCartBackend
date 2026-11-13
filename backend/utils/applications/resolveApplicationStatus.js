@@ -70,6 +70,7 @@ function countBrokerPipelineStats(submissions) {
     rejected: 0,
     inReview: 0,
     draft: 0,
+    incomplete: 0,
     submitted: 0,
     clientPending: 0,
     newApplications: 0,
@@ -96,6 +97,9 @@ function countBrokerPipelineStats(submissions) {
         break;
       case "DRAFT":
         counts.draft += 1;
+        break;
+      case "INCOMPLETE":
+        counts.incomplete += 1;
         break;
       case "SUBMITTED":
         counts.submitted += 1;
@@ -215,7 +219,11 @@ function canBrokerEditSubmittedApplication(application) {
     };
   }
 
-  if (["SUBMITTED", "IN_REVIEW", "CLIENT_PENDING", "DRAFT"].includes(status)) {
+  if (
+    ["SUBMITTED", "IN_REVIEW", "CLIENT_PENDING", "DRAFT", "INCOMPLETE"].includes(
+      status,
+    )
+  ) {
     return { allowed: true };
   }
 

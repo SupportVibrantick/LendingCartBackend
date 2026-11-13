@@ -193,6 +193,15 @@ export const isMezzanineAcquisitionBridge = (product: string, purpose: string) =
   isMezzanineLoanType(product) &&
   purpose === MEZZANINE_ACQUISITION_BRIDGE_PURPOSE;
 
+/** Construction, Fix & Flip, Bridge, and Mezz default to Interest Only. */
+export const getDefaultRateTypeForProduct = (product: string) =>
+  isBridgeProduct(product) ||
+  isFixAndFlipProduct(product) ||
+  isConstructionLoanType(product) ||
+  isMezzanineLoanType(product)
+    ? "INTEREST_ONLY"
+    : "FIXED";
+
 /* ================= SBA 7a predicates ================= */
 
 const SBA_7A_ACQUISITION_PURCHASE_DATE_PURPOSES = new Set([

@@ -64,6 +64,7 @@ module.exports = async function loanOfficerPipelineStats(fastify) {
             rejected: statusCounts.rejected,
             inReview: statusCounts.inReview,
             draft: statusCounts.draft,
+            incomplete: statusCounts.incomplete,
           },
         });
       } catch (error) {

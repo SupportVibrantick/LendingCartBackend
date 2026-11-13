@@ -244,6 +244,7 @@ function resolveCurrentStage(application) {
     return "IN_REVIEW";
   }
   if (status === "CLIENT_PENDING") return "CLIENT_PENDING";
+  if (status === "INCOMPLETE") return "INCOMPLETE";
   if (isSubmittedApplication(application)) return "SUBMITTED";
   return "DRAFT";
 }
@@ -261,6 +262,7 @@ function emptyCounters() {
     uniqueLenderIds: new Set(),
     applicationsByStatus: {
       DRAFT: 0,
+      INCOMPLETE: 0,
       CLIENT_PENDING: 0,
       SUBMITTED: 0,
       IN_REVIEW: 0,

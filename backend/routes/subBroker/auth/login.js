@@ -90,10 +90,11 @@ async function loginRoute(fastify, options) {
         const token = jwt.sign(
           {
             userId: user.id,
-
+            id: user.id,
             roles: ["SUB_BROKER"],
-
             organizationId: user.organizationId || null,
+            orgType: "BROKER",
+            email: user.email,
           },
 
           jwtSecret,

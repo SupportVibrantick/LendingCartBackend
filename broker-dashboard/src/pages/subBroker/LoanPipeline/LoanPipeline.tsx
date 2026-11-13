@@ -17,6 +17,7 @@ import {
   Plus,
 } from "lucide-react";
 
+import { MdEdit } from "react-icons/md";
 import PageMeta from "../../../components/common/PageMeta";
 import { formatDocumentStatusLabel } from "../../../lib/documentStatus";
 import {
@@ -121,6 +122,7 @@ const STATUS_FILTERS = [
     label: "Client Pending",
     statKey: "clientPending" as const,
   },
+  { value: "INCOMPLETE", label: "Incomplete", statKey: "incomplete" as const },
   { value: "DRAFT", label: "Draft", statKey: "draft" as const },
   { value: "SUBMITTED", label: "Submitted", statKey: "submitted" as const },
   { value: "IN_REVIEW", label: "In Review", statKey: "inReview" as const },
@@ -180,6 +182,8 @@ function getStatusColor(status?: string) {
       return "bg-[#13538A] text-white";
     case "draft":
       return "bg-slate-500 text-white";
+    case "incomplete":
+      return "bg-amber-500 text-white";
     case "completed":
       return "bg-teal-600 text-white";
     case "superseded":
@@ -225,6 +229,7 @@ export default function LoanApplicationsPage() {
     rejected: 0,
     inReview: 0,
     draft: 0,
+    incomplete: 0,
   });
   const [viewSubmissionId, setViewSubmissionId] = useState<string | null>(null);
   const [submissionDetail, setSubmissionDetail] = useState<any>(null);
@@ -307,6 +312,18 @@ export default function LoanApplicationsPage() {
         application: target,
       },
     });
+  };
+
+  const resumeIncomplete = (applicationId: string) => {
+    navigate(`/sub-broker/loan-application?incompleteId=${applicationId}`);
+  };
+
+  const openApplicationRow = (row: TableRow) => {
+    if (row.status === "INCOMPLETE" && row.applicationId) {
+      resumeIncomplete(row.applicationId);
+      return;
+    }
+    openPreview(row.submissionId, row);
   };
 
   const formatFieldKey = (key: string | null | undefined) => {
@@ -1037,7 +1054,7 @@ export default function LoanApplicationsPage() {
                       className="group cursor-pointer border-l-2 border-transparent transition hover:border-l-[#13538A] hover:bg-[#13538A]/[0.045] dark:hover:bg-[#13538A]/15"
                     >
                       <td
-                        onClick={() => openPreview(row.submissionId, row)}
+                        onClick={() => openApplicationRow(row)}
                         className="px-4 py-3.5 align-middle first:pl-5 lg:first:pl-6"
                         title={row.borrowerName}
                       >
@@ -1059,7 +1076,7 @@ export default function LoanApplicationsPage() {
                       </td>
 
                       <td
-                        onClick={() => openPreview(row.submissionId, row)}
+                        onClick={() => openApplicationRow(row)}
                         className="px-4 py-3.5 align-middle"
                         title={row.applicationNumber}
                       >
@@ -1069,7 +1086,7 @@ export default function LoanApplicationsPage() {
                       </td>
 
                       <td
-                        onClick={() => openPreview(row.submissionId, row)}
+                        onClick={() => openApplicationRow(row)}
                         className="px-4 py-3.5 align-middle"
                         title={[row.cityState, row.country]
                           .filter(Boolean)
@@ -1088,7 +1105,7 @@ export default function LoanApplicationsPage() {
                       </td>
 
                       <td
-                        onClick={() => openPreview(row.submissionId, row)}
+                        onClick={() => openApplicationRow(row)}
                         className="px-4 py-3.5 align-middle text-right"
                       >
                         <span className="text-sm font-semibold tabular-nums text-slate-900 dark:text-white">
@@ -1097,14 +1114,14 @@ export default function LoanApplicationsPage() {
                       </td>
 
                       <td
-                        onClick={() => openPreview(row.submissionId, row)}
+                        onClick={() => openApplicationRow(row)}
                         className="whitespace-nowrap px-4 py-3.5 align-middle text-sm text-slate-500 dark:text-slate-400"
                       >
                         {formatShortDate(row.date)}
                       </td>
 
                       <td
-                        onClick={() => openPreview(row.submissionId, row)}
+                        onClick={() => openApplicationRow(row)}
                         className="px-4 py-3.5 align-middle"
                       >
                         <span
@@ -1116,7 +1133,7 @@ export default function LoanApplicationsPage() {
                       </td>
 
                       <td
-                        onClick={() => openPreview(row.submissionId, row)}
+                        onClick={() => openApplicationRow(row)}
                         className="px-4 py-3.5 align-middle"
                         title={
                           (row.assignedLoanOfficers || [])
@@ -1148,7 +1165,7 @@ export default function LoanApplicationsPage() {
                             title="Open application"
                             onClick={(e) => {
                               e.stopPropagation();
-                              openPreview(row.submissionId, row);
+                              openApplicationRow(row);
                             }}
                             className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#13538A] text-white shadow-sm transition hover:bg-[#0e3d66]"
                           >
@@ -1197,19 +1214,35 @@ export default function LoanApplicationsPage() {
                               onMouseDown={(e) => e.stopPropagation()}
                               className="z-[9999] w-48 overflow-hidden rounded-xl bg-[#13538A] shadow-xl"
                             >
-                              <button
-                                type="button"
-                                onMouseDown={(e) => e.preventDefault()}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setActiveDropdown(null);
-                                  openPreview(row.submissionId, row);
-                                }}
-                                className="flex w-full items-center gap-3 px-4 py-3 text-sm font-medium text-white hover:bg-[#0e3d66]"
-                              >
-                                <Eye size={14} />
-                                Open Application
-                              </button>
+                              {row.status === "INCOMPLETE" ? (
+                                <button
+                                  type="button"
+                                  onMouseDown={(e) => e.preventDefault()}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setActiveDropdown(null);
+                                    resumeIncomplete(row.applicationId);
+                                  }}
+                                  className="flex w-full items-center gap-3 px-4 py-3 text-sm font-medium text-white hover:bg-[#0e3d66]"
+                                >
+                                  <MdEdit size={14} />
+                                  Continue Application
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onMouseDown={(e) => e.preventDefault()}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setActiveDropdown(null);
+                                    openPreview(row.submissionId, row);
+                                  }}
+                                  className="flex w-full items-center gap-3 px-4 py-3 text-sm font-medium text-white hover:bg-[#0e3d66]"
+                                >
+                                  <Eye size={14} />
+                                  Open Application
+                                </button>
+                              )}
                             </div>,
                             document.body,
                           )}

@@ -155,6 +155,7 @@ const STATUS_FILTERS = [
     label: "Client Pending",
     statKey: "clientPending" as const,
   },
+  { value: "INCOMPLETE", label: "Incomplete", statKey: "incomplete" as const },
   { value: "DRAFT", label: "Draft", statKey: "draft" as const },
   { value: "SUBMITTED", label: "Submitted", statKey: "submitted" as const },
   { value: "IN_REVIEW", label: "In Review", statKey: "inReview" as const },
@@ -296,6 +297,7 @@ export default function LoanApplicationsPage() {
     rejected: 0,
     inReview: 0,
     draft: 0,
+    incomplete: 0,
     funded: 0,
   });
 
@@ -412,6 +414,9 @@ export default function LoanApplicationsPage() {
 
       case "draft":
         return "bg-slate-500 text-white";
+
+      case "incomplete":
+        return "bg-orange-500 text-white";
 
       case "completed":
         return "bg-teal-600 text-white";
@@ -1065,6 +1070,18 @@ export default function LoanApplicationsPage() {
     navigate("/loan-preview", { state: { submissionId } });
   };
 
+  const resumeIncomplete = (applicationId: string) => {
+    navigate(`/loan-application?incompleteId=${applicationId}`);
+  };
+
+  const openApplicationRow = (row: TableRow) => {
+    if (row.status === "INCOMPLETE" && row.applicationId) {
+      resumeIncomplete(row.applicationId);
+      return;
+    }
+    openPreview(row.submissionId);
+  };
+
   useEffect(() => {
     if (viewSubmissionId || findLenderModalOpen) {
       document.body.classList.add("modal-open");
@@ -1645,7 +1662,7 @@ export default function LoanApplicationsPage() {
                       className="group cursor-pointer border-l-2 border-transparent transition hover:border-l-[#13538A] hover:bg-[#13538A]/[0.045] dark:hover:bg-[#13538A]/15"
                     >
                       <td
-                        onClick={() => openPreview(row.submissionId)}
+                        onClick={() => openApplicationRow(row)}
                         className="px-4 py-3.5 align-middle first:pl-5 lg:first:pl-6"
                         title={row.borrowerName}
                       >
@@ -1667,7 +1684,7 @@ export default function LoanApplicationsPage() {
                       </td>
 
                       <td
-                        onClick={() => openPreview(row.submissionId)}
+                        onClick={() => openApplicationRow(row)}
                         className="px-4 py-3.5 align-middle"
                         title={row.applicationNumber}
                       >
@@ -1677,7 +1694,7 @@ export default function LoanApplicationsPage() {
                       </td>
 
                       <td
-                        onClick={() => openPreview(row.submissionId)}
+                        onClick={() => openApplicationRow(row)}
                         className="px-4 py-3.5 align-middle"
                         title={[row.cityState, row.country]
                           .filter(Boolean)
@@ -1696,7 +1713,7 @@ export default function LoanApplicationsPage() {
                       </td>
 
                       <td
-                        onClick={() => openPreview(row.submissionId)}
+                        onClick={() => openApplicationRow(row)}
                         className="px-4 py-3.5 align-middle text-right"
                       >
                         <span className="text-sm font-semibold tabular-nums text-slate-900 dark:text-white">
@@ -1705,14 +1722,14 @@ export default function LoanApplicationsPage() {
                       </td>
 
                       <td
-                        onClick={() => openPreview(row.submissionId)}
+                        onClick={() => openApplicationRow(row)}
                         className="whitespace-nowrap px-4 py-3.5 align-middle text-sm text-slate-500 dark:text-slate-400"
                       >
                         {formatShortDate(row.date)}
                       </td>
 
                       <td
-                        onClick={() => openPreview(row.submissionId)}
+                        onClick={() => openApplicationRow(row)}
                         className="px-4 py-3.5 align-middle"
                       >
                         <span
@@ -1724,7 +1741,7 @@ export default function LoanApplicationsPage() {
                       </td>
 
                       <td
-                        onClick={() => openPreview(row.submissionId)}
+                        onClick={() => openApplicationRow(row)}
                         className="px-4 py-3.5 align-middle"
                       >
                         <AssigneePills
@@ -1742,7 +1759,7 @@ export default function LoanApplicationsPage() {
                       </td>
 
                       <td
-                        onClick={() => openPreview(row.submissionId)}
+                        onClick={() => openApplicationRow(row)}
                         className="px-4 py-3.5 align-middle"
                       >
                         <AssigneePills
@@ -1766,10 +1783,14 @@ export default function LoanApplicationsPage() {
                         <div className="flex shrink-0 items-center justify-end gap-1.5">
                           <button
                             type="button"
-                            title="Open application"
+                            title={
+                              row.status === "INCOMPLETE"
+                                ? "Continue application"
+                                : "Open application"
+                            }
                             onClick={(e) => {
                               e.stopPropagation();
-                              openPreview(row.submissionId);
+                              openApplicationRow(row);
                             }}
                             className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#13538A] text-white shadow-sm transition hover:bg-[#0e3d66]"
                           >
@@ -1818,19 +1839,35 @@ export default function LoanApplicationsPage() {
                               onMouseDown={(e) => e.stopPropagation()}
                               className="z-[9999] w-48 overflow-hidden rounded-xl bg-[#13538A] shadow-xl"
                             >
-                              <button
-                                type="button"
-                                onMouseDown={(e) => e.preventDefault()}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setActiveDropdown(null);
-                                  openPreview(row.submissionId);
-                                }}
-                                className="flex w-full items-center gap-3 px-4 py-3 text-sm font-medium text-white hover:bg-[#0e3d66]"
-                              >
-                                <Eye size={14} />
-                                Open Application
-                              </button>
+                              {row.status === "INCOMPLETE" ? (
+                                <button
+                                  type="button"
+                                  onMouseDown={(e) => e.preventDefault()}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setActiveDropdown(null);
+                                    resumeIncomplete(row.applicationId);
+                                  }}
+                                  className="flex w-full items-center gap-3 px-4 py-3 text-sm font-medium text-white hover:bg-[#0e3d66]"
+                                >
+                                  <MdEdit size={14} />
+                                  Continue Application
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onMouseDown={(e) => e.preventDefault()}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setActiveDropdown(null);
+                                    openPreview(row.submissionId);
+                                  }}
+                                  className="flex w-full items-center gap-3 px-4 py-3 text-sm font-medium text-white hover:bg-[#0e3d66]"
+                                >
+                                  <Eye size={14} />
+                                  Open Application
+                                </button>
+                              )}
                               {row.status === "DRAFT" && (
                                 <button
                                   type="button"
@@ -3563,127 +3600,184 @@ dark:scrollbar-thumb-slate-700 w-full
         )}
 
       {assignModal.open && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl p-6">
-            <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-1">
-              {assignModal.currentOfficerIds.length
-                ? "Change Loan Officers"
-                : "Assign Loan Officers"}
-            </h3>
-            <p className="mb-4 text-sm text-slate-500 dark:text-slate-400">
-              Select one or more loan officers. Remove a name to unassign them
-              from this application.
-            </p>
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm"
+          onClick={() => {
+            if (assignLoading) return;
+            setAssignModal({
+              open: false,
+              applicationId: "",
+              currentOfficerIds: [],
+            });
+            setSelectedOfficerIds([]);
+            setAssignError("");
+          }}
+        >
+          <div
+            className="w-full max-w-lg overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="border-b border-slate-100 bg-gradient-to-r from-[#13538A]/10 to-transparent px-6 py-5 dark:border-slate-800 dark:from-sky-500/10">
+              <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
+                {assignModal.currentOfficerIds.length
+                  ? "Change Loan Officers"
+                  : "Assign Loan Officers"}
+              </h3>
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                Choose one or more loan officers for this application. Use
+                Select all to assign everyone at once.
+              </p>
+            </div>
 
-            <MultiSelect
-              label="Loan Officers"
-              options={loanOfficerOptions}
-              value={selectedOfficerIds}
-              onChange={setSelectedOfficerIds}
-              placeholder={
-                loanOfficerOptions.length
-                  ? "Select loan officers"
-                  : "No loan officers found"
-              }
-            />
-
-            {assignError && (
-              <div
-                className="mt-4 px-3 py-2 rounded-lg border border-red-200 bg-red-50 
-  text-red-600 text-sm dark:bg-red-900/20 dark:border-red-800 dark:text-red-400"
-              >
-                {assignError}
-              </div>
-            )}
-
-            <div className="flex justify-end gap-3 mt-6">
-              <button
-                onClick={() => {
-                  setAssignModal({
-                    open: false,
-                    applicationId: "",
-                    currentOfficerIds: [],
-                  });
-                  setSelectedOfficerIds([]);
+            <div className="px-6 py-5">
+              <MultiSelect
+                label="Loan Officers"
+                options={loanOfficerOptions}
+                value={selectedOfficerIds}
+                onChange={(ids) => {
+                  setSelectedOfficerIds(ids);
+                  setAssignError("");
                 }}
-                className="px-4 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 
-          text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
-              >
-                Cancel
-              </button>
+                placeholder={
+                  loanOfficerOptions.length
+                    ? "Search or select loan officers"
+                    : "No loan officers found"
+                }
+              />
 
-              <button
-                onClick={handleAssignLoanOfficer}
-                disabled={assignLoading}
-                className="px-4 py-2 text-sm rounded-lg bg-[#13538A] text-white 
-          hover:bg-[#0e3d66] disabled:opacity-50"
-              >
-                {assignLoading
-                  ? "Saving..."
-                  : assignModal.currentOfficerIds.length
-                    ? "Update"
-                    : "Assign"}
-              </button>
+              {assignError ? (
+                <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400">
+                  {assignError}
+                </div>
+              ) : null}
+            </div>
+
+            <div className="flex items-center justify-between gap-3 border-t border-slate-100 bg-slate-50 px-6 py-4 dark:border-slate-800 dark:bg-slate-950/40">
+              <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                {selectedOfficerIds.length} selected
+                {loanOfficerOptions.length
+                  ? ` · ${loanOfficerOptions.length} available`
+                  : ""}
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAssignModal({
+                      open: false,
+                      applicationId: "",
+                      currentOfficerIds: [],
+                    });
+                    setSelectedOfficerIds([]);
+                    setAssignError("");
+                  }}
+                  className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-white dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleAssignLoanOfficer}
+                  disabled={assignLoading}
+                  className="rounded-xl bg-[#13538A] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0e3d66] disabled:opacity-50"
+                >
+                  {assignLoading
+                    ? "Saving..."
+                    : assignModal.currentOfficerIds.length
+                      ? "Update"
+                      : "Assign"}
+                </button>
+              </div>
             </div>
           </div>
         </div>
       )}
 
       {assignSubBrokerModal.open && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="w-full max-w-lg rounded-[32px] border border-white/20 bg-white p-8">
-            <div className="mb-6">
-              <h2 className="text-2xl font-bold text-slate-900">
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm"
+          onClick={() => {
+            if (assigningSubBroker) return;
+            setAssignSubBrokerModal({
+              open: false,
+              applicationId: "",
+              applicationNumber: "",
+            });
+            setSelectedSubBrokerIds([]);
+            setAssignSubBrokerError("");
+          }}
+        >
+          <div
+            className="w-full max-w-lg overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="border-b border-slate-100 bg-gradient-to-r from-[#13538A]/10 to-transparent px-6 py-5 dark:border-slate-800 dark:from-sky-500/10">
+              <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
                 Assign Co-Brokers
-              </h2>
-              <p className="mt-1 text-sm text-slate-500">
-                Select one or more co-brokers. Remove a name to unassign them
-                from this application.
+              </h3>
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                {assignSubBrokerModal.applicationNumber
+                  ? `Application ${assignSubBrokerModal.applicationNumber}. `
+                  : ""}
+                Choose one or more co-brokers. Use Select all to assign everyone
+                at once.
               </p>
             </div>
 
-            <MultiSelect
-              label="Co-Brokers"
-              options={subBrokerOptions}
-              value={selectedSubBrokerIds}
-              onChange={(ids) => {
-                setSelectedSubBrokerIds(ids);
-                setAssignSubBrokerError("");
-              }}
-              placeholder={
-                subBrokerOptions.length
-                  ? "Select co-brokers"
-                  : "No co-brokers found"
-              }
-            />
-            {assignSubBrokerError && (
-              <p className="mt-3 text-sm font-medium text-red-500">
-                {assignSubBrokerError}
-              </p>
-            )}
-
-            <div className="mt-8 flex items-center justify-end gap-3">
-              <button
-                onClick={() => {
-                  setAssignSubBrokerModal({
-                    open: false,
-                    applicationId: "",
-                    applicationNumber: "",
-                  });
-                  setSelectedSubBrokerIds([]);
+            <div className="px-6 py-5">
+              <MultiSelect
+                label="Co-Brokers"
+                options={subBrokerOptions}
+                value={selectedSubBrokerIds}
+                onChange={(ids) => {
+                  setSelectedSubBrokerIds(ids);
+                  setAssignSubBrokerError("");
                 }}
-                className="h-12 rounded-2xl border border-slate-200 px-5 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
-              >
-                Cancel
-              </button>
+                placeholder={
+                  subBrokerOptions.length
+                    ? "Search or select co-brokers"
+                    : "No co-brokers found"
+                }
+              />
+              {assignSubBrokerError ? (
+                <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400">
+                  {assignSubBrokerError}
+                </div>
+              ) : null}
+            </div>
 
-              <button
-                onClick={handleAssignSubBroker}
-                disabled={assigningSubBroker}
-                className="h-12 rounded-2xl bg-[#13538A] px-5 text-sm font-semibold text-white transition hover:bg-[#0e3d66] disabled:opacity-50"
-              >
-                {assigningSubBroker ? "Saving..." : "Save Assignments"}
-              </button>
+            <div className="flex items-center justify-between gap-3 border-t border-slate-100 bg-slate-50 px-6 py-4 dark:border-slate-800 dark:bg-slate-950/40">
+              <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                {selectedSubBrokerIds.length} selected
+                {subBrokerOptions.length
+                  ? ` · ${subBrokerOptions.length} available`
+                  : ""}
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAssignSubBrokerModal({
+                      open: false,
+                      applicationId: "",
+                      applicationNumber: "",
+                    });
+                    setSelectedSubBrokerIds([]);
+                    setAssignSubBrokerError("");
+                  }}
+                  className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-white dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleAssignSubBroker}
+                  disabled={assigningSubBroker}
+                  className="rounded-xl bg-[#13538A] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0e3d66] disabled:opacity-50"
+                >
+                  {assigningSubBroker ? "Saving..." : "Save Assignments"}
+                </button>
+              </div>
             </div>
           </div>
         </div>

@@ -96,6 +96,8 @@ module.exports = async function impersonateSubBrokerRoutes(fastify) {
             id: targetUser.id,
             roles: ["SUB_BROKER"],
             organizationId: targetUser.organizationId,
+            orgType: "BROKER",
+            email: targetUser.email,
             impersonatedBy: brokerUserId,
           },
           jwtSecret,

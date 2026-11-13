@@ -208,6 +208,29 @@ export function formatDraftSavedAt(iso?: string | null): string {
   return `${formatUsDate(date)} at ${time}`;
 }
 
+export function toSerializableDraftPayload(
+  payload: ApplicationDraftPayload,
+): ApplicationDraftPayload {
+  return {
+    currentStep: payload.currentStep,
+    selectedProduct: payload.selectedProduct || "",
+    selectedCategory: payload.selectedCategory || "",
+    formData: (stripUnserializable(payload.formData) || {}) as Record<
+      string,
+      unknown
+    >,
+    dynamicFormData: (stripUnserializable(payload.dynamicFormData) ||
+      {}) as Record<string, unknown>,
+    creditAuthorizationConsent: Boolean(payload.creditAuthorizationConsent),
+    feeAgreementDraft: payload.feeAgreementDraft
+      ? (stripUnserializable(payload.feeAgreementDraft) as Record<
+          string,
+          unknown
+        >)
+      : null,
+  };
+}
+
 export function useLoanApplicationAutosave(
   enabled: boolean,
   storageKey: string,

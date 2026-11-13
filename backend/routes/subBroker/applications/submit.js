@@ -34,6 +34,10 @@ const {
   getFeeAgreementRequestError,
   tryAttachFeeAgreementIfRequested,
 } = require("../../../services/feeAgreement/attachFeeAgreementToApplication");
+const {
+  findIncompleteApplication,
+  promoteIncompleteApplication,
+} = require("../../../services/applications/incompleteApplication.service");
 
 const SUBBROKER_CHAT_DB_TYPE = "CLIENT_BROKER";
 
@@ -97,7 +101,13 @@ async function subBrokerSubmitApplication(fastify) {
           });
         }
 
-        const { applicationProductId, loanProductCode, fields, requestedDocumentTypes } = req.body;
+        const {
+          applicationProductId,
+          loanProductCode,
+          fields,
+          requestedDocumentTypes,
+          incompleteApplicationId,
+        } = req.body;
 
         if (!Array.isArray(fields)) {
           return reply.code(400).send({
@@ -161,59 +171,88 @@ async function subBrokerSubmitApplication(fastify) {
             logger: fastify.log,
           });
 
-          const loanApplication = await tx.loanApplication.create({
-            data: {
-              id: randomUUID(),
-              applicationNumber: `APP-${Date.now()}`,
+          let loanApplication;
+          let submission;
+
+          if (incompleteApplicationId) {
+            const existing = await findIncompleteApplication(tx, {
+              applicationId: incompleteApplicationId,
               brokerOrgId,
-              brokerUserId: null,
-              clientId: client.id,
-              loanProductCode: resolvedLoanProductCode,
-              status: "CLIENT_PENDING",
-              ...(sanitizedRequestedDocumentTypes
-                ? { requestedDocumentTypes: sanitizedRequestedDocumentTypes }
-                : {}),
-            },
-          });
+              userId: loggedInUserId,
+              actor: "coBroker",
+            });
+            if (!existing) {
+              throw Object.assign(
+                new Error("Incomplete application not found"),
+                { statusCode: 404 },
+              );
+            }
+            const promoted = await promoteIncompleteApplication(tx, {
+              application: existing,
+              fields,
+              resolvedLoanProductCode,
+              resolvedApplicationProductId,
+              client,
+              sanitizedRequestedDocumentTypes,
+              completedStatus: "CLIENT_PENDING",
+            });
+            loanApplication = promoted.loanApplication;
+            submission = promoted.submission;
+          } else {
+            loanApplication = await tx.loanApplication.create({
+              data: {
+                id: randomUUID(),
+                applicationNumber: `APP-${Date.now()}`,
+                brokerOrgId,
+                brokerUserId: null,
+                clientId: client.id,
+                loanProductCode: resolvedLoanProductCode,
+                status: "CLIENT_PENDING",
+                ...(sanitizedRequestedDocumentTypes
+                  ? { requestedDocumentTypes: sanitizedRequestedDocumentTypes }
+                  : {}),
+              },
+            });
 
-          const submission = await tx.applicationSubmission.create({
-            data: {
-              applicationId: loanApplication.id,
-              ...(resolvedApplicationProductId
-                ? { applicationProductId: resolvedApplicationProductId }
-                : {}),
-              status: "CLIENT_PENDING",
-            },
-          });
+            submission = await tx.applicationSubmission.create({
+              data: {
+                applicationId: loanApplication.id,
+                ...(resolvedApplicationProductId
+                  ? { applicationProductId: resolvedApplicationProductId }
+                  : {}),
+                status: "CLIENT_PENDING",
+              },
+            });
 
-          const fieldIdByKey = await loadProductFieldIdMap(
-            tx,
-            resolvedApplicationProductId,
-          );
+            const fieldIdByKey = await loadProductFieldIdMap(
+              tx,
+              resolvedApplicationProductId,
+            );
 
-          const normalizedFields = buildSubmissionFieldsPayload(
-            fields,
-            fieldIdByKey,
-          );
+            const normalizedFields = buildSubmissionFieldsPayload(
+              fields,
+              fieldIdByKey,
+            );
 
-          const submissionFields = normalizedFields.map((f) => ({
-            submissionId: submission.id,
-            ...f,
-          }));
+            const submissionFields = normalizedFields.map((f) => ({
+              submissionId: submission.id,
+              ...f,
+            }));
 
-          if (submissionFields.length > 0) {
-            await tx.applicationSubmissionField.createMany({
-              data: submissionFields,
+            if (submissionFields.length > 0) {
+              await tx.applicationSubmissionField.createMany({
+                data: submissionFields,
+              });
+            }
+
+            await tx.subBrokerApplication.create({
+              data: {
+                loanApplicationId: loanApplication.id,
+                subBrokerId: loggedInUserId,
+                assignedById: loggedInUserId,
+              },
             });
           }
-
-          await tx.subBrokerApplication.create({
-            data: {
-              loanApplicationId: loanApplication.id,
-              subBrokerId: loggedInUserId,
-              assignedById: loggedInUserId,
-            },
-          });
 
           const portalToken = await createClientPortalToken(tx, {
             loanApplicationId: loanApplication.id,
