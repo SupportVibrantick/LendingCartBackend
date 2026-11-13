@@ -5,6 +5,7 @@ const prisma = require("../../../config/prisma");
 const { loginSchema } = require("../../../schemas/loanOfficer/auth/login.schema");
 
 const jwtSecret = require("../../../utils/auth/jwtSecret");
+const { logAuthEvent } = require("../../../services/logger/auditLogger");
 const {
   normalizeLoanOfficerPermissions,
   DEFAULT_PUBLIC_JOIN_LO_PERMISSIONS,
@@ -46,6 +47,15 @@ async function loginRoute(fastify) {
       });
 
       if (!user) {
+        await logAuthEvent({
+          prisma,
+          req: request,
+          dashboard: "BROKER",
+          action: "LOGIN_FAILED",
+          status: "FAILED",
+          email,
+          reason: "user_not_found",
+        });
         return reply.code(401).send({
           success: false,
           message: "Invalid credentials",
@@ -54,6 +64,17 @@ async function loginRoute(fastify) {
 
       const isOfficer = user.roles.some((r) => r.role?.name === "BROKER_OFFICER");
       if (!isOfficer) {
+        await logAuthEvent({
+          prisma,
+          req: request,
+          dashboard: "BROKER",
+          action: "LOGIN_FAILED",
+          status: "FAILED",
+          actorUserId: user.id,
+          actorOrgId: user.organizationId,
+          email,
+          reason: "not_loan_officer",
+        });
         return reply.code(403).send({
           success: false,
           message: "Unauthorized access",
@@ -61,6 +82,17 @@ async function loginRoute(fastify) {
       }
 
       if (user.status !== "ACTIVE") {
+        await logAuthEvent({
+          prisma,
+          req: request,
+          dashboard: "BROKER",
+          action: "LOGIN_FAILED",
+          status: "FAILED",
+          actorUserId: user.id,
+          actorOrgId: user.organizationId,
+          email,
+          reason: "inactive_user",
+        });
         return reply.code(403).send({
           success: false,
           message: "Account is inactive",
@@ -72,6 +104,17 @@ async function loginRoute(fastify) {
         user.organization.type !== "BROKER" ||
         user.organization.status !== "ACTIVE"
       ) {
+        await logAuthEvent({
+          prisma,
+          req: request,
+          dashboard: "BROKER",
+          action: "LOGIN_FAILED",
+          status: "FAILED",
+          actorUserId: user.id,
+          actorOrgId: user.organizationId,
+          email,
+          reason: "invalid_broker_org",
+        });
         return reply.code(403).send({
           success: false,
           message: "Invalid broker organization",
@@ -80,6 +123,18 @@ async function loginRoute(fastify) {
 
       const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
       if (!isPasswordValid) {
+        await logAuthEvent({
+          prisma,
+          req: request,
+          dashboard: "BROKER",
+          action: "LOGIN_FAILED",
+          status: "FAILED",
+          actorUserId: user.id,
+          actorOrgId: user.organizationId,
+          email,
+          roles: ["BROKER_OFFICER"],
+          reason: "bad_password",
+        });
         return reply.code(401).send({
           success: false,
           message: "Invalid credentials",
@@ -89,6 +144,19 @@ async function loginRoute(fastify) {
       await prisma.userAccount.update({
         where: { id: user.id },
         data: { lastLoginAt: new Date() },
+      });
+
+      await logAuthEvent({
+        prisma,
+        req: request,
+        dashboard: "BROKER",
+        action: "LOGIN_SUCCESS",
+        status: "SUCCESS",
+        actorUserId: user.id,
+        actorOrgId: user.organizationId,
+        email: user.email,
+        roles: ["BROKER_OFFICER"],
+        entityId: user.id,
       });
 
       let permissionKeys = user.userPermissions.map((p) => p.permission.key);

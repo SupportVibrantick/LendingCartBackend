@@ -4,6 +4,7 @@ const jwt = require("jsonwebtoken");
 const jwtSecret = require("../../../utils/auth/jwtSecret");
 // const prisma = require("../config/prisma.js");
 const { comparePassword } = require("../../../utils/auth/password.js");
+const { logAuthEvent } = require("../../../services/logger/auditLogger");
 
 module.exports = async function adminLoginRoute(fastify, opts) {
   fastify.post(
@@ -70,6 +71,15 @@ module.exports = async function adminLoginRoute(fastify, opts) {
         });
 
         if (!user) {
+          await logAuthEvent({
+            prisma,
+            req: request,
+            dashboard: "PLATFORM",
+            action: "LOGIN_FAILED",
+            status: "FAILED",
+            email,
+            reason: "user_not_found",
+          });
           return reply.status(401).send({
             success: false,
             message: "Invalid email or password",
@@ -79,6 +89,17 @@ module.exports = async function adminLoginRoute(fastify, opts) {
         const match = await comparePassword(password, user.passwordHash);
 
         if (!match) {
+          await logAuthEvent({
+            prisma,
+            req: request,
+            dashboard: "PLATFORM",
+            action: "LOGIN_FAILED",
+            status: "FAILED",
+            actorUserId: user.id,
+            actorOrgId: user.organizationId,
+            email,
+            reason: "bad_password",
+          });
           return reply.status(401).send({
             success: false,
             message: "Invalid email or password",
@@ -118,6 +139,19 @@ module.exports = async function adminLoginRoute(fastify, opts) {
 
         const customPermCount = await prisma.userPermission.count({
           where: { userId: user.id },
+        });
+
+        await logAuthEvent({
+          prisma,
+          req: request,
+          dashboard: "PLATFORM",
+          action: "LOGIN_SUCCESS",
+          status: "SUCCESS",
+          actorUserId: user.id,
+          actorOrgId: user.organizationId,
+          email: user.email,
+          roles: dbRoles,
+          entityId: user.id,
         });
 
         return reply.send({

@@ -4,6 +4,7 @@ const updateProfileRoute = require("./updateProfile");
 const brandingRoute = require("./branding");
 const changePasswordRoute = require("./changePassword");
 const bankingRoute = require("./banking");
+const { registerAuthLogoutRoute } = require("../../common/authLogoutRoute");
 
 async function subBrokerAuthRoutes(fastify, options) {
   fastify.register(loginRoute);
@@ -13,6 +14,10 @@ async function subBrokerAuthRoutes(fastify, options) {
   fastify.register(bankingRoute);
   fastify.register(brandingRoute);
   fastify.register(changePasswordRoute, { prefix: "/change-password" });
+  registerAuthLogoutRoute(fastify, {
+    dashboard: "BROKER",
+    preHandler: [fastify.authenticate],
+  });
 }
 
 module.exports = subBrokerAuthRoutes;

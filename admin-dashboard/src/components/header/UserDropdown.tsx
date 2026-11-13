@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { DropdownItem } from "../ui/dropdown/DropdownItem";
 import { Dropdown } from "../ui/dropdown/Dropdown";
 import { useNavigate } from "react-router-dom";
-import { clearAdminSession } from "../../lib/adminSession";
+import { logoutAdminSession } from "../../lib/adminSession";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
@@ -125,11 +125,11 @@ export default function UserDropdown() {
     setIsOpen(false);
   }
 
-  function handleLogout() {
+  async function handleLogout() {
     try {
-      clearAdminSession();
+      await logoutAdminSession();
     } catch {
-      // ignore storage errors
+      // ignore storage / network errors
     } finally {
       closeDropdown();
       navigate("/signin");
