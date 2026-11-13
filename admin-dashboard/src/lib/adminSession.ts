@@ -30,6 +30,25 @@ export function clearAdminSession() {
   );
 }
 
+/** Best-effort logout audit, then clear local session. */
+export async function logoutAdminSession() {
+  const token = sessionStorage.getItem("admin_token");
+  if (token && !isAdminTokenExpired(token)) {
+    try {
+      const base =
+        import.meta.env.VITE_API_BASE?.replace(/\/$/, "") ||
+        "http://localhost:4000";
+      await fetch(`${base}/admin/auth/logout`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+    } catch {
+      // ignore — local logout still proceeds
+    }
+  }
+  clearAdminSession();
+}
+
 export function handleAdminUnauthorized(message?: string) {
   clearAdminSession();
 

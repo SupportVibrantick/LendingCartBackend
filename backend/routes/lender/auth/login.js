@@ -1,6 +1,7 @@
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const jwtSecret = require("../../../utils/auth/jwtSecret");
+const { logAuthEvent } = require("../../../services/logger/auditLogger");
 
 /**
  * @param {import("fastify").FastifyInstance} fastify
@@ -65,6 +66,15 @@ async function lenderLoginRoutes(fastify) {
         });
 
         if (!user) {
+          await logAuthEvent({
+            prisma,
+            req,
+            dashboard: "LENDER",
+            action: "LOGIN_FAILED",
+            status: "FAILED",
+            email,
+            reason: "user_not_found",
+          });
           return reply.status(401).send({
             success: false,
             message: "Invalid email or password",
@@ -72,6 +82,17 @@ async function lenderLoginRoutes(fastify) {
         }
 
         if (user.status !== "ACTIVE") {
+          await logAuthEvent({
+            prisma,
+            req,
+            dashboard: "LENDER",
+            action: "LOGIN_FAILED",
+            status: "FAILED",
+            actorUserId: user.id,
+            actorOrgId: user.organizationId,
+            email,
+            reason: "inactive_user",
+          });
           return reply.status(401).send({
             success: false,
             message: "Invalid email or password",
@@ -83,6 +104,17 @@ async function lenderLoginRoutes(fastify) {
           user.organization.type !== "LENDER" ||
           user.organization.status !== "ACTIVE"
         ) {
+          await logAuthEvent({
+            prisma,
+            req,
+            dashboard: "LENDER",
+            action: "LOGIN_FAILED",
+            status: "FAILED",
+            actorUserId: user.id,
+            actorOrgId: user.organizationId,
+            email,
+            reason: "invalid_lender_org",
+          });
           return reply.status(401).send({
             success: false,
             message: "Invalid email or password",
@@ -112,6 +144,18 @@ async function lenderLoginRoutes(fastify) {
         const isValid = await bcrypt.compare(password, user.passwordHash);
 
         if (!isValid) {
+          await logAuthEvent({
+            prisma,
+            req,
+            dashboard: "LENDER",
+            action: "LOGIN_FAILED",
+            status: "FAILED",
+            actorUserId: user.id,
+            actorOrgId: user.organizationId,
+            email,
+            roles,
+            reason: "bad_password",
+          });
           return reply.status(401).send({
             success: false,
             message: "Invalid email or password",
@@ -120,6 +164,18 @@ async function lenderLoginRoutes(fastify) {
 
         // Hard gate: public partner signups must verify email first
         if (!user.emailVerifiedAt) {
+          await logAuthEvent({
+            prisma,
+            req,
+            dashboard: "LENDER",
+            action: "LOGIN_FAILED",
+            status: "FAILED",
+            actorUserId: user.id,
+            actorOrgId: user.organizationId,
+            email,
+            roles,
+            reason: "email_not_verified",
+          });
           return reply.status(403).send({
             success: false,
             message: "Please verify your email before signing in",
@@ -131,6 +187,19 @@ async function lenderLoginRoutes(fastify) {
         await prisma.userAccount.update({
           where: { id: user.id },
           data: { lastLoginAt: new Date() },
+        });
+
+        await logAuthEvent({
+          prisma,
+          req,
+          dashboard: "LENDER",
+          action: "LOGIN_SUCCESS",
+          status: "SUCCESS",
+          actorUserId: user.id,
+          actorOrgId: user.organizationId,
+          email: user.email,
+          roles,
+          entityId: user.id,
         });
 
         // ---------------------------

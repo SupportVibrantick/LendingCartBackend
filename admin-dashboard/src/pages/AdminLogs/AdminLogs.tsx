@@ -3,30 +3,35 @@ import {
   ArrowLeftRight,
   ArrowRight,
   Box,
+  Building2,
   Calendar,
   ChevronLeft,
   ChevronRight,
   Clock3,
   Copy,
   Database,
+  Download,
   Eye,
   FileText,
-  Filter,
   Globe,
-  MessageSquare,
+  KeyRound,
+  LogIn,
   RefreshCw,
   Search,
   SearchX,
   Shield,
+  ShieldAlert,
   UserRound,
+  Users,
+  Wallet,
   X,
 } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import toast from "react-hot-toast";
 import PageMeta from "../../components/common/PageMeta";
-import { adminFetch } from "../../lib/adminApi";
+import DatePicker from "../../components/form/date-picker";
+import { ADMIN_API_BASE, adminFetch, getAdminAuthHeaders } from "../../lib/adminApi";
 
 type ActorUser = {
   id: string;
@@ -55,6 +60,18 @@ type AdminLog = {
   createdAt?: string;
   actorUser?: ActorUser | null;
   actorOrg?: ActorOrg | null;
+  userName?: string | null;
+  userEmail?: string | null;
+  organizationName?: string | null;
+  userRole?: string | null;
+  roles?: string[];
+  module?: string | null;
+  description?: string | null;
+  browser?: string | null;
+  os?: string | null;
+  device?: string | null;
+  status?: string | null;
+  dashboard?: string | null;
 };
 
 type LogsResponse = {
@@ -67,8 +84,39 @@ type LogsResponse = {
   filters?: {
     categories?: string[];
     entityTypes?: string[];
+    sections?: string[];
   };
 };
+
+type AnalyticsResponse = {
+  success: boolean;
+  data: {
+    totalActivities: number;
+    activeSessions: number;
+    totalLoginEvents: number;
+    failedLoginAttempts: number;
+    brokerActivities: number;
+    lenderActivities: number;
+    loginSuccess?: number;
+    logouts?: number;
+    recentLogins24h?: number;
+    securityEvents7d?: number;
+  };
+};
+
+const LOG_SECTIONS = [
+  { id: "all", label: "All Activities", icon: Activity },
+  { id: "login", label: "Login & Logout", icon: LogIn },
+  { id: "broker", label: "Broker Activity", icon: Building2 },
+  { id: "lender", label: "Lender Activity", icon: Building2 },
+  { id: "loan_officer", label: "Loan Officer", icon: Users },
+  { id: "application", label: "Applications", icon: FileText },
+  { id: "document", label: "Documents", icon: Box },
+  { id: "financial", label: "Financial", icon: Wallet },
+  { id: "subscription", label: "Subscriptions", icon: KeyRound },
+  { id: "user_management", label: "User Management", icon: UserRound },
+  { id: "security", label: "Security Events", icon: ShieldAlert },
+] as const;
 
 const CATEGORY_STYLES: Record<string, string> = {
   APPLICATION:
@@ -182,25 +230,10 @@ function actionAccent(action: string) {
   return "bg-[#13538A]";
 }
 
-function entityIcon(entityType?: string): LucideIcon {
-  const key = (entityType || "").toUpperCase();
-  if (key.includes("USER") || key.includes("ADMIN")) return UserRound;
-  if (key.includes("APPLICATION") || key.includes("LOAN")) return FileText;
-  if (key.includes("MESSAGE") || key.includes("CHAT")) return MessageSquare;
-  if (key.includes("ORG") || key.includes("BROKER") || key.includes("LENDER"))
-    return Shield;
-  if (key.includes("PRODUCT")) return Box;
-  return Database;
-}
-
 function shortId(value?: string) {
   if (!value) return "—";
   if (value.length <= 12) return value;
   return `${value.slice(0, 6)}…${value.slice(-4)}`;
-}
-
-function hasValueChange(log: AdminLog) {
-  return Boolean(log.oldValueJson || log.newValueJson);
 }
 
 const SENSITIVE_AUDIT_KEY =
@@ -283,6 +316,9 @@ export default function AdminLogs() {
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
   const [entityFilter, setEntityFilter] = useState("");
+  const [section, setSection] = useState<string>("all");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [pageSize, setPageSize] = useState(20);
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -291,6 +327,102 @@ export default function AdminLogs() {
   const [selectedLog, setSelectedLog] = useState<AdminLog | null>(null);
   const [categories, setCategories] = useState<string[]>([]);
   const [entityTypes, setEntityTypes] = useState<string[]>([]);
+  const [analytics, setAnalytics] = useState<AnalyticsResponse["data"] | null>(
+    null,
+  );
+  const sectionScrollRef = useRef<HTMLDivElement | null>(null);
+  const tableScrollRef = useRef<HTMLDivElement | null>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+  const [canTableScrollLeft, setCanTableScrollLeft] = useState(false);
+  const [canTableScrollRight, setCanTableScrollRight] = useState(false);
+
+  const updateScrollState = useCallback(
+    (
+      el: HTMLDivElement | null,
+      setLeft: (v: boolean) => void,
+      setRight: (v: boolean) => void,
+    ) => {
+      if (!el) {
+        setLeft(false);
+        setRight(false);
+        return;
+      }
+      const maxScroll = el.scrollWidth - el.clientWidth;
+      setLeft(el.scrollLeft > 4);
+      setRight(el.scrollLeft < maxScroll - 4);
+    },
+    [],
+  );
+
+  const updateSectionScrollState = useCallback(() => {
+    updateScrollState(
+      sectionScrollRef.current,
+      setCanScrollLeft,
+      setCanScrollRight,
+    );
+  }, [updateScrollState]);
+
+  const updateTableScrollState = useCallback(() => {
+    updateScrollState(
+      tableScrollRef.current,
+      setCanTableScrollLeft,
+      setCanTableScrollRight,
+    );
+  }, [updateScrollState]);
+
+  const scrollByAmount = (
+    el: HTMLDivElement | null,
+    direction: "left" | "right",
+  ) => {
+    if (!el) return;
+    const amount = Math.max(220, Math.floor(el.clientWidth * 0.55));
+    el.scrollBy({
+      left: direction === "left" ? -amount : amount,
+      behavior: "smooth",
+    });
+  };
+
+  const scrollSections = (direction: "left" | "right") => {
+    scrollByAmount(sectionScrollRef.current, direction);
+  };
+
+  const scrollTable = (direction: "left" | "right") => {
+    scrollByAmount(tableScrollRef.current, direction);
+  };
+
+  useEffect(() => {
+    const bind = (
+      el: HTMLDivElement | null,
+      update: () => void,
+    ) => {
+      if (!el) return () => {};
+      update();
+      const onScroll = () => update();
+      el.addEventListener("scroll", onScroll, { passive: true });
+      const ro =
+        typeof ResizeObserver !== "undefined"
+          ? new ResizeObserver(() => update())
+          : null;
+      ro?.observe(el);
+      window.addEventListener("resize", update);
+      return () => {
+        el.removeEventListener("scroll", onScroll);
+        ro?.disconnect();
+        window.removeEventListener("resize", update);
+      };
+    };
+
+    const cleanupSection = bind(
+      sectionScrollRef.current,
+      updateSectionScrollState,
+    );
+    const cleanupTable = bind(tableScrollRef.current, updateTableScrollState);
+    return () => {
+      cleanupSection();
+      cleanupTable();
+    };
+  }, [updateSectionScrollState, updateTableScrollState, logs.length, loading]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => setDebouncedQuery(query.trim()), 350);
@@ -299,7 +431,7 @@ export default function AdminLogs() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [debouncedQuery, pageSize, entityFilter, categoryFilter]);
+  }, [debouncedQuery, pageSize, entityFilter, categoryFilter, section, startDate, endDate]);
 
   useEffect(() => {
     if (!selectedLog) return;
@@ -322,10 +454,17 @@ export default function AdminLogs() {
       const params = new URLSearchParams({
         page: String(currentPage),
         limit: String(pageSize),
+        section,
       });
       if (debouncedQuery) params.set("search", debouncedQuery);
       if (entityFilter) params.set("entityType", entityFilter);
       if (categoryFilter) params.set("category", categoryFilter);
+      if (startDate) params.set("startDate", new Date(startDate).toISOString());
+      if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        params.set("endDate", end.toISOString());
+      }
 
       const json = await adminFetch<LogsResponse>(
         `/admin/logs/?${params.toString()}`,
@@ -348,21 +487,75 @@ export default function AdminLogs() {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, pageSize, debouncedQuery, entityFilter, categoryFilter]);
+  }, [
+    currentPage,
+    pageSize,
+    debouncedQuery,
+    entityFilter,
+    categoryFilter,
+    section,
+    startDate,
+    endDate,
+  ]);
+
+  const fetchAnalytics = useCallback(async () => {
+    try {
+      const json = await adminFetch<AnalyticsResponse>("/admin/logs/analytics");
+      setAnalytics(json.data || null);
+    } catch {
+      // keep previous analytics on soft failure
+    }
+  }, []);
 
   useEffect(() => {
     fetchLogs();
   }, [fetchLogs]);
 
+  useEffect(() => {
+    fetchAnalytics();
+  }, [fetchAnalytics]);
+
   const pageStats = useMemo(
     () => ({
-      total: serverTotal,
-      onPage: logs.length,
-      categories: categories.length,
-      users: new Set(logs.map((log) => log.actorUserId).filter(Boolean)).size,
+      total: analytics?.totalActivities ?? serverTotal,
+      activeSessions: analytics?.activeSessions ?? 0,
+      logins: analytics?.totalLoginEvents ?? 0,
+      failed: analytics?.failedLoginAttempts ?? 0,
+      brokers: analytics?.brokerActivities ?? 0,
+      lenders: analytics?.lenderActivities ?? 0,
     }),
-    [serverTotal, logs, categories.length],
+    [analytics, serverTotal],
   );
+
+  const exportCsv = async () => {
+    try {
+      const params = new URLSearchParams({ section, limit: "5000" });
+      if (debouncedQuery) params.set("search", debouncedQuery);
+      if (entityFilter) params.set("entityType", entityFilter);
+      if (categoryFilter) params.set("category", categoryFilter);
+      if (startDate) params.set("startDate", new Date(startDate).toISOString());
+      if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        params.set("endDate", end.toISOString());
+      }
+      const res = await fetch(
+        `${ADMIN_API_BASE}/admin/logs/export?${params.toString()}`,
+        { headers: getAdminAuthHeaders() },
+      );
+      if (!res.ok) throw new Error("Export failed");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `audit-logs-${Date.now()}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success("Export downloaded");
+    } catch (err: any) {
+      toast.error(err?.message || "Could not export logs");
+    }
+  };
 
   const categoryOptions = useMemo(() => {
     const values = new Set(categories);
@@ -384,13 +577,18 @@ export default function AdminLogs() {
 
   const start = logs.length > 0 ? (currentPage - 1) * pageSize + 1 : 0;
   const end = Math.min(currentPage * pageSize, serverTotal);
-  const hasActiveFilters = Boolean(query || categoryFilter || entityFilter);
+  const hasActiveFilters = Boolean(
+    query || categoryFilter || entityFilter || section !== "all" || startDate || endDate,
+  );
 
   const clearFilters = () => {
     setQuery("");
     setDebouncedQuery("");
     setCategoryFilter("");
     setEntityFilter("");
+    setSection("all");
+    setStartDate("");
+    setEndDate("");
     setCurrentPage(1);
   };
 
@@ -420,50 +618,77 @@ export default function AdminLogs() {
                 and security in one place.
               </p>
             </div>
-            <button
-              type="button"
-              onClick={() => fetchLogs()}
-              disabled={loading}
-              className="inline-flex items-center justify-center gap-2 self-start rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-[#13538A] transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              <RefreshCw
-                className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
-              />
-              {loading ? "Refreshing..." : "Refresh"}
-            </button>
+            <div className="flex flex-wrap gap-2 self-start">
+              <button
+                type="button"
+                onClick={exportCsv}
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/30 bg-white/10 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-white/20"
+              >
+                <Download className="h-4 w-4" />
+                Export CSV
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  fetchLogs();
+                  fetchAnalytics();
+                }}
+                disabled={loading}
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-[#13538A] transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <RefreshCw
+                  className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
+                />
+                {loading ? "Refreshing..." : "Refresh"}
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* KPI cards */}
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {/* KPI cards — live analytics */}
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
           {[
             {
-              label: "Total events",
+              label: "Total Activities",
               value: pageStats.total,
               icon: Activity,
               iconWrap:
                 "bg-sky-50 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300",
             },
             {
-              label: "On this page",
-              value: pageStats.onPage,
-              icon: Database,
+              label: "Active Sessions",
+              value: pageStats.activeSessions,
+              icon: Users,
               iconWrap:
-                "bg-violet-50 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300",
+                "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300",
             },
             {
-              label: "Categories",
-              value: pageStats.categories,
-              icon: Filter,
+              label: "Login Events",
+              value: pageStats.logins,
+              icon: LogIn,
               iconWrap:
                 "bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300",
             },
             {
-              label: "Actors on page",
-              value: pageStats.users,
-              icon: UserRound,
+              label: "Failed Logins",
+              value: pageStats.failed,
+              icon: ShieldAlert,
               iconWrap:
-                "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300",
+                "bg-rose-50 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300",
+            },
+            {
+              label: "Broker Activity",
+              value: pageStats.brokers,
+              icon: Building2,
+              iconWrap:
+                "bg-violet-50 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300",
+            },
+            {
+              label: "Lender Activity",
+              value: pageStats.lenders,
+              icon: Building2,
+              iconWrap:
+                "bg-teal-50 text-teal-700 dark:bg-teal-500/15 dark:text-teal-300",
             },
           ].map(({ label, value, icon: Icon, iconWrap }) => (
             <div
@@ -480,86 +705,85 @@ export default function AdminLogs() {
                   {label}
                 </p>
                 <p className="text-xl font-semibold tabular-nums text-gray-900 dark:text-white">
-                  {loading ? "—" : value}
+                  {value}
                 </p>
               </div>
             </div>
           ))}
         </div>
 
+        {/* Section navigation */}
+        <div className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white p-1.5 dark:border-slate-800 dark:bg-slate-900">
+          <button
+            type="button"
+            onClick={() => scrollSections("left")}
+            disabled={!canScrollLeft}
+            aria-label="Scroll sections left"
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-35 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+
+          <div
+            ref={sectionScrollRef}
+            className="no-scrollbar flex min-w-0 flex-1 gap-1.5 overflow-x-auto scroll-smooth"
+          >
+            {LOG_SECTIONS.map(({ id, label, icon: Icon }) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setSection(id)}
+                className={`inline-flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition ${
+                  section === id
+                    ? "bg-[#13538A] text-white"
+                    : "text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800"
+                }`}
+              >
+                <Icon className="h-3.5 w-3.5" />
+                {label}
+              </button>
+            ))}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => scrollSections("right")}
+            disabled={!canScrollRight}
+            aria-label="Scroll sections right"
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-35 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        </div>
+
         {/* Filters + table */}
         <div className="overflow-hidden rounded-xl border border-gray-100 bg-white dark:border-slate-700 dark:bg-slate-900">
-          <div className="space-y-3 border-b border-gray-100 p-4 dark:border-slate-800 sm:p-5">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="space-y-4 border-b border-gray-100 bg-gradient-to-b from-slate-50/90 to-white p-4 dark:border-slate-800 dark:from-slate-900/80 dark:to-slate-900 sm:p-5">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
               <div className="min-w-0">
-                <h2 className="text-base font-semibold text-gray-900 dark:text-white">
-                  Event history
-                </h2>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-base font-semibold text-gray-900 dark:text-white">
+                    Event history
+                  </h2>
+                  <span className="inline-flex items-center rounded-full bg-slate-200/80 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-slate-600 dark:bg-slate-700 dark:text-slate-200">
+                    {serverTotal.toLocaleString()}
+                  </span>
+                </div>
                 <p className="mt-0.5 text-sm text-gray-500 dark:text-slate-400">
-                  {serverTotal} event{serverTotal === 1 ? "" : "s"}
-                  {hasActiveFilters ? " matching filters" : " recorded"}
+                  {hasActiveFilters
+                    ? "Showing filtered activity across the platform"
+                    : "All recorded platform activity"}
                 </p>
               </div>
 
-              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
-                <div className="relative w-full sm:w-64">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                  <input
-                    placeholder="Search action, entity, user..."
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    className="h-10 w-full rounded-xl border border-gray-200 bg-white py-2 pl-9 pr-9 text-sm text-gray-900 outline-none transition focus:border-[#13538A] focus:ring-2 focus:ring-[#13538A]/15 dark:border-slate-600 dark:bg-slate-800 dark:text-gray-100"
-                  />
-                  {query ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setQuery("");
-                        setDebouncedQuery("");
-                      }}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-0.5 text-gray-400 hover:text-gray-600 dark:hover:text-slate-200"
-                      aria-label="Clear search"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                  ) : null}
-                </div>
-
-                <select
-                  id="admin-log-category"
-                  value={categoryFilter}
-                  onChange={(e) => setCategoryFilter(e.target.value)}
-                  className="h-10 rounded-xl border border-gray-200 bg-white px-3 text-sm text-gray-700 outline-none transition focus:border-[#13538A] focus:ring-2 focus:ring-[#13538A]/15 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
-                >
-                  <option value="">All categories</option>
-                  {categoryOptions.map((category) => (
-                    <option key={category} value={category}>
-                      {humanizeLabel(category)}
-                    </option>
-                  ))}
-                </select>
-
-                <select
-                  id="admin-log-entity"
-                  value={entityFilter}
-                  onChange={(e) => setEntityFilter(e.target.value)}
-                  className="h-10 rounded-xl border border-gray-200 bg-white px-3 text-sm text-gray-700 outline-none transition focus:border-[#13538A] focus:ring-2 focus:ring-[#13538A]/15 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
-                >
-                  <option value="">All entities</option>
-                  {entityOptions.map((entity) => (
-                    <option key={entity} value={entity}>
-                      {humanizeLabel(entity)}
-                    </option>
-                  ))}
-                </select>
-
-                <label className="flex items-center gap-2 text-xs text-gray-500 dark:text-slate-400">
-                  Per page
+              <div className="flex flex-wrap items-center gap-2">
+                <label className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-400">
+                  Rows
                   <select
                     id="admin-log-page-size"
                     value={pageSize}
                     onChange={(e) => setPageSize(Number(e.target.value))}
-                    className="h-10 rounded-xl border border-gray-200 bg-white px-2.5 text-sm font-medium text-gray-700 outline-none transition focus:border-[#13538A] focus:ring-2 focus:ring-[#13538A]/15 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+                    className="h-7 rounded-md border-0 bg-transparent pr-1 text-sm font-semibold text-slate-700 outline-none dark:text-slate-200"
                   >
                     <option value={8}>8</option>
                     <option value={10}>10</option>
@@ -572,20 +796,123 @@ export default function AdminLogs() {
                   <button
                     type="button"
                     onClick={clearFilters}
-                    className="inline-flex h-10 items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 text-sm font-medium text-gray-600 transition hover:bg-gray-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+                    className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
                   >
-                    <X className="h-4 w-4" />
-                    Clear
+                    <X className="h-3.5 w-3.5" />
+                    Clear filters
                   </button>
                 ) : null}
               </div>
             </div>
 
+            <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2 xl:grid-cols-12">
+              <div className="relative md:col-span-2 xl:col-span-4">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <input
+                  placeholder="Search action, entity, user..."
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  className="h-10 w-full rounded-xl border border-slate-200 bg-white py-2 pl-9 pr-9 text-sm text-slate-900 outline-none transition focus:border-[#13538A] focus:ring-2 focus:ring-[#13538A]/15 dark:border-slate-600 dark:bg-slate-800 dark:text-gray-100"
+                />
+                {query ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setQuery("");
+                      setDebouncedQuery("");
+                    }}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-0.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                    aria-label="Clear search"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                ) : null}
+              </div>
+
+              <div className="flex h-10 items-stretch overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-600 dark:bg-slate-800 md:col-span-2 xl:col-span-4">
+                <div className="flex min-w-0 flex-1 items-center gap-1.5 px-2.5">
+                  <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                    From
+                  </span>
+                  <DatePicker
+                    id="admin-logs-start-date"
+                    value={startDate}
+                    onDateChange={(next) => {
+                      setStartDate(next);
+                      if (next && endDate && next > endDate) setEndDate(next);
+                    }}
+                    static={false}
+                    dateFormat="m/d/Y"
+                    maxDate={endDate || undefined}
+                    placeholder="mm/dd/yyyy"
+                    title="Start date"
+                    showIcon={false}
+                    className="min-w-0 flex-1"
+                    inputClassName="h-9 w-full border-0 bg-transparent px-0 text-sm text-slate-700 outline-none placeholder:text-slate-400 dark:text-slate-200"
+                  />
+                </div>
+                <div className="flex w-6 shrink-0 items-center justify-center text-slate-300 dark:text-slate-500">
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </div>
+                <div className="flex min-w-0 flex-1 items-center gap-1.5 px-2.5">
+                  <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                    To
+                  </span>
+                  <DatePicker
+                    id="admin-logs-end-date"
+                    value={endDate}
+                    onDateChange={setEndDate}
+                    static={false}
+                    dateFormat="m/d/Y"
+                    minDate={startDate || undefined}
+                    placeholder="mm/dd/yyyy"
+                    title="End date"
+                    showIcon={false}
+                    className="min-w-0 flex-1"
+                    inputClassName="h-9 w-full border-0 bg-transparent px-0 text-sm text-slate-700 outline-none placeholder:text-slate-400 dark:text-slate-200"
+                  />
+                </div>
+                <div className="flex w-10 shrink-0 items-center justify-center border-l border-slate-100 text-slate-400 dark:border-slate-700 dark:text-slate-500">
+                  <Calendar className="h-4 w-4" />
+                </div>
+              </div>
+
+              <select
+                id="admin-log-category"
+                value={categoryFilter}
+                onChange={(e) => setCategoryFilter(e.target.value)}
+                className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition focus:border-[#13538A] focus:ring-2 focus:ring-[#13538A]/15 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 xl:col-span-2"
+              >
+                <option value="">All categories</option>
+                {categoryOptions.map((category) => (
+                  <option key={category} value={category}>
+                    {humanizeLabel(category)}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                id="admin-log-entity"
+                value={entityFilter}
+                onChange={(e) => setEntityFilter(e.target.value)}
+                className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition focus:border-[#13538A] focus:ring-2 focus:ring-[#13538A]/15 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 xl:col-span-2"
+              >
+                <option value="">All entities</option>
+                {entityOptions.map((entity) => (
+                  <option key={entity} value={entity}>
+                    {humanizeLabel(entity)}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             {hasActiveFilters ? (
               <div className="flex flex-wrap items-center gap-2">
-                <span className="text-xs font-medium text-gray-400">Active</span>
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                  Active
+                </span>
                 {debouncedQuery ? (
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-700 dark:bg-slate-800 dark:text-slate-200">
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-200">
                     Search: “{debouncedQuery}”
                     <button
                       type="button"
@@ -593,8 +920,37 @@ export default function AdminLogs() {
                         setQuery("");
                         setDebouncedQuery("");
                       }}
-                      className="rounded-full p-0.5 hover:bg-gray-200 dark:hover:bg-slate-700"
+                      className="rounded-full p-0.5 hover:bg-slate-200 dark:hover:bg-slate-700"
                       aria-label="Clear search"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </span>
+                ) : null}
+                {startDate || endDate ? (
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-violet-50 px-2.5 py-1 text-xs font-medium text-violet-700 dark:bg-violet-500/15 dark:text-violet-300">
+                    <Calendar className="h-3 w-3" />
+                    {startDate
+                      ? new Date(`${startDate}T00:00:00`).toLocaleDateString(
+                          "en-US",
+                          { month: "short", day: "numeric", year: "numeric" },
+                        )
+                      : "…"}
+                    {" – "}
+                    {endDate
+                      ? new Date(`${endDate}T00:00:00`).toLocaleDateString(
+                          "en-US",
+                          { month: "short", day: "numeric", year: "numeric" },
+                        )
+                      : "…"}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setStartDate("");
+                        setEndDate("");
+                      }}
+                      className="rounded-full p-0.5 hover:bg-violet-100 dark:hover:bg-violet-500/25"
+                      aria-label="Clear date range"
                     >
                       <X className="h-3 w-3" />
                     </button>
@@ -621,6 +977,20 @@ export default function AdminLogs() {
                       onClick={() => setEntityFilter("")}
                       className="rounded-full p-0.5 hover:bg-teal-100 dark:hover:bg-teal-500/25"
                       aria-label="Clear entity"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </span>
+                ) : null}
+                {section !== "all" ? (
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">
+                    {LOG_SECTIONS.find((tab) => tab.id === section)?.label ||
+                      section}
+                    <button
+                      type="button"
+                      onClick={() => setSection("all")}
+                      className="rounded-full p-0.5 hover:bg-amber-100 dark:hover:bg-amber-500/25"
+                      aria-label="Clear section"
                     >
                       <X className="h-3 w-3" />
                     </button>
@@ -673,14 +1043,42 @@ export default function AdminLogs() {
             </div>
           ) : (
             <>
-              <div className="custom-scrollbar overflow-x-auto">
-                <table className="w-full min-w-[1040px] text-left text-sm">
+              <div className="relative">
+                {(canTableScrollLeft || canTableScrollRight) && (
+                  <div className="pointer-events-none absolute inset-y-0 left-0 right-0 z-[2] flex items-center justify-between px-2">
+                    <button
+                      type="button"
+                      onClick={() => scrollTable("left")}
+                      disabled={!canTableScrollLeft}
+                      aria-label="Scroll table left"
+                      className="pointer-events-auto inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white/95 text-slate-600 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-0 dark:border-slate-700 dark:bg-slate-900/95 dark:text-slate-300 dark:hover:bg-slate-800"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => scrollTable("right")}
+                      disabled={!canTableScrollRight}
+                      aria-label="Scroll table right"
+                      className="pointer-events-auto inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white/95 text-slate-600 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-0 dark:border-slate-700 dark:bg-slate-900/95 dark:text-slate-300 dark:hover:bg-slate-800"
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </button>
+                  </div>
+                )}
+                <div
+                  ref={tableScrollRef}
+                  className="no-scrollbar overflow-x-auto scroll-smooth"
+                >
+                <table className="w-full min-w-[1280px] text-left text-sm">
                   <thead className="sticky top-0 z-[1] bg-slate-50/95 backdrop-blur dark:bg-slate-800/90">
                     <tr className="border-b border-gray-200 text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-500 dark:border-slate-700 dark:text-slate-400">
                       <th className="px-5 py-3.5 sm:px-6">When</th>
-                      <th className="px-5 py-3.5 sm:px-6">Event</th>
-                      <th className="px-5 py-3.5 sm:px-6">Entity</th>
-                      <th className="px-5 py-3.5 sm:px-6">Actor</th>
+                      <th className="px-5 py-3.5 sm:px-6">User</th>
+                      <th className="px-5 py-3.5 sm:px-6">Organization</th>
+                      <th className="px-5 py-3.5 sm:px-6">Activity</th>
+                      <th className="px-5 py-3.5 sm:px-6">Device</th>
+                      <th className="px-5 py-3.5 sm:px-6">Status</th>
                       <th className="w-[120px] px-5 py-3.5 text-right sm:px-6">
                         Actions
                       </th>
@@ -688,13 +1086,13 @@ export default function AdminLogs() {
                   </thead>
                   <tbody className="divide-y divide-gray-100 dark:divide-slate-800">
                     {logs.map((log) => {
-                      const actorName = getActorName(log);
-                      const EntityIcon = entityIcon(log.entityType);
-                      const changed = hasValueChange(log);
+                      const actorName = log.userName || getActorName(log);
+                      const status = (log.status || "SUCCESS").toUpperCase();
+                      const failed = status === "FAILED";
 
                       return (
                         <tr
-                          key={log.id}
+                          key={`${log.id}-${log.createdAt}`}
                           onClick={() => setSelectedLog(log)}
                           className="group relative cursor-pointer transition-colors hover:bg-[#13538A]/[0.03] dark:hover:bg-slate-800/50"
                         >
@@ -703,25 +1101,54 @@ export default function AdminLogs() {
                               className={`absolute inset-y-3 left-0 w-1 rounded-r-full ${actionAccent(log.action)} opacity-70 group-hover:opacity-100`}
                               aria-hidden
                             />
+                            <div className="min-w-0">
+                              <p className="font-semibold text-gray-900 dark:text-white">
+                                {formatRelativeTime(log.createdAt)}
+                              </p>
+                              <p className="mt-0.5 truncate text-xs text-gray-500 dark:text-slate-400">
+                                {formatDateTime(log.createdAt)}
+                              </p>
+                            </div>
+                          </td>
+
+                          <td className="px-5 py-4 sm:px-6">
                             <div className="flex items-center gap-3">
-                              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#13538A]/10 text-[#13538A] ring-1 ring-[#13538A]/15 dark:bg-[#13538A]/20 dark:text-sky-300 dark:ring-[#13538A]/30">
-                                <Clock3 className="h-4 w-4" />
+                              <div
+                                className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${getAvatarTone(actorName)}`}
+                              >
+                                {getInitials(actorName)}
                               </div>
                               <div className="min-w-0">
-                                <p className="font-semibold text-gray-900 dark:text-white">
-                                  {formatRelativeTime(log.createdAt)}
+                                <p className="truncate font-semibold text-gray-900 dark:text-white">
+                                  {actorName}
                                 </p>
-                                <p className="mt-0.5 truncate text-xs text-gray-500 dark:text-slate-400">
-                                  {formatDateTime(log.createdAt)}
+                                <p className="truncate text-xs text-gray-500 dark:text-slate-400">
+                                  {log.userEmail || log.actorUser?.email || "—"}
                                 </p>
+                                {log.userRole ? (
+                                  <p className="mt-0.5 text-[10px] font-medium uppercase tracking-wide text-slate-400">
+                                    {humanizeLabel(log.userRole)}
+                                  </p>
+                                ) : null}
                               </div>
                             </div>
                           </td>
 
                           <td className="px-5 py-4 sm:px-6">
+                            <p className="truncate font-medium text-gray-900 dark:text-white">
+                              {log.organizationName ||
+                                log.actorOrg?.name ||
+                                "Platform"}
+                            </p>
+                            <p className="truncate text-xs text-gray-500 dark:text-slate-400">
+                              {log.dashboard || log.actorOrg?.type || "—"}
+                            </p>
+                          </td>
+
+                          <td className="px-5 py-4 sm:px-6">
                             <div className="flex flex-wrap items-center gap-1.5">
                               <span
-                                className={`inline-flex max-w-[200px] truncate rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 ${actionClass(log.action)}`}
+                                className={`inline-flex max-w-[220px] truncate rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 ${actionClass(log.action)}`}
                                 title={log.action}
                               >
                                 {humanizeLabel(log.action)}
@@ -732,70 +1159,41 @@ export default function AdminLogs() {
                                   "bg-slate-100 text-slate-600 ring-slate-200 dark:bg-slate-800 dark:text-slate-300"
                                 }`}
                               >
-                                {humanizeLabel(log.category)}
+                                {humanizeLabel(log.module || log.category)}
                               </span>
-                              {changed ? (
-                                <span className="inline-flex items-center gap-1 rounded-full bg-violet-50 px-2 py-1 text-[10px] font-medium text-violet-700 ring-1 ring-violet-100 dark:bg-violet-500/10 dark:text-violet-300 dark:ring-violet-500/20">
-                                  <ArrowLeftRight className="h-3 w-3" />
-                                  Diff
+                            </div>
+                            <p className="mt-1 max-w-[260px] truncate text-xs text-gray-500 dark:text-slate-400">
+                              {log.description || humanizeLabel(log.entityType)}
+                              {log.entityId ? ` · ${shortId(log.entityId)}` : ""}
+                            </p>
+                          </td>
+
+                          <td className="px-5 py-4 sm:px-6">
+                            <p className="text-sm font-medium text-gray-800 dark:text-slate-200">
+                              {log.browser || "—"}
+                              {log.device ? ` · ${log.device}` : ""}
+                            </p>
+                            <p className="mt-0.5 text-xs text-gray-500 dark:text-slate-400">
+                              {log.os || "—"}
+                              {log.ipAddress ? (
+                                <span className="ml-1 inline-flex items-center gap-1">
+                                  <Globe className="h-3 w-3" />
+                                  {log.ipAddress}
                                 </span>
                               ) : null}
-                            </div>
+                            </p>
                           </td>
 
                           <td className="px-5 py-4 sm:px-6">
-                            <div className="flex items-center gap-3">
-                              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                                <EntityIcon className="h-4 w-4" />
-                              </div>
-                              <div className="min-w-0">
-                                <p className="font-semibold text-gray-900 dark:text-white">
-                                  {humanizeLabel(log.entityType)}
-                                </p>
-                                <button
-                                  type="button"
-                                  title={log.entityId}
-                                  onClick={(event) => {
-                                    event.stopPropagation();
-                                    if (log.entityId) {
-                                      copyText(log.entityId, "Entity ID");
-                                    }
-                                  }}
-                                  className="mt-0.5 inline-flex max-w-full items-center gap-1 truncate font-mono text-[11px] text-gray-400 transition hover:text-[#13538A] dark:hover:text-sky-300"
-                                >
-                                  {shortId(log.entityId)}
-                                  {log.entityId ? (
-                                    <Copy className="h-3 w-3 shrink-0 opacity-0 transition group-hover:opacity-100" />
-                                  ) : null}
-                                </button>
-                              </div>
-                            </div>
-                          </td>
-
-                          <td className="px-5 py-4 sm:px-6">
-                            <div className="flex items-center gap-3">
-                              <div
-                                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xs font-semibold ring-2 ring-white dark:ring-slate-900 ${getAvatarTone(actorName)}`}
-                              >
-                                {getInitials(actorName)}
-                              </div>
-                              <div className="min-w-0">
-                                <p className="truncate font-semibold text-gray-900 dark:text-white">
-                                  {actorName}
-                                </p>
-                                <p className="truncate text-xs text-gray-500 dark:text-slate-400">
-                                  {log.actorOrg?.name ||
-                                    log.actorUser?.email ||
-                                    "Platform"}
-                                </p>
-                                {log.ipAddress ? (
-                                  <span className="mt-1 inline-flex items-center gap-1 rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500 dark:bg-slate-800 dark:text-slate-400">
-                                    <Globe className="h-3 w-3" />
-                                    {log.ipAddress}
-                                  </span>
-                                ) : null}
-                              </div>
-                            </div>
+                            <span
+                              className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 ${
+                                failed
+                                  ? "bg-rose-50 text-rose-700 ring-rose-200 dark:bg-rose-500/10 dark:text-rose-300"
+                                  : "bg-emerald-50 text-emerald-700 ring-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300"
+                              }`}
+                            >
+                              {status}
+                            </span>
                           </td>
 
                           <td className="px-5 py-4 text-right sm:px-6">
@@ -818,6 +1216,7 @@ export default function AdminLogs() {
                     })}
                   </tbody>
                 </table>
+                </div>
               </div>
 
               <div className="flex flex-col gap-3 border-t border-gray-100 px-5 py-4 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between sm:px-6">

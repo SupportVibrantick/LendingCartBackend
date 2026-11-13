@@ -6,6 +6,7 @@ const forgotPassword = require("./forgotPassword");
 const validateResetToken = require("./validateResetToken");
 const resetPassword = require("./resetPassword");
 const changePassword = require("./changePassword");
+const { registerAuthLogoutRoute } = require("../../common/authLogoutRoute");
 
 async function lenderAuthRoutes(fastify) {
   fastify.register(login, { prefix: "/login" });
@@ -16,6 +17,10 @@ async function lenderAuthRoutes(fastify) {
   fastify.register(validateResetToken, { prefix: "/reset-password/validate" });
   fastify.register(resetPassword, { prefix: "/reset-password" });
   fastify.register(changePassword, { prefix: "/change-password" });
+  registerAuthLogoutRoute(fastify, {
+    dashboard: "BROKER",
+    preHandler: [fastify.authenticate],
+  });
 }
 
 module.exports = lenderAuthRoutes;

@@ -9,6 +9,7 @@ const {
 } = require("../../../utils/broker/resolveCoBrokerBranding");
 
 const jwtSecret = require("../../../utils/auth/jwtSecret");
+const { logAuthEvent } = require("../../../services/logger/auditLogger");
 
 async function loginRoute(fastify, options) {
   fastify.post(
@@ -55,6 +56,15 @@ async function loginRoute(fastify, options) {
 
         // USER NOT FOUND
         if (!user) {
+          await logAuthEvent({
+            prisma,
+            req: request,
+            dashboard: "BROKER",
+            action: "LOGIN_FAILED",
+            status: "FAILED",
+            email,
+            reason: "user_not_found",
+          });
           return reply.code(401).send({
             success: false,
             message: "Invalid credentials",
@@ -67,6 +77,17 @@ async function loginRoute(fastify, options) {
         );
 
         if (!isSubBroker) {
+          await logAuthEvent({
+            prisma,
+            req: request,
+            dashboard: "BROKER",
+            action: "LOGIN_FAILED",
+            status: "FAILED",
+            actorUserId: user.id,
+            actorOrgId: user.organizationId,
+            email,
+            reason: "not_sub_broker",
+          });
           return reply.code(403).send({
             success: false,
             message: "Unauthorized access",
@@ -80,11 +101,36 @@ async function loginRoute(fastify, options) {
         );
 
         if (!isPasswordValid) {
+          await logAuthEvent({
+            prisma,
+            req: request,
+            dashboard: "BROKER",
+            action: "LOGIN_FAILED",
+            status: "FAILED",
+            actorUserId: user.id,
+            actorOrgId: user.organizationId,
+            email,
+            roles: ["SUB_BROKER"],
+            reason: "bad_password",
+          });
           return reply.code(401).send({
             success: false,
             message: "Invalid credentials",
           });
         }
+
+        await logAuthEvent({
+          prisma,
+          req: request,
+          dashboard: "BROKER",
+          action: "LOGIN_SUCCESS",
+          status: "SUCCESS",
+          actorUserId: user.id,
+          actorOrgId: user.organizationId,
+          email: user.email,
+          roles: ["SUB_BROKER"],
+          entityId: user.id,
+        });
 
         // TOKEN
         const token = jwt.sign(

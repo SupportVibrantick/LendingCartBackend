@@ -1,6 +1,7 @@
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const jwtSecret = require("../../../utils/auth/jwtSecret");
+const { logAuthEvent } = require("../../../services/logger/auditLogger");
 
 async function brokerLoginRoutes(fastify) {
   fastify.post(
@@ -63,6 +64,15 @@ async function brokerLoginRoutes(fastify) {
         });
 
         if (!user) {
+          await logAuthEvent({
+            prisma,
+            req,
+            dashboard: "BROKER",
+            action: "LOGIN_FAILED",
+            status: "FAILED",
+            email,
+            reason: "user_not_found",
+          });
           return reply.code(401).send({
             success: false,
             message: "Invalid email or password",
@@ -70,6 +80,17 @@ async function brokerLoginRoutes(fastify) {
         }
 
         if (user.status !== "ACTIVE") {
+          await logAuthEvent({
+            prisma,
+            req,
+            dashboard: "BROKER",
+            action: "LOGIN_FAILED",
+            status: "FAILED",
+            actorUserId: user.id,
+            actorOrgId: user.organizationId,
+            email,
+            reason: "inactive_user",
+          });
           return reply.code(401).send({
             success: false,
             message: "User account is inactive",
@@ -81,6 +102,17 @@ async function brokerLoginRoutes(fastify) {
           user.organization.type !== "BROKER" ||
           user.organization.status !== "ACTIVE"
         ) {
+          await logAuthEvent({
+            prisma,
+            req,
+            dashboard: "BROKER",
+            action: "LOGIN_FAILED",
+            status: "FAILED",
+            actorUserId: user.id,
+            actorOrgId: user.organizationId,
+            email,
+            reason: "invalid_broker_org",
+          });
           return reply.code(401).send({
             success: false,
             message: "Invalid broker organization",
@@ -92,6 +124,18 @@ async function brokerLoginRoutes(fastify) {
 
         // Only BROKER_ADMIN can login via this endpoint
         if (!roles.includes("BROKER_ADMIN")) {
+          await logAuthEvent({
+            prisma,
+            req,
+            dashboard: "BROKER",
+            action: "LOGIN_FAILED",
+            status: "FAILED",
+            actorUserId: user.id,
+            actorOrgId: user.organizationId,
+            email,
+            roles,
+            reason: "role_denied",
+          });
           return reply.code(403).send({
             success: false,
             message: "Access denied. Only broker admin can sign in.",
@@ -105,6 +149,18 @@ async function brokerLoginRoutes(fastify) {
         );
 
         if (!isValidPassword) {
+          await logAuthEvent({
+            prisma,
+            req,
+            dashboard: "BROKER",
+            action: "LOGIN_FAILED",
+            status: "FAILED",
+            actorUserId: user.id,
+            actorOrgId: user.organizationId,
+            email,
+            roles,
+            reason: "bad_password",
+          });
           return reply.code(401).send({
             success: false,
             message: "Invalid email or password",
@@ -152,6 +208,19 @@ async function brokerLoginRoutes(fastify) {
           data: {
             lastLoginAt: new Date(),
           },
+        });
+
+        await logAuthEvent({
+          prisma,
+          req,
+          dashboard: "BROKER",
+          action: "LOGIN_SUCCESS",
+          status: "SUCCESS",
+          actorUserId: user.id,
+          actorOrgId: user.organizationId,
+          email: user.email,
+          roles,
+          entityId: user.id,
         });
 
         // ✅ response
