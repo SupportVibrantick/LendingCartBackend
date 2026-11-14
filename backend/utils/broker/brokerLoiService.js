@@ -178,38 +178,43 @@ function serializeBrokerLoiTerms(formTerms = {}, options = {}) {
   const originationFeePercent =
     originationPoints != null
       ? `${originationPoints}%`
-      : percentFormToStored(formTerms.originationFeePercent, "2%");
-  const exitFee = percentFormToStored(formTerms.exitFee, "0%");
-  const processingFee = moneyFormToStored(formTerms.processingFee, "$995");
-  const underwritingFee = moneyFormToStored(
-    formTerms.underwritingFee,
-    "$750",
-  );
+      : percentFormToStored(formTerms.originationFeePercent, "");
+  const exitFee = percentFormToStored(formTerms.exitFee, "");
+  const processingFee = moneyFormToStored(formTerms.processingFee, "");
+  const underwritingFee = moneyFormToStored(formTerms.underwritingFee, "");
 
   const { totalLoanAmount, financedFees } = getTotalLoanAmountWithFinancedFees({
     approvedAmount,
-    originationFeePercent,
-    exitFee,
-    processingFee,
-    underwritingFee,
+    originationFeePercent: originationFeePercent || undefined,
+    exitFee: exitFee || undefined,
+    processingFee: processingFee || undefined,
+    underwritingFee: underwritingFee || undefined,
   });
 
-  const interestOnly = Boolean(formTerms.interestOnly);
-  const termMonths = parseTermMonths(formTerms.loanTerm || "12 Months");
+  const interestOnly =
+    typeof formTerms.interestOnly === "boolean"
+      ? formTerms.interestOnly
+      : /interest\s*only/i.test(String(formTerms.amortization || "")) ||
+        /interest\s*only/i.test(String(formTerms.paymentFrequency || ""));
+  const STANDARD_AMORT_MONTHS = 360;
   let monthlyPayment = parseOptionalFormNumber(formTerms.monthlyPayment);
+  const noteAmount = totalLoanAmount || approvedAmount;
 
-  if (totalLoanAmount && interestRate && termMonths) {
+  if (noteAmount && interestRate != null) {
     if (interestOnly) {
-      monthlyPayment = (totalLoanAmount * interestRate) / 100 / 12;
+      monthlyPayment = (noteAmount * interestRate) / 100 / 12;
+      monthlyPayment = Number(monthlyPayment.toFixed(2));
     } else {
       const monthlyRate = interestRate / 100 / 12;
       monthlyPayment =
         monthlyRate === 0
-          ? totalLoanAmount / termMonths
-          : (totalLoanAmount * monthlyRate * Math.pow(1 + monthlyRate, termMonths)) /
-            (Math.pow(1 + monthlyRate, termMonths) - 1);
+          ? noteAmount / STANDARD_AMORT_MONTHS
+          : (noteAmount *
+              monthlyRate *
+              Math.pow(1 + monthlyRate, STANDARD_AMORT_MONTHS)) /
+            (Math.pow(1 + monthlyRate, STANDARD_AMORT_MONTHS) - 1);
+      monthlyPayment = Number(monthlyPayment.toFixed(2));
     }
-    monthlyPayment = Number(monthlyPayment.toFixed(2));
   }
 
   const collateralOrPropertyValue = parseOptionalFormNumber(
@@ -446,7 +451,11 @@ function mapStoredLoiTermsToForm(stored) {
       stored.monthlyPayment != null && stored.monthlyPayment !== ""
         ? stringifyFormField(stored.monthlyPayment)
         : "",
-    interestOnly: Boolean(stored.interestOnly),
+    interestOnly:
+      typeof stored.interestOnly === "boolean"
+        ? stored.interestOnly
+        : /interest\s*only/i.test(String(stored.amortization || "")) ||
+          /interest\s*only/i.test(String(stored.paymentFrequency || "")),
     loanTerm: stored.loanTerm ? String(stored.loanTerm) : "12 Months",
     requiredDocuments,
     customDocument: "",
@@ -454,12 +463,10 @@ function mapStoredLoiTermsToForm(stored) {
       stored.originationPoints != null && stored.originationPoints !== ""
         ? stringifyFormField(stored.originationPoints)
         : percentStoredToForm(stored.originationFeePercent),
-    originationFeePercent: percentStoredToForm(
-      stored.originationFeePercent || "2%",
-    ),
-    exitFee: percentStoredToForm(stored.exitFee || "0%"),
-    processingFee: moneyStoredToForm(stored.processingFee || "$995"),
-    underwritingFee: moneyStoredToForm(stored.underwritingFee || "$750"),
+    originationFeePercent: percentStoredToForm(stored.originationFeePercent),
+    exitFee: percentStoredToForm(stored.exitFee),
+    processingFee: moneyStoredToForm(stored.processingFee),
+    underwritingFee: moneyStoredToForm(stored.underwritingFee),
     appraisalFee: moneyStoredToForm(stored.appraisalFee),
     brokerPoints:
       stored.brokerPoints != null && stored.brokerPoints !== ""
@@ -520,22 +527,25 @@ function buildApplicationPrefillTerms(application, submission, review = null) {
 
   const loanTerm = `${termMonths || 12} Months`;
   const interestOnly = true;
-  const originationFeePercent = "2%";
-  const exitFee = "0%";
-  const processingFee = "$995";
-  const underwritingFee = "$750";
+  // Do not invent financed fees on seed — payment/LTV use approved amount until fees are entered.
+  const originationFeePercent = "";
+  const exitFee = "";
+  const processingFee = "";
+  const underwritingFee = "";
 
   const { totalLoanAmount } = getTotalLoanAmountWithFinancedFees({
     approvedAmount,
-    originationFeePercent,
-    exitFee,
-    processingFee,
-    underwritingFee,
+    originationFeePercent: undefined,
+    exitFee: undefined,
+    processingFee: undefined,
+    underwritingFee: undefined,
   });
 
   let monthlyPayment = null;
   if (totalLoanAmount && interestRate) {
-    monthlyPayment = (totalLoanAmount * interestRate) / 100 / 12;
+    monthlyPayment = Number(
+      ((totalLoanAmount * interestRate) / 100 / 12).toFixed(2),
+    );
   }
 
   const propertyValue = pickNumericField(

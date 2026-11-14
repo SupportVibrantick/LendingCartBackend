@@ -304,23 +304,55 @@ const formatCompactAmount = (value: number) => {
   return `$${num}`;
 };
 
+const parsePreviewScheduleMonths = (value: unknown) => {
+  if (value == null || value === "") return 0;
+  const raw = String(value).trim();
+  if (/interest\s*only/i.test(raw)) return 0;
+  const months = raw.match(/(\d+)\s*Months?/i);
+  if (months) return Number(months[1]);
+  const years = raw.match(/(\d+)\s*Years?/i);
+  if (years) return Number(years[1]) * 12;
+  const numeric = Number(raw.replace(/[^\d.]/g, ""));
+  return Number.isFinite(numeric) && numeric > 0 ? numeric : 0;
+};
+
+const isPreviewInterestOnly = (...values: unknown[]) =>
+  values.some((value) => {
+    const raw = String(value ?? "").trim();
+    if (!raw) return false;
+    return (
+      /interest\s*only/i.test(raw) ||
+      raw.toUpperCase() === "INTEREST_ONLY" ||
+      raw.toUpperCase() === "IO"
+    );
+  });
+
 const calculateMonthlyPayment = (
   loanAmount: number,
   interestRate: number,
   termMonths: number,
+  options?: { interestOnly?: boolean; amortMonths?: number },
 ) => {
-  if (!loanAmount || !termMonths || termMonths <= 0) return 0;
-  if (interestRate < 0) return 0;
+  if (!loanAmount || interestRate < 0) return 0;
+
+  if (options?.interestOnly) {
+    return (loanAmount * interestRate) / 100 / 12;
+  }
+
+  const scheduleMonths =
+    options?.amortMonths && options.amortMonths > 0
+      ? options.amortMonths
+      : termMonths;
+  if (!scheduleMonths || scheduleMonths <= 0) return 0;
 
   const monthlyRate = interestRate / 100 / 12;
-
   if (monthlyRate === 0) {
-    return loanAmount / termMonths;
+    return loanAmount / scheduleMonths;
   }
 
   return (
-    (loanAmount * monthlyRate * Math.pow(1 + monthlyRate, termMonths)) /
-    (Math.pow(1 + monthlyRate, termMonths) - 1)
+    (loanAmount * monthlyRate * Math.pow(1 + monthlyRate, scheduleMonths)) /
+    (Math.pow(1 + monthlyRate, scheduleMonths) - 1)
   );
 };
 
@@ -2074,15 +2106,23 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
   const dscr = Number(getFieldValue(fields, "dscr") ?? 0) || 0;
   const netWorth = Number(getFieldValue(fields, "netWorth") ?? 0) || 0;
   const interestRate = Number(getFieldValue(fields, "interestRate") ?? 0) || 0;
-  const amortizationYears =
-    Number(getFieldValue(fields, "amortization") ?? 0) || 0;
-  const loanTermMonths = Number(getFieldValue(fields, "loanTerm") ?? 0) || 0;
-  const termMonths =
-    amortizationYears > 0 ? amortizationYears * 12 : loanTermMonths;
+  const amortizationRaw = getFieldValue(fields, "amortization");
+  const rateTypeRaw = getFieldValue(fields, "rateType");
+  const loanTermRaw = getFieldValue(fields, "loanTerm");
+  const loanTermMonths =
+    parsePreviewScheduleMonths(loanTermRaw) ||
+    Number(loanTermRaw ?? 0) ||
+    0;
+  const amortMonths = parsePreviewScheduleMonths(amortizationRaw);
+  const interestOnly = isPreviewInterestOnly(rateTypeRaw, amortizationRaw);
   const monthlyPayment = calculateMonthlyPayment(
     loanAmount,
     interestRate,
-    termMonths,
+    loanTermMonths,
+    {
+      interestOnly,
+      amortMonths: interestOnly ? 0 : amortMonths || 360,
+    },
   );
   const monthlyPaymentDisplay = formatMonthlyPayment(monthlyPayment);
   const netWorthDisplay = netWorth
