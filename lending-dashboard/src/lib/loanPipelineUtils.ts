@@ -78,27 +78,50 @@ export function formatApplicationStatus(status?: string) {
 }
 
 export function getApplicationStatusColor(status?: string) {
-  const cleaned = (status || "").replace("LENDER_", "");
+  const s = status?.toLowerCase();
 
-  switch (cleaned) {
-    case "APPROVED":
-      return "bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20";
-    case "DECLINED":
-      return "bg-red-50 text-red-700 border border-red-200 dark:bg-red-500/10 dark:text-red-400 dark:border-red-500/20";
-    case "PENDING":
-      return "bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20";
-    case "IN_REVIEW":
-      return "bg-indigo-50 text-indigo-700 border border-indigo-200 dark:bg-indigo-500/10 dark:text-indigo-400 dark:border-indigo-500/20";
-    case "LENDER_APPROVED":
-      return "bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20";
-    case "LENDER_DECLINED":
-      return "bg-red-50 text-red-700 border border-red-200 dark:bg-red-500/10 dark:text-red-400 dark:border-red-500/20";
-    case "SENT":
-      return "bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/20";
-    case "CONDITIONAL":
-      return "bg-yellow-50 text-yellow-700 border border-yellow-200 dark:bg-yellow-500/10 dark:text-yellow-400 dark:border-yellow-500/20";
+  switch (s) {
+    case "new":
+      return "bg-[#13538A] text-white";
+    case "pending":
+      return "bg-amber-500 text-white";
+    case "client_pending":
+      return "bg-rose-500 text-white";
+    case "submitted":
+      return "bg-[#1a6aad] text-white";
+    case "sent":
+    case "selected":
+      return "bg-[#13538A] text-white";
+    case "updated":
+      return "bg-[#0e3d66] text-white";
+    case "approved":
+    case "auto_approved":
+      return "bg-emerald-600 text-white";
+    case "lender_approved":
+      return "bg-green-600 text-white";
+    case "declined":
+    case "rejected":
+    case "auto_declined":
+    case "withdrawn":
+      return "bg-red-600 text-white";
+    case "lender_declined":
+      return "bg-rose-700 text-white";
+    case "in_review":
+      return "bg-[#13538A] text-white";
+    case "conditional":
+      return "bg-amber-500 text-white";
+    case "draft":
+      return "bg-slate-500 text-white";
+    case "incomplete":
+    case "superseded":
+    case "suspended":
+      return "bg-orange-500 text-white";
+    case "completed":
+      return "bg-teal-600 text-white";
+    case "funded":
+      return "bg-emerald-700 text-white";
     default:
-      return "bg-slate-100 text-slate-700 border border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700";
+      return "bg-slate-600 text-white";
   }
 }
 
