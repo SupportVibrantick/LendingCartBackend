@@ -870,11 +870,12 @@ export default function ClientAuth() {
         </form>
       </div>
 
-      <p className="pointer-events-none absolute bottom-4 left-0 right-0 text-center text-[11px] text-slate-400">
+      <div className="pointer-events-none absolute bottom-4 left-0 right-0 flex flex-col items-center gap-1.5 text-center text-[11px] text-slate-400">
+        <p>Developed by Vibrantick Inc</p>
         <Link to="/signin" className="pointer-events-auto hover:underline">
           Broker sign in
         </Link>
-      </p>
+      </div>
     </div>
   );
 }

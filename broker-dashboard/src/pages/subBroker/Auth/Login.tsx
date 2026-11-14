@@ -351,6 +351,10 @@ export default function Login() {
                 Secure access for assigned loan applications and broker
                 communication.
               </p>
+
+              <p className="mt-4 text-center text-xs text-gray-400 dark:text-gray-500">
+                Developed by Vibrantick Inc
+              </p>
             </motion.div>
           </div>
         </div>
