@@ -164,16 +164,47 @@ function formatChange(value: number | null | undefined) {
   return `${prefix}${value.toFixed(1)}%`;
 }
 
-function getStatusBadgeClass(status: string) {
-  const styles: Record<string, string> = {
-    SENT: "bg-sky-50 text-sky-700 ring-sky-600/15",
-    IN_REVIEW: "bg-amber-50 text-amber-700 ring-amber-600/15",
-    APPROVED: "bg-emerald-50 text-emerald-700 ring-emerald-600/15",
-    FUNDED: "bg-indigo-50 text-indigo-700 ring-indigo-600/15",
-    DECLINED: "bg-rose-50 text-rose-700 ring-rose-600/15",
-    WITHDRAWN: "bg-slate-100 text-slate-600 ring-slate-500/10",
-  };
-  return styles[status] || "bg-slate-100 text-slate-600 ring-slate-500/10";
+function getStatusBadgeClass(status?: string) {
+  const s = status?.toLowerCase();
+
+  switch (s) {
+    case "new":
+    case "sent":
+    case "selected":
+    case "in_review":
+      return "bg-[#13538A] text-white";
+    case "pending":
+    case "conditional":
+      return "bg-amber-500 text-white";
+    case "client_pending":
+      return "bg-rose-500 text-white";
+    case "submitted":
+      return "bg-[#1a6aad] text-white";
+    case "approved":
+    case "auto_approved":
+      return "bg-emerald-600 text-white";
+    case "lender_approved":
+      return "bg-green-600 text-white";
+    case "declined":
+    case "rejected":
+    case "auto_declined":
+    case "withdrawn":
+      return "bg-red-600 text-white";
+    case "lender_declined":
+      return "bg-rose-700 text-white";
+    case "draft":
+      return "bg-slate-500 text-white";
+    case "incomplete":
+    case "superseded":
+    case "suspended":
+      return "bg-orange-500 text-white";
+    case "completed":
+      return "bg-teal-600 text-white";
+    case "funded":
+      return "bg-emerald-700 text-white";
+    default:
+      return "bg-slate-600 text-white";
+  }
 }
 
 function getLenderFirstName() {
@@ -1001,7 +1032,7 @@ export default function Home() {
                           <td className="px-4 py-2.5 text-center sm:px-5">
                             {item.pipelineStatus ? (
                               <span
-                                className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ${getStatusBadgeClass(item.pipelineStatus)}`}
+                                className={`inline-flex max-w-full items-center truncate rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide ${getStatusBadgeClass(item.pipelineStatus)}`}
                               >
                                 {item.pipelineStatus.replace(/_/g, " ")}
                               </span>

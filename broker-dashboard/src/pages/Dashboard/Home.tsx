@@ -3,11 +3,13 @@ import { Link, useNavigate } from "react-router";
 import toast from "react-hot-toast";
 import {
   ArrowRight,
-  BriefcaseBusiness,
   Building2,
   Contact,
+  Eye,
   FilePlus,
+  FileText,
   RefreshCw,
+  SearchX,
   Store,
   TrendingUp,
   Users,
@@ -30,7 +32,6 @@ import {
   type CommissionSummary,
 } from "../../lib/commissionApi";
 import {
-  formatCompactCurrency,
   type BrokerStats,
   type DashboardPeriod,
 } from "../../lib/brokerDashboardStats";
@@ -47,6 +48,7 @@ type RecentApp = {
   submittedOn: string;
   loanInfo?: string;
   lenderName?: string;
+  lenderCount: number;
 };
 
 const PERIOD_OPTIONS: { value: DashboardPeriod; label: string }[] = [
@@ -129,34 +131,80 @@ function statusLabel(status: string) {
   return status.replace(/_/g, " ");
 }
 
-function statusBadgeClass(status: string) {
-  const key = status.toUpperCase();
-  if (key === "FUNDED") return "bg-teal-50 text-teal-700 ring-teal-100";
-  if (key === "APPROVED" || key === "LENDER_APPROVED") {
-    return "bg-emerald-50 text-emerald-700 ring-emerald-100";
+function statusBadgeClass(status?: string) {
+  const s = status?.toLowerCase();
+
+  switch (s) {
+    case "new":
+      return "bg-[#13538A] text-white";
+    case "pending":
+      return "bg-amber-500 text-white";
+    case "client_pending":
+      return "bg-rose-500 text-white";
+    case "submitted":
+      return "bg-[#1a6aad] text-white";
+    case "sent":
+    case "lender_selected":
+      return "bg-[#13538A] text-white";
+    case "updated":
+      return "bg-[#0e3d66] text-white";
+    case "approved":
+    case "auto_approved":
+      return "bg-emerald-600 text-white";
+    case "lender_approved":
+      return "bg-green-600 text-white";
+    case "declined":
+    case "rejected":
+    case "auto_declined":
+    case "withdrawn":
+      return "bg-red-600 text-white";
+    case "lender_declined":
+      return "bg-rose-700 text-white";
+    case "in_review":
+      return "bg-[#13538A] text-white";
+    case "draft":
+      return "bg-slate-500 text-white";
+    case "incomplete":
+    case "superseded":
+    case "suspended":
+      return "bg-orange-500 text-white";
+    case "completed":
+      return "bg-teal-600 text-white";
+    case "funded":
+      return "bg-emerald-700 text-white";
+    default:
+      return "bg-slate-600 text-white";
   }
-  if (key === "DECLINED" || key === "LENDER_DECLINED") {
-    return "bg-rose-50 text-rose-700 ring-rose-100";
-  }
-  if (key === "IN_REVIEW" || key === "LENDER_SELECTED") {
-    return "bg-indigo-50 text-indigo-700 ring-indigo-100";
-  }
-  if (key === "SUBMITTED") return "bg-sky-50 text-sky-700 ring-sky-100";
-  if (key === "CLIENT_PENDING") {
-    return "bg-orange-50 text-orange-700 ring-orange-100";
-  }
-  if (key === "DRAFT") return "bg-slate-100 text-slate-600 ring-slate-200";
-  return "bg-[#13538A]/10 text-[#13538A] ring-[#13538A]/10";
+}
+
+function getInitials(name?: string) {
+  if (!name?.trim()) return "?";
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+}
+
+function formatProductLabel(code?: string) {
+  if (!code) return "—";
+  return code
+    .replace(/_/g, " ")
+    .toLowerCase()
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+/** Matches Submit Applications table: $2M not $2.00M */
+function formatRecentAmount(value: number) {
+  if (!value || !Number.isFinite(value)) return "$0";
+  const num = Number(value);
+  if (num >= 1e9) return `$${(num / 1e9).toFixed(1).replace(/\.0$/, "")}B`;
+  if (num >= 1e6) return `$${(num / 1e6).toFixed(1).replace(/\.0$/, "")}M`;
+  if (num >= 1e3) return `$${(num / 1e3).toFixed(1).replace(/\.0$/, "")}K`;
+  return `$${num.toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
 }
 
 function pipelineHref(status?: string) {
   if (!status) return "/submit-applications";
   return `/submit-applications?status=${encodeURIComponent(status)}`;
-}
-
-function productLabel(code?: string) {
-  if (!code) return "—";
-  return code.replace(/_/g, " ");
 }
 
 const quickActions = [
@@ -232,6 +280,7 @@ export default function Home() {
               lenderName: primaryLender?.lenderName
                 ? String(primaryLender.lenderName)
                 : undefined,
+              lenderCount: lenders.length,
             };
           }),
         );
@@ -509,103 +558,193 @@ export default function Home() {
 
           {/* Recent applications */}
           <div className="col-span-12">
-            <section className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
-              <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3 dark:border-gray-800 sm:px-5">
-                <div>
-                  <h2 className="text-sm font-semibold text-gray-900 dark:text-white">
-                    Recent Applications
-                  </h2>
-                  <p className="text-xs text-gray-500">
-                    Latest files in your broker pipeline
-                  </p>
+            <section className="overflow-hidden rounded-2xl border border-[#13538A]/15 bg-white shadow-sm dark:border-[#13538A]/30 dark:bg-gray-900">
+              <div className="flex items-center justify-between gap-3 border-b border-[#13538A]/10 bg-[#13538A]/[0.04] px-5 py-3.5 dark:border-[#13538A]/20 dark:bg-[#13538A]/10 lg:px-6">
+                <div className="flex min-w-0 items-center gap-3">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#13538A] text-white shadow-sm">
+                    <FileText className="h-5 w-5" />
+                  </span>
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h2 className="text-sm font-semibold text-[#13538A] dark:text-[#9fd0f0]">
+                        Recent Applications
+                      </h2>
+                      <span className="inline-flex items-center rounded-full bg-[#13538A] px-2.5 py-1 text-[11px] font-semibold text-white">
+                        {loading ? "…" : recent.length}
+                      </span>
+                    </div>
+                    <p className="text-xs text-[#13538A]/70 dark:text-[#9fd0f0]/80">
+                      {loading
+                        ? "Loading pipeline…"
+                        : "Latest files in your broker pipeline"}
+                    </p>
+                  </div>
                 </div>
                 <Link
                   to="/submit-applications"
-                  className="text-xs font-semibold text-[#13538A] hover:underline"
+                  className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-[#13538A] hover:underline dark:text-[#9fd0f0]"
                 >
                   View all
+                  <ArrowRight className="h-3.5 w-3.5" />
                 </Link>
               </div>
 
               {loading ? (
-                <div className="divide-y divide-gray-100 dark:divide-gray-800">
+                <div className="divide-y divide-[#13538A]/10 dark:divide-[#13538A]/20">
                   {Array.from({ length: 5 }).map((_, i) => (
-                    <div
-                      key={i}
-                      className="h-12 animate-pulse bg-gray-50 dark:bg-gray-800/50"
-                    />
+                    <div key={i} className="px-5 py-4 lg:px-6">
+                      <div className="h-8 animate-pulse rounded-lg bg-[#13538A]/10 dark:bg-[#13538A]/20" />
+                    </div>
                   ))}
                 </div>
               ) : recent.length === 0 ? (
-                <div className="px-6 py-10 text-center">
-                  <BriefcaseBusiness className="mx-auto mb-2 h-9 w-9 text-gray-300" />
-                  <p className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                <div className="px-6 py-14 text-center">
+                  <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#13538A]/10 text-[#13538A] dark:bg-[#13538A]/20">
+                    <SearchX className="h-6 w-6" />
+                  </div>
+                  <p className="text-base font-semibold text-slate-900 dark:text-white">
                     No applications yet
+                  </p>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Start a new loan file to see it here.
                   </p>
                   <button
                     type="button"
                     onClick={() => navigate("/loan-application")}
-                    className="mt-2 text-sm font-semibold text-[#13538A] hover:underline"
+                    className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-[#13538A] px-4 py-2 text-sm font-medium text-white hover:bg-[#0e3d66]"
                   >
-                    Create your first application
+                    Create application
+                    <ArrowRight className="h-4 w-4" />
                   </button>
                 </div>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[780px] text-left text-sm">
-                    <thead className="bg-gray-50 text-[11px] uppercase tracking-wider text-gray-500 dark:bg-gray-800">
+                <div className="min-w-0 overflow-hidden">
+                  <table className="w-full table-fixed text-left text-sm">
+                    <colgroup>
+                      <col className="w-[22%]" />
+                      <col className="w-[14%]" />
+                      <col className="w-[12%]" />
+                      <col className="w-[16%]" />
+                      <col className="w-[14%]" />
+                      <col className="w-[12%]" />
+                      <col className="w-[10%]" />
+                    </colgroup>
+                    <thead className="sticky top-0 z-[1] bg-[#13538A] text-white">
                       <tr>
-                        <th className="px-4 py-2.5 sm:px-5">Borrower</th>
-                        <th className="px-4 py-2.5 sm:px-5">Loan Type</th>
-                        <th className="px-4 py-2.5 sm:px-5">Amount</th>
-                        <th className="px-4 py-2.5 sm:px-5">Lender</th>
-                        <th className="px-4 py-2.5 sm:px-5">Status</th>
-                        <th className="px-4 py-2.5 sm:px-5">Submitted</th>
-                        <th className="px-4 py-2.5 sm:px-5" />
+                        {[
+                          "Borrower",
+                          "Loan Type",
+                          "Amount",
+                          "Lender",
+                          "Status",
+                          "Submitted",
+                          "Actions",
+                        ].map((label) => (
+                          <th
+                            key={label}
+                            className={`px-3 py-3 text-[11px] font-semibold uppercase tracking-wider first:pl-5 last:pr-5 lg:first:pl-6 lg:last:pr-6 ${
+                              label === "Amount" || label === "Actions"
+                                ? "text-right"
+                                : "text-left"
+                            }`}
+                          >
+                            <span className="block truncate">{label}</span>
+                          </th>
+                        ))}
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                    <tbody className="divide-y divide-[#13538A]/10 dark:divide-[#13538A]/20">
                       {recent.map((row) => (
                         <tr
                           key={row.submissionId}
-                          className="cursor-pointer transition hover:bg-gray-50 dark:hover:bg-gray-800/50"
+                          className="group cursor-pointer border-l-2 border-transparent transition hover:border-l-[#13538A] hover:bg-[#13538A]/[0.045] dark:hover:bg-[#13538A]/15"
                           onClick={() =>
                             navigate("/loan-preview", {
                               state: { submissionId: row.submissionId },
                             })
                           }
                         >
-                          <td className="px-4 py-2.5 sm:px-5">
-                            <p className="font-medium text-gray-900 dark:text-white">
-                              {row.borrower}
-                            </p>
-                            <p className="text-xs text-gray-500">
-                              {row.applicationNumber || "—"}
-                            </p>
+                          <td
+                            className="px-3 py-3.5 align-middle first:pl-5 lg:first:pl-6"
+                            title={`${row.borrower} · ${row.applicationNumber || ""}`}
+                          >
+                            <div className="flex min-w-0 items-center gap-3">
+                              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#13538A] text-[11px] font-semibold text-white shadow-sm">
+                                {getInitials(row.borrower)}
+                              </div>
+                              <div className="min-w-0">
+                                <p className="truncate text-sm font-semibold text-slate-900 dark:text-white">
+                                  {row.borrower || "Untitled"}
+                                </p>
+                                <span className="mt-0.5 inline-flex max-w-full truncate rounded-md bg-[#13538A]/10 px-1.5 py-0.5 font-mono text-[11px] font-medium text-[#13538A] dark:bg-[#13538A]/20 dark:text-[#9fd0f0]">
+                                  {row.applicationNumber || "—"}
+                                </span>
+                              </div>
+                            </div>
                           </td>
-                          <td className="px-4 py-2.5 capitalize text-gray-600 sm:px-5">
-                            {productLabel(row.loanInfo).toLowerCase()}
+                          <td
+                            className="px-3 py-3.5 align-middle"
+                            title={formatProductLabel(row.loanInfo)}
+                          >
+                            <span className="inline-flex max-w-full truncate rounded-full bg-[#13538A]/10 px-2 py-0.5 text-xs font-medium text-[#13538A] dark:bg-[#13538A]/20 dark:text-[#9fd0f0]">
+                              {formatProductLabel(row.loanInfo)}
+                            </span>
                           </td>
-                          <td className="px-4 py-2.5 font-semibold text-gray-800 dark:text-gray-100 sm:px-5">
-                            {formatCompactCurrency(row.amount)}
+                          <td className="px-3 py-3.5 align-middle text-right">
+                            <span className="text-sm font-semibold tabular-nums text-slate-900 dark:text-white">
+                              {formatRecentAmount(row.amount)}
+                            </span>
                           </td>
-                          <td className="px-4 py-2.5 text-gray-600 sm:px-5">
-                            {row.lenderName || "—"}
+                          <td className="px-3 py-3.5 align-middle">
+                            {row.lenderCount > 0 && row.lenderName ? (
+                              <div
+                                className="flex min-w-0 items-center gap-1.5"
+                                title={row.lenderName}
+                              >
+                                <span className="inline-flex max-w-full truncate rounded-full bg-[#13538A]/10 px-2 py-0.5 text-xs font-medium text-[#13538A] dark:bg-[#13538A]/20 dark:text-[#9fd0f0]">
+                                  {row.lenderName}
+                                </span>
+                                {row.lenderCount > 1 ? (
+                                  <span className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-[#13538A] px-1.5 text-[10px] font-semibold text-white">
+                                    +{row.lenderCount - 1}
+                                  </span>
+                                ) : null}
+                              </div>
+                            ) : (
+                              <span className="inline-flex items-center gap-1.5 rounded-full border border-dashed border-[#13538A]/25 px-2 py-0.5 text-[11px] text-[#13538A]/55">
+                                <Building2 className="h-3 w-3" />
+                                Not sent
+                              </span>
+                            )}
                           </td>
-                          <td className="px-4 py-2.5 sm:px-5">
+                          <td className="px-3 py-3.5 align-middle">
                             <span
-                              className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ring-inset ${statusBadgeClass(row.status)}`}
+                              className={`inline-flex max-w-full items-center truncate rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide ${statusBadgeClass(row.status)}`}
                             >
                               {statusLabel(row.status)}
                             </span>
                           </td>
-                          <td className="px-4 py-2.5 text-gray-500 sm:px-5">
+                          <td className="whitespace-nowrap px-3 py-3.5 align-middle text-sm text-slate-500 dark:text-slate-400">
                             {row.submittedOn
                               ? formatUsDate(row.submittedOn)
                               : "—"}
                           </td>
-                          <td className="px-4 py-2.5 text-right sm:px-5">
-                            <ArrowRight className="ml-auto h-4 w-4 text-gray-300" />
+                          <td
+                            className="px-2 py-3.5 pr-5 text-right align-middle lg:pr-6"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <button
+                              type="button"
+                              title="View application"
+                              onClick={() =>
+                                navigate("/loan-preview", {
+                                  state: { submissionId: row.submissionId },
+                                })
+                              }
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-[#13538A] text-white shadow-sm transition hover:bg-[#0e3d66]"
+                            >
+                              <Eye size={15} />
+                            </button>
                           </td>
                         </tr>
                       ))}

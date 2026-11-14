@@ -711,7 +711,7 @@ export default function LoanPipeline() {
 
                       <td className="whitespace-nowrap border-b border-slate-100 px-3 py-3 dark:border-slate-800">
                         <span
-                          className={`inline-flex whitespace-nowrap rounded-md px-2 py-0.5 text-[11px] font-semibold ${getApplicationStatusColor(row.applicationStatus)}`}
+                          className={`inline-flex max-w-full items-center truncate rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide ${getApplicationStatusColor(row.applicationStatus)}`}
                         >
                           {formatApplicationStatus(row.applicationStatus)}
                         </span>
@@ -719,7 +719,7 @@ export default function LoanPipeline() {
 
                       <td className="whitespace-nowrap border-b border-slate-100 px-3 py-3 dark:border-slate-800">
                         <span
-                          className={`inline-flex whitespace-nowrap rounded-md px-2 py-0.5 text-[11px] font-semibold ${getApplicationStatusColor(row.lenderDecision || row.lenderStatus)}`}
+                          className={`inline-flex max-w-full items-center truncate rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide ${getApplicationStatusColor(row.lenderDecision || row.lenderStatus)}`}
                         >
                           {formatApplicationStatus(
                             row.lenderDecision || row.lenderStatus,

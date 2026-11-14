@@ -8,7 +8,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Building2,
-  MoreVertical,
+  MoreHorizontal,
   TrendingUp,
   RefreshCw,
   SearchX,
@@ -115,34 +115,47 @@ function formatStatusLabel(status?: string) {
   return status.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-function getApplicationStatusColor(status: string) {
-  if (!status) return "bg-slate-100 text-slate-700 border-slate-200";
+function getApplicationStatusColor(status?: string) {
+  const s = status?.toLowerCase();
 
-  const cleaned = status
-    .replace(/^LENDER_/, "")
-    .replace(/^AUTO_/, "");
-
-  switch (cleaned) {
-    case "APPROVED":
-    case "FUNDED":
-      return "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20";
-    case "DECLINED":
-    case "REJECTED":
-      return "bg-red-50 text-red-700 border-red-200 dark:bg-red-500/10 dark:text-red-400 dark:border-red-500/20";
-    case "IN_REVIEW":
-      return "bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-500/10 dark:text-indigo-400 dark:border-indigo-500/20";
-    case "SUBMITTED":
-    case "SELECTED":
-    case "SENT":
-      return "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/20";
-    case "CLIENT_PENDING":
-      return "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-500/10 dark:text-rose-400 dark:border-rose-500/20";
-    case "DRAFT":
-      return "bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700";
-    case "PENDING":
-      return "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20";
+  switch (s) {
+    case "new":
+      return "bg-[#13538A] text-white";
+    case "pending":
+      return "bg-amber-500 text-white";
+    case "client_pending":
+      return "bg-rose-500 text-white";
+    case "submitted":
+      return "bg-[#1a6aad] text-white";
+    case "sent":
+    case "selected":
+      return "bg-[#13538A] text-white";
+    case "updated":
+      return "bg-[#0e3d66] text-white";
+    case "approved":
+    case "auto_approved":
+      return "bg-emerald-600 text-white";
+    case "lender_approved":
+      return "bg-green-600 text-white";
+    case "declined":
+    case "rejected":
+    case "auto_declined":
+      return "bg-red-600 text-white";
+    case "lender_declined":
+      return "bg-rose-700 text-white";
+    case "in_review":
+      return "bg-[#13538A] text-white";
+    case "draft":
+      return "bg-slate-500 text-white";
+    case "incomplete":
+    case "superseded":
+      return "bg-orange-500 text-white";
+    case "completed":
+      return "bg-teal-600 text-white";
+    case "funded":
+      return "bg-emerald-700 text-white";
     default:
-      return "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700";
+      return "bg-slate-600 text-white";
   }
 }
 
@@ -520,47 +533,55 @@ export default function LoanPipeline() {
       </div>
 
       {/* Table */}
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
-        <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3 dark:border-slate-800 sm:px-5">
-          <div>
-            <h2 className="text-sm font-semibold text-slate-900 dark:text-white">
+      <div className="overflow-hidden rounded-2xl border border-[#13538A]/15 bg-white shadow-sm dark:border-[#13538A]/30 dark:bg-gray-900">
+        <div className="flex items-center justify-between gap-3 border-b border-[#13538A]/10 bg-[#13538A]/[0.04] px-5 py-3.5 dark:border-[#13538A]/20 dark:bg-[#13538A]/10 lg:px-6">
+          <div className="min-w-0">
+            <h2 className="text-sm font-semibold text-[#13538A] dark:text-[#9fd0f0]">
               Applications
             </h2>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-[#13538A]/70 dark:text-[#9fd0f0]/80">
               {loading
-                ? "Loading..."
+                ? "Loading pipeline…"
                 : total === 0
                   ? "0 shown"
                   : `Showing ${showingFrom}–${showingTo} of ${total}`}
+              {statusFilter
+                ? ` · ${formatStatusLabel(statusFilter)}`
+                : ""}
             </p>
           </div>
-          {hasActiveFilters ? (
-            <button
-              type="button"
-              onClick={() => {
-                setSearchTerm("");
-                setStatusFilter("");
-              }}
-              className="text-xs font-semibold text-[#13538A] hover:underline"
-            >
-              Clear filters
-            </button>
-          ) : null}
+          <div className="flex shrink-0 items-center gap-2">
+            {hasActiveFilters ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchTerm("");
+                  setStatusFilter("");
+                }}
+                className="text-xs font-semibold text-[#13538A] hover:underline dark:text-[#9fd0f0]"
+              >
+                Clear filters
+              </button>
+            ) : null}
+            <span className="inline-flex items-center rounded-full bg-[#13538A] px-2.5 py-1 text-[11px] font-semibold text-white">
+              {loading && rows.length === 0 ? "…" : total}
+            </span>
+          </div>
         </div>
 
-        <div className="min-w-0 overflow-x-auto">
-          <table className="w-full min-w-[920px] table-fixed text-left">
+        <div className="min-w-0 overflow-hidden">
+          <table className="w-full table-fixed text-left">
             <colgroup>
-              <col className="w-[16%]" />
+              <col className="w-[18%]" />
               <col className="w-[11%]" />
               <col className="w-[9%]" />
-              <col className="w-[12%]" />
-              <col className="w-[12%]" />
+              <col className="w-[13%]" />
+              <col className="w-[11%]" />
               <col className="w-[10%]" />
               <col className="w-[18%]" />
-              <col className="w-[8%]" />
+              <col className="w-[10%]" />
             </colgroup>
-            <thead className="bg-slate-50/80 dark:bg-slate-800/50">
+            <thead className="sticky top-0 z-[1] bg-[#13538A] text-white">
               <tr>
                 {[
                   "Borrower",
@@ -570,11 +591,15 @@ export default function LoanPipeline() {
                   "Status",
                   "Created",
                   "Lenders",
-                  "",
+                  "Actions",
                 ].map((label) => (
                   <th
-                    key={label || "actions"}
-                    className="overflow-hidden px-3 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 first:pl-4 last:pr-4 sm:first:pl-5 sm:last:pr-5"
+                    key={label}
+                    className={`px-3 py-3 text-[11px] font-semibold uppercase tracking-wider first:pl-5 last:pr-5 lg:first:pl-6 lg:last:pr-6 ${
+                      label === "Amount" || label === "Actions"
+                        ? "text-right"
+                        : "text-left"
+                    }`}
                   >
                     <span className="block truncate">{label}</span>
                   </th>
@@ -582,36 +607,38 @@ export default function LoanPipeline() {
               </tr>
             </thead>
 
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+            <tbody className="divide-y divide-[#13538A]/10 dark:divide-[#13538A]/20">
               {loading && rows.length === 0 ? (
-                Array.from({ length: 4 }).map((_, i) => (
+                Array.from({ length: 5 }).map((_, i) => (
                   <tr key={i}>
-                    <td colSpan={TABLE_COLUMNS} className="px-4 py-4 sm:px-5">
-                      <div className="h-10 animate-pulse rounded-lg bg-slate-100 dark:bg-slate-800" />
-                    </td>
+                    {Array.from({ length: TABLE_COLUMNS }).map((__, cell) => (
+                      <td key={cell} className="px-4 py-4">
+                        <div className="h-8 animate-pulse rounded-lg bg-[#13538A]/10 dark:bg-[#13538A]/20" />
+                      </td>
+                    ))}
                   </tr>
                 ))
               ) : rows.length > 0 ? (
                 rows.map((row) => (
                   <tr
                     key={row.applicationId}
-                    className="group transition hover:bg-[#13538A]/[0.03] dark:hover:bg-slate-800/50"
+                    className="group cursor-pointer border-l-2 border-transparent transition hover:border-l-[#13538A] hover:bg-[#13538A]/[0.045] dark:hover:bg-[#13538A]/15"
                   >
                     <td
                       onClick={() => openRowPreview(row.applicationId)}
-                      className="cursor-pointer overflow-hidden px-3 py-3 align-middle first:pl-4 sm:first:pl-5"
+                      className="px-3 py-3.5 align-middle first:pl-5 lg:first:pl-6"
                       title={`${row.borrowerName} · ${row.applicationNumber}`}
                     >
-                      <div className="flex min-w-0 items-center gap-2">
-                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#13538A]/10 text-xs font-semibold text-[#13538A]">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#13538A] text-[11px] font-semibold text-white shadow-sm">
                           {getInitials(row.borrowerName)}
                         </div>
                         <div className="min-w-0">
-                          <span className="block truncate text-sm font-medium text-slate-900 dark:text-white">
-                            {row.borrowerName}
-                          </span>
-                          <span className="block truncate text-[11px] text-slate-500">
-                            {row.applicationNumber}
+                          <p className="truncate text-sm font-semibold text-slate-900 dark:text-white">
+                            {row.borrowerName || "Untitled"}
+                          </p>
+                          <span className="mt-0.5 inline-flex max-w-full truncate rounded-md bg-[#13538A]/10 px-1.5 py-0.5 font-mono text-[11px] font-medium text-[#13538A] dark:bg-[#13538A]/20 dark:text-[#9fd0f0]">
+                            {row.applicationNumber || "—"}
                           </span>
                         </div>
                       </div>
@@ -619,37 +646,41 @@ export default function LoanPipeline() {
 
                     <td
                       onClick={() => openRowPreview(row.applicationId)}
-                      className="cursor-pointer overflow-hidden px-3 py-3 align-middle"
+                      className="px-3 py-3.5 align-middle"
                       title={row.loanType}
                     >
-                      <span className="inline-flex max-w-full truncate rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                      <span className="inline-flex max-w-full truncate rounded-full bg-[#13538A]/10 px-2 py-0.5 text-xs font-medium text-[#13538A] dark:bg-[#13538A]/20 dark:text-[#9fd0f0]">
                         {formatLoanType(row.loanType)}
                       </span>
                     </td>
 
                     <td
                       onClick={() => openRowPreview(row.applicationId)}
-                      className="cursor-pointer overflow-hidden px-3 py-3 align-middle font-mono text-sm text-slate-800 dark:text-slate-200"
+                      className="px-3 py-3.5 align-middle text-right"
                     >
-                      <span className="block truncate">
-                        {row.amount != null ? formatCompactAmount(row.amount) : "—"}
+                      <span className="text-sm font-semibold tabular-nums text-slate-900 dark:text-white">
+                        {row.amount != null
+                          ? formatCompactAmount(row.amount)
+                          : "—"}
                       </span>
                     </td>
 
                     <td
                       onClick={() => openRowPreview(row.applicationId)}
-                      className="cursor-pointer overflow-hidden px-3 py-3 align-middle text-sm text-slate-600 dark:text-slate-400"
+                      className="px-3 py-3.5 align-middle text-sm text-slate-600 dark:text-slate-300"
                       title={row.brokerName}
                     >
-                      <span className="block truncate">{row.brokerName}</span>
+                      <span className="block truncate">
+                        {row.brokerName || "—"}
+                      </span>
                     </td>
 
                     <td
                       onClick={() => openRowPreview(row.applicationId)}
-                      className="cursor-pointer overflow-hidden px-3 py-3 align-middle"
+                      className="px-3 py-3.5 align-middle"
                     >
                       <span
-                        className={`inline-flex max-w-full items-center truncate rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${getApplicationStatusColor(row.applicationStatus)}`}
+                        className={`inline-flex max-w-full items-center truncate rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide ${getApplicationStatusColor(row.applicationStatus)}`}
                         title={formatStatusLabel(row.applicationStatus)}
                       >
                         {formatStatusLabel(row.applicationStatus)}
@@ -658,12 +689,12 @@ export default function LoanPipeline() {
 
                     <td
                       onClick={() => openRowPreview(row.applicationId)}
-                      className="cursor-pointer overflow-hidden px-3 py-3 align-middle text-sm text-slate-500"
+                      className="whitespace-nowrap px-3 py-3.5 align-middle text-sm text-slate-500 dark:text-slate-400"
                     >
-                      <span className="block truncate">{formatShortDate(row.createdAt)}</span>
+                      {formatShortDate(row.createdAt)}
                     </td>
 
-                    <td className="overflow-hidden px-3 py-3 align-middle">
+                    <td className="px-3 py-3.5 align-middle">
                       {row.lenders.length === 0 ? (
                         <span className="text-xs text-slate-400">—</span>
                       ) : (
@@ -674,14 +705,14 @@ export default function LoanPipeline() {
                             setLenderModalQuery("");
                             setViewLenders(row.lenders);
                           }}
-                          className="group/lender flex w-full max-w-[220px] items-start gap-2 rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-2 text-left transition hover:border-[#13538A]/35 hover:bg-white hover:shadow-sm dark:border-slate-700 dark:bg-slate-800/60 dark:hover:border-[#3e86b7]/40 dark:hover:bg-slate-800"
+                          className="group/lender flex w-full max-w-[220px] items-start gap-2 rounded-xl border border-[#13538A]/15 bg-[#13538A]/[0.04] px-2.5 py-2 text-left transition hover:border-[#13538A]/35 hover:bg-white hover:shadow-sm dark:border-[#13538A]/30 dark:bg-[#13538A]/10 dark:hover:bg-slate-800"
                           title={
                             row.lenders.length === 1
                               ? row.lenders[0].lenderName
                               : `View ${row.lenders.length} lenders`
                           }
                         >
-                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#13538A]/10 text-[#13538A] dark:bg-[#13538A]/20 dark:text-[#5ba8d4]">
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#13538A] text-white shadow-sm">
                             <Building2 size={14} />
                           </div>
                           <div className="min-w-0 flex-1">
@@ -690,14 +721,14 @@ export default function LoanPipeline() {
                                 {row.lenders[0].lenderName}
                               </p>
                               {row.lenders.length > 1 ? (
-                                <span className="shrink-0 rounded-full bg-indigo-600 px-1.5 py-0.5 text-[9px] font-bold text-white">
+                                <span className="shrink-0 rounded-full bg-[#13538A] px-1.5 py-0.5 text-[9px] font-bold text-white">
                                   +{row.lenders.length - 1}
                                 </span>
                               ) : null}
                             </div>
                             <div className="mt-1 flex flex-wrap items-center gap-1.5">
                               <span
-                                className={`inline-flex rounded-full border px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide ${getApplicationStatusColor(row.lenders[0].lenderStatus)}`}
+                                className={`inline-flex rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide ${getApplicationStatusColor(row.lenders[0].lenderStatus)}`}
                               >
                                 {formatStatusLabel(row.lenders[0].lenderStatus)}
                               </span>
@@ -711,31 +742,49 @@ export default function LoanPipeline() {
                     </td>
 
                     <td
-                      className="overflow-hidden px-2 py-3 pr-4 text-right align-middle sm:pr-5"
+                      className="overflow-visible px-2 py-3.5 pr-5 text-right align-middle lg:pr-6"
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <button
-                        type="button"
-                        data-dropdown-trigger
-                        data-id={row.applicationId}
-                        title="More actions"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          const rect = e.currentTarget.getBoundingClientRect();
-                          setDropdownPos({
-                            top: rect.bottom + 4,
-                            left: rect.right - 192,
-                          });
-                          setActiveActionId(
+                      <div className="flex shrink-0 items-center justify-end gap-1.5">
+                        <button
+                          type="button"
+                          title="View details"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openRowPreview(row.applicationId);
+                          }}
+                          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#13538A] text-white shadow-sm transition hover:bg-[#0e3d66]"
+                        >
+                          <Eye size={15} />
+                        </button>
+                        <button
+                          type="button"
+                          data-dropdown-trigger
+                          data-id={row.applicationId}
+                          title="More actions"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const rect =
+                              e.currentTarget.getBoundingClientRect();
+                            setDropdownPos({
+                              top: rect.bottom + 4,
+                              left: rect.right - 192,
+                            });
+                            setActiveActionId(
+                              activeActionId === row.applicationId
+                                ? null
+                                : row.applicationId,
+                            );
+                          }}
+                          className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-white shadow-sm transition ${
                             activeActionId === row.applicationId
-                              ? null
-                              : row.applicationId,
-                          );
-                        }}
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 dark:hover:bg-slate-800"
-                      >
-                        <MoreVertical size={16} />
-                      </button>
+                              ? "bg-[#0e3d66]"
+                              : "bg-[#13538A] hover:bg-[#0e3d66]"
+                          }`}
+                        >
+                          <MoreHorizontal size={16} />
+                        </button>
+                      </div>
 
                       {activeActionId === row.applicationId &&
                         createPortal(
@@ -747,7 +796,7 @@ export default function LoanPipeline() {
                               left: dropdownPos.left,
                             }}
                             onMouseDown={(e) => e.stopPropagation()}
-                            className="z-[9999] w-48 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl dark:border-slate-800 dark:bg-slate-900"
+                            className="z-[9999] w-48 overflow-hidden rounded-xl bg-[#13538A] shadow-xl"
                           >
                             <button
                               type="button"
@@ -757,7 +806,7 @@ export default function LoanPipeline() {
                                 setActiveActionId(null);
                                 openRowPreview(row.applicationId);
                               }}
-                              className="flex w-full items-center gap-3 px-4 py-3 text-sm text-[#13538A] hover:bg-slate-50 dark:hover:bg-slate-800"
+                              className="flex w-full items-center gap-3 px-4 py-3 text-sm font-medium text-white hover:bg-[#0e3d66]"
                             >
                               <Eye size={14} />
                               View Details
@@ -772,7 +821,7 @@ export default function LoanPipeline() {
                 <tr>
                   <td colSpan={TABLE_COLUMNS} className="px-6 py-16 text-center">
                     <div className="mx-auto flex max-w-sm flex-col items-center">
-                      <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-400 dark:bg-slate-800">
+                      <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#13538A]/10 text-[#13538A] dark:bg-[#13538A]/20">
                         <SearchX className="h-6 w-6" />
                       </div>
                       <h3 className="text-base font-semibold text-slate-900 dark:text-white">
@@ -792,7 +841,7 @@ export default function LoanPipeline() {
                             setSearchTerm("");
                             setStatusFilter("");
                           }}
-                          className="mt-4 text-sm font-semibold text-[#13538A] hover:underline"
+                          className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-[#13538A] px-4 py-2 text-sm font-medium text-white hover:bg-[#0e3d66]"
                         >
                           Clear filters
                         </button>
@@ -806,14 +855,14 @@ export default function LoanPipeline() {
         </div>
 
         {!loading && total > 0 ? (
-          <div className="flex flex-col gap-3 border-t border-slate-200 px-4 py-3 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between sm:px-5">
-            <p className="text-sm text-slate-500 dark:text-slate-400">
+          <div className="flex flex-col gap-3 border-t border-[#13538A]/10 bg-[#13538A]/[0.03] px-5 py-3.5 dark:border-[#13538A]/20 dark:bg-[#13538A]/10 sm:flex-row sm:items-center sm:justify-between lg:px-6">
+            <p className="text-sm text-[#13538A]/80 dark:text-[#9fd0f0]/80">
               Showing{" "}
-              <span className="font-semibold text-slate-800 dark:text-slate-100">
+              <span className="font-semibold text-[#13538A] dark:text-[#9fd0f0]">
                 {showingFrom}–{showingTo}
               </span>{" "}
               of{" "}
-              <span className="font-semibold text-slate-800 dark:text-slate-100">
+              <span className="font-semibold text-[#13538A] dark:text-[#9fd0f0]">
                 {total}
               </span>{" "}
               application{total === 1 ? "" : "s"}
@@ -825,34 +874,35 @@ export default function LoanPipeline() {
                   type="button"
                   disabled={currentPage === 1 || loading}
                   onClick={() => setCurrentPage((page) => Math.max(page - 1, 1))}
-                  className="inline-flex h-9 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 disabled:opacity-40 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+                  className="inline-flex h-9 items-center gap-1 rounded-lg border border-[#13538A]/20 bg-white px-2.5 text-xs font-semibold text-[#13538A] transition hover:bg-[#13538A]/5 disabled:opacity-40 dark:border-[#13538A]/40 dark:bg-gray-950 dark:text-[#9fd0f0]"
                 >
                   <ChevronLeft size={16} />
                   Prev
                 </button>
-                {getVisiblePageNumbers(currentPage, totalPages).map((page, index) =>
-                  page === "ellipsis" ? (
-                    <span
-                      key={`ellipsis-${index}`}
-                      className="px-1 text-sm text-slate-400"
-                    >
-                      …
-                    </span>
-                  ) : (
-                    <button
-                      key={page}
-                      type="button"
-                      disabled={loading}
-                      onClick={() => setCurrentPage(page)}
-                      className={`inline-flex h-9 min-w-9 items-center justify-center rounded-lg px-2.5 text-xs font-semibold transition ${
-                        currentPage === page
-                          ? "bg-[#13538A] text-white"
-                          : "border border-slate-200 text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
-                      }`}
-                    >
-                      {page}
-                    </button>
-                  ),
+                {getVisiblePageNumbers(currentPage, totalPages).map(
+                  (page, index) =>
+                    page === "ellipsis" ? (
+                      <span
+                        key={`ellipsis-${index}`}
+                        className="px-1 text-sm text-slate-400"
+                      >
+                        …
+                      </span>
+                    ) : (
+                      <button
+                        key={page}
+                        type="button"
+                        disabled={loading}
+                        onClick={() => setCurrentPage(page)}
+                        className={`inline-flex h-9 min-w-9 items-center justify-center rounded-lg px-2.5 text-xs font-semibold transition ${
+                          currentPage === page
+                            ? "bg-[#13538A] text-white shadow-sm"
+                            : "border border-[#13538A]/20 text-[#13538A] hover:bg-[#13538A]/5 dark:border-[#13538A]/40 dark:text-[#9fd0f0] dark:hover:bg-[#13538A]/15"
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    ),
                 )}
                 <button
                   type="button"
@@ -860,7 +910,7 @@ export default function LoanPipeline() {
                   onClick={() =>
                     setCurrentPage((page) => Math.min(page + 1, totalPages))
                   }
-                  className="inline-flex h-9 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 disabled:opacity-40 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+                  className="inline-flex h-9 items-center gap-1 rounded-lg border border-[#13538A]/20 bg-white px-2.5 text-xs font-semibold text-[#13538A] transition hover:bg-[#13538A]/5 disabled:opacity-40 dark:border-[#13538A]/40 dark:bg-gray-950 dark:text-[#9fd0f0]"
                 >
                   Next
                   <ChevronRight size={16} />
@@ -963,7 +1013,7 @@ export default function LoanPipeline() {
                             </p>
                             <div className="mt-3 flex flex-wrap items-center gap-2">
                               <span
-                                className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase ${getApplicationStatusColor(lender.lenderStatus)}`}
+                                className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${getApplicationStatusColor(lender.lenderStatus)}`}
                               >
                                 {formatStatusLabel(lender.lenderStatus)}
                               </span>
