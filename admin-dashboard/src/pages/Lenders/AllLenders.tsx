@@ -2696,193 +2696,191 @@ dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100`}
 
       {isInviteOpen && (
         <div className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/50 backdrop-blur-sm px-4">
-          <div className="w-full max-w-md rounded-2xl overflow-hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-2xl">
+          <div className="w-full max-w-2xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900">
             {/* HEADER */}
-            <div className="flex items-center justify-between px-6 py-4 bg-[#13538A] text-white">
-              <h2 className="text-lg font-semibold flex items-center gap-2">
+            <div className="flex items-center justify-between bg-[#13538A] px-6 py-4 text-white">
+              <h2 className="flex items-center gap-2 text-lg font-semibold">
                 <Users size={18} />
                 Invite Lender
               </h2>
 
               <button
                 onClick={() => setIsInviteOpen(false)}
-                className="text-white/80 hover:text-red-500 text-lg"
+                className="text-lg text-white/80 hover:text-red-500"
               >
                 ✕
               </button>
             </div>
 
             {/* BODY */}
-            <div className="p-6 space-y-5">
+            <div className="space-y-5 p-6">
               {inviteApiError && (
-                <div className="bg-red-50 border border-red-200 text-red-600 text-sm px-3 py-2 rounded-lg">
+                <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
                   {inviteApiError}
                 </div>
               )}
 
-              {/* Company */}
-              <div>
-                <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
-                  Company Name
-                </label>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                {/* Company */}
+                <div>
+                  <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                    Company Name <span className="text-red-500">*</span>
+                  </label>
 
-                <div className="relative mt-1">
-                  <Building2
-                    size={16}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-                  />
+                  <div className="relative mt-1">
+                    <Building2
+                      size={16}
+                      className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                    />
 
-                  <input
-                    type="text"
-                    value={inviteForm.companyName}
-                    onChange={(e) => {
-                      setInviteForm({
-                        ...inviteForm,
-                        companyName: e.target.value,
-                      });
-                      setInviteErrors({ ...inviteErrors, companyName: "" });
-                    }}
-                    placeholder="Enter company name"
-                    className={`w-full pl-9 pr-3 py-2.5 rounded-lg border
-      ${inviteErrors.companyName ? "border-red-500" : "border-slate-300"}
-      dark:border-slate-600
-      bg-white dark:bg-slate-800
-      text-slate-900 dark:text-white`}
-                  />
+                    <input
+                      type="text"
+                      value={inviteForm.companyName}
+                      onChange={(e) => {
+                        setInviteForm({
+                          ...inviteForm,
+                          companyName: e.target.value,
+                        });
+                        setInviteErrors({ ...inviteErrors, companyName: "" });
+                      }}
+                      placeholder="Enter company name"
+                      className={`w-full rounded-lg border bg-white py-2.5 pl-9 pr-3 text-slate-900 dark:border-slate-600 dark:bg-slate-800 dark:text-white ${
+                        inviteErrors.companyName
+                          ? "border-red-500"
+                          : "border-slate-300"
+                      }`}
+                    />
+                  </div>
+
+                  {inviteErrors.companyName && (
+                    <p className="mt-1 text-xs text-red-500">
+                      {inviteErrors.companyName}
+                    </p>
+                  )}
                 </div>
 
-                {inviteErrors.companyName && (
-                  <p className="text-red-500 text-xs mt-1">
-                    {inviteErrors.companyName}
-                  </p>
-                )}
-              </div>
+                {/* Name */}
+                <div>
+                  <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                    Full Name <span className="text-red-500">*</span>
+                  </label>
 
-              {/* Name */}
-              <div>
-                <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
-                  Full Name
-                </label>
+                  <div className="relative mt-1">
+                    <Users
+                      size={16}
+                      className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                    />
 
-                <div className="relative mt-1">
-                  <Users
-                    size={16}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-                  />
+                    <input
+                      type="text"
+                      value={inviteForm.fullName}
+                      onChange={(e) => {
+                        setInviteForm({
+                          ...inviteForm,
+                          fullName: e.target.value,
+                        });
+                        setInviteErrors({ ...inviteErrors, name: "" });
+                      }}
+                      placeholder="Enter lender name"
+                      className={`w-full rounded-lg border bg-white py-2.5 pl-9 pr-3 text-slate-900 dark:border-slate-600 dark:bg-slate-800 dark:text-white ${
+                        inviteErrors.name
+                          ? "border-red-500"
+                          : "border-slate-300"
+                      }`}
+                    />
+                  </div>
 
-                  <input
-                    type="text"
-                    value={inviteForm.fullName}
-                    onChange={(e) => {
-                      setInviteForm({
-                        ...inviteForm,
-                        fullName: e.target.value,
-                      });
-                      setInviteErrors({ ...inviteErrors, name: "" });
-                    }}
-                    placeholder="Enter lender name"
-                    className={`w-full pl-9 pr-3 py-2.5 rounded-lg border
-      ${inviteErrors.name ? "border-red-500" : "border-slate-300"}
-      dark:border-slate-600
-      bg-white dark:bg-slate-800
-      text-slate-900 dark:text-white`}
-                  />
+                  {inviteErrors.name && (
+                    <p className="mt-1 text-xs text-red-500">
+                      {inviteErrors.name}
+                    </p>
+                  )}
                 </div>
 
-                {inviteErrors.name && (
-                  <p className="text-red-500 text-xs mt-1">
-                    {inviteErrors.name}
-                  </p>
-                )}
-              </div>
+                {/* Email */}
+                <div>
+                  <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                    Email Address <span className="text-red-500">*</span>
+                  </label>
 
-              {/* Email */}
-              <div>
-                <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
-                  Email Address
-                </label>
+                  <div className="relative mt-1">
+                    <Mail
+                      size={16}
+                      className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                    />
 
-                <div className="relative mt-1">
-                  <Mail
-                    size={16}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-                  />
-
-                  <input
-                    type="email"
-                    value={inviteForm.email}
-                    onChange={(e) => {
-                      setInviteForm({ ...inviteForm, email: e.target.value });
-                      setInviteErrors({ ...inviteErrors, email: "" });
-                    }}
-                    placeholder="example@email.com"
-                    className={`w-full pl-9 pr-3 py-2.5 rounded-lg border
-      ${inviteErrors.email ? "border-red-500" : "border-slate-300"}
-      dark:border-slate-600
-      bg-white dark:bg-slate-800
-      text-slate-900 dark:text-white`}
-                  />
+                    <input
+                      type="email"
+                      value={inviteForm.email}
+                      onChange={(e) => {
+                        setInviteForm({ ...inviteForm, email: e.target.value });
+                        setInviteErrors({ ...inviteErrors, email: "" });
+                      }}
+                      placeholder="example@email.com"
+                      className={`w-full rounded-lg border bg-white py-2.5 pl-9 pr-3 text-slate-900 dark:border-slate-600 dark:bg-slate-800 dark:text-white ${
+                        inviteErrors.email
+                          ? "border-red-500"
+                          : "border-slate-300"
+                      }`}
+                    />
+                  </div>
+                  {inviteErrors.email && (
+                    <p className="mt-1 text-xs text-red-500">
+                      {inviteErrors.email}
+                    </p>
+                  )}
                 </div>
-                {inviteErrors.email && (
-                  <p className="text-red-500 text-xs mt-1">
-                    {inviteErrors.email}
-                  </p>
-                )}
-              </div>
 
-              {/* Phone */}
-              <div>
-                <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
-                  Phone Number
-                </label>
+                {/* Phone */}
+                <div>
+                  <label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                    Phone Number <span className="text-red-500">*</span>
+                  </label>
 
-                <div className="relative mt-1">
-                  <Phone
-                    size={16}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-                  />
+                  <div className="relative mt-1">
+                    <Phone
+                      size={16}
+                      className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                    />
 
-                  <input
-                    type="text"
-                    value={inviteForm.phone}
-                    onChange={(e) => {
-                      const formatted = formatUSPhone(e.target.value);
+                    <input
+                      type="text"
+                      value={inviteForm.phone}
+                      onChange={(e) => {
+                        const formatted = formatUSPhone(e.target.value);
 
-                      setInviteForm({
-                        ...inviteForm,
-                        phone: formatted,
-                      });
+                        setInviteForm({
+                          ...inviteForm,
+                          phone: formatted,
+                        });
 
-                      setInviteErrors({
-                        ...inviteErrors,
-                        phone: "",
-                      });
-                    }}
-                    placeholder="222-222-2222"
-                    maxLength={12}
-                    className={`w-full pl-9 pr-3 py-2.5 rounded-lg border
-  ${inviteErrors.phone ? "border-red-500" : "border-slate-300"}
-  dark:border-slate-600
-  bg-white dark:bg-slate-800
-  text-slate-900 dark:text-white
-  focus:outline-none focus:ring-2 focus:ring-indigo-500/40`}
-                  />
+                        setInviteErrors({
+                          ...inviteErrors,
+                          phone: "",
+                        });
+                      }}
+                      placeholder="222-222-2222"
+                      maxLength={12}
+                      className={`w-full rounded-lg border bg-white py-2.5 pl-9 pr-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#13538A]/30 dark:border-slate-600 dark:bg-slate-800 dark:text-white ${
+                        inviteErrors.phone
+                          ? "border-red-500"
+                          : "border-slate-300"
+                      }`}
+                    />
+                  </div>
+                  {inviteErrors.phone && (
+                    <p className="mt-1 text-xs text-red-500">
+                      {inviteErrors.phone}
+                    </p>
+                  )}
                 </div>
-                {inviteErrors.phone && (
-                  <p className="text-red-500 text-xs mt-1">
-                    {inviteErrors.phone}
-                  </p>
-                )}
               </div>
 
               {/* ACTIONS */}
-              <div className="flex justify-end gap-3 pt-4">
+              <div className="flex justify-end gap-3 border-t border-slate-100 pt-4 dark:border-slate-800">
                 <button
                   onClick={() => setIsInviteOpen(false)}
-                  className="px-4 py-2 rounded-lg text-sm font-medium
-            border border-slate-300 dark:border-slate-600
-            text-slate-600 dark:text-slate-300
-            hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                  className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-100 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
                 >
                   Cancel
                 </button>
@@ -2890,11 +2888,7 @@ dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100`}
                 <button
                   onClick={handleInvite}
                   disabled={inviteLoading}
-                  className="px-5 py-2.5 rounded-lg text-sm font-semibold text-white
-  bg-[#13538A]
-  hover:bg-[#0f4370]
-  shadow-lg shadow-indigo-500/20
-  active:scale-95 transition disabled:opacity-60"
+                  className="rounded-lg bg-[#13538A] px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-[#13538A]/20 transition hover:bg-[#0f4370] active:scale-95 disabled:opacity-60"
                 >
                   {inviteLoading ? "Sending..." : "Send Invite"}
                 </button>

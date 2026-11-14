@@ -337,6 +337,10 @@ export default function Login() {
                   )}
                 </motion.button>
               </form>
+
+              <p className="mt-8 text-center text-xs text-gray-400 dark:text-gray-500">
+                Developed by Vibrantick Inc
+              </p>
             </motion.div>
           </div>
         </div>

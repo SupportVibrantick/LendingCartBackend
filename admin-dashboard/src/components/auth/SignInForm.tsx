@@ -296,7 +296,7 @@ export default function SignInForm() {
       </form>
 
       <p className="mt-8 text-center text-xs text-gray-400">
-        Developed by Vibrantick Infotech Solutions
+        Developed by Vibrantick Inc
       </p>
     </div>
   );
