@@ -151,13 +151,35 @@ export function parseBrokerLoiNumberInput(rawValue?: string | null) {
   return String(rawValue ?? "").replace(/[$,\s%]/g, "").trim();
 }
 
+/** Standard amortizing schedule for non–interest-only commercial terms. */
+export const BROKER_LOI_STANDARD_AMORT_MONTHS = 360;
+
 function parseTermMonths(label?: string) {
   if (!label) return 0;
+  if (/interest\s*only/i.test(String(label))) return 0;
   const months = String(label).match(/(\d+)\s*Months?/i);
   if (months) return Number(months[1]);
   const years = String(label).match(/(\d+)\s*Years?/i);
   if (years) return Number(years[1]) * 12;
-  return 0;
+  const numeric = Number(String(label).replace(/[^\d.]/g, ""));
+  return Number.isFinite(numeric) && numeric > 0 ? numeric : 0;
+}
+
+export function resolveBrokerLoiInterestOnly(input: {
+  interestOnly?: boolean | null;
+  amortization?: string | null;
+  paymentFrequency?: string | null;
+}) {
+  if (typeof input.interestOnly === "boolean") return input.interestOnly;
+  return (
+    /interest\s*only/i.test(String(input.amortization || "")) ||
+    /interest\s*only/i.test(String(input.paymentFrequency || ""))
+  );
+}
+
+function onlyEnteredFee(value?: string | null) {
+  const trimmed = String(value ?? "").trim();
+  return trimmed ? trimmed : undefined;
 }
 
 function feePointsToAmount(points: string, loanAmount: number | null) {
@@ -210,72 +232,83 @@ export function calculateSuggestedBrokerLoiMetrics(input: {
 
   const originationAsFee = input.originationPoints?.trim()
     ? `${parseBrokerLoiNumberInput(input.originationPoints)}%`
-    : input.originationFeePercent || "2%";
+    : onlyEnteredFee(input.originationFeePercent)
+      ? String(input.originationFeePercent).includes("%")
+        ? String(input.originationFeePercent).trim()
+        : `${parseBrokerLoiNumberInput(input.originationFeePercent)}%`
+      : undefined;
 
   const { totalLoanAmount, financedFees } = getTotalLoanAmountWithFinancedFees({
     approvedAmount: baseLoanAmount,
     originationFeePercent: originationAsFee,
-    exitFee: input.exitFee ?? "0%",
-    processingFee: input.processingFee?.trim()
-      ? input.processingFee
-      : "$995",
-    underwritingFee: input.underwritingFee ?? "$750",
+    exitFee: onlyEnteredFee(input.exitFee),
+    processingFee: onlyEnteredFee(input.processingFee),
+    underwritingFee: onlyEnteredFee(input.underwritingFee),
   });
 
-  const loanAmount = baseLoanAmount;
+  // Ratios + payment use note amount (base + explicit financed fees only).
+  const noteAmount = totalLoanAmount ?? baseLoanAmount;
+  const interestOnly = resolveBrokerLoiInterestOnly({
+    interestOnly: input.interestOnly,
+  });
 
   const ltv =
-    loanAmount && value
-      ? Number(((loanAmount / value) * 100).toFixed(2))
+    noteAmount && value
+      ? Number(((noteAmount / value) * 100).toFixed(2))
       : null;
   const ltc =
-    showRehab && loanAmount && projectCost
-      ? Number(((loanAmount / projectCost) * 100).toFixed(2))
+    showRehab && noteAmount && projectCost
+      ? Number(((noteAmount / projectCost) * 100).toFixed(2))
       : null;
   const arvPercent =
-    showRehab && loanAmount && arv
-      ? Number(((loanAmount / arv) * 100).toFixed(2))
+    showRehab && noteAmount && arv
+      ? Number(((noteAmount / arv) * 100).toFixed(2))
       : null;
 
   let monthlyPayment: number | null = null;
-  const paymentBase = totalLoanAmount ?? loanAmount;
-  if (paymentBase && rate != null && termMonths > 0) {
-    if (input.interestOnly) {
-      monthlyPayment = (paymentBase * rate) / 100 / 12;
+  if (noteAmount && rate != null && (interestOnly || termMonths > 0)) {
+    if (interestOnly) {
+      monthlyPayment = (noteAmount * rate) / 100 / 12;
     } else {
+      const amortMonths = BROKER_LOI_STANDARD_AMORT_MONTHS;
       const monthlyRate = rate / 100 / 12;
       monthlyPayment =
         monthlyRate === 0
-          ? paymentBase / termMonths
-          : (paymentBase * monthlyRate * Math.pow(1 + monthlyRate, termMonths)) /
-            (Math.pow(1 + monthlyRate, termMonths) - 1);
+          ? noteAmount / amortMonths
+          : (noteAmount * monthlyRate * Math.pow(1 + monthlyRate, amortMonths)) /
+            (Math.pow(1 + monthlyRate, amortMonths) - 1);
     }
   }
 
   const originationAmount = feePointsToAmount(
     input.originationPoints || "",
-    loanAmount,
+    baseLoanAmount,
   );
-  const brokerAmount = feePointsToAmount(input.brokerPoints || "", loanAmount);
+  const brokerAmount = feePointsToAmount(
+    input.brokerPoints || "",
+    baseLoanAmount,
+  );
   const processingAmount = feeDollars(input.processingFee || "");
   const appraisalAmount = feeDollars(input.appraisalFee || "");
   const wireAmount = feeDollars(input.wireFee || "");
+  const underwritingAmount = feeDollars(input.underwritingFee || "");
   const totalClosingCosts =
     originationAmount +
     processingAmount +
     appraisalAmount +
     brokerAmount +
-    wireAmount;
+    wireAmount +
+    underwritingAmount;
 
   const reservesPct = toNumber(input.requiredReservesPercent);
   const requiredReservesAmount =
-    loanAmount && reservesPct != null
-      ? Number(((loanAmount * reservesPct) / 100).toFixed(2))
+    baseLoanAmount && reservesPct != null
+      ? Number(((baseLoanAmount * reservesPct) / 100).toFixed(2))
       : null;
 
   return {
     baseLoanAmount,
-    totalLoanAmount: paymentBase,
+    totalLoanAmount: noteAmount,
     financedFees,
     propertyOrCollateralValue: value,
     rehabConstructionCost: rehab,
@@ -444,6 +477,11 @@ export function normalizeBrokerLoiTerms(
   const merged: BrokerLoiTerms = {
     ...DEFAULT_BROKER_LOI_TERMS,
     ...terms,
+    interestOnly: resolveBrokerLoiInterestOnly({
+      interestOnly: terms?.interestOnly,
+      amortization: terms?.amortization,
+      paymentFrequency: terms?.paymentFrequency,
+    }),
     requiredDocuments: terms?.requiredDocuments ?? [],
     specialConditions: terms?.specialConditions ?? [],
     approvedAmount:

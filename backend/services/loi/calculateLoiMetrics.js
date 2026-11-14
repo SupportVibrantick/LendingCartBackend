@@ -133,7 +133,7 @@ function calculateLoiMetrics({
   const termMonths = parseMonthsFromLabel(loanTerm);
   const amortMonths = isInterestOnly(amortization, paymentFrequency)
     ? 0
-    : parseMonthsFromLabel(amortization) || termMonths;
+    : parseMonthsFromLabel(amortization) || 360;
   const property = toNumber(propertyValue);
   const cost = toNumber(projectCost);
 

@@ -67,6 +67,26 @@ export const LOI_DEFAULT_FINANCED_FEES = {
   underwritingFee: "$750",
 };
 
+/** Standard amortizing schedule for non–interest-only commercial terms. */
+export const LOI_STANDARD_AMORT_MONTHS = 360;
+
+export function resolveLoiInterestOnly(input: {
+  interestOnly?: boolean | null;
+  amortization?: string | null;
+  paymentFrequency?: string | null;
+}) {
+  if (typeof input.interestOnly === "boolean") return input.interestOnly;
+  return (
+    /interest\s*only/i.test(String(input.amortization || "")) ||
+    /interest\s*only/i.test(String(input.paymentFrequency || ""))
+  );
+}
+
+function onlyEnteredFee(value?: string | null) {
+  const trimmed = String(value ?? "").trim();
+  return trimmed ? trimmed : undefined;
+}
+
 function toNumber(value: unknown): number | null {
   if (value === null || value === undefined || value === "") return null;
   const numeric = Number(String(value).replace(/[$,\s%]/g, ""));
@@ -106,11 +126,13 @@ export function parseLoiNumberInput(rawValue?: string | null) {
 
 function parseTermMonths(label?: string) {
   if (!label) return 0;
+  if (/interest\s*only/i.test(String(label))) return 0;
   const months = String(label).match(/(\d+)\s*Months?/i);
   if (months) return Number(months[1]);
   const years = String(label).match(/(\d+)\s*Years?/i);
   if (years) return Number(years[1]) * 12;
-  return 0;
+  const numeric = Number(String(label).replace(/[^\d.]/g, ""));
+  return Number.isFinite(numeric) && numeric > 0 ? numeric : 0;
 }
 
 function defaultExpirationDate() {
@@ -186,79 +208,86 @@ export function calculateSuggestedLoiMetrics(input: {
   const termMonths = parseTermMonths(input.loanTerm);
   const showRehab = Boolean(input.showRehabMetrics);
 
-  const originationAsFee =
-    input.originationPoints?.trim()
-      ? `${parseLoiNumberInput(input.originationPoints)}%`
-      : input.originationFeePercent ?? LOI_DEFAULT_FINANCED_FEES.originationFeePercent;
+  const originationAsFee = input.originationPoints?.trim()
+    ? `${parseLoiNumberInput(input.originationPoints)}%`
+    : onlyEnteredFee(input.originationFeePercent)
+      ? String(input.originationFeePercent).includes("%")
+        ? String(input.originationFeePercent).trim()
+        : `${parseLoiNumberInput(input.originationFeePercent)}%`
+      : undefined;
 
   const { totalLoanAmount, financedFees } = getTotalLoanAmountWithFinancedFees({
     approvedAmount: baseLoanAmount,
     originationFeePercent: originationAsFee,
-    exitFee: input.exitFee ?? LOI_DEFAULT_FINANCED_FEES.exitFee,
-    processingFee:
-      input.processingFee?.trim()
-        ? input.processingFee
-        : LOI_DEFAULT_FINANCED_FEES.processingFee,
-    underwritingFee:
-      input.underwritingFee ?? LOI_DEFAULT_FINANCED_FEES.underwritingFee,
+    exitFee: onlyEnteredFee(input.exitFee),
+    processingFee: onlyEnteredFee(input.processingFee),
+    underwritingFee: onlyEnteredFee(input.underwritingFee),
   });
 
-  const loanAmount = baseLoanAmount;
+  const noteAmount = totalLoanAmount ?? baseLoanAmount;
+  const interestOnly = resolveLoiInterestOnly({
+    interestOnly: input.interestOnly,
+  });
 
   const ltv =
-    loanAmount && value
-      ? Number(((loanAmount / value) * 100).toFixed(2))
+    noteAmount && value
+      ? Number(((noteAmount / value) * 100).toFixed(2))
       : null;
   const ltc =
-    showRehab && loanAmount && projectCost
-      ? Number(((loanAmount / projectCost) * 100).toFixed(2))
+    showRehab && noteAmount && projectCost
+      ? Number(((noteAmount / projectCost) * 100).toFixed(2))
       : null;
   const arvPercent =
-    showRehab && loanAmount && arv
-      ? Number(((loanAmount / arv) * 100).toFixed(2))
+    showRehab && noteAmount && arv
+      ? Number(((noteAmount / arv) * 100).toFixed(2))
       : null;
 
   let monthlyPayment: number | null = null;
-  const paymentBase = totalLoanAmount ?? loanAmount;
-  if (paymentBase && rate != null && termMonths > 0) {
-    if (input.interestOnly) {
-      monthlyPayment = (paymentBase * rate) / 100 / 12;
+  if (noteAmount && rate != null && (interestOnly || termMonths > 0)) {
+    if (interestOnly) {
+      monthlyPayment = (noteAmount * rate) / 100 / 12;
     } else {
+      const amortMonths = LOI_STANDARD_AMORT_MONTHS;
       const monthlyRate = rate / 100 / 12;
       if (monthlyRate === 0) {
-        monthlyPayment = paymentBase / termMonths;
+        monthlyPayment = noteAmount / amortMonths;
       } else {
         monthlyPayment =
-          (paymentBase * monthlyRate * Math.pow(1 + monthlyRate, termMonths)) /
-          (Math.pow(1 + monthlyRate, termMonths) - 1);
+          (noteAmount * monthlyRate * Math.pow(1 + monthlyRate, amortMonths)) /
+          (Math.pow(1 + monthlyRate, amortMonths) - 1);
       }
     }
   }
 
   const originationAmount = feePointsToAmount(
     input.originationPoints || "",
-    loanAmount,
+    baseLoanAmount,
   );
-  const brokerAmount = feePointsToAmount(input.brokerPoints || "", loanAmount);
+  const brokerAmount = feePointsToAmount(
+    input.brokerPoints || "",
+    baseLoanAmount,
+  );
   const processingAmount = feeDollars(input.processingFee || "");
   const appraisalAmount = feeDollars(input.appraisalFee || "");
   const wireAmount = feeDollars(input.wireFee || "");
+  const underwritingAmount = feeDollars(input.underwritingFee || "");
   const totalClosingCosts =
     originationAmount +
     processingAmount +
     appraisalAmount +
     brokerAmount +
-    wireAmount;
+    wireAmount +
+    underwritingAmount;
 
   const reservesPct = toNumber(input.requiredReservesPercent);
   const requiredReservesAmount =
-    loanAmount && reservesPct != null
-      ? Number(((loanAmount * reservesPct) / 100).toFixed(2))
+    baseLoanAmount && reservesPct != null
+      ? Number(((baseLoanAmount * reservesPct) / 100).toFixed(2))
       : null;
 
   return {
     baseLoanAmount,
-    totalLoanAmount: paymentBase,
+    totalLoanAmount: noteAmount,
     financedFees,
     propertyOrCollateralValue: value,
     rehabConstructionCost: rehab,
@@ -390,7 +419,16 @@ export function mapStoredLoiTermsToForm(
       record.monthlyPayment != null && record.monthlyPayment !== ""
         ? formatLoiNumberInput(stringifyFormField(record.monthlyPayment))
         : "",
-    interestOnly: Boolean(record.interestOnly),
+    interestOnly: resolveLoiInterestOnly({
+      interestOnly:
+        typeof record.interestOnly === "boolean" ? record.interestOnly : null,
+      amortization:
+        record.amortization != null ? String(record.amortization) : null,
+      paymentFrequency:
+        record.paymentFrequency != null
+          ? String(record.paymentFrequency)
+          : null,
+    }),
     loanTerm: record.loanTerm ? String(record.loanTerm) : "12 Months",
     originationPoints: record.originationPoints
       ? formatLoiNumberInput(stringifyFormField(record.originationPoints))
@@ -644,7 +682,10 @@ export function serializeLoiUnderwritingTerms(
 
   const originationPoints = toNumber(terms.originationPoints);
   const originationFeePercent =
-    originationPoints != null ? `${originationPoints}%` : "2%";
+    originationPoints != null ? `${originationPoints}%` : "";
+  const interestOnly = resolveLoiInterestOnly({
+    interestOnly: terms.interestOnly,
+  });
 
   return {
     approvedAmount,
@@ -654,9 +695,9 @@ export function serializeLoiUnderwritingTerms(
     variableRateIndex: null,
     variableRateSpread: null,
     loanTerm: terms.loanTerm,
-    amortization: terms.interestOnly ? "Interest Only" : "30 Years",
-    paymentFrequency: terms.interestOnly ? "Interest Only" : "Monthly",
-    interestOnly: terms.interestOnly,
+    amortization: interestOnly ? "Interest Only" : "30 Years",
+    paymentFrequency: interestOnly ? "Interest Only" : "Monthly",
+    interestOnly,
     collateralOrPropertyValue,
     propertyValue: usesCollateral ? null : collateralOrPropertyValue,
     collateralValue: usesCollateral ? collateralOrPropertyValue : null,
@@ -685,7 +726,7 @@ export function serializeLoiUnderwritingTerms(
     originationFeePercent,
     processingFee: terms.processingFee
       ? `$${parseLoiNumberInput(terms.processingFee)}`
-      : LOI_DEFAULT_FINANCED_FEES.processingFee,
+      : "",
     appraisalFee: terms.appraisalFee
       ? `$${parseLoiNumberInput(terms.appraisalFee)}`
       : "",
@@ -699,8 +740,8 @@ export function serializeLoiUnderwritingTerms(
     requiredReservesAmount:
       suggested.requiredReservesAmount ??
       toNumber(terms.requiredReservesAmount),
-    exitFee: LOI_DEFAULT_FINANCED_FEES.exitFee,
-    underwritingFee: LOI_DEFAULT_FINANCED_FEES.underwritingFee,
+    exitFee: "",
+    underwritingFee: "",
     legalFee: "Borrower Pays",
     appraisalRequired: "Yes",
     environmentalReport: "Required",

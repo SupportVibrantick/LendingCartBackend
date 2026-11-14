@@ -132,7 +132,7 @@ export function calculateLoiMetricsPreview(input: LoiCalculatedMetricsInput) {
   const termMonths = parseMonthsFromLabel(input.loanTerm);
   const amortMonths = isInterestOnly(input.amortization, input.paymentFrequency)
     ? 0
-    : parseMonthsFromLabel(input.amortization) || termMonths;
+    : parseMonthsFromLabel(input.amortization) || 360;
   const property = toMetricNumber(input.propertyValue);
   const cost = toMetricNumber(input.projectCost);
 

@@ -336,7 +336,11 @@ function normalizeLenderTerms(lenderTerms = {}) {
   const approvedAmount = toPositiveNumber(lenderTerms.approvedAmount);
   if (!approvedAmount) return null;
 
-  const interestOnly = Boolean(lenderTerms.interestOnly);
+  const interestOnly =
+    typeof lenderTerms.interestOnly === "boolean"
+      ? lenderTerms.interestOnly
+      : /interest\s*only/i.test(String(lenderTerms.amortization || "")) ||
+        /interest\s*only/i.test(String(lenderTerms.paymentFrequency || ""));
 
   const closingConditions = Array.isArray(lenderTerms.closingConditions)
     ? lenderTerms.closingConditions
@@ -635,12 +639,15 @@ function buildLoiTemplateData({
         lenderTerms?.maximumLtcPercent != null ||
         lenderTerms?.maximumArvPercent != null));
 
+  const ratioPrincipal =
+    totalLoanAmountNumeric || baseLoanAmountNumeric;
+
   const ltvNumeric =
     lenderTerms?.ltvPercent ??
     calculatedMetrics.ltv ??
     ltvFromFields ??
-    (baseLoanAmountNumeric && propertyValueNumeric
-      ? (baseLoanAmountNumeric / propertyValueNumeric) * 100
+    (ratioPrincipal && propertyValueNumeric
+      ? (ratioPrincipal / propertyValueNumeric) * 100
       : null);
 
   const ltcNumeric = showRehabMetrics
@@ -649,8 +656,8 @@ function buildLoiTemplateData({
 
   const arvNumeric = showRehabMetrics
     ? (lenderTerms?.arvPercent ??
-      (baseLoanAmountNumeric && afterRepairValueNumeric
-        ? (baseLoanAmountNumeric / afterRepairValueNumeric) * 100
+      (ratioPrincipal && afterRepairValueNumeric
+        ? (ratioPrincipal / afterRepairValueNumeric) * 100
         : pickNumericField(fieldMap, "arvPercentage", "arvPercent")))
     : null;
 
@@ -658,26 +665,33 @@ function buildLoiTemplateData({
     parseLoanTermMonths(lenderTerms?.loanTerm) ||
     Number(pickField(fieldMap, "loanTerm", "termMonths", "term_months"));
 
-  const monthlyPayment =
-    formattedMetrics.monthlyPayment ||
-    (lenderTerms?.monthlyPayment
+  // Prefer the payment stored on the term sheet; only recalculate as fallback.
+  const storedMonthlyPayment =
+    lenderTerms?.monthlyPayment != null && lenderTerms.monthlyPayment !== ""
       ? formatCurrency(lenderTerms.monthlyPayment)
-      : null) ||
-    (/interest\s*only/i.test(amortizationLabel) ||
+      : null;
+  const isInterestOnlyPayment =
+    /interest\s*only/i.test(amortizationLabel) ||
     /interest\s*only/i.test(lenderTerms?.paymentFrequency || "") ||
-    lenderTerms?.interestOnly ||
-    (typeof interestRateRaw === "string" && /sofr|\+|prime/i.test(interestRateRaw))
-      ? formatCurrency(
-          calculatedMetrics.monthlyPayment ??
-            (totalLoanAmountNumeric && interestRateNumeric
-              ? (totalLoanAmountNumeric * interestRateNumeric) / 100 / 12
-              : null),
-        )
-      : calculateMonthlyPayment(
-          totalLoanAmountNumeric || 0,
-          interestRateNumeric || 0,
-          loanTermMonths || 0,
-        ) || "P & I");
+    Boolean(lenderTerms?.interestOnly) ||
+    (typeof interestRateRaw === "string" &&
+      /sofr|\+|prime/i.test(interestRateRaw));
+  const fallbackMonthlyPayment = isInterestOnlyPayment
+    ? formatCurrency(
+        calculatedMetrics.monthlyPayment ??
+          (totalLoanAmountNumeric && interestRateNumeric
+            ? (totalLoanAmountNumeric * interestRateNumeric) / 100 / 12
+            : null),
+      )
+    : calculateMonthlyPayment(
+        totalLoanAmountNumeric || 0,
+        interestRateNumeric || 0,
+        360,
+      ) || "P & I";
+  const monthlyPayment =
+    storedMonthlyPayment ||
+    formattedMetrics.monthlyPayment ||
+    fallbackMonthlyPayment;
 
   const brokerPoints =
     lenderTerms?.brokerPoints != null
@@ -778,6 +792,14 @@ function buildLoiTemplateData({
     baseLoanAmountNumeric,
     brokerPoints,
   );
+  const brokerFindersFeeAmountNumeric = parseFeeAmount(
+    brokerPoints != null && brokerPoints !== ""
+      ? String(brokerPoints).includes("%")
+        ? String(brokerPoints)
+        : `${brokerPoints}%`
+      : "",
+    baseLoanAmountNumeric,
+  );
   const totalClosingCostsNumeric =
     toPositiveNumber(lenderTerms?.totalClosingCosts) ??
     (() => {
@@ -785,7 +807,7 @@ function buildLoiTemplateData({
         (originationFeeAmountNumeric || 0) +
         (processingFeeAmountNumeric || 0) +
         (appraisalFeeAmountNumeric || 0) +
-        (brokerFindersFeeAmount || 0) +
+        (brokerFindersFeeAmountNumeric || 0) +
         (wireFeeAmountNumeric || 0);
       return sum > 0 ? sum : null;
     })();
@@ -869,8 +891,8 @@ function buildLoiTemplateData({
     amountRequested: formatCurrency(requestedAmountNumeric),
     requestedLoanAmount: formatCurrency(baseLoanAmountNumeric),
     totalFinancedLoanAmount: formatCurrency(totalLoanAmountNumeric),
-    loanRequest: formatCurrency(totalLoanAmountNumeric),
-    approvedAmount: formatCurrency(totalLoanAmountNumeric),
+    loanRequest: formatCurrency(baseLoanAmountNumeric),
+    approvedAmount: formatCurrency(baseLoanAmountNumeric),
     baseLoanAmount: formatCurrency(baseLoanAmountNumeric),
     financedFees: formatCurrency(calculatedMetrics.financedFees),
     originationFeeLabel,
