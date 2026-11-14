@@ -1,5 +1,6 @@
 import {
   ArrowRight,
+  Building2,
   ChevronLeft,
   ChevronRight,
   Eye,
@@ -202,27 +203,12 @@ export default function LatestApplicationsTable() {
   };
 
   const formatAmount = (amount?: number | string | null) => {
-    if (amount == null || amount === "") return "—";
-    const value = Number(amount);
-    if (Number.isNaN(value) || value <= 0) return "—";
-    if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`;
-    if (value >= 1_000) return `$${(value / 1_000).toFixed(value >= 10_000 ? 0 : 1)}K`;
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-      maximumFractionDigits: 0,
-    }).format(value);
-  };
-
-  const formatLenders = (app: LatestApplication) => {
-    const count = app.lenderCount ?? 0;
-    const names = app.lenderNames;
-
-    if (count > 0 && names?.length) {
-      return names.length === 1 ? names[0] : `${count} lenders`;
-    }
-
-    return count > 0 ? String(count) : "—";
+    const value = Number(amount) || 0;
+    if (!Number.isFinite(value) || value <= 0) return "$0";
+    if (value >= 1e9) return `$${(value / 1e9).toFixed(1).replace(/\.0$/, "")}B`;
+    if (value >= 1e6) return `$${(value / 1e6).toFixed(1).replace(/\.0$/, "")}M`;
+    if (value >= 1e3) return `$${(value / 1e3).toFixed(1).replace(/\.0$/, "")}K`;
+    return `$${value.toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
   };
 
   const visiblePages = (() => {
@@ -413,17 +399,34 @@ export default function LatestApplicationsTable() {
                     </span>
                   </td>
 
-                  <td
-                    className="px-3 py-3.5 align-middle"
-                    title={
-                      app.lenderNames?.length
-                        ? app.lenderNames.join(", ")
-                        : undefined
-                    }
-                  >
-                    <span className="inline-flex max-w-full truncate rounded-md bg-[#13538A]/[0.07] px-2 py-0.5 text-xs font-medium text-[#0e3d66] dark:bg-[#13538A]/15 dark:text-[#c5e4f6]">
-                      {formatLenders(app)}
-                    </span>
+                  <td className="px-3 py-3.5 align-middle">
+                    {(app.lenderCount ?? 0) > 0 ? (
+                      <div
+                        className="flex min-w-0 items-center gap-1.5"
+                        title={
+                          app.lenderNames?.length
+                            ? app.lenderNames.join(", ")
+                            : undefined
+                        }
+                      >
+                        <span className="inline-flex max-w-full truncate rounded-full bg-[#13538A]/10 px-2 py-0.5 text-xs font-medium text-[#13538A] dark:bg-[#13538A]/20 dark:text-[#9fd0f0]">
+                          {app.lenderNames?.length === 1
+                            ? app.lenderNames[0]
+                            : app.lenderNames?.[0] ||
+                              `${app.lenderCount} lenders`}
+                        </span>
+                        {(app.lenderCount ?? 0) > 1 ? (
+                          <span className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-[#13538A] px-1.5 text-[10px] font-semibold text-white">
+                            +{(app.lenderCount ?? 1) - 1}
+                          </span>
+                        ) : null}
+                      </div>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 rounded-full border border-dashed border-[#13538A]/25 px-2 py-0.5 text-[11px] text-[#13538A]/55">
+                        <Building2 className="h-3 w-3" />
+                        Not sent
+                      </span>
+                    )}
                   </td>
 
                   <td className="px-3 py-3.5 align-middle text-right">
