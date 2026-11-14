@@ -77,11 +77,13 @@ function formatLoanType(code?: string) {
   return code.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-function formatCompactAmount(value: number) {
-  if (!value || Number.isNaN(value)) return "—";
-  if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(value % 1_000_000 === 0 ? 0 : 1)}M`;
-  if (value >= 1_000) return `$${(value / 1_000).toFixed(value % 1_000 === 0 ? 0 : 1)}K`;
-  return `$${value.toLocaleString()}`;
+function formatCompactAmount(value?: number | null) {
+  const num = Number(value) || 0;
+  if (!Number.isFinite(num) || num <= 0) return "$0";
+  if (num >= 1e9) return `$${(num / 1e9).toFixed(1).replace(/\.0$/, "")}B`;
+  if (num >= 1e6) return `$${(num / 1e6).toFixed(1).replace(/\.0$/, "")}M`;
+  if (num >= 1e3) return `$${(num / 1e3).toFixed(1).replace(/\.0$/, "")}K`;
+  return `$${num.toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
 }
 
 function formatShortDate(value?: string) {
@@ -659,9 +661,7 @@ export default function LoanPipeline() {
                       className="px-3 py-3.5 align-middle text-right"
                     >
                       <span className="text-sm font-semibold tabular-nums text-slate-900 dark:text-white">
-                        {row.amount != null
-                          ? formatCompactAmount(row.amount)
-                          : "—"}
+                        {formatCompactAmount(row.amount)}
                       </span>
                     </td>
 
@@ -671,7 +671,7 @@ export default function LoanPipeline() {
                       title={row.brokerName}
                     >
                       <span className="block truncate">
-                        {row.brokerName || "—"}
+                        {row.brokerName || "Unknown broker"}
                       </span>
                     </td>
 
@@ -696,7 +696,10 @@ export default function LoanPipeline() {
 
                     <td className="px-3 py-3.5 align-middle">
                       {row.lenders.length === 0 ? (
-                        <span className="text-xs text-slate-400">—</span>
+                        <span className="inline-flex items-center gap-1.5 rounded-full border border-dashed border-[#13538A]/25 px-2 py-0.5 text-[11px] text-[#13538A]/55">
+                          <Building2 className="h-3 w-3" />
+                          Not sent
+                        </span>
                       ) : (
                         <button
                           type="button"
