@@ -1,4 +1,4 @@
-import { Check } from "lucide-react";
+import { Check, X } from "lucide-react";
 import { PLAN_COMPARISON_ROWS } from "../data/planComparison";
 
 /**
@@ -6,7 +6,7 @@ import { PLAN_COMPARISON_ROWS } from "../data/planComparison";
  */
 function formatPrice(value) {
   const num = Number(value);
-  if (Number.isNaN(num)) return "—";
+  if (Number.isNaN(num)) return "";
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
@@ -30,10 +30,14 @@ function ComparisonCell({ value }) {
   if (value === false || value == null) {
     return (
       <span
-        className="text-base leading-none text-slate-400 dark:text-gray-600"
+        className="inline-flex items-center justify-center"
         aria-label="Not included"
       >
-        —
+        <X
+          className="text-slate-300 dark:text-gray-600"
+          size={16}
+          strokeWidth={2.25}
+        />
       </span>
     );
   }
