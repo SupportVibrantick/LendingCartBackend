@@ -6,13 +6,16 @@ type SaleDetailsCardProps = {
   onVendorNameChange: (value: string) => void;
   onVendorPhoneChange: (value: string) => void;
   formatUSPhone: (value: string) => string;
-  /** Equipment Finance keeps vendor/dealer wording; all other programs use Seller. */
-  isEquipmentFinance?: boolean;
+  /**
+   * Equipment loans: Private Sale ON → Seller; OFF → Vendor/Dealer.
+   * Other programs keep Seller labels regardless of the toggle.
+   */
+  isEquipmentLoan?: boolean;
 };
 
 /**
- * Sale Details card for the Property Info step.
- * Captures a private-sale flag plus seller (or equipment vendor) name & phone.
+ * Sale Details card for the Property / Collateral Info step.
+ * Captures a private-sale flag plus seller or vendor/dealer name & phone.
  */
 export default function SaleDetailsCard({
   privateSale,
@@ -22,17 +25,14 @@ export default function SaleDetailsCard({
   onVendorNameChange,
   onVendorPhoneChange,
   formatUSPhone,
-  isEquipmentFinance = false,
+  isEquipmentLoan = false,
 }: SaleDetailsCardProps) {
-  const nameLabel = isEquipmentFinance
-    ? "Equipment Vendor / Dealer / Seller"
-    : "Seller";
-  const namePlaceholder = isEquipmentFinance
-    ? "Vendor / Dealer / Seller name"
+  const useVendorLabels = isEquipmentLoan && !privateSale;
+  const nameLabel = useVendorLabels ? "Vendor/Dealer Name" : "Seller name";
+  const namePlaceholder = useVendorLabels
+    ? "Vendor/Dealer name"
     : "Seller name";
-  const phoneLabel = isEquipmentFinance
-    ? "Vendor / Dealer / Seller Phone"
-    : "Seller Phone";
+  const phoneLabel = useVendorLabels ? "Vendor/Dealer Phone" : "Seller Phone";
 
   return (
     <div className="mt-5 rounded-lg border border-slate-200 bg-slate-50/60 p-4 dark:border-slate-700 dark:bg-slate-900/40">

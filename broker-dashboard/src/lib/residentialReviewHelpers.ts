@@ -2,6 +2,7 @@ import type { PendingApplicationDocument } from "./applicationDocumentTypes";
 import type { ResidentialFinancials } from "./residentialFinancials";
 import {
   isSba7aAcquisitionProduct,
+  isSba7aEquipmentProduct,
   isSbaRealEstateCollateralProduct,
 } from "./sba7aAcquisition";
 import {
@@ -113,6 +114,11 @@ export const buildResidentialReviewSections = ({
   const isSba7aAcquisition = isSba7aAcquisitionProduct(selectedProduct);
   const isSba7aRealEstate = isSbaRealEstateCollateralProduct(selectedProduct);
   const isEquipmentFinance = isEquipmentFinanceProduct(selectedProduct);
+  const isEquipmentLoan =
+    isSba7aEquipmentProduct(selectedProduct) ||
+    isEquipmentFinance ||
+    (selectedProduct === "USDA_BI" &&
+      loanRequest.purpose === "Equipment Purchase");
   const isCrePermanent = selectedProduct === "CRE_PERMANENT_LOAN";
   const isAgencyMultifamily = selectedProduct === "AGENCY_LOAN_MULTIFAMILY";
   const isBridge =
@@ -124,13 +130,22 @@ export const buildResidentialReviewSections = ({
     purpose === "Purchase & Rehab" ||
     purpose === "Purchase" ||
     purpose === "Portfolio Blanket" ||
+    purpose === "New Equipment" ||
+    purpose === "Used Equipment" ||
+    purpose === "New Equipment Purchase" ||
+    purpose === "Used Equipment Purchase" ||
+    purpose === "Equipment Purchase" ||
     isConstruction ||
     isRentalPortfolio ||
     isMezzanine ||
     isSba7aAcquisition ||
     showAblBase44PurchasePrice(selectedProduct, purpose) ||
     isSba7aRealEstate ||
-    (isBridge && purpose === "Purchase/Acquisition");
+    (isBridge && purpose === "Purchase/Acquisition") ||
+    (isEquipmentLoan &&
+      purpose !== "Refinance Existing Equipment" &&
+      purpose !== "Equipment Line" &&
+      purpose !== "Refinance/Consolidation");
   const showMarketValue =
     purpose === "Refinance (Rate & Term)" ||
     purpose === "Cash Out Refinance" ||
@@ -181,19 +196,20 @@ export const buildResidentialReviewSections = ({
     });
   }
 
+  const equipmentUsesVendorLabels =
+    isEquipmentLoan && !loanRequest.privateSale;
+
   if (loanRequest.vendorName?.trim()) {
     propertyRows.push({
-      label: isEquipmentFinance
-        ? "Equipment Vendor / Dealer / Seller"
-        : "Seller",
+      label: equipmentUsesVendorLabels ? "Vendor/Dealer Name" : "Seller name",
       value: loanRequest.vendorName.trim(),
     });
   }
 
   if (loanRequest.vendorPhone?.trim()) {
     propertyRows.push({
-      label: isEquipmentFinance
-        ? "Vendor / Dealer / Seller Phone"
+      label: equipmentUsesVendorLabels
+        ? "Vendor/Dealer Phone"
         : "Seller Phone",
       value: loanRequest.vendorPhone.trim(),
     });

@@ -5,6 +5,7 @@
 
 import {
   isSba7aAcquisitionProduct,
+  isSba7aEquipmentProduct,
   isSbaRealEstateCollateralProduct,
   isSbaBase44Product,
   SBA_7A_ACQUISITION_BUSINESS_TYPES,
@@ -21,6 +22,41 @@ import {
   showEquipmentFinanceMarketValue,
   ABL_PROPERTY_TYPE_OPTIONS_BY_PRODUCT,
 } from "../../lib/ablBase44";
+
+/** SBA Equipment, Equipment Finance, or USDA B&I equipment purchase. */
+export const isEquipmentLoanProduct = (product: string, purpose = "") =>
+  isSba7aEquipmentProduct(product) ||
+  isEquipmentFinanceProduct(product) ||
+  (product === "USDA_BI" && purpose === "Equipment Purchase");
+
+const EQUIPMENT_PURCHASE_PURPOSES = new Set([
+  "Equipment Purchase",
+  "New Equipment Purchase",
+  "Used Equipment Purchase",
+  "New Equipment",
+  "Used Equipment",
+]);
+
+const EQUIPMENT_NON_PURCHASE_PURPOSES = new Set([
+  "Refinance Existing Equipment",
+  "Equipment Line",
+  "Refinance/Consolidation",
+]);
+
+/** Purchase Price + Down Payment on Loan Request for equipment products. */
+export const showEquipmentPurchaseDownPayment = (
+  product: string,
+  purpose: string,
+) => {
+  if (EQUIPMENT_NON_PURCHASE_PURPOSES.has(purpose)) return false;
+
+  if (isSba7aEquipmentProduct(product) || isEquipmentFinanceProduct(product)) {
+    if (!purpose) return true;
+    return EQUIPMENT_PURCHASE_PURPOSES.has(purpose);
+  }
+
+  return product === "USDA_BI" && purpose === "Equipment Purchase";
+};
 // (isBase44BusinessCollateralProduct was previously imported here but is
 // only referenced inside LoanApplication.tsx, so the import is no longer
 // needed at this module level.)
@@ -583,6 +619,10 @@ export const showEquityDownPaymentBlock = (
     return false;
   }
 
+  if (showEquipmentPurchaseDownPayment(product, purpose)) {
+    return true;
+  }
+
   if ((purpose == "Purchase/Acquisition") ||
     (product === "DSCR_LOAN_1_TO_4_UNITS" && purpose === "Purchase") ||
     (purpose === "Purchase") ||
@@ -595,7 +635,9 @@ export const showEquityDownPaymentBlock = (
     (purpose === "Real Estate Purchase") ||
     (purpose === "Equipment Purchase") ||
     (purpose === "New Equipment Purchase") ||
-    (purpose === "Used Equipment Purchase")
+    (purpose === "Used Equipment Purchase") ||
+    (purpose === "New Equipment") ||
+    (purpose === "Used Equipment")
   ) {
     return true
   }
