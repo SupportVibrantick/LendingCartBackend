@@ -8,10 +8,11 @@ import {
 } from "../../lib/brokerDashboardStats";
 import {
   BadgeDollarSign,
-  Building2,
-  CheckCircle,
-  Clock,
+  CheckCircle2,
+  Clock3,
+  FilePenLine,
   FileText,
+  Landmark,
   Send,
 } from "lucide-react";
 
@@ -26,43 +27,50 @@ const KPI_CONFIG = [
     key: "totalApplications",
     label: "Applications",
     icon: FileText,
-    tone: "bg-[#13538A]/10 text-[#13538A]",
-    accent: "border-l-[#13538A]",
+    iconWrap: "bg-[#13538A]/10 text-[#13538A]",
+    ring: "hover:ring-[#13538A]/20",
   },
   {
     key: "totalSubmitted",
     label: "Submitted",
     icon: Send,
-    tone: "bg-sky-50 text-sky-600",
-    accent: "border-l-sky-500",
+    iconWrap: "bg-sky-50 text-sky-600",
+    ring: "hover:ring-sky-200",
+  },
+  {
+    key: "totalIncomplete",
+    label: "Incomplete",
+    icon: FilePenLine,
+    iconWrap: "bg-amber-50 text-amber-600",
+    ring: "hover:ring-amber-200",
   },
   {
     key: "totalInReview",
     label: "In Review",
-    icon: Clock,
-    tone: "bg-amber-50 text-amber-600",
-    accent: "border-l-amber-500",
+    icon: Clock3,
+    iconWrap: "bg-indigo-50 text-indigo-600",
+    ring: "hover:ring-indigo-200",
   },
   {
     key: "totalApproved",
     label: "Approved",
-    icon: CheckCircle,
-    tone: "bg-emerald-50 text-emerald-600",
-    accent: "border-l-emerald-500",
+    icon: CheckCircle2,
+    iconWrap: "bg-emerald-50 text-emerald-600",
+    ring: "hover:ring-emerald-200",
   },
   {
     key: "totalFunded",
     label: "Funded",
-    icon: BadgeDollarSign,
-    tone: "bg-violet-50 text-violet-600",
-    accent: "border-l-violet-500",
+    icon: Landmark,
+    iconWrap: "bg-teal-50 text-teal-700",
+    ring: "hover:ring-teal-200",
   },
   {
     key: "totalVolumeFunded",
     label: "Funded Volume",
-    icon: Building2,
-    tone: "bg-teal-50 text-teal-700",
-    accent: "border-l-teal-600",
+    icon: BadgeDollarSign,
+    iconWrap: "bg-violet-50 text-violet-600",
+    ring: "hover:ring-violet-200",
     isCurrency: true,
   },
 ] as const;
@@ -72,7 +80,6 @@ function shouldShowComparison(comparison?: MetricComparison) {
   if (comparison.changePercent === null || comparison.changePercent === undefined) {
     return false;
   }
-  // Avoid noisy -100% cards when the prior period had almost no activity.
   if (comparison.previous > 0 && comparison.previous < 3 && comparison.current === 0) {
     return false;
   }
@@ -90,12 +97,12 @@ function ComparisonBadge({ comparison }: { comparison?: MetricComparison }) {
 
   return (
     <span
-      className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-[11px] font-semibold ${
+      className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
         positive
           ? "bg-emerald-50 text-emerald-700"
           : negative
             ? "bg-rose-50 text-rose-700"
-            : "bg-gray-100 text-gray-600"
+            : "bg-slate-100 text-slate-500"
       }`}
     >
       {label}
@@ -105,10 +112,11 @@ function ComparisonBadge({ comparison }: { comparison?: MetricComparison }) {
 
 function SkeletonCard() {
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
-      <div className="animate-pulse space-y-2">
+    <div className="rounded-2xl border border-slate-200/80 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
+      <div className="animate-pulse space-y-3">
+        <div className="h-9 w-9 rounded-xl bg-gray-200 dark:bg-gray-700" />
         <div className="h-3 w-20 rounded bg-gray-200 dark:bg-gray-700" />
-        <div className="h-7 w-16 rounded bg-gray-200 dark:bg-gray-700" />
+        <div className="h-6 w-14 rounded bg-gray-200 dark:bg-gray-700" />
       </div>
     </div>
   );
@@ -121,8 +129,8 @@ export default function EcommerceMetrics({
 }: Props) {
   if (loading) {
     return (
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
-        {Array.from({ length: 6 }).map((_, i) => (
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
+        {Array.from({ length: 7 }).map((_, i) => (
           <SkeletonCard key={i} />
         ))}
       </div>
@@ -132,7 +140,7 @@ export default function EcommerceMetrics({
   if (!stats) return null;
 
   return (
-    <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
       {KPI_CONFIG.map((item) => {
         const rawValue = Number(stats[item.key as BrokerMetricKey] ?? 0) || 0;
         const value =
@@ -146,24 +154,22 @@ export default function EcommerceMetrics({
             key={item.key}
             type="button"
             onClick={() => onStatClick?.(item.key)}
-            className={`rounded-xl border border-gray-200 border-l-4 bg-white p-4 text-left transition hover:shadow-sm dark:border-gray-800 dark:bg-gray-900 ${item.accent}`}
+            className={`group rounded-2xl border border-slate-200/80 bg-white p-3.5 text-left shadow-[0_8px_20px_rgba(15,23,42,0.04)] ring-1 ring-transparent transition hover:-translate-y-0.5 hover:shadow-[0_14px_28px_rgba(15,23,42,0.08)] dark:border-gray-800 dark:bg-gray-900 ${item.ring}`}
           >
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
-                {item.label}
-              </p>
+            <div className="flex items-start justify-between gap-2">
               <span
-                className={`flex h-8 w-8 items-center justify-center rounded-lg ${item.tone}`}
+                className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${item.iconWrap}`}
               >
-                <item.icon className="h-4 w-4" />
+                <item.icon className="h-5 w-5" />
               </span>
-            </div>
-            <div className="mt-2 flex items-end justify-between gap-2">
-              <p className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
-                {value}
-              </p>
               <ComparisonBadge comparison={comparison} />
             </div>
+            <p className="mt-3 text-[12px] font-medium leading-tight text-slate-500">
+              {item.label}
+            </p>
+            <p className="mt-1.5 text-[22px] font-bold leading-none tracking-tight text-slate-900 dark:text-white">
+              {value}
+            </p>
           </button>
         );
       })}

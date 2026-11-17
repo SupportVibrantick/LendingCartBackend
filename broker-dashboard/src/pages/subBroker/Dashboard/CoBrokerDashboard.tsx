@@ -63,6 +63,7 @@ const PERIOD_OPTIONS: { value: DashboardPeriod; label: string }[] = [
 
 const STATUS_TO_PIPELINE: Record<string, string> = {
   DRAFT: "DRAFT",
+  INCOMPLETE: "INCOMPLETE",
   CLIENT_PENDING: "CLIENT_PENDING",
   SUBMITTED: "SUBMITTED",
   IN_REVIEW: "IN_REVIEW",
@@ -77,6 +78,7 @@ const STATUS_TO_PIPELINE: Record<string, string> = {
 const METRIC_TO_PIPELINE: Record<string, string | undefined> = {
   totalApplications: undefined,
   totalSubmitted: "SUBMITTED",
+  totalIncomplete: "INCOMPLETE",
   totalInReview: "IN_REVIEW",
   totalApproved: "APPROVED",
   totalDeclined: "DECLINED",

@@ -1,6 +1,7 @@
 import Chart from "react-apexcharts";
 import type { ApexOptions } from "apexcharts";
 import type { BrokerStats } from "../../lib/brokerDashboardStats";
+import DashboardWidget from "./DashboardWidget";
 
 interface Props {
   stats: BrokerStats | null;
@@ -10,83 +11,51 @@ interface Props {
 
 const STATUS_META = [
   { key: "DRAFT", label: "Draft", color: "#94A3B8" },
-  { key: "CLIENT_PENDING", label: "Client Pending", color: "#F97316" },
-  { key: "SUBMITTED", label: "Submitted", color: "#0EA5E9" },
-  { key: "IN_REVIEW", label: "In Review", color: "#6366F1" },
-  { key: "LENDER_SELECTED", label: "Lender Selected", color: "#8B5CF6" },
-  { key: "LENDER_APPROVED", label: "Approved", color: "#10B981" },
-  { key: "LENDER_DECLINED", label: "Declined", color: "#EF4444" },
-  { key: "FUNDED", label: "Funded", color: "#0F766E" },
+  { key: "INCOMPLETE", label: "Incomplete", color: "#F5B942" },
+  { key: "CLIENT_PENDING", label: "Client Pending", color: "#FB923C" },
+  { key: "SUBMITTED", label: "Submitted", color: "#38BDF8" },
+  { key: "IN_REVIEW", label: "In Review", color: "#818CF8" },
+  { key: "LENDER_SELECTED", label: "Lender Selected", color: "#A78BFA" },
+  { key: "LENDER_APPROVED", label: "Approved", color: "#34D399" },
+  { key: "LENDER_DECLINED", label: "Declined", color: "#F87171" },
+  { key: "FUNDED", label: "Funded", color: "#0EA5E9" },
   { key: "WITHDRAWN", label: "Withdrawn", color: "#E11D48" },
   { key: "SUSPENDED", label: "Suspended", color: "#64748B" },
 ];
-
-function ChartSkeleton() {
-  return (
-    <div className="h-full rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-      <div className="animate-pulse space-y-4">
-        <div className="h-4 w-24 rounded bg-gray-200 dark:bg-gray-700" />
-        <div className="mx-auto h-[220px] w-[220px] rounded-full bg-gray-100 dark:bg-gray-800" />
-      </div>
-    </div>
-  );
-}
 
 export default function StatusDistributionChart({
   stats,
   loading,
   onStatusClick,
 }: Props) {
-  if (loading) return <ChartSkeleton />;
-  if (!stats) return null;
-
-  const statusData = STATUS_META.filter(
-    (status) => Number(stats.applicationsByStatus?.[status.key] || 0) > 0,
-  );
-
-  const series = statusData.map((status) =>
-    Number(stats.applicationsByStatus?.[status.key] || 0),
-  );
-  const labels = statusData.map((status) => status.label);
-  const total = series.reduce((sum, value) => sum + value, 0);
+  const allRows = STATUS_META.map((status) => ({
+    ...status,
+    count: Number(stats?.applicationsByStatus?.[status.key] || 0),
+  }));
+  const active = allRows.filter((row) => row.count > 0);
+  const total = allRows.reduce((sum, row) => sum + row.count, 0);
+  const chartRows = active.length > 0 ? active : allRows.slice(0, 1);
 
   const options: ApexOptions = {
     chart: {
       fontFamily: "Outfit, sans-serif",
       toolbar: { show: false },
       events: {
-        dataPointSelection: (_event, _chartContext, config) => {
-          const statusKey = statusData[config.dataPointIndex]?.key;
+        dataPointSelection: (_event, _ctx, config) => {
+          const statusKey = chartRows[config.dataPointIndex]?.key;
           if (statusKey && onStatusClick) onStatusClick(statusKey);
         },
       },
     },
-    labels,
-    colors: statusData.map((status) => status.color),
-    legend: {
-      position: "bottom",
-      fontSize: "11px",
-      markers: { size: 7 },
-      itemMargin: { horizontal: 8, vertical: 2 },
-      onItemClick: { toggleDataSeries: false },
-    },
-    dataLabels: {
-      enabled: true,
-      formatter: (_value, opts) => String(series[opts.seriesIndex] || 0),
-      style: { fontSize: "11px", fontWeight: 600 },
-      dropShadow: { enabled: false },
-    },
+    labels: chartRows.map((row) => row.label),
+    colors: chartRows.map((row) => row.color),
+    legend: { show: false },
+    dataLabels: { enabled: false },
     stroke: { colors: ["#FFFFFF"], width: 2 },
     tooltip: {
-      theme: "light",
-      style: {
-        fontSize: "12px",
-        fontFamily: "Outfit, sans-serif",
-      },
-      fillSeriesColor: false,
       y: {
         formatter: (value) => {
-          const pct = total ? ((value / total) * 100).toFixed(1) : "0.0";
+          const pct = total ? ((value / total) * 100).toFixed(2) : "0.00";
           return `${Math.round(value)} apps (${pct}%)`;
         },
       },
@@ -94,20 +63,24 @@ export default function StatusDistributionChart({
     plotOptions: {
       pie: {
         donut: {
-          size: "72%",
+          size: "78%",
           labels: {
             show: true,
-            name: { show: true, fontSize: "12px", color: "#64748B" },
+            name: { show: false },
             value: {
               show: true,
-              fontSize: "24px",
-              fontWeight: 700,
-              color: "#0F172A",
+              fontSize: "28px",
+              fontWeight: 600,
+              color: "#1f2328",
+              offsetY: 8,
             },
             total: {
               show: true,
-              label: "Total",
-              fontSize: "12px",
+              showAlways: true,
+              label: "",
+              fontSize: "28px",
+              fontWeight: 600,
+              color: "#1f2328",
               formatter: () => String(total),
             },
           },
@@ -117,25 +90,50 @@ export default function StatusDistributionChart({
   };
 
   return (
-    <div className="flex h-full flex-col rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-      <div className="mb-2">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#13538A]">
-          Status Mix
-        </p>
-        <h3 className="mt-0.5 text-lg font-semibold text-gray-900 dark:text-white">
-          Current pipeline
-        </h3>
+    <DashboardWidget title="Stages Distribution" subtitle="This period" loading={loading}>
+      <div className="flex min-h-0 flex-1 items-center gap-3">
+        <div className="flex min-w-0 flex-1 items-center justify-center">
+          {total > 0 ? (
+            <Chart
+              options={options}
+              series={chartRows.map((row) => row.count)}
+              type="donut"
+              height={230}
+            />
+          ) : (
+            <div className="flex h-[180px] w-[180px] items-center justify-center rounded-full border-[14px] border-[#eef2f6] text-[28px] font-semibold text-[#1f2328] dark:border-gray-700 dark:text-white">
+              0
+            </div>
+          )}
+        </div>
+        <ul className="max-h-[240px] w-[148px] shrink-0 space-y-1.5 overflow-y-auto pr-1">
+          {allRows.map((row) => {
+            const pct = total ? ((row.count / total) * 100).toFixed(2) : "0.00";
+            return (
+              <li key={row.key}>
+                <button
+                  type="button"
+                  onClick={() => onStatusClick?.(row.key)}
+                  className="flex w-full items-start gap-2 text-left hover:opacity-80"
+                >
+                  <span
+                    className="mt-1 h-2.5 w-2.5 shrink-0 rounded-sm"
+                    style={{ backgroundColor: row.color }}
+                  />
+                  <span className="min-w-0">
+                    <span className="block truncate text-[12px] text-[#4b5563] dark:text-gray-300">
+                      {row.label}
+                    </span>
+                    <span className="block text-[11px] text-[#9aa0a6]">
+                      {pct}% · {row.count}
+                    </span>
+                  </span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
       </div>
-
-      {series.length > 0 ? (
-        <div className="flex min-h-0 flex-1 items-center">
-          <Chart options={options} series={series} type="donut" height={300} />
-        </div>
-      ) : (
-        <div className="flex flex-1 items-center justify-center rounded-xl border border-dashed border-gray-200 text-sm text-gray-500 dark:border-gray-800">
-          No data for this period
-        </div>
-      )}
-    </div>
+    </DashboardWidget>
   );
 }

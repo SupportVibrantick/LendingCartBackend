@@ -198,8 +198,13 @@ function inRange(dateValue, start, end) {
 }
 
 function isSubmittedApplication(application) {
+  if (["DRAFT", "INCOMPLETE", "CLIENT_PENDING"].includes(application?.status)) {
+    return false;
+  }
   if (application?.submittedAt) return true;
-  return !["DRAFT", "CLIENT_PENDING"].includes(application?.status);
+  return !["DRAFT", "INCOMPLETE", "CLIENT_PENDING"].includes(
+    application?.status,
+  );
 }
 
 function isApprovedApplication(application) {
@@ -253,6 +258,7 @@ function emptyCounters() {
   return {
     totalApplications: 0,
     totalSubmitted: 0,
+    totalIncomplete: 0,
     totalInReview: 0,
     totalApproved: 0,
     totalDeclined: 0,
@@ -308,6 +314,7 @@ function accumulateApplication(target, application, period, trendLookup) {
       target.applicationsByStatus[stage] += 1;
     }
 
+    if (stage === "INCOMPLETE") target.totalIncomplete += 1;
     if (stage === "IN_REVIEW") target.totalInReview += 1;
     if (stage === "LENDER_APPROVED" || stage === "FUNDED") {
       target.totalApproved += 1;
@@ -418,6 +425,7 @@ function createAnalyticsEngine(periodKey = "12m") {
       const comparisonFields = [
         "totalApplications",
         "totalSubmitted",
+        "totalIncomplete",
         "totalInReview",
         "totalApproved",
         "totalDeclined",

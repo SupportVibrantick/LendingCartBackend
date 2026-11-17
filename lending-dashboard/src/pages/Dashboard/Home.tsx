@@ -9,11 +9,13 @@ import {
   CircleDollarSign,
   Clock3,
   FileSpreadsheet,
+  FileText,
+  Handshake,
   HandCoins,
+  Layers,
   RefreshCw,
   TrendingUp,
   UserCircle,
-  Users,
 } from "lucide-react";
 import PageMeta from "../../components/common/PageMeta";
 
@@ -110,21 +112,22 @@ interface PipelinePerformance {
   recentApplications: RecentApplicationItem[];
 }
 
-const PERIOD_OPTIONS: { value: DashboardPeriod; label: string }[] = [
-  { value: "7d", label: "7D" },
-  { value: "30d", label: "30D" },
-  { value: "90d", label: "90D" },
-  { value: "12m", label: "12M" },
-];
+const PERIOD_OPTIONS: { value: DashboardPeriod; label: string; short: string }[] =
+  [
+    { value: "7d", label: "Last 7 days", short: "7D" },
+    { value: "30d", label: "Last 30 days", short: "30D" },
+    { value: "90d", label: "Last 90 days", short: "90D" },
+    { value: "12m", label: "Last 12 months", short: "12M" },
+  ];
 
-const STAGE_COLORS: Record<string, string> = {
-  SENT: "#0EA5E9",
-  IN_REVIEW: "#F59E0B",
-  APPROVED: "#10B981",
-  FUNDED: "#183b57",
-  DECLINED: "#EF4444",
-  WITHDRAWN: "#94A3B8",
-};
+const FUNNEL_STAGES = [
+  { status: "SENT", label: "Sent", color: "#38BDF8" },
+  { status: "IN_REVIEW", label: "In Review", color: "#818CF8" },
+  { status: "APPROVED", label: "Approved", color: "#34D399" },
+  { status: "FUNDED", label: "Funded", color: "#183b57" },
+  { status: "DECLINED", label: "Declined", color: "#F87171" },
+  { status: "WITHDRAWN", label: "Withdrawn", color: "#94A3B8" },
+] as const;
 
 const compactCurrency = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -238,19 +241,67 @@ function Pulse({ className }: { className: string }) {
   );
 }
 
+function Widget({
+  title,
+  subtitle = "This period",
+  loading,
+  children,
+  right,
+  minHeight = "320px",
+}: {
+  title: string;
+  subtitle?: string;
+  loading?: boolean;
+  children?: ReactNode;
+  right?: ReactNode;
+  minHeight?: string;
+}) {
+  return (
+    <div
+      className="flex h-full flex-col rounded-2xl border border-slate-200/80 bg-white p-5 shadow-[0_10px_30px_rgba(15,23,42,0.05)] dark:border-slate-800 dark:bg-slate-900"
+      style={{ minHeight }}
+    >
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="h-4 w-1 rounded-full bg-gradient-to-b from-[#183b57] to-[#38BDF8]" />
+            <h3 className="truncate text-[15px] font-semibold leading-tight text-slate-900 dark:text-white">
+              {title}
+            </h3>
+          </div>
+          {subtitle ? (
+            <p className="mt-1 pl-3 text-[12px] text-slate-400">{subtitle}</p>
+          ) : null}
+        </div>
+        {right}
+      </div>
+      {loading ? (
+        <div className="flex flex-1 animate-pulse rounded-xl bg-slate-50 dark:bg-slate-800" />
+      ) : (
+        <div className="flex min-h-0 flex-1 flex-col">{children}</div>
+      )}
+    </div>
+  );
+}
+
+function formatPct(value: number) {
+  if (!Number.isFinite(value)) return "0.00%";
+  return `${Math.max(0, value).toFixed(2)}%`;
+}
+
 function KpiCard({
   label,
   value,
   helper,
   icon,
-  accent,
+  tone,
   comparison,
 }: {
   label: string;
   value: string;
   helper: string;
   icon: ReactNode;
-  accent: string;
+  tone: string;
   comparison?: MetricComparison;
 }) {
   const change = formatChange(comparison?.changePercent);
@@ -264,40 +315,38 @@ function KpiCard({
     );
 
   return (
-    <div
-      className="rounded-xl border border-slate-200 border-l-4 bg-white p-4 dark:border-slate-800 dark:bg-slate-900"
-      style={{ borderLeftColor: accent }}
-    >
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-          {label}
-        </p>
+    <div className="rounded-2xl border border-slate-200/80 bg-white p-3.5 shadow-[0_8px_20px_rgba(15,23,42,0.04)] dark:border-slate-800 dark:bg-slate-900">
+      <div className="flex items-center gap-3">
         <span
-          className="flex h-8 w-8 items-center justify-center rounded-lg"
-          style={{ backgroundColor: `${accent}14`, color: accent }}
+          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${tone}`}
         >
           {icon}
         </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center justify-between gap-2">
+            <p className="truncate text-[12px] font-medium text-slate-500">
+              {label}
+            </p>
+            {showChange ? (
+              <span
+                className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
+                  (comparison?.changePercent || 0) > 0
+                    ? "bg-emerald-50 text-emerald-700"
+                    : (comparison?.changePercent || 0) < 0
+                      ? "bg-rose-50 text-rose-700"
+                      : "bg-slate-100 text-slate-600"
+                }`}
+              >
+                {change}
+              </span>
+            ) : null}
+          </div>
+          <p className="mt-1 text-[22px] font-bold leading-none tracking-tight text-slate-900 dark:text-white">
+            {value}
+          </p>
+          <p className="mt-1 truncate text-[11px] text-slate-400">{helper}</p>
+        </div>
       </div>
-      <div className="mt-2 flex items-end justify-between gap-2">
-        <p className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
-          {value}
-        </p>
-        {showChange ? (
-          <span
-            className={`rounded-md px-1.5 py-0.5 text-[11px] font-semibold ${
-              (comparison?.changePercent || 0) > 0
-                ? "bg-emerald-50 text-emerald-700"
-                : (comparison?.changePercent || 0) < 0
-                  ? "bg-rose-50 text-rose-700"
-                  : "bg-slate-100 text-slate-600"
-            }`}
-          >
-            {change}
-          </span>
-        ) : null}
-      </div>
-      <p className="mt-1 text-xs text-slate-500">{helper}</p>
     </div>
   );
 }
@@ -367,48 +416,48 @@ export default function Home() {
           label: "Applications",
           value: overview.totalApplications.toLocaleString(),
           helper: `${overview.sentToLender} active in pipeline`,
-          icon: <FileSpreadsheet className="h-4 w-4" />,
-          accent: "#0ea5e9",
+          icon: <FileSpreadsheet className="h-5 w-5" />,
+          tone: "bg-sky-50 text-sky-600",
           comparison: overview.comparison?.totalApplications,
         },
         {
           label: "Pending Review",
           value: overview.pendingReview.toLocaleString(),
           helper: `${overview.declined} declined`,
-          icon: <Clock3 className="h-4 w-4" />,
-          accent: "#f59e0b",
+          icon: <Clock3 className="h-5 w-5" />,
+          tone: "bg-amber-50 text-amber-600",
           comparison: overview.comparison?.pendingReview,
         },
         {
           label: "Approved",
           value: (overview.approved + overview.fundedLoans).toLocaleString(),
           helper: `${overview.approvalRate}% approval rate`,
-          icon: <TrendingUp className="h-4 w-4" />,
-          accent: "#10b981",
+          icon: <TrendingUp className="h-5 w-5" />,
+          tone: "bg-emerald-50 text-emerald-600",
           comparison: overview.comparison?.approved,
         },
         {
           label: "Funded",
           value: overview.fundedLoans.toLocaleString(),
           helper: `${overview.fundedRate}% funding rate`,
-          icon: <HandCoins className="h-4 w-4" />,
-          accent: "#8b5cf6",
+          icon: <HandCoins className="h-5 w-5" />,
+          tone: "bg-violet-50 text-violet-600",
           comparison: overview.comparison?.fundedLoans,
         },
         {
           label: "Funded Volume",
           value: formatCompactCurrency(overview.totalFundedVolume),
           helper: `Avg ${formatCompactCurrency(overview.avgLoanSize)}`,
-          icon: <CircleDollarSign className="h-4 w-4" />,
-          accent: "#f59e0b",
+          icon: <CircleDollarSign className="h-5 w-5" />,
+          tone: "bg-teal-50 text-teal-700",
           comparison: overview.comparison?.totalFundedVolume,
         },
         {
           label: "Brokers",
           value: overview.activeBrokers.toLocaleString(),
           helper: `${overview.activeProducts} products · ${overview.activeConnections} links`,
-          icon: <Building2 className="h-4 w-4" />,
-          accent: BRAND,
+          icon: <Building2 className="h-5 w-5" />,
+          tone: "bg-[#183b57]/10 text-[#183b57]",
           comparison: overview.comparison?.activeBrokers,
         },
       ]
@@ -512,36 +561,103 @@ export default function Home() {
     },
   ];
 
-  const stages = (pipeline?.stageBreakdown || []).filter((s) => s.count > 0);
-  const stageTotal = stages.reduce((sum, s) => sum + s.count, 0);
+  const stageCounts = Object.fromEntries(
+    (pipeline?.stageBreakdown || []).map((stage) => [stage.status, stage.count]),
+  );
+  const funnelRows = FUNNEL_STAGES.map((stage) => ({
+    ...stage,
+    count: Number(stageCounts[stage.status] || 0),
+  }));
+  const funnelTotal = funnelRows.reduce((sum, row) => sum + row.count, 0);
+  const funnelComputed = funnelRows.map((row, index) => {
+    const remaining = funnelRows
+      .slice(index)
+      .reduce((sum, item) => sum + item.count, 0);
+    const nextCount = funnelRows[index + 1]?.count ?? 0;
+    const isLast = index === funnelRows.length - 1;
+    return {
+      ...row,
+      cumulative: funnelTotal > 0 ? (remaining / funnelTotal) * 100 : isLast ? 0 : 100,
+      nextStep: isLast ? 0 : row.count <= 0 ? 100 : (nextCount / row.count) * 100,
+    };
+  });
 
-  const donutOptions: ApexOptions = {
-    chart: {
-      fontFamily: "Outfit, sans-serif",
-      toolbar: { show: false },
+  const openCount =
+    Number(stageCounts.SENT || 0) +
+    Number(stageCounts.IN_REVIEW || 0) +
+    Number(stageCounts.APPROVED || 0);
+  const fundedCount = Number(stageCounts.FUNDED || 0);
+  const lostCount =
+    Number(stageCounts.DECLINED || 0) + Number(stageCounts.WITHDRAWN || 0);
+  const statusSlices = [
+    { key: "OPEN", label: "Open", count: openCount, color: "#183b57" },
+    { key: "FUNDED", label: "Funded", count: fundedCount, color: "#14B8A6" },
+    ...(lostCount > 0
+      ? [{ key: "LOST", label: "Lost", count: lostCount, color: "#F43F5E" }]
+      : []),
+  ];
+  const statusTotal = statusSlices.reduce((sum, slice) => sum + slice.count, 0);
+  const valueRows = [
+    { label: "Open", value: openCount, color: "#183b57" },
+    { label: "Funded", value: fundedCount, color: "#14B8A6" },
+    ...(lostCount > 0
+      ? [{ label: "Lost", value: lostCount, color: "#F43F5E" }]
+      : []),
+  ];
+  const valueMax = Math.max(...valueRows.map((row) => row.value), 1);
+
+  const stages = funnelRows;
+  const stageTotal = funnelTotal;
+  const conversionRate = Number(overview?.fundedRate || pipeline?.fundingConversion || 0);
+
+  const statusDonutOptions: ApexOptions = {
+    chart: { fontFamily: "Outfit, sans-serif", toolbar: { show: false } },
+    labels: statusSlices.map((slice) => slice.label),
+    colors: statusSlices.map((slice) => slice.color),
+    legend: { show: false },
+    dataLabels: { enabled: false },
+    stroke: { colors: ["#fff"], width: 2 },
+    tooltip: { y: { formatter: (value) => `${Math.round(value)} apps` } },
+    plotOptions: {
+      pie: {
+        donut: {
+          size: "78%",
+          labels: {
+            show: true,
+            name: { show: false },
+            value: {
+              show: true,
+              fontSize: "28px",
+              fontWeight: 600,
+              color: "#1f2328",
+              offsetY: 8,
+            },
+            total: {
+              show: true,
+              showAlways: true,
+              label: "",
+              fontSize: "28px",
+              fontWeight: 600,
+              color: "#1f2328",
+              formatter: () => String(statusTotal),
+            },
+          },
+        },
+      },
     },
-    labels: stages.map((s) => s.label),
-    colors: stages.map((s) => STAGE_COLORS[s.status] || BRAND),
-    legend: {
-      position: "bottom",
-      fontSize: "11px",
-      markers: { size: 7 },
-    },
-    dataLabels: {
-      enabled: true,
-      formatter: (_v, opts) =>
-        String(stages[opts.seriesIndex]?.count || 0),
-      style: { fontSize: "11px", fontWeight: 600 },
-      dropShadow: { enabled: false },
-    },
+  };
+
+  const stagesDonutOptions: ApexOptions = {
+    chart: { fontFamily: "Outfit, sans-serif", toolbar: { show: false } },
+    labels: stages.filter((s) => s.count > 0).map((s) => s.label),
+    colors: stages.filter((s) => s.count > 0).map((s) => s.color),
+    legend: { show: false },
+    dataLabels: { enabled: false },
     stroke: { colors: ["#fff"], width: 2 },
     tooltip: {
-      theme: "light",
       y: {
         formatter: (value) => {
-          const pct = stageTotal
-            ? ((value / stageTotal) * 100).toFixed(1)
-            : "0.0";
+          const pct = stageTotal ? ((value / stageTotal) * 100).toFixed(2) : "0.00";
           return `${Math.round(value)} apps (${pct}%)`;
         },
       },
@@ -549,12 +665,24 @@ export default function Home() {
     plotOptions: {
       pie: {
         donut: {
-          size: "70%",
+          size: "78%",
           labels: {
             show: true,
+            name: { show: false },
+            value: {
+              show: true,
+              fontSize: "28px",
+              fontWeight: 600,
+              color: "#1f2328",
+              offsetY: 8,
+            },
             total: {
               show: true,
-              label: "Total",
+              showAlways: true,
+              label: "",
+              fontSize: "28px",
+              fontWeight: 600,
+              color: "#1f2328",
               formatter: () => String(stageTotal),
             },
           },
@@ -563,44 +691,100 @@ export default function Home() {
     },
   };
 
+  const pipelineValueOptions: ApexOptions = {
+    chart: { fontFamily: "Outfit, sans-serif", toolbar: { show: false } },
+    plotOptions: {
+      bar: { horizontal: true, borderRadius: 8, barHeight: "58%", distributed: true },
+    },
+    colors: valueRows.map((row) => row.color),
+    dataLabels: {
+      enabled: true,
+      formatter: (val) => String(Math.round(Number(val))),
+      style: { fontSize: "11px", fontWeight: 700, colors: ["#fff"] },
+    },
+    legend: { show: false },
+    grid: {
+      borderColor: "#EEF2F6",
+      xaxis: { lines: { show: true } },
+      yaxis: { lines: { show: false } },
+    },
+    xaxis: {
+      categories: valueRows.map((row) => row.label),
+      min: 0,
+      max: Math.max(1, Math.ceil(valueMax * 1.15)),
+      labels: {
+        style: { colors: "#9aa0a6", fontSize: "11px" },
+        formatter: (value) => String(Math.round(Number(value))),
+      },
+      axisBorder: { show: false },
+      axisTicks: { show: false },
+    },
+    tooltip: { y: { formatter: (value) => `${Math.round(value)} applications` } },
+  };
+
+  const conversionOptions: ApexOptions = {
+    chart: { fontFamily: "Outfit, sans-serif", toolbar: { show: false } },
+    colors: [BRAND],
+    plotOptions: {
+      radialBar: {
+        hollow: { size: "78%", background: "transparent" },
+        track: { background: "#E8F1F8", strokeWidth: "100%", margin: 0 },
+        dataLabels: {
+          name: { show: false },
+          value: {
+            show: true,
+            fontSize: "26px",
+            fontWeight: 600,
+            color: "#1f2328",
+            offsetY: 8,
+            formatter: () => `${Number(conversionRate).toFixed(2)}%`,
+          },
+        },
+      },
+    },
+    stroke: { lineCap: "round" },
+  };
+
   const products = pipeline?.productMix || [];
   const productMax = Math.max(...products.map((p) => p.applications), 1);
 
   const brokers = pipeline?.brokerPerformance || [];
   const brokerMax = Math.max(...brokers.map((b) => b.applications), 1);
 
-  const conversions = [
+  const quickActions = [
     {
-      label: "Submitted",
-      value: pipeline?.submittedConversion || 0,
-      helper: `${pipeline?.totalSubmitted || 0} of ${pipeline?.totalApplications || 0}`,
-      color: "#0EA5E9",
+      label: "Pipeline",
+      path: "/loan-pipeline",
+      icon: FileSpreadsheet,
+      tone: "bg-sky-50 text-sky-600",
     },
     {
-      label: "In Review",
-      value: pipeline?.reviewConversion || 0,
-      helper: `${pipeline?.totalInReview || 0} under review`,
-      color: "#F59E0B",
+      label: "Programs",
+      path: "/all-loan-products",
+      icon: Layers,
+      tone: "bg-indigo-50 text-indigo-600",
     },
     {
-      label: "Approved",
-      value: pipeline?.approvalRate || 0,
-      helper: `${pipeline?.totalApproved || 0} cleared`,
-      color: "#10B981",
+      label: "Brokers",
+      path: "/brokers",
+      icon: Handshake,
+      tone: "bg-teal-50 text-teal-700",
     },
     {
-      label: "Funded",
-      value: pipeline?.fundingConversion || 0,
-      helper: `${pipeline?.totalFunded || 0} closed`,
-      color: BRAND,
+      label: "Documents",
+      path: "/documents",
+      icon: FileText,
+      tone: "bg-amber-50 text-amber-600",
+    },
+    {
+      label: "Profile",
+      path: "/profile",
+      icon: UserCircle,
+      tone: "bg-violet-50 text-violet-600",
     },
   ];
 
-  const quickActions = [
-    { label: "Pipeline", path: "/loan-pipeline", icon: FileSpreadsheet },
-    { label: "Brokers", path: "/brokers", icon: Users },
-    { label: "Profile", path: "/profile", icon: UserCircle },
-  ];
+  const activeStages = stages.filter((stage) => stage.count > 0);
 
   return (
     <>
@@ -609,64 +793,80 @@ export default function Home() {
         description="Analytics overview for lender pipeline performance"
       />
 
-      <div className="space-y-4">
-        <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white px-4 py-4 shadow-sm sm:px-5 sm:py-5 dark:border-gray-800 dark:bg-gray-900">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div className="min-w-0">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#183B57]">
-                Lender Dashboard
-              </p>
-              <h1 className="mt-1 truncate text-xl font-semibold text-gray-900 sm:text-2xl dark:text-white">
-                {greeting}, {firstName}
-              </h1>
-              <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
-                Pipeline & funding analytics ·{" "}
-                {PERIOD_OPTIONS.find((p) => p.value === period)?.label} window
-              </p>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-0.5 dark:border-gray-700 dark:bg-gray-800">
-                {PERIOD_OPTIONS.map((option) => (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() => setPeriod(option.value)}
-                    className={`rounded-md px-2.5 py-1.5 text-xs font-semibold transition ${
-                      period === option.value
-                        ? "bg-[#183B57] text-white shadow-sm"
-                        : "text-gray-600 hover:bg-white hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-700"
-                    }`}
-                  >
-                    {option.label}
-                  </button>
-                ))}
+      <div className="space-y-5">
+        <section className="relative overflow-hidden rounded-3xl border border-[#183b57]/10 bg-white shadow-[0_18px_40px_rgba(24,59,87,0.08)] dark:border-[#183b57]/30 dark:bg-slate-900">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(900px_circle_at_-10%_-30%,rgba(24,59,87,0.16),transparent_55%),radial-gradient(700px_circle_at_110%_120%,rgba(14,165,233,0.14),transparent_50%)]" />
+          <div className="relative px-5 py-5 sm:px-6 sm:py-6">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <p className="text-sm font-medium text-[#183b57]">
+                  {greeting}, {firstName}
+                </p>
+                <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+                  Pipeline overview
+                </h1>
+                <p className="mt-1 text-sm text-slate-500">
+                  Funding analytics for{" "}
+                  {PERIOD_OPTIONS.find((option) => option.value === period)?.label?.toLowerCase()}.
+                </p>
               </div>
-              <button
-                type="button"
-                onClick={load}
-                disabled={loading}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
-              >
-                <RefreshCw
-                  className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`}
-                />
-                Refresh
-              </button>
-            </div>
-          </div>
 
-          <div className="mt-3 flex gap-2 overflow-x-auto pb-0.5">
-            {quickActions.map((action) => (
-              <Link
-                key={action.path}
-                to={action.path}
-                className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-semibold text-[#183B57] transition hover:bg-[#183B57]/10 dark:border-gray-700 dark:bg-gray-800 dark:text-cyan-400"
-              >
-                <action.icon className="h-3.5 w-3.5" />
-                {action.label}
-              </Link>
-            ))}
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="inline-flex rounded-full bg-white/80 p-1 shadow-sm ring-1 ring-slate-200 backdrop-blur dark:bg-slate-800 dark:ring-slate-700">
+                  {PERIOD_OPTIONS.map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => setPeriod(option.value)}
+                      className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                        period === option.value
+                          ? "bg-[#183b57] text-white shadow-sm"
+                          : "text-slate-500 hover:text-slate-800 dark:text-slate-300"
+                      }`}
+                    >
+                      {option.short}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={load}
+                  disabled={loading}
+                  title="Refresh"
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                >
+                  <RefreshCw
+                    className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
+                  />
+                </button>
+                <Link
+                  to="/loan-pipeline"
+                  className="inline-flex items-center gap-1.5 rounded-full bg-[#183b57] px-4 py-2 text-sm font-semibold text-white shadow-[0_8px_18px_rgba(24,59,87,0.28)] transition hover:bg-[#10293c]"
+                >
+                  Open pipeline
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              </div>
+            </div>
+
+            <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">
+              {quickActions.map((action) => (
+                <Link
+                  key={action.path}
+                  to={action.path}
+                  className="group flex items-center gap-2.5 rounded-2xl border border-white/70 bg-white/70 px-3 py-2.5 shadow-sm backdrop-blur transition hover:-translate-y-0.5 hover:border-[#183b57]/20 hover:shadow-md dark:border-slate-700 dark:bg-slate-800/80"
+                >
+                  <span
+                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${action.tone}`}
+                  >
+                    <action.icon className="h-4 w-4" />
+                  </span>
+                  <span className="truncate text-[13px] font-semibold text-slate-700 dark:text-slate-200">
+                    {action.label}
+                  </span>
+                </Link>
+              ))}
+            </div>
           </div>
         </section>
 
@@ -694,82 +894,211 @@ export default function Home() {
             : kpiCards.map((card) => <KpiCard key={card.label} {...card} />)}
         </div>
 
-        {/* Pipeline stages */}
-        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <div className="mb-3 flex items-center justify-between">
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#183b57]">
-                Application Pipeline
-              </p>
-              <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
-                Stage distribution
-              </h3>
-            </div>
-            <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-              {loading ? "…" : `${pipeline?.totalApplications || 0} total`}
-            </span>
-          </div>
-          {loading ? (
-            <Pulse className="h-16" />
-          ) : (
-            <div className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6">
-              {(pipeline?.stageBreakdown || []).map((stage) => {
-                const total = pipeline?.totalApplications || 0;
-                return (
-                  <Link
-                    key={stage.status}
-                    to={`/loan-pipeline?status=${encodeURIComponent(stage.status)}`}
-                    className="rounded-lg border border-slate-100 bg-slate-50 p-3 transition hover:border-[#183b57]/25 hover:bg-white dark:border-slate-800 dark:bg-slate-800/40"
-                  >
-                    <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                      {stage.label}
-                    </p>
-                    <p className="mt-1 text-xl font-bold text-slate-900 dark:text-white">
-                      {stage.count}
-                    </p>
-                    <div className="mt-2 h-1 overflow-hidden rounded-full bg-white dark:bg-slate-900/40">
-                      <div
-                        className="h-full rounded-full"
-                        style={{
-                          width: total
-                            ? `${Math.max(8, (stage.count / total) * 100)}%`
-                            : "0%",
-                          backgroundColor:
-                            STAGE_COLORS[stage.status] || BRAND,
-                        }}
-                      />
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
         <div className="grid grid-cols-12 gap-4">
-          <div className="col-span-12 xl:col-span-8">
-            <div className="flex h-full flex-col rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-              <div className="mb-3 flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#183b57]">
-                    Pipeline Momentum
-                  </p>
-                  <h3 className="mt-0.5 text-lg font-semibold text-slate-900 dark:text-white">
-                    Origination trend
-                  </h3>
+          <div className="col-span-12 lg:col-span-4">
+            <Widget title="Application Status" loading={loading}>
+              <div className="flex min-h-0 flex-1 items-center gap-4">
+                <div className="flex min-w-0 flex-1 items-center justify-center">
+                  {statusTotal > 0 ? (
+                    <Chart
+                      options={statusDonutOptions}
+                      series={statusSlices.map((slice) => slice.count)}
+                      type="donut"
+                      height={220}
+                    />
+                  ) : (
+                    <div className="flex h-[180px] w-[180px] items-center justify-center rounded-full border-[14px] border-[#eef2f6] text-[28px] font-semibold text-slate-800 dark:border-slate-700 dark:text-white">
+                      0
+                    </div>
+                  )}
                 </div>
-                <div className="rounded-lg bg-slate-50 px-3 py-1.5 text-right dark:bg-slate-800">
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                    Funded vol
+                <ul className="w-[128px] shrink-0 space-y-2">
+                  {statusSlices.map((slice) => (
+                    <li key={slice.key}>
+                      <Link
+                        to={
+                          slice.key === "OPEN"
+                            ? "/loan-pipeline"
+                            : `/loan-pipeline?status=${slice.key === "FUNDED" ? "FUNDED" : "DECLINED"}`
+                        }
+                        className="flex w-full items-center justify-between rounded-xl bg-slate-50 px-2.5 py-2 transition hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700"
+                      >
+                        <span className="flex min-w-0 items-center gap-2">
+                          <span
+                            className="h-2.5 w-2.5 shrink-0 rounded-full"
+                            style={{ backgroundColor: slice.color }}
+                          />
+                          <span className="truncate text-[13px] font-medium text-slate-600 dark:text-slate-300">
+                            {slice.label}
+                          </span>
+                        </span>
+                        <span className="text-[13px] font-bold text-slate-900 dark:text-white">
+                          {slice.count}
+                        </span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </Widget>
+          </div>
+
+          <div className="col-span-12 lg:col-span-4">
+            <Widget title="Pipeline Value" loading={loading}>
+              <div className="min-h-0 flex-1">
+                <Chart
+                  options={pipelineValueOptions}
+                  series={[
+                    {
+                      name: "Applications",
+                      data: valueRows.map((row) => ({ x: row.label, y: row.value })),
+                    },
+                  ]}
+                  type="bar"
+                  height={200}
+                />
+              </div>
+              <p className="mt-1 text-center text-[13px] text-slate-500">
+                Total applications{" "}
+                <span className="font-semibold text-slate-900 dark:text-white">
+                  {pipeline?.totalApplications || statusTotal}
+                </span>
+              </p>
+            </Widget>
+          </div>
+
+          <div className="col-span-12 lg:col-span-4">
+            <Widget title="Conversion Rate" loading={loading}>
+              <div className="flex min-h-0 flex-1 flex-col items-center justify-center">
+                <Chart
+                  options={conversionOptions}
+                  series={[conversionRate]}
+                  type="radialBar"
+                  height={220}
+                />
+                <p className="-mt-2 text-[13px] text-slate-500">
+                  Funded volume{" "}
+                  <span className="font-semibold text-slate-900 dark:text-white">
+                    {formatCompactCurrency(overview?.totalFundedVolume || 0)}
+                  </span>
+                </p>
+              </div>
+            </Widget>
+          </div>
+
+          <div className="col-span-12 xl:col-span-7">
+            <Widget title="Funnel" loading={loading}>
+              <div className="flex min-h-0 flex-1 gap-2">
+                <div className="min-w-0 flex-1 space-y-1.5">
+                  <div className="h-5" />
+                  {funnelComputed.map((row) => (
+                    <Link
+                      key={row.status}
+                      to={`/loan-pipeline?status=${encodeURIComponent(row.status)}`}
+                      className="flex h-10 w-full items-center justify-between rounded-xl px-3.5 text-left text-[13px] font-semibold text-white shadow-[0_6px_14px_rgba(15,23,42,0.12)] transition hover:brightness-95"
+                      style={{ backgroundColor: row.color }}
+                    >
+                      <span className="truncate">{row.label}</span>
+                      <span className="tabular-nums">{row.count}</span>
+                    </Link>
+                  ))}
+                </div>
+                <div className="hidden w-[76px] shrink-0 flex-col sm:flex sm:w-[88px]">
+                  <p className="mb-1.5 h-5 text-center text-[10px] font-medium leading-tight text-slate-400">
+                    Cumulative
                   </p>
-                  <p className="text-sm font-bold text-slate-900 dark:text-white">
+                  {funnelComputed.map((row) => (
+                    <div
+                      key={`${row.status}-cum`}
+                      className="mb-1.5 flex h-10 items-center justify-center bg-slate-100 text-[11px] font-semibold text-slate-500 dark:bg-slate-800 dark:text-slate-300"
+                      style={{ clipPath: "polygon(0 0, 100% 0, 86% 100%, 14% 100%)" }}
+                    >
+                      {formatPct(row.cumulative)}
+                    </div>
+                  ))}
+                </div>
+                <div className="hidden w-[84px] shrink-0 flex-col sm:flex sm:w-[96px]">
+                  <p className="mb-1.5 h-5 text-center text-[10px] font-medium leading-tight text-slate-400">
+                    Next step conversion
+                  </p>
+                  {funnelComputed.map((row) => (
+                    <div
+                      key={`${row.status}-next`}
+                      className="mb-1.5 flex h-10 items-center justify-center bg-slate-100 text-[11px] font-semibold text-slate-500 dark:bg-slate-800 dark:text-slate-300"
+                      style={{ clipPath: "polygon(0 0, 100% 0, 86% 100%, 14% 100%)" }}
+                    >
+                      {formatPct(row.nextStep)}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </Widget>
+          </div>
+
+          <div className="col-span-12 xl:col-span-5">
+            <Widget title="Stages Distribution" loading={loading}>
+              <div className="flex min-h-0 flex-1 items-center gap-3">
+                <div className="flex min-w-0 flex-1 items-center justify-center">
+                  {activeStages.length > 0 ? (
+                    <Chart
+                      options={stagesDonutOptions}
+                      series={activeStages.map((stage) => stage.count)}
+                      type="donut"
+                      height={230}
+                    />
+                  ) : (
+                    <div className="flex h-[180px] w-[180px] items-center justify-center rounded-full border-[14px] border-[#eef2f6] text-[28px] font-semibold text-slate-800 dark:border-slate-700 dark:text-white">
+                      0
+                    </div>
+                  )}
+                </div>
+                <ul className="max-h-[240px] w-[148px] shrink-0 space-y-1.5 overflow-y-auto pr-1">
+                  {funnelRows.map((row) => {
+                    const pct = stageTotal
+                      ? ((row.count / stageTotal) * 100).toFixed(2)
+                      : "0.00";
+                    return (
+                      <li key={row.status}>
+                        <Link
+                          to={`/loan-pipeline?status=${encodeURIComponent(row.status)}`}
+                          className="flex w-full items-start gap-2 text-left hover:opacity-80"
+                        >
+                          <span
+                            className="mt-1 h-2.5 w-2.5 shrink-0 rounded-sm"
+                            style={{ backgroundColor: row.color }}
+                          />
+                          <span className="min-w-0">
+                            <span className="block truncate text-[12px] text-slate-600 dark:text-slate-300">
+                              {row.label}
+                            </span>
+                            <span className="block text-[11px] text-slate-400">
+                              {pct}% · {row.count}
+                            </span>
+                          </span>
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            </Widget>
+          </div>
+
+          <div className="col-span-12 xl:col-span-8">
+            <Widget
+              title="Pipeline Momentum"
+              subtitle="Origination trend"
+              loading={loading}
+              right={
+                <div className="text-right">
+                  <p className="text-[11px] text-slate-400">Funded volume</p>
+                  <p className="text-sm font-semibold text-slate-900 dark:text-white">
                     {formatCompactCurrency(overview?.totalFundedVolume || 0)}
                   </p>
                 </div>
-              </div>
-              {loading ? (
-                <Pulse className="h-[300px]" />
-              ) : hasTrend ? (
+              }
+            >
+              {hasTrend ? (
                 <Chart
                   options={trendOptions}
                   series={trendSeries}
@@ -777,101 +1106,17 @@ export default function Home() {
                   height={300}
                 />
               ) : (
-                <div className="flex h-[300px] items-center justify-center rounded-xl border border-dashed border-slate-200 text-sm text-slate-500 dark:border-slate-800">
+                <div className="flex flex-1 items-center justify-center rounded-xl border border-dashed border-slate-200 text-sm text-slate-500 dark:border-slate-800">
                   No activity for this period
                 </div>
               )}
-            </div>
+            </Widget>
           </div>
 
           <div className="col-span-12 xl:col-span-4">
-            <div className="flex h-full flex-col rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-              <div className="mb-2">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#183b57]">
-                  Status Mix
-                </p>
-                <h3 className="mt-0.5 text-lg font-semibold text-slate-900 dark:text-white">
-                  Current pipeline
-                </h3>
-              </div>
-              {loading ? (
-                <Pulse className="h-[300px]" />
-              ) : stages.length > 0 ? (
-                <Chart
-                  options={donutOptions}
-                  series={stages.map((s) => s.count)}
-                  type="donut"
-                  height={300}
-                />
-              ) : (
-                <div className="flex flex-1 items-center justify-center rounded-xl border border-dashed border-slate-200 text-sm text-slate-500 dark:border-slate-800">
-                  No data for this period
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Conversion */}
-          <div className="col-span-12 md:col-span-6 xl:col-span-4">
-            <div className="flex h-full flex-col rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#183b57]">
-                Conversion
-              </p>
-              <h3 className="mt-0.5 text-lg font-semibold text-slate-900 dark:text-white">
-                Funnel efficiency
-              </h3>
-              {loading ? (
-                <div className="mt-4 space-y-3">
-                  {Array.from({ length: 4 }).map((_, i) => (
-                    <Pulse key={i} className="h-12" />
-                  ))}
-                </div>
-              ) : (
-                <div className="mt-4 space-y-3">
-                  {conversions.map((item) => (
-                    <div key={item.label}>
-                      <div className="mb-1 flex items-center justify-between gap-2">
-                        <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">
-                          {item.label}
-                        </p>
-                        <p className="text-sm font-bold text-slate-900 dark:text-white">
-                          {item.value}%
-                        </p>
-                      </div>
-                      <div className="h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
-                        <div
-                          className="h-full rounded-full transition-all"
-                          style={{
-                            width: `${Math.min(100, Math.max(0, item.value))}%`,
-                            backgroundColor: item.color,
-                          }}
-                        />
-                      </div>
-                      <p className="mt-1 text-xs text-slate-500">{item.helper}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Product mix */}
-          <div className="col-span-12 md:col-span-6 xl:col-span-4">
-            <div className="flex h-full flex-col rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#183b57]">
-                Product Mix
-              </p>
-              <h3 className="mt-0.5 text-lg font-semibold text-slate-900 dark:text-white">
-                By loan product
-              </h3>
-              {loading ? (
-                <div className="mt-4 space-y-3">
-                  {Array.from({ length: 4 }).map((_, i) => (
-                    <Pulse key={i} className="h-10" />
-                  ))}
-                </div>
-              ) : products.length > 0 ? (
-                <div className="mt-4 space-y-3">
+            <Widget title="Product Mix" subtitle="By loan product" loading={loading}>
+              {products.length > 0 ? (
+                <div className="space-y-3">
                   {products.map((item, index) => (
                     <div key={item.productCode}>
                       <div className="mb-1 flex items-center justify-between gap-2">
@@ -886,10 +1131,7 @@ export default function Home() {
                         <div
                           className="h-full rounded-full bg-gradient-to-r from-[#183b57] to-[#2a5a7a]"
                           style={{
-                            width: `${Math.max(
-                              8,
-                              (item.applications / productMax) * 100,
-                            )}%`,
+                            width: `${Math.max(8, (item.applications / productMax) * 100)}%`,
                             opacity: 1 - index * 0.12,
                           }}
                         />
@@ -901,35 +1143,22 @@ export default function Home() {
                   ))}
                 </div>
               ) : (
-                <div className="mt-6 flex flex-1 items-center justify-center rounded-xl border border-dashed border-slate-200 text-sm text-slate-500 dark:border-slate-800">
+                <div className="flex flex-1 items-center justify-center rounded-xl border border-dashed border-slate-200 text-sm text-slate-500 dark:border-slate-800">
                   No product data for this period
                 </div>
               )}
-            </div>
+            </Widget>
           </div>
 
-          {/* Top brokers */}
-          <div className="col-span-12 xl:col-span-4">
-            <div className="flex h-full flex-col rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#183b57]">
-                Broker Partners
-              </p>
-              <h3 className="mt-0.5 text-lg font-semibold text-slate-900 dark:text-white">
-                Top by volume
-              </h3>
-              {loading ? (
-                <div className="mt-4 space-y-3">
-                  {Array.from({ length: 4 }).map((_, i) => (
-                    <Pulse key={i} className="h-10" />
-                  ))}
-                </div>
-              ) : brokers.length > 0 ? (
-                <div className="mt-4 space-y-3">
+          <div className="col-span-12">
+            <Widget title="Broker Partners" subtitle="Top by volume" loading={loading}>
+              {brokers.length > 0 ? (
+                <div className="grid gap-4 md:grid-cols-2">
                   {brokers.map((item, index) => (
                     <div key={item.brokerOrgId}>
                       <div className="mb-1 flex items-center justify-between gap-2">
                         <div className="flex min-w-0 items-center gap-2">
-                          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[11px] font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#183b57]/10 text-[11px] font-semibold text-[#183b57]">
                             {index + 1}
                           </span>
                           <p className="truncate text-sm font-semibold text-slate-800 dark:text-slate-100">
@@ -944,10 +1173,7 @@ export default function Home() {
                         <div
                           className="h-full rounded-full bg-gradient-to-r from-teal-600 to-emerald-500"
                           style={{
-                            width: `${Math.max(
-                              8,
-                              (item.applications / brokerMax) * 100,
-                            )}%`,
+                            width: `${Math.max(8, (item.applications / brokerMax) * 100)}%`,
                           }}
                         />
                       </div>
@@ -958,22 +1184,22 @@ export default function Home() {
                   ))}
                 </div>
               ) : (
-                <div className="mt-6 flex flex-1 items-center justify-center rounded-xl border border-dashed border-slate-200 text-sm text-slate-500 dark:border-slate-800">
+                <div className="flex flex-1 items-center justify-center rounded-xl border border-dashed border-slate-200 text-sm text-slate-500 dark:border-slate-800">
                   No broker activity for this period
                 </div>
               )}
-            </div>
+            </Widget>
           </div>
 
           {/* Recent applications */}
           <div className="col-span-12">
-            <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
-              <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3 dark:border-slate-800 sm:px-5">
+            <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[0_10px_30px_rgba(15,23,42,0.05)] dark:border-slate-800 dark:bg-slate-900">
+              <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4 dark:border-slate-800 sm:px-6">
                 <div>
-                  <h2 className="text-sm font-semibold text-slate-900 dark:text-white">
+                  <h2 className="text-[15px] font-semibold text-slate-900 dark:text-white">
                     Recent Applications
                   </h2>
-                  <p className="text-xs text-slate-500">
+                  <p className="text-[12px] text-slate-400">
                     Latest submissions from broker partners
                   </p>
                 </div>
