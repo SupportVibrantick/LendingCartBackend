@@ -4,11 +4,11 @@ import {
   FileText,
   Handshake,
   Layers,
-  Settings,
   TrendingUp,
   Users,
 } from "lucide-react";
 import { CgProfile } from "react-icons/cg";
+import { MdSettings } from "react-icons/md";
 import { ChevronDownIcon, GridIcon, HorizontaLDots } from "../icons";
 import { useSidebar } from "../context/SidebarContext";
 import { canManageTeam } from "../lib/lenderPermissions";
@@ -76,7 +76,7 @@ const allNavItems: NavItem[] = [
     matchPaths: ["/team-members"],
   },
   {
-    icon: <Settings size={18} />,
+    icon: <MdSettings size={18} />,
     name: "Settings",
     adminOnly: true,
     matchPaths: ["/settings/branding"],
