@@ -50,9 +50,9 @@ const PAGE_SIZE_OPTIONS = [5, 8, 10, 20] as const;
 const SEARCH_DEBOUNCE_MS = 400;
 
 function formatDate(value?: string) {
-  if (!value) return "—";
+  if (!value) return "";
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "—";
+  if (Number.isNaN(date.getTime())) return "";
   return date.toLocaleDateString(undefined, {
     month: "short",
     day: "numeric",
@@ -72,17 +72,17 @@ function StatCard({
   iconWrap: string;
 }) {
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-gray-100 bg-white px-4 py-3.5 dark:border-gray-800 dark:bg-gray-900">
+    <div className="flex items-center gap-2.5 rounded-xl border border-gray-200/80 bg-white px-3.5 py-2.5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] dark:border-gray-800 dark:bg-gray-900">
       <div
-        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${iconWrap}`}
+        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${iconWrap}`}
       >
-        <Icon className="h-5 w-5" />
+        <Icon className="h-4 w-4" />
       </div>
       <div className="min-w-0">
-        <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
+        <p className="text-[11px] font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">
           {label}
         </p>
-        <p className="text-xl font-semibold tabular-nums text-gray-900 dark:text-white">
+        <p className="text-lg font-semibold leading-tight tabular-nums text-gray-900 dark:text-white">
           {value}
         </p>
       </div>
@@ -365,60 +365,58 @@ export default function BrokerCustomDocuments() {
         description="Manage broker custom document types"
       />
 
-      <div className="space-y-4 pb-4">
-        {/* Hero */}
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#13538A] via-[#1a6aad] to-[#2C92D5] px-5 py-5 text-white sm:px-6 sm:py-6">
-          <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
-          <div className="pointer-events-none absolute -bottom-12 left-1/3 h-36 w-36 rounded-full bg-cyan-300/20 blur-2xl" />
-          <div className="relative flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="min-w-0">
-              <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-medium text-white/90 ring-1 ring-white/20">
-                <FileText className="h-3.5 w-3.5" />
+      <div className="space-y-3 pb-4">
+        {/* Compact page header */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <div className="mb-1 flex items-center gap-2">
+              <span className="inline-flex items-center gap-1 rounded-md bg-[#13538A]/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#13538A] dark:bg-[#13538A]/20 dark:text-cyan-300">
+                <FileText className="h-3 w-3" />
                 Documents
-              </div>
-              <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-                Custom Documents
-              </h1>
-              <p className="mt-1 max-w-xl text-sm text-white/80">
-                {readOnly
-                  ? "View your broker's custom document library. Contact your broker admin to request changes."
-                  : "Create loan-product-specific document types for your organization."}
-              </p>
+              </span>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-xl font-semibold tracking-tight text-gray-900 dark:text-white">
+              Custom Documents
+            </h1>
+            <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
+              {readOnly
+                ? "View your broker's custom document library. Contact your broker admin to request changes."
+                : "Create loan-product-specific document types for your organization."}
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => void loadDocuments()}
+              disabled={loading || isSearching}
+              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 text-xs font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-60 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-800"
+            >
+              <RefreshCw
+                className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`}
+              />
+              Refresh
+            </button>
+            {canManage ? (
               <button
                 type="button"
-                onClick={() => void loadDocuments()}
-                disabled={loading || isSearching}
-                className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/25 bg-white/10 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-white/20 disabled:opacity-60"
+                onClick={openCreateModal}
+                className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-[#13538A] px-3 text-xs font-semibold text-white shadow-sm transition hover:bg-[#1a6aad]"
               >
-                <RefreshCw
-                  className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
-                />
-                Refresh
+                <Plus className="h-3.5 w-3.5" />
+                Add document
               </button>
-              {canManage ? (
-                <button
-                  type="button"
-                  onClick={openCreateModal}
-                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-[#13538A] transition hover:bg-white/90"
-                >
-                  <Plus className="h-4 w-4" />
-                  Add document
-                </button>
-              ) : null}
-            </div>
+            ) : null}
           </div>
         </div>
 
         {readOnly ? (
-          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
             View-only access — you cannot add, edit, or remove custom documents.
           </div>
         ) : null}
 
         {/* KPIs */}
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
           <StatCard
             icon={FileText}
             label="Total documents"
@@ -440,16 +438,16 @@ export default function BrokerCustomDocuments() {
         </div>
 
         {/* Toolbar + table */}
-        <div className="overflow-hidden rounded-xl border border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900">
-          <div className="border-b border-gray-100 px-4 py-4 dark:border-gray-800 sm:px-5">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div className="overflow-hidden rounded-xl border border-gray-200/80 bg-white shadow-[0_1px_3px_rgba(15,23,42,0.06)] dark:border-gray-800 dark:bg-gray-900">
+          <div className="border-b border-gray-100 px-3 py-2.5 dark:border-gray-800 sm:px-4">
+            <div className="flex flex-col gap-2.5 lg:flex-row lg:items-start lg:justify-between">
               <div className="min-w-0">
-                <h2 className="text-base font-semibold text-gray-900 dark:text-white">
+                <h2 className="text-sm font-semibold text-gray-900 dark:text-white">
                   {selectedFilterProduct
                     ? selectedFilterProduct.name
                     : "All documents"}
                 </h2>
-                <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
+                <p className="text-xs text-gray-500 dark:text-gray-400">
                   {loading || isSearching
                     ? isSearching
                       ? "Searching..."
@@ -468,22 +466,22 @@ export default function BrokerCustomDocuments() {
 
               <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
                 <div className="relative w-full sm:w-56">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                  <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
                   <input
                     type="text"
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     placeholder="Search documents..."
-                    className="h-10 w-full rounded-xl border border-gray-200 bg-white py-2 pl-9 pr-9 text-sm outline-none transition focus:border-[#13538A] focus:ring-2 focus:ring-[#13538A]/15 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100"
+                    className="h-9 w-full rounded-lg border border-gray-200 bg-white py-1.5 pl-8 pr-8 text-sm outline-none transition focus:border-[#13538A] focus:ring-2 focus:ring-[#13538A]/15 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100"
                   />
                   {search ? (
                     <button
                       type="button"
                       onClick={() => setSearch("")}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-0.5 text-gray-400 hover:text-gray-600"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-0.5 text-gray-400 hover:text-gray-600"
                       aria-label="Clear search"
                     >
-                      <X className="h-4 w-4" />
+                      <X className="h-3.5 w-3.5" />
                     </button>
                   ) : null}
                 </div>
@@ -492,7 +490,7 @@ export default function BrokerCustomDocuments() {
                   value={productFilter}
                   onChange={(e) => setProductFilter(e.target.value)}
                   disabled={loadingProducts}
-                  className="h-10 rounded-xl border border-gray-200 bg-white px-3 text-sm font-medium text-gray-700 outline-none transition focus:border-[#13538A] focus:ring-2 focus:ring-[#13538A]/15 disabled:opacity-60 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-200"
+                  className="h-9 rounded-lg border border-gray-200 bg-white px-2.5 text-sm font-medium text-gray-700 outline-none transition focus:border-[#13538A] focus:ring-2 focus:ring-[#13538A]/15 disabled:opacity-60 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-200"
                 >
                   <option value="">All loan products</option>
                   {selectableLoanProducts.map((product) => (
@@ -502,7 +500,7 @@ export default function BrokerCustomDocuments() {
                   ))}
                 </select>
 
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1">
                   {(
                     [
                       ["all", "All"],
@@ -514,7 +512,7 @@ export default function BrokerCustomDocuments() {
                       key={value}
                       type="button"
                       onClick={() => setUsageFilter(value)}
-                      className={`rounded-lg px-3 py-2 text-xs font-semibold transition ${
+                      className={`rounded-md px-2.5 py-1.5 text-xs font-semibold transition ${
                         usageFilter === value
                           ? "bg-[#13538A] text-white"
                           : "border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-300"
@@ -533,7 +531,7 @@ export default function BrokerCustomDocuments() {
                       setLimit(Number(e.target.value));
                       setPage(1);
                     }}
-                    className="h-10 rounded-xl border border-gray-200 bg-white px-2.5 text-sm font-medium text-gray-700 outline-none transition focus:border-[#13538A] focus:ring-2 focus:ring-[#13538A]/15 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-200"
+                    className="h-9 rounded-lg border border-gray-200 bg-white px-2 text-sm font-medium text-gray-700 outline-none transition focus:border-[#13538A] focus:ring-2 focus:ring-[#13538A]/15 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-200"
                   >
                     {PAGE_SIZE_OPTIONS.map((size) => (
                       <option key={size} value={size}>
@@ -684,16 +682,14 @@ export default function BrokerCustomDocuments() {
                                 </p>
                               ) : null}
                             </>
-                          ) : (
-                            <span className="text-sm text-gray-400">—</span>
-                          )}
+                          ) : null}
                         </td>
                         <td className="hidden max-w-[280px] px-4 py-3.5 md:table-cell">
                           <p
                             className="truncate text-sm text-gray-600 dark:text-gray-300"
                             title={doc.description || undefined}
                           >
-                            {doc.description || "—"}
+                            {doc.description || ""}
                           </p>
                         </td>
                         <td className="px-4 py-3.5">

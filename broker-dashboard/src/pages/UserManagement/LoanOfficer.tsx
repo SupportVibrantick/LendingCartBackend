@@ -94,7 +94,7 @@ function getAvatarTone(seed: string) {
 }
 
 function formatDate(value?: string) {
-  if (!value) return "—";
+  if (!value) return "";
   return new Date(value).toLocaleDateString(undefined, {
     month: "short",
     day: "numeric",
@@ -273,7 +273,7 @@ function CoBrokerBadge({
   }[];
 }) {
   if (!brokers?.length) {
-    return <span className="text-sm text-gray-400">—</span>;
+    return null;
   }
 
   const visible = brokers.slice(0, 3);
@@ -325,17 +325,17 @@ function StatCard({
   iconWrap: string;
 }) {
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-gray-100 bg-white px-4 py-3.5 dark:border-gray-800 dark:bg-gray-900">
+    <div className="flex items-center gap-2.5 rounded-xl border border-gray-200/80 bg-white px-3.5 py-2.5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] dark:border-gray-800 dark:bg-gray-900">
       <div
-        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${iconWrap}`}
+        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${iconWrap}`}
       >
-        <Icon className="h-5 w-5" />
+        <Icon className="h-4 w-4" />
       </div>
       <div className="min-w-0">
-        <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
+        <p className="text-[11px] font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">
           {label}
         </p>
-        <p className="text-xl font-semibold tabular-nums text-gray-900 dark:text-white">
+        <p className="text-lg font-semibold leading-tight tabular-nums text-gray-900 dark:text-white">
           {value}
         </p>
       </div>
@@ -857,98 +857,94 @@ export default function LoanOfficersPage() {
         description="Manage loan officers and monitor team activity"
       />
 
-      <div className="space-y-4 pb-4">
-        {/* Hero */}
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#13538A] via-[#1a6aad] to-[#2C92D5] px-5 py-5 text-white sm:px-6 sm:py-6">
-          <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
-          <div className="pointer-events-none absolute -bottom-12 left-1/3 h-36 w-36 rounded-full bg-cyan-300/20 blur-2xl" />
-          <div className="relative flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="min-w-0">
-              <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-medium text-white/90 ring-1 ring-white/20">
-                <Users className="h-3.5 w-3.5" />
+      <div className="space-y-3 pb-4">
+        {/* Compact page header */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <div className="mb-1 flex items-center gap-2">
+              <span className="inline-flex items-center gap-1 rounded-md bg-[#13538A]/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#13538A] dark:bg-[#13538A]/20 dark:text-cyan-300">
+                <Users className="h-3 w-3" />
                 User management
-              </div>
-              <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-                Loan Officers
-              </h1>
-              <p className="mt-1 max-w-xl text-sm text-white/80">
-                {activeTab === "activity"
-                  ? "Track applications, contacts, messages, and profile updates across your team."
-                  : "Manage and monitor your loan officer team."}
-              </p>
+              </span>
             </div>
-            {activeTab === "officers" ? (
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => fetchOfficers()}
-                  disabled={loading || isSearching}
-                  className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-white/25 bg-white/10 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-white/20 disabled:opacity-60"
-                >
-                  <RefreshCw
-                    className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`}
-                  />
-                  Refresh
-                </button>
-                <button
-                  type="button"
-                  onClick={handleCopyInviteLink}
-                  disabled={copyingInvite}
-                  className="group relative inline-flex items-center justify-center gap-1.5 rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-[#13538A] shadow-[0_6px_16px_rgba(0,0,0,0.16)] ring-1 ring-cyan-200/90 transition hover:-translate-y-0.5 hover:bg-cyan-50 hover:shadow-[0_8px_20px_rgba(0,0,0,0.2)] hover:ring-cyan-300 disabled:translate-y-0 disabled:opacity-60"
-                >
-                  <span className="absolute -right-1 -top-1 rounded bg-gradient-to-r from-[#13538A] to-[#1a6aad] px-1 py-px text-[8px] font-bold uppercase tracking-wide text-white shadow-sm">
-                    Share
-                  </span>
-                  <span className="flex h-5 w-5 items-center justify-center rounded-md bg-[#13538A]/10 text-[#13538A] transition group-hover:bg-[#13538A]/15">
-                    <Link2
-                      className={`h-3 w-3 ${copyingInvite ? "animate-pulse" : ""}`}
-                    />
-                  </span>
-                  {copyingInvite ? "Creating..." : "Copy invite link"}
-                </button>
-                <button
-                  type="button"
-                  onClick={openCreateModal}
-                  className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-white/30 bg-white/10 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-white/20"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  Create loan officer
-                </button>
-              </div>
-            ) : null}
+            <h1 className="text-xl font-semibold tracking-tight text-gray-900 dark:text-white">
+              Loan Officers
+            </h1>
+            <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
+              {activeTab === "activity"
+                ? "Track applications, contacts, messages, and profile updates across your team."
+                : "Manage and monitor your loan officer team."}
+            </p>
           </div>
+          {activeTab === "officers" ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => fetchOfficers()}
+                disabled={loading || isSearching}
+                className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 text-xs font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-60 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-800"
+              >
+                <RefreshCw
+                  className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`}
+                />
+                Refresh
+              </button>
+              <button
+                type="button"
+                onClick={handleCopyInviteLink}
+                disabled={copyingInvite}
+                className="group relative inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-[#13538A] px-3 text-xs font-semibold text-white shadow-sm transition hover:bg-[#1a6aad] disabled:opacity-60"
+              >
+                <span className="absolute -right-1 -top-1 rounded bg-emerald-500 px-1 py-px text-[8px] font-bold uppercase tracking-wide text-white shadow-sm">
+                  Share
+                </span>
+                <Link2
+                  className={`h-3.5 w-3.5 ${copyingInvite ? "animate-pulse" : ""}`}
+                />
+                {copyingInvite ? "Creating..." : "Copy invite link"}
+              </button>
+              <button
+                type="button"
+                onClick={openCreateModal}
+                className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-[#13538A]/25 bg-white px-3 text-xs font-semibold text-[#13538A] transition hover:bg-[#13538A]/5 dark:border-[#13538A]/40 dark:bg-gray-900 dark:hover:bg-[#13538A]/10"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Create loan officer
+              </button>
+            </div>
+          ) : null}
         </div>
 
         {/* Tabs */}
-        <div className="inline-flex w-full gap-1 rounded-xl border border-gray-200 bg-white p-1 dark:border-gray-800 dark:bg-gray-900 sm:w-auto">
+        <div className="inline-flex w-full gap-1 rounded-lg border border-gray-200 bg-white p-0.5 dark:border-gray-800 dark:bg-gray-900 sm:w-auto">
           <button
             type="button"
             onClick={() => setActiveTab("officers")}
-            className={`inline-flex flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold transition sm:flex-none sm:px-4 ${
+            className={`inline-flex flex-1 items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition sm:flex-none sm:px-3.5 ${
               activeTab === "officers"
-                ? "bg-[#13538A] text-white"
+                ? "bg-[#13538A] text-white shadow-sm"
                 : "text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800"
             }`}
           >
-            <Users className="h-4 w-4" />
+            <Users className="h-3.5 w-3.5" />
             Officers
           </button>
           <button
             type="button"
             onClick={() => setActiveTab("activity")}
-            className={`inline-flex flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold transition sm:flex-none sm:px-4 ${
+            className={`inline-flex flex-1 items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition sm:flex-none sm:px-3.5 ${
               activeTab === "activity"
-                ? "bg-[#13538A] text-white"
+                ? "bg-[#13538A] text-white shadow-sm"
                 : "text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800"
             }`}
           >
-            <Activity className="h-4 w-4" />
+            <Activity className="h-3.5 w-3.5" />
             Activity
           </button>
         </div>
 
         {activeTab === "officers" ? (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
             <StatCard
               icon={Users}
               label="Total officers"
@@ -978,14 +974,14 @@ export default function LoanOfficersPage() {
         ) : (
         <>
         {/* Toolbar + table card */}
-        <div className="overflow-hidden rounded-xl border border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900">
-          <div className="border-b border-gray-100 px-4 py-4 dark:border-gray-800 sm:px-5">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="overflow-hidden rounded-xl border border-gray-200/80 bg-white shadow-[0_1px_3px_rgba(15,23,42,0.06)] dark:border-gray-800 dark:bg-gray-900">
+          <div className="border-b border-gray-100 px-3 py-2.5 dark:border-gray-800 sm:px-4">
+            <div className="flex flex-col gap-2.5 lg:flex-row lg:items-center lg:justify-between">
               <div className="min-w-0">
-                <h2 className="text-base font-semibold text-gray-900 dark:text-white">
+                <h2 className="text-sm font-semibold text-gray-900 dark:text-white">
                   All loan officers
                 </h2>
-                <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
+                <p className="text-xs text-gray-500 dark:text-gray-400">
                   {loading || isSearching
                     ? isSearching
                       ? "Searching..."
@@ -1002,11 +998,11 @@ export default function LoanOfficersPage() {
 
               <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
                 <div className="relative w-full sm:w-56">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                  <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
                   <input
                     type="text"
                     placeholder="Search loan officers..."
-                    className="h-10 w-full rounded-xl border border-gray-200 bg-white py-2 pl-9 pr-9 text-sm outline-none transition focus:border-[#13538A] focus:ring-2 focus:ring-[#13538A]/15 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100"
+                    className="h-9 w-full rounded-lg border border-gray-200 bg-white py-1.5 pl-8 pr-8 text-sm outline-none transition focus:border-[#13538A] focus:ring-2 focus:ring-[#13538A]/15 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100"
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                   />
@@ -1014,21 +1010,21 @@ export default function LoanOfficersPage() {
                     <button
                       type="button"
                       onClick={() => setSearch("")}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-0.5 text-gray-400 hover:text-gray-600"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-0.5 text-gray-400 hover:text-gray-600"
                       aria-label="Clear search"
                     >
-                      <X className="h-4 w-4" />
+                      <X className="h-3.5 w-3.5" />
                     </button>
                   ) : null}
                 </div>
 
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1">
                   {(["", "ACTIVE", "DISABLED"] as const).map((value) => (
                     <button
                       key={value || "all"}
                       type="button"
                       onClick={() => setStatusFilter(value)}
-                      className={`rounded-lg px-3 py-2 text-xs font-semibold transition ${
+                      className={`rounded-md px-2.5 py-1.5 text-xs font-semibold transition ${
                         statusFilter === value
                           ? "bg-[#13538A] text-white"
                           : "border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-300"
@@ -1048,7 +1044,7 @@ export default function LoanOfficersPage() {
                   <select
                     value={limit}
                     onChange={(e) => setLimit(Number(e.target.value))}
-                    className="h-10 rounded-xl border border-gray-200 bg-white px-2.5 text-sm font-medium text-gray-700 outline-none transition focus:border-[#13538A] focus:ring-2 focus:ring-[#13538A]/15 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-200"
+                    className="h-9 rounded-lg border border-gray-200 bg-white px-2 text-sm font-medium text-gray-700 outline-none transition focus:border-[#13538A] focus:ring-2 focus:ring-[#13538A]/15 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-200"
                   >
                     {PAGE_SIZE_OPTIONS.map((size) => (
                       <option key={size} value={size}>
@@ -1178,7 +1174,7 @@ export default function LoanOfficersPage() {
 
                         <td className="px-4 py-3.5">
                           <div className="flex min-w-0 items-center gap-3">
-                            <span className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-gray-200/80 dark:bg-gray-900 dark:ring-gray-700">
+                            <span className="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white shadow-sm ring-1 ring-gray-200/80 dark:bg-gray-900 dark:ring-gray-700">
                               {o.profile?.avatarUrl ? (
                                 <img
                                   src={`${API_BASE}${o.profile.avatarUrl}`}
@@ -1187,13 +1183,13 @@ export default function LoanOfficersPage() {
                                 />
                               ) : (
                                 <span
-                                  className={`flex h-full w-full items-center justify-center text-xs font-bold ${getAvatarTone(fullName)}`}
+                                  className={`flex h-full w-full items-center justify-center text-[11px] font-bold ${getAvatarTone(fullName)}`}
                                 >
                                   {getInitials(o.firstName, o.lastName)}
                                 </span>
                               )}
                               <span
-                                className={`absolute bottom-0.5 right-0.5 h-2.5 w-2.5 rounded-full border-2 border-white dark:border-gray-900 ${
+                                className={`absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-white dark:border-gray-900 ${
                                   isActive ? "bg-emerald-500" : "bg-gray-400"
                                 }`}
                               />
