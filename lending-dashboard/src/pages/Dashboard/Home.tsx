@@ -617,7 +617,10 @@ export default function Home() {
     legend: { show: false },
     dataLabels: { enabled: false },
     stroke: { colors: ["#fff"], width: 2 },
-    tooltip: { y: { formatter: (value) => `${Math.round(value)} apps` } },
+    tooltip: {
+      theme: "light",
+      y: { formatter: (value) => `${Math.round(value)} apps` },
+    },
     plotOptions: {
       pie: {
         donut: {
@@ -655,6 +658,7 @@ export default function Home() {
     dataLabels: { enabled: false },
     stroke: { colors: ["#fff"], width: 2 },
     tooltip: {
+      theme: "light",
       y: {
         formatter: (value) => {
           const pct = stageTotal ? ((value / stageTotal) * 100).toFixed(2) : "0.00";
@@ -719,7 +723,10 @@ export default function Home() {
       axisBorder: { show: false },
       axisTicks: { show: false },
     },
-    tooltip: { y: { formatter: (value) => `${Math.round(value)} applications` } },
+    tooltip: {
+      theme: "light",
+      y: { formatter: (value) => `${Math.round(value)} applications` },
+    },
   };
 
   const conversionOptions: ApexOptions = {

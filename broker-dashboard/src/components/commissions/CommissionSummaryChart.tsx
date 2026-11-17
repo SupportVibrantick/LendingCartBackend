@@ -78,6 +78,7 @@ export default function CommissionSummaryChart({
       padding: { left: 4, right: 4 },
     },
     tooltip: {
+      theme: "light",
       y: {
         formatter: (value) => formatCommissionCurrency(value),
       },

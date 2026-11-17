@@ -123,6 +123,7 @@ export default function ProductVolumeChart({ stats, loading }: Props) {
       },
     },
     tooltip: {
+      theme: "light",
       y: {
         formatter: (value) =>
           useProducts
