@@ -787,10 +787,8 @@ const Pricing = () => {
                 applicableAddOns,
                 billingCycle,
               );
-              // Trial page shows base plan price only (no add-ons)
-              const displayTotal = isTrialPage
-                ? amount
-                : billingCycle === "YEARLY"
+              const displayTotal =
+                billingCycle === "YEARLY"
                   ? amount + Math.round(addOnsAmount / 12)
                   : Number(amount) + addOnsAmount;
               const displayBilledToday =
@@ -800,9 +798,8 @@ const Pricing = () => {
                   ? null
                   : Number(billedToday) + Number(addOnsAmount || 0);
 
-              const addOnCodesForCheckout = isTrialPage
-                ? []
-                : expandAddOnCodesForCheckout(applicableAddOns);
+              const addOnCodesForCheckout =
+                expandAddOnCodesForCheckout(applicableAddOns);
 
               const checkoutState = buildPlanCheckoutState(
                 pkg,
@@ -814,7 +811,7 @@ const Pricing = () => {
                 pkg,
                 billingCycle,
                 formatPrice,
-                [],
+                addOnCodesForCheckout,
                 { mode: "trial" },
               );
               const demoState = {
@@ -888,7 +885,7 @@ const Pricing = () => {
                     )}
                   </div>
 
-                  {extraUserAddOn && !isTrialPage && (
+                  {extraUserAddOn && (
                     <UserSlider
                       pkg={pkg}
                       quantity={extraUserQty}
@@ -916,19 +913,17 @@ const Pricing = () => {
 
                   <FeatureGroupsList groups={featureGroups} />
 
-                  {!isTrialPage && (
-                    <InCardAddOns
-                      addOns={packageAddOns}
-                      selectedCodes={selectedCodes}
-                      formatPrice={formatPrice}
-                      onToggle={(code) =>
-                        updatePackageSelections(
-                          pkg.id,
-                          toggleAddOnCode(selectedCodes, code),
-                        )
-                      }
-                    />
-                  )}
+                  <InCardAddOns
+                    addOns={packageAddOns}
+                    selectedCodes={selectedCodes}
+                    formatPrice={formatPrice}
+                    onToggle={(code) =>
+                      updatePackageSelections(
+                        pkg.id,
+                        toggleAddOnCode(selectedCodes, code),
+                      )
+                    }
+                  />
 
                   <PricingPlanCta
                     pkg={pkg}

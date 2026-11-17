@@ -3,7 +3,6 @@ import toast from "react-hot-toast";
 import { ArrowRight, CheckCircle2 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { getBrokerSignInUrl } from "../lib/brokerAuth";
-import { getPaidSiteUrl } from "../lib/siteUrls";
 
 const TIER_PRIMARY = {
   BASIC:
@@ -14,13 +13,13 @@ const TIER_PRIMARY = {
     "bg-linear-to-r from-amber-400 to-yellow-500 text-slate-900 shadow-[0_8px_28px_rgba(251,191,36,0.35)] hover:shadow-[0_12px_40px_rgba(251,191,36,0.5)]",
 };
 
-const TIER_BUY_NOW = {
+const TIER_TRIAL = {
   BASIC:
-    "border-[#4B83FF]/50 bg-[#4B83FF]/10 text-[#2f5fd4] hover:border-[#4B83FF] hover:bg-[#4B83FF]/18 dark:border-[#4B83FF]/55 dark:bg-[#4B83FF]/15 dark:text-[#9bb8ff] dark:hover:border-[#4B83FF] dark:hover:bg-[#4B83FF]/25 dark:hover:text-white dark:shadow-[0_0_20px_rgba(75,131,255,0.12)]",
+    "border-[#4B83FF]/50 bg-[#4B83FF]/10 text-[#2f5fd4] hover:border-[#4B83FF] hover:bg-[#4B83FF]/18 dark:border-[#4B83FF]/55 dark:bg-[#4B83FF]/15 dark:text-[#9bb8ff] dark:hover:border-[#4B83FF] dark:hover:bg-[#4B83FF]/25 dark:hover:text-white",
   PRO:
-    "border-indigo-400/50 bg-indigo-500/10 text-indigo-700 hover:border-indigo-500 hover:bg-indigo-500/18 dark:border-indigo-400/55 dark:bg-indigo-500/15 dark:text-indigo-200 dark:hover:border-indigo-400 dark:hover:bg-indigo-500/25 dark:hover:text-white dark:shadow-[0_0_20px_rgba(99,102,241,0.14)]",
+    "border-indigo-400/50 bg-indigo-500/10 text-indigo-700 hover:border-indigo-500 hover:bg-indigo-500/18 dark:border-indigo-400/55 dark:bg-indigo-500/15 dark:text-indigo-200 dark:hover:border-indigo-400 dark:hover:bg-indigo-500/25 dark:hover:text-white",
   ELITE:
-    "border-amber-400/50 bg-amber-500/10 text-amber-800 hover:border-amber-500 hover:bg-amber-500/18 dark:border-amber-400/55 dark:bg-amber-500/15 dark:text-amber-200 dark:hover:border-amber-400 dark:hover:bg-amber-500/25 dark:hover:text-amber-50 dark:shadow-[0_0_20px_rgba(251,191,36,0.12)]",
+    "border-amber-400/50 bg-amber-500/10 text-amber-800 hover:border-amber-500 hover:bg-amber-500/18 dark:border-amber-400/55 dark:bg-amber-500/15 dark:text-amber-200 dark:hover:border-amber-400 dark:hover:bg-amber-500/25 dark:hover:text-amber-50",
 };
 
 const TIER_BOOK_DEMO = {
@@ -33,16 +32,16 @@ const TIER_BOOK_DEMO = {
 };
 
 const basePrimary =
-  "group inline-flex w-full items-center justify-center gap-2 rounded-2xl px-5 py-3.5 text-sm font-semibold text-white transition-all duration-200 hover:scale-[1.02] active:scale-[0.99] disabled:pointer-events-none disabled:opacity-50 disabled:hover:scale-100";
+  "group inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white transition-all duration-200 hover:scale-[1.02] active:scale-[0.99] disabled:pointer-events-none disabled:opacity-50 disabled:hover:scale-100";
 
 const baseSecondary =
-  "inline-flex w-full items-center justify-center gap-2 rounded-2xl border px-5 py-3.5 text-sm font-semibold transition-all duration-200 hover:scale-[1.01] active:scale-[0.99]";
+  "inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-semibold transition-all duration-200 hover:scale-[1.01] active:scale-[0.99]";
 
 const dashboardClass =
-  "inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-linear-to-r from-emerald-500 to-teal-500 px-5 py-3.5 text-sm font-semibold text-white shadow-[0_8px_28px_rgba(16,185,129,0.35)] transition-all duration-200 hover:scale-[1.02] hover:shadow-[0_12px_36px_rgba(16,185,129,0.45)]";
+  "inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-linear-to-r from-emerald-500 to-teal-500 px-4 py-2.5 text-sm font-semibold text-white shadow-[0_8px_28px_rgba(16,185,129,0.35)] transition-all duration-200 hover:scale-[1.02] hover:shadow-[0_12px_36px_rgba(16,185,129,0.45)]";
 
 const disabledClass =
-  "inline-flex w-full cursor-not-allowed items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 px-5 py-3.5 text-sm font-semibold text-slate-400 opacity-60 dark:border-white/10 dark:bg-white/[0.04] dark:text-gray-500";
+  "inline-flex w-full cursor-not-allowed items-center justify-center rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-semibold text-slate-400 opacity-60 dark:border-white/10 dark:bg-white/[0.04] dark:text-gray-500";
 
 function formatTrialEnds(iso) {
   if (!iso) return null;
@@ -56,7 +55,7 @@ function formatTrialEnds(iso) {
 }
 
 /**
- * Free-trial landing CTAs — trial only; paid pricing links out to loan-ai.
+ * Paid pricing CTAs — Buy now primary; 14-day free trial available when eligible.
  */
 export default function PricingPlanCta({
   pkg,
@@ -70,16 +69,15 @@ export default function PricingPlanCta({
   const tier = String(pkg?.code || "BASIC").toUpperCase();
   const primaryTone = TIER_PRIMARY[tier] || TIER_PRIMARY.BASIC;
   const primaryClass = `${basePrimary} ${primaryTone}`;
-  const buyNowClass = `${baseSecondary} ${TIER_BUY_NOW[tier] || TIER_BUY_NOW.BASIC}`;
+  const trialClass = `${baseSecondary} ${TIER_TRIAL[tier] || TIER_TRIAL.BASIC}`;
   const demoClass = `${baseSecondary} ${TIER_BOOK_DEMO[tier] || TIER_BOOK_DEMO.BASIC}`;
   const arrowTone = tier === "ELITE" ? "text-slate-900" : "text-white/90";
-  const paidPricingUrl = getPaidSiteUrl("/#pricing");
 
   if (loading) {
     return (
-      <div className="mt-auto space-y-3">
-        <div className="h-12 w-full animate-pulse rounded-2xl bg-slate-200 dark:bg-white/10" />
-        <div className="h-12 w-full animate-pulse rounded-2xl bg-slate-100 dark:bg-white/5" />
+      <div className="mt-auto space-y-2">
+        <div className="h-10 w-full animate-pulse rounded-xl bg-slate-200 dark:bg-white/10" />
+        <div className="h-10 w-full animate-pulse rounded-xl bg-slate-100 dark:bg-white/5" />
       </div>
     );
   }
@@ -96,7 +94,7 @@ export default function PricingPlanCta({
   const canStartTrial = !hasSubscription && !user?.hasUsedFreeTrial;
   const trialLabel = `Start ${freeTrialDays}-day free trial`;
   const trialState =
-    trialCheckoutState || { ...checkoutState, mode: "trial", addOnCodes: [] };
+    trialCheckoutState || { ...checkoutState, mode: "trial" };
 
   const goToSubscribe = (state) => {
     if (!state?.packageId) {
@@ -106,10 +104,33 @@ export default function PricingPlanCta({
     navigate("/subscribe", { state });
   };
 
+  const trialCta = canStartTrial ? (
+    isAuthenticated ? (
+      <button
+        type="button"
+        onClick={() => goToSubscribe(trialState)}
+        className={trialClass}
+      >
+        {trialLabel}
+      </button>
+    ) : (
+      <Link to="/signup" state={trialState} className={trialClass}>
+        {trialLabel}
+      </Link>
+    )
+  ) : null;
+
   return (
-    <div className="mt-auto flex flex-col gap-2.5 pt-2">
+    <div className="mt-auto flex flex-col gap-2 pt-1">
+      {isCurrentPlan && isPaidActive && (
+        <div className="mb-0.5 flex items-center justify-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm font-medium text-emerald-700 dark:text-emerald-300">
+          <CheckCircle2 size={16} className="shrink-0" />
+          Purchased · Active plan
+        </div>
+      )}
+
       {isCurrentPlan && isOnTrial && (
-        <div className="mb-1 flex flex-col items-center gap-1 rounded-2xl border border-sky-500/30 bg-sky-500/10 px-3 py-2.5 text-sm font-medium text-sky-700 dark:text-sky-200">
+        <div className="mb-0.5 flex flex-col items-center gap-0.5 rounded-xl border border-sky-500/30 bg-sky-500/10 px-3 py-2 text-sm font-medium text-sky-700 dark:text-sky-200">
           <span className="inline-flex items-center gap-2">
             <CheckCircle2 size={16} className="shrink-0" />
             Free trial active
@@ -119,13 +140,6 @@ export default function PricingPlanCta({
               Ends {trialEndLabel}
             </span>
           )}
-        </div>
-      )}
-
-      {isCurrentPlan && isPaidActive && (
-        <div className="mb-1 flex items-center justify-center gap-2 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2.5 text-sm font-medium text-emerald-700 dark:text-emerald-300">
-          <CheckCircle2 size={16} className="shrink-0" />
-          Purchased · Active plan
         </div>
       )}
 
@@ -141,13 +155,17 @@ export default function PricingPlanCta({
         </a>
       ) : isCurrentPlan && isOnTrial ? (
         <>
-          <a href={paidPricingUrl} className={primaryClass}>
-            Subscribe on paid pricing
+          <button
+            type="button"
+            onClick={() => goToSubscribe(checkoutState)}
+            className={primaryClass}
+          >
+            Subscribe now
             <ArrowRight
               size={16}
               className={`${arrowTone} transition-transform group-hover:translate-x-0.5`}
             />
-          </a>
+          </button>
           <a
             href={getBrokerSignInUrl()}
             target="_blank"
@@ -162,50 +180,41 @@ export default function PricingPlanCta({
           Subscribe
         </button>
       ) : isOnTrial ? (
-        <a href={paidPricingUrl} className={primaryClass}>
+        <button
+          type="button"
+          onClick={() => goToSubscribe(checkoutState)}
+          className={primaryClass}
+        >
           Switch & subscribe
           <ArrowRight
             size={16}
             className={`${arrowTone} transition-transform group-hover:translate-x-0.5`}
           />
-        </a>
+        </button>
       ) : (
         <>
-          {canStartTrial ? (
-            isAuthenticated ? (
-              <button
-                type="button"
-                onClick={() => goToSubscribe(trialState)}
-                className={primaryClass}
-              >
-                {trialLabel}
-                <ArrowRight
-                  size={16}
-                  className={`${arrowTone} transition-transform group-hover:translate-x-0.5`}
-                />
-              </button>
-            ) : (
-              <Link to="/signup" state={trialState} className={primaryClass}>
-                {trialLabel}
-                <ArrowRight
-                  size={16}
-                  className={`${arrowTone} transition-transform group-hover:translate-x-0.5`}
-                />
-              </Link>
-            )
-          ) : (
-            <a href={paidPricingUrl} className={primaryClass}>
-              Choose a paid plan
+          {isAuthenticated ? (
+            <button
+              type="button"
+              onClick={() => goToSubscribe(checkoutState)}
+              className={primaryClass}
+            >
+              Buy now
               <ArrowRight
                 size={16}
                 className={`${arrowTone} transition-transform group-hover:translate-x-0.5`}
               />
-            </a>
+            </button>
+          ) : (
+            <Link to="/signup" state={checkoutState} className={primaryClass}>
+              Buy now
+              <ArrowRight
+                size={16}
+                className={`${arrowTone} transition-transform group-hover:translate-x-0.5`}
+              />
+            </Link>
           )}
-          <a href={paidPricingUrl} className={buyNowClass}>
-            View paid pricing
-            <ArrowRight size={16} className="opacity-80" />
-          </a>
+          {trialCta}
         </>
       )}
 

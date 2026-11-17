@@ -169,7 +169,7 @@ export async function startLoanAiCheckout(token, payload) {
       organizationPhone: payload.organizationPhone || payload.phone,
       firstName: payload.firstName,
       lastName: payload.lastName,
-      addOnCodes: payload.withFreeTrial ? [] : payload.addOnCodes || [],
+      addOnCodes: payload.addOnCodes || [],
       withFreeTrial: Boolean(payload.withFreeTrial),
     }),
   });

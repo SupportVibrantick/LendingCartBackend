@@ -1,5 +1,6 @@
 const {
   retrieveStripeCheckoutSession,
+  extractAddOnCodesFromStripeSession,
   isStripeCheckoutSessionPaid,
 } = require("./stripeCheckout.service");
 const { fulfillPaidGhlCheckout } = require("../ghl/fulfillGhlCheckout");
@@ -7,6 +8,41 @@ const {
   CHECKOUT_ERROR_CODES,
   checkoutError,
 } = require("../ghl/ghlCheckoutErrors");
+
+/**
+ * Merge add-ons chosen on Stripe Checkout (incl. optional_items) into metadata.
+ */
+async function mergeStripeSessionAddOnsIntoCheckout(prisma, checkout, sessionId) {
+  if (!checkout?.id || !sessionId) return checkout;
+  let stripeAddOnCodes = [];
+  try {
+    stripeAddOnCodes = await extractAddOnCodesFromStripeSession(sessionId);
+  } catch {
+    return checkout;
+  }
+  if (!stripeAddOnCodes.length) return checkout;
+
+  const meta =
+    checkout.metadata && typeof checkout.metadata === "object"
+      ? { ...checkout.metadata }
+      : {};
+  const existing = Array.isArray(meta.addOnCodes)
+    ? meta.addOnCodes.map(String)
+    : [];
+  // Prefer Stripe session line items as source of truth after checkout.
+  meta.addOnCodes = stripeAddOnCodes;
+  meta.stripeResolvedAddOnCodes = stripeAddOnCodes;
+  if (existing.length) meta.preselectedAddOnCodes = existing;
+
+  return prisma.loanAiGhlCheckout.update({
+    where: { id: checkout.id },
+    data: { metadata: meta },
+    include: {
+      package: true,
+      loanAiUser: true,
+    },
+  });
+}
 
 function getMetaCheckoutId(session) {
   return (
@@ -150,12 +186,22 @@ async function syncPaidCheckoutFromStripe(
   }
 
   const ids = getStripeIdsFromSession(session);
-  const fulfilled = await fulfillPaidGhlCheckout(prisma, io, checkout, {
-    provider: "stripe",
-    ...ids,
-    ghlInvoiceId: ids.stripeSessionId,
-    ghlSubscriptionId: ids.stripeSubscriptionId,
-  });
+  const checkoutWithAddOns = await mergeStripeSessionAddOnsIntoCheckout(
+    prisma,
+    checkout,
+    ids.stripeSessionId || resolvedSessionId,
+  );
+  const fulfilled = await fulfillPaidGhlCheckout(
+    prisma,
+    io,
+    checkoutWithAddOns || checkout,
+    {
+      provider: "stripe",
+      ...ids,
+      ghlInvoiceId: ids.stripeSessionId,
+      ghlSubscriptionId: ids.stripeSubscriptionId,
+    },
+  );
 
   return {
     synced: true,
@@ -221,10 +267,17 @@ async function fulfillStripeCheckoutSession(prisma, io, session) {
     },
   });
 
-  const fresh = await prisma.loanAiGhlCheckout.findUnique({
+  let fresh = await prisma.loanAiGhlCheckout.findUnique({
     where: { id: checkout.id },
     include: { package: true, loanAiUser: true },
   });
+
+  fresh =
+    (await mergeStripeSessionAddOnsIntoCheckout(
+      prisma,
+      fresh,
+      ids.stripeSessionId || session?.id,
+    )) || fresh;
 
   const fulfilled = await fulfillPaidGhlCheckout(prisma, io, fresh, {
     provider: "stripe",

@@ -36,6 +36,9 @@ type AddOnsPayload = {
   packageName: string | null;
   billingCycle: "MONTHLY" | "YEARLY" | string;
   currentPeriodEnd?: string;
+  trialEndsAt?: string | null;
+  remainingTrialDays?: number;
+  canPurchaseAddOns?: boolean;
   purchasedAddOns: PurchasedAddOn[];
   ownedAddOnCodes: string[];
   availableAddOns: AvailableAddOn[];
@@ -125,6 +128,11 @@ export default function PlanAddOns() {
   const isYearly = data?.billingCycle === "YEARLY";
   const periodSuffix = isYearly ? "/yr" : "/mo";
   const priceLabel = isYearly ? "billed yearly" : "billed monthly";
+  const isOnTrial = String(data?.status || "").toUpperCase() === "TRIAL";
+  const trialDaysLeft = Math.max(0, Number(data?.remainingTrialDays) || 0);
+  const trialEndLabel = data?.trialEndsAt
+    ? new Date(data.trialEndsAt).toLocaleDateString()
+    : null;
 
   const seatDelta = Math.max(
     0,
@@ -164,6 +172,7 @@ export default function PlanAddOns() {
     () => lineItems.reduce((sum, row) => sum + row.amount, 0),
     [lineItems],
   );
+  const dueTodayAmount = isOnTrial && trialDaysLeft > 0 ? 0 : estimated;
 
   const hasDelta = lineItems.length > 0;
 
@@ -235,6 +244,25 @@ export default function PlanAddOns() {
       ) : (
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
           <div className="space-y-6">
+            {isOnTrial ? (
+              <div className="rounded-2xl border border-sky-200 bg-sky-50 px-5 py-4 text-sm text-sky-950 dark:border-sky-500/30 dark:bg-sky-500/10 dark:text-sky-100">
+                <p className="font-semibold">
+                  Free trial active
+                  {trialDaysLeft > 0 ? ` · ${trialDaysLeft} day${trialDaysLeft === 1 ? "" : "s"} left` : ""}
+                  {trialEndLabel ? ` (ends ${trialEndLabel})` : ""}
+                </p>
+                <p className="mt-1 text-sky-900/80 dark:text-sky-100/80">
+                  You can purchase add-ons and team seats during your trial.
+                  {data.paymentProvider === "stripe"
+                    ? " Stripe will keep new add-ons at $0 until your trial ends, then bill them with your plan."
+                    : " Complete checkout to unlock them on your brokerage."}
+                  {data.availableAddOns.length === 0
+                    ? " Your current plan already includes all feature upgrades — you can still add seats below."
+                    : ""}
+                </p>
+              </div>
+            ) : null}
+
             {/* Current plan */}
             <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-white/[0.03]">
               <div className="bg-gradient-to-br from-[#13538A] via-[#1a6bab] to-[#2C92D5] px-6 py-6 text-white">
@@ -247,9 +275,14 @@ export default function PlanAddOns() {
                       {data.packageName || data.packageCode || "Plan"}
                     </h2>
                     <p className="mt-1 text-sm text-white/80">
-                      {priceLabel}
-                      {data.currentPeriodEnd
+                      {isOnTrial
+                        ? `Free trial${trialDaysLeft > 0 ? ` · ${trialDaysLeft} days left` : ""}`
+                        : priceLabel}
+                      {!isOnTrial && data.currentPeriodEnd
                         ? ` · renews ${new Date(data.currentPeriodEnd).toLocaleDateString()}`
+                        : ""}
+                      {isOnTrial && trialEndLabel
+                        ? ` · ends ${trialEndLabel}`
                         : ""}
                     </p>
                   </div>
@@ -482,14 +515,22 @@ export default function PlanAddOns() {
               <div className="mt-4 flex items-end justify-between gap-3">
                 <div>
                   <p className="text-xs uppercase tracking-wide text-gray-400">
-                    Due today
+                    {isOnTrial && trialDaysLeft > 0 && hasDelta
+                      ? "Due today"
+                      : "Due today"}
                   </p>
                   <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                    {formatMoney(estimated)}
+                    {formatMoney(dueTodayAmount)}
                     <span className="ml-1 text-sm font-medium text-gray-400">
                       {periodSuffix}
                     </span>
                   </p>
+                  {isOnTrial && trialDaysLeft > 0 && hasDelta ? (
+                    <p className="mt-1 text-xs text-sky-700 dark:text-sky-300">
+                      Then {formatMoney(estimated)}
+                      {periodSuffix} after trial
+                    </p>
+                  ) : null}
                 </div>
               </div>
 
@@ -506,17 +547,23 @@ export default function PlanAddOns() {
                 )}
                 {submitting
                   ? "Redirecting…"
-                  : data.paymentProvider === "stripe"
-                    ? "Pay with Stripe"
-                    : "Pay & unlock"}
+                  : isOnTrial && trialDaysLeft > 0
+                    ? data.paymentProvider === "stripe"
+                      ? "Add with Stripe (trial)"
+                      : "Unlock on trial"
+                    : data.paymentProvider === "stripe"
+                      ? "Pay with Stripe"
+                      : "Pay & unlock"}
               </button>
 
               <p className="mt-3 text-center text-xs text-gray-400">
-                {data.paymentProvider === "stripe"
-                  ? "Secure checkout powered by Stripe. You can use cards and saved payment methods."
-                  : data.paymentProvider === "ghl"
-                    ? "You will complete payment on a secure invoice page."
-                    : "Payment provider is not configured for this environment."}
+                {isOnTrial
+                  ? "Trial brokers can add upgrades anytime. Card is required; add-ons bill when the trial ends."
+                  : data.paymentProvider === "stripe"
+                    ? "Secure checkout powered by Stripe. You can use cards and saved payment methods."
+                    : data.paymentProvider === "ghl"
+                      ? "You will complete payment on a secure invoice page."
+                      : "Payment provider is not configured for this environment."}
               </p>
             </div>
           </aside>

@@ -26,7 +26,7 @@ export function buildPlanCheckoutState(
     billingCycle,
     planPrice: formatPrice(amount),
     billingLabel,
-    addOnCodes: mode === "trial" ? [] : Array.isArray(addOnCodes) ? addOnCodes : [],
+    addOnCodes: Array.isArray(addOnCodes) ? addOnCodes : [],
     fromPricing: true,
     mode,
   };

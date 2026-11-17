@@ -820,7 +820,7 @@ const Pricing = () => {
                 pkg,
                 billingCycle,
                 formatPrice,
-                [],
+                addOnCodesForCheckout,
                 { mode: "trial" },
               );
               const demoState = {

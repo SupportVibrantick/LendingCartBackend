@@ -129,7 +129,7 @@ export async function startPlanCheckoutAndRedirect({
       organizationPhone: String(organizationPhone || phone).replace(/\D/g, ""),
       firstName: firstName.trim(),
       lastName: lastName.trim(),
-      addOnCodes: withFreeTrial ? [] : addOnCodes || [],
+      addOnCodes: addOnCodes || [],
       withFreeTrial: Boolean(withFreeTrial),
     });
 

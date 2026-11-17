@@ -94,7 +94,7 @@ export default function PricingPlanCta({
   const canStartTrial = !hasSubscription && !user?.hasUsedFreeTrial;
   const trialLabel = `Start ${freeTrialDays}-day free trial`;
   const trialState =
-    trialCheckoutState || { ...checkoutState, mode: "trial", addOnCodes: [] };
+    trialCheckoutState || { ...checkoutState, mode: "trial" };
 
   const goToSubscribe = (state) => {
     if (!state?.packageId) {
