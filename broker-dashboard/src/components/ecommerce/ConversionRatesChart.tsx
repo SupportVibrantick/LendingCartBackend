@@ -1,125 +1,67 @@
 import Chart from "react-apexcharts";
 import type { ApexOptions } from "apexcharts";
-import type { BrokerStats } from "../../lib/brokerDashboardStats";
+import {
+  formatCompactCurrency,
+  type BrokerStats,
+} from "../../lib/brokerDashboardStats";
+import DashboardWidget from "./DashboardWidget";
 
 interface Props {
   stats: BrokerStats | null;
   loading: boolean;
 }
 
-function ChartSkeleton() {
-  return (
-    <div className="h-full rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-      <div className="animate-pulse space-y-3">
-        <div className="h-4 w-32 rounded bg-gray-200 dark:bg-gray-700" />
-        <div className="h-[260px] rounded-xl bg-gray-100 dark:bg-gray-800" />
-      </div>
-    </div>
-  );
-}
-
 export default function ConversionRatesChart({ stats, loading }: Props) {
-  if (loading) return <ChartSkeleton />;
-  if (!stats) return null;
-
-  const rates = [
-    {
-      label: "Submission",
-      value: stats.conversion.submissionRate,
-      helper: `${stats.totalSubmitted}/${stats.totalApplications}`,
-      color: "#0EA5E9",
-    },
-    {
-      label: "Approval",
-      value: stats.conversion.approvalRate,
-      helper: `${stats.totalApproved}/${stats.totalSubmitted || 0}`,
-      color: "#10B981",
-    },
-    {
-      label: "Funding",
-      value: stats.conversion.fundingRate,
-      helper: `${stats.applicationsByStatus?.FUNDED || 0}/${stats.totalApproved || 0}`,
-      color: "#13538A",
-    },
-  ];
+  const total = Number(stats?.totalApplications || 0);
+  const funded = Number(stats?.totalFunded || 0);
+  const conversionRate = total > 0 ? (funded / total) * 100 : 0;
 
   const options: ApexOptions = {
     chart: {
       fontFamily: "Outfit, sans-serif",
       toolbar: { show: false },
-      sparkline: { enabled: false },
     },
+    colors: ["#13538A"],
     plotOptions: {
       radialBar: {
-        offsetY: 8,
-        startAngle: -120,
-        endAngle: 120,
-        hollow: { size: "28%" },
+        startAngle: 0,
+        endAngle: 360,
+        hollow: {
+          size: "78%",
+          background: "transparent",
+        },
         track: {
-          background: "#F1F5F9",
+          background: "#E8F1F8",
           strokeWidth: "100%",
-          margin: 8,
+          margin: 0,
         },
         dataLabels: {
-          name: {
-            fontSize: "12px",
-            color: "#64748B",
-            offsetY: 28,
-          },
+          name: { show: false },
           value: {
-            fontSize: "18px",
-            fontWeight: 700,
-            color: "#0F172A",
-            offsetY: -8,
-            formatter: (val) => `${Math.round(val)}%`,
+            show: true,
+            fontSize: "26px",
+            fontWeight: 600,
+            color: "#1f2328",
+            offsetY: 8,
+            formatter: () => `${conversionRate.toFixed(2)}%`,
           },
         },
       },
-    },
-    colors: rates.map((rate) => rate.color),
-    labels: rates.map((rate) => rate.label),
-    legend: {
-      show: true,
-      position: "bottom",
-      fontSize: "12px",
-      markers: { size: 7 },
-      itemMargin: { horizontal: 10 },
     },
     stroke: { lineCap: "round" },
   };
 
   return (
-    <div className="flex h-full flex-col rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-      <div className="mb-1">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#13538A]">
-          Conversion Rates
+    <DashboardWidget title="Conversion Rate" subtitle="This period" loading={loading}>
+      <div className="flex min-h-0 flex-1 flex-col items-center justify-center">
+        <Chart options={options} series={[conversionRate]} type="radialBar" height={220} />
+        <p className="-mt-2 text-[13px] text-[#6b7280]">
+          Funded volume{" "}
+          <span className="font-semibold text-[#1f2328] dark:text-white">
+            {formatCompactCurrency(Number(stats?.totalVolumeFunded || 0))}
+          </span>
         </p>
-        <h3 className="mt-0.5 text-lg font-semibold text-gray-900 dark:text-white">
-          Pipeline efficiency
-        </h3>
       </div>
-
-      <div className="min-h-0 flex-1">
-        <Chart
-          options={options}
-          series={rates.map((rate) => rate.value)}
-          type="radialBar"
-          height={280}
-        />
-      </div>
-
-      <div className="mt-1 grid grid-cols-3 gap-2 border-t border-gray-100 pt-3 dark:border-gray-800">
-        {rates.map((rate) => (
-          <div key={rate.label} className="text-center">
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">
-              {rate.label}
-            </p>
-            <p className="mt-0.5 text-xs text-gray-600 dark:text-gray-300">
-              {rate.helper}
-            </p>
-          </div>
-        ))}
-      </div>
-    </div>
+    </DashboardWidget>
   );
 }

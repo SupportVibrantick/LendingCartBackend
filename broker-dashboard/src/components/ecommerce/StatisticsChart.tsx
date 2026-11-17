@@ -13,7 +13,7 @@ interface Props {
 
 function ChartSkeleton() {
   return (
-    <div className="h-full rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+      <div className="h-full rounded-2xl border border-slate-200/80 bg-white p-5 shadow-[0_10px_30px_rgba(15,23,42,0.05)] dark:border-gray-800 dark:bg-gray-900">
       <div className="animate-pulse space-y-4">
         <div className="h-4 w-36 rounded bg-gray-200 dark:bg-gray-700" />
         <div className="h-6 w-56 rounded bg-gray-200 dark:bg-gray-700" />
@@ -158,21 +158,20 @@ export default function StatisticsChart({ stats, loading }: Props) {
   };
 
   return (
-    <div className="flex h-full flex-col rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+    <div className="flex h-full flex-col rounded-2xl border border-slate-200/80 bg-white p-5 shadow-[0_10px_30px_rgba(15,23,42,0.05)] dark:border-gray-800 dark:bg-gray-900">
       <div className="mb-3 flex items-start justify-between gap-3">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#13538A]">
-            Pipeline Momentum
-          </p>
-          <h3 className="mt-0.5 text-lg font-semibold text-gray-900 dark:text-white">
-            Origination trend
-          </h3>
+          <div className="flex items-center gap-2">
+            <span className="h-4 w-1 rounded-full bg-gradient-to-b from-[#13538A] to-[#38BDF8]" />
+            <h3 className="text-[15px] font-semibold text-slate-900 dark:text-white">
+              Pipeline Momentum
+            </h3>
+          </div>
+          <p className="pl-3 text-[12px] text-slate-400">Origination trend</p>
         </div>
-        <div className="rounded-lg bg-slate-50 px-3 py-1.5 text-right dark:bg-gray-800">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">
-            Funded vol
-          </p>
-          <p className="text-sm font-bold text-gray-900 dark:text-white">
+        <div className="text-right">
+          <p className="text-[11px] text-[#9aa0a6]">Funded volume</p>
+          <p className="text-sm font-semibold text-[#1f2328] dark:text-white">
             {formatCompactCurrency(stats.totalVolumeFunded)}
           </p>
         </div>

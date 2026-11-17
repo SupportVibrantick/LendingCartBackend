@@ -8,6 +8,7 @@ interface Props {
 
 const PIPELINE_STAGES = [
   { key: "DRAFT", label: "Draft", color: "bg-slate-400", soft: "bg-slate-50 text-slate-700" },
+  { key: "INCOMPLETE", label: "Incomplete", color: "bg-amber-400", soft: "bg-amber-50 text-amber-700" },
   { key: "CLIENT_PENDING", label: "Client Pending", color: "bg-orange-400", soft: "bg-orange-50 text-orange-700" },
   { key: "SUBMITTED", label: "Submitted", color: "bg-sky-500", soft: "bg-sky-50 text-sky-700" },
   { key: "IN_REVIEW", label: "In Review", color: "bg-indigo-500", soft: "bg-indigo-50 text-indigo-700" },
@@ -23,9 +24,9 @@ export default function ApplicationPipeline({
 }: Props) {
   if (loading) {
     return (
-      <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-        <div className="grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-7">
-          {Array.from({ length: 7 }).map((_, i) => (
+      <div className="rounded-[10px] border border-[#e8eaed] bg-white p-4 shadow-[0_1px_2px_rgba(16,24,40,0.04)] dark:border-gray-800 dark:bg-gray-900">
+        <div className="grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-8">
+          {Array.from({ length: 8 }).map((_, i) => (
             <div
               key={i}
               className="h-16 animate-pulse rounded-lg bg-gray-100 dark:bg-gray-800"
@@ -45,22 +46,20 @@ export default function ApplicationPipeline({
   const total = stages.reduce((sum, stage) => sum + stage.count, 0);
 
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+    <div className="rounded-[10px] border border-[#e8eaed] bg-white p-4 shadow-[0_1px_2px_rgba(16,24,40,0.04)] dark:border-gray-800 dark:bg-gray-900">
       <div className="mb-3 flex items-center justify-between gap-3">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#13538A]">
+          <h3 className="text-[15px] font-semibold text-[#1f2328] dark:text-white">
             Application Pipeline
-          </p>
-          <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
-            Stage distribution
           </h3>
+          <p className="text-[12px] text-[#9aa0a6]">Stage distribution</p>
         </div>
-        <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600 dark:bg-gray-800 dark:text-gray-300">
+        <span className="rounded-full bg-[#f3f5f7] px-2.5 py-1 text-xs font-medium text-[#6b7280] dark:bg-gray-800 dark:text-gray-300">
           {total} total
         </span>
       </div>
 
-      <div className="grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-7">
+      <div className="grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-8">
         {stages.map((stage, index) => (
           <button
             key={stage.key}

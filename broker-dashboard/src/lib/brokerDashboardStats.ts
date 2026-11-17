@@ -23,6 +23,7 @@ export type ProductVolumePoint = {
 export type BrokerMetricKey =
   | "totalApplications"
   | "totalSubmitted"
+  | "totalIncomplete"
   | "totalInReview"
   | "totalApproved"
   | "totalDeclined"
@@ -34,6 +35,7 @@ export type BrokerMetricKey =
 export type BrokerStats = {
   totalApplications: number;
   totalSubmitted: number;
+  totalIncomplete: number;
   totalInReview: number;
   totalApproved: number;
   totalDeclined: number;
