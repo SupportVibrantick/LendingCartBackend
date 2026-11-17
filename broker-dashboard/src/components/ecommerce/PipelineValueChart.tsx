@@ -79,6 +79,7 @@ export default function PipelineValueChart({ stats, loading }: Props) {
       },
     },
     tooltip: {
+      theme: "light",
       y: { formatter: (value) => `${Math.round(value)} applications` },
     },
   };

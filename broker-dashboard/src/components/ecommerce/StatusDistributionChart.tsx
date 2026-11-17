@@ -53,6 +53,7 @@ export default function StatusDistributionChart({
     dataLabels: { enabled: false },
     stroke: { colors: ["#FFFFFF"], width: 2 },
     tooltip: {
+      theme: "light",
       y: {
         formatter: (value) => {
           const pct = total ? ((value / total) * 100).toFixed(2) : "0.00";

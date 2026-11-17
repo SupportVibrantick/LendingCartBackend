@@ -92,6 +92,7 @@ export default function ApplicationStatusChart({
       },
     },
     tooltip: {
+      theme: "light",
       y: { formatter: (value) => `${Math.round(value)} apps` },
     },
   };

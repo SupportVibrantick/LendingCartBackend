@@ -146,6 +146,7 @@ export default function StatisticsChart({ stats, loading }: Props) {
       },
     ],
     tooltip: {
+      theme: "light",
       shared: true,
       intersect: false,
       y: {
