@@ -29,7 +29,7 @@ const LayoutContent: React.FC = () => {
       >
         <AppHeader />
         <main className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain">
-          <div className="mx-auto w-full max-w-(--breakpoint-2xl) p-3">
+          <div className="mx-auto w-full max-w-(--breakpoint-2xl) p-4 md:p-5 lg:px-6 lg:py-5">
             <Outlet />
           </div>
         </main>
