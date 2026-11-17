@@ -1451,59 +1451,83 @@ export default function LoanApplicationsPage() {
         description="Track and manage broker loan applications"
       />
 
-      <div className="mx-auto w-full min-w-0 max-w-[1400px] space-y-6">
-        {/* Hero */}
-        <div className="relative overflow-hidden rounded-2xl border border-[#13538A]/20 bg-[#13538A] p-6 text-white shadow-sm dark:border-[#13538A]/40 lg:p-8">
-          <div className="pointer-events-none absolute -right-16 -top-20 h-56 w-56 rounded-full bg-white/10" />
-          <div className="pointer-events-none absolute -bottom-24 right-28 h-44 w-44 rounded-full bg-white/5" />
-          <div className="relative flex flex-col gap-6 xl:flex-row xl:items-start xl:gap-10">
-            <div className="min-w-0 flex-1">
-              <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-medium backdrop-blur-sm">
-                <TrendingUp className="h-3.5 w-3.5" />
-                Pipeline Management
-              </div>
-              <h1 className="text-2xl font-semibold tracking-tight">
-                Loan Pipeline
-              </h1>
-              <p className="mt-1 max-w-2xl text-sm text-white/80">
-                {pipelineStats.totalApplications} total application
-                {pipelineStats.totalApplications === 1 ? "" : "s"} ·{" "}
-                {formatCompactAmount(pipelineStats.totalVolume)} pipeline volume
-              </p>
+      <div className="mx-auto w-full min-w-0 max-w-[1400px] space-y-3">
+        {/* Compact page header */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <div className="mb-1 flex items-center gap-2">
+              <span className="inline-flex items-center gap-1 rounded-md bg-[#13538A]/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#13538A] dark:bg-[#13538A]/20 dark:text-cyan-300">
+                <TrendingUp className="h-3 w-3" />
+                Pipeline
+              </span>
             </div>
-
-            <div className="grid w-full grid-cols-2 gap-3 sm:grid-cols-4 xl:w-[min(100%,520px)] xl:shrink-0">
-              {[
-                { label: "Total Apps", value: pipelineStats.totalApplications },
-                { label: "Submitted", value: pipelineStats.submitted },
-                { label: "In Review", value: pipelineStats.inReview },
-                { label: "Approved", value: pipelineStats.approved },
-              ].map(({ label, value }) => (
-                <div
-                  key={label}
-                  className="rounded-xl bg-white/10 px-4 py-3 ring-1 ring-white/20 backdrop-blur-sm"
-                >
-                  <p className="text-xs text-white/70">{label}</p>
-                  <p className="mt-1 text-2xl font-semibold">{value}</p>
-                </div>
-              ))}
-            </div>
+            <h1 className="text-xl font-semibold tracking-tight text-gray-900 dark:text-white">
+              Loan Pipeline
+            </h1>
+            <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
+              {pipelineStats.totalApplications} total application
+              {pipelineStats.totalApplications === 1 ? "" : "s"} ·{" "}
+              {formatCompactAmount(pipelineStats.totalVolume)} pipeline volume
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={handleRefresh}
+              disabled={loading}
+              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 text-xs font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-60 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-800"
+            >
+              <RefreshCw
+                className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`}
+              />
+              Refresh
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate("/loan-application")}
+              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-[#13538A] px-3 text-xs font-semibold text-white shadow-sm transition hover:bg-[#0e3d66]"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              New Application
+            </button>
           </div>
         </div>
 
+        {/* KPIs */}
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {[
+            { label: "Total Apps", value: pipelineStats.totalApplications },
+            { label: "Submitted", value: pipelineStats.submitted },
+            { label: "In Review", value: pipelineStats.inReview },
+            { label: "Approved", value: pipelineStats.approved },
+          ].map(({ label, value }) => (
+            <div
+              key={label}
+              className="rounded-xl border border-gray-200/80 bg-white px-3.5 py-2.5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] dark:border-gray-800 dark:bg-gray-900"
+            >
+              <p className="text-[11px] font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">
+                {label}
+              </p>
+              <p className="text-lg font-semibold leading-tight tabular-nums text-gray-900 dark:text-white">
+                {value}
+              </p>
+            </div>
+          ))}
+        </div>
+
         {/* Toolbar */}
-        <div className="rounded-2xl border border-[#13538A]/15 bg-white p-4 shadow-sm dark:border-[#13538A]/30 dark:bg-gray-900 lg:p-5">
-          <div className="flex flex-col gap-4">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+        <div className="rounded-xl border border-gray-200/80 bg-white p-3 shadow-[0_1px_3px_rgba(15,23,42,0.06)] dark:border-gray-800 dark:bg-gray-900 sm:p-3.5">
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-2.5 lg:flex-row lg:items-center">
               <div className="relative min-w-0 flex-1">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#13538A]/60" />
+                <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#13538A]/60" />
                 <input
                   placeholder="Search borrower, app no., officer..."
                   value={searchTerm}
                   onChange={(e) => {
                     setSearchTerm(e.target.value);
                   }}
-                  className="h-10 w-full rounded-xl border border-[#13538A]/20 bg-[#13538A]/[0.03] pl-10 pr-10 text-sm outline-none transition focus:border-[#13538A] focus:bg-white focus:ring-2 focus:ring-[#13538A]/15 dark:border-[#13538A]/30 dark:bg-gray-950 dark:text-gray-100"
+                  className="h-9 w-full rounded-lg border border-gray-200 bg-white pl-8 pr-8 text-sm outline-none transition focus:border-[#13538A] focus:ring-2 focus:ring-[#13538A]/15 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100"
                 />
                 {searchTerm && (
                   <button
@@ -1511,34 +1535,11 @@ export default function LoanApplicationsPage() {
                     onClick={() => {
                       setSearchTerm("");
                     }}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-[#13538A]"
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-[#13538A]"
                   >
-                    <X className="h-4 w-4" />
+                    <X className="h-3.5 w-3.5" />
                   </button>
                 )}
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
-                <button
-                  type="button"
-                  onClick={() => navigate("/loan-application")}
-                  className="inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-xl bg-[#13538A] px-4 text-sm font-medium text-white shadow-sm transition hover:bg-[#0e3d66] sm:flex-none"
-                >
-                  <Plus className="h-4 w-4" />
-                  New Application
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleRefresh}
-                  disabled={loading}
-                  className="inline-flex h-10 items-center gap-2 rounded-xl border border-[#13538A]/25 bg-white px-4 text-sm font-medium text-[#13538A] transition hover:bg-[#13538A]/5 disabled:opacity-60 dark:border-[#13538A]/40 dark:bg-gray-950 dark:text-[#9fd0f0]"
-                >
-                  <RefreshCw
-                    className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
-                  />
-                  Refresh
-                </button>
               </div>
             </div>
 
