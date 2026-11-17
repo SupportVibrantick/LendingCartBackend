@@ -103,6 +103,7 @@ import {
   isProductAllowedInCategory,
   isSbaUsdaCollateralProduct,
   resolveCategoryLoanProducts,
+  isEquipmentLoanProduct,
   showConstructionCostLable,
   showEquityDownPaymentBlock,
   showExitStrategy,
@@ -1366,6 +1367,28 @@ const LoanApplication = ({
             isLoanRequestOriginalPurchaseDate(selectedProduct, purpose)
               ? "Original purchase date is required"
               : "Purchase date is required";
+        }
+        if (
+          showEquityDownPaymentBlock(
+            selectedProduct,
+            purpose,
+            selectedCategory,
+          ) &&
+          toNumber(formData.loanRequest.purchasePrice) <= 0
+        ) {
+          newErrors["loanRequest.purchasePrice"] =
+            "Purchase price must be greater than 0";
+        }
+        if (
+          showEquityDownPaymentBlock(
+            selectedProduct,
+            purpose,
+            selectedCategory,
+          ) &&
+          toNumber(formData.loanRequest.downPayment) < 0
+        ) {
+          newErrors["loanRequest.downPayment"] =
+            "Down payment cannot be negative";
         }
       }
     }
@@ -5646,8 +5669,9 @@ focus:border-blue-500 outline-none text-sm ${
                       updateLoanRequest("vendorPhone", v)
                     }
                     formatUSPhone={formatUSPhone}
-                    isEquipmentFinance={isEquipmentFinanceProduct(
+                    isEquipmentLoan={isEquipmentLoanProduct(
                       selectedProduct,
+                      formData.loanRequest.purpose,
                     )}
                   />
                 </div>
