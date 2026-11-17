@@ -476,8 +476,8 @@ async function fulfillPaidGhlCheckout(prisma, io, checkout, paymentMeta = {}) {
       packageId: fresh.packageId,
       billingCycle: fresh.billingCycle,
       ...orgDetails,
-      // Card trial: plan-only, no LC invoice — Stripe bills after trial_period_days.
-      addOnCodes: withFreeTrial ? [] : orgDetails.addOnCodes,
+      // Card trial: no LC invoice — Stripe bills plan + add-ons after trial_period_days.
+      addOnCodes: orgDetails.addOnCodes,
       trialDays,
       generateInvoice: !withFreeTrial,
       notes: withFreeTrial ? LOAN_AI_CARD_TRIAL_NOTE : undefined,

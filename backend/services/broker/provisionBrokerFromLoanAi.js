@@ -489,8 +489,8 @@ async function provisionBrokerFromLoanAi(prisma, io, loanAiUser, payload) {
       organizationId: brokerOrg.id,
       packageId,
       billingCycle,
-      // Free trial is plan-only — add-ons apply at paid conversion.
-      addOnCodes: isFreeTrial ? [] : payload.addOnCodes || [],
+      // Free trial may include selected add-ons (Stripe bills them after trial).
+      addOnCodes: payload.addOnCodes || [],
       trialDays: Number(trialDays) || 0,
       notes,
       generateInvoice: isFreeTrial ? false : generateInvoice,
@@ -559,7 +559,7 @@ async function provisionBrokerFromLoanAi(prisma, io, loanAiUser, payload) {
           packageId,
           billingCycle,
           trialDays: Number(trialDays) || 0,
-          addOnCodes: isFreeTrial ? [] : payload.addOnCodes || [],
+          addOnCodes: payload.addOnCodes || [],
           isExistingUser,
         },
       });

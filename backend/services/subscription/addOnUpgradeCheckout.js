@@ -56,6 +56,15 @@ function getExtraUserQty(purchasedAddOns) {
   ).length;
 }
 
+/** Remaining whole days on a TRIAL subscription (0 if not on trial / expired). */
+function remainingTrialDays(sub) {
+  if (String(sub?.status || "").toUpperCase() !== "TRIAL") return 0;
+  if (!sub?.trialEndsAt) return 0;
+  const ms = new Date(sub.trialEndsAt).getTime() - Date.now();
+  if (!Number.isFinite(ms) || ms <= 0) return 0;
+  return Math.max(1, Math.ceil(ms / (24 * 60 * 60 * 1000)));
+}
+
 const SUB_INCLUDE = {
   package: true,
   organization: true,
@@ -124,6 +133,8 @@ async function getAddOnUpgradeOptions(prisma, organizationId) {
       ? resolveAddOnPriceForPackage(extraUser, packageCode, billingCycle)
       : null;
 
+  const trialDaysLeft = remainingTrialDays(sub);
+
   return {
     subscriptionId: sub.id,
     status: sub.status,
@@ -131,6 +142,10 @@ async function getAddOnUpgradeOptions(prisma, organizationId) {
     packageName: sub.package?.name || packageCode,
     billingCycle,
     currentPeriodEnd: sub.currentPeriodEnd,
+    trialEndsAt: sub.trialEndsAt || null,
+    remainingTrialDays: trialDaysLeft,
+    // Trial brokers may purchase add-ons / seats (same as ACTIVE).
+    canPurchaseAddOns: ACTIVE.includes(String(sub.status || "").toUpperCase()),
     purchasedAddOns: Array.isArray(sub.purchasedAddOns)
       ? sub.purchasedAddOns
       : [],
@@ -404,6 +419,7 @@ async function startAddOnUpgradeCheckout(prisma, input = {}) {
     }
   }
 
+  const trialDaysLeftForMeta = remainingTrialDays(sub);
   const checkoutRow = loanAiUser?.id
     ? await prisma.loanAiGhlCheckout.create({
         data: {
@@ -428,6 +444,8 @@ async function startAddOnUpgradeCheckout(prisma, input = {}) {
             billingCycle,
             addOnCodes: delta.deltaCodes,
             mergedAddOnCodes: delta.mergedCodes,
+            withFreeTrial: trialDaysLeftForMeta > 0,
+            trialPeriodDays: trialDaysLeftForMeta,
           },
         },
       })
@@ -436,6 +454,7 @@ async function startAddOnUpgradeCheckout(prisma, input = {}) {
   let paymentResult;
   try {
     if (provider === "stripe") {
+      const trialDaysLeft = remainingTrialDays(sub);
       paymentResult = await createStripeAddOnOnlyCheckout({
         email,
         customerName: [firstName, lastName].filter(Boolean).join(" "),
@@ -445,11 +464,14 @@ async function startAddOnUpgradeCheckout(prisma, input = {}) {
         successUrl,
         cancelUrl,
         checkoutId: checkoutRow?.id || `addon-upgrade:${sub.id}:${Date.now()}`,
+        trialPeriodDays: trialDaysLeft,
         metadata: {
           type: "ADDON_UPGRADE",
           organizationSubscriptionId: sub.id,
           organizationId,
           addOnCodes: delta.deltaCodes.join(","),
+          withFreeTrial: trialDaysLeft > 0 ? "true" : "false",
+          trialPeriodDays: trialDaysLeft > 0 ? String(trialDaysLeft) : "0",
         },
       });
     } else {

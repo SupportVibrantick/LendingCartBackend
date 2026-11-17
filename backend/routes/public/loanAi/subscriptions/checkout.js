@@ -266,13 +266,11 @@ async function loanAiCheckoutRoutes(fastify) {
 
         let purchasedAddOns = [];
         try {
-          purchasedAddOns = withFreeTrial
-            ? []
-            : resolvePurchasedAddOns(
-                organizationDetails.addOnCodes,
-                pkg.code,
-                billingCycle,
-              );
+          purchasedAddOns = resolvePurchasedAddOns(
+            organizationDetails.addOnCodes,
+            pkg.code,
+            billingCycle,
+          );
         } catch (err) {
           throw checkoutError(CHECKOUT_ERROR_CODES.INVALID_ADDON, 400);
         }
@@ -299,7 +297,11 @@ async function loanAiCheckoutRoutes(fastify) {
           existingOpen?.checkoutUrl &&
           sameAddOnCodes(existingOpen.metadata, addOnCodesNormalized) &&
           String(existingOpen.metadata?.provider || "ghl") === paymentProvider &&
-          Boolean(existingOpen.metadata?.withFreeTrial) === Boolean(withFreeTrial)
+          Boolean(existingOpen.metadata?.withFreeTrial) === Boolean(withFreeTrial) &&
+          // Don't reuse older trial sessions created before Stripe optional add-ons.
+          (!withFreeTrial ||
+            existingOpen.metadata?.stripeOptionalAddOns === true ||
+            existingOpen.metadata?.stripeOptionalAddOns === "true")
         ) {
           const reusedMeta = {
             ...(existingOpen.metadata && typeof existingOpen.metadata === "object"
@@ -452,6 +454,7 @@ async function loanAiCheckoutRoutes(fastify) {
               cancelUrl,
               checkoutId: checkout.id,
               trialPeriodDays,
+              offerOptionalAddOns: Boolean(withFreeTrial),
               metadata: {
                 loanAiUserId: user.id,
                 packageId: pkg.id,
@@ -477,6 +480,9 @@ async function loanAiCheckoutRoutes(fastify) {
                     : {}),
                   provider: "stripe",
                   stripeSessionId: session.sessionId,
+                  ...(session.optionalItemCount > 0
+                    ? { stripeOptionalAddOns: true }
+                    : {}),
                 },
               },
             });

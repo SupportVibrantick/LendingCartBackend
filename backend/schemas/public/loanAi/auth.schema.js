@@ -80,8 +80,8 @@ const loanAiCheckoutSchema = z
       organizationPhone: data.organizationPhone,
       firstName: data.firstName,
       lastName: data.lastName,
-      // Trials are plan-only; add-ons apply after conversion / paid subscribe.
-      addOnCodes: withFreeTrial ? [] : data.addOnCodes || [],
+      // Trials may include selected add-ons (Stripe bills after trial_period_days).
+      addOnCodes: data.addOnCodes || [],
       withFreeTrial,
     };
   })

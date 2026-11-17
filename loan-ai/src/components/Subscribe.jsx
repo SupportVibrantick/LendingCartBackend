@@ -90,7 +90,7 @@ export default function SubscribePage() {
     planFromState.billingCycle || "MONTHLY",
   );
   const [selectedAddOnCodes, setSelectedAddOnCodes] = useState(
-    isTrialMode ? [] : planFromState.addOnCodes || [],
+    planFromState.addOnCodes || [],
   );
   const [form, setForm] = useState({
     organizationName: "",
@@ -115,14 +115,13 @@ export default function SubscribePage() {
     if (planFromState.billingCycle) {
       setBillingCycle(planFromState.billingCycle);
     }
-    if (!isTrialMode && Array.isArray(planFromState.addOnCodes)) {
+    if (Array.isArray(planFromState.addOnCodes)) {
       setSelectedAddOnCodes(planFromState.addOnCodes);
     }
   }, [
     planFromState.packageId,
     planFromState.billingCycle,
     pricingAddOnKey,
-    isTrialMode,
   ]);
 
   useEffect(() => {
@@ -171,17 +170,11 @@ export default function SubscribePage() {
 
   const availableAddOns = useMemo(
     () =>
-      isTrialMode
-        ? []
-        : filterAddOnsForPackage(addOnCatalog, selectedPkg?.code, billingCycle),
-    [addOnCatalog, selectedPkg?.code, isTrialMode, billingCycle],
+      filterAddOnsForPackage(addOnCatalog, selectedPkg?.code, billingCycle),
+    [addOnCatalog, selectedPkg?.code, billingCycle],
   );
 
   useEffect(() => {
-    if (isTrialMode) {
-      setSelectedAddOnCodes([]);
-      return;
-    }
     // Don't wipe codes from pricing while packages/catalog are still loading —
     // availableAddOns starts empty and would clear all prefetched selections.
     if (loadingPackages || !selectedPkg) return;
@@ -192,7 +185,7 @@ export default function SubscribePage() {
     setSelectedAddOnCodes((prev) =>
       prev.filter((code) => allowed.has(String(code).toUpperCase())),
     );
-  }, [availableAddOns, isTrialMode, loadingPackages, selectedPkg]);
+  }, [availableAddOns, loadingPackages, selectedPkg]);
 
   const selectedAddOns = useMemo(
     () => getSelectedAddOns(availableAddOns, selectedAddOnCodes),
@@ -204,7 +197,7 @@ export default function SubscribePage() {
         selectedPkg,
         billingCycle,
         formatPrice,
-        isTrialMode ? [] : selectedAddOnCodes,
+        selectedAddOnCodes,
         { mode: isTrialMode ? "trial" : "paid" },
       )
     : null;
@@ -277,7 +270,7 @@ export default function SubscribePage() {
         token,
         packageId: selectedPkg.id,
         billingCycle,
-        addOnCodes: [],
+        addOnCodes: selectedAddOnCodes,
         withFreeTrial: true,
         organizationName: form.organizationName.trim(),
         organizationEmail: form.organizationEmail.trim().toLowerCase(),
@@ -500,7 +493,7 @@ export default function SubscribePage() {
                 ))}
               </div>
 
-              {!isTrialMode && availableAddOns.length > 0 && (
+              {availableAddOns.length > 0 && (
                 <AddOnSelector
                   addOns={availableAddOns}
                   selectedCodes={selectedAddOnCodes}
@@ -514,16 +507,50 @@ export default function SubscribePage() {
               )}
 
               {isTrialMode ? (
-                <div className="space-y-1 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm dark:border-sky-500/30 dark:bg-sky-500/10">
+                <div className="space-y-2 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm dark:border-sky-500/30 dark:bg-sky-500/10">
                   <p className="font-semibold text-sky-900 dark:text-sky-200">
                     {checkoutPreview?.planName} — {freeTrialDays}-day free trial
                   </p>
                   <p className="text-slate-600 dark:text-slate-300">
                     $0 due today after you add a card. From day{" "}
-                    {freeTrialDays + 1}, billing is {checkoutPreview?.planPrice}/
+                    {freeTrialDays + 1}, billing is{" "}
+                    {checkoutSummary?.totalPrice || checkoutPreview?.planPrice}/
                     {checkoutPreview?.billingLabel} unless you Discontinue or
                     buy a plan.
                   </p>
+                  {selectedAddOns.length > 0 && checkoutSummary && (
+                    <div className="space-y-1.5 border-t border-sky-200/80 pt-2 dark:border-sky-500/20">
+                      {selectedAddOns.map((addOn) => {
+                        const qty = Math.max(1, Number(addOn.quantity) || 1);
+                        const unit = Number(addOn.priceMonthly) || 0;
+                        const isExtraUser =
+                          String(addOn.code).toUpperCase() === "EXTRA_USER";
+                        const included = Math.max(
+                          1,
+                          Number(selectedPkg?.includedUsers) || 1,
+                        );
+                        const label = isExtraUser
+                          ? `Users (${included + qty} total · ${qty} extra)`
+                          : addOn.name;
+                        return (
+                          <div
+                            key={addOn.code}
+                            className="flex items-center justify-between gap-3 text-slate-600 dark:text-slate-300"
+                          >
+                            <span>{label}</span>
+                            <span>+{formatPrice(unit * qty)}/mo after trial</span>
+                          </div>
+                        );
+                      })}
+                      <div className="flex items-center justify-between gap-3 pt-1 font-semibold text-slate-900 dark:text-white">
+                        <span>After trial</span>
+                        <span>
+                          {checkoutSummary.totalPrice}/
+                          {checkoutSummary.billingLabel}
+                        </span>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ) : (
                 checkoutSummary && (
@@ -704,6 +731,7 @@ export default function SubscribePage() {
                     mode: "paid",
                     packageId: selectedPackageId,
                     billingCycle,
+                    addOnCodes: selectedAddOnCodes,
                   }}
                   className="block text-center text-sm text-slate-500 transition hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
                 >

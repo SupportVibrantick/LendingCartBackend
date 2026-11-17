@@ -147,12 +147,73 @@ function hasStripePlanPricesConfigured() {
   });
 }
 
+/**
+ * Soft-resolve an add-on Stripe price (returns null when env missing).
+ * Used when building optional Checkout items so one missing price doesn't
+ * block the whole session.
+ */
+function tryResolveStripeAddOnPriceId(addOnCode, billingCycle, packageCode) {
+  try {
+    return resolveStripeAddOnPriceId(addOnCode, billingCycle, packageCode);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Build priceId → { addOnCode, quantityBased } lookup from configured env.
+ * Covers default + BY_PACKAGE price variants for the same add-on code.
+ */
+function buildStripeAddOnPriceIdLookup() {
+  /** @type {Map<string, { addOnCode: string }>} */
+  const map = new Map();
+  for (const [code, addonMap] of Object.entries(PRICE_ENV_BY_ADDON || {})) {
+    const envKeys = new Set();
+    if (addonMap.MONTHLY) envKeys.add(addonMap.MONTHLY);
+    if (addonMap.YEARLY) envKeys.add(addonMap.YEARLY);
+    if (addonMap.BY_PACKAGE) {
+      for (const cycles of Object.values(addonMap.BY_PACKAGE)) {
+        if (cycles?.MONTHLY) envKeys.add(cycles.MONTHLY);
+        if (cycles?.YEARLY) envKeys.add(cycles.YEARLY);
+      }
+    }
+    for (const envKey of envKeys) {
+      const priceId = process.env[envKey];
+      if (!priceId || !String(priceId).trim()) continue;
+      map.set(String(priceId).trim(), { addOnCode: String(code).toUpperCase() });
+    }
+  }
+  return map;
+}
+
+/**
+ * Map Stripe Checkout / subscription line price IDs → repeated add-on codes.
+ * @param {Array<{ priceId?: string|null, quantity?: number }>} linePrices
+ * @returns {string[]}
+ */
+function mapStripePriceIdsToAddOnCodes(linePrices = []) {
+  const lookup = buildStripeAddOnPriceIdLookup();
+  const codes = [];
+  for (const item of linePrices) {
+    const priceId = String(item?.priceId || "").trim();
+    if (!priceId) continue;
+    const hit = lookup.get(priceId);
+    if (!hit?.addOnCode) continue;
+    const qty = Math.max(1, Math.floor(Number(item.quantity) || 1));
+    for (let i = 0; i < qty; i += 1) codes.push(hit.addOnCode);
+  }
+  return codes;
+}
+
 module.exports = {
   PRICE_ENV_BY_PLAN,
   PRICE_ENV_BY_ADDON,
   resolveStripePriceId,
   resolveStripeAddOnPriceId,
+  tryResolveStripeAddOnPriceId,
   listConfiguredStripePriceEnvKeys,
   hasStripePlanPricesConfigured,
+  buildStripeAddOnPriceIdLookup,
+  mapStripePriceIdsToAddOnCodes,
   toStripeEnvKey,
 };
