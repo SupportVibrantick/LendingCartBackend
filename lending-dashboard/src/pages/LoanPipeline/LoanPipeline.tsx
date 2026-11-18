@@ -542,18 +542,18 @@ export default function LoanPipeline() {
     : null;
 
   return (
-    <div className="min-h-screen bg-slate-50 p-4 text-slate-900 dark:bg-[#0b1120] dark:text-slate-100 md:p-6">
-      <div className="mx-auto max-w-7xl space-y-5">
-        <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white text-slate-900 shadow-sm dark:border-gray-800 dark:bg-gray-900 dark:text-white">
-          <div className="flex flex-col gap-6 p-5 sm:p-6 lg:flex-row lg:items-start lg:justify-between">
+    <div className="text-slate-900 dark:text-slate-100">
+      <div className="mx-auto max-w-7xl space-y-4">
+        <section className="overflow-hidden rounded-xl border border-gray-200 bg-white text-slate-900 shadow-sm dark:border-gray-800 dark:bg-gray-900 dark:text-white">
+          <div className="flex flex-col gap-3 px-4 py-3 sm:px-5 lg:flex-row lg:items-center lg:justify-between">
             <div className="min-w-0">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-[#183B57]">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-[#183B57]">
                 Lender Portal
               </p>
-              <h1 className="mt-1 text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">
+              <h1 className="mt-0.5 text-base font-semibold tracking-tight text-gray-900 dark:text-white">
                 Loan Pipeline
               </h1>
-              <p className="mt-1.5 text-sm text-gray-500 dark:text-gray-400">
+              <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
                 {statsLoading ? (
                   "Loading pipeline overview..."
                 ) : (
@@ -571,7 +571,7 @@ export default function LoanPipeline() {
               </p>
             </div>
 
-            <div className="grid w-full grid-cols-2 gap-2 sm:grid-cols-4 lg:w-[min(100%,520px)] lg:shrink-0">
+            <div className="grid w-full grid-cols-2 gap-1.5 sm:grid-cols-4 lg:w-[min(100%,480px)] lg:shrink-0">
               {[
                 {
                   label: "Total Volume",
@@ -596,15 +596,15 @@ export default function LoanPipeline() {
               ].map((card) => (
                 <div
                   key={card.label}
-                  className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2.5 dark:border-gray-800 dark:bg-gray-800"
+                  className="rounded-lg border border-gray-100 bg-gray-50 px-2.5 py-1.5 dark:border-gray-800 dark:bg-gray-800"
                 >
-                  <div className="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                  <div className="flex items-center gap-1 text-[9px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
                     <card.icon className="h-3 w-3" />
                     {card.label}
                   </div>
-                  <p className="mt-1 truncate text-lg font-semibold tabular-nums">
+                  <p className="mt-0.5 truncate text-sm font-semibold tabular-nums">
                     {statsLoading ? (
-                      <span className="inline-block h-5 w-12 animate-pulse rounded bg-gray-200 dark:bg-gray-700" />
+                      <span className="inline-block h-4 w-10 animate-pulse rounded bg-gray-200 dark:bg-gray-700" />
                     ) : (
                       card.value
                     )}
