@@ -23,40 +23,59 @@ async function getLenderBrandingSettings(fastify) {
       const lenderOrgId = req.user.organizationId;
       const prisma = fastify.prisma;
 
-      let settings = await prisma.lenderBrandingSetting.findFirst({
-        where: { lenderOrgId },
-      });
-
-      const organization = await prisma.organization.findUnique({
-        where: { id: lenderOrgId },
-        select: { name: true },
-      });
-
-      if (!settings) {
-        settings = await prisma.lenderBrandingSetting.create({
-          data: {
-            lenderOrgId,
-            brandName: organization?.name || null,
+      const [settings, organization] = await Promise.all([
+        prisma.lenderBrandingSetting.findUnique({
+          where: { lenderOrgId },
+          select: {
+            id: true,
+            brandName: true,
+            logoUrl: true,
+            createdAt: true,
+            updatedAt: true,
           },
-        });
-      } else if (!settings.brandName?.trim() && organization?.name) {
-        settings = await prisma.lenderBrandingSetting.update({
-          where: { id: settings.id },
+        }),
+        prisma.organization.findUnique({
+          where: { id: lenderOrgId },
+          select: { name: true },
+        }),
+      ]);
+
+      // Avoid write-on-read for the common case: return org name as fallback.
+      if (settings) {
+        return reply.send({
+          success: true,
           data: {
-            brandName: organization.name,
-            updatedAt: new Date(),
+            id: settings.id,
+            brandName: settings.brandName?.trim() || organization?.name || null,
+            logoUrl: settings.logoUrl,
+            createdAt: settings.createdAt,
+            updatedAt: settings.updatedAt,
           },
         });
       }
 
+      const created = await prisma.lenderBrandingSetting.create({
+        data: {
+          lenderOrgId,
+          brandName: organization?.name || null,
+        },
+        select: {
+          id: true,
+          brandName: true,
+          logoUrl: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      });
+
       return reply.send({
         success: true,
         data: {
-          id: settings.id,
-          brandName: settings.brandName || organization?.name || null,
-          logoUrl: settings.logoUrl,
-          createdAt: settings.createdAt,
-          updatedAt: settings.updatedAt,
+          id: created.id,
+          brandName: created.brandName || organization?.name || null,
+          logoUrl: created.logoUrl,
+          createdAt: created.createdAt,
+          updatedAt: created.updatedAt,
         },
       });
     },

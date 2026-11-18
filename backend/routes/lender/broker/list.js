@@ -39,15 +39,17 @@ async function listLenderBrokersRoutes(fastify) {
           where: {
             lenderOrgId, // ❗ no isActive filter
           },
-          include: {
+          select: {
+            isActive: true,
+            source: true,
+            createdAt: true,
             broker: {
               select: {
                 id: true,
                 name: true,
                 email: true,
                 phone: true,
-                status: true, // global broker status
-                createdAt: true,
+                status: true,
               },
             },
           },

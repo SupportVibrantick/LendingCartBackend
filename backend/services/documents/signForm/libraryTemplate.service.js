@@ -31,14 +31,44 @@ function formatLibraryTemplate(row) {
 }
 
 async function listLibraryTemplates(prisma, organizationId, { includeArchived = false } = {}) {
-  const rows = await prisma.signFormLibraryTemplate.findMany({
-    where: {
-      organizationId,
-      ...(includeArchived ? {} : { status: "PUBLISHED" }),
-    },
-    orderBy: { updatedAt: "desc" },
-  });
-  return rows.map(formatLibraryTemplate);
+  // Avoid loading pageManifestJson / full row blobs; derive counts in SQL.
+  const rows = await prisma.$queryRawUnsafe(
+    `
+      SELECT
+        t.id,
+        t.name,
+        t.description,
+        t.status::text AS status,
+        t.template_file_name AS "templateFileName",
+        t.template_file_url AS "templateFileUrl",
+        t.template_mime_type AS "templateMimeType",
+        t.source_requirement_id AS "sourceRequirementId",
+        t."createdAt",
+        t."updatedAt",
+        COALESCE(jsonb_array_length(t.schema_json->'pages'), 0)::int AS "pageCount",
+        COALESCE(jsonb_array_length(t.schema_json->'fields'), 0)::int AS "fieldCount"
+      FROM "sign_form_library_templates" t
+      WHERE t."organizationId" = $1::uuid
+        ${includeArchived ? "" : `AND t.status = 'PUBLISHED'`}
+      ORDER BY t."updatedAt" DESC
+    `,
+    organizationId,
+  );
+
+  return (rows || []).map((row) => ({
+    id: row.id,
+    name: row.name,
+    description: row.description,
+    status: row.status,
+    templateFileName: row.templateFileName,
+    templateFileUrl: row.templateFileUrl,
+    templateMimeType: row.templateMimeType,
+    pageCount: Number(row.pageCount) || 0,
+    fieldCount: Number(row.fieldCount) || 0,
+    sourceRequirementId: row.sourceRequirementId,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  }));
 }
 
 async function getLibraryTemplate(prisma, organizationId, templateId) {

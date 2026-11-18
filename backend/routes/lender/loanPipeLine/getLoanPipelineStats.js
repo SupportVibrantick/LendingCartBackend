@@ -14,9 +14,6 @@ async function getLoanPipelineStats(fastify) {
       const prisma = fastify.prisma;
 
       try {
-        // ===============================
-        // AUTH CHECK
-        // ===============================
         if (
           !req.user ||
           req.user.orgType !== "LENDER" ||
@@ -30,71 +27,41 @@ async function getLoanPipelineStats(fastify) {
 
         const lenderOrgId = req.user.organizationId;
 
-        // ===============================
-        // FETCH APPLICATIONS
-        // ===============================
-        const applications = await prisma.applicationLender.findMany({
-          where: {
-            lenderOrgId,
-          },
-
-          include: {
-            loanApplication: {
-              include: {
-                submissions: {
-                  where: { status: { not: "SUPERSEDED" } },
-                  orderBy: { createdAt: "desc" },
-                  take: 1,
-                  include: {
-                    fields: true,
-                  },
-                },
+        const [totalApplications, newApplications, approvedRows, volumeRows] =
+          await Promise.all([
+            prisma.applicationLender.count({
+              where: { lenderOrgId },
+            }),
+            prisma.applicationLender.count({
+              where: {
+                lenderOrgId,
+                status: { in: ["SENT", "IN_REVIEW"] },
               },
-            },
+            }),
+            // Latest review status must be APPROVED (not merely "has an approved review").
+            prisma.$queryRaw`
+              SELECT COUNT(*)::int AS count
+              FROM "application_lenders" al
+              WHERE al."lenderOrgId" = ${lenderOrgId}::uuid
+                AND (
+                  SELECT lr."reviewStatus"::text
+                  FROM "lender_reviews" lr
+                  WHERE lr."applicationLenderId" = al.id
+                  ORDER BY lr."createdAt" DESC
+                  LIMIT 1
+                ) = 'APPROVED'
+            `,
+            prisma.$queryRaw`
+              SELECT COALESCE(SUM(la."amountRequested"), 0) AS total
+              FROM "application_lenders" al
+              INNER JOIN "loan_applications" la
+                ON la.id = al."loanApplicationId"
+              WHERE al."lenderOrgId" = ${lenderOrgId}::uuid
+            `,
+          ]);
 
-            lenderReviews: {
-              orderBy: {
-                createdAt: "desc",
-              },
-
-              select: {
-                reviewStatus: true,
-              },
-            },
-          },
-        });
-
-        // ===============================
-        // STATS
-        // ===============================
-        const totalApplications = applications.length;
-
-        const newApplications = applications.filter(
-          (a) => a.status === "SENT" || a.status === "IN_REVIEW",
-        ).length;
-
-        const approvedApplications = applications.filter((a) => {
-          const latestReview = a.lenderReviews?.[0];
-
-          return latestReview?.reviewStatus === "APPROVED";
-        }).length;
-
-        const totalVolume = applications.reduce((sum, app) => {
-          const loan = app.loanApplication;
-          const fields = loan?.submissions?.[0]?.fields || [];
-
-          const amountField = fields.find((f) =>
-            ["amountRequested", "loan_amount"].includes(
-              f.builderField?.fieldKey || f.fieldKey,
-            ),
-          );
-
-          const fromFields = Number(amountField?.value || 0);
-          if (fromFields) return sum + fromFields;
-
-          const fromLoan = Number(loan?.amountRequested || 0);
-          return sum + (Number.isFinite(fromLoan) ? fromLoan : 0);
-        }, 0);
+        const approvedApplications = Number(approvedRows?.[0]?.count || 0);
+        const totalVolume = Number(volumeRows?.[0]?.total || 0);
 
         return reply.send({
           success: true,
@@ -102,7 +69,7 @@ async function getLoanPipelineStats(fastify) {
             totalApplications,
             newApplications,
             approvedApplications,
-            totalVolume,
+            totalVolume: Number.isFinite(totalVolume) ? totalVolume : 0,
           },
         });
       } catch (error) {

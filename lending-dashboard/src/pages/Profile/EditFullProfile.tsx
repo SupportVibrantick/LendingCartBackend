@@ -45,6 +45,7 @@ type Product = {
   id: string;
   name: string;
   code: string;
+  isActive: boolean;
 };
 
 type ExistingLenderProduct = {
@@ -82,10 +83,125 @@ const EMPTY_COMPANY: CompanyForm = {
   fundingSpeedDays: "",
 };
 
+type ProfileMePayload = {
+  profileJson: any;
+  profileOk: boolean;
+};
+
+type ProgramsBootstrapPayload = {
+  lenderProducts: ExistingLenderProduct[];
+  catalogProducts: Product[];
+};
+
+// Share in-flight requests across React Strict Mode remounts.
+let inflightProfileMe: Promise<ProfileMePayload> | null = null;
+let inflightProgramsLite: Promise<ProgramsBootstrapPayload> | null = null;
+let inflightProgramsFull: Promise<ProgramsBootstrapPayload> | null = null;
+
+async function fetchProfileMe(): Promise<ProfileMePayload> {
+  if (!inflightProfileMe) {
+    inflightProfileMe = (async () => {
+      const profileRes = await fetch(`${API_BASE}/lender/auth/me`, {
+        headers: getLenderAuthHeaders(),
+      });
+      const profileJson = await profileRes.json();
+
+      return {
+        profileJson,
+        profileOk: profileRes.ok && profileJson.ok === true,
+      };
+    })().finally(() => {
+      inflightProfileMe = null;
+    });
+  }
+
+  return inflightProfileMe;
+}
+
+async function fetchProgramsBootstrap(
+  mode: "lite" | "full" = "lite",
+): Promise<ProgramsBootstrapPayload> {
+  const cache = mode === "lite" ? inflightProgramsLite : inflightProgramsFull;
+  if (cache) return cache;
+
+  const request = (async () => {
+    const headers = getLenderAuthHeaders();
+    const listUrl =
+      mode === "lite"
+        ? `${API_BASE}/lender/loan-products/list?limit=100&summary=true`
+        : `${API_BASE}/lender/loan-products/list?limit=100&includeDocuments=false`;
+
+    const [lenderProductsRes, catalogRes] = await Promise.all([
+      fetch(listUrl, { headers }),
+      fetch(`${API_BASE}/common/loan-products/loan-product-code`),
+    ]);
+
+    const [lenderProductsJson, catalogJson] = await Promise.all([
+      lenderProductsRes.json(),
+      catalogRes.json(),
+    ]);
+
+    const catalogProducts: Product[] = filterLenderCatalogProducts(
+      (catalogJson.data || []).map(
+        (item: {
+          id: string;
+          code: string;
+          name: string;
+          isActive?: boolean;
+        }) => ({
+          id: String(item.id),
+          code: item.code,
+          name: item.name,
+          isActive: item.isActive !== false,
+        }),
+      ),
+    );
+
+    const lenderProducts: ExistingLenderProduct[] =
+      lenderProductsRes.ok && lenderProductsJson.success
+        ? (lenderProductsJson.data || []).map((product: any) => ({
+            ...product,
+            loanProductId:
+              product.loanProductId || product.loanProduct?.id || null,
+            code: product.code || product.loanProduct?.code || null,
+          }))
+        : [];
+
+    return { lenderProducts, catalogProducts };
+  })().finally(() => {
+    if (mode === "lite") inflightProgramsLite = null;
+    else inflightProgramsFull = null;
+  });
+
+  if (mode === "lite") inflightProgramsLite = request;
+  else inflightProgramsFull = request;
+
+  return request;
+}
+
+async function fetchLenderProductById(
+  productId: string,
+): Promise<ExistingLenderProduct | null> {
+  const res = await fetch(`${API_BASE}/lender/loan-products/${productId}`, {
+    headers: getLenderAuthHeaders(),
+  });
+  const json = await res.json();
+  if (!res.ok || !json.success) return null;
+
+  const product = json.data;
+  return {
+    ...product,
+    loanProductId: product.loanProductId || product.loanProduct?.id || null,
+    code: product.code || product.loanProduct?.code || null,
+  };
+}
+
 export default function EditFullProfile() {
   const navigate = useNavigate();
   const location = useLocation();
   const [loading, setLoading] = useState(true);
+  const [programsLoading, setProgramsLoading] = useState(false);
+  const [programsReady, setProgramsReady] = useState(false);
   const [step, setStep] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
@@ -262,9 +378,21 @@ export default function EditFullProfile() {
     }));
   };
 
-  const handlePickProduct = (productId: string) => {
+  const handlePickProduct = async (productId: string) => {
     const product = products.find((item) => item.id === productId);
-    const existing = product ? resolveExistingProduct(product) : undefined;
+    let existing = product ? resolveExistingProduct(product) : undefined;
+
+    // Lite bootstrap only has summary rows — load full criteria/docs on pick.
+    if (existing?.id) {
+      const full = await fetchLenderProductById(existing.id);
+      if (full) {
+        existing = full;
+        setExistingProducts((previous) => {
+          const without = previous.filter((item) => item.id !== full.id);
+          return [...without, full];
+        });
+      }
+    }
 
     let propertyTypes: Record<string, string[]> = {};
     let businessTypes: Record<string, string[]> = {};
@@ -343,6 +471,70 @@ export default function EditFullProfile() {
       );
     });
 
+  const applyCompanyFromProfile = (profileJson: any) => {
+    const { user, lenderProfile, organization } = profileJson.data;
+
+    setCompany({
+      companyName: organization?.name || "",
+      lenderType: lenderProfile?.lenderType || "",
+      firstName: user.firstName || "",
+      lastName: user.lastName || "",
+      organizationEmail: organization?.email || user.email || "",
+      organizationPhone: formatUSPhone(organization?.phone || ""),
+      website: lenderProfile?.website || "",
+      nmls: lenderProfile?.nmls || "",
+      address: lenderProfile?.address || "",
+      city: lenderProfile?.city || "",
+      state: normalizeUSState(lenderProfile?.state || ""),
+      zip: formatUSZip(lenderProfile?.zip || ""),
+      summary: lenderProfile?.summary || "",
+      fundingSpeedDays: lenderProfile?.fundingSpeedDays
+        ? String(lenderProfile.fundingSpeedDays)
+        : "",
+    });
+  };
+
+  const applyProgramsBootstrap = (
+    lenderProducts: ExistingLenderProduct[],
+    catalogProducts: Product[],
+    options?: {
+      preserveLoanPrograms?: string[];
+      preservePropertyTypes?: Record<string, string[]>;
+      preserveBusinessTypes?: Record<string, string[]>;
+      preserveEquipmentFinance?: string[];
+      preserveCriteriaByProgramId?: Record<string, any>;
+      hydrate?: boolean;
+    },
+  ) => {
+    setProducts(catalogProducts);
+    setExistingProducts(lenderProducts);
+    setProgramsReady(true);
+
+    if (options?.hydrate !== false) {
+      hydrateFromExisting(lenderProducts, catalogProducts, options);
+    }
+  };
+
+  const ensureProgramsLoaded = useCallback(async () => {
+    if (programsReady && products.length > 0) return true;
+
+    try {
+      setProgramsLoading(true);
+      const programs = await fetchProgramsBootstrap("lite");
+      applyProgramsBootstrap(
+        programs.lenderProducts,
+        programs.catalogProducts,
+        { hydrate: false },
+      );
+      return true;
+    } catch (error: any) {
+      toast.error(error.message || "Failed to load loan programs");
+      return false;
+    } finally {
+      setProgramsLoading(false);
+    }
+  }, [programsReady, products.length]);
+
   const loadProfileData = useCallback(
     async (options?: {
       preserveLoanPrograms?: string[];
@@ -351,85 +543,57 @@ export default function EditFullProfile() {
       preserveEquipmentFinance?: string[];
       preserveCriteriaByProgramId?: Record<string, any>;
     }) => {
-      const [profileRes, lenderProductsRes, catalogRes] = await Promise.all([
-        fetch(`${API_BASE}/lender/auth/me`, {
-          headers: getLenderAuthHeaders(),
-        }),
-        fetch(`${API_BASE}/lender/loan-products/list?limit=100`, {
-          headers: getLenderAuthHeaders(),
-        }),
-        fetch(`${API_BASE}/common/loan-products/loan-product-code`),
+      const [profile, programs] = await Promise.all([
+        fetchProfileMe(),
+        fetchProgramsBootstrap("full"),
       ]);
 
-      const profileJson = await profileRes.json();
-      const lenderProductsJson = await lenderProductsRes.json();
-      const catalogJson = await catalogRes.json();
-
-      if (!profileRes.ok || profileJson.ok !== true) {
+      if (!profile.profileOk) {
         throw new Error("Failed to load profile");
       }
 
-      const { user, lenderProfile, organization } = profileJson.data;
-      const catalogProducts: Product[] = filterLenderCatalogProducts(
-        (catalogJson.data || []).map(
-          (item: { id: string; code: string; name: string }) => ({
-            id: String(item.id),
-            code: item.code,
-            name: item.name,
-          }),
-        ),
+      applyCompanyFromProfile(profile.profileJson);
+      applyProgramsBootstrap(
+        programs.lenderProducts,
+        programs.catalogProducts,
+        options,
       );
-
-      setProducts(catalogProducts);
-      setCompany({
-        companyName: organization?.name || "",
-        lenderType: lenderProfile?.lenderType || "",
-        firstName: user.firstName || "",
-        lastName: user.lastName || "",
-        organizationEmail: organization?.email || user.email || "",
-        organizationPhone: formatUSPhone(organization?.phone || ""),
-        website: lenderProfile?.website || "",
-        nmls: lenderProfile?.nmls || "",
-        address: lenderProfile?.address || "",
-        city: lenderProfile?.city || "",
-        state: normalizeUSState(lenderProfile?.state || ""),
-        zip: formatUSZip(lenderProfile?.zip || ""),
-        summary: lenderProfile?.summary || "",
-        fundingSpeedDays: lenderProfile?.fundingSpeedDays
-          ? String(lenderProfile.fundingSpeedDays)
-          : "",
-      });
-
-      const lenderProducts: ExistingLenderProduct[] =
-        lenderProductsRes.ok && lenderProductsJson.success
-          ? (lenderProductsJson.data || []).map((product: any) => ({
-              ...product,
-              loanProductId:
-                product.loanProductId || product.loanProduct?.id || null,
-              code: product.code || product.loanProduct?.code || null,
-            }))
-          : [];
-
-      setExistingProducts(lenderProducts);
-      hydrateFromExisting(lenderProducts, catalogProducts, options);
     },
     [],
   );
 
   useEffect(() => {
+    let active = true;
+
     const load = async () => {
       try {
         setLoading(true);
-        await loadProfileData();
+        setProgramsReady(false);
+
+        // Step 1 only needs /me — defer products until Loan Programs.
+        const profile = await fetchProfileMe();
+        if (!active) return;
+
+        if (!profile.profileOk) {
+          throw new Error("Failed to load profile");
+        }
+
+        applyCompanyFromProfile(profile.profileJson);
       } catch (error: any) {
+        if (!active) return;
         toast.error(error.message || "Failed to load profile");
       } finally {
-        setLoading(false);
+        if (active) {
+          setLoading(false);
+        }
       }
     };
 
-    load();
-  }, [loadProfileData, location.key]);
+    void load();
+    return () => {
+      active = false;
+    };
+  }, [location.key]);
 
   useEffect(() => {
     if (!products.length || !form.loanPrograms.length) return;
@@ -460,6 +624,7 @@ export default function EditFullProfile() {
   const saveCompanyProfile = async (
     showToast = true,
     markComplete = false,
+    options?: { reload?: boolean },
   ) => {
     if (!validateCompany()) {
       if (showToast) {
@@ -547,26 +712,32 @@ export default function EditFullProfile() {
         patchLenderSessionUser({ organizationName: nextCompanyName });
       }
 
+      // Prefer the save response over a full me/list/catalog reload.
+      if (json.data) {
+        applyCompanyFromProfile({ data: json.data });
+      }
+
       if (showToast) {
         toast.success("Profile saved");
       }
 
-      // Preserve in-progress loan-criteria selection so Save Profile does not
-      // drop the user onto an empty Step 3 (loanPrograms cleared by hydrate).
-      await loadProfileData({
-        preserveLoanPrograms: [...form.loanPrograms],
-        preservePropertyTypes: form.propertyTypes,
-        preserveBusinessTypes: form.businessTypes,
-        preserveEquipmentFinance: form.equipmentFinance,
-        preserveCriteriaByProgramId: form.loanPrograms.reduce<
-          Record<string, any>
-        >((acc, programId) => {
-          if (form.loanCriteria?.[programId]) {
-            acc[programId] = form.loanCriteria[programId];
-          }
-          return acc;
-        }, {}),
-      });
+      // Optional full reload (rarely needed). Save Lender skips this.
+      if (options?.reload) {
+        await loadProfileData({
+          preserveLoanPrograms: [...form.loanPrograms],
+          preservePropertyTypes: form.propertyTypes,
+          preserveBusinessTypes: form.businessTypes,
+          preserveEquipmentFinance: form.equipmentFinance,
+          preserveCriteriaByProgramId: form.loanPrograms.reduce<
+            Record<string, any>
+          >((acc, programId) => {
+            if (form.loanCriteria?.[programId]) {
+              acc[programId] = form.loanCriteria[programId];
+            }
+            return acc;
+          }, {}),
+        });
+      }
       return true;
     } catch (error: any) {
       toast.error(error.message || "Failed to save profile");
@@ -652,11 +823,8 @@ export default function EditFullProfile() {
     setSubmitting(true);
 
     try {
-      const profileSaved = await saveCompanyProfile(false);
-      if (!profileSaved) {
-        return;
-      }
-
+      // Persist loan program criteria first, then one profile save that also
+      // marks complete — avoids the old double profile PUT + full reloads.
       for (const product of selectedProducts) {
         const criteria = form.loanCriteria?.[product.id] || {};
         const existing = resolveExistingProduct(product);
@@ -712,7 +880,9 @@ export default function EditFullProfile() {
         }
       }
 
-      const markedComplete = await saveCompanyProfile(false, true);
+      const markedComplete = await saveCompanyProfile(false, true, {
+        reload: false,
+      });
       if (!markedComplete) {
         throw new Error("Failed to mark profile as complete");
       }
@@ -738,6 +908,14 @@ export default function EditFullProfile() {
     }
 
     if (step === 1) {
+      if (programsLoading && products.length === 0) {
+        return (
+          <div className="flex items-center justify-center py-16">
+            <Loader2 className="h-7 w-7 animate-spin text-[#102B40]" />
+          </div>
+        );
+      }
+
       return (
         <StepTwo
           mode="lender"
@@ -748,6 +926,7 @@ export default function EditFullProfile() {
               loanPrograms: Array.isArray(value) ? value.slice(0, 1) : [],
             }))
           }
+          prefetchedProducts={products}
           onProductsLoad={setProducts}
           alreadyAddedIds={lockedProgramIds}
           pickOneMode
@@ -821,10 +1000,15 @@ export default function EditFullProfile() {
   const step5ValidationMessage =
     step === loanCriteriaStepIndex ? validateStep5() : null;
 
-  const goNext = () => {
+  const goNext = async () => {
     if (step === 0 && !validateCompany()) {
       toast.error("Please complete required company fields");
       return;
+    }
+
+    if (step === 0) {
+      const ready = await ensureProgramsLoaded();
+      if (!ready) return;
     }
 
     if (step === 1 && form.loanPrograms.length === 0) {
@@ -838,6 +1022,7 @@ export default function EditFullProfile() {
   const nextDisabled =
     submitting ||
     savingProfile ||
+    programsLoading ||
     (step === 1 && form.loanPrograms.length === 0) ||
     (step === loanCriteriaStepIndex && hasStep5Errors) ||
     (isLastStep && step5ValidationMessage !== null);

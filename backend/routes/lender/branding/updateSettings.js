@@ -54,7 +54,12 @@ async function updateLenderBrandingSettings(fastify) {
           );
           settings = synced.branding;
 
-          if (logoUrl !== undefined) {
+          // Fold logo into the same save path without an extra round-trip when
+          // sync already wrote the desired logoUrl.
+          if (
+            logoUrl !== undefined &&
+            (settings.logoUrl || null) !== (logoUrl || null)
+          ) {
             settings = await prisma.lenderBrandingSetting.update({
               where: { lenderOrgId },
               data: {

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   CheckCircle2,
   ChevronDown,
@@ -136,6 +136,7 @@ type ProductDocumentState = {
   pagination: DocumentPagination;
   loading: boolean;
   sectionOpen: boolean;
+  loadedKey: string | null;
 };
 
 const createDefaultDocumentState = (): ProductDocumentState => ({
@@ -153,7 +154,45 @@ const createDefaultDocumentState = (): ProductDocumentState => ({
   },
   loading: false,
   sectionOpen: false,
+  loadedKey: null,
 });
+
+function buildDocumentsCacheKey(
+  productId: string,
+  page: number,
+  search: string,
+) {
+  return `${productId}|${page}|${search.trim().toLowerCase()}`;
+}
+
+// Coalesce identical in-flight document-type list requests (Strict Mode safe).
+const inflightDocumentFetches = new Map<string, Promise<any>>();
+
+async function fetchActiveDocumentTypes(params: URLSearchParams) {
+  const cacheKey = params.toString();
+  const existing = inflightDocumentFetches.get(cacheKey);
+  if (existing) return existing;
+
+  const token = sessionStorage.getItem("lender_token");
+  const request = fetch(
+    `${API_BASE}/document-types/active?${params.toString()}`,
+    {
+      headers: {
+        "Content-Type": "application/json",
+        ...(token && {
+          Authorization: `Bearer ${token}`,
+        }),
+      },
+    },
+  )
+    .then((res) => res.json())
+    .finally(() => {
+      inflightDocumentFetches.delete(cacheKey);
+    });
+
+  inflightDocumentFetches.set(cacheKey, request);
+  return request;
+}
 
 const StepFive = ({
   products,
@@ -176,6 +215,7 @@ const StepFive = ({
   const [docStateByProduct, setDocStateByProduct] = useState<
     Record<string, ProductDocumentState>
   >({});
+  const docsFetchGenRef = useRef(0);
 
   const getDocState = (productId: string): ProductDocumentState =>
     docStateByProduct[productId] ?? createDefaultDocumentState();
@@ -197,11 +237,20 @@ const StepFive = ({
     productId: string,
     page: number,
     search: string,
+    options?: { force?: boolean },
   ) => {
+    const cacheKey = buildDocumentsCacheKey(productId, page, search);
+    const current = getDocState(productId);
+
+    if (!options?.force && current.loadedKey === cacheKey && !current.loading) {
+      return;
+    }
+
+    const fetchGen = ++docsFetchGenRef.current;
+
     try {
       patchDocState(productId, { loading: true });
 
-      const token = sessionStorage.getItem("lender_token");
       const product = products.find(
         (item: any) => String(item.id) === String(productId),
       );
@@ -222,19 +271,9 @@ const StepFive = ({
         params.append("loanProductCode", String(product.code));
       }
 
-      const res = await fetch(
-        `${API_BASE}/document-types/active?${params.toString()}`,
-        {
-          headers: {
-            "Content-Type": "application/json",
-            ...(token && {
-              Authorization: `Bearer ${token}`,
-            }),
-          },
-        },
-      );
+      const json = await fetchActiveDocumentTypes(params);
 
-      const json = await res.json();
+      if (fetchGen !== docsFetchGenRef.current) return;
 
       if (json.success) {
         patchDocState(productId, {
@@ -242,6 +281,7 @@ const StepFive = ({
           pagination: json.pagination,
           page,
           loading: false,
+          loadedKey: cacheKey,
         });
       } else {
         patchDocState(productId, { loading: false });
@@ -250,6 +290,7 @@ const StepFive = ({
         }
       }
     } catch (err) {
+      if (fetchGen !== docsFetchGenRef.current) return;
       console.error(err);
       patchDocState(productId, { loading: false });
       toast.error("Failed to load documents");
@@ -380,8 +421,9 @@ const StepFive = ({
       patchDocState(productId, {
         customDocumentName: "",
         page: 1,
+        loadedKey: null,
       });
-      await fetchDocuments(productId, 1, docState.search);
+      await fetchDocuments(productId, 1, docState.search, { force: true });
       toast.success("Custom document added");
     } catch (error: any) {
       console.error(error);
@@ -400,8 +442,6 @@ const StepFive = ({
     try {
       patchDocState(productId, { loading: true });
 
-      const token = sessionStorage.getItem("lender_token");
-
       const params = new URLSearchParams({
         all: "true",
       });
@@ -416,19 +456,7 @@ const StepFive = ({
         params.append("loanProductCode", String(product.code));
       }
 
-      const res = await fetch(
-        `${API_BASE}/document-types/active?${params.toString()}`,
-        {
-          headers: {
-            "Content-Type": "application/json",
-            ...(token && {
-              Authorization: `Bearer ${token}`,
-            }),
-          },
-        },
-      );
-
-      const json = await res.json();
+      const json = await fetchActiveDocumentTypes(params);
 
       if (json.success) {
         handleChange(productId, "documents", json.data);
@@ -1011,10 +1039,6 @@ const StepFive = ({
     : null;
 
   useEffect(() => {
-    cleanupOrphanedCustomDocumentTypes().catch(() => undefined);
-  }, []);
-
-  useEffect(() => {
     if (!openProductId) return;
 
     const { search, debouncedSearch } = getDocState(openProductId);
@@ -1027,16 +1051,19 @@ const StepFive = ({
     return () => clearTimeout(timeout);
   }, [openProductId, openProductDocState?.search]);
 
+  // Load document types only when the Upfront Documents section is expanded.
   useEffect(() => {
-    if (!openProductId || openProductDocState === null) return;
+    if (!openProductId || !openProductDocState?.sectionOpen) return;
 
-    fetchDocuments(
+    void cleanupOrphanedCustomDocumentTypes().catch(() => undefined);
+    void fetchDocuments(
       openProductId,
       openProductDocState.page,
       openProductDocState.debouncedSearch,
     );
   }, [
     openProductId,
+    openProductDocState?.sectionOpen,
     openProductDocState?.debouncedSearch,
     openProductDocState?.page,
   ]);

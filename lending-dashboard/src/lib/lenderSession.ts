@@ -44,11 +44,11 @@ export function handleLenderUnauthorized(message?: string) {
 }
 
 export async function verifyLenderSession(token: string): Promise<boolean> {
-  const { LENDER_API_BASE } = await import("./lenderApi");
-  const res = await fetch(`${LENDER_API_BASE}/lender/auth/me`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  return res.ok;
+  const { fetchLenderAuthMe } = await import("./lenderApi");
+  // Reuse the shared /me cache so AppHeader does not fire a second request.
+  void token;
+  const result = await fetchLenderAuthMe();
+  return result.ok;
 }
 
 export function saveLenderSession(

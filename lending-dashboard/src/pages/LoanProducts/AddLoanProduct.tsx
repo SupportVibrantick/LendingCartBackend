@@ -66,6 +66,42 @@ function getAuthHeaders(): Record<string, string> {
   return { "Content-Type": "application/json" };
 }
 
+// Coalesce existing-products list across React Strict Mode remounts.
+let inflightExistingProducts: Promise<ExistingLenderProduct[]> | null = null;
+
+async function fetchExistingLenderProducts(): Promise<ExistingLenderProduct[]> {
+  if (inflightExistingProducts) return inflightExistingProducts;
+
+  inflightExistingProducts = (async () => {
+    const res = await fetch(
+      `${API_BASE}/lender/loan-products/list?limit=100&includeDocuments=false`,
+      { headers: getAuthHeaders() },
+    );
+    const json = await res.json().catch(() => ({}));
+
+    if (!res.ok || !json.success) {
+      throw new Error(json.message || "Failed to load existing products");
+    }
+
+    return (json.data || []) as ExistingLenderProduct[];
+  })().finally(() => {
+    inflightExistingProducts = null;
+  });
+
+  return inflightExistingProducts;
+}
+
+async function fetchLenderProductById(
+  id: string,
+): Promise<ExistingLenderProduct | null> {
+  const res = await fetch(`${API_BASE}/lender/loan-products/${id}`, {
+    headers: getAuthHeaders(),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || !json.success) return null;
+  return json.data as ExistingLenderProduct;
+}
+
 function getProgramId(record: ExistingLenderProduct) {
   return String(record.loanProductId || record.loanProduct?.id || "");
 }
@@ -152,24 +188,12 @@ export default function AddLoanProduct() {
 
     (async () => {
       try {
-        const res = await fetch(
-          `${API_BASE}/lender/loan-products/list?limit=100`,
-          {
-            headers: getAuthHeaders(),
-          },
-        );
-        const json = await res.json().catch(() => ({}));
-
-        if (!res.ok || !json.success) {
-          throw new Error(json.message || "Failed to load existing products");
-        }
-
+        const items = await fetchExistingLenderProducts();
         if (!cancelled) {
-          setExistingLenderProducts(
-            (json.data || []) as ExistingLenderProduct[],
-          );
+          setExistingLenderProducts(items);
         }
       } catch (err: any) {
+        if (cancelled) return;
         console.error(err);
         toast.error(err?.message || "Failed to load existing loan products");
       }
@@ -232,9 +256,21 @@ export default function AddLoanProduct() {
         )
       : null;
 
-  const handlePickProduct = (productId: string) => {
-    const existing = lenderProductByProgramId[productId];
+  const handlePickProduct = async (productId: string) => {
+    let existing = lenderProductByProgramId[productId];
     const product = products.find((p) => p.id === productId);
+
+    // Lean list omits documents — load full config when editing a configured program.
+    if (existing?.id) {
+      const full = await fetchLenderProductById(existing.id);
+      if (full) {
+        existing = full;
+        setExistingLenderProducts((previous) => {
+          const without = previous.filter((item) => item.id !== full.id);
+          return [...without, full];
+        });
+      }
+    }
 
     let propertyTypes: Record<string, string[]> = {};
     let businessTypes: Record<string, string[]> = {};

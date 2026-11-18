@@ -39,20 +39,25 @@ module.exports = async function listLenderUsers(fastify) {
         }
 
         const lenderOrgId = req.user.organizationId;
-        const { page = 1, limit = 50, search } = req.query;
+        const page = Math.max(Number(req.query.page) || 1, 1);
+        const limit = Math.min(
+          Math.max(Number(req.query.limit) || 50, 1),
+          100,
+        );
         const skip = (page - 1) * limit;
+        const search =
+          typeof req.query.search === "string" ? req.query.search.trim() : "";
 
         const where = {
           organizationId: lenderOrgId,
           isDeleted: false,
         };
 
-        if (search?.trim()) {
-          const term = search.trim();
+        if (search) {
           where.OR = [
-            { email: { contains: term, mode: "insensitive" } },
-            { firstName: { contains: term, mode: "insensitive" } },
-            { lastName: { contains: term, mode: "insensitive" } },
+            { email: { contains: search, mode: "insensitive" } },
+            { firstName: { contains: search, mode: "insensitive" } },
+            { lastName: { contains: search, mode: "insensitive" } },
           ];
         }
 
@@ -62,9 +67,18 @@ module.exports = async function listLenderUsers(fastify) {
             skip,
             take: limit,
             orderBy: { createdAt: "desc" },
-            include: {
+            select: {
+              id: true,
+              email: true,
+              firstName: true,
+              lastName: true,
+              phone: true,
+              status: true,
+              lastLoginAt: true,
+              createdAt: true,
               roles: {
-                include: {
+                take: 1,
+                select: {
                   role: {
                     select: { name: true },
                   },
@@ -101,7 +115,7 @@ module.exports = async function listLenderUsers(fastify) {
           page,
           limit,
           total,
-          totalPages: Math.ceil(total / limit),
+          totalPages: Math.ceil(total / limit) || 1,
           data,
         });
       } catch (error) {

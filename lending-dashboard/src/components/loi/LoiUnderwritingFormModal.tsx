@@ -26,9 +26,8 @@ import {
   isLoiBrandingComplete,
   type LoiBrandingValues,
 } from "../../lib/loiBranding";
+import { fetchLenderBrandingForPdf } from "../../lib/applicationDetailsPdf";
 import LoiRequiredDocumentsPicker from "./LoiRequiredDocumentsPicker";
-
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
 const LOI_ERROR_FIELD_ORDER = [
   "branding",
@@ -252,20 +251,13 @@ export default function LoiUnderwritingFormModal({
     (async () => {
       try {
         setBrandingLoading(true);
-        const res = await fetch(`${API_BASE}/lender/branding/`, {
-          headers: getAuthHeaders(),
-        });
-        const json = await res.json();
+        const saved = await fetchLenderBrandingForPdf();
         if (cancelled) return;
 
-        if (res.ok && json.success) {
-          setBranding({
-            brandName: json.data?.brandName || "",
-            logoUrl: json.data?.logoUrl || "",
-          });
-        } else {
-          setBranding(EMPTY_LOI_BRANDING);
-        }
+        setBranding({
+          brandName: saved.brandName || "",
+          logoUrl: saved.logoUrl || "",
+        });
       } catch {
         if (!cancelled) {
           setBranding(EMPTY_LOI_BRANDING);

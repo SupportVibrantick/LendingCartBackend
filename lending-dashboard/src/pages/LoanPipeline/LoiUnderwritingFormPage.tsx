@@ -4,6 +4,11 @@ import toast from "react-hot-toast";
 import { useLocation, useNavigate } from "react-router-dom";
 import LoiUnderwritingFormModal from "../../components/loi/LoiUnderwritingFormModal";
 import { formatLoanProduct } from "../../lib/loanPipelineUtils";
+import {
+  fetchLenderApplicationDetailShared,
+  fetchLenderLoanProductsSummaryShared,
+} from "../../lib/lenderPipelineFetch";
+import { getLenderAuthHeaders, LENDER_API_BASE } from "../../lib/lenderApi";
 import type { serializeLoiUnderwritingTerms } from "../../lib/loiUnderwritingTerms";
 import {
   getLatestSubmission,
@@ -13,16 +18,10 @@ import {
   type SubmissionDetailField,
 } from "../../lib/submissionFieldUtils";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
+const API_BASE = LENDER_API_BASE;
 
 function getAuthHeaders(): Record<string, string> {
-  const token = sessionStorage.getItem("lender_token");
-  return token
-    ? {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      }
-    : { "Content-Type": "application/json" };
+  return getLenderAuthHeaders(true);
 }
 
 function normalizeText(value: unknown) {
@@ -128,36 +127,24 @@ export default function LoiUnderwritingFormPage() {
     (async () => {
       try {
         setLoading(true);
-        const [detailRes, productsRes] = await Promise.all([
-          fetch(`${API_BASE}/lender/loan-pipeline/${applicationLenderId}`, {
-            headers: getAuthHeaders(),
-          }),
-          fetch(`${API_BASE}/lender/loan-products/list?limit=100`, {
-            headers: getAuthHeaders(),
-          }),
+        const [detail, products] = await Promise.all([
+          fetchLenderApplicationDetailShared(applicationLenderId),
+          fetchLenderLoanProductsSummaryShared({ limit: 100 }),
         ]);
 
-        const detailJson = await detailRes.json();
-        if (!detailRes.ok || !detailJson.success) {
-          throw new Error(detailJson.message || "Failed to load application");
-        }
-
-        if (!cancelled) {
-          setSubmissionDetail(detailJson.data);
-        }
-
-        if (productsRes.ok) {
-          const productsJson = await productsRes.json();
-          if (!cancelled && productsJson.success) {
-            setLoanProducts(productsJson.data || []);
-          }
-        }
+        if (cancelled) return;
+        setSubmissionDetail(detail);
+        setLoanProducts(products);
       } catch (err: any) {
         if (!cancelled) {
           toast.error(err.message || "Failed to load LOI form");
           navigate("/loan-preview/?tab=loi", {
             replace: true,
-            state: { applicationLenderId, initialTab: "loi", isLoi: true },
+            state: {
+              applicationLenderId,
+              initialTab: "loi",
+              isLoi: true,
+            },
           });
         }
       } finally {
@@ -257,6 +244,7 @@ export default function LoiUnderwritingFormPage() {
       Boolean(submissionDetail?.loiUrl) || mode === "regenerate" || mode === "revised";
 
     navigate("/loan-preview/?tab=loi", {
+      replace: true,
       state: {
         applicationLenderId,
         initialTab: "loi",
@@ -310,6 +298,13 @@ export default function LoiUnderwritingFormPage() {
           initialTab: "loi",
           isLoi: true,
           refreshLoi: true,
+          // Avoid re-fetching versions / re-resolving path — generate already returned them.
+          generatedLoi: {
+            loiUrl: json.loiUrl || null,
+            versions: Array.isArray(json.versions) ? json.versions : [],
+            versionNumber: json.versionNumber || null,
+            loiSentToBrokerAt: json.loiSentToBrokerAt ?? null,
+          },
         },
       });
     } catch (err: any) {

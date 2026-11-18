@@ -121,6 +121,81 @@ function FieldLabel({
 const inputClass =
   "w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-[#183b57] focus:ring-2 focus:ring-[#183b57]/15 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:opacity-70 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:ring-brand-500/20 dark:disabled:bg-slate-800/60";
 
+// Coalesce identical GETs across React Strict Mode remounts.
+let inflightLoanProducts: Promise<LenderLoanProduct[]> | null = null;
+const inflightDocumentConfigs = new Map<
+  string,
+  Promise<{
+    data: DocumentConfig[];
+    pagination: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+    };
+  }>
+>();
+
+async function fetchLoanProductsLite() {
+  if (!inflightLoanProducts) {
+    inflightLoanProducts = (async () => {
+      const res = await fetch(
+        `${API_BASE}/lender/loan-products/list?page=1&limit=100&summary=true`,
+        { headers: getLenderAuthHeaders() },
+      );
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || "Failed to load loan products");
+      }
+
+      return (json.data || []).map((product: any) => ({
+        id: product.id,
+        loanProductCode: product.code || product.loanProductCode,
+        loanProduct: {
+          name: product.name || product.loanProduct?.name,
+          code: product.code || product.loanProduct?.code,
+        },
+      })) as LenderLoanProduct[];
+    })().finally(() => {
+      inflightLoanProducts = null;
+    });
+  }
+
+  return inflightLoanProducts;
+}
+
+async function fetchDocumentConfigsRequest(params: URLSearchParams) {
+  const key = params.toString();
+  const existing = inflightDocumentConfigs.get(key);
+  if (existing) return existing;
+
+  const request = (async () => {
+    const res = await fetch(
+      `${API_BASE}/lender/document-config/list?${key}`,
+      { headers: getLenderAuthHeaders() },
+    );
+    const json = await res.json();
+    if (!res.ok || !json.success) {
+      throw new Error(json.message || "Failed to load document configs");
+    }
+
+    return {
+      data: (json.data || []) as DocumentConfig[],
+      pagination: {
+        page: json.pagination?.page || 1,
+        limit: json.pagination?.limit || 10,
+        total: json.pagination?.total || 0,
+        totalPages: json.pagination?.totalPages || 1,
+      },
+    };
+  })().finally(() => {
+    inflightDocumentConfigs.delete(key);
+  });
+
+  inflightDocumentConfigs.set(key, request);
+  return request;
+}
+
 export default function AllDocuments() {
   const [loanProducts, setLoanProducts] = useState<LenderLoanProduct[]>([]);
   const [documentConfigs, setDocumentConfigs] = useState<DocumentConfig[]>([]);
@@ -144,6 +219,11 @@ export default function AllDocuments() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const filtersRef = useRef({
+    search: "",
+    product: "",
+    pageSize: 10,
+  });
 
   const productNameByCode = useMemo(() => {
     const map = new Map<string, string>();
@@ -178,26 +258,26 @@ export default function AllDocuments() {
     [loanProducts, productNameByCode],
   );
 
-  const fetchLoanProducts = async () => {
+  const fetchLoanProducts = async (isActive?: () => boolean) => {
     try {
-      const res = await fetch(
-        `${API_BASE}/lender/loan-products/list?page=1&limit=100`,
-        { headers: getLenderAuthHeaders() },
-      );
-      const json = await res.json();
-      if (res.ok && json.success) {
-        setLoanProducts(json.data || []);
-      }
+      const products = await fetchLoanProductsLite();
+      if (isActive && !isActive()) return;
+      setLoanProducts(products);
     } catch {
+      if (isActive && !isActive()) return;
       toast.error("Failed to load loan products");
     }
   };
 
-  const fetchDocumentConfigs = async () => {
+  const fetchDocumentConfigs = async (
+    requestPage = page,
+    isActive?: () => boolean,
+  ) => {
     try {
-      setLoadingList(true);
+      if (!isActive || isActive()) setLoadingList(true);
+
       const params = new URLSearchParams({
-        page: String(page),
+        page: String(requestPage),
         limit: String(pageSize),
       });
       if (selectedProductFilter) {
@@ -207,36 +287,31 @@ export default function AllDocuments() {
         params.set("search", debouncedTableSearch.trim());
       }
 
-      const res = await fetch(
-        `${API_BASE}/lender/document-config/list?${params.toString()}`,
-        { headers: getLenderAuthHeaders() },
-      );
-      const json = await res.json();
-      if (!res.ok || !json.success) {
-        throw new Error(json.message || "Failed to load document configs");
-      }
+      const result = await fetchDocumentConfigsRequest(params);
+      if (isActive && !isActive()) return;
 
-      setDocumentConfigs(json.data || []);
-      setPagination({
-        page: json.pagination?.page || page,
-        limit: json.pagination?.limit || pageSize,
-        total: json.pagination?.total || 0,
-        totalPages: json.pagination?.totalPages || 1,
-      });
+      setDocumentConfigs(result.data);
+      setPagination(result.pagination);
     } catch (error: any) {
+      if (isActive && !isActive()) return;
       toast.error(error.message || "Failed to load document configs");
     } finally {
-      setLoadingList(false);
+      if (!isActive || isActive()) {
+        setLoadingList(false);
+      }
     }
   };
 
   useEffect(() => {
-    const loadInitialData = async () => {
-      await cleanupOrphanedCustomDocumentTypes().catch(() => undefined);
-      await fetchLoanProducts();
-    };
+    let active = true;
 
-    loadInitialData();
+    // Cleanup in background — do not block products/list paint.
+    void cleanupOrphanedCustomDocumentTypes().catch(() => undefined);
+    void fetchLoanProducts(() => active);
+
+    return () => {
+      active = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -247,11 +322,29 @@ export default function AllDocuments() {
   }, [tableSearch]);
 
   useEffect(() => {
-    setPage(1);
-  }, [debouncedTableSearch, selectedProductFilter, pageSize]);
+    const filtersChanged =
+      filtersRef.current.search !== debouncedTableSearch ||
+      filtersRef.current.product !== selectedProductFilter ||
+      filtersRef.current.pageSize !== pageSize;
 
-  useEffect(() => {
-    fetchDocumentConfigs();
+    if (filtersChanged) {
+      filtersRef.current = {
+        search: debouncedTableSearch,
+        product: selectedProductFilter,
+        pageSize,
+      };
+      // Reset to page 1 without fetching with a stale page number.
+      if (page !== 1) {
+        setPage(1);
+        return;
+      }
+    }
+
+    let active = true;
+    void fetchDocumentConfigs(page, () => active);
+    return () => {
+      active = false;
+    };
   }, [page, pageSize, debouncedTableSearch, selectedProductFilter]);
 
   useEffect(() => {

@@ -3,9 +3,6 @@ const fs = require("fs");
 const { pipeline } = require("stream/promises");
 const { validateFileMimetype } = require("../../../utils/security/fileValidator");
 const {
-  ensureLenderProfileFields,
-} = require("../../../prisma/ensureLenderProfileFields");
-const {
   pickExtendedFields,
   writeExtendedLenderProfileFields,
   readExtendedLenderProfileFields,
@@ -148,8 +145,6 @@ async function lenderUpdateProfileRoutes(fastify) {
         let zip;
         let lenderType;
         let markProfileComplete = false;
-
-        await ensureLenderProfileFields();
 
         for await (const part of parts) {
           if (part.type === "field") {

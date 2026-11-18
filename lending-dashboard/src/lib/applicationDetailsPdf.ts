@@ -555,34 +555,62 @@ function getDefaultLenderBranding(): PdfBranding {
   };
 }
 
+type BrandingCacheEntry = {
+  promise: Promise<PdfBranding>;
+  expiresAt: number;
+};
+
+let cachedLenderBrandingForPdf: BrandingCacheEntry | null = null;
+const BRANDING_CACHE_TTL_MS = 60_000;
+
 export async function fetchLenderBrandingForPdf(): Promise<PdfBranding> {
-  const defaults = getDefaultLenderBranding();
+  const now = Date.now();
+  if (
+    cachedLenderBrandingForPdf &&
+    cachedLenderBrandingForPdf.expiresAt > now
+  ) {
+    return cachedLenderBrandingForPdf.promise;
+  }
 
-  try {
-    const token = sessionStorage.getItem("lender_token");
-    if (!token) return defaults;
+  const promise = (async () => {
+    const defaults = getDefaultLenderBranding();
 
-    const res = await fetch(`${API_BASE}/lender/branding/`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    const json = await res.json();
+    try {
+      const token = sessionStorage.getItem("lender_token");
+      if (!token) return defaults;
 
-    if (!res.ok || !json.success) {
+      const res = await fetch(`${API_BASE}/lender/branding/`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const json = await res.json();
+
+      if (!res.ok || !json.success) {
+        return defaults;
+      }
+
+      const savedBrandName = String(json.data?.brandName ?? "").trim();
+      const savedLogoUrl = normalizeBrandingLogoUrl(json.data?.logoUrl);
+
+      return {
+        brandName: savedBrandName || defaults.brandName,
+        logoUrl: savedLogoUrl,
+        primaryColor: "#3e86b7",
+        secondaryColor: "#2C92D5",
+      };
+    } catch {
       return defaults;
     }
+  })().catch((error) => {
+    cachedLenderBrandingForPdf = null;
+    throw error;
+  });
 
-    const savedBrandName = String(json.data?.brandName ?? "").trim();
-    const savedLogoUrl = normalizeBrandingLogoUrl(json.data?.logoUrl);
+  cachedLenderBrandingForPdf = {
+    promise,
+    expiresAt: now + BRANDING_CACHE_TTL_MS,
+  };
 
-    return {
-      brandName: savedBrandName || defaults.brandName,
-      logoUrl: savedLogoUrl,
-      primaryColor: "#3e86b7",
-      secondaryColor: "#2C92D5",
-    };
-  } catch {
-    return defaults;
-  }
+  return promise;
 }
 
 export function getBrokerProfileFromApplication(

@@ -1,7 +1,38 @@
 // backend/routes/lender/auth/me.js
 const {
-  readExtendedLenderProfileFields,
+  mapExtendedFields,
 } = require("../../../services/lender/lenderProfileExtendedFields");
+
+function toNumberOrNull(value) {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function formatProfileProductSummary(product) {
+  const minLoanAmount = toNumberOrNull(product.minLoanAmount);
+  const maxLoanAmount = toNumberOrNull(product.maxLoanAmount);
+  const minDscr = toNumberOrNull(product.minDscr);
+
+  return {
+    id: product.id,
+    isActive: product.isActive,
+    code: product.loanProduct?.code || product.loanProductCode || null,
+    name: product.loanProduct?.name || null,
+    minLoanAmount,
+    maxLoanAmount:
+      maxLoanAmount && maxLoanAmount > 0 ? maxLoanAmount : null,
+    minCreditScore: product.minCreditScore ?? null,
+    minDscr,
+    interestRateRange:
+      typeof product.interestRateRange === "string"
+        ? product.interestRateRange.replace(/%/g, "")
+        : product.interestRateRange,
+  };
+}
 
 /**
  * @param {import("fastify").FastifyInstance} fastify
@@ -14,6 +45,17 @@ async function lenderMeRoutes(fastify) {
       schema: {
         tags: ["Lender -> Auth"],
         summary: "Get logged-in lender user + lender profile",
+        querystring: {
+          type: "object",
+          properties: {
+            includeProductSummary: {
+              type: "boolean",
+              default: false,
+              description:
+                "Include a lightweight active loan-product summary for profile views",
+            },
+          },
+        },
       },
     },
     async (request, reply) => {
@@ -21,20 +63,80 @@ async function lenderMeRoutes(fastify) {
 
       try {
         const { userId, organizationId } = request.user;
+        const includeProductSummaryRaw = request.query?.includeProductSummary;
+        const includeProductSummary =
+          includeProductSummaryRaw === true ||
+          includeProductSummaryRaw === "true" ||
+          includeProductSummaryRaw === "1";
 
-        const user = await prisma.userAccount.findUnique({
+        const userPromise = prisma.userAccount.findUnique({
           where: { id: userId },
-          include: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+            profileImage: true,
+            status: true,
+            emailVerifiedAt: true,
+            organizationId: true,
             organization: {
-              include: {
-                lenderProfile: true, // 👈 IMPORTANT
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                phone: true,
+                type: true,
+                status: true,
+                lenderProfile: true,
               },
             },
             roles: {
-              include: { role: true },
+              select: {
+                role: {
+                  select: {
+                    name: true,
+                  },
+                },
+              },
             },
           },
         });
+
+        const productsPromise = includeProductSummary
+          ? prisma.lenderProduct.findMany({
+              where: {
+                lenderOrgId: organizationId,
+                isActive: true,
+              },
+              select: {
+                id: true,
+                isActive: true,
+                minLoanAmount: true,
+                maxLoanAmount: true,
+                minCreditScore: true,
+                minDscr: true,
+                interestRateRange: true,
+                loanProductCode: true,
+                loanProduct: {
+                  select: {
+                    id: true,
+                    name: true,
+                    code: true,
+                  },
+                },
+              },
+              orderBy: {
+                createdAt: "desc",
+              },
+              take: 100,
+            })
+          : Promise.resolve(null);
+
+        const [user, products] = await Promise.all([
+          userPromise,
+          productsPromise,
+        ]);
 
         if (!user || user.organizationId !== organizationId) {
           return reply.code(404).send({
@@ -54,9 +156,7 @@ async function lenderMeRoutes(fastify) {
         }
 
         const lenderProfile = user.organization?.lenderProfile || null;
-        const extendedProfileFields = await readExtendedLenderProfileFields(
-          user.organizationId,
-        );
+        const extendedProfileFields = mapExtendedFields(lenderProfile || {});
 
         return reply.send({
           ok: true,
@@ -91,31 +191,11 @@ async function lenderMeRoutes(fastify) {
                   statesSupported: lenderProfile.statesSupported,
                   industries: lenderProfile.industries,
                   fundingSpeedDays: lenderProfile.fundingSpeedDays,
-                  lendingCriteria: extendedProfileFields?.lendingCriteria ?? null,
-                  lendingGuidelines:
-                    extendedProfileFields?.lendingGuidelines ?? null,
-                  creditRequirements:
-                    extendedProfileFields?.creditRequirements ?? null,
-                  propertyRequirements:
-                    extendedProfileFields?.propertyRequirements ?? null,
-                  website: extendedProfileFields?.website ?? null,
-                  nmls: extendedProfileFields?.nmls ?? null,
-                  address: extendedProfileFields?.address ?? null,
-                  city: extendedProfileFields?.city ?? null,
-                  state: extendedProfileFields?.state ?? null,
-                  zip: extendedProfileFields?.zip ?? null,
-                  lenderType: extendedProfileFields?.lenderType ?? null,
-                  profileStatus: lenderProfile.profileStatus,
-                  isVisible: lenderProfile.isVisible,
-                  updatedAt: lenderProfile.updatedAt,
-                }
-              : {
-                  profileStatus: "DRAFT",
-                  isVisible: false,
                   lendingCriteria: extendedProfileFields.lendingCriteria,
                   lendingGuidelines: extendedProfileFields.lendingGuidelines,
                   creditRequirements: extendedProfileFields.creditRequirements,
-                  propertyRequirements: extendedProfileFields.propertyRequirements,
+                  propertyRequirements:
+                    extendedProfileFields.propertyRequirements,
                   website: extendedProfileFields.website,
                   nmls: extendedProfileFields.nmls,
                   address: extendedProfileFields.address,
@@ -123,7 +203,23 @@ async function lenderMeRoutes(fastify) {
                   state: extendedProfileFields.state,
                   zip: extendedProfileFields.zip,
                   lenderType: extendedProfileFields.lenderType,
+                  profileStatus: lenderProfile.profileStatus,
+                  isVisible: lenderProfile.isVisible,
+                  updatedAt: lenderProfile.updatedAt,
+                }
+              : {
+                  profileStatus: "DRAFT",
+                  isVisible: false,
+                  ...extendedProfileFields,
                 },
+
+            ...(includeProductSummary
+              ? {
+                  loanProducts: (products || []).map(
+                    formatProfileProductSummary,
+                  ),
+                }
+              : {}),
           },
         });
       } catch (err) {
@@ -133,7 +229,7 @@ async function lenderMeRoutes(fastify) {
           message: "Failed to fetch user profile",
         });
       }
-    }
+    },
   );
 }
 

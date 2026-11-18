@@ -7,6 +7,14 @@ export type LoiDocumentCatalog = {
   productRequired: string[];
 };
 
+type CatalogCacheEntry = {
+  promise: Promise<LoiDocumentCatalog>;
+  expiresAt: number;
+};
+
+const documentCatalogCache = new Map<string, CatalogCacheEntry>();
+const DOCUMENT_CATALOG_TTL_MS = 8_000;
+
 function normalizeName(name: string) {
   return String(name || "").trim();
 }
@@ -43,70 +51,88 @@ export async function fetchLoiDocumentCatalog(
   },
 ): Promise<LoiDocumentCatalog> {
   const loanProductCode = options?.loanProductCode?.trim() || "";
-  const params = new URLSearchParams({ all: "true" });
-  if (loanProductCode) {
-    params.set("loanProductCode", loanProductCode);
-  }
+  const includeProductConfig = Boolean(options?.includeProductConfig);
+  const cacheKey = `${loanProductCode}|${includeProductConfig ? "1" : "0"}`;
+  const now = Date.now();
+  const hit = documentCatalogCache.get(cacheKey);
+  if (hit && hit.expiresAt > now) return hit.promise;
 
-  const res = await fetch(
-    `${API_BASE}/document-types/active?${params.toString()}`,
-    { headers: getAuthHeaders() },
-  );
-  const json = await res.json();
-  if (!res.ok || !json.success) {
-    throw new Error(json.message || "Failed to load document catalog");
-  }
-
-  const catalogRows = Array.isArray(json.data) ? json.data : [];
-  const platformAndCustom = mergeLoiDocumentNames(
-    catalogRows.map((doc: { name?: string }) => doc.name || ""),
-  );
-  let customNames = mergeLoiDocumentNames(
-    catalogRows
-      .filter((doc: { isCustom?: boolean }) => Boolean(doc.isCustom))
-      .map((doc: { name?: string }) => doc.name || ""),
-  );
-
-  let productRequired: string[] = [];
-  if (options?.includeProductConfig && loanProductCode) {
-    try {
-      const configRes = await fetch(
-        `${API_BASE}/lender/document-config/list?loanProductCode=${encodeURIComponent(loanProductCode)}&all=true`,
-        { headers: getAuthHeaders() },
-      );
-      const configJson = await configRes.json();
-      if (configRes.ok && configJson.success) {
-        const docs = Array.isArray(configJson.data) ? configJson.data : [];
-        const productNames = mergeLoiDocumentNames(
-          docs.map((doc: { documentName?: string }) => doc.documentName || ""),
-        );
-        const productCustomNames = mergeLoiDocumentNames(
-          docs
-            .filter((doc: { isCustom?: boolean }) => Boolean(doc.isCustom))
-            .map((doc: { documentName?: string }) => doc.documentName || ""),
-        );
-        customNames = mergeLoiDocumentNames(customNames, productCustomNames);
-        productRequired = mergeLoiDocumentNames(
-          docs
-            .filter((doc: { isRequired?: boolean }) => doc.isRequired)
-            .map((doc: { documentName?: string }) => doc.documentName || ""),
-        );
-        return {
-          names: mergeLoiDocumentNames(platformAndCustom, productNames),
-          customNames,
-          productRequired,
-        };
-      }
-    } catch {
-      /* optional product config */
+  const promise = (async (): Promise<LoiDocumentCatalog> => {
+    const params = new URLSearchParams({ all: "true" });
+    if (loanProductCode) {
+      params.set("loanProductCode", loanProductCode);
     }
-  }
 
-  return {
-    names: platformAndCustom,
-    customNames,
-    productRequired,
-  };
+    const res = await fetch(
+      `${API_BASE}/document-types/active?${params.toString()}`,
+      { headers: getAuthHeaders() },
+    );
+    const json = await res.json();
+    if (!res.ok || !json.success) {
+      throw new Error(json.message || "Failed to load document catalog");
+    }
+
+    const catalogRows = Array.isArray(json.data) ? json.data : [];
+    const platformAndCustom = mergeLoiDocumentNames(
+      catalogRows.map((doc: { name?: string }) => doc.name || ""),
+    );
+    let customNames = mergeLoiDocumentNames(
+      catalogRows
+        .filter((doc: { isCustom?: boolean }) => Boolean(doc.isCustom))
+        .map((doc: { name?: string }) => doc.name || ""),
+    );
+
+    let productRequired: string[] = [];
+    if (includeProductConfig && loanProductCode) {
+      try {
+        const configRes = await fetch(
+          `${API_BASE}/lender/document-config/list?loanProductCode=${encodeURIComponent(loanProductCode)}&all=true`,
+          { headers: getAuthHeaders() },
+        );
+        const configJson = await configRes.json();
+        if (configRes.ok && configJson.success) {
+          const docs = Array.isArray(configJson.data) ? configJson.data : [];
+          const productNames = mergeLoiDocumentNames(
+            docs.map((doc: { documentName?: string }) => doc.documentName || ""),
+          );
+          const productCustomNames = mergeLoiDocumentNames(
+            docs
+              .filter((doc: { isCustom?: boolean }) => Boolean(doc.isCustom))
+              .map((doc: { documentName?: string }) => doc.documentName || ""),
+          );
+          customNames = mergeLoiDocumentNames(customNames, productCustomNames);
+          productRequired = mergeLoiDocumentNames(
+            docs
+              .filter((doc: { isRequired?: boolean }) => doc.isRequired)
+              .map((doc: { documentName?: string }) => doc.documentName || ""),
+          );
+          return {
+            names: mergeLoiDocumentNames(platformAndCustom, productNames),
+            customNames,
+            productRequired,
+          };
+        }
+      } catch {
+        /* optional product config */
+      }
+    }
+
+    return {
+      names: platformAndCustom,
+      customNames,
+      productRequired,
+    };
+  })().catch((error) => {
+    const current = documentCatalogCache.get(cacheKey);
+    if (current?.promise === promise) documentCatalogCache.delete(cacheKey);
+    throw error;
+  });
+
+  documentCatalogCache.set(cacheKey, {
+    promise,
+    expiresAt: now + DOCUMENT_CATALOG_TTL_MS,
+  });
+  return promise;
 }
 
 /**
