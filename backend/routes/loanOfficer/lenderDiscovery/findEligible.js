@@ -135,7 +135,16 @@ module.exports = async function findEligibleLenders(fastify) {
           });
         }
 
-        if (application.status === "DRAFT") {
+        // Allow matching once the deal has left incomplete/draft prep.
+        // LO submit historically left LoanApplication as DRAFT while the
+        // submission was CLIENT_PENDING — treat that as submitted.
+        const submissionReady = !["DRAFT", "INCOMPLETE"].includes(
+          String(submission.status || "").toUpperCase(),
+        );
+        const applicationBlocked = ["DRAFT", "INCOMPLETE"].includes(
+          String(application.status || "").toUpperCase(),
+        );
+        if (applicationBlocked && !submissionReady) {
           return reply.code(400).send({
             success: false,
             message: "Application must be submitted first",

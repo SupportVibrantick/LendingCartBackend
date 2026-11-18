@@ -136,7 +136,14 @@ module.exports = async function findEligibleLenders(fastify) {
           });
         }
 
-        if (application.status === "DRAFT") {
+        // Same readiness rule as broker/LO: block only true prep drafts.
+        const submissionReady = !["DRAFT", "INCOMPLETE"].includes(
+          String(submission.status || "").toUpperCase(),
+        );
+        const applicationBlocked = ["DRAFT", "INCOMPLETE"].includes(
+          String(application.status || "").toUpperCase(),
+        );
+        if (applicationBlocked && !submissionReady) {
           return reply.code(400).send({
             success: false,
             message: "Application must be submitted first",
