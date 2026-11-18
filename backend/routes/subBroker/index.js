@@ -25,6 +25,11 @@ async function subBrokerRoutes(fastify, options) {
     prefix: "/loan-pipeline",
   });
 
+  // LENDER DISCOVERY (matched lenders)
+  fastify.register(require("./lenderDiscovery"), {
+    prefix: "/lender-discovery",
+  });
+
   // FEE AGREEMENT
   fastify.register(feeAgreementRoutes, {
     prefix: "/fee-agreement",

@@ -198,6 +198,22 @@ async function subBrokerSubmitApplication(fastify) {
             });
             loanApplication = promoted.loanApplication;
             submission = promoted.submission;
+
+            // Ensure co-broker ownership link exists for lender discovery / pipeline.
+            await tx.subBrokerApplication.upsert({
+              where: {
+                loanApplicationId_subBrokerId: {
+                  loanApplicationId: loanApplication.id,
+                  subBrokerId: loggedInUserId,
+                },
+              },
+              create: {
+                loanApplicationId: loanApplication.id,
+                subBrokerId: loggedInUserId,
+                assignedById: loggedInUserId,
+              },
+              update: {},
+            });
           } else {
             loanApplication = await tx.loanApplication.create({
               data: {

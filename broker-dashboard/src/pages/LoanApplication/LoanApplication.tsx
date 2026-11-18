@@ -636,6 +636,7 @@ function getPortalConfig(portal: LoanApplicationPortal, apiBase: string) {
       loanProductsUrl: `${apiBase}/common/loan-products/loan-product-code`,
       loanProductsAuth: false,
       successPath: "/loan-officer/loan-pipeline",
+      matchedLendersPath: "/loan-officer/loan-pipeline-preview",
       backLabel: "Back to Loan Pipeline",
       documentPaths: {
         requestDocuments: (loanApplicationId: string) =>
@@ -663,6 +664,7 @@ function getPortalConfig(portal: LoanApplicationPortal, apiBase: string) {
       loanProductsUrl: `${apiBase}/common/loan-products/loan-product-code`,
       loanProductsAuth: false,
       successPath: "/sub-broker/loan-pipeline",
+      matchedLendersPath: "/sub-broker/loan-pipeline-preview",
       backLabel: "Back to Loan Pipeline",
       documentPaths: {
         requestDocuments: (loanApplicationId: string) =>
@@ -689,6 +691,7 @@ function getPortalConfig(portal: LoanApplicationPortal, apiBase: string) {
     loanProductsUrl: `${apiBase}/common/loan-products/loan-product-code`,
     loanProductsAuth: false,
     successPath: "/submit-applications",
+    matchedLendersPath: "/loan-preview",
     backLabel: "Back to Submitted Applications",
     documentPaths: {
       requestDocuments: (loanApplicationId: string) =>
@@ -962,6 +965,22 @@ const LoanApplication = ({
   const portalConfig = useMemo(
     () => getPortalConfig(portal, API_BASE),
     [portal],
+  );
+
+  const goToPostSubmitDestination = useCallback(
+    (submissionId?: string | null) => {
+      if (submissionId && portalConfig.matchedLendersPath) {
+        navigate(portalConfig.matchedLendersPath, {
+          state: {
+            submissionId,
+            activeTab: "find-lenders",
+          },
+        });
+        return;
+      }
+      navigate(portalConfig.successPath);
+    },
+    [navigate, portalConfig.matchedLendersPath, portalConfig.successPath],
   );
 
   const isResidentialFlow = isResidential14Category(selectedCategory);
@@ -2620,7 +2639,7 @@ const LoanApplication = ({
               "Application saved but some documents failed to upload",
           );
           discardSavedDraft();
-          navigate(portalConfig.successPath);
+          goToPostSubmitDestination(submissionId);
           return;
         }
       }
@@ -2650,7 +2669,7 @@ const LoanApplication = ({
           formData,
         });
       }
-      navigate(portalConfig.successPath);
+      goToPostSubmitDestination(submissionId);
     } catch (error: any) {
       toast.error(error.message || "Something went wrong");
     } finally {
