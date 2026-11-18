@@ -17,6 +17,10 @@ const EXTENDED_FIELD_NAMES = [
   "lenderType",
 ];
 
+const EXTENDED_FIELD_SELECT = Object.fromEntries(
+  EXTENDED_FIELD_NAMES.map((name) => [name, true]),
+);
+
 const EMPTY_EXTENDED_FIELDS = Object.fromEntries(
   EXTENDED_FIELD_NAMES.map((name) => [name, null]),
 );
@@ -33,6 +37,22 @@ function pickExtendedFields(source = {}) {
   return fields;
 }
 
+function mapExtendedFields(source = {}) {
+  return {
+    lendingCriteria: source.lendingCriteria ?? null,
+    lendingGuidelines: source.lendingGuidelines ?? null,
+    creditRequirements: source.creditRequirements ?? null,
+    propertyRequirements: source.propertyRequirements ?? null,
+    website: source.website ?? null,
+    nmls: source.nmls ?? null,
+    address: source.address ?? null,
+    city: source.city ?? null,
+    state: source.state ?? null,
+    zip: source.zip ?? null,
+    lenderType: source.lenderType ?? null,
+  };
+}
+
 async function ensureLenderProfileRow(lenderOrgId) {
   await prisma.lenderProfile.upsert({
     where: { lenderOrgId },
@@ -42,45 +62,16 @@ async function ensureLenderProfileRow(lenderOrgId) {
 }
 
 async function readExtendedLenderProfileFields(lenderOrgId) {
-  await ensureLenderProfileFields();
+  const profile = await prisma.lenderProfile.findUnique({
+    where: { lenderOrgId },
+    select: EXTENDED_FIELD_SELECT,
+  });
 
-  const rows = await prisma.$queryRaw`
-    SELECT
-      "lendingCriteria",
-      "lendingGuidelines",
-      "creditRequirements",
-      "propertyRequirements",
-      "website",
-      "nmls",
-      "address",
-      "city",
-      "state",
-      "zip",
-      "lenderType"
-    FROM "lender_profiles"
-    WHERE "lenderOrgId" = ${lenderOrgId}::uuid
-    LIMIT 1
-  `;
-
-  const row = rows?.[0];
-
-  if (!row) {
+  if (!profile) {
     return { ...EMPTY_EXTENDED_FIELDS };
   }
 
-  return {
-    lendingCriteria: row.lendingCriteria ?? null,
-    lendingGuidelines: row.lendingGuidelines ?? null,
-    creditRequirements: row.creditRequirements ?? null,
-    propertyRequirements: row.propertyRequirements ?? null,
-    website: row.website ?? null,
-    nmls: row.nmls ?? null,
-    address: row.address ?? null,
-    city: row.city ?? null,
-    state: row.state ?? null,
-    zip: row.zip ?? null,
-    lenderType: row.lenderType ?? null,
-  };
+  return mapExtendedFields(profile);
 }
 
 async function writeExtendedLenderProfileFields(lenderOrgId, fields) {
@@ -90,21 +81,21 @@ async function writeExtendedLenderProfileFields(lenderOrgId, fields) {
     return;
   }
 
+  // Keep a one-time schema ensure for older environments; cached per process.
   await ensureLenderProfileFields();
   await ensureLenderProfileRow(lenderOrgId);
 
-  for (const [key, value] of Object.entries(payload)) {
-    await prisma.$executeRawUnsafe(
-      `UPDATE "lender_profiles" SET "${key}" = $1 WHERE "lenderOrgId" = $2::uuid`,
-      value,
-      lenderOrgId,
-    );
-  }
+  await prisma.lenderProfile.update({
+    where: { lenderOrgId },
+    data: payload,
+  });
 }
 
 module.exports = {
   EXTENDED_FIELD_NAMES,
+  EXTENDED_FIELD_SELECT,
   pickExtendedFields,
+  mapExtendedFields,
   readExtendedLenderProfileFields,
   writeExtendedLenderProfileFields,
   ensureLenderProfileRow,

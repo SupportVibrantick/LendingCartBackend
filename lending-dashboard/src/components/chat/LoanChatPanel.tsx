@@ -66,6 +66,37 @@ type LoanChatPanelProps = {
   onBack?: () => void;
 };
 
+type ChatFetchCacheEntry = { promise: Promise<any>; expiresAt: number };
+const chatFetchCache = new Map<string, ChatFetchCacheEntry>();
+const CHAT_FETCH_TTL_MS = 8_000;
+const chatReadInflight = new Set<string>();
+
+async function fetchChatJsonCached(
+  url: string,
+  init: RequestInit,
+  ttlMs = CHAT_FETCH_TTL_MS,
+) {
+  const now = Date.now();
+  const hit = chatFetchCache.get(url);
+  if (hit && hit.expiresAt > now) return hit.promise;
+
+  const request = (async () => {
+    const res = await fetch(url, init);
+    const json = await res.json();
+    if (!res.ok || !json.success) {
+      throw new Error(json.message || "Chat request failed");
+    }
+    return json;
+  })().catch((error) => {
+    const current = chatFetchCache.get(url);
+    if (current?.promise === request) chatFetchCache.delete(url);
+    throw error;
+  });
+
+  chatFetchCache.set(url, { promise: request, expiresAt: now + ttlMs });
+  return request;
+}
+
 const ACCENT_CLASSES = {
   sky: {
     shadow: "shadow-[0_18px_50px_rgba(14,165,233,0.08)]",
@@ -324,13 +355,13 @@ const LoanChatPanel = ({
   }, [config.serverSideSearch, conversations, debouncedSearch]);
 
   const fetchConversations = useCallback(
-    async (search = debouncedSearch) => {
+    async (search = debouncedSearch, isActive?: () => boolean) => {
       if (!applicationId) return;
 
       try {
-        setChatLoading(true);
+        if (!isActive || isActive()) setChatLoading(true);
         const token = getToken();
-        const res = await fetch(
+        const json = await fetchChatJsonCached(
           loanConversationsUrl(
             config,
             applicationId,
@@ -341,11 +372,7 @@ const LoanChatPanel = ({
             headers: { ...(token && { Authorization: `Bearer ${token}` }) },
           },
         );
-        const json = await res.json();
-
-        if (!res.ok || !json.success) {
-          throw new Error(json.message || "Failed to load chats");
-        }
+        if (isActive && !isActive()) return;
 
         const rawConversations: Conversation[] =
           json?.data?.conversations || [];
@@ -366,9 +393,12 @@ const LoanChatPanel = ({
           return null;
         });
       } catch (err: any) {
+        if (isActive && !isActive()) return;
         toast.error(err.message || "Failed to load chats");
       } finally {
-        setChatLoading(false);
+        if (!isActive || isActive()) {
+          setChatLoading(false);
+        }
       }
     },
     [applicationId, config, debouncedSearch, getToken, isSingleLayout],
@@ -383,27 +413,32 @@ const LoanChatPanel = ({
     });
   };
 
-  const fetchMessages = async (conversationId: string) => {
+  const fetchMessages = async (
+    conversationId: string,
+    isActive?: () => boolean,
+  ) => {
     if (!conversationId) return;
 
     try {
-      setMessagesLoading(true);
+      if (!isActive || isActive()) setMessagesLoading(true);
       const token = getToken();
-      const res = await fetch(conversationMessagesUrl(config, conversationId), {
-        method: "GET",
-        headers: { ...(token && { Authorization: `Bearer ${token}` }) },
-      });
-      const json = await res.json();
-
-      if (!res.ok || !json.success) {
-        throw new Error(json.message || "Failed to load messages");
-      }
+      const json = await fetchChatJsonCached(
+        conversationMessagesUrl(config, conversationId),
+        {
+          method: "GET",
+          headers: { ...(token && { Authorization: `Bearer ${token}` }) },
+        },
+      );
+      if (isActive && !isActive()) return;
 
       setMessages(json?.data?.messages || []);
     } catch (err: any) {
+      if (isActive && !isActive()) return;
       toast.error(err.message || "Failed to load messages");
     } finally {
-      setMessagesLoading(false);
+      if (!isActive || isActive()) {
+        setMessagesLoading(false);
+      }
     }
   };
 
@@ -632,7 +667,11 @@ const LoanChatPanel = ({
 
   useEffect(() => {
     if (!applicationId) return;
-    void fetchConversations(debouncedSearch);
+    let active = true;
+    void fetchConversations(debouncedSearch, () => active);
+    return () => {
+      active = false;
+    };
   }, [applicationId, debouncedSearch, fetchConversations]);
 
   useEffect(() => {
@@ -641,6 +680,7 @@ const LoanChatPanel = ({
 
   useEffect(() => {
     if (!selectedConversation?.id) return;
+    let active = true;
 
     const initConversation = async () => {
       let conversationId = selectedConversation.id;
@@ -653,6 +693,7 @@ const LoanChatPanel = ({
       ) {
         try {
           const created = await ensureConversation(selectedConversation);
+          if (!active) return;
           if (created?.id) {
             conversationId = created.id;
             setSelectedConversation((prev) =>
@@ -667,6 +708,7 @@ const LoanChatPanel = ({
             );
           }
         } catch (err: unknown) {
+          if (!active) return;
           const message =
             err instanceof Error ? err.message : "Failed to open conversation";
           toast.error(message);
@@ -676,17 +718,25 @@ const LoanChatPanel = ({
 
       if (isTemporaryConversationId(conversationId)) return;
 
-      await fetchMessages(conversationId);
+      await fetchMessages(conversationId, () => active);
+      if (!active) return;
 
       try {
-        const token = getToken();
-        await fetch(conversationReadUrl(config, conversationId), {
-          method: "PATCH",
-          headers: { ...(token && { Authorization: `Bearer ${token}` }) },
-        });
+        if (!chatReadInflight.has(conversationId)) {
+          chatReadInflight.add(conversationId);
+          const token = getToken();
+          await fetch(conversationReadUrl(config, conversationId), {
+            method: "PATCH",
+            headers: { ...(token && { Authorization: `Bearer ${token}` }) },
+          }).finally(() => {
+            chatReadInflight.delete(conversationId);
+          });
+        }
       } catch {
         // non-blocking
       }
+
+      if (!active) return;
 
       setConversations((prev) =>
         prev.map((item) =>
@@ -698,6 +748,9 @@ const LoanChatPanel = ({
     };
 
     void initConversation();
+    return () => {
+      active = false;
+    };
   }, [selectedConversation?.id, config, getToken]);
 
   useEffect(() => {

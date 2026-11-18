@@ -1,6 +1,25 @@
 /**
  * @param {import("fastify").FastifyInstance} fastify
  */
+
+const LIST_FIELD_KEYS = [
+  "borrowerFirstName",
+  "firstName",
+  "first_name",
+  "borrowerLastName",
+  "lastName",
+  "last_name",
+  "borrowerName",
+  "applicantName",
+  "fullName",
+  "name",
+  "entityType",
+  "borrowerEntityType",
+  "businessType",
+  "amountRequested",
+  "loan_amount",
+];
+
 function getFieldValue(fields = [], ...keys) {
   return fields.find((field) =>
     keys.includes(field.builderField?.fieldKey || field.fieldKey),
@@ -133,6 +152,137 @@ function matchesDecisionFilter(latestDecision, decisionFilter) {
   return latestDecision === decisionFilter;
 }
 
+const PAGE_LIST_SELECT = {
+  id: true,
+  status: true,
+  sentAt: true,
+  loiUrl: true,
+  loiSentToBrokerAt: true,
+  lenderReviews: {
+    take: 1,
+    orderBy: { createdAt: "desc" },
+    select: {
+      reviewStatus: true,
+      approvedAmount: true,
+      interestRate: true,
+      createdAt: true,
+    },
+  },
+  loanApplication: {
+    select: {
+      id: true,
+      applicationNumber: true,
+      loanProductCode: true,
+      amountRequested: true,
+      status: true,
+      createdAt: true,
+      client: {
+        select: {
+          id: true,
+          legalName: true,
+          entityType: true,
+          contacts: {
+            select: {
+              firstName: true,
+              lastName: true,
+            },
+            take: 1,
+          },
+        },
+      },
+      brokerOrg: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
+      submissions: {
+        where: { status: { not: "SUPERSEDED" } },
+        orderBy: { createdAt: "desc" },
+        take: 1,
+        select: {
+          fields: {
+            where: {
+              OR: [
+                { fieldKey: { in: LIST_FIELD_KEYS } },
+                { builderField: { fieldKey: { in: LIST_FIELD_KEYS } } },
+              ],
+            },
+            select: {
+              value: true,
+              fieldKey: true,
+              builderField: {
+                select: {
+                  fieldKey: true,
+                },
+              },
+            },
+          },
+        },
+      },
+      _count: {
+        select: {
+          documentRequirements: {
+            where: {
+              status: { not: "COMPLETE" },
+            },
+          },
+        },
+      },
+    },
+  },
+};
+
+function formatPipelineRow(item) {
+  const app = item.loanApplication;
+  const latestReview = item.lenderReviews?.[0] ?? null;
+  const fields = app.submissions?.[0]?.fields || [];
+  const borrowerFirstName = normalizeText(
+    getFieldValue(fields, "borrowerFirstName", "firstName", "first_name"),
+  );
+  const borrowerLastName = normalizeText(
+    getFieldValue(fields, "borrowerLastName", "lastName", "last_name"),
+  );
+
+  let amountRequested = null;
+
+  if (app.submissions?.length) {
+    amountRequested =
+      Number(getFieldValue(fields, "amountRequested", "loan_amount")) || null;
+  }
+
+  if (amountRequested == null && app.amountRequested != null) {
+    const fallbackAmount = Number(app.amountRequested);
+    amountRequested = Number.isFinite(fallbackAmount) ? fallbackAmount : null;
+  }
+
+  return {
+    applicationLenderId: item.id,
+    loiUrl: item.loiUrl,
+    loiGenerated: !!item.loiUrl,
+    loiSentToBroker: !!item.loiSentToBrokerAt,
+    loiSentToBrokerAt: item.loiSentToBrokerAt,
+    lenderPipelineStatus: item.status,
+    lenderDecision: latestReview?.reviewStatus ?? null,
+    approvedAmount: latestReview?.approvedAmount ?? null,
+    interestRate: latestReview?.interestRate ?? null,
+    sentAt: item.sentAt,
+    applicationId: app.id,
+    applicationNumber: app.applicationNumber,
+    borrowerFirstName,
+    borrowerLastName,
+    borrowerName: resolveBorrowerName(app),
+    borrowerEntityType: resolveBorrowerEntityType(app),
+    loanProductCode: app.loanProductCode,
+    amountRequested,
+    applicationStatus: app.status,
+    createdAt: app.createdAt,
+    pendingDocumentsCount: app._count?.documentRequirements || 0,
+    client: app.client,
+    broker: app.brokerOrg,
+  };
+}
+
 async function listSubmittedApplications(fastify) {
   fastify.get(
     "/",
@@ -182,49 +332,67 @@ async function listSubmittedApplications(fastify) {
           Math.max(Number(req.query.limit) || 10, 1),
           100,
         );
-        const skip = (page - 1) * limit;
         const decisionFilter = req.query.decision || null;
         const search =
-          typeof req.query.search === "string"
-            ? req.query.search.trim()
-            : "";
+          typeof req.query.search === "string" ? req.query.search.trim() : "";
 
         const baseWhere = {
           lenderOrgId,
           ...buildSearchWhere(search || null),
         };
 
-        // Resolve decision against the latest review, then paginate.
-        // (Prisma cannot easily filter by "latest related row" in one query.)
-        const candidates = await prisma.applicationLender.findMany({
-          where: baseWhere,
-          select: {
-            id: true,
-            lenderReviews: {
-              take: 1,
-              orderBy: { createdAt: "desc" },
-              select: { reviewStatus: true },
+        let total;
+        let totalPages;
+        let safePage;
+        let pageIds;
+
+        if (decisionFilter) {
+          // Latest-review filtering needs a candidate pass; keep it lean (id + status only).
+          const candidates = await prisma.applicationLender.findMany({
+            where: baseWhere,
+            select: {
+              id: true,
+              lenderReviews: {
+                take: 1,
+                orderBy: { createdAt: "desc" },
+                select: { reviewStatus: true },
+              },
             },
-          },
-          orderBy: {
-            sentAt: "desc",
-          },
-        });
+            orderBy: {
+              sentAt: "desc",
+            },
+          });
 
-        const matchedIds = candidates
-          .filter((item) =>
-            matchesDecisionFilter(
-              item.lenderReviews?.[0]?.reviewStatus ?? null,
-              decisionFilter,
-            ),
-          )
-          .map((item) => item.id);
+          const matchedIds = candidates
+            .filter((item) =>
+              matchesDecisionFilter(
+                item.lenderReviews?.[0]?.reviewStatus ?? null,
+                decisionFilter,
+              ),
+            )
+            .map((item) => item.id);
 
-        const total = matchedIds.length;
-        const totalPages = Math.max(Math.ceil(total / limit) || 1, 1);
-        const safePage = Math.min(page, totalPages);
-        const safeSkip = (safePage - 1) * limit;
-        const pageIds = matchedIds.slice(safeSkip, safeSkip + limit);
+          total = matchedIds.length;
+          totalPages = Math.max(Math.ceil(total / limit) || 1, 1);
+          safePage = Math.min(page, totalPages);
+          const safeSkip = (safePage - 1) * limit;
+          pageIds = matchedIds.slice(safeSkip, safeSkip + limit);
+        } else {
+          total = await prisma.applicationLender.count({ where: baseWhere });
+          totalPages = Math.max(Math.ceil(total / limit) || 1, 1);
+          safePage = Math.min(page, totalPages);
+          const safeSkip = (safePage - 1) * limit;
+
+          const pageRows = await prisma.applicationLender.findMany({
+            where: baseWhere,
+            select: { id: true },
+            orderBy: { sentAt: "desc" },
+            skip: safeSkip,
+            take: limit,
+          });
+
+          pageIds = pageRows.map((row) => row.id);
+        }
 
         const applications =
           pageIds.length === 0
@@ -233,150 +401,12 @@ async function listSubmittedApplications(fastify) {
                 where: {
                   id: { in: pageIds },
                 },
-                include: {
-                  lenderReviews: {
-                    take: 1,
-                    orderBy: { createdAt: "desc" },
-                    select: {
-                      reviewStatus: true,
-                      approvedAmount: true,
-                      interestRate: true,
-                      createdAt: true,
-                    },
-                  },
-                  loanApplication: {
-                    include: {
-                      client: {
-                        select: {
-                          id: true,
-                          legalName: true,
-                          entityType: true,
-                          contacts: {
-                            select: {
-                              firstName: true,
-                              lastName: true,
-                            },
-                            take: 1,
-                          },
-                        },
-                      },
-                      brokerOrg: {
-                        select: {
-                          id: true,
-                          name: true,
-                        },
-                      },
-                      submissions: {
-                        // Broker edits create a new submission and mark the old
-                        // one SUPERSEDED — always read the latest live version.
-                        where: { status: { not: "SUPERSEDED" } },
-                        orderBy: { createdAt: "desc" },
-                        take: 1,
-                        include: {
-                          fields: true,
-                        },
-                      },
-                      documentRequirements: {
-                        select: {
-                          status: true,
-                        },
-                      },
-                    },
-                  },
-                },
+                select: PAGE_LIST_SELECT,
               });
 
         const byId = new Map(applications.map((item) => [item.id, item]));
-        const ordered = pageIds
-          .map((id) => byId.get(id))
-          .filter(Boolean);
-
-        const formatted = ordered.map((item) => {
-          const app = item.loanApplication;
-          const latestReview = item.lenderReviews?.[0] ?? null;
-          const fields = app.submissions?.[0]?.fields || [];
-          const borrowerFirstName = normalizeText(
-            getFieldValue(
-              fields,
-              "borrowerFirstName",
-              "firstName",
-              "first_name",
-            ),
-          );
-          const borrowerLastName = normalizeText(
-            getFieldValue(
-              fields,
-              "borrowerLastName",
-              "lastName",
-              "last_name",
-            ),
-          );
-
-          let amountRequested = null;
-          let termMonthsRequested = null;
-
-          if (app.submissions?.length) {
-            const getField = (...keys) => getFieldValue(fields, ...keys);
-
-            amountRequested =
-              Number(getField("amountRequested", "loan_amount")) || null;
-
-            const minTerm = Number(getField("minTermMonths"));
-            const maxTerm = Number(getField("maxTermMonths"));
-            const termYears = Number(getField("requested_term_years"));
-
-            if (maxTerm) {
-              termMonthsRequested = maxTerm;
-            } else if (termYears) {
-              termMonthsRequested = termYears * 12;
-            } else if (minTerm) {
-              termMonthsRequested = minTerm;
-            }
-          }
-
-          // Fallback when submission fields are missing/stale but the loan row
-          // was updated (keeps lender list aligned with broker pipeline).
-          if (amountRequested == null && app.amountRequested != null) {
-            const fallbackAmount = Number(app.amountRequested);
-            amountRequested = Number.isFinite(fallbackAmount)
-              ? fallbackAmount
-              : null;
-          }
-
-          const pendingDocumentsCount =
-            app.documentRequirements?.filter(
-              (doc) => doc.status !== "COMPLETE",
-            ).length || 0;
-
-          const lenderDecision = latestReview?.reviewStatus ?? null;
-
-          return {
-            applicationLenderId: item.id,
-            loiUrl: item.loiUrl,
-            loiGenerated: !!item.loiUrl,
-            loiSentToBroker: !!item.loiSentToBrokerAt,
-            loiSentToBrokerAt: item.loiSentToBrokerAt,
-            lenderPipelineStatus: item.status,
-            lenderDecision,
-            approvedAmount: latestReview?.approvedAmount ?? null,
-            interestRate: latestReview?.interestRate ?? null,
-            sentAt: item.sentAt,
-            applicationId: app.id,
-            applicationNumber: app.applicationNumber,
-            borrowerFirstName,
-            borrowerLastName,
-            borrowerName: resolveBorrowerName(app),
-            borrowerEntityType: resolveBorrowerEntityType(app),
-            loanProductCode: app.loanProductCode,
-            amountRequested,
-            termMonthsRequested,
-            applicationStatus: app.status,
-            createdAt: app.createdAt,
-            pendingDocumentsCount,
-            client: app.client,
-            broker: app.brokerOrg,
-          };
-        });
+        const ordered = pageIds.map((id) => byId.get(id)).filter(Boolean);
+        const formatted = ordered.map(formatPipelineRow);
 
         return reply.send({
           success: true,

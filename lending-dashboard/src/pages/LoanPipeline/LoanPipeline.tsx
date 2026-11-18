@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { createPortal } from "react-dom";
 import {
@@ -32,6 +32,7 @@ import {
   getPaginationWindow,
   type DecisionFilterValue,
 } from "../../lib/loanPipelineUtils";
+import { API_BASE, getLenderAuthHeaders } from "../../lib/lenderApi";
 
 /* ================= TYPES ================= */
 type TableRow = {
@@ -53,17 +54,96 @@ type TableRow = {
   loiSentToBroker?: boolean;
 };
 
+type PipelineStatsPayload = {
+  totalVolume: number;
+  newApplications: number;
+  approvedApplications: number;
+  totalApplications: number;
+};
+
+type PipelineListPayload = {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+  data: any[];
+};
+
 /* ================= HELPERS ================= */
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 const TABLE_COLUMNS = 9;
 const ROWS_PER_PAGE = 10;
 
-function getAuthHeaders(): HeadersInit {
-  const token = sessionStorage.getItem("lender_token");
-  return {
-    "Content-Type": "application/json",
-    ...(token && { Authorization: `Bearer ${token}` }),
-  };
+// Coalesce identical GETs across React Strict Mode remounts.
+let inflightPipelineStats: Promise<PipelineStatsPayload> | null = null;
+const inflightPipelineLists = new Map<string, Promise<PipelineListPayload>>();
+
+async function fetchPipelineStats(
+  force = false,
+): Promise<PipelineStatsPayload> {
+  if (!force && inflightPipelineStats) return inflightPipelineStats;
+
+  const request = (async () => {
+    const res = await fetch(`${API_BASE}/lender/loan-pipeline/stats`, {
+      headers: getLenderAuthHeaders(),
+    });
+    const json = await res.json();
+
+    if (!res.ok || !json.success) {
+      throw new Error(json.message || "Failed to load stats");
+    }
+
+    return {
+      totalVolume: json.data.totalVolume || 0,
+      newApplications: json.data.newApplications || 0,
+      approvedApplications: json.data.approvedApplications || 0,
+      totalApplications: json.data.totalApplications || 0,
+    };
+  })().finally(() => {
+    if (inflightPipelineStats === request) {
+      inflightPipelineStats = null;
+    }
+  });
+
+  inflightPipelineStats = request;
+  return request;
+}
+
+async function fetchPipelineList(
+  params: URLSearchParams,
+  force = false,
+): Promise<PipelineListPayload> {
+  const key = params.toString();
+  if (!force) {
+    const existing = inflightPipelineLists.get(key);
+    if (existing) return existing;
+  }
+
+  const request = (async () => {
+    const res = await fetch(
+      `${API_BASE}/lender/loan-pipeline?${key}`,
+      { headers: getLenderAuthHeaders() },
+    );
+    const json = await res.json();
+
+    if (!res.ok || !json.success) {
+      throw new Error(json.message || "Failed to load loan pipeline");
+    }
+
+    return {
+      page: Number(json.page) || 1,
+      limit: Number(json.limit) || ROWS_PER_PAGE,
+      total: Number(json.total) || 0,
+      totalPages: Math.max(Number(json.totalPages) || 1, 1),
+      data: Array.isArray(json.data) ? json.data : [],
+    };
+  })().finally(() => {
+    if (inflightPipelineLists.get(key) === request) {
+      inflightPipelineLists.delete(key);
+    }
+  });
+
+  inflightPipelineLists.set(key, request);
+  return request;
 }
 
 /* ================= COMPONENT ================= */
@@ -112,7 +192,7 @@ export default function LoanPipeline() {
   const handleDownload = async (url: string, filename: string) => {
     try {
       const res = await fetch(url, {
-        headers: getAuthHeaders(),
+        headers: getLenderAuthHeaders(),
       });
       if (!res.ok) throw new Error("Failed to download file");
 
@@ -134,38 +214,59 @@ export default function LoanPipeline() {
   const approvedCount = stats.approvedApplications;
   const totalVolume = stats.totalVolume;
   const hasActiveFilters = Boolean(debouncedSearch || decisionFilter);
+  const filtersRef = useRef({
+    search: "",
+    decision: "" as DecisionFilterValue,
+  });
 
-  const loadStats = useCallback(async () => {
-    try {
-      setStatsLoading(true);
-      const res = await fetch(`${API_BASE}/lender/loan-pipeline/stats`, {
-        headers: getAuthHeaders(),
-      });
-
-      const json = await res.json();
-
-      if (!res.ok || !json.success) {
-        throw new Error(json.message || "Failed to load stats");
-      }
-
-      setStats({
-        totalVolume: json.data.totalVolume || 0,
-        newApplications: json.data.newApplications || 0,
-        approvedApplications: json.data.approvedApplications || 0,
-        totalApplications: json.data.totalApplications || 0,
-      });
-    } catch (err: any) {
-      toast.error(err.message || "Failed to load stats");
-    } finally {
-      setStatsLoading(false);
-    }
+  const mapPipelineRows = useCallback((data: any[]): TableRow[] => {
+    return data.map((item: any) => ({
+      applicationLenderId: item.applicationLenderId,
+      applicationNumber: item.applicationNumber,
+      borrowerFirstName: item.borrowerFirstName || "",
+      borrowerLastName: item.borrowerLastName || "",
+      borrowerName: buildBorrowerDisplayName(item),
+      entityType: item.borrowerEntityType || item.client?.entityType || "-",
+      loanType: item.loanProductCode,
+      amount: Number(item.amountRequested || 0),
+      lenderStatus: item.lenderPipelineStatus || item.lenderStatus,
+      applicationStatus: item.applicationStatus,
+      sentAt: item.sentAt,
+      brokerName: item.broker?.name || "—",
+      lenderDecision: item.lenderDecision,
+      pendingDocumentsCount: item.pendingDocumentsCount ?? 0,
+      loiGenerated: item.loiGenerated,
+      loiSentToBroker: item.loiSentToBroker,
+    }));
   }, []);
 
-  const loadSubmissions = useCallback(
-    async (signal?: AbortSignal) => {
-      try {
-        setLoading(true);
+  const loadStats = useCallback(
+    async (options?: { force?: boolean; isActive?: () => boolean }) => {
+      const isActive = options?.isActive;
+      if (!isActive || isActive()) setStatsLoading(true);
 
+      try {
+        const nextStats = await fetchPipelineStats(Boolean(options?.force));
+        if (isActive && !isActive()) return;
+        setStats(nextStats);
+      } catch (err: any) {
+        if (isActive && !isActive()) return;
+        toast.error(err.message || "Failed to load stats");
+      } finally {
+        if (!isActive || isActive()) {
+          setStatsLoading(false);
+        }
+      }
+    },
+    [],
+  );
+
+  const loadSubmissions = useCallback(
+    async (options?: { force?: boolean; isActive?: () => boolean }) => {
+      const isActive = options?.isActive;
+      if (!isActive || isActive()) setLoading(true);
+
+      try {
         const params = new URLSearchParams({
           page: String(currentPage),
           limit: String(ROWS_PER_PAGE),
@@ -184,92 +285,76 @@ export default function LoanPipeline() {
           params.set("decision", decisionFilter);
         }
 
-        const res = await fetch(
-          `${API_BASE}/lender/loan-pipeline?${params.toString()}`,
-          {
-            headers: getAuthHeaders(),
-            signal,
-          },
+        const json = await fetchPipelineList(
+          params,
+          Boolean(options?.force),
         );
-
-        const json = await res.json();
-
-        if (!res.ok || !json.success) {
-          throw new Error(json.message || "Failed to load loan pipeline");
-        }
-
-        if (signal?.aborted) return;
-
-        const totalPages = Math.max(Number(json.totalPages) || 1, 1);
-        const responsePage = Number(json.page) || currentPage;
+        if (isActive && !isActive()) return;
 
         setPagination({
-          page: responsePage,
-          limit: Number(json.limit) || ROWS_PER_PAGE,
-          total: Number(json.total) || 0,
-          totalPages,
+          page: json.page,
+          limit: json.limit,
+          total: json.total,
+          totalPages: json.totalPages,
         });
 
-        if (responsePage !== currentPage && responsePage >= 1) {
-          setCurrentPage(responsePage);
+        if (json.page !== currentPage && json.page >= 1) {
+          setCurrentPage(json.page);
         }
 
-        setRows(
-          (json.data || []).map((item: any) => ({
-            applicationLenderId: item.applicationLenderId,
-            applicationNumber: item.applicationNumber,
-            borrowerFirstName: item.borrowerFirstName || "",
-            borrowerLastName: item.borrowerLastName || "",
-            borrowerName: buildBorrowerDisplayName(item),
-            entityType:
-              item.borrowerEntityType || item.client?.entityType || "-",
-            loanType: item.loanProductCode,
-            amount: Number(item.amountRequested || 0),
-            lenderStatus: item.lenderPipelineStatus || item.lenderStatus,
-            applicationStatus: item.applicationStatus,
-            sentAt: item.sentAt,
-            brokerName: item.broker?.name || "—",
-            lenderDecision: item.lenderDecision,
-            pendingDocumentsCount: item.pendingDocumentsCount ?? 0,
-            loiGenerated: item.loiGenerated,
-            loiSentToBroker: item.loiSentToBroker,
-          })),
-        );
+        setRows(mapPipelineRows(json.data));
       } catch (err: any) {
-        if (err?.name === "AbortError") return;
+        if (isActive && !isActive()) return;
         toast.error(err.message || "Something went wrong");
       } finally {
-        if (!signal?.aborted) {
+        if (!isActive || isActive()) {
           setLoading(false);
         }
       }
     },
-    [currentPage, debouncedSearch, decisionFilter],
+    [currentPage, debouncedSearch, decisionFilter, mapPipelineRows],
   );
 
-  // Debounce search and reset to page 1 together (avoids page-reset race).
+  // Debounce search input.
   useEffect(() => {
     const timer = setTimeout(() => {
-      const nextSearch = searchTerm.trim();
-      setDebouncedSearch((prev) => {
-        if (prev !== nextSearch) {
-          setCurrentPage(1);
-        }
-        return nextSearch;
-      });
+      setDebouncedSearch(searchTerm.trim());
     }, 400);
 
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
+  // Reset to page 1 when filters change (without a stale-page fetch).
   useEffect(() => {
-    const controller = new AbortController();
-    void loadSubmissions(controller.signal);
-    return () => controller.abort();
-  }, [loadSubmissions]);
+    const filtersChanged =
+      filtersRef.current.search !== debouncedSearch ||
+      filtersRef.current.decision !== decisionFilter;
 
+    if (filtersChanged) {
+      filtersRef.current = {
+        search: debouncedSearch,
+        decision: decisionFilter,
+      };
+      if (currentPage !== 1) {
+        setCurrentPage(1);
+        return;
+      }
+    }
+
+    let active = true;
+    void loadSubmissions({ isActive: () => active });
+    return () => {
+      active = false;
+    };
+  }, [currentPage, debouncedSearch, decisionFilter, loadSubmissions]);
+
+  // Stats are global (not filter-scoped); load once on mount.
   useEffect(() => {
-    void loadStats();
+    let active = true;
+    void loadStats({ isActive: () => active });
+    return () => {
+      active = false;
+    };
   }, [loadStats]);
 
   const openApplicationPreview = (row: TableRow) => {
@@ -291,8 +376,8 @@ export default function LoanPipeline() {
     !loading && pagination.total === 0 && hasActiveFilters;
 
   const refreshPipeline = () => {
-    void loadSubmissions();
-    void loadStats();
+    void loadSubmissions({ force: true });
+    void loadStats({ force: true });
   };
 
   const multiFileModalPortal =
@@ -457,18 +542,18 @@ export default function LoanPipeline() {
     : null;
 
   return (
-    <div className="min-h-screen bg-slate-50 p-4 text-slate-900 dark:bg-[#0b1120] dark:text-slate-100 md:p-6">
-      <div className="mx-auto max-w-7xl space-y-5">
-        <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white text-slate-900 shadow-sm dark:border-gray-800 dark:bg-gray-900 dark:text-white">
-          <div className="flex flex-col gap-6 p-5 sm:p-6 lg:flex-row lg:items-start lg:justify-between">
+    <div className="text-slate-900 dark:text-slate-100">
+      <div className="mx-auto max-w-7xl space-y-4">
+        <section className="overflow-hidden rounded-xl border border-gray-200 bg-white text-slate-900 shadow-sm dark:border-gray-800 dark:bg-gray-900 dark:text-white">
+          <div className="flex flex-col gap-3 px-4 py-3 sm:px-5 lg:flex-row lg:items-center lg:justify-between">
             <div className="min-w-0">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-[#183B57]">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-[#183B57]">
                 Lender Portal
               </p>
-              <h1 className="mt-1 text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">
+              <h1 className="mt-0.5 text-base font-semibold tracking-tight text-gray-900 dark:text-white">
                 Loan Pipeline
               </h1>
-              <p className="mt-1.5 text-sm text-gray-500 dark:text-gray-400">
+              <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
                 {statsLoading ? (
                   "Loading pipeline overview..."
                 ) : (
@@ -486,7 +571,7 @@ export default function LoanPipeline() {
               </p>
             </div>
 
-            <div className="grid w-full grid-cols-2 gap-2 sm:grid-cols-4 lg:w-[min(100%,520px)] lg:shrink-0">
+            <div className="grid w-full grid-cols-2 gap-1.5 sm:grid-cols-4 lg:w-[min(100%,480px)] lg:shrink-0">
               {[
                 {
                   label: "Total Volume",
@@ -511,15 +596,15 @@ export default function LoanPipeline() {
               ].map((card) => (
                 <div
                   key={card.label}
-                  className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2.5 dark:border-gray-800 dark:bg-gray-800"
+                  className="rounded-lg border border-gray-100 bg-gray-50 px-2.5 py-1.5 dark:border-gray-800 dark:bg-gray-800"
                 >
-                  <div className="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                  <div className="flex items-center gap-1 text-[9px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
                     <card.icon className="h-3 w-3" />
                     {card.label}
                   </div>
-                  <p className="mt-1 truncate text-lg font-semibold tabular-nums">
+                  <p className="mt-0.5 truncate text-sm font-semibold tabular-nums">
                     {statsLoading ? (
-                      <span className="inline-block h-5 w-12 animate-pulse rounded bg-gray-200 dark:bg-gray-700" />
+                      <span className="inline-block h-4 w-10 animate-pulse rounded bg-gray-200 dark:bg-gray-700" />
                     ) : (
                       card.value
                     )}

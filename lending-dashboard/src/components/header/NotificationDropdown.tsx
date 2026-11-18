@@ -20,6 +20,40 @@ import {
 
 const API_BASE = CHAT_API_BASE;
 
+// Short TTL cache covers Strict Mode remounts after the first response lands.
+type NotificationCacheEntry = { promise: Promise<any>; expiresAt: number };
+const notificationsPageCache = new Map<number, NotificationCacheEntry>();
+const NOTIFICATIONS_CACHE_TTL_MS = 8_000;
+
+async function fetchNotificationsPage(pageNumber: number) {
+  const now = Date.now();
+  const hit = notificationsPageCache.get(pageNumber);
+  if (hit && hit.expiresAt > now) return hit.promise;
+
+  const request = (async () => {
+    const token = getLenderToken();
+    if (!token) return null;
+
+    const res = await fetch(
+      `${API_BASE}/lender/notifications?page=${pageNumber}&limit=10`,
+      { headers: { Authorization: `Bearer ${token}` } },
+    );
+    return res.json();
+  })().catch((error) => {
+    const current = notificationsPageCache.get(pageNumber);
+    if (current?.promise === request) {
+      notificationsPageCache.delete(pageNumber);
+    }
+    throw error;
+  });
+
+  notificationsPageCache.set(pageNumber, {
+    promise: request,
+    expiresAt: now + NOTIFICATIONS_CACHE_TTL_MS,
+  });
+  return request;
+}
+
 type NotificationMetadata = {
   brokerName?: string;
   lenderName?: string;
@@ -260,17 +294,9 @@ export default function NotificationDropdown() {
       if (pageNumber === 1) setLoading(true);
       else setLoadingMore(true);
 
-      const token = getLenderToken();
-      if (!token) return;
+      const data = await fetchNotificationsPage(pageNumber);
+      if (!data) return;
 
-      const res = await fetch(
-        `${API_BASE}/lender/notifications?page=${pageNumber}&limit=10`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        },
-      );
-
-      const data = await res.json();
       const newNotifications = (data?.data?.notifications ||
         []) as LenderNotification[];
 

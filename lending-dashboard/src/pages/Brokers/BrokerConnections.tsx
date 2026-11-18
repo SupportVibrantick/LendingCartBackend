@@ -16,6 +16,7 @@ import toast from "react-hot-toast";
 import NetworkChatModal, {
   type NetworkChatPeer,
 } from "../../components/networkChat/NetworkChatModal";
+import { API_BASE, getLenderAuthHeaders } from "../../lib/lenderApi";
 
 type Invite = {
   inviteId: string;
@@ -46,17 +47,67 @@ type Stats = {
   rejected: number;
 };
 
+type InvitesPayload = {
+  data: Invite[];
+  stats: Stats;
+};
+
 type MainTab = "requests" | "sent" | "connected";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 const BRAND = "#102C41";
 
-function getAuthHeaders(): HeadersInit {
-  const token = sessionStorage.getItem("lender_token");
-  return {
-    "Content-Type": "application/json",
-    ...(token && { Authorization: `Bearer ${token}` }),
-  };
+const EMPTY_STATS: Stats = {
+  total: 0,
+  pending: 0,
+  accepted: 0,
+  rejected: 0,
+};
+
+// Share in-flight GETs across React Strict Mode remounts.
+let inflightInvites: Promise<InvitesPayload> | null = null;
+let inflightConnected: Promise<ConnectedBroker[]> | null = null;
+
+async function fetchInvitesRequest(force = false) {
+  if (!force && inflightInvites) return inflightInvites;
+
+  const request = (async () => {
+    const res = await fetch(`${API_BASE}/lender/brokers/invites`, {
+      headers: getLenderAuthHeaders(),
+    });
+    const json = await res.json();
+    if (!res.ok || json.success === false) {
+      throw new Error(json.message || "Failed to load broker requests");
+    }
+    return {
+      data: (json.data || []) as Invite[],
+      stats: (json.stats || EMPTY_STATS) as Stats,
+    };
+  })().finally(() => {
+    inflightInvites = null;
+  });
+
+  inflightInvites = request;
+  return request;
+}
+
+async function fetchConnectedRequest(force = false) {
+  if (!force && inflightConnected) return inflightConnected;
+
+  const request = (async () => {
+    const res = await fetch(`${API_BASE}/lender/brokers/list`, {
+      headers: getLenderAuthHeaders(),
+    });
+    const json = await res.json();
+    if (!res.ok || json.success === false) {
+      throw new Error(json.message || "Failed to load connected brokers");
+    }
+    return (Array.isArray(json.data) ? json.data : []) as ConnectedBroker[];
+  })().finally(() => {
+    inflightConnected = null;
+  });
+
+  inflightConnected = request;
+  return request;
 }
 
 function formatDateTime(date: string) {
@@ -95,47 +146,72 @@ export default function BrokerConnections() {
     setSearchParams({ tab: mainTab }, { replace: true });
   }, [mainTab, setSearchParams]);
 
-  const fetchInvites = useCallback(async () => {
-    setLoadingInvites(true);
-    try {
-      const res = await fetch(`${API_BASE}/lender/brokers/invites`, {
-        headers: getAuthHeaders(),
-      });
-      const json = await res.json();
-      if (!res.ok || json.success === false) {
-        throw new Error(json.message || "Failed to load broker requests");
+  const fetchInvites = useCallback(
+    async (options?: { force?: boolean; isActive?: () => boolean }) => {
+      if (!options?.isActive || options.isActive()) {
+        setLoadingInvites(true);
       }
-      setInvites(json.data || []);
-      setStats(json.stats || { total: 0, pending: 0, accepted: 0, rejected: 0 });
-    } catch (err: any) {
-      toast.error(err.message || "Failed to load broker requests");
-    } finally {
-      setLoadingInvites(false);
-    }
-  }, []);
+      try {
+        const payload = await fetchInvitesRequest(Boolean(options?.force));
+        if (options?.isActive && !options.isActive()) return;
+        setInvites(payload.data);
+        setStats(payload.stats);
+      } catch (err: any) {
+        if (options?.isActive && !options.isActive()) return;
+        toast.error(err.message || "Failed to load broker requests");
+      } finally {
+        if (!options?.isActive || options.isActive()) {
+          setLoadingInvites(false);
+        }
+      }
+    },
+    [],
+  );
 
-  const fetchConnected = useCallback(async () => {
-    setLoadingConnected(true);
-    try {
-      const res = await fetch(`${API_BASE}/lender/brokers/list`, {
-        headers: getAuthHeaders(),
-      });
-      const json = await res.json();
-      if (!res.ok || json.success === false) {
-        throw new Error(json.message || "Failed to load connected brokers");
+  const fetchConnected = useCallback(
+    async (options?: { force?: boolean; isActive?: () => boolean }) => {
+      if (!options?.isActive || options.isActive()) {
+        setLoadingConnected(true);
       }
-      setConnected(Array.isArray(json.data) ? json.data : []);
-    } catch (err: any) {
-      toast.error(err.message || "Failed to load connected brokers");
-    } finally {
-      setLoadingConnected(false);
-    }
-  }, []);
+      try {
+        const data = await fetchConnectedRequest(Boolean(options?.force));
+        if (options?.isActive && !options.isActive()) return;
+        setConnected(data);
+      } catch (err: any) {
+        if (options?.isActive && !options.isActive()) return;
+        toast.error(err.message || "Failed to load connected brokers");
+      } finally {
+        if (!options?.isActive || options.isActive()) {
+          setLoadingConnected(false);
+        }
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
-    fetchInvites();
-    fetchConnected();
+    let active = true;
+    // Initial load: invites for Requests/Sent, connected for badge + Connected tab.
+    void fetchInvites({ isActive: () => active });
+    void fetchConnected({ isActive: () => active });
+    return () => {
+      active = false;
+    };
   }, [fetchInvites, fetchConnected]);
+
+  const selectTab = useCallback(
+    (tab: MainTab) => {
+      if (tab === mainTab) return;
+      setMainTab(tab);
+      // Each tab loads its own source (Requests/Sent → invites, Connected → list).
+      if (tab === "connected") {
+        void fetchConnected({ force: true });
+      } else {
+        void fetchInvites({ force: true });
+      }
+    },
+    [fetchConnected, fetchInvites, mainTab],
+  );
 
   const incoming = useMemo(
     () =>
@@ -174,7 +250,7 @@ export default function BrokerConnections() {
     try {
       const res = await fetch(`${API_BASE}/lender/brokers/accept/${inviteId}`, {
         method: "POST",
-        headers: getAuthHeaders(),
+        headers: getLenderAuthHeaders(true),
         body: JSON.stringify({}),
       });
       const json = await res.json();
@@ -182,7 +258,10 @@ export default function BrokerConnections() {
         throw new Error(json.message || "Failed to accept");
       }
       toast.success("Broker connected");
-      await Promise.all([fetchInvites(), fetchConnected()]);
+      await Promise.all([
+        fetchInvites({ force: true }),
+        fetchConnected({ force: true }),
+      ]);
       setMainTab("connected");
     } catch (err: any) {
       toast.error(err.message || "Failed to accept invite");
@@ -196,7 +275,7 @@ export default function BrokerConnections() {
     try {
       const res = await fetch(`${API_BASE}/lender/brokers/reject/${inviteId}`, {
         method: "POST",
-        headers: getAuthHeaders(),
+        headers: getLenderAuthHeaders(true),
         body: JSON.stringify({}),
       });
       const json = await res.json();
@@ -222,7 +301,7 @@ export default function BrokerConnections() {
     try {
       const res = await fetch(`${API_BASE}/lender/brokers/${broker.id}/status`, {
         method: "PATCH",
-        headers: getAuthHeaders(),
+        headers: getLenderAuthHeaders(true),
         body: JSON.stringify({ isActive }),
       });
       const json = await res.json();
@@ -242,7 +321,7 @@ export default function BrokerConnections() {
       toast.success(isActive ? "Broker reconnected" : "Broker disconnected");
     } catch (err: any) {
       toast.error(err.message || "Failed to update connection");
-      fetchConnected();
+      void fetchConnected({ force: true });
     } finally {
       setUpdatingId(null);
     }
@@ -303,20 +382,20 @@ export default function BrokerConnections() {
           <div className="inline-flex p-1 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
             <MainTabButton
               active={mainTab === "requests"}
-              onClick={() => setMainTab("requests")}
+              onClick={() => selectTab("requests")}
               label="Requests"
               icon={<Handshake size={14} />}
               badge={pendingIncoming.length}
             />
             <MainTabButton
               active={mainTab === "sent"}
-              onClick={() => setMainTab("sent")}
+              onClick={() => selectTab("sent")}
               label="Sent Invites"
               icon={<Send size={14} />}
             />
             <MainTabButton
               active={mainTab === "connected"}
-              onClick={() => setMainTab("connected")}
+              onClick={() => selectTab("connected")}
               label="Connected"
               icon={<Users size={14} />}
               badge={connected.filter((b) => b.connectionStatus === "CONNECTED").length}

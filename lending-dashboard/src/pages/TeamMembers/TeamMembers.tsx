@@ -45,6 +45,24 @@ const emptyInviteForm = (): InviteForm => ({
   role: "LENDER_VIEWER",
 });
 
+// Share one in-flight list across React Strict Mode remounts.
+let inflightTeamMembers: Promise<LenderTeamMember[]> | null = null;
+
+async function fetchTeamMembersList() {
+  if (!inflightTeamMembers) {
+    inflightTeamMembers = lenderFetch<{
+      success: boolean;
+      data: LenderTeamMember[];
+    }>("/lender/users")
+      .then((response) => response.data || [])
+      .finally(() => {
+        inflightTeamMembers = null;
+      });
+  }
+
+  return inflightTeamMembers;
+}
+
 export default function TeamMembers() {
   const canManage = canManageTeam();
   const [members, setMembers] = useState<LenderTeamMember[]>([]);
@@ -212,28 +230,33 @@ export default function TeamMembers() {
     };
   }, [activeMenuId]);
 
-  const fetchMembers = async () => {
+  const fetchMembers = async (isActive?: () => boolean) => {
     try {
-      setLoading(true);
-      const response = await lenderFetch<{
-        success: boolean;
-        data: LenderTeamMember[];
-      }>("/lender/users");
-
-      setMembers(response.data || []);
+      if (!isActive || isActive()) setLoading(true);
+      const data = await fetchTeamMembersList();
+      if (isActive && !isActive()) return;
+      setMembers(data);
     } catch (error: any) {
+      if (isActive && !isActive()) return;
       toast.error(error.message || "Failed to load team members");
     } finally {
-      setLoading(false);
+      if (!isActive || isActive()) {
+        setLoading(false);
+      }
     }
   };
 
   useEffect(() => {
-    if (canManage) {
-      fetchMembers();
-    } else {
+    if (!canManage) {
       setLoading(false);
+      return;
     }
+
+    let active = true;
+    void fetchMembers(() => active);
+    return () => {
+      active = false;
+    };
   }, [canManage]);
 
   const handleAccessDashboard = async (member: LenderTeamMember) => {

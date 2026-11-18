@@ -16,31 +16,60 @@ type LibraryTemplate = {
   updatedAt?: string;
 };
 
+// Share one in-flight list across React Strict Mode remounts.
+let inflightTemplates: Promise<LibraryTemplate[]> | null = null;
+
+async function fetchSignFormTemplates(force = false) {
+  if (!force && inflightTemplates) {
+    return inflightTemplates;
+  }
+
+  const request = (async () => {
+    const res = await fetch(`${LENDER_API_BASE}/lender/sign-form-templates`, {
+      headers: getLenderAuthHeaders(),
+    });
+    const json = await res.json();
+    if (!res.ok || !json.success) {
+      throw new Error(json.message || "Failed to load templates");
+    }
+    return (json.data || []) as LibraryTemplate[];
+  })().finally(() => {
+    inflightTemplates = null;
+  });
+
+  inflightTemplates = request;
+  return request;
+}
+
 export default function SignFormTemplates() {
   const [rows, setRows] = useState<LibraryTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [archivingId, setArchivingId] = useState<string | null>(null);
 
-  const load = async () => {
+  const load = async (options?: { force?: boolean; isActive?: () => boolean }) => {
     try {
-      setLoading(true);
-      const res = await fetch(`${LENDER_API_BASE}/lender/sign-form-templates`, {
-        headers: getLenderAuthHeaders(),
-      });
-      const json = await res.json();
-      if (!res.ok || !json.success) {
-        throw new Error(json.message || "Failed to load templates");
+      if (!options?.isActive || options.isActive()) {
+        setLoading(true);
       }
-      setRows(json.data || []);
+      const data = await fetchSignFormTemplates(Boolean(options?.force));
+      if (options?.isActive && !options.isActive()) return;
+      setRows(data);
     } catch (err: any) {
+      if (options?.isActive && !options.isActive()) return;
       toast.error(err.message || "Failed to load templates");
     } finally {
-      setLoading(false);
+      if (!options?.isActive || options.isActive()) {
+        setLoading(false);
+      }
     }
   };
 
   useEffect(() => {
-    load();
+    let active = true;
+    void load({ isActive: () => active });
+    return () => {
+      active = false;
+    };
   }, []);
 
   const archive = async (id: string) => {
@@ -59,7 +88,7 @@ export default function SignFormTemplates() {
         throw new Error(json.message || "Failed to archive template");
       }
       toast.success("Template archived");
-      await load();
+      await load({ force: true });
     } catch (err: any) {
       toast.error(err.message || "Failed to archive template");
     } finally {
@@ -73,7 +102,7 @@ export default function SignFormTemplates() {
         title="Form templates | Loan Automation"
         description="Reusable fillable sign-document templates"
       />
-      <PageBreadcrumb pageTitle="Form templates" />
+      <PageBreadcrumb pageTitle="Form Templates" />
 
       <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -88,7 +117,7 @@ export default function SignFormTemplates() {
           </div>
           <button
             type="button"
-            onClick={load}
+            onClick={() => load({ force: true })}
             className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm hover:bg-slate-50"
           >
             <RefreshCw size={16} />

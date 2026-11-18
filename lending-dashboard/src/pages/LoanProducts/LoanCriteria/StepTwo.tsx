@@ -15,6 +15,57 @@ type LoanProduct = {
   createdAt?: string;
 };
 
+// Coalesce catalog GETs across React Strict Mode remounts / shared StepTwo mounts.
+const inflightCatalogByMode = new Map<string, Promise<LoanProduct[]>>();
+
+async function fetchLoanProductCatalog(
+  mode: "admin" | "lender",
+): Promise<LoanProduct[]> {
+  const existing = inflightCatalogByMode.get(mode);
+  if (existing) return existing;
+
+  const request = (async () => {
+    const isLenderMode = mode === "lender";
+    const endpoint = isLenderMode
+      ? `${API_BASE}/common/loan-products/loan-product-code`
+      : `${API_BASE}/admin/loan-products/list`;
+
+    const res = await fetch(endpoint, {
+      method: "GET",
+      headers: getAuthHeaders(isLenderMode ? "lender_token" : "admin_token"),
+    });
+
+    if (!res.ok) {
+      throw new Error(`Failed to load loan products: ${res.status}`);
+    }
+
+    const json = await res.json();
+    if (!isLenderMode && !json.success) {
+      throw new Error(json.message || "Failed to load loan products");
+    }
+
+    const items = (
+      isLenderMode ? json.data || json : json.data || []
+    ) as any[];
+
+    const mapped: LoanProduct[] = items.map((p) => ({
+      id: String(p.id),
+      code: p.code,
+      name: p.name ?? p.code ?? "",
+      description: p.description ?? "",
+      isActive: Boolean(p.isActive),
+      createdAt: p.createdAt ?? undefined,
+    }));
+
+    return isLenderMode ? filterLenderCatalogProducts(mapped) : mapped;
+  })().finally(() => {
+    inflightCatalogByMode.delete(mode);
+  });
+
+  inflightCatalogByMode.set(mode, request);
+  return request;
+}
+
 const getColor = (name: string) => {
   const colors = [
     "bg-orange-500",
@@ -158,54 +209,6 @@ const StepTwo = ({
     setValue(nextIds);
   };
 
-  const fetchLoanProducts = async () => {
-    try {
-      const isLenderMode = mode === "lender";
-      const endpoint = isLenderMode
-        ? `${API_BASE}/common/loan-products/loan-product-code`
-        : `${API_BASE}/admin/loan-products/list`;
-
-      const res = await fetch(endpoint, {
-        method: "GET",
-        headers: getAuthHeaders(isLenderMode ? "lender_token" : "admin_token"),
-      });
-
-      if (!res.ok) {
-        console.error("Failed to load loan products:", res.status);
-        return;
-      }
-
-      const json = await res.json();
-      if (!isLenderMode && !json.success) {
-        console.error("Failed to load loan products:", json.message);
-        return;
-      }
-
-      const items = (
-        isLenderMode ? json.data || json : json.data || []
-      ) as any[];
-
-      const mapped: LoanProduct[] = items.map((p) => ({
-        id: String(p.id),
-        code: p.code,
-        name: p.name ?? p.code ?? "",
-        description: p.description ?? "",
-        isActive: Boolean(p.isActive),
-        createdAt: p.createdAt ?? undefined,
-      }));
-
-      const finalProducts = isLenderMode
-        ? filterLenderCatalogProducts(mapped)
-        : mapped;
-
-      setProducts(finalProducts);
-      onProductsLoad?.(finalProducts);
-    } catch (err) {
-      console.error("Failed to load loan products", err);
-      toast.error("Failed to load loan products");
-    }
-  };
-
   useEffect(() => {
     if (prefetchedProducts?.length) {
       setProducts(prefetchedProducts);
@@ -213,7 +216,24 @@ const StepTwo = ({
       return;
     }
 
-    fetchLoanProducts();
+    let active = true;
+
+    (async () => {
+      try {
+        const finalProducts = await fetchLoanProductCatalog(mode);
+        if (!active) return;
+        setProducts(finalProducts);
+        onProductsLoad?.(finalProducts);
+      } catch (err) {
+        if (!active) return;
+        console.error("Failed to load loan products", err);
+        toast.error("Failed to load loan products");
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
   }, [mode, prefetchedProducts]);
 
   const hideBulkActions = singleProductMode || pickOneMode;

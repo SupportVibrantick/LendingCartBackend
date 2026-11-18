@@ -23,6 +23,80 @@ export function getLenderAuthHeaders(
   return headers;
 }
 
+export type LenderAuthMeResult = {
+  ok: boolean;
+  status: number;
+  json: Record<string, unknown>;
+  data: any;
+};
+
+type LenderAuthMeCacheEntry = {
+  key: string;
+  promise: Promise<LenderAuthMeResult>;
+  expiresAt: number;
+};
+
+let lenderAuthMeCache: LenderAuthMeCacheEntry | null = null;
+const LENDER_AUTH_ME_TTL_MS = 15_000;
+
+/** Shared /lender/auth/me with short TTL (covers Strict Mode remounts). */
+export async function fetchLenderAuthMe(options?: {
+  force?: boolean;
+  query?: string;
+}): Promise<LenderAuthMeResult> {
+  const query = options?.query?.replace(/^\?/, "") || "";
+  const cacheKey = query || "default";
+  const now = Date.now();
+
+  if (
+    !options?.force &&
+    lenderAuthMeCache &&
+    lenderAuthMeCache.key === cacheKey &&
+    lenderAuthMeCache.expiresAt > now
+  ) {
+    return lenderAuthMeCache.promise;
+  }
+
+  const promise = (async (): Promise<LenderAuthMeResult> => {
+    const path = query
+      ? `${LENDER_API_BASE}/lender/auth/me?${query}`
+      : `${LENDER_API_BASE}/lender/auth/me`;
+
+    const res = await fetch(path, {
+      method: "GET",
+      headers: getLenderAuthHeaders(true),
+    });
+    const json = (await res.json().catch(() => ({}))) as Record<
+      string,
+      unknown
+    >;
+
+    return {
+      ok: res.ok && json.success !== false && json.ok !== false,
+      status: res.status,
+      json,
+      data: (json as any).data ?? json,
+    };
+  })().catch((error) => {
+    if (lenderAuthMeCache?.promise === promise) {
+      lenderAuthMeCache = null;
+    }
+    throw error;
+  });
+
+  lenderAuthMeCache = {
+    key: cacheKey,
+    promise,
+    expiresAt: now + LENDER_AUTH_ME_TTL_MS,
+  };
+
+  return promise;
+}
+
+export function invalidateLenderAuthMeCache() {
+  lenderAuthMeCache = null;
+}
+
 function handleAuthFailure(res: Response, json: Record<string, unknown>) {
   if (res.status === 401) {
     throw handleLenderUnauthorized(

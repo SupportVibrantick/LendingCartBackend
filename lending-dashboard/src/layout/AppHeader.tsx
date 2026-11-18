@@ -6,7 +6,7 @@ import { ThemeToggleButton } from "../components/common/ThemeToggleButton";
 import NotificationDropdown from "../components/header/NotificationDropdown";
 import { UserDropdown } from "../components/header/UserDropdown";
 import { jwtDecode } from "jwt-decode";
-import { LENDER_API_BASE, getLenderAuthHeaders } from "../lib/lenderApi";
+import { API_BASE, fetchLenderAuthMe } from "../lib/lenderApi";
 import { handleLenderUnauthorized } from "../lib/lenderSession";
 import {
   getLenderRoles,
@@ -29,12 +29,6 @@ function resolvePrimaryRole(roles?: string[] | null): LenderTeamRole | null {
   }
   const first = list.find((role) => role.startsWith("LENDER_"));
   return (first as LenderTeamRole) || null;
-}
-
-const API_BASE = LENDER_API_BASE;
-
-function getAuthHeaders(): Record<string, string> {
-  return getLenderAuthHeaders(true);
 }
 
 const AppHeader: React.FC = () => {
@@ -65,33 +59,26 @@ const AppHeader: React.FC = () => {
 
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const fetchAuthUser = async () => {
+  const fetchAuthUser = async (isActive?: () => boolean) => {
     try {
-      const res = await fetch(`${API_BASE}/lender/auth/me`, {
-        method: "GET",
-        headers: getAuthHeaders(),
-      });
+      const result = await fetchLenderAuthMe();
+      if (isActive && !isActive()) return;
 
-      const json = await res.json().catch(() => ({}));
-
-      if (res.status === 401) {
+      if (result.status === 401) {
         handleLenderUnauthorized(
-          typeof json.message === "string" ? json.message : undefined,
+          typeof result.json.message === "string"
+            ? result.json.message
+            : undefined,
         );
         return;
       }
 
-      if (!res.ok) {
-        console.error("Failed to load user:", res.status);
+      if (!result.ok) {
+        console.error("Failed to load user:", result.status);
         return;
       }
 
-      if (json?.success === false) {
-        console.error("Failed to load user:", json.message);
-        return;
-      }
-
-      const payload = json.data ?? json;
+      const payload = result.data;
       setUser(payload);
 
       const roles = payload?.user?.roles;
@@ -102,6 +89,7 @@ const AppHeader: React.FC = () => {
         sessionStorage.setItem("lender_user", JSON.stringify(payload.user));
       }
     } catch (err) {
+      if (isActive && !isActive()) return;
       console.error("Failed to load user:", err);
     }
   };
@@ -122,7 +110,9 @@ const AppHeader: React.FC = () => {
       : "";
 
   useEffect(() => {
-    fetchAuthUser();
+    let active = true;
+    void fetchAuthUser(() => active);
+
     const handleKeyDown = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key === "k") {
         event.preventDefault();
@@ -133,6 +123,7 @@ const AppHeader: React.FC = () => {
     document.addEventListener("keydown", handleKeyDown);
 
     return () => {
+      active = false;
       document.removeEventListener("keydown", handleKeyDown);
     };
   }, []);

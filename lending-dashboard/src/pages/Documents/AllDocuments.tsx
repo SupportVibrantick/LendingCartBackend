@@ -121,6 +121,81 @@ function FieldLabel({
 const inputClass =
   "w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-[#183b57] focus:ring-2 focus:ring-[#183b57]/15 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:opacity-70 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:ring-brand-500/20 dark:disabled:bg-slate-800/60";
 
+// Coalesce identical GETs across React Strict Mode remounts.
+let inflightLoanProducts: Promise<LenderLoanProduct[]> | null = null;
+const inflightDocumentConfigs = new Map<
+  string,
+  Promise<{
+    data: DocumentConfig[];
+    pagination: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+    };
+  }>
+>();
+
+async function fetchLoanProductsLite() {
+  if (!inflightLoanProducts) {
+    inflightLoanProducts = (async () => {
+      const res = await fetch(
+        `${API_BASE}/lender/loan-products/list?page=1&limit=100&summary=true`,
+        { headers: getLenderAuthHeaders() },
+      );
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || "Failed to load loan products");
+      }
+
+      return (json.data || []).map((product: any) => ({
+        id: product.id,
+        loanProductCode: product.code || product.loanProductCode,
+        loanProduct: {
+          name: product.name || product.loanProduct?.name,
+          code: product.code || product.loanProduct?.code,
+        },
+      })) as LenderLoanProduct[];
+    })().finally(() => {
+      inflightLoanProducts = null;
+    });
+  }
+
+  return inflightLoanProducts;
+}
+
+async function fetchDocumentConfigsRequest(params: URLSearchParams) {
+  const key = params.toString();
+  const existing = inflightDocumentConfigs.get(key);
+  if (existing) return existing;
+
+  const request = (async () => {
+    const res = await fetch(
+      `${API_BASE}/lender/document-config/list?${key}`,
+      { headers: getLenderAuthHeaders() },
+    );
+    const json = await res.json();
+    if (!res.ok || !json.success) {
+      throw new Error(json.message || "Failed to load document configs");
+    }
+
+    return {
+      data: (json.data || []) as DocumentConfig[],
+      pagination: {
+        page: json.pagination?.page || 1,
+        limit: json.pagination?.limit || 10,
+        total: json.pagination?.total || 0,
+        totalPages: json.pagination?.totalPages || 1,
+      },
+    };
+  })().finally(() => {
+    inflightDocumentConfigs.delete(key);
+  });
+
+  inflightDocumentConfigs.set(key, request);
+  return request;
+}
+
 export default function AllDocuments() {
   const [loanProducts, setLoanProducts] = useState<LenderLoanProduct[]>([]);
   const [documentConfigs, setDocumentConfigs] = useState<DocumentConfig[]>([]);
@@ -144,6 +219,11 @@ export default function AllDocuments() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const filtersRef = useRef({
+    search: "",
+    product: "",
+    pageSize: 10,
+  });
 
   const productNameByCode = useMemo(() => {
     const map = new Map<string, string>();
@@ -178,26 +258,26 @@ export default function AllDocuments() {
     [loanProducts, productNameByCode],
   );
 
-  const fetchLoanProducts = async () => {
+  const fetchLoanProducts = async (isActive?: () => boolean) => {
     try {
-      const res = await fetch(
-        `${API_BASE}/lender/loan-products/list?page=1&limit=100`,
-        { headers: getLenderAuthHeaders() },
-      );
-      const json = await res.json();
-      if (res.ok && json.success) {
-        setLoanProducts(json.data || []);
-      }
+      const products = await fetchLoanProductsLite();
+      if (isActive && !isActive()) return;
+      setLoanProducts(products);
     } catch {
+      if (isActive && !isActive()) return;
       toast.error("Failed to load loan products");
     }
   };
 
-  const fetchDocumentConfigs = async () => {
+  const fetchDocumentConfigs = async (
+    requestPage = page,
+    isActive?: () => boolean,
+  ) => {
     try {
-      setLoadingList(true);
+      if (!isActive || isActive()) setLoadingList(true);
+
       const params = new URLSearchParams({
-        page: String(page),
+        page: String(requestPage),
         limit: String(pageSize),
       });
       if (selectedProductFilter) {
@@ -207,36 +287,31 @@ export default function AllDocuments() {
         params.set("search", debouncedTableSearch.trim());
       }
 
-      const res = await fetch(
-        `${API_BASE}/lender/document-config/list?${params.toString()}`,
-        { headers: getLenderAuthHeaders() },
-      );
-      const json = await res.json();
-      if (!res.ok || !json.success) {
-        throw new Error(json.message || "Failed to load document configs");
-      }
+      const result = await fetchDocumentConfigsRequest(params);
+      if (isActive && !isActive()) return;
 
-      setDocumentConfigs(json.data || []);
-      setPagination({
-        page: json.pagination?.page || page,
-        limit: json.pagination?.limit || pageSize,
-        total: json.pagination?.total || 0,
-        totalPages: json.pagination?.totalPages || 1,
-      });
+      setDocumentConfigs(result.data);
+      setPagination(result.pagination);
     } catch (error: any) {
+      if (isActive && !isActive()) return;
       toast.error(error.message || "Failed to load document configs");
     } finally {
-      setLoadingList(false);
+      if (!isActive || isActive()) {
+        setLoadingList(false);
+      }
     }
   };
 
   useEffect(() => {
-    const loadInitialData = async () => {
-      await cleanupOrphanedCustomDocumentTypes().catch(() => undefined);
-      await fetchLoanProducts();
-    };
+    let active = true;
 
-    loadInitialData();
+    // Cleanup in background — do not block products/list paint.
+    void cleanupOrphanedCustomDocumentTypes().catch(() => undefined);
+    void fetchLoanProducts(() => active);
+
+    return () => {
+      active = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -247,11 +322,29 @@ export default function AllDocuments() {
   }, [tableSearch]);
 
   useEffect(() => {
-    setPage(1);
-  }, [debouncedTableSearch, selectedProductFilter, pageSize]);
+    const filtersChanged =
+      filtersRef.current.search !== debouncedTableSearch ||
+      filtersRef.current.product !== selectedProductFilter ||
+      filtersRef.current.pageSize !== pageSize;
 
-  useEffect(() => {
-    fetchDocumentConfigs();
+    if (filtersChanged) {
+      filtersRef.current = {
+        search: debouncedTableSearch,
+        product: selectedProductFilter,
+        pageSize,
+      };
+      // Reset to page 1 without fetching with a stale page number.
+      if (page !== 1) {
+        setPage(1);
+        return;
+      }
+    }
+
+    let active = true;
+    void fetchDocumentConfigs(page, () => active);
+    return () => {
+      active = false;
+    };
   }, [page, pageSize, debouncedTableSearch, selectedProductFilter]);
 
   useEffect(() => {
@@ -448,20 +541,20 @@ export default function AllDocuments() {
       />
       <PageBreadcrumb pageTitle="Documents" />
 
-      <div className="space-y-6">
+      <div className="space-y-4">
         {/* Page header */}
-        <div className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div className="relative overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
           <div className="absolute inset-y-0 left-0 w-1 bg-[#183b57]" />
-          <div className="flex flex-col gap-4 px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-start gap-3">
-              <div className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#183b57]/10 text-[#183b57] dark:bg-brand-500/15 dark:text-brand-300">
-                <FileText className="h-5 w-5" />
+          <div className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+            <div className="flex min-w-0 items-center gap-2.5">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#183b57]/10 text-[#183b57] dark:bg-brand-500/15 dark:text-brand-300">
+                <FileText className="h-4 w-4" />
               </div>
-              <div>
-                <h1 className="text-xl font-semibold tracking-tight text-slate-900 dark:text-white sm:text-2xl">
+              <div className="min-w-0">
+                <h1 className="text-base font-semibold tracking-tight text-slate-900 dark:text-white">
                   Document Requirements
                 </h1>
-                <p className="mt-1 max-w-xl text-sm leading-relaxed text-slate-500 dark:text-slate-400">
+                <p className="mt-0.5 max-w-xl truncate text-xs text-slate-500 dark:text-slate-400 sm:whitespace-normal">
                   Attach private documents to each loan product. Only your
                   organization can see what you add here.
                 </p>
@@ -469,18 +562,18 @@ export default function AllDocuments() {
             </div>
 
             <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+              <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-medium text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
                 <Lock className="h-3 w-3 text-[#183b57]" />
                 Private to your portal
               </span>
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-[#183b57]/10 px-3 py-1.5 text-xs font-semibold text-[#183b57] dark:bg-brand-500/15 dark:text-brand-300">
+              <span className="inline-flex items-center gap-1 rounded-full bg-[#183b57]/10 px-2.5 py-1 text-[11px] font-semibold text-[#183b57] dark:bg-brand-500/15 dark:text-brand-300">
                 {pagination.total} configured
               </span>
               <button
                 type="button"
                 onClick={openCreateForm}
                 disabled={loanProducts.length === 0}
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#183b57] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[#264863] disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#183b57] px-3 py-1.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#264863] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <Plus className="h-4 w-4" />
                 Add Document

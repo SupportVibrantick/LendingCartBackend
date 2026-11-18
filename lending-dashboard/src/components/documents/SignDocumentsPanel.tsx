@@ -26,6 +26,35 @@ import EmbeddedFilePreview from "./EmbeddedFilePreview";
 
 const SigCanvas = SignatureCanvas as unknown as React.FC<any>;
 
+type SignDocsCacheEntry = { promise: Promise<any>; expiresAt: number };
+const signDocumentsCache = new Map<string, SignDocsCacheEntry>();
+const SIGN_DOCUMENTS_CACHE_TTL_MS = 8_000;
+
+async function fetchSignDocumentsCached(url: string, headers: HeadersInit) {
+  const now = Date.now();
+  const hit = signDocumentsCache.get(url);
+  if (hit && hit.expiresAt > now) return hit.promise;
+
+  const request = (async () => {
+    const res = await fetch(url, { headers });
+    const json = await res.json();
+    if (!res.ok || !json.success) {
+      throw new Error(json.message || "Failed to load sign documents");
+    }
+    return json;
+  })().catch((error) => {
+    const current = signDocumentsCache.get(url);
+    if (current?.promise === request) signDocumentsCache.delete(url);
+    throw error;
+  });
+
+  signDocumentsCache.set(url, {
+    promise: request,
+    expiresAt: now + SIGN_DOCUMENTS_CACHE_TTL_MS,
+  });
+  return request;
+}
+
 const sanitizeDownloadName = (value: string) =>
   value.replace(/[<>:"/\\|?*\n\r]+/g, "-").trim() || "document";
 
@@ -230,11 +259,13 @@ export default function SignDocumentsPanel({
   const fetchLenderDocuments = async (options?: {
     page?: number;
     search?: string;
+    isActive?: () => boolean;
   }) => {
     if (!isLenderMode || !applicationLenderId) return;
+    const isActive = options?.isActive;
 
     try {
-      setLoading(true);
+      if (!isActive || isActive()) setLoading(true);
       const pageNumber = options?.page ?? lenderPage;
       const searchValue = options?.search ?? debouncedLenderSearch;
       const params = new URLSearchParams({
@@ -245,15 +276,11 @@ export default function SignDocumentsPanel({
         params.set("search", searchValue.trim());
       }
 
-      const res = await fetch(
+      const json = await fetchSignDocumentsCached(
         `${apiBase}/lender/loan-pipeline/${applicationLenderId}/sign-documents?${params.toString()}`,
-        { headers: getAuthHeaders() },
+        getAuthHeaders(),
       );
-      const json = await res.json();
-
-      if (!res.ok || !json.success) {
-        throw new Error(json.message || "Failed to load sign documents");
-      }
+      if (isActive && !isActive()) return;
 
       setRows(json.data || []);
       setLenderPagination(json.pagination || null);
@@ -266,9 +293,12 @@ export default function SignDocumentsPanel({
         },
       );
     } catch (err: any) {
+      if (isActive && !isActive()) return;
       toast.error(err.message || "Failed to load sign documents");
     } finally {
-      setLoading(false);
+      if (!isActive || isActive()) {
+        setLoading(false);
+      }
     }
   };
 
@@ -319,7 +349,11 @@ export default function SignDocumentsPanel({
   useEffect(() => {
     if (!isLenderMode || !applicationLenderId) return;
     if (!readOnly && lenderViewTab !== "documents") return;
-    void fetchLenderDocuments();
+    let active = true;
+    void fetchLenderDocuments({ isActive: () => active });
+    return () => {
+      active = false;
+    };
   }, [
     isLenderMode,
     applicationLenderId,

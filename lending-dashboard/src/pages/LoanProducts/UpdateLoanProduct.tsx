@@ -48,6 +48,24 @@ type LenderProductRecord = {
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
+type CatalogProduct = {
+  id: string;
+  code: string;
+  name: string;
+  isActive: boolean;
+};
+
+type UpdateBootstrapPayload = {
+  items: LenderProductRecord[];
+  catalogProducts: CatalogProduct[];
+};
+
+// Coalesce GETs across React Strict Mode remounts.
+let inflightCatalog: Promise<CatalogProduct[]> | null = null;
+const inflightProductById = new Map<string, Promise<LenderProductRecord | null>>();
+let inflightAllProducts: Promise<LenderProductRecord[]> | null = null;
+const inflightUpdateBootstrap = new Map<string, Promise<UpdateBootstrapPayload>>();
+
 function getAuthHeaders(): Record<string, string> {
   try {
     const token = sessionStorage.getItem("lender_token");
@@ -68,59 +86,162 @@ function getProgramId(record: LenderProductRecord) {
   return String(record.loanProductId || record.loanProduct?.id || "");
 }
 
+async function fetchLoanProductCatalog(
+  headers: Record<string, string>,
+): Promise<CatalogProduct[]> {
+  if (inflightCatalog) return inflightCatalog;
+
+  inflightCatalog = (async () => {
+    const catalogRes = await fetch(
+      `${API_BASE}/common/loan-products/loan-product-code`,
+      { headers },
+    );
+    const catalogJson = await catalogRes.json().catch(() => ({}));
+
+    return filterLenderCatalogProducts(
+      ((catalogJson.data || []) as Array<{
+        id: string | number;
+        code: string;
+        name: string;
+      }>).map((item) => ({
+        id: String(item.id),
+        code: item.code,
+        name: item.name,
+        isActive: true,
+      })),
+    );
+  })().finally(() => {
+    inflightCatalog = null;
+  });
+
+  return inflightCatalog;
+}
+
 async function fetchAllLenderProducts(
   headers: Record<string, string>,
 ): Promise<LenderProductRecord[]> {
-  const allItems: LenderProductRecord[] = [];
-  let page = 1;
-  let totalPages = 1;
+  if (inflightAllProducts) return inflightAllProducts;
 
-  do {
-    const res = await fetch(
-      `${API_BASE}/lender/loan-products/list?page=${page}&limit=100`,
-      { headers },
-    );
+  inflightAllProducts = (async () => {
+    const allItems: LenderProductRecord[] = [];
+    let page = 1;
+    let totalPages = 1;
 
-    const raw = await res.text();
-    let json: Record<string, unknown> = {};
-
-    try {
-      json = raw ? JSON.parse(raw) : {};
-    } catch {
-      throw new Error(
-        "Could not load your loan programs. Please refresh and try again.",
+    do {
+      const res = await fetch(
+        `${API_BASE}/lender/loan-products/list?page=${page}&limit=100&includeDocuments=false`,
+        { headers },
       );
-    }
 
-    if (!res.ok || !json.success) {
-      throw new Error(
-        (typeof json.message === "string" ? json.message : undefined) ||
-          "Failed to load loan products",
-      );
-    }
+      const raw = await res.text();
+      let json: Record<string, unknown> = {};
 
-    allItems.push(...((json.data || []) as LenderProductRecord[]));
-    totalPages = Number((json.meta as { totalPages?: number })?.totalPages) || 1;
-    page += 1;
-  } while (page <= totalPages);
+      try {
+        json = raw ? JSON.parse(raw) : {};
+      } catch {
+        throw new Error(
+          "Could not load your loan programs. Please refresh and try again.",
+        );
+      }
 
-  return allItems;
+      if (!res.ok || !json.success) {
+        throw new Error(
+          (typeof json.message === "string" ? json.message : undefined) ||
+            "Failed to load loan products",
+        );
+      }
+
+      allItems.push(...((json.data || []) as LenderProductRecord[]));
+      totalPages =
+        Number((json.meta as { totalPages?: number })?.totalPages) || 1;
+      page += 1;
+    } while (page <= totalPages);
+
+    return allItems;
+  })().finally(() => {
+    inflightAllProducts = null;
+  });
+
+  return inflightAllProducts;
 }
 
 async function fetchLenderProductById(
   id: string,
   headers: Record<string, string>,
 ): Promise<LenderProductRecord | null> {
-  const res = await fetch(`${API_BASE}/lender/loan-products/${id}`, {
-    headers,
+  const existing = inflightProductById.get(id);
+  if (existing) return existing;
+
+  const request = (async () => {
+    const res = await fetch(`${API_BASE}/lender/loan-products/${id}`, {
+      headers,
+    });
+
+    if (!res.ok) {
+      return null;
+    }
+
+    const json = await res.json().catch(() => ({}));
+    return json?.data ? (json.data as LenderProductRecord) : null;
+  })().finally(() => {
+    inflightProductById.delete(id);
   });
 
-  if (!res.ok) {
-    return null;
-  }
+  inflightProductById.set(id, request);
+  return request;
+}
 
-  const json = await res.json().catch(() => ({}));
-  return json?.data ? (json.data as LenderProductRecord) : null;
+async function fetchUpdateBootstrap(options: {
+  productId?: string;
+  fallbackProduct?: LenderProductRecord | null;
+}): Promise<UpdateBootstrapPayload> {
+  const key = options.productId ? `single:${options.productId}` : "all";
+  const existing = inflightUpdateBootstrap.get(key);
+  if (existing) return existing;
+
+  const request = (async () => {
+    const headers = getAuthHeaders();
+    const catalogPromise = fetchLoanProductCatalog(headers);
+
+    let items: LenderProductRecord[] = [];
+
+    if (options.productId) {
+      const freshProduct = await fetchLenderProductById(
+        options.productId,
+        headers,
+      );
+      items = freshProduct
+        ? [freshProduct]
+        : options.fallbackProduct
+          ? [options.fallbackProduct]
+          : [];
+    } else {
+      items = await fetchAllLenderProducts(headers);
+
+      if (options.fallbackProduct?.id) {
+        const freshProduct = await fetchLenderProductById(
+          String(options.fallbackProduct.id),
+          headers,
+        );
+
+        if (freshProduct) {
+          items = items.some((item) => item.id === freshProduct.id)
+            ? items.map((item) =>
+                item.id === freshProduct.id ? freshProduct : item,
+              )
+            : [...items, freshProduct];
+        }
+      }
+    }
+
+    const catalogProducts = await catalogPromise;
+    return { items, catalogProducts };
+  })().finally(() => {
+    inflightUpdateBootstrap.delete(key);
+  });
+
+  inflightUpdateBootstrap.set(key, request);
+  return request;
 }
 
 async function syncDocumentConfigs(
@@ -423,6 +544,7 @@ export default function UpdateLoanProduct() {
           }}
           lockedIds={lockedProgramIds}
           onProductsLoad={setProducts}
+          prefetchedProducts={products}
         />
       );
     }
@@ -488,56 +610,15 @@ export default function UpdateLoanProduct() {
       try {
         setLoadingExisting(true);
 
-        const headers = getAuthHeaders();
-
-        const catalogRes = await fetch(
-          `${API_BASE}/common/loan-products/loan-product-code`,
-          { headers },
-        );
-
-        let items: LenderProductRecord[] = [];
-
-        if (isSingleProductUpdate && updatedLoanProduct?.id) {
-          const freshProduct = await fetchLenderProductById(
-            String(updatedLoanProduct.id),
-            headers,
-          );
-
-          items = freshProduct
-            ? [freshProduct]
-            : [updatedLoanProduct as LenderProductRecord];
-        } else {
-          items = await fetchAllLenderProducts(headers);
-
-          if (updatedLoanProduct?.id) {
-            const freshProduct = await fetchLenderProductById(
-              String(updatedLoanProduct.id),
-              headers,
-            );
-
-            if (freshProduct) {
-              items = items.some((item) => item.id === freshProduct.id)
-                ? items.map((item) =>
-                    item.id === freshProduct.id ? freshProduct : item,
-                  )
-                : [...items, freshProduct];
-            }
-          }
-        }
-
-        const catalogJson = await catalogRes.json().catch(() => ({}));
-        const catalogProducts: Product[] = filterLenderCatalogProducts(
-          ((catalogJson.data || []) as Array<{
-            id: string | number;
-            code: string;
-            name: string;
-          }>).map((item) => ({
-            id: String(item.id),
-            code: item.code,
-            name: item.name,
-            isActive: true,
-          })),
-        );
+        const { items, catalogProducts } = await fetchUpdateBootstrap({
+          productId:
+            isSingleProductUpdate && updatedLoanProduct?.id
+              ? String(updatedLoanProduct.id)
+              : undefined,
+          fallbackProduct: updatedLoanProduct
+            ? (updatedLoanProduct as LenderProductRecord)
+            : null,
+        });
 
         if (cancelled) return;
 

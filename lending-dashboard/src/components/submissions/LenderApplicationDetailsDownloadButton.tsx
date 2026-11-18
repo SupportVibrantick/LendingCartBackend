@@ -49,7 +49,14 @@ export default function LenderApplicationDetailsDownloadButton({
 }: LenderApplicationDetailsDownloadButtonProps) {
   const pdfRef = useRef<HTMLDivElement>(null);
   const [downloading, setDownloading] = useState(false);
-  const [branding, setBranding] = useState<PdfBranding | null>(initialBranding);
+  const [branding, setBranding] = useState<PdfBranding>(
+    initialBranding || {
+      brandName: "LendingCart",
+      logoUrl: null,
+      primaryColor: "#3e86b7",
+      secondaryColor: "#2C92D5",
+    },
+  );
 
   const brokerProfile = useMemo(
     () => getBrokerProfileFromApplication(applicationLender),
@@ -59,10 +66,7 @@ export default function LenderApplicationDetailsDownloadButton({
   useEffect(() => {
     if (initialBranding) {
       setBranding(initialBranding);
-      return;
     }
-
-    fetchLenderBrandingForPdf().then(setBranding);
   }, [initialBranding]);
 
   const loanApplication = applicationLender?.loanApplication;
@@ -141,19 +145,6 @@ export default function LenderApplicationDetailsDownloadButton({
       setDownloading(false);
     }
   };
-
-  if (!branding) {
-    return (
-      <button
-        type="button"
-        disabled
-        className={`inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-4 py-2 text-xs font-semibold text-slate-400 ${className}`}
-      >
-        <Download size={14} />
-        Loading branding...
-      </button>
-    );
-  }
 
   return (
     <>

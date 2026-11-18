@@ -38,7 +38,11 @@ async function listInvitedBrokersRoutes(fastify) {
           where: {
             lenderOrgId,
           },
-          include: {
+          select: {
+            id: true,
+            status: true,
+            initiatedBy: true,
+            createdAt: true,
             broker: {
               select: {
                 id: true,
@@ -46,7 +50,6 @@ async function listInvitedBrokersRoutes(fastify) {
                 email: true,
                 phone: true,
                 status: true,
-                createdAt: true,
               },
             },
           },
@@ -55,23 +58,19 @@ async function listInvitedBrokersRoutes(fastify) {
           },
         });
 
-        // ---------------------------
-        // Stats
-        // ---------------------------
         const stats = {
           total: invites.length,
-          pending: invites.filter(i => i.status === "PENDING").length,
-          accepted: invites.filter(i => i.status === "ACCEPTED").length,
-          rejected: invites.filter(i => i.status === "REJECTED").length,
+          pending: 0,
+          accepted: 0,
+          rejected: 0,
         };
 
-        // ---------------------------
-        // Response
-        // ---------------------------
-        return reply.send({
-          success: true,
-          stats,
-          data: invites.map((i) => ({
+        const data = invites.map((i) => {
+          if (i.status === "PENDING") stats.pending += 1;
+          else if (i.status === "ACCEPTED") stats.accepted += 1;
+          else if (i.status === "REJECTED") stats.rejected += 1;
+
+          return {
             inviteId: i.id,
             brokerId: i.broker.id,
             name: i.broker.name,
@@ -82,7 +81,13 @@ async function listInvitedBrokersRoutes(fastify) {
             initiatedBy: i.initiatedBy,
             direction: i.initiatedBy === "BROKER" ? "incoming" : "outgoing",
             invitedAt: i.createdAt,
-          })),
+          };
+        });
+
+        return reply.send({
+          success: true,
+          stats,
+          data,
         });
       } catch (error) {
         req.log.error(error);

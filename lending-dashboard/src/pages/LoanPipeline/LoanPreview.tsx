@@ -81,10 +81,6 @@ import {
   canUploadSignDocuments,
 } from "../../lib/lenderPermissions";
 import LenderSubmissionDetailsView from "../../components/submissions/LenderSubmissionDetailsView";
-import {
-  fetchLenderBrandingForPdf,
-  type PdfBranding,
-} from "../../lib/applicationDetailsPdf";
 import SignDocumentsPanel from "../../components/documents/SignDocumentsPanel";
 import EmbeddedFilePreview from "../../components/documents/EmbeddedFilePreview";
 import { buildApiPublicFileUrl } from "../../lib/publicFileUrl";
@@ -103,6 +99,11 @@ import {
 import { useLenderSessionMonitor } from "../../hooks/useSessionMonitor";
 import { ensureChatSocket } from "../../lib/chatSocketManager";
 import { getOrgIdsFromToken } from "../../lib/chatSocket";
+import {
+  fetchLenderApplicationDetailShared,
+  fetchLenderLoanProductsSummaryShared,
+  invalidateLenderApplicationDetailCache,
+} from "../../lib/lenderPipelineFetch";
 
 type PreviewTab = "details" | "documents" | "signDocuments" | "requestDocs" | "loi" | "chat";
 type DocumentSourceFilter = "all" | "mine" | "broker";
@@ -262,6 +263,84 @@ function getAuthHeaders(): HeadersInit {
     "Content-Type": "application/json",
     ...(token && { Authorization: `Bearer ${token}` }),
   };
+}
+
+// Short TTL cache: Strict Mode remounts often start AFTER the first fetch finishes,
+// so inflight-only coalescing still double-hits the network.
+type TtlCacheEntry<T> = { promise: Promise<T>; expiresAt: number };
+const PREVIEW_FETCH_TTL_MS = 8_000;
+
+function getTtlCachedPromise<T>(
+  cache: Map<string, TtlCacheEntry<T>>,
+  key: string,
+  factory: () => Promise<T>,
+  ttlMs = PREVIEW_FETCH_TTL_MS,
+): Promise<T> {
+  const now = Date.now();
+  const hit = cache.get(key);
+  if (hit && hit.expiresAt > now) return hit.promise;
+
+  const promise = factory().catch((error) => {
+    const current = cache.get(key);
+    if (current?.promise === promise) cache.delete(key);
+    throw error;
+  });
+
+  cache.set(key, { promise, expiresAt: now + ttlMs });
+  return promise;
+}
+
+const loiVersionsCache = new Map<string, TtlCacheEntry<any[]>>();
+const documentConfigsCache = new Map<string, TtlCacheEntry<any[]>>();
+const uploadedDocumentsCache = new Map<string, TtlCacheEntry<any>>();
+
+async function fetchLoiVersionsShared(
+  applicationLenderId: string,
+): Promise<any[]> {
+  return getTtlCachedPromise(
+    loiVersionsCache,
+    applicationLenderId,
+    async () => {
+      const res = await fetch(
+        `${API_BASE}/lender/loan-pipeline/${applicationLenderId}/loi-versions`,
+        { headers: getAuthHeaders() },
+      );
+      const json = await res.json();
+      if (!res.ok || !json.success) return [];
+      return Array.isArray(json.data?.versions) ? json.data.versions : [];
+    },
+  );
+}
+
+async function fetchDocumentConfigListShared(
+  params: URLSearchParams,
+): Promise<any[]> {
+  return getTtlCachedPromise(
+    documentConfigsCache,
+    params.toString(),
+    async () => {
+      const res = await fetch(
+        `${API_BASE}/lender/document-config/list?${params.toString()}`,
+        { headers: getAuthHeaders() },
+      );
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error("Failed to load documents");
+      }
+      return Array.isArray(json.data) ? json.data : [];
+    },
+  );
+}
+
+function invalidatePreviewCaches(applicationLenderId?: string) {
+  if (!applicationLenderId) return;
+  invalidateLenderApplicationDetailCache(applicationLenderId);
+  loiVersionsCache.delete(applicationLenderId);
+  for (const key of uploadedDocumentsCache.keys()) {
+    if (key.startsWith(`${applicationLenderId}:`)) {
+      uploadedDocumentsCache.delete(key);
+    }
+  }
 }
 
 function isSameLoanProgramCode(a?: string | null, b?: string | null) {
@@ -525,11 +604,8 @@ export default function LoanPreview() {
   const [decisionFormErrors, setDecisionFormErrors] =
     useState<DecisionFormErrors>({});
   const [decisionSubmitting, setDecisionSubmitting] = useState(false);
-  const [pdfBranding, setPdfBranding] = useState<PdfBranding | null>(null);
-
-  useEffect(() => {
-    fetchLenderBrandingForPdf().then(setPdfBranding);
-  }, []);
+  // Branding is loaded lazily by the PDF download button — not on page open.
+  const pdfBranding = null;
 
   useEffect(() => {
     setActiveTab(initialTab);
@@ -555,29 +631,22 @@ export default function LoanPreview() {
     };
   }, [loiUrl]);
 
-  const fetchLoanProducts = async () => {
+  const fetchLoanProducts = async (isActive?: () => boolean) => {
+    if (loanProducts.length > 0) return;
+    if (!isActive || isActive()) setLoadingProducts(true);
+
     try {
-      setLoadingProducts(true);
-
-      const res = await fetch(
-        `${API_BASE}/lender/loan-products/list?limit=100`,
-        {
-          headers: getAuthHeaders(),
-        },
-      );
-
-      const json = await res.json();
-
-      if (!res.ok || !json.success) {
-        throw new Error("Failed to fetch loan products");
-      }
-
-      setLoanProducts(json.data || []);
+      const products = await fetchLenderLoanProductsSummaryShared();
+      if (isActive && !isActive()) return;
+      setLoanProducts(products);
     } catch (err: any) {
+      if (isActive && !isActive()) return;
       console.error(err);
       toast.error("Failed to load loan products");
     } finally {
-      setLoadingProducts(false);
+      if (!isActive || isActive()) {
+        setLoadingProducts(false);
+      }
     }
   };
 
@@ -635,10 +704,13 @@ export default function LoanPreview() {
     options?: {
       preserveSelection?: boolean;
       selectIds?: string[];
+      isActive?: () => boolean;
     },
   ) => {
     try {
-      setDocSelectModal((prev) => ({ ...prev, loading: true }));
+      if (!options?.isActive || options.isActive()) {
+        setDocSelectModal((prev) => ({ ...prev, loading: true }));
+      }
 
       const matchedProduct =
         loanProducts.find((product) =>
@@ -655,22 +727,9 @@ export default function LoanPreview() {
         params.set("loanProductCode", code);
       }
 
-      const res = await fetch(
-        `${API_BASE}/lender/document-config/list?${params.toString()}`,
-        {
-          headers: getAuthHeaders(),
-        },
-      );
+      const documents = await fetchDocumentConfigListShared(params);
+      if (options?.isActive && !options.isActive()) return;
 
-      const json = await res.json();
-
-      if (!res.ok || !json.success) {
-        toast.error("Failed to load documents");
-        setDocSelectModal((prev) => ({ ...prev, loading: false }));
-        return;
-      }
-
-      const documents = Array.isArray(json.data) ? json.data : [];
       const availableIds = new Set(
         documents
           .map((doc: any) => doc.documentTypeId || doc.id)
@@ -695,7 +754,10 @@ export default function LoanPreview() {
       });
     } catch (err) {
       console.error(err);
-      setDocSelectModal((prev) => ({ ...prev, loading: false }));
+      if (!options?.isActive || options.isActive()) {
+        toast.error("Failed to load documents");
+        setDocSelectModal((prev) => ({ ...prev, loading: false }));
+      }
     }
   };
 
@@ -859,46 +921,57 @@ export default function LoanPreview() {
     return formatLoanProduct(code);
   }, [submissionDetail, loanProducts]);
 
-  const fetchLoiVersions = async () => {
+  const fetchLoiVersions = async (isActive?: () => boolean) => {
     if (!applicationLenderId) return;
 
     try {
-      const res = await fetch(
-        `${API_BASE}/lender/loan-pipeline/${applicationLenderId}/loi-versions`,
-        { headers: getAuthHeaders() },
-      );
-      const json = await res.json();
-      if (res.ok && json.success) {
-        setLoiVersions(json.data?.versions || []);
-      }
+      const versions = await fetchLoiVersionsShared(applicationLenderId);
+      if (isActive && !isActive()) return;
+      setLoiVersions(versions);
     } catch {
       /* optional */
     }
   };
 
-  const fetchLenderApplicationDetail = async () => {
+  const fetchLenderApplicationDetail = async (
+    isActive?: () => boolean,
+    options?: { force?: boolean; includeLoiVersions?: boolean },
+  ) => {
     if (!applicationLenderId) return;
 
+    if (options?.force) {
+      invalidatePreviewCaches(applicationLenderId);
+    }
+
+    if (!isActive || isActive()) setDetailLoading(true);
+
     try {
-      setDetailLoading(true);
-      const res = await fetch(
-        `${API_BASE}/lender/loan-pipeline/${applicationLenderId}`,
-        {
-          headers: getAuthHeaders(),
-        },
+      const includeLoiVersions = Boolean(options?.includeLoiVersions);
+      const detailPromise = fetchLenderApplicationDetailShared(
+        applicationLenderId,
+        { force: Boolean(options?.force) },
       );
+      const versionsPromise = includeLoiVersions
+        ? fetchLoiVersionsShared(applicationLenderId)
+        : Promise.resolve(null as any[] | null);
 
-      const json = await res.json();
-      if (!res.ok || !json.success) {
-        throw new Error(json.message || "Failed to load application");
+      const [detail, versions] = await Promise.all([
+        detailPromise,
+        versionsPromise,
+      ]);
+      if (isActive && !isActive()) return;
+
+      setSubmissionDetail(detail);
+      if (versions) {
+        setLoiVersions(versions);
       }
-
-      setSubmissionDetail(json.data);
-      void fetchLoiVersions();
     } catch (err: any) {
+      if (isActive && !isActive()) return;
       toast.error(err.message || "Failed to load application");
     } finally {
-      setDetailLoading(false);
+      if (!isActive || isActive()) {
+        setDetailLoading(false);
+      }
     }
   };
 
@@ -987,11 +1060,16 @@ export default function LoanPreview() {
     [documentsData?.documents],
   );
 
-  const fetchDocuments = async (options?: { limit?: number }) => {
+  const fetchDocuments = async (options?: {
+    limit?: number;
+    force?: boolean;
+    isActive?: () => boolean;
+  }) => {
     if (!applicationLenderId) return;
-    try {
-      setDocumentsLoading(true);
+    const isActive = options?.isActive;
+    if (!isActive || isActive()) setDocumentsLoading(true);
 
+    try {
       const params = new URLSearchParams({
         page: String(documentPage),
         limit: String(options?.limit ?? 10),
@@ -1005,17 +1083,28 @@ export default function LoanPreview() {
         params.set("sourceFilter", documentSourceFilter);
       }
 
-      const res = await fetch(
-        `${API_BASE}/lender/loan-pipeline/lender/applications/${applicationLenderId}/documents?${params.toString()}`,
-        {
-          headers: getAuthHeaders(),
+      const cacheKey = `${applicationLenderId}:${params.toString()}`;
+      if (options?.force) {
+        uploadedDocumentsCache.delete(cacheKey);
+      }
+
+      const json = await getTtlCachedPromise(
+        uploadedDocumentsCache,
+        cacheKey,
+        async () => {
+          const res = await fetch(
+            `${API_BASE}/lender/loan-pipeline/lender/applications/${applicationLenderId}/documents?${params.toString()}`,
+            { headers: getAuthHeaders() },
+          );
+          const body = await res.json();
+          if (!res.ok || !body.success) {
+            throw new Error(body.message || "Failed to load documents");
+          }
+          return body;
         },
       );
 
-      const json = await res.json();
-      if (!res.ok || !json.success) {
-        throw new Error(json.message || "Failed to load documents");
-      }
+      if (isActive && !isActive()) return;
 
       setDocumentsData(json.data);
       setDocumentsPagination(json.data.pagination || null);
@@ -1024,9 +1113,12 @@ export default function LoanPreview() {
         setDocumentPage(json.data.pagination.page);
       }
     } catch (err: any) {
+      if (isActive && !isActive()) return;
       toast.error(err.message || "Failed to load documents");
     } finally {
-      setDocumentsLoading(false);
+      if (!isActive || isActive()) {
+        setDocumentsLoading(false);
+      }
     }
   };
 
@@ -1085,10 +1177,10 @@ export default function LoanPreview() {
 
       setDocumentsData(null);
 
-      await fetchDocuments();
+      await fetchDocuments({ force: true });
 
       setSubmissionDetail(null);
-      await fetchLenderApplicationDetail();
+      await fetchLenderApplicationDetail(undefined, { force: true });
 
       setActiveTab("documents");
     } catch (err: any) {
@@ -1133,13 +1225,40 @@ export default function LoanPreview() {
     });
   };
 
+  const loadLoiPdfBlob = async (resolvedPath: string) => {
+    const fileUrl = `${API_BASE}/public${resolvedPath}`;
+    const fileRes = await fetch(fileUrl, {
+      headers: getAuthHeaders(),
+    });
+
+    if (!fileRes.ok) {
+      throw new Error("Failed to load LOI file");
+    }
+
+    const blob = await fileRes.blob();
+    const blobUrl = URL.createObjectURL(blob);
+
+    setLoiUrl((prev) => {
+      if (prev?.startsWith("blob:")) {
+        URL.revokeObjectURL(prev);
+      }
+      return blobUrl;
+    });
+  };
+
   const loadLoiPreview = async (loiPath?: string, force = false) => {
     if (!applicationLenderId) return;
 
     try {
       setLoiLoading(true);
 
-      let resolvedPath = loiPath;
+      // Fresh generate already gave us the path — skip view-loi round trip.
+      if (loiPath) {
+        if (!force && loiUrl) return;
+        await loadLoiPdfBlob(loiPath);
+        setLoiViewMode("lender");
+        return;
+      }
 
       const res = await fetch(
         `${API_BASE}/lender/loan-pipeline/${applicationLenderId}/view-loi`,
@@ -1184,26 +1303,7 @@ export default function LoanPreview() {
         return;
       }
 
-      resolvedPath = json.data.loiPath;
-
-      const fileUrl = `${API_BASE}/public${resolvedPath}`;
-      const fileRes = await fetch(fileUrl, {
-        headers: getAuthHeaders(),
-      });
-
-      if (!fileRes.ok) {
-        throw new Error("Failed to load LOI file");
-      }
-
-      const blob = await fileRes.blob();
-      const blobUrl = URL.createObjectURL(blob);
-
-      setLoiUrl((prev) => {
-        if (prev?.startsWith("blob:")) {
-          URL.revokeObjectURL(prev);
-        }
-        return blobUrl;
-      });
+      await loadLoiPdfBlob(json.data.loiPath);
     } catch (err: any) {
       const message = err?.message || "Failed to load LOI";
       const isExpectedMissing =
@@ -1303,29 +1403,64 @@ export default function LoanPreview() {
     });
   };
 
-  useEffect(() => {
-    fetchLoanProducts();
-  }, []);
-
+  // Core preview payload only — no LOI versions / branding on open.
   useEffect(() => {
     if (!applicationLenderId) return;
-    fetchLenderApplicationDetail();
+    let active = true;
+    void fetchLenderApplicationDetail(() => active);
+    return () => {
+      active = false;
+    };
   }, [applicationLenderId]);
 
+  // LOI version history is only needed on the LOI tab (skip when generate already provided versions).
+  useEffect(() => {
+    if (activeTab !== "loi" || !applicationLenderId) return;
+    if (location.state?.refreshLoi && location.state?.generatedLoi) return;
+    let active = true;
+    void fetchLoiVersions(() => active);
+    return () => {
+      active = false;
+    };
+  }, [
+    activeTab,
+    applicationLenderId,
+    location.state?.refreshLoi,
+    location.state?.generatedLoi,
+  ]);
+
+  // Loan products + document-config are only needed on Request Documents.
+  useEffect(() => {
+    if (activeTab !== "requestDocs") return;
+    let active = true;
+    void fetchLoanProducts(() => active);
+    return () => {
+      active = false;
+    };
+  }, [activeTab]);
+
   useEffect(() => {
     if (!applicationLenderId) return;
+    let active = true;
 
     if (activeTab === "documents") {
-      fetchDocuments();
+      void fetchDocuments({ isActive: () => active });
     }
 
     if (activeTab === "requestDocs") {
-      fetchDocuments({ limit: 100 });
+      // Needed for prior-request history badges on the request list.
+      void fetchDocuments({ limit: 100, isActive: () => active });
+    }
+
+    // After generate, dedicated refresh effect owns LOI loading (avoids double view-loi).
+    if (location.state?.refreshLoi) {
+      return () => {
+        active = false;
+      };
     }
 
     if (activeTab === "loi" && (loiGenerated || isLoi || hasSignedBrokerLoi)) {
-      // Only force-refresh after a successful generate; cancel/back must not hammer view-loi.
-      void loadLoiPreview(undefined, Boolean(location.state?.refreshLoi));
+      void loadLoiPreview(undefined, false);
     } else if (
       activeTab === "loi" &&
       !loiGenerated &&
@@ -1340,6 +1475,10 @@ export default function LoanPreview() {
         return null;
       });
     }
+
+    return () => {
+      active = false;
+    };
   }, [
     activeTab,
     applicationLenderId,
@@ -1352,18 +1491,55 @@ export default function LoanPreview() {
     location.state?.refreshLoi,
   ]);
 
+  // Single post-generate refresh: apply generate payload, load PDF once, clear flag.
   useEffect(() => {
     if (!location.state?.refreshLoi || !applicationLenderId) return;
 
     let cancelled = false;
+    const generated = location.state?.generatedLoi as
+      | {
+          loiUrl?: string | null;
+          versions?: any[];
+          versionNumber?: number | null;
+          loiSentToBrokerAt?: string | null;
+        }
+      | undefined;
 
     (async () => {
-      await fetchLenderApplicationDetail();
+      // Drop stale version cache so later tab visits see the new LOI.
+      loiVersionsCache.delete(applicationLenderId);
+
+      if (Array.isArray(generated?.versions)) {
+        setLoiVersions(generated.versions);
+      } else {
+        await fetchLoiVersions(() => !cancelled);
+      }
       if (cancelled) return;
-      await fetchLoiVersions();
+
+      if (generated?.loiUrl) {
+        setSubmissionDetail((prev: any) =>
+          prev
+            ? {
+                ...prev,
+                loiUrl: generated.loiUrl,
+                loiSentToBrokerAt: generated.loiSentToBrokerAt ?? null,
+              }
+            : prev,
+        );
+        await loadLoiPreview(generated.loiUrl, true);
+      } else {
+        // Fallback when generate response lacked a path.
+        invalidatePreviewCaches(applicationLenderId);
+        await fetchLenderApplicationDetail(() => !cancelled, {
+          force: true,
+          includeLoiVersions: !Array.isArray(generated?.versions),
+        });
+        if (cancelled) return;
+        await loadLoiPreview(undefined, true);
+      }
+
       if (cancelled) return;
-      await loadLoiPreview(undefined, true);
-      if (cancelled) return;
+
       navigate("/loan-preview/?tab=loi", {
         replace: true,
         state: {
@@ -1582,7 +1758,7 @@ export default function LoanPreview() {
         ...getSwalTheme(),
       });
 
-      await fetchLenderApplicationDetail();
+      await fetchLenderApplicationDetail(undefined, { force: true });
     } catch (err: any) {
       await Swal.fire({
         title: isApproval ? "Approval failed" : "Rejection failed",
@@ -1597,9 +1773,10 @@ export default function LoanPreview() {
   };
 
   useEffect(() => {
+    if (activeTab !== "requestDocs") return;
     if (!defaultLoanProductCode) return;
     setSelectedLoanProduct((prev) => prev || defaultLoanProductCode);
-  }, [defaultLoanProductCode, applicationLenderId]);
+  }, [activeTab, defaultLoanProductCode, applicationLenderId]);
 
   useEffect(() => {
     if (!canRequestDocuments && activeTab === "requestDocs") {
@@ -1616,11 +1793,20 @@ export default function LoanPreview() {
   }, [canRequestDocuments, activeTab, applicationLenderId, isLoi, navigate]);
 
   useEffect(() => {
-    if (selectedLoanProduct) {
-      fetchDocumentsByProduct(selectedLoanProduct, { preserveSelection: true });
-    }
+    if (activeTab !== "requestDocs" || !selectedLoanProduct) return;
+    // Wait until products are loaded so lenderProductId can be resolved.
+    if (!loanProducts.length) return;
+
+    let active = true;
+    void fetchDocumentsByProduct(selectedLoanProduct, {
+      preserveSelection: true,
+      isActive: () => active,
+    });
+    return () => {
+      active = false;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedLoanProduct, loanProducts]);
+  }, [activeTab, selectedLoanProduct, loanProducts]);
 
   const resolvedChatApplicationId =
     submissionDetail?.loanApplication?.id ||
@@ -1661,6 +1847,12 @@ export default function LoanPreview() {
         isLoi,
       },
     });
+  };
+
+  // Always return to the pipeline list — tab/LOI navigations pollute history,
+  // so navigate(-1) often lands on another preview entry and looks broken.
+  const goBackToPipeline = () => {
+    navigate("/loan-pipeline", { replace: true });
   };
 
   const renderDetails = () => {
@@ -3055,7 +3247,8 @@ export default function LoanPreview() {
             <div className="flex items-start gap-3">
               {/* Back Button */}
               <button
-                onClick={() => navigate(-1)}
+                type="button"
+                onClick={goBackToPipeline}
                 className="p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-[#3e86b7] transition-all"
               >
                 <ArrowLeft size={18} />
@@ -3300,7 +3493,7 @@ export default function LoanPreview() {
             <div className="hidden shrink-0 border-t border-slate-100 p-3 dark:border-slate-800 lg:block">
               <button
                 type="button"
-                onClick={() => navigate(-1)}
+                onClick={goBackToPipeline}
                 className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
               >
                 <ArrowLeft size={16} className="shrink-0 text-brand-500" />

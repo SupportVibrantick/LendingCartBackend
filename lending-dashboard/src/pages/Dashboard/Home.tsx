@@ -22,6 +22,39 @@ import PageMeta from "../../components/common/PageMeta";
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 const BRAND = "#183b57";
 
+// Short TTL covers React Strict Mode remounts after the first response lands.
+type DashboardCacheEntry = { promise: Promise<any>; expiresAt: number };
+const dashboardFetchCache = new Map<string, DashboardCacheEntry>();
+const DASHBOARD_FETCH_TTL_MS = 8_000;
+
+async function fetchDashboardJson(path: string) {
+  const now = Date.now();
+  const hit = dashboardFetchCache.get(path);
+  if (hit && hit.expiresAt > now) return hit.promise;
+
+  const token = sessionStorage.getItem("lender_token");
+  const request = (async () => {
+    const res = await fetch(`${API_BASE}${path}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    });
+    const json = await res.json();
+    if (!res.ok || !json.success) {
+      throw new Error(json.message || "Failed to load dashboard data");
+    }
+    return json;
+  })().catch((error) => {
+    const current = dashboardFetchCache.get(path);
+    if (current?.promise === request) dashboardFetchCache.delete(path);
+    throw error;
+  });
+
+  dashboardFetchCache.set(path, {
+    promise: request,
+    expiresAt: now + DASHBOARD_FETCH_TTL_MS,
+  });
+  return request;
+}
+
 type DashboardPeriod = "7d" | "30d" | "90d" | "12m";
 
 interface MetricComparison {
@@ -361,53 +394,53 @@ export default function Home() {
   const firstName = useMemo(() => getLenderFirstName(), []);
   const greeting = useMemo(() => getGreeting(), []);
 
-  const load = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const token = sessionStorage.getItem("lender_token");
-      const headers = token
-        ? { Authorization: `Bearer ${token}` }
-        : undefined;
-
-      const [overviewRes, pipelineRes] = await Promise.all([
-        fetch(
-          `${API_BASE}/lender/dashboard/overview-stats?period=${period}`,
-          { headers },
-        ),
-        fetch(
-          `${API_BASE}/lender/dashboard/pipeline-performance?period=${period}`,
-          { headers },
-        ),
-      ]);
-
-      const [overviewJson, pipelineJson] = await Promise.all([
-        overviewRes.json(),
-        pipelineRes.json(),
-      ]);
-
-      if (!overviewRes.ok || !overviewJson.success) {
-        throw new Error(overviewJson.message || "Failed to load overview");
-      }
-      if (!pipelineRes.ok || !pipelineJson.success) {
-        throw new Error(pipelineJson.message || "Failed to load analytics");
+  const load = useCallback(
+    async (options?: { force?: boolean; isActive?: () => boolean }) => {
+      const isActive = options?.isActive;
+      if (!isActive || isActive()) {
+        setLoading(true);
+        setError(null);
       }
 
-      setOverview(overviewJson.data);
-      setPipeline(pipelineJson.data);
-    } catch (err) {
-      console.error(err);
-      const message =
-        err instanceof Error ? err.message : "Failed to load dashboard";
-      setError(message);
-      toast.error(message);
-    } finally {
-      setLoading(false);
-    }
-  }, [period]);
+      try {
+        const overviewPath = `/lender/dashboard/overview-stats?period=${period}`;
+        const pipelinePath = `/lender/dashboard/pipeline-performance?period=${period}`;
+
+        if (options?.force) {
+          dashboardFetchCache.delete(overviewPath);
+          dashboardFetchCache.delete(pipelinePath);
+        }
+
+        const [overviewJson, pipelineJson] = await Promise.all([
+          fetchDashboardJson(overviewPath),
+          fetchDashboardJson(pipelinePath),
+        ]);
+        if (isActive && !isActive()) return;
+
+        setOverview(overviewJson.data);
+        setPipeline(pipelineJson.data);
+      } catch (err) {
+        if (isActive && !isActive()) return;
+        console.error(err);
+        const message =
+          err instanceof Error ? err.message : "Failed to load dashboard";
+        setError(message);
+        toast.error(message);
+      } finally {
+        if (!isActive || isActive()) {
+          setLoading(false);
+        }
+      }
+    },
+    [period],
+  );
 
   useEffect(() => {
-    load();
+    let active = true;
+    void load({ isActive: () => active });
+    return () => {
+      active = false;
+    };
   }, [load]);
 
   const kpiCards = overview
@@ -837,7 +870,7 @@ export default function Home() {
                 </div>
                 <button
                   type="button"
-                  onClick={load}
+                  onClick={() => void load({ force: true })}
                   disabled={loading}
                   title="Refresh"
                   className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
@@ -883,7 +916,7 @@ export default function Home() {
               <p>Unable to load analytics. {error}</p>
               <button
                 type="button"
-                onClick={load}
+                onClick={() => void load({ force: true })}
                 className="inline-flex items-center gap-1.5 self-start rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-rose-700 ring-1 ring-rose-200"
               >
                 <RefreshCw className="h-3.5 w-3.5" />

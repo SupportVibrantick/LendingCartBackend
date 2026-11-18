@@ -22,6 +22,37 @@ import {
   resolveProductCode,
 } from "../../lib/loanProductListDisplay";
 import { canManageLoanProducts } from "../../lib/lenderPermissions";
+import { API_BASE, getLenderAuthHeaders } from "../../lib/lenderApi";
+
+// Coalesce identical list GETs across React Strict Mode remounts.
+const inflightLoanProductLists = new Map<string, Promise<any>>();
+
+async function fetchLoanProductsList(params: URLSearchParams) {
+  const key = params.toString();
+  const existing = inflightLoanProductLists.get(key);
+  if (existing) return existing;
+
+  const request = (async () => {
+    const res = await fetch(
+      `${API_BASE}/lender/loan-products/list?${key}`,
+      {
+        method: "GET",
+        headers: getLenderAuthHeaders(),
+      },
+    );
+
+    if (!res.ok) {
+      throw new Error(`Failed to fetch loan products: ${res.status}`);
+    }
+
+    return res.json();
+  })().finally(() => {
+    inflightLoanProductLists.delete(key);
+  });
+
+  inflightLoanProductLists.set(key, request);
+  return request;
+}
 
 type LoanProductList = {
   id: string;
@@ -204,22 +235,10 @@ export default function AlloanProducts() {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const [viewDetails, setViewDetails] = useState<any | null>(null);
-
-  const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
-
-  useEffect(() => {
-    const controller = new AbortController();
-
-    fetchLoanProducts(controller.signal);
-
-    return () => {
-      controller.abort();
-    };
-  }, [currentPage, pageSize, debouncedQuery]);
-
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [debouncedQuery, pageSize]);
+  const filtersRef = useRef({
+    query: "",
+    pageSize: 10,
+  });
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -229,39 +248,80 @@ export default function AlloanProducts() {
     return () => clearTimeout(timer);
   }, [query]);
 
-  function getAuthHeaders(): Record<string, string> {
-    try {
-      const token = sessionStorage.getItem("lender_token");
-      if (token) {
-        return {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        };
+  useEffect(() => {
+    const filtersChanged =
+      filtersRef.current.query !== debouncedQuery ||
+      filtersRef.current.pageSize !== pageSize;
+
+    if (filtersChanged) {
+      filtersRef.current = {
+        query: debouncedQuery,
+        pageSize,
+      };
+      // Avoid fetching with a stale page after search/pageSize changes.
+      if (currentPage !== 1) {
+        setCurrentPage(1);
+        return;
       }
-    } catch {
-      // ignore
     }
-    return { "Content-Type": "application/json" };
+
+    let active = true;
+    void fetchLoanProducts(() => active);
+    return () => {
+      active = false;
+    };
+  }, [currentPage, pageSize, debouncedQuery]);
+
+  function normalizeLoanProduct(product: any): LoanProductList {
+    return {
+      ...product,
+      loanProductName: product.loanProduct?.name || product.name || "-",
+      loanProductCode:
+        product.loanProductCode ||
+        product.loanProduct?.code ||
+        product.code ||
+        "-",
+      advanceRatePercent: formatPercentValue(product.advanceRatePercent),
+      transactionFeePercent: formatPercentValue(product.transactionFeePercent),
+      minGrossMarginPercent: formatPercentValue(product.minGrossMarginPercent),
+      discountFeePercent: formatPercentValue(product.discountFeePercent),
+      earlyPaymentDiscountPercent: formatPercentValue(
+        product.earlyPaymentDiscountPercent,
+      ),
+      statesSupported: Array.isArray(product.statesSupported)
+        ? product.statesSupported
+        : [],
+      documents: Array.isArray(product.documents) ? product.documents : [],
+      businessTypes:
+        typeof product.businessTypes === "object" ? product.businessTypes : {},
+      propertyTypes:
+        typeof product.propertyTypes === "object" ? product.propertyTypes : {},
+      maxArvPercent: product.maxArvPercent ?? null,
+      maxLtcPercent: product.maxLtcPercent ?? null,
+      maxLtvPercent: product.maxLtvPercent ?? null,
+      minMezzLtvPercent: product.minMezzLtvPercent ?? null,
+      maxMezzLtvPercent: product.maxMezzLtvPercent ?? null,
+      minExperience: product.minExperience ?? "",
+      industriesSupported: safeParseArray(product.industriesSupported),
+      regionsSupported: safeParseArray(product.regionsSupported),
+    };
   }
 
-  async function fetchLoanProducts(signal?: AbortSignal) {
-    setLoading(true);
+  async function fetchLoanProducts(isActive?: () => boolean) {
+    if (!isActive || isActive()) setLoading(true);
     try {
-      const headers = getAuthHeaders();
-      const res = await fetch(
-        `${API_BASE}/lender/loan-products/list?page=${currentPage}&limit=${pageSize}&search=${encodeURIComponent(debouncedQuery)}`,
-        {
-          method: "GET",
-          headers,
-          signal,
-        },
-      );
-
-      if (!res.ok) {
-        throw new Error(`Failed to fetch loan products: ${res.status}`);
+      const params = new URLSearchParams({
+        page: String(currentPage),
+        limit: String(pageSize),
+        includeDocuments: "false",
+      });
+      if (debouncedQuery.trim()) {
+        params.set("search", debouncedQuery.trim());
       }
 
-      const json = await res.json();
+      const json = await fetchLoanProductsList(params);
+      if (isActive && !isActive()) return;
+
       const list = Array.isArray(json.data) ? json.data : [];
 
       setPagination({
@@ -270,68 +330,35 @@ export default function AlloanProducts() {
         total: json.meta?.total || 0,
         totalPages: json.meta?.totalPages || 1,
       });
-      const normalized = (list as LoanProductList[]).map((product: any) => ({
-        ...product,
-
-        // âœ… PRODUCT DETAILS
-        loanProductName: product.loanProduct?.name || product.name || "-",
-
-        loanProductCode:
-          product.loanProductCode ||
-          product.loanProduct?.code ||
-          product.code ||
-          "-",
-
-        advanceRatePercent: formatPercentValue(product.advanceRatePercent),
-        transactionFeePercent: formatPercentValue(product.transactionFeePercent),
-        minGrossMarginPercent: formatPercentValue(product.minGrossMarginPercent),
-        discountFeePercent: formatPercentValue(product.discountFeePercent),
-        earlyPaymentDiscountPercent: formatPercentValue(
-          product.earlyPaymentDiscountPercent,
+      setLenders(
+        (list as LoanProductList[]).map((product: any) =>
+          normalizeLoanProduct(product),
         ),
-
-        // âœ… STATES
-        statesSupported: Array.isArray(product.statesSupported)
-          ? product.statesSupported
-          : [],
-
-        // âœ… DOCUMENTS
-        documents: Array.isArray(product.documents) ? product.documents : [],
-
-        // âœ… BUSINESS / PROPERTY TYPES
-        businessTypes:
-          typeof product.businessTypes === "object"
-            ? product.businessTypes
-            : {},
-
-        propertyTypes:
-          typeof product.propertyTypes === "object"
-            ? product.propertyTypes
-            : {},
-
-        // âœ… NEW FIELDS
-        maxArvPercent: product.maxArvPercent ?? null,
-        maxLtcPercent: product.maxLtcPercent ?? null,
-        maxLtvPercent: product.maxLtvPercent ?? null,
-        minMezzLtvPercent: product.minMezzLtvPercent ?? null,
-        maxMezzLtvPercent: product.maxMezzLtvPercent ?? null,
-
-        minExperience: product.minExperience ?? "",
-
-        // OLD SAFE PARSE
-        industriesSupported: safeParseArray(product.industriesSupported),
-
-        regionsSupported: safeParseArray(product.regionsSupported),
-      }));
-
-      setLenders(normalized);
+      );
     } catch (err) {
-      if (err instanceof DOMException && err.name === "AbortError") {
-        return;
-      }
+      if (isActive && !isActive()) return;
       console.error(err);
+      toast.error("Failed to load loan programs");
     } finally {
-      setLoading(false);
+      if (!isActive || isActive()) {
+        setLoading(false);
+      }
+    }
+  }
+
+  async function openProductDetails(productId: string) {
+    try {
+      setOpenMenuId(null);
+      const res = await fetch(`${API_BASE}/lender/loan-products/${productId}`, {
+        headers: getLenderAuthHeaders(),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || "Failed to load product details");
+      }
+      setViewDetails(normalizeLoanProduct(json.data));
+    } catch (error: any) {
+      toast.error(error.message || "Failed to load product details");
     }
   }
 
@@ -355,7 +382,6 @@ export default function AlloanProducts() {
     setEditingLender(null);
 
     try {
-      const token = sessionStorage.getItem("lender_token");
       const productCode = resolveLenderOfferedProductCode(
         updated.loanProductCode ||
           updated.loanProduct?.code ||
@@ -385,10 +411,7 @@ export default function AlloanProducts() {
         `${API_BASE}/lender/loan-products/update/${updated.id}`,
         {
           method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
+          headers: getLenderAuthHeaders(true),
           body: JSON.stringify(payload),
         },
       );
@@ -422,15 +445,11 @@ export default function AlloanProducts() {
     setRowLoadingId(loan.id);
 
     try {
-      const token = sessionStorage.getItem("lender_token");
       const res = await fetch(
         `${API_BASE}/lender/loan-products/status/${loan.id}`,
         {
           method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
+          headers: getLenderAuthHeaders(true),
           body: JSON.stringify({ isActive: nextStatus }),
         },
       );
@@ -657,8 +676,7 @@ export default function AlloanProducts() {
                                 {/* VIEW DETAILS */}
                                 <button
                                   onClick={() => {
-                                    setViewDetails(item);
-                                    setOpenMenuId(null);
+                                    void openProductDetails(item.id);
                                   }}
                                   className="flex items-center gap-2 w-full px-4 py-2.5 text-sm text-emerald-600
                      hover:bg-emerald-50 hover:text-emerald-600 transition

@@ -1,11 +1,27 @@
 const prisma = require("./client");
 
+let ensurePromise = null;
+
 /**
  * Adds extended lender profile text fields. Safe to run multiple times.
+ * Cached per process so request hot paths do not re-run ALTER TABLE.
  */
 async function ensureLenderProfileFields(existingPrisma) {
-  const db = existingPrisma || prisma;
+  if (existingPrisma) {
+    return runEnsure(existingPrisma);
+  }
 
+  if (!ensurePromise) {
+    ensurePromise = runEnsure(prisma).catch((error) => {
+      ensurePromise = null;
+      throw error;
+    });
+  }
+
+  return ensurePromise;
+}
+
+async function runEnsure(db) {
   await db.$executeRawUnsafe(`
     ALTER TABLE "lender_profiles"
     ADD COLUMN IF NOT EXISTS "lendingCriteria" TEXT
