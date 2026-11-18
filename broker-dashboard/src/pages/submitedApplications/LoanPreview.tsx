@@ -1084,17 +1084,24 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
       hasPermission("SEND_APPLICATIONS", permissionPortal);
 
     if (isCoBrokerPortal) {
+      const canSendToLendersAsCoBroker =
+        hasPermission("SUBMIT_TO_LENDERS", permissionPortal) ||
+        hasPermission("SEND_APPLICATIONS", permissionPortal) ||
+        hasPermission("VIEW_LENDER_HUB", permissionPortal);
+
       return {
         upload: true,
         request: true,
         sign: false,
         loi: hasPermission("VIEW_LOI_TERM_SHEET", permissionPortal),
         feeAgreement: hasPermission("VIEW_FEE_AGREEMENT", permissionPortal),
-        lenderHub: false,
+        lenderHub:
+          hasPermission("VIEW_LENDER_HUB", permissionPortal) ||
+          canSendToLendersAsCoBroker,
         autoForwardToLender: false,
         autoForwardToClient: false,
         delete: false,
-        sendApplications: false,
+        sendApplications: canSendToLendersAsCoBroker,
         chat: hasPermission("CHAT", permissionPortal),
         sendEmails: hasPermission("SEND_EMAILS", permissionPortal),
       };
@@ -2289,11 +2296,38 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
     [tabSections],
   );
 
+  const appliedDeepLinkTabRef = useRef<string | null>(null);
+
   useEffect(() => {
+    appliedDeepLinkTabRef.current = null;
+  }, [submissionId]);
+
+  useEffect(() => {
+    if (!visibleTabKeys.length) return;
+
+    const desired = (Location.state as { activeTab?: TabKey } | null)?.activeTab;
+    const deepLinkKey = desired
+      ? `${submissionId || ""}:${desired}`
+      : null;
+
+    // Apply deep-link tab once when it becomes available (e.g. submit → Matched Lenders).
+    if (
+      desired &&
+      deepLinkKey &&
+      appliedDeepLinkTabRef.current !== deepLinkKey &&
+      visibleTabKeys.includes(desired)
+    ) {
+      appliedDeepLinkTabRef.current = deepLinkKey;
+      if (activeTab !== desired) {
+        setActiveTab(desired);
+      }
+      return;
+    }
+
     if (!visibleTabKeys.includes(activeTab)) {
       setActiveTab(visibleTabKeys[0] ?? "view-details");
     }
-  }, [visibleTabKeys, activeTab]);
+  }, [visibleTabKeys, activeTab, Location.state, submissionId]);
 
   const currentFile = previewFiles[activeIndex];
   const currentPreviewFileUrl = useMemo(

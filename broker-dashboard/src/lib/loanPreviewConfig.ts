@@ -97,6 +97,7 @@ function buildBrokerStyleApiUrls(
 
 function buildCoBrokerApiUrls(): LoanPreviewApiUrls {
   const docsApi = `${API_BASE}/subbroker/documents`;
+  const lenderApi = `${API_BASE}/subbroker/lender-discovery`;
 
   return {
     submissionDocuments: (submissionId, queryString) =>
@@ -113,8 +114,10 @@ function buildCoBrokerApiUrls(): LoanPreviewApiUrls {
     documentsAutoForwardToClient: () => "",
     documentsForwardToClient: () => "",
     markFunded: () => "",
-    eligibleLenders: () => "",
-    sendToLenders: () => "",
+    eligibleLenders: (submissionId, queryString) =>
+      `${lenderApi}/applications/submissions/${submissionId}/eligible?${queryString}`,
+    sendToLenders: (applicationId, submissionId) =>
+      `${lenderApi}/applications/${applicationId}/submissions/${submissionId}/send-to-lenders`,
     skipSubBrokerSubmission: () => "",
     sendDocumentToBroker: (requirementId) =>
       `${docsApi}/${requirementId}/send-to-broker`,
