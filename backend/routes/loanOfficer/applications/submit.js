@@ -176,7 +176,9 @@ async function loanOfficerSubmitApplication(fastify) {
               resolvedApplicationProductId,
               client,
               sanitizedRequestedDocumentTypes,
-              completedStatus: "DRAFT",
+              // Match broker submit: submitted apps are CLIENT_PENDING so
+              // matched-lenders discovery can run immediately after submit.
+              completedStatus: "CLIENT_PENDING",
             });
             loanApplication = promoted.loanApplication;
             submission = promoted.submission;
@@ -191,7 +193,7 @@ async function loanOfficerSubmitApplication(fastify) {
 
                 clientId: client.id,
                 loanProductCode: resolvedLoanProductCode,
-                status: "DRAFT",
+                status: "CLIENT_PENDING",
                 ...(sanitizedRequestedDocumentTypes
                   ? { requestedDocumentTypes: sanitizedRequestedDocumentTypes }
                   : {}),

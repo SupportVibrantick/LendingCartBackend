@@ -149,7 +149,14 @@ module.exports = async function findEligibleLenders(fastify) {
           }
         }
 
-        if (application.status === "DRAFT") {
+        // Allow matching once submission is past prep (CLIENT_PENDING+).
+        const submissionReady = !["DRAFT", "INCOMPLETE"].includes(
+          String(submission.status || "").toUpperCase(),
+        );
+        const applicationBlocked = ["DRAFT", "INCOMPLETE"].includes(
+          String(application.status || "").toUpperCase(),
+        );
+        if (applicationBlocked && !submissionReady) {
           return reply.code(400).send({
             success: false,
             message: "Application must be submitted first",
