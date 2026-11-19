@@ -4,7 +4,7 @@ const {
   buildClientPortalUrlForBroker,
 } = require("../../utils/email/emailBranding");
 const { buildClientLinkEmailData } = require("../../utils/email/emailTemplateData");
-const sendMail = require("./mail");
+const { enqueueAndFlushEmail } = require("../email");
 
 const DEFAULT_PORTAL_MESSAGE =
   "Your loan application has been submitted successfully. Use the secure link below to access your client portal, upload documents, and track your application status.";
@@ -74,7 +74,8 @@ async function sendClientPortalAccessEmail({
     uploadLink,
   ].join("\n");
 
-  return sendMail({
+  // Flush immediately so portal links are not stuck waiting on the outbox poll.
+  return enqueueAndFlushEmail({
     prisma,
     to,
     subject,
@@ -82,6 +83,7 @@ async function sendClientPortalAccessEmail({
     html,
     logoAttachment,
     idempotencyKey,
+    provider: "SMTP",
   });
 }
 

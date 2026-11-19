@@ -61,6 +61,37 @@ function digitsOnly(value) {
   return String(value || "").replace(/\D/g, "");
 }
 
+function searchTokens(search) {
+  return String(search || "")
+    .trim()
+    .split(/\s+/)
+    .map((part) => part.trim())
+    .filter((part) => part.length > 0);
+}
+
+/** Every token must appear in firstName or lastName (or email/phone). */
+function contactNameTokenAnd(tokens) {
+  if (tokens.length < 2) return null;
+  return {
+    AND: tokens.map((token) => ({
+      OR: [
+        { firstName: { contains: token, mode: "insensitive" } },
+        { lastName: { contains: token, mode: "insensitive" } },
+        { email: { contains: token, mode: "insensitive" } },
+        { phone: { contains: token, mode: "insensitive" } },
+      ],
+    })),
+  };
+}
+
+function personNameFieldOr(term) {
+  return [
+    { firstName: { contains: term, mode: "insensitive" } },
+    { lastName: { contains: term, mode: "insensitive" } },
+    { email: { contains: term, mode: "insensitive" } },
+  ];
+}
+
 /**
  * Sync Prisma OR clauses for LoanApplication free-text search.
  * Covers app #, purpose, product/status enums, client/contact, and optional broker org name.
@@ -77,6 +108,7 @@ function buildApplicationSearchWhere(
   const term = String(search || "").trim();
   if (!term) return [];
 
+  const tokens = searchTokens(term);
   const or = [
     { applicationNumber: { contains: term, mode: "insensitive" } },
     { purpose: { contains: term, mode: "insensitive" } },
@@ -111,23 +143,37 @@ function buildApplicationSearchWhere(
       contactOr.push({ phone: { contains: digitTerm } });
     }
 
+    const multiWordContact = contactNameTokenAnd(tokens);
+    if (multiWordContact) {
+      contactOr.push(multiWordContact);
+    }
+
+    const clientOr = [
+      { legalName: { contains: term, mode: "insensitive" } },
+      { taxId: { contains: term, mode: "insensitive" } },
+      ...(digitTerm.length >= 3 ? [{ taxId: { contains: digitTerm } }] : []),
+      {
+        contacts: {
+          some: {
+            OR: contactOr,
+          },
+        },
+      },
+    ];
+
+    // "saina saluja" → legalName must contain both tokens when split across words
+    if (tokens.length >= 2) {
+      clientOr.push({
+        AND: tokens.map((token) => ({
+          legalName: { contains: token, mode: "insensitive" },
+        })),
+      });
+    }
+
     or.push({
       client: {
         is: {
-          OR: [
-            { legalName: { contains: term, mode: "insensitive" } },
-            { taxId: { contains: term, mode: "insensitive" } },
-            ...(digitTerm.length >= 3
-              ? [{ taxId: { contains: digitTerm } }]
-              : []),
-            {
-              contacts: {
-                some: {
-                  OR: contactOr,
-                },
-              },
-            },
-          ],
+          OR: clientOr,
         },
       },
     });
@@ -144,14 +190,14 @@ function buildApplicationSearchWhere(
   }
 
   if (includeAssignedStaff) {
+    const staffOr = personNameFieldOr(term);
+    const staffMulti = contactNameTokenAnd(tokens);
+    if (staffMulti) staffOr.push(staffMulti);
+
     or.push({
       brokerUser: {
         is: {
-          OR: [
-            { firstName: { contains: term, mode: "insensitive" } },
-            { lastName: { contains: term, mode: "insensitive" } },
-            { email: { contains: term, mode: "insensitive" } },
-          ],
+          OR: staffOr,
         },
       },
     });
@@ -159,11 +205,7 @@ function buildApplicationSearchWhere(
       subBrokerAssignments: {
         some: {
           subBroker: {
-            OR: [
-              { firstName: { contains: term, mode: "insensitive" } },
-              { lastName: { contains: term, mode: "insensitive" } },
-              { email: { contains: term, mode: "insensitive" } },
-            ],
+            OR: staffOr,
           },
         },
       },
@@ -261,8 +303,17 @@ async function findApplicationIdsBySubmissionFieldSearch(
   }
 }
 
+function intersectIdLists(lists) {
+  if (!lists.length) return [];
+  const [first, ...rest] = lists;
+  const sets = rest.map((list) => new Set(list));
+  return first.filter((id) => sets.every((set) => set.has(id)));
+}
+
 /**
  * Append submission-field matches onto an existing LoanApplication OR array.
+ * Multi-word queries match when every token appears in searchable fields
+ * (e.g. firstName "Saina" + lastName "Saluja" for "saina saluja").
  */
 async function enrichApplicationSearchOrWithSubmissionFields(
   prisma,
@@ -272,7 +323,23 @@ async function enrichApplicationSearchOrWithSubmissionFields(
   const term = String(search || "").trim();
   if (!term || !Array.isArray(orClauses)) return orClauses || [];
 
-  const ids = await findApplicationIdsBySubmissionFieldSearch(prisma, term);
+  const tokens = searchTokens(term);
+  const idSet = new Set(
+    await findApplicationIdsBySubmissionFieldSearch(prisma, term),
+  );
+
+  if (tokens.length >= 2) {
+    const perTokenIds = await Promise.all(
+      tokens.map((token) =>
+        findApplicationIdsBySubmissionFieldSearch(prisma, token),
+      ),
+    );
+    for (const id of intersectIdLists(perTokenIds)) {
+      idSet.add(id);
+    }
+  }
+
+  const ids = [...idSet];
   if (ids.length) {
     orClauses.push({ id: { in: ids } });
   }

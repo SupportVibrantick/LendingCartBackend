@@ -7,24 +7,33 @@ const {
   sendClientPortalAccessEmail,
 } = require("./clientPortalAccessEmail");
 
+/** Match statuses where brokers can still edit via LoanPreview. */
 const CLIENT_PORTAL_NOTIFY_STATUSES = new Set([
   "CLIENT_PENDING",
   "DRAFT",
   "INCOMPLETE",
+  "SUBMITTED",
+  "IN_REVIEW",
 ]);
 
 const UPDATE_PORTAL_MESSAGE =
   "Your loan application has been updated by your broker. Use the secure link below to access your client portal, review the latest details, upload documents, and continue your application.";
 
+function normalizeEmail(value) {
+  if (typeof value !== "string") return "";
+  return value.trim().toLowerCase();
+}
+
 /**
  * After a broker / LO / co-broker edits an application, email the client a
- * fresh client-portal access link when the loan still needs client action.
+ * fresh client-portal access link.
  */
 async function notifyClientPortalAfterApplicationEdit({
   prisma,
   applicationId,
   brokerOrgId,
   submissionId,
+  fallbackEmail,
   log,
 }) {
   if (!applicationId || !brokerOrgId) {
@@ -58,18 +67,32 @@ async function notifyClientPortalAfterApplicationEdit({
   }
 
   if (!CLIENT_PORTAL_NOTIFY_STATUSES.has(application.status)) {
+    log?.warn?.(
+      { applicationId, status: application.status },
+      "Skipped client portal email after edit (status not eligible)",
+    );
     return { sent: false, reason: "status", status: application.status };
   }
 
   if (!application.clientId || !application.client) {
+    log?.warn?.(
+      { applicationId },
+      "Skipped client portal email after edit (no client)",
+    );
     return { sent: false, reason: "no_client" };
   }
 
-  const clientEmail = resolveClientEmailFromData(
+  const resolvedEmail = resolveClientEmailFromData(
     application.client,
     application.submissions,
   );
+  const clientEmail =
+    normalizeEmail(resolvedEmail) || normalizeEmail(fallbackEmail);
   if (!clientEmail) {
+    log?.warn?.(
+      { applicationId, submissionId },
+      "Skipped client portal email after edit (no email)",
+    );
     return { sent: false, reason: "no_email" };
   }
 
@@ -102,8 +125,9 @@ async function notifyClientPortalAfterApplicationEdit({
       applicationId: application.id,
       submissionId,
       clientEmail,
+      status: application.status,
     },
-    "Client portal access email enqueued after application edit",
+    "Client portal access email sent after application edit",
   );
 
   return { sent: true, clientEmail };
