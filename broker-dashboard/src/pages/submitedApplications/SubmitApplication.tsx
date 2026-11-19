@@ -225,6 +225,7 @@ export default function LoanApplicationsPage() {
     ? initialStatusParam
     : "";
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchRequestIdRef = useRef(0);
   const dropdownRef = useRef<HTMLDivElement | null>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
@@ -749,6 +750,10 @@ export default function LoanApplicationsPage() {
 
   const loadSubmissions = useCallback(
     async (cursor?: string, searchValue?: string, statusValue?: string) => {
+      const requestId = cursor
+        ? searchRequestIdRef.current
+        : ++searchRequestIdRef.current;
+
       try {
         setLoading(true);
 
@@ -773,6 +778,11 @@ export default function LoanApplicationsPage() {
         });
 
         const json = await res.json();
+
+        // Ignore stale responses when a newer search already started.
+        if (requestId !== searchRequestIdRef.current) {
+          return;
+        }
 
         const list = Array.isArray(json.data) ? json.data : [];
 
@@ -812,10 +822,12 @@ export default function LoanApplicationsPage() {
 
         setRows((prev) => (cursor ? [...prev, ...formatted] : formatted));
 
-        setNextCursor(json.pagination.nextCursor);
-        setHasMore(json.pagination.hasMore);
+        setNextCursor(json.pagination?.nextCursor ?? null);
+        setHasMore(Boolean(json.pagination?.hasMore));
       } finally {
-        setLoading(false);
+        if (requestId === searchRequestIdRef.current) {
+          setLoading(false);
+        }
       }
     },
     [searchTerm, statusFilter],
