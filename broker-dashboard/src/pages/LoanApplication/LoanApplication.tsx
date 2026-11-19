@@ -42,7 +42,11 @@ import {
 import { uploadPendingApplicationDocuments } from "../../lib/uploadApplicationDocuments";
 import {
   createResidentialFinancialsDefaults,
+  createEntityAnnualFinancialsDefaults,
   appendResidentialFinancialsSubmission,
+  appendEntityAnnualFinancialsSubmission,
+  detachLegacyEntityAnnualFromFinancials,
+  type EntityAnnualFinancials,
   type ResidentialFinancials,
 } from "../../lib/residentialFinancials";
 import {
@@ -55,7 +59,10 @@ import {
   type RecentlySoldPropertyEntry,
   type ResidentialBorrowerFields,
 } from "../../lib/residentialBorrower";
-import { buildResidentialReviewSections } from "../../lib/residentialReviewHelpers";
+import {
+  buildResidentialReviewSections,
+  type ReviewValidationIssue,
+} from "../../lib/residentialReviewHelpers";
 import { resolveCanonicalLoanProductCode } from "../../lib/canonicalLoanProducts";
 import LoanDateField from "../../components/form/LoanDateField";
 import LoanApplicationStepper from "../../components/loanApplication/LoanApplicationStepper";
@@ -235,6 +242,7 @@ export interface FormDataType {
     equipmentValue: string;
   };
   financials: ResidentialFinancials;
+  entityAnnualFinancials: EntityAnnualFinancials;
   workingWithMortgageBroker: "" | "yes" | "no";
   referringBroker: {
     email: string;
@@ -631,6 +639,8 @@ function getPortalConfig(portal: LoanApplicationPortal, apiBase: string) {
       newApplicationPath: "/loan-officer/loan-application",
       updateIdentityUrl: (clientId: string) =>
         `${apiBase}/loanofficer/borrowers/${clientId}/identity`,
+      checkEmailUrl: (email: string) =>
+        `${apiBase}/loanofficer/borrowers/check-email?email=${encodeURIComponent(email)}`,
       editUrl: (applicationId: string) =>
         `${apiBase}/loanofficer/applications/${applicationId}/edit`,
       loanProductsUrl: `${apiBase}/common/loan-products/loan-product-code`,
@@ -659,6 +669,8 @@ function getPortalConfig(portal: LoanApplicationPortal, apiBase: string) {
       newApplicationPath: "/sub-broker/loan-application",
       updateIdentityUrl: (clientId: string) =>
         `${apiBase}/subbroker/borrowers/${clientId}/identity`,
+      checkEmailUrl: (email: string) =>
+        `${apiBase}/subbroker/borrowers/check-email?email=${encodeURIComponent(email)}`,
       editUrl: (applicationId: string) =>
         `${apiBase}/subbroker/applications/${applicationId}/edit`,
       loanProductsUrl: `${apiBase}/common/loan-products/loan-product-code`,
@@ -686,6 +698,8 @@ function getPortalConfig(portal: LoanApplicationPortal, apiBase: string) {
     newApplicationPath: "/loan-application",
     updateIdentityUrl: (clientId: string) =>
       `${apiBase}/broker/borrowers/${clientId}/identity`,
+    checkEmailUrl: (email: string) =>
+      `${apiBase}/broker/borrowers/check-email?email=${encodeURIComponent(email)}`,
     editUrl: (applicationId: string) =>
       `${apiBase}/broker/applications/${applicationId}/edit`,
     loanProductsUrl: `${apiBase}/common/loan-products/loan-product-code`,
@@ -793,6 +807,102 @@ async function maybeSyncPortalNameAfterSubmit({
     return;
   }
   toast.success("Client portal name updated");
+}
+
+function normalizeBorrowerEmail(email: string | undefined | null) {
+  return String(email || "")
+    .trim()
+    .toLowerCase();
+}
+
+async function confirmReuseExistingClientPortal({
+  token,
+  checkEmailUrl,
+  email,
+}: {
+  token: string;
+  checkEmailUrl: (email: string) => string;
+  email: string;
+}): Promise<"reuse" | "change_email" | "skip"> {
+  const normalized = normalizeBorrowerEmail(email);
+  if (!normalized || !token) return "skip";
+
+  try {
+    const response = await fetch(checkEmailUrl(normalized), {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const json = await response.json().catch(() => ({}));
+    if (!response.ok || json.success !== true || !json?.data?.exists) {
+      return "skip";
+    }
+
+    const clientName = json.data.clientName || "an existing client";
+    const appCount = Number(json.data.applicationCount || 0);
+    const hasPortal = Boolean(json.data.hasPortalUser);
+
+    const decision = await Swal.fire({
+      icon: "warning",
+      title: "Email Already in Use / Existing Client Portal Detected",
+      html: `<div style="text-align:left;font-size:14px;line-height:1.45;color:#334155">
+        <p style="margin:0 0 10px">This email address is already associated with another loan file${
+          hasPortal ? " &amp; an existing Client Portal" : ""
+        }${clientName ? ` (<strong>${escapeHtml(clientName)}</strong>)` : ""}${
+          appCount > 0 ? ` — ${appCount} existing application${appCount === 1 ? "" : "s"}` : ""
+        }.</p>
+        <p style="margin:0 0 8px">Please choose how you would like to proceed:</p>
+        <ul style="margin:0 0 12px;padding-left:18px">
+          <li style="margin-bottom:6px"><strong>Use Same Email:</strong> Continue with this email address. The new loan application will be added to the existing Client Portal.</li>
+          <li><strong>Use Different Email:</strong> Enter a new email address. A separate Client Portal will be created for this loan application.</li>
+        </ul>
+        <p style="margin:0;font-weight:600">How would you like to proceed?</p>
+      </div>`,
+      showCancelButton: true,
+      focusCancel: true,
+      confirmButtonText: "Reuse Existing Client Portal",
+      cancelButtonText: "Enter a Different Email Address",
+      confirmButtonColor: "#13538A",
+      cancelButtonColor: "#64748b",
+      reverseButtons: true,
+      width: 560,
+    });
+
+    return decision.isConfirmed ? "reuse" : "change_email";
+  } catch {
+    return "skip";
+  }
+}
+
+async function confirmPortalEmailUpdate({
+  previousEmail,
+  newEmail,
+}: {
+  previousEmail: string;
+  newEmail: string;
+}): Promise<"confirm" | "cancel"> {
+  const decision = await Swal.fire({
+    icon: "warning",
+    title: "WARNING: CLIENT PORTAL EMAIL UPDATE",
+    html: `<div style="text-align:left;font-size:14px;line-height:1.45;color:#334155">
+      <p style="margin:0 0 10px">You are about to change the login email address for this application.</p>
+      <ul style="margin:0 0 12px;padding-left:18px">
+        <li style="margin-bottom:6px"><strong>Existing Client Portal:</strong> Will remain unchanged.</li>
+        <li style="margin-bottom:6px"><strong>New Email Address:</strong> <span style="color:#0f172a">${escapeHtml(newEmail)}</span> will become the primary login email.</li>
+        <li><strong>Previous Email Address:</strong> <span style="color:#0f172a">${escapeHtml(previousEmail)}</span> will be deactivated and can no longer be used to access the portal.</li>
+      </ul>
+      <p style="margin:0 0 8px">Please review carefully before confirming.</p>
+      <p style="margin:0;font-weight:700">CONFIRM YOUR ACTION</p>
+    </div>`,
+    showCancelButton: true,
+    focusCancel: true,
+    confirmButtonText: "CONFIRM & UPDATE EMAIL",
+    cancelButtonText: "CANCEL – KEEP EXISTING EMAIL",
+    confirmButtonColor: "#15803d",
+    cancelButtonColor: "#b91c1c",
+    reverseButtons: true,
+    width: 560,
+  });
+
+  return decision.isConfirmed ? "confirm" : "cancel";
 }
 
 export type LoanApplicationProps = {
@@ -950,6 +1060,9 @@ const LoanApplication = ({
       Boolean(initialDraftRef.current?.creditAuthorizationConsent),
   );
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [highlightedErrorKey, setHighlightedErrorKey] = useState<string | null>(
+    null,
+  );
   const [pendingDocuments, setPendingDocuments] = useState<
     PendingApplicationDocument[]
   >([]);
@@ -1207,6 +1320,7 @@ const LoanApplication = ({
         ...createSbaEntityDefaults(),
       },
       financials: createResidentialFinancialsDefaults(),
+      entityAnnualFinancials: createEntityAnnualFinancialsDefaults(),
       workingWithMortgageBroker: "",
       referringBroker: {
         email: "",
@@ -1217,12 +1331,26 @@ const LoanApplication = ({
       },
   });
 
+  const normalizeFormFinancials = (data: FormDataType): FormDataType => {
+    const detached = detachLegacyEntityAnnualFromFinancials(
+      data.financials || createResidentialFinancialsDefaults(),
+      data.entityAnnualFinancials || createEntityAnnualFinancialsDefaults(),
+    );
+    return {
+      ...data,
+      financials: detached.financials,
+      entityAnnualFinancials: detached.entityAnnual,
+    };
+  };
+
   const [formData, setFormData] = useState<FormDataType>(() => {
     const blank = createBlankFormData();
-    if (initialFormData) return initialFormData;
+    if (initialFormData) return normalizeFormFinancials(initialFormData);
     const draftForm = initialDraftRef.current?.formData;
     if (draftForm) {
-      return mergeApplicationFormData(blank, draftForm);
+      return normalizeFormFinancials(
+        mergeApplicationFormData(blank, draftForm),
+      );
     }
     return blank;
   });
@@ -1477,7 +1605,11 @@ const LoanApplication = ({
           ...EMPTY_FEE_AGREEMENT_DRAFT,
           ...((draft.feeAgreementDraft as Partial<FeeAgreementDraft>) || {}),
         });
-        setFormData(mergeApplicationFormData(blank, draft.formData));
+        setFormData(
+          normalizeFormFinancials(
+            mergeApplicationFormData(blank, draft.formData),
+          ),
+        );
         lastSavedIncompleteHashRef.current = JSON.stringify({
           applicationId: result.data.applicationId || null,
           loanProductCode: draft.selectedProduct || "",
@@ -1674,6 +1806,15 @@ const LoanApplication = ({
     }));
   };
 
+  const updateEntityAnnualFinancials = (
+    entityAnnualFinancials: EntityAnnualFinancials,
+  ) => {
+    setFormData((prev) => ({
+      ...prev,
+      entityAnnualFinancials,
+    }));
+  };
+
   useEffect(() => {
     return () => {
       pendingDocumentsRef.current.forEach(revokePendingDocumentPreview);
@@ -1750,6 +1891,10 @@ const LoanApplication = ({
         if (!amount || amount <= 0)
           newErrors["loanRequest.amount"] =
             "Requested loan amount must be greater than 0";
+        if (!formData.loanRequest.estimatedClosingDate?.trim()) {
+          newErrors["loanRequest.estimatedClosingDate"] =
+            "Closing date is required";
+        }
         if (
           isLoanRequestPurchaseDateField(selectedProduct, purpose) &&
           !formData.loanRequest.purchaseDate?.trim()
@@ -2003,16 +2148,46 @@ const LoanApplication = ({
     return newErrors;
   };
 
-  const getReviewValidationIssues = (): any[] => {
-    const issues: any[] = [];
-    const add = (label: string, stepIndex: number, missing: boolean) => {
-      if (missing) issues.push({ label, stepIndex });
+  const getReviewValidationIssues = (): ReviewValidationIssue[] => {
+    const issues: ReviewValidationIssue[] = [];
+    const add = (
+      label: string,
+      stepIndex: number,
+      missing: boolean,
+      errorKey?: string,
+      message = "This field is required",
+    ) => {
+      if (missing) issues.push({ label, stepIndex, errorKey, message });
     };
-    add("Loan Category", 0, !selectedCategory);
-    add("Loan Program", 0, !selectedProduct);
-    add("Loan Purpose", 0, !formData.loanRequest.purpose?.trim());
-    add("Loan Amount", 0, toNumber(formData.loanRequest.amount) <= 0);
-    add("Closing Date", 0, !formData.loanRequest.estimatedClosingDate?.trim());
+    add("Loan Category", 0, !selectedCategory, "category", "Category is required");
+    add(
+      "Loan Program",
+      0,
+      !selectedProduct,
+      "selectedProduct",
+      "Program selection is required",
+    );
+    add(
+      "Loan Purpose",
+      0,
+      !formData.loanRequest.purpose?.trim(),
+      "loanRequest.purpose",
+      "Loan purpose is required",
+    );
+    add(
+      "Loan Amount",
+      0,
+      toNumber(formData.loanRequest.amount) <= 0,
+      "loanRequest.amount",
+      "Requested loan amount must be greater than 0",
+    );
+    add(
+      "Closing Date",
+      0,
+      !formData.loanRequest.estimatedClosingDate?.trim(),
+      "loanRequest.estimatedClosingDate",
+      "Closing date is required",
+    );
     const purpose = formData.loanRequest.purpose;
     if (
       selectedProduct &&
@@ -2025,18 +2200,51 @@ const LoanApplication = ({
           : "Purchase Date",
         0,
         true,
+        "loanRequest.purchaseDate",
+        isLoanRequestOriginalPurchaseDate(selectedProduct, purpose)
+          ? "Original purchase date is required"
+          : "Purchase date is required",
       );
     }
-    add("Legal Business / Entity Name", 1, !formData.entity.legalName?.trim());
-    add("Entity Type", 1, !formData.entity.entityType?.trim());
-    add("Formation Date", 1, !formData.entity.formationDate?.trim());
-    add("Years in Business", 1, !formData.entity.yearsInBusiness?.trim());
+    add(
+      "Legal Business / Entity Name",
+      1,
+      !formData.entity.legalName?.trim(),
+      "entity.legalName",
+      "Legal business / entity name is required",
+    );
+    add(
+      "Entity Type",
+      1,
+      !formData.entity.entityType?.trim(),
+      "entity.entityType",
+      "Entity type is required",
+    );
+    add(
+      "Formation Date",
+      1,
+      !formData.entity.formationDate?.trim(),
+      "entity.formationDate",
+      "Formation date is required",
+    );
+    add(
+      "Years in Business",
+      1,
+      !formData.entity.yearsInBusiness?.trim(),
+      "entity.yearsInBusiness",
+      "Years in business is required",
+    );
 
     if (showDefaultPropertyInfoFields) {
-      add("Property Address", 2, !formData.loanRequest.businessAddress?.trim());
-      add("City", 2, !formData.loanRequest.city?.trim());
-      add("State", 2, !formData.loanRequest.state?.trim());
-      add("ZIP", 2, !formData.loanRequest.zip?.trim());
+      add(
+        "Property Address",
+        2,
+        !formData.loanRequest.businessAddress?.trim(),
+        "loanRequest.businessAddress",
+      );
+      add("City", 2, !formData.loanRequest.city?.trim(), "loanRequest.city");
+      add("State", 2, !formData.loanRequest.state?.trim(), "loanRequest.state");
+      add("ZIP", 2, !formData.loanRequest.zip?.trim(), "loanRequest.zip");
     } else if (isSbaUsdaCollateralFlow || isAblCollateralFlow) {
       add(
         isAblCollateralFlow
@@ -2045,11 +2253,22 @@ const LoanApplication = ({
               "Business / Industry Type",
         2,
         !formData.loanRequest.collateralType?.trim(),
+        "loanRequest.collateralType",
       );
     }
     if (useResidentialBorrowerPanel) {
-      add("Date of Birth", 3, !formData.borrower.dob?.trim());
-      add("Borrower Email", 3, !formData.borrower.email?.trim());
+      add(
+        "Date of Birth",
+        3,
+        !formData.borrower.dob?.trim(),
+        "borrower.dob",
+      );
+      add(
+        "Borrower Email",
+        3,
+        !formData.borrower.email?.trim(),
+        "borrower.email",
+      );
       const unanswered = countUnansweredDeclarations(
         formData.borrower.declarations,
       );
@@ -2060,14 +2279,25 @@ const LoanApplication = ({
             : `Declarations (${unanswered} unanswered)`,
           3,
           true,
+          "borrower.declarations",
         );
       }
       formData.coBorrowers.forEach((coBorrower, index) => {
         if (!coBorrower.dob?.trim()) {
-          add(`Co-Borrower ${index + 1} Date of Birth`, 3, true);
+          add(
+            `Co-Borrower ${index + 1} Date of Birth`,
+            3,
+            true,
+            `coBorrowers.${index}.dob`,
+          );
         }
         if (!coBorrower.email?.trim()) {
-          add(`Co-Borrower ${index + 1} Email`, 3, true);
+          add(
+            `Co-Borrower ${index + 1} Email`,
+            3,
+            true,
+            `coBorrowers.${index}.email`,
+          );
         }
         const coUnanswered = countUnansweredDeclarations(
           coBorrower.declarations,
@@ -2079,6 +2309,7 @@ const LoanApplication = ({
               : `Co-Borrower ${index + 1} Declarations (${coUnanswered} unanswered)`,
             3,
             true,
+            `coBorrowers.${index}.declarations`,
           );
         }
       });
@@ -2368,6 +2599,10 @@ const LoanApplication = ({
           formData.financials,
           totalAnnualDebtPayment,
         );
+        appendEntityAnnualFinancialsSubmission(
+          addField,
+          formData.entityAnnualFinancials,
+        );
       } else {
         addField("noiActual", formData.loanTermIncome.noiActual);
         addField("monthlyRent", formData.loanTermIncome.monthlyRent);
@@ -2467,8 +2702,51 @@ const LoanApplication = ({
       };
 
       const token = sessionStorage.getItem(portalConfig.tokenKey);
+      const borrowerEmail = normalizeBorrowerEmail(formData.borrower.email);
+      const originalBorrowerEmail = normalizeBorrowerEmail(
+        initialFormData?.borrower?.email,
+      );
+      const borrowerStepIndex = Math.max(baseSteps.indexOf("Borrower Info"), 0);
 
       if (mode === "update" && editApplicationId) {
+        let updateBorrowerEmail = false;
+        let fieldsForUpdate = payload.fields;
+        if (
+          borrowerEmail &&
+          originalBorrowerEmail &&
+          borrowerEmail !== originalBorrowerEmail
+        ) {
+          const emailDecision = await confirmPortalEmailUpdate({
+            previousEmail: originalBorrowerEmail,
+            newEmail: borrowerEmail,
+          });
+          if (emailDecision === "cancel") {
+            setFormData((prev) => ({
+              ...prev,
+              borrower: {
+                ...prev.borrower,
+                email: initialFormData?.borrower?.email || prev.borrower.email,
+              },
+            }));
+            // Keep existing portal login email; still save other application edits.
+            fieldsForUpdate = payload.fields.map((field) =>
+              field.fieldKey === "email"
+                ? {
+                    ...field,
+                    value:
+                      initialFormData?.borrower?.email ||
+                      originalBorrowerEmail,
+                  }
+                : field,
+            );
+            toast("Existing email kept. Other application changes will still be saved.", {
+              icon: "ℹ️",
+            });
+          } else {
+            updateBorrowerEmail = true;
+          }
+        }
+
         const response = await fetch(portalConfig.editUrl(editApplicationId), {
           method: "PUT",
           headers: {
@@ -2476,8 +2754,15 @@ const LoanApplication = ({
             Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
-            fields: payload.fields,
+            fields: fieldsForUpdate,
             feeAgreement: payload.feeAgreement,
+            ...(updateBorrowerEmail
+              ? {
+                  updateBorrowerEmail: true,
+                  previousBorrowerEmail: originalBorrowerEmail,
+                  newBorrowerEmail: borrowerEmail,
+                }
+              : {}),
           }),
         });
 
@@ -2597,6 +2882,21 @@ const LoanApplication = ({
         discardSavedDraft();
         onPublicSubmitSuccess?.(result?.data?.submissionId);
         return;
+      }
+
+      if (borrowerEmail && token && portalConfig.checkEmailUrl) {
+        const reuseDecision = await confirmReuseExistingClientPortal({
+          token,
+          checkEmailUrl: portalConfig.checkEmailUrl,
+          email: borrowerEmail,
+        });
+        if (reuseDecision === "change_email") {
+          goToStep(borrowerStepIndex);
+          toast("Enter a different borrower email to continue.", {
+            icon: "ℹ️",
+          });
+          return;
+        }
       }
 
       const response = await fetch(portalConfig.submitUrl, {
@@ -3005,8 +3305,14 @@ const LoanApplication = ({
     }
   };
 
-  const goToStep = async (stepIndex: number) => {
-    setErrors({});
+  const goToStep = async (
+    stepIndex: number,
+    options?: { clearErrors?: boolean },
+  ) => {
+    if (options?.clearErrors !== false) {
+      setErrors({});
+      setHighlightedErrorKey(null);
+    }
 
     if (backendDraftEnabled) {
       try {
@@ -3030,6 +3336,98 @@ const LoanApplication = ({
     } else {
       setActiveSectionIndex(null);
     }
+  };
+
+  const goToReviewIssue = async (issue: ReviewValidationIssue) => {
+    const stepErrors = {
+      ...collectStepValidationErrors(issue.stepIndex),
+    };
+    if (issue.errorKey) {
+      stepErrors[issue.errorKey] =
+        issue.message || stepErrors[issue.errorKey] || "This field is required";
+    }
+
+    await goToStep(issue.stepIndex, { clearErrors: false });
+    setErrors(stepErrors);
+    setHighlightedErrorKey(issue.errorKey || null);
+
+    window.setTimeout(() => {
+      const key = issue.errorKey;
+      let el: HTMLElement | null = null;
+      if (key) {
+        el = document.querySelector(
+          `[data-field="${CSS.escape(key)}"]`,
+        ) as HTMLElement | null;
+      }
+      if (!el) {
+        el = document.querySelector(
+          "input.border-red-500, select.border-red-500, textarea.border-red-500, [data-field].ring-red-500",
+        ) as HTMLElement | null;
+      }
+      el?.scrollIntoView({ behavior: "smooth", block: "center" });
+      const focusable = (
+        el?.matches?.("input, select, textarea, button")
+          ? el
+          : el?.querySelector(
+              "input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled])",
+            )
+      ) as HTMLElement | null;
+      focusable?.focus?.({ preventScroll: true });
+    }, 180);
+
+    if (issue.errorKey) {
+      window.setTimeout(() => {
+        setHighlightedErrorKey((current) =>
+          current === issue.errorKey ? null : current,
+        );
+      }, 4500);
+    }
+  };
+
+  const handleReviewEditStep = (
+    stepIndex: number,
+    issue?: ReviewValidationIssue,
+  ) => {
+    if (issue) {
+      void goToReviewIssue(issue);
+      return;
+    }
+    // Accordion "Edit": jump to step and highlight every missing field there.
+    void (async () => {
+      const stepErrors = collectStepValidationErrors(stepIndex);
+      await goToStep(stepIndex, { clearErrors: false });
+      setErrors(stepErrors);
+      const firstKey = Object.keys(stepErrors)[0] || null;
+      setHighlightedErrorKey(firstKey);
+      window.setTimeout(() => {
+        const el = firstKey
+          ? (document.querySelector(
+              `[data-field="${CSS.escape(firstKey)}"]`,
+            ) as HTMLElement | null)
+          : (document.querySelector(
+              "input.border-red-500, select.border-red-500, textarea.border-red-500",
+            ) as HTMLElement | null);
+        el?.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 180);
+      if (firstKey) {
+        window.setTimeout(() => {
+          setHighlightedErrorKey((current) =>
+            current === firstKey ? null : current,
+          );
+        }, 4500);
+      }
+    })();
+  };
+
+  const fieldErrorClass = (key: string, extraWhenError = "") => {
+    const hasError = Boolean(errors[key]);
+    const isHighlighted = highlightedErrorKey === key;
+    return [
+      hasError ? `border-red-500 bg-red-50 ${extraWhenError}`.trim() : "",
+      isHighlighted ? "ring-2 ring-red-500 ring-offset-1" : "",
+    ]
+      .filter(Boolean)
+      .join(" ");
   };
 
   const handleStepClick = (index: number) => {
@@ -3898,10 +4296,24 @@ rounded-2xl p-6 shadow-sm
               </h3>
 
               {/* ================= LOAN CATEGORY ================= */}
-              <div className="mb-6">
+              <div
+                className={`mb-6 rounded-xl p-1 ${
+                  errors["category"]
+                    ? "border border-red-500 bg-red-50/70 dark:bg-red-900/10"
+                    : ""
+                } ${
+                  highlightedErrorKey === "category"
+                    ? "ring-2 ring-red-500 ring-offset-1"
+                    : ""
+                }`}
+                data-field="category"
+              >
                 <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-3">
                   Select a Loan Category <span className="text-red-500">*</span>
                 </label>
+                {errors["category"] ? (
+                  <p className="mb-2 text-xs text-red-500">{errors["category"]}</p>
+                ) : null}
 
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   {categories.map((category: LoanCategory) => {
@@ -4020,15 +4432,14 @@ rounded-2xl p-6 shadow-sm
                       setDynamicSections([]);
                       setActiveSectionIndex(null);
                     }}
+                    data-field="selectedProduct"
                     className={`w-full px-4 py-1 rounded-md border
 border-slate-300 dark:border-slate-600
 bg-white dark:bg-slate-900
 text-slate-800 dark:text-slate-200
 focus:ring-2 focus:ring-blue-500/20
 focus:border-blue-500 outline-none text-sm disabled:cursor-not-allowed disabled:opacity-60 disabled:bg-slate-100 dark:disabled:bg-slate-800 ${
-                      errors["selectedProduct"]
-                        ? "border-red-500 bg-red-50"
-                        : "border-slate-300"
+                      fieldErrorClass("selectedProduct") || "border-slate-300"
                     }
   bg-white focus:ring-2 focus:ring-blue-500/20 
   focus:border-blue-500 outline-none transition text-sm`}
@@ -4073,6 +4484,7 @@ focus:border-blue-500 outline-none text-sm disabled:cursor-not-allowed disabled:
                         Loan Purpose <span className="text-red-500">*</span>
                       </label>
                       <select
+                        data-field="loanRequest.purpose"
                         value={formData.loanRequest.purpose}
                         onChange={(e) => {
                           const purpose = e.target.value;
@@ -4113,9 +4525,8 @@ bg-white dark:bg-slate-900
 text-slate-800 dark:text-slate-200
 focus:ring-2 focus:ring-blue-500/20
 focus:border-blue-500 outline-none text-sm ${
-                          errors["loanRequest.purpose"]
-                            ? "border-red-500 bg-red-50"
-                            : "border-slate-300"
+                          fieldErrorClass("loanRequest.purpose") ||
+                          "border-slate-300"
                         }`}
                       >
                         <option value="">Select purpose</option>
@@ -4316,6 +4727,7 @@ focus:border-blue-500 outline-none text-sm ${
                           $
                         </span>
                         <input
+                          data-field="loanRequest.amount"
                           type="text"
                           inputMode="numeric"
                           value={formData.loanRequest.amount}
@@ -4325,9 +4737,8 @@ focus:border-blue-500 outline-none text-sm ${
                           }}
                           placeholder="0"
                           className={`w-full pl-7 pr-4 py-1 rounded-md border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
-                            errors["loanRequest.amount"]
-                              ? "border-red-500 bg-red-50"
-                              : "border-slate-300"
+                            fieldErrorClass("loanRequest.amount") ||
+                            "border-slate-300"
                           } focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-sm`}
                         />
                       </div>
@@ -4338,9 +4749,10 @@ focus:border-blue-500 outline-none text-sm ${
                       )}
                     </div>
                     {/* Estimated Closing Date */}
-                    <div>
+                    <div data-field="loanRequest.estimatedClosingDate">
                       <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">
-                        Estimated Closing Date
+                        Estimated Closing Date{" "}
+                        <span className="text-red-500">*</span>
                       </label>
                       <LoanDateField
                         disablePastDates
@@ -4348,7 +4760,21 @@ focus:border-blue-500 outline-none text-sm ${
                         onChange={(val) =>
                           updateLoanRequest("estimatedClosingDate", val)
                         }
+                        hasError={Boolean(
+                          errors["loanRequest.estimatedClosingDate"],
+                        )}
+                        className={
+                          highlightedErrorKey ===
+                          "loanRequest.estimatedClosingDate"
+                            ? "ring-2 ring-red-500 ring-offset-1"
+                            : ""
+                        }
                       />
+                      {errors["loanRequest.estimatedClosingDate"] ? (
+                        <p className="mt-1 text-xs text-red-500">
+                          {errors["loanRequest.estimatedClosingDate"]}
+                        </p>
+                      ) : null}
                     </div>
                     {/* Expected Interest Rate */}
                     <div>
@@ -5064,13 +5490,12 @@ focus:border-blue-500 outline-none text-sm ${
                   </label>
 
                   <input
+                    data-field="entity.legalName"
                     value={formData.entity.legalName}
                     onChange={(e) => updateEntity("legalName", e.target.value)}
                     placeholder="ABC Holdings LLC"
                     className={`mt-1 w-full rounded-md border px-4 py-1 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
-                      errors["entity.legalName"]
-                        ? "border-red-500 bg-red-50"
-                        : "border-slate-300"
+                      fieldErrorClass("entity.legalName") || "border-slate-300"
                     }`}
                   />
 
@@ -5087,12 +5512,11 @@ focus:border-blue-500 outline-none text-sm ${
                   </label>
 
                   <select
+                    data-field="entity.entityType"
                     value={formData.entity.entityType}
                     onChange={(e) => updateEntity("entityType", e.target.value)}
                     className={`mt-1 w-full rounded-md border px-4 py-1 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
-                      errors["entity.entityType"]
-                        ? "border-red-500 bg-red-50"
-                        : "border-slate-300"
+                      fieldErrorClass("entity.entityType") || "border-slate-300"
                     }`}
                   >
                     <option value="">Select</option>
@@ -5129,15 +5553,18 @@ focus:border-blue-500 outline-none text-sm ${
                     <span className="text-red-500">*</span>
                   </label>
 
-                  <LoanDateField
-                    value={formData.entity.formationDate}
-                    onChange={(val) => updateEntity("formationDate", val)}
-                    className={`mt-1 ${
-                      errors["entity.formationDate"]
-                        ? "border-red-500 bg-red-50"
-                        : ""
-                    }`}
-                  />
+                  <div data-field="entity.formationDate">
+                    <LoanDateField
+                      value={formData.entity.formationDate}
+                      onChange={(val) => updateEntity("formationDate", val)}
+                      hasError={Boolean(errors["entity.formationDate"])}
+                      className={
+                        highlightedErrorKey === "entity.formationDate"
+                          ? "ring-2 ring-red-500 ring-offset-1"
+                          : ""
+                      }
+                    />
+                  </div>
 
                   {errors["entity.formationDate"] && (
                     <p className="mt-1 text-xs text-red-500">
@@ -5152,6 +5579,7 @@ focus:border-blue-500 outline-none text-sm ${
                   </label>
 
                   <input
+                    data-field="entity.yearsInBusiness"
                     type="number"
                     min={0}
                     value={formData.entity.yearsInBusiness}
@@ -5160,9 +5588,8 @@ focus:border-blue-500 outline-none text-sm ${
                     }
                     placeholder="0"
                     className={`mt-1 w-full rounded-md border px-4 py-1 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
-                      errors["entity.yearsInBusiness"]
-                        ? "border-red-500 bg-red-50"
-                        : "border-slate-300"
+                      fieldErrorClass("entity.yearsInBusiness") ||
+                      "border-slate-300"
                     }`}
                   />
 
@@ -5177,9 +5604,9 @@ focus:border-blue-500 outline-none text-sm ${
               {!showDefaultEntityInfoFields && isSba7aBase44Flow && (
                 <Sba7aEntityFields
                   entity={formData.entity}
-                  financials={formData.financials}
+                  entityAnnualFinancials={formData.entityAnnualFinancials}
                   onEntityChange={updateEntity}
-                  onFinancialsChange={updateFinancials}
+                  onEntityAnnualFinancialsChange={updateEntityAnnualFinancials}
                   errors={errors}
                   formatCurrency={formatCurrency}
                 />
@@ -5188,11 +5615,11 @@ focus:border-blue-500 outline-none text-sm ${
               {!showDefaultEntityInfoFields && isAblBase44Flow && (
                 <AblEntityFields
                   ebitdaWithNoi={formData.entity.ebitdaWithNoi}
-                  financials={formData.financials}
+                  entityAnnualFinancials={formData.entityAnnualFinancials}
                   onEbitdaChange={(value) =>
                     updateEntity("ebitdaWithNoi", value)
                   }
-                  onFinancialsChange={updateFinancials}
+                  onEntityAnnualFinancialsChange={updateEntityAnnualFinancials}
                   formatCurrency={formatCurrency}
                 />
               )}
@@ -7670,7 +8097,7 @@ focus:border-blue-500 outline-none text-sm ${
                 sections={reviewSections}
                 issues={reviewValidationIssues}
                 documents={pendingDocuments}
-                onEditStep={goToStep}
+                onEditStep={handleReviewEditStep}
                 onSubmit={handleReviewSubmit}
                 submitting={submitting}
                 requireCaptcha={publicEmbed}

@@ -487,7 +487,7 @@ export default function LoanPipeline() {
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
               value={searchTerm}
-              placeholder="Search borrower, app #, broker..."
+              placeholder="Search name, email, phone, app #, address, entity, SSN..."
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-9 text-sm outline-none transition placeholder:text-slate-400 focus:border-[#13538A] focus:ring-2 focus:ring-[#13538A]/15 dark:border-slate-700 dark:bg-slate-900"
             />

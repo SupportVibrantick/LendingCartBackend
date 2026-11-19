@@ -6,6 +6,9 @@ const {
   buildBrokerPipelineApplicationStatusWhere,
   resolveBrokerPipelineDisplayStatus,
 } = require("../../../utils/applications/resolveApplicationStatus");
+const {
+  buildEnrichedApplicationSearchWhere,
+} = require("../../../services/applications/loanApplicationSearch");
 
 async function getApplicationsRoute(fastify, options) {
   fastify.get(
@@ -34,39 +37,6 @@ async function getApplicationsRoute(fastify, options) {
 
         const skip = Math.max(0, (page - 1) * limit);
 
-        /* ===============================
-           VALID ENUMS
-        =============================== */
-
-        const validLoanProducts = [
-          "PURCHASE_ORDER_FINANCE",
-
-          "SBA_7A_EQUIPMENT_PURCHASE",
-
-          "SBA_504_REAL_ESTATE_EQUIPMENT",
-
-          "WORKING_CAPITAL",
-
-          "TERM_LOAN",
-
-          "LINE_OF_CREDIT",
-        ];
-
-        const validLoanApplicationStatuses = [
-          "DRAFT",
-          "SUBMITTED",
-          "IN_REVIEW",
-          "AUTO_APPROVED",
-          "AUTO_DECLINED",
-          "LENDER_SELECTED",
-          "LENDER_APPROVED",
-          "LENDER_DECLINED",
-          "FUNDED",
-          "WITHDRAWN",
-          "CLIENT_PENDING",
-          "SUSPENDED",
-        ];
-
         const pipelineStatusFilters = [
           "DRAFT",
           "SUBMITTED",
@@ -80,73 +50,13 @@ async function getApplicationsRoute(fastify, options) {
    SEARCH FILTER
 =============================== */
 
-        const OR = [];
-
-        if (search) {
-          const upperSearch = search.toUpperCase();
-
-          /* APPLICATION NUMBER */
-          OR.push({
-            applicationNumber: {
-              contains: search,
-              mode: "insensitive",
-            },
-          });
-
-          /* PURPOSE */
-          OR.push({
-            purpose: {
-              contains: search,
-              mode: "insensitive",
-            },
-          });
-
-          /* CLIENT LEGAL NAME */
-          OR.push({
-            client: {
-              is: {
-                legalName: {
-                  contains: search,
-                  mode: "insensitive",
-                },
-              },
-            },
-          });
-
-          /* LOAN PRODUCT ENUM */
-          if (validLoanProducts.includes(upperSearch)) {
-            OR.push({
-              loanProductCode: upperSearch,
-            });
-          }
-
-          /* STATUS ENUM */
-          if (validLoanApplicationStatuses.includes(upperSearch)) {
-            OR.push({
-              status: upperSearch,
-            });
-          }
-
-          if (upperSearch === "APPROVED" || upperSearch === "DECLINED") {
-            OR.push(buildBrokerPipelineApplicationStatusWhere(upperSearch));
-          }
-
-          /* SEARCH INSIDE FIELD KEYS */
-
-          OR.push({
-            submissions: {
-              some: {
-                fields: {
-                  some: {
-                    fieldKey: {
-                      contains: search,
-                    },
-                  },
-                },
-              },
-            },
-          });
-        }
+        const OR = search
+          ? await buildEnrichedApplicationSearchWhere(prisma, search, {
+              includeBorrower: true,
+              includeAssignedStaff: true,
+              includeSubmissionFields: true,
+            })
+          : [];
 
         /* ===============================
            WHERE

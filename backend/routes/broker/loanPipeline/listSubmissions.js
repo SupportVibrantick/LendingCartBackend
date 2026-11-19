@@ -9,6 +9,9 @@ const {
 const {
   officerAssignedApplicationWhere,
 } = require("../../../services/broker/loanOfficerAccess");
+const {
+  buildEnrichedApplicationSearchWhere,
+} = require("../../../services/applications/loanApplicationSearch");
 
 module.exports = async function listSubmissionsTable(fastify) {
   fastify.get(
@@ -58,6 +61,14 @@ module.exports = async function listSubmissionsTable(fastify) {
         /* ================= WHERE ================= */
 
         const statusFilter = buildBrokerPipelineApplicationStatusWhere(status);
+        const searchTerm = search?.trim();
+        const searchOr = searchTerm
+          ? await buildEnrichedApplicationSearchWhere(prisma, searchTerm, {
+              includeBorrower: true,
+              includeAssignedStaff: true,
+              includeSubmissionFields: true,
+            })
+          : [];
 
         const whereCondition = {
           status: {
@@ -80,11 +91,7 @@ module.exports = async function listSubmissionsTable(fastify) {
               },
             }),
 
-            ...(search?.trim() && {
-              OR: [
-                // existing search conditions
-              ],
-            }),
+            ...(searchOr.length > 0 && { OR: searchOr }),
           },
         };
 

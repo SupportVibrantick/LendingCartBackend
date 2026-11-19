@@ -81,63 +81,25 @@ function resolveBorrowerEntityType(app) {
   );
 }
 
-function buildSearchWhere(search) {
-  if (!search) return {};
+const {
+  buildEnrichedApplicationSearchWhere,
+} = require("../../../services/applications/loanApplicationSearch");
+
+async function buildSearchWhere(prisma, search) {
+  const term = String(search || "").trim();
+  if (!term) return {};
+
+  const or = await buildEnrichedApplicationSearchWhere(prisma, term, {
+    includeBorrower: true,
+    includeBrokerOrg: true,
+    includeSubmissionFields: true,
+  });
+
+  if (!or.length) return {};
 
   return {
     loanApplication: {
-      OR: [
-        {
-          applicationNumber: {
-            contains: search,
-            mode: "insensitive",
-          },
-        },
-        {
-          client: {
-            is: {
-              OR: [
-                {
-                  legalName: {
-                    contains: search,
-                    mode: "insensitive",
-                  },
-                },
-                {
-                  contacts: {
-                    some: {
-                      OR: [
-                        {
-                          firstName: {
-                            contains: search,
-                            mode: "insensitive",
-                          },
-                        },
-                        {
-                          lastName: {
-                            contains: search,
-                            mode: "insensitive",
-                          },
-                        },
-                      ],
-                    },
-                  },
-                },
-              ],
-            },
-          },
-        },
-        {
-          brokerOrg: {
-            is: {
-              name: {
-                contains: search,
-                mode: "insensitive",
-              },
-            },
-          },
-        },
-      ],
+      OR: or,
     },
   };
 }
@@ -338,7 +300,7 @@ async function listSubmittedApplications(fastify) {
 
         const baseWhere = {
           lenderOrgId,
-          ...buildSearchWhere(search || null),
+          ...(await buildSearchWhere(prisma, search || null)),
         };
 
         let total;

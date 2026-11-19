@@ -119,6 +119,97 @@ export const createResidentialFinancialsDefaults = (): ResidentialFinancials => 
   exitStrategy: "",
 });
 
+/** Step 2 Existing Entity annuals — independent from Step 5 subject-business financials. */
+export interface EntityAnnualFinancials {
+  financialYearColumnCount: number;
+  grossRevenue: YearValues;
+  netIncome: YearValues;
+}
+
+export const createEntityAnnualFinancialsDefaults =
+  (): EntityAnnualFinancials => ({
+    financialYearColumnCount: DEFAULT_FINANCIAL_YEAR_COLUMN_COUNT,
+    grossRevenue: createEmptyYearValues(),
+    netIncome: createEmptyYearValues(),
+  });
+
+const yearValuesHaveData = (values: YearValues) =>
+  Object.values(values || {}).some((value) => String(value || "").trim() !== "");
+
+/**
+ * Older apps stored Existing Entity annuals in financials.grossRevenue / noiOverride.
+ * Move those into entityAnnualFinancials when Step 5 subject-business inputs are empty.
+ */
+export const detachLegacyEntityAnnualFromFinancials = (
+  financials: ResidentialFinancials,
+  entityAnnual: EntityAnnualFinancials = createEntityAnnualFinancialsDefaults(),
+): {
+  financials: ResidentialFinancials;
+  entityAnnual: EntityAnnualFinancials;
+} => {
+  const entityAlreadyHasData =
+    yearValuesHaveData(entityAnnual.grossRevenue) ||
+    yearValuesHaveData(entityAnnual.netIncome);
+
+  const hasSubjectBusinessInput = [
+    ...ANNUAL_FINANCIAL_EDITABLE_ROWS.map(({ key }) => financials[key]),
+    financials.effectiveGrossIncomeOverride,
+    financials.cashFlowAfterDebtOverride,
+  ].some(yearValuesHaveData);
+
+  const hasLegacyEntityValues =
+    yearValuesHaveData(financials.grossRevenue) ||
+    yearValuesHaveData(financials.noiOverride);
+
+  if (entityAlreadyHasData || !hasLegacyEntityValues || hasSubjectBusinessInput) {
+    return { financials, entityAnnual };
+  }
+
+  const columnCount = Math.max(
+    financials.financialYearColumnCount || DEFAULT_FINANCIAL_YEAR_COLUMN_COUNT,
+    entityAnnual.financialYearColumnCount || DEFAULT_FINANCIAL_YEAR_COLUMN_COUNT,
+  );
+
+  return {
+    financials: {
+      ...financials,
+      grossRevenue: createEmptyYearValues(columnCount),
+      noiOverride: createEmptyYearValues(columnCount),
+    },
+    entityAnnual: {
+      financialYearColumnCount: columnCount,
+      grossRevenue: { ...financials.grossRevenue },
+      netIncome: { ...financials.noiOverride },
+    },
+  };
+};
+
+export const appendEntityAnnualFinancialsSubmission = (
+  addField: (key: string, value: unknown) => void,
+  entityAnnual: EntityAnnualFinancials,
+) => {
+  const columnCount =
+    entityAnnual.financialYearColumnCount || DEFAULT_FINANCIAL_YEAR_COLUMN_COUNT;
+  const columnKeys = getFinancialYearColumnKeys(columnCount);
+
+  addField("entityAnnualYearColumnCount", columnCount);
+  columnKeys.forEach((column) => {
+    const gross = String(entityAnnual.grossRevenue[column] || "").trim();
+    const net = String(entityAnnual.netIncome[column] || "").trim();
+    if (gross) {
+      addField(`entityAnnual_grossRevenue_${column}`, parseAmount(gross));
+    }
+    if (net) {
+      addField(`entityAnnual_netIncome_${column}`, parseAmount(net));
+    }
+  });
+
+  const grossActual = String(entityAnnual.grossRevenue.col0 || "").trim();
+  if (grossActual) {
+    addField("grossRevenueActual", parseAmount(grossActual));
+  }
+};
+
 const appendYearColumn = (
   financials: ResidentialFinancials,
   column: FinancialYearColumn,

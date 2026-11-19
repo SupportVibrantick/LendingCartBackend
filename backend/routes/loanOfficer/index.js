@@ -14,6 +14,9 @@ async function loanOfficerRoutes(fastify) {
   await fastify.register(require("../broker/borrowers/updateIdentity"), {
     prefix: "/borrowers",
   });
+  await fastify.register(require("../broker/borrowers/checkEmail"), {
+    prefix: "/borrowers",
+  });
   await fastify.register(async function loanOfficerSignFormTemplates(instance) {
     const { registerOfficerRouteGuards } = require("../../services/broker/loanOfficerAccess");
     registerOfficerRouteGuards(instance, "DOCUMENTS_TO_SIGN");

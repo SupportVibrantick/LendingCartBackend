@@ -901,7 +901,7 @@ export default function LoanApplicationsPage() {
               <div className="relative min-w-0 flex-1">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#13538A]/60" />
                 <input
-                  placeholder="Search borrower, app no., officer..."
+                  placeholder="Search name, email, phone, app #, address, entity, SSN..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="h-10 w-full rounded-xl border border-[#13538A]/20 bg-[#13538A]/[0.03] pl-10 pr-10 text-sm outline-none transition focus:border-[#13538A] focus:bg-white focus:ring-2 focus:ring-[#13538A]/15 dark:border-[#13538A]/30 dark:bg-gray-950 dark:text-gray-100"

@@ -28,6 +28,9 @@ export type ReviewSummarySection = {
 export type ReviewValidationIssue = {
   label: string;
   stepIndex: number;
+  /** Form error key used to highlight the field after "Go to Step". */
+  errorKey?: string;
+  message?: string;
 };
 
 const displayValue = (value: string | undefined | null, fallback = "—") =>
@@ -198,19 +201,28 @@ export const buildResidentialReviewSections = ({
 
   const equipmentUsesVendorLabels =
     isEquipmentLoan && !loanRequest.privateSale;
+  const usesAgentLabels = !isEquipmentLoan && !loanRequest.privateSale;
+  const salePartyNameLabel = equipmentUsesVendorLabels
+    ? "Vendor/Dealer Name"
+    : usesAgentLabels
+      ? "Real Estate Agent Name"
+      : "Seller name";
+  const salePartyPhoneLabel = equipmentUsesVendorLabels
+    ? "Vendor/Dealer Phone"
+    : usesAgentLabels
+      ? "Real Estate Agent Phone"
+      : "Seller Phone";
 
   if (loanRequest.vendorName?.trim()) {
     propertyRows.push({
-      label: equipmentUsesVendorLabels ? "Vendor/Dealer Name" : "Seller name",
+      label: salePartyNameLabel,
       value: loanRequest.vendorName.trim(),
     });
   }
 
   if (loanRequest.vendorPhone?.trim()) {
     propertyRows.push({
-      label: equipmentUsesVendorLabels
-        ? "Vendor/Dealer Phone"
-        : "Seller Phone",
+      label: salePartyPhoneLabel,
       value: loanRequest.vendorPhone.trim(),
     });
   }

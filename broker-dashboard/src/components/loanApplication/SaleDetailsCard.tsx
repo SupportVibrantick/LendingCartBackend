@@ -7,15 +7,15 @@ type SaleDetailsCardProps = {
   onVendorPhoneChange: (value: string) => void;
   formatUSPhone: (value: string) => string;
   /**
-   * Equipment loans: Private Sale ON → Seller; OFF → Vendor/Dealer.
-   * Other programs keep Seller labels regardless of the toggle.
+   * Equipment: Private Sale ON → Seller; OFF → Vendor/Dealer.
+   * Non-equipment: Private Sale ON → Seller; OFF → Real Estate Agent.
    */
   isEquipmentLoan?: boolean;
 };
 
 /**
  * Sale Details card for the Property / Collateral Info step.
- * Captures a private-sale flag plus seller or vendor/dealer name & phone.
+ * Captures a private-sale flag plus seller / vendor / real-estate-agent name & phone.
  */
 export default function SaleDetailsCard({
   privateSale,
@@ -28,11 +28,22 @@ export default function SaleDetailsCard({
   isEquipmentLoan = false,
 }: SaleDetailsCardProps) {
   const useVendorLabels = isEquipmentLoan && !privateSale;
-  const nameLabel = useVendorLabels ? "Vendor/Dealer Name" : "Seller name";
+  const useAgentLabels = !isEquipmentLoan && !privateSale;
+  const nameLabel = useVendorLabels
+    ? "Vendor/Dealer Name"
+    : useAgentLabels
+      ? "Real Estate Agent Name"
+      : "Seller name";
   const namePlaceholder = useVendorLabels
     ? "Vendor/Dealer name"
-    : "Seller name";
-  const phoneLabel = useVendorLabels ? "Vendor/Dealer Phone" : "Seller Phone";
+    : useAgentLabels
+      ? "Real Estate Agent name"
+      : "Seller name";
+  const phoneLabel = useVendorLabels
+    ? "Vendor/Dealer Phone"
+    : useAgentLabels
+      ? "Real Estate Agent Phone"
+      : "Seller Phone";
 
   return (
     <div className="mt-5 rounded-lg border border-slate-200 bg-slate-50/60 p-4 dark:border-slate-700 dark:bg-slate-900/40">

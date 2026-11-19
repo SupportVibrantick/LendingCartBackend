@@ -2,15 +2,15 @@ import {
   getFinancialYearColumnKeys,
   formatCurrencyInput,
   getFinancialYearColumns,
+  type EntityAnnualFinancials,
   type FinancialYearColumn,
-  type ResidentialFinancials,
 } from "../../lib/residentialFinancials";
 
 type AblEntityFieldsProps = {
   ebitdaWithNoi: string;
-  financials: ResidentialFinancials;
+  entityAnnualFinancials: EntityAnnualFinancials;
   onEbitdaChange: (value: string) => void;
-  onFinancialsChange: (financials: ResidentialFinancials) => void;
+  onEntityAnnualFinancialsChange: (financials: EntityAnnualFinancials) => void;
   formatCurrency: (value: string) => string;
 };
 
@@ -38,28 +38,28 @@ const CurrencyInput = ({
 
 export default function AblEntityFields({
   ebitdaWithNoi,
-  financials,
+  entityAnnualFinancials,
   onEbitdaChange,
-  onFinancialsChange,
+  onEntityAnnualFinancialsChange,
   formatCurrency,
 }: AblEntityFieldsProps) {
   const yearColumns = getFinancialYearColumns(
     undefined,
-    financials.financialYearColumnCount,
+    entityAnnualFinancials.financialYearColumnCount,
   );
   const columnKeys = getFinancialYearColumnKeys(
-    financials.financialYearColumnCount,
+    entityAnnualFinancials.financialYearColumnCount,
   );
 
   const patchYearValue = (
-    key: "grossRevenue" | "noiOverride",
+    key: "grossRevenue" | "netIncome",
     column: FinancialYearColumn,
     value: string,
   ) => {
-    onFinancialsChange({
-      ...financials,
+    onEntityAnnualFinancialsChange({
+      ...entityAnnualFinancials,
       [key]: {
-        ...financials[key],
+        ...entityAnnualFinancials[key],
         [column]: value,
       },
     });
@@ -91,7 +91,7 @@ export default function AblEntityFields({
       </div>
 
       <p className="mb-3 mt-6 text-xs font-semibold uppercase tracking-wide text-slate-500">
-        Annual Financials
+        Annual Financials (Existing Entity)
       </p>
 
       <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700">
@@ -119,8 +119,10 @@ export default function AblEntityFields({
               {columnKeys.map((column) => (
                 <td key={column} className="px-4 py-2">
                   <CurrencyInput
-                    value={financials.grossRevenue[column] ?? ""}
-                    onChange={(value) => patchYearValue("grossRevenue", column, value)}
+                    value={entityAnnualFinancials.grossRevenue[column] ?? ""}
+                    onChange={(value) =>
+                      patchYearValue("grossRevenue", column, value)
+                    }
                   />
                 </td>
               ))}
@@ -132,8 +134,10 @@ export default function AblEntityFields({
               {columnKeys.map((column) => (
                 <td key={column} className="px-4 py-2">
                   <CurrencyInput
-                    value={financials.noiOverride[column] ?? ""}
-                    onChange={(value) => patchYearValue("noiOverride", column, value)}
+                    value={entityAnnualFinancials.netIncome[column] ?? ""}
+                    onChange={(value) =>
+                      patchYearValue("netIncome", column, value)
+                    }
                   />
                 </td>
               ))}
