@@ -249,7 +249,14 @@ export default function ClientSubmissionDetailsView({
   sectionsOnly = false,
   hideSignature = false,
 }: ClientSubmissionDetailsViewProps) {
-  const { sections, signatureField } = groupSubmissionFieldsForDisplay(fields);
+  const preferredEmail =
+    application?.clientEmail ||
+    application?.borrower?.email ||
+    application?.email ||
+    null;
+  const { sections, signatureField } = groupSubmissionFieldsForDisplay(fields, {
+    preferredEmail,
+  });
   const [searchQuery, setSearchQuery] = useState("");
   const loanProductCode =
     application?.loanProductCode ||
