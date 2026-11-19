@@ -15,6 +15,12 @@ const {
 const {
   buildLoanApplicationSyncFromFields,
 } = require("../../../utils/applications/resolveRequestedAmount");
+const {
+  notifyClientPortalAfterApplicationEdit,
+} = require("../../../services/emails/notifyClientPortalAfterEdit");
+const {
+  changeBorrowerPortalEmail,
+} = require("../../../services/clientPortal/changeBorrowerPortalEmail");
 
 async function editSubmittedApplication(fastify) {
   fastify.put("/:applicationId/edit", {
@@ -30,7 +36,12 @@ async function editSubmittedApplication(fastify) {
       const brokerOrgId = req.user.organizationId;
       const userId = getUserId(req);
       const { applicationId } = req.params;
-      const { fields } = req.body;
+      const {
+        fields,
+        updateBorrowerEmail,
+        previousBorrowerEmail,
+        newBorrowerEmail,
+      } = req.body || {};
 
       if (!applicationId) {
         return reply.code(400).send({ success: false, message: "Application ID is required" });
@@ -136,12 +147,67 @@ async function editSubmittedApplication(fastify) {
         req.body,
       );
 
+      let portalEmailWarning = null;
+      if (updateBorrowerEmail) {
+        try {
+          const fieldEmail =
+            newBorrowerEmail ||
+            fields.find((f) => f?.fieldKey === "email")?.value;
+          await changeBorrowerPortalEmail(prisma, {
+            brokerOrgId,
+            loanApplicationId: applicationId,
+            newEmail: fieldEmail,
+            previousEmail: previousBorrowerEmail,
+          });
+        } catch (emailChangeErr) {
+          portalEmailWarning =
+            emailChangeErr.message ||
+            "Application updated but client portal email could not be changed";
+          fastify.log.error(
+            {
+              error: emailChangeErr.message,
+              applicationId,
+            },
+            "Failed to change borrower portal email after LO application edit",
+          );
+        }
+      }
+
+      try {
+        await notifyClientPortalAfterApplicationEdit({
+          prisma,
+          applicationId,
+          brokerOrgId,
+          submissionId: result.newSubmission.id,
+          log: fastify.log,
+        });
+      } catch (mailErr) {
+        fastify.log.error(
+          {
+            error: mailErr.message,
+            applicationId,
+            submissionId: result.newSubmission.id,
+          },
+          "Failed to enqueue client portal email after LO application edit",
+        );
+      }
+
+      const warnings = [
+        ...(feeAgreementWarning ? [feeAgreementWarning] : []),
+        ...(portalEmailWarning ? [portalEmailWarning] : []),
+      ];
+
       return reply.send({
         success: true,
-        message: "Application edited successfully",
+        message: updateBorrowerEmail
+          ? "Application edited and client portal email updated"
+          : "Application edited successfully",
         data: {
           submissionId: result.newSubmission.id,
-          ...(feeAgreementWarning ? { warnings: [feeAgreementWarning] } : {}),
+          ...(warnings.length ? { warnings } : {}),
+          portalEmailUpdated: Boolean(
+            updateBorrowerEmail && !portalEmailWarning,
+          ),
         },
       });
     } catch (error) {

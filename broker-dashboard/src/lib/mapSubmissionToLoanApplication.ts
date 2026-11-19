@@ -15,7 +15,9 @@ import {
   ANNUAL_FINANCIAL_CALCULATED_ROWS,
   ANNUAL_FINANCIAL_EDITABLE_ROWS,
   asFinancialAmountFormValue,
+  createEntityAnnualFinancialsDefaults,
   createResidentialFinancialsDefaults,
+  detachLegacyEntityAnnualFromFinancials,
   detectFinancialYearColumnCount,
   loadFinancialYearValues,
   type ResidentialFinancials,
@@ -363,6 +365,7 @@ export function createEmptyFormData(): FormDataType {
       ...createSbaEntityDefaults(),
     },
     financials: createResidentialFinancialsDefaults(),
+    entityAnnualFinancials: createEntityAnnualFinancialsDefaults(),
     ...createEmptyReferringBrokerFormState(),
   };
 }
@@ -517,6 +520,35 @@ export function mapSubmissionToLoanApplication(fields: SubmissionField[]) {
   };
 
   formData.financials = mapResidentialFinancialsFromFields(fields);
+  {
+    const entityColumnCount = Number(
+      getFieldValue(fields, "entityAnnualYearColumnCount") ||
+        formData.financials.financialYearColumnCount ||
+        4,
+    );
+    const mappedEntityAnnual = {
+      financialYearColumnCount:
+        entityColumnCount >= 4 ? entityColumnCount : 4,
+      grossRevenue: loadFinancialYearValues(
+        (fieldKey) => getFieldValue(fields, fieldKey),
+        "entityAnnual_grossRevenue",
+        entityColumnCount >= 4 ? entityColumnCount : 4,
+        asFinancialAmountFormValue,
+      ),
+      netIncome: loadFinancialYearValues(
+        (fieldKey) => getFieldValue(fields, fieldKey),
+        "entityAnnual_netIncome",
+        entityColumnCount >= 4 ? entityColumnCount : 4,
+        asFinancialAmountFormValue,
+      ),
+    };
+    const detached = detachLegacyEntityAnnualFromFinancials(
+      formData.financials,
+      mappedEntityAnnual,
+    );
+    formData.financials = detached.financials;
+    formData.entityAnnualFinancials = detached.entityAnnual;
+  }
 
   const coBorrowerMap = new Map<
     number,

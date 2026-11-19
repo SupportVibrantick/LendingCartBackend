@@ -7,6 +7,9 @@ const {
   resolveBrokerPipelineDisplayStatus,
   buildBrokerPipelineApplicationStatusWhere,
 } = require("../../../utils/applications/resolveApplicationStatus");
+const {
+  buildEnrichedApplicationSearchWhere,
+} = require("../../../services/applications/loanApplicationSearch");
 
 module.exports = async function listSubmissionsTable(fastify) {
   fastify.get(
@@ -57,97 +60,39 @@ module.exports = async function listSubmissionsTable(fastify) {
 
         const statusFilter = buildBrokerPipelineApplicationStatusWhere(status);
         const searchTerm = search?.trim();
+        const searchOr = searchTerm
+          ? await buildEnrichedApplicationSearchWhere(prisma, searchTerm, {
+              includeBorrower: true,
+              includeAssignedStaff: true,
+              includeSubmissionFields: true,
+            })
+          : [];
 
-      const whereCondition = {
-  status: {
-    not: "SUPERSEDED",
-  },
+        const whereCondition = {
+          status: {
+            not: "SUPERSEDED",
+          },
 
-  application: {
-    AND: [
-      { brokerOrgId: orgId },
-      statusFilter,
-      ...(isOfficer ? [officerAssignedApplicationWhere(userId)] : []),
-      ...(isSubBroker
-        ? [
-            {
-              subBrokerAssignments: {
-                some: {
-                  subBrokerId: userId,
-                },
-              },
-            },
-          ]
-        : []),
-      ...(searchTerm
-        ? [
-            {
-              OR: [
-                {
-                  applicationNumber: {
-                    contains: searchTerm,
-                    mode: "insensitive",
-                  },
-                },
-                {
-                  client: {
-                    is: {
-                      legalName: {
-                        contains: searchTerm,
-                        mode: "insensitive",
+          application: {
+            AND: [
+              { brokerOrgId: orgId },
+              statusFilter,
+              ...(isOfficer ? [officerAssignedApplicationWhere(userId)] : []),
+              ...(isSubBroker
+                ? [
+                    {
+                      subBrokerAssignments: {
+                        some: {
+                          subBrokerId: userId,
+                        },
                       },
                     },
-                  },
-                },
-                {
-                  brokerUser: {
-                    is: {
-                      OR: [
-                        {
-                          firstName: {
-                            contains: searchTerm,
-                            mode: "insensitive",
-                          },
-                        },
-                        {
-                          lastName: {
-                            contains: searchTerm,
-                            mode: "insensitive",
-                          },
-                        },
-                      ],
-                    },
-                  },
-                },
-                {
-                  subBrokerAssignments: {
-                    some: {
-                      subBroker: {
-                        OR: [
-                          {
-                            firstName: {
-                              contains: searchTerm,
-                              mode: "insensitive",
-                            },
-                          },
-                          {
-                            lastName: {
-                              contains: searchTerm,
-                              mode: "insensitive",
-                            },
-                          },
-                        ],
-                      },
-                    },
-                  },
-                },
-              ],
-            },
-          ]
-        : []),
-    ],
-  },
-};
+                  ]
+                : []),
+              ...(searchOr.length > 0 ? [{ OR: searchOr }] : []),
+            ],
+          },
+        };
         /* ================= QUERY ================= */
 
         const allowedSortFields = ["createdAt", "updatedAt", "status"];

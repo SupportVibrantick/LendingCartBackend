@@ -2,7 +2,7 @@ const {
   resolveClientDisplayNameFromData,
 } = require("../../../services/messaging/resolveClientDisplayName");
 const {
-  buildApplicationSearchWhere,
+  buildEnrichedApplicationSearchWhere,
   loanApplicationListInclude,
 } = require("../../../services/applications/loanApplicationSearch");
 
@@ -206,9 +206,15 @@ async function listAllApplications(fastify) {
         };
 
         if (search) {
-          baseWhere.OR = buildApplicationSearchWhere(search, {
-            includeBorrower: true,
-          });
+          baseWhere.OR = await buildEnrichedApplicationSearchWhere(
+            prisma,
+            search,
+            {
+              includeBorrower: true,
+              includeBrokerOrg: true,
+              includeSubmissionFields: true,
+            },
+          );
         }
 
         // Status chip counts share search/broker scope but ignore the active status filter.

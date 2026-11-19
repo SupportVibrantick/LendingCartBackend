@@ -18,7 +18,7 @@ type ResidentialReviewStepProps = {
   sections: ReviewSummarySection[];
   issues: ReviewValidationIssue[];
   documents: PendingApplicationDocument[];
-  onEditStep: (stepIndex: number) => void;
+  onEditStep: (stepIndex: number, issue?: ReviewValidationIssue) => void;
   onSubmit: () => void;
   submitting: boolean;
   creditAuthorizationConsent?: boolean;
@@ -174,13 +174,13 @@ export default function ResidentialReviewStep({
           <ul className="mt-2 space-y-1">
             {issues.map((issue) => (
               <li
-                key={`${issue.label}-${issue.stepIndex}`}
+                key={`${issue.errorKey || issue.label}-${issue.stepIndex}`}
                 className="flex flex-wrap items-center gap-2 text-sm text-red-700 dark:text-red-400"
               >
                 <span>• {issue.label}</span>
                 <button
                   type="button"
-                  onClick={() => onEditStep(issue.stepIndex)}
+                  onClick={() => onEditStep(issue.stepIndex, issue)}
                   className="font-medium underline hover:no-underline"
                 >
                   Go to Step {issue.stepIndex + 1}

@@ -998,43 +998,8 @@ export default function LoanApplicationsPage() {
     void refreshPipelineData();
   };
 
-  // Client-side search across the already-loaded rows.
-  // Matches against any visible column: borrower, application #, officer,
-  // location, status, loan type, sub-broker, or amount.
-  const filteredRows = useMemo(() => {
-    const q = searchTerm.trim().toLowerCase();
-    if (!q) return rows;
-
-    return rows.filter((row) => {
-      const officerNames = (row.assignedLoanOfficers || [])
-        .map((officer) => officer.name)
-        .join(" ");
-      const subBrokerNames = (row.assignedSubBrokers || [])
-        .map((b: any) =>
-          [b.firstName, b.lastName, b.name, b.email].filter(Boolean).join(" "),
-        )
-        .join(" ");
-
-      const haystack = [
-        row.borrowerName,
-        row.applicationNumber,
-        row.assignedOfficerName,
-        officerNames,
-        row.cityState,
-        row.country,
-        row.company,
-        row.loanType,
-        formatStatusLabel(row.status),
-        subBrokerNames,
-        String(row.amount ?? ""),
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
-
-      return haystack.includes(q);
-    });
-  }, [rows, searchTerm]);
+  // Server-side search (name, email, phone, app #, address, entity, SSN, etc.).
+  const filteredRows = rows;
 
   const loanOfficerOptions = useMemo(
     () =>
@@ -1522,10 +1487,19 @@ export default function LoanApplicationsPage() {
               <div className="relative min-w-0 flex-1">
                 <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#13538A]/60" />
                 <input
-                  placeholder="Search borrower, app no., officer..."
+                  placeholder="Search name, email, phone, app #, address, entity, SSN..."
                   value={searchTerm}
                   onChange={(e) => {
-                    setSearchTerm(e.target.value);
+                    const value = e.target.value;
+                    setSearchTerm(value);
+
+                    if (searchTimeoutRef.current) {
+                      clearTimeout(searchTimeoutRef.current);
+                    }
+
+                    searchTimeoutRef.current = setTimeout(() => {
+                      loadSubmissions(undefined, value, statusFilter);
+                    }, 500);
                   }}
                   className="h-9 w-full rounded-lg border border-gray-200 bg-white pl-8 pr-8 text-sm outline-none transition focus:border-[#13538A] focus:ring-2 focus:ring-[#13538A]/15 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100"
                 />
@@ -1534,6 +1508,10 @@ export default function LoanApplicationsPage() {
                     type="button"
                     onClick={() => {
                       setSearchTerm("");
+                      if (searchTimeoutRef.current) {
+                        clearTimeout(searchTimeoutRef.current);
+                      }
+                      loadSubmissions(undefined, "", statusFilter);
                     }}
                     className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-[#13538A]"
                   >
@@ -1588,18 +1566,14 @@ export default function LoanApplicationsPage() {
               <p className="text-xs text-[#13538A]/70 dark:text-[#9fd0f0]/80">
                 {loading && rows.length === 0
                   ? "Loading pipeline…"
-                  : searchTerm
-                    ? `${filteredRows.length} of ${rows.length} matching`
-                    : `${rows.length} shown${hasMore ? "+" : ""}`}
+                  : `${rows.length} shown${hasMore ? "+" : ""}${
+                      searchTerm ? " matching" : ""
+                    }`}
                 {statusFilter ? ` · ${formatStatusLabel(statusFilter)}` : ""}
               </p>
             </div>
             <span className="inline-flex shrink-0 items-center rounded-full bg-[#13538A] px-2.5 py-1 text-[11px] font-semibold text-white">
-              {loading && rows.length === 0
-                ? "…"
-                : searchTerm
-                  ? filteredRows.length
-                  : rows.length}
+              {loading && rows.length === 0 ? "…" : rows.length}
             </span>
           </div>
 

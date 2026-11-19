@@ -6,7 +6,10 @@ import { API_BASE, PRODUCT_LABELS } from "./constants";
 import { toNumber, metricToNumber } from "./formatters";
 import { computeLoanMetrics, getCoBorrowerSummaries } from "./calculations";
 import { appendResidentialBorrowerSubmission } from "../../lib/residentialBorrower";
-import { appendResidentialFinancialsSubmission } from "../../lib/residentialFinancials";
+import {
+  appendEntityAnnualFinancialsSubmission,
+  appendResidentialFinancialsSubmission,
+} from "../../lib/residentialFinancials";
 import { appendReferringBrokerSubmission } from "../../lib/referringBroker";
 import { resolveCanonicalLoanProductCode } from "../../lib/canonicalLoanProducts";
 import { uploadPendingApplicationDocuments } from "../../lib/uploadApplicationDocuments";
@@ -348,6 +351,14 @@ export function buildSubmissionPayload(ctx: SubmissionContext): BuildPayloadResu
       addField,
       formData.financials,
       totalAnnualDebtPayment,
+    );
+    appendEntityAnnualFinancialsSubmission(
+      addField,
+      formData.entityAnnualFinancials || {
+        financialYearColumnCount: 4,
+        grossRevenue: {},
+        netIncome: {},
+      },
     );
   } else {
     addField("noiActual", formData.loanTermIncome.noiActual);

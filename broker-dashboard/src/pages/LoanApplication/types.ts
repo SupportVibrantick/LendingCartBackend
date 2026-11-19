@@ -4,7 +4,10 @@
 
 import type { ReactNode } from "react";
 import type { ResidentialBorrowerFields, RealEstateOwnedEntry, RecentlySoldPropertyEntry } from "../../lib/residentialBorrower";
-import type { ResidentialFinancials } from "../../lib/residentialFinancials";
+import type {
+  EntityAnnualFinancials,
+  ResidentialFinancials,
+} from "../../lib/residentialFinancials";
 
 export interface Borrower extends ResidentialBorrowerFields {
   name: string;
@@ -102,6 +105,7 @@ export interface FormDataType {
     equipmentValue: string;
   };
   financials: ResidentialFinancials;
+  entityAnnualFinancials: EntityAnnualFinancials;
   workingWithMortgageBroker: "" | "yes" | "no";
   referringBroker: {
     email: string;

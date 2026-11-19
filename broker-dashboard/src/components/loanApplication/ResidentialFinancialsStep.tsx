@@ -189,7 +189,7 @@ export default function ResidentialFinancialsStep({
 
       <div>
         <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
-          Annual Financials
+          Annual Financials (For subject Business)
         </p>
 
         <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700">
