@@ -2899,10 +2899,30 @@ const LoanApplication = ({
           email: borrowerEmail,
         });
         if (reuseDecision === "change_email") {
-          goToStep(borrowerStepIndex);
+          const emailErrorKey = "borrower.email";
+          await goToStep(borrowerStepIndex, { clearErrors: false });
+          setErrors((prev) => ({
+            ...prev,
+            [emailErrorKey]:
+              "Enter a different email address for this application.",
+          }));
+          setHighlightedErrorKey(emailErrorKey);
           toast("Enter a different borrower email to continue.", {
             icon: "ℹ️",
           });
+          window.setTimeout(() => {
+            const el = document.querySelector(
+              `[data-field="${CSS.escape(emailErrorKey)}"]`,
+            ) as HTMLInputElement | null;
+            el?.scrollIntoView({ behavior: "smooth", block: "center" });
+            el?.focus?.({ preventScroll: true });
+            el?.select?.();
+          }, 180);
+          window.setTimeout(() => {
+            setHighlightedErrorKey((current) =>
+              current === emailErrorKey ? null : current,
+            );
+          }, 4500);
           return;
         }
       }
@@ -6936,17 +6956,15 @@ rounded-2xl p-6 bg-white dark:bg-slate-800"
                         <input
                           type="email"
                           required
+                          data-field="borrower.email"
                           value={formData.borrower.email}
                           onChange={(e) =>
                             updateBorrower("email", e.target.value)
                           }
-                          className={`mt-1 w-full px-4 py-1 rounded-md border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200  ${
-                            errors["borrower.email"]
-                              ? "border-red-500 bg-red-50"
-                              : "border-slate-300"
-                          }
-                     focus:ring-2 focus:ring-blue-500/20 
-                     focus:border-blue-500 outline-none text-sm`}
+                          className={`mt-1 w-full px-4 py-1 rounded-md border dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
+                            fieldErrorClass("borrower.email") ||
+                            "border-slate-300"
+                          } focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-sm`}
                         />
                         {errors["borrower.email"] && (
                           <p className="text-xs text-red-500 mt-1">

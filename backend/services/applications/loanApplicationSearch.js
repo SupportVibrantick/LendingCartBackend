@@ -62,11 +62,17 @@ function digitsOnly(value) {
 }
 
 function searchTokens(search) {
-  return String(search || "")
+  const seen = new Set();
+  const tokens = [];
+  for (const part of String(search || "")
     .trim()
-    .split(/\s+/)
-    .map((part) => part.trim())
-    .filter((part) => part.length > 0);
+    .split(/\s+/)) {
+    const token = part.trim().toLowerCase();
+    if (!token || seen.has(token)) continue;
+    seen.add(token);
+    tokens.push(part.trim());
+  }
+  return tokens;
 }
 
 /** Every token must appear in firstName or lastName (or email/phone). */
@@ -190,14 +196,18 @@ function buildApplicationSearchWhere(
   }
 
   if (includeAssignedStaff) {
+    // Search assigned LO / co-broker only — never brokerUser (creator/admin),
+    // or searching the logged-in broker's own name would return every app.
     const staffOr = personNameFieldOr(term);
     const staffMulti = contactNameTokenAnd(tokens);
     if (staffMulti) staffOr.push(staffMulti);
 
     or.push({
-      brokerUser: {
-        is: {
-          OR: staffOr,
+      loanOfficerAssignments: {
+        some: {
+          loanOfficer: {
+            OR: staffOr,
+          },
         },
       },
     });
