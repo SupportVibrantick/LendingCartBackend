@@ -48,7 +48,7 @@ const FIELD_LABELS: Record<string, string> = {
   numberOfUnits: "Number of Units",
   additionalCollateral: "Additional Collateral",
   privateSale: "Private Sale",
-  vendorName: "Seller",
+  vendorName: "Seller name",
   vendorPhone: "Seller Phone",
   creditAuthorizationConsent: "Credit Authorization Consent",
   dob: "Date of Birth",
@@ -87,6 +87,7 @@ const OVERVIEW_ONLY_FIELD_KEYS = new Set([
 const INTERNAL_SUBMISSION_FIELD_KEYS = new Set([
   "financialReferenceYear",
   "financialYearColumnCount",
+  "entityAnnualYearColumnCount",
 ]);
 
 const ENUM_VALUE_LABELS: Record<string, string> = {
@@ -200,6 +201,11 @@ const FINANCIAL_ROW_LABELS: Record<string, string> = {
   cashFlowAfterDebtOverride: "Cash Flow After Debt Service",
 };
 
+const ENTITY_ANNUAL_ROW_LABELS: Record<string, string> = {
+  grossRevenue: "Gross Revenue",
+  netIncome: "Net Income",
+};
+
 const SREO_LINE_LABELS: Record<string, string> = {
   propertyAddress: "Property Address",
   entityNameOnTitle: "Entity Name on Title",
@@ -300,7 +306,7 @@ function isBlankDerivedFinancial(field: SubmissionDetailField) {
 function isUnenteredZeroLine(field: SubmissionDetailField) {
   const bare = stripCoBorrowerPrefix(field.fieldKey || "");
   const line =
-    /^(asset_|liability_|financial_)/i.test(bare) ||
+    /^(asset_|liability_|financial_|entityAnnual_)/i.test(bare) ||
     /^proFormaNoi_year_\d+$/i.test(bare) ||
     /^(totalAssets|totalLiabilities|totalCashReserves|existingDebt|sreoTotalMarketValue|sreoTotalEquity|proFormaNoiAverage)$/i.test(
       bare,
@@ -364,19 +370,51 @@ function humanizeFieldKey(fieldKey: string) {
     .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
-function isEquipmentFinanceProductCode(productCode?: string | null) {
-  return String(productCode || "").toUpperCase() === "EQUIPMENT_FINANCE";
+function isEquipmentLoanProductCode(
+  productCode?: string | null,
+  purpose?: string | null,
+) {
+  const code = String(productCode || "").toUpperCase();
+  if (
+    code === "EQUIPMENT_FINANCE" ||
+    code === "EQUIPMENT_FINANCING" ||
+    code === "SBA_7A_EQUIPMENT_PURCHASE"
+  ) {
+    return true;
+  }
+  return (
+    code === "USDA_BI" &&
+    String(purpose || "").trim() === "Equipment Purchase"
+  );
 }
 
-function vendorFieldLabel(fieldKey: string, productCode?: string | null) {
-  const isEquipment = isEquipmentFinanceProductCode(productCode);
+function normalizePrivateSaleFlag(value: unknown): boolean {
+  if (typeof value === "boolean") return value;
+  const text = String(value ?? "")
+    .trim()
+    .toLowerCase();
+  return text === "yes" || text === "true" || text === "1";
+}
+
+function vendorFieldLabel(
+  fieldKey: string,
+  productCode?: string | null,
+  privateSale?: boolean | null,
+  purpose?: string | null,
+) {
+  const isEquipment = isEquipmentLoanProductCode(productCode, purpose);
+  const useVendorLabels = isEquipment && !privateSale;
+  const useAgentLabels = !isEquipment && !privateSale;
+
   if (fieldKey === "vendorName") {
-    return isEquipment ? "Equipment Vendor / Dealer / Seller" : "Seller";
+    if (useVendorLabels) return "Vendor/Dealer Name";
+    if (useAgentLabels) return "Real Estate Agent Name";
+    return "Seller name";
   }
   if (fieldKey === "vendorPhone") {
-    return isEquipment
-      ? "Vendor / Dealer / Seller Phone"
-      : "Seller Phone";
+    if (useVendorLabels) return "Vendor/Dealer Phone";
+    if (useAgentLabels) return "Real Estate Agent Phone";
+    return "Seller Phone";
   }
   return null;
 }
@@ -385,10 +423,14 @@ export function formatFieldLabel(
   fieldKey: string,
   yearLabel?: string,
   productCode?: string | null,
+  privateSale?: boolean | null,
+  purpose?: string | null,
 ) {
   const vendorLabel = vendorFieldLabel(
     stripCoBorrowerPrefix(fieldKey),
     productCode,
+    privateSale,
+    purpose,
   );
   if (vendorLabel) return vendorLabel;
 
@@ -431,6 +473,19 @@ export function formatFieldLabel(
       humanizeFieldKey(financial[1].replace(/Override$/i, ""));
     const column =
       yearLabel || (financial[2] === "0" ? "Interim" : `Year ${financial[2]}`);
+    return `${row} (${column})`;
+  }
+
+  const entityAnnual = bare.match(
+    /^entityAnnual_(grossRevenue|netIncome)_col(\d+)$/i,
+  );
+  if (entityAnnual) {
+    const row =
+      ENTITY_ANNUAL_ROW_LABELS[entityAnnual[1]] ||
+      humanizeFieldKey(entityAnnual[1]);
+    const column =
+      yearLabel ||
+      (entityAnnual[2] === "0" ? "Interim" : `Year ${entityAnnual[2]}`);
     return `${row} (${column})`;
   }
 
@@ -702,6 +757,14 @@ function resolveHeuristicSection(fieldKey: string) {
     return { id: "liabilities", title: "Liabilities", sortOrder: 570 };
   }
 
+  if (/^entityAnnual_/i.test(bare)) {
+    return {
+      id: "entity-annual-financials",
+      title: "Annual Financials (Existing Entity)",
+      sortOrder: 310,
+    };
+  }
+
   if (
     /^financial_/i.test(bare) ||
     /^proFormaNoi/i.test(bare) ||
@@ -745,7 +808,9 @@ function resolveHeuristicSection(fieldKey: string) {
     };
   }
 
-  if (/entity|dba|legalName|entityType|business|formationDate|yearsInBusiness|naics|goodwill|inventory|equipment|ebitda/i.test(
+  if (
+    !/^entityAnnual_/i.test(bare) &&
+    /entity|dba|legalName|entityType|business|formationDate|yearsInBusiness|naics|goodwill|inventory|equipment|ebitda/i.test(
       fieldKey,
     )
   ) {
@@ -798,12 +863,20 @@ function resolveHeuristicSection(fieldKey: string) {
 
 export function groupSubmissionFieldsForDisplay(
   fields: SubmissionDetailField[] = [],
+  options?: { preferredEmail?: string | null },
 ) {
   const signatureField =
     fields.find((field) => field.fieldKey === "borrowerSignature") || null;
   const productCode = String(
     fields.find((field) => field.fieldKey === "loanProductCode")?.value || "",
   );
+  const purpose = String(
+    fields.find((field) => field.fieldKey === "purpose")?.value || "",
+  );
+  const privateSale = normalizePrivateSaleFlag(
+    fields.find((field) => field.fieldKey === "privateSale")?.value,
+  );
+  const preferredEmail = String(options?.preferredEmail || "").trim();
 
   const preferredByAlias = new Map<string, SubmissionDetailField>();
   for (const field of fields) {
@@ -832,6 +905,7 @@ export function groupSubmissionFieldsForDisplay(
   const enteredFinancialRows = new Set<string>();
   let hasFinancialNoi = false;
   let hasFinancialGrossRevenue = false;
+  let hasEntityAnnualGrossRevenue = false;
 
   const scopeOf = (key: string) => key.match(/^(coBorrower_\d+_)/)?.[1] || "";
 
@@ -854,15 +928,29 @@ export function groupSubmissionFieldsForDisplay(
     }
     if (/^financial_noi/i.test(bare)) hasFinancialNoi = true;
     if (/^financial_grossRevenue_/i.test(bare)) hasFinancialGrossRevenue = true;
+    if (/^entityAnnual_grossRevenue_/i.test(bare)) {
+      hasEntityAnnualGrossRevenue = true;
+    }
   }
 
   fields.forEach((field) => {
-    const fieldKey = field.fieldKey || "";
+    let workingField = field;
+    const fieldKey = workingField.fieldKey || "";
     if (!fieldKey || fieldKey === "borrowerSignature") return;
     if (METRIC_ONLY_FIELD_KEYS.has(fieldKey)) return;
-    if (shouldOmitSubmissionFieldFromDetails(fieldKey, field.label)) return;
+    if (shouldOmitSubmissionFieldFromDetails(fieldKey, workingField.label)) {
+      return;
+    }
     if (fieldKey === "noiActual" && hasFinancialNoi) return;
-    if (fieldKey === "grossRevenueActual" && hasFinancialGrossRevenue) return;
+    if (
+      fieldKey === "grossRevenueActual" &&
+      (hasFinancialGrossRevenue || hasEntityAnnualGrossRevenue)
+    ) {
+      return;
+    }
+    if (preferredEmail && fieldKey === "email") {
+      workingField = { ...workingField, value: preferredEmail };
+    }
 
     const bare = stripCoBorrowerPrefix(fieldKey);
     const computedMatch = bare.match(/^(financial_.+_col\d+)_computed$/i);
@@ -874,12 +962,16 @@ export function groupSubmissionFieldsForDisplay(
     ) {
       return;
     }
-    if (isBlankDerivedFinancial(field)) return;
-    if (isUnenteredZeroLine(field)) return;
+    if (isBlankDerivedFinancial(workingField)) return;
+    if (isUnenteredZeroLine(workingField)) return;
 
     const aliasKey = getFieldAliasCanonical(fieldKey);
     if (FIELD_ALIAS_TO_CANONICAL.has(fieldKey)) {
-      if (!preferredFieldIds.has(`${field.fieldKey}::${field.fieldId || ""}`)) {
+      if (
+        !preferredFieldIds.has(
+          `${workingField.fieldKey}::${workingField.fieldId || ""}`,
+        )
+      ) {
         return;
       }
       if (seenAliasKeys.has(aliasKey)) return;
@@ -890,10 +982,16 @@ export function groupSubmissionFieldsForDisplay(
     const yearLabel = columnMatch
       ? yearByColumn.get(`${scopeOf(fieldKey)}col${columnMatch[1]}`)
       : undefined;
-    const generatedLabel = formatFieldLabel(fieldKey, yearLabel, productCode);
-    const existingLabel = (field.label || "").trim();
+    const generatedLabel = formatFieldLabel(
+      fieldKey,
+      yearLabel,
+      productCode,
+      privateSale,
+      purpose,
+    );
+    const existingLabel = (workingField.label || "").trim();
     const structured =
-      /^(asset_|liability_|financial_|declaration_|sreo_\d+_|sold_\d+_|proFormaNoi_)/i.test(
+      /^(asset_|liability_|financial_|entityAnnual_|declaration_|sreo_\d+_|sold_\d+_|proFormaNoi_)/i.test(
         bare,
       );
     const displayField: SubmissionDetailField =
@@ -901,8 +999,8 @@ export function groupSubmissionFieldsForDisplay(
       existingLabel === fieldKey ||
       structured ||
       Boolean(FIELD_LABELS[fieldKey] || FIELD_LABELS[bare])
-        ? { ...field, label: generatedLabel }
-        : field;
+        ? { ...workingField, label: generatedLabel }
+        : workingField;
 
     const label = getSubmissionFieldLabel(displayField)
       .trim()
