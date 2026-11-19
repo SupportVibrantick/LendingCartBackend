@@ -2803,11 +2803,19 @@ const LoanApplication = ({
             toast.error(warning),
           );
         }
-        toast.success(
-          feeAgreementDraft.include
-            ? "Application updated. Fee agreement is available in the client portal."
-            : "Application Updated Successfully",
-        );
+        if (result?.data?.clientPortalEmailSent) {
+          toast.success(
+            result.data.clientPortalEmailTo
+              ? `Application updated. Portal link emailed to ${result.data.clientPortalEmailTo}.`
+              : "Application updated. Portal link emailed to the client.",
+          );
+        } else {
+          toast.success(
+            feeAgreementDraft.include
+              ? "Application updated. Fee agreement is available in the client portal."
+              : "Application Updated Successfully",
+          );
+        }
         onUpdateSuccess?.(result.data?.submissionId);
         if (!embedded) {
           navigate(portalConfig.successPath);

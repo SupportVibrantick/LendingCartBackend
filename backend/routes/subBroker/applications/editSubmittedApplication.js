@@ -194,23 +194,38 @@ async function editSubmittedApplication(fastify) {
         }
       }
 
+      let portalNotify = { sent: false, reason: "not_attempted" };
       try {
-        await notifyClientPortalAfterApplicationEdit({
+        const fieldEmail =
+          newBorrowerEmail ||
+          fields.find((f) => f?.fieldKey === "email")?.value ||
+          fields.find((f) => f?.fieldKey === "preferredEmail")?.value;
+        portalNotify = await notifyClientPortalAfterApplicationEdit({
           prisma,
           applicationId,
           brokerOrgId: application.brokerOrgId,
           submissionId: result.newSubmission.id,
+          fallbackEmail: fieldEmail,
           log: fastify.log,
         });
+        if (!portalNotify.sent && portalNotify.reason === "no_email") {
+          portalEmailWarning =
+            portalEmailWarning ||
+            "Application updated but no client email was found to send the portal link";
+        }
       } catch (mailErr) {
+        portalNotify = { sent: false, reason: "error" };
         fastify.log.error(
           {
             error: mailErr.message,
             applicationId,
             submissionId: result.newSubmission.id,
           },
-          "Failed to enqueue client portal email after co-broker application edit",
+          "Failed to send client portal email after co-broker application edit",
         );
+        portalEmailWarning =
+          portalEmailWarning ||
+          "Application updated but client portal email failed to send";
       }
 
       const warnings = [
@@ -229,6 +244,8 @@ async function editSubmittedApplication(fastify) {
           portalEmailUpdated: Boolean(
             updateBorrowerEmail && !portalEmailWarning,
           ),
+          clientPortalEmailSent: Boolean(portalNotify.sent),
+          clientPortalEmailTo: portalNotify.clientEmail || null,
         },
       });
     } catch (error) {

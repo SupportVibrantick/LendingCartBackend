@@ -247,6 +247,7 @@ function resolveClientEmailFromData(client, submissions = []) {
     "borrowerEmail",
     "clientEmail",
     "contactEmail",
+    "preferredEmail",
   ]);
 }
 
