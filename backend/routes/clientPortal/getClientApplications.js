@@ -366,7 +366,7 @@ function applicationMatchesSearch(app, search) {
     collateralSummary.includes(search) ||
     address.includes(search) ||
     brokerName.includes(search) ||
-    brokerEmail.includes(search) ||
+    (search.includes("@") && brokerEmail.includes(search)) ||
     borrowerName.includes(search) ||
     fullName.includes(search) ||
     email.includes(search) ||

@@ -50,6 +50,62 @@ const SEARCHABLE_SUBMISSION_FIELD_KEYS = [
 const FIRST_NAME_KEYS = ["borrowerFirstName", "firstName", "first_name"];
 const LAST_NAME_KEYS = ["borrowerLastName", "lastName", "last_name"];
 const FULL_NAME_KEYS = ["borrowerName", "applicantName", "fullName"];
+const LOCATION_FIELD_KEYS = [
+  "address",
+  "street",
+  "streetAddress",
+  "streetName",
+  "street_name",
+  "mailingAddress",
+  "propertyAddress",
+  "city",
+  "propertyCity",
+  "borrowerCity",
+  "state",
+  "propertyState",
+  "borrowerState",
+  "zip",
+  "zipCode",
+  "propertyZip",
+];
+const ENTITY_FIELD_KEYS = [
+  "entityLegalName",
+  "entityName",
+  "companyName",
+  "businessName",
+  "legalName",
+];
+const EMAIL_FIELD_KEYS = [
+  "email",
+  "borrowerEmail",
+  "preferredEmail",
+  "contactEmail",
+];
+const PHONE_SSN_FIELD_KEYS = [
+  "phone",
+  "cellPhone",
+  "mobile",
+  "mobilePhone",
+  "ssn",
+  "ssnLast4",
+  "taxId",
+  "ein",
+  "itin",
+  "socialSecurityNumber",
+  "social_security_number",
+];
+const TEXT_FIELD_KEYS = [
+  ...FIRST_NAME_KEYS,
+  ...LAST_NAME_KEYS,
+  ...FULL_NAME_KEYS,
+  ...LOCATION_FIELD_KEYS,
+  ...ENTITY_FIELD_KEYS,
+];
+const TEXT_FIELD_KEY_PATTERN =
+  "(address|street|streetName|city|state|zip|entityName|entityLegalName|companyName|businessName|legalName|firstName|lastName|borrowerName|fullName)$";
+const EMAIL_FIELD_KEY_PATTERN = "(email)$";
+const NUMERIC_FIELD_KEY_PATTERN =
+  "(phone|ssn|ssnLast4|taxId|ein|itin|address|street|streetName|zip|zipCode)$";
 
 /** Co-borrower / dynamic keys that end with these suffixes. */
 const SEARCHABLE_FIELD_KEY_PATTERN =
@@ -68,6 +124,14 @@ function filterEnumMatches(search, enumValues) {
 
 function digitsOnly(value) {
   return String(value || "").replace(/\D/g, "");
+}
+
+function classifySearch(term) {
+  const value = String(term || "").trim();
+  if (!value) return "empty";
+  if (value.includes("@")) return "email";
+  if (digitsOnly(value).length >= 3) return "numeric";
+  return "text";
 }
 
 function searchTokens(search) {
@@ -132,32 +196,36 @@ function buildApplicationSearchWhere(
   if (!term) return [];
 
   const tokens = searchTokens(term);
+  const kind = classifySearch(term);
   const or = [
     { applicationNumber: { contains: term, mode: "insensitive" } },
-    { purpose: { contains: term, mode: "insensitive" } },
   ];
 
-  const statusMatches = filterEnumMatches(
-    term,
-    Object.values(LoanApplicationStatus),
-  );
-  if (statusMatches.length) {
-    or.push({ status: { in: statusMatches } });
+  if (kind !== "text") {
+    or.push({ purpose: { contains: term, mode: "insensitive" } });
   }
 
-  const productMatches = filterEnumMatches(
-    term,
-    Object.values(LoanProductCode),
-  );
-  if (productMatches.length) {
-    or.push({ loanProductCode: { in: productMatches } });
+  if (kind !== "text") {
+    const statusMatches = filterEnumMatches(
+      term,
+      Object.values(LoanApplicationStatus),
+    );
+    if (statusMatches.length) {
+      or.push({ status: { in: statusMatches } });
+    }
+
+    const productMatches = filterEnumMatches(
+      term,
+      Object.values(LoanProductCode),
+    );
+    if (productMatches.length) {
+      or.push({ loanProductCode: { in: productMatches } });
+    }
   }
 
-  if (includeBorrower) {
-    // Email / phone / tax ID on the Client record. Do not match contact
-    // first/last or legalName here — reused portal clients would return
-    // every file on that client even when the displayed borrower differs.
-    // Names, address, entity, and SSN are matched from submission fields.
+  if (includeBorrower && kind !== "text") {
+    // Email / phone / tax ID on the Client record. Names are matched from
+    // submission fields so reused portal clients do not leak unrelated files.
     const contactOr = [
       { email: { contains: term, mode: "insensitive" } },
       { phone: { contains: term, mode: "insensitive" } },
@@ -199,11 +267,17 @@ function buildApplicationSearchWhere(
     });
   }
 
-  if (includeAssignedStaff) {
-    // Search assigned LO / co-broker only — never brokerUser (creator/admin),
-    // or searching the logged-in broker's own name would return every app.
-    const staffOr = personNameFieldOr(term);
-    const staffMulti = contactNamePairOr(tokens);
+  if (includeAssignedStaff && (kind !== "text" || tokens.length >= 2)) {
+    // Assigned LO / co-broker only — never the creating broker admin.
+    // Skip 1-token text queries so searching "Saina" does not match staff email.
+    const staffOr =
+      kind === "text"
+        ? [
+            { firstName: { contains: term, mode: "insensitive" } },
+            { lastName: { contains: term, mode: "insensitive" } },
+          ]
+        : personNameFieldOr(term);
+    const staffMulti = kind === "text" ? contactNamePairOr(tokens) : null;
     if (staffMulti) staffOr.push(staffMulti);
 
     or.push({
@@ -236,14 +310,20 @@ function buildApplicationSearchWhere(
 async function findApplicationIdsBySubmissionFieldSearch(
   prisma,
   search,
-  { limit = 500 } = {},
+  {
+    limit = 500,
+    fieldKeys = SEARCHABLE_SUBMISSION_FIELD_KEYS,
+    keyPattern = SEARCHABLE_FIELD_KEY_PATTERN,
+    matchDigits = true,
+  } = {},
 ) {
   const term = String(search || "").trim();
-  if (!term || !prisma) return [];
+  if (!term || !prisma || !fieldKeys.length) return [];
 
   const like = `%${term}%`;
-  const digitTerm = digitsOnly(term);
+  const digitTerm = matchDigits ? digitsOnly(term) : "";
   const digitLike = digitTerm.length >= 3 ? `%${digitTerm}%` : null;
+  const pattern = keyPattern || "a^";
 
   try {
     const rows = digitLike
@@ -253,14 +333,14 @@ async function findApplicationIdsBySubmissionFieldSearch(
           INNER JOIN application_submissions s ON s.id = f."submissionId"
           WHERE s.status <> 'SUPERSEDED'
             AND (
-              f."fieldKey" IN (${Prisma.join(SEARCHABLE_SUBMISSION_FIELD_KEYS)})
+              f."fieldKey" IN (${Prisma.join(fieldKeys)})
               OR EXISTS (
                 SELECT 1
                 FROM broker_application_product_fields bf
                 WHERE bf.id = f."fieldId"
-                  AND bf."fieldKey" IN (${Prisma.join(SEARCHABLE_SUBMISSION_FIELD_KEYS)})
+                  AND bf."fieldKey" IN (${Prisma.join(fieldKeys)})
               )
-              OR f."fieldKey" ~* ${SEARCHABLE_FIELD_KEY_PATTERN}
+              OR f."fieldKey" ~* ${pattern}
             )
             AND (
               (
@@ -287,14 +367,14 @@ async function findApplicationIdsBySubmissionFieldSearch(
           INNER JOIN application_submissions s ON s.id = f."submissionId"
           WHERE s.status <> 'SUPERSEDED'
             AND (
-              f."fieldKey" IN (${Prisma.join(SEARCHABLE_SUBMISSION_FIELD_KEYS)})
+              f."fieldKey" IN (${Prisma.join(fieldKeys)})
               OR EXISTS (
                 SELECT 1
                 FROM broker_application_product_fields bf
                 WHERE bf.id = f."fieldId"
-                  AND bf."fieldKey" IN (${Prisma.join(SEARCHABLE_SUBMISSION_FIELD_KEYS)})
+                  AND bf."fieldKey" IN (${Prisma.join(fieldKeys)})
               )
-              OR f."fieldKey" ~* ${SEARCHABLE_FIELD_KEY_PATTERN}
+              OR f."fieldKey" ~* ${pattern}
             )
             AND (
               CASE
@@ -437,12 +517,34 @@ async function enrichApplicationSearchOrWithSubmissionFields(
   const term = String(search || "").trim();
   if (!term || !Array.isArray(orClauses)) return orClauses || [];
 
-  const tokens = String(term).split(/\s+/).filter(Boolean);
+  const kind = classifySearch(term);
+  const fieldOptions =
+    kind === "email"
+      ? {
+          fieldKeys: EMAIL_FIELD_KEYS,
+          keyPattern: EMAIL_FIELD_KEY_PATTERN,
+          matchDigits: false,
+        }
+      : kind === "numeric"
+        ? {
+            fieldKeys: [
+              ...PHONE_SSN_FIELD_KEYS,
+              ...LOCATION_FIELD_KEYS,
+            ],
+            keyPattern: NUMERIC_FIELD_KEY_PATTERN,
+            matchDigits: true,
+          }
+        : {
+            fieldKeys: TEXT_FIELD_KEYS,
+            keyPattern: TEXT_FIELD_KEY_PATTERN,
+            matchDigits: false,
+          };
+
   const idSet = new Set(
-    await findApplicationIdsBySubmissionFieldSearch(prisma, term),
+    await findApplicationIdsBySubmissionFieldSearch(prisma, term, fieldOptions),
   );
 
-  if (tokens.length >= 2) {
+  if (kind === "text") {
     for (const id of await findApplicationIdsByBorrowerNameSearch(
       prisma,
       term,
