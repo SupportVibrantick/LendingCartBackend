@@ -613,6 +613,7 @@ const loanApplicationListInclude = {
 
 module.exports = {
   SEARCHABLE_SUBMISSION_FIELD_KEYS,
+  EMAIL_FIELD_KEYS,
   buildApplicationSearchWhere,
   buildEnrichedApplicationSearchWhere,
   enrichApplicationSearchOrWithSubmissionFields,

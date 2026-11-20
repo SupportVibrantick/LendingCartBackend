@@ -19,6 +19,9 @@ const {
   notifyClientPortalAfterApplicationEdit,
 } = require("../../../services/emails/notifyClientPortalAfterEdit");
 const {
+  normalizeClientEmail,
+  resolveActivePortalLoginEmail,
+  assertBorrowerPortalEmailAvailable,
   changeBorrowerPortalEmail,
 } = require("../../../services/clientPortal/changeBorrowerPortalEmail");
 
@@ -93,6 +96,52 @@ async function editSubmittedApplication(fastify) {
         return reply.code(400).send({ success: false, message: "No submission found to edit" });
       }
 
+      const requestedPortalEmail = normalizeClientEmail(
+        newBorrowerEmail ||
+          fields.find((f) => f?.fieldKey === "email")?.value ||
+          fields.find((f) => f?.fieldKey === "preferredEmail")?.value,
+      );
+      const currentPortalLoginEmail = await resolveActivePortalLoginEmail(
+        prisma,
+        application.clientId,
+      );
+      const primaryContact = application.clientId
+        ? await prisma.clientContact.findFirst({
+            where: { clientId: application.clientId },
+            orderBy: [{ isPrimary: "desc" }, { id: "asc" }],
+            select: { email: true },
+          })
+        : null;
+      const currentContactEmail = normalizeClientEmail(primaryContact?.email);
+      const portalEmailAnchor =
+        currentPortalLoginEmail || currentContactEmail || null;
+      const shouldUpdatePortalEmail = Boolean(requestedPortalEmail);
+      const portalEmailPrevious =
+        portalEmailAnchor ||
+        normalizeClientEmail(previousBorrowerEmail) ||
+        null;
+
+      let portalEmailWarning = null;
+      if (shouldUpdatePortalEmail) {
+        try {
+          await assertBorrowerPortalEmailAvailable(prisma, {
+            brokerOrgId,
+            loanApplicationId: applicationId,
+            newEmail: requestedPortalEmail,
+            previousEmail: portalEmailPrevious,
+          });
+        } catch (preflightErr) {
+          if (updateBorrowerEmail) {
+            return reply.code(preflightErr.statusCode || 400).send({
+              success: false,
+              message: preflightErr.message || "Invalid portal email",
+            });
+          }
+          portalEmailWarning =
+            preflightErr.message || "Could not validate portal email";
+        }
+      }
+
       const result = await prisma.$transaction(async (tx) => {
         const newSubmission = await tx.applicationSubmission.create({
           data: {
@@ -147,20 +196,24 @@ async function editSubmittedApplication(fastify) {
         req.body,
       );
 
-      let portalEmailWarning = null;
-      if (updateBorrowerEmail) {
+      let portalEmailUpdated = false;
+      let updatedPortalEmail = null;
+      let portalEmailMerged = false;
+      if (shouldUpdatePortalEmail && !portalEmailWarning) {
         try {
-          const fieldEmail =
-            newBorrowerEmail ||
-            fields.find((f) => f?.fieldKey === "email")?.value;
-          await changeBorrowerPortalEmail(prisma, {
+          const emailChange = await changeBorrowerPortalEmail(prisma, {
             brokerOrgId,
             loanApplicationId: applicationId,
-            newEmail: fieldEmail,
-            previousEmail: previousBorrowerEmail,
+            newEmail: requestedPortalEmail,
+            previousEmail: portalEmailPrevious,
           });
+          portalEmailUpdated = Boolean(emailChange?.changed);
+          portalEmailMerged = Boolean(emailChange?.merged);
+          updatedPortalEmail =
+            emailChange?.email || requestedPortalEmail || null;
         } catch (emailChangeErr) {
           portalEmailWarning =
+            portalEmailWarning ||
             emailChangeErr.message ||
             "Application updated but client portal email could not be changed";
           fastify.log.error(
@@ -174,23 +227,24 @@ async function editSubmittedApplication(fastify) {
       }
 
       let portalNotify = { sent: false, reason: "not_attempted" };
+      const notifyToEmail =
+        updatedPortalEmail || requestedPortalEmail || null;
       try {
-        const fieldEmail =
-          newBorrowerEmail ||
-          fields.find((f) => f?.fieldKey === "email")?.value ||
-          fields.find((f) => f?.fieldKey === "preferredEmail")?.value;
         portalNotify = await notifyClientPortalAfterApplicationEdit({
           prisma,
           applicationId,
           brokerOrgId,
           submissionId: result.newSubmission.id,
-          fallbackEmail: fieldEmail,
+          forceToEmail: notifyToEmail,
+          fallbackEmail: notifyToEmail,
           log: fastify.log,
         });
-        if (!portalNotify.sent && portalNotify.reason === "no_email") {
+        if (!portalNotify.sent) {
           portalEmailWarning =
             portalEmailWarning ||
-            "Application updated but no client email was found to send the portal link";
+            (portalNotify.reason === "no_email"
+              ? "Application updated but no client email was found to send the portal link"
+              : "Application updated but client portal email failed to send");
         }
       } catch (mailErr) {
         portalNotify = { sent: false, reason: "error" };
@@ -214,15 +268,16 @@ async function editSubmittedApplication(fastify) {
 
       return reply.send({
         success: true,
-        message: updateBorrowerEmail
-          ? "Application edited and client portal email updated"
-          : "Application edited successfully",
+        message: portalEmailMerged
+          ? "Application edited and borrower portals merged for this email"
+          : portalEmailUpdated
+            ? "Application edited and client portal email updated"
+            : "Application edited successfully",
         data: {
           submissionId: result.newSubmission.id,
           ...(warnings.length ? { warnings } : {}),
-          portalEmailUpdated: Boolean(
-            updateBorrowerEmail && !portalEmailWarning,
-          ),
+          portalEmailUpdated,
+          portalEmailMerged,
           clientPortalEmailSent: Boolean(portalNotify.sent),
           clientPortalEmailTo: portalNotify.clientEmail || null,
         },

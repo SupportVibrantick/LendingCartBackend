@@ -46,6 +46,8 @@ async function sendClientPortalAccessEmail({
   portalToken,
   idempotencyKey,
   message = DEFAULT_PORTAL_MESSAGE,
+  subject = "Access Your Loan Application Portal",
+  textIntro = "Your loan application has been submitted successfully.",
 }) {
   const uploadLink = await buildClientPortalUrlForBroker(prisma, brokerOrgId, {
     token: portalToken,
@@ -66,9 +68,8 @@ async function sendClientPortalAccessEmail({
     },
   );
 
-  const subject = "Access Your Loan Application Portal";
   const text = [
-    "Your loan application has been submitted successfully.",
+    textIntro,
     "",
     "Access your client portal using this secure link:",
     uploadLink,

@@ -2412,16 +2412,24 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
         }
         onUpdateSuccess={(newSubmissionId: string) => {
           const idToLoad = newSubmissionId || submissionId;
+          // Same as create/submit: land on Matched Lenders so eligibility
+          // re-fetches against the new submission.
+          const nextTab: TabKey = loDocPermissions.lenderHub
+            ? "find-lenders"
+            : "view-details";
           if (newSubmissionId && newSubmissionId !== submissionId) {
             navigate(previewConfig.previewNavigatePath, {
-              state: { submissionId: newSubmissionId },
+              state: {
+                submissionId: newSubmissionId,
+                activeTab: nextTab,
+              },
               replace: true,
             });
           }
           if (idToLoad) {
             fetchSubmissionDetails(idToLoad);
           }
-          setActiveTab("view-details");
+          setActiveTab(nextTab);
         }}
       />
     );

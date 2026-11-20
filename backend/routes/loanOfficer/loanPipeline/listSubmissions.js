@@ -244,40 +244,45 @@ const borrowerFirstName =
   getFieldValue(
     "borrowerFirstName",
     "firstName",
+    "first_name",
   );
 
 const borrowerLastName =
   getFieldValue(
     "borrowerLastName",
     "lastName",
+    "last_name",
   );
 
+const contactName = [
+  contact?.firstName,
+  contact?.lastName,
+]
+  .filter(Boolean)
+  .join(" ")
+  .trim();
+const submissionName = [
+  borrowerFirstName,
+  borrowerLastName,
+]
+  .filter(Boolean)
+  .join(" ")
+  .trim();
+
+// Prefer portal Client identity after email merges.
 const borrower =
-  [borrowerFirstName, borrowerLastName]
-    .filter(Boolean)
-    .join(" ")
-    .trim() ||
-
-  [
-    contact?.firstName,
-    contact?.lastName,
-  ]
-    .filter(Boolean)
-    .join(" ")
-    .trim() ||
-
+  contactName ||
+  (app?.client?.legalName &&
+  app.client.legalName !== "Applicant"
+    ? app.client.legalName
+    : null) ||
+  submissionName ||
   getFieldValue(
     "borrowerName",
     "applicantName",
     "fullName",
     "name",
   ) ||
-
-  (app?.client?.legalName &&
-  app.client.legalName !== "Applicant"
-    ? app.client.legalName
-    : null) ||
-
   "N/A";
 
           const pendingDocumentsCount =
