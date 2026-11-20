@@ -588,6 +588,8 @@ export default function LoanApplicationsPage() {
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
+  const filteredRows = rows;
+
   const handleDocumentUpload = async (
     submissionId: string,
     requirementId: string,
@@ -988,13 +990,13 @@ export default function LoanApplicationsPage() {
               <p className="text-xs text-[#13538A]/70 dark:text-[#9fd0f0]/80">
                 {loading && rows.length === 0
                   ? "Loading pipeline…"
-                  : `${rows.length} shown`}
-                {pagination.total > rows.length ? "+" : ""}
+                  : `${filteredRows.length} shown`}
+                {pagination.total > filteredRows.length ? "+" : ""}
                 {statusFilter ? ` · ${formatStatusLabel(statusFilter)}` : ""}
               </p>
             </div>
             <span className="inline-flex shrink-0 items-center rounded-full bg-[#13538A] px-2.5 py-1 text-[11px] font-semibold text-white">
-              {loading && rows.length === 0 ? "…" : rows.length}
+              {loading && rows.length === 0 ? "…" : filteredRows.length}
             </span>
           </div>
 
@@ -1047,8 +1049,8 @@ export default function LoanApplicationsPage() {
                       ))}
                     </tr>
                   ))
-                ) : rows.length > 0 ? (
-                  rows.map((row) => (
+                ) : filteredRows.length > 0 ? (
+                  filteredRows.map((row) => (
                     <tr
                       key={row.submissionId}
                       className="group cursor-pointer border-l-2 border-transparent transition hover:border-l-[#13538A] hover:bg-[#13538A]/[0.045] dark:hover:bg-[#13538A]/15"

@@ -371,9 +371,13 @@ export default function LoanPipeline() {
     [currentPage, pagination.totalPages],
   );
 
+  const filteredRows = rows;
+
   const isEmpty = !loading && pagination.total === 0 && !hasActiveFilters;
   const isSearchEmpty =
-    !loading && pagination.total === 0 && hasActiveFilters;
+    !loading &&
+    hasActiveFilters &&
+    (pagination.total === 0 || filteredRows.length === 0);
 
   const refreshPipeline = () => {
     void loadSubmissions({ force: true });
@@ -688,8 +692,10 @@ export default function LoanPipeline() {
             </div>
             {!loading && pagination.total > 0 && (
               <p className="text-xs font-medium text-slate-500">
-                {rows.length} shown
-                {pagination.total > rows.length ? ` of ${pagination.total}` : ""}
+                {filteredRows.length} shown
+                {pagination.total > filteredRows.length
+                  ? ` of ${pagination.total}`
+                  : ""}
               </p>
             )}
           </div>
@@ -735,8 +741,8 @@ export default function LoanPipeline() {
                       )}
                     </tr>
                   ))
-                ) : rows.length > 0 ? (
-                  rows.map((row) => (
+                ) : filteredRows.length > 0 ? (
+                  filteredRows.map((row) => (
                     <tr
                       key={row.applicationLenderId}
                       onClick={() => openApplicationPreview(row)}

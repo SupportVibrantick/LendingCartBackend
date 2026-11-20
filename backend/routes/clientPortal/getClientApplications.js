@@ -297,6 +297,64 @@ function applicationMatchesSearch(app, search) {
   const address = String(summary.address || "").toLowerCase();
   const brokerName = String(broker?.name || "").toLowerCase();
   const brokerEmail = String(broker?.email || "").toLowerCase();
+  const borrowerName = [
+    getSubmissionFieldValues(latestSubmission, [
+      "borrowerFirstName",
+      "firstName",
+      "first_name",
+    ]),
+    getSubmissionFieldValues(latestSubmission, [
+      "borrowerLastName",
+      "lastName",
+      "last_name",
+    ]),
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+  const fullName = getSubmissionFieldValues(latestSubmission, [
+    "borrowerName",
+    "applicantName",
+    "fullName",
+  ]).toLowerCase();
+  const email = getSubmissionFieldValues(latestSubmission, [
+    "email",
+    "borrowerEmail",
+    "preferredEmail",
+  ]).toLowerCase();
+  const phone = getSubmissionFieldValues(latestSubmission, [
+    "phone",
+    "cellPhone",
+    "mobile",
+    "mobilePhone",
+  ]).toLowerCase();
+  const ssn = getSubmissionFieldValues(latestSubmission, [
+    "ssn",
+    "socialSecurityNumber",
+    "taxId",
+    "ein",
+  ]).toLowerCase();
+  const city = getSubmissionFieldValues(latestSubmission, [
+    "city",
+    "propertyCity",
+    "borrowerCity",
+  ]).toLowerCase();
+  const state = getSubmissionFieldValues(latestSubmission, [
+    "state",
+    "propertyState",
+    "borrowerState",
+  ]).toLowerCase();
+  const street = getSubmissionFieldValues(latestSubmission, [
+    "street",
+    "streetName",
+    "streetAddress",
+    "address",
+    "mailingAddress",
+    "propertyAddress",
+  ]).toLowerCase();
+  const digits = search.replace(/\D/g, "");
+  const phoneDigits = phone.replace(/\D/g, "");
+  const ssnDigits = ssn.replace(/\D/g, "");
 
   return (
     applicationNumber.includes(search) ||
@@ -308,7 +366,17 @@ function applicationMatchesSearch(app, search) {
     collateralSummary.includes(search) ||
     address.includes(search) ||
     brokerName.includes(search) ||
-    brokerEmail.includes(search)
+    brokerEmail.includes(search) ||
+    borrowerName.includes(search) ||
+    fullName.includes(search) ||
+    email.includes(search) ||
+    phone.includes(search) ||
+    ssn.includes(search) ||
+    city.includes(search) ||
+    state.includes(search) ||
+    street.includes(search) ||
+    (digits.length >= 3 &&
+      (phoneDigits.includes(digits) || ssnDigits.includes(digits)))
   );
 }
 
