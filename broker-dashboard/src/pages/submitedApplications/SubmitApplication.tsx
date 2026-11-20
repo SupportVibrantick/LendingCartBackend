@@ -39,6 +39,7 @@ import {
 import MultiSelect from "../../components/form/MultiSelect";
 import { getFixedMenuPosition } from "../../lib/fixedMenuPosition";
 import { formatUsDate } from "../../lib/usDateFormat";
+import { filterRowsByBorrowerName } from "../../lib/pipelineNameSearch";
 
 /* ================= TYPES ================= */
 // type SubmissionListItem = {
@@ -1064,7 +1065,10 @@ export default function LoanApplicationsPage() {
     void refreshPipelineData();
   };
 
-  const filteredRows = rows;
+  const filteredRows = useMemo(
+    () => filterRowsByBorrowerName(rows, searchTerm),
+    [rows, searchTerm],
+  );
 
   const loanOfficerOptions = useMemo(
     () =>

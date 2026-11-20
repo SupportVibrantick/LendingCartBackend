@@ -38,6 +38,7 @@ import {
   getBrokerReassignmentBlockedReason,
 } from "../../../lib/brokerApplicationAssignment";
 import { hasPermission } from "../../../lib/brokerPermissions";
+import { filterRowsByBorrowerName } from "../../../lib/pipelineNameSearch";
 import { getFixedMenuPosition } from "../../../lib/fixedMenuPosition";
 import { formatUsDate } from "../../../lib/usDateFormat";
 
@@ -960,7 +961,10 @@ export default function LoanApplicationsPage() {
 
   const canAssignCoBrokers = hasPermission("EDIT_CO_BROKERS", "loanOfficer");
 
-  const filteredRows = rows;
+  const filteredRows = useMemo(
+    () => filterRowsByBorrowerName(rows, searchTerm),
+    [rows, searchTerm],
+  );
 
   const subBrokerOptions = useMemo(
     () =>

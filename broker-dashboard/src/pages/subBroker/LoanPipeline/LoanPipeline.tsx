@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type MouseEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import toast from "react-hot-toast";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router";
@@ -27,6 +27,7 @@ import {
 } from "../../../lib/coBrokerPortal";
 import { getFixedMenuPosition } from "../../../lib/fixedMenuPosition";
 import { formatUsDate } from "../../../lib/usDateFormat";
+import { filterRowsByBorrowerName } from "../../../lib/pipelineNameSearch";
 
 /* ================= TYPES ================= */
 
@@ -588,7 +589,10 @@ export default function LoanApplicationsPage() {
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
-  const filteredRows = rows;
+  const filteredRows = useMemo(
+    () => filterRowsByBorrowerName(rows, searchTerm),
+    [rows, searchTerm],
+  );
 
   const handleDocumentUpload = async (
     submissionId: string,
