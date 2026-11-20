@@ -226,6 +226,9 @@ export default function LoanApplicationsPage() {
     : "";
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchRequestIdRef = useRef(0);
+  const searchTermRef = useRef(initialQuery);
+  const statusFilterRef = useRef(initialStatus);
+  const nextCursorRef = useRef<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement | null>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
@@ -248,6 +251,22 @@ export default function LoanApplicationsPage() {
   const [hasMore, setHasMore] = useState(false);
   const [searchTerm, setSearchTerm] = useState(initialQuery);
   const [statusFilter, setStatusFilter] = useState(initialStatus);
+
+  useEffect(() => {
+    searchTermRef.current = searchTerm;
+  }, [searchTerm]);
+
+  useEffect(() => {
+    statusFilterRef.current = statusFilter;
+  }, [statusFilter]);
+
+  const invalidateListSession = useCallback(() => {
+    searchRequestIdRef.current += 1;
+    nextCursorRef.current = null;
+    setNextCursor(null);
+    setHasMore(false);
+    setRows([]);
+  }, []);
   const [viewSubmissionId, setViewSubmissionId] = useState<string | null>(null);
   const [lenderSubmissionId] = useState<string | null>(null);
   const [submissionDetail, setSubmissionDetail] = useState<any>(null);
@@ -750,16 +769,35 @@ export default function LoanApplicationsPage() {
 
   const loadSubmissions = useCallback(
     async (cursor?: string, searchValue?: string, statusValue?: string) => {
-      const requestId = cursor
-        ? searchRequestIdRef.current
-        : ++searchRequestIdRef.current;
+      // Always read latest filters from refs so stale scroll/observer
+      // closures cannot page with an empty/outdated search term.
+      const activeSearch = (searchValue ?? searchTermRef.current).trim();
+      const activeStatus = statusValue ?? statusFilterRef.current;
+
+      let requestId: number;
+      if (cursor) {
+        // Bind this page to the list session that produced the cursor.
+        requestId = searchRequestIdRef.current;
+        // Reject stale/duplicate load-more (wrong list session or same page twice).
+        if (cursor !== nextCursorRef.current) {
+          return;
+        }
+        // Claim cursor synchronously so overlapping observers cannot re-fetch it.
+        nextCursorRef.current = null;
+      } else {
+        requestId = ++searchRequestIdRef.current;
+        // Drop previous rows/cursors immediately so infinite-scroll cannot
+        // append unfiltered pages into a new search result set.
+        nextCursorRef.current = null;
+        setRows([]);
+        setNextCursor(null);
+        setHasMore(false);
+      }
 
       try {
         setLoading(true);
 
         const url = new URL(API_BASE + "/broker/loan-pipeline/submissions");
-        const activeSearch = (searchValue ?? searchTerm).trim();
-        const activeStatus = statusValue ?? statusFilter;
 
         if (activeSearch) {
           url.searchParams.append("search", activeSearch);
@@ -782,6 +820,10 @@ export default function LoanApplicationsPage() {
         // Ignore stale responses when a newer search already started.
         if (requestId !== searchRequestIdRef.current) {
           return;
+        }
+
+        if (!res.ok || json?.success === false) {
+          throw new Error(json?.message || "Failed to load applications");
         }
 
         const list = Array.isArray(json.data) ? json.data : [];
@@ -822,15 +864,27 @@ export default function LoanApplicationsPage() {
 
         setRows((prev) => (cursor ? [...prev, ...formatted] : formatted));
 
-        setNextCursor(json.pagination?.nextCursor ?? null);
+        const next = json.pagination?.nextCursor ?? null;
+        nextCursorRef.current = next;
+        setNextCursor(next);
         setHasMore(Boolean(json.pagination?.hasMore));
+      } catch (err: any) {
+        if (requestId === searchRequestIdRef.current) {
+          // Restore claimed cursor so the user can retry load-more.
+          if (cursor) {
+            nextCursorRef.current = cursor;
+            setNextCursor(cursor);
+            setHasMore(true);
+          }
+          toast.error(err?.message || "Failed to load applications");
+        }
       } finally {
         if (requestId === searchRequestIdRef.current) {
           setLoading(false);
         }
       }
     },
-    [searchTerm, statusFilter],
+    [],
   );
 
   const fetchPipelineStats = async () => {
@@ -1010,7 +1064,6 @@ export default function LoanApplicationsPage() {
     void refreshPipelineData();
   };
 
-  // Server-side search (name, email, phone, app #, address, entity, SSN, etc.).
   const filteredRows = rows;
 
   const loanOfficerOptions = useMemo(
@@ -1150,7 +1203,11 @@ export default function LoanApplicationsPage() {
         const first = entries[0];
 
         if (first.isIntersecting && hasMore && !loading && nextCursor) {
-          loadSubmissions(nextCursor);
+          loadSubmissions(
+            nextCursor,
+            searchTermRef.current,
+            statusFilterRef.current,
+          );
         }
       },
       { threshold: 1 },
@@ -1161,7 +1218,7 @@ export default function LoanApplicationsPage() {
     return () => {
       observerRef.current?.disconnect();
     };
-  }, [hasMore, loading, nextCursor]);
+  }, [hasMore, loading, nextCursor, loadSubmissions]);
 
   // useEffect(() => {
   //   const storedRoles = JSON.parse(sessionStorage.getItem("roles") || "[]");
@@ -1399,7 +1456,11 @@ export default function LoanApplicationsPage() {
       ) {
         fetching = true;
 
-        loadSubmissions(nextCursor).finally(() => {
+        loadSubmissions(
+          nextCursor,
+          searchTermRef.current,
+          statusFilterRef.current,
+        ).finally(() => {
           fetching = false;
         });
       }
@@ -1407,7 +1468,7 @@ export default function LoanApplicationsPage() {
 
     window.addEventListener("scroll", onScroll);
     return () => window.removeEventListener("scroll", onScroll);
-  }, [hasMore, nextCursor, loading]);
+  }, [hasMore, nextCursor, loading, loadSubmissions]);
 
   // const handleReload = () => {
   //   loadSubmissions();
@@ -1504,13 +1565,16 @@ export default function LoanApplicationsPage() {
                   onChange={(e) => {
                     const value = e.target.value;
                     setSearchTerm(value);
+                    searchTermRef.current = value;
+                    // Kill in-flight unfiltered pages during the debounce window.
+                    invalidateListSession();
 
                     if (searchTimeoutRef.current) {
                       clearTimeout(searchTimeoutRef.current);
                     }
 
                     searchTimeoutRef.current = setTimeout(() => {
-                      loadSubmissions(undefined, value, statusFilter);
+                      loadSubmissions(undefined, value, statusFilterRef.current);
                     }, 500);
                   }}
                   className="h-9 w-full rounded-lg border border-gray-200 bg-white pl-8 pr-8 text-sm outline-none transition focus:border-[#13538A] focus:ring-2 focus:ring-[#13538A]/15 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100"
@@ -1520,10 +1584,11 @@ export default function LoanApplicationsPage() {
                     type="button"
                     onClick={() => {
                       setSearchTerm("");
+                      searchTermRef.current = "";
                       if (searchTimeoutRef.current) {
                         clearTimeout(searchTimeoutRef.current);
                       }
-                      loadSubmissions(undefined, "", statusFilter);
+                      loadSubmissions(undefined, "", statusFilterRef.current);
                     }}
                     className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-[#13538A]"
                   >
@@ -1544,7 +1609,10 @@ export default function LoanApplicationsPage() {
                   <button
                     key={filter.value || "all"}
                     type="button"
-                    onClick={() => setStatusFilter(filter.value)}
+                    onClick={() => {
+                      statusFilterRef.current = filter.value;
+                      setStatusFilter(filter.value);
+                    }}
                     className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition ${
                       active
                         ? "bg-[#13538A] text-white shadow-sm"
@@ -1578,14 +1646,14 @@ export default function LoanApplicationsPage() {
               <p className="text-xs text-[#13538A]/70 dark:text-[#9fd0f0]/80">
                 {loading && rows.length === 0
                   ? "Loading pipeline…"
-                  : `${rows.length} shown${hasMore ? "+" : ""}${
+                  : `${filteredRows.length} shown${hasMore ? "+" : ""}${
                       searchTerm ? " matching" : ""
                     }`}
                 {statusFilter ? ` · ${formatStatusLabel(statusFilter)}` : ""}
               </p>
             </div>
             <span className="inline-flex shrink-0 items-center rounded-full bg-[#13538A] px-2.5 py-1 text-[11px] font-semibold text-white">
-              {loading && rows.length === 0 ? "…" : rows.length}
+              {loading && rows.length === 0 ? "…" : filteredRows.length}
             </span>
           </div>
 

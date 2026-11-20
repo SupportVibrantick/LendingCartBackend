@@ -2317,7 +2317,7 @@ export default function ClientUpload() {
                     />
                     <input
                       type="text"
-                      placeholder="Search applications..."
+                      placeholder="Search name, email, phone, app #, address, entity, SSN..."
                       value={search}
                       onChange={(e) => setSearch(e.target.value)}
                       className="h-10 w-full rounded-xl border border-gray-200 bg-white py-2 pl-9 pr-9 text-sm outline-none transition focus:border-[#13538A] focus:ring-2 focus:ring-[#13538A]/15 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100"

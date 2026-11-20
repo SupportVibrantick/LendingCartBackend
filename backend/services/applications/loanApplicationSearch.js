@@ -18,12 +18,17 @@ const SEARCHABLE_SUBMISSION_FIELD_KEYS = [
   "mobile",
   "mobilePhone",
   "ssn",
+  "ssnLast4",
   "taxId",
+  "ein",
+  "itin",
   "socialSecurityNumber",
+  "social_security_number",
   "address",
   "street",
   "streetAddress",
   "streetName",
+  "street_name",
   "mailingAddress",
   "propertyAddress",
   "city",
@@ -42,9 +47,13 @@ const SEARCHABLE_SUBMISSION_FIELD_KEYS = [
   "legalName",
 ];
 
+const FIRST_NAME_KEYS = ["borrowerFirstName", "firstName", "first_name"];
+const LAST_NAME_KEYS = ["borrowerLastName", "lastName", "last_name"];
+const FULL_NAME_KEYS = ["borrowerName", "applicantName", "fullName"];
+
 /** Co-borrower / dynamic keys that end with these suffixes. */
 const SEARCHABLE_FIELD_KEY_PATTERN =
-  "(email|phone|ssn|taxId|address|city|state|entityName|entityLegalName|companyName|legalName|firstName|lastName|borrowerName|fullName)$";
+  "(email|phone|ssn|ssnLast4|taxId|ein|itin|address|street|streetName|city|state|zip|entityName|entityLegalName|companyName|businessName|legalName|firstName|lastName|borrowerName|fullName)$";
 
 function filterEnumMatches(search, enumValues) {
   const needle = search.trim().toLowerCase();
@@ -75,18 +84,26 @@ function searchTokens(search) {
   return tokens;
 }
 
-/** Every token must appear in firstName or lastName (or email/phone). */
-function contactNameTokenAnd(tokens) {
+/** First + last name pairing on a single contact (not token scatter). */
+function contactNamePairOr(tokens) {
   if (tokens.length < 2) return null;
+  const first = tokens[0];
+  const last = tokens[tokens.length - 1];
   return {
-    AND: tokens.map((token) => ({
-      OR: [
-        { firstName: { contains: token, mode: "insensitive" } },
-        { lastName: { contains: token, mode: "insensitive" } },
-        { email: { contains: token, mode: "insensitive" } },
-        { phone: { contains: token, mode: "insensitive" } },
-      ],
-    })),
+    OR: [
+      {
+        AND: [
+          { firstName: { contains: first, mode: "insensitive" } },
+          { lastName: { contains: last, mode: "insensitive" } },
+        ],
+      },
+      {
+        AND: [
+          { firstName: { contains: last, mode: "insensitive" } },
+          { lastName: { contains: first, mode: "insensitive" } },
+        ],
+      },
+    ],
   };
 }
 
@@ -137,9 +154,11 @@ function buildApplicationSearchWhere(
   }
 
   if (includeBorrower) {
+    // Email / phone / tax ID on the Client record. Do not match contact
+    // first/last or legalName here — reused portal clients would return
+    // every file on that client even when the displayed borrower differs.
+    // Names, address, entity, and SSN are matched from submission fields.
     const contactOr = [
-      { firstName: { contains: term, mode: "insensitive" } },
-      { lastName: { contains: term, mode: "insensitive" } },
       { email: { contains: term, mode: "insensitive" } },
       { phone: { contains: term, mode: "insensitive" } },
     ];
@@ -149,13 +168,7 @@ function buildApplicationSearchWhere(
       contactOr.push({ phone: { contains: digitTerm } });
     }
 
-    const multiWordContact = contactNameTokenAnd(tokens);
-    if (multiWordContact) {
-      contactOr.push(multiWordContact);
-    }
-
     const clientOr = [
-      { legalName: { contains: term, mode: "insensitive" } },
       { taxId: { contains: term, mode: "insensitive" } },
       ...(digitTerm.length >= 3 ? [{ taxId: { contains: digitTerm } }] : []),
       {
@@ -166,15 +179,6 @@ function buildApplicationSearchWhere(
         },
       },
     ];
-
-    // "saina saluja" → legalName must contain both tokens when split across words
-    if (tokens.length >= 2) {
-      clientOr.push({
-        AND: tokens.map((token) => ({
-          legalName: { contains: token, mode: "insensitive" },
-        })),
-      });
-    }
 
     or.push({
       client: {
@@ -199,7 +203,7 @@ function buildApplicationSearchWhere(
     // Search assigned LO / co-broker only — never brokerUser (creator/admin),
     // or searching the logged-in broker's own name would return every app.
     const staffOr = personNameFieldOr(term);
-    const staffMulti = contactNameTokenAnd(tokens);
+    const staffMulti = contactNamePairOr(tokens);
     if (staffMulti) staffOr.push(staffMulti);
 
     or.push({
@@ -313,17 +317,117 @@ async function findApplicationIdsBySubmissionFieldSearch(
   }
 }
 
-function intersectIdLists(lists) {
-  if (!lists.length) return [];
-  const [first, ...rest] = lists;
-  const sets = rest.map((list) => new Set(list));
-  return first.filter((id) => sets.every((set) => set.has(id)));
+/**
+ * Match the displayed borrower: first+last pairing, or a full-name field.
+ * Used for queries like "Tushar Jain" so split name fields still hit.
+ */
+async function findApplicationIdsByBorrowerNameSearch(
+  prisma,
+  search,
+  { limit = 500 } = {},
+) {
+  const term = String(search || "").trim();
+  if (!term || !prisma) return [];
+
+  const tokens = String(term).split(/\s+/).filter(Boolean);
+  const like = `%${term}%`;
+  const firstLike = `%${tokens[0]}%`;
+  const lastLike = `%${tokens[tokens.length - 1]}%`;
+  const nameKeys = [...FIRST_NAME_KEYS, ...LAST_NAME_KEYS, ...FULL_NAME_KEYS];
+
+  try {
+    const rows = await prisma.$queryRaw`
+      SELECT DISTINCT s."applicationId" AS id
+      FROM application_submissions s
+      WHERE s.status <> 'SUPERSEDED'
+        AND (
+          EXISTS (
+            SELECT 1
+            FROM application_submission_fields f
+            LEFT JOIN broker_application_product_fields bf ON bf.id = f."fieldId"
+            WHERE f."submissionId" = s.id
+              AND COALESCE(NULLIF(f."fieldKey", ''), bf."fieldKey") IN (${Prisma.join(nameKeys)})
+              AND (
+                CASE
+                  WHEN jsonb_typeof(f.value) = 'string' THEN f.value #>> '{}'
+                  ELSE f.value::text
+                END
+              ) ILIKE ${like}
+          )
+          OR (
+            EXISTS (
+              SELECT 1
+              FROM application_submission_fields f
+              LEFT JOIN broker_application_product_fields bf ON bf.id = f."fieldId"
+              WHERE f."submissionId" = s.id
+                AND COALESCE(NULLIF(f."fieldKey", ''), bf."fieldKey") IN (${Prisma.join(FIRST_NAME_KEYS)})
+                AND (
+                  CASE
+                    WHEN jsonb_typeof(f.value) = 'string' THEN f.value #>> '{}'
+                    ELSE f.value::text
+                  END
+                ) ILIKE ${firstLike}
+            )
+            AND EXISTS (
+              SELECT 1
+              FROM application_submission_fields f
+              LEFT JOIN broker_application_product_fields bf ON bf.id = f."fieldId"
+              WHERE f."submissionId" = s.id
+                AND COALESCE(NULLIF(f."fieldKey", ''), bf."fieldKey") IN (${Prisma.join(LAST_NAME_KEYS)})
+                AND (
+                  CASE
+                    WHEN jsonb_typeof(f.value) = 'string' THEN f.value #>> '{}'
+                    ELSE f.value::text
+                  END
+                ) ILIKE ${lastLike}
+            )
+          )
+          OR (
+            EXISTS (
+              SELECT 1
+              FROM application_submission_fields f
+              LEFT JOIN broker_application_product_fields bf ON bf.id = f."fieldId"
+              WHERE f."submissionId" = s.id
+                AND COALESCE(NULLIF(f."fieldKey", ''), bf."fieldKey") IN (${Prisma.join(FIRST_NAME_KEYS)})
+                AND (
+                  CASE
+                    WHEN jsonb_typeof(f.value) = 'string' THEN f.value #>> '{}'
+                    ELSE f.value::text
+                  END
+                ) ILIKE ${lastLike}
+            )
+            AND EXISTS (
+              SELECT 1
+              FROM application_submission_fields f
+              LEFT JOIN broker_application_product_fields bf ON bf.id = f."fieldId"
+              WHERE f."submissionId" = s.id
+                AND COALESCE(NULLIF(f."fieldKey", ''), bf."fieldKey") IN (${Prisma.join(LAST_NAME_KEYS)})
+                AND (
+                  CASE
+                    WHEN jsonb_typeof(f.value) = 'string' THEN f.value #>> '{}'
+                    ELSE f.value::text
+                  END
+                ) ILIKE ${firstLike}
+            )
+          )
+        )
+      LIMIT ${limit}
+    `;
+
+    return (rows || []).map((row) => row.id).filter(Boolean);
+  } catch (err) {
+    console.error(
+      "[loanApplicationSearch] borrower name search failed:",
+      err?.message || err,
+    );
+    return [];
+  }
 }
 
 /**
  * Append submission-field matches onto an existing LoanApplication OR array.
- * Multi-word queries match when every token appears in searchable fields
- * (e.g. firstName "Saina" + lastName "Saluja" for "saina saluja").
+ * Full-term search covers name, email, phone, SSN, address, city, state, entity.
+ * Multi-word queries also pair first+last name fields.
  */
 async function enrichApplicationSearchOrWithSubmissionFields(
   prisma,
@@ -333,18 +437,16 @@ async function enrichApplicationSearchOrWithSubmissionFields(
   const term = String(search || "").trim();
   if (!term || !Array.isArray(orClauses)) return orClauses || [];
 
-  const tokens = searchTokens(term);
+  const tokens = String(term).split(/\s+/).filter(Boolean);
   const idSet = new Set(
     await findApplicationIdsBySubmissionFieldSearch(prisma, term),
   );
 
   if (tokens.length >= 2) {
-    const perTokenIds = await Promise.all(
-      tokens.map((token) =>
-        findApplicationIdsBySubmissionFieldSearch(prisma, token),
-      ),
-    );
-    for (const id of intersectIdLists(perTokenIds)) {
+    for (const id of await findApplicationIdsByBorrowerNameSearch(
+      prisma,
+      term,
+    )) {
       idSet.add(id);
     }
   }
@@ -413,5 +515,6 @@ module.exports = {
   buildEnrichedApplicationSearchWhere,
   enrichApplicationSearchOrWithSubmissionFields,
   findApplicationIdsBySubmissionFieldSearch,
+  findApplicationIdsByBorrowerNameSearch,
   loanApplicationListInclude,
 };

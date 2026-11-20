@@ -313,6 +313,8 @@ export default function LoanPipeline() {
     return () => controller.abort();
   }, [loadSubmissions]);
 
+  const filteredRows = rows;
+
   useEffect(() => {
     if (currentPage > totalPages && totalPages > 0) {
       setCurrentPage(totalPages);
@@ -620,8 +622,8 @@ export default function LoanPipeline() {
                     ))}
                   </tr>
                 ))
-              ) : rows.length > 0 ? (
-                rows.map((row) => (
+              ) : filteredRows.length > 0 ? (
+                filteredRows.map((row) => (
                   <tr
                     key={row.applicationId}
                     className="group cursor-pointer border-l-2 border-transparent transition hover:border-l-[#13538A] hover:bg-[#13538A]/[0.045] dark:hover:bg-[#13538A]/15"
