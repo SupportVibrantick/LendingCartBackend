@@ -251,6 +251,33 @@ function resolveClientEmailFromData(client, submissions = []) {
   ]);
 }
 
+/**
+ * Application-scoped borrower email for CRM / pipeline lists.
+ * Prefer the latest submission form email (what the broker just edited),
+ * then active portal login, then contact — so CRM reflects email updates.
+ */
+function resolveApplicationBorrowerEmail(client, submissions = []) {
+  const submissionEmail = getSubmissionFieldValues(submissions, [
+    "email",
+    "borrowerEmail",
+    "clientEmail",
+    "contactEmail",
+    "preferredEmail",
+  ]);
+  if (submissionEmail?.trim()) {
+    return submissionEmail.trim();
+  }
+
+  const portalEmail =
+    client?.portalUsers?.find((user) => user?.email?.trim())?.email ||
+    client?.portalUsers?.[0]?.email;
+  if (portalEmail?.trim()) {
+    return portalEmail.trim();
+  }
+
+  return resolveClientEmailFromData(client, submissions);
+}
+
 function resolveClientPhoneFromData(client, submissions = []) {
   const primaryContact =
     client?.contacts?.find((contact) => contact.isPrimary) || client?.contacts?.[0];
@@ -372,6 +399,7 @@ module.exports = {
   resolveClientEntityTypeFromData,
   resolveClientIndustryFromData,
   resolveClientEmailFromData,
+  resolveApplicationBorrowerEmail,
   resolveClientPhoneFromData,
   resolveClientPrimaryContactFromData,
   isPlaceholderName,

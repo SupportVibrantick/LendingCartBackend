@@ -34,6 +34,8 @@ async function notifyClientPortalAfterApplicationEdit({
   brokerOrgId,
   submissionId,
   fallbackEmail,
+  /** When set (after portal login email change), ALWAYS send here — never old contact/portal email. */
+  forceToEmail,
   log,
 }) {
   if (!applicationId || !brokerOrgId) {
@@ -47,6 +49,12 @@ async function notifyClientPortalAfterApplicationEdit({
         include: {
           contacts: {
             orderBy: [{ isPrimary: "desc" }, { id: "asc" }],
+          },
+          portalUsers: {
+            where: { isDeleted: { not: true }, isActive: true },
+            orderBy: [{ lastLoginAt: "desc" }, { createdAt: "desc" }],
+            take: 1,
+            select: { email: true },
           },
         },
       },
@@ -82,12 +90,21 @@ async function notifyClientPortalAfterApplicationEdit({
     return { sent: false, reason: "no_client" };
   }
 
+  const forcedEmail = normalizeEmail(forceToEmail);
+  const portalLoginEmail = normalizeEmail(
+    application.client.portalUsers?.[0]?.email,
+  );
   const resolvedEmail = resolveClientEmailFromData(
     application.client,
     application.submissions,
   );
+  // After a portal email update, forceToEmail wins. Otherwise prefer the
+  // active portal login, then contact/submission, then optional fallback.
   const clientEmail =
-    normalizeEmail(resolvedEmail) || normalizeEmail(fallbackEmail);
+    forcedEmail ||
+    portalLoginEmail ||
+    normalizeEmail(resolvedEmail) ||
+    normalizeEmail(fallbackEmail);
   if (!clientEmail) {
     log?.warn?.(
       { applicationId, submissionId },
@@ -108,7 +125,33 @@ async function notifyClientPortalAfterApplicationEdit({
     }),
   );
 
-  await sendClientPortalAccessEmail({
+  // Keep primary contact aligned with the address we are about to email so
+  // later resolves do not fall back to a stale inbox.
+  const primaryContact = application.client.contacts?.[0];
+  if (
+    primaryContact?.id &&
+    normalizeEmail(primaryContact.email) !== clientEmail
+  ) {
+    try {
+      await prisma.clientContact.update({
+        where: { id: primaryContact.id },
+        data: { email: clientEmail },
+      });
+    } catch (contactErr) {
+      log?.warn?.(
+        {
+          applicationId,
+          contactId: primaryContact.id,
+          error: contactErr.message,
+        },
+        "Could not sync primary contact email before portal notify",
+      );
+    }
+  }
+
+  // Unique per edit attempt so a prior SENT outbox row cannot suppress a new
+  // delivery (Gmail also treats identical subjects as one thread).
+  const outbox = await sendClientPortalAccessEmail({
     prisma,
     to: clientEmail,
     clientName,
@@ -116,21 +159,36 @@ async function notifyClientPortalAfterApplicationEdit({
     brokerName: application.brokerOrg?.name,
     brokerOrgId: brokerOrgId || application.brokerOrgId,
     portalToken,
-    idempotencyKey: `broker-edit-portal:${application.id}:${submissionId || "edit"}`,
+    idempotencyKey: `broker-edit-portal:${application.id}:${submissionId || "edit"}:${clientEmail}:${Date.now()}`,
     message: UPDATE_PORTAL_MESSAGE,
+    subject: "Your loan application was updated — portal access",
+    textIntro:
+      "Your loan application has been updated by your broker.",
   });
 
+  const delivered = outbox?.status === "SENT";
   log?.info?.(
     {
       applicationId: application.id,
       submissionId,
       clientEmail,
+      forcedToUpdatedEmail: Boolean(forcedEmail),
       status: application.status,
+      outboxId: outbox?.id || null,
+      outboxStatus: outbox?.status || null,
+      delivered,
     },
-    "Client portal access email sent after application edit",
+    delivered
+      ? "Client portal access email sent after application edit"
+      : "Client portal access email queued/failed after application edit",
   );
 
-  return { sent: true, clientEmail };
+  return {
+    sent: delivered,
+    clientEmail,
+    reason: delivered ? "sent" : "outbox_not_sent",
+    outboxStatus: outbox?.status || null,
+  };
 }
 
 module.exports = {

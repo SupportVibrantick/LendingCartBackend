@@ -1,8 +1,12 @@
 const {
   resolveClientDisplayNameFromData,
-  resolveClientEmailFromData,
+  resolveApplicationBorrowerEmail,
   resolveClientPhoneFromData,
 } = require("../../../services/messaging/resolveClientDisplayName");
+const {
+  findApplicationIdsBySubmissionFieldSearch,
+  EMAIL_FIELD_KEYS,
+} = require("../../../services/applications/loanApplicationSearch");
 
 function getActiveSubmissions(submissions = []) {
   return submissions.filter((s) => s.status !== "SUPERSEDED");
@@ -81,6 +85,14 @@ module.exports = async function listBorrowersRoute(fastify) {
         const sortOrder = req.query.sortOrder === "asc" ? "asc" : "desc";
         const skip = (page - 1) * limit;
 
+        const submissionEmailMatchIds = search
+          ? await findApplicationIdsBySubmissionFieldSearch(prisma, search, {
+              fieldKeys: EMAIL_FIELD_KEYS,
+              keyPattern: "(email)$",
+              matchDigits: false,
+            })
+          : [];
+
         const where = {
           brokerOrgId,
           ...(isOfficer ? { brokerUserId: userId } : {}),
@@ -126,6 +138,19 @@ module.exports = async function listBorrowersRoute(fastify) {
                       },
                     },
                   },
+                  {
+                    client: {
+                      portalUsers: {
+                        some: {
+                          isDeleted: { not: true },
+                          email: { contains: search, mode: "insensitive" },
+                        },
+                      },
+                    },
+                  },
+                  ...(submissionEmailMatchIds.length
+                    ? [{ id: { in: submissionEmailMatchIds } }]
+                    : []),
                 ],
               }
             : {}),
@@ -175,6 +200,12 @@ module.exports = async function listBorrowersRoute(fastify) {
                       isPrimary: true,
                     },
                   },
+                  portalUsers: {
+                    where: { isDeleted: { not: true }, isActive: true },
+                    orderBy: [{ lastLoginAt: "desc" }, { createdAt: "desc" }],
+                    take: 1,
+                    select: { email: true },
+                  },
                 },
               },
               submissions: {
@@ -212,7 +243,8 @@ module.exports = async function listBorrowersRoute(fastify) {
             submissionId: latestSubmission?.id || null,
             clientId: app.client?.id || null,
             name: resolveClientDisplayNameFromData(app.client, submissions),
-            email: resolveClientEmailFromData(app.client, submissions) || "",
+            email:
+              resolveApplicationBorrowerEmail(app.client, submissions) || "",
             phone: resolveClientPhoneFromData(app.client, submissions) || "",
             createdAt: app.createdAt,
           };

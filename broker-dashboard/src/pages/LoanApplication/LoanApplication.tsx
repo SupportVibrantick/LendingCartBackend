@@ -2999,7 +2999,36 @@ const LoanApplication = ({
       }
       goToPostSubmitDestination(submissionId);
     } catch (error: any) {
-      toast.error(error.message || "Something went wrong");
+      const message = error.message || "Something went wrong";
+      toast.error(message);
+      // Portal login email conflict: keep user on borrower email to pick another.
+      if (
+        mode === "update" &&
+        /already used by another client portal account/i.test(message)
+      ) {
+        const emailErrorKey = "borrower.email";
+        const stepIndex = Math.max(baseSteps.indexOf("Borrower Info"), 0);
+        await goToStep(stepIndex, { clearErrors: false });
+        setErrors((prev) => ({
+          ...prev,
+          [emailErrorKey]:
+            "This email is already used by another client portal account. Enter a different email.",
+        }));
+        setHighlightedErrorKey(emailErrorKey);
+        window.setTimeout(() => {
+          const el = document.querySelector(
+            `[data-field="${CSS.escape(emailErrorKey)}"]`,
+          ) as HTMLInputElement | null;
+          el?.scrollIntoView({ behavior: "smooth", block: "center" });
+          el?.focus?.({ preventScroll: true });
+          el?.select?.();
+        }, 180);
+        window.setTimeout(() => {
+          setHighlightedErrorKey((current) =>
+            current === emailErrorKey ? null : current,
+          );
+        }, 4500);
+      }
     } finally {
       setSubmitting(false);
     }

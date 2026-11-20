@@ -31,6 +31,9 @@ async function sendViaSmtp({ to, cc, bcc, subject, text, html, attachments, from
 
   const smtp = getSmtpConfig();
   const activeTransporter = getTransporter();
+  if (!activeTransporter) {
+    return { messageId: "smtp-unavailable", skipped: true };
+  }
 
   const info = await activeTransporter.sendMail({
     to,

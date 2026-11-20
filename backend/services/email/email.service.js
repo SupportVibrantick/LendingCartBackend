@@ -193,6 +193,14 @@ async function enqueueAndFlushEmail(options) {
       idempotencyKey: options?.idempotencyKey,
     });
   }
+  // Return fresh status after flush so callers can tell SENT vs PENDING/FAILED.
+  if (queued?.id) {
+    const client = options.prisma || sharedPrisma;
+    const fresh = await client.emailOutbox.findUnique({
+      where: { id: queued.id },
+    });
+    return fresh || queued;
+  }
   return queued;
 }
 
@@ -278,7 +286,22 @@ async function claimOutboxBatch(prisma) {
 
 async function processOutboxRecord(prisma, record) {
   try {
-    await dispatchOutboxRecord(record);
+    const result = await dispatchOutboxRecord(record);
+
+    // SMTP/GHL may no-op when disabled — do not pretend the mail was delivered.
+    if (result && result.skipped) {
+      return prisma.emailOutbox.update({
+        where: { id: record.id },
+        data: {
+          status: "FAILED",
+          attempts: record.attempts + 1,
+          lastError: "Email provider skipped send (EMAIL_ENABLED=false or provider unavailable)",
+          lockedBy: null,
+          lockedUntil: null,
+          nextAttemptAt: computeNextAttempt(record.attempts + 1),
+        },
+      });
+    }
 
     return prisma.emailOutbox.update({
       where: { id: record.id },
