@@ -53,7 +53,7 @@ export default function LoiBrandingFields({
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950">
       <div className="mb-4 flex items-start gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-[#183b57] dark:bg-brand-500/10 dark:text-brand-300">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-[#4C78F5] dark:bg-brand-500/10 dark:text-brand-300">
           <ImageIcon size={18} />
         </div>
         <div>
@@ -146,7 +146,7 @@ export default function LoiBrandingFields({
                 onChange({ ...value, brandName: e.target.value })
               }
               placeholder="e.g. Acme Capital Lending"
-              className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#183b57] focus:ring-2 focus:ring-[#183b57]/10 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+              className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-[#4C78F5] focus:ring-2 focus:ring-[#4C78F5]/10 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
             />
           </label>
 
@@ -158,7 +158,7 @@ export default function LoiBrandingFields({
                 className="h-8 w-auto max-w-[96px] object-contain"
               />
             ) : (
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-100 text-[#183b57] dark:bg-brand-500/20">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-100 text-[#4C78F5] dark:bg-brand-500/20">
                 <Building2 size={14} />
               </div>
             )}

@@ -56,7 +56,7 @@ export default function LoiPreview() {
           {/* OPEN */}
           <button
             onClick={() => window.open(pdfUrl, "_blank")}
-            className="flex items-center gap-2 px-4 py-2 bg-[#3e86b7] text-white rounded-lg hover:bg-[#2e6f99] transition"
+            className="flex items-center gap-2 px-4 py-2 bg-[#4C78F5] text-white rounded-lg hover:bg-[#2e6f99] transition"
           >
             <ExternalLink size={16} />
             Open
@@ -65,7 +65,7 @@ export default function LoiPreview() {
           {/* DOWNLOAD */}
           <button
             onClick={handleDownload}
-            className="flex items-center gap-2 px-4 py-2 border border-[#3e86b7] text-[#3e86b7] rounded-lg hover:bg-[#3e86b7] hover:text-white transition"
+            className="flex items-center gap-2 px-4 py-2 border border-[#4C78F5] text-[#4C78F5] rounded-lg hover:bg-[#4C78F5] hover:text-white transition"
           >
             <Download size={16} />
             Download
@@ -74,7 +74,7 @@ export default function LoiPreview() {
           {/* SEND BROKER */}
           {/* <button
             // onClick={handleSendBroker}
-            className="flex items-center gap-2 px-4 py-2 bg-[#3e86b7]/10 text-[#3e86b7] border border-[#3e86b7]/30 rounded-lg hover:bg-[#3e86b7] hover:text-white transition"
+            className="flex items-center gap-2 px-4 py-2 bg-[#4C78F5]/10 text-[#4C78F5] border border-[#4C78F5]/30 rounded-lg hover:bg-[#4C78F5] hover:text-white transition"
           >
             <Send size={16} />
             Send Broker

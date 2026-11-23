@@ -84,7 +84,7 @@ export default function VerifyEmailPending() {
 
           <Link
             to="/signin"
-            className="mt-3 inline-flex w-full items-center justify-center rounded-xl bg-[#264863] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#183b57]"
+            className="mt-3 inline-flex w-full items-center justify-center rounded-xl bg-[#3A5FD4] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#4C78F5]"
           >
             Go to sign in
           </Link>

@@ -167,7 +167,7 @@ export default function BrokerInvites() {
   }
 
   return (
-    <div className="px-4 sm:px-6 py-6 text-gray-900 dark:text-gray-100 max-w-6xl mx-auto">
+    <div className="text-gray-900 dark:text-gray-100">
       <div className="mb-6">
         <p className="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-1">
           Partnerships
@@ -207,13 +207,13 @@ export default function BrokerInvites() {
         />
       </div>
 
-      <div className="rounded-2xl border bg-white dark:bg-slate-900 dark:border-slate-700 overflow-hidden shadow-sm">
+      <div className="ds-table-wrap dark:border-slate-700 dark:bg-slate-900">
         {loading ? (
-          <div className="p-8 space-y-4 animate-pulse">
+          <div className="space-y-4 p-8 animate-pulse">
             {[1, 2, 3, 4].map((i) => (
               <div
                 key={i}
-                className="h-12 rounded-lg bg-gray-200 dark:bg-slate-700"
+                className="h-12 rounded-lg bg-surface dark:bg-slate-700"
               />
             ))}
           </div>
@@ -221,41 +221,37 @@ export default function BrokerInvites() {
           <EmptyState tab={tab} />
         ) : (
           <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
+            <table className="ds-table min-w-full">
               <thead>
-                <tr className="border-b bg-slate-50 dark:bg-slate-800/80 text-xs uppercase tracking-wide text-slate-500">
-                  <th className="px-5 py-3.5 text-left font-semibold">Broker</th>
-                  <th className="px-5 py-3.5 text-left font-semibold">Email</th>
-                  <th className="px-5 py-3.5 text-left font-semibold">Status</th>
-                  <th className="px-5 py-3.5 text-left font-semibold">Date</th>
-                  {tab === "requests" && (
-                    <th className="px-5 py-3.5 text-left font-semibold">Actions</th>
-                  )}
+                <tr>
+                  <th>Broker</th>
+                  <th>Email</th>
+                  <th>Status</th>
+                  <th>Date</th>
+                  {tab === "requests" && <th>Actions</th>}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+              <tbody>
                 {displayed.map((i) => (
-                  <tr
-                    key={i.inviteId}
-                    className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors"
-                  >
-                    <td className="px-5 py-4 font-medium">{i.name}</td>
-                    <td className="px-5 py-4 text-slate-500">{i.email}</td>
-                    <td className="px-5 py-4">
+                  <tr key={i.inviteId}>
+                    <td>
+                      <span className="ds-table-title">{i.name}</span>
+                    </td>
+                    <td className="ds-table-muted">{i.email}</td>
+                    <td>
                       <StatusBadge status={i.inviteStatus} />
                     </td>
-                    <td className="px-5 py-4 text-slate-500 text-xs">
+                    <td className="ds-table-meta !mt-0">
                       {formatDateTime(i.invitedAt)}
                     </td>
                     {tab === "requests" && (
-                      <td className="px-5 py-4">
+                      <td>
                         {i.inviteStatus === "PENDING" ? (
                           <div className="flex items-center gap-2">
                             <button
                               disabled={actionId === i.inviteId}
                               onClick={() => acceptInvite(i.inviteId)}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white disabled:opacity-50"
-                              style={{ backgroundColor: BRAND }}
+                              className="inline-flex items-center gap-1.5 rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
                             >
                               {actionId === i.inviteId ? (
                                 <RefreshCcw size={12} className="animate-spin" />
@@ -267,14 +263,14 @@ export default function BrokerInvites() {
                             <button
                               disabled={actionId === i.inviteId}
                               onClick={() => rejectInvite(i.inviteId)}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50"
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-text-secondary hover:bg-surface disabled:opacity-50"
                             >
                               <X size={12} />
                               Decline
                             </button>
                           </div>
                         ) : (
-                          <span className="text-xs text-slate-400">—</span>
+                          <span className="ds-table-empty">—</span>
                         )}
                       </td>
                     )}

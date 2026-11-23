@@ -29,7 +29,10 @@ type ProfileCompanyStepProps = {
 };
 
 const fieldClass =
-  "w-full border border-gray-200 rounded-lg px-3 py-2 mt-1 focus:ring-2 focus:ring-[#183b57] focus:border-[#183b57] outline-none transition dark:border-slate-700 dark:bg-slate-800";
+  "mt-1.5 h-10 w-full rounded-xl border border-border bg-white px-3.5 text-sm text-text-primary outline-none transition placeholder:text-text-secondary/70 focus:border-brand-400 focus:ring-2 focus:ring-brand-500/20 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100";
+
+const labelClass =
+  "text-[13px] font-medium text-text-primary dark:text-slate-200";
 
 export default function ProfileCompanyStep({
   form,
@@ -41,20 +44,20 @@ export default function ProfileCompanyStep({
   };
 
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-900">
-      <div className="mb-5">
-        <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-800 dark:text-white">
+    <div className="space-y-5">
+      <div>
+        <h2 className="text-[16px] font-semibold text-text-primary dark:text-white">
           Company Information
         </h2>
-        <p className="mt-1 text-sm text-gray-500 dark:text-slate-400">
+        <p className="mt-0.5 text-[13px] text-text-secondary">
           Basic company and contact details visible to brokers.
         </p>
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div>
-          <label className="text-sm font-medium text-gray-700 dark:text-slate-300">
-            Company Name <span className="text-red-500">*</span>
+          <label className={labelClass}>
+            Company Name <span className="text-rose-500">*</span>
           </label>
           <input
             value={form.companyName}
@@ -68,9 +71,7 @@ export default function ProfileCompanyStep({
         </div>
 
         <div>
-          <label className="text-sm font-medium text-gray-700 dark:text-slate-300">
-            Lender Type
-          </label>
+          <label className={labelClass}>Lender Type</label>
           <select
             value={form.lenderType}
             onChange={(event) => handle("lenderType", event.target.value)}
@@ -86,8 +87,8 @@ export default function ProfileCompanyStep({
         </div>
 
         <div>
-          <label className="text-sm font-medium text-gray-700 dark:text-slate-300">
-            First Name <span className="text-red-500">*</span>
+          <label className={labelClass}>
+            First Name <span className="text-rose-500">*</span>
           </label>
           <input
             value={form.firstName}
@@ -100,8 +101,8 @@ export default function ProfileCompanyStep({
         </div>
 
         <div>
-          <label className="text-sm font-medium text-gray-700 dark:text-slate-300">
-            Last Name <span className="text-red-500">*</span>
+          <label className={labelClass}>
+            Last Name <span className="text-rose-500">*</span>
           </label>
           <input
             value={form.lastName}
@@ -114,8 +115,8 @@ export default function ProfileCompanyStep({
         </div>
 
         <div>
-          <label className="text-sm font-medium text-gray-700 dark:text-slate-300">
-            Contact Email <span className="text-red-500">*</span>
+          <label className={labelClass}>
+            Contact Email <span className="text-rose-500">*</span>
           </label>
           <input
             type="email"
@@ -133,9 +134,7 @@ export default function ProfileCompanyStep({
         </div>
 
         <div>
-          <label className="text-sm font-medium text-gray-700 dark:text-slate-300">
-            Phone
-          </label>
+          <label className={labelClass}>Phone</label>
           <input
             type="tel"
             inputMode="numeric"
@@ -156,9 +155,7 @@ export default function ProfileCompanyStep({
         </div>
 
         <div>
-          <label className="text-sm font-medium text-gray-700 dark:text-slate-300">
-            Website
-          </label>
+          <label className={labelClass}>Website</label>
           <input
             placeholder="https://company.com"
             value={form.website}
@@ -168,9 +165,7 @@ export default function ProfileCompanyStep({
         </div>
 
         <div>
-          <label className="text-sm font-medium text-gray-700 dark:text-slate-300">
-            NMLS Number
-          </label>
+          <label className={labelClass}>NMLS Number</label>
           <input
             placeholder="NMLS #"
             value={form.nmls}
@@ -180,9 +175,7 @@ export default function ProfileCompanyStep({
         </div>
 
         <div>
-          <label className="text-sm font-medium text-gray-700 dark:text-slate-300">
-            Address
-          </label>
+          <label className={labelClass}>Address</label>
           <input
             placeholder="Street address"
             value={form.address}
@@ -192,9 +185,7 @@ export default function ProfileCompanyStep({
         </div>
 
         <div>
-          <label className="text-sm font-medium text-gray-700 dark:text-slate-300">
-            City
-          </label>
+          <label className={labelClass}>City</label>
           <input
             value={form.city}
             onChange={(event) => handle("city", event.target.value)}
@@ -203,9 +194,7 @@ export default function ProfileCompanyStep({
         </div>
 
         <div>
-          <label className="text-sm font-medium text-gray-700 dark:text-slate-300">
-            State
-          </label>
+          <label className={labelClass}>State</label>
           <select
             value={form.state}
             onChange={(event) => handle("state", event.target.value)}
@@ -224,9 +213,7 @@ export default function ProfileCompanyStep({
         </div>
 
         <div>
-          <label className="text-sm font-medium text-gray-700 dark:text-slate-300">
-            ZIP
-          </label>
+          <label className={labelClass}>ZIP</label>
           <input
             inputMode="numeric"
             autoComplete="postal-code"
@@ -242,9 +229,7 @@ export default function ProfileCompanyStep({
         </div>
 
         <div>
-          <label className="text-sm font-medium text-gray-700 dark:text-slate-300">
-            Typical Funding Speed (days)
-          </label>
+          <label className={labelClass}>Typical Funding Speed (days)</label>
           <input
             type="number"
             min={1}
@@ -258,16 +243,18 @@ export default function ProfileCompanyStep({
         </div>
 
         <div className="md:col-span-2">
-          <label className="text-sm font-medium text-gray-700 dark:text-slate-300">
+          <label className={labelClass}>
             Notes / Business Summary{" "}
-            <span className="text-xs font-normal text-slate-400">(Optional)</span>
+            <span className="text-xs font-normal text-text-secondary">
+              (Optional)
+            </span>
           </label>
           <textarea
             rows={4}
             placeholder="Describe your lending company, focus, and value proposition..."
             value={form.summary}
             onChange={(event) => handle("summary", event.target.value)}
-            className={fieldClass}
+            className={`${fieldClass} h-auto min-h-[96px] py-2.5`}
           />
         </div>
       </div>

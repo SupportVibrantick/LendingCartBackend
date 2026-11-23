@@ -263,7 +263,7 @@ const AllSuperadmin: React.FC = () => {
 
   // ===== UI =====
   return (
-    <div className="px-6 py-6 text-gray-900 dark:text-gray-100">
+    <div className="text-gray-900 dark:text-gray-100">
       {/* Heading */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
@@ -418,16 +418,16 @@ const AllSuperadmin: React.FC = () => {
             </button>
           </div>
 
-          <div className="overflow-auto">
-            <table className="min-w-full text-sm">
+          <div className="ds-table-wrap overflow-x-auto dark:border-slate-700">
+            <table className="ds-table min-w-full">
               <thead>
-                <tr className="border-b border-gray-100 text-xs text-gray-500 uppercase tracking-wide dark:border-slate-700 dark:text-slate-400">
-                  <th className="py-2 pr-4 text-left">Name</th>
-                  <th className="py-2 pr-4 text-left">Email</th>
-                  <th className="py-2 pr-4 text-left">Org ID</th>
-                  <th className="py-2 pr-4 text-left">Status</th>
-                  <th className="py-2 pr-4 text-left">Created</th>
-                  <th className="py-2 pr-4 text-right">Actions</th>
+                <tr>
+                  <th>Name</th>
+                  <th>Email</th>
+                  <th>Org ID</th>
+                  <th>Status</th>
+                  <th>Created</th>
+                  <th className="text-right">Actions</th>
                 </tr>
               </thead>
 
@@ -435,7 +435,7 @@ const AllSuperadmin: React.FC = () => {
                 {loadingList ? (
                   <tr>
                     <td
-                      className="py-6 text-center text-gray-500 dark:text-slate-400"
+                      className="text-center text-text-secondary"
                       colSpan={6}
                     >
                       Loading admins...
@@ -444,7 +444,7 @@ const AllSuperadmin: React.FC = () => {
                 ) : admins.length === 0 ? (
                   <tr>
                     <td
-                      className="py-6 text-center text-gray-500 dark:text-slate-400"
+                      className="text-center text-text-secondary"
                       colSpan={6}
                     >
                       No admin users found.
@@ -452,22 +452,20 @@ const AllSuperadmin: React.FC = () => {
                   </tr>
                 ) : (
                   admins.map((a) => (
-                    <tr
-                      key={a.id}
-                      className="border-b border-gray-100 last:border-0 hover:bg-gray-50/40 dark:border-slate-800 dark:hover:bg-slate-800/60"
-                    >
-                      <td className="py-3 pr-4 text-gray-900 whitespace-nowrap dark:text-gray-100">
-                        {a.firstName} {a.lastName}
+                    <tr key={a.id}>
+                      <td className="whitespace-nowrap">
+                        <span className="ds-table-title">
+                          {a.firstName} {a.lastName}
+                        </span>
                       </td>
-                      <td className="py-3 pr-4 text-gray-900 whitespace-nowrap dark:text-gray-100">
+                      <td className="whitespace-nowrap ds-table-muted">
                         {a.email}
                       </td>
-                      <td className="py-3 pr-4 text-gray-600 whitespace-nowrap dark:text-slate-300">
-                        {a.organizationId ?? "-"}
+                      <td className="whitespace-nowrap ds-table-muted">
+                        {a.organizationId ?? "—"}
                       </td>
 
-                      {/* Clickable status pill */}
-                      <td className="py-3 pr-4 whitespace-nowrap">
+                      <td className="whitespace-nowrap">
                         <button
                           type="button"
                           onClick={() => {
@@ -476,9 +474,7 @@ const AllSuperadmin: React.FC = () => {
                             }
                           }}
                           disabled={togglingId === a.id}
-                          className={`inline-flex items-center px-3 py-1 rounded-full border text-xs cursor-pointer
-                                      ${statusClass(a.status)}
-                                      disabled:opacity-60 disabled:cursor-not-allowed`}
+                          className={`inline-flex cursor-pointer items-center rounded-full px-2.5 py-1 text-[11px] font-semibold ${statusClass(a.status)} disabled:cursor-not-allowed disabled:opacity-60`}
                         >
                           {togglingId === a.id
                             ? "Updating..."
@@ -486,7 +482,7 @@ const AllSuperadmin: React.FC = () => {
                         </button>
                       </td>
 
-                      <td className="py-3 pr-4 text-gray-600 whitespace-nowrap dark:text-slate-300">
+                      <td className="whitespace-nowrap ds-table-muted">
                         {formatDate(a.createdAt)}
                       </td>
 

@@ -326,12 +326,12 @@ export default function AllRuleSets() {
   };
 
   return (
-    <div className="px-4 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-8 text-gray-900 dark:text-gray-100">
+    <div className="text-gray-900 dark:text-gray-100">
       {/* Header + controls */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
           <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white">
-            All <span className="text-[#3e86b7]">Set Rules</span>
+            All <span className="text-[#4C78F5]">Set Rules</span>
           </h1>
           <p className="text-xs sm:text-sm text-gray-500 mt-1 dark:text-slate-400">
             Manage set rules
@@ -345,7 +345,7 @@ export default function AllRuleSets() {
               className="h-10 px-3 border rounded-md text-sm
     bg-white text-gray-900 border-gray-300
     dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100
-    focus:outline-none focus:ring-2 focus:ring-[#3e86b7]/30 focus:border-[#3e86b7]"
+    focus:outline-none focus:ring-2 focus:ring-[#4C78F5]/30 focus:border-[#4C78F5]"
               value={selectedLenderProductId}
               onChange={(e) => {
                 const id = e.target.value;
@@ -385,7 +385,7 @@ export default function AllRuleSets() {
       bg-white text-gray-900 border-gray-300
       dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100
       placeholder-gray-400 dark:placeholder-slate-400
-      focus:outline-none focus:ring-2 focus:ring-[#3e86b7]/30 focus:border-[#3e86b7]"
+      focus:outline-none focus:ring-2 focus:ring-[#4C78F5]/30 focus:border-[#4C78F5]"
                 aria-label="Search brokers"
               />
             </div>
@@ -397,7 +397,7 @@ export default function AllRuleSets() {
               className="h-10 px-3 border rounded-md text-sm
     bg-white text-gray-900 border-gray-300
     dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100
-    focus:outline-none focus:ring-2 focus:ring-[#3e86b7]/30 focus:border-[#3e86b7]"
+    focus:outline-none focus:ring-2 focus:ring-[#4C78F5]/30 focus:border-[#4C78F5]"
               aria-label="Page size"
             >
               <option value={5}>5 / page</option>
@@ -409,20 +409,19 @@ export default function AllRuleSets() {
       </div>
 
       {/* Table */}
-      <div className="mt-6 bg-white rounded-xl border p-5 dark:bg-slate-900">
-        <h2 className="text-lg font-semibold mb-3">Eligibility Rule Sets</h2>
+      <div className="ds-table-wrap mt-6 dark:border-slate-700 dark:bg-slate-900">
+        <div className="border-b border-border px-4 py-3.5">
+          <h2 className="text-[16px] font-semibold text-text-primary">
+            Eligibility Rule Sets
+          </h2>
+        </div>
 
         {loadingRules ? (
-          <div className="py-6 text-center text-gray-500">
+          <div className="py-10 text-center text-sm text-text-secondary">
             Loading rule sets...
           </div>
         ) : paginatedRules.length === 0 ? (
-          <div
-            className="py-10 flex flex-col items-center justify-center text-center
-               rounded-lg border border-dashed
-               border-gray-300 bg-gray-50
-               dark:border-slate-700 dark:bg-slate-800/40"
-          >
+          <div className="m-4 flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-surface py-10 text-center dark:border-slate-700 dark:bg-slate-800/40">
             {/* Icon */}
             <div className="mb-3 text-3xl">{query ? "🔍" : "📌"}</div>
 
@@ -441,7 +440,7 @@ export default function AllRuleSets() {
               ) : (
                 <>
                   Please{" "}
-                  <span className="text-[#3e86b7] font-semibold">
+                  <span className="text-[#4C78F5] font-semibold">
                     select a loan product
                   </span>{" "}
                   to view rule sets.
@@ -457,47 +456,52 @@ export default function AllRuleSets() {
             </p>
           </div>
         ) : (
-          <table className="min-w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="ds-table min-w-full">
             <thead>
-              <tr className="border-b text-xs uppercase text-gray-500">
-                <th className="py-2 text-left">Name</th>
-                <th className="py-2 text-left">Description</th>
-                <th className="py-2 text-left">Status</th>
-                <th className="py-2 text-left">Effective From</th>
-                <th className="py-2 text-left">Effective To</th>
-                <th className="py-2 text-left">Created</th>
-                <th className="py-2 text-left">Actions</th>
+              <tr>
+                <th>Name</th>
+                <th>Description</th>
+                <th>Status</th>
+                <th>Effective From</th>
+                <th>Effective To</th>
+                <th>Created</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
               {paginatedRules.map((r) => (
-                <tr key={r.id} className="border-b last:border-0">
-                  <td className="py-3">{r.name}</td>
-                  <td className="py-3">{r.description || "-"}</td>
-                  <td className="py-3">
+                <tr key={r.id}>
+                  <td>
+                    <span className="ds-table-title">{r.name}</span>
+                  </td>
+                  <td className="ds-table-muted">{r.description || "—"}</td>
+                  <td>
                     <span
-                      className={`px-3 py-1 rounded-full text-xs border ${
+                      className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${
                         r.isActive
-                          ? "bg-emerald-100 text-emerald-800"
-                          : "bg-gray-100 text-gray-700"
+                          ? "bg-emerald-50 text-emerald-700"
+                          : "bg-slate-100 text-slate-600"
                       }`}
                     >
-                      {r.isActive ? "ACTIVE" : "INACTIVE"}
+                      {r.isActive ? "Active" : "Inactive"}
                     </span>
                   </td>
-                  <td className="py-3">{formatDate(r.effectiveFrom)}</td>
-
-                  <td className="py-3">{formatDate(r.effectiveTo)}</td>
-                  <td className="py-3">
+                  <td className="ds-table-muted">
+                    {formatDate(r.effectiveFrom)}
+                  </td>
+                  <td className="ds-table-muted">
+                    {formatDate(r.effectiveTo)}
+                  </td>
+                  <td className="ds-table-muted">
                     {new Date(r.createdAt).toLocaleDateString()}
                   </td>
-                  <td className="py-3 pr-4">
-                    <div className="flex items-center justify-center gap-2">
+                  <td>
+                    <div className="flex items-center gap-2">
                       <button
                         disabled={loading}
                         onClick={() => openEditModal(r)}
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 text-gray-500 hover:bg-gray-100 hover:text-gray-800 disabled:opacity-40
-                                                                             dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-border text-text-secondary hover:bg-surface hover:text-text-primary disabled:opacity-40 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
                         aria-label={`Edit ${r.id}`}
                       >
                         <MdModeEdit />
@@ -508,6 +512,7 @@ export default function AllRuleSets() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
 
@@ -529,7 +534,7 @@ export default function AllRuleSets() {
                 onClick={() => setCurrentPage(page)}
                 className={`px-3 py-1 border rounded ${
                   page === currentPage
-                    ? "bg-[#3e86b7] text-white"
+                    ? "bg-[#4C78F5] text-white"
                     : "bg-white text-gray-700"
                 }`}
               >

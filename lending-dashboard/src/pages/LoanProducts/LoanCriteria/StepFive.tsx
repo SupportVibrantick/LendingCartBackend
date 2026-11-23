@@ -1148,8 +1148,8 @@ const StepFive = ({
     <div className="space-y-4">
       {/* Header */}
       <div>
-        <h2 className="text-lg font-semibold flex items-center gap-2">
-          <Settings size={14} /> Loan Criteria
+        <h2 className="flex items-center gap-2 text-lg font-semibold text-text-primary">
+          <Settings size={14} className="text-brand-500" /> Loan Criteria
         </h2>
         <p className="text-sm text-gray-500">
           Configure lending criteria for each selected loan program.
@@ -1414,7 +1414,7 @@ const StepFive = ({
                         className="flex w-full items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-left transition hover:bg-slate-50"
                       >
                         <div className="flex min-w-0 items-center gap-2.5">
-                          <FileText size={15} className="shrink-0 text-[#102B40]" />
+                          <FileText size={15} className="shrink-0 text-brand-500" />
                           <div className="min-w-0">
                             <div className="flex flex-wrap items-center gap-2">
                               <span className="text-sm font-semibold text-slate-800">
@@ -1424,7 +1424,7 @@ const StepFive = ({
                                 Optional
                               </span>
                               {selectedCount > 0 ? (
-                                <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[#102B40] px-1.5 text-[11px] font-bold text-white">
+                                <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-brand-500 px-1.5 text-[11px] font-bold text-white">
                                   {selectedCount}
                                 </span>
                               ) : null}
@@ -1468,13 +1468,13 @@ const StepFive = ({
                                     addCustomDocument(productKey);
                                   }
                                 }}
-                                className="h-11 flex-1 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-[#102B40] focus:ring-2 focus:ring-[#102B40]/20"
+                                className="h-11 flex-1 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
                               />
                               <button
                                 type="button"
                                 onClick={() => addCustomDocument(productKey)}
                                 disabled={!docState.customDocumentName.trim()}
-                                className="inline-flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-[#102B40] px-4 text-sm font-semibold text-white transition hover:bg-[#163a54] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
+                                className="inline-flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-brand-500 px-4 text-sm font-semibold text-white transition hover:bg-brand-600 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
                               >
                                 <Plus size={16} />
                                 Add Document
@@ -1491,7 +1491,7 @@ const StepFive = ({
                               <div className="flex min-w-0 items-center gap-2">
                                 <FileText
                                   size={15}
-                                  className="shrink-0 text-[#102B40]"
+                                  className="shrink-0 text-brand-500"
                                 />
                                 <div className="min-w-0">
                                   <p className="text-sm font-semibold text-slate-800">
@@ -1524,7 +1524,7 @@ const StepFive = ({
                                       })
                                     }
                                     placeholder="Search documents..."
-                                    className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-9 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-[#102B40] focus:ring-2 focus:ring-[#102B40]/20 [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden"
+                                    className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-9 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden"
                                   />
                                   {docState.search.trim() ? (
                                     <button
@@ -1566,14 +1566,14 @@ const StepFive = ({
 
                             {isOpen && docState.loading ? (
                               <div className="flex flex-col items-center justify-center py-14">
-                                <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#102B40] border-t-transparent" />
+                                <div className="h-8 w-8 animate-spin rounded-full border-2 border-brand-500 border-t-transparent" />
                                 <p className="mt-3 text-sm text-slate-500">
                                   Loading documents...
                                 </p>
                               </div>
                             ) : docState.documents.length === 0 ? (
                               <div className="flex flex-col items-center justify-center px-4 py-14 text-center">
-                                <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-[#102B40]/10 text-[#102B40]">
+                                <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-brand-500/10 text-brand-500">
                                   <FileText size={22} />
                                 </div>
                                 <h3 className="text-base font-semibold text-slate-800">
@@ -1630,7 +1630,7 @@ const StepFive = ({
                                               }
                                               className={`cursor-pointer transition-colors ${
                                                 checked
-                                                  ? "bg-[#102B40]/8"
+                                                  ? "bg-brand-500/8"
                                                   : rowIndex % 2 === 1
                                                     ? "bg-slate-50/40"
                                                     : "bg-white"
@@ -1649,7 +1649,7 @@ const StepFive = ({
                                                   onClick={(e) =>
                                                     e.stopPropagation()
                                                   }
-                                                  className="h-4 w-4 cursor-pointer accent-[#102B40]"
+                                                  className="h-4 w-4 cursor-pointer accent-brand-500"
                                                   aria-label={`Select ${doc.name}`}
                                                 />
                                               </td>
@@ -1667,7 +1667,7 @@ const StepFive = ({
                                                   {checked ? (
                                                     <CheckCircle2
                                                       size={15}
-                                                      className="shrink-0 text-[#102B40]"
+                                                      className="shrink-0 text-brand-500"
                                                     />
                                                   ) : null}
                                                 </div>
@@ -1685,7 +1685,7 @@ const StepFive = ({
                                               </td>
                                               <td className="px-3 py-3 align-middle">
                                                 {checked ? (
-                                                  <span className="inline-flex rounded-md bg-[#102B40]/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#163a54]">
+                                                  <span className="inline-flex rounded-md bg-brand-500/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-brand-700">
                                                     Selected
                                                   </span>
                                                 ) : (
@@ -1751,7 +1751,7 @@ const StepFive = ({
                                             page: docState.page + 1,
                                           })
                                         }
-                                        className="inline-flex items-center gap-1 rounded-lg bg-[#102B40] px-3 py-2 text-sm font-medium text-white transition hover:bg-[#163a54] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
+                                        className="inline-flex items-center gap-1 rounded-lg bg-brand-500 px-3 py-2 text-sm font-medium text-white transition hover:bg-brand-600 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
                                       >
                                         Next
                                         <ChevronRight size={16} />

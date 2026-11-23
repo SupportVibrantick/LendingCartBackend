@@ -16,10 +16,10 @@ const LayoutContent: React.FC = () => {
   }, []);
 
   const mainOffset =
-    isExpanded || isHovered || isMobileOpen ? "lg:pl-[280px]" : "lg:pl-[84px]";
+    isExpanded || isHovered || isMobileOpen ? "lg:pl-[260px]" : "lg:pl-[84px]";
 
   return (
-    <div className="flex h-full overflow-hidden bg-gray-50 dark:bg-gray-950">
+    <div className="flex h-full overflow-hidden bg-surface dark:bg-gray-950">
       <AppSidebar />
       <Backdrop />
       <div
@@ -28,8 +28,8 @@ const LayoutContent: React.FC = () => {
         }`}
       >
         <AppHeader />
-        <main className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain">
-          <div className="mx-auto w-full max-w-(--breakpoint-2xl) px-4 py-3 md:px-5 md:py-4 lg:px-6 lg:py-4">
+        <main className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain bg-surface">
+          <div className="mx-auto w-full max-w-(--breakpoint-2xl) p-3 md:p-4 lg:p-4">
             <Outlet />
           </div>
         </main>

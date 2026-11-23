@@ -20,7 +20,7 @@ import {
 import PageMeta from "../../components/common/PageMeta";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
-const BRAND = "#183b57";
+const BRAND = "#4C78F5";
 
 // Short TTL covers React Strict Mode remounts after the first response lands.
 type DashboardCacheEntry = { promise: Promise<any>; expiresAt: number };
@@ -157,7 +157,7 @@ const FUNNEL_STAGES = [
   { status: "SENT", label: "Sent", color: "#38BDF8" },
   { status: "IN_REVIEW", label: "In Review", color: "#818CF8" },
   { status: "APPROVED", label: "Approved", color: "#34D399" },
-  { status: "FUNDED", label: "Funded", color: "#183b57" },
+  { status: "FUNDED", label: "Funded", color: "#4C78F5" },
   { status: "DECLINED", label: "Declined", color: "#F87171" },
   { status: "WITHDRAWN", label: "Withdrawn", color: "#94A3B8" },
 ] as const;
@@ -208,38 +208,35 @@ function getStatusBadgeClass(status?: string) {
     case "sent":
     case "selected":
     case "in_review":
-      return "bg-[#13538A] text-white";
+      return "bg-sky-50 text-sky-700";
     case "pending":
     case "conditional":
-      return "bg-amber-500 text-white";
+      return "bg-amber-50 text-amber-700";
     case "client_pending":
-      return "bg-rose-500 text-white";
+      return "bg-rose-50 text-rose-700";
     case "submitted":
-      return "bg-[#1a6aad] text-white";
+      return "bg-brand-50 text-brand-600";
     case "approved":
     case "auto_approved":
-      return "bg-emerald-600 text-white";
     case "lender_approved":
-      return "bg-green-600 text-white";
+      return "bg-emerald-50 text-emerald-700";
     case "declined":
     case "rejected":
     case "auto_declined":
     case "withdrawn":
-      return "bg-red-600 text-white";
     case "lender_declined":
-      return "bg-rose-700 text-white";
+      return "bg-rose-50 text-rose-700";
     case "draft":
-      return "bg-slate-500 text-white";
+      return "bg-slate-100 text-slate-600";
     case "incomplete":
     case "superseded":
     case "suspended":
-      return "bg-orange-500 text-white";
+      return "bg-orange-50 text-orange-700";
     case "completed":
-      return "bg-teal-600 text-white";
     case "funded":
-      return "bg-emerald-700 text-white";
+      return "bg-emerald-50 text-emerald-700";
     default:
-      return "bg-slate-600 text-white";
+      return "bg-slate-100 text-slate-600";
   }
 }
 
@@ -291,25 +288,22 @@ function Widget({
 }) {
   return (
     <div
-      className="flex h-full flex-col rounded-2xl border border-slate-200/80 bg-white p-5 shadow-[0_10px_30px_rgba(15,23,42,0.05)] dark:border-slate-800 dark:bg-slate-900"
+      className="flex h-full flex-col rounded-2xl border border-border bg-white p-5 dark:border-slate-800 dark:bg-slate-900"
       style={{ minHeight }}
     >
       <div className="mb-4 flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="h-4 w-1 rounded-full bg-gradient-to-b from-[#183b57] to-[#38BDF8]" />
-            <h3 className="truncate text-[15px] font-semibold leading-tight text-slate-900 dark:text-white">
-              {title}
-            </h3>
-          </div>
+          <h3 className="truncate text-[16px] font-semibold leading-tight text-text-primary dark:text-white">
+            {title}
+          </h3>
           {subtitle ? (
-            <p className="mt-1 pl-3 text-[12px] text-slate-400">{subtitle}</p>
+            <p className="mt-1 text-[13px] text-text-secondary">{subtitle}</p>
           ) : null}
         </div>
         {right}
       </div>
       {loading ? (
-        <div className="flex flex-1 animate-pulse rounded-xl bg-slate-50 dark:bg-slate-800" />
+        <div className="flex flex-1 animate-pulse rounded-xl bg-surface dark:bg-slate-800" />
       ) : (
         <div className="flex min-h-0 flex-1 flex-col">{children}</div>
       )}
@@ -348,16 +342,11 @@ function KpiCard({
     );
 
   return (
-    <div className="rounded-2xl border border-slate-200/80 bg-white p-3.5 shadow-[0_8px_20px_rgba(15,23,42,0.04)] dark:border-slate-800 dark:bg-slate-900">
-      <div className="flex items-center gap-3">
-        <span
-          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${tone}`}
-        >
-          {icon}
-        </span>
+    <div className="rounded-2xl border border-border bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+      <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-2">
-            <p className="truncate text-[12px] font-medium text-slate-500">
+            <p className="truncate text-[11px] font-semibold uppercase tracking-[0.08em] text-text-secondary">
               {label}
             </p>
             {showChange ? (
@@ -374,11 +363,16 @@ function KpiCard({
               </span>
             ) : null}
           </div>
-          <p className="mt-1 text-[22px] font-bold leading-none tracking-tight text-slate-900 dark:text-white">
+          <p className="mt-2 text-[28px] font-bold leading-none tracking-tight text-text-primary dark:text-white">
             {value}
           </p>
-          <p className="mt-1 truncate text-[11px] text-slate-400">{helper}</p>
+          <p className="mt-2 truncate text-[12px] text-text-secondary">{helper}</p>
         </div>
+        <span
+          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${tone}`}
+        >
+          {icon}
+        </span>
       </div>
     </div>
   );
@@ -490,7 +484,7 @@ export default function Home() {
           value: overview.activeBrokers.toLocaleString(),
           helper: `${overview.activeProducts} products · ${overview.activeConnections} links`,
           icon: <Building2 className="h-5 w-5" />,
-          tone: "bg-[#183b57]/10 text-[#183b57]",
+          tone: "bg-[#4C78F5]/10 text-[#4C78F5]",
           comparison: overview.comparison?.activeBrokers,
         },
       ]
@@ -509,10 +503,10 @@ export default function Home() {
     chart: {
       toolbar: { show: false },
       zoom: { enabled: false },
-      fontFamily: "Outfit, sans-serif",
+      fontFamily: "Inter, sans-serif",
       foreColor: "#94a3b8",
     },
-    colors: ["#183b57", "#38BDF8", "#10B981"],
+    colors: ["#4C78F5", "#38BDF8", "#10B981"],
     stroke: { width: [2.5, 2.5, 3], curve: "smooth" },
     fill: {
       type: ["gradient", "gradient", "solid"],
@@ -623,18 +617,18 @@ export default function Home() {
   const lostCount =
     Number(stageCounts.DECLINED || 0) + Number(stageCounts.WITHDRAWN || 0);
   const statusSlices = [
-    { key: "OPEN", label: "Open", count: openCount, color: "#183b57" },
-    { key: "FUNDED", label: "Funded", count: fundedCount, color: "#14B8A6" },
+    { key: "OPEN", label: "Open", count: openCount, color: "#4C78F5" },
+    { key: "FUNDED", label: "Funded", count: fundedCount, color: "#10B981" },
     ...(lostCount > 0
-      ? [{ key: "LOST", label: "Lost", count: lostCount, color: "#F43F5E" }]
+      ? [{ key: "LOST", label: "Lost", count: lostCount, color: "#EF4444" }]
       : []),
   ];
   const statusTotal = statusSlices.reduce((sum, slice) => sum + slice.count, 0);
   const valueRows = [
-    { label: "Open", value: openCount, color: "#183b57" },
-    { label: "Funded", value: fundedCount, color: "#14B8A6" },
+    { label: "Open", value: openCount, color: "#4C78F5" },
+    { label: "Funded", value: fundedCount, color: "#10B981" },
     ...(lostCount > 0
-      ? [{ label: "Lost", value: lostCount, color: "#F43F5E" }]
+      ? [{ label: "Lost", value: lostCount, color: "#EF4444" }]
       : []),
   ];
   const valueMax = Math.max(...valueRows.map((row) => row.value), 1);
@@ -644,7 +638,7 @@ export default function Home() {
   const conversionRate = Number(overview?.fundedRate || pipeline?.fundingConversion || 0);
 
   const statusDonutOptions: ApexOptions = {
-    chart: { fontFamily: "Outfit, sans-serif", toolbar: { show: false } },
+    chart: { fontFamily: "Inter, sans-serif", toolbar: { show: false } },
     labels: statusSlices.map((slice) => slice.label),
     colors: statusSlices.map((slice) => slice.color),
     legend: { show: false },
@@ -684,7 +678,7 @@ export default function Home() {
   };
 
   const stagesDonutOptions: ApexOptions = {
-    chart: { fontFamily: "Outfit, sans-serif", toolbar: { show: false } },
+    chart: { fontFamily: "Inter, sans-serif", toolbar: { show: false } },
     labels: stages.filter((s) => s.count > 0).map((s) => s.label),
     colors: stages.filter((s) => s.count > 0).map((s) => s.color),
     legend: { show: false },
@@ -729,7 +723,7 @@ export default function Home() {
   };
 
   const pipelineValueOptions: ApexOptions = {
-    chart: { fontFamily: "Outfit, sans-serif", toolbar: { show: false } },
+    chart: { fontFamily: "Inter, sans-serif", toolbar: { show: false } },
     plotOptions: {
       bar: { horizontal: true, borderRadius: 8, barHeight: "58%", distributed: true },
     },
@@ -763,12 +757,12 @@ export default function Home() {
   };
 
   const conversionOptions: ApexOptions = {
-    chart: { fontFamily: "Outfit, sans-serif", toolbar: { show: false } },
+    chart: { fontFamily: "Inter, sans-serif", toolbar: { show: false } },
     colors: [BRAND],
     plotOptions: {
       radialBar: {
         hollow: { size: "78%", background: "transparent" },
-        track: { background: "#E8F1F8", strokeWidth: "100%", margin: 0 },
+        track: { background: "#EEF3FE", strokeWidth: "100%", margin: 0 },
         dataLabels: {
           name: { show: false },
           value: {
@@ -834,79 +828,76 @@ export default function Home() {
       />
 
       <div className="space-y-5">
-        <section className="relative overflow-hidden rounded-3xl border border-[#183b57]/10 bg-white shadow-[0_18px_40px_rgba(24,59,87,0.08)] dark:border-[#183b57]/30 dark:bg-slate-900">
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(900px_circle_at_-10%_-30%,rgba(24,59,87,0.16),transparent_55%),radial-gradient(700px_circle_at_110%_120%,rgba(14,165,233,0.14),transparent_50%)]" />
-          <div className="relative px-5 py-5 sm:px-6 sm:py-6">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <p className="text-sm font-medium text-[#183b57]">
-                  {greeting}, {firstName}
-                </p>
-                <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
-                  Pipeline overview
-                </h1>
-                <p className="mt-1 text-sm text-slate-500">
-                  Funding analytics for{" "}
-                  {PERIOD_OPTIONS.find((option) => option.value === period)?.label?.toLowerCase()}.
-                </p>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="inline-flex rounded-full bg-white/80 p-1 shadow-sm ring-1 ring-slate-200 backdrop-blur dark:bg-slate-800 dark:ring-slate-700">
-                  {PERIOD_OPTIONS.map((option) => (
-                    <button
-                      key={option.value}
-                      type="button"
-                      onClick={() => setPeriod(option.value)}
-                      className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
-                        period === option.value
-                          ? "bg-[#183b57] text-white shadow-sm"
-                          : "text-slate-500 hover:text-slate-800 dark:text-slate-300"
-                      }`}
-                    >
-                      {option.short}
-                    </button>
-                  ))}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => void load({ force: true })}
-                  disabled={loading}
-                  title="Refresh"
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
-                >
-                  <RefreshCw
-                    className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
-                  />
-                </button>
-                <Link
-                  to="/loan-pipeline"
-                  className="inline-flex items-center gap-1.5 rounded-full bg-[#183b57] px-4 py-2 text-sm font-semibold text-white shadow-[0_8px_18px_rgba(24,59,87,0.28)] transition hover:bg-[#10293c]"
-                >
-                  Open pipeline
-                  <ArrowRight className="h-4 w-4" />
-                </Link>
-              </div>
+        <section className="rounded-2xl border border-border bg-white p-5 sm:p-6 dark:border-slate-800 dark:bg-slate-900">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p className="text-sm font-medium text-brand-500">
+                {greeting}, {firstName}
+              </p>
+              <h1 className="mt-1 text-[24px] font-semibold tracking-tight text-text-primary dark:text-white">
+                Lender Dashboard
+              </h1>
+              <p className="mt-1 text-[13px] text-text-secondary">
+                Funding analytics for{" "}
+                {PERIOD_OPTIONS.find((option) => option.value === period)?.label?.toLowerCase()}.
+              </p>
             </div>
 
-            <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">
-              {quickActions.map((action) => (
-                <Link
-                  key={action.path}
-                  to={action.path}
-                  className="group flex items-center gap-2.5 rounded-2xl border border-white/70 bg-white/70 px-3 py-2.5 shadow-sm backdrop-blur transition hover:-translate-y-0.5 hover:border-[#183b57]/20 hover:shadow-md dark:border-slate-700 dark:bg-slate-800/80"
-                >
-                  <span
-                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${action.tone}`}
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="inline-flex rounded-full bg-surface p-1 ring-1 ring-border dark:bg-slate-800 dark:ring-slate-700">
+                {PERIOD_OPTIONS.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => setPeriod(option.value)}
+                    className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                      period === option.value
+                        ? "bg-brand-500 text-white"
+                        : "text-text-secondary hover:text-text-primary dark:text-slate-300"
+                    }`}
                   >
-                    <action.icon className="h-4 w-4" />
-                  </span>
-                  <span className="truncate text-[13px] font-semibold text-slate-700 dark:text-slate-200">
-                    {action.label}
-                  </span>
-                </Link>
-              ))}
+                    {option.short}
+                  </button>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={() => void load({ force: true })}
+                disabled={loading}
+                title="Refresh"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-white text-text-secondary transition hover:bg-surface disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+              >
+                <RefreshCw
+                  className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
+                />
+              </button>
+              <Link
+                to="/loan-pipeline"
+                className="inline-flex items-center gap-1.5 rounded-xl bg-brand-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-600"
+              >
+                Open pipeline
+                <ArrowRight className="h-4 w-4" />
+              </Link>
             </div>
+          </div>
+
+          <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">
+            {quickActions.map((action) => (
+              <Link
+                key={action.path}
+                to={action.path}
+                className="group flex items-center gap-2.5 rounded-xl border border-border bg-surface px-3 py-2.5 transition hover:border-brand-200 hover:bg-white dark:border-slate-700 dark:bg-slate-800/80"
+              >
+                <span
+                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${action.tone}`}
+                >
+                  <action.icon className="h-4 w-4" />
+                </span>
+                <span className="truncate text-[13px] font-semibold text-text-primary dark:text-slate-200">
+                  {action.label}
+                </span>
+              </Link>
+            ))}
           </div>
         </section>
 
@@ -1169,7 +1160,7 @@ export default function Home() {
                       </div>
                       <div className="h-2.5 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
                         <div
-                          className="h-full rounded-full bg-gradient-to-r from-[#183b57] to-[#2a5a7a]"
+                          className="h-full rounded-full bg-gradient-to-r from-[#4C78F5] to-[#2a5a7a]"
                           style={{
                             width: `${Math.max(8, (item.applications / productMax) * 100)}%`,
                             opacity: 1 - index * 0.12,
@@ -1198,7 +1189,7 @@ export default function Home() {
                     <div key={item.brokerOrgId}>
                       <div className="mb-1 flex items-center justify-between gap-2">
                         <div className="flex min-w-0 items-center gap-2">
-                          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#183b57]/10 text-[11px] font-semibold text-[#183b57]">
+                          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#4C78F5]/10 text-[11px] font-semibold text-[#4C78F5]">
                             {index + 1}
                           </span>
                           <p className="truncate text-sm font-semibold text-slate-800 dark:text-slate-100">
@@ -1245,7 +1236,7 @@ export default function Home() {
                 </div>
                 <Link
                   to="/loan-pipeline"
-                  className="inline-flex items-center gap-1 text-xs font-semibold text-[#183b57] hover:underline"
+                  className="inline-flex items-center gap-1 text-xs font-semibold text-[#4C78F5] hover:underline"
                 >
                   View all
                   <ArrowRight className="h-3.5 w-3.5" />
@@ -1260,42 +1251,40 @@ export default function Home() {
                 </div>
               ) : pipeline?.recentApplications?.length ? (
                 <div className="overflow-x-auto">
-                  <table className="w-full min-w-[860px] text-left text-sm">
-                    <thead className="bg-slate-50 text-[11px] uppercase tracking-wider text-slate-500 dark:bg-slate-800">
+                  <table className="ds-table min-w-[860px]">
+                    <thead>
                       <tr>
-                        <th className="px-4 py-2.5 sm:px-5">Application</th>
-                        <th className="px-4 py-2.5 sm:px-5">Client</th>
-                        <th className="px-4 py-2.5 sm:px-5">Broker</th>
-                        <th className="px-4 py-2.5 sm:px-5">Product</th>
-                        <th className="px-4 py-2.5 text-right sm:px-5">Amount</th>
-                        <th className="px-4 py-2.5 text-center sm:px-5">Status</th>
-                        <th className="px-4 py-2.5 sm:px-5">Updated</th>
+                        <th>Deal</th>
+                        <th>Broker</th>
+                        <th>Product</th>
+                        <th>Amount</th>
+                        <th>Stage</th>
+                        <th>Updated</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                    <tbody>
                       {pipeline.recentApplications.map((item) => (
-                        <tr
-                          key={item.applicationLenderId}
-                          className="transition hover:bg-slate-50 dark:hover:bg-slate-800/40"
-                        >
-                          <td className="px-4 py-2.5 font-mono text-xs font-semibold text-[#183b57] sm:px-5">
-                            {item.applicationNumber || "—"}
+                        <tr key={item.applicationLenderId}>
+                          <td>
+                            <p className="ds-table-title">
+                              {item.clientName || "—"}
+                            </p>
+                            <p className="ds-table-meta font-mono text-brand-500">
+                              {item.applicationNumber || "—"}
+                            </p>
                           </td>
-                          <td className="px-4 py-2.5 font-medium text-slate-900 dark:text-white sm:px-5">
-                            {item.clientName || "—"}
-                          </td>
-                          <td className="px-4 py-2.5 text-slate-600 sm:px-5">
+                          <td className="ds-table-muted">
                             {item.brokerName || "—"}
                           </td>
-                          <td className="px-4 py-2.5 capitalize text-slate-600 sm:px-5">
+                          <td className="ds-table-muted capitalize">
                             {formatProductCode(item.productCode).toLowerCase()}
                           </td>
-                          <td className="px-4 py-2.5 text-right font-semibold text-slate-900 dark:text-white sm:px-5">
+                          <td className="ds-table-amount">
                             {item.amountRequested
                               ? formatRequestedAmount(item.amountRequested)
                               : "—"}
                           </td>
-                          <td className="px-4 py-2.5 text-center sm:px-5">
+                          <td>
                             {item.pipelineStatus ? (
                               <span
                                 className={`inline-flex max-w-full items-center truncate rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide ${getStatusBadgeClass(item.pipelineStatus)}`}
@@ -1303,10 +1292,10 @@ export default function Home() {
                                 {item.pipelineStatus.replace(/_/g, " ")}
                               </span>
                             ) : (
-                              "—"
+                              <span className="ds-table-empty">—</span>
                             )}
                           </td>
-                          <td className="px-4 py-2.5 text-xs text-slate-500 sm:px-5">
+                          <td className="ds-table-meta !mt-0">
                             {formatDate(item.updatedAt || item.sentAt)}
                           </td>
                         </tr>
@@ -1322,7 +1311,7 @@ export default function Home() {
                   </p>
                   <Link
                     to="/loan-pipeline"
-                    className="mt-2 inline-flex text-sm font-semibold text-[#183b57] hover:underline"
+                    className="mt-2 inline-flex text-sm font-semibold text-[#4C78F5] hover:underline"
                   >
                     Open loan pipeline
                   </Link>

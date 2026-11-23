@@ -239,41 +239,41 @@ const StepTwo = ({
   const hideBulkActions = singleProductMode || pickOneMode;
 
   return (
-    <div className="border border-gray-200 rounded-2xl p-6 shadow-sm bg-white">
+    <div className={pickOneMode ? "space-y-4" : "rounded-2xl border border-border bg-white p-5 dark:border-slate-700 dark:bg-slate-900"}>
       {!pickOneMode && value?.length > 0 && (
-        <div className="flex flex-wrap gap-2 mb-4">
+        <div className="mb-4 flex flex-wrap gap-2">
           {products
             .filter((p) => value.includes(p.id))
             .slice(0, 5)
             .map((p) => (
               <span
                 key={p.id}
-                className="text-xs bg-gray-100 px-2 py-1 rounded-full"
+                className="rounded-full bg-surface px-2 py-1 text-xs text-text-secondary"
               >
                 {p.name}
               </span>
             ))}
 
           {value.length > 5 && (
-            <span className="text-xs text-gray-500">
+            <span className="text-xs text-text-secondary">
               +{value.length - 5} more
             </span>
           )}
         </div>
       )}
 
-      <div className="flex justify-between items-start mb-5">
+      <div className="mb-4 flex items-start justify-between">
         <div>
-          <h2 className="font-semibold text-lg flex items-center gap-2">
+          <h2 className="flex items-center gap-2 text-[16px] font-semibold text-text-primary dark:text-white">
             Loan Programs Offered
             {!pickOneMode && value?.length > 0 && (
-              <span className="text-xs bg-blue-100 text-blue-600 px-2.5 py-0.5 rounded-full font-medium">
+              <span className="rounded-full bg-brand-50 px-2.5 py-0.5 text-xs font-medium text-brand-600">
                 {value.length} selected
               </span>
             )}
           </h2>
 
-          <p className="text-sm text-gray-500 mt-1">
+          <p className="mt-0.5 text-[13px] text-text-secondary">
             {description ||
               (pickOneMode
                 ? "Select one loan program to continue. Configured programs stay available."
@@ -341,7 +341,7 @@ const StepTwo = ({
                       type="button"
                       key={item.id}
                       onClick={() => toggle(item.id)}
-                      className={`flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-left transition-all duration-200 ${
+                      className={`flex w-full items-center gap-3 rounded-xl border px-3.5 py-2.5 text-left transition ${
                         isChecked
                           ? "border-blue-500 bg-blue-50 shadow-sm scale-[1.01]"
                           : "border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50"

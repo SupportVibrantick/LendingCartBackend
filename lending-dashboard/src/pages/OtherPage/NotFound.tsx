@@ -58,7 +58,7 @@ export default function NotFound() {
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Link
               to="/"
-              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#183b57] to-[#36536c] px-5 py-3.5 text-sm font-semibold text-white shadow-lg shadow-[#183b57]/25 transition hover:brightness-110 sm:w-auto"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#4C78F5] to-[#36536c] px-5 py-3.5 text-sm font-semibold text-white shadow-lg shadow-[#4C78F5]/25 transition hover:brightness-110 sm:w-auto"
             >
               <Home className="h-4 w-4" />
               Back to dashboard

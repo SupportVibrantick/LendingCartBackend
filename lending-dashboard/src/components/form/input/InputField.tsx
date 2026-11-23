@@ -42,16 +42,16 @@ const Input: FC<InputProps> = ({
   maxLength,
   required,
 }) => {
-  let inputClasses = ` h-11 w-full rounded-lg border appearance-none px-4 py-2.5 text-sm shadow-theme-xs placeholder:text-gray-400 focus:outline-hidden focus:ring-3  dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 ${className}`;
+  let inputClasses = `h-10 w-full rounded-xl border appearance-none px-3.5 py-2 text-sm placeholder:text-text-secondary/70 focus:outline-hidden focus:ring-2 ${className}`;
 
   if (disabled) {
-    inputClasses += ` text-gray-500 border-gray-300 opacity-40 bg-gray-100 cursor-not-allowed dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700 opacity-40`;
+    inputClasses += ` text-text-secondary border-border opacity-40 bg-surface cursor-not-allowed dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700`;
   } else if (error) {
-    inputClasses += ` border-red-500 focus:border-red-400 focus:ring-red-500/20 dark:border-red-500 dark:focus:border-red-400`;
+    inputClasses += ` border-rose-500 focus:border-rose-400 focus:ring-rose-500/20 dark:border-rose-500`;
   } else if (success) {
-    inputClasses += `  border-success-500 focus:border-success-300 focus:ring-success-500/20 dark:text-success-400 dark:border-success-500 dark:focus:border-success-800`;
+    inputClasses += ` border-success-500 focus:border-success-300 focus:ring-success-500/20 dark:border-success-500`;
   } else {
-    inputClasses += ` bg-transparent text-gray-800 border-gray-300 focus:border-brand-300 focus:ring-brand-500/20 dark:border-gray-700 dark:text-white/90  dark:focus:border-brand-800`;
+    inputClasses += ` bg-white text-text-primary border-border focus:border-brand-400 focus:ring-brand-500/20 dark:bg-gray-900 dark:border-gray-700 dark:text-white/90`;
   }
 
   return (
@@ -79,10 +79,10 @@ const Input: FC<InputProps> = ({
         <p
           className={`mt-1.5 text-xs font-medium ${
             error
-              ? "text-red-500 dark:text-red-400"
+              ? "text-rose-500 dark:text-rose-400"
               : success
               ? "text-success-500"
-              : "text-gray-500"
+              : "text-text-secondary"
           }`}
         >
           {hint}

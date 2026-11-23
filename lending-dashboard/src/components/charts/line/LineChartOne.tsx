@@ -8,9 +8,9 @@ export default function LineChartOne() {
       position: "top",
       horizontalAlign: "left",
     },
-    colors: ["#3e86b7", "#a8c7dc"], // Define line colors
+    colors: ["#4C78F5", "#a8c7dc"], // Define line colors
     chart: {
-      fontFamily: "Outfit, sans-serif",
+      fontFamily: "Inter, sans-serif",
       height: 310,
       type: "line", // Set the chart type to 'line'
       toolbar: {

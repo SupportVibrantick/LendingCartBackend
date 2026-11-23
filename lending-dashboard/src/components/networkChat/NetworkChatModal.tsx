@@ -14,7 +14,7 @@ import { useChatSocket } from "../../lib/useChatSocket";
 import { trackConversationRoom } from "../../lib/chatSocketManager";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
-const BRAND = "#3e86b7";
+const BRAND = "#4C78F5";
 
 export type NetworkChatPeer = {
   /** Counterpart organization id (lenderId or brokerId). */
@@ -484,7 +484,7 @@ export default function NetworkChatModal({
         <div
           className="relative overflow-hidden px-5 pb-4 pt-4 text-white"
           style={{
-            background: `linear-gradient(135deg, ${BRAND} 0%, #183b57 100%)`,
+            background: `linear-gradient(135deg, ${BRAND} 0%, #4C78F5 100%)`,
           }}
         >
           <div className="pointer-events-none absolute -right-8 -top-10 h-32 w-32 rounded-full bg-white/10" />

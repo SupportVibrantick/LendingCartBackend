@@ -207,7 +207,7 @@ const AllBrokersAdmin: React.FC = () => {
   };
 
   return (
-    <div className="px-6 py-6">
+    <div>
       <Toaster />
 
       <div className="mb-6 flex items-center justify-between">
@@ -288,64 +288,42 @@ const AllBrokersAdmin: React.FC = () => {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="min-w-full border-separate border-spacing-0 text-sm">
+              <table className="ds-table min-w-full">
                 <thead>
-                  <tr className="bg-slate-50">
-                    <th className="sticky top-0 z-10 border-b border-slate-200 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                      Name
-                    </th>
-                    <th className="sticky top-0 z-10 border-b border-slate-200 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                      Email
-                    </th>
-                    <th className="sticky top-0 z-10 border-b border-slate-200 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                      Phone
-                    </th>
-                    <th className="sticky top-0 z-10 border-b border-slate-200 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                      Created
-                    </th>
-                    <th className="sticky top-0 z-10 border-b border-slate-200 px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-500">
-                      Actions
-                    </th>
+                  <tr>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Phone</th>
+                    <th>Created</th>
+                    <th className="text-right">Actions</th>
                   </tr>
                 </thead>
 
-                <tbody className="divide-y divide-slate-100">
+                <tbody>
                   {admins.map((a) => (
-                    <tr
-                      key={a.id}
-                      className="transition-colors hover:bg-slate-50/70"
-                    >
-                      <td className="px-4 py-3 align-middle">
-                        <div className="font-medium text-slate-900">
+                    <tr key={a.id}>
+                      <td>
+                        <p className="ds-table-title">
                           {a.firstName} {a.lastName}
-                        </div>
-                        <div className="text-[11px] text-slate-400">
-                          ID: {a.id}
-                        </div>
+                        </p>
+                        <p className="ds-table-meta">ID: {a.id}</p>
                       </td>
 
-                      <td className="px-4 py-3 align-middle">
-                        <span
-                          className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700"
-                          title={a.email}
-                        >
-                          {a.email}
-                        </span>
+                      <td className="ds-table-muted" title={a.email}>
+                        {a.email}
                       </td>
 
-                      <td className="px-4 py-3 align-middle text-slate-700">
-                        {a.phone || "-"}
-                      </td>
+                      <td className="ds-table-muted">{a.phone || "—"}</td>
 
-                      <td className="px-4 py-3 align-middle text-slate-700">
+                      <td className="ds-table-muted">
                         {formatDate(a.createdAt)}
                       </td>
 
-                      <td className="px-4 py-3 align-middle">
+                      <td>
                         <div className="flex justify-end gap-2">
                           <button
                             onClick={() => openEditModal(a)}
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-300 bg-white text-slate-600 shadow-sm hover:bg-slate-50"
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-border bg-white text-text-secondary hover:bg-surface"
                             title="Edit admin"
                           >
                             <MdModeEdit size={16} />
@@ -353,7 +331,7 @@ const AllBrokersAdmin: React.FC = () => {
 
                           <button
                             onClick={() => deleteAdmin(a.id)}
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-red-200 bg-red-50 text-red-600 shadow-sm hover:bg-red-100"
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100"
                             title="Delete admin"
                           >
                             <MdDelete size={16} />

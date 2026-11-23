@@ -118,48 +118,54 @@ const AssignedProducts: React.FC = () => {
         </div>
       </div>
 
-      {/* Table */}
-      <div className="overflow-auto">
-        <table className="min-w-full text-sm">
+      <div className="ds-table-wrap overflow-x-auto dark:border-slate-700">
+        <table className="ds-table min-w-full">
           <thead>
-            <tr className="border-b text-xs text-gray-500 uppercase">
-              <th className="py-2 pr-4 text-left">Lender</th>
-              <th className="py-2 pr-4 text-left">Product</th>
-              <th className="py-2 pr-4 text-left">Code</th>
-              <th className="py-2 pr-4 text-left">Status</th>
-              <th className="py-2 pr-4 text-left">Created</th>
+            <tr>
+              <th>Lender</th>
+              <th>Product</th>
+              <th>Code</th>
+              <th>Status</th>
+              <th>Created</th>
             </tr>
           </thead>
 
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={5} className="py-6 text-center text-gray-500">
+                <td colSpan={5} className="text-center text-text-secondary">
                   Loading...
                 </td>
               </tr>
             ) : filteredAssignments.length === 0 ? (
               <tr>
-                <td colSpan={5} className="py-6 text-center text-gray-500">
+                <td colSpan={5} className="text-center text-text-secondary">
                   No assignments found
                 </td>
               </tr>
             ) : (
               filteredAssignments.map((a) => (
-                <tr
-                  key={a.id}
-                  className="border-b last:border-0 hover:bg-gray-50"
-                >
-                  <td className="py-3 pr-4">{a.lenderName}</td>
-                  <td className="py-3 pr-4">{a.productName}</td>
-                  <td className="py-3 pr-4">{a.productCode}</td>
-                  <td className="py-3 pr-4">
-                    {a.isActive ? "ACTIVE" : "INACTIVE"}
+                <tr key={a.id}>
+                  <td>
+                    <span className="ds-table-title">{a.lenderName}</span>
                   </td>
-                  <td className="py-3 pr-4">
+                  <td className="ds-table-muted">{a.productName}</td>
+                  <td className="ds-table-muted">{a.productCode}</td>
+                  <td>
+                    <span
+                      className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+                        a.isActive
+                          ? "bg-emerald-50 text-emerald-700"
+                          : "bg-slate-100 text-slate-600"
+                      }`}
+                    >
+                      {a.isActive ? "Active" : "Inactive"}
+                    </span>
+                  </td>
+                  <td className="ds-table-muted">
                     {a.createdAt
                       ? new Date(a.createdAt).toLocaleDateString()
-                      : "-"}
+                      : "—"}
                   </td>
                 </tr>
               ))

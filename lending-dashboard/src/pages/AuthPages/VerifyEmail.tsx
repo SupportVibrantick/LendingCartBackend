@@ -91,7 +91,7 @@ export default function VerifyEmail() {
           )}
           <Link
             to={status === "success" ? signInHref : "/signin"}
-            className="mt-8 inline-flex items-center justify-center rounded-xl bg-[#264863] px-5 py-3 text-sm font-semibold text-white"
+            className="mt-8 inline-flex items-center justify-center rounded-xl bg-[#3A5FD4] px-5 py-3 text-sm font-semibold text-white"
           >
             {status === "success" ? "Continue to sign in" : "Sign in"}
           </Link>
