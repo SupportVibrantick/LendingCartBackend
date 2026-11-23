@@ -12,6 +12,7 @@ import {
 import {
   getResidentialNoiForDscr,
   getResidentialDebtServiceForDscr,
+  getEntityAnnualNetIncomeForDscr,
 } from "../../lib/residentialFinancials";
 import {
   calculateInterestOnlyMonthlyPayment,
@@ -188,10 +189,17 @@ export function computeLoanMetrics(ctx: LoanMetricsContext): LoanMetrics {
     annualPrincipalAndInterest + annualPropertyTaxes + annualInsurance;
 
   const crePermanentNoi = toNumber(formData.entity.ebitdaWithNoi);
+  const entityAnnualNetIncomeForDscr = getEntityAnnualNetIncomeForDscr(
+    formData.entityAnnualFinancials,
+  );
 
   // NOI Actual is labeled annual ("/ Year"). Do not multiply by 12.
+  // Base44 / SBA: subject rental NOI → EBITDA with NOI → Step 2 Entity
+  // Annual Net Income (so Entity Info feeds DSCR when Financials NOI is empty).
   const residentialNoiForDscr = usesBase44Financials
-    ? getResidentialNoiForDscr(formData.financials) || crePermanentNoi
+    ? getResidentialNoiForDscr(formData.financials) ||
+      crePermanentNoi ||
+      entityAnnualNetIncomeForDscr
     : toNumber(formData.loanTermIncome.noiActual);
 
   const residentialDebtService = usesBase44Financials

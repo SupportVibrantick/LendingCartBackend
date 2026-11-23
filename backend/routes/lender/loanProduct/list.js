@@ -46,12 +46,24 @@ function formatSummaryProductListItem(product) {
       ? null
       : Number(product.minDscr);
 
+  const loanProductCode =
+    product.loanProductCode || product.loanProduct?.code || null;
+
   return {
     id: product.id,
     isActive: product.isActive,
     loanProductId: product.loanProductId || product.loanProduct?.id || null,
-    code: product.loanProduct?.code || product.loanProductCode || null,
+    // Keep both keys — Request Docs UI (and others) read loanProductCode.
+    loanProductCode,
+    code: loanProductCode,
     name: product.loanProduct?.name || null,
+    loanProduct: product.loanProduct
+      ? {
+          id: product.loanProduct.id,
+          name: product.loanProduct.name,
+          code: product.loanProduct.code,
+        }
+      : null,
     minLoanAmount: Number.isFinite(minLoanAmount) ? minLoanAmount : null,
     maxLoanAmount:
       Number.isFinite(maxLoanAmount) && maxLoanAmount > 0 ? maxLoanAmount : null,
