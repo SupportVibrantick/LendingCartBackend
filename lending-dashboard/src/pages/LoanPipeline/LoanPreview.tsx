@@ -343,6 +343,34 @@ function invalidatePreviewCaches(applicationLenderId?: string) {
   }
 }
 
+/** Summary + full product payloads expose code under different keys. */
+function getLenderProductCode(product?: {
+  loanProductCode?: string | null;
+  code?: string | null;
+  loanProduct?: { code?: string | null } | null;
+} | null) {
+  return String(
+    product?.loanProductCode ||
+      product?.loanProduct?.code ||
+      product?.code ||
+      "",
+  ).trim();
+}
+
+function getLenderProductLabel(product?: {
+  name?: string | null;
+  loanProduct?: { name?: string | null; code?: string | null } | null;
+  loanProductCode?: string | null;
+  code?: string | null;
+} | null) {
+  return (
+    product?.loanProduct?.name ||
+    product?.name ||
+    formatLoanProduct(getLenderProductCode(product)) ||
+    "Loan program"
+  );
+}
+
 function isSameLoanProgramCode(a?: string | null, b?: string | null) {
   if (!a || !b) return false;
   if (a === b) return true;
@@ -667,16 +695,11 @@ export default function LoanPreview() {
     const matched = loanProducts.find((product) =>
       isSameLoanProgramCode(
         applicationLoanProductCode,
-        product.loanProductCode || product.loanProduct?.code || product.code,
+        getLenderProductCode(product),
       ),
     );
 
-    return String(
-      matched?.loanProductCode ||
-        matched?.loanProduct?.code ||
-        matched?.code ||
-        "",
-    );
+    return getLenderProductCode(matched);
   }, [applicationLoanProductCode, loanProducts]);
 
   const isApplicationDefaultSelected =
@@ -690,7 +713,7 @@ export default function LoanPreview() {
       loanProducts.find((product) =>
         isSameLoanProgramCode(
           selectedLoanProduct,
-          product.loanProductCode || product.loanProduct?.code || product.code,
+          getLenderProductCode(product),
         ),
       ) || null
     );
@@ -708,6 +731,16 @@ export default function LoanPreview() {
       isActive?: () => boolean;
     },
   ) => {
+    const productCode = String(code || "").trim();
+    if (!productCode) {
+      setDocSelectModal({
+        documents: [],
+        selectedDocs: [],
+        loading: false,
+      });
+      return;
+    }
+
     try {
       if (!options?.isActive || options.isActive()) {
         setDocSelectModal((prev) => ({ ...prev, loading: true }));
@@ -715,17 +748,17 @@ export default function LoanPreview() {
 
       const matchedProduct =
         loanProducts.find((product) =>
-          isSameLoanProgramCode(
-            code,
-            product.loanProductCode || product.loanProduct?.code || product.code,
-          ),
+          isSameLoanProgramCode(productCode, getLenderProductCode(product)),
         ) || null;
 
       const params = new URLSearchParams({ limit: "100" });
       if (matchedProduct?.id) {
         params.set("lenderProductId", String(matchedProduct.id));
       } else {
-        params.set("loanProductCode", code);
+        params.set(
+          "loanProductCode",
+          getLenderProductCode(matchedProduct) || productCode,
+        );
       }
 
       const documents = await fetchDocumentConfigListShared(params);
@@ -733,14 +766,17 @@ export default function LoanPreview() {
 
       const availableIds = new Set(
         documents
-          .map((doc: any) => doc.documentTypeId || doc.id)
-          .filter(Boolean)
-          .map(String),
+          .map((doc: any) =>
+            String(doc.documentTypeId || doc.id || doc._id || ""),
+          )
+          .filter(Boolean),
       );
 
       setDocSelectModal((prev) => {
         const preserved = options?.preserveSelection
-          ? (prev.selectedDocs || []).filter((id) => availableIds.has(String(id)))
+          ? (prev.selectedDocs || []).filter((id) =>
+              availableIds.has(String(id)),
+            )
           : [];
         const extra = (options?.selectIds || []).filter((id) =>
           availableIds.has(String(id)),
@@ -748,7 +784,7 @@ export default function LoanPreview() {
 
         return {
           ...prev,
-          documents,
+          documents: Array.isArray(documents) ? documents : [],
           selectedDocs: [...new Set([...preserved, ...extra])],
           loading: false,
         };
@@ -757,7 +793,12 @@ export default function LoanPreview() {
       console.error(err);
       if (!options?.isActive || options.isActive()) {
         toast.error("Failed to load documents");
-        setDocSelectModal((prev) => ({ ...prev, loading: false }));
+        setDocSelectModal((prev) => ({
+          ...prev,
+          documents: [],
+          selectedDocs: [],
+          loading: false,
+        }));
       }
     }
   };
@@ -912,11 +953,11 @@ export default function LoanPreview() {
       return submissionDetail.loanProduct.name;
     }
 
-    const matchedProduct = loanProducts.find(
-      (product) => product.loanProductCode === code,
+    const matchedProduct = loanProducts.find((product) =>
+      isSameLoanProgramCode(code, getLenderProductCode(product)),
     );
-    if (matchedProduct?.loanProduct?.name || matchedProduct?.name) {
-      return matchedProduct.loanProduct?.name || matchedProduct.name;
+    if (matchedProduct) {
+      return getLenderProductLabel(matchedProduct);
     }
 
     return formatLoanProduct(code);
@@ -2326,29 +2367,34 @@ export default function LoanPreview() {
     }
 
     const selectedProductLabel =
-      selectedLenderProduct?.loanProduct?.name ||
-      selectedLenderProduct?.name ||
+      getLenderProductLabel(selectedLenderProduct) ||
       (selectedLoanProduct
         ? formatLoanProduct(selectedLoanProduct)
         : "") ||
       "selected program";
 
     const searchTerm = requestDocsSearch.trim().toLowerCase();
-    const filteredRequestDocs = searchTerm
+    const filteredRequestDocs = (searchTerm
       ? docSelectModal.documents.filter((doc: any) => {
           const name = String(
             doc.documentName || doc.documentType?.name || "",
           ).toLowerCase();
           return name.includes(searchTerm);
         })
-      : docSelectModal.documents;
+      : docSelectModal.documents
+    ).filter((doc: any) =>
+      Boolean(doc?.documentTypeId || doc?.id || doc?._id),
+    );
 
     const selectedCount = docSelectModal.selectedDocs?.length || 0;
 
     const toggleRequestDoc = (docId: string, isChecked: boolean) => {
+      const id = String(docId);
       const updated = isChecked
-        ? (docSelectModal.selectedDocs || []).filter((id) => id !== docId)
-        : [...new Set([...(docSelectModal.selectedDocs || []), docId])];
+        ? (docSelectModal.selectedDocs || []).filter(
+            (selectedId) => String(selectedId) !== id,
+          )
+        : [...new Set([...(docSelectModal.selectedDocs || []), id])];
       setDocSelectModal((prev) => ({ ...prev, selectedDocs: updated }));
     };
 
@@ -2376,7 +2422,7 @@ export default function LoanPreview() {
               <select
                 value={selectedLoanProduct}
                 onChange={(e) => {
-                  const value = e.target.value;
+                  const value = String(e.target.value || "").trim();
                   setSelectedLoanProduct(value);
                   setRequestDocsSearch("");
                   if (!value) {
@@ -2397,14 +2443,15 @@ export default function LoanPreview() {
                 </option>
                 {!loadingProducts &&
                   loanProducts.map((lp) => {
-                    const optionCode = String(lp.loanProductCode || "");
+                    const optionCode = getLenderProductCode(lp);
+                    if (!optionCode) return null;
                     const isAppProduct = isSameLoanProgramCode(
                       applicationLoanProductCode,
                       optionCode,
                     );
                     return (
-                      <option key={lp.id} value={optionCode}>
-                        {lp.loanProduct?.name || lp.name}
+                      <option key={lp.id || optionCode} value={optionCode}>
+                        {getLenderProductLabel(lp)}
                         {isAppProduct ? " (this application)" : ""}
                       </option>
                     );
@@ -2424,8 +2471,7 @@ export default function LoanPreview() {
                 <span className="font-semibold">Default:</span> this application
                 was submitted for{" "}
                 <span className="font-semibold">
-                  {selectedLenderProduct?.loanProduct?.name ||
-                    selectedLenderProduct?.name ||
+                  {getLenderProductLabel(selectedLenderProduct) ||
                     formatLoanProduct(applicationLoanProductCode)}
                 </span>
                 .
@@ -2574,9 +2620,11 @@ export default function LoanPreview() {
                     setDocSelectModal((prev) => ({
                       ...prev,
                       selectedDocs:
-                        prev.documents?.map(
-                          (d: any) => d.documentTypeId || d.id,
-                        ) || [],
+                        prev.documents
+                          ?.map((d: any) =>
+                            String(d.documentTypeId || d.id || d._id || ""),
+                          )
+                          .filter(Boolean) || [],
                     }))
                   }
                   disabled={docSelectModal.documents.length === 0}
@@ -2648,13 +2696,17 @@ export default function LoanPreview() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredRequestDocs.map((doc: any) => {
-                      const docId = doc.documentTypeId ?? doc.id ?? doc._id;
+                    {filteredRequestDocs.map((doc: any, index: number) => {
+                      const docId = String(
+                        doc.documentTypeId || doc.id || doc._id || "",
+                      );
                       if (!docId) return null;
                       const isChecked =
-                        docSelectModal.selectedDocs?.includes(docId) ?? false;
+                        docSelectModal.selectedDocs?.some(
+                          (id) => String(id) === docId,
+                        ) ?? false;
                       const requestHistory =
-                        requestDocHistoryByTypeId[String(docId)];
+                        requestDocHistoryByTypeId[docId];
                       const isAlreadyRequested = Boolean(requestHistory);
                       const documentName =
                         doc.documentName ||
@@ -2663,7 +2715,7 @@ export default function LoanPreview() {
 
                       return (
                         <tr
-                          key={docId}
+                          key={`${docId}-${doc.id || index}`}
                           onClick={() => toggleRequestDoc(docId, isChecked)}
                           className={`cursor-pointer ${
                             isChecked
@@ -2743,7 +2795,9 @@ export default function LoanPreview() {
                                 )}
                               </span>
                             ) : (
-                              <span className="ds-table-empty">—</span>
+                              <span className="inline-flex items-center rounded-full border border-dashed border-border px-2 py-0.5 text-[11px] font-medium text-text-secondary">
+                                Never requested
+                              </span>
                             )}
                           </td>
                         </tr>

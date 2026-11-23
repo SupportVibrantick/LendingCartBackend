@@ -503,6 +503,29 @@ export const getResidentialNoiForDscr = (financials: ResidentialFinancials) => {
 };
 
 /**
+ * Fallback DSCR NOI from Step 2 Existing Entity annual Net Income when
+ * subject-business / rental NOI is empty (SBA / CRE Base44 flows).
+ */
+export const getEntityAnnualNetIncomeForDscr = (
+  entityAnnual: EntityAnnualFinancials | null | undefined,
+) => {
+  if (!entityAnnual) return 0;
+
+  const columnKeys = getFinancialYearColumnKeys(
+    entityAnnual.financialYearColumnCount,
+  );
+
+  const yearlyNetIncome = columnKeys
+    .map((column) => {
+      const raw = parseAmount(entityAnnual.netIncome?.[column] || "");
+      return raw > 0 ? raw : null;
+    })
+    .filter((value): value is number => value != null);
+
+  return averagePositiveOrZero(yearlyNetIncome);
+};
+
+/**
  * DSCR debt service = average Mortgage / Debt Service across all entered years.
  * Interim blank field uses fallbackAnnualDebt (loan P&I + taxes + insurance).
  */
