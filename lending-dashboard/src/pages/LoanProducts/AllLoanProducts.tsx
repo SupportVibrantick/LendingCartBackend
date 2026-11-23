@@ -1,8 +1,9 @@
 ﻿import { useEffect, useRef, useState } from "react";
+import type { MouseEvent as ReactMouseEvent } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
-import { X } from "lucide-react";
+import { Plus, Search, X } from "lucide-react";
 import { MdModeEdit, MdOutlineRemoveRedEye } from "react-icons/md";
-import { TiPlus } from "react-icons/ti";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import toast from "react-hot-toast";
 import EditLoanProductModal from "./EditLoanProductModal";
@@ -205,11 +206,11 @@ const safeGroupedEntries = (
 function statusClass(status?: string) {
   switch (status) {
     case "ACTIVE":
-      return "bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/40";
+      return "bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-500/30";
     case "INACTIVE":
-      return "bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-500/10 dark:text-yellow-300 dark:border-yellow-500/40";
+      return "bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-100 dark:bg-amber-500/10 dark:text-amber-300 dark:ring-amber-500/30";
     default:
-      return "bg-gray-100 text-gray-800 border-gray-200 dark:bg-slate-600/30 dark:text-slate-100 dark:border-slate-500";
+      return "bg-slate-100 text-slate-600 ring-1 ring-inset ring-slate-200 dark:bg-slate-600/30 dark:text-slate-100 dark:ring-slate-500";
   }
 }
 
@@ -233,6 +234,7 @@ export default function AlloanProducts() {
     totalPages: 1,
   });
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
   const menuRef = useRef<HTMLDivElement | null>(null);
   const [viewDetails, setViewDetails] = useState<any | null>(null);
   const filtersRef = useRef({
@@ -501,91 +503,151 @@ export default function AlloanProducts() {
     return `$${numericAmount}`;
   };
 
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setOpenMenuId(null);
-      }
+  const openRowMenu = (
+    productId: string,
+    event: ReactMouseEvent<HTMLButtonElement>,
+  ) => {
+    event.stopPropagation();
+    const rect = event.currentTarget.getBoundingClientRect();
+    const menuWidth = 176;
+    const estimatedHeight = canManageProducts ? 96 : 52;
+    const gap = 6;
+
+    let left = rect.right - menuWidth;
+    let top = rect.bottom + gap;
+
+    left = Math.max(8, Math.min(left, window.innerWidth - menuWidth - 8));
+    if (top + estimatedHeight > window.innerHeight - 8) {
+      top = Math.max(8, rect.top - estimatedHeight - gap);
     }
 
-    document.addEventListener("click", handleClickOutside);
+    setMenuPos({ top, left });
+    setOpenMenuId((prev) => (prev === productId ? null : productId));
+  };
 
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (
+        menuRef.current?.contains(target) ||
+        (target instanceof Element && target.closest("[data-menu-id]"))
+      ) {
+        return;
+      }
+      setOpenMenuId(null);
+    };
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpenMenuId(null);
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleEscape);
     return () => {
-      document.removeEventListener("click", handleClickOutside);
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEscape);
     };
   }, []);
 
+  useEffect(() => {
+    if (!openMenuId) return;
+
+    const reposition = () => {
+      const trigger = document.querySelector(
+        `[data-menu-id="${openMenuId}"]`,
+      ) as HTMLElement | null;
+      if (!trigger) return;
+
+      const rect = trigger.getBoundingClientRect();
+      const menuWidth = 176;
+      const estimatedHeight = menuRef.current?.offsetHeight || 96;
+      const gap = 6;
+      let left = rect.right - menuWidth;
+      let top = rect.bottom + gap;
+      left = Math.max(8, Math.min(left, window.innerWidth - menuWidth - 8));
+      if (top + estimatedHeight > window.innerHeight - 8) {
+        top = Math.max(8, rect.top - estimatedHeight - gap);
+      }
+      setMenuPos({ top, left });
+    };
+
+    window.addEventListener("resize", reposition);
+    window.addEventListener("scroll", reposition, true);
+    return () => {
+      window.removeEventListener("resize", reposition);
+      window.removeEventListener("scroll", reposition, true);
+    };
+  }, [openMenuId]);
+
+  const openMenuItem = openMenuId
+    ? lenders.find((item) => item.id === openMenuId) || null
+    : null;
+
   return (
-    <div className="px-6 py-6 text-gray-900 dark:text-gray-100">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+    <div className="space-y-5 text-text-primary dark:text-gray-100">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
-            <span className="text-[#3e86b7]">Loan</span> Programs
-          </h1>
-          <p className="text-sm text-gray-500 mt-1 dark:text-slate-400">
-            Manage global loan programs available on the platform.
+          <h1 className="ds-page-title">Loan Programs</h1>
+          <p className="ds-page-subtitle">
+            Manage loan programs available for your lender organization.
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <input
-              placeholder="Search by loan program name"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              className="px-3 py-2 border rounded-md w-64 focus:outline-none focus:ring-1 focus:ring-blue-500
-                         border-gray-300 bg-white text-gray-900
-                         dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100
-                         placeholder-gray-400 dark:placeholder-slate-400"
-              aria-label="Search lenders"
-            />
-            <select
-              value={pageSize}
-              onChange={(e) => setPageSize(Number(e.target.value))}
-              className="px-2 py-2 border rounded-md bg-white text-gray-900
-                         border-gray-300
-                         dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
-              aria-label="Page size"
-            >
-              <option value={5}>5 / page</option>
-              <option value={10}>10 / page</option>
-              <option value={20}>20 / page</option>
-            </select>
-          </div>
-
-          {canManageProducts && (
-            <button
-              onClick={() => navigate("/add-loan-product")}
-              className="inline-flex items-center whitespace-nowrap px-4 py-2 bg-[#3e87b7] text-white rounded-md hover:bg-[#36536c] transition"
-              type="button"
-              aria-label="Add Loan"
-            >
-              <TiPlus className="mr-2" />
-              Add Loan Programs
-            </button>
-          )}
-        </div>
+        {canManageProducts && (
+          <button
+            onClick={() => navigate("/add-loan-product")}
+            className="ds-btn-primary shrink-0 whitespace-nowrap"
+            type="button"
+            aria-label="Add Loan"
+          >
+            <Plus size={16} />
+            Add Loan Program
+          </button>
+        )}
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 dark:bg-slate-900 dark:border-slate-700">
+      <div className="ds-table-wrap dark:border-slate-700 dark:bg-slate-900">
+        <div className="flex flex-col gap-3 border-b border-border px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between dark:border-slate-800">
+          <div className="relative w-full sm:max-w-sm">
+            <Search className="pointer-events-none absolute top-1/2 left-3.5 z-10 h-4 w-4 -translate-y-1/2 text-text-secondary" />
+            <input
+              placeholder="Search programs..."
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              className="h-10 w-full rounded-xl border border-border bg-white py-2 pr-3.5 pl-10 text-sm text-text-primary placeholder:text-text-secondary/70 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-slate-600 dark:bg-slate-800 dark:text-gray-100"
+              aria-label="Search loan programs"
+            />
+          </div>
+          <select
+            value={pageSize}
+            onChange={(e) => setPageSize(Number(e.target.value))}
+            className="h-10 rounded-xl border border-border bg-white px-3 text-sm text-text-primary focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-slate-600 dark:bg-slate-800 dark:text-gray-100"
+            aria-label="Page size"
+          >
+            <option value={5}>5 / page</option>
+            <option value={10}>10 / page</option>
+            <option value={20}>20 / page</option>
+          </select>
+        </div>
+
         {loading ? (
-          <div className="py-16 text-center text-sm text-gray-500 dark:text-slate-400">
+          <div className="px-4 py-16 text-center text-sm text-text-secondary">
             Loading loan programs...
           </div>
         ) : pagination.total === 0 ? (
-          <div className="py-16 text-center text-sm text-gray-500 dark:text-slate-400">
-            No Loan programs found.
+          <div className="px-4 py-16 text-center text-sm text-text-secondary">
+            No loan programs found.
           </div>
         ) : (
           <>
-            <div>
-              <table className="min-w-full text-sm">
+            <div className="overflow-x-auto">
+              <table className="ds-table min-w-full">
                 <thead>
-                  <tr className="border-b border-gray-100 text-xs text-gray-500 uppercase tracking-wide dark:border-slate-700 dark:text-slate-400">
-                    <th className="py-2 pr-4 text-left">Loan Program</th>
-                    <th className="py-2 pr-4 text-left">Key Criteria</th>
-                    <th className="py-2 pr-4 text-left">Status</th>
-                    <th className="py-2 pr-4 text-right">Actions</th>
+                  <tr>
+                    <th>Loan Program</th>
+                    <th>Key Criteria</th>
+                    <th>Status</th>
+                    <th className="text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -595,20 +657,22 @@ export default function AlloanProducts() {
                     return (
                       <tr
                         key={item.id}
-                        className="border-b border-gray-100 last:border-0 hover:bg-gray-50/40 dark:border-slate-800 dark:hover:bg-slate-800/60"
+                        className="transition hover:bg-surface/80 dark:hover:bg-slate-800/60"
                       >
-                        <td className="py-3 pr-4 text-gray-900 whitespace-nowrap dark:text-gray-100">
-                          {formatLoanProductName(item)}
+                        <td className="whitespace-nowrap">
+                          <span className="ds-table-title">
+                            {formatLoanProductName(item)}
+                          </span>
                         </td>
-                        <td className="py-3 pr-4 text-gray-600 dark:text-slate-300">
+                        <td className="max-w-xl ds-table-muted">
                           {formatListKeyCriteria(item, formatAmount)}
                         </td>
-                        <td className="py-3 pr-4 whitespace-nowrap">
+                        <td className="whitespace-nowrap">
                           {canManageProducts ? (
                             <button
                               onClick={() => !isLoading && changeStatusFor(item)}
                               disabled={isLoading}
-                              className={`inline-flex items-center gap-2 px-3 py-1 text-xs font-medium rounded-full border ${statusClass(
+                              className={`inline-flex items-center gap-2 rounded-full px-2.5 py-1 text-[11px] font-semibold ${statusClass(
                                 item.isActive ? "ACTIVE" : "INACTIVE",
                               )} disabled:opacity-60`}
                               title="Click to change status"
@@ -635,75 +699,30 @@ export default function AlloanProducts() {
                                   />
                                 </svg>
                               ) : null}
-                              <span>{item.isActive ? "ACTIVE" : "INACTIVE"}</span>
+                              <span>{item.isActive ? "Active" : "Inactive"}</span>
                             </button>
                           ) : (
                             <span
-                              className={`inline-flex items-center gap-2 px-3 py-1 text-xs font-medium rounded-full border ${statusClass(
+                              className={`inline-flex items-center gap-2 rounded-full px-2.5 py-1 text-[11px] font-semibold ${statusClass(
                                 item.isActive ? "ACTIVE" : "INACTIVE",
                               )}`}
                             >
-                              <span>{item.isActive ? "ACTIVE" : "INACTIVE"}</span>
+                              <span>{item.isActive ? "Active" : "Inactive"}</span>
                             </span>
                           )}
                         </td>
-                        <td className="py-3 pr-4 relative overflow-visible">
-                          <div
-                            ref={openMenuId === item.id ? menuRef : null}
-                            className="flex items-center justify-end"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            {/* THREE DOT BUTTON */}
+                        <td>
+                          <div className="flex items-center justify-end">
                             <button
-                              onClick={() =>
-                                setOpenMenuId(
-                                  openMenuId === item.id ? null : item.id,
-                                )
-                              }
-                              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 
-                 text-gray-500 hover:bg-gray-100 hover:text-gray-800 transition
-                 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
+                              type="button"
+                              data-menu-id={item.id}
+                              onClick={(event) => openRowMenu(item.id, event)}
+                              className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-border text-text-secondary transition hover:bg-surface hover:text-text-primary dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
+                              aria-label="Open actions"
+                              aria-expanded={openMenuId === item.id}
                             >
                               <BsThreeDotsVertical size={16} />
                             </button>
-
-                            {/* DROPDOWN */}
-                            {openMenuId === item.id && (
-                              <div
-                                className="absolute right-2 top-11 z-50 w-44 bg-white border rounded-lg shadow-lg overflow-hidden
-                      dark:bg-slate-900 dark:border-slate-700 animate-in fade-in zoom-in-95"
-                              >
-                                {/* VIEW DETAILS */}
-                                <button
-                                  onClick={() => {
-                                    void openProductDetails(item.id);
-                                  }}
-                                  className="flex items-center gap-2 w-full px-4 py-2.5 text-sm text-emerald-600
-                     hover:bg-emerald-50 hover:text-emerald-600 transition
-                     dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-emerald-400"
-                                >
-                                  <MdOutlineRemoveRedEye size={16} />
-                                  View Details
-                                </button>
-
-                                {/* UPDATE */}
-                                {canManageProducts && (
-                                  <button
-                                    onClick={() =>
-                                      navigate("/update-loan-product", {
-                                        state: { loanProduct: item },
-                                      })
-                                    }
-                                    className="flex items-center gap-2 w-full px-4 py-2.5 text-sm text-blue-600 
-                     hover:bg-blue-50 hover:text-blue-600 transition
-                     dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-blue-400"
-                                  >
-                                    <MdModeEdit size={16} />
-                                    Update
-                                  </button>
-                                )}
-                              </div>
-                            )}
                           </div>
                         </td>
                       </tr>
@@ -713,26 +732,27 @@ export default function AlloanProducts() {
               </table>
             </div>
 
-            <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-3">
-              <div className="text-sm text-gray-600 dark:text-slate-300">
+            <div className="flex flex-col items-center justify-between gap-3 border-t border-border px-4 py-3.5 sm:flex-row dark:border-slate-800">
+              <div className="text-[13px] text-text-secondary">
                 Showing{" "}
-                <span className="font-medium">
+                <span className="font-semibold text-text-primary">
                   {(currentPage - 1) * pageSize + 1}
                 </span>{" "}
                 -{" "}
-                <span className="font-medium">
+                <span className="font-semibold text-text-primary">
                   {Math.min(currentPage * pagination.limit, pagination.total)}
                 </span>{" "}
-                of <span className="font-medium">{pagination.total}</span>
+                of{" "}
+                <span className="font-semibold text-text-primary">
+                  {pagination.total}
+                </span>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5">
                 <button
                   onClick={() => gotoPage(currentPage - 1)}
                   disabled={currentPage === 1}
-                  className="px-3 py-1 border rounded-md disabled:opacity-40
-                             border-gray-300 bg-white text-gray-800
-                             dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                  className="h-9 rounded-xl border border-border bg-white px-3 text-sm font-medium text-text-primary transition hover:bg-surface disabled:opacity-40 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                 >
                   Prev
                 </button>
@@ -756,10 +776,10 @@ export default function AlloanProducts() {
                       <button
                         key={page}
                         onClick={() => gotoPage(page)}
-                        className={`px-3 py-1 rounded-md ${
+                        className={`inline-flex h-9 min-w-9 items-center justify-center rounded-xl px-3 text-sm font-semibold transition ${
                           page === currentPage
-                            ? "bg-[#3e86b7] text-white"
-                            : "border border-gray-300 bg-white text-gray-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                            ? "bg-brand-500 text-white"
+                            : "border border-border bg-white text-text-primary hover:bg-surface dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                         }`}
                       >
                         {page}
@@ -771,9 +791,7 @@ export default function AlloanProducts() {
                 <button
                   onClick={() => gotoPage(currentPage + 1)}
                   disabled={currentPage === pagination.totalPages}
-                  className="px-3 py-1 border rounded-md disabled:opacity-40
-                             border-gray-300 bg-white text-gray-800
-                             dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                  className="h-9 rounded-xl border border-border bg-white px-3 text-sm font-medium text-text-primary transition hover:bg-surface disabled:opacity-40 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                 >
                   Next
                 </button>
@@ -782,6 +800,44 @@ export default function AlloanProducts() {
           </>
         )}
       </div>
+
+      {openMenuItem
+        ? createPortal(
+            <div
+              ref={menuRef}
+              style={{ top: menuPos.top, left: menuPos.left }}
+              className="fixed z-[9999] w-44 overflow-hidden rounded-xl border border-border bg-white shadow-lg dark:border-slate-700 dark:bg-slate-900"
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  void openProductDetails(openMenuItem.id);
+                }}
+                className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-text-primary transition hover:bg-surface dark:text-slate-300 dark:hover:bg-slate-800"
+              >
+                <MdOutlineRemoveRedEye size={16} className="text-brand-500" />
+                View Details
+              </button>
+
+              {canManageProducts && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOpenMenuId(null);
+                    navigate("/update-loan-product", {
+                      state: { loanProduct: openMenuItem },
+                    });
+                  }}
+                  className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-text-primary transition hover:bg-surface dark:text-slate-300 dark:hover:bg-slate-800"
+                >
+                  <MdModeEdit size={16} className="text-brand-500" />
+                  Update
+                </button>
+              )}
+            </div>,
+            document.body,
+          )
+        : null}
 
       {editingLender && (
         <EditLoanProductModal

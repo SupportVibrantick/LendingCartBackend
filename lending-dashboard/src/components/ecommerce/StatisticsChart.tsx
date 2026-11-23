@@ -120,11 +120,11 @@ useEffect(() => {
 
   const options: ApexOptions = {
     chart: {
-      fontFamily: "Outfit, sans-serif",
+      fontFamily: "Inter, sans-serif",
       toolbar: { show: false },
       zoom: { enabled: false },
     },
-    colors: ["#3e86b7", "#10B981"],
+    colors: ["#4C78F5", "#10B981"],
     stroke: {
       curve: "smooth",
       width: [4, 3],

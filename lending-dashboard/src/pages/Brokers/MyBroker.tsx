@@ -146,7 +146,7 @@ export default function MyBrokers() {
 
   /* ================= UI ================= */
   return (
-    <div className="px-6 py-6 text-gray-900 dark:text-gray-100">
+    <div className="text-gray-900 dark:text-gray-100">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:justify-between gap-4 mb-6">
         <div>
@@ -184,19 +184,17 @@ export default function MyBrokers() {
         </div>
       </div>
 
-      {/* Table */}
-      <div className="bg-white border rounded-xl p-4 dark:bg-slate-900 dark:border-slate-700">
+      <div className="ds-table-wrap dark:border-slate-700 dark:bg-slate-900">
         {loading ? (
-          <div className="py-14 flex flex-col items-center justify-center text-center space-y-3">
-            <Loader2 className="w-8 h-8 animate-spin text-[#102C41]" />
-            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+          <div className="flex flex-col items-center justify-center space-y-3 py-14 text-center">
+            <Loader2 className="h-8 w-8 animate-spin text-brand-500" />
+            <p className="text-sm font-medium text-text-secondary">
               Loading brokers...
             </p>
           </div>
         ) : paginated.length === 0 ? (
-          <div className="py-16 flex flex-col items-center justify-center text-center">
-            {/* Icon */}
-            <div className="w-14 h-14 flex items-center justify-center rounded-full bg-[#102C41]/10 text-[#102C41] mb-4">
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-brand-50 text-brand-500">
               <Users size={26} />
             </div>
 
@@ -212,65 +210,57 @@ export default function MyBrokers() {
             </p>
           </div>
         ) : (
-          <table className="min-w-full text-sm">
+          <table className="ds-table min-w-full">
             <thead>
-              <tr className="border-b text-xs uppercase text-gray-500 dark:border-slate-700">
-                <th className="py-2 text-left">Profile</th>
-                <th className="py-2 text-left">Name</th>
-                <th className="py-2 text-left">Email</th>
-                <th className="py-2 text-left">Phone</th>
-                <th className="py-2 text-left">Status</th>
-                <th className="py-2 text-left">Connection</th>
-                <th className="py-2 text-left">Assigned At</th>
+              <tr>
+                <th>Broker</th>
+                <th>Email</th>
+                <th>Phone</th>
+                <th>Status</th>
+                <th>Connection</th>
+                <th>Assigned At</th>
               </tr>
             </thead>
 
             <tbody>
               {paginated.map((b) => (
-                <tr key={b.id} className="border-b dark:border-slate-800">
-                  <td className="py-3">
-                    <img
-                      src={b.profile || "/broker-icon.jpg"}
-                      className="h-10 w-10 rounded-full border object-cover"
-                    />
-                  </td>
-                  <td>{b.name}</td>
-                  <td>{b.email}</td>
-                  <td>{b.phone}</td>
-
-                  {/* STATUS (READ ONLY) */}
+                <tr key={b.id}>
                   <td>
-                    <span
-                      className={`px-3 py-1 rounded-full text-xs font-medium`}
-                    >
+                    <div className="flex items-center gap-3">
+                      <img
+                        src={b.profile || "/broker-icon.jpg"}
+                        alt=""
+                        className="h-9 w-9 rounded-full border border-border object-cover"
+                      />
+                      <span className="ds-table-title">{b.name}</span>
+                    </div>
+                  </td>
+                  <td className="ds-table-muted">{b.email}</td>
+                  <td className="ds-table-muted">{b.phone || "—"}</td>
+                  <td>
+                    <span className="inline-flex rounded-full bg-surface px-2.5 py-1 text-[11px] font-semibold text-text-secondary">
                       {b.brokerStatus}
                     </span>
                   </td>
-
-                  {/* CONNECTION (CLICKABLE) */}
                   <td>
-                    <td className="py-3">
-                      <button
-                        disabled={updatingId === b.id}
-                        onClick={() => handleConnectionToggle(b)}
-                        className={`px-3 py-1 rounded-full text-xs font-medium transition
-      ${
-        b.connectionStatus === "CONNECTED"
-          ? "bg-green-100 text-green-700"
-          : "bg-red-100 text-red-700"
-      }
-      ${updatingId === b.id ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}
-    `}
-                        title="Click to toggle connection"
-                      >
-                        {updatingId === b.id
-                          ? "Updating..."
-                          : b.connectionStatus}
-                      </button>
-                    </td>
+                    <button
+                      disabled={updatingId === b.id}
+                      onClick={() => handleConnectionToggle(b)}
+                      className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold transition ${
+                        b.connectionStatus === "CONNECTED"
+                          ? "bg-emerald-50 text-emerald-700"
+                          : "bg-rose-50 text-rose-700"
+                      } ${updatingId === b.id ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}
+                      title="Click to toggle connection"
+                    >
+                      {updatingId === b.id
+                        ? "Updating..."
+                        : b.connectionStatus}
+                    </button>
                   </td>
-
-                  <td>{new Date(b.assignedAt).toLocaleDateString()}</td>
+                  <td className="ds-table-muted">
+                    {new Date(b.assignedAt).toLocaleDateString()}
+                  </td>
                 </tr>
               ))}
             </tbody>

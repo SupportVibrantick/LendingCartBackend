@@ -91,7 +91,7 @@ export default function FindBroker() {
   const totalPages = Math.max(1, Math.ceil(meta.total / meta.limit));
 
   return (
-    <div className="px-6 py-6 text-gray-900 dark:text-gray-100">
+    <div className="text-gray-900 dark:text-gray-100">
       {/* Title */}
       <div className="mb-6">
         <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
@@ -173,39 +173,38 @@ export default function FindBroker() {
         </div>
 
         {/* Table */}
-        <div className="rounded-xl border bg-white dark:bg-slate-900 dark:border-slate-700 mt-4">
+        <div className="ds-table-wrap mt-4 dark:border-slate-700 dark:bg-slate-900">
           {loading ? (
-            <div className="p-8 space-y-3 animate-pulse">
+            <div className="space-y-3 p-8 animate-pulse">
               {[1, 2, 3, 4].map((i) => (
                 <div
                   key={i}
-                  className="h-4 bg-gray-200 rounded dark:bg-slate-700"
+                  className="h-4 rounded bg-surface dark:bg-slate-700"
                 />
               ))}
             </div>
           ) : (
-            <table className="min-w-full text-sm">
-              <thead className="bg-gray-100 dark:bg-slate-800">
-                <tr className="text-xs uppercase text-gray-500 dark:text-slate-400">
-                  <th className="p-4 text-left">Name</th>
-                  <th className="p-4 text-left">Email</th>
-                  <th className="p-4 text-left">Action</th>
+            <table className="ds-table min-w-full">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Email</th>
+                  <th>Action</th>
                 </tr>
               </thead>
 
               <tbody>
                 {brokers.map((b) => (
-                  <tr key={b.id} className="border-t dark:border-slate-800">
-                    <td className="p-4 font-medium">{b.name}</td>
-                    <td className="p-4">{b.email}</td>
-                    <td className="p-4">
+                  <tr key={b.id}>
+                    <td>
+                      <span className="ds-table-title">{b.name}</span>
+                    </td>
+                    <td className="ds-table-muted">{b.email}</td>
+                    <td>
                       <button
                         onClick={() => inviteBroker(b.id)}
                         disabled={invitingId === b.id}
-                        className="inline-flex items-center gap-2
-    px-4 py-2 rounded-md text-sm font-medium
-    bg-[#102C41] text-white hover:bg-[#0c2233]
-    transition disabled:opacity-60 disabled:cursor-not-allowed"
+                        className="inline-flex items-center gap-2 rounded-xl bg-brand-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         <Send size={16} />
                         {invitingId === b.id ? "Inviting..." : "Invite"}
@@ -216,7 +215,7 @@ export default function FindBroker() {
 
                 {brokers.length === 0 && !loading && (
                   <tr>
-                    <td colSpan={3} className="p-6 text-center text-gray-500">
+                    <td colSpan={3} className="text-center text-text-secondary">
                       No brokers found
                     </td>
                   </tr>

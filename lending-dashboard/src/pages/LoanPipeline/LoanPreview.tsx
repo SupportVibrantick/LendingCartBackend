@@ -543,6 +543,7 @@ export default function LoanPreview() {
   const [documentsPagination, setDocumentsPagination] = useState<any>(null);
   const [documentPage, setDocumentPage] = useState(1);
   const [documentSearchInput, setDocumentSearchInput] = useState("");
+  const [debouncedDocumentSearch, setDebouncedDocumentSearch] = useState("");
   const [documentSourceFilter, setDocumentSourceFilter] =
     useState<DocumentSourceFilter>("all");
   const [loiLoading, setLoiLoading] = useState(false);
@@ -1063,6 +1064,9 @@ export default function LoanPreview() {
   const fetchDocuments = async (options?: {
     limit?: number;
     force?: boolean;
+    search?: string;
+    page?: number;
+    sourceFilter?: DocumentSourceFilter;
     isActive?: () => boolean;
   }) => {
     if (!applicationLenderId) return;
@@ -1070,17 +1074,24 @@ export default function LoanPreview() {
     if (!isActive || isActive()) setDocumentsLoading(true);
 
     try {
+      const searchValue = (
+        options?.search ?? debouncedDocumentSearch
+      ).trim();
+      const pageValue = options?.page ?? documentPage;
+      const sourceFilterValue =
+        options?.sourceFilter ?? documentSourceFilter;
+
       const params = new URLSearchParams({
-        page: String(documentPage),
+        page: String(pageValue),
         limit: String(options?.limit ?? 10),
       });
 
-      if (documentSearchInput.trim()) {
-        params.set("search", documentSearchInput.trim());
+      if (searchValue) {
+        params.set("search", searchValue);
       }
 
-      if (documentSourceFilter !== "all") {
-        params.set("sourceFilter", documentSourceFilter);
+      if (sourceFilterValue !== "all") {
+        params.set("sourceFilter", sourceFilterValue);
       }
 
       const cacheKey = `${applicationLenderId}:${params.toString()}`;
@@ -1429,6 +1440,18 @@ export default function LoanPreview() {
     location.state?.generatedLoi,
   ]);
 
+  // Debounce uploaded-documents search before hitting the backend.
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setDebouncedDocumentSearch((prev) => {
+        if (prev === documentSearchInput) return prev;
+        setDocumentPage(1);
+        return documentSearchInput;
+      });
+    }, 500);
+    return () => window.clearTimeout(timer);
+  }, [documentSearchInput]);
+
   // Loan products + document-config are only needed on Request Documents.
   useEffect(() => {
     if (activeTab !== "requestDocs") return;
@@ -1449,7 +1472,14 @@ export default function LoanPreview() {
 
     if (activeTab === "requestDocs") {
       // Needed for prior-request history badges on the request list.
-      void fetchDocuments({ limit: 100, isActive: () => active });
+      // Do not apply documents-tab search filters here.
+      void fetchDocuments({
+        limit: 100,
+        search: "",
+        sourceFilter: "all",
+        page: 1,
+        isActive: () => active,
+      });
     }
 
     // After generate, dedicated refresh effect owns LOI loading (avoids double view-loi).
@@ -1483,7 +1513,7 @@ export default function LoanPreview() {
     activeTab,
     applicationLenderId,
     documentPage,
-    documentSearchInput,
+    debouncedDocumentSearch,
     documentSourceFilter,
     loiGenerated,
     isLoi,
@@ -1687,7 +1717,7 @@ export default function LoanPreview() {
         title: "Missing required fields",
         text: "Please complete all required fields before continuing.",
         icon: "warning",
-        confirmButtonColor: "#183b57",
+        confirmButtonColor: "#4C78F5",
         ...getSwalTheme(),
       });
       return;
@@ -1764,7 +1794,7 @@ export default function LoanPreview() {
         title: isApproval ? "Approval failed" : "Rejection failed",
         text: err.message || "Something went wrong",
         icon: "error",
-        confirmButtonColor: "#183b57",
+        confirmButtonColor: "#4C78F5",
         ...getSwalTheme(),
       });
     } finally {
@@ -1929,7 +1959,7 @@ export default function LoanPreview() {
                 className="min-w-0 px-4 py-4 sm:px-5"
                 title={`${metric.label}: ${metric.value || "-"}`}
               >
-                <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#183B57]">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#4C78F5]">
                   {metric.label}
                 </p>
                 <p className="mt-1.5 truncate text-lg font-bold tabular-nums tracking-tight text-gray-900 dark:text-white">
@@ -1959,10 +1989,11 @@ export default function LoanPreview() {
   };
 
   const renderDocuments = () => {
-    if (documentsLoading) {
+    // Keep search input mounted during refetch so focus is not lost.
+    if (documentsLoading && !documentsData) {
       return (
-        <div className="flex flex-col items-center justify-center py-24 gap-4">
-          <Loader2 className="animate-spin w-10 h-10 text-brand-500" />
+        <div className="flex flex-col items-center justify-center gap-4 py-24">
+          <Loader2 className="h-10 w-10 animate-spin text-brand-500" />
           <p className="text-sm text-slate-500">Loading documents...</p>
         </div>
       );
@@ -1970,57 +2001,77 @@ export default function LoanPreview() {
 
     if (!documentsData) {
       return (
-        <div className="text-center py-20 text-slate-400">
+        <div className="py-20 text-center text-slate-400">
           No document data available.
         </div>
       );
     }
 
+    const listRefreshing = documentsLoading && Boolean(documentsData);
+    const totalDocuments =
+      documentsData.totalDocumentsCount ??
+      documentsPagination?.total ??
+      documentsData.documents?.length ??
+      0;
+
+    const documentStatusClass = (status?: string | null) => {
+      const normalized = (status || "").toUpperCase();
+      if (normalized === "COMPLETED" || normalized === "COMPLETE") {
+        return "bg-[#FFF9E6] text-[#856404] dark:bg-amber-500/10 dark:text-amber-300";
+      }
+      if (normalized === "PARTIAL") {
+        return "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300";
+      }
+      if (normalized === "PENDING") {
+        return "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300";
+      }
+      if (normalized === "SKIPPED") {
+        return "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400";
+      }
+      return "bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-300";
+    };
+
     return (
-      <div className="space-y-6">
-        {/* STATS CARDS */}
-        <div className="grid grid-cols-2 gap-4">
-          <div className="rounded-2xl p-5 bg-gradient-to-br from-amber-50 to-white dark:from-slate-800 dark:to-slate-900 border dark:border-slate-700">
-            <p className="text-xs uppercase tracking-wider text-slate-400 font-semibold">
+      <div className="space-y-5">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="rounded-2xl border border-border bg-white px-4 py-4 dark:border-slate-700 dark:bg-slate-900">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-amber-600">
               Pending Documents
             </p>
-            <p className="text-xl font-bold text-amber-600 mt-1">
+            <p className="mt-2 text-[28px] font-bold leading-none tabular-nums text-amber-600">
               {documentsData.documentsPendingCount}
             </p>
           </div>
 
-          <div className="rounded-2xl p-5 bg-gradient-to-br from-brand-50 to-white dark:from-slate-800 dark:to-slate-900 border dark:border-slate-700">
-            <p className="text-xs uppercase tracking-wider text-slate-400 font-semibold">
+          <div className="rounded-2xl border border-border bg-white px-4 py-4 dark:border-slate-700 dark:bg-slate-900">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-brand-500">
               Total Documents
             </p>
-            <p className="text-xl font-bold text-brand-600 mt-1">
-              {documentsData.totalDocumentsCount ??
-                documentsPagination?.total ??
-                documentsData.documents?.length ??
-                0}
+            <p className="mt-2 text-[28px] font-bold leading-none tabular-nums text-brand-500">
+              {totalDocuments}
             </p>
           </div>
         </div>
 
-        {/* TABLE CARD */}
-        <div className="rounded-2xl border bg-white dark:bg-slate-900 overflow-hidden dark:border-slate-700">
-          <div className="flex flex-col gap-3 border-b px-5 py-4 dark:border-slate-800 lg:flex-row lg:items-end lg:justify-between">
-            <div className="flex items-center gap-2 text-slate-700 dark:text-slate-200">
-              <h2 className="text-sm font-semibold text-slate-600 dark:text-slate-300">
+        <div className="ds-table-wrap dark:border-slate-700 dark:bg-slate-900">
+          <div className="flex flex-col gap-3 border-b border-border px-4 py-3.5 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex min-w-0 items-center gap-2">
+              <h2 className="text-[16px] font-semibold text-text-primary dark:text-white">
                 Documents List
               </h2>
-              {(documentSourceFilter !== "all" || documentSearchInput.trim()) && (
-                <span className="rounded-full bg-brand-100 px-2 py-0.5 text-[10px] font-semibold text-brand-700 dark:bg-brand-900/40 dark:text-brand-300">
+              {(documentSourceFilter !== "all" ||
+                debouncedDocumentSearch.trim()) && (
+                <span className="rounded-full bg-brand-50 px-2 py-0.5 text-[10px] font-semibold text-brand-600 dark:bg-brand-900/40 dark:text-brand-300">
                   Filtered
                 </span>
               )}
             </div>
 
-            <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center lg:w-auto">
-              <div className="relative w-full sm:w-52">
+            <div className="flex w-full flex-col gap-2.5 sm:w-auto sm:flex-row sm:items-center">
+              <div className="relative w-full sm:w-44">
                 <Filter
                   size={15}
-                  className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                  className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-text-secondary"
                 />
                 <select
                   value={documentSourceFilter}
@@ -2030,7 +2081,7 @@ export default function LoanPreview() {
                     );
                     setDocumentPage(1);
                   }}
-                  className="w-full appearance-none rounded-xl border border-slate-200 bg-slate-50/80 py-2.5 pl-9 pr-9 text-sm text-slate-800 outline-none transition hover:border-slate-300 focus:border-brand-500 focus:bg-white focus:ring-2 focus:ring-brand-500/15 dark:border-slate-700 dark:bg-slate-800/80 dark:text-white dark:focus:border-brand-400 dark:focus:bg-slate-900"
+                  className="h-10 w-full appearance-none rounded-xl border border-border bg-white py-2 pr-9 pl-9 text-sm text-text-primary outline-none transition focus:border-brand-400 focus:ring-2 focus:ring-brand-500/20 dark:border-slate-700 dark:bg-slate-800/80 dark:text-white"
                 >
                   <option value="all">All documents</option>
                   <option value="mine">My documents</option>
@@ -2038,289 +2089,220 @@ export default function LoanPreview() {
                 </select>
                 <ChevronDown
                   size={16}
-                  className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
+                  className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-text-secondary"
                 />
               </div>
 
-              <div className="relative w-full sm:max-w-xs">
-              <Search
-                size={16}
-                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-              />
-              <input
-                type="search"
-                value={documentSearchInput}
-                onChange={(e) => {
-                  setDocumentSearchInput(e.target.value);
-                  setDocumentPage(1);
-                }}
-                placeholder="Search documents..."
-                className="w-full rounded-xl border border-slate-200 bg-slate-50/80 py-2.5 pl-9 pr-9 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-brand-500 focus:bg-white focus:ring-2 focus:ring-brand-500/15 dark:border-slate-700 dark:bg-slate-800/80 dark:text-white dark:focus:border-brand-400 dark:focus:bg-slate-900"
-              />
-              {documentSearchInput && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setDocumentSearchInput("");
-                    setDocumentPage(1);
-                  }}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-400 transition hover:bg-slate-200/80 hover:text-slate-600 dark:hover:bg-slate-700 dark:hover:text-slate-200"
-                  aria-label="Clear search"
-                >
-                  <SearchX size={14} />
-                </button>
-              )}
+              <div className="relative w-full sm:max-w-sm sm:w-56">
+                <Search
+                  size={15}
+                  className="pointer-events-none absolute top-1/2 left-3.5 z-10 -translate-y-1/2 text-text-secondary"
+                />
+                <input
+                  type="search"
+                  value={documentSearchInput}
+                  onChange={(e) => setDocumentSearchInput(e.target.value)}
+                  placeholder="Search documents…"
+                  className="h-10 w-full rounded-xl border border-border bg-white py-2 pr-9 pl-10 text-sm text-text-primary outline-none transition placeholder:text-text-secondary/70 focus:border-brand-400 focus:ring-2 focus:ring-brand-500/20 dark:border-slate-700 dark:bg-slate-800/80 dark:text-white"
+                />
+                {documentSearchInput ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDocumentSearchInput("");
+                      setDebouncedDocumentSearch("");
+                      setDocumentPage(1);
+                    }}
+                    className="absolute top-1/2 right-2.5 -translate-y-1/2 rounded-md p-1 text-text-secondary transition hover:bg-surface hover:text-text-primary dark:hover:bg-slate-700"
+                    aria-label="Clear search"
+                  >
+                    <SearchX size={14} />
+                  </button>
+                ) : null}
               </div>
             </div>
           </div>
 
-          {documentsData.documents?.length === 0 ? (
-            <div className="flex flex-col items-center justify-center gap-3 px-6 py-16 text-center">
-              <SearchX className="h-10 w-10 text-slate-300 dark:text-slate-600" />
-              <p className="text-sm font-medium text-slate-600 dark:text-slate-300">
-                {documentSearchInput.trim() || documentSourceFilter !== "all"
-                  ? "No documents match your filters."
-                  : "No documents available yet."}
-              </p>
-              {(documentSearchInput.trim() || documentSourceFilter !== "all") && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setDocumentSearchInput("");
-                    setDocumentSourceFilter("all");
-                    setDocumentPage(1);
-                  }}
-                  className="text-sm font-medium text-brand-600 hover:text-brand-700 dark:text-brand-400"
-                >
-                  Clear filters
-                </button>
-              )}
-            </div>
-          ) : (
-          <table className="w-full text-left">
-            <thead className="text-xs uppercase text-slate-400">
-              <tr>
-                <th className="px-5 py-3">Document</th>
-                <th className="px-5 py-3 text-center">Status</th>
-                <th className="px-5 py-3 text-center">Source</th>
-                <th className="px-5 py-3 text-center">Requested</th>
-                <th className="px-5 py-3 text-center">Uploads</th>
-                <th className="px-5 py-3 text-right">Action</th>
-              </tr>
-            </thead>
+          <div className="relative">
+            {listRefreshing ? (
+              <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/70 dark:bg-slate-900/70">
+                <Loader2 className="h-7 w-7 animate-spin text-brand-500" />
+              </div>
+            ) : null}
 
-            <tbody className="divide-y dark:divide-slate-800">
-              {documentsData.documents?.map((doc: any) => {
-                const requestDisplay = getDocumentRequestDisplay(doc);
-
-                return (
-                <tr
-                  key={doc.requirementId}
-                  className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-all"
-                >
-                  {/* 📄 DOCUMENT INFO */}
-                  <td className="px-5 py-4">
-                    <div className="flex flex-col">
-                      <span className="font-semibold text-slate-700 dark:text-slate-200 text-sm">
-                        {doc.documentName}
-                      </span>
-
-                      {doc.isRequired && (
-                        <span className="mt-1 text-rose-500 font-semibold text-[11px]">
-                          Required
-                        </span>
-                      )}
-                    </div>
-                  </td>
-
-                  {/* 📊 STATUS */}
-                  <td className="px-5 py-4 text-center">
-                    <span
-                      className={`px-3 py-1 text-xs rounded-full ${
-                        doc.status === "COMPLETED"
-                          ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400"
-                          : doc.status === "PARTIAL"
-                            ? "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400"
-                            : "bg-yellow-100 text-yellow-700 dark:bg-yellow-500/10 dark:text-yellow-400"
-                      }`}
-                    >
-                      {formatDocumentStatusLabel(doc.status)}
-                    </span>
-                  </td>
-                  <td className="px-5 py-4 text-center">
-                    {(() => {
-                      const sourceDisplay = getLenderDocumentSourceDisplay(doc);
+            {documentsData.documents?.length === 0 ? (
+              <div className="flex flex-col items-center justify-center gap-3 px-6 py-16 text-center">
+                <SearchX className="h-10 w-10 text-slate-300 dark:text-slate-600" />
+                <p className="text-sm font-medium text-text-secondary">
+                  {debouncedDocumentSearch.trim() ||
+                  documentSourceFilter !== "all"
+                    ? "No documents match your filters."
+                    : "No documents available yet."}
+                </p>
+                {(debouncedDocumentSearch.trim() ||
+                  documentSourceFilter !== "all") && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDocumentSearchInput("");
+                      setDebouncedDocumentSearch("");
+                      setDocumentSourceFilter("all");
+                      setDocumentPage(1);
+                    }}
+                    className="text-sm font-semibold text-brand-500 hover:text-brand-600"
+                  >
+                    Clear filters
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="ds-table min-w-[760px]">
+                  <thead>
+                    <tr>
+                      <th>Document</th>
+                      <th>Status</th>
+                      <th>Source</th>
+                      <th>Requested</th>
+                      <th>Uploads</th>
+                      <th className="text-right">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {documentsData.documents?.map((doc: any) => {
+                      const requestDisplay = getDocumentRequestDisplay(doc);
+                      const sourceDisplay =
+                        getLenderDocumentSourceDisplay(doc);
 
                       return (
-                        <span
-                          title={sourceDisplay.label}
-                          className={`inline-flex max-w-[180px] items-center justify-center truncate rounded-full px-3 py-1 text-[11px] font-semibold ${sourceDisplay.className}`}
-                        >
-                          {sourceDisplay.label}
-                        </span>
+                        <tr key={doc.requirementId}>
+                          <td>
+                            <p className="ds-table-title">
+                              {doc.documentName}
+                            </p>
+                            {doc.isRequired ? (
+                              <p className="ds-table-meta">Required</p>
+                            ) : (
+                              <p className="ds-table-meta">Optional</p>
+                            )}
+                          </td>
+
+                          <td>
+                            <span
+                              className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${documentStatusClass(doc.status)}`}
+                            >
+                              {formatDocumentStatusLabel(doc.status)}
+                            </span>
+                          </td>
+
+                          <td>
+                            <span
+                              title={sourceDisplay.label}
+                              className={`inline-flex max-w-[200px] truncate rounded-full px-2.5 py-1 text-[11px] font-semibold ${sourceDisplay.className}`}
+                            >
+                              {sourceDisplay.label}
+                            </span>
+                          </td>
+
+                          <td>
+                            <span className="ds-table-muted text-[12px]">
+                              {requestDisplay?.date || "—"}
+                            </span>
+                          </td>
+
+                          <td>
+                            <span className="text-sm font-semibold tabular-nums text-brand-500">
+                              {doc.uploadedCount}
+                            </span>
+                          </td>
+
+                          <td className="text-right">
+                            {doc.uploadedCount > 0 ? (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (doc.uploadedCount === 1) {
+                                    const file = doc.uploadedFiles[0];
+                                    const resolvedUrl =
+                                      resolveUploadedFileUrl(file.fileUrl);
+                                    if (!resolvedUrl) return;
+
+                                    setPreviewFile({
+                                      url: resolvedUrl,
+                                      type: file.fileMimeType,
+                                      name: file.fileName,
+                                    });
+                                  } else {
+                                    setMultiFileModal({
+                                      isOpen: true,
+                                      doc,
+                                    });
+                                  }
+                                }}
+                                className="inline-flex items-center gap-1.5 rounded-full bg-brand-50 px-3.5 py-1.5 text-[12px] font-semibold text-brand-500 transition hover:bg-brand-500 hover:text-white dark:bg-brand-500/15 dark:text-brand-300"
+                              >
+                                <Eye size={14} />
+                                View
+                                {doc.uploadedCount > 1
+                                  ? ` (${doc.uploadedCount})`
+                                  : ""}
+                              </button>
+                            ) : (
+                              <span className="inline-flex items-center rounded-full bg-surface px-3 py-1.5 text-[11px] font-medium text-text-secondary dark:bg-slate-800">
+                                No Files
+                              </span>
+                            )}
+                          </td>
+                        </tr>
                       );
-                    })()}
-                  </td>
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
 
-                  <td className="px-5 py-4 text-center">
-                    {requestDisplay?.date ? (
-                      <span className="text-[11px] font-medium text-slate-700 dark:text-slate-200">
-                        {requestDisplay.date}
-                      </span>
-                    ) : (
-                      <span className="text-[11px] text-slate-400">—</span>
-                    )}
-                  </td>
-
-                  {/* COUNT */}
-                  <td className="px-5 py-4 text-center">
-                    <span className="font-bold text-sm text-slate-700 dark:text-slate-200">
-                      {doc.uploadedCount}
-                    </span>
-                  </td>
-
-                  {/* ACTION  */}
-                  <td className="px-5 py-4 text-right">
-                    {doc.uploadedCount > 0 ? (
-                      <button
-                        onClick={() => {
-                          if (doc.uploadedCount === 1) {
-                            const file = doc.uploadedFiles[0];
-                            const resolvedUrl = resolveUploadedFileUrl(
-                              file.fileUrl,
-                            );
-                            if (!resolvedUrl) return;
-
-                            setPreviewFile({
-                              url: resolvedUrl,
-                              type: file.fileMimeType,
-                              name: file.fileName,
-                            });
-                          } else {
-                            setMultiFileModal({
-                              isOpen: true,
-                              doc,
-                            });
-                          }
-                        }}
-                        className="
-        group inline-flex items-center gap-2
-        rounded-xl border border-brand-200
-        bg-gradient-to-r from-brand-50 to-brand-100
-        px-3 py-2
-        text-brand-700
-        transition-all duration-300
-        hover:-translate-y-0.5
-        hover:border-brand-500
-        hover:bg-brand-600
-  
-        hover:shadow-md
-        dark:border-brand-500/20
-        dark:from-brand-500/10
-        dark:to-brand-500/10
-        dark:text-brand-300
-        dark:hover:bg-brand-500
-      "
-                      >
-                        <Eye
-                          size={14}
-                          className="transition-transform duration-300 group-hover:scale-110"
-                        />
-
-                        <span className="text-[11px] font-semibold tracking-wide">
-                          View
-                          {doc.uploadedCount > 1 && ` (${doc.uploadedCount})`}
-                        </span>
-                      </button>
-                    ) : (
-                      <span
-                        className="
-        inline-flex items-center rounded-lg
-        bg-slate-100 px-3 py-1.5
-        text-[11px] font-medium italic
-        text-slate-400
-        dark:bg-slate-800
-        dark:text-slate-500
-      "
-                      >
-                        No Files
-                      </span>
-                    )}
-                  </td>
-                </tr>
-                );
-              })}
-            </tbody>
-          </table>
-          )}
-
-          {documentsPagination && documentsPagination.totalPages > 0 && (
-            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 bg-slate-50/80 px-4 py-3 dark:border-slate-800 dark:bg-slate-900/60">
-              <p className="text-sm text-slate-500 dark:text-slate-400">
-                Page{" "}
-                <span className="font-semibold text-slate-700 dark:text-slate-200">
-                  {documentsPagination.page}
-                </span>{" "}
-                of{" "}
-                <span className="font-semibold text-slate-700 dark:text-slate-200">
-                  {documentsPagination.totalPages}
-                </span>
-                {documentsPagination.total != null && (
-                  <span className="ml-1 text-slate-400">
-                    ({documentsPagination.total} documents
-                    {documentSearchInput.trim() || documentSourceFilter !== "all"
+          {documentsPagination && documentsPagination.totalPages > 0 ? (
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border bg-white px-4 py-3.5 dark:border-slate-800 dark:bg-slate-900">
+              <p className="text-[13px] text-text-secondary">
+                Page {documentsPagination.page} of{" "}
+                {documentsPagination.totalPages}
+                {documentsPagination.total != null ? (
+                  <span>
+                    {" "}
+                    ({documentsPagination.total} document
+                    {documentsPagination.total === 1 ? "" : "s"}
+                    {debouncedDocumentSearch.trim() ||
+                    documentSourceFilter !== "all"
                       ? " found"
-                      : ""})
+                      : ""}
+                    )
                   </span>
-                )}
+                ) : null}
               </p>
 
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="flex items-center gap-2">
                 <button
                   type="button"
                   disabled={documentPage === 1}
                   onClick={() => setDocumentPage((current) => current - 1)}
-                  className="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 dark:disabled:border-slate-800 dark:disabled:bg-slate-800/50 dark:disabled:text-slate-600"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-border bg-white px-3.5 py-2 text-sm font-medium text-text-primary transition hover:bg-surface disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
                 >
                   <ChevronLeft size={16} />
                   Previous
                 </button>
-
-                {documentsPagination.totalPages > 1 &&
-                  Array.from(
-                    { length: documentsPagination.totalPages },
-                    (_, index) => {
-                      const pageNum = index + 1;
-
-                      return (
-                        <button
-                          key={pageNum}
-                          type="button"
-                          onClick={() => setDocumentPage(pageNum)}
-                          className={`h-9 min-w-9 rounded-xl px-2.5 text-sm font-semibold transition ${
-                            documentPage === pageNum
-                              ? "bg-gradient-to-r from-brand-600 to-brand-700 text-white shadow-sm"
-                              : "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
-                          }`}
-                        >
-                          {pageNum}
-                        </button>
-                      );
-                    },
-                  )}
-
                 <button
                   type="button"
                   disabled={documentPage === documentsPagination.totalPages}
                   onClick={() => setDocumentPage((current) => current + 1)}
-                  className="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 dark:disabled:border-slate-800 dark:disabled:bg-slate-800/50 dark:disabled:text-slate-600"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-border bg-white px-3.5 py-2 text-sm font-medium text-text-primary transition hover:bg-surface disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
                 >
                   Next
                   <ChevronRight size={16} />
                 </button>
               </div>
             </div>
-          )}
+          ) : null}
         </div>
       </div>
     );
@@ -2328,14 +2310,14 @@ export default function LoanPreview() {
   const renderRequestDocs = () => {
     if (!canRequestDocuments) {
       return (
-        <div className="rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-700 dark:bg-slate-900">
-          <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-[#183B57]">
+        <div className="rounded-2xl border border-border bg-white p-5 dark:border-slate-700 dark:bg-slate-900 sm:p-6">
+          <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-brand-500">
             Document workflow
           </p>
-          <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
+          <h2 className="text-[18px] font-semibold tracking-tight text-text-primary dark:text-white">
             Request Documents
           </h2>
-          <p className="mt-2 text-sm text-slate-500">
+          <p className="mt-2 text-[13px] text-text-secondary">
             {requestDocumentsDisabledReason ||
               "Documents cannot be requested for this application."}
           </p>
@@ -2361,6 +2343,8 @@ export default function LoanPreview() {
         })
       : docSelectModal.documents;
 
+    const selectedCount = docSelectModal.selectedDocs?.length || 0;
+
     const toggleRequestDoc = (docId: string, isChecked: boolean) => {
       const updated = isChecked
         ? (docSelectModal.selectedDocs || []).filter((id) => id !== docId)
@@ -2369,23 +2353,23 @@ export default function LoanPreview() {
     };
 
     return (
-      <div className="space-y-4">
-        <div className="rounded-xl border border-slate-200 bg-white px-5 py-4 dark:border-slate-700 dark:bg-slate-900">
-          <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-[#183B57]">
+      <div className="space-y-5">
+        <div className="rounded-2xl border border-border bg-white p-4 dark:border-slate-700 dark:bg-slate-900 sm:p-5">
+          <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-brand-500">
             Document workflow
           </p>
-          <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
+          <h2 className="text-[18px] font-semibold tracking-tight text-text-primary dark:text-white">
             Request Documents
           </h2>
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+          <p className="mt-1.5 max-w-2xl text-[13px] leading-relaxed text-text-secondary">
             Choose required documents for {selectedProductLabel}, then send the
             request to the broker / borrower.
           </p>
         </div>
 
-        <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
-          <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
-            <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+        <div className="grid gap-3 lg:grid-cols-2">
+          <div className="rounded-2xl border border-border bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+            <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.08em] text-text-secondary">
               Loan program
             </label>
             <div className="relative">
@@ -2404,7 +2388,7 @@ export default function LoanPreview() {
                   }
                 }}
                 disabled={loadingProducts}
-                className="w-full appearance-none rounded-lg border border-slate-200 bg-white px-3 py-2.5 pr-9 text-sm text-slate-800 outline-none transition focus:border-[#183B57] focus:ring-2 focus:ring-[#183B57]/20 disabled:cursor-not-allowed disabled:bg-slate-50 dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:disabled:bg-slate-800"
+                className="h-10 w-full appearance-none rounded-xl border border-border bg-white px-3 pr-9 text-sm text-text-primary outline-none transition focus:border-brand-400 focus:ring-2 focus:ring-brand-500/20 disabled:cursor-not-allowed disabled:bg-surface dark:border-slate-700 dark:bg-slate-950 dark:text-white"
               >
                 <option value="">
                   {loadingProducts
@@ -2426,9 +2410,9 @@ export default function LoanPreview() {
                     );
                   })}
               </select>
-              <div className="pointer-events-none absolute right-3 top-1/2 flex -translate-y-1/2 items-center gap-2 text-slate-400">
+              <div className="pointer-events-none absolute top-1/2 right-3 flex -translate-y-1/2 items-center text-text-secondary">
                 {loadingProducts ? (
-                  <Loader2 className="h-4 w-4 animate-spin text-[#183B57]" />
+                  <Loader2 className="h-4 w-4 animate-spin text-brand-500" />
                 ) : (
                   <ChevronDown size={16} />
                 )}
@@ -2436,7 +2420,7 @@ export default function LoanPreview() {
             </div>
 
             {isApplicationDefaultSelected ? (
-              <p className="mt-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-300">
+              <p className="mt-2.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-[12px] text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-300">
                 <span className="font-semibold">Default:</span> this application
                 was submitted for{" "}
                 <span className="font-semibold">
@@ -2447,11 +2431,11 @@ export default function LoanPreview() {
                 .
               </p>
             ) : applicationLoanProductCode && selectedLoanProduct ? (
-              <p className="mt-2 text-[11px] text-amber-600 dark:text-amber-400">
+              <p className="mt-2.5 text-[12px] text-amber-600 dark:text-amber-400">
                 Application program is{" "}
                 <button
                   type="button"
-                  className="font-medium underline"
+                  className="font-semibold underline"
                   onClick={() => {
                     if (defaultLoanProductCode) {
                       setSelectedLoanProduct(defaultLoanProductCode);
@@ -2463,30 +2447,30 @@ export default function LoanPreview() {
                 . Showing a different program.
               </p>
             ) : applicationLoanProductCode && !defaultLoanProductCode ? (
-              <p className="mt-2 text-[11px] text-amber-600 dark:text-amber-400">
+              <p className="mt-2.5 text-[12px] text-amber-600 dark:text-amber-400">
                 This application is for{" "}
-                <span className="font-medium">
+                <span className="font-semibold">
                   {formatLoanProduct(applicationLoanProductCode)}
                 </span>
                 , but that program is not assigned yet.
               </p>
             ) : (
-              <p className="mt-2 text-xs text-slate-500">
+              <p className="mt-2.5 text-[12px] text-text-secondary">
                 Choose a loan program to load product documents.
               </p>
             )}
           </div>
 
-          <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
-            <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+          <div className="rounded-2xl border border-border bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+            <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.08em] text-text-secondary">
               Custom document
             </label>
             {!selectedLoanProduct ? (
-              <p className="rounded-lg border border-dashed border-slate-200 px-3 py-3 text-xs text-slate-500 dark:border-slate-700">
+              <p className="rounded-xl border border-dashed border-border bg-surface/60 px-3 py-3 text-[12px] text-text-secondary">
                 Select a loan program first to add a custom document.
               </p>
             ) : !selectedLenderProductId ? (
-              <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-700 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
+              <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-[12px] text-amber-700 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
                 This program is not assigned on your account, so new documents
                 cannot be saved to it.
               </p>
@@ -2502,15 +2486,15 @@ export default function LoanPreview() {
                         handleAddProductDocument();
                       }
                     }}
-                    placeholder="Enter document name..."
+                    placeholder="Enter document name…"
                     disabled={addingDocument}
-                    className="h-11 flex-1 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-[#183B57] focus:ring-2 focus:ring-[#183B57]/20 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+                    className="h-10 flex-1 rounded-xl border border-border bg-white px-3 text-sm text-text-primary outline-none transition placeholder:text-text-secondary/70 focus:border-brand-400 focus:ring-2 focus:ring-brand-500/20 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
                   />
                   <button
                     type="button"
                     onClick={handleAddProductDocument}
                     disabled={addingDocument || newDocName.trim().length < 2}
-                    className="inline-flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-[#183B57] px-4 text-sm font-semibold text-white transition hover:bg-[#122d42] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
+                    className="inline-flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-xl bg-brand-500 px-4 text-sm font-semibold text-white transition hover:bg-brand-600 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
                   >
                     {addingDocument ? (
                       <Loader2 size={16} className="animate-spin" />
@@ -2520,12 +2504,12 @@ export default function LoanPreview() {
                     {addingDocument ? "Adding..." : "Add Document"}
                   </button>
                 </div>
-                <label className="mt-2.5 inline-flex cursor-pointer select-none items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
+                <label className="mt-2.5 inline-flex cursor-pointer select-none items-center gap-2 text-[12px] text-text-secondary">
                   <input
                     type="checkbox"
                     checked={newDocRequired}
                     onChange={(e) => setNewDocRequired(e.target.checked)}
-                    className="h-3.5 w-3.5 accent-[#183B57]"
+                    className="h-3.5 w-3.5 accent-brand-500"
                   />
                   Required for this loan program
                 </label>
@@ -2535,54 +2519,49 @@ export default function LoanPreview() {
         </div>
 
         {!selectedLoanProduct && !docSelectModal.loading ? (
-          <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-white py-14 text-center dark:border-slate-700 dark:bg-slate-900">
-            <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-[#183B57]/10 text-[#183B57]">
+          <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-white py-16 text-center dark:border-slate-700 dark:bg-slate-900">
+            <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-brand-50 text-brand-500">
               <FileText size={22} />
             </div>
-            <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+            <p className="text-sm font-semibold text-text-primary">
               Select a loan program
             </p>
-            <p className="mt-1 max-w-sm text-xs text-slate-500">
+            <p className="mt-1 max-w-sm text-[13px] text-text-secondary">
               Pick a program to view and request its documents.
             </p>
           </div>
         ) : (
-          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-4 py-3 dark:border-slate-800">
-              <div className="flex min-w-0 items-center gap-2">
-                <FileText size={15} className="shrink-0 text-[#183B57]" />
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-slate-800 dark:text-white">
-                    Available documents
-                  </p>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    {docSelectModal.documents.length} document
-                    {docSelectModal.documents.length === 1 ? "" : "s"}
-                    {(docSelectModal.selectedDocs?.length || 0) > 0
-                      ? ` · ${docSelectModal.selectedDocs.length} selected`
-                      : ""}
-                  </p>
-                </div>
+          <div className="ds-table-wrap dark:border-slate-700 dark:bg-slate-900">
+            <div className="flex flex-col gap-3 border-b border-border px-4 py-3.5 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <h3 className="text-[16px] font-semibold text-text-primary dark:text-white">
+                  Available documents
+                </h3>
+                <p className="text-[13px] text-text-secondary">
+                  {docSelectModal.documents.length} document
+                  {docSelectModal.documents.length === 1 ? "" : "s"}
+                  {selectedCount > 0 ? ` · ${selectedCount} selected` : ""}
+                </p>
               </div>
 
-              <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:flex-nowrap">
-                <div className="relative min-w-[200px] flex-1 sm:w-64 sm:flex-none">
+              <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+                <div className="relative w-full sm:max-w-sm sm:w-56">
                   <Search
-                    size={16}
-                    className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                    size={15}
+                    className="pointer-events-none absolute top-1/2 left-3.5 z-10 -translate-y-1/2 text-text-secondary"
                   />
                   <input
                     type="search"
                     value={requestDocsSearch}
                     onChange={(e) => setRequestDocsSearch(e.target.value)}
-                    placeholder="Search documents..."
-                    className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-9 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-[#183B57] focus:ring-2 focus:ring-[#183B57]/20 dark:border-slate-700 dark:bg-slate-950 dark:text-white [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden"
+                    placeholder="Search documents…"
+                    className="h-10 w-full rounded-xl border border-border bg-white py-2 pr-9 pl-10 text-sm text-text-primary outline-none transition placeholder:text-text-secondary/70 focus:border-brand-400 focus:ring-2 focus:ring-brand-500/20 dark:border-slate-700 dark:bg-slate-950 dark:text-white [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden"
                   />
                   {requestDocsSearch.trim() ? (
                     <button
                       type="button"
                       onClick={() => setRequestDocsSearch("")}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800"
+                      className="absolute top-1/2 right-2.5 -translate-y-1/2 rounded-md p-1 text-text-secondary transition hover:bg-surface hover:text-text-primary"
                       aria-label="Clear search"
                     >
                       <X size={14} />
@@ -2601,7 +2580,7 @@ export default function LoanPreview() {
                     }))
                   }
                   disabled={docSelectModal.documents.length === 0}
-                  className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                  className="h-10 rounded-xl border border-border bg-white px-3 text-xs font-semibold text-text-primary transition hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Select All
                 </button>
@@ -2613,8 +2592,8 @@ export default function LoanPreview() {
                       selectedDocs: [],
                     }))
                   }
-                  disabled={(docSelectModal.selectedDocs?.length || 0) === 0}
-                  className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                  disabled={selectedCount === 0}
+                  className="h-10 rounded-xl border border-border bg-white px-3 text-xs font-semibold text-text-primary transition hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Clear
                 </button>
@@ -2622,60 +2601,54 @@ export default function LoanPreview() {
             </div>
 
             {docSelectModal.loading ? (
-              <div className="flex flex-col items-center justify-center py-14">
-                <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#183B57] border-t-transparent" />
-                <p className="mt-3 text-sm text-slate-500">Loading documents...</p>
+              <div className="flex flex-col items-center justify-center py-16">
+                <Loader2 className="h-8 w-8 animate-spin text-brand-500" />
+                <p className="mt-3 text-sm text-text-secondary">
+                  Loading documents...
+                </p>
               </div>
             ) : docSelectModal.documents.length === 0 ? (
-              <div className="flex flex-col items-center justify-center px-4 py-14 text-center">
-                <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-[#183B57]/10 text-[#183B57]">
+              <div className="px-6 py-16 text-center">
+                <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-brand-50 text-brand-500">
                   <FileText size={22} />
                 </div>
-                <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+                <p className="text-sm font-semibold text-text-primary">
                   No documents configured
                 </p>
-                <p className="mt-1 max-w-sm text-xs text-slate-500">
+                <p className="mx-auto mt-1 max-w-sm text-[13px] text-text-secondary">
                   No product documents yet for {selectedProductLabel}. Add one
                   above to request it.
                 </p>
               </div>
             ) : filteredRequestDocs.length === 0 ? (
-              <div className="flex flex-col items-center justify-center px-4 py-14 text-center">
-                <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-[#183B57]/10 text-[#183B57]">
+              <div className="px-6 py-16 text-center">
+                <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-brand-50 text-brand-500">
                   <SearchX size={22} />
                 </div>
-                <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+                <p className="text-sm font-semibold text-text-primary">
                   No matches
                 </p>
-                <p className="mt-1 text-xs text-slate-500">
+                <p className="mt-1 text-[13px] text-text-secondary">
                   No documents match “{requestDocsSearch.trim()}”.
                 </p>
               </div>
             ) : (
               <div className="max-h-[min(480px,55vh)] overflow-auto">
-                <table className="w-full min-w-[720px] table-fixed text-sm">
-                  <colgroup>
-                    <col className="w-12" />
-                    <col />
-                    <col className="w-[100px]" />
-                    <col className="w-[110px]" />
-                    <col className="w-[100px]" />
-                    <col className="w-[180px]" />
-                  </colgroup>
-                  <thead className="sticky top-0 z-10 border-b border-slate-200 bg-slate-50/95 backdrop-blur dark:border-slate-800 dark:bg-slate-900/95">
-                    <tr className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                      <th className="px-4 py-2.5 text-left">
+                <table className="ds-table min-w-[720px]">
+                  <thead className="sticky top-0 z-10">
+                    <tr>
+                      <th className="w-12">
                         <span className="sr-only">Select</span>
                       </th>
-                      <th className="px-3 py-2.5 text-left">Document</th>
-                      <th className="px-3 py-2.5 text-left">Type</th>
-                      <th className="px-3 py-2.5 text-left">Requirement</th>
-                      <th className="px-3 py-2.5 text-left">Status</th>
-                      <th className="px-3 py-2.5 text-left">Last requested</th>
+                      <th>Document</th>
+                      <th>Type</th>
+                      <th>Requirement</th>
+                      <th>Status</th>
+                      <th>Last requested</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                    {filteredRequestDocs.map((doc: any, rowIndex: number) => {
+                  <tbody>
+                    {filteredRequestDocs.map((doc: any) => {
                       const docId = doc.documentTypeId ?? doc.id ?? doc._id;
                       if (!docId) return null;
                       const isChecked =
@@ -2692,15 +2665,13 @@ export default function LoanPreview() {
                         <tr
                           key={docId}
                           onClick={() => toggleRequestDoc(docId, isChecked)}
-                          className={`cursor-pointer transition-colors ${
+                          className={`cursor-pointer ${
                             isChecked
-                              ? "bg-[#183B57]/8 dark:bg-sky-950/25"
-                              : rowIndex % 2 === 1
-                                ? "bg-slate-50/40 dark:bg-slate-900/30"
-                                : "bg-white dark:bg-slate-900"
-                          } hover:bg-slate-50 dark:hover:bg-slate-800/40`}
+                              ? "!bg-brand-50/70 dark:!bg-brand-500/10"
+                              : ""
+                          }`}
                         >
-                          <td className="px-4 py-3 align-middle">
+                          <td>
                             <input
                               type="checkbox"
                               checked={isChecked}
@@ -2708,14 +2679,14 @@ export default function LoanPreview() {
                                 toggleRequestDoc(docId, isChecked)
                               }
                               onClick={(e) => e.stopPropagation()}
-                              className="h-4 w-4 cursor-pointer accent-[#183B57]"
+                              className="h-4 w-4 cursor-pointer accent-brand-500"
                               aria-label={`Select ${documentName}`}
                             />
                           </td>
-                          <td className="px-3 py-3 align-middle">
+                          <td>
                             <div className="flex min-w-0 items-center gap-2">
                               <p
-                                className="truncate font-semibold text-slate-800 dark:text-slate-100"
+                                className="ds-table-title"
                                 title={documentName}
                               >
                                 {documentName}
@@ -2723,29 +2694,29 @@ export default function LoanPreview() {
                               {isChecked ? (
                                 <Check
                                   size={14}
-                                  className="shrink-0 text-[#183B57]"
+                                  className="shrink-0 text-brand-500"
                                   strokeWidth={2.5}
                                 />
                               ) : null}
                             </div>
                           </td>
-                          <td className="px-3 py-3 align-middle">
+                          <td>
                             {doc.isCustom ? (
-                              <span className="inline-flex rounded-md bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
+                              <span className="inline-flex rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-700 ring-1 ring-inset ring-amber-200/80">
                                 Custom
                               </span>
                             ) : (
-                              <span className="text-[11px] font-medium text-slate-400">
+                              <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600 ring-1 ring-inset ring-slate-200/80">
                                 Standard
                               </span>
                             )}
                           </td>
-                          <td className="px-3 py-3 align-middle">
+                          <td>
                             <span
-                              className={`text-[11px] font-medium ${
+                              className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${
                                 doc.isRequired === false
-                                  ? "text-slate-400"
-                                  : "text-slate-600 dark:text-slate-300"
+                                  ? "bg-slate-100 text-slate-500"
+                                  : "bg-emerald-50 text-emerald-700"
                               }`}
                             >
                               {doc.isRequired === false
@@ -2753,28 +2724,26 @@ export default function LoanPreview() {
                                 : "Required"}
                             </span>
                           </td>
-                          <td className="px-3 py-3 align-middle">
+                          <td>
                             {isAlreadyRequested ? (
-                              <span className="inline-flex rounded-md bg-violet-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-violet-700 dark:bg-violet-500/20 dark:text-violet-300">
+                              <span className="inline-flex rounded-full bg-violet-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-violet-700 ring-1 ring-inset ring-violet-200/80">
                                 Requested
                               </span>
                             ) : (
-                              <span className="inline-flex rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                              <span className="inline-flex rounded-full bg-brand-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-brand-600 ring-1 ring-inset ring-brand-200/80">
                                 Available
                               </span>
                             )}
                           </td>
-                          <td className="px-3 py-3 align-middle">
+                          <td>
                             {requestHistory ? (
-                              <span className="text-[11px] font-medium text-slate-600 dark:text-slate-300">
+                              <span className="ds-table-muted text-[12px]">
                                 {formatDocumentTimelineDate(
                                   requestHistory.requestedAt,
                                 )}
                               </span>
                             ) : (
-                              <span className="text-[11px] text-slate-400">
-                                —
-                              </span>
+                              <span className="ds-table-empty">—</span>
                             )}
                           </td>
                         </tr>
@@ -2787,15 +2756,14 @@ export default function LoanPreview() {
           </div>
         )}
 
-        <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+        <div className="rounded-2xl border border-border bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="text-sm font-semibold text-slate-800 dark:text-white">
-                {docSelectModal.selectedDocs?.length || 0} document
-                {(docSelectModal.selectedDocs?.length || 0) === 1 ? "" : "s"}{" "}
+              <p className="text-sm font-semibold text-text-primary dark:text-white">
+                {selectedCount} document{selectedCount === 1 ? "" : "s"}{" "}
                 selected
               </p>
-              <p className="text-xs text-slate-500">
+              <p className="text-[13px] text-text-secondary">
                 Broker / borrower will be notified after you send the request.
               </p>
             </div>
@@ -2805,9 +2773,9 @@ export default function LoanPreview() {
               disabled={
                 requestLoading ||
                 !selectedLoanProduct ||
-                (docSelectModal.selectedDocs?.length || 0) === 0
+                selectedCount === 0
               }
-              className="inline-flex min-w-[170px] items-center justify-center gap-2 rounded-lg bg-[#183B57] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#122d42] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
+              className="inline-flex min-w-[170px] items-center justify-center gap-2 rounded-xl bg-brand-500 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-600 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
             >
               {requestLoading ? (
                 <>
@@ -2831,7 +2799,7 @@ export default function LoanPreview() {
     if (detailLoading && (loiGenerated || isLoi)) {
       return (
         <div className="flex flex-col items-center justify-center gap-3 py-20">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#183B57] border-t-transparent" />
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#4C78F5] border-t-transparent" />
           <p className="text-sm text-slate-500">Loading LOI preview...</p>
         </div>
       );
@@ -2840,7 +2808,7 @@ export default function LoanPreview() {
     if (loiLoading) {
       return (
         <div className="flex flex-col items-center justify-center gap-3 py-20">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#183B57] border-t-transparent" />
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#4C78F5] border-t-transparent" />
           <p className="text-sm text-slate-500">Loading LOI preview...</p>
         </div>
       );
@@ -2850,7 +2818,7 @@ export default function LoanPreview() {
       if (!canCreateLoi) {
         return (
           <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-white py-14 text-center dark:border-slate-700 dark:bg-slate-900">
-            <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-[#183B57]/10 text-[#183B57]">
+            <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-[#4C78F5]/10 text-[#4C78F5]">
               <FileText size={22} />
             </div>
             <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">
@@ -2865,7 +2833,7 @@ export default function LoanPreview() {
 
       return (
         <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-white px-4 py-16 text-center dark:border-slate-700 dark:bg-slate-900">
-          <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-[#183B57]/10 text-[#183B57]">
+          <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-[#4C78F5]/10 text-[#4C78F5]">
             <FileText size={26} />
           </div>
           <h3 className="text-lg font-semibold text-slate-800 dark:text-white">
@@ -2879,7 +2847,7 @@ export default function LoanPreview() {
             type="button"
             onClick={openCreateLoiForm}
             disabled={detailLoading}
-            className="mt-6 inline-flex items-center gap-2 rounded-lg bg-[#183B57] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#122d42] disabled:opacity-50"
+            className="mt-6 inline-flex items-center gap-2 rounded-lg bg-[#4C78F5] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#3A5FD4] disabled:opacity-50"
           >
             <FileText size={16} />
             Enter Terms & Generate LOI
@@ -2892,7 +2860,7 @@ export default function LoanPreview() {
       if (loiLoading || detailLoading || location.state?.refreshLoi) {
         return (
           <div className="flex flex-col items-center justify-center gap-3 py-20">
-            <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#183B57] border-t-transparent" />
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#4C78F5] border-t-transparent" />
             <p className="text-sm text-slate-500">Loading LOI preview...</p>
           </div>
         );
@@ -2900,7 +2868,7 @@ export default function LoanPreview() {
 
       return (
         <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-white py-14 text-center dark:border-slate-700 dark:bg-slate-900">
-          <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-[#183B57]/10 text-[#183B57]">
+          <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-[#4C78F5]/10 text-[#4C78F5]">
             <FileText size={22} />
           </div>
           <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">
@@ -2931,7 +2899,7 @@ export default function LoanPreview() {
     if (!activePreviewUrl) {
       return (
         <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-white py-14 text-center dark:border-slate-700 dark:bg-slate-900">
-          <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-[#183B57]/10 text-[#183B57]">
+          <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-[#4C78F5]/10 text-[#4C78F5]">
             <FileText size={22} />
           </div>
           <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">
@@ -2966,7 +2934,7 @@ export default function LoanPreview() {
               type="button"
               onClick={handleSendLoiToBroker}
               disabled={loiSendingToBroker}
-              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-[#183B57] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#122d42] disabled:opacity-50"
+              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-[#4C78F5] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#3A5FD4] disabled:opacity-50"
             >
               {loiSendingToBroker ? (
                 <Loader2 size={16} className="animate-spin" />
@@ -3000,7 +2968,7 @@ export default function LoanPreview() {
         <div className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
           {loiVersions.length > 0 && (
             <div className="border-b border-slate-100 px-4 py-3 dark:border-slate-800">
-              <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-[#183B57]/80">
+              <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-[#4C78F5]/80">
                 LOI Version History
               </p>
               <div className="flex flex-wrap gap-1.5">
@@ -3009,7 +2977,7 @@ export default function LoanPreview() {
                     key={version.id}
                     className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium ${
                       version.isCurrent
-                        ? "bg-[#183B57] text-white"
+                        ? "bg-[#4C78F5] text-white"
                         : "border border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300"
                     }`}
                   >
@@ -3034,7 +3002,7 @@ export default function LoanPreview() {
                     onClick={() => setLoiViewMode("lender")}
                     className={`rounded-md px-3.5 py-1.5 text-sm font-semibold transition ${
                       loiViewMode === "lender"
-                        ? "bg-[#183B57] text-white shadow-sm"
+                        ? "bg-[#4C78F5] text-white shadow-sm"
                         : "text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white"
                     }`}
                   >
@@ -3057,7 +3025,7 @@ export default function LoanPreview() {
                 </div>
               ) : (
                 <div className="flex items-center gap-2 text-sm font-semibold text-slate-800 dark:text-slate-100">
-                  <FileText size={15} className="shrink-0 text-[#183B57]" />
+                  <FileText size={15} className="shrink-0 text-[#4C78F5]" />
                   Term Sheet / LOI
                 </div>
               )}
@@ -3070,7 +3038,7 @@ export default function LoanPreview() {
                     type="button"
                     onClick={openRegenerateLoiForm}
                     disabled={loiLoading}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-[#183B57]/25 bg-[#183B57]/5 px-3.5 py-2 text-sm font-semibold text-[#183B57] transition hover:bg-[#183B57]/10 disabled:opacity-50"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-[#4C78F5]/25 bg-[#4C78F5]/5 px-3.5 py-2 text-sm font-semibold text-[#4C78F5] transition hover:bg-[#4C78F5]/10 disabled:opacity-50"
                   >
                     <RotateCcw size={15} />
                     Update Draft
@@ -3080,7 +3048,7 @@ export default function LoanPreview() {
                     type="button"
                     onClick={openRevisedLoiForm}
                     disabled={loiLoading}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-[#183B57]/25 bg-[#183B57]/5 px-3.5 py-2 text-sm font-semibold text-[#183B57] transition hover:bg-[#183B57]/10 disabled:opacity-50"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-[#4C78F5]/25 bg-[#4C78F5]/5 px-3.5 py-2 text-sm font-semibold text-[#4C78F5] transition hover:bg-[#4C78F5]/10 disabled:opacity-50"
                   >
                     <RotateCcw size={15} />
                     Create Revised LOI (Version {nextRevisedVersionNumber})
@@ -3120,9 +3088,9 @@ export default function LoanPreview() {
             </div>
           )}
 
-          <div className="flex items-center gap-2 border-b border-slate-100 bg-[#183B57]/[0.04] px-4 py-2.5 dark:border-slate-800 dark:bg-[#183B57]/15">
-            <FileText size={14} className="shrink-0 text-[#183B57]" />
-            <span className="truncate text-xs font-semibold text-[#183B57] dark:text-sky-200">
+          <div className="flex items-center gap-2 border-b border-slate-100 bg-[#4C78F5]/[0.04] px-4 py-2.5 dark:border-slate-800 dark:bg-[#4C78F5]/15">
+            <FileText size={14} className="shrink-0 text-[#4C78F5]" />
+            <span className="truncate text-xs font-semibold text-[#4C78F5] dark:text-sky-200">
               {activePreviewLabel}
             </span>
             <span className="ml-auto hidden text-[11px] text-slate-500 sm:inline dark:text-slate-400">
@@ -3181,7 +3149,7 @@ export default function LoanPreview() {
           id: "details",
           label: getVisibleTabLabel("details", "View Details"),
           icon: Eye,
-          color: "text-[#3e86b7]",
+          color: "text-[#4C78F5]",
         },
       ],
     },
@@ -3239,30 +3207,26 @@ export default function LoanPreview() {
   ] satisfies PreviewTabSection[]).filter((section) => section.items.length > 0);
 
   return (
-    <div className="h-dvh w-full overflow-x-hidden overflow-y-auto bg-slate-50 p-4 text-slate-900 dark:bg-[#0b1120] dark:text-slate-100 md:p-6 lg:pl-[264px]">
-      <div className="mx-auto w-full max-w-[1600px] space-y-6">
+    <div className="h-dvh w-full overflow-x-hidden overflow-y-auto bg-surface p-4 text-text-primary dark:bg-[#0b1120] dark:text-slate-100 md:p-6 lg:pl-[calc(260px+1.5rem)]">
+      <div className="mx-auto w-full max-w-[1600px] space-y-5">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div className="flex items-start justify-between flex-wrap gap-4">
-            {/* LEFT SIDE */}
-            <div className="flex items-start gap-3">
-              {/* Back Button */}
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="flex items-center gap-4">
               <button
                 type="button"
                 onClick={goBackToPipeline}
-                className="p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-[#3e86b7] transition-all"
+                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border bg-white transition hover:border-brand-300 hover:bg-brand-50 dark:border-slate-800 dark:bg-slate-900"
+                aria-label="Back to loan pipeline"
               >
-                <ArrowLeft size={18} />
+                <ArrowLeft size={16} className="text-brand-500" />
               </button>
 
-              {/* Title Section */}
-              <div>
-                <h1 className="text-xl font-bold text-slate-800 dark:text-white">
-                  Loan Application Preview 
+              <div className="min-w-0">
+                <h1 className="text-[18px] font-semibold leading-tight tracking-tight text-text-primary dark:text-white">
+                  Loan Application Preview
                 </h1>
-
-                {/* Application ID */}
-                <p className="text-xs text-slate-500 mt-1">
-                  {submissionDetail?.loanApplication?.applicationNumber}
+                <p className="mt-0.5 text-[12px] font-medium text-brand-500">
+                  APP: {submissionDetail?.loanApplication?.applicationNumber || "—"}
                 </p>
               </div>
             </div>
@@ -3273,7 +3237,7 @@ export default function LoanPreview() {
               <NotificationDropdown />
               {submissionDetail?.status ? (
                 <span
-                  className={`rounded-md px-2 py-1 text-xs font-semibold ${getApplicationStatusColor(submissionDetail.status)}`}
+                  className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${getApplicationStatusColor(submissionDetail.status)}`}
                 >
                   {formatApplicationStatus(submissionDetail.status)}
                 </span>
@@ -3286,7 +3250,7 @@ export default function LoanPreview() {
                   <button
                     type="button"
                     onClick={() => openDecisionModal("APPROVED")}
-                    className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700"
+                    className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700"
                   >
                     <CheckCircle size={16} />
                     {approvalButtonLabel}
@@ -3296,7 +3260,7 @@ export default function LoanPreview() {
                   <button
                     type="button"
                     onClick={() => openDecisionModal("DECLINED")}
-                    className="inline-flex items-center gap-2 rounded-lg border border-rose-300 bg-white px-4 py-2.5 text-sm font-semibold text-rose-700 transition hover:border-rose-400 hover:bg-rose-50 dark:border-rose-800 dark:bg-slate-900 dark:text-rose-300 dark:hover:bg-rose-950/40"
+                    className="inline-flex items-center gap-2 rounded-xl border border-rose-200 bg-white px-4 py-2.5 text-sm font-semibold text-rose-600 transition hover:bg-rose-50 dark:border-rose-800 dark:bg-slate-900 dark:text-rose-300 dark:hover:bg-rose-950/40"
                   >
                     <XCircle size={16} />
                     Declined
@@ -3308,17 +3272,17 @@ export default function LoanPreview() {
         </div>
 
         {submissionDetail && (
-          <div className="mt-3 grid w-full grid-cols-1 items-stretch gap-2.5 sm:grid-cols-2 xl:grid-cols-5">
-            <div className="flex min-w-0 items-center gap-3 rounded-xl border-2 border-[#183B57] bg-[#183B57]/10 px-3.5 py-3 ring-1 ring-[#183B57]/25 dark:border-[#183B57] dark:bg-[#183B57]/30 dark:ring-[#183B57]/40">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#183B57] text-white">
+          <div className="grid w-full grid-cols-1 items-stretch gap-3 sm:grid-cols-2 xl:grid-cols-5">
+            <div className="flex min-w-0 items-center gap-3 rounded-2xl border border-border bg-white px-3.5 py-3 dark:border-slate-700 dark:bg-slate-900">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-500">
                 <User size={16} />
               </div>
               <div className="flex min-w-0 flex-col leading-tight">
-                <span className="text-[10px] font-bold uppercase tracking-wide text-[#183B57] dark:text-sky-300">
+                <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-brand-500">
                   Borrower Name
                 </span>
                 <span
-                  className="truncate text-sm font-bold text-[#183B57] dark:text-white"
+                  className="truncate text-sm font-semibold text-text-primary dark:text-white"
                   title={borrowerDisplayName || undefined}
                 >
                   {borrowerDisplayName || "-"}
@@ -3328,8 +3292,8 @@ export default function LoanPreview() {
 
             {submissionDetail.loanApplication?.brokerOrg && (
               <>
-                <div className="flex min-w-0 items-center gap-3 rounded-xl border-2 border-[#183B57] bg-[#183B57]/10 px-3.5 py-3 ring-1 ring-[#183B57]/25 dark:border-[#183B57] dark:bg-[#183B57]/30 dark:ring-[#183B57]/40">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#183B57] text-white">
+                <div className="flex min-w-0 items-center gap-3 rounded-2xl border border-border bg-white px-3.5 py-3 dark:border-slate-700 dark:bg-slate-900">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-500">
                     <User size={16} />
                   </div>
                   <div
@@ -3337,11 +3301,11 @@ export default function LoanPreview() {
                     tabIndex={0}
                     aria-label={`Broker name: ${submissionDetail.loanApplication.brokerOrg.name}`}
                   >
-                    <span className="text-[10px] font-bold uppercase tracking-wide text-[#183B57] dark:text-sky-300">
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-brand-500">
                       Broker Name
                     </span>
                     <span
-                      className="truncate text-sm font-bold text-[#183B57] dark:text-white"
+                      className="truncate text-sm font-semibold text-text-primary dark:text-white"
                       title={submissionDetail.loanApplication.brokerOrg.name}
                     >
                       {submissionDetail.loanApplication.brokerOrg.name}
@@ -3355,38 +3319,44 @@ export default function LoanPreview() {
                   </div>
                 </div>
 
-                <div className="flex min-w-0 items-center gap-3 rounded-xl border border-[#183B57]/15 bg-[#183B57]/[0.04] px-3.5 py-3 dark:border-[#183B57]/40 dark:bg-[#183B57]/20">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#183B57] text-white">
+                <div className="flex min-w-0 items-center gap-3 rounded-2xl border border-border bg-white px-3.5 py-3 dark:border-slate-700 dark:bg-slate-900">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-500">
                     <MdEmail size={16} />
                   </div>
-                  <div className="flex min-w-0 flex-col leading-tight">
-                    <span className="text-[10px] font-semibold uppercase tracking-wide text-[#183B57]/80 dark:text-sky-300/80">
+                  <div
+                    className="group/email relative flex min-w-0 flex-col leading-tight"
+                    tabIndex={0}
+                    aria-label={`Email: ${submissionDetail.loanApplication.brokerOrg.email || "—"}`}
+                  >
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-brand-500">
                       Email
                     </span>
-                    <span
-                      className="truncate text-sm font-semibold text-slate-900 dark:text-white"
-                      title={
-                        submissionDetail.loanApplication.brokerOrg.email ||
-                        undefined
-                      }
-                    >
+                    <span className="truncate text-sm font-semibold text-text-primary dark:text-white">
                       {submissionDetail.loanApplication.brokerOrg.email || "-"}
                     </span>
+                    {submissionDetail.loanApplication.brokerOrg.email ? (
+                      <span
+                        role="tooltip"
+                        className="pointer-events-none absolute bottom-full left-0 z-50 mb-2 hidden w-max max-w-72 break-all rounded-lg bg-slate-950 px-3 py-2 text-xs font-medium leading-snug text-white group-hover/email:block group-focus-within/email:block dark:bg-white dark:text-slate-900"
+                      >
+                        {submissionDetail.loanApplication.brokerOrg.email}
+                      </span>
+                    ) : null}
                   </div>
                 </div>
               </>
             )}
 
-            <div className="flex min-w-0 items-center gap-3 rounded-xl border border-[#183B57]/15 bg-[#183B57]/[0.04] px-3.5 py-3 dark:border-[#183B57]/40 dark:bg-[#183B57]/20">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#183B57] text-white">
+            <div className="flex min-w-0 items-center gap-3 rounded-2xl border border-border bg-white px-3.5 py-3 dark:border-slate-700 dark:bg-slate-900">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-500">
                 <BiLogoProductHunt size={16} />
               </div>
               <div className="flex min-w-0 flex-col leading-tight">
-                <span className="text-[10px] font-semibold uppercase tracking-wide text-[#183B57]/80 dark:text-sky-300/80">
+                <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-brand-500">
                   Loan Product
                 </span>
                 <span
-                  className="truncate text-sm font-semibold text-slate-900 dark:text-white"
+                  className="truncate text-sm font-semibold text-text-primary dark:text-white"
                   title={resolvedLoanProductName || undefined}
                 >
                   {resolvedLoanProductName || "-"}
@@ -3394,15 +3364,15 @@ export default function LoanPreview() {
               </div>
             </div>
 
-            <div className="flex min-w-0 items-center gap-3 rounded-xl border border-[#183B57]/15 bg-[#183B57]/[0.04] px-3.5 py-3 dark:border-[#183B57]/40 dark:bg-[#183B57]/20">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#183B57] text-white">
+            <div className="flex min-w-0 items-center gap-3 rounded-2xl border border-border bg-white px-3.5 py-3 dark:border-slate-700 dark:bg-slate-900">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-500">
                 <FaDollarSign size={14} />
               </div>
               <div className="flex min-w-0 flex-col leading-tight">
-                <span className="text-[10px] font-semibold uppercase tracking-wide text-[#183B57]/80 dark:text-sky-300/80">
+                <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-brand-500">
                   Loan Amount Requested
                 </span>
-                <span className="truncate text-sm font-bold tabular-nums text-[#183B57] dark:text-sky-200">
+                <span className="truncate text-sm font-bold tabular-nums text-brand-500 dark:text-sky-200">
                   {loanAmount
                     ? `$${Number(loanAmount).toLocaleString()}`
                     : "-"}
@@ -3413,11 +3383,10 @@ export default function LoanPreview() {
         )}
 
         <div className="flex flex-col gap-6 lg:block">
-          <aside className="w-full shrink-0 lg:fixed lg:inset-y-0 lg:left-0 lg:z-30 lg:flex lg:w-60 lg:flex-col lg:border-r lg:border-slate-200 lg:bg-white dark:lg:border-slate-800 dark:lg:bg-slate-900">
-            <div className="relative hidden shrink-0 overflow-hidden border-b border-slate-100 px-4 py-5 dark:border-slate-800 lg:block">
-              <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-brand-500/5 via-transparent to-brand-400/10 dark:from-brand-500/10 dark:to-brand-400/10" />
+          <aside className="w-full shrink-0 lg:fixed lg:inset-y-0 lg:left-0 lg:z-30 lg:flex lg:w-[260px] lg:flex-col lg:border-r lg:border-border lg:bg-white dark:lg:border-slate-800 dark:lg:bg-slate-900">
+            <div className="relative hidden shrink-0 overflow-hidden border-b border-border px-4 py-5 dark:border-slate-800 lg:block">
               <div className="relative flex items-center gap-3">
-                <div className="h-11 w-11 shrink-0 overflow-hidden rounded-xl shadow-sm ring-2 ring-white dark:ring-slate-800">
+                <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full bg-brand-500 ring-2 ring-brand-100">
                   <img
                     src="/loanAutomation.jpeg"
                     alt="Loan Automation"
@@ -3425,11 +3394,11 @@ export default function LoanPreview() {
                   />
                 </div>
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-bold text-slate-900 dark:text-white">
-                    Loan Automation
+                  <p className="truncate text-[15px] font-semibold text-text-primary dark:text-white">
+                    LoanAutomation
                   </p>
-                  <p className="truncate text-[10px] font-semibold uppercase tracking-[0.12em] text-brand-600 dark:text-brand-400">
-                    Lender Portal
+                  <p className="truncate text-[10px] font-semibold uppercase tracking-[0.14em] text-text-secondary">
+                    Lender Suite
                   </p>
                 </div>
               </div>
@@ -3437,21 +3406,21 @@ export default function LoanPreview() {
 
             <nav
               aria-label="Loan preview sections"
-              className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:rounded-none lg:border-0"
+              className="overflow-hidden rounded-2xl border border-border bg-white dark:border-slate-800 dark:bg-slate-900 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:rounded-none lg:border-0"
             >
               {previewTabSections.map((section, sectionIndex) => (
                 <div
                   key={section.id}
                   className={
                     sectionIndex > 0
-                      ? "border-t border-slate-100 dark:border-slate-800"
+                      ? "border-t border-border dark:border-slate-800"
                       : ""
                   }
                 >
-                  <p className="px-4 pb-2 pt-4 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                  <p className="px-4 pt-4 pb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-text-secondary">
                     {section.label}
                   </p>
-                  <div className="space-y-0.5 px-2 pb-3">
+                  <div className="space-y-1 px-2 pb-3">
                     {section.items.map((tab: PreviewTabItem) => {
                       const Icon = tab.icon;
                       const isActive = activeTab === tab.id;
@@ -3469,10 +3438,10 @@ export default function LoanPreview() {
                           }}
                           className={`flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition ${
                             isActive
-                              ? "bg-[#183b57] text-white shadow-sm"
+                              ? "bg-brand-500 text-white"
                               : isDisabled
                                 ? "cursor-not-allowed text-slate-400 opacity-50"
-                                : "text-slate-600 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
+                                : "text-text-secondary hover:bg-surface hover:text-text-primary dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
                           }`}
                         >
                           <Icon
@@ -3490,11 +3459,11 @@ export default function LoanPreview() {
               ))}
             </nav>
 
-            <div className="hidden shrink-0 border-t border-slate-100 p-3 dark:border-slate-800 lg:block">
+            <div className="hidden shrink-0 border-t border-border p-3 dark:border-slate-800 lg:block">
               <button
                 type="button"
                 onClick={goBackToPipeline}
-                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
+                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-text-secondary transition hover:bg-surface hover:text-text-primary dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
               >
                 <ArrowLeft size={16} className="shrink-0 text-brand-500" />
                 <span>Back</span>
@@ -3667,7 +3636,7 @@ export default function LoanPreview() {
 
       {decisionModal.type &&
         createPortal(
-          <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-[#183B57]/40 p-4 backdrop-blur-[2px]">
+          <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-[#4C78F5]/40 p-4 backdrop-blur-[2px]">
             <div
               role="dialog"
               aria-modal="true"

@@ -23,7 +23,7 @@ const StepOne = ({ form, setForm }: any) => {
             placeholder="Enter company name"
             value={form.companyName}
             onChange={(e) => handle("companyName", e.target.value)}
-           className="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1 focus:ring-2 focus:ring-black focus:border-black outline-none transition"
+           className="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none transition"
           />
         </div>
 
@@ -33,7 +33,7 @@ const StepOne = ({ form, setForm }: any) => {
           <select
             value={form.lenderType}
             onChange={(e) => handle("lenderType", e.target.value)}
-           className="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1 focus:ring-2 focus:ring-black focus:border-black outline-none transition"
+           className="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none transition"
           >
             <option value="">Select lender type</option>
             <option>Bank</option>
@@ -49,7 +49,7 @@ const StepOne = ({ form, setForm }: any) => {
             placeholder="Primary contact"
             value={form.contactName}
             onChange={(e) => handle("contactName", e.target.value)}
-          className="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1 focus:ring-2 focus:ring-black focus:border-black outline-none transition"
+          className="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none transition"
           />
         </div>
 
@@ -62,7 +62,7 @@ const StepOne = ({ form, setForm }: any) => {
             placeholder="email@company.com"
             value={form.contactEmail}
             onChange={(e) => handle("contactEmail", e.target.value)}
-           className="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1 focus:ring-2 focus:ring-black focus:border-black outline-none transition"
+           className="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none transition"
           />
         </div>
 
@@ -73,7 +73,7 @@ const StepOne = ({ form, setForm }: any) => {
             placeholder="(555) 000-0000"
             value={form.phone}
             onChange={(e) => handle("phone", e.target.value)}
-           className="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1 focus:ring-2 focus:ring-black focus:border-black outline-none transition"
+           className="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none transition"
           />
         </div>
 
@@ -84,7 +84,7 @@ const StepOne = ({ form, setForm }: any) => {
             placeholder="https://company.com"
             value={form.website}
             onChange={(e) => handle("website", e.target.value)}
-           className="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1 focus:ring-2 focus:ring-black focus:border-black outline-none transition"
+           className="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none transition"
           />
         </div>
 
@@ -95,7 +95,7 @@ const StepOne = ({ form, setForm }: any) => {
             placeholder="NMLS #"
             value={form.nmls}
             onChange={(e) => handle("nmls", e.target.value)}
-           className="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1 focus:ring-2 focus:ring-black focus:border-black outline-none transition"
+           className="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none transition"
           />
         </div>
 
@@ -106,7 +106,7 @@ const StepOne = ({ form, setForm }: any) => {
             placeholder="Street address"
             value={form.address}
             onChange={(e) => handle("address", e.target.value)}
-          className="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1 focus:ring-2 focus:ring-black focus:border-black outline-none transition"
+          className="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none transition"
           />
         </div>
 
@@ -116,7 +116,7 @@ const StepOne = ({ form, setForm }: any) => {
           <input
             value={form.city}
             onChange={(e) => handle("city", e.target.value)}
-          className="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1 focus:ring-2 focus:ring-black focus:border-black outline-none transition"
+          className="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none transition"
           />
         </div>
 
@@ -127,7 +127,7 @@ const StepOne = ({ form, setForm }: any) => {
             placeholder="e.g. CA"
             value={form.state}
             onChange={(e) => handle("state", e.target.value)}
-           className="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1 focus:ring-2 focus:ring-black focus:border-black outline-none transition"
+           className="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none transition"
           />
         </div>
 
@@ -137,7 +137,7 @@ const StepOne = ({ form, setForm }: any) => {
           <input
             value={form.zip}
             onChange={(e) => handle("zip", e.target.value)}
-        className="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1 focus:ring-2 focus:ring-black focus:border-black outline-none transition"
+        className="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none transition"
           />
         </div>
 
@@ -153,7 +153,7 @@ const StepOne = ({ form, setForm }: any) => {
           <button
             onClick={() => handle("isActive", !form.isActive)}
             className={`w-12 h-6 flex items-center p-1 rounded-full ${
-              form.isActive ? "bg-black" : "bg-gray-300"
+              form.isActive ? "bg-brand-500" : "bg-gray-300"
             }`}
           >
             <div
@@ -172,7 +172,7 @@ const StepOne = ({ form, setForm }: any) => {
             placeholder="Internal notes about this lender..."
             value={form.notes}
             onChange={(e) => handle("notes", e.target.value)}
-         className="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1 focus:ring-2 focus:ring-black focus:border-black outline-none transition"
+         className="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none transition"
           />
         </div>
       </div>

@@ -514,7 +514,7 @@ export default function AddLoanProduct() {
 
         <div className="mt-4 h-[3px] w-full overflow-hidden rounded-full bg-gray-100">
           <div
-            className="h-full bg-[#102B40] transition-all duration-300"
+            className="h-full bg-brand-500 transition-all duration-300"
             style={{ width: `${((step + 1) / steps.length) * 100}%` }}
           />
         </div>
@@ -529,7 +529,7 @@ export default function AddLoanProduct() {
                 <div
                   className={`flex items-center gap-1 rounded-full px-4 py-1.5 text-xs font-medium transition-all duration-200 ${
                     isActive
-                      ? "bg-[#102B40] text-white shadow"
+                      ? "bg-brand-500 text-white shadow"
                       : isCompleted
                         ? "bg-green-500 text-white"
                         : "bg-gray-100 text-gray-400"
@@ -586,7 +586,7 @@ export default function AddLoanProduct() {
                 isLastStep ? handleSubmit : () => setStep((prev) => prev + 1)
               }
               disabled={nextDisabled}
-              className="flex items-center gap-2 rounded-lg bg-[#102B40] px-6 py-2 text-sm font-medium text-white shadow transition hover:bg-[#163a54] disabled:opacity-40"
+              className="flex items-center gap-2 rounded-lg bg-brand-500 px-6 py-2 text-sm font-medium text-white shadow transition hover:bg-brand-600 disabled:opacity-40"
             >
               {isLastStep
                 ? submitting

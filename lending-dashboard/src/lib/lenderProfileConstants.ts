@@ -135,7 +135,7 @@ export const selectClassNames = (hasError = false) => ({
       hasError
         ? "!border-red-500"
         : isFocused
-          ? "!border-[#183b57]"
+          ? "!border-[#4C78F5]"
           : "!border-slate-200 dark:!border-slate-700"
     }`,
   menu: () =>
@@ -149,13 +149,13 @@ export const selectClassNames = (hasError = false) => ({
   }) =>
     `!text-sm ${
       isSelected
-        ? "!bg-[#183b57] !text-white"
+        ? "!bg-[#4C78F5] !text-white"
         : isFocused
           ? "!bg-slate-100 dark:!bg-slate-700"
           : "!bg-white dark:!bg-slate-800"
     }`,
-  multiValue: () => "!bg-[#183b57]/10 !rounded-xl",
-  multiValueLabel: () => "!text-[#183b57] !text-xs !font-medium",
+  multiValue: () => "!bg-[#4C78F5]/10 !rounded-xl",
+  multiValueLabel: () => "!text-[#4C78F5] !text-xs !font-medium",
   multiValueRemove: () => "!hover:bg-red-500 hover:!text-white !rounded-r-xl",
   placeholder: () => "!text-slate-400 !text-sm",
   input: () => "dark:!text-white",

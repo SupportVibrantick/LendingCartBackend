@@ -1,4 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type MouseEvent as ReactMouseEvent,
+} from "react";
+import { createPortal } from "react-dom";
 import { useLocation, useNavigate } from "react-router";
 import SignatureCanvas from "react-signature-canvas";
 import toast from "react-hot-toast";
@@ -6,13 +12,13 @@ import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
-  Clock,
   Download,
   Eye,
   FileImage,
   FileText,
   LayoutGrid,
   Loader2,
+  MoreVertical,
   PenLine,
   Search,
   SendHorizonal,
@@ -141,17 +147,17 @@ type SignDocumentsSummary = {
 const statusClass = (status?: string | null) => {
   switch (status) {
     case "AWAITING_BROKER":
-      return "bg-amber-50 text-amber-700 border border-amber-200";
+      return "bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-200/80";
     case "SENT_TO_CLIENT":
-      return "bg-sky-50 text-sky-700 border border-sky-200";
+      return "bg-sky-50 text-sky-700 ring-1 ring-inset ring-sky-200/80";
     case "CLIENT_SIGNED":
-      return "bg-emerald-50 text-emerald-700 border border-emerald-200";
+      return "bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200/80";
     case "FORWARDED_TO_LENDER":
-      return "bg-violet-50 text-violet-700 border border-violet-200";
+      return "bg-violet-50 text-violet-700 ring-1 ring-inset ring-violet-200/80";
     case "LENDER_SEEN":
-      return "bg-[#183B57]/10 text-[#122d42] border border-[#183B57]/25";
+      return "bg-brand-50 text-brand-600 ring-1 ring-inset ring-brand-200/80";
     default:
-      return "bg-slate-50 text-slate-600 border border-slate-200";
+      return "bg-slate-100 text-slate-600 ring-1 ring-inset ring-slate-200/80";
   }
 };
 
@@ -166,26 +172,9 @@ const statusIconClass = (status?: string | null) => {
     case "FORWARDED_TO_LENDER":
       return "bg-violet-50 text-violet-600";
     case "LENDER_SEEN":
-      return "bg-[#183B57]/10 text-[#183B57]";
+      return "bg-[#4C78F5]/10 text-[#4C78F5]";
     default:
       return "bg-slate-100 text-slate-500";
-  }
-};
-
-const statusFooterClass = (status?: string | null) => {
-  switch (status) {
-    case "AWAITING_BROKER":
-      return "border-amber-200 bg-amber-50/80 text-amber-800";
-    case "SENT_TO_CLIENT":
-      return "border-sky-200 bg-sky-50/80 text-sky-800";
-    case "CLIENT_SIGNED":
-      return "border-emerald-200 bg-emerald-50/80 text-emerald-800";
-    case "FORWARDED_TO_LENDER":
-      return "border-violet-200 bg-violet-50/80 text-violet-800";
-    case "LENDER_SEEN":
-      return "border-[#183B57]/30 bg-[#183B57]/10 text-[#122d42]";
-    default:
-      return "border-slate-200 bg-slate-50 text-slate-600";
   }
 };
 
@@ -238,6 +227,9 @@ export default function SignDocumentsPanel({
     ready: 0,
     received: 0,
   });
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
+  const menuRef = useRef<HTMLDivElement | null>(null);
   const sigRef = useRef<SignatureCanvas | null>(null);
 
   const fetchLibraryTemplates = async () => {
@@ -785,94 +777,6 @@ export default function SignDocumentsPanel({
     setActiveTemplateViewDoc(row);
   };
 
-  const renderDocumentTitle = (row: SignDocumentRow) => {
-    const showFileName =
-      row.templateFileName &&
-      row.templateFileName.trim() !== row.documentName.trim();
-
-    return (
-      <div className="min-w-0">
-        <h3
-          className="line-clamp-2 text-sm font-semibold leading-snug text-slate-900"
-          title={row.documentName}
-        >
-          {row.documentName}
-        </h3>
-        {showFileName && (
-          <p
-            className="mt-0.5 truncate text-[11px] text-slate-500"
-            title={row.templateFileName || undefined}
-          >
-            {row.templateFileName}
-          </p>
-        )}
-      </div>
-    );
-  };
-
-  const inlineActionClass =
-    "inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border px-2.5 py-2 text-xs font-semibold transition min-w-0 whitespace-nowrap";
-
-  const renderInlineDocumentActions = (row: SignDocumentRow) => {
-    const hasTemplate = Boolean(row.templateFileUrl);
-    const hasSigned = Boolean(row.signedUpload?.fileUrl);
-
-    if (!hasTemplate && !hasSigned) return null;
-
-    return (
-      <div className="flex items-stretch gap-2">
-        {hasTemplate && (
-          <button
-            type="button"
-            onClick={() => openTemplateOrFilled(row)}
-            className={`${inlineActionClass} border-slate-200 bg-white text-slate-700 hover:bg-slate-50`}
-            title={
-              row.signMode === "DYNAMIC_FORM" &&
-              (row.signStatus === "FORWARDED_TO_LENDER" ||
-                row.signStatus === "LENDER_SEEN")
-                ? "View template with filled values"
-                : "View template"
-            }
-          >
-            <Eye size={14} className="shrink-0 text-[#183B57]" />
-            {row.signMode === "DYNAMIC_FORM" &&
-            (row.signStatus === "FORWARDED_TO_LENDER" ||
-              row.signStatus === "LENDER_SEEN")
-              ? "View form"
-              : "Template"}
-          </button>
-        )}
-        {hasSigned && !isLenderMode && (
-          <button
-            type="button"
-            onClick={() => openSignedCopy(row)}
-            className={`${inlineActionClass} border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100`}
-            title="View signed copy"
-          >
-            <CheckCircle2 size={14} className="shrink-0" />
-            Signed
-          </button>
-        )}
-        {hasSigned && (
-          <button
-            type="button"
-            onClick={() => downloadSignedCopy(row)}
-            disabled={downloadingId === row.requirementId}
-            className={`${inlineActionClass} border-violet-200 bg-violet-50 text-violet-800 hover:bg-violet-100 disabled:opacity-60`}
-            title="Download signed copy"
-          >
-            {downloadingId === row.requirementId ? (
-              <Loader2 size={14} className="shrink-0 animate-spin" />
-            ) : (
-              <Download size={14} className="shrink-0" />
-            )}
-            Download
-          </button>
-        )}
-      </div>
-    );
-  };
-
   const isPdfTemplate = (mime?: string | null, url?: string | null) => {
     const value = (mime || url || "").toLowerCase();
     return value.includes("pdf");
@@ -1192,19 +1096,6 @@ export default function SignDocumentsPanel({
     );
   };
 
-  const renderLenderStatusFooter = (row: SignDocumentRow) => {
-    const hint = row.workflowHint || "In progress";
-
-    return (
-      <div
-        className={`flex items-start gap-2 rounded-lg border px-2.5 py-2 text-[11px] leading-relaxed ${statusFooterClass(row.signStatus)}`}
-      >
-        <Clock size={12} className="mt-0.5 shrink-0 opacity-80" />
-        <span>{hint}</span>
-      </div>
-    );
-  };
-
   const openMapper = (row: SignDocumentRow) => {
     if (!applicationLenderId) return;
     const qs = new URLSearchParams({
@@ -1218,71 +1109,169 @@ export default function SignDocumentsPanel({
     });
   };
 
+  const getLenderRowActionMeta = (row: SignDocumentRow) => {
+    const canMap =
+      !readOnly &&
+      row.signStatus === "AWAITING_BROKER" &&
+      Boolean(row.templateFileUrl) &&
+      Boolean(applicationLenderId);
+    const hasTemplate = Boolean(row.templateFileUrl);
+    const hasSigned = Boolean(row.signedUpload?.fileUrl);
+    const viewFilled =
+      row.signMode === "DYNAMIC_FORM" &&
+      (row.signStatus === "FORWARDED_TO_LENDER" ||
+        row.signStatus === "LENDER_SEEN");
+    const hasAnyAction = hasTemplate || canMap || hasSigned;
+
+    return { canMap, hasTemplate, hasSigned, viewFilled, hasAnyAction };
+  };
+
+  const openLenderRowMenu = (
+    requirementId: string,
+    event: ReactMouseEvent<HTMLButtonElement>,
+  ) => {
+    event.stopPropagation();
+    const rect = event.currentTarget.getBoundingClientRect();
+    const menuWidth = 200;
+    const estimatedHeight = 180;
+    const gap = 6;
+
+    let left = rect.right - menuWidth;
+    let top = rect.bottom + gap;
+    left = Math.max(8, Math.min(left, window.innerWidth - menuWidth - 8));
+    if (top + estimatedHeight > window.innerHeight - 8) {
+      top = Math.max(8, rect.top - estimatedHeight - gap);
+    }
+
+    setMenuPos({ top, left });
+    setOpenMenuId((prev) => (prev === requirementId ? null : requirementId));
+  };
+
+  useEffect(() => {
+    if (!isLenderMode) return;
+
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (
+        menuRef.current?.contains(target) ||
+        (target instanceof Element && target.closest("[data-menu-id]"))
+      ) {
+        return;
+      }
+      setOpenMenuId(null);
+    };
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpenMenuId(null);
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleEscape);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [isLenderMode]);
+
+  useEffect(() => {
+    if (!openMenuId) return;
+
+    const reposition = () => {
+      const trigger = document.querySelector(
+        `[data-menu-id="${openMenuId}"]`,
+      ) as HTMLElement | null;
+      if (!trigger) return;
+
+      const rect = trigger.getBoundingClientRect();
+      const menuWidth = 200;
+      const estimatedHeight = menuRef.current?.offsetHeight || 180;
+      const gap = 6;
+      let left = rect.right - menuWidth;
+      let top = rect.bottom + gap;
+      left = Math.max(8, Math.min(left, window.innerWidth - menuWidth - 8));
+      if (top + estimatedHeight > window.innerHeight - 8) {
+        top = Math.max(8, rect.top - estimatedHeight - gap);
+      }
+      setMenuPos({ top, left });
+    };
+
+    window.addEventListener("resize", reposition);
+    window.addEventListener("scroll", reposition, true);
+    return () => {
+      window.removeEventListener("resize", reposition);
+      window.removeEventListener("scroll", reposition, true);
+    };
+  }, [openMenuId]);
+
   const renderLenderView = () => {
     const stats = [
       {
         label: "Awaiting broker",
         count: lenderSummary.awaitingBroker,
-        wrap: "border-amber-200 bg-amber-50/60",
-        num: "text-amber-700",
+        wrap: "border-amber-200 bg-[#FFF9E6]",
+        tone: "text-[#B45309]",
       },
       {
         label: "With client",
         count: lenderSummary.withClient,
-        wrap: "border-sky-200 bg-sky-50/60",
-        num: "text-[#183B57]",
+        wrap: "border-sky-200 bg-sky-50",
+        tone: "text-brand-500",
       },
       {
         label: "Ready",
         count: lenderSummary.ready,
-        wrap: "border-emerald-200 bg-emerald-50/60",
-        num: "text-emerald-700",
+        wrap: "border-emerald-200 bg-emerald-50",
+        tone: "text-emerald-700",
       },
       {
         label: "Received",
         count: lenderSummary.received,
-        wrap: "border-violet-200 bg-violet-50/60",
-        num: "text-violet-700",
+        wrap: "border-violet-200 bg-violet-50",
+        tone: "text-violet-700",
       },
     ];
     const totalDocuments = lenderPagination?.total ?? rows.length;
     const hasSearchQuery = Boolean(debouncedLenderSearch.trim());
     const listLoading = loading && rows.length > 0;
+    const openMenuRow = openMenuId
+      ? rows.find((row) => row.requirementId === openMenuId) || null
+      : null;
+    const openMenuMeta = openMenuRow
+      ? getLenderRowActionMeta(openMenuRow)
+      : null;
 
     return (
-      <div className="space-y-4">
-        <div className="rounded-xl border border-slate-200 bg-white p-5">
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+      <div className="space-y-5">
+        <div className="rounded-2xl border border-border bg-white p-4 dark:border-slate-700 dark:bg-slate-900 sm:p-5">
+          <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
             <div className="min-w-0 flex-1">
-              <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-[#183B57]">
+              <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-brand-500">
                 Client e-signature
               </p>
-              <h2 className="text-xl font-bold tracking-tight text-slate-900">
+              <h2 className="text-[18px] font-semibold tracking-tight text-text-primary dark:text-white">
                 {readOnly ? "Signable Forms" : "Upload Forms"}
               </h2>
-              <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-slate-500">
+              <p className="mt-1.5 max-w-2xl text-[13px] leading-relaxed text-text-secondary">
                 {readOnly
                   ? "Review signature requests and signed copies. Upload is disabled for your role."
                   : "Upload a form, optionally map fillable fields, then the broker sends it to the client and returns the completed copy."}
               </p>
-              {totalDocuments > 0 ? (
-                <p className="mt-2 text-xs font-medium text-slate-600">
-                  {totalDocuments} document{totalDocuments === 1 ? "" : "s"}
-                  {hasSearchQuery ? " · filtered" : ""}
-                </p>
-              ) : null}
             </div>
 
-            <div className="grid w-full grid-cols-2 gap-2 sm:grid-cols-4 lg:w-auto lg:min-w-[380px]">
+            <div className="grid w-full grid-cols-2 gap-2.5 sm:grid-cols-4 xl:w-[440px] xl:shrink-0">
               {stats.map((stat) => (
                 <div
                   key={stat.label}
-                  className={`rounded-lg border px-3 py-2.5 text-center ${stat.wrap}`}
+                  className={`rounded-xl border px-3 py-3 text-center shadow-[0_1px_0_rgba(15,23,42,0.02)] ${stat.wrap}`}
                 >
-                  <p className={`text-xl font-bold tabular-nums ${stat.num}`}>
+                  <p
+                    className={`text-[22px] font-bold leading-none tabular-nums ${stat.tone}`}
+                  >
                     {stat.count}
                   </p>
-                  <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                  <p
+                    className={`mt-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] ${stat.tone}`}
+                  >
                     {stat.label}
                   </p>
                 </div>
@@ -1291,36 +1280,31 @@ export default function SignDocumentsPanel({
           </div>
         </div>
 
-        {readOnly && (
-          <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+        {readOnly ? (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
             Read-only access. You can review templates and signed copies but
             cannot request new signatures.
           </div>
-        )}
+        ) : null}
 
-        {!readOnly && (
+        {!readOnly ? (
           <div
             role="tablist"
             aria-label="Upload forms view"
-            className="inline-flex w-full gap-1.5 rounded-xl border border-slate-200 bg-slate-50 p-1.5 shadow-inner sm:w-auto"
+            className="inline-flex w-full gap-1 rounded-xl border border-border bg-surface p-1 sm:w-auto"
           >
             <button
               type="button"
               role="tab"
               aria-selected={lenderViewTab === "upload"}
               onClick={() => setLenderViewTab("upload")}
-              className={`inline-flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#183B57]/40 focus-visible:ring-offset-2 active:scale-[0.98] sm:flex-none ${
+              className={`inline-flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition sm:flex-none ${
                 lenderViewTab === "upload"
-                  ? "bg-[#183B57] text-white shadow-md ring-1 ring-[#122d42]/30"
-                  : "border border-transparent bg-white text-slate-600 shadow-sm hover:border-slate-200 hover:text-slate-900 hover:shadow-md"
+                  ? "bg-brand-500 text-white shadow-sm"
+                  : "text-text-secondary hover:bg-white hover:text-text-primary"
               }`}
             >
-              <Upload
-                size={16}
-                className={
-                  lenderViewTab === "upload" ? "text-white" : "text-slate-400"
-                }
-              />
+              <Upload size={16} />
               Upload form
             </button>
             <button
@@ -1328,27 +1312,20 @@ export default function SignDocumentsPanel({
               role="tab"
               aria-selected={lenderViewTab === "documents"}
               onClick={() => setLenderViewTab("documents")}
-              className={`inline-flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#183B57]/40 focus-visible:ring-offset-2 active:scale-[0.98] sm:flex-none ${
+              className={`inline-flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition sm:flex-none ${
                 lenderViewTab === "documents"
-                  ? "bg-[#183B57] text-white shadow-md ring-1 ring-[#122d42]/30"
-                  : "border border-transparent bg-white text-slate-600 shadow-sm hover:border-slate-200 hover:text-slate-900 hover:shadow-md"
+                  ? "bg-brand-500 text-white shadow-sm"
+                  : "text-text-secondary hover:bg-white hover:text-text-primary"
               }`}
             >
-              <FileText
-                size={16}
-                className={
-                  lenderViewTab === "documents"
-                    ? "text-white"
-                    : "text-slate-400"
-                }
-              />
+              <FileText size={16} />
               Documents
               {totalDocuments > 0 ? (
                 <span
                   className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums ${
                     lenderViewTab === "documents"
                       ? "bg-white/20 text-white"
-                      : "bg-slate-100 text-slate-600 ring-1 ring-slate-200"
+                      : "bg-white text-text-secondary"
                   }`}
                 >
                   {totalDocuments}
@@ -1356,30 +1333,30 @@ export default function SignDocumentsPanel({
               ) : null}
             </button>
           </div>
-        )}
+        ) : null}
 
         {!readOnly && lenderViewTab === "upload" ? (
-          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-            <div className="border-b border-slate-100 px-5 py-4">
+          <div className="ds-table-wrap dark:border-slate-700 dark:bg-slate-900">
+            <div className="border-b border-border px-4 py-4 dark:border-slate-800 sm:px-5">
               <div className="flex items-start gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#183B57] text-white">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-500 text-white">
                   <Upload size={18} />
                 </div>
                 <div>
-                  <h3 className="text-sm font-semibold text-slate-900">
+                  <h3 className="text-[15px] font-semibold text-text-primary dark:text-white">
                     Upload signable form
                   </h3>
-                  <p className="mt-0.5 text-xs text-slate-500">
+                  <p className="mt-0.5 text-[12px] text-text-secondary">
                     PDF, PNG, JPEG, or WebP · one form per request
                   </p>
                 </div>
               </div>
             </div>
 
-            <div className="space-y-4 p-5">
+            <div className="space-y-4 p-4 sm:p-5">
               <div className="grid gap-4 lg:grid-cols-2">
                 <label className="block">
-                  <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                  <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.08em] text-text-secondary">
                     Document name
                   </span>
                   <input
@@ -1387,25 +1364,25 @@ export default function SignDocumentsPanel({
                     placeholder="e.g. SBA 7(a) Borrower Information"
                     value={uploadName}
                     onChange={(e) => setUploadName(e.target.value)}
-                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-[#183B57] focus:ring-2 focus:ring-[#183B57]/20"
+                    className="h-10 w-full rounded-xl border border-border bg-white px-3 text-sm text-text-primary outline-none transition focus:border-brand-400 focus:ring-2 focus:ring-brand-500/20"
                   />
                 </label>
 
                 <div>
-                  <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                  <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.08em] text-text-secondary">
                     File
                   </span>
                   <label
-                    className={`flex min-h-[42px] cursor-pointer items-center gap-3 rounded-lg border border-dashed px-3 py-2.5 text-sm transition ${
+                    className={`flex h-10 cursor-pointer items-center gap-3 rounded-xl border border-dashed px-3 text-sm transition ${
                       uploadFile
-                        ? "border-[#183B57]/40 bg-[#183B57]/8 text-slate-800"
-                        : "border-slate-300 bg-slate-50 text-slate-500 hover:border-[#183B57]/40 hover:bg-[#183B57]/5"
+                        ? "border-brand-300 bg-brand-50 text-text-primary"
+                        : "border-border bg-surface text-text-secondary hover:border-brand-300 hover:bg-brand-50/50"
                     }`}
                   >
                     {isImageTemplate(uploadFile?.type, uploadFile?.name) ? (
-                      <FileImage size={16} className="shrink-0 text-[#183B57]" />
+                      <FileImage size={16} className="shrink-0 text-brand-500" />
                     ) : (
-                      <FileText size={16} className="shrink-0 text-[#183B57]" />
+                      <FileText size={16} className="shrink-0 text-brand-500" />
                     )}
                     <span className="min-w-0 truncate">
                       {uploadFile
@@ -1424,8 +1401,8 @@ export default function SignDocumentsPanel({
                 </div>
               </div>
 
-              <div className="flex flex-col gap-3 border-t border-slate-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-xs text-slate-500">
+              <div className="flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-[12px] text-text-secondary">
                   Fillable PDFs are auto-detected and published. You can still
                   map or adjust fields before the broker sends to the client.
                 </p>
@@ -1433,7 +1410,7 @@ export default function SignDocumentsPanel({
                   type="button"
                   onClick={handleLenderUpload}
                   disabled={uploading || !uploadFile || !uploadName.trim()}
-                  className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-[#183B57] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#122d42] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
+                  className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-600 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
                 >
                   {uploading ? (
                     <Loader2 size={15} className="animate-spin" />
@@ -1444,16 +1421,16 @@ export default function SignDocumentsPanel({
                 </button>
               </div>
 
-              {libraryTemplates.length > 0 && (
-                <div className="rounded-lg border border-slate-200 bg-slate-50/60 p-4">
-                  <h4 className="mb-3 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+              {libraryTemplates.length > 0 ? (
+                <div className="rounded-xl border border-border bg-surface/70 p-4">
+                  <h4 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-text-secondary">
                     Or apply a saved template
                   </h4>
                   <div className="flex flex-col gap-3 sm:flex-row">
                     <select
                       value={selectedTemplateId}
                       onChange={(e) => setSelectedTemplateId(e.target.value)}
-                      className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#183B57] focus:ring-2 focus:ring-[#183B57]/20"
+                      className="h-10 flex-1 rounded-xl border border-border bg-white px-3 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-500/20"
                     >
                       <option value="">Select template…</option>
                       {libraryTemplates.map((template) => (
@@ -1469,7 +1446,7 @@ export default function SignDocumentsPanel({
                       type="button"
                       onClick={handleApplyTemplate}
                       disabled={applyingTemplate || !selectedTemplateId}
-                      className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-40"
+                      className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-white px-4 py-2.5 text-sm font-semibold text-text-primary transition hover:bg-surface disabled:opacity-40"
                     >
                       {applyingTemplate ? (
                         <Loader2 size={15} className="animate-spin" />
@@ -1480,250 +1457,260 @@ export default function SignDocumentsPanel({
                     </button>
                   </div>
                 </div>
-              )}
+              ) : null}
             </div>
           </div>
         ) : null}
 
         {(readOnly || lenderViewTab === "documents") && (
-        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-          <div className="flex flex-col gap-3 border-b border-slate-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h3 className="text-sm font-semibold text-slate-900">
-                Documents
-              </h3>
-              <p className="text-xs text-slate-500">
-                {totalDocuments} document{totalDocuments === 1 ? "" : "s"}
-                {hasSearchQuery ? " found" : ""}
-              </p>
-            </div>
-
-            <div className="relative w-full sm:max-w-xs">
-              <Search
-                size={16}
-                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-              />
-              <input
-                type="search"
-                value={lenderSearchInput}
-                onChange={(event) => setLenderSearchInput(event.target.value)}
-                placeholder="Search documents..."
-                className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-9 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#183B57] focus:ring-2 focus:ring-[#183B57]/20 [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden"
-              />
-              {lenderSearchInput.trim() ? (
-                <button
-                  type="button"
-                  onClick={() => setLenderSearchInput("")}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
-                  aria-label="Clear search"
-                >
-                  <X size={14} />
-                </button>
-              ) : null}
-            </div>
-          </div>
-
-          <div className="p-4">
-          {loading && rows.length === 0 ? (
-            <div className="flex min-h-[220px] flex-col items-center justify-center">
-              <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#183B57] border-t-transparent" />
-              <p className="mt-3 text-sm text-slate-500">Loading documents...</p>
-            </div>
-          ) : rows.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50/50 px-6 py-12 text-center">
-              <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-lg bg-[#183B57]/10 text-[#183B57]">
-                <FileText size={20} />
+          <div className="ds-table-wrap dark:border-slate-700 dark:bg-slate-900">
+            <div className="flex flex-col gap-3 border-b border-border px-4 py-3.5 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h3 className="text-[16px] font-semibold text-text-primary dark:text-white">
+                  Documents
+                </h3>
+                <p className="text-[13px] text-text-secondary">
+                  {totalDocuments} document{totalDocuments === 1 ? "" : "s"}
+                  {hasSearchQuery ? " found" : ""}
+                </p>
               </div>
-              <p className="text-sm font-semibold text-slate-800">
-                {hasSearchQuery ? "No matching documents" : "No sign documents yet"}
-              </p>
-              <p className="mx-auto mt-1.5 max-w-md text-xs text-slate-500">
-                {hasSearchQuery
-                  ? "Try a different document name or clear your search."
-                  : readOnly
-                    ? "No signature documents have been requested for this application yet."
-                    : "Upload a form to start the client e-signature workflow."}
-              </p>
-              {!hasSearchQuery && !readOnly ? (
-                <button
-                  type="button"
-                  onClick={() => setLenderViewTab("upload")}
-                  className="mt-5 inline-flex items-center gap-2 rounded-lg bg-[#183B57] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#122d42]"
-                >
-                  <Upload size={16} />
-                  Upload a form
-                </button>
-              ) : null}
-            </div>
-          ) : (
-            <div className="relative">
-              {listLoading && (
-                <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-white/70">
-                  <Loader2 className="h-7 w-7 animate-spin text-[#183B57]" />
-                </div>
-              )}
-              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-              {rows.map((row) => {
-                const canMap =
-                  !readOnly &&
-                  row.signStatus === "AWAITING_BROKER" &&
-                  Boolean(row.templateFileUrl) &&
-                  Boolean(applicationLenderId);
-                const isImage = isImageTemplate(
-                  row.templateMimeType,
-                  row.templateFileUrl,
-                );
 
-                return (
-                  <article
-                    key={row.requirementId}
-                    className="flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white transition hover:border-slate-300"
+              <div className="relative w-full sm:max-w-sm">
+                <Search
+                  size={15}
+                  className="pointer-events-none absolute top-1/2 left-3.5 z-10 -translate-y-1/2 text-text-secondary"
+                />
+                <input
+                  type="search"
+                  value={lenderSearchInput}
+                  onChange={(event) =>
+                    setLenderSearchInput(event.target.value)
+                  }
+                  placeholder="Search documents…"
+                  className="h-10 w-full rounded-xl border border-border bg-white py-2 pr-9 pl-10 text-sm text-text-primary outline-none transition placeholder:text-text-secondary/70 focus:border-brand-400 focus:ring-2 focus:ring-brand-500/20 [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden"
+                />
+                {lenderSearchInput.trim() ? (
+                  <button
+                    type="button"
+                    onClick={() => setLenderSearchInput("")}
+                    className="absolute top-1/2 right-2.5 -translate-y-1/2 rounded-md p-1 text-text-secondary transition hover:bg-surface hover:text-text-primary"
+                    aria-label="Clear search"
                   >
-                    <div className="flex items-start gap-3 border-b border-slate-100 px-3.5 py-3">
-                      <div
-                        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${statusIconClass(row.signStatus)}`}
-                      >
-                        {isImage ? (
-                          <FileImage size={16} />
-                        ) : (
-                          <FileText size={16} />
-                        )}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        {renderDocumentTitle(row)}
-                      </div>
-                      <span
-                        className={`shrink-0 rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${statusClass(row.signStatus)}`}
-                      >
-                        {row.signStatusLabel || row.signStatus || "-"}
-                      </span>
-                    </div>
-
-                    <div className="flex flex-1 flex-col gap-2.5 p-3.5">
-                      {canMap ? (
-                        <div className="grid grid-cols-2 gap-2">
-                          <button
-                            type="button"
-                            onClick={() => openTemplateOrFilled(row)}
-                            className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
-                            title="View template"
-                          >
-                            <Eye size={14} className="shrink-0 text-[#183B57]" />
-                            Template
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => openMapper(row)}
-                            className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#183B57] px-2.5 py-2 text-xs font-semibold text-white transition hover:bg-[#122d42]"
-                          >
-                            <LayoutGrid size={14} className="shrink-0" />
-                            <span className="truncate">
-                              {row.signMode === "DYNAMIC_FORM"
-                                ? "Edit fields"
-                                : "Map fields"}
-                              {typeof row.fieldCount === "number" &&
-                              row.fieldCount > 0
-                                ? ` · ${row.fieldCount}`
-                                : ""}
-                            </span>
-                          </button>
-                        </div>
-                      ) : (
-                        renderInlineDocumentActions(row)
-                      )}
-
-                      {row.signMode === "DYNAMIC_FORM" && !canMap && (
-                        <div className="inline-flex items-center gap-1.5 rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-[11px] font-medium text-emerald-800">
-                          <CheckCircle2 size={12} />
-                          Fillable form published
-                          {typeof row.fieldCount === "number"
-                            ? ` · ${row.fieldCount} fields`
-                            : ""}
-                        </div>
-                      )}
-
-                      <div className="mt-auto pt-0.5">
-                        {renderLenderStatusFooter(row)}
-                      </div>
-                    </div>
-                  </article>
-                );
-              })}
+                    <X size={14} />
+                  </button>
+                ) : null}
               </div>
             </div>
-          )}
 
-          {lenderPagination && lenderPagination.totalPages > 0 && rows.length > 0 && (
-            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4">
-              <p className="text-sm text-slate-500">
-                Page{" "}
-                <span className="font-semibold text-slate-700">
-                  {lenderPagination.page}
-                </span>{" "}
-                of{" "}
-                <span className="font-semibold text-slate-700">
-                  {lenderPagination.totalPages}
-                </span>
-                {lenderPagination.total != null && (
-                  <span className="ml-1 text-slate-400">
-                    ({lenderPagination.total} document
-                    {lenderPagination.total === 1 ? "" : "s"}
-                    {hasSearchQuery ? " found" : ""})
-                  </span>
-                )}
-              </p>
+            {loading && rows.length === 0 ? (
+              <div className="flex min-h-[220px] flex-col items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-brand-500" />
+                <p className="mt-3 text-sm text-text-secondary">
+                  Loading documents...
+                </p>
+              </div>
+            ) : rows.length === 0 ? (
+              <div className="px-6 py-16 text-center">
+                <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-brand-50 text-brand-500">
+                  <FileText size={20} />
+                </div>
+                <p className="text-sm font-semibold text-text-primary">
+                  {hasSearchQuery
+                    ? "No matching documents"
+                    : "No sign documents yet"}
+                </p>
+                <p className="mx-auto mt-1.5 max-w-md text-[13px] text-text-secondary">
+                  {hasSearchQuery
+                    ? "Try a different document name or clear your search."
+                    : readOnly
+                      ? "No signature documents have been requested for this application yet."
+                      : "Upload a form to start the client e-signature workflow."}
+                </p>
+                {!hasSearchQuery && !readOnly ? (
+                  <button
+                    type="button"
+                    onClick={() => setLenderViewTab("upload")}
+                    className="mt-5 inline-flex items-center gap-2 rounded-xl bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-600"
+                  >
+                    <Upload size={16} />
+                    Upload a form
+                  </button>
+                ) : null}
+              </div>
+            ) : (
+              <div className="relative overflow-x-auto">
+                {listLoading ? (
+                  <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/70 dark:bg-slate-900/70">
+                    <Loader2 className="h-7 w-7 animate-spin text-brand-500" />
+                  </div>
+                ) : null}
 
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  disabled={lenderPage === 1 || loading}
-                  onClick={() => setLenderPage((current) => current - 1)}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  <ChevronLeft size={16} />
-                  Previous
-                </button>
-
-                {lenderPagination.totalPages > 1 &&
-                  Array.from(
-                    { length: lenderPagination.totalPages },
-                    (_, index) => {
-                      const pageNum = index + 1;
+                <table className="ds-table min-w-[860px]">
+                  <thead>
+                    <tr>
+                      <th>Document</th>
+                      <th>Status</th>
+                      <th>Form</th>
+                      <th>Workflow</th>
+                      <th className="text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((row) => {
+                      const showFileName =
+                        row.templateFileName &&
+                        row.templateFileName.trim() !==
+                          row.documentName.trim();
 
                       return (
-                        <button
-                          key={pageNum}
-                          type="button"
-                          disabled={loading}
-                          onClick={() => setLenderPage(pageNum)}
-                          className={`h-9 min-w-9 rounded-lg px-2.5 text-sm font-semibold transition ${
-                            lenderPage === pageNum
-                              ? "bg-[#183B57] text-white"
-                              : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-                          }`}
-                        >
-                          {pageNum}
-                        </button>
-                      );
-                    },
-                  )}
+                        <tr key={row.requirementId}>
+                          <td>
+                            <div className="flex items-start gap-3">
+                              <div
+                                className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${statusIconClass(row.signStatus)}`}
+                              >
+                                {isImageTemplate(
+                                  row.templateMimeType,
+                                  row.templateFileUrl,
+                                ) ? (
+                                  <FileImage size={16} />
+                                ) : (
+                                  <FileText size={16} />
+                                )}
+                              </div>
+                              <div className="min-w-0">
+                                <p
+                                  className="ds-table-title"
+                                  title={row.documentName}
+                                >
+                                  {row.documentName}
+                                </p>
+                                {showFileName ? (
+                                  <p
+                                    className="ds-table-meta"
+                                    title={row.templateFileName || undefined}
+                                  >
+                                    {row.templateFileName}
+                                  </p>
+                                ) : null}
+                              </div>
+                            </div>
+                          </td>
 
-                <button
-                  type="button"
-                  disabled={
-                    lenderPage === lenderPagination.totalPages || loading
-                  }
-                  onClick={() => setLenderPage((current) => current + 1)}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  Next
-                  <ChevronRight size={16} />
-                </button>
+                          <td>
+                            <span
+                              className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide ${statusClass(row.signStatus)}`}
+                            >
+                              {row.signStatusLabel || row.signStatus || "—"}
+                            </span>
+                          </td>
+
+                          <td>
+                            {row.signMode === "DYNAMIC_FORM" ? (
+                              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700">
+                                <CheckCircle2 size={12} />
+                                Fillable
+                                {typeof row.fieldCount === "number"
+                                  ? ` · ${row.fieldCount}`
+                                  : ""}
+                              </span>
+                            ) : (
+                              <span className="ds-table-muted">Template</span>
+                            )}
+                          </td>
+
+                          <td>
+                            <p
+                              className="max-w-[240px] text-[12px] leading-relaxed text-text-secondary"
+                              title={row.workflowHint || undefined}
+                            >
+                              {row.workflowHint || "In progress"}
+                            </p>
+                          </td>
+
+                          <td className="text-right">
+                            {(() => {
+                              const meta = getLenderRowActionMeta(row);
+                              if (!meta.hasAnyAction) {
+                                return (
+                                  <span className="ds-table-empty">—</span>
+                                );
+                              }
+
+                              return (
+                                <div className="flex justify-end">
+                                  <button
+                                    type="button"
+                                    data-menu-id={row.requirementId}
+                                    onClick={(event) =>
+                                      openLenderRowMenu(
+                                        row.requirementId,
+                                        event,
+                                      )
+                                    }
+                                    className={`inline-flex h-8 w-8 items-center justify-center rounded-lg border transition ${
+                                      openMenuId === row.requirementId
+                                        ? "border-brand-300 bg-brand-50 text-brand-500"
+                                        : "border-border bg-white text-text-secondary hover:border-brand-200 hover:bg-surface hover:text-text-primary"
+                                    }`}
+                                    aria-label="Open actions menu"
+                                    title="More actions"
+                                  >
+                                    <MoreVertical className="h-4 w-4" />
+                                  </button>
+                                </div>
+                              );
+                            })()}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
-            </div>
-          )}
+            )}
+
+            {lenderPagination &&
+            lenderPagination.totalPages > 0 &&
+            rows.length > 0 ? (
+              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border bg-white px-4 py-3.5 dark:border-slate-800 dark:bg-slate-900">
+                <p className="text-[13px] text-text-secondary">
+                  Page {lenderPagination.page} of {lenderPagination.totalPages}
+                  {lenderPagination.total != null ? (
+                    <span>
+                      {" "}
+                      ({lenderPagination.total} document
+                      {lenderPagination.total === 1 ? "" : "s"}
+                      {hasSearchQuery ? " found" : ""})
+                    </span>
+                  ) : null}
+                </p>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    disabled={lenderPage === 1 || loading}
+                    onClick={() => setLenderPage((current) => current - 1)}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-border bg-white px-3.5 py-2 text-sm font-medium text-text-primary transition hover:bg-surface disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <ChevronLeft size={16} />
+                    Previous
+                  </button>
+                  <button
+                    type="button"
+                    disabled={
+                      lenderPage === lenderPagination.totalPages || loading
+                    }
+                    onClick={() => setLenderPage((current) => current + 1)}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-border bg-white px-3.5 py-2 text-sm font-medium text-text-primary transition hover:bg-surface disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    Next
+                    <ChevronRight size={16} />
+                  </button>
+                </div>
+              </div>
+            ) : null}
           </div>
-        </div>
         )}
 
         {renderTemplateViewModal()}
@@ -1739,6 +1726,86 @@ export default function SignDocumentsPanel({
             documentName={viewingFilledDoc.documentName}
           />
         )}
+
+        {openMenuRow && openMenuMeta
+          ? createPortal(
+              <div
+                ref={menuRef}
+                style={{ top: menuPos.top, left: menuPos.left }}
+                className="fixed z-[9999] w-[200px] overflow-hidden rounded-xl border border-border bg-white shadow-lg dark:border-slate-700 dark:bg-slate-900"
+              >
+                {openMenuMeta.hasTemplate ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOpenMenuId(null);
+                      openTemplateOrFilled(openMenuRow);
+                    }}
+                    className="flex w-full items-center gap-2 px-3.5 py-2.5 text-left text-sm text-text-primary transition hover:bg-surface"
+                  >
+                    <Eye size={15} className="text-brand-500" />
+                    {openMenuMeta.viewFilled ? "View form" : "View template"}
+                  </button>
+                ) : null}
+
+                {openMenuMeta.canMap ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOpenMenuId(null);
+                      openMapper(openMenuRow);
+                    }}
+                    className="flex w-full items-center gap-2 px-3.5 py-2.5 text-left text-sm text-text-primary transition hover:bg-surface"
+                  >
+                    <LayoutGrid size={15} className="text-brand-500" />
+                    {openMenuRow.signMode === "DYNAMIC_FORM"
+                      ? "Edit fields"
+                      : "Map fields"}
+                    {typeof openMenuRow.fieldCount === "number" &&
+                    openMenuRow.fieldCount > 0
+                      ? ` · ${openMenuRow.fieldCount}`
+                      : ""}
+                  </button>
+                ) : null}
+
+                {openMenuMeta.hasSigned ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setOpenMenuId(null);
+                        void openSignedCopy(openMenuRow);
+                      }}
+                      className="flex w-full items-center gap-2 px-3.5 py-2.5 text-left text-sm text-text-primary transition hover:bg-surface"
+                    >
+                      <Eye size={15} className="text-brand-500" />
+                      View signed
+                    </button>
+                    <button
+                      type="button"
+                      disabled={downloadingId === openMenuRow.requirementId}
+                      onClick={() => {
+                        setOpenMenuId(null);
+                        void downloadSignedCopy(openMenuRow);
+                      }}
+                      className="flex w-full items-center gap-2 px-3.5 py-2.5 text-left text-sm text-text-primary transition hover:bg-surface disabled:opacity-50"
+                    >
+                      {downloadingId === openMenuRow.requirementId ? (
+                        <Loader2
+                          size={15}
+                          className="animate-spin text-brand-500"
+                        />
+                      ) : (
+                        <Download size={15} className="text-brand-500" />
+                      )}
+                      Download
+                    </button>
+                  </>
+                ) : null}
+              </div>,
+              document.body,
+            )
+          : null}
       </div>
     );
   };
@@ -1775,32 +1842,34 @@ export default function SignDocumentsPanel({
           No sign documents yet.
         </div>
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-700">
-          <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500 dark:bg-slate-800">
+        <div className="ds-table-wrap dark:border-slate-700">
+          <table className="ds-table min-w-full">
+            <thead>
               <tr>
-                <th className="px-4 py-3">Document</th>
-                {!isClientMode && <th className="px-4 py-3">Lender</th>}
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">Files</th>
-                <th className="px-4 py-3 text-right">Actions</th>
+                <th>Document</th>
+                {!isClientMode && <th>Lender</th>}
+                <th>Status</th>
+                <th>Files</th>
+                <th className="text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y dark:divide-slate-800">
+            <tbody>
               {rows.map((row) => (
                 <tr key={row.requirementId}>
-                  <td className="px-4 py-3 font-medium">{row.documentName}</td>
+                  <td>
+                    <span className="ds-table-title">{row.documentName}</span>
+                  </td>
                   {!isClientMode && (
-                    <td className="px-4 py-3">{row.lenderName || "-"}</td>
+                    <td className="ds-table-muted">{row.lenderName || "—"}</td>
                   )}
-                  <td className="px-4 py-3">
+                  <td>
                     <span
-                      className={`rounded-full px-2.5 py-1 text-xs font-semibold ${statusClass(row.signStatus)}`}
+                      className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${statusClass(row.signStatus)}`}
                     >
-                      {row.signStatusLabel || row.signStatus || "-"}
+                      {row.signStatusLabel || row.signStatus || "—"}
                     </span>
                   </td>
-                  <td className="px-4 py-3">
+                  <td>
                     <div className="flex flex-wrap gap-2">
                       {row.templateFileUrl && (
                         <button
@@ -1814,10 +1883,10 @@ export default function SignDocumentsPanel({
                       {row.signedUpload?.fileUrl && (
                         <button
                           type="button"
-                          onClick={() => openFile(row.signedUpload?.fileUrl)}
+                          onClick={() => void openSignedCopy(row)}
                           className="inline-flex items-center gap-1 rounded-lg bg-emerald-100 px-2 py-1 text-xs text-emerald-800"
                         >
-                          <Download size={14} /> Signed
+                          <Eye size={14} /> Signed
                         </button>
                       )}
                     </div>

@@ -164,7 +164,7 @@ const AdminLogs: React.FC = () => {
   }
 
   return (
-    <div className="px-6 py-6 text-gray-900 dark:text-gray-100">
+    <div className="text-gray-900 dark:text-gray-100">
       {/* Heading */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
@@ -204,33 +204,32 @@ const AdminLogs: React.FC = () => {
         </div>
       </div>
 
-      {/* Table card */}
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 dark:bg-slate-900 dark:border-slate-700">
+      <div className="ds-table-wrap dark:border-slate-700 dark:bg-slate-900">
         {loading ? (
-          <div className="py-16 text-center text-sm text-gray-500 dark:text-slate-400">
+          <div className="py-16 text-center text-sm text-text-secondary">
             Loading logs...
           </div>
         ) : error ? (
-          <div className="py-16 text-center text-sm text-red-600 dark:text-red-400">
+          <div className="py-16 text-center text-sm text-rose-600 dark:text-red-400">
             {error}
           </div>
         ) : filtered.length === 0 ? (
-          <div className="py-16 text-center text-sm text-gray-500 dark:text-slate-400">
+          <div className="py-16 text-center text-sm text-text-secondary">
             No logs found.
           </div>
         ) : (
           <>
-            <div className="overflow-auto">
-              <table className="min-w-full text-sm">
+            <div className="overflow-x-auto">
+              <table className="ds-table min-w-full">
                 <thead>
-                  <tr className="border-b border-gray-100 text-xs text-gray-500 uppercase tracking-wide dark:border-slate-700 dark:text-slate-400">
-                    <th className="py-2 pr-4 text-left">Time</th>
-                    <th className="py-2 pr-4 text-left">Action</th>
-                    <th className="py-2 pr-4 text-left">Entity</th>
-                    <th className="py-2 pr-4 text-left">Old Value</th>
-                    <th className="py-2 pr-4 text-left">New Value</th>
-                    <th className="py-2 pr-4 text-left">Actor</th>
-                    <th className="py-2 pr-4 text-left">Actor Org</th>
+                  <tr>
+                    <th>Time</th>
+                    <th>Action</th>
+                    <th>Entity</th>
+                    <th>Old Value</th>
+                    <th>New Value</th>
+                    <th>Actor</th>
+                    <th>Actor Org</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -239,17 +238,14 @@ const AdminLogs: React.FC = () => {
                       log.actorUser?.lastName || ""
                     }`.trim();
                     return (
-                      <tr
-                        key={log.id}
-                        className="border-b border-gray-100 last:border-0 hover:bg-gray-50/40 dark:border-slate-800 dark:hover:bg-slate-800/60"
-                      >
-                        <td className="py-3 pr-4 text-gray-600 whitespace-nowrap dark:text-slate-300">
+                      <tr key={log.id}>
+                        <td className="whitespace-nowrap ds-table-muted">
                           {formatDateTime(log.createdAt)}
                         </td>
 
-                        <td className="py-3 pr-4 whitespace-nowrap">
+                        <td className="whitespace-nowrap">
                           <span
-                            className={`inline-flex items-center px-3 py-1 rounded-full border text-xs font-medium ${actionClass(
+                            className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold ${actionClass(
                               log.action,
                             )}`}
                           >
@@ -257,26 +253,22 @@ const AdminLogs: React.FC = () => {
                           </span>
                         </td>
 
-                        <td className="py-3 pr-4 text-gray-600 whitespace-nowrap dark:text-slate-300">
-                          <div className="flex flex-col text-xs">
-                            <span className="font-medium text-gray-800 dark:text-slate-100">
-                              {log.entityType}
-                            </span>
-                            <span className="text-[11px] text-gray-500 dark:text-slate-400 truncate max-w-xs">
-                              {log.entityId}
-                            </span>
-                          </div>
+                        <td className="whitespace-nowrap">
+                          <p className="ds-table-title">{log.entityType}</p>
+                          <p className="ds-table-meta max-w-xs">
+                            {log.entityId}
+                          </p>
                         </td>
 
-                        <td className="py-3 pr-4 text-gray-600 align-top text-xs max-w-xs break-words dark:text-slate-300">
+                        <td className="max-w-xs break-words align-top text-xs ds-table-muted">
                           {safePretty(log.oldValueJson)}
                         </td>
 
-                        <td className="py-3 pr-4 text-gray-600 align-top text-xs max-w-xs break-words dark:text-slate-300">
+                        <td className="max-w-xs break-words align-top text-xs ds-table-muted">
                           {safePretty(log.newValueJson)}
                         </td>
 
-                        <td className="py-3 pr-4 text-gray-600 text-xs dark:text-slate-300">
+                        <td className="text-xs ds-table-muted">
                           <div className="flex flex-col">
                             <span className="font-medium text-gray-800 dark:text-slate-100">
                               {actorName || "Admin User"}

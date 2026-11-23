@@ -50,7 +50,9 @@ function hasValue(value?: string | number | null) {
 
 function EmptyHint({ children }: { children: ReactNode }) {
   return (
-    <span className="text-sm font-normal italic text-slate-400">{children}</span>
+    <span className="text-[12px] font-medium italic text-text-secondary/70">
+      {children}
+    </span>
   );
 }
 
@@ -66,16 +68,16 @@ function StatTile({
   const filled = hasValue(value);
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">
+    <div className="rounded-xl border border-border bg-white px-3.5 py-3 dark:border-slate-700 dark:bg-slate-900">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-text-secondary">
         {label}
       </p>
       {filled ? (
-        <p className="mt-2 truncate text-xl font-semibold tracking-tight text-slate-900">
+        <p className="mt-1 truncate text-xl font-bold tabular-nums leading-none text-text-primary dark:text-white">
           {value}
         </p>
       ) : (
-        <p className="mt-2">
+        <p className="mt-1">
           <EmptyHint>{emptyLabel}</EmptyHint>
         </p>
       )}
@@ -97,20 +99,20 @@ function DetailRow({
   const filled = hasValue(value);
 
   return (
-    <div className="flex items-start gap-3 py-3.5">
-      <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-[#183b57]">
+    <div className="flex items-start gap-3 py-3">
+      <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-500">
         {icon}
       </span>
       <div className="min-w-0 flex-1">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-text-secondary">
           {label}
         </p>
         {filled ? (
-          <p className="mt-1 break-words text-sm font-medium text-slate-900">
+          <p className="mt-0.5 break-words text-sm font-medium text-text-primary dark:text-white">
             {value}
           </p>
         ) : (
-          <p className="mt-1">
+          <p className="mt-0.5">
             <EmptyHint>{emptyLabel}</EmptyHint>
           </p>
         )}
@@ -310,42 +312,42 @@ export default function LenderProfileView() {
 
   if (loading) {
     return (
-      <div className="flex min-h-[50vh] items-center justify-center bg-white">
-        <Loader2 className="h-8 w-8 animate-spin text-[#183b57]" />
+      <div className="flex min-h-[280px] flex-col items-center justify-center gap-2 text-text-secondary">
+        <Loader2 className="h-7 w-7 animate-spin text-brand-500" />
+        <p className="text-xs">Loading profile…</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-full bg-white">
-      <div className="mx-auto max-w-6xl space-y-8 p-4 md:p-6 lg:p-8">
+    <div className="space-y-4 text-text-primary dark:text-slate-100">
         {/* Header */}
-        <section className="rounded-2xl border border-slate-200 bg-white px-5 py-5 md:px-7 md:py-6">
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex min-w-0 items-start gap-4">
-              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 text-base font-bold tracking-wide text-[#183b57]">
+        <section className="overflow-hidden rounded-2xl border border-border bg-white dark:border-slate-700 dark:bg-slate-900">
+          <div className="flex flex-col gap-4 px-4 py-4 sm:px-5 sm:py-5 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex min-w-0 items-start gap-3.5">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-brand-500 text-sm font-bold tracking-wide text-white">
                 {initials || "L"}
               </div>
               <div className="min-w-0">
-                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-text-secondary">
                   Lender profile
                 </p>
-                <h1 className="mt-1 truncate text-2xl font-semibold tracking-tight text-slate-900 md:text-[28px]">
+                <h1 className="ds-page-title mt-0.5 truncate !text-[22px]">
                   {orgName}
                 </h1>
-                <p className="mt-1 truncate text-sm text-slate-600">
+                <p className="mt-0.5 truncate text-[13px] text-text-secondary">
                   {hasValue(contactEmail) ? (
                     contactEmail
                   ) : (
                     <EmptyHint>Email not provided</EmptyHint>
                   )}
                 </p>
-                <div className="mt-3 flex flex-wrap items-center gap-2">
+                <div className="mt-2.5 flex flex-wrap items-center gap-2">
                   <span
                     className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${
                       profileComplete
-                        ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
-                        : "bg-amber-50 text-amber-700 ring-1 ring-amber-200"
+                        ? "bg-emerald-50 text-emerald-700"
+                        : "bg-amber-50 text-amber-700"
                     }`}
                   >
                     {profileComplete ? (
@@ -356,13 +358,13 @@ export default function LenderProfileView() {
                     {profileComplete ? "Profile complete" : "Profile incomplete"}
                   </span>
                   {productSummary ? (
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-50 px-2.5 py-1 text-[11px] font-semibold text-slate-700 ring-1 ring-slate-200">
-                      <Layers className="h-3.5 w-3.5 text-[#183b57]" />
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-50 px-2.5 py-1 text-[11px] font-semibold text-brand-600">
+                      <Layers className="h-3.5 w-3.5" />
                       {productSummary.programCount} active program
                       {productSummary.programCount === 1 ? "" : "s"}
                     </span>
                   ) : (
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-50 px-2.5 py-1 text-[11px] font-medium text-slate-500 ring-1 ring-slate-200">
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-surface px-2.5 py-1 text-[11px] font-medium text-text-secondary">
                       <Layers className="h-3.5 w-3.5" />
                       No programs configured
                     </span>
@@ -374,7 +376,7 @@ export default function LenderProfileView() {
             {canManageProfile ? (
               <Link
                 to="/profile/edit"
-                className="inline-flex items-center justify-center gap-2 self-start rounded-xl bg-[#183b57] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#142f45] lg:self-center"
+                className="ds-btn-primary shrink-0 self-start lg:self-center"
               >
                 <Pencil size={16} />
                 {profileComplete ? "Edit full profile" : "Complete full profile"}
@@ -383,15 +385,15 @@ export default function LenderProfileView() {
           </div>
 
           {!profileComplete && completionGaps.length > 0 && canManageProfile ? (
-            <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50/70 px-4 py-3.5">
-              <p className="text-sm font-semibold text-amber-900">
+            <div className="border-t border-amber-100 bg-amber-50/70 px-4 py-3.5 sm:px-5 dark:border-amber-500/20 dark:bg-amber-500/10">
+              <p className="text-sm font-semibold text-amber-900 dark:text-amber-200">
                 Finish these items to appear in the broker marketplace
               </p>
               <ul className="mt-2 grid gap-1.5 sm:grid-cols-2">
                 {completionGaps.map((gap) => (
                   <li
                     key={gap}
-                    className="flex items-start gap-2 text-sm text-amber-800"
+                    className="flex items-start gap-2 text-[13px] text-amber-800 dark:text-amber-200/90"
                   >
                     <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" />
                     <span>{gap}</span>
@@ -403,16 +405,16 @@ export default function LenderProfileView() {
         </section>
 
         {/* Lending snapshot */}
-        <section className="space-y-3">
+        <section className="space-y-2.5">
           <div>
-            <h2 className="text-base font-semibold text-slate-900">
+            <h2 className="text-[16px] font-semibold text-text-primary dark:text-white">
               Lending snapshot
             </h2>
-            <p className="mt-0.5 text-sm text-slate-500">
+            <p className="text-[13px] text-text-secondary">
               Aggregated from your active loan programs
             </p>
           </div>
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+          <div className="grid grid-cols-2 gap-2.5 md:grid-cols-3 xl:grid-cols-6">
             <StatTile
               label="Min loan"
               value={
@@ -450,24 +452,24 @@ export default function LenderProfileView() {
           </div>
         </section>
 
-        <div className="grid gap-6 lg:grid-cols-2">
+        <div className="grid gap-4 lg:grid-cols-2">
           {/* Company & contact */}
-          <section className="rounded-2xl border border-slate-200 bg-white p-5 md:p-6">
-            <div className="mb-2 flex items-center gap-3">
-              <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-[#183b57]">
+          <section className="overflow-hidden rounded-2xl border border-border bg-white dark:border-slate-700 dark:bg-slate-900">
+            <div className="flex items-center gap-3 border-b border-border px-4 py-3.5 sm:px-5 dark:border-slate-800">
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-50 text-brand-500">
                 <Building2 className="h-4 w-4" />
               </span>
               <div>
-                <h2 className="text-base font-semibold text-slate-900">
+                <h2 className="text-[15px] font-semibold text-text-primary dark:text-white">
                   Company & contact
                 </h2>
-                <p className="text-sm text-slate-500">
+                <p className="text-[12px] text-text-secondary">
                   How brokers reach your organization
                 </p>
               </div>
             </div>
 
-            <div className="mt-2 divide-y divide-slate-100">
+            <div className="divide-y divide-border px-4 sm:px-5 dark:divide-slate-800">
               <DetailRow
                 icon={<Building2 className="h-4 w-4" />}
                 label="Company name"
@@ -501,100 +503,101 @@ export default function LenderProfileView() {
           </section>
 
           {/* About */}
-          <section className="rounded-2xl border border-slate-200 bg-white p-5 md:p-6">
-            <div className="mb-4">
-              <h2 className="text-base font-semibold text-slate-900">
+          <section className="overflow-hidden rounded-2xl border border-border bg-white dark:border-slate-700 dark:bg-slate-900">
+            <div className="border-b border-border px-4 py-3.5 sm:px-5 dark:border-slate-800">
+              <h2 className="text-[15px] font-semibold text-text-primary dark:text-white">
                 About your lending
               </h2>
-              <p className="mt-0.5 text-sm text-slate-500">
+              <p className="text-[12px] text-text-secondary">
                 Marketplace summary shown to brokers
               </p>
             </div>
 
-            {summary?.trim() ? (
-              <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm leading-relaxed text-slate-700">
-                {summary}
-              </div>
-            ) : (
-              <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/60 px-4 py-8 text-center">
-                <p className="text-sm font-medium text-slate-600">
-                  No lending summary yet
-                </p>
-                <p className="mt-1 text-sm text-slate-400">
-                  Add a short overview so brokers understand your focus.
-                </p>
-                {canManageProfile ? (
-                  <Link
-                    to="/profile/edit"
-                    className="mt-3 inline-flex text-sm font-semibold text-[#183b57] hover:underline"
-                  >
-                    Add summary
-                  </Link>
-                ) : null}
-              </div>
-            )}
-
-            <div className="mt-5">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">
-                Loan types
-              </p>
-              {loanTypes.length > 0 ? (
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {loanTypes.map((type) => (
-                    <span
-                      key={type}
-                      className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-700"
-                    >
-                      {formatLoanProduct(type)}
-                    </span>
-                  ))}
+            <div className="space-y-4 px-4 py-4 sm:px-5">
+              {summary?.trim() ? (
+                <div className="rounded-xl border border-border bg-surface px-3.5 py-3 text-[13px] leading-relaxed text-text-primary dark:border-slate-700 dark:bg-slate-950">
+                  {summary}
                 </div>
               ) : (
-                <p className="mt-2">
-                  <EmptyHint>No loan types listed</EmptyHint>
-                </p>
+                <div className="rounded-xl border border-dashed border-border bg-surface/60 px-4 py-7 text-center dark:border-slate-700">
+                  <p className="text-sm font-medium text-text-primary">
+                    No lending summary yet
+                  </p>
+                  <p className="mt-1 text-[13px] text-text-secondary">
+                    Add a short overview so brokers understand your focus.
+                  </p>
+                  {canManageProfile ? (
+                    <Link
+                      to="/profile/edit"
+                      className="mt-3 inline-flex text-sm font-semibold text-brand-500 hover:underline"
+                    >
+                      Add summary
+                    </Link>
+                  ) : null}
+                </div>
               )}
-            </div>
 
-            <div className="mt-5">
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">
-                  States supported
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-text-secondary">
+                  Loan types
                 </p>
+                {loanTypes.length > 0 ? (
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {loanTypes.map((type) => (
+                      <span
+                        key={type}
+                        className="rounded-full bg-brand-50 px-2.5 py-1 text-xs font-medium text-brand-600"
+                      >
+                        {formatLoanProduct(type)}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-2">
+                    <EmptyHint>No loan types listed</EmptyHint>
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-text-secondary">
+                    States supported
+                  </p>
+                  {supportedStates.length > 0 ? (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-surface px-2 py-0.5 text-[11px] font-semibold text-text-secondary">
+                      <MapPin className="h-3 w-3 text-brand-500" />
+                      {supportedStates.length}{" "}
+                      {supportedStates.length === 1 ? "state" : "states"}
+                    </span>
+                  ) : null}
+                </div>
                 {supportedStates.length > 0 ? (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-slate-50 px-2 py-0.5 text-[11px] font-semibold text-slate-600 ring-1 ring-slate-200">
-                    <MapPin className="h-3 w-3 text-[#183b57]" />
-                    {supportedStates.length}{" "}
-                    {supportedStates.length === 1 ? "state" : "states"}
-                  </span>
-                ) : null}
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {supportedStates.map((state) => (
+                      <span
+                        key={state}
+                        className="inline-flex min-w-[2.5rem] items-center justify-center rounded-md border border-border bg-white px-2 py-1 text-xs font-semibold tracking-wide text-text-primary dark:border-slate-700 dark:bg-slate-950"
+                      >
+                        {state}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-2">
+                    <EmptyHint>No states listed</EmptyHint>
+                  </p>
+                )}
               </div>
-              {supportedStates.length > 0 ? (
-                <div className="mt-2.5 flex flex-wrap gap-1.5">
-                  {supportedStates.map((state) => (
-                    <span
-                      key={state}
-                      className="inline-flex min-w-[2.5rem] items-center justify-center rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold tracking-wide text-slate-700"
-                    >
-                      {state}
-                    </span>
-                  ))}
-                </div>
-              ) : (
-                <p className="mt-2">
-                  <EmptyHint>No states listed</EmptyHint>
-                </p>
-              )}
             </div>
           </section>
         </div>
 
         {!canManageProfile ? (
-          <p className="text-sm text-slate-500">
+          <p className="text-[13px] text-text-secondary">
             Read-only profile view. Contact your lender admin to make changes.
           </p>
         ) : null}
-      </div>
     </div>
   );
 }

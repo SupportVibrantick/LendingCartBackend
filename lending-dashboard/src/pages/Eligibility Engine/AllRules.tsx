@@ -194,12 +194,12 @@ export default function AllRuleSets() {
   };
 
   return (
-    <div className="px-4 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-8 text-gray-900 dark:text-gray-100">
+    <div className="text-gray-900 dark:text-gray-100">
       {/* Header + controls */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
           <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white">
-            All <span className="text-[#3e86b7]">Rules</span>
+            All <span className="text-[#4C78F5]">Rules</span>
           </h1>
           <p className="text-xs sm:text-sm text-gray-500 mt-1 dark:text-slate-400">
             Manage rules
@@ -255,17 +255,19 @@ export default function AllRuleSets() {
       </div>
 
       {/* Table */}
-      <div className="mt-6 bg-white rounded-xl border p-5 dark:bg-slate-900">
-        <h2 className="text-lg font-semibold mb-3">Eligibility Rules</h2>
+      <div className="ds-table-wrap mt-6 dark:border-slate-700 dark:bg-slate-900">
+        <div className="border-b border-border px-4 py-3.5">
+          <h2 className="text-[16px] font-semibold text-text-primary">
+            Eligibility Rules
+          </h2>
+        </div>
 
         {loadingRules ? (
-          <div className="py-6 text-center text-gray-500">Loading rules...</div>
+          <div className="py-10 text-center text-sm text-text-secondary">
+            Loading rules...
+          </div>
         ) : paginatedRules.length === 0 ? (
-          <div
-            className="py-10 flex flex-col items-center justify-center text-center rounded-lg border border-dashed
-                border-gray-300 bg-gray-50
-                dark:border-slate-700 dark:bg-slate-800/40"
-          >
+          <div className="m-4 flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-surface py-10 text-center dark:border-slate-700 dark:bg-slate-800/40">
             {/* ICON */}
             <div className="mb-3 text-3xl">
               {!selectedLenderProductId && "📌"}
@@ -278,7 +280,7 @@ export default function AllRuleSets() {
               {!selectedLenderProductId && (
                 <>
                   Please{" "}
-                  <span className="text-[#3e86b7] font-semibold">
+                  <span className="text-[#4C78F5] font-semibold">
                     select a rule set
                   </span>{" "}
                   to view eligibility rules.
@@ -316,59 +318,54 @@ export default function AllRuleSets() {
             </p>
           </div>
         ) : (
-          <table className="min-w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="ds-table min-w-full">
             <thead>
-              <tr className="border-b text-xs uppercase text-gray-500">
-                <th className="py-2 text-left">Field</th>
-                <th className="py-2 text-left">Operator</th>
-                <th className="py-2 text-left">Value</th>
-                <th className="py-2 text-left">Severity</th>
-                <th className="py-2 text-left">Message</th>
-                <th className="py-2 text-left">Sort Order</th>
-                <th className="py-2 text-left">Created</th>
-                <th className="py-2 text-left">Actions</th>
+              <tr>
+                <th>Field</th>
+                <th>Operator</th>
+                <th>Value</th>
+                <th>Severity</th>
+                <th>Message</th>
+                <th>Sort Order</th>
+                <th>Created</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
               {paginatedRules.map((r) => (
-                <tr key={r.id} className="border-b last:border-0">
-                  <td className="py-3">{r.fieldName}</td>
-
-                  <td className="py-3">
-                    <span className="px-2 py-1 text-xs rounded">
+                <tr key={r.id}>
+                  <td>
+                    <span className="ds-table-title">{r.fieldName}</span>
+                  </td>
+                  <td>
+                    <span className="inline-flex rounded-full bg-brand-50 px-2.5 py-1 text-[11px] font-semibold text-brand-600">
                       {r.comparisonOperator}
                     </span>
                   </td>
-
-                  <td className="py-3">{r.value}</td>
-
-                  <td className="py-3">
+                  <td className="ds-table-muted">{r.value}</td>
+                  <td>
                     <span
-                      className={`px-3 py-1 rounded-full text-xs border ${
+                      className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${
                         r.severity === "HARD_FAIL"
-                          ? "bg-red-100 text-red-700"
-                          : "bg-yellow-100 text-yellow-700"
+                          ? "bg-rose-50 text-rose-700"
+                          : "bg-amber-50 text-amber-700"
                       }`}
                     >
                       {r.severity}
                     </span>
                   </td>
-
-                  <td className="py-3 max-w-xs truncate">
+                  <td className="max-w-xs truncate ds-table-muted">
                     {r.message?.trim() || "—"}
                   </td>
-
-                  <td className="py-3">{r.sortOrder}</td>
-
-                  <td className="py-3">
+                  <td className="ds-table-muted">{r.sortOrder}</td>
+                  <td className="ds-table-muted">
                     {new Date(r.createdAt).toLocaleDateString()}
                   </td>
-
-                  <td className="py-3">
+                  <td>
                     <button
                       onClick={() => setEditingRule(r)}
-                      className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 text-gray-500 hover:bg-gray-100
-                       dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-border text-text-secondary hover:bg-surface dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
                     >
                       <MdModeEdit />
                     </button>
@@ -377,6 +374,7 @@ export default function AllRuleSets() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
 
@@ -398,7 +396,7 @@ export default function AllRuleSets() {
                 onClick={() => setCurrentPage(page)}
                 className={`px-3 py-1 border rounded ${
                   page === currentPage
-                    ? "bg-[#3e86b7] text-white"
+                    ? "bg-[#4C78F5] text-white"
                     : "bg-white text-gray-700"
                 }`}
               >

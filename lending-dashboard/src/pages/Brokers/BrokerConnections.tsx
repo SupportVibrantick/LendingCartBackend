@@ -54,8 +54,6 @@ type InvitesPayload = {
 
 type MainTab = "requests" | "sent" | "connected";
 
-const BRAND = "#102C41";
-
 const EMPTY_STATS: Stats = {
   total: 0,
   pending: 0,
@@ -330,56 +328,52 @@ export default function BrokerConnections() {
   const loading =
     mainTab === "connected" ? loadingConnected : loadingInvites;
 
+  const connectedCount = connected.filter(
+    (b) => b.connectionStatus === "CONNECTED",
+  ).length;
+
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 px-4 py-6 sm:px-6 lg:px-8">
-      <div className="max-w-6xl mx-auto space-y-6">
-        {/* Header */}
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-1">
-            Partnerships
-          </p>
-          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white">
-            Broker{" "}
-            <span style={{ color: BRAND }}>Connections</span>
-          </h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-xl">
-            Review broker requests, track sent invites, and manage your
-            connected brokerage partners — all in one place.
+    <div className="space-y-4 text-text-primary dark:text-slate-100">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="ds-page-title">Brokers</h1>
+          <p className="ds-page-subtitle">
+            Review requests, track invites, and manage connected partners.
           </p>
         </div>
+      </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-          <StatPill
-            icon={<Handshake size={16} />}
-            label="Total invites"
-            value={stats.total}
-            color="blue"
-          />
-          <StatPill
-            icon={<Clock size={16} />}
-            label="Pending"
-            value={stats.pending}
-            color="amber"
-            pulse={stats.pending > 0}
-          />
-          <StatPill
-            icon={<Check size={16} />}
-            label="Accepted"
-            value={stats.accepted}
-            color="emerald"
-          />
-          <StatPill
-            icon={<Users size={16} />}
-            label="Connected"
-            value={connected.filter((b) => b.connectionStatus === "CONNECTED").length}
-            color="emerald"
-          />
-        </div>
+      <div className="grid grid-cols-2 gap-2.5 md:grid-cols-4">
+        <StatPill
+          icon={<Handshake size={14} />}
+          label="Total invites"
+          value={stats.total}
+          tone="bg-sky-50 text-sky-600"
+        />
+        <StatPill
+          icon={<Clock size={14} />}
+          label="Pending"
+          value={stats.pending}
+          tone="bg-amber-50 text-amber-600"
+          pulse={stats.pending > 0}
+        />
+        <StatPill
+          icon={<Check size={14} />}
+          label="Accepted"
+          value={stats.accepted}
+          tone="bg-brand-50 text-brand-600"
+        />
+        <StatPill
+          icon={<Users size={14} />}
+          label="Connected"
+          value={connectedCount}
+          tone="bg-emerald-50 text-emerald-600"
+        />
+      </div>
 
-        {/* Main tabs */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div className="inline-flex p-1 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
+      <div className="overflow-hidden rounded-2xl border border-border bg-white dark:border-slate-700 dark:bg-slate-900">
+        <div className="flex flex-col gap-3 border-b border-border px-4 py-3.5 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+          <div className="inline-flex w-fit rounded-xl border border-border bg-surface p-1 dark:border-slate-700 dark:bg-slate-950">
             <MainTabButton
               active={mainTab === "requests"}
               onClick={() => selectTab("requests")}
@@ -398,75 +392,69 @@ export default function BrokerConnections() {
               onClick={() => selectTab("connected")}
               label="Connected"
               icon={<Users size={14} />}
-              badge={connected.filter((b) => b.connectionStatus === "CONNECTED").length}
+              badge={connectedCount}
             />
           </div>
 
-          {mainTab === "connected" && (
-            <div className="relative w-full sm:w-72">
-              <Search
-                size={16}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-              />
+          {mainTab === "connected" ? (
+            <div className="group relative w-full sm:max-w-xs">
+              <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-text-secondary transition-colors group-focus-within:text-brand-500" />
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search connected brokers..."
-                className="w-full pl-9 pr-3 py-2.5 rounded-xl text-sm border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#102C41]/30"
+                className="h-10 w-full rounded-xl border border-border bg-white py-2 pr-3 pl-10 text-sm text-text-primary outline-none transition placeholder:text-text-secondary/70 focus:border-brand-400 focus:ring-2 focus:ring-brand-500/20 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
               />
             </div>
-          )}
+          ) : null}
         </div>
 
-        {/* Content */}
-        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden shadow-sm">
-          {loading ? (
-            <TableSkeleton rows={5} />
-          ) : mainTab === "requests" ? (
-            <InviteTable
-              rows={incoming}
-              showActions
-              emptyTitle="No broker requests yet"
-              emptySubtitle="When brokers invite you to connect, their requests will appear here."
-              actionId={actionId}
-              onAccept={acceptInvite}
-              onReject={rejectInvite}
-            />
-          ) : mainTab === "sent" ? (
-            <InviteTable
-              rows={outgoing}
-              showActions={false}
-              emptyTitle="No invites sent yet"
-              emptySubtitle="Use Find Brokers to invite brokerage partners to your network."
-            />
-          ) : filteredConnected.length === 0 ? (
-            <EmptyState
-              title={
-                connected.length === 0
-                  ? "No connected brokers yet"
-                  : "No brokers match your search"
-              }
-              subtitle={
-                connected.length === 0
-                  ? "Accept broker requests to build your partnership network."
-                  : "Try a different search term."
-              }
-            />
-          ) : (
-            <ConnectedTable
-              brokers={filteredConnected}
-              updatingId={updatingId}
-              onToggle={handleConnectionToggle}
-              onChat={(broker) =>
-                setChatPeer({
-                  orgId: broker.id,
-                  name: broker.name,
-                  email: broker.email,
-                })
-              }
-            />
-          )}
-        </div>
+        {loading ? (
+          <TableSkeleton rows={5} />
+        ) : mainTab === "requests" ? (
+          <InviteTable
+            rows={incoming}
+            showActions
+            emptyTitle="No broker requests yet"
+            emptySubtitle="When brokers invite you to connect, their requests will appear here."
+            actionId={actionId}
+            onAccept={acceptInvite}
+            onReject={rejectInvite}
+          />
+        ) : mainTab === "sent" ? (
+          <InviteTable
+            rows={outgoing}
+            showActions={false}
+            emptyTitle="No invites sent yet"
+            emptySubtitle="Use Find Brokers to invite brokerage partners to your network."
+          />
+        ) : filteredConnected.length === 0 ? (
+          <EmptyState
+            title={
+              connected.length === 0
+                ? "No connected brokers yet"
+                : "No brokers match your search"
+            }
+            subtitle={
+              connected.length === 0
+                ? "Accept broker requests to build your partnership network."
+                : "Try a different search term."
+            }
+          />
+        ) : (
+          <ConnectedTable
+            brokers={filteredConnected}
+            updatingId={updatingId}
+            onToggle={handleConnectionToggle}
+            onChat={(broker) =>
+              setChatPeer({
+                orgId: broker.id,
+                name: broker.name,
+                email: broker.email,
+              })
+            }
+          />
+        )}
       </div>
 
       <NetworkChatModal
@@ -497,24 +485,23 @@ function MainTabButton({
     <button
       type="button"
       onClick={onClick}
-      className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
+      className={`inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-xs font-semibold transition sm:text-sm ${
         active
-          ? "text-white shadow-sm"
-          : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"
+          ? "bg-brand-500 text-white"
+          : "text-text-secondary hover:bg-white hover:text-text-primary dark:hover:bg-slate-800 dark:hover:text-slate-100"
       }`}
-      style={active ? { backgroundColor: BRAND } : undefined}
     >
       {icon}
       {label}
-      {badge != null && badge > 0 && (
+      {badge != null && badge > 0 ? (
         <span
-          className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
-            active ? "bg-white/25 text-white" : "bg-amber-100 text-amber-700"
+          className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums ${
+            active ? "bg-white/20 text-white" : "bg-amber-100 text-amber-700"
           }`}
         >
           {badge}
         </span>
-      )}
+      ) : null}
     </button>
   );
 }
@@ -523,33 +510,35 @@ function StatPill({
   icon,
   label,
   value,
-  color,
+  tone,
   pulse,
 }: {
   icon: React.ReactNode;
   label: string;
   value: number;
-  color: "emerald" | "amber" | "blue";
+  tone: string;
   pulse?: boolean;
 }) {
-  const colors = {
-    emerald:
-      "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-500/20",
-    amber:
-      "bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-500/20",
-    blue: "border-[#102C41]/20 bg-[#102C41]/8 text-[#102C41] dark:bg-[#102C41]/20 dark:text-[#9eb6c8] dark:border-[#102C41]/30",
-  };
-
   return (
     <div
-      className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${colors[color]} ${pulse ? "ring-2 ring-amber-400/30" : ""}`}
+      className={`rounded-xl border border-border bg-white px-3.5 py-3 dark:border-slate-700 dark:bg-slate-900 ${
+        pulse ? "ring-1 ring-amber-300/60" : ""
+      }`}
     >
-      {icon}
-      <div>
-        <p className="text-[10px] font-semibold uppercase tracking-wide opacity-70">
-          {label}
-        </p>
-        <p className="text-xl font-bold leading-tight">{value}</p>
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-text-secondary">
+            {label}
+          </p>
+          <p className="mt-1 truncate text-xl font-bold tabular-nums leading-none text-text-primary dark:text-white">
+            {value}
+          </p>
+        </div>
+        <span
+          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${tone}`}
+        >
+          {icon}
+        </span>
       </div>
     </div>
   );
@@ -578,57 +567,43 @@ function InviteTable({
 
   return (
     <div className="overflow-x-auto">
-      <table className="min-w-full text-sm">
+      <table className="ds-table min-w-full">
         <thead>
-          <tr className="border-b border-slate-100 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-800/50">
+          <tr>
             {["Broker", "Email", "Status", "Date", ...(showActions ? ["Actions"] : [])].map(
               (h) => (
-                <th
-                  key={h}
-                  className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wide text-slate-500"
-                >
-                  {h}
-                </th>
+                <th key={h}>{h}</th>
               ),
             )}
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+        <tbody>
           {rows.map((i) => (
-            <tr
-              key={i.inviteId}
-              className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors"
-            >
-              <td className="px-5 py-4">
+            <tr key={i.inviteId}>
+              <td>
                 <div className="flex items-center gap-3">
-                  <div
-                    className="h-9 w-9 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
-                    style={{ backgroundColor: BRAND }}
-                  >
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-500 text-xs font-bold text-white">
                     {i.name.charAt(0).toUpperCase()}
                   </div>
-                  <span className="font-medium text-slate-900 dark:text-white">
-                    {i.name}
-                  </span>
+                  <span className="ds-table-title">{i.name}</span>
                 </div>
               </td>
-              <td className="px-5 py-4 text-slate-500">{i.email}</td>
-              <td className="px-5 py-4">
+              <td className="ds-table-muted">{i.email}</td>
+              <td>
                 <StatusBadge status={i.inviteStatus} />
               </td>
-              <td className="px-5 py-4 text-slate-500 text-xs">
+              <td className="ds-table-meta !mt-0">
                 {formatDateTime(i.invitedAt)}
               </td>
               {showActions && (
-                <td className="px-5 py-4">
+                <td>
                   {i.inviteStatus === "PENDING" ? (
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
                         disabled={actionId === i.inviteId}
                         onClick={() => onAccept?.(i.inviteId)}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white disabled:opacity-50"
-                        style={{ backgroundColor: BRAND }}
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
                       >
                         {actionId === i.inviteId ? (
                           <RefreshCcw size={12} className="animate-spin" />
@@ -641,14 +616,14 @@ function InviteTable({
                         type="button"
                         disabled={actionId === i.inviteId}
                         onClick={() => onReject?.(i.inviteId)}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50"
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-text-secondary hover:bg-surface disabled:opacity-50"
                       >
                         <X size={12} />
                         Decline
                       </button>
                     </div>
                   ) : (
-                    <span className="text-xs text-slate-400">—</span>
+                    <span className="ds-table-empty">—</span>
                   )}
                 </td>
               )}
@@ -673,9 +648,9 @@ function ConnectedTable({
 }) {
   return (
     <div className="overflow-x-auto">
-      <table className="min-w-full text-sm">
+      <table className="ds-table min-w-full">
         <thead>
-          <tr className="border-b border-slate-100 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-800/50">
+          <tr>
             {[
               "Broker",
               "Email",
@@ -685,77 +660,64 @@ function ConnectedTable({
               "Connected since",
               "Actions",
             ].map((h) => (
-              <th
-                key={h}
-                className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wide text-slate-500"
-              >
-                {h}
-              </th>
+              <th key={h}>{h}</th>
             ))}
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+        <tbody>
           {brokers.map((b) => (
-            <tr
-              key={b.id}
-              className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors"
-            >
-              <td className="px-5 py-4">
+            <tr key={b.id}>
+              <td>
                 <div className="flex items-center gap-3">
-                  <div
-                    className="h-9 w-9 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
-                    style={{ backgroundColor: BRAND }}
-                  >
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-500 text-xs font-bold text-white">
                     {b.name.charAt(0).toUpperCase()}
                   </div>
-                  <span className="font-medium text-slate-900 dark:text-white">
-                    {b.name}
-                  </span>
+                  <span className="ds-table-title">{b.name}</span>
                 </div>
               </td>
-              <td className="px-5 py-4 text-slate-500">{b.email}</td>
-              <td className="px-5 py-4 text-slate-500">{b.phone || "—"}</td>
-              <td className="px-5 py-4">
+              <td className="ds-table-muted">{b.email}</td>
+              <td className="ds-table-muted">{b.phone || "—"}</td>
+              <td>
                 <span
-                  className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
+                  className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${
                     b.brokerStatus === "ACTIVE"
-                      ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300"
+                      ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300"
                       : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400"
                   }`}
                 >
                   {b.brokerStatus}
                 </span>
               </td>
-              <td className="px-5 py-4">
+              <td>
                 <button
                   type="button"
                   disabled={updatingId === b.id}
                   onClick={() => onToggle(b)}
-                  className={`px-2.5 py-1 rounded-full text-xs font-semibold transition disabled:opacity-50 ${
+                  className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold transition disabled:opacity-50 ${
                     b.connectionStatus === "CONNECTED"
-                      ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300"
-                      : "bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-500/10 dark:text-red-300"
+                      ? "bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-300"
+                      : "bg-rose-50 text-rose-700 hover:bg-rose-100 dark:bg-red-500/10 dark:text-red-300"
                   }`}
                   title="Click to toggle connection"
                 >
                   {updatingId === b.id ? "Updating..." : b.connectionStatus}
                 </button>
               </td>
-              <td className="px-5 py-4 text-slate-500 text-xs">
+              <td className="ds-table-meta !mt-0">
                 {formatDateTime(b.assignedAt)}
               </td>
-              <td className="px-5 py-4">
+              <td>
                 {b.connectionStatus === "CONNECTED" ? (
                   <button
                     type="button"
                     onClick={() => onChat(b)}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-text-primary hover:bg-surface"
                   >
                     <MessageSquare size={12} />
                     Chat
                   </button>
                 ) : (
-                  <span className="text-slate-400 text-xs">—</span>
+                  <span className="ds-table-empty">—</span>
                 )}
               </td>
             </tr>
@@ -797,17 +759,14 @@ function EmptyState({
   subtitle: string;
 }) {
   return (
-    <div className="py-16 flex flex-col items-center text-center px-6">
-      <div
-        className="w-14 h-14 flex items-center justify-center rounded-2xl mb-4"
-        style={{ backgroundColor: `${BRAND}18`, color: BRAND }}
-      >
-        <UserX size={26} />
+    <div className="flex flex-col items-center px-6 py-16 text-center">
+      <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-brand-50 text-brand-500">
+        <UserX size={22} />
       </div>
-      <p className="text-base font-semibold text-slate-800 dark:text-slate-100">
+      <p className="text-sm font-semibold text-text-primary dark:text-slate-100">
         {title}
       </p>
-      <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-sm">
+      <p className="mt-1.5 max-w-sm text-xs leading-relaxed text-text-secondary">
         {subtitle}
       </p>
     </div>
@@ -816,11 +775,11 @@ function EmptyState({
 
 function TableSkeleton({ rows }: { rows: number }) {
   return (
-    <div className="p-6 space-y-3 animate-pulse">
+    <div className="animate-pulse space-y-3 p-5">
       {Array.from({ length: rows }).map((_, i) => (
         <div
           key={i}
-          className="h-12 rounded-lg bg-slate-100 dark:bg-slate-800"
+          className="h-11 rounded-lg bg-surface dark:bg-slate-800"
         />
       ))}
     </div>

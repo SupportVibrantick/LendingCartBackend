@@ -85,46 +85,39 @@ export function getApplicationStatusColor(status?: string) {
 
   switch (s) {
     case "new":
-      return "bg-[#13538A] text-white";
-    case "pending":
-      return "bg-amber-500 text-white";
-    case "client_pending":
-      return "bg-rose-500 text-white";
-    case "submitted":
-      return "bg-[#1a6aad] text-white";
     case "sent":
     case "selected":
-      return "bg-[#13538A] text-white";
+    case "in_review":
+    case "submitted":
+      return "bg-sky-50 text-sky-700";
+    case "pending":
+    case "conditional":
+      return "bg-amber-50 text-amber-700";
+    case "client_pending":
+      return "bg-rose-50 text-rose-700";
     case "updated":
-      return "bg-[#0e3d66] text-white";
+      return "bg-brand-50 text-brand-600";
     case "approved":
     case "auto_approved":
-      return "bg-emerald-600 text-white";
     case "lender_approved":
-      return "bg-green-600 text-white";
+      return "bg-emerald-50 text-emerald-700";
     case "declined":
     case "rejected":
     case "auto_declined":
     case "withdrawn":
-      return "bg-red-600 text-white";
     case "lender_declined":
-      return "bg-rose-700 text-white";
-    case "in_review":
-      return "bg-[#13538A] text-white";
-    case "conditional":
-      return "bg-amber-500 text-white";
+      return "bg-rose-50 text-rose-700";
     case "draft":
-      return "bg-slate-500 text-white";
+      return "bg-slate-100 text-slate-600";
     case "incomplete":
     case "superseded":
     case "suspended":
-      return "bg-orange-500 text-white";
+      return "bg-orange-50 text-orange-700";
     case "completed":
-      return "bg-teal-600 text-white";
     case "funded":
-      return "bg-emerald-700 text-white";
+      return "bg-emerald-50 text-emerald-700";
     default:
-      return "bg-slate-600 text-white";
+      return "bg-slate-100 text-slate-600";
   }
 }
 

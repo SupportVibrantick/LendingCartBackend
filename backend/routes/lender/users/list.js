@@ -1,6 +1,7 @@
 const {
   isLenderAdmin,
   formatLenderRoleLabel,
+  LENDER_TEAM_ASSIGNABLE_ROLES,
 } = require("../../../utils/lender/lenderTeamRoles");
 
 module.exports = async function listLenderUsers(fastify) {
@@ -14,8 +15,9 @@ module.exports = async function listLenderUsers(fastify) {
           type: "object",
           properties: {
             page: { type: "integer", minimum: 1, default: 1 },
-            limit: { type: "integer", minimum: 1, maximum: 100, default: 50 },
+            limit: { type: "integer", minimum: 1, maximum: 100, default: 10 },
             search: { type: "string" },
+            role: { type: "string" },
           },
         },
       },
@@ -41,12 +43,17 @@ module.exports = async function listLenderUsers(fastify) {
         const lenderOrgId = req.user.organizationId;
         const page = Math.max(Number(req.query.page) || 1, 1);
         const limit = Math.min(
-          Math.max(Number(req.query.limit) || 50, 1),
+          Math.max(Number(req.query.limit) || 10, 1),
           100,
         );
         const skip = (page - 1) * limit;
         const search =
           typeof req.query.search === "string" ? req.query.search.trim() : "";
+        const roleRaw =
+          typeof req.query.role === "string" ? req.query.role.trim() : "";
+        const role = LENDER_TEAM_ASSIGNABLE_ROLES.includes(roleRaw)
+          ? roleRaw
+          : "";
 
         const where = {
           organizationId: lenderOrgId,
@@ -61,7 +68,26 @@ module.exports = async function listLenderUsers(fastify) {
           ];
         }
 
-        const [users, total] = await Promise.all([
+        if (role) {
+          where.roles = {
+            some: {
+              role: { name: role },
+            },
+          };
+        }
+
+        const adminWhere = {
+          organizationId: lenderOrgId,
+          isDeleted: false,
+          status: "ACTIVE",
+          roles: {
+            some: {
+              role: { name: "LENDER_ADMIN" },
+            },
+          },
+        };
+
+        const [users, total, activeAdminCount] = await Promise.all([
           prisma.userAccount.findMany({
             where,
             skip,
@@ -87,6 +113,7 @@ module.exports = async function listLenderUsers(fastify) {
             },
           }),
           prisma.userAccount.count({ where }),
+          prisma.userAccount.count({ where: adminWhere }),
         ]);
 
         const data = users.map((user) => {
@@ -116,6 +143,7 @@ module.exports = async function listLenderUsers(fastify) {
           limit,
           total,
           totalPages: Math.ceil(total / limit) || 1,
+          activeAdminCount,
           data,
         });
       } catch (error) {

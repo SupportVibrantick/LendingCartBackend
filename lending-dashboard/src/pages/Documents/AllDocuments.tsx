@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   ChevronDown,
   FileText,
@@ -15,7 +16,6 @@ import { BsThreeDotsVertical } from "react-icons/bs";
 import toast from "react-hot-toast";
 import Swal from "sweetalert2";
 import PageMeta from "../../components/common/PageMeta";
-import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import { formatLoanProduct } from "../../lib/loanPipelineUtils";
 import { getLenderAuthHeaders } from "../../lib/lenderApi";
 import { cleanupOrphanedCustomDocumentTypes } from "../../lib/documentConfigApi";
@@ -67,14 +67,22 @@ const DEFAULT_FORM: DocumentForm = {
 };
 
 function formatDate(value?: string) {
-  if (!value) return "—";
+  if (!value) return null;
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "—";
+  if (Number.isNaN(date.getTime())) return null;
   return date.toLocaleDateString("en-US", {
     year: "numeric",
     month: "short",
     day: "numeric",
   });
+}
+
+function EmptyCell({ label }: { label: string }) {
+  return (
+    <span className="text-[12px] font-medium text-text-secondary/70 italic">
+      {label}
+    </span>
+  );
 }
 
 function getSwalTheme() {
@@ -102,7 +110,7 @@ function FieldLabel({
   return (
     <div className="mb-2">
       <div className="flex items-center gap-2.5">
-        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-[#183b57]/10 text-[11px] font-bold text-[#183b57] dark:bg-brand-500/15 dark:text-brand-300">
+        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-[#4C78F5]/10 text-[11px] font-bold text-[#4C78F5] dark:bg-brand-500/15 dark:text-brand-300">
           {step}
         </span>
         <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">
@@ -119,7 +127,7 @@ function FieldLabel({
 }
 
 const inputClass =
-  "w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-[#183b57] focus:ring-2 focus:ring-[#183b57]/15 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:opacity-70 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:ring-brand-500/20 dark:disabled:bg-slate-800/60";
+  "h-10 w-full rounded-xl border border-border bg-white px-3.5 py-2 text-sm text-text-primary outline-none transition placeholder:text-text-secondary/70 focus:border-brand-400 focus:ring-2 focus:ring-brand-500/20 disabled:cursor-not-allowed disabled:bg-surface disabled:opacity-70 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:ring-brand-500/20 dark:disabled:bg-slate-800/60";
 
 // Coalesce identical GETs across React Strict Mode remounts.
 let inflightLoanProducts: Promise<LenderLoanProduct[]> | null = null;
@@ -218,12 +226,46 @@ export default function AllDocuments() {
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number }>({
+    top: 0,
+    left: 0,
+  });
   const menuRef = useRef<HTMLDivElement | null>(null);
   const filtersRef = useRef({
     search: "",
     product: "",
     pageSize: 10,
   });
+
+  const closeRowMenu = useCallback(() => setOpenMenuId(null), []);
+
+  const openRowMenu = useCallback(
+    (configId: string, trigger: HTMLElement) => {
+      if (openMenuId === configId) {
+        setOpenMenuId(null);
+        return;
+      }
+
+      const rect = trigger.getBoundingClientRect();
+      const menuWidth = 160;
+      const menuHeight = 88;
+      const gap = 6;
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const openUp = spaceBelow < menuHeight + gap;
+
+      setMenuPos({
+        top: openUp
+          ? Math.max(8, rect.top - menuHeight - gap)
+          : rect.bottom + gap,
+        left: Math.min(
+          window.innerWidth - menuWidth - 8,
+          Math.max(8, rect.right - menuWidth),
+        ),
+      });
+      setOpenMenuId(configId);
+    },
+    [openMenuId],
+  );
 
   const productNameByCode = useMemo(() => {
     const map = new Map<string, string>();
@@ -253,7 +295,7 @@ export default function AllDocuments() {
           formatLoanProduct(matched.loanProductCode)
         );
       }
-      return "—";
+      return "";
     },
     [loanProducts, productNameByCode],
   );
@@ -348,15 +390,28 @@ export default function AllDocuments() {
   }, [page, pageSize, debouncedTableSearch, selectedProductFilter]);
 
   useEffect(() => {
+    if (!openMenuId) return;
+
     function handleClickOutside(event: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setOpenMenuId(null);
-      }
+      const target = event.target as Node;
+      if (menuRef.current?.contains(target)) return;
+      if ((target as HTMLElement)?.closest?.("[data-row-menu-trigger]")) return;
+      setOpenMenuId(null);
     }
 
-    document.addEventListener("click", handleClickOutside);
-    return () => document.removeEventListener("click", handleClickOutside);
-  }, []);
+    function handleRepositionClose() {
+      setOpenMenuId(null);
+    }
+
+    document.addEventListener("mousedown", handleClickOutside);
+    window.addEventListener("resize", handleRepositionClose);
+    window.addEventListener("scroll", handleRepositionClose, true);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      window.removeEventListener("resize", handleRepositionClose);
+      window.removeEventListener("scroll", handleRepositionClose, true);
+    };
+  }, [openMenuId]);
 
   const resetForm = () => {
     setEditingId(null);
@@ -509,7 +564,7 @@ export default function AllDocuments() {
         title: "Delete failed",
         text: error.message || "Failed to delete document",
         icon: "error",
-        confirmButtonColor: "#183b57",
+        confirmButtonColor: "#4C78F5",
         ...getSwalTheme(),
       });
     } finally {
@@ -539,86 +594,66 @@ export default function AllDocuments() {
         title="Documents | Lender Portal"
         description="Manage required documents for your loan products."
       />
-      <PageBreadcrumb pageTitle="Documents" />
 
-      <div className="space-y-4">
-        {/* Page header */}
-        <div className="relative overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <div className="absolute inset-y-0 left-0 w-1 bg-[#183b57]" />
-          <div className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
-            <div className="flex min-w-0 items-center gap-2.5">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#183b57]/10 text-[#183b57] dark:bg-brand-500/15 dark:text-brand-300">
-                <FileText className="h-4 w-4" />
-              </div>
-              <div className="min-w-0">
-                <h1 className="text-base font-semibold tracking-tight text-slate-900 dark:text-white">
-                  Document Requirements
-                </h1>
-                <p className="mt-0.5 max-w-xl truncate text-xs text-slate-500 dark:text-slate-400 sm:whitespace-normal">
-                  Attach private documents to each loan product. Only your
-                  organization can see what you add here.
-                </p>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-              <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-medium text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
-                <Lock className="h-3 w-3 text-[#183b57]" />
-                Private to your portal
-              </span>
-              <span className="inline-flex items-center gap-1 rounded-full bg-[#183b57]/10 px-2.5 py-1 text-[11px] font-semibold text-[#183b57] dark:bg-brand-500/15 dark:text-brand-300">
-                {pagination.total} configured
-              </span>
-              <button
-                type="button"
-                onClick={openCreateForm}
-                disabled={loanProducts.length === 0}
-                className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#183b57] px-3 py-1.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#264863] disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <Plus className="h-4 w-4" />
-                Add Document
-              </button>
-            </div>
+      <div className="space-y-4 text-text-primary dark:text-slate-100">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <h1 className="ds-page-title">Documents</h1>
+            <p className="ds-page-subtitle">
+              Attach private document requirements to each loan product.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+            <span className="inline-flex items-center gap-1 rounded-full border border-border bg-white px-2.5 py-1 text-[11px] font-medium text-text-secondary dark:border-slate-700 dark:bg-slate-900">
+              <Lock className="h-3 w-3 text-brand-500" />
+              Private to your portal
+            </span>
+            <span className="inline-flex items-center gap-1 rounded-full bg-brand-50 px-2.5 py-1 text-[11px] font-semibold text-brand-600 dark:bg-brand-500/15 dark:text-brand-300">
+              {pagination.total} configured
+            </span>
+            <button
+              type="button"
+              onClick={openCreateForm}
+              disabled={loanProducts.length === 0}
+              className="ds-btn-primary h-9 px-3.5 text-xs disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Plus className="h-4 w-4" />
+              Add Document
+            </button>
           </div>
         </div>
 
-        {/* Full-width configured list */}
-        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <div className="border-b border-slate-100 px-5 py-4 dark:border-slate-800">
-            <div className="flex flex-col gap-4">
-              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <h2 className="text-base font-semibold text-slate-900 dark:text-white">
-                    Configured Documents
-                  </h2>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Documents mapped to your loan products
-                  </p>
-                </div>
-              </div>
+        <div className="overflow-hidden rounded-2xl border border-border bg-white dark:border-slate-700 dark:bg-slate-900">
+          <div className="space-y-3 border-b border-border px-4 py-3.5 dark:border-slate-800 sm:px-5">
+            <div>
+              <h2 className="text-[16px] font-semibold text-text-primary dark:text-white">
+                Configured Documents
+              </h2>
+              <p className="text-[13px] text-text-secondary">
+                Documents mapped to your loan products
+              </p>
+            </div>
 
-              <div className="flex flex-col gap-2.5 lg:flex-row lg:items-center">
+            <div className="flex flex-col gap-2.5 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex w-full flex-col gap-2.5 sm:flex-row sm:items-center lg:min-w-0 lg:flex-1">
                 <select
                   value={selectedProductFilter}
                   onChange={(event) => {
                     setSelectedProductFilter(event.target.value);
                   }}
-                  className={`${inputClass} lg:max-w-[240px]`}
+                  className={`${inputClass} sm:max-w-[240px]`}
                 >
                   <option value="">All loan products</option>
                   {loanProducts.map((product) => (
-                    <option
-                      key={product.id}
-                      value={product.loanProductCode}
-                    >
+                    <option key={product.id} value={product.loanProductCode}>
                       {product.loanProduct?.name ||
                         formatLoanProduct(product.loanProductCode)}
                     </option>
                   ))}
                 </select>
 
-                <div className="relative min-w-0 flex-1">
-                  <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <div className="group relative w-full sm:max-w-sm">
+                  <Search className="pointer-events-none absolute top-1/2 left-3 z-10 h-4 w-4 -translate-y-1/2 text-text-secondary transition-colors group-focus-within:text-brand-500" />
                   <input
                     type="text"
                     value={tableSearch}
@@ -627,48 +662,39 @@ export default function AllDocuments() {
                     className={`${inputClass} pl-10`}
                   />
                 </div>
-
-                <select
-                  value={pageSize}
-                  onChange={(event) => setPageSize(Number(event.target.value))}
-                  className={`${inputClass} lg:w-[120px]`}
-                >
-                  <option value={10}>10 / page</option>
-                  <option value={15}>15 / page</option>
-                  <option value={25}>25 / page</option>
-                </select>
               </div>
+
+              <select
+                value={pageSize}
+                onChange={(event) => setPageSize(Number(event.target.value))}
+                className={`${inputClass} w-full shrink-0 sm:ml-auto sm:w-[120px] lg:ml-0`}
+              >
+                <option value={10}>10 / page</option>
+                <option value={15}>15 / page</option>
+                <option value={25}>25 / page</option>
+              </select>
             </div>
           </div>
 
-          <div>
-            <table className="w-full table-fixed text-sm">
-              <colgroup>
-                <col className="w-[22%]" />
-                <col className="w-[22%]" />
-                <col className="w-[12%]" />
-                <col className="w-[10%]" />
-                <col className="w-[16%]" />
-                <col className="w-[12%]" />
-                <col className="w-[6%]" />
-              </colgroup>
+          <div className="overflow-x-auto">
+            <table className="ds-table min-w-[900px]">
               <thead>
-                <tr className="bg-slate-50/80 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:bg-slate-800/50 dark:text-slate-500">
-                  <th className="px-5 py-3">Loan Product</th>
-                  <th className="px-3 py-3">Document</th>
-                  <th className="px-3 py-3">Status</th>
-                  <th className="px-3 py-3">Files</th>
-                  <th className="px-3 py-3">Notes</th>
-                  <th className="px-3 py-3">Added</th>
-                  <th className="px-4 py-3 text-right" />
+                <tr>
+                  <th>Loan Product</th>
+                  <th>Document</th>
+                  <th>Status</th>
+                  <th>Files</th>
+                  <th>Notes</th>
+                  <th>Added</th>
+                  <th className="!text-right">Action</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+              <tbody>
                 {loadingList ? (
                   <tr>
                     <td colSpan={7} className="px-5 py-14 text-center">
-                      <Loader2 className="mx-auto h-6 w-6 animate-spin text-[#183b57]" />
-                      <p className="mt-2 text-xs text-slate-400">
+                      <Loader2 className="mx-auto h-6 w-6 animate-spin text-brand-500" />
+                      <p className="mt-2 text-xs text-text-secondary">
                         Loading documents...
                       </p>
                     </td>
@@ -676,13 +702,13 @@ export default function AllDocuments() {
                 ) : documentConfigs.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="px-5 py-14 text-center">
-                      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#183b57]/10 dark:bg-brand-500/10">
-                        <FileText className="h-6 w-6 text-[#183b57]" />
+                      <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-brand-50 text-brand-500 dark:bg-brand-500/10">
+                        <FileText className="h-5 w-5" />
                       </div>
-                      <p className="mt-4 text-sm font-semibold text-slate-700 dark:text-slate-200">
+                      <p className="text-sm font-semibold text-text-primary dark:text-slate-100">
                         No documents yet
                       </p>
-                      <p className="mx-auto mt-1 max-w-xs text-xs leading-relaxed text-slate-400">
+                      <p className="mx-auto mt-1.5 max-w-xs text-xs leading-relaxed text-text-secondary">
                         {debouncedTableSearch || selectedProductFilter
                           ? "Try changing your search or product filter."
                           : "Use Add Document to create your first requirement."}
@@ -692,7 +718,7 @@ export default function AllDocuments() {
                           type="button"
                           onClick={openCreateForm}
                           disabled={loanProducts.length === 0}
-                          className="mt-4 inline-flex items-center gap-2 rounded-xl bg-[#183b57] px-4 py-2 text-sm font-semibold text-white hover:bg-[#264863] disabled:opacity-50"
+                          className="ds-btn-primary mt-4 h-9 px-4 text-xs disabled:opacity-50"
                         >
                           <Plus className="h-4 w-4" />
                           Add Document
@@ -704,28 +730,36 @@ export default function AllDocuments() {
                   documentConfigs.map((config) => (
                     <tr
                       key={config.id}
-                      className={`transition hover:bg-slate-50/80 dark:hover:bg-slate-800/40 ${
+                      className={
                         editingId === config.id
                           ? "bg-amber-50/50 dark:bg-amber-500/5"
-                          : ""
-                      }`}
+                          : undefined
+                      }
                     >
-                      <td className="px-5 py-3.5">
-                        <p
-                          className="truncate font-medium text-slate-800 dark:text-slate-100"
-                          title={resolveProductLabel(config)}
-                        >
-                          {resolveProductLabel(config)}
-                        </p>
-                      </td>
-                      <td className="px-3 py-3.5">
-                        <div className="flex min-w-0 items-center gap-1.5">
-                          <span
-                            className="truncate font-medium text-slate-700 dark:text-slate-200"
-                            title={config.documentName || undefined}
+                      <td>
+                        {resolveProductLabel(config) ? (
+                          <p
+                            className="ds-table-title"
+                            title={resolveProductLabel(config)}
                           >
-                            {config.documentName || "—"}
-                          </span>
+                            {resolveProductLabel(config)}
+                          </p>
+                        ) : (
+                          <EmptyCell label="No product" />
+                        )}
+                      </td>
+                      <td>
+                        <div className="flex min-w-0 items-center gap-1.5">
+                          {config.documentName?.trim() ? (
+                            <span
+                              className="ds-table-title"
+                              title={config.documentName}
+                            >
+                              {config.documentName}
+                            </span>
+                          ) : (
+                            <EmptyCell label="Untitled document" />
+                          )}
                           {config.isCustom ? (
                             <span className="shrink-0 rounded-md bg-violet-50 px-1.5 py-0.5 text-[10px] font-semibold text-violet-700 dark:bg-violet-500/10 dark:text-violet-300">
                               Custom
@@ -733,9 +767,9 @@ export default function AllDocuments() {
                           ) : null}
                         </div>
                       </td>
-                      <td className="px-3 py-3.5">
+                      <td>
                         <span
-                          className={`inline-flex max-w-full items-center gap-1 truncate rounded-full px-2 py-1 text-[11px] font-semibold ${
+                          className={`inline-flex max-w-full items-center gap-1 truncate rounded-full px-2.5 py-1 text-[11px] font-semibold ${
                             config.isRequired
                               ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300"
                               : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"
@@ -747,43 +781,48 @@ export default function AllDocuments() {
                           {config.isRequired ? "Required" : "Optional"}
                         </span>
                       </td>
-                      <td className="px-3 py-3.5 tabular-nums text-slate-600 dark:text-slate-300">
+                      <td className="tabular-nums ds-table-muted">
                         {config.minFiles ?? 0}–{config.maxFiles ?? "∞"}
                       </td>
-                      <td className="px-3 py-3.5">
-                        {config.notes ? (
+                      <td>
+                        {config.notes?.trim() ? (
                           <div className="group relative min-w-0">
-                            <p className="cursor-default truncate text-slate-500 dark:text-slate-400">
+                            <p className="cursor-default truncate ds-table-muted">
                               {config.notes}
                             </p>
-                            <div className="pointer-events-none absolute bottom-full left-0 z-30 mb-2 hidden w-64 max-w-[min(16rem,70vw)] rounded-lg border border-slate-200 bg-slate-900 px-3 py-2 text-xs leading-relaxed text-white shadow-lg group-hover:block dark:border-slate-600 dark:bg-slate-800">
+                            <div className="pointer-events-none absolute bottom-full left-0 z-30 mb-2 hidden w-64 max-w-[min(16rem,70vw)] rounded-lg border border-border bg-slate-900 px-3 py-2 text-xs leading-relaxed text-white group-hover:block dark:border-slate-600 dark:bg-slate-800">
                               {config.notes}
                               <span className="absolute left-4 top-full border-4 border-transparent border-t-slate-900 dark:border-t-slate-800" />
                             </div>
                           </div>
                         ) : (
-                          <span className="text-slate-400">—</span>
+                          <EmptyCell label="No notes" />
                         )}
                       </td>
-                      <td className="px-3 py-3.5 text-slate-500 dark:text-slate-400">
-                        {formatDate(config.createdAt)}
+                      <td className="ds-table-muted">
+                        {formatDate(config.createdAt) || (
+                          <EmptyCell label="Not set" />
+                        )}
                       </td>
-                      <td className="relative overflow-visible px-4 py-3.5 text-right">
+                      <td className="text-right">
                         <div
-                          ref={openMenuId === config.id ? menuRef : null}
                           className="flex items-center justify-end"
                           onClick={(event) => event.stopPropagation()}
                         >
                           <button
                             type="button"
-                            onClick={() =>
-                              setOpenMenuId(
-                                openMenuId === config.id ? null : config.id,
-                              )
+                            data-row-menu-trigger
+                            onClick={(event) =>
+                              openRowMenu(config.id, event.currentTarget)
                             }
                             disabled={deletingId === config.id}
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition hover:bg-slate-100 hover:text-slate-800 disabled:opacity-60 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
+                            className={`inline-flex h-8 w-8 items-center justify-center rounded-full border transition disabled:opacity-60 ${
+                              openMenuId === config.id
+                                ? "border-brand-300 bg-brand-50 text-brand-600"
+                                : "border-border text-text-secondary hover:bg-surface hover:text-text-primary dark:border-slate-700 dark:hover:bg-slate-800"
+                            }`}
                             aria-label="Row actions"
+                            aria-expanded={openMenuId === config.id}
                           >
                             {deletingId === config.id ? (
                               <Loader2 className="h-4 w-4 animate-spin" />
@@ -792,29 +831,44 @@ export default function AllDocuments() {
                             )}
                           </button>
 
-                          {openMenuId === config.id ? (
-                            <div className="absolute right-2 top-11 z-50 w-40 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg dark:border-slate-700 dark:bg-slate-900">
-                              <button
-                                type="button"
-                                onClick={() => handleEdit(config)}
-                                className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-[#183b57] transition hover:bg-brand-50 dark:text-brand-300 dark:hover:bg-slate-800"
-                              >
-                                <MdModeEdit size={15} />
-                                Edit
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setOpenMenuId(null);
-                                  void handleDelete(config);
-                                }}
-                                className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-red-600 transition hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-500/10"
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                                Delete
-                              </button>
-                            </div>
-                          ) : null}
+                          {openMenuId === config.id
+                            ? createPortal(
+                                <div
+                                  ref={menuRef}
+                                  style={{
+                                    position: "fixed",
+                                    top: menuPos.top,
+                                    left: menuPos.left,
+                                  }}
+                                  className="z-[9999] w-40 overflow-hidden rounded-xl border border-border bg-white shadow-none dark:border-slate-700 dark:bg-slate-900"
+                                  onMouseDown={(event) => event.stopPropagation()}
+                                >
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      closeRowMenu();
+                                      handleEdit(config);
+                                    }}
+                                    className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-brand-500 transition hover:bg-brand-50 dark:text-brand-300 dark:hover:bg-slate-800"
+                                  >
+                                    <MdModeEdit size={15} />
+                                    Edit
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      closeRowMenu();
+                                      void handleDelete(config);
+                                    }}
+                                    className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-red-600 transition hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-500/10"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                    Delete
+                                  </button>
+                                </div>,
+                                document.body,
+                              )
+                            : null}
                         </div>
                       </td>
                     </tr>
@@ -825,18 +879,18 @@ export default function AllDocuments() {
           </div>
 
           {pagination.total > 0 ? (
-            <div className="flex flex-col gap-3 border-t border-slate-100 px-5 py-4 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-sm text-slate-500 dark:text-slate-400">
+            <div className="flex flex-col gap-3 border-t border-border px-4 py-3.5 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+              <p className="text-[13px] text-text-secondary">
                 Showing{" "}
-                <span className="font-semibold text-slate-700 dark:text-slate-200">
+                <span className="font-semibold text-text-primary">
                   {showingFrom}
                 </span>
-                {" – "}
-                <span className="font-semibold text-slate-700 dark:text-slate-200">
+                –
+                <span className="font-semibold text-text-primary">
                   {showingTo}
                 </span>{" "}
                 of{" "}
-                <span className="font-semibold text-slate-700 dark:text-slate-200">
+                <span className="font-semibold text-text-primary">
                   {pagination.total}
                 </span>
               </p>
@@ -846,7 +900,7 @@ export default function AllDocuments() {
                   type="button"
                   onClick={() => gotoPage(page - 1)}
                   disabled={page <= 1 || loadingList}
-                  className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 disabled:opacity-40 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                  className="rounded-xl border border-border px-3 py-1.5 text-xs font-semibold text-text-secondary transition hover:bg-surface disabled:opacity-40 dark:border-slate-700 dark:hover:bg-slate-800"
                 >
                   Previous
                 </button>
@@ -871,10 +925,10 @@ export default function AllDocuments() {
                         type="button"
                         onClick={() => gotoPage(pageNumber)}
                         disabled={loadingList}
-                        className={`min-w-8 rounded-lg px-2.5 py-1.5 text-xs font-medium transition ${
+                        className={`min-w-8 rounded-xl px-2.5 py-1.5 text-xs font-semibold transition ${
                           pageNumber === page
-                            ? "bg-[#183b57] text-white shadow-sm"
-                            : "border border-slate-200 text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+                            ? "bg-brand-500 text-white"
+                            : "border border-border text-text-primary hover:bg-surface dark:border-slate-700 dark:hover:bg-slate-800"
                         }`}
                       >
                         {pageNumber}
@@ -887,7 +941,7 @@ export default function AllDocuments() {
                   type="button"
                   onClick={() => gotoPage(page + 1)}
                   disabled={page >= totalPages || loadingList}
-                  className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 disabled:opacity-40 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                  className="rounded-xl border border-border px-3 py-1.5 text-xs font-semibold text-text-secondary transition hover:bg-surface disabled:opacity-40 dark:border-slate-700 dark:hover:bg-slate-800"
                 >
                   Next
                 </button>
@@ -909,7 +963,7 @@ export default function AllDocuments() {
             }}
           />
 
-          <div className="relative z-10 max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+          <div className="relative z-10 max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-border bg-white dark:border-slate-700 dark:bg-slate-900">
             <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-5 py-4 dark:border-slate-800">
               <div>
                 <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
@@ -1002,7 +1056,7 @@ export default function AllDocuments() {
                       }))
                     }
                     disabled={saving}
-                    className="h-4 w-4 shrink-0 accent-[#183b57]"
+                    className="h-4 w-4 shrink-0 accent-[#4C78F5]"
                   />
                 </label>
               </div>
@@ -1107,7 +1161,7 @@ export default function AllDocuments() {
                 <button
                   type="submit"
                   disabled={saving || !canSubmit}
-                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#183b57] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#264863] disabled:cursor-not-allowed disabled:opacity-50"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {saving ? (
                     <>

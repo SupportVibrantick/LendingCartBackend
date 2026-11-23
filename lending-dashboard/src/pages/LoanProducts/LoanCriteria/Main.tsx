@@ -251,7 +251,7 @@ export default function Main() {
                           key={p}
                           onClick={() => setPage(p)}
                           className={`px-2 py-1 text-xs rounded ${
-                            page === p ? "bg-black text-white" : "border"
+                            page === p ? "bg-brand-500 text-white" : "border"
                           }`}
                         >
                           {p}
@@ -610,7 +610,7 @@ if (!data.maxArv) {
           {/* RIGHT */}
           {/* <button
             onClick={handleSubmit}
-            className="bg-gradient-to-r from-black to-gray-800 text-white px-5 py-2 rounded-lg text-sm font-medium shadow hover:scale-[1.03] active:scale-[0.97] transition"
+            className="bg-gradient-to-r from-brand-500 to-brand-600 text-white px-5 py-2 rounded-lg text-sm font-medium shadow hover:scale-[1.03] active:scale-[0.97] transition"
           >
             Save Profile
           </button> */}
@@ -620,7 +620,7 @@ if (!data.maxArv) {
         <div className="max-w-6xl mx-auto px-6">
           <div className="w-full h-[3px] bg-gray-100 rounded-full overflow-hidden">
             <div
-              className="h-full bg-black transition-all duration-300"
+              className="h-full bg-brand-500 transition-all duration-300"
               style={{
                 width: `${((step + 1) / steps.length) * 100}%`,
               }}
@@ -641,7 +641,7 @@ if (!data.maxArv) {
                   className={`flex items-center gap-1 px-4 py-1.5 rounded-full text-xs font-medium transition-all duration-200
             ${
               isActive
-                ? "bg-black text-white shadow"
+                ? "bg-brand-500 text-white shadow"
                 : isCompleted
                   ? "bg-green-500 text-white"
                   : "bg-gray-100 text-gray-400"
@@ -702,7 +702,7 @@ if (!data.maxArv) {
                 (isLastStep && !isStep5Valid()) ||
                 (step === steps.length - 1 && hasStep5Errors)
               }
-              className="flex items-center gap-2 px-6 py-2 rounded-lg text-sm font-medium bg-gradient-to-r from-black to-gray-800 text-white shadow hover:scale-[1.03] active:scale-[0.98] transition disabled:opacity-40"
+              className="flex items-center gap-2 px-6 py-2 rounded-lg text-sm font-medium bg-gradient-to-r from-brand-500 to-brand-600 text-white shadow hover:scale-[1.03] active:scale-[0.98] transition disabled:opacity-40"
             >
               {isLastStep ? "Submit" : "Next Step"}
               {!isLastStep && <ChevronRight size={16} />}

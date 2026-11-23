@@ -98,7 +98,7 @@ const AddUser: React.FC = () => {
   };
 
   return (
-    <div className="px-6 py-6">
+    <div>
       {/* <Toaster
         position="top-center"
         toastOptions={{ duration: 2000 }}
@@ -206,32 +206,33 @@ const AddUser: React.FC = () => {
 
         {/* RIGHT TABLE */}
         <div className="col-span-12 lg:col-span-5">
-          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 h-full flex flex-col">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">
-              Users List
-            </h2>
+          <div className="ds-table-wrap flex h-full flex-col dark:border-slate-700 dark:bg-slate-900">
+            <div className="border-b border-border px-4 py-3.5">
+              <h2 className="text-[16px] font-semibold text-text-primary">
+                Users List
+              </h2>
+            </div>
 
             <div className="flex-1 overflow-auto">
-              <table className="min-w-full text-sm">
+              <table className="ds-table min-w-full">
                 <thead>
-                  <tr className="border-b border-gray-100 text-gray-500 text-xs uppercase tracking-wide">
-                    <th className="py-2 pr-4 text-left">Full Name</th>
-                    <th className="py-2 pr-4 text-left">Role</th>
-                    <th className="py-2 pr-4 text-left">Created</th>
+                  <tr>
+                    <th>Full Name</th>
+                    <th>Role</th>
+                    <th>Created</th>
                   </tr>
                 </thead>
 
                 <tbody>
                   {dummyUsers.map((u) => (
-                    <tr
-                      key={u.id}
-                      className="border-b border-gray-100 last:border-0"
-                    >
-                      <td className="py-3 pr-4 text-gray-900 font-medium">
-                        {u.firstName} {u.lastName}
+                    <tr key={u.id}>
+                      <td>
+                        <span className="ds-table-title">
+                          {u.firstName} {u.lastName}
+                        </span>
                       </td>
-                      <td className="py-3 pr-4 capitalize">{u.role}</td>
-                      <td className="py-3 pr-4 text-gray-500">
+                      <td className="capitalize ds-table-muted">{u.role}</td>
+                      <td className="ds-table-muted">
                         {new Date(u.createdAt).toLocaleDateString()}
                       </td>
                     </tr>

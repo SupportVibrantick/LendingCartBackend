@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap")
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap")
 layer(base);
 
 @import "tailwindcss";
@@ -7,7 +7,9 @@ layer(base);
 
 @theme {
   --font-*: initial;
-  --font-outfit: Outfit, sans-serif;
+  --font-inter: Inter, ui-sans-serif, system-ui, sans-serif;
+  --font-inter: Inter, ui-sans-serif, system-ui, sans-serif;
+  --font-sans: Inter, ui-sans-serif, system-ui, sans-serif;
 
   --breakpoint-*: initial;
   --breakpoint-2xsm: 375px;
@@ -39,20 +41,29 @@ layer(base);
   --color-current: currentColor;
   --color-transparent: transparent;
   --color-white: #ffffff;
-  --color-black: #101828;
+  --color-black: #111827;
 
-  --color-brand-25: #f4f8fb;
-  --color-brand-50: #e8f1f7;
-  --color-brand-100: #cfe0ec;
-  --color-brand-200: #a8c7dc;
-  --color-brand-300: #75a6c7;
-  --color-brand-400: #5b95bc;
-  --color-brand-500: #3e86b7;
-  --color-brand-600: #2e6f99;
-  --color-brand-700: #255778;
-  --color-brand-800: #1b435d;
-  --color-brand-900: #183b57;
-  --color-brand-950: #0f2a3e;
+  /* Primary blue palette (reference: #4C78F5) */
+  --color-brand-25: #f5f8ff;
+  --color-brand-50: #eef3fe;
+  --color-brand-100: #dce6fd;
+  --color-brand-200: #b9c9fb;
+  --color-brand-300: #8aa6f8;
+  --color-brand-400: #6b8df6;
+  --color-brand-500: #4c78f5;
+  --color-brand-600: #3a5fd4;
+  --color-brand-700: #2e4bb0;
+  --color-brand-800: #253c8c;
+  --color-brand-900: #1f3273;
+  --color-brand-950: #141f4a;
+
+  /* Surface / shell tokens */
+  --color-sidebar: #0d172b;
+  --color-surface: #f7f9fc;
+  --color-card: #ffffff;
+  --color-border: #e2e8f0;
+  --color-text-primary: #111827;
+  --color-text-secondary: #64748b;
 
   --color-blue-light-25: #f5fbff;
   --color-blue-light-50: #f0f9ff;
@@ -68,18 +79,18 @@ layer(base);
   --color-blue-light-950: #062c41;
 
   --color-gray-25: #fcfcfd;
-  --color-gray-50: #f9fafb;
-  --color-gray-100: #f2f4f7;
-  --color-gray-200: #e4e7ec;
-  --color-gray-300: #d0d5dd;
-  --color-gray-400: #98a2b3;
-  --color-gray-500: #667085;
-  --color-gray-600: #475467;
-  --color-gray-700: #344054;
-  --color-gray-800: #1d2939;
-  --color-gray-900: #101828;
-  --color-gray-950: #0c111d;
-  --color-gray-dark: #1a2231;
+  --color-gray-50: #f7f9fc;
+  --color-gray-100: #eef2f7;
+  --color-gray-200: #e2e8f0;
+  --color-gray-300: #cbd5e1;
+  --color-gray-400: #94a3b8;
+  --color-gray-500: #64748b;
+  --color-gray-600: #475569;
+  --color-gray-700: #334155;
+  --color-gray-800: #1e293b;
+  --color-gray-900: #111827;
+  --color-gray-950: #0d172b;
+  --color-gray-dark: #0d172b;
 
   --color-orange-25: #fffaf5;
   --color-orange-50: #fff6ed;
@@ -100,7 +111,7 @@ layer(base);
   --color-success-200: #a6f4c5;
   --color-success-300: #6ce9a6;
   --color-success-400: #32d583;
-  --color-success-500: #12b76a;
+  --color-success-500: #10b981;
   --color-success-600: #039855;
   --color-success-700: #027a48;
   --color-success-800: #05603a;
@@ -113,7 +124,7 @@ layer(base);
   --color-error-200: #fecdca;
   --color-error-300: #fda29b;
   --color-error-400: #f97066;
-  --color-error-500: #f04438;
+  --color-error-500: #ef4444;
   --color-error-600: #d92d20;
   --color-error-700: #b42318;
   --color-error-800: #912018;
@@ -126,7 +137,7 @@ layer(base);
   --color-warning-200: #fedf89;
   --color-warning-300: #fec84b;
   --color-warning-400: #fdb022;
-  --color-warning-500: #f79009;
+  --color-warning-500: #f59e0b;
   --color-warning-600: #dc6803;
   --color-warning-700: #b54708;
   --color-warning-800: #93370d;
@@ -186,7 +197,58 @@ layer(base);
     cursor: pointer;
   }
   body {
-    @apply relative font-normal font-outfit z-1 bg-gray-50;
+    @apply relative z-1 bg-surface font-normal font-inter text-text-primary antialiased;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply font-inter text-text-primary;
+  }
+
+  /* Global thin scrollbars */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #c5cedb transparent;
+  }
+
+  *::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background-color: #c5cedb;
+    border-radius: 999px;
+    border: 1px solid transparent;
+    background-clip: content-box;
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background-color: #4c78f5;
+  }
+
+  *::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  .dark * {
+    scrollbar-color: #475569 transparent;
+  }
+
+  .dark *::-webkit-scrollbar-thumb {
+    background-color: #475569;
+  }
+
+  .dark *::-webkit-scrollbar-thumb:hover {
+    background-color: #4c78f5;
   }
 }
 
@@ -200,11 +262,12 @@ html.dashboard-scroll-lock #root {
 
 @utility sidebar-scrollbar {
   &::-webkit-scrollbar {
-    width: 6px;
+    width: 3px;
+    height: 3px;
   }
 
   &::-webkit-scrollbar-track {
-    @apply rounded-full bg-white/5;
+    @apply rounded-full bg-transparent;
   }
 
   &::-webkit-scrollbar-thumb {
@@ -212,7 +275,7 @@ html.dashboard-scroll-lock #root {
   }
 
   &::-webkit-scrollbar-thumb:hover {
-    @apply bg-white/40;
+    @apply bg-brand-400;
   }
 
   scrollbar-width: thin;
@@ -221,7 +284,8 @@ html.dashboard-scroll-lock #root {
 
 @utility sidebar-scrollbar-light {
   &::-webkit-scrollbar {
-    width: 5px;
+    width: 3px;
+    height: 3px;
   }
 
   &::-webkit-scrollbar-track {
@@ -229,45 +293,45 @@ html.dashboard-scroll-lock #root {
   }
 
   &::-webkit-scrollbar-thumb {
-    @apply rounded-full bg-gray-200;
+    @apply rounded-full bg-gray-300;
   }
 
   &::-webkit-scrollbar-thumb:hover {
-    @apply bg-gray-300;
+    @apply bg-brand-500;
   }
 
   scrollbar-width: thin;
-  scrollbar-color: rgb(229 231 235) transparent;
+  scrollbar-color: #c5cedb transparent;
 }
 
 @utility menu-item {
-  @apply relative flex items-center w-full gap-3 px-3 py-2 font-medium rounded-lg text-theme-sm;
+  @apply relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200;
 }
 
 @utility menu-item-active {
-  @apply bg-brand-50 text-brand-500 dark:bg-brand-500/[0.12] dark:text-brand-400;
+  @apply bg-brand-500 text-white shadow-none;
 }
 
 @utility menu-item-inactive {
-  @apply text-gray-700 hover:bg-gray-100 group-hover:text-gray-700 dark:text-gray-300 dark:hover:bg-white/5 dark:hover:text-gray-300;
+  @apply text-text-secondary hover:bg-surface hover:text-text-primary;
 }
 
 @utility menu-item-icon {
-  @apply text-gray-500 group-hover:text-gray-700 dark:text-gray-400;
+  @apply text-text-secondary group-hover:text-text-primary;
 }
 
 @utility menu-item-icon-active {
-  @apply text-brand-500 dark:text-brand-400;
+  @apply text-white;
 }
 
 @utility menu-item-icon-size {
   & svg {
-    @apply !size-6;
+    @apply !size-[18px];
   }
 }
 
 @utility menu-item-icon-inactive {
-  @apply text-gray-500 group-hover:text-gray-700 dark:text-gray-400 dark:group-hover:text-gray-300;
+  @apply text-text-secondary group-hover:text-text-primary;
 }
 
 @utility menu-item-arrow {
@@ -315,19 +379,30 @@ html.dashboard-scroll-lock #root {
 }
 @utility custom-scrollbar {
   &::-webkit-scrollbar {
-    @apply size-1.5;
+    width: 4px;
+    height: 4px;
   }
 
   &::-webkit-scrollbar-track {
-    @apply rounded-full;
+    @apply rounded-full bg-transparent;
   }
 
   &::-webkit-scrollbar-thumb {
-    @apply bg-gray-200 rounded-full dark:bg-gray-700;
+    @apply rounded-full bg-gray-300;
   }
+
+  &::-webkit-scrollbar-thumb:hover {
+    @apply bg-brand-500;
+  }
+
+  scrollbar-width: thin;
+  scrollbar-color: #c5cedb transparent;
 }
 .dark .custom-scrollbar::-webkit-scrollbar-thumb {
-  background-color: #344054;
+  background-color: #475569;
+}
+.dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: #4c78f5;
 }
 
 @layer utilities {
@@ -576,13 +651,13 @@ span.flatpickr-weekday,
 .flatpickr-day.selected.nextMonthDay,
 .flatpickr-day.startRange.nextMonthDay,
 .flatpickr-day.endRange.nextMonthDay {
-  background: #3e86b7;
+  background: #4C78F5;
   @apply !border-brand-500 !bg-brand-500 hover:!border-brand-500 hover:!bg-brand-500;
 }
 .flatpickr-day.selected.startRange + .endRange:not(:nth-child(7n + 1)),
 .flatpickr-day.startRange.startRange + .endRange:not(:nth-child(7n + 1)),
 .flatpickr-day.endRange.startRange + .endRange:not(:nth-child(7n + 1)) {
-  box-shadow: -10px 0 0 #3e86b7;
+  box-shadow: -10px 0 0 #4C78F5;
 }
 
 .flatpickr-months .flatpickr-prev-month svg,
@@ -852,53 +927,53 @@ body.swal2-shown > *:not(.swal2-container) {
 }
 
 
-/* ================= SIDEBAR (WHITE THEME) ================= */
+/* ================= SIDEBAR (WHITE) ================= */
 .menu-item {
-  @apply relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-medium transition-all duration-200;
+  @apply relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200;
 }
 
 .menu-item-active {
-  @apply bg-[#183B57]/10 text-[#183B57] dark:bg-[#183B57]/20 dark:text-cyan-300;
-  box-shadow: inset 3px 0 0 0 #183B57;
+  @apply bg-brand-500 text-white;
+  box-shadow: none;
 }
 
 .menu-item-inactive {
-  @apply text-gray-600 dark:text-gray-300;
+  @apply text-text-secondary;
 }
 
 .menu-item-inactive:hover {
-  @apply bg-gray-50 text-gray-900 dark:bg-gray-800 dark:text-white;
+  @apply bg-surface text-text-primary;
 }
 
 .menu-item-nested {
-  @apply py-2 text-[12.5px];
+  @apply py-2 text-[13px];
 }
 
 .menu-item-icon-size {
-  @apply flex h-5 w-5 shrink-0 items-center justify-center;
+  @apply flex h-[18px] w-[18px] shrink-0 items-center justify-center;
 }
 
 .menu-item-icon-active {
-  color: #183B57 !important;
+  color: #ffffff !important;
 }
 
 .menu-item-icon-inactive {
-  color: #183B57 !important;
+  color: #64748b !important;
 }
 
 .menu-item-inactive:hover .menu-item-icon-inactive {
-  color: #183B57 !important;
+  color: #111827 !important;
 }
 
 .menu-item-icon-active svg,
 .menu-item-icon-inactive svg {
-  fill: currentColor;
   color: inherit;
+  stroke: currentColor;
 }
 
 .menu-item-text {
   @apply truncate whitespace-nowrap;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 500;
   color: inherit;
 }
@@ -912,15 +987,121 @@ body.swal2-shown > *:not(.swal2-container) {
 }
 
 .menu-dropdown-item-active {
-  @apply bg-blue-50 text-[#183B57];
+  @apply bg-brand-500 text-white;
 }
 
 .menu-dropdown-item-inactive {
-  @apply text-gray-600;
+  @apply text-text-secondary;
 }
 
 .menu-dropdown-item-inactive:hover {
-  @apply bg-gray-50 text-[#183B57];
+  @apply bg-surface text-text-primary;
+}
+
+/* ================= DESIGN SYSTEM UTILITIES ================= */
+.ds-page-title {
+  @apply text-[24px] font-semibold leading-tight tracking-tight text-text-primary;
+}
+
+.ds-page-subtitle {
+  @apply mt-1 text-[13px] font-normal text-text-secondary;
+}
+
+.ds-section-title {
+  @apply text-[16px] font-semibold text-text-primary;
+}
+
+.ds-card {
+  @apply rounded-2xl border border-border bg-card;
+}
+
+/* Admin Pipeline–style data tables (white card, caps headers, row dividers only) */
+.ds-table-wrap {
+  @apply overflow-hidden rounded-2xl border border-border bg-card shadow-none;
+}
+
+.ds-table-toolbar {
+  @apply flex flex-col gap-3 border-b border-border px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between;
+}
+
+.ds-table {
+  @apply w-full min-w-full border-collapse text-left text-sm;
+}
+
+.ds-table thead {
+  @apply bg-white dark:bg-slate-950;
+}
+
+.ds-table th {
+  @apply border-b border-border bg-white px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-text-secondary dark:bg-slate-950 dark:text-slate-400;
+}
+
+.ds-table td {
+  @apply border-b border-border px-5 py-4 align-middle text-[13px] text-text-primary;
+}
+
+.ds-table tbody tr {
+  @apply transition-colors hover:bg-surface/80 dark:hover:bg-slate-800/50;
+}
+
+.ds-table tbody tr:last-child td {
+  @apply border-b-0;
+}
+
+.ds-table-title {
+  @apply truncate text-sm font-semibold text-text-primary dark:text-white;
+}
+
+.ds-table-meta {
+  @apply mt-0.5 truncate text-[12px] text-text-secondary;
+}
+
+.ds-table-amount {
+  @apply text-sm font-semibold tabular-nums text-text-primary dark:text-white;
+}
+
+.ds-table-muted {
+  @apply text-text-secondary;
+}
+
+.ds-table-empty {
+  @apply text-text-secondary;
+}
+
+.ds-badge {
+  @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold;
+}
+
+.ds-badge-success {
+  @apply bg-emerald-50 text-emerald-700;
+}
+
+.ds-badge-danger {
+  @apply bg-rose-50 text-rose-700;
+}
+
+.ds-badge-warning {
+  @apply bg-amber-50 text-amber-700;
+}
+
+.ds-badge-info {
+  @apply bg-brand-50 text-brand-600;
+}
+
+.ds-badge-neutral {
+  @apply bg-slate-100 text-slate-600;
+}
+
+.ds-btn-primary {
+  @apply inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-brand-500 px-4 text-sm font-semibold text-white transition hover:bg-brand-600;
+}
+
+.ds-btn-secondary {
+  @apply inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-border bg-white px-4 text-sm font-semibold text-text-primary transition hover:bg-surface;
+}
+
+.ds-input {
+  @apply h-10 w-full rounded-xl border border-border bg-white px-3.5 text-sm text-text-primary placeholder:text-text-secondary/70 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20;
 }
 
 .modal-open {
@@ -930,8 +1111,8 @@ body.swal2-shown > *:not(.swal2-container) {
 /* ================= TABLE NATIVE SCROLLBAR ================= */
 
 .loan-table-scroll::-webkit-scrollbar {
-  height: 8px;
-  width: 8px;
+  height: 4px;
+  width: 4px;
 }
 
 .loan-table-scroll::-webkit-scrollbar-track {
@@ -939,53 +1120,64 @@ body.swal2-shown > *:not(.swal2-container) {
 }
 
 .loan-table-scroll::-webkit-scrollbar-thumb {
-  background-color: #cbd5e1; /* gray-300 */
+  background-color: #c5cedb;
   border-radius: 999px;
-  transition: background 0.3s ease;
+  border: 1px solid transparent;
+  background-clip: content-box;
+  transition: background 0.2s ease;
 }
 
 .loan-table-scroll::-webkit-scrollbar-thumb:hover {
-  background-color: #94a3b8; /* gray-400 */
+  background-color: #4c78f5;
 }
 
-/* Dark Mode */
+.loan-table-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #c5cedb transparent;
+}
+
 .dark .loan-table-scroll::-webkit-scrollbar-thumb {
-  background-color: #475569; /* gray-600 */
+  background-color: #475569;
 }
 
 .dark .loan-table-scroll::-webkit-scrollbar-thumb:hover {
-  background-color: #64748b; /* gray-500 */
+  background-color: #4c78f5;
 }
 
 .custom-scrollbar::-webkit-scrollbar {
-  width: 6px;
+  width: 4px;
+  height: 4px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #183b57;
-  border-radius: 10px;
+  background: #c5cedb;
+  border-radius: 999px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #4c78f5;
 }
 
 /* ===== Chat panel scrollbar (loan preview, messaging) ===== */
 .chat-panel-scrollbar::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 3px;
+  height: 3px;
 }
 
 .chat-panel-scrollbar::-webkit-scrollbar-track {
   background: transparent;
-  margin-block: 6px;
+  margin-block: 4px;
 }
 
 .chat-panel-scrollbar::-webkit-scrollbar-thumb {
-  background-color: rgba(148, 163, 184, 0.42);
+  background-color: rgba(148, 163, 184, 0.45);
   border-radius: 9999px;
-  border: 2px solid transparent;
+  border: 1px solid transparent;
   background-clip: content-box;
 }
 
 .chat-panel-scrollbar::-webkit-scrollbar-thumb:hover {
-  background-color: rgba(100, 116, 139, 0.62);
+  background-color: #4c78f5;
 }
 
 .dark .chat-panel-scrollbar::-webkit-scrollbar-thumb {
@@ -993,7 +1185,7 @@ body.swal2-shown > *:not(.swal2-container) {
 }
 
 .dark .chat-panel-scrollbar::-webkit-scrollbar-thumb:hover {
-  background-color: rgba(100, 116, 139, 0.72);
+  background-color: #4c78f5;
 }
 
 .chat-panel-scrollbar {

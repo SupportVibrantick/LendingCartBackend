@@ -1,17 +1,28 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useLocation } from "react-router";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router";
 import {
+  ChevronDown,
   FileText,
   Handshake,
+  LayoutDashboard,
   Layers,
+  LogOut,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Settings,
   TrendingUp,
+  UserRound,
   Users,
 } from "lucide-react";
-import { CgProfile } from "react-icons/cg";
-import { MdSettings } from "react-icons/md";
-import { ChevronDownIcon, GridIcon, HorizontaLDots } from "../icons";
+import { HorizontaLDots } from "../icons";
 import { useSidebar } from "../context/SidebarContext";
 import { canManageTeam } from "../lib/lenderPermissions";
+import { clearLenderSession } from "../lib/lenderSession";
+import {
+  getLenderRoles,
+  getRoleOption,
+  type LenderTeamRole,
+} from "../lib/lenderTeamMembers";
 
 type NavItem = {
   name: string;
@@ -24,13 +35,13 @@ type NavItem = {
 
 const allNavItems: NavItem[] = [
   {
-    icon: <GridIcon />,
+    icon: <LayoutDashboard size={18} strokeWidth={1.75} />,
     name: "Dashboard",
     path: "/",
     matchPaths: ["/"],
   },
   {
-    icon: <TrendingUp size={18} />,
+    icon: <TrendingUp size={18} strokeWidth={1.75} />,
     name: "Loan Pipeline",
     path: "/loan-pipeline",
     matchPaths: [
@@ -41,7 +52,7 @@ const allNavItems: NavItem[] = [
     ],
   },
   {
-    icon: <Layers size={18} />,
+    icon: <Layers size={18} strokeWidth={1.75} />,
     name: "Loan Programs",
     path: "/all-loan-products",
     matchPaths: [
@@ -53,13 +64,13 @@ const allNavItems: NavItem[] = [
     ],
   },
   {
-    icon: <Handshake size={18} />,
+    icon: <Handshake size={18} strokeWidth={1.75} />,
     name: "Brokers",
     path: "/brokers",
     matchPaths: ["/brokers", "/broker-request", "/my-broker", "/find-broker"],
   },
   {
-    icon: <FileText size={18} />,
+    icon: <FileText size={18} strokeWidth={1.75} />,
     name: "Documents",
     adminOnly: true,
     matchPaths: ["/documents", "/sign-form-templates"],
@@ -69,21 +80,21 @@ const allNavItems: NavItem[] = [
     ],
   },
   {
-    icon: <Users size={18} />,
+    icon: <Users size={18} strokeWidth={1.75} />,
     name: "Users",
     path: "/team-members",
     adminOnly: true,
     matchPaths: ["/team-members"],
   },
   {
-    icon: <MdSettings size={18} />,
+    icon: <Settings size={18} strokeWidth={1.75} />,
     name: "Settings",
     adminOnly: true,
     matchPaths: ["/settings/branding"],
     subItems: [{ name: "Branding", path: "/settings/branding" }],
   },
   {
-    icon: <CgProfile />,
+    icon: <UserRound size={18} strokeWidth={1.75} />,
     name: "Profile",
     path: "/profile",
     matchPaths: ["/profile", "/profile/edit", "/profile/guidelines"],
@@ -108,20 +119,121 @@ const filterLenderNavItems = (items: NavItem[]): NavItem[] => {
     .filter((item): item is NavItem => item !== null);
 };
 
+const ROLE_PRIORITY: LenderTeamRole[] = [
+  "LENDER_ADMIN",
+  "LENDER_UNDERWRITER",
+  "LENDER_ANALYST",
+  "LENDER_VIEWER",
+];
+
+function readSidebarUser() {
+  try {
+    const raw = sessionStorage.getItem("lender_user");
+    if (!raw) return null;
+    return JSON.parse(raw) as Record<string, any>;
+  } catch {
+    return null;
+  }
+}
+
+function resolvePrimaryRole(roles?: string[] | null): LenderTeamRole | null {
+  const list = Array.isArray(roles) && roles.length ? roles : getLenderRoles();
+  for (const role of ROLE_PRIORITY) {
+    if (list.includes(role)) return role;
+  }
+  const first = list.find((role) => role.startsWith("LENDER_"));
+  return (first as LenderTeamRole) || null;
+}
+
+function getUserInitials(firstName?: string, lastName?: string, fallback = "U") {
+  const first = firstName?.charAt(0) || "";
+  const last = lastName?.charAt(0) || "";
+  return `${first}${last}`.toUpperCase() || fallback;
+}
+
 const AppSidebar: React.FC = () => {
-  const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
+  const {
+    isExpanded,
+    isMobileOpen,
+    isHovered,
+    setIsHovered,
+    toggleSidebar,
+  } = useSidebar();
   const location = useLocation();
+  const navigate = useNavigate();
   const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({});
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement | null>(null);
 
   const visibleNavItems = useMemo(() => filterLenderNavItems(allNavItems), []);
 
+  const sidebarUser = useMemo(() => {
+    const stored = readSidebarUser();
+    const firstName = stored?.firstName || stored?.user?.firstName || "";
+    const lastName = stored?.lastName || stored?.user?.lastName || "";
+    const name =
+      `${firstName} ${lastName}`.trim() ||
+      stored?.name ||
+      stored?.user?.name ||
+      "Lender User";
+    const orgName =
+      stored?.organization?.name ||
+      stored?.organizationName ||
+      stored?.user?.organization?.name ||
+      "Lender Portal";
+    const roles = Array.isArray(stored?.roles)
+      ? stored.roles
+      : Array.isArray(stored?.user?.roles)
+        ? stored.user.roles
+        : getLenderRoles();
+    const primaryRole = resolvePrimaryRole(roles);
+    const roleLabel = getRoleOption(primaryRole)?.label || "Member";
+
+    return {
+      name,
+      orgName,
+      roleLabel,
+      initials: getUserInitials(firstName, lastName, name.charAt(0) || "U"),
+    };
+  }, [location.pathname]);
+
+  useEffect(() => {
+    setUserMenuOpen(false);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    if (!userMenuOpen) return;
+
+    const onPointerDown = (event: MouseEvent) => {
+      if (!userMenuRef.current?.contains(event.target as Node)) {
+        setUserMenuOpen(false);
+      }
+    };
+    const onEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setUserMenuOpen(false);
+    };
+
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onEscape);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onEscape);
+    };
+  }, [userMenuOpen]);
+
+  const handleSignOut = () => {
+    setUserMenuOpen(false);
+    try {
+      clearLenderSession();
+    } catch {
+      // ignore storage errors
+    }
+    navigate("/signin");
+  };
+
   const isPathActive = useCallback(
     (path?: string, matchPaths?: string[]) => {
-      const paths = matchPaths?.length
-        ? matchPaths
-        : path
-          ? [path]
-          : [];
+      const paths = matchPaths?.length ? matchPaths : path ? [path] : [];
 
       return paths.some((candidate) => {
         if (candidate === "/") return location.pathname === "/";
@@ -177,6 +289,9 @@ const AppSidebar: React.FC = () => {
     setOpenMenus(findActiveMenus(visibleNavItems));
   }, [location.pathname, visibleNavItems, hasActiveChild]);
 
+  const showLabels = isExpanded || isHovered || isMobileOpen;
+  const isDesktopCollapsed = !isExpanded && !isMobileOpen;
+
   const renderMenuItems = (
     items: NavItem[],
     menuType: "main" = "main",
@@ -185,9 +300,7 @@ const AppSidebar: React.FC = () => {
   ) => (
     <ul
       className={`flex flex-col gap-0.5 ${
-        level > 0
-          ? "ml-2 mt-1 border-l border-[#183B57]/15 pl-2.5 dark:border-[#183B57]/25"
-          : ""
+        level > 0 ? "ml-3 mt-1 border-l border-border pl-2" : ""
       }`}
     >
       {items.map((nav, index) => {
@@ -205,56 +318,63 @@ const AppSidebar: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => toggleMenu(key)}
+                  title={!showLabels ? nav.name : undefined}
                   className={`menu-item group ${
-                    childActive || isOpen
-                      ? "menu-item-active"
-                      : "menu-item-inactive"
-                  }`}
+                    childActive
+                      ? "bg-brand-50 text-brand-600 hover:bg-brand-50 dark:bg-brand-500/15 dark:text-brand-300"
+                      : isOpen
+                        ? "bg-surface text-text-primary"
+                        : "menu-item-inactive"
+                  } ${!showLabels ? "justify-center px-2" : ""}`}
                 >
-                  {nav.icon && (
+                  {nav.icon ? (
                     <span
                       className={`menu-item-icon-size ${
-                        childActive || isOpen
-                          ? "menu-item-icon-active"
+                        childActive
+                          ? "text-brand-600 dark:text-brand-300"
                           : "menu-item-icon-inactive"
                       }`}
                     >
                       {nav.icon}
                     </span>
-                  )}
+                  ) : null}
 
-                  {(isExpanded || isHovered || isMobileOpen) && (
-                    <span className="menu-item-text">{nav.name}</span>
-                  )}
-
-                  {(isExpanded || isHovered || isMobileOpen) && (
-                    <ChevronDownIcon
-                      className={`ml-auto h-4 w-4 transition-all duration-200 ${
-                        isOpen
-                          ? "rotate-180 text-[#183B57]"
-                          : "text-gray-400 group-hover:text-gray-600"
-                      }`}
-                    />
-                  )}
+                  {showLabels ? (
+                    <>
+                      <span className="menu-item-text">{nav.name}</span>
+                      <ChevronDown
+                        className={`ml-auto h-4 w-4 shrink-0 transition-transform duration-200 ${
+                          isOpen ? "rotate-180" : ""
+                        } ${
+                          childActive
+                            ? "text-brand-500"
+                            : "text-text-secondary"
+                        }`}
+                      />
+                    </>
+                  ) : null}
                 </button>
 
-                {(isExpanded || isHovered || isMobileOpen) && (
+                {showLabels ? (
                   <div
                     className={`overflow-hidden transition-all duration-300 ${
-                      isOpen ? "mt-1 max-h-[1000px]" : "max-h-0"
+                      isOpen ? "mt-0.5 max-h-[1000px]" : "max-h-0"
                     }`}
                   >
                     {renderMenuItems(nav.subItems, menuType, level + 1, key)}
                   </div>
-                )}
+                ) : null}
               </>
             ) : (
               nav.path && (
                 <Link
                   to={nav.path}
+                  title={!showLabels ? nav.name : undefined}
                   className={`menu-item group ${
                     linkActive ? "menu-item-active" : "menu-item-inactive"
-                  } ${level > 0 ? "menu-item-nested" : ""}`}
+                  } ${level > 0 ? "menu-item-nested" : ""} ${
+                    !showLabels && level === 0 ? "justify-center px-2" : ""
+                  }`}
                 >
                   {nav.icon ? (
                     <span
@@ -266,19 +386,17 @@ const AppSidebar: React.FC = () => {
                     >
                       {nav.icon}
                     </span>
-                  ) : (
-                    level > 0 && (
-                      <span
-                        className={`ml-1 h-1.5 w-1.5 shrink-0 rounded-full ${
-                          linkActive ? "bg-[#183B57]" : "bg-[#183B57]/35"
-                        }`}
-                      />
-                    )
-                  )}
+                  ) : level > 0 ? (
+                    <span
+                      className={`ml-1 h-1.5 w-1.5 shrink-0 rounded-full ${
+                        linkActive ? "bg-white" : "bg-brand-500/40"
+                      }`}
+                    />
+                  ) : null}
 
-                  {(isExpanded || isHovered || isMobileOpen) && (
+                  {showLabels ? (
                     <span className="menu-item-text">{nav.name}</span>
-                  )}
+                  ) : null}
                 </Link>
               )
             )}
@@ -290,31 +408,34 @@ const AppSidebar: React.FC = () => {
 
   return (
     <aside
-      className={`fixed top-0 left-0 z-50 mt-16 flex h-[calc(100vh-4rem)] flex-col border-r border-gray-200 bg-white text-gray-800 shadow-[4px_0_24px_rgba(15,23,42,0.04)] transition-all duration-300 ease-in-out dark:border-gray-800 dark:bg-gray-950 dark:text-gray-100 dark:shadow-none lg:mt-0 lg:h-screen
+      className={`fixed top-0 left-0 z-50 mt-16 flex h-[calc(100vh-4rem)] flex-col border-r border-border bg-white text-text-primary transition-all duration-300 ease-in-out lg:mt-0 lg:h-screen
         ${
           isExpanded || isMobileOpen
-            ? "w-[290px]"
+            ? "w-[260px]"
             : isHovered
-              ? "w-[290px]"
-              : "w-[90px]"
+              ? "w-[260px]"
+              : "w-[84px]"
         }
         ${isMobileOpen ? "translate-x-0" : "-translate-x-full"}
         lg:translate-x-0`}
-      onMouseEnter={() => !isExpanded && setIsHovered(true)}
+      onMouseEnter={() => {
+        if (isDesktopCollapsed) setIsHovered(true);
+      }}
       onMouseLeave={() => setIsHovered(false)}
     >
       <div
-        className={`relative shrink-0 overflow-hidden border-b border-gray-100 dark:border-gray-800 ${
-          !isExpanded && !isHovered
-            ? "lg:flex lg:justify-center lg:px-2 lg:py-4"
-            : "px-4 py-5"
+        className={`flex shrink-0 items-center border-b border-border ${
+          showLabels ? "gap-2 px-3 py-4" : "justify-center px-2 py-4"
         }`}
       >
-        <div className="absolute inset-0 bg-gradient-to-br from-[#183B57]/10 via-transparent to-[#183B57]/5 dark:from-[#183B57]/20 dark:to-[#183B57]/10" />
-        <Link to="/" className="relative block">
-          {isExpanded || isHovered || isMobileOpen ? (
-            <div className="flex items-center gap-3">
-              <div className="h-11 w-11 shrink-0 overflow-hidden rounded-xl ring-2 ring-white shadow-sm dark:ring-gray-800">
+        <Link
+          to="/"
+          className={`min-w-0 ${showLabels ? "flex-1" : ""}`}
+          title="LoanAutomation Lender Suite"
+        >
+          {showLabels ? (
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-brand-500 ring-2 ring-brand-100">
                 <img
                   src="/loanAutomation.jpeg"
                   alt="Logo"
@@ -322,16 +443,16 @@ const AppSidebar: React.FC = () => {
                 />
               </div>
               <div className="min-w-0">
-                <p className="truncate text-sm font-bold text-gray-900 dark:text-white">
-                  Loan Automation
+                <p className="truncate text-[14px] font-semibold tracking-tight text-text-primary">
+                  LoanAutomation
                 </p>
-                <p className="truncate text-[10px] font-semibold uppercase tracking-[0.12em] text-[#183B57] dark:text-cyan-400">
-                  Lender Portal
+                <p className="truncate text-[10px] font-semibold uppercase tracking-[0.14em] text-text-secondary">
+                  Lender Suite
                 </p>
               </div>
             </div>
           ) : (
-            <div className="mx-auto flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl ring-2 ring-[#183B57]/15">
+            <div className="mx-auto flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-brand-500 ring-2 ring-brand-100">
               <img
                 src="/loanAutomation.jpeg"
                 alt="Logo"
@@ -340,19 +461,39 @@ const AppSidebar: React.FC = () => {
             </div>
           )}
         </Link>
+
+        {showLabels ? (
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              setIsHovered(false);
+              toggleSidebar();
+            }}
+            className="hidden h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border text-text-secondary transition hover:bg-surface hover:text-brand-500 lg:inline-flex"
+            title={isExpanded ? "Collapse sidebar" : "Expand sidebar"}
+            aria-label={isExpanded ? "Collapse sidebar" : "Expand sidebar"}
+          >
+            {isExpanded ? (
+              <PanelLeftClose size={16} strokeWidth={1.75} />
+            ) : (
+              <PanelLeftOpen size={16} strokeWidth={1.75} />
+            )}
+          </button>
+        ) : null}
       </div>
 
-      <div className="sidebar-scrollbar-light min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-3 py-4">
-        <nav className="pb-4">
+      <div className="sidebar-scrollbar-light min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-2.5 py-3">
+        <nav>
           <h2
-            className={`mb-3 px-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-gray-400 dark:text-gray-500 ${
-              !isExpanded && !isHovered ? "lg:text-center" : ""
+            className={`mb-2 px-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-text-secondary ${
+              !showLabels ? "lg:text-center" : ""
             }`}
           >
-            {isExpanded || isHovered || isMobileOpen ? (
-              "Navigation"
+            {showLabels ? (
+              "Lender Workspace"
             ) : (
-              <HorizontaLDots className="mx-auto size-5 text-gray-300" />
+              <HorizontaLDots className="mx-auto size-5 text-slate-300" />
             )}
           </h2>
 
@@ -360,13 +501,84 @@ const AppSidebar: React.FC = () => {
         </nav>
       </div>
 
-      {(isExpanded || isHovered || isMobileOpen) && (
-        <div className="shrink-0 border-t border-gray-100 px-4 py-3 dark:border-gray-800">
-          <p className="text-center text-[10px] font-medium uppercase tracking-wider text-gray-400 dark:text-gray-600">
-            Loan Automation Lender
-          </p>
-        </div>
-      )}
+      <div
+        ref={userMenuRef}
+        className={`relative shrink-0 border-t border-border ${
+          showLabels ? "p-3" : "px-2 py-3"
+        }`}
+      >
+        {userMenuOpen ? (
+          <div
+            className={`absolute bottom-[calc(100%-2px)] z-50 overflow-hidden rounded-xl border border-border bg-white dark:border-slate-700 dark:bg-slate-900 ${
+              showLabels
+                ? "right-3 left-3"
+                : "left-1/2 w-40 -translate-x-1/2"
+            }`}
+          >
+            <button
+              type="button"
+              onClick={handleSignOut}
+              className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-sm font-semibold text-rose-600 transition hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-500/10"
+            >
+              <LogOut size={15} strokeWidth={1.75} />
+              Sign out
+            </button>
+          </div>
+        ) : null}
+
+        {showLabels ? (
+          <button
+            type="button"
+            onClick={() => setUserMenuOpen((open) => !open)}
+            className="flex w-full items-center gap-2.5 rounded-xl border border-border bg-white px-2.5 py-2 text-left transition hover:bg-surface dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800"
+            aria-expanded={userMenuOpen}
+            aria-haspopup="menu"
+          >
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-500 text-[11px] font-bold text-white">
+              {sidebarUser.initials}
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-[13px] font-semibold text-text-primary">
+                {sidebarUser.name}
+              </span>
+              <span className="block truncate text-[11px] text-text-secondary">
+                {sidebarUser.roleLabel} · {sidebarUser.orgName}
+              </span>
+            </span>
+            <ChevronDown
+              size={16}
+              className={`shrink-0 text-text-secondary transition ${
+                userMenuOpen ? "rotate-180" : ""
+              }`}
+            />
+          </button>
+        ) : (
+          <div className="flex flex-col items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setUserMenuOpen((open) => !open)}
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-500 text-[11px] font-bold text-white"
+              title={sidebarUser.name}
+              aria-label="Account menu"
+              aria-expanded={userMenuOpen}
+            >
+              {sidebarUser.initials}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setIsHovered(false);
+                toggleSidebar();
+              }}
+              className="hidden h-8 w-8 items-center justify-center rounded-lg border border-border text-text-secondary transition hover:bg-surface hover:text-brand-500 lg:flex"
+              title="Expand sidebar"
+              aria-label="Expand sidebar"
+            >
+              <PanelLeftOpen size={16} strokeWidth={1.75} />
+            </button>
+          </div>
+        )}
+      </div>
     </aside>
   );
 };

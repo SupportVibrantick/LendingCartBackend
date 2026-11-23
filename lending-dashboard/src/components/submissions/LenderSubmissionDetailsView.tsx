@@ -40,7 +40,7 @@ type LenderSubmissionDetailsViewProps = {
   pdfBranding?: PdfBranding | null;
 };
 
-const BRAND = "#183b57";
+const BRAND = "#4C78F5";
 
 const SUMMARY_FIELD_KEYS = new Set([
   "applicationid",
@@ -460,24 +460,24 @@ export default function LenderSubmissionDetailsView({
       {/* Fields panel */}
       <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[0_8px_30px_-20px_rgba(15,23,42,0.28)] dark:border-slate-700 dark:bg-slate-950">
         <div className="border-b border-slate-100 px-4 py-4 dark:border-slate-800 sm:px-5">
-          <div className="relative">
+          <div className="relative w-full sm:max-w-sm">
             <Search
               size={14}
-              className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
+              className="pointer-events-none absolute left-3.5 top-1/2 z-10 -translate-y-1/2 text-text-secondary"
             />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search all fields…"
-              className="w-full rounded-xl border border-slate-200 bg-slate-50/70 py-2.5 pl-10 pr-10 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-brand-600/40 focus:bg-white focus:ring-4 focus:ring-brand-600/10 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-brand-500/40 dark:focus:ring-brand-500/10"
+              className="h-10 w-full rounded-xl border border-border bg-white py-2 pr-10 pl-10 text-sm text-text-primary outline-none transition placeholder:text-text-secondary/70 focus:border-brand-400 focus:ring-2 focus:ring-brand-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
             />
             {searchQuery && (
               <button
                 type="button"
                 onClick={() => setSearchQuery("")}
                 aria-label="Clear search"
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-lg p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-lg p-1 text-text-secondary transition hover:bg-surface hover:text-text-primary dark:hover:bg-slate-800"
               >
                 <X size={14} />
               </button>

@@ -295,12 +295,12 @@ const BrokersLenders: React.FC = () => {
 
   // ===== UI =====
   return (
-    <div className="px-6 py-6 text-gray-900 dark:text-gray-100">
+    <div className="text-gray-900 dark:text-gray-100">
       {/* Heading same style as BrokersPage */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
-            Lender <span className="text-[#3e86b7]">Assigned Rules</span>
+            Lender <span className="text-[#4C78F5]">Assigned Rules</span>
           </h1>
         </div>
       </div>
@@ -387,8 +387,8 @@ const BrokersLenders: React.FC = () => {
             <button
               disabled={submitting}
               type="submit"
-              className="inline-flex items-center justify-center rounded-md bg-[#3e86b7] px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-[#2e6f99] disabled:opacity-60 disabled:cursor-not-allowed
-  dark:bg-[#3e86b7] dark:hover:bg-[#2e6f99]"
+              className="inline-flex items-center justify-center rounded-md bg-[#4C78F5] px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-[#2e6f99] disabled:opacity-60 disabled:cursor-not-allowed
+  dark:bg-[#4C78F5] dark:hover:bg-[#2e6f99]"
             >
               Create Rule Set
             </button>
@@ -566,8 +566,8 @@ const BrokersLenders: React.FC = () => {
             <button
               disabled={submitting}
               type="submit"
-              className="inline-flex items-center justify-center rounded-md bg-[#3e86b7] px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-[#2e6f99] disabled:opacity-60 disabled:cursor-not-allowed
-  dark:bg-[#3e86b7] dark:hover:bg-[#2e6f99]"
+              className="inline-flex items-center justify-center rounded-md bg-[#4C78F5] px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-[#2e6f99] disabled:opacity-60 disabled:cursor-not-allowed
+  dark:bg-[#4C78F5] dark:hover:bg-[#2e6f99]"
             >
               Create Rule
             </button>

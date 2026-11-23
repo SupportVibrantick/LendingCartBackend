@@ -79,7 +79,7 @@ const AllUser: React.FC = () => {
   };
 
   return (
-    <div className="px-6 py-6">
+    <div>
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
@@ -90,21 +90,20 @@ const AllUser: React.FC = () => {
         </div>
       </div>
 
-      {/* Card */}
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+      <div className="ds-table-wrap dark:border-slate-700 dark:bg-slate-900">
         {users.length === 0 ? (
-          <div className="py-16 text-center text-sm text-gray-500">
+          <div className="py-16 text-center text-sm text-text-secondary">
             No users found.
           </div>
         ) : (
-          <div className="overflow-auto">
-            <table className="min-w-full text-sm">
+          <div className="overflow-x-auto">
+            <table className="ds-table min-w-full">
               <thead>
-                <tr className="border-b border-gray-100 text-xs text-gray-500 uppercase tracking-wide">
-                  <th className="py-2 pr-4 text-left">Full Name</th>
-                  <th className="py-2 pr-4 text-left">Role</th>
-                  <th className="py-2 pr-4 text-left">Phone Number</th>
-                  <th className="py-2 pr-4 text-right">Actions</th>
+                <tr>
+                  <th>Full Name</th>
+                  <th>Role</th>
+                  <th>Phone Number</th>
+                  <th className="text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -112,26 +111,23 @@ const AllUser: React.FC = () => {
                   const isLoading = rowLoadingId === user.id;
                   const fullName = `${user.firstName} ${user.lastName}`;
                   return (
-                    <tr
-                      key={user.id}
-                      className="border-b border-gray-100 last:border-0 hover:bg-gray-50/40"
-                    >
-                      <td className="py-3 pr-4 text-gray-900 whitespace-nowrap">
-                        {fullName}
+                    <tr key={user.id}>
+                      <td className="whitespace-nowrap">
+                        <span className="ds-table-title">{fullName}</span>
                       </td>
-                      <td className="py-3 pr-4 text-gray-600 whitespace-nowrap">
+                      <td className="whitespace-nowrap ds-table-muted">
                         {roleLabel[user.role]}
                       </td>
-                      <td className="py-3 pr-4 text-gray-600 whitespace-nowrap">
+                      <td className="whitespace-nowrap ds-table-muted">
                         {user.phone}
                       </td>
-                      <td className="py-3 pr-4">
+                      <td>
                         <div className="flex items-center justify-end gap-2">
                           <button
                             type="button"
                             onClick={() => handleEdit(user)}
                             disabled={isLoading}
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 text-gray-500 hover:bg-gray-100 hover:text-gray-800 disabled:opacity-40"
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-border text-text-secondary hover:bg-surface hover:text-text-primary disabled:opacity-40"
                           >
                             <MdModeEdit className="h-4 w-4" />
                           </button>
@@ -140,7 +136,7 @@ const AllUser: React.FC = () => {
                             type="button"
                             onClick={() => handleDelete(user)}
                             disabled={isLoading}
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-red-100 text-red-500 hover:bg-red-50 hover:text-red-700 disabled:opacity-40"
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-rose-100 text-rose-500 hover:bg-rose-50 hover:text-rose-700 disabled:opacity-40"
                           >
                             {isLoading ? (
                               <svg

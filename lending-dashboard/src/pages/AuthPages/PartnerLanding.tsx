@@ -47,7 +47,7 @@ export default function PartnerLanding() {
 
           <Link
             to="/partner/signup"
-            className="inline-flex w-full items-center justify-center rounded-xl bg-[#264863] px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-sky-900/20 transition hover:bg-[#183b57] active:scale-[0.99]"
+            className="inline-flex w-full items-center justify-center rounded-xl bg-[#3A5FD4] px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-sky-900/20 transition hover:bg-[#4C78F5] active:scale-[0.99]"
           >
             Become a Lending Partner
           </Link>

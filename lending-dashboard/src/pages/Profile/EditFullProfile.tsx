@@ -940,7 +940,7 @@ export default function EditFullProfile() {
     if (step === loanCriteriaStepIndex) {
       if (!selectedProducts.length) {
         return (
-          <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-6 py-10 text-center">
+          <div className="rounded-xl border border-dashed border-border bg-surface px-6 py-10 text-center dark:border-slate-700">
             <p className="text-sm font-medium text-slate-800">
               No loan program selected
             </p>
@@ -951,7 +951,7 @@ export default function EditFullProfile() {
             <button
               type="button"
               onClick={() => setStep(1)}
-              className="mt-4 inline-flex items-center rounded-lg bg-[#102B40] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#163a54]"
+              className="ds-btn-primary mt-4 h-9 px-4 text-xs"
             >
               Select loan program
             </button>
@@ -1029,21 +1029,23 @@ export default function EditFullProfile() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-24">
-        <Loader2 className="h-8 w-8 animate-spin text-[#102B40]" />
+      <div className="flex min-h-[280px] flex-col items-center justify-center gap-2 text-text-secondary">
+        <Loader2 className="h-7 w-7 animate-spin text-brand-500" />
+        <p className="text-xs">Loading profile editor…</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-4 bg-gray-50 pb-4">
-      <div className="sticky top-0 z-30 rounded-xl border border-slate-200 bg-white/95 px-6 py-4 shadow-sm backdrop-blur">
-        <div className="flex items-center justify-between gap-3">
+    <div className="space-y-4 text-text-primary dark:text-slate-100">
+      <div className="sticky top-0 z-30 overflow-hidden rounded-2xl border border-border bg-white dark:border-slate-700 dark:bg-slate-900">
+        <div className="flex items-center justify-between gap-3 px-4 py-3.5 sm:px-5">
           <div className="flex min-w-0 items-center gap-3">
             <button
               type="button"
               onClick={() => navigate("/profile")}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border transition hover:bg-gray-100"
+              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border text-text-secondary transition hover:bg-surface hover:text-brand-500 dark:border-slate-700"
+              aria-label="Back to profile"
             >
               <ArrowLeft size={18} />
             </button>
@@ -1051,22 +1053,22 @@ export default function EditFullProfile() {
             <div className="min-w-0">
               {selectedProducts.length > 0 && step > 0 ? (
                 <>
-                  <h1 className="truncate text-lg font-semibold leading-tight">
+                  <h1 className="truncate text-[17px] font-semibold leading-tight">
                     {selectedProducts.length === 1
                       ? selectedProducts[0].name
                       : `${selectedProducts[0].name} +${selectedProducts.length - 1} more`}
                   </h1>
-                  <p className="truncate text-xs text-gray-500">
+                  <p className="truncate text-[12px] text-text-secondary">
                     {steps[step]} · Step {step + 1} of {steps.length}
                     {company.companyName ? ` · ${company.companyName}` : ""}
                   </p>
                 </>
               ) : (
                 <>
-                  <h1 className="text-lg font-semibold leading-tight">
+                  <h1 className="text-[17px] font-semibold leading-tight">
                     Edit — {company.companyName || "Lender Profile"}
                   </h1>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-[12px] text-text-secondary">
                     Step {step + 1} of {steps.length} · {steps[step]}
                   </p>
                 </>
@@ -1078,25 +1080,25 @@ export default function EditFullProfile() {
             type="button"
             onClick={() => saveCompanyProfile()}
             disabled={savingProfile || submitting}
-            className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium transition hover:bg-slate-50 disabled:opacity-50"
+            className="ds-btn-secondary h-9 shrink-0 px-3.5 text-xs disabled:opacity-50"
           >
             {savingProfile ? (
-              <Loader2 size={16} className="animate-spin" />
+              <Loader2 size={15} className="animate-spin" />
             ) : (
-              <Save size={16} />
+              <Save size={15} />
             )}
             Save Profile
           </button>
         </div>
 
-        <div className="mt-4 h-[3px] overflow-hidden rounded-full bg-gray-100">
+        <div className="h-1 bg-surface dark:bg-slate-800">
           <div
-            className="h-full bg-[#102B40] transition-all duration-300"
+            className="h-full bg-brand-500 transition-all duration-300"
             style={{ width: `${((step + 1) / steps.length) * 100}%` }}
           />
         </div>
 
-        <div className="mt-4 flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2 px-4 py-3 sm:px-5">
           {steps.map((label, index) => {
             const isActive = step === index;
             const isCompleted = step > index;
@@ -1104,52 +1106,56 @@ export default function EditFullProfile() {
             return (
               <div key={label} className="flex items-center gap-2">
                 <div
-                  className={`flex items-center gap-1 rounded-full px-4 py-1.5 text-xs font-medium transition-all duration-200 ${
+                  className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
                     isActive
-                      ? "bg-[#102B40] text-white shadow"
+                      ? "bg-brand-500 text-white"
                       : isCompleted
                         ? "bg-emerald-500 text-white"
-                        : "bg-gray-100 text-gray-400"
+                        : "bg-surface text-text-secondary dark:bg-slate-800"
                   }`}
                 >
-                  {isCompleted ? "✓" : index + 1}
-                  <span className="ml-1">{label}</span>
+                  <span>{isCompleted ? "✓" : index + 1}</span>
+                  <span>{label}</span>
                 </div>
 
-                {index < steps.length - 1 && (
+                {index < steps.length - 1 ? (
                   <div
-                    className={`h-[2px] w-6 transition-all ${
-                      step > index ? "bg-emerald-400" : "bg-gray-300"
+                    className={`hidden h-0.5 w-5 sm:block ${
+                      step > index ? "bg-emerald-400" : "bg-border"
                     }`}
                   />
-                )}
+                ) : null}
               </div>
             );
           })}
         </div>
       </div>
 
-      <div className="rounded-xl border border-slate-200 bg-white p-6">
+      <div className="overflow-hidden rounded-2xl border border-border bg-white p-4 sm:p-5 dark:border-slate-700 dark:bg-slate-900">
         {getStepContent()}
       </div>
 
-      <div className="rounded-xl border border-slate-200 bg-white px-6 py-4">
-        <div className="flex items-center justify-between gap-3">
-          <div className="text-xs text-gray-500">
-            Step <span className="font-semibold text-gray-700">{step + 1}</span>{" "}
-            of{" "}
-            <span className="font-semibold text-gray-700">{steps.length}</span>
-            {isLastStep && step5ValidationMessage && (
-              <p className="mt-1 text-red-600">{step5ValidationMessage}</p>
-            )}
+      <div className="overflow-hidden rounded-2xl border border-border bg-white px-4 py-3.5 sm:px-5 dark:border-slate-700 dark:bg-slate-900">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="text-[13px] text-text-secondary">
+            Step{" "}
+            <span className="font-semibold text-text-primary">{step + 1}</span> of{" "}
+            <span className="font-semibold text-text-primary">
+              {steps.length}
+            </span>
+            {isLastStep && step5ValidationMessage ? (
+              <p className="mt-1 text-xs text-rose-600">
+                {step5ValidationMessage}
+              </p>
+            ) : null}
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <button
               type="button"
               disabled={step === 0 || submitting || savingProfile}
               onClick={() => setStep((previous) => previous - 1)}
-              className="flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm transition hover:bg-gray-50 disabled:opacity-40"
+              className="ds-btn-secondary h-9 px-3.5 text-xs disabled:opacity-40"
             >
               <ChevronLeft size={16} />
               Previous
@@ -1159,14 +1165,14 @@ export default function EditFullProfile() {
               type="button"
               onClick={isLastStep ? handleSubmit : goNext}
               disabled={nextDisabled}
-              className="flex items-center gap-2 rounded-lg bg-[#102B40] px-6 py-2 text-sm font-medium text-white shadow transition hover:bg-[#163a54] disabled:opacity-40"
+              className="ds-btn-primary h-9 px-4 text-xs disabled:opacity-40"
             >
               {isLastStep
                 ? submitting
                   ? "Saving..."
                   : "Save Lender"
                 : "Next Step"}
-              {!isLastStep && <ChevronRight size={16} />}
+              {!isLastStep ? <ChevronRight size={16} /> : null}
             </button>
           </div>
         </div>

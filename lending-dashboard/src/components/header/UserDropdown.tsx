@@ -57,11 +57,11 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user }) => {
     <div className="relative">
       <button
         onClick={toggleDropdown}
-        className="flex items-center text-gray-700 dropdown-toggle dark:text-gray-400"
+        className="dropdown-toggle flex items-center gap-2 rounded-full border border-border bg-white py-1 pr-2 pl-1 text-text-primary transition hover:bg-surface dark:border-gray-700 dark:text-gray-300"
         aria-expanded={isOpen}
         aria-haspopup="true"
       >
-        <span className="mr-3 overflow-hidden rounded-full h-11 w-11">
+        <span className="h-8 w-8 overflow-hidden rounded-full">
           <img
             src={
               user?.user?.profileImage
@@ -69,18 +69,19 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user }) => {
                 : "/profile.png"
             }
             alt="User"
+            className="h-full w-full object-cover"
           />
         </span>
 
-        <span className="block mr-1 font-medium text-theme-sm">
+        <span className="hidden max-w-[120px] truncate text-[13px] font-medium sm:block">
           {toTitleCase(displayName)}
         </span>
         <svg
-          className={`stroke-gray-500 dark:stroke-gray-400 transition-transform duration-200 ${
+          className={`stroke-text-secondary transition-transform duration-200 ${
             isOpen ? "rotate-180" : ""
           }`}
-          width="18"
-          height="20"
+          width="16"
+          height="16"
           viewBox="0 0 18 20"
           fill="none"
           xmlns="http://www.w3.org/2000/svg"

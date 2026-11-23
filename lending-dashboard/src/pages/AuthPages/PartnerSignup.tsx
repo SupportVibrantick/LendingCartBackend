@@ -555,7 +555,7 @@ export default function PartnerSignup() {
             <button
               type="submit"
               disabled={saving || Boolean(captchaConfigError)}
-              className="mt-1 inline-flex w-full items-center justify-center rounded-xl bg-[#264863] px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-sky-900/20 transition hover:bg-[#183b57] disabled:cursor-not-allowed disabled:opacity-60"
+              className="mt-1 inline-flex w-full items-center justify-center rounded-xl bg-[#3A5FD4] px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-sky-900/20 transition hover:bg-[#4C78F5] disabled:cursor-not-allowed disabled:opacity-60"
             >
               {saving ? "Verifying and creating account..." : "Create account"}
             </button>
