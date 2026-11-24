@@ -235,4 +235,6 @@ module.exports = {
   looksLikePdf,
   sanitizePdfBytes,
   repairStoredPdfTemplate,
+  stripBrokenFormTrees,
+  replaceInvalidObjects,
 };

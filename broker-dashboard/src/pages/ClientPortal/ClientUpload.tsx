@@ -4,39 +4,27 @@ import axios from "axios";
 import {
   Upload,
   FileText,
-  CheckCircle,
+  CheckCircle2,
   ChevronLeft,
   ChevronRight,
   Download,
   Eye,
   Loader2,
   FolderOpen,
-  LayoutGrid,
-  FileSignature,
-  Receipt,
-  ClipboardList,
-  Pencil,
+  Lock,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import SignatureCanvas from "react-signature-canvas";
 import FeeAgreement from "./FeeAgreement";
-import {
-  FiUploadCloud,
-  FiFileText,
-  FiMessageCircle,
-  FiLogOut,
-  FiUser,
-  FiX,
-  FiSearch,
-  FiMapPin,
-  FiHome,
-  FiLayers,
-  FiBriefcase,
-} from "react-icons/fi";
+import { FiX, FiSearch } from "react-icons/fi";
 import Chat from "./Chat";
 import ClientNotificationDropdown, {
+  resetClientNotificationSessionCache,
   type ClientNotification,
 } from "./ClientNotificationDropdown";
+import ClientPortalChrome, {
+  type ApplicationWorkspaceTab,
+} from "./ClientPortalChrome";
 import {
   getLatestSubmission,
   getNumericFieldValue,
@@ -198,8 +186,6 @@ function isClientPortalUploadVisible(doc: any) {
 const API_BASE =
   import.meta.env.VITE_API_BASE || "https://api.loanautomation.ai";
 
-const LOAN_AUTOMATION_LOGO = "/loanAutomation.jpeg";
-
 const getStatusStyles = (status?: string) => {
   switch (status) {
     case "SUBMITTED":
@@ -256,8 +242,19 @@ const getStatusDot = (status?: string) => {
   }
 };
 
-const formatLoanProductLabel = (code?: string | null) => {
-  if (!code) return "Loan Application";
+const formatLoanProductLabel = (code?: unknown) => {
+  const resolved =
+    typeof code === "string"
+      ? code
+      : code && typeof code === "object"
+        ? String(
+            (code as { code?: unknown; name?: unknown }).code ||
+              (code as { code?: unknown; name?: unknown }).name ||
+              "",
+          )
+        : "";
+
+  if (!resolved.trim()) return "Loan Application";
 
   const labels: Record<string, string> = {
     FIX_AND_FLIP_LOAN_1_TO_4_UNITS: "Fix & Flip",
@@ -276,7 +273,7 @@ const formatLoanProductLabel = (code?: string | null) => {
     INVOICE_FACTORING: "AR Factoring",
   };
 
-  return labels[code] || code.replace(/_/g, " ");
+  return labels[resolved] || resolved.replace(/_/g, " ");
 };
 
 const formatApplicationAmount = (value: unknown) => {
@@ -318,74 +315,31 @@ const getDocumentProgressPercent = (app: {
   return Math.min(100, Math.round((uploaded / total) * 100));
 };
 
-type ApplicationCardSummary = {
-  businessName?: string | null;
-  propertyInfo?: string | null;
-  collateralSummary?: string | null;
-  address?: string | null;
-  broker?: {
-    id?: string;
-    name?: string | null;
-    email?: string | null;
-  } | null;
-};
-
-const ApplicationCardMetaRow = ({
-  icon,
+const ApplicationCardMetaCell = ({
   label,
   value,
 }: {
-  icon: React.ReactNode;
   label: string;
   value?: string | null;
 }) => {
-  if (!value?.trim()) return null;
+  const resolved = value?.trim();
+  if (!resolved) return null;
 
   return (
-    <div className="flex items-start gap-2.5">
-      <span className="mt-0.5 shrink-0 text-slate-400">{icon}</span>
-      <div className="min-w-0">
-        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-          {label}
-        </p>
-        <p className="mt-0.5 line-clamp-2 text-xs font-medium leading-snug text-slate-700">
-          {value}
-        </p>
-      </div>
+    <div className="min-w-0">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#94A3B8]">
+        {label}
+      </p>
+      <p
+        className="mt-1 line-clamp-2 text-[13px] font-semibold leading-snug text-[#111827]"
+        title={resolved}
+      >
+        {resolved}
+      </p>
     </div>
   );
 };
 
-const hasApplicationCardSummary = (app: ApplicationCardSummary) =>
-  Boolean(
-    app.businessName?.trim() ||
-      app.propertyInfo?.trim() ||
-      app.collateralSummary?.trim() ||
-      app.address?.trim() ||
-      app.broker?.name?.trim(),
-  );
-
-const getStatusAccentClass = (status?: string) => {
-  switch (status ?? "") {
-    case "SUBMITTED":
-    case "APPROVED":
-    case "LENDER_APPROVED":
-    case "AUTO_APPROVED":
-    case "FUNDED":
-      return "bg-emerald-500";
-    case "IN_REVIEW":
-      return "bg-blue-500";
-    case "PENDING":
-    case "CLIENT_PENDING":
-      return "bg-amber-500";
-    case "REJECTED":
-    case "LENDER_DECLINED":
-    case "AUTO_DECLINED":
-      return "bg-red-500";
-    default:
-      return "bg-slate-400";
-  }
-};
 const formatStatusLabel = (status?: string | null) => {
   if (!status) return "Unknown";
 
@@ -440,14 +394,6 @@ function buildVisiblePages(current: number, totalPages: number) {
   return pages;
 }
 
-type ApplicationWorkspaceTab =
-  | "application"
-  | "documents"
-  | "termSheet"
-  | "signForms"
-  | "feeAgreement"
-  | "chat";
-
 type ClientSignWorkspaceTab = "termSheet" | "signForms";
 
 const normalizeClientSignResumeTab = (
@@ -458,297 +404,26 @@ const normalizeClientSignResumeTab = (
   return "signForms";
 };
 
-type ApplicationWorkspaceShellProps = {
-  activeTab: ApplicationWorkspaceTab;
-  applicationNumber?: string;
-  status?: string;
-  onTabChange: (tab: ApplicationWorkspaceTab) => void;
-  onBackToApplications: () => void;
-  formatStatusLabel: (status?: string | null) => string;
-  getStatusStyles: (status?: string) => string;
-  getStatusDot: (status?: string) => string;
-  compact?: boolean;
-  chatEnabled?: boolean;
-  children: React.ReactNode;
-};
-
-type WorkspaceNavIcon = React.ComponentType<{
-  size?: number;
-  className?: string;
-  strokeWidth?: number;
-}>;
-
-const APPLICATION_WORKSPACE_SECTIONS: Array<{
-  id: string;
-  label: string;
-  items: Array<{
-    key: ApplicationWorkspaceTab;
-    label: string;
-    icon: WorkspaceNavIcon;
-  }>;
-}> = [
-  {
-    id: "application",
-    label: "Application",
-    items: [{ key: "application", label: "Loan Application", icon: LayoutGrid }],
-  },
-  {
-    id: "documents",
-    label: "Documents",
-    items: [
-      { key: "documents", label: "Upload Documents", icon: FiUploadCloud },
-      { key: "termSheet", label: "Term Sheet", icon: FileSignature },
-      { key: "signForms", label: "Fill & Sign Forms", icon: ClipboardList },
-      { key: "feeAgreement", label: "Fee Agreement", icon: Receipt },
-    ],
-  },
-  {
-    id: "communication",
-    label: "Communication",
-    items: [{ key: "chat", label: "Chat", icon: FiMessageCircle }],
-  },
-];
-
-function ApplicationWorkspaceShell({
-  activeTab,
-  applicationNumber,
-  status,
-  onTabChange,
-  onBackToApplications,
-  formatStatusLabel,
-  getStatusStyles,
-  getStatusDot,
-  compact = false,
-  chatEnabled = true,
-  children,
-  topBar,
-}: ApplicationWorkspaceShellProps & { topBar?: React.ReactNode }) {
-  const workspaceSections = APPLICATION_WORKSPACE_SECTIONS.filter(
-    (section) => chatEnabled || section.id !== "communication",
-  );
-
-  const renderNavItems = (opts?: { compact?: boolean }) =>
-    workspaceSections.map((section, sectionIndex) => (
-      <div
-        key={section.id}
-        className={
-          opts?.compact ? "contents" : sectionIndex > 0 ? "mt-5" : ""
-        }
-      >
-        {!opts?.compact ? (
-          <h2 className="mb-2.5 px-3 text-[10px] font-bold uppercase tracking-[0.14em] text-gray-400">
-            {section.label}
-          </h2>
-        ) : null}
-        <ul
-          className={
-            opts?.compact ? "flex gap-1.5" : "flex flex-col gap-0.5"
-          }
-        >
-          {section.items.map((tab) => {
-            const Icon = tab.icon;
-            const isActive = activeTab === tab.key;
-
-            return (
-              <li
-                key={tab.key}
-                className={opts?.compact ? "shrink-0" : undefined}
-              >
-                <button
-                  type="button"
-                  aria-current={isActive ? "page" : undefined}
-                  onClick={() => onTabChange(tab.key)}
-                  className={
-                    opts?.compact
-                      ? `inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold transition ${
-                          isActive
-                            ? "bg-[#13538A] text-white"
-                            : "bg-gray-50 text-gray-600 hover:bg-gray-100 hover:text-gray-900"
-                        }`
-                      : `relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[13px] transition-all duration-200 ${
-                          isActive
-                            ? "bg-[#13538A]/10 font-semibold text-[#13538A] shadow-[inset_3px_0_0_0_#13538A]"
-                            : "font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-                        }`
-                  }
-                >
-                  <Icon
-                    size={opts?.compact ? 14 : 18}
-                    strokeWidth={2.15}
-                    className={
-                      isActive
-                        ? opts?.compact
-                          ? "shrink-0 text-white"
-                          : "shrink-0 text-[#13538A]"
-                        : "shrink-0 text-gray-400"
-                    }
-                  />
-                  <span className="min-w-0 flex-1 truncate whitespace-nowrap">
-                    {tab.label}
-                  </span>
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      </div>
-    ));
-
-  return (
-    <div className="flex h-full w-full overflow-hidden bg-[#F5F7FA]">
-      {/* Full-height left sidebar — AppSidebar fonts/design */}
-      <aside className="hidden h-full w-[260px] shrink-0 flex-col border-r border-gray-200 bg-white lg:flex">
-        <div className="relative shrink-0 overflow-hidden border-b border-gray-100 px-4 py-5">
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-[#13538A]/6 via-transparent to-[#2C92D5]/8" />
-          <div className="relative flex items-center gap-3">
-            <div className="h-11 w-11 shrink-0 overflow-hidden rounded-xl shadow-sm ring-2 ring-white">
-              <img
-                src={LOAN_AUTOMATION_LOGO}
-                alt="Loan Automation"
-                className="h-full w-full object-cover"
-              />
-            </div>
-            <div className="min-w-0">
-              <p className="truncate text-sm font-bold text-gray-900">
-                Loan Automation
-              </p>
-              <p className="truncate text-[10px] font-semibold uppercase tracking-[0.12em] text-[#13538A]">
-                Client Portal
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <nav
-          aria-label="Application sections"
-          className="sidebar-scrollbar-light min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-3 py-4"
-        >
-          {renderNavItems()}
-        </nav>
-
-        <div className="shrink-0 border-t border-gray-100 p-3">
-          <button
-            type="button"
-            onClick={onBackToApplications}
-            className="relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-medium text-gray-600 transition-all duration-200 hover:bg-[#13538A]/10 hover:text-[#13538A]"
-          >
-            <ChevronLeft
-              size={18}
-              strokeWidth={2.15}
-              className="shrink-0 text-[#13538A]"
-            />
-            <span className="truncate">Back</span>
-          </button>
-        </div>
-      </aside>
-
-      {/* Main column */}
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-        {topBar}
-
-        {/* Mobile nav */}
-        <div className="border-b border-slate-200 bg-white lg:hidden">
-          <div className="flex items-center justify-between gap-3 px-4 py-3">
-            <div className="flex min-w-0 items-center gap-2.5">
-              <div className="h-9 w-9 shrink-0 overflow-hidden rounded-lg shadow-sm ring-1 ring-gray-200">
-                <img
-                  src={LOAN_AUTOMATION_LOGO}
-                  alt="Loan Automation"
-                  className="h-full w-full object-cover"
-                />
-              </div>
-              <div className="min-w-0">
-                <p className="truncate text-sm font-bold text-gray-900">
-                  Loan Automation
-                </p>
-                <p className="truncate text-[10px] font-semibold uppercase tracking-[0.12em] text-[#13538A]">
-                  Client Portal
-                </p>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={onBackToApplications}
-              className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-[#13538A]/25 bg-[#13538A]/10 px-2.5 py-1.5 text-sm font-semibold text-[#13538A] hover:border-[#13538A]/40 hover:bg-[#13538A]/15"
-            >
-              <ChevronLeft size={16} strokeWidth={2.5} />
-              Back
-            </button>
-          </div>
-          <div className="overflow-x-auto px-2 pb-2">
-            <div className="flex gap-1.5">{renderNavItems({ compact: true })}</div>
-          </div>
-        </div>
-
-        <div
-          className={`min-h-0 flex-1 ${
-            compact ? "flex flex-col overflow-hidden" : "overflow-y-auto"
-          }`}
-        >
-          <div
-            className={`mx-auto w-full max-w-[1400px] ${
-              compact
-                ? "flex min-h-0 flex-1 flex-col overflow-hidden p-3 sm:p-4 lg:p-5"
-                : "space-y-4 p-4 md:p-6 lg:px-8"
-            }`}
-          >
-            {!compact ? (
-              <div className="overflow-hidden rounded-xl border border-gray-100 bg-white">
-                <div className="relative overflow-hidden">
-                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-[#13538A]/[0.07] via-transparent to-[#2C92D5]/8" />
-                  <div className="relative px-4 py-4 sm:px-5 sm:py-5">
-                    <button
-                      type="button"
-                      onClick={onBackToApplications}
-                      className="mb-3 hidden items-center gap-1.5 rounded-lg border border-[#13538A]/25 bg-[#13538A]/10 px-3 py-1.5 text-sm font-semibold text-[#13538A] shadow-sm transition hover:border-[#13538A]/40 hover:bg-[#13538A]/15 hover:text-[#0E426E] lg:inline-flex"
-                    >
-                      <ChevronLeft size={16} strokeWidth={2.5} />
-                      Back to Applications
-                    </button>
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#13538A]">
-                          Application workspace
-                        </p>
-                        <h1 className="mt-0.5 truncate text-2xl font-bold tracking-tight text-gray-900">
-                          Loan Application
-                        </h1>
-                        <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-gray-500">
-                          <span className="rounded-lg bg-[#13538A]/10 px-2.5 py-1 font-mono text-xs font-semibold text-[#13538A]">
-                            {applicationNumber || "Application"}
-                          </span>
-                          {status ? (
-                            <span
-                              className={`inline-flex items-center gap-2 rounded-full px-2.5 py-0.5 text-xs font-semibold ${getStatusStyles(
-                                status,
-                              )}`}
-                            >
-                              <span
-                                className={`h-1.5 w-1.5 rounded-full ${getStatusDot(status)}`}
-                              />
-                              {formatStatusLabel(status)}
-                            </span>
-                          ) : null}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ) : null}
-
-            <div
-              className={
-                compact ? "min-h-0 flex-1 overflow-hidden" : "min-w-0"
-              }
-            >
-              {children}
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+function inferDocumentCategory(name: string): string {
+  const n = name.toLowerCase();
+  if (
+    /property|appraisal|title|insurance|hoa|lease|rent|dscr|photo|inspection/.test(
+      n,
+    )
+  ) {
+    return "Property";
+  }
+  if (
+    /bank|tax|w-?2|1099|income|financial|profit|balance|statement|credit|asset/.test(
+      n,
+    )
+  ) {
+    return "Financial";
+  }
+  if (/entity|operating|articles|ein|llc|corp|formation|id|license|passport/.test(n)) {
+    return "Identity & Entity";
+  }
+  return "Core";
 }
 
 export default function ClientUpload() {
@@ -1554,13 +1229,51 @@ export default function ClientUpload() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.state]);
 
-  const handleBackToApplications = () => {
+  const resetToApplicationsList = useCallback(() => {
     setSelectedApplication(null);
     setApplicationData(null);
     setApplicationId("");
     clearApplicationDocuments();
     setActiveTab("applications");
-  };
+
+    // Keep the session portal URL (drop magic-link token path) so browser Back
+    // does not leave the portal or reopen login.
+    if (token || location.pathname !== "/client-portal") {
+      navigate("/client-portal", { replace: true });
+    }
+  }, [token, location.pathname, navigate]);
+
+  const handleBackToApplications = useCallback(() => {
+    // Prefer history.back() so we consume the workspace history entry we pushed.
+    if (
+      typeof window !== "undefined" &&
+      (window.history.state as { clientPortalWorkspace?: boolean } | null)
+        ?.clientPortalWorkspace
+    ) {
+      window.history.back();
+      return;
+    }
+    resetToApplicationsList();
+  }, [resetToApplicationsList]);
+
+  const isWorkspaceMode = activeTab !== "applications";
+
+  // Browser Back inside an application returns to the applications list
+  // instead of the login page.
+  useEffect(() => {
+    if (!isWorkspaceMode) return;
+
+    window.history.pushState({ clientPortalWorkspace: true }, "");
+
+    const onPopState = () => {
+      resetToApplicationsList();
+    };
+
+    window.addEventListener("popstate", onPopState);
+    return () => {
+      window.removeEventListener("popstate", onPopState);
+    };
+  }, [isWorkspaceMode, resetToApplicationsList]);
 
   const chatEnabled = Boolean(
     applicationData?.entitlements?.chatEnabled ??
@@ -1573,90 +1286,109 @@ export default function ClientUpload() {
     }
   }, [activeTab, applicationId, chatEnabled]);
 
+  const workspaceStatus = selectedApplication?.status || applicationData?.status;
+
+  const portalNotifications =
+    Boolean(sessionStorage.getItem("client_token")) ? (
+      <ClientNotificationDropdown
+        apiBase={API_BASE}
+        onNotificationClick={handleClientNotificationClick}
+      />
+    ) : null;
+
   const renderApplicationWorkspace = (children: React.ReactNode) => (
-    <ApplicationWorkspaceShell
-      activeTab={
-        activeTab === "chat"
-          ? "chat"
-          : (activeTab as ApplicationWorkspaceTab)
-      }
-      applicationNumber={
-        selectedApplication?.applicationNumber || applicationNumber
-      }
-      status={selectedApplication?.status || applicationData?.status}
-      onTabChange={handleWorkspaceTab}
-      onBackToApplications={handleBackToApplications}
-      formatStatusLabel={formatStatusLabel}
-      getStatusStyles={getStatusStyles}
-      getStatusDot={getStatusDot}
-      compact={activeTab === "chat"}
-      chatEnabled={chatEnabled}
-      topBar={
-        <>
-          {isClientPortalImpersonationSession() ? (
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-900">
-              <span>You are viewing this client portal as a broker admin.</span>
-              <button
-                type="button"
-                onClick={exitClientPortalImpersonation}
-                className="rounded-lg bg-amber-900 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-amber-800"
-              >
-                Close portal tab
-              </button>
-            </div>
-          ) : null}
-          <div className="flex items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3 sm:px-6">
-            <button
-              type="button"
-              onClick={openProfileEditor}
-              className="flex min-w-0 items-center gap-3 rounded-xl text-left transition hover:bg-slate-50"
-              title="Edit profile"
+    <>
+      {isClientPortalImpersonationSession() ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-900">
+          <span>You are viewing this client portal as a broker admin.</span>
+          <button
+            type="button"
+            onClick={exitClientPortalImpersonation}
+            className="rounded-lg bg-amber-900 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-amber-800"
+          >
+            Close portal tab
+          </button>
+        </div>
+      ) : null}
+      <ClientPortalChrome
+        mode="workspace"
+        activeTab={
+          activeTab === "chat"
+            ? "chat"
+            : (activeTab as ApplicationWorkspaceTab)
+        }
+        onTabChange={handleWorkspaceTab}
+        onBackToApplications={handleBackToApplications}
+        chatEnabled={chatEnabled}
+        displayName={
+          !isPlaceholderClientName(clientName)
+            ? clientName
+            : clientEmail?.split("@")[0] || "Client"
+        }
+        displayEmail={clientEmail || "—"}
+        clientInitials={getClientInitials(
+          !isPlaceholderClientName(clientName)
+            ? clientName
+            : clientEmail?.split("@")[0] || "Client",
+        )}
+        isImpersonation={isClientPortalImpersonationSession()}
+        onLogout={handleLogout}
+        onEditProfile={openProfileEditor}
+        notifications={portalNotifications}
+        applicationNumber={
+          selectedApplication?.applicationNumber || applicationNumber
+        }
+        statusChip={
+          workspaceStatus ? (
+            <span
+              className={`inline-flex items-center gap-2 rounded-full px-2.5 py-0.5 text-xs font-semibold ${getStatusStyles(
+                workspaceStatus,
+              )}`}
             >
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#13538A]/10 text-xs font-bold text-[#13538A]">
-                {getClientInitials(
-                  !isPlaceholderClientName(clientName)
-                    ? clientName
-                    : clientEmail?.split("@")[0] || "Client",
-                )}
-              </div>
-              <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-slate-900">
-                  {!isPlaceholderClientName(clientName)
-                    ? clientName
-                    : clientEmail?.split("@")[0] || "Client"}
-                </p>
-                <p className="truncate text-xs text-slate-500">
-                  {clientEmail || "—"}
-                </p>
-              </div>
-              <Pencil size={14} className="ml-1 shrink-0 text-slate-400" />
-            </button>
-            <div className="flex shrink-0 items-center gap-2">
-              {Boolean(sessionStorage.getItem("client_token")) && (
-                <ClientNotificationDropdown
-                  apiBase={API_BASE}
-                  onNotificationClick={handleClientNotificationClick}
-                />
-              )}
-              <button
-                type="button"
-                onClick={handleLogout}
-                className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600"
-              >
-                <FiLogOut size={15} />
-                <span className="hidden sm:inline">
-                  {isClientPortalImpersonationSession()
-                    ? "Close tab"
-                    : "Logout"}
-                </span>
-              </button>
-            </div>
-          </div>
-        </>
-      }
-    >
-      {children}
-    </ApplicationWorkspaceShell>
+              <span
+                className={`h-1.5 w-1.5 rounded-full ${getStatusDot(workspaceStatus)}`}
+              />
+              {formatStatusLabel(workspaceStatus)}
+            </span>
+          ) : null
+        }
+        pageTitle={
+          activeTab === "documents"
+            ? "Document Checklist"
+            : activeTab === "termSheet"
+              ? "Term Sheet"
+              : activeTab === "signForms"
+                ? "Fill & Sign Forms"
+                : activeTab === "feeAgreement"
+                  ? "Fee Agreement"
+                  : activeTab === "chat"
+                    ? "Messages"
+                    : "Loan Application"
+        }
+        pageSubtitle={
+          activeTab === "documents"
+            ? "Upload directly — no email chains."
+            : [
+                selectedApplication?.broker?.name ||
+                  applicationData?.broker?.name,
+                formatLoanProductLabel(
+                  applicationData?.loanProductCode ||
+                    selectedApplication?.loanProduct ||
+                    applicationData?.loanProduct,
+                ),
+                formatApplicationAmount(
+                  selectedApplication?.amountRequested ||
+                    applicationData?.amountRequested,
+                ),
+              ]
+                .filter(Boolean)
+                .join(" · ") || undefined
+        }
+        compact={activeTab === "chat"}
+      >
+        {children}
+      </ClientPortalChrome>
+    </>
   );
 
   const totalUploadedDocuments = documents.filter(
@@ -1774,6 +1506,7 @@ export default function ClientUpload() {
       return;
     }
 
+    resetClientNotificationSessionCache();
     clearClientPortalSession();
     window.location.href = "/client-upload";
   };
@@ -1823,10 +1556,26 @@ export default function ClientUpload() {
     [page, totalPages],
   );
 
+  const applicationOverviewStats = useMemo(() => {
+    const pendingDocs = applications.filter((app) => {
+      const total = Number(app.documentProgress?.total) || 0;
+      const uploaded = Number(app.documentProgress?.uploaded) || 0;
+      return total > 0 && uploaded < total;
+    }).length;
+    const inReview = applications.filter(
+      (app) =>
+        app.status === "IN_REVIEW" ||
+        app.status === "SUBMITTED" ||
+        app.status === "PENDING" ||
+        app.status === "CLIENT_PENDING",
+    ).length;
+    return { pendingDocs, inReview };
+  }, [applications]);
+
   if (loading) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-gradient-to-b from-slate-100 via-slate-50 to-white text-slate-500">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+      <div className="client-portal flex min-h-screen flex-col items-center justify-center gap-3 bg-[#F7F9FC] text-[#64748B]">
+        <Loader2 className="h-8 w-8 animate-spin text-[#4C78F5]" />
         <p className="text-sm font-medium">Loading your portal...</p>
       </div>
     );
@@ -1851,452 +1600,405 @@ export default function ClientUpload() {
   const displayEmail = clientEmail || applicationData?.borrower?.email || "-";
   const loanDisplayName = applicationBorrowerName || displayName;
   const clientInitials = getClientInitials(displayName);
-  const isClientLoggedIn = Boolean(sessionStorage.getItem("client_token"));
   const isImpersonation = isClientPortalImpersonationSession();
-  const isWorkspaceMode = activeTab !== "applications";
+
+  const documentsByCategory = (() => {
+    const groups = new Map<string, DocumentItem[]>();
+    for (const doc of documents) {
+      const key = inferDocumentCategory(doc.name);
+      const list = groups.get(key) || [];
+      list.push(doc);
+      groups.set(key, list);
+    }
+    const order = ["Core", "Property", "Financial", "Identity & Entity"];
+    return order
+      .filter((key) => groups.has(key))
+      .map((key) => ({ category: key, items: groups.get(key)! }));
+  })();
+
+  const applicationsSearchSlot = (
+    <div className="relative w-full">
+      <FiSearch
+        className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[#94A3B8]"
+        size={16}
+      />
+      <input
+        type="text"
+        placeholder="Search applications..."
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        className="cp-search pr-9"
+      />
+      {search ? (
+        <button
+          type="button"
+          onClick={() => setSearch("")}
+          className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-0.5 text-[#94A3B8] hover:text-[#64748B]"
+          aria-label="Clear search"
+        >
+          <FiX size={16} />
+        </button>
+      ) : null}
+    </div>
+  );
 
   return (
-    <div
-      className={
-        isWorkspaceMode
-          ? "h-dvh overflow-hidden bg-[#F5F7FA]"
-          : "min-h-screen bg-gradient-to-b from-slate-100 via-slate-50 to-white p-4 sm:p-6"
-      }
-    >
-      {!isWorkspaceMode && isImpersonation && (
-        <div className="mx-auto mb-4 flex max-w-8xl flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-900">
-          <span>You are viewing this client portal as a broker admin.</span>
-          <button
-            type="button"
-            onClick={exitClientPortalImpersonation}
-            className="rounded-lg bg-amber-900 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-amber-800"
-          >
-            Close portal tab
-          </button>
-        </div>
-      )}
-      <div className={isWorkspaceMode ? "h-full" : "max-w-8xl mx-auto"}>
-        {/* TOP HEADER — applications list only */}
-        {!isWorkspaceMode &&
-          (applicationData || clientName || isClientLoggedIn) && (
-          <header className="relative mb-5 overflow-visible rounded-2xl border border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900">
-            <div className="relative rounded-t-2xl bg-gradient-to-br from-[#13538A] via-[#1a6aad] to-[#2C92D5] px-5 pb-16 pt-5 text-white sm:px-6 sm:pb-20 sm:pt-6">
-              <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-t-2xl">
-                <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
-                <div className="absolute -bottom-16 left-1/3 h-36 w-36 rounded-full bg-cyan-300/20 blur-2xl" />
-              </div>
-
-              <div className="relative flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                <div className="flex min-w-0 items-center gap-3">
-                  <div className="h-11 w-11 shrink-0 overflow-hidden rounded-xl border border-white/25 bg-white/10">
-                    <img
-                      src={LOAN_AUTOMATION_LOGO}
-                      alt="Loan Automation"
-                      className="h-full w-full object-cover"
-                    />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-xs font-semibold uppercase tracking-widest text-white/70">
-                      Client portal
-                    </p>
-                    <h1 className="truncate text-xl font-semibold tracking-tight sm:text-2xl">
-                      Welcome{" "}
-                      <span className="text-white/95">{displayName}</span>
-                    </h1>
-                    <p className="mt-1 flex items-center gap-1.5 truncate text-sm text-white/80">
-                      <FiUser className="h-3.5 w-3.5 shrink-0 opacity-80" />
-                      <span className="truncate">{displayEmail}</span>
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-2">
-                  {isClientLoggedIn ? (
-                    <div className="[&_button]:border-white/25 [&_button]:bg-white/10 [&_button]:text-white [&_button]:hover:bg-white/20">
-                      <ClientNotificationDropdown
-                        apiBase={API_BASE}
-                        onNotificationClick={handleClientNotificationClick}
-                      />
-                    </div>
-                  ) : null}
-
-                  {isClientLoggedIn ? (
-                    <button
-                      type="button"
-                      onClick={openProfileEditor}
-                      className="inline-flex items-center gap-2 rounded-xl border border-white/25 bg-white/10 px-3.5 py-2.5 text-sm font-semibold text-white transition hover:bg-white/20"
-                    >
-                      <Pencil size={15} />
-                      <span className="hidden sm:inline">Edit profile</span>
-                    </button>
-                  ) : null}
-
-                  <button
-                    type="button"
-                    onClick={handleLogout}
-                    className="inline-flex items-center gap-2 rounded-xl bg-white px-3.5 py-2.5 text-sm font-semibold text-[#13538A] transition hover:bg-white/90"
-                  >
-                    <FiLogOut size={16} />
-                    <span className="hidden sm:inline">
-                      {isImpersonation ? "Close tab" : "Logout"}
-                    </span>
-                  </button>
-                </div>
-              </div>
-
-              <div className="absolute -bottom-10 left-5 z-10 sm:left-6">
-                <div className="flex h-20 w-20 items-center justify-center rounded-2xl border-4 border-white bg-[#13538A] text-xl font-bold text-white shadow-lg dark:border-gray-900 sm:h-24 sm:w-24 sm:text-2xl">
-                  {clientInitials}
-                </div>
-              </div>
-            </div>
-
-            <div className="border-t border-gray-100 bg-white px-4 pb-3 pt-14 dark:border-gray-800 dark:bg-gray-900 sm:px-6 sm:pt-16">
-              <nav className="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedApplication(null);
-                    setActiveTab("applications");
-                  }}
-                  className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition ${
-                    activeTab === "applications"
-                      ? "bg-[#13538A] text-white"
-                      : "text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800"
-                  }`}
-                >
-                  <FiFileText size={16} />
-                  Applications
-                </button>
-
-                {activeTab !== "applications" && selectedApplication ? (
-                  <span className="hidden items-center gap-2 text-sm text-gray-400 sm:inline-flex">
-                    <span>/</span>
-                    <span className="max-w-[220px] truncate font-medium text-gray-600 dark:text-gray-300">
-                      {selectedApplication.applicationNumber ||
-                        applicationNumber ||
-                        "Application"}
-                    </span>
-                  </span>
-                ) : null}
-              </nav>
-            </div>
-          </header>
-        )}
-
-        {activeTab === "documents" &&
-          renderApplicationWorkspace(
-            <>
+    <>
+      {activeTab === "documents" &&
+        renderApplicationWorkspace(
+          <>
             {applicationDetailsLoading ? (
-              <div className="flex items-center justify-center py-20 text-gray-500">
+              <div className="flex items-center justify-center py-20 text-[14px] text-[#64748B]">
                 Loading documents...
               </div>
             ) : documents.length === 0 ? (
-              <>
-                <div
-                  className="relative h-[60vh] overflow-hidden rounded-2xl
-  bg-gradient-to-br from-blue-50 via-white to-cyan-50 
-  p-10 text-center flex flex-col items-center justify-center gap-4"
-                >
-                  {/* GLOW EFFECT */}
-                  <div className="absolute -top-10 -left-10 w-40 h-40 bg-blue-200 opacity-20 blur-3xl rounded-full" />
-                  <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-cyan-200 opacity-20 blur-3xl rounded-full" />
-
-                  {/* ICON */}
-                  <div className="relative">
-                    <div
-                      className="h-16 w-16 rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-500 
-      flex items-center justify-center shadow-lg"
-                    >
-                      <FileText className="text-white" size={30} />
-                    </div>
-                  </div>
-
-                  {/* TITLE */}
-                  <p className="text-base font-semibold text-gray-700">
-                    No Documents Required
-                  </p>
-
-                  {/* DESCRIPTION */}
-                  <p className="text-sm text-gray-500 max-w-sm leading-relaxed">
-                    This application currently doesn’t require any documents.
-                    You’re all set for now — we’ll notify you if anything is
-                    needed.
-                  </p>
+              <div className="cp-card flex h-[50vh] flex-col items-center justify-center gap-3 p-10 text-center">
+                <div className="flex h-14 w-14 items-center justify-center rounded-[10px] bg-[#4C78F5]/10 text-[#4C78F5]">
+                  <FileText size={28} />
                 </div>
-              </>
+                <p className="text-[16px] font-semibold text-[#111827]">
+                  No Documents Required
+                </p>
+                <p className="max-w-sm text-[14px] leading-relaxed text-[#64748B]">
+                  This application currently doesn’t require any documents.
+                  You’re all set for now — we’ll notify you if anything is
+                  needed.
+                </p>
+              </div>
             ) : (
-              <>
-                <div className="sticky top-4 z-10 mb-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-                  <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                    <div>
-                      <h2 className="text-lg font-semibold text-slate-900">
-                        Upload Documents
-                      </h2>
-                      <p className="mt-1 text-sm text-slate-500">
-                        {loanDisplayName}
-                      </p>
-                    </div>
-
-                    <div className="text-right">
-                      <p className="text-xs text-slate-400">Application No.</p>
-                      <p className="text-sm font-medium text-slate-700">
-                        {applicationNumber}
-                      </p>
-                    </div>
+              <div className="space-y-4">
+                <div className="cp-card p-5 sm:p-6">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h2 className="text-[16px] font-semibold text-[#111827]">
+                      Document Checklist
+                    </h2>
+                    <p className="text-[13px] font-medium text-[#64748B]">
+                      {totalUploadedDocuments}/{documents.length} · {progress}%
+                    </p>
                   </div>
-
-                  {/* PROGRESS */}
-                  <div className="mt-4">
-                    <div className="mb-1 flex justify-between text-xs text-gray-500">
-                      <span>
-                        {totalUploadedDocuments} / {documents.length} documents
-                        uploaded · {totalFiles} file
-                        {totalFiles === 1 ? "" : "s"}
-                      </span>
-                      <span>{progress}%</span>
-                    </div>
-
-                    <div className="w-full bg-gray-200 h-2 rounded-full">
-                      <div
-                        className="bg-blue-600 h-2 rounded-full transition-all"
-                        style={{ width: `${progress}%` }}
-                      />
-                    </div>
+                  <div className="cp-progress-track mt-3">
+                    <div
+                      className="cp-progress-fill"
+                      style={{ width: `${progress}%` }}
+                    />
                   </div>
+                  <p className="mt-2 text-[12px] text-[#64748B]">
+                    Auto-generated by loan program. Upload directly — no email
+                    chains. {totalFiles} file{totalFiles === 1 ? "" : "s"} on
+                    file.
+                  </p>
                 </div>
 
-                {/* GRID */}
-                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {documents.map((doc) => {
-                    const uploadedCount = doc.uploadedFiles.length;
-                    const pendingFiles = files[doc.id] || [];
-                    const remainingSlots = getRemainingUploadSlots(doc.id);
-                    const canUploadMore =
-                      remainingSlots > 0 || pendingFiles.length > 0;
+                {documentsByCategory.map(({ category, items }) => (
+                  <div key={category} className="cp-card overflow-hidden">
+                    <div className="border-b border-[#E2E8F0] px-4 py-3 sm:px-5">
+                      <h3 className="text-[15px] font-semibold text-[#111827]">
+                        {category}
+                      </h3>
+                    </div>
+                    <ul className="divide-y divide-[#E2E8F0]">
+                      {items.map((doc) => {
+                        const uploadedCount = doc.uploadedFiles.length;
+                        const pendingFiles = files[doc.id] || [];
+                        const remainingSlots = getRemainingUploadSlots(doc.id);
+                        const canUploadMore =
+                          remainingSlots > 0 || pendingFiles.length > 0;
+                        const isComplete = uploadedCount > 0;
 
-                    return (
-                    <div
-                      key={doc.id}
-                      className="bg-white border rounded-xl p-4 shadow-sm hover:shadow-md transition flex flex-col justify-between"
-                    >
-                      {/* TOP */}
-                      <div>
-                        <div className="flex items-center justify-between mb-2">
-                          <FileText className="text-blue-600" size={20} />
-
-                          {uploadedCount > 0 && (
-                            <CheckCircle className="text-green-600" size={20} />
-                          )}
-                        </div>
-
-                        <p className="text-sm font-medium text-gray-800 line-clamp-2">
-                          {doc.name}
-                        </p>
-
-                        {doc.requestedAt ? (
-                          <p className="mt-1 text-[11px] text-slate-500">
-                            Requested {formatUploadedAt(doc.requestedAt)}
-                          </p>
-                        ) : null}
-
-                        <p
-                          className={`text-xs mt-1 font-medium ${
-                            uploadedCount > 0
-                              ? "text-green-600"
-                              : "text-yellow-600"
-                          }`}
-                        >
-                          {uploadedCount > 0
-                            ? `Uploaded · ${uploadedCount} file${uploadedCount === 1 ? "" : "s"}`
-                            : "Pending"}
-                        </p>
-
-                        {uploadedCount > 0 && (
-                          <div className="mt-3 space-y-2">
-                            {doc.uploadedFiles.map((file, index) => (
+                        return (
+                          <li
+                            key={doc.id}
+                            className="flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-start sm:justify-between sm:px-5"
+                          >
+                            <div className="flex min-w-0 flex-1 gap-3">
                               <div
-                                key={file.uploadId || `${doc.id}-${index}`}
-                                className="flex items-center gap-2 rounded-lg border border-slate-100 bg-slate-50 px-2.5 py-2"
-                              >
-                                <FileText size={14} className="shrink-0 text-blue-600" />
-                                <div className="min-w-0 flex-1">
-                                  <p
-                                    className="truncate text-xs font-medium text-slate-700"
-                                    title={file.fileName}
-                                  >
-                                    {file.fileName || "Uploaded file"}
-                                  </p>
-                                  {file.uploadedAt && (
-                                    <p className="text-[10px] text-slate-400">
-                                      {formatUploadedAt(file.uploadedAt)}
-                                    </p>
-                                  )}
-                                </div>
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    openUploadedFilesPreview(doc, index)
-                                  }
-                                  className="inline-flex items-center gap-1 rounded-md bg-blue-600 px-2 py-1 text-[10px] font-semibold text-white transition hover:bg-blue-700"
-                                >
-                                  <Eye size={12} />
-                                  View
-                                </button>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-
-                      {/* ACTIONS */}
-                      <div className="mt-4 border-t border-slate-100 pt-4">
-                        {canUploadMore ? (
-                          <div className="space-y-2">
-                            <input
-                              type="file"
-                              multiple
-                              accept=".pdf,.jpg,.jpeg,.jfif,.png,.webp,application/pdf,image/*"
-                              disabled={remainingSlots <= 0}
-                              id={`file-${doc.id}`}
-                              className="hidden"
-                              onChange={(e) => {
-                                handleFileChange(doc.id, e.target.files);
-                                e.target.value = "";
-                              }}
-                            />
-
-                            {pendingFiles.length > 0 && (
-                              <div className="space-y-1">
-                                {pendingFiles.map((file, index) => (
-                                  <div
-                                    key={`${doc.id}-pending-${index}`}
-                                    className="flex items-center justify-between rounded-md bg-amber-50 px-2 py-1.5 text-[11px] text-amber-800"
-                                  >
-                                    <span className="truncate pr-2">
-                                      {file.name}
-                                    </span>
-                                    <button
-                                      type="button"
-                                      onClick={() =>
-                                        removePendingFile(doc.id, index)
-                                      }
-                                      className="shrink-0 text-amber-700 hover:text-amber-900"
-                                    >
-                                      Remove
-                                    </button>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-
-                            <div className="flex gap-2">
-                              <label
-                                htmlFor={`file-${doc.id}`}
-                                className={`flex-1 text-center text-xs px-3 py-2 border rounded-lg cursor-pointer ${
-                                  remainingSlots <= 0
-                                    ? "bg-gray-200 cursor-not-allowed text-slate-500"
-                                    : "hover:bg-gray-100"
+                                className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
+                                  isComplete
+                                    ? "bg-[#10B981]/10 text-[#10B981]"
+                                    : "bg-[#F59E0B]/10 text-[#F59E0B]"
                                 }`}
                               >
-                                {uploadedCount > 0 ? "Add More Files" : "Choose File"}
-                              </label>
+                                {isComplete ? (
+                                  <CheckCircle2 size={18} />
+                                ) : (
+                                  <Lock size={15} />
+                                )}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-[14px] font-semibold text-[#111827]">
+                                  {doc.name}
+                                </p>
+                                <p className="mt-0.5 text-[13px] text-[#64748B]">
+                                  {isComplete
+                                    ? `Received${doc.required ? " · Required" : ""}`
+                                    : `Pending${doc.required ? " · Required" : " · Optional"}`}
+                                  {doc.requestedAt
+                                    ? ` · Requested ${formatUploadedAt(doc.requestedAt)}`
+                                    : ""}
+                                </p>
 
-                              <button
-                                type="button"
-                                onClick={() => uploadFile(doc.id)}
-                                disabled={
-                                  pendingFiles.length === 0 || uploading[doc.id]
-                                }
-                                className="flex-1 flex items-center justify-center gap-1 text-xs px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-                              >
-                                <Upload size={14} />
-                                {uploading[doc.id]
-                                  ? "Uploading..."
-                                  : uploadedCount > 0
-                                    ? "Upload More"
-                                    : "Upload"}
-                              </button>
+                                {uploadedCount > 0 ? (
+                                  <div className="mt-2 space-y-1.5">
+                                    {doc.uploadedFiles.map((file, index) => (
+                                      <div
+                                        key={
+                                          file.uploadId || `${doc.id}-${index}`
+                                        }
+                                        className="flex items-center gap-2 rounded-lg border border-[#E2E8F0] bg-[#F7F9FC] px-2.5 py-2"
+                                      >
+                                        <FileText
+                                          size={14}
+                                          className="shrink-0 text-[#4C78F5]"
+                                        />
+                                        <div className="min-w-0 flex-1">
+                                          <p
+                                            className="truncate text-[12px] font-medium text-[#111827]"
+                                            title={file.fileName}
+                                          >
+                                            {file.fileName || "Uploaded file"}
+                                          </p>
+                                          {file.uploadedAt ? (
+                                            <p className="text-[11px] text-[#64748B]">
+                                              {formatUploadedAt(file.uploadedAt)}
+                                            </p>
+                                          ) : null}
+                                        </div>
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            openUploadedFilesPreview(doc, index)
+                                          }
+                                          className="inline-flex items-center gap-1 rounded-md bg-[#4C78F5] px-2 py-1 text-[11px] font-semibold text-white transition hover:bg-[#3B66E0]"
+                                        >
+                                          <Eye size={12} />
+                                          View
+                                        </button>
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : null}
+
+                                {canUploadMore ? (
+                                  <div className="mt-3 space-y-2">
+                                    <input
+                                      type="file"
+                                      multiple
+                                      accept=".pdf,.jpg,.jpeg,.jfif,.png,.webp,application/pdf,image/*"
+                                      disabled={remainingSlots <= 0}
+                                      id={`file-${doc.id}`}
+                                      className="hidden"
+                                      onChange={(e) => {
+                                        handleFileChange(doc.id, e.target.files);
+                                        e.target.value = "";
+                                      }}
+                                    />
+                                    {pendingFiles.length > 0 ? (
+                                      <div className="space-y-1">
+                                        {pendingFiles.map((file, index) => (
+                                          <div
+                                            key={`${doc.id}-pending-${index}`}
+                                            className="flex items-center justify-between rounded-md bg-amber-50 px-2 py-1.5 text-[12px] text-amber-800"
+                                          >
+                                            <span className="truncate pr-2">
+                                              {file.name}
+                                            </span>
+                                            <button
+                                              type="button"
+                                              onClick={() =>
+                                                removePendingFile(doc.id, index)
+                                              }
+                                              className="shrink-0 text-amber-700 hover:text-amber-900"
+                                            >
+                                              Remove
+                                            </button>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    ) : null}
+                                    <div className="flex flex-wrap gap-2">
+                                      <label
+                                        htmlFor={`file-${doc.id}`}
+                                        className={`cursor-pointer rounded-lg border border-[#E2E8F0] px-3 py-2 text-[12px] font-medium ${
+                                          remainingSlots <= 0
+                                            ? "cursor-not-allowed bg-slate-100 text-slate-400"
+                                            : "bg-white text-[#111827] hover:bg-[#F7F9FC]"
+                                        }`}
+                                      >
+                                        {uploadedCount > 0
+                                          ? "Add More Files"
+                                          : "Choose File"}
+                                      </label>
+                                      <button
+                                        type="button"
+                                        onClick={() => uploadFile(doc.id)}
+                                        disabled={
+                                          pendingFiles.length === 0 ||
+                                          uploading[doc.id]
+                                        }
+                                        className="inline-flex items-center gap-1 rounded-lg bg-[#4C78F5] px-3 py-2 text-[12px] font-semibold text-white hover:bg-[#3B66E0] disabled:opacity-50"
+                                      >
+                                        <Upload size={14} />
+                                        {uploading[doc.id]
+                                          ? "Uploading..."
+                                          : uploadedCount > 0
+                                            ? "Upload More"
+                                            : "Upload"}
+                                      </button>
+                                    </div>
+                                    <p className="text-[11px] text-[#94A3B8]">
+                                      PDF, JPG, PNG, WEBP · up to {MAX_FILES}{" "}
+                                      files · {remainingSlots} slot
+                                      {remainingSlots === 1 ? "" : "s"} left
+                                    </p>
+                                  </div>
+                                ) : (
+                                  <p className="mt-2 text-[12px] text-[#64748B]">
+                                    Maximum {MAX_FILES} files uploaded.
+                                  </p>
+                                )}
+                              </div>
                             </div>
-
-                            <p className="text-[10px] text-slate-400">
-                              PDF, JPG, PNG, WEBP · up to {MAX_FILES} files ·{" "}
-                              {remainingSlots} slot
-                              {remainingSlots === 1 ? "" : "s"} left
-                            </p>
-                          </div>
-                        ) : (
-                          <p className="text-xs font-medium text-slate-500">
-                            Maximum {MAX_FILES} files uploaded. Use View to
-                            preview your documents.
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                    );
-                  })}
-                </div>
-              </>
+                            <div className="shrink-0 sm:pt-1 sm:text-right">
+                              <span
+                                className={`text-[13px] font-semibold ${
+                                  isComplete
+                                    ? "text-[#10B981]"
+                                    : "text-[#F59E0B]"
+                                }`}
+                              >
+                                {isComplete ? "On file" : "Action needed"}
+                              </span>
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                ))}
+              </div>
             )}
-            </>,
-          )}
+          </>,
+        )}
 
-        {activeTab === "termSheet" &&
-          applicationId &&
-          renderApplicationWorkspace(
-            <SignDocumentsPanel
-              key={`term-sheet-${tabRefreshKey}`}
-              mode="client"
-              clientView="termSheet"
-              apiBase={API_BASE}
-              getAuthHeaders={() => getClientPortalAuthConfig().headers}
-              loanApplicationId={applicationId}
-              clientName={loanDisplayName}
-              applicationNumber={applicationNumber}
-              onUpdated={() => {
-                if (applicationId) {
-                  void fetchApplicationDetails(applicationId, {
-                    keepCurrentTab: true,
-                  });
-                }
-              }}
-            />,
-          )}
+      {activeTab === "termSheet" &&
+        applicationId &&
+        renderApplicationWorkspace(
+          <SignDocumentsPanel
+            key={`term-sheet-${tabRefreshKey}`}
+            mode="client"
+            clientView="termSheet"
+            apiBase={API_BASE}
+            getAuthHeaders={() => getClientPortalAuthConfig().headers}
+            loanApplicationId={applicationId}
+            clientName={loanDisplayName}
+            applicationNumber={applicationNumber}
+            onUpdated={() => {
+              if (applicationId) {
+                void fetchApplicationDetails(applicationId, {
+                  keepCurrentTab: true,
+                });
+              }
+            }}
+          />,
+        )}
 
-        {activeTab === "signForms" &&
-          applicationId &&
-          renderApplicationWorkspace(
-            <SignDocumentsPanel
-              key={`sign-forms-${tabRefreshKey}`}
-              mode="client"
-              clientView="signForms"
-              apiBase={API_BASE}
-              getAuthHeaders={() => getClientPortalAuthConfig().headers}
-              loanApplicationId={applicationId}
-              clientName={loanDisplayName}
-              applicationNumber={applicationNumber}
-              onUpdated={() => {
-                if (applicationId) {
-                  void fetchApplicationDetails(applicationId, {
-                    keepCurrentTab: true,
-                  });
-                }
-              }}
-            />,
-          )}
+      {activeTab === "signForms" &&
+        applicationId &&
+        renderApplicationWorkspace(
+          <SignDocumentsPanel
+            key={`sign-forms-${tabRefreshKey}`}
+            mode="client"
+            clientView="signForms"
+            apiBase={API_BASE}
+            getAuthHeaders={() => getClientPortalAuthConfig().headers}
+            loanApplicationId={applicationId}
+            clientName={loanDisplayName}
+            applicationNumber={applicationNumber}
+            onUpdated={() => {
+              if (applicationId) {
+                void fetchApplicationDetails(applicationId, {
+                  keepCurrentTab: true,
+                });
+              }
+            }}
+          />,
+        )}
 
-        {activeTab === "applications" && (
-          <div
-            ref={applicationsSectionRef}
-            className="overflow-hidden rounded-xl border border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900"
-          >
-            <div className="border-b border-gray-100 px-4 py-4 dark:border-gray-800 sm:px-5">
-              <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+      {activeTab === "applications" && (
+        <ClientPortalChrome
+          mode="applications"
+          displayName={displayName}
+          displayEmail={displayEmail}
+          clientInitials={clientInitials}
+          isImpersonation={isImpersonation}
+          onLogout={handleLogout}
+          onEditProfile={openProfileEditor}
+          notifications={portalNotifications}
+          searchSlot={applicationsSearchSlot}
+          pageTitle="Borrower Portal"
+          pageSubtitle={`Welcome back, ${displayName}`}
+        >
+          {isImpersonation ? (
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-[10px] border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-900">
+              <span>You are viewing this client portal as a broker admin.</span>
+              <button
+                type="button"
+                onClick={exitClientPortalImpersonation}
+                className="rounded-lg bg-amber-900 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-amber-800"
+              >
+                Close portal tab
+              </button>
+            </div>
+          ) : null}
+
+          <div ref={applicationsSectionRef} className="space-y-4">
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="cp-stat">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#94A3B8]">
+                  Applications
+                </p>
+                <p className="mt-1.5 text-[22px] font-semibold tabular-nums text-[#111827]">
+                  {applicationsLoading ? "—" : totalApplications}
+                </p>
+                <p className="mt-0.5 text-[12px] text-[#64748B]">
+                  Across all brokers
+                </p>
+              </div>
+              <div className="cp-stat">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#94A3B8]">
+                  Needs attention
+                </p>
+                <p className="mt-1.5 text-[22px] font-semibold tabular-nums text-[#111827]">
+                  {applicationsLoading
+                    ? "—"
+                    : applicationOverviewStats.pendingDocs}
+                </p>
+                <p className="mt-0.5 text-[12px] text-[#64748B]">
+                  Documents still pending
+                </p>
+              </div>
+              <div className="cp-stat">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#94A3B8]">
+                  In pipeline
+                </p>
+                <p className="mt-1.5 text-[22px] font-semibold tabular-nums text-[#111827]">
+                  {applicationsLoading
+                    ? "—"
+                    : applicationOverviewStats.inReview}
+                </p>
+                <p className="mt-0.5 text-[12px] text-[#64748B]">
+                  Pending or in review
+                </p>
+              </div>
+            </div>
+
+            <div className="cp-card overflow-hidden">
+              <div className="flex flex-col gap-3 border-b border-[#E2E8F0] px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
                 <div className="min-w-0">
-                  <h2 className="text-base font-semibold text-gray-900 dark:text-white">
+                  <h2 className="text-[16px] font-semibold text-[#111827]">
                     Loan applications
                   </h2>
-                  <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
+                  <p className="mt-0.5 text-[13px] text-[#64748B]">
                     {applicationsLoading
                       ? "Loading applications..."
                       : `${totalApplications} application${
@@ -2309,38 +2011,14 @@ export default function ClientUpload() {
                   </p>
                 </div>
 
-                <div className="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end lg:max-w-2xl">
-                  <div className="relative w-full sm:min-w-[220px] sm:flex-1">
-                    <FiSearch
-                      className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                      size={16}
-                    />
-                    <input
-                      type="text"
-                      placeholder="Search name, email, phone, app #, address, entity, SSN..."
-                      value={search}
-                      onChange={(e) => setSearch(e.target.value)}
-                      className="h-10 w-full rounded-xl border border-gray-200 bg-white py-2 pl-9 pr-9 text-sm outline-none transition focus:border-[#13538A] focus:ring-2 focus:ring-[#13538A]/15 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100"
-                    />
-                    {search ? (
-                      <button
-                        type="button"
-                        onClick={() => setSearch("")}
-                        className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-0.5 text-gray-400 hover:text-gray-600"
-                        aria-label="Clear search"
-                      >
-                        <FiX size={16} />
-                      </button>
-                    ) : null}
-                  </div>
-
+                <div className="flex shrink-0 flex-row flex-wrap items-center justify-end gap-2">
                   <select
                     value={brokerFilter}
                     onChange={(e) => {
                       setBrokerFilter(e.target.value);
                       setPage(1);
                     }}
-                    className="h-10 rounded-xl border border-gray-200 bg-white px-3 text-sm font-medium text-gray-700 outline-none transition focus:border-[#13538A] focus:ring-2 focus:ring-[#13538A]/15 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-200"
+                    className="cp-input !w-auto min-w-[148px] max-w-[200px]"
                   >
                     <option value="">All brokers</option>
                     {filterBrokers.map((broker) => (
@@ -2356,7 +2034,7 @@ export default function ClientUpload() {
                       setStatusFilter(e.target.value);
                       setPage(1);
                     }}
-                    className="h-10 rounded-xl border border-gray-200 bg-white px-3 text-sm font-medium text-gray-700 outline-none transition focus:border-[#13538A] focus:ring-2 focus:ring-[#13538A]/15 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-200"
+                    className="cp-input !w-auto min-w-[148px] max-w-[180px]"
                   >
                     <option value="">All statuses</option>
                     {filterStatuses.map((status) => (
@@ -2370,7 +2048,7 @@ export default function ClientUpload() {
                     <button
                       type="button"
                       onClick={clearApplicationFilters}
-                      className="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 text-xs font-semibold text-gray-600 transition hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-300"
+                      className="cp-btn-secondary h-10 shrink-0 px-3 text-[12px]"
                     >
                       <FiX size={14} />
                       Clear
@@ -2378,304 +2056,288 @@ export default function ClientUpload() {
                   ) : null}
                 </div>
               </div>
-            </div>
 
-            <div className="p-4 sm:p-5">
-            {applicationsLoading ? (
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {Array.from({ length: 6 }).map((_, index) => (
-                  <div
-                    key={`app-skeleton-${index}`}
-                    className="animate-pulse overflow-hidden rounded-xl border border-gray-100 bg-white dark:border-gray-800"
-                  >
-                    <div className="h-1.5 bg-gray-200 dark:bg-gray-700" />
-                    <div className="space-y-4 p-5">
-                      <div className="h-4 w-2/3 rounded bg-gray-200 dark:bg-gray-700" />
-                      <div className="h-3 w-1/2 rounded bg-gray-100 dark:bg-gray-800" />
-                      <div className="h-16 rounded-xl bg-gray-100 dark:bg-gray-800" />
-                      <div className="h-2 rounded-full bg-gray-100 dark:bg-gray-800" />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : applications.length === 0 ? (
-              <div className="flex flex-col items-center py-16 text-center">
-                <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#13538A]/10 text-[#13538A]">
-                  <FolderOpen size={24} />
-                </div>
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                  No applications found
-                </h3>
-                <p className="mt-1 max-w-md text-sm text-gray-500">
-                  {hasActiveFilters
-                    ? "Try adjusting your search or filters."
-                    : "Your loan applications will appear here once they are created."}
-                </p>
-                {hasActiveFilters ? (
-                  <button
-                    type="button"
-                    onClick={clearApplicationFilters}
-                    className="mt-4 rounded-xl bg-[#13538A] px-4 py-2 text-sm font-medium text-white hover:bg-[#1a6aad]"
-                  >
-                    Clear filters
-                  </button>
-                ) : null}
-              </div>
-            ) : (
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                {applications.map((app) => {
-                  const progress = getDocumentProgressPercent(app);
-                  const docsComplete =
-                    (app.documentProgress?.total || 0) > 0 &&
-                    (app.documentProgress?.uploaded || 0) >=
-                      (app.documentProgress?.total || 0);
-                  const filesUploaded = app.documentProgress?.filesUploaded || 0;
-
-                  return (
-                    <article
-                      key={app.id}
-                      onClick={() => fetchApplicationDetails(app.id)}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter" || event.key === " ") {
-                          event.preventDefault();
-                          fetchApplicationDetails(app.id);
-                        }
-                      }}
-                      role="button"
-                      tabIndex={0}
-                      className="group flex h-full cursor-pointer flex-col overflow-hidden rounded-xl border border-gray-100 bg-white transition hover:border-[#13538A]/30 hover:bg-[#13538A]/[0.02] focus:outline-none focus:ring-2 focus:ring-[#13538A]/25 dark:border-gray-800 dark:bg-gray-900 dark:hover:bg-gray-800/40"
-                    >
+              <div className="p-4 sm:p-5">
+                {applicationsLoading ? (
+                  <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                    {Array.from({ length: 6 }).map((_, index) => (
                       <div
-                        className={`h-1.5 ${getStatusAccentClass(app.status)}`}
-                      />
-
-                      <div className="flex flex-1 flex-col p-5">
-                        <div className="mb-4 flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
-                              Application ID
-                            </p>
-                            <p
-                              className="mt-1 truncate font-mono text-sm font-semibold text-gray-900 dark:text-white"
-                              title={app.applicationNumber}
-                            >
-                              {app.applicationNumber}
-                            </p>
-                          </div>
-
-                          <span
-                            className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${getStatusStyles(
-                              app.status,
-                            )}`}
-                          >
-                            <span
-                              className={`h-1.5 w-1.5 rounded-full ${getStatusDot(app.status)}`}
-                            />
-                            {formatStatusLabel(app.status)}
-                          </span>
-                        </div>
-
-                        <div className="mb-4 rounded-xl border border-gray-100 bg-gray-50/80 px-3 py-3 dark:border-gray-800 dark:bg-gray-800/50">
-                          <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">
-                            {formatLoanProductLabel(app.loanProduct)}
-                          </p>
-                          <p className="mt-1 text-xs text-gray-500">
-                            Created{" "}
-                            {new Date(app.createdAt).toLocaleDateString(
-                              undefined,
-                              {
-                                day: "numeric",
-                                month: "short",
-                                year: "numeric",
-                              },
-                            )}
-                          </p>
-                        </div>
-
-                        {hasApplicationCardSummary(app) && (
-                          <div className="mb-4 space-y-2.5 rounded-xl border border-gray-100 bg-white px-3 py-3 dark:border-gray-800 dark:bg-gray-900">
-                            <ApplicationCardMetaRow
-                              icon={<FiBriefcase size={14} />}
-                              label="Broker"
-                              value={app.broker?.name}
-                            />
-                            <ApplicationCardMetaRow
-                              icon={<FiUser size={14} />}
-                              label="Business"
-                              value={app.businessName}
-                            />
-                            <ApplicationCardMetaRow
-                              icon={<FiHome size={14} />}
-                              label="Property"
-                              value={app.propertyInfo}
-                            />
-                            <ApplicationCardMetaRow
-                              icon={<FiLayers size={14} />}
-                              label="Collateral"
-                              value={app.collateralSummary}
-                            />
-                            <ApplicationCardMetaRow
-                              icon={<FiMapPin size={14} />}
-                              label="Address"
-                              value={app.address}
-                            />
-                          </div>
-                        )}
-
-                        <div className="mt-auto space-y-3">
-                          <div className="flex items-end justify-between gap-3">
-                            <div>
-                              <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
-                                Loan amount
-                              </p>
-                              <p className="mt-1 text-lg font-semibold tabular-nums text-gray-900 dark:text-white">
-                                {formatApplicationAmount(app.amountRequested)}
-                              </p>
-                            </div>
-                            <span
-                              className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${
-                                docsComplete
-                                  ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100"
-                                  : "bg-amber-50 text-amber-700 ring-1 ring-amber-100"
-                              }`}
-                            >
-                              Docs {app.documentProgress?.uploaded || 0}/
-                              {app.documentProgress?.total || 0}
-                              {filesUploaded > 0
-                                ? ` · ${filesUploaded} file${filesUploaded === 1 ? "" : "s"}`
-                                : ""}
-                            </span>
-                          </div>
-
-                          <div>
-                            <div className="mb-1.5 flex items-center justify-between text-[11px] font-medium text-gray-500">
-                              <span>Document progress</span>
-                              <span
-                                className={
-                                  progress === 100
-                                    ? "text-emerald-600"
-                                    : "text-gray-600"
-                                }
-                              >
-                                {progress}%
-                              </span>
-                            </div>
-                            <div className="h-2 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
-                              <div
-                                className={`h-full rounded-full transition-all duration-500 ${
-                                  progress === 100
-                                    ? "bg-emerald-500"
-                                    : "bg-[#13538A]"
-                                }`}
-                                style={{
-                                  width: `${Math.max(progress, progress > 0 ? 8 : 0)}%`,
-                                }}
-                              />
-                            </div>
-                          </div>
-
-                          <div className="flex items-center justify-between border-t border-gray-100 pt-3 dark:border-gray-800">
-                            <span className="text-xs text-gray-500">
-                              Open to view details & upload
-                            </span>
-                            <span className="inline-flex items-center gap-1 text-xs font-semibold text-[#13538A] transition group-hover:gap-2">
-                              View
-                              <ChevronRight size={14} />
-                            </span>
-                          </div>
+                        key={`app-skeleton-${index}`}
+                        className="animate-pulse overflow-hidden rounded-[10px] border border-[#E2E8F0] bg-white"
+                      >
+                        <div className="h-1.5 bg-[#E2E8F0]" />
+                        <div className="space-y-4 p-5">
+                          <div className="h-4 w-2/3 rounded bg-[#E2E8F0]" />
+                          <div className="h-3 w-1/2 rounded bg-[#F1F5F9]" />
+                          <div className="h-20 rounded-lg bg-[#F1F5F9]" />
+                          <div className="h-2 rounded-full bg-[#F1F5F9]" />
                         </div>
                       </div>
-                    </article>
-                  );
-                })}
-              </div>
-            )}
+                    ))}
+                  </div>
+                ) : applications.length === 0 ? (
+                  <div className="flex flex-col items-center py-16 text-center">
+                    <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-[10px] bg-[#4C78F5]/10 text-[#4C78F5]">
+                      <FolderOpen size={24} />
+                    </div>
+                    <h3 className="text-[16px] font-semibold text-[#111827]">
+                      No applications found
+                    </h3>
+                    <p className="mt-1 max-w-md text-[14px] text-[#64748B]">
+                      {hasActiveFilters
+                        ? "Try adjusting your search or filters."
+                        : "Your loan applications will appear here once they are created."}
+                    </p>
+                    {hasActiveFilters ? (
+                      <button
+                        type="button"
+                        onClick={clearApplicationFilters}
+                        className="cp-btn-primary mt-4"
+                      >
+                        Clear filters
+                      </button>
+                    ) : null}
+                  </div>
+                ) : (
+                  <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                    {applications.map((app) => {
+                      const progress = getDocumentProgressPercent(app);
+                      const docsUploaded = app.documentProgress?.uploaded || 0;
+                      const docsTotal = app.documentProgress?.total || 0;
+                      const docsComplete =
+                        docsTotal > 0 && docsUploaded >= docsTotal;
+                      const createdLabel = new Date(
+                        app.createdAt,
+                      ).toLocaleDateString(undefined, {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                      });
+                      const metaItems = [
+                        { label: "Broker", value: app.broker?.name },
+                        { label: "Business", value: app.businessName },
+                        {
+                          label: "Property",
+                          value: app.propertyInfo || app.collateralSummary,
+                        },
+                        { label: "Address", value: app.address },
+                      ].filter((item) => Boolean(item.value?.trim()));
+                      const loanAmountLabel = formatApplicationAmount(
+                        app.amountRequested,
+                      );
+                      const hasLoanAmount = loanAmountLabel !== "—";
 
-            {totalApplications > 0 && (
-              <div className="mt-5 flex flex-col gap-3 border-t border-gray-100 pt-4 dark:border-gray-800 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Showing{" "}
-                  <span className="font-medium text-gray-700 dark:text-gray-200">
-                    {applicationsRange.start}-{applicationsRange.end}
-                  </span>{" "}
-                  of{" "}
-                  <span className="font-medium text-gray-700 dark:text-gray-200">
-                    {totalApplications}
-                  </span>
-                </p>
-
-                {totalPages > 1 ? (
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setPage((current) => Math.max(1, current - 1))
-                      }
-                      disabled={page === 1 || applicationsLoading}
-                      className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200"
-                    >
-                      <span className="inline-flex items-center gap-1">
-                        <ChevronLeft className="h-4 w-4" />
-                        Prev
-                      </span>
-                    </button>
-
-                    {visiblePages.map((pageNumber, index) =>
-                      pageNumber === "ellipsis" ? (
-                        <span
-                          key={`ellipsis-${index}`}
-                          className="px-1 text-sm text-gray-400"
+                      return (
+                        <article
+                          key={app.id}
+                          onClick={() => fetchApplicationDetails(app.id)}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter" || event.key === " ") {
+                              event.preventDefault();
+                              fetchApplicationDetails(app.id);
+                            }
+                          }}
+                          role="button"
+                          tabIndex={0}
+                          className="cp-card-hover group flex h-full cursor-pointer flex-col overflow-hidden focus:outline-none focus:ring-2 focus:ring-[#4C78F5]/25"
                         >
-                          ...
-                        </span>
-                      ) : (
+                          <div className="flex flex-1 flex-col p-5">
+                            <div className="mb-3 flex items-start justify-between gap-3">
+                              <p
+                                className="min-w-0 truncate font-mono text-[12px] font-medium text-[#94A3B8]"
+                                title={app.applicationNumber}
+                              >
+                                {app.applicationNumber}
+                              </p>
+                              <span
+                                className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${getStatusStyles(
+                                  app.status,
+                                )}`}
+                              >
+                                <span
+                                  className={`h-1.5 w-1.5 rounded-full ${getStatusDot(app.status)}`}
+                                />
+                                {formatStatusLabel(app.status)}
+                              </span>
+                            </div>
+
+                            <div className="mb-4">
+                              <h3 className="text-[18px] font-semibold tracking-tight text-[#111827]">
+                                {formatLoanProductLabel(app.loanProduct)}
+                              </h3>
+                              <p className="mt-1 text-[12px] text-[#94A3B8]">
+                                Created {createdLabel}
+                              </p>
+                            </div>
+
+                            {metaItems.length > 0 ? (
+                              <div className="mb-4 grid grid-cols-2 gap-x-4 gap-y-3">
+                                {metaItems.map((item) => (
+                                  <ApplicationCardMetaCell
+                                    key={item.label}
+                                    label={item.label}
+                                    value={item.value}
+                                  />
+                                ))}
+                              </div>
+                            ) : null}
+
+                            <div className="mt-auto space-y-3 border-t border-[#E2E8F0] pt-4">
+                              <div className="flex items-end justify-between gap-3">
+                                <div className="min-w-0">
+                                  <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#94A3B8]">
+                                    Loan amount
+                                  </p>
+                                  <p
+                                    className={`mt-1 truncate text-[20px] font-semibold tracking-tight ${
+                                      hasLoanAmount
+                                        ? "tabular-nums text-[#111827]"
+                                        : "text-[15px] text-[#94A3B8]"
+                                    }`}
+                                  >
+                                    {hasLoanAmount
+                                      ? loanAmountLabel
+                                      : "Not set yet"}
+                                  </p>
+                                </div>
+                                <span
+                                  className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+                                    docsComplete
+                                      ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100"
+                                      : "bg-amber-50 text-amber-800 ring-1 ring-amber-100"
+                                  }`}
+                                >
+                                  Docs {docsUploaded}/{docsTotal}
+                                </span>
+                              </div>
+
+                              <div>
+                                <div className="mb-1.5 flex items-center justify-between text-[12px] text-[#64748B]">
+                                  <span>Document progress</span>
+                                  <span
+                                    className={`font-semibold tabular-nums ${
+                                      progress === 100
+                                        ? "text-[#10B981]"
+                                        : "text-[#111827]"
+                                    }`}
+                                  >
+                                    {progress}%
+                                  </span>
+                                </div>
+                                <div className="cp-progress-track">
+                                  <div
+                                    className="cp-progress-fill"
+                                    style={{
+                                      width: `${Math.max(
+                                        progress,
+                                        progress > 0 ? 8 : 0,
+                                      )}%`,
+                                    }}
+                                  />
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-1 pt-1 text-[13px] font-semibold text-[#4C78F5] transition group-hover:gap-2">
+                                Open details & upload docs
+                                <ChevronRight size={15} />
+                              </div>
+                            </div>
+                          </div>
+                        </article>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {totalApplications > 0 ? (
+                  <div className="mt-5 flex flex-col gap-3 border-t border-[#E2E8F0] pt-4 sm:flex-row sm:items-center sm:justify-between">
+                    <p className="text-[13px] text-[#64748B]">
+                      Showing{" "}
+                      <span className="font-medium text-[#111827]">
+                        {applicationsRange.start}-{applicationsRange.end}
+                      </span>{" "}
+                      of{" "}
+                      <span className="font-medium text-[#111827]">
+                        {totalApplications}
+                      </span>
+                    </p>
+
+                    {totalPages > 1 ? (
+                      <div className="flex flex-wrap items-center gap-1.5">
                         <button
-                          key={pageNumber}
                           type="button"
-                          onClick={() => setPage(pageNumber)}
-                          disabled={applicationsLoading}
-                          className={`min-w-8 rounded-lg border px-2.5 py-1.5 text-sm font-medium transition ${
-                            page === pageNumber
-                              ? "border-[#13538A] bg-[#13538A] text-white"
-                              : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200"
-                          }`}
+                          onClick={() =>
+                            setPage((current) => Math.max(1, current - 1))
+                          }
+                          disabled={page === 1 || applicationsLoading}
+                          className="rounded-lg border border-[#E2E8F0] bg-white px-3 py-1.5 text-[13px] font-medium text-[#111827] transition hover:bg-[#F7F9FC] disabled:cursor-not-allowed disabled:opacity-50"
                         >
-                          {pageNumber}
+                          <span className="inline-flex items-center gap-1">
+                            <ChevronLeft className="h-4 w-4" />
+                            Prev
+                          </span>
                         </button>
-                      ),
-                    )}
 
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setPage((current) => Math.min(totalPages, current + 1))
-                      }
-                      disabled={page === totalPages || applicationsLoading}
-                      className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200"
-                    >
-                      <span className="inline-flex items-center gap-1">
-                        Next
-                        <ChevronRight className="h-4 w-4" />
-                      </span>
-                    </button>
+                        {visiblePages.map((pageNumber, index) =>
+                          pageNumber === "ellipsis" ? (
+                            <span
+                              key={`ellipsis-${index}`}
+                              className="px-1 text-[13px] text-[#94A3B8]"
+                            >
+                              ...
+                            </span>
+                          ) : (
+                            <button
+                              key={pageNumber}
+                              type="button"
+                              onClick={() => setPage(pageNumber)}
+                              disabled={applicationsLoading}
+                              className={`min-w-8 rounded-lg border px-2.5 py-1.5 text-[13px] font-medium transition ${
+                                page === pageNumber
+                                  ? "border-[#4C78F5] bg-[#4C78F5] text-white"
+                                  : "border-[#E2E8F0] bg-white text-[#111827] hover:bg-[#F7F9FC]"
+                              }`}
+                            >
+                              {pageNumber}
+                            </button>
+                          ),
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setPage((current) =>
+                              Math.min(totalPages, current + 1),
+                            )
+                          }
+                          disabled={page === totalPages || applicationsLoading}
+                          className="rounded-lg border border-[#E2E8F0] bg-white px-3 py-1.5 text-[13px] font-medium text-[#111827] transition hover:bg-[#F7F9FC] disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          <span className="inline-flex items-center gap-1">
+                            Next
+                            <ChevronRight className="h-4 w-4" />
+                          </span>
+                        </button>
+                      </div>
+                    ) : null}
                   </div>
                 ) : null}
               </div>
-            )}
             </div>
           </div>
-        )}
+        </ClientPortalChrome>
+      )}
 
-        {activeTab === "application" &&
-          (applicationDetailsLoading
+      {activeTab === "application" &&
+        (applicationDetailsLoading
+          ? renderApplicationWorkspace(
+              <div className="flex items-center justify-center py-20 text-[14px] text-[#64748B]">
+                Loading application details...
+              </div>,
+            )
+          : applicationData
             ? renderApplicationWorkspace(
-                <div className="flex items-center justify-center py-20 text-gray-500">
-                  Loading application details...
-                </div>,
-              )
-            : applicationData
-              ? renderApplicationWorkspace(
-                  <div className="space-y-5">
+                <div className="space-y-5">
                 <ClientSubmissionDetailsView
                   application={applicationData}
                   fields={submissionDetailFields}
@@ -2689,20 +2351,23 @@ export default function ClientUpload() {
                   formatStatusLabel={formatStatusLabel}
                   getStatusChipClass={getStatusStyles}
                   hideSignature
+                  applicationId={applicationId || applicationData.id}
+                  apiBase={API_BASE}
+                  getAuthHeaders={() => getClientPortalAuthConfig().headers}
                 />
 
                 {/* Client signature pad / signed state */}
-                <div className="overflow-hidden rounded-xl border border-gray-100 bg-white p-5 sm:p-6">
+                <div className="overflow-hidden rounded-[10px] border border-[#E2E8F0] bg-white p-5 sm:p-6">
                   <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <div className="mb-1 flex items-center gap-2">
-                        <span className="h-4 w-1 rounded-full bg-[#13538A]" />
-                        <h3 className="text-sm font-semibold text-gray-900">
+                        <span className="h-4 w-1 rounded-full bg-[#4C78F5]" />
+                        <h3 className="text-[15px] font-semibold text-[#111827]">
                           Digital Signature
                         </h3>
                       </div>
-                      <p className="text-xs text-gray-500">
-                        Sign to confirm your application details.
+                      <p className="text-[13px] text-[#64748B]">
+                        Sign below to confirm your application details.
                       </p>
                     </div>
                     <span
@@ -2741,7 +2406,7 @@ export default function ClientUpload() {
                     </div>
                   ) : (
                     <>
-                      <div className="rounded-xl border border-gray-200 bg-gradient-to-br from-white to-[#13538A]/[0.03] p-4">
+                      <div className="rounded-[10px] border border-[#E2E8F0] bg-[#F7F9FC] p-4">
                         <div ref={signaturePadWrapRef} className="w-full">
                           <SigCanvas
                             key={`sig-pad-${signaturePadSize.width}x${signaturePadSize.height}`}
@@ -2753,7 +2418,7 @@ export default function ClientUpload() {
                               width: signaturePadSize.width,
                               height: signaturePadSize.height,
                               className:
-                                "block touch-none rounded-lg border-2 border-dashed border-[#13538A]/30 bg-white",
+                                "block touch-none rounded-lg border-2 border-dashed border-[#4C78F5]/30 bg-white",
                               style: {
                                 width: "100%",
                                 height: `${signaturePadSize.height}px`,
@@ -2796,10 +2461,10 @@ export default function ClientUpload() {
                       <button
                         onClick={handleSubmitSignature}
                         disabled={!signature || submittingSign || !canClientSign}
-                        className={`mt-4 w-full rounded-xl py-2.5 text-sm font-semibold transition ${
+                        className={`mt-4 w-full rounded-[8px] py-2.5 text-sm font-semibold transition ${
                           !signature || submittingSign || !canClientSign
                             ? "cursor-not-allowed bg-gray-200 text-gray-500"
-                            : "bg-[#13538A] text-white hover:bg-[#1a6aad]"
+                            : "bg-[#4C78F5] text-white hover:bg-[#3B66E0]"
                         }`}
                       >
                         {submittingSign
@@ -2819,38 +2484,37 @@ export default function ClientUpload() {
                 )
               : null)}
 
-        {activeTab === "feeAgreement" &&
-          renderApplicationWorkspace(
-            <FeeAgreement
-              key={tabRefreshKey}
+      {activeTab === "feeAgreement" &&
+        renderApplicationWorkspace(
+          <FeeAgreement
+            key={tabRefreshKey}
+            applicationId={
+              selectedApplication?.id ||
+              selectedApplication?.loanApplicationId ||
+              applicationId
+            }
+            getAuthHeaders={() => getClientPortalAuthConfig().headers}
+            onBack={() => setActiveTab("application")}
+          />,
+        )}
+
+      {activeTab === "chat" &&
+        chatEnabled &&
+        renderApplicationWorkspace(
+          <div className="h-full min-h-0 overflow-hidden">
+            <Chat
               applicationId={
                 selectedApplication?.id ||
                 selectedApplication?.loanApplicationId ||
                 applicationId
               }
-              getAuthHeaders={() => getClientPortalAuthConfig().headers}
+              applicationNumber={
+                selectedApplication?.applicationNumber || applicationNumber
+              }
               onBack={() => setActiveTab("application")}
-            />,
-          )}
-
-        {activeTab === "chat" &&
-          chatEnabled &&
-          renderApplicationWorkspace(
-            <div className="h-full min-h-0 overflow-hidden">
-              <Chat
-                applicationId={
-                  selectedApplication?.id ||
-                  selectedApplication?.loanApplicationId ||
-                  applicationId
-                }
-                applicationNumber={
-                  selectedApplication?.applicationNumber || applicationNumber
-                }
-                onBack={() => setActiveTab("application")}
-              />
-            </div>,
-          )}
-      </div>
+            />
+          </div>,
+        )}
 
       {profileModalOpen ? (
         <div className="fixed inset-0 z-[999998] flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm">
@@ -2914,7 +2578,7 @@ export default function ClientUpload() {
                         firstName: e.target.value,
                       }))
                     }
-                    className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition focus:border-[#2C92D5] focus:ring-4 focus:ring-[#2C92D5]/15"
+                    className="w-full rounded-[8px] border border-[#E2E8F0] bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition focus:border-[#4C78F5] focus:ring-4 focus:ring-[#4C78F5]/15"
                     placeholder="First name"
                     autoFocus
                   />
@@ -2933,7 +2597,7 @@ export default function ClientUpload() {
                         lastName: e.target.value,
                       }))
                     }
-                    className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition focus:border-[#2C92D5] focus:ring-4 focus:ring-[#2C92D5]/15"
+                    className="w-full rounded-[8px] border border-[#E2E8F0] bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition focus:border-[#4C78F5] focus:ring-4 focus:ring-[#4C78F5]/15"
                     placeholder="Last name"
                   />
                 </div>
@@ -2954,7 +2618,7 @@ export default function ClientUpload() {
                       phone: formatPhone(e.target.value),
                     }))
                   }
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition focus:border-[#2C92D5] focus:ring-4 focus:ring-[#2C92D5]/15"
+                  className="w-full rounded-[8px] border border-[#E2E8F0] bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition focus:border-[#4C78F5] focus:ring-4 focus:ring-[#4C78F5]/15"
                   placeholder="222-222-2222"
                   maxLength={12}
                 />
@@ -2966,7 +2630,7 @@ export default function ClientUpload() {
                 type="button"
                 onClick={() => setProfileModalOpen(false)}
                 disabled={profileSaving}
-                className="rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-100"
+                className="rounded-[8px] px-4 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-100"
               >
                 Cancel
               </button>
@@ -2974,7 +2638,7 @@ export default function ClientUpload() {
                 type="button"
                 onClick={saveClientProfile}
                 disabled={profileSaving}
-                className="inline-flex items-center gap-2 rounded-xl bg-[#13538A] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0f446f] disabled:opacity-60"
+                className="inline-flex items-center gap-2 rounded-[8px] bg-[#4C78F5] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#3B66E0] disabled:opacity-60"
               >
                 {profileSaving ? (
                   <>
@@ -2991,19 +2655,34 @@ export default function ClientUpload() {
       ) : null}
 
       {previewFiles.length > 0 && (
-        <div className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-          <div className="flex h-[90vh] max-h-[90vh] w-full max-w-5xl min-h-0 flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
-            <div className="flex shrink-0 items-center justify-between bg-gradient-to-r from-blue-600 to-teal-600 px-5 py-4 text-white">
-              <div className="min-w-0 pr-4">
-                <h2 className="truncate text-sm font-semibold">
-                  {currentPreviewFile?.fileName || "Document preview"}
-                </h2>
-                <p className="text-xs text-white/70">
-                  {previewActiveIndex + 1} / {previewFiles.length}
+        <div
+          className="fixed inset-0 z-[999999] flex bg-slate-950/75"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Document preview"
+          onClick={() => {
+            setPreviewFiles([]);
+            setPreviewActiveIndex(0);
+          }}
+        >
+          <div
+            className="flex h-dvh w-screen min-h-0 flex-col overflow-hidden bg-[#0f172a]"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex h-11 shrink-0 items-center justify-between gap-3 border-b border-white/10 bg-[#111827] px-3 sm:px-4">
+              <div className="min-w-0">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#93B4FF]">
+                  Document preview
+                  {previewFiles.length > 1
+                    ? ` · ${previewActiveIndex + 1}/${previewFiles.length}`
+                    : ""}
                 </p>
+                <h2 className="truncate text-[13px] font-semibold leading-tight text-white">
+                  {currentPreviewFile?.fileName || "Document"}
+                </h2>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex shrink-0 items-center gap-1.5">
                 <button
                   type="button"
                   onClick={async () => {
@@ -3030,10 +2709,10 @@ export default function ClientUpload() {
                       toast.error("Download failed");
                     }
                   }}
-                  className="inline-flex items-center gap-1 rounded-lg bg-white/20 px-3 py-1.5 text-xs font-medium transition hover:bg-white/30"
+                  className="inline-flex h-8 items-center gap-1.5 rounded-[8px] bg-[#4C78F5] px-3 text-[12px] font-semibold text-white transition hover:bg-[#3B66E0]"
                 >
                   <Download size={14} />
-                  Download
+                  <span className="hidden sm:inline">Download</span>
                 </button>
 
                 <button
@@ -3042,19 +2721,20 @@ export default function ClientUpload() {
                     setPreviewFiles([]);
                     setPreviewActiveIndex(0);
                   }}
-                  className="rounded-lg bg-red-500 px-3 py-1.5 text-xs transition hover:bg-red-600"
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-[8px] border border-white/15 bg-white/5 text-white/90 transition hover:bg-white/10"
+                  aria-label="Close preview"
                 >
-                  Close
+                  <FiX size={16} />
                 </button>
               </div>
             </div>
 
-            <div className="relative flex min-h-0 flex-1 overflow-hidden bg-slate-100">
+            <div className="relative flex min-h-0 flex-1 overflow-hidden">
               {previewActiveIndex > 0 && (
                 <button
                   type="button"
                   onClick={() => setPreviewActiveIndex((index) => index - 1)}
-                  className="absolute left-4 top-1/2 z-10 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-md"
+                  className="absolute left-3 top-1/2 z-10 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-white/15 bg-black/50 text-white shadow-lg backdrop-blur-sm transition hover:bg-black/70"
                   aria-label="Previous file"
                 >
                   <ChevronLeft size={20} />
@@ -3065,7 +2745,7 @@ export default function ClientUpload() {
                 <button
                   type="button"
                   onClick={() => setPreviewActiveIndex((index) => index + 1)}
-                  className="absolute right-4 top-1/2 z-10 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-md"
+                  className="absolute right-3 top-1/2 z-10 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-white/15 bg-black/50 text-white shadow-lg backdrop-blur-sm transition hover:bg-black/70"
                   aria-label="Next file"
                 >
                   <ChevronRight size={20} />
@@ -3080,27 +2760,24 @@ export default function ClientUpload() {
                 )}
                 fileName={currentPreviewFile?.fileName}
                 getAuthHeaders={() => getClientPortalAuthConfig().headers}
-                className="flex h-full min-h-0 w-full items-center justify-center overflow-hidden p-4"
-                iframeClassName="h-full min-h-0 w-full rounded-xl bg-white"
-                imageClassName="max-h-full max-w-full rounded-xl object-contain shadow"
+                className="flex h-full min-h-0 w-full items-center justify-center overflow-hidden bg-[#0f172a] p-3 sm:p-5"
+                iframeClassName="h-full min-h-0 w-full bg-white"
+                imageClassName="max-h-full max-w-full object-contain"
               />
             </div>
 
             {previewFiles.length > 1 && (
-              <div className="shrink-0 border-t border-slate-200 bg-slate-50 p-3">
-                <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                  Select file
-                </p>
+              <div className="shrink-0 border-t border-white/10 bg-[#111827] px-3 py-2.5 sm:px-4">
                 <div className="flex gap-2 overflow-x-auto">
                   {previewFiles.map((file, index) => (
                     <button
                       key={file.uploadId || `${index}-${file.fileName}`}
                       type="button"
                       onClick={() => setPreviewActiveIndex(index)}
-                      className={`min-w-[5rem] rounded-lg border px-2 py-2 text-left text-[10px] transition ${
+                      className={`min-w-[7rem] max-w-[11rem] rounded-[8px] border px-2.5 py-2 text-left text-[11px] transition ${
                         index === previewActiveIndex
-                          ? "border-blue-500 bg-blue-50 text-blue-700"
-                          : "border-slate-200 bg-white text-slate-600 hover:bg-slate-100"
+                          ? "border-[#4C78F5] bg-[#4C78F5]/20 text-white"
+                          : "border-white/10 bg-white/5 text-white/70 hover:bg-white/10 hover:text-white"
                       }`}
                     >
                       <span className="block truncate font-semibold">
@@ -3114,6 +2791,6 @@ export default function ClientUpload() {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }

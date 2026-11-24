@@ -432,7 +432,7 @@ function drawBorrowerSignatureBlock(doc, startY, data) {
     doc.heightOfString(disclaimer, { width: boxWidth - 16 }),
   );
 
-  const sigImageH = 36;
+  const sigImageH = 64;
   const lineGap = 4;
   const footerH = 16;
   const boxHeight =

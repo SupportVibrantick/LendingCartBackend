@@ -13,6 +13,9 @@ const {
   createSignedDocumentFile,
 } = require("../../services/documents/signDocumentMerge");
 const {
+  createFlattenedFormDocument,
+} = require("../../services/documents/signForm/flattenForm");
+const {
   getFormForRequirement,
 } = require("../../services/documents/signForm/formService");
 const {
@@ -464,6 +467,212 @@ module.exports = async function clientSignDocuments(fastify) {
     },
   );
 
+  // Re-merge stored signature onto the template with readable stamp sizing.
+  // Fixes older signed LOI PDFs that were flattened into a short strip.
+  fastify.post(
+    "/sign-documents/:requirementId/restamp",
+    {
+      preHandler: clientAuthMiddleware,
+    },
+    async (req, reply) => {
+      const prisma = fastify.prisma;
+      const { requirementId } = req.params;
+      const loanApplicationId =
+        req.body?.loanApplicationId || req.query?.loanApplicationId;
+
+      try {
+        if (!req.client?.clientId) {
+          return reply.code(401).send({
+            success: false,
+            message: "Unauthorized",
+          });
+        }
+
+        if (!loanApplicationId) {
+          return reply.code(400).send({
+            success: false,
+            message: "loanApplicationId is required",
+          });
+        }
+
+        const clientIds = await resolvePortalClientIds(prisma, req.client);
+        const requirement = await prisma.applicationDocumentRequirement.findFirst(
+          {
+            where: {
+              id: requirementId,
+              loanApplicationId,
+              requiresClientSignature: true,
+              signStatus: {
+                in: ["CLIENT_SIGNED", "FORWARDED_TO_LENDER", "LENDER_SEEN"],
+              },
+              loanApplication: { clientId: { in: clientIds } },
+            },
+            include: {
+              documentType: true,
+              uploads: {
+                where: { isSignedOutput: true },
+                orderBy: { uploadedAt: "desc" },
+                take: 1,
+              },
+              requestApplicationLender: {
+                include: { lender: { select: { name: true } } },
+              },
+            },
+          },
+        );
+
+        if (!requirement) {
+          return reply.code(404).send({
+            success: false,
+            message: "Signed document not found",
+          });
+        }
+
+        const existingUpload = requirement.uploads?.[0];
+        if (!existingUpload) {
+          return reply.code(400).send({
+            success: false,
+            message: "Signed upload not found",
+          });
+        }
+
+        const outputDir = path.join(
+          process.cwd(),
+          "uploads",
+          "loan-documents",
+          requirement.loanApplicationId,
+          requirement.id,
+        );
+
+        let signedFile;
+
+        // Fillable forms: rebuild from latest submission values (never LOI stamp
+        // the blank template — that wipes field data + field signatures).
+        if (requirement.signMode === "DYNAMIC_FORM") {
+          const requirementWithForm =
+            await prisma.applicationDocumentRequirement.findUnique({
+              where: { id: requirement.id },
+              include: {
+                activeFormVersion: true,
+                signFormSubmissions: {
+                  orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }],
+                  include: { values: true },
+                  take: 5,
+                },
+              },
+            });
+          const schema = requirementWithForm?.activeFormVersion?.schemaJson;
+          const submission =
+            (requirementWithForm?.signFormSubmissions || [])
+              .slice()
+              .sort(
+                (a, b) =>
+                  (b.values?.length || 0) - (a.values?.length || 0) ||
+                  new Date(b.updatedAt || b.createdAt).getTime() -
+                    new Date(a.updatedAt || a.createdAt).getTime(),
+              )[0] || null;
+
+          if (!schema || !submission) {
+            return reply.code(400).send({
+              success: false,
+              message: "Form data missing; cannot rebuild signed PDF",
+            });
+          }
+
+          signedFile = await createFlattenedFormDocument({
+            templateFileUrl: requirement.templateFileUrl,
+            templateMimeType: requirement.templateMimeType,
+            templateFileName: requirement.templateFileName,
+            schema,
+            values: valuesMapFromSubmission(submission),
+            outputDir,
+            outputBaseName: `signed-form-${crypto.randomBytes(8).toString("hex")}`,
+            prisma,
+          });
+        } else {
+          const signature = existingUpload.clientSignatureData;
+          if (!signature) {
+            return reply.code(400).send({
+              success: false,
+              message: "Stored signature not available to restamp",
+            });
+          }
+
+          signedFile = await createSignedDocumentFile({
+            templateFileUrl: requirement.templateFileUrl,
+            templateMimeType: requirement.templateMimeType,
+            templateFileName: requirement.templateFileName,
+            signature,
+            outputDir,
+            outputBaseName: `signed-${crypto.randomBytes(8).toString("hex")}`,
+            signedAt: existingUpload.uploadedAt || new Date(),
+            prisma,
+          });
+        }
+
+        const updatedUpload = await prisma.applicationDocumentUpload.update({
+          where: { id: existingUpload.id },
+          data: {
+            fileName: signedFile.fileName,
+            fileUrl: signedFile.fileUrl,
+            storageKey: signedFile.storageKey || null,
+            storageProvider: signedFile.storageProvider || null,
+            fileMimeType: signedFile.fileMimeType,
+          },
+        });
+
+        const isBrokerLoi =
+          requirement.documentType?.code === "BROKER_LOI_TERM_SHEET" ||
+          /\/broker\/LOI\//i.test(requirement.templateFileUrl || "");
+
+        if (isBrokerLoi) {
+          let version = await prisma.brokerLoiVersion.findFirst({
+            where: { documentRequirementId: requirement.id },
+          });
+          if (!version) {
+            version = await getCurrentBrokerLoiVersion(
+              prisma,
+              requirement.loanApplicationId,
+            );
+          }
+          if (version?.id) {
+            await markBrokerLoiVersionClientSigned(
+              prisma,
+              version.id,
+              updatedUpload.fileUrl,
+            );
+          }
+        }
+
+        const refreshed = await prisma.applicationDocumentRequirement.findFirst({
+          where: { id: requirement.id },
+          include: {
+            documentType: true,
+            uploads: {
+              where: { isSignedOutput: true },
+              orderBy: { uploadedAt: "desc" },
+            },
+            requestApplicationLender: {
+              include: { lender: { select: { name: true } } },
+            },
+          },
+        });
+
+        return reply.send({
+          success: true,
+          message: "Signed document refreshed",
+          data: formatSignDocumentRequirement(refreshed, { viewer: "client" }),
+        });
+      } catch (error) {
+        fastify.log.error(error);
+        return reply.code(500).send({
+          success: false,
+          message: error.message || "Failed to refresh signed document",
+        });
+      }
+    },
+  );
+
   fastify.get(
     "/sign-documents/:requirementId/form",
     {
@@ -575,14 +784,12 @@ module.exports = async function clientSignDocuments(fastify) {
         });
         const values = valuesMapFromSubmission(draft);
         const progress = computeProgress(form.schema, values);
-        // Client may still be SENT_TO_CLIENT while waiting on broker fields.
-        // Only lock after a meaningful client completion (not vacuous 0/N).
-        const clientDone =
-          Boolean(progress?.client?.complete) &&
-          ((Number(progress?.client?.required) || 0) > 0 ||
-            (Number(progress?.client?.filled) || 0) > 0);
+        // Collaborative fill: keep editing open while status is SENT_TO_CLIENT.
+        // Only lock after explicit submit (submission COMPLETE / signStatus moved on).
+        const submissionComplete =
+          String(draft.status || "").toUpperCase() === "COMPLETE";
         const readOnly =
-          requirement.signStatus !== "SENT_TO_CLIENT" || clientDone;
+          requirement.signStatus !== "SENT_TO_CLIENT" || submissionComplete;
         const fields = annotateFieldsForRole(
           form.schema?.fields || [],
           "client",
@@ -718,13 +925,9 @@ module.exports = async function clientSignDocuments(fastify) {
           requirementId: requirement.id,
           formVersionId: requirement.activeFormVersionId,
         });
-        const existingValues = valuesMapFromSubmission(draft);
-        const existingProgress = computeProgress(schema, existingValues);
-        const clientAlreadyDone =
-          Boolean(existingProgress?.client?.complete) &&
-          ((Number(existingProgress?.client?.required) || 0) > 0 ||
-            (Number(existingProgress?.client?.filled) || 0) > 0);
-        if (clientAlreadyDone) {
+        // Do not lock draft autosave when required fields become complete —
+        // clients keep editing until they click Submit (or status leaves SENT_TO_CLIENT).
+        if (String(draft.status || "").toUpperCase() === "COMPLETE") {
           return reply.code(400).send({
             success: false,
             message:

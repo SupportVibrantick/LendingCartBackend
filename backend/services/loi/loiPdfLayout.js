@@ -22,7 +22,7 @@ function buildLoiSignatureAnchor(doc, options = {}) {
     sigX = LOI_PAGE.margin + 10,
     sigTopY,
     sigWidth = Math.min(220, boxWidth * 0.45),
-    sigHeight = 36,
+    sigHeight = 64,
     dateX = LOI_PAGE.margin + boxWidth * 0.58,
     printNameY = lineY + 6,
   } = options;
@@ -47,15 +47,15 @@ function estimateLoiSignatureAnchor(pageHeight, pageWidth) {
   const margin = LOI_PAGE.margin;
   const contentBottom = pageHeight - LOI_PAGE.bottom;
   const boxWidth = pageWidth - margin * 2;
-  const boxHeight = 110;
+  const boxHeight = 140;
   const boxTop = contentBottom - boxHeight - 8;
   const padding = 8;
   const titleH = 14;
   const disclaimerH = 22;
-  const sigHeight = 36;
+  const sigHeight = 64;
   const sigTopY = boxTop + padding + titleH + 4 + disclaimerH + 8;
   const lineY = sigTopY + sigHeight + 2;
-  const sigWidth = Math.min(220, boxWidth * 0.45);
+  const sigWidth = Math.min(240, boxWidth * 0.5);
 
   return {
     page: -1,

@@ -1,6 +1,5 @@
-import { useEffect, useState } from "react";
-import { FileText } from "lucide-react";
-import { useRef } from "react";
+import { useEffect, useState, useRef } from "react";
+import { Clock3, FileText, Loader2, PenLine, ShieldCheck } from "lucide-react";
 import toast from "react-hot-toast";
 import SignatureCanvas from "react-signature-canvas";
 import FeeAgreementDocument from "../../components/FeeAgreementDocument";
@@ -108,70 +107,113 @@ export default function FeeAgreement({
 
   if (loading) {
     return (
-      <div className="py-20 text-center text-gray-500">
-        Loading Fee Agreement...
+      <div className="flex min-h-[360px] flex-col items-center justify-center gap-3 rounded-[10px] border border-[#E2E8F0] bg-white text-[#64748B]">
+        <Loader2 className="h-7 w-7 animate-spin text-[#4C78F5]" />
+        <p className="text-[14px] font-medium">Loading fee agreement…</p>
       </div>
     );
   }
 
   if (!data) {
     return (
-      <>
-        <div className="flex items-center justify-between mb-4">
-          <button
-            onClick={onBack}
-            className="flex text-xs items-center gap-2 px-3 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 transition"
-          >
-            ← Back
-          </button>
+      <div className="overflow-hidden rounded-[10px] border border-[#E2E8F0] bg-white">
+        <div className="border-b border-[#E2E8F0] px-5 py-4 sm:px-6">
+          <div className="flex items-center gap-3">
+            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#4C78F5]/10 text-[#4C78F5]">
+              <FileText size={16} />
+            </span>
+            <div>
+              <h2 className="text-[16px] font-semibold text-[#111827]">
+                Fee Agreement
+              </h2>
+              <p className="text-[12px] text-[#64748B]">
+                Waiting for your broker to attach terms
+              </p>
+            </div>
+          </div>
         </div>
 
-        <div
-          className="rounded-2xl border-2 border-dashed border-indigo-300 
-        bg-gradient-to-br from-indigo-50 via-white to-cyan-50 
-        py-20 px-6 text-center flex flex-col items-center gap-4"
-        >
-          <div
-            className="h-16 w-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-cyan-500 
-          flex items-center justify-center shadow-sm"
-          >
-            <FileText className="text-white" size={28} />
+        <div className="flex flex-col items-center px-6 py-16 text-center sm:py-20">
+          <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-[14px] bg-[#F7F9FC] text-[#4C78F5] ring-1 ring-[#E2E8F0]">
+            <FileText size={30} />
+          </div>
+          <p className="text-[18px] font-semibold text-[#111827]">
+            No fee agreement yet
+          </p>
+          <p className="mt-2 max-w-md text-[14px] leading-relaxed text-[#64748B]">
+            Your broker has not included a fee agreement for this application.
+            It will appear here automatically once it is added.
+          </p>
+
+          <div className="mt-8 grid w-full max-w-lg gap-3 sm:grid-cols-2">
+            <div className="rounded-[10px] border border-[#E2E8F0] bg-[#F7F9FC] px-4 py-3 text-left">
+              <div className="mb-1.5 flex items-center gap-2 text-[#4C78F5]">
+                <Clock3 size={14} />
+                <span className="text-[11px] font-semibold uppercase tracking-[0.12em]">
+                  Status
+                </span>
+              </div>
+              <p className="text-[13px] font-medium text-[#111827]">
+                Not sent by broker
+              </p>
+            </div>
+            <div className="rounded-[10px] border border-[#E2E8F0] bg-[#F7F9FC] px-4 py-3 text-left">
+              <div className="mb-1.5 flex items-center gap-2 text-[#4C78F5]">
+                <ShieldCheck size={14} />
+                <span className="text-[11px] font-semibold uppercase tracking-[0.12em]">
+                  Next step
+                </span>
+              </div>
+              <p className="text-[13px] font-medium text-[#111827]">
+                We’ll notify you when ready
+              </p>
+            </div>
           </div>
 
-          <p className="text-base font-semibold text-gray-700">
-            No Fee Agreement Found
-          </p>
-
-          <p className="text-sm text-gray-500 max-w-sm">
-            Your broker has not included a fee agreement for this application
-            yet. It will appear here once it is added.
-          </p>
+          <button
+            type="button"
+            onClick={onBack}
+            className="mt-8 inline-flex items-center gap-2 rounded-[8px] bg-[#4C78F5] px-4 py-2.5 text-[13px] font-semibold text-white transition hover:bg-[#3B66E0]"
+          >
+            Back to Loan Application
+          </button>
         </div>
-      </>
+      </div>
     );
   }
 
   const feeTermsReady = canClientSignFeeAgreement(data);
+  const statusLabel = String(data.status || "PENDING").replace(/_/g, " ");
+  const isSigned = Boolean(data.clientSignature);
 
   return (
-    <div className="bg-white rounded-2xl border shadow-sm overflow-hidden">
-      <div className="flex items-center justify-between px-6 py-4 border-b bg-gradient-to-r from-indigo-50 to-cyan-50">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-4">
-            <div>
-              <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
-                <span className="p-1.5 rounded-lg bg-indigo-100 text-indigo-600">
-                  <FileText size={16} />
-                </span>
-                Fee Agreement
-              </h2>
-
-              <p className="text-xs text-gray-500 mt-0.5">
-                Status:{" "}
-                <span className="px-2 py-[2px] rounded-full bg-indigo-50 text-indigo-600 font-semibold">
-                  {data.status}
-                </span>
-              </p>
+    <div className="overflow-hidden rounded-[10px] border border-[#E2E8F0] bg-white">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#E2E8F0] px-5 py-4 sm:px-6">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#4C78F5]/10 text-[#4C78F5]">
+            <FileText size={16} />
+          </span>
+          <div className="min-w-0">
+            <h2 className="text-[16px] font-semibold text-[#111827]">
+              Fee Agreement
+            </h2>
+            <div className="mt-1 flex flex-wrap items-center gap-2">
+              <span
+                className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
+                  isSigned
+                    ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100"
+                    : "bg-[#4C78F5]/10 text-[#4C78F5] ring-1 ring-[#4C78F5]/15"
+                }`}
+              >
+                {statusLabel}
+              </span>
+              <span className="text-[12px] text-[#64748B]">
+                {isSigned
+                  ? "Signed and on file"
+                  : feeTermsReady
+                    ? "Ready for your signature"
+                    : "Awaiting broker fee terms"}
+              </span>
             </div>
           </div>
         </div>
@@ -180,61 +222,85 @@ export default function FeeAgreement({
       </div>
 
       <FeeAgreementDocument data={data} pdfRef={pdfRef} currencySymbol="₹">
-        <div className="border-t pt-6">
-          <h3 className="font-semibold mb-3">Signature</h3>
+        <div className="mt-2 border-t border-[#E2E8F0] pt-6">
+          <div className="mb-4 flex items-center gap-2">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#4C78F5]/10 text-[#4C78F5]">
+              <PenLine size={15} />
+            </span>
+            <div>
+              <h3 className="text-[15px] font-semibold text-[#111827]">
+                Signature
+              </h3>
+              <p className="text-[12px] text-[#64748B]">
+                Confirm the agreement terms with your digital signature
+              </p>
+            </div>
+          </div>
 
-          {data.clientSignature ? (
-            <div className="text-center">
+          {isSigned ? (
+            <div className="rounded-[10px] border border-emerald-100 bg-emerald-50/50 p-5 text-center">
               <img
                 src={data.clientSignature}
-                className="h-34 w-full object-contain border rounded-md p-2 mx-auto"
+                alt="Client signature"
+                className="mx-auto h-28 w-full max-w-md object-contain rounded-lg border border-[#E2E8F0] bg-white p-3"
               />
-              <p className="text-xs text-green-600 mt-2 font-medium">
-                ✔ Signed Successfully
+              <p className="mt-3 text-[13px] font-semibold text-emerald-700">
+                Signed successfully
               </p>
             </div>
           ) : !feeTermsReady ? (
-            <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            <div className="rounded-[10px] border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-800">
               Signing is unavailable until your broker sets the broker fee,
               upfront fee, and exclusivity period on this agreement.
             </div>
           ) : (
             <>
-              <div className="bg-white border-2 border-dashed rounded-xl p-3">
-                <div className="w-full h-40">
+              <div className="rounded-[10px] border-2 border-dashed border-[#4C78F5]/30 bg-[#F7F9FC] p-3">
+                <div className="h-40 w-full overflow-hidden rounded-lg bg-white">
                   <SignatureCanvas
                     ref={sigRef as any}
                     canvasProps={{
-                      className: "w-full h-full",
+                      className: "h-full w-full touch-none",
                     }}
                   />
                 </div>
               </div>
 
-              <div className="flex justify-between mt-3">
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
                 <button
+                  type="button"
                   onClick={() => sigRef.current?.clear()}
-                  className="text-xs px-3 py-1 rounded-md border"
+                  className="rounded-[8px] border border-[#E2E8F0] bg-white px-3 py-2 text-[12px] font-semibold text-[#64748B] transition hover:bg-[#F7F9FC]"
                 >
                   Clear
                 </button>
 
                 <button
+                  type="button"
                   onClick={handleSignAgreement}
                   disabled={signing}
-                  className="text-xs px-4 py-1 rounded-md bg-green-600 text-white disabled:cursor-not-allowed disabled:opacity-50"
+                  className="inline-flex items-center gap-2 rounded-[8px] bg-[#4C78F5] px-4 py-2 text-[13px] font-semibold text-white transition hover:bg-[#3B66E0] disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {signing ? "Signing..." : "Sign Agreement"}
+                  {signing ? (
+                    <>
+                      <Loader2 size={14} className="animate-spin" />
+                      Signing…
+                    </>
+                  ) : (
+                    "Sign Agreement"
+                  )}
                 </button>
               </div>
             </>
           )}
 
-          <p className="text-xs text-gray-500 mt-2">
-            Signed At:{" "}
-            {data.signedAt
-              ? new Date(data.signedAt).toLocaleString()
-              : "Pending"}
+          <p className="mt-3 text-[12px] text-[#64748B]">
+            Signed at:{" "}
+            <span className="font-medium text-[#111827]">
+              {data.signedAt
+                ? new Date(data.signedAt).toLocaleString()
+                : "Pending"}
+            </span>
           </p>
         </div>
       </FeeAgreementDocument>

@@ -21,6 +21,7 @@ import {
   isBrokerTermSheetDoc,
   isStandaloneBrokerTermSheet,
 } from "../../lib/clientPortalApi";
+import "./clientPortalTheme.css";
 
 const SigCanvas = SignatureCanvas as unknown as React.FC<any>;
 
@@ -67,7 +68,9 @@ export default function ClientSignDocumentPage() {
   const [doc, setDoc] = useState<ClientSignDocumentRow | null>(null);
   const [downloading, setDownloading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [padSize, setPadSize] = useState({ width: 0, height: 0 });
   const sigRef = useRef<SignatureCanvas | null>(null);
+  const padWrapRef = useRef<HTMLDivElement | null>(null);
 
   const resumeTabParam = params.get("resumeTab");
   const resumeTab: "termSheet" | "signForms" =
@@ -127,13 +130,61 @@ export default function ClientSignDocumentPage() {
   }, [loanApplicationId, requirementId]);
 
   // Fillable mapped forms must use SignFormFiller (mode=fill), not PDF AcroForm typing.
+  // Broker term sheets stay on the signature pad — never force fill mode.
   useEffect(() => {
     if (loading || !doc) return;
-    if (mode === "sign" && doc.signMode === "DYNAMIC_FORM") {
+    if (
+      mode === "sign" &&
+      doc.signMode === "DYNAMIC_FORM" &&
+      !isBrokerTermSheetDoc(doc)
+    ) {
       openFillPage();
+      return;
+    }
+    // Guard: if fill was opened for a non-fillable term sheet, switch to sign.
+    if (
+      mode === "fill" &&
+      (isBrokerTermSheetDoc(doc) || doc.signMode !== "DYNAMIC_FORM")
+    ) {
+      navigate(
+        buildSignDocumentUrl({
+          mode: "sign",
+          loanApplicationId,
+          requirementId,
+          documentName: doc.documentName || documentNameParam,
+        }) + `&resumeTab=${resumeTab}`,
+        { replace: true },
+      );
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, doc, mode]);
+
+  // Keep canvas bitmap size = visible box size so pointer coords match (no skewed signing).
+  useEffect(() => {
+    if (loading || mode !== "sign") return;
+    const el = padWrapRef.current;
+    if (!el) return;
+
+    const updateSize = () => {
+      const rect = el.getBoundingClientRect();
+      const width = Math.max(1, Math.round(rect.width));
+      const height = Math.max(1, Math.round(rect.height));
+      setPadSize((prev) =>
+        prev.width === width && prev.height === height
+          ? prev
+          : { width, height },
+      );
+    };
+
+    updateSize();
+    const ro = new ResizeObserver(updateSize);
+    ro.observe(el);
+    window.addEventListener("orientationchange", updateSize);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("orientationchange", updateSize);
+    };
+  }, [loading, mode, doc?.requirementId]);
 
   const downloadTemplate = async () => {
     if (!doc || !loanApplicationId || !requirementId) return;
@@ -208,6 +259,8 @@ export default function ClientSignDocumentPage() {
 
     try {
       setSubmitting(true);
+      // Use getCanvas only — getTrimmedCanvas depends on trim-canvas default export
+      // which breaks under Vite ESM (import_trim_canvas.default is not a function).
       const signature = sigRef.current.getCanvas().toDataURL("image/png");
       const res = await fetch(
         `${getClientPortalApiBase()}/client-portal/sign-documents/${doc.requirementId}/sign`,
@@ -231,7 +284,8 @@ export default function ClientSignDocumentPage() {
             : "Broker LOI / term sheet signed successfully"
           : "Document signed successfully",
       );
-      resumeClientPortal(navigate, loanApplicationId);
+      // Return to the same workspace tab (termSheet vs signForms), not always Fill & Sign.
+      resumeClientPortal(navigate, loanApplicationId, resumeTab);
     } catch (err: any) {
       toast.error(err.message || "Signing failed");
     } finally {
@@ -261,7 +315,22 @@ export default function ClientSignDocumentPage() {
     );
   }
 
-  if (mode === "fill") {
+  if (loading) {
+    return (
+      <div className="flex min-h-dvh items-center justify-center bg-slate-50 text-slate-500">
+        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+        Loading document…
+      </div>
+    );
+  }
+
+  // Only mount the filler once we know this is a published dynamic form.
+  if (
+    mode === "fill" &&
+    doc &&
+    doc.signMode === "DYNAMIC_FORM" &&
+    !isBrokerTermSheetDoc(doc)
+  ) {
     return (
       <SignFormFiller
         open
@@ -272,18 +341,18 @@ export default function ClientSignDocumentPage() {
         getAuthHeaders={getClientPortalAuthHeaders}
         loanApplicationId={loanApplicationId}
         requirementId={requirementId}
-        documentName={doc?.documentName || documentNameParam}
-        initialSignStatus={doc?.signStatus || "SENT_TO_CLIENT"}
+        documentName={doc.documentName || documentNameParam}
+        initialSignStatus={doc.signStatus || "SENT_TO_CLIENT"}
         onSubmitted={goBack}
       />
     );
   }
 
-  if (loading) {
+  if (mode === "fill") {
     return (
       <div className="flex min-h-dvh items-center justify-center bg-slate-50 text-slate-500">
         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-        Loading document…
+        Opening document…
       </div>
     );
   }
@@ -297,194 +366,208 @@ export default function ClientSignDocumentPage() {
     );
   }
 
-  const title = mode === "sign" ? "Complete form" : "Template Preview";
+  const title = mode === "sign" ? "Sign document" : "Template Preview";
   const displayName = doc?.documentName || documentNameParam;
   const templateUrl = buildApiPublicFileUrl(
     getClientPortalApiBase(),
     doc?.templateFileUrl || null,
   );
   const isDynamicForm = doc?.signMode === "DYNAMIC_FORM";
+  const isBrokerSheet = Boolean(doc && isBrokerTermSheetDoc(doc));
 
   return (
-    <div className="flex h-dvh min-h-0 flex-col bg-slate-100">
-      <header className="shrink-0 border-b border-slate-200 bg-white">
-        <div className="flex flex-wrap items-center gap-3 px-4 py-3 sm:px-6">
+    <div className="client-portal flex h-dvh min-h-0 flex-col bg-[#F7F9FC]">
+      <header className="z-10 flex h-11 shrink-0 items-center gap-2 border-b border-[#E2E8F0] bg-white px-3 sm:gap-3 sm:px-4">
+        <button
+          type="button"
+          onClick={goBack}
+          disabled={submitting}
+          className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[#E2E8F0] px-2.5 text-[13px] font-medium text-[#64748B] transition hover:bg-[#F7F9FC] hover:text-[#111827] disabled:opacity-50"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          <span className="hidden sm:inline">Back</span>
+        </button>
+        <div className="min-w-0 flex-1">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#4C78F5]">
+            {title}
+            {doc?.loiVersionLabel ? ` · ${doc.loiVersionLabel}` : ""}
+          </p>
+          <h1 className="truncate text-[14px] font-semibold leading-tight text-[#111827]">
+            {displayName}
+          </h1>
+        </div>
+        {mode === "template" && isDynamicForm ? (
           <button
             type="button"
-            onClick={goBack}
-            disabled={submitting}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+            onClick={openFillPage}
+            className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-[#4C78F5] px-3 text-[12px] font-semibold text-white hover:bg-[#3B66E0]"
           >
-            <ArrowLeft className="h-4 w-4" />
-            Back
+            <LayoutGrid className="h-3.5 w-3.5" />
+            Open form
           </button>
-          <div className="min-w-0 flex-1">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-sky-700">
-              {title}
-            </p>
-            <h1 className="truncate text-lg font-semibold text-slate-900">
-              {displayName}
-              {doc?.loiVersionLabel ? (
-                <span className="ml-2 text-sm font-medium text-violet-600">
-                  ({doc.loiVersionLabel})
-                </span>
-              ) : null}
-            </h1>
-            {doc?.lenderName && (
-              <p className="truncate text-xs text-slate-500">
-                Requested by {doc.lenderName}
-              </p>
+        ) : null}
+        {mode === "template" ? (
+          <button
+            type="button"
+            onClick={downloadTemplate}
+            disabled={downloading || !doc?.templateFileUrl}
+            className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[#E2E8F0] bg-white px-3 text-[12px] font-semibold text-[#64748B] hover:bg-[#F7F9FC] disabled:opacity-50"
+          >
+            {downloading ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Download className="h-3.5 w-3.5" />
             )}
-          </div>
-          {mode === "template" && isDynamicForm && (
-            <button
-              type="button"
-              onClick={openFillPage}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-sky-600 px-3.5 py-2 text-sm font-semibold text-white hover:bg-sky-700"
-            >
-              <LayoutGrid className="h-4 w-4" />
-              Open form
-            </button>
-          )}
-          {mode === "template" && (
-            <button
-              type="button"
-              onClick={downloadTemplate}
-              disabled={downloading || !doc?.templateFileUrl}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-            >
-              {downloading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Download className="h-4 w-4" />
-              )}
-              Download
-            </button>
-          )}
-        </div>
+            <span className="hidden sm:inline">Download</span>
+          </button>
+        ) : null}
       </header>
 
       {!doc ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
-          <p className="text-sm font-medium text-slate-800">
-            Document not found
-          </p>
+          <p className="text-sm font-medium text-[#111827]">Document not found</p>
           <button
             type="button"
             onClick={goBack}
-            className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+            className="rounded-lg border border-[#E2E8F0] bg-white px-4 py-2 text-sm text-[#64748B] hover:bg-[#F7F9FC]"
           >
             Back
           </button>
         </div>
       ) : mode === "template" ? (
-        <main className="min-h-0 flex-1 overflow-auto p-4 sm:p-6">
-          {isDynamicForm && (
-            <div className="mx-auto mb-4 max-w-5xl rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-              <p className="font-medium">
-                Preview only — typing here is not saved.
-              </p>
-              <p className="mt-1 text-amber-800/90">
-                Use <span className="font-semibold">Open form</span> to enter
-                field values. Those saves sync for client and broker.
-              </p>
+        <main className="flex min-h-0 flex-1 flex-col overflow-hidden p-2 sm:p-3">
+          {isDynamicForm ? (
+            <div className="mb-2 shrink-0 rounded-[10px] border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-900">
+              Preview only — use <span className="font-semibold">Open form</span>{" "}
+              to enter and save field values.
             </div>
-          )}
-          <div className="mx-auto h-[min(80vh,900px)] max-w-5xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          ) : null}
+          <div className="min-h-0 flex-1 overflow-hidden rounded-[10px] border border-[#E2E8F0] bg-white shadow-sm">
             <EmbeddedFilePreview
               remoteUrl={templateUrl}
               mimeType={doc.templateMimeType}
               fileName={doc.templateFileName}
               getAuthHeaders={getClientPortalAuthHeaders}
-              iframeClassName="h-full min-h-[70vh] w-full bg-white"
+              iframeClassName="h-full min-h-0 w-full bg-white"
             />
           </div>
         </main>
       ) : mode === "sign" && doc.signMode !== "DYNAMIC_FORM" ? (
-        <>
-          <main className="min-h-0 flex-1 overflow-auto p-4 sm:p-6">
-            <div className="mx-auto mb-4 max-w-6xl rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600">
-              Document preview is view-only. Draw your signature on the right,
-              then submit. Field values are not edited on this page.
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden lg:flex-row">
+          {/* Document preview — dominates on large screens */}
+          <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden border-[#E2E8F0] lg:border-r">
+            <div className="flex shrink-0 items-center justify-between gap-2 border-b border-[#E2E8F0] bg-white px-3 py-2">
+              <p className="text-[12px] font-semibold text-[#111827]">
+                Document preview
+              </p>
+              <p className="hidden text-[11px] text-[#94A3B8] sm:block">
+                View-only · zoom &amp; pan with viewer controls
+              </p>
             </div>
-            <div className="mx-auto grid max-w-6xl gap-6 lg:grid-cols-2">
-              <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-                <div className="border-b border-slate-100 px-4 py-3">
-                  <p className="text-sm font-semibold text-slate-800">
-                    Document preview
-                  </p>
-                </div>
-                <div className="h-[min(60vh,640px)]">
-                  <EmbeddedFilePreview
-                    remoteUrl={templateUrl}
-                    mimeType={doc.templateMimeType}
-                    fileName={doc.templateFileName}
-                    getAuthHeaders={getClientPortalAuthHeaders}
-                    iframeClassName="h-full min-h-[50vh] w-full bg-white"
-                  />
-                </div>
-              </section>
+            <div className="min-h-0 flex-1 bg-[#0f172a]">
+              <EmbeddedFilePreview
+                remoteUrl={templateUrl}
+                mimeType={doc.templateMimeType}
+                fileName={doc.templateFileName}
+                getAuthHeaders={getClientPortalAuthHeaders}
+                iframeClassName="h-full min-h-[45vh] w-full bg-[#0f172a] lg:min-h-0"
+              />
+            </div>
+          </section>
 
-              <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-                <div className="mb-3 flex items-center gap-2">
-                  <PenLine className="h-4 w-4 text-sky-600" />
-                  <p className="text-sm font-semibold text-slate-800">
+          {/* Signature rail — tall pad, canvas sized to the visible box */}
+          <aside className="flex w-full shrink-0 flex-col border-t border-[#E2E8F0] bg-white lg:w-[360px] xl:w-[420px] lg:border-t-0">
+            <div className="shrink-0 border-b border-[#E2E8F0] px-4 py-2.5">
+              <div className="flex items-center gap-2">
+                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#4C78F5]/10 text-[#4C78F5]">
+                  <PenLine className="h-3.5 w-3.5" />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-[13px] font-semibold text-[#111827]">
                     Your signature
                   </p>
+                  <p className="text-[11px] text-[#64748B]">
+                    {isBrokerSheet
+                      ? isStandaloneBrokerTermSheet(doc)
+                        ? "Review the term sheet, then sign."
+                        : "Review the broker LOI, then sign."
+                      : "Review the document, then sign."}
+                  </p>
                 </div>
-                <p className="mb-3 text-xs text-slate-500">
-                  {isBrokerTermSheetDoc(doc)
-                    ? isStandaloneBrokerTermSheet(doc)
-                      ? "Review your broker's term sheet, then sign below."
-                      : "Review your broker LOI / term sheet, then sign below."
-                    : "Read the document, then sign below."}
-                </p>
-                <div className="overflow-hidden rounded-xl border-2 border-dashed border-slate-300 bg-white">
+              </div>
+            </div>
+
+            <div className="flex min-h-0 flex-1 flex-col gap-3 p-3 sm:p-4">
+              <div
+                ref={padWrapRef}
+                className="relative min-h-[240px] flex-1 overflow-hidden rounded-[10px] border-2 border-dashed border-[#4C78F5]/35 bg-white shadow-[inset_0_0_0_1px_rgba(76,120,245,0.06)]"
+                style={{ touchAction: "none" }}
+              >
+                {/* Guide line so signatures sit naturally */}
+                <div
+                  aria-hidden
+                  className="pointer-events-none absolute inset-x-4 bottom-[28%] z-[1] border-b border-dashed border-[#CBD5E1]"
+                />
+                {padSize.width > 0 && padSize.height > 0 ? (
                   <SigCanvas
+                    key={`${padSize.width}x${padSize.height}`}
                     ref={sigRef}
                     penColor="#111827"
+                    minWidth={1.6}
+                    maxWidth={3.4}
+                    velocityFilterWeight={0.65}
+                    throttle={8}
+                    clearOnResize={false}
                     canvasProps={{
-                      width: 640,
-                      height: 200,
-                      className: "w-full touch-none",
+                      width: padSize.width,
+                      height: padSize.height,
+                      className: "block touch-none bg-transparent",
+                      style: {
+                        width: padSize.width,
+                        height: padSize.height,
+                        display: "block",
+                      },
                     }}
                   />
-                </div>
-                <p className="mt-2 text-xs text-slate-500">
-                  Use your mouse or finger to sign inside the box.
-                </p>
-              </section>
-            </div>
-          </main>
-
-          <footer className="shrink-0 border-t border-slate-200 bg-white px-4 py-3 sm:px-6">
-            <div className="mx-auto flex max-w-6xl flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-              <button
-                type="button"
-                onClick={() => sigRef.current?.clear()}
-                disabled={submitting}
-                className="rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-              >
-                Clear signature
-              </button>
-              <button
-                type="button"
-                onClick={submitSignature}
-                disabled={submitting}
-                className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
-              >
-                {submitting ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
-                  <CheckCircle2 className="h-4 w-4" />
+                  <div className="flex h-full items-center justify-center text-[12px] text-[#94A3B8]">
+                    Preparing signature pad…
+                  </div>
                 )}
-                Submit signed document
-              </button>
+              </div>
+              <p className="shrink-0 text-[11px] text-[#94A3B8]">
+                Sign above the line with mouse or finger. Clear if you need to
+                retry.
+              </p>
+
+              <div className="mt-auto flex shrink-0 flex-col gap-2">
+                <button
+                  type="button"
+                  onClick={submitSignature}
+                  disabled={submitting}
+                  className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-[8px] bg-[#4C78F5] text-[13px] font-semibold text-white transition hover:bg-[#3B66E0] disabled:opacity-60"
+                >
+                  {submitting ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <CheckCircle2 className="h-4 w-4" />
+                  )}
+                  Submit signed document
+                </button>
+                <button
+                  type="button"
+                  onClick={() => sigRef.current?.clear()}
+                  disabled={submitting}
+                  className="inline-flex h-9 w-full items-center justify-center rounded-[8px] border border-[#E2E8F0] text-[13px] font-medium text-[#64748B] transition hover:bg-[#F7F9FC] disabled:opacity-50"
+                >
+                  Clear signature
+                </button>
+              </div>
             </div>
-          </footer>
-        </>
+          </aside>
+        </div>
       ) : (
-        <div className="flex flex-1 items-center justify-center text-slate-500">
+        <div className="flex flex-1 items-center justify-center text-[#64748B]">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           Opening fillable form…
         </div>
