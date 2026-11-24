@@ -7,6 +7,7 @@ const {
 } = require("./flattenForm");
 const {
   loadBytesFromPublicUrl,
+  ensureLocalPathFromPublicUrl,
 } = require("./pageManifest");
 const {
   valuesMapFromSubmission,
@@ -99,27 +100,30 @@ async function buildSignDocumentDownload(prisma, requirementId) {
 
     if (hasAnyFilledValue(values)) {
       const schema = requirement.activeFormVersion.schemaJson;
-      const templatePath = resolveDiskPathFromPublicUrl(
-        requirement.templateFileUrl,
-      );
-      if (!fs.existsSync(templatePath)) {
-        const err = new Error("Template file not found on server");
-        err.statusCode = 404;
-        throw err;
-      }
-
       const mime = String(requirement.templateMimeType || "").toLowerCase();
       const ext = path
-        .extname(requirement.templateFileName || templatePath || "")
+        .extname(
+          requirement.templateFileName || requirement.templateFileUrl || "",
+        )
         .toLowerCase();
 
       let buffer;
       if (mime === "application/pdf" || ext === ".pdf") {
-        buffer = await flattenFieldsOntoPdf({
-          templatePath,
-          schema,
-          values,
-        });
+        const localRef = await ensureLocalPathFromPublicUrl(
+          requirement.templateFileUrl,
+          prisma,
+        );
+        try {
+          buffer = await flattenFieldsOntoPdf({
+            templatePath: localRef.path,
+            schema,
+            values,
+          });
+        } finally {
+          if (localRef.cleanup) {
+            await fs.promises.unlink(localRef.path).catch(() => {});
+          }
+        }
       } else {
         const outputDir = path.join(
           process.cwd(),

@@ -486,8 +486,12 @@ export default function SignDocumentsPanel({
       completed: 0,
     },
   );
+  const [clientListRefreshing, setClientListRefreshing] = useState(false);
   const sigRef = useRef<SignatureCanvas | null>(null);
   const uploadFileInputRef = useRef<HTMLInputElement | null>(null);
+  const clientSearchInputRef = useRef<HTMLInputElement | null>(null);
+  const clientSearchFocusedRef = useRef(false);
+  const clientListLoadedRef = useRef(false);
 
   const openClientSignPage = (
     pageMode: "template" | "sign" | "fill",
@@ -592,9 +596,18 @@ export default function SignDocumentsPanel({
     search?: string;
     lenderId?: string;
     bucket?: ClientSignDocumentsBucket | BrokerSignDocumentsBucket;
+    soft?: boolean;
   }) => {
+    const softRefresh =
+      Boolean(options?.soft) ||
+      (isClientMode && clientListLoadedRef.current);
+
     try {
-      setLoading(true);
+      if (softRefresh) {
+        setClientListRefreshing(true);
+      } else {
+        setLoading(true);
+      }
       let url = "";
 
       if (isLenderMode && applicationLenderId) {
@@ -679,10 +692,20 @@ export default function SignDocumentsPanel({
       setPreviousSignedLoiVersions(
         isClientMode ? json.previousSignedLoiVersions || [] : [],
       );
+      if (isClientMode) {
+        clientListLoadedRef.current = true;
+      }
     } catch (err: any) {
       toast.error(err.message || "Failed to load sign documents");
     } finally {
       setLoading(false);
+      setClientListRefreshing(false);
+      // Search refetch remounts result cards; keep caret in the search box.
+      if (clientSearchFocusedRef.current) {
+        requestAnimationFrame(() => {
+          clientSearchInputRef.current?.focus({ preventScroll: true });
+        });
+      }
     }
   };
 
@@ -736,14 +759,15 @@ export default function SignDocumentsPanel({
 
     const timer = window.setTimeout(() => {
       setDebouncedClientSearch(clientSearchInput);
-      setClientPage(1);
-    }, 500);
+      setClientPage((page) => (page === 1 ? page : 1));
+    }, 350);
 
     return () => window.clearTimeout(timer);
   }, [isClientMode, clientSearchInput]);
 
   useEffect(() => {
     if (!isClientMode) return;
+    clientListLoadedRef.current = false;
     setClientBucket("all");
     setClientPage(1);
     setClientSearchInput("");
@@ -2186,9 +2210,9 @@ export default function SignDocumentsPanel({
         mimeType={previewMimeType}
         fileName={`Signed ${row.documentName}`}
         getAuthHeaders={getAuthHeaders}
-        className="flex h-[min(420px,50vh)] items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-50 p-4 lg:h-[min(520px,58vh)]"
-        iframeClassName="h-[min(420px,50vh)] w-full rounded-xl border border-slate-200 bg-white lg:h-[min(520px,58vh)]"
-        imageClassName="max-h-full max-w-full rounded-lg object-contain shadow-sm"
+        className="flex h-full min-h-0 w-full items-stretch justify-center overflow-hidden bg-[#0f172a]"
+        iframeClassName="h-full min-h-0 w-full bg-[#0f172a]"
+        imageClassName="max-h-full max-w-full object-contain"
       />
     );
   };
@@ -2205,110 +2229,107 @@ export default function SignDocumentsPanel({
 
     return (
       <div
-        className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 p-3 backdrop-blur-sm sm:p-4"
+        className="fixed inset-0 z-[9999] flex bg-slate-950/70"
         onClick={closeSignedViewModal}
       >
         <div
           role="dialog"
           aria-modal="true"
           aria-labelledby="signed-copy-modal-title"
-          className="flex max-h-[94vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+          className="flex h-dvh w-screen flex-col overflow-hidden bg-white"
           onClick={(event) => event.stopPropagation()}
         >
-          <div className="flex items-start justify-between gap-4 border-b border-slate-200 bg-gradient-to-r from-emerald-50 to-teal-50 px-5 py-4 sm:px-6">
+          <div className="flex h-11 shrink-0 items-center justify-between gap-3 border-b border-[#E2E8F0] bg-white px-3 sm:px-4">
             <div className="min-w-0">
-              <p className="text-xs font-semibold uppercase tracking-wide text-emerald-600">
-                Signed Copy
+              <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#4C78F5]">
+                Signed copy
               </p>
               <h3
                 id="signed-copy-modal-title"
-                className="truncate text-lg font-semibold text-slate-900 sm:text-xl"
+                className="truncate text-[14px] font-semibold leading-tight text-[#111827]"
               >
                 {activeSignedViewDoc.documentName}
               </h3>
-              <p className="mt-1 text-sm text-slate-600">
-                Your signed document and signature are shown below.
-              </p>
             </div>
-            <button
-              type="button"
-              onClick={closeSignedViewModal}
-              className="rounded-xl border border-slate-200 bg-white p-2 text-slate-500 transition hover:bg-slate-50 hover:text-slate-700"
-              aria-label="Close"
-            >
-              <X size={18} />
-            </button>
+            <div className="flex shrink-0 items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() =>
+                  openFile(activeSignedViewDoc.signedUpload?.fileUrl)
+                }
+                className="hidden h-8 items-center gap-1.5 rounded-[8px] border border-[#E2E8F0] px-2.5 text-[12px] font-medium text-[#64748B] transition hover:bg-[#F7F9FC] sm:inline-flex"
+              >
+                <Eye size={14} />
+                New tab
+              </button>
+              <button
+                type="button"
+                onClick={() => downloadSignedCopy(activeSignedViewDoc)}
+                disabled={downloadingId === activeSignedViewDoc.requirementId}
+                className="inline-flex h-8 items-center gap-1.5 rounded-[8px] bg-[#4C78F5] px-3 text-[12px] font-semibold text-white transition hover:bg-[#3B66E0] disabled:opacity-60"
+              >
+                {downloadingId === activeSignedViewDoc.requirementId ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : (
+                  <Download size={14} />
+                )}
+                Download
+              </button>
+              <button
+                type="button"
+                onClick={closeSignedViewModal}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-[8px] border border-[#E2E8F0] text-[#64748B] transition hover:bg-[#F7F9FC] hover:text-[#111827]"
+                aria-label="Close"
+              >
+                <X size={16} />
+              </button>
+            </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-5 sm:p-6">
-            <div className="grid gap-6 lg:grid-cols-2">
-              <div>
-                <p className="mb-3 text-sm font-semibold text-slate-700">
-                  Signed document
-                </p>
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden lg:flex-row">
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col border-[#E2E8F0] lg:border-r">
+              <div className="min-h-0 flex-1 bg-[#0f172a]">
                 {renderSignedFilePreview(activeSignedViewDoc)}
               </div>
+            </div>
 
-              <div>
-                <p className="mb-3 text-sm font-semibold text-slate-700">
+            <aside className="flex max-h-[38vh] w-full shrink-0 flex-col border-t border-[#E2E8F0] bg-white lg:max-h-none lg:w-[300px] lg:border-t-0 xl:w-[320px]">
+              <div className="border-b border-[#E2E8F0] px-4 py-3">
+                <p className="text-[13px] font-semibold text-[#111827]">
                   Your signature
                 </p>
-                <div className="rounded-2xl border border-slate-200 bg-gradient-to-b from-white to-slate-50 p-4">
-                  {signatureData ? (
-                    <div className="flex min-h-[180px] items-center justify-center overflow-hidden rounded-xl border-2 border-dashed border-emerald-200 bg-white p-4">
-                      <img
-                        src={signatureData}
-                        alt="Your signature"
-                        className="max-h-[160px] max-w-full object-contain"
-                      />
-                    </div>
-                  ) : (
-                    <div className="flex min-h-[180px] flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-200 bg-white p-4 text-center">
-                      <PenLine className="h-8 w-8 text-emerald-500" />
-                      <p className="text-sm text-slate-500">
-                        Signature is embedded in the signed document preview.
-                      </p>
-                    </div>
-                  )}
-                  <p className="mt-2 text-xs text-slate-500">
-                    This is the signature you submitted with this document.
-                  </p>
-                </div>
+                <p className="mt-0.5 text-[11px] text-[#64748B]">
+                  {activeSignedViewDoc.signMode === "DYNAMIC_FORM"
+                    ? "Also drawn on the signature field in the PDF."
+                    : "Also stamped on the acknowledgement page of the PDF."}
+                </p>
               </div>
-            </div>
-          </div>
-
-          <div className="flex flex-col-reverse gap-3 border-t border-slate-200 bg-slate-50 px-5 py-4 sm:flex-row sm:justify-end sm:px-6">
-            <button
-              type="button"
-              onClick={closeSignedViewModal}
-              className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
-            >
-              Close
-            </button>
-            <button
-              type="button"
-              onClick={() =>
-                openFile(activeSignedViewDoc.signedUpload?.fileUrl)
-              }
-              className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
-            >
-              <Eye size={16} />
-              Open in new tab
-            </button>
-            <button
-              type="button"
-              onClick={() => downloadSignedCopy(activeSignedViewDoc)}
-              disabled={downloadingId === activeSignedViewDoc.requirementId}
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-60"
-            >
-              {downloadingId === activeSignedViewDoc.requirementId ? (
-                <Loader2 size={16} className="animate-spin" />
-              ) : (
-                <Download size={16} />
-              )}
-              Download signed copy
-            </button>
+              <div className="flex flex-1 flex-col gap-3 overflow-y-auto p-4">
+                {signatureData ? (
+                  <div className="flex min-h-[160px] flex-1 items-center justify-center overflow-hidden rounded-[10px] border border-[#E2E8F0] bg-[#F7F9FC] p-4">
+                    <img
+                      src={signatureData}
+                      alt="Your signature"
+                      className="max-h-[220px] max-w-full object-contain"
+                    />
+                  </div>
+                ) : (
+                  <div className="flex min-h-[160px] flex-col items-center justify-center gap-2 rounded-[10px] border border-dashed border-[#E2E8F0] bg-[#F7F9FC] p-4 text-center">
+                    <PenLine className="h-7 w-7 text-[#4C78F5]" />
+                    <p className="text-[12px] text-[#64748B]">
+                      Signature is embedded in the PDF preview.
+                    </p>
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={closeSignedViewModal}
+                  className="mt-auto h-9 rounded-[8px] border border-[#E2E8F0] text-[13px] font-medium text-[#64748B] transition hover:bg-[#F7F9FC]"
+                >
+                  Close
+                </button>
+              </div>
+            </aside>
           </div>
         </div>
       </div>
@@ -3430,7 +3451,7 @@ export default function SignDocumentsPanel({
         );
       case "FORWARDED_TO_LENDER":
         return (
-          <div className="flex items-start gap-2 rounded-lg bg-violet-50 px-2.5 py-2 text-xs leading-relaxed text-violet-800">
+          <div className="flex items-start gap-2 rounded-lg bg-[#4C78F5]/10 px-2.5 py-2 text-xs leading-relaxed text-[#3B66E0]">
             <CheckCircle2 size={14} className="mt-0.5 shrink-0" />
             <span>
               {row.workflowHint ||
@@ -3455,15 +3476,15 @@ export default function SignDocumentsPanel({
 
   const clientCardAccent = (row: SignDocumentRow) => {
     if (isBrokerTermSheetDoc(row) && row.signStatus === "SENT_TO_CLIENT") {
-      return "border-t-violet-500";
+      return "border-t-[#4C78F5]";
     }
     switch (row.signStatus) {
       case "SENT_TO_CLIENT":
-        return "border-t-sky-500";
+        return "border-t-[#4C78F5]";
       case "CLIENT_SIGNED":
         return "border-t-emerald-500";
       case "FORWARDED_TO_LENDER":
-        return "border-t-violet-500";
+        return "border-t-[#4C78F5]";
       case "LENDER_SEEN":
         return "border-t-teal-500";
       default:
@@ -3471,26 +3492,97 @@ export default function SignDocumentsPanel({
     }
   };
 
+  const openClientSignedCopy = async (row: SignDocumentRow) => {
+    // Open immediately, then refresh the stored signed PDF:
+    // - DYNAMIC_FORM → rebuild filled PDF from submission values
+    // - LOI / signature-only → restamp signature with readable sizing
+    setActiveSignedViewDoc(row);
+
+    if (!loanApplicationId || !row.signedUpload?.fileUrl) {
+      return;
+    }
+    if (
+      row.signMode !== "DYNAMIC_FORM" &&
+      !row.signedUpload?.clientSignatureData
+    ) {
+      return;
+    }
+
+    try {
+      const res = await fetch(
+        `${apiBase}/client-portal/sign-documents/${row.requirementId}/restamp`,
+        {
+          method: "POST",
+          headers: {
+            ...getAuthHeaders(),
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ loanApplicationId }),
+        },
+      );
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json?.success || !json?.data) return;
+
+      const refreshed = json.data as SignDocumentRow;
+      setRows((prev) =>
+        prev.map((item) =>
+          item.requirementId === refreshed.requirementId ? refreshed : item,
+        ),
+      );
+      setActiveSignedViewDoc(refreshed);
+    } catch {
+      // Keep the existing signed preview if restamp fails.
+    }
+  };
+
   const openClientCardPrimaryAction = (row: SignDocumentRow) => {
-    // Lender or broker forms: always open the fillable form page (editable or view-only).
-    if (row.templateFileUrl && (row.signMode === "DYNAMIC_FORM" || isClientActionNeeded(row))) {
+    // "View signed copy" must open the stamped signed PDF, not the blank template.
+    if (
+      isClientMode &&
+      row.signedUpload?.fileUrl &&
+      !isClientActionNeeded(row)
+    ) {
+      void openClientSignedCopy(row);
+      return;
+    }
+
+    // Broker LOI / term sheet is a PDF + signature pad — never the fillable form filler.
+    if (isClientMode && isBrokerTermSheetDoc(row)) {
+      if (isClientActionNeeded(row)) {
+        openClientSignPage("sign", row);
+        return;
+      }
+      if (row.templateFileUrl) {
+        openClientSignPage("template", row);
+      }
+      return;
+    }
+
+    // Fillable dynamic forms only (lender/broker mapped forms).
+    if (row.templateFileUrl && row.signMode === "DYNAMIC_FORM") {
       if (isClientMode) {
         openClientSignPage("fill", row);
         return;
       }
-      if (row.signMode === "DYNAMIC_FORM") {
-        setFillingDoc(row);
-        return;
-      }
+      setFillingDoc(row);
+      return;
     }
 
     if (isClientActionNeeded(row)) {
       if (isClientMode) {
-        openClientSignPage("sign", row);
+        openClientSignPage(
+          row.signMode === "DYNAMIC_FORM" ? "fill" : "sign",
+          row,
+        );
         return;
       }
       setActiveSigningDoc(row);
       sigRef.current?.clear();
+      return;
+    }
+
+    if (row.signedUpload?.fileUrl) {
+      setActiveSignedViewDoc(row);
       return;
     }
 
@@ -3503,11 +3595,6 @@ export default function SignDocumentsPanel({
         return;
       }
       openBrokerTemplate(row);
-      return;
-    }
-
-    if (row.signedUpload?.fileUrl) {
-      setActiveSignedViewDoc(row);
     }
   };
 
@@ -3532,11 +3619,9 @@ export default function SignDocumentsPanel({
             <div
               className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
                 isPending
-                  ? brokerSheet
-                    ? "bg-violet-100 text-violet-700"
-                    : "bg-sky-100 text-sky-700"
+                  ? "bg-[#4C78F5]/10 text-[#4C78F5]"
                   : waitingBroker
-                    ? "bg-sky-100 text-sky-700"
+                    ? "bg-[#4C78F5]/10 text-[#4C78F5]"
                     : "bg-emerald-100 text-emerald-700"
               }`}
             >
@@ -3555,7 +3640,7 @@ export default function SignDocumentsPanel({
                 >
                   {row.documentName}
                   {row.loiVersionLabel ? (
-                    <span className="ml-1.5 text-[11px] font-medium text-violet-600">
+                    <span className="ml-1.5 text-[11px] font-medium text-[#4C78F5]">
                       ({row.loiVersionLabel})
                     </span>
                   ) : null}
@@ -3585,7 +3670,7 @@ export default function SignDocumentsPanel({
               ) : null}
 
               {brokerSheet ? (
-                <p className="mt-1.5 flex items-center gap-1 text-xs text-violet-700">
+                <p className="mt-1.5 flex items-center gap-1 text-xs text-[#4C78F5]">
                   <FileText size={12} className="shrink-0" />
                   <span className="truncate">
                     {standalone
@@ -3620,11 +3705,7 @@ export default function SignDocumentsPanel({
             <button
               type="button"
               onClick={() => openClientCardPrimaryAction(row)}
-              className={`inline-flex w-full items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:brightness-105 ${
-                brokerSheet
-                  ? "bg-gradient-to-r from-violet-600 to-fuchsia-600"
-                  : "bg-gradient-to-r from-sky-600 to-blue-600"
-              }`}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-[8px] bg-[#4C78F5] px-3 py-2.5 text-[13px] font-semibold text-white shadow-sm transition hover:bg-[#3B66E0]"
             >
               {isPending ? <PenLine size={15} /> : <Eye size={15} />}
               {isPending ? "Open form" : viewOnlyLabel}
@@ -3661,12 +3742,6 @@ export default function SignDocumentsPanel({
         : isTermSheetView
           ? "Review your broker LOI / term sheet carefully, add your signature, and submit. Your broker may forward the signed copy to a lender."
           : "Forms marked “Your turn” need your action. Completed forms show View submitted form so you can review only.";
-    const heroTone = isSignFormsView
-      ? "border-sky-100 bg-gradient-to-br from-sky-50 via-white to-blue-50"
-      : isTermSheetView
-        ? "border-violet-100 bg-gradient-to-br from-violet-50 via-white to-fuchsia-50"
-        : "border-sky-100 bg-gradient-to-br from-sky-50 via-white to-blue-50";
-
     function hasBrokerTermSheetLabel(termSheetView: boolean) {
       return termSheetView || rows.some((row) => isBrokerTermSheetDoc(row));
     }
@@ -3676,131 +3751,154 @@ export default function SignDocumentsPanel({
     }
 
     return (
-      <div className="space-y-6">
-        <div
-          className={`relative overflow-hidden rounded-2xl border p-5 shadow-sm sm:p-6 ${heroTone}`}
-        >
-          <div
-            className={`absolute -right-8 -top-8 h-28 w-28 rounded-full blur-2xl ${
-              isSignFormsView
-                ? "bg-sky-200/35"
-                : isTermSheetView
-                  ? "bg-fuchsia-200/35"
-                  : "bg-sky-200/35"
-            }`}
-          />
-          <div
-            className={`absolute -bottom-10 -left-10 h-28 w-28 rounded-full blur-2xl ${
-              isSignFormsView
-                ? "bg-blue-200/30"
-                : isTermSheetView
-                  ? "bg-violet-200/30"
-                  : "bg-blue-200/30"
-            }`}
-          />
-
-          <div className="relative flex flex-col gap-5">
-            <div className="min-w-0">
-              <div
-                className={`mb-2 inline-flex items-center gap-1.5 rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-semibold shadow-sm ${
-                  isSignFormsView
-                    ? "text-sky-700"
-                    : isTermSheetView
-                      ? "text-violet-700"
-                      : "text-sky-700"
-                }`}
-              >
-                <PenLine size={12} />
-                {heroBadge}
-              </div>
-              <h2 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">
-                {heroTitle}
-              </h2>
-              <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-slate-600">
-                {heroDescription}
-              </p>
-              {clientName && (
-                <p className="mt-2 text-sm font-medium text-slate-700">
-                  {clientName}
-                  {applicationNumber ? ` · ${applicationNumber}` : ""}
-                </p>
-              )}
-              {isTermSheetView && clientSummary.actionRequired > 0 && (
-                <p className="mt-2 text-xs font-semibold text-violet-700">
-                  {clientSummary.actionRequired} broker term sheet
-                  {clientSummary.actionRequired === 1 ? "" : "s"} awaiting your
-                  signature
-                </p>
-              )}
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              {CLIENT_BUCKET_FILTERS.map((filter) => {
-                const count =
-                  filter.key === "all"
-                    ? totalClientForms
-                    : filter.summaryKey
-                      ? clientSummary[filter.summaryKey]
-                      : 0;
-                const isActive = clientBucket === filter.key;
-
-                return (
-                  <button
-                    key={filter.key}
-                    type="button"
-                    onClick={() => setClientBucket(filter.key)}
-                    className={`min-w-[6.5rem] rounded-xl px-3 py-2 text-left ring-1 ring-inset transition ${
-                      isActive
-                        ? `${filter.wrap} shadow-sm ring-2 ring-blue-200`
-                        : `${filter.wrap} opacity-90 hover:opacity-100`
-                    }`}
-                  >
-                    <p className={`text-lg font-bold tabular-nums ${filter.num}`}>
-                      {count}
-                  </p>
-                  <p className="text-[11px] font-medium text-slate-600">
-                      {filter.label}
-                  </p>
-                  </button>
-                );
-              })}
+      <div className="space-y-4">
+        <div className="overflow-hidden rounded-[10px] border border-[#E2E8F0] bg-white">
+          <div className="border-b border-[#E2E8F0] px-5 py-4 sm:px-6">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-[#4C78F5]/10 px-2.5 py-1 text-[11px] font-semibold text-[#4C78F5]">
+                  <PenLine size={12} />
+                  {heroBadge}
                 </div>
+                <h2 className="text-[18px] font-semibold tracking-tight text-[#111827] sm:text-[20px]">
+                  {heroTitle}
+                </h2>
+                <p className="mt-1.5 max-w-2xl text-[13px] leading-relaxed text-[#64748B]">
+                  {heroDescription}
+                </p>
+                {clientName ? (
+                  <p className="mt-2 text-[13px] font-medium text-[#111827]">
+                    {clientName}
+                    {applicationNumber ? (
+                      <span className="text-[#64748B]">
+                        {" "}
+                        · {applicationNumber}
+                      </span>
+                    ) : null}
+                  </p>
+                ) : null}
+                {isTermSheetView && clientSummary.actionRequired > 0 ? (
+                  <p className="mt-2 text-[12px] font-semibold text-[#4C78F5]">
+                    {clientSummary.actionRequired} broker term sheet
+                    {clientSummary.actionRequired === 1 ? "" : "s"} awaiting
+                    your signature
+                  </p>
+                ) : null}
+              </div>
             </div>
           </div>
 
-        {isSignFormsView && (
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
-            <label className="relative w-full sm:max-w-sm">
+          <div className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-4 sm:p-5">
+            {CLIENT_BUCKET_FILTERS.map((filter) => {
+              const count =
+                filter.key === "all"
+                  ? totalClientForms
+                  : filter.summaryKey
+                    ? clientSummary[filter.summaryKey]
+                    : 0;
+              const isActive = clientBucket === filter.key;
+
+              return (
+                <button
+                  key={filter.key}
+                  type="button"
+                  onClick={() => setClientBucket(filter.key)}
+                  className={`rounded-[10px] border px-3 py-3 text-left transition ${
+                    isActive
+                      ? "border-[#4C78F5] bg-[#4C78F5]/5 shadow-sm ring-1 ring-[#4C78F5]/20"
+                      : "border-[#E2E8F0] bg-[#F7F9FC] hover:border-[#4C78F5]/30 hover:bg-white"
+                  }`}
+                >
+                  <p
+                    className={`text-[20px] font-semibold tabular-nums ${
+                      isActive ? "text-[#4C78F5]" : filter.num
+                    }`}
+                  >
+                    {count}
+                  </p>
+                  <p className="mt-0.5 text-[11px] font-medium text-[#64748B]">
+                    {filter.label}
+                  </p>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {isSignFormsView ? (
+          <div className="flex items-center gap-3">
+            <label className="relative block w-full max-w-[280px] sm:max-w-[320px]">
               <Search
-                size={16}
-                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                size={15}
+                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#94A3B8]"
               />
               <input
-                type="search"
+                ref={clientSearchInputRef}
+                type="text"
                 value={clientSearchInput}
                 onChange={(event) => setClientSearchInput(event.target.value)}
+                onFocus={() => {
+                  clientSearchFocusedRef.current = true;
+                }}
+                onBlur={() => {
+                  clientSearchFocusedRef.current = false;
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                  }
+                }}
                 placeholder="Search forms..."
-                className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-sm text-slate-700 shadow-sm transition focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100"
+                autoComplete="off"
+                className="h-9 w-full rounded-[8px] border border-[#E2E8F0] bg-white py-2 pl-9 pr-8 text-[13px] text-[#111827] outline-none transition focus:border-[#4C78F5] focus:ring-4 focus:ring-[#4C78F5]/15"
               />
+              {clientSearchInput ? (
+                <button
+                  type="button"
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => {
+                    setClientSearchInput("");
+                    setDebouncedClientSearch("");
+                    setClientPage(1);
+                    clientSearchInputRef.current?.focus();
+                  }}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-0.5 text-[#94A3B8] transition hover:bg-[#F7F9FC] hover:text-[#64748B]"
+                  aria-label="Clear search"
+                  title="Clear search"
+                >
+                  <X size={14} />
+                </button>
+              ) : null}
             </label>
-        </div>
-        )}
+            {clientListRefreshing ? (
+              <Loader2
+                size={16}
+                className="shrink-0 animate-spin text-[#4C78F5]"
+                aria-label="Updating results"
+              />
+            ) : null}
+          </div>
+        ) : null}
 
         {rows.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-sky-200 bg-sky-50/40 p-12 text-center">
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-500 to-blue-600 text-white shadow-lg">
-              <CheckCircle2 size={26} />
+          <div className="rounded-[10px] border border-[#E2E8F0] bg-white px-6 py-14 text-center sm:py-16">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-[12px] bg-[#4C78F5]/10 text-[#4C78F5] ring-1 ring-[#E2E8F0]">
+              {hasClientSearchQuery ? (
+                <SearchX size={26} />
+              ) : (
+                <CheckCircle2 size={26} />
+              )}
             </div>
-            <p className="text-base font-semibold text-slate-800">
+            <p className="text-[16px] font-semibold text-[#111827]">
               {hasClientSearchQuery
                 ? "No forms match your search"
                 : isTermSheetView
                   ? "No term sheet waiting for signature"
                   : isSignFormsView
-                    ? "No forms in this filter"
+                    ? "No forms to complete right now"
                     : "No documents waiting for signature"}
             </p>
-            <p className="mx-auto mt-2 max-w-md text-sm text-slate-500">
+            <p className="mx-auto mt-2 max-w-md text-[13px] leading-relaxed text-[#64748B]">
               {hasClientSearchQuery
                 ? "Try a different search term or clear the search box."
                 : clientBucket !== "all"
@@ -3815,29 +3913,33 @@ export default function SignDocumentsPanel({
         ) : (
           <>
             <div className="relative">
-              {loading && (
+              {loading && !clientListRefreshing && (
                 <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-white/70 backdrop-blur-[1px]">
                   <Loader2 className="h-7 w-7 animate-spin text-sky-600" />
                 </div>
               )}
-              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              <div
+                className={`grid gap-4 sm:grid-cols-2 xl:grid-cols-3 ${
+                  clientListRefreshing ? "opacity-60" : ""
+                }`}
+              >
                 {rows.map((row) => renderClientDocumentCard(row))}
               </div>
             </div>
 
             {clientPagination && clientPagination.totalPages > 0 && (
-              <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50/80 px-4 py-3">
-                <p className="text-sm text-slate-500">
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-[10px] border border-[#E2E8F0] bg-white px-4 py-3">
+                <p className="text-[13px] text-[#64748B]">
                   Page{" "}
-                  <span className="font-semibold text-slate-700">
+                  <span className="font-semibold text-[#111827]">
                     {clientPagination.page}
                   </span>{" "}
                   of{" "}
-                  <span className="font-semibold text-slate-700">
+                  <span className="font-semibold text-[#111827]">
                     {clientPagination.totalPages}
                   </span>
                   {clientPagination.total != null && (
-                    <span className="ml-1 text-slate-400">
+                    <span className="ml-1 text-[#94A3B8]">
                       ({clientPagination.total} form
                       {clientPagination.total === 1 ? "" : "s"}
                       {hasClientSearchQuery ? " found" : ""})
@@ -3850,7 +3952,7 @@ export default function SignDocumentsPanel({
                     type="button"
                     disabled={clientPage === 1 || loading}
                     onClick={() => setClientPage((current) => current - 1)}
-                    className="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="inline-flex items-center gap-1.5 rounded-[8px] border border-[#E2E8F0] bg-white px-3.5 py-2 text-[13px] font-medium text-[#111827] transition hover:bg-[#F7F9FC] disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <ChevronLeft size={16} />
                     Previous
@@ -3868,10 +3970,10 @@ export default function SignDocumentsPanel({
                             type="button"
                             disabled={loading}
                             onClick={() => setClientPage(pageNum)}
-                            className={`h-9 min-w-9 rounded-xl px-2.5 text-sm font-semibold transition ${
+                            className={`h-9 min-w-9 rounded-[8px] px-2.5 text-[13px] font-semibold transition ${
                               clientPage === pageNum
-                                ? "bg-gradient-to-r from-sky-600 to-blue-600 text-white shadow-sm"
-                                : "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                                ? "bg-[#4C78F5] text-white shadow-sm"
+                                : "border border-[#E2E8F0] bg-white text-[#111827] hover:bg-[#F7F9FC]"
                             }`}
                           >
                             {pageNum}
@@ -3886,7 +3988,7 @@ export default function SignDocumentsPanel({
                       clientPage === clientPagination.totalPages || loading
                     }
                     onClick={() => setClientPage((current) => current + 1)}
-                    className="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="inline-flex items-center gap-1.5 rounded-[8px] border border-[#E2E8F0] bg-white px-3.5 py-2 text-[13px] font-medium text-[#111827] transition hover:bg-[#F7F9FC] disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     Next
                     <ChevronRight size={16} />

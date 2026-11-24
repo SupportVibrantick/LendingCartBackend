@@ -1,23 +1,34 @@
 import {
   Building2,
+  Calendar,
   ChevronDown,
   FileText,
+  Gauge,
+  Loader2,
   Mail,
   Search,
   X,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
-import { useMemo, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import {
   formatSubmissionFieldValue,
   getBorrowerDisplayNameFromFields,
   getEntityTypeFromFields,
   getSubmissionFieldLabel,
   groupSubmissionFieldsForDisplay,
+  mapSubmissionDetailFields,
   parseSubmissionFieldValue,
   PRODUCT_LABELS,
   type SubmissionDetailField,
 } from "../../lib/submissionFieldUtils";
+import { getClientPortalAuthHeaders } from "../../lib/clientPortalApi";
 
 type ClientSubmissionDetailsViewProps = {
   application: any;
@@ -35,9 +46,13 @@ type ClientSubmissionDetailsViewProps = {
   sectionsOnly?: boolean;
   /** Hide embedded signature — parent already shows a dedicated signature panel. */
   hideSignature?: boolean;
+  /** Soft backend field search (debounced). */
+  applicationId?: string;
+  apiBase?: string;
+  getAuthHeaders?: () => Record<string, string>;
 };
 
-function InfoCell({
+function SummaryRow({
   label,
   value,
   icon,
@@ -47,18 +62,16 @@ function InfoCell({
   icon?: ReactNode;
 }) {
   return (
-    <div className="rounded-xl border border-gray-100 bg-white p-4 transition hover:border-[#13538A]/25 hover:bg-[#13538A]/[0.02]">
-      <div className="mb-2 flex items-center gap-2">
+    <div className="flex items-start justify-between gap-4 border-b border-[#E2E8F0] py-3 last:border-b-0 last:pb-0 first:pt-0">
+      <div className="flex min-w-0 items-center gap-2.5">
         {icon ? (
-          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#13538A]/10 text-[#13538A]">
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#F7F9FC] text-[#4C78F5]">
             {icon}
           </span>
         ) : null}
-        <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-gray-400">
-          {label}
-        </span>
+        <span className="text-[13px] text-[#64748B]">{label}</span>
       </div>
-      <div className="text-[15px] font-semibold leading-snug text-gray-900">
+      <div className="max-w-[60%] text-right text-[13px] font-semibold leading-snug text-[#111827]">
         {value ?? "—"}
       </div>
     </div>
@@ -77,31 +90,28 @@ function KpiCell({
   const isEmpty = !value || value === "—";
   return (
     <div
-      className={`relative overflow-hidden rounded-xl border p-4 ${
+      className={`relative flex min-h-[96px] flex-col justify-between overflow-hidden rounded-[10px] border p-4 ${
         accent
-          ? "border-[#13538A]/20 bg-gradient-to-br from-[#13538A] via-[#1a6aad] to-[#2C92D5] text-white"
-          : "border-gray-100 bg-white"
+          ? "border-[#4C78F5] bg-[#4C78F5] text-white shadow-sm shadow-[#4C78F5]/25"
+          : "border-[#E2E8F0] bg-white"
       }`}
     >
-      {accent ? (
-        <div className="pointer-events-none absolute -right-6 -top-6 h-20 w-20 rounded-full bg-white/10" />
-      ) : null}
       <p
-        className={`text-[10px] font-semibold uppercase tracking-[0.14em] ${
-          accent ? "text-white/70" : "text-gray-400"
+        className={`text-[11px] font-semibold uppercase tracking-[0.12em] ${
+          accent ? "text-white/75" : "text-[#94A3B8]"
         }`}
       >
         {label}
       </p>
       <p
-        className={`mt-2 text-xl font-bold tabular-nums tracking-tight sm:text-2xl ${
+        className={`mt-3 text-[22px] font-semibold tabular-nums tracking-tight ${
           isEmpty
             ? accent
               ? "text-white/50"
-              : "text-gray-300"
+              : "text-[#CBD5E1]"
             : accent
               ? "text-white"
-              : "text-gray-900"
+              : "text-[#111827]"
         }`}
       >
         {value || "—"}
@@ -114,13 +124,13 @@ function FieldItem({ field }: { field: SubmissionDetailField }) {
   const display = formatSubmissionFieldValue(field);
   const isEmpty = !display || display === "—";
   return (
-    <div className="rounded-lg border border-gray-100 bg-gray-50/80 px-3 py-2.5">
-      <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-gray-400">
+    <div className="rounded-[8px] border border-[#E2E8F0] bg-[#F7F9FC] px-3 py-2.5">
+      <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#94A3B8]">
         {getSubmissionFieldLabel(field)}
       </span>
       <p
-        className={`mt-1 break-words text-sm leading-snug ${
-          isEmpty ? "italic text-gray-400" : "font-medium text-gray-900"
+        className={`mt-1 break-words text-[13px] leading-snug ${
+          isEmpty ? "italic text-[#94A3B8]" : "font-medium text-[#111827]"
         }`}
       >
         {isEmpty ? "Not provided" : display}
@@ -163,23 +173,23 @@ function AccordionSection({
   const [isOpen, setIsOpen] = useState(defaultOpen);
 
   return (
-    <div className="overflow-hidden rounded-xl border border-gray-100 bg-white">
+    <div className="overflow-hidden rounded-[10px] border border-[#E2E8F0] bg-white">
       <button
         type="button"
         onClick={() => setIsOpen((o) => !o)}
         aria-expanded={isOpen}
-        className="flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors hover:bg-[#13538A]/[0.03]"
+        className="flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors hover:bg-[#F7F9FC]"
       >
-        <span className="h-8 w-1 rounded-full bg-[#13538A]" />
-        <span className="flex-1 text-sm font-semibold text-gray-800">
+        <span className="h-7 w-1 rounded-full bg-[#4C78F5]" />
+        <span className="flex-1 text-[14px] font-semibold text-[#111827]">
           {title}
         </span>
-        <span className="rounded-full bg-[#13538A]/10 px-2.5 py-0.5 text-[11px] font-semibold tabular-nums text-[#13538A]">
-          {filledCount} / {totalCount}
+        <span className="rounded-full bg-[#4C78F5]/10 px-2.5 py-0.5 text-[11px] font-semibold tabular-nums text-[#4C78F5]">
+          {filledCount}/{totalCount}
         </span>
         <ChevronDown
           size={15}
-          className={`text-gray-400 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
+          className={`text-[#94A3B8] transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
         />
       </button>
 
@@ -191,7 +201,7 @@ function AccordionSection({
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.2, ease: "easeOut" }}
-            className="overflow-hidden border-t border-gray-100"
+            className="overflow-hidden border-t border-[#E2E8F0]"
           >
             <div className="grid grid-cols-1 gap-2.5 bg-white p-4 sm:grid-cols-2 lg:grid-cols-3">
               {fields.map((field) => (
@@ -248,16 +258,113 @@ export default function ClientSubmissionDetailsView({
   submittedDate,
   sectionsOnly = false,
   hideSignature = false,
+  applicationId,
+  apiBase,
+  getAuthHeaders,
 }: ClientSubmissionDetailsViewProps) {
   const preferredEmail =
     application?.clientEmail ||
     application?.borrower?.email ||
     application?.email ||
     null;
+  const [searchInput, setSearchInput] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [remoteFields, setRemoteFields] = useState<SubmissionDetailField[] | null>(
+    null,
+  );
+  const [searchLoading, setSearchLoading] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const searchFocusedRef = useRef(false);
+  const searchRequestIdRef = useRef(0);
+  const getAuthHeadersRef = useRef(getAuthHeaders);
+  getAuthHeadersRef.current = getAuthHeaders;
+
+  const backendSearchEnabled = Boolean(applicationId && apiBase);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setDebouncedSearch(searchInput);
+    }, 350);
+    return () => window.clearTimeout(timer);
+  }, [searchInput]);
+
+  useEffect(() => {
+    setSearchInput("");
+    setDebouncedSearch("");
+    setRemoteFields(null);
+    setSearchLoading(false);
+  }, [application?.id, applicationId]);
+
+  useEffect(() => {
+    if (!backendSearchEnabled) {
+      setRemoteFields(null);
+      setSearchLoading(false);
+      return;
+    }
+
+    const query = debouncedSearch.trim();
+    if (!query) {
+      setRemoteFields(null);
+      setSearchLoading(false);
+      return;
+    }
+
+    const requestId = ++searchRequestIdRef.current;
+    let cancelled = false;
+
+    (async () => {
+      setSearchLoading(true);
+      try {
+        const params = new URLSearchParams({ search: query });
+        const headers =
+          getAuthHeadersRef.current?.() || getClientPortalAuthHeaders();
+        const res = await fetch(
+          `${apiBase}/client-portal/applications/${applicationId}?${params.toString()}`,
+          { headers },
+        );
+        const json = await res.json().catch(() => null);
+        if (cancelled || requestId !== searchRequestIdRef.current) return;
+        if (!res.ok || !json?.success) {
+          setRemoteFields([]);
+          return;
+        }
+
+        const latest =
+          json.data?.latestSubmission || json.data?.submissions?.[0] || null;
+        setRemoteFields(mapSubmissionDetailFields(latest?.fields || []));
+      } catch {
+        if (!cancelled && requestId === searchRequestIdRef.current) {
+          setRemoteFields([]);
+        }
+      } finally {
+        if (!cancelled && requestId === searchRequestIdRef.current) {
+          setSearchLoading(false);
+          if (searchFocusedRef.current) {
+            requestAnimationFrame(() => {
+              searchInputRef.current?.focus({ preventScroll: true });
+            });
+          }
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [apiBase, applicationId, backendSearchEnabled, debouncedSearch]);
+
+  const activeSearchQuery = debouncedSearch.trim();
+  const detailFields = useMemo(() => {
+    if (!backendSearchEnabled) return fields;
+    if (!activeSearchQuery) return fields;
+    // Keep current results while a newer request is in flight.
+    if (remoteFields == null) return fields;
+    return remoteFields;
+  }, [activeSearchQuery, backendSearchEnabled, fields, remoteFields]);
+
   const { sections, signatureField } = groupSubmissionFieldsForDisplay(fields, {
     preferredEmail,
   });
-  const [searchQuery, setSearchQuery] = useState("");
   const loanProductCode =
     application?.loanProductCode ||
     fields.find((field) => field.fieldKey === "loanProductCode")?.value;
@@ -313,10 +420,18 @@ export default function ClientSubmissionDetailsView({
         }
       : null,
     dateOfBirth && dateOfBirth !== "—" && dateOfBirth !== "-"
-      ? { label: "Date of birth", value: dateOfBirth }
+      ? {
+          label: "Date of birth",
+          icon: <Calendar size={12} />,
+          value: dateOfBirth,
+        }
       : null,
     creditScore && creditScore !== "—"
-      ? { label: "Credit score", value: creditScore }
+      ? {
+          label: "Credit score",
+          icon: <Gauge size={12} />,
+          value: creditScore,
+        }
       : null,
     submittedDate
       ? {
@@ -340,16 +455,29 @@ export default function ClientSubmissionDetailsView({
   }>;
 
   const filteredSections = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
-    return sections
+    const { sections: detailSections } = groupSubmissionFieldsForDisplay(
+      detailFields,
+      { preferredEmail },
+    );
+
+    // Backend already filtered; only hide empty values (unless section always shows).
+    // Without backend search, keep a local filter fallback for other callers.
+    const q =
+      backendSearchEnabled || !activeSearchQuery
+        ? ""
+        : activeSearchQuery.toLowerCase();
+
+    return detailSections
       .map((section) => {
         const showEmpty = ALWAYS_SHOW_EMPTY_SECTION_IDS.has(section.id);
         const baseFields = showEmpty
           ? section.fields
           : section.fields.filter((field) => !isFieldEmpty(field));
-        const fields = q
+        const nextFields = q
           ? baseFields.filter((field) => {
-              const label = getSubmissionFieldLabel(field).toLowerCase();
+              const label = String(
+                field.label || field.fieldKey || "",
+              ).toLowerCase();
               const value = formatSubmissionFieldValue(field)
                 .toString()
                 .toLowerCase();
@@ -357,18 +485,29 @@ export default function ClientSubmissionDetailsView({
               return label.includes(q) || value.includes(q) || key.includes(q);
             })
           : baseFields;
-        return { ...section, fields };
+        return { ...section, fields: nextFields };
       })
       .filter((section) => section.fields.length > 0);
-  }, [sections, searchQuery]);
+  }, [
+    activeSearchQuery,
+    backendSearchEnabled,
+    detailFields,
+    preferredEmail,
+  ]);
 
   const sectionBlocks = (
-    <div className="space-y-3">
+    <div
+      className={`space-y-3 transition-opacity ${
+        searchLoading ? "opacity-60" : ""
+      }`}
+    >
       {filteredSections.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-gray-200 px-5 py-10 text-center text-sm text-gray-400">
-          {searchQuery.trim()
-            ? `No fields match “${searchQuery.trim()}”`
-            : "No application answers to show yet."}
+        <div className="rounded-[10px] border border-dashed border-[#E2E8F0] px-5 py-10 text-center text-[14px] text-[#94A3B8]">
+          {searchLoading
+            ? "Searching fields…"
+            : activeSearchQuery
+              ? `No fields match “${activeSearchQuery}”`
+              : "No application answers to show yet."}
         </div>
       ) : (
         filteredSections.map((section) => {
@@ -397,113 +536,153 @@ export default function ClientSubmissionDetailsView({
   }
 
   return (
-    <div className="space-y-5">
-      {/* Identity + facts */}
-      <section className="overflow-hidden rounded-xl border border-gray-100 bg-white">
-        <div className="relative overflow-hidden border-b border-gray-100">
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-[#13538A]/[0.08] via-transparent to-[#2C92D5]/10" />
-          <div className="relative px-5 py-5 sm:px-6">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#13538A]">
-              Application overview
-            </p>
-            <h2 className="mt-1 truncate text-xl font-bold tracking-tight text-gray-900 sm:text-2xl">
-              {borrowerName || "Borrower"}
-            </h2>
-            <p className="mt-1 truncate text-sm font-semibold text-[#13538A]">
-              {loanProductName}
-            </p>
-            {broker?.name ? (
-              <p className="mt-1.5 text-sm text-gray-500">
-                Broker:{" "}
-                <span className="font-medium text-gray-700">{broker.name}</span>
+    <div className="space-y-4">
+      <div className="grid gap-4 xl:grid-cols-12">
+        {/* Deal Summary */}
+        <section className="overflow-hidden rounded-[10px] border border-[#E2E8F0] bg-white xl:col-span-7">
+          <div className="border-b border-[#E2E8F0] px-5 py-4 sm:px-6">
+            <div className="flex items-start gap-3">
+              <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#4C78F5]/10 text-[#4C78F5]">
+                <FileText size={16} />
+              </span>
+              <div className="min-w-0">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#4C78F5]">
+                  Deal Summary
+                </p>
+                <h2 className="mt-1 truncate text-[20px] font-semibold tracking-tight text-[#111827]">
+                  {borrowerName || "Borrower"}
+                </h2>
+                <p className="mt-0.5 truncate text-[13px] font-medium text-[#64748B]">
+                  {loanProductName}
+                  {broker?.name ? ` · ${broker.name}` : ""}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="px-5 py-2 sm:px-6">
+            {detailFacts.length > 0 ? (
+              detailFacts.map((fact) => (
+                <SummaryRow
+                  key={fact.label}
+                  label={fact.label}
+                  icon={fact.icon}
+                  value={fact.value}
+                />
+              ))
+            ) : (
+              <p className="py-6 text-center text-[13px] text-[#94A3B8]">
+                No summary details available yet.
               </p>
-            ) : null}
-          </div>
-        </div>
-
-        {detailFacts.length > 0 ? (
-          <div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-2 sm:p-5 xl:grid-cols-4">
-            {detailFacts.map((fact) => (
-              <InfoCell
-                key={fact.label}
-                label={fact.label}
-                icon={fact.icon}
-                value={fact.value}
-              />
-            ))}
-          </div>
-        ) : null}
-      </section>
-
-      {kpis.length > 0 ? (
-        <section>
-          <div className="mb-3 flex items-center gap-2 px-0.5">
-            <span className="h-4 w-1 rounded-full bg-[#13538A]" />
-            <h3 className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500">
-              Key loan metrics
-            </h3>
-          </div>
-          <div
-            className={`grid gap-3 ${
-              kpis.length <= 2
-                ? "grid-cols-1 sm:grid-cols-2"
-                : kpis.length <= 4
-                  ? "grid-cols-2 lg:grid-cols-4"
-                  : "grid-cols-2 sm:grid-cols-3 lg:grid-cols-6"
-            }`}
-          >
-            {kpis.map((kpi) => (
-              <KpiCell
-                key={kpi.label}
-                label={kpi.label}
-                value={kpi.value}
-                accent={kpi.accent}
-              />
-            ))}
+            )}
           </div>
         </section>
-      ) : null}
 
-      <section className="overflow-hidden rounded-xl border border-gray-100 bg-white p-4 sm:p-5">
-        <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-2 px-0.5">
-            <span className="h-4 w-1 rounded-full bg-[#13538A]" />
-            <h3 className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500">
+        {/* Key metrics */}
+        <section className="overflow-hidden rounded-[10px] border border-[#E2E8F0] bg-white xl:col-span-5">
+          <div className="border-b border-[#E2E8F0] px-5 py-4">
+            <div className="flex items-center gap-2">
+              <span className="h-4 w-1 rounded-full bg-[#4C78F5]" />
+              <h3 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#64748B]">
+                Key loan metrics
+              </h3>
+            </div>
+          </div>
+          <div className="p-4 sm:p-5">
+            {kpis.length > 0 ? (
+              <div
+                className={`grid gap-3 ${
+                  kpis.length === 1
+                    ? "grid-cols-1"
+                    : kpis.length === 2
+                      ? "grid-cols-2"
+                      : "grid-cols-2 sm:grid-cols-3 xl:grid-cols-2"
+                }`}
+              >
+                {kpis.map((kpi) => (
+                  <KpiCell
+                    key={kpi.label}
+                    label={kpi.label}
+                    value={kpi.value}
+                    accent={kpi.accent}
+                  />
+                ))}
+              </div>
+            ) : (
+              <p className="py-8 text-center text-[13px] text-[#94A3B8]">
+                Metrics will appear once loan details are available.
+              </p>
+            )}
+          </div>
+        </section>
+      </div>
+
+      <section className="overflow-hidden rounded-[10px] border border-[#E2E8F0] bg-white p-4 sm:p-5">
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-2">
+            <span className="h-4 w-1 rounded-full bg-[#4C78F5]" />
+            <h3 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#64748B]">
               Application details
             </h3>
           </div>
-          <div className="relative w-full sm:max-w-xs">
-            <Search
-              size={14}
-              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-            />
-            <input
-              type="search"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search all fields…"
-              className="w-full rounded-lg border border-gray-200 bg-gray-50 py-2 pl-9 pr-9 text-sm text-gray-900 outline-none placeholder:text-gray-400 focus:border-[#13538A]/40 focus:bg-white focus:ring-4 focus:ring-[#13538A]/10"
-            />
-            {searchQuery ? (
-              <button
-                type="button"
-                onClick={() => setSearchQuery("")}
-                aria-label="Clear search"
-                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
-              >
-                <X size={14} />
-              </button>
+          <div className="flex items-center gap-2">
+            <div className="relative w-[220px] sm:w-[260px]">
+              <Search
+                size={14}
+                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#94A3B8]"
+              />
+              <input
+                ref={searchInputRef}
+                type="text"
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                onFocus={() => {
+                  searchFocusedRef.current = true;
+                }}
+                onBlur={() => {
+                  searchFocusedRef.current = false;
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") e.preventDefault();
+                }}
+                placeholder="Search all fields…"
+                autoComplete="off"
+                className="h-9 w-full rounded-[8px] border border-[#E2E8F0] bg-white py-2 pl-9 pr-8 text-[13px] text-[#111827] outline-none placeholder:text-[#94A3B8] focus:border-[#4C78F5] focus:ring-4 focus:ring-[#4C78F5]/15"
+              />
+              {searchInput ? (
+                <button
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => {
+                    setSearchInput("");
+                    setDebouncedSearch("");
+                    setRemoteFields(null);
+                    searchInputRef.current?.focus();
+                  }}
+                  aria-label="Clear search"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-[#94A3B8] hover:bg-[#F7F9FC] hover:text-[#64748B]"
+                >
+                  <X size={14} />
+                </button>
+              ) : null}
+            </div>
+            {searchLoading ? (
+              <Loader2
+                size={15}
+                className="shrink-0 animate-spin text-[#4C78F5]"
+                aria-label="Searching"
+              />
             ) : null}
           </div>
         </div>
         {sectionBlocks}
 
-        {signatureField && !hideSignature && (
-          <div className="mt-5 border-t border-gray-100 pt-6 text-center">
-            <p className="mb-4 text-[10px] font-semibold uppercase tracking-[0.14em] text-gray-400">
+        {signatureField && !hideSignature ? (
+          <div className="mt-5 border-t border-[#E2E8F0] pt-6 text-center">
+            <p className="mb-4 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#94A3B8]">
               Digital signature (on file)
             </p>
-            <div className="inline-block rounded-xl border border-gray-200 bg-gray-50 p-5">
+            <div className="inline-block rounded-[10px] border border-[#E2E8F0] bg-[#F7F9FC] p-5">
               <img
                 src={String(parseSubmissionFieldValue(signatureField.value))}
                 alt="Digital Signature"
@@ -511,7 +690,7 @@ export default function ClientSubmissionDetailsView({
               />
             </div>
           </div>
-        )}
+        ) : null}
       </section>
     </div>
   );

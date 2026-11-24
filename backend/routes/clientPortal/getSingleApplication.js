@@ -16,6 +16,9 @@ const {
 const {
   orgHasChatFeature,
 } = require("../../services/subscription/brokerOrgFeatures");
+const {
+  filterSubmissionFieldsBySearch,
+} = require("../../utils/applications/filterSubmissionFieldsBySearch");
 
 function findSubmissionFieldValue(fields, keys) {
   const field = fields.find((item) => keys.includes(item.fieldKey));
@@ -131,6 +134,15 @@ async function getClientApplicationDetailsRoute(fastify) {
         ? mapSubmissionFieldsResponse(latestSubmission.fields)
         : [];
 
+      const searchQuery = String(req.query?.search || "").trim();
+      const fieldSearchResult = filterSubmissionFieldsBySearch(
+        mappedFields,
+        searchQuery,
+      );
+      const responseFields = searchQuery
+        ? fieldSearchResult.fields
+        : mappedFields;
+
       const borrowerName = resolveClientDisplayNameFromData(
         application.client,
         latestSubmission
@@ -210,7 +222,7 @@ async function getClientApplicationDetailsRoute(fastify) {
       const enrichedSubmission = latestSubmission
         ? {
             ...latestSubmission,
-            fields: mappedFields,
+            fields: responseFields,
           }
         : null;
 
@@ -262,6 +274,13 @@ async function getClientApplicationDetailsRoute(fastify) {
           entitlements: {
             chatEnabled,
           },
+          fieldSearch: searchQuery
+            ? {
+                query: fieldSearchResult.query,
+                total: fieldSearchResult.total,
+                matched: fieldSearchResult.matched,
+              }
+            : null,
         },
       });
     } catch (error) {

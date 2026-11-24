@@ -37,19 +37,29 @@ function resolveLoiSignaturePage(pages, anchor) {
 
 function drawLoiClientSignature(page, pngImage, font, anchor, pageHeight, options) {
   const hasExplicitBox = anchor.sigTopY != null;
-  const sigWidth = Math.min(
-    anchor.sigWidth || 190,
-    Math.round((anchor.boxWidth || 500) * 0.48),
+  const boxWidth = anchor.boxWidth || 500;
+  const maxWidth = Math.min(
+    Math.max(anchor.sigWidth || 220, 180),
+    Math.round(boxWidth * 0.55),
   );
-  // Older LOI templates had a cramped acknowledgement box — keep the ink small.
-  const sigHeight = hasExplicitBox
-    ? Math.min(anchor.sigHeight || 36, 40)
-    : 18;
-  const sigX = anchor.sigX != null ? anchor.sigX : (anchor.margin || 44) + 10;
+  // Prefer a readable signature height; never squash a wide pad into a flat strip.
+  const maxHeight = Math.min(
+    Math.max(anchor.sigHeight || 64, 56),
+    88,
+  );
 
+  const imgW = Math.max(1, pngImage.width || maxWidth);
+  const imgH = Math.max(1, pngImage.height || maxHeight);
+  const scale = Math.min(maxWidth / imgW, maxHeight / imgH);
+  const sigWidth = Math.max(120, imgW * scale);
+  const sigHeight = Math.max(48, imgH * scale);
+
+  const sigX = anchor.sigX != null ? anchor.sigX : (anchor.margin || 44) + 10;
+  // Sit the ink just above the signature guide line when available.
+  const lineY = anchor.lineY != null ? anchor.lineY : pageHeight - 80;
   const sigTopY = hasExplicitBox
-    ? anchor.sigTopY
-    : (anchor.lineY || pageHeight - 80) - sigHeight - 1;
+    ? Math.min(anchor.sigTopY, lineY - sigHeight - 2)
+    : lineY - sigHeight - 2;
   // pdf-lib image y is the bottom-left corner.
   const sigY = pdfKitYToPdfLibY(pageHeight, sigTopY + sigHeight);
 

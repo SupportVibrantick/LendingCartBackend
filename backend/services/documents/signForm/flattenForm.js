@@ -5,7 +5,11 @@ const sharp = require("sharp");
 const {
   ensureLocalPathFromPublicUrl,
 } = require("./pageManifest");
-const { loadPdfDocument } = require("./pdfLoad");
+const {
+  loadPdfDocument,
+  stripBrokenFormTrees,
+  replaceInvalidObjects,
+} = require("./pdfLoad");
 const { getStorage } = require("../../storage");
 const {
   decodeSignatureDataUrl,
@@ -164,11 +168,19 @@ function drawOverlayValue(page, field, raw, font, pdfDoc) {
     }
     return embedPngDataUrl(pdfDoc, raw)
       .then((pngImage) => {
+        // Fit ink inside the field box without flattening a wide pad into a strip.
+        const imgW = Math.max(1, pngImage.width || rect.width);
+        const imgH = Math.max(1, pngImage.height || rect.height);
+        const scale = Math.min(rect.width / imgW, rect.height / imgH);
+        const drawW = Math.max(12, imgW * scale);
+        const drawH = Math.max(12, imgH * scale);
+        const x = rect.x + Math.max(0, (rect.width - drawW) / 2);
+        const y = rect.y + Math.max(0, (rect.height - drawH) / 2);
         page.drawImage(pngImage, {
-          x: rect.x,
-          y: rect.y,
-          width: rect.width,
-          height: rect.height,
+          x,
+          y,
+          width: drawW,
+          height: drawH,
         });
       })
       .catch(() => {});
@@ -211,13 +223,24 @@ async function flattenFieldsOntoPdf({
   values,
 }) {
   const pdfBytes = fs.readFileSync(templatePath);
-  const pdfDoc = await loadPdfDocument(pdfBytes);
+  const pdfDoc = await loadPdfDocument(pdfBytes, {
+    throwOnInvalidObject: false,
+  });
+  try {
+    replaceInvalidObjects(pdfDoc);
+  } catch {
+    // ignore recovery failures — overlay path still works
+  }
+
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const pages = pdfDoc.getPages();
   const valueMap = valueMapFromSubmission(values);
   const evaluation = evaluateConditionals(schema, valueMap);
   const fields = schema?.fields || [];
 
+  // AcroForm fill is best-effort. Many LiveCycle/SBA templates have broken
+  // field refs; pdf-lib then throws PDFDict errors on getFields / save.
+  // We never rely on flatten for the final output — overlays + strip win.
   let form = null;
   try {
     form = pdfDoc.getForm();
@@ -225,13 +248,10 @@ async function flattenFieldsOntoPdf({
     form = null;
   }
 
-  // 1) Fill native AcroForm text/dropdown widgets when names match, then strip
-  //    the form so interactive widgets cannot cover our overlays.
-  //    Checkboxes are never baked via AcroForm — SBA widgets use an "X" On
-  //    appearance and flatten was putting crosses on every box.
   if (form) {
     try {
-      for (const acroField of [...form.getFields()]) {
+      const acroFields = form.getFields();
+      for (const acroField of [...acroFields]) {
         const ctor = acroField.constructor?.name || "";
         const isCheckbox =
           ctor.includes("CheckBox") ||
@@ -249,44 +269,33 @@ async function flattenFieldsOntoPdf({
           }
         }
       }
-    } catch {
-      // ignore
-    }
 
-    for (const field of fields) {
-      if (!isFieldVisible(field, evaluation)) continue;
-      if (field.type === "checkbox") continue;
-      const raw = unwrapValue(valueMap[field.key]);
-      if (raw == null || raw === "") continue;
-      applyValueToAcroForm(form, field, raw);
-    }
+      for (const field of fields) {
+        if (!isFieldVisible(field, evaluation)) continue;
+        if (field.type === "checkbox") continue;
+        const raw = unwrapValue(valueMap[field.key]);
+        if (raw == null || raw === "") continue;
+        applyValueToAcroForm(form, field, raw);
+      }
 
-    try {
-      form.updateFieldAppearances(font);
-    } catch {
-      // Some PDFs reject appearance updates; flatten/remove may still work.
-    }
+      try {
+        form.updateFieldAppearances(font);
+      } catch {
+        // Damaged appearances — continue with overlays.
+      }
 
-    try {
-      form.flatten();
-    } catch {
-      // Fall through to removeField below.
-    }
-
-    try {
-      for (const acroField of [...form.getFields()]) {
-        try {
-          form.removeField(acroField);
-        } catch {
-          // ignore per-field removal errors
-        }
+      try {
+        form.flatten();
+      } catch {
+        // Fall through to strip below.
       }
     } catch {
-      // ignore
+      // Broken AcroForm tree (PDFDict undefined) — skip native fill entirely.
+      form = null;
     }
   }
 
-  // 2) Always paint values on top (white plate + text/check/signature).
+  // Always paint values on top (white plate + text/check/signature).
   for (const field of fields) {
     if (!isFieldVisible(field, evaluation)) continue;
 
@@ -304,7 +313,21 @@ async function flattenFieldsOntoPdf({
     await drawOverlayValue(page, field, raw, font, pdfDoc);
   }
 
-  return Buffer.from(await pdfDoc.save());
+  // Critical: pdfDoc.save() auto-calls updateFieldAppearances when AcroForm
+  // remains, which throws PDFDict errors on broken templates. Strip first.
+  try {
+    stripBrokenFormTrees(pdfDoc);
+  } catch {
+    // ignore
+  }
+
+  return Buffer.from(
+    await pdfDoc.save({
+      updateFieldAppearances: false,
+      useObjectStreams: false,
+      addDefaultPage: false,
+    }),
+  );
 }
 
 async function flattenFieldsOntoImage({

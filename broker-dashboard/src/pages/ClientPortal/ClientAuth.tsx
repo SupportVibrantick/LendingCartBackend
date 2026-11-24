@@ -10,9 +10,9 @@ import {
   EyeOff,
   LockKeyhole,
   Mail,
-  ShieldCheck,
 } from "lucide-react";
 import { saveClientPortalSession } from "../../lib/clientPortalSession";
+import "./clientPortalTheme.css";
 
 const API_BASE =
   import.meta.env.VITE_API_BASE || "https://api.loanautomation.ai";
@@ -49,12 +49,19 @@ function validateStrongPassword(password: string) {
 }
 
 function inputWrap(hasError = false) {
-  return `flex items-center gap-3 rounded-xl border px-4 py-3.5 transition focus-within:ring-2 focus-within:ring-[#13538A]/25 ${
+  return `flex items-center gap-3 rounded-xl border px-4 py-3.5 transition focus-within:ring-2 focus-within:ring-[#4C78F5]/30 ${
     hasError
       ? "border-red-300 bg-red-50"
-      : "border-slate-200 bg-slate-50 focus-within:border-[#13538A] focus-within:bg-white"
+      : "border-gray-200 bg-gray-50 focus-within:border-[#4C78F5] focus-within:bg-white"
   }`;
 }
+
+const CLIENT_PORTAL_FEATURES = [
+  "Upload and manage loan documents",
+  "Fill and sign lender forms securely",
+  "Track application progress in real time",
+  "Chat directly with your broker team",
+];
 
 function FieldError({ message }: { message?: string }) {
   if (!message) return null;
@@ -178,7 +185,7 @@ export default function ClientAuth() {
 
       if (!token) {
         if (clientToken) {
-          window.location.href = "/client-portal";
+          window.location.replace("/client-portal");
           return;
         }
         setView("login");
@@ -250,7 +257,8 @@ export default function ClientAuth() {
 
       saveClientPortalSession(clientToken, user);
       toast.success("Login successful");
-      window.location.href = `/client-portal`;
+      // Replace so browser Back does not return to the login screen.
+      window.location.replace("/client-portal");
     } catch (err: any) {
       const message = err?.response?.data?.message || "Login failed";
       setErrors({
@@ -287,7 +295,8 @@ export default function ClientAuth() {
       const clientToken = loginRes.data?.data?.token;
       const user = loginRes.data?.data?.user;
       saveClientPortalSession(clientToken, user);
-      window.location.href = `/client-portal/${token}`;
+      // Prefer session portal URL so Back never reopens the invite/login flow.
+      window.location.replace("/client-portal");
     } catch (err: any) {
       const message = err?.response?.data?.message || "Failed";
       setErrors({ password: message });
@@ -449,9 +458,9 @@ export default function ClientAuth() {
 
   if (bootLoading || (view === "reset" && validatingReset)) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[radial-gradient(ellipse_at_top,#dbeafe_0%,#f8fafc_45%,#f1f5f9_100%)]">
-        <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm text-slate-500 shadow-sm">
-          <div className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-[#13538A]" />
+      <div className="client-portal flex min-h-screen items-center justify-center bg-white">
+        <div className="flex items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 px-5 py-3 text-sm text-gray-500">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-[#4C78F5]" />
           Loading…
         </div>
       </div>
@@ -486,6 +495,13 @@ export default function ClientAuth() {
           ? "Create a password to access your loan documents and applications."
           : "Sign in to upload documents and track your application.";
 
+  const badgeLabel =
+    view === "forgot" || view === "reset"
+      ? "Account recovery"
+      : view === "set-password"
+        ? "Get started"
+        : "Client Portal";
+
   const showEmailField =
     view === "login" ||
     view === "set-password" ||
@@ -504,278 +520,247 @@ export default function ClientAuth() {
     Boolean(token) || view === "set-password" || view === "reset";
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[radial-gradient(ellipse_at_top,#dbeafe_0%,#f8fafc_45%,#f1f5f9_100%)]">
-      <div className="pointer-events-none absolute -left-24 top-10 h-72 w-72 rounded-full bg-sky-200/40 blur-3xl" />
-      <div className="pointer-events-none absolute -right-16 bottom-0 h-80 w-80 rounded-full bg-indigo-100/50 blur-3xl" />
-
-      <div className="relative z-10 flex min-h-screen items-center justify-center p-4 sm:p-6">
-        <form
-          onSubmit={onSubmit}
-          className="w-full max-w-[560px] overflow-hidden rounded-3xl border border-slate-200/80 bg-white/90 shadow-[0_20px_60px_-24px_rgba(15,23,42,0.35)] backdrop-blur"
-          noValidate
-        >
-          <div className="border-b border-slate-100 bg-gradient-to-r from-[#183b57] to-[#36536c] px-6 py-5 text-white">
-            <div className="flex items-center gap-3">
-              <div className="h-12 w-12 overflow-hidden rounded-2xl border border-white/20 bg-white shadow-sm">
-                <img
-                  src={LOAN_AUTOMATION_LOGO}
-                  alt="Loan Automation"
-                  className="h-full w-full object-cover"
-                />
-              </div>
+    <div className="client-portal relative min-h-screen bg-white">
+      <div className="flex min-h-screen flex-col lg:flex-row">
+        {/* Left — form panel (lender-style) */}
+        <div className="relative flex min-h-screen w-full items-start justify-center overflow-y-auto bg-white lg:w-[48%] xl:w-[44%] lg:items-center">
+          <div className="w-full max-w-md px-6 py-8 sm:px-10 lg:px-8 lg:py-10">
+            {/* Mobile logo */}
+            <div className="mb-8 flex items-center gap-3 lg:hidden">
+              <img
+                src={LOAN_AUTOMATION_LOGO}
+                alt="Loan Automation"
+                className="h-12 w-12 rounded-full ring-2 ring-[#4C78F5]/20"
+              />
               <div>
-                <p className="text-base font-semibold tracking-tight">
+                <p className="text-lg font-bold text-[#4C78F5]">
                   Loan Automation
                 </p>
-                <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-sky-100/90">
+                <p className="text-[10px] font-medium uppercase tracking-wider text-gray-400">
                   Client Portal
                 </p>
               </div>
             </div>
-          </div>
 
-          <div className="px-6 py-7 sm:px-8">
-            <span className="mb-4 inline-flex items-center gap-1.5 rounded-full border border-[#13538A]/15 bg-[#13538A]/5 px-3 py-1 text-xs font-semibold text-[#13538A]">
-              <ShieldCheck size={12} />
-              {view === "forgot" || view === "reset"
-                ? "Account recovery"
-                : "Secure access"}
+            <span className="mb-4 inline-flex rounded-full border border-[#4C78F5]/20 bg-[#4C78F5]/5 px-3 py-1 text-xs font-semibold text-[#4C78F5]">
+              {badgeLabel}
             </span>
 
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+            <h1 className="text-[26px] font-semibold tracking-tight text-[#111827]">
               {title}
             </h1>
-            <p className="mt-1.5 text-sm leading-relaxed text-slate-500">
+            <p className="mt-2 text-[13px] leading-relaxed text-[#64748B]">
               {subtitle}
             </p>
 
-            <div className="mt-6 space-y-4">
+            <form onSubmit={onSubmit} className="mt-8 space-y-5" noValidate>
               {view === "forgot" && emailSent ? (
-                <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-[13px] text-emerald-800">
                   Check your inbox and spam folder. The link expires in about an
                   hour.
                 </div>
               ) : null}
 
               {view === "reset" && resetComplete ? (
-                <div className="flex items-start gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+                <div className="flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-[13px] text-emerald-800">
                   <CheckCircle2 size={18} className="mt-0.5 shrink-0" />
                   Your password was updated successfully.
                 </div>
               ) : null}
 
-              {showEmailField || showPasswordField ? (
+              {showEmailField ? (
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-gray-700">
+                    Email address
+                  </label>
+                  <div className={inputWrap(Boolean(errors.email?.trim()))}>
+                    <Mail
+                      size={18}
+                      className={
+                        errors.email?.trim() ? "text-red-400" : "text-gray-400"
+                      }
+                    />
+                    <input
+                      type="email"
+                      autoComplete="email"
+                      value={email}
+                      disabled={emailDisabled}
+                      placeholder="you@email.com"
+                      aria-invalid={Boolean(errors.email?.trim())}
+                      className="w-full bg-transparent text-sm text-gray-900 outline-none placeholder:text-gray-400 disabled:cursor-not-allowed disabled:text-gray-500"
+                      onChange={(e) => onEmailChange(e.target.value)}
+                      onBlur={() => {
+                        setTouched((prev) => ({ ...prev, email: true }));
+                        if (!emailDisabled) {
+                          const err = validateEmailField(email);
+                          setErrors((prev) => {
+                            const next = { ...prev };
+                            if (err) next.email = err;
+                            else delete next.email;
+                            return next;
+                          });
+                        }
+                      }}
+                    />
+                  </div>
+                  <FieldError message={errors.email?.trim() || undefined} />
+                </div>
+              ) : null}
+
+              {showPasswordField ? (
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-gray-700">
+                    {view === "reset" ? "New password" : "Password"}
+                  </label>
+                  <div className={inputWrap(Boolean(errors.password?.trim()))}>
+                    <LockKeyhole
+                      size={18}
+                      className={
+                        errors.password?.trim()
+                          ? "text-red-400"
+                          : "text-gray-400"
+                      }
+                    />
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      autoComplete={
+                        view === "login" ? "current-password" : "new-password"
+                      }
+                      placeholder={
+                        view === "login"
+                          ? "Enter your password"
+                          : "Create a password"
+                      }
+                      aria-invalid={Boolean(errors.password?.trim())}
+                      className="w-full bg-transparent text-sm text-gray-900 outline-none placeholder:text-gray-400"
+                      value={password}
+                      onChange={(e) => onPasswordChange(e.target.value)}
+                      onBlur={() => {
+                        setTouched((prev) => ({ ...prev, password: true }));
+                        const err =
+                          view === "reset"
+                            ? validateResetPassword(password)
+                            : view === "set-password"
+                              ? validateSetPassword(password)
+                              : validateLoginPassword(password);
+                        setErrors((prev) => {
+                          const next = { ...prev };
+                          if (err) next.password = err;
+                          else delete next.password;
+                          return next;
+                        });
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((v) => !v)}
+                      className="text-gray-400 transition hover:text-gray-600"
+                      aria-label={
+                        showPassword ? "Hide password" : "Show password"
+                      }
+                    >
+                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                  </div>
+                  <FieldError message={errors.password?.trim() || undefined} />
+                </div>
+              ) : null}
+
+              {showConfirmField ? (
                 <>
-                  {showEmailField ? (
-                    <div>
-                      <label className="mb-1.5 block text-sm font-medium text-slate-700">
-                        Email address
-                      </label>
-                      <div className={inputWrap(Boolean(errors.email?.trim()))}>
-                        <Mail
-                          size={18}
-                          className={`shrink-0 ${
-                            errors.email?.trim()
-                              ? "text-red-400"
-                              : "text-slate-400"
-                          }`}
-                        />
-                        <input
-                          type="email"
-                          autoComplete="email"
-                          value={email}
-                          disabled={emailDisabled}
-                          placeholder="you@email.com"
-                          aria-invalid={Boolean(errors.email?.trim())}
-                          className="w-full bg-transparent text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none disabled:cursor-not-allowed disabled:text-slate-500"
-                          onChange={(e) => onEmailChange(e.target.value)}
-                          onBlur={() => {
-                            setTouched((prev) => ({ ...prev, email: true }));
-                            if (!emailDisabled) {
-                              const err = validateEmailField(email);
-                              setErrors((prev) => {
-                                const next = { ...prev };
-                                if (err) next.email = err;
-                                else delete next.email;
-                                return next;
-                              });
-                            }
-                          }}
-                        />
-                      </div>
-                      <FieldError message={errors.email?.trim() || undefined} />
-                    </div>
-                  ) : null}
-
-                  {showPasswordField ? (
-                    <div>
-                      <label className="mb-1.5 block text-sm font-medium text-slate-700">
-                        {view === "reset" ? "New password" : "Password"}
-                      </label>
-                      <div
-                        className={inputWrap(Boolean(errors.password?.trim()))}
-                      >
-                        <LockKeyhole
-                          size={18}
-                          className={`shrink-0 ${
-                            errors.password?.trim()
-                              ? "text-red-400"
-                              : "text-slate-400"
-                          }`}
-                        />
-                        <input
-                          type={showPassword ? "text" : "password"}
-                          autoComplete={
-                            view === "login"
-                              ? "current-password"
-                              : "new-password"
-                          }
-                          placeholder={
-                            view === "login"
-                              ? "Enter your password"
-                              : "Create a password"
-                          }
-                          aria-invalid={Boolean(errors.password?.trim())}
-                          className="w-full bg-transparent text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none"
-                          value={password}
-                          onChange={(e) => onPasswordChange(e.target.value)}
-                          onBlur={() => {
-                            setTouched((prev) => ({ ...prev, password: true }));
-                            const err =
-                              view === "reset"
-                                ? validateResetPassword(password)
-                                : view === "set-password"
-                                  ? validateSetPassword(password)
-                                  : validateLoginPassword(password);
-                            setErrors((prev) => {
-                              const next = { ...prev };
-                              if (err) next.password = err;
-                              else delete next.password;
-                              return next;
-                            });
-                          }}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowPassword((v) => !v)}
-                          className="text-slate-400 transition hover:text-slate-700"
-                          aria-label={
-                            showPassword ? "Hide password" : "Show password"
-                          }
-                        >
-                          {showPassword ? (
-                            <EyeOff size={18} />
-                          ) : (
-                            <Eye size={18} />
-                          )}
-                        </button>
-                      </div>
-                      <FieldError
-                        message={errors.password?.trim() || undefined}
+                  <div>
+                    <label className="mb-2 block text-sm font-medium text-gray-700">
+                      Confirm password
+                    </label>
+                    <div
+                      className={inputWrap(Boolean(errors.confirmPassword))}
+                    >
+                      <LockKeyhole
+                        size={18}
+                        className={
+                          errors.confirmPassword
+                            ? "text-red-400"
+                            : "text-gray-400"
+                        }
                       />
+                      <input
+                        type={showConfirmPassword ? "text" : "password"}
+                        autoComplete="new-password"
+                        placeholder="Re-enter password"
+                        aria-invalid={Boolean(errors.confirmPassword)}
+                        className="w-full bg-transparent text-sm text-gray-900 outline-none placeholder:text-gray-400"
+                        value={confirmPassword}
+                        onChange={(e) =>
+                          onConfirmPasswordChange(e.target.value)
+                        }
+                        onBlur={() => {
+                          setTouched((prev) => ({
+                            ...prev,
+                            confirmPassword: true,
+                          }));
+                          const err = validateConfirmPassword(
+                            confirmPassword,
+                            password,
+                          );
+                          setErrors((prev) => {
+                            const next = { ...prev };
+                            if (err) next.confirmPassword = err;
+                            else delete next.confirmPassword;
+                            return next;
+                          });
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword((v) => !v)}
+                        className="text-gray-400 transition hover:text-gray-600"
+                        aria-label={
+                          showConfirmPassword
+                            ? "Hide password"
+                            : "Show password"
+                        }
+                      >
+                        {showConfirmPassword ? (
+                          <EyeOff size={18} />
+                        ) : (
+                          <Eye size={18} />
+                        )}
+                      </button>
                     </div>
-                  ) : null}
+                    <FieldError message={errors.confirmPassword} />
+                  </div>
 
-                  {showConfirmField ? (
-                    <>
-                      <div>
-                        <label className="mb-1.5 block text-sm font-medium text-slate-700">
-                          Confirm password
-                        </label>
-                        <div
-                          className={inputWrap(
-                            Boolean(errors.confirmPassword),
-                          )}
-                        >
-                          <LockKeyhole
-                            size={18}
-                            className={`shrink-0 ${
-                              errors.confirmPassword
-                                ? "text-red-400"
-                                : "text-slate-400"
-                            }`}
-                          />
-                          <input
-                            type={showConfirmPassword ? "text" : "password"}
-                            autoComplete="new-password"
-                            placeholder="Re-enter password"
-                            aria-invalid={Boolean(errors.confirmPassword)}
-                            className="w-full bg-transparent text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none"
-                            value={confirmPassword}
-                            onChange={(e) =>
-                              onConfirmPasswordChange(e.target.value)
-                            }
-                            onBlur={() => {
-                              setTouched((prev) => ({
-                                ...prev,
-                                confirmPassword: true,
-                              }));
-                              const err = validateConfirmPassword(
-                                confirmPassword,
-                                password,
-                              );
-                              setErrors((prev) => {
-                                const next = { ...prev };
-                                if (err) next.confirmPassword = err;
-                                else delete next.confirmPassword;
-                                return next;
-                              });
-                            }}
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setShowConfirmPassword((v) => !v)}
-                            className="text-slate-400 transition hover:text-slate-700"
-                            aria-label={
-                              showConfirmPassword
-                                ? "Hide password"
-                                : "Show password"
-                            }
-                          >
-                            {showConfirmPassword ? (
-                              <EyeOff size={18} />
-                            ) : (
-                              <Eye size={18} />
-                            )}
-                          </button>
-                        </div>
-                        <FieldError message={errors.confirmPassword} />
-                      </div>
-
-                      <ul className="space-y-1.5 rounded-xl border border-slate-100 bg-slate-50 px-3 py-3">
-                        {ruleStatus.map((rule) => (
-                          <li
-                            key={rule.id}
-                            className={`flex items-center gap-2 text-xs ${
-                              rule.ok ? "text-emerald-600" : "text-slate-500"
-                            }`}
-                          >
-                            <CheckCircle2
-                              size={14}
-                              className={rule.ok ? "opacity-100" : "opacity-30"}
-                            />
-                            {rule.label}
-                          </li>
-                        ))}
-                      </ul>
-                    </>
-                  ) : null}
-
-                  {view === "set-password" ? (
-                    <p className="text-xs text-slate-500">
-                      Use at least 6 characters. You’ll be signed in after
-                      saving.
-                    </p>
-                  ) : null}
+                  <ul className="space-y-1.5 rounded-xl border border-gray-100 bg-gray-50 px-3 py-3">
+                    {ruleStatus.map((rule) => (
+                      <li
+                        key={rule.id}
+                        className={`flex items-center gap-2 text-xs ${
+                          rule.ok ? "text-emerald-600" : "text-gray-500"
+                        }`}
+                      >
+                        <CheckCircle2
+                          size={14}
+                          className={rule.ok ? "opacity-100" : "opacity-30"}
+                        />
+                        {rule.label}
+                      </li>
+                    ))}
+                  </ul>
                 </>
               ) : null}
 
+              {view === "set-password" ? (
+                <p className="text-xs text-gray-500">
+                  Use at least 6 characters. You’ll be signed in after saving.
+                </p>
+              ) : null}
+
               {view === "login" ? (
-                <div className="flex justify-end">
+                <div className="flex items-center justify-end">
                   <button
                     type="button"
                     onClick={goToForgot}
-                    className="text-sm font-medium text-[#13538A] transition hover:underline"
+                    className="text-sm font-medium text-[#4C78F5] transition hover:text-[#3B66E0]"
                   >
                     Forgot password?
                   </button>
@@ -790,23 +775,23 @@ export default function ClientAuth() {
                     if (view === "reset") clearResetToken();
                     else goToLogin();
                   }}
-                  className="group flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#183b57] to-[#36536c] px-5 py-3.5 text-sm font-semibold text-white shadow-lg shadow-[#183b57]/20 transition hover:brightness-110"
+                  className="group flex w-full items-center justify-center gap-2 rounded-xl bg-[#4C78F5] px-5 py-3.5 text-sm font-semibold text-white shadow-lg shadow-[#4C78F5]/25 transition hover:bg-[#3B66E0] hover:shadow-[#4C78F5]/40"
                 >
                   Back to sign in
                   <ArrowRight
                     size={18}
-                    className="transition-transform group-hover:translate-x-1"
+                    className="transition-transform group-hover:translate-x-0.5"
                   />
                 </button>
               ) : (
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="group flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#183b57] to-[#36536c] px-5 py-3.5 text-sm font-semibold text-white shadow-lg shadow-[#183b57]/20 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="group flex w-full items-center justify-center gap-2 rounded-xl bg-[#4C78F5] px-5 py-3.5 text-sm font-semibold text-white shadow-lg shadow-[#4C78F5]/25 transition hover:bg-[#3B66E0] hover:shadow-[#4C78F5]/40 disabled:cursor-not-allowed disabled:opacity-70"
                 >
                   {submitting ? (
                     <>
-                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
                       Please wait…
                     </>
                   ) : view === "forgot" ? (
@@ -814,7 +799,7 @@ export default function ClientAuth() {
                       Send reset link
                       <ArrowRight
                         size={18}
-                        className="transition-transform group-hover:translate-x-1"
+                        className="transition-transform group-hover:translate-x-0.5"
                       />
                     </>
                   ) : view === "reset" ? (
@@ -822,7 +807,7 @@ export default function ClientAuth() {
                       Update password
                       <ArrowRight
                         size={18}
-                        className="transition-transform group-hover:translate-x-1"
+                        className="transition-transform group-hover:translate-x-0.5"
                       />
                     </>
                   ) : view === "set-password" ? (
@@ -830,15 +815,15 @@ export default function ClientAuth() {
                       Set password & continue
                       <ArrowRight
                         size={18}
-                        className="transition-transform group-hover:translate-x-1"
+                        className="transition-transform group-hover:translate-x-0.5"
                       />
                     </>
                   ) : (
                     <>
-                      Sign in
+                      Sign in to portal
                       <ArrowRight
                         size={18}
-                        className="transition-transform group-hover:translate-x-1"
+                        className="transition-transform group-hover:translate-x-0.5"
                       />
                     </>
                   )}
@@ -853,7 +838,7 @@ export default function ClientAuth() {
                     if (view === "reset") clearResetToken();
                     else goToLogin();
                   }}
-                  className="flex w-full items-center justify-center gap-2 text-sm font-medium text-slate-500 transition hover:text-slate-800"
+                  className="flex w-full items-center justify-center gap-2 text-sm font-medium text-gray-500 transition hover:text-gray-800"
                 >
                   <ArrowLeft size={16} />
                   Back to sign in
@@ -861,20 +846,78 @@ export default function ClientAuth() {
               ) : null}
 
               {view === "login" && !token ? (
-                <p className="pt-1 text-center text-xs text-slate-400">
+                <p className="text-center text-xs text-gray-400">
                   Need help? Contact your broker for portal access.
                 </p>
               ) : null}
+            </form>
+
+            <div className="mt-8 space-y-1.5 text-center text-xs text-gray-400">
+              <p>Developed by Vibrantick Inc</p>
+              <Link
+                to="/signin"
+                className="font-medium text-gray-500 transition hover:text-[#4C78F5]"
+              >
+                Broker sign in
+              </Link>
             </div>
           </div>
-        </form>
-      </div>
+        </div>
 
-      <div className="pointer-events-none absolute bottom-4 left-0 right-0 flex flex-col items-center gap-1.5 text-center text-[11px] text-slate-400">
-        <p>Developed by Vibrantick Inc</p>
-        <Link to="/signin" className="pointer-events-auto hover:underline">
-          Broker sign in
-        </Link>
+        {/* Right — brand panel (lender-style) */}
+        <div className="relative hidden overflow-hidden lg:flex lg:flex-1">
+          <div className="absolute inset-0 bg-[linear-gradient(145deg,#4C78F5_0%,#3A5FD4_45%,#2E4BB0_100%)]" />
+          <div className="absolute -top-24 right-0 h-72 w-72 rounded-full bg-white/15 blur-[100px]" />
+          <div className="absolute bottom-0 left-0 h-64 w-64 rounded-full bg-[#93B4FF]/20 blur-[80px]" />
+
+          {/* Soft grid like lender GridShape */}
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 opacity-[0.12]"
+            style={{
+              backgroundImage:
+                "linear-gradient(rgba(255,255,255,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.5) 1px, transparent 1px)",
+              backgroundSize: "40px 40px",
+              maskImage:
+                "radial-gradient(ellipse 70% 70% at 50% 50%, black 15%, transparent 70%)",
+              WebkitMaskImage:
+                "radial-gradient(ellipse 70% 70% at 50% 50%, black 15%, transparent 70%)",
+            }}
+          />
+
+          <div className="relative z-10 flex flex-col items-center justify-center px-12 text-center">
+            <div className="mb-8 block">
+              <div className="mx-auto h-24 w-24 overflow-hidden rounded-full shadow-2xl shadow-black/30 ring-4 ring-white/15">
+                <img
+                  src={LOAN_AUTOMATION_LOGO}
+                  alt="Loan Automation"
+                  className="h-full w-full object-cover"
+                />
+              </div>
+            </div>
+
+            <h2 className="text-3xl font-semibold tracking-tight text-white xl:text-[34px]">
+              Client Portal
+            </h2>
+            <p className="mt-3 max-w-sm text-[15px] leading-relaxed text-white/65">
+              Your loan documents and progress, in one place.
+            </p>
+
+            <ul className="mt-10 space-y-3 text-left">
+              {CLIENT_PORTAL_FEATURES.map((feature) => (
+                <li
+                  key={feature}
+                  className="flex items-center gap-3 text-sm text-white/80"
+                >
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/15 text-xs text-white">
+                    {"\u2713"}
+                  </span>
+                  {feature}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
       </div>
     </div>
   );
