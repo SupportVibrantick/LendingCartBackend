@@ -100,6 +100,8 @@ type ClientPortalChromeProps = {
   pageSubtitle?: string;
   secureBadge?: boolean;
   compact?: boolean;
+  /** Full-width strip above sidebar+main (e.g. impersonation). Kept inside h-dvh to avoid double scroll. */
+  topBanner?: ReactNode;
   children: ReactNode;
 };
 
@@ -122,9 +124,19 @@ export default function ClientPortalChrome({
   pageSubtitle,
   secureBadge = true,
   compact = false,
+  topBanner,
   children,
 }: ClientPortalChromeProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  // Portal shell owns scrolling — prevent a second page-level scrollbar.
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, []);
 
   useEffect(() => {
     setMobileOpen(false);
@@ -333,7 +345,10 @@ export default function ClientPortalChrome({
     (mode === "applications" ? "Borrower Portal" : "Loan Application");
 
   return (
-    <div className="client-portal flex h-dvh w-full overflow-hidden bg-[#F7F9FC]">
+    <div className="client-portal flex h-dvh max-h-dvh w-full flex-col overflow-hidden overscroll-none bg-[#F7F9FC]">
+      {topBanner ? <div className="shrink-0">{topBanner}</div> : null}
+
+      <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
       {/* Desktop sidebar */}
       <aside className="hidden h-full w-[260px] shrink-0 flex-col border-r border-[#E2E8F0] bg-white lg:flex">
         {sidebarContent}
@@ -450,7 +465,7 @@ export default function ClientPortalChrome({
         ) : null}
 
         <div
-          className={`cp-scroll min-h-0 flex-1 ${
+          className={`cp-scroll min-h-0 flex-1 overscroll-contain ${
             compact ? "flex flex-col overflow-hidden" : "overflow-y-auto"
           }`}
         >
@@ -510,6 +525,7 @@ export default function ClientPortalChrome({
             </div>
           </div>
         </div>
+      </div>
       </div>
     </div>
   );
