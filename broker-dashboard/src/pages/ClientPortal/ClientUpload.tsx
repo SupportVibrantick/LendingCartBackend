@@ -1296,99 +1296,99 @@ export default function ClientUpload() {
       />
     ) : null;
 
-  const renderApplicationWorkspace = (children: React.ReactNode) => (
-    <>
-      {isClientPortalImpersonationSession() ? (
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-900">
-          <span>You are viewing this client portal as a broker admin.</span>
-          <button
-            type="button"
-            onClick={exitClientPortalImpersonation}
-            className="rounded-lg bg-amber-900 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-amber-800"
-          >
-            Close portal tab
-          </button>
-        </div>
-      ) : null}
-      <ClientPortalChrome
-        mode="workspace"
-        activeTab={
-          activeTab === "chat"
-            ? "chat"
-            : (activeTab as ApplicationWorkspaceTab)
-        }
-        onTabChange={handleWorkspaceTab}
-        onBackToApplications={handleBackToApplications}
-        chatEnabled={chatEnabled}
-        displayName={
-          !isPlaceholderClientName(clientName)
-            ? clientName
-            : clientEmail?.split("@")[0] || "Client"
-        }
-        displayEmail={clientEmail || "—"}
-        clientInitials={getClientInitials(
-          !isPlaceholderClientName(clientName)
-            ? clientName
-            : clientEmail?.split("@")[0] || "Client",
-        )}
-        isImpersonation={isClientPortalImpersonationSession()}
-        onLogout={handleLogout}
-        onEditProfile={openProfileEditor}
-        notifications={portalNotifications}
-        applicationNumber={
-          selectedApplication?.applicationNumber || applicationNumber
-        }
-        statusChip={
-          workspaceStatus ? (
-            <span
-              className={`inline-flex items-center gap-2 rounded-full px-2.5 py-0.5 text-xs font-semibold ${getStatusStyles(
-                workspaceStatus,
-              )}`}
-            >
-              <span
-                className={`h-1.5 w-1.5 rounded-full ${getStatusDot(workspaceStatus)}`}
-              />
-              {formatStatusLabel(workspaceStatus)}
-            </span>
-          ) : null
-        }
-        pageTitle={
-          activeTab === "documents"
-            ? "Document Checklist"
-            : activeTab === "termSheet"
-              ? "Term Sheet"
-              : activeTab === "signForms"
-                ? "Fill & Sign Forms"
-                : activeTab === "feeAgreement"
-                  ? "Fee Agreement"
-                  : activeTab === "chat"
-                    ? "Messages"
-                    : "Loan Application"
-        }
-        pageSubtitle={
-          activeTab === "documents"
-            ? "Upload directly — no email chains."
-            : [
-                selectedApplication?.broker?.name ||
-                  applicationData?.broker?.name,
-                formatLoanProductLabel(
-                  applicationData?.loanProductCode ||
-                    selectedApplication?.loanProduct ||
-                    applicationData?.loanProduct,
-                ),
-                formatApplicationAmount(
-                  selectedApplication?.amountRequested ||
-                    applicationData?.amountRequested,
-                ),
-              ]
-                .filter(Boolean)
-                .join(" · ") || undefined
-        }
-        compact={activeTab === "chat"}
+  const impersonationBanner = isClientPortalImpersonationSession() ? (
+    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-900">
+      <span>You are viewing this client portal as a broker admin.</span>
+      <button
+        type="button"
+        onClick={exitClientPortalImpersonation}
+        className="rounded-lg bg-amber-900 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-amber-800"
       >
-        {children}
-      </ClientPortalChrome>
-    </>
+        Close portal tab
+      </button>
+    </div>
+  ) : null;
+
+  const renderApplicationWorkspace = (children: React.ReactNode) => (
+    <ClientPortalChrome
+      mode="workspace"
+      activeTab={
+        activeTab === "chat"
+          ? "chat"
+          : (activeTab as ApplicationWorkspaceTab)
+      }
+      onTabChange={handleWorkspaceTab}
+      onBackToApplications={handleBackToApplications}
+      chatEnabled={chatEnabled}
+      displayName={
+        !isPlaceholderClientName(clientName)
+          ? clientName
+          : clientEmail?.split("@")[0] || "Client"
+      }
+      displayEmail={clientEmail || "—"}
+      clientInitials={getClientInitials(
+        !isPlaceholderClientName(clientName)
+          ? clientName
+          : clientEmail?.split("@")[0] || "Client",
+      )}
+      isImpersonation={isClientPortalImpersonationSession()}
+      onLogout={handleLogout}
+      onEditProfile={openProfileEditor}
+      notifications={portalNotifications}
+      topBanner={impersonationBanner}
+      applicationNumber={
+        selectedApplication?.applicationNumber || applicationNumber
+      }
+      statusChip={
+        workspaceStatus ? (
+          <span
+            className={`inline-flex items-center gap-2 rounded-full px-2.5 py-0.5 text-xs font-semibold ${getStatusStyles(
+              workspaceStatus,
+            )}`}
+          >
+            <span
+              className={`h-1.5 w-1.5 rounded-full ${getStatusDot(workspaceStatus)}`}
+            />
+            {formatStatusLabel(workspaceStatus)}
+          </span>
+        ) : null
+      }
+      pageTitle={
+        activeTab === "documents"
+          ? "Document Checklist"
+          : activeTab === "termSheet"
+            ? "Term Sheet"
+            : activeTab === "signForms"
+              ? "Fill & Sign Forms"
+              : activeTab === "feeAgreement"
+                ? "Fee Agreement"
+                : activeTab === "chat"
+                  ? "Messages"
+                  : "Loan Application"
+      }
+      pageSubtitle={
+        activeTab === "documents"
+          ? "Upload directly — no email chains."
+          : [
+              selectedApplication?.broker?.name ||
+                applicationData?.broker?.name,
+              formatLoanProductLabel(
+                applicationData?.loanProductCode ||
+                  selectedApplication?.loanProduct ||
+                  applicationData?.loanProduct,
+              ),
+              formatApplicationAmount(
+                selectedApplication?.amountRequested ||
+                  applicationData?.amountRequested,
+              ),
+            ]
+              .filter(Boolean)
+              .join(" · ") || undefined
+      }
+      compact={activeTab === "chat"}
+    >
+      {children}
+    </ClientPortalChrome>
   );
 
   const totalUploadedDocuments = documents.filter(
@@ -1937,20 +1937,8 @@ export default function ClientUpload() {
           searchSlot={applicationsSearchSlot}
           pageTitle="Borrower Portal"
           pageSubtitle={`Welcome back, ${displayName}`}
+          topBanner={impersonationBanner}
         >
-          {isImpersonation ? (
-            <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-[10px] border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-900">
-              <span>You are viewing this client portal as a broker admin.</span>
-              <button
-                type="button"
-                onClick={exitClientPortalImpersonation}
-                className="rounded-lg bg-amber-900 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-amber-800"
-              >
-                Close portal tab
-              </button>
-            </div>
-          ) : null}
-
           <div ref={applicationsSectionRef} className="space-y-4">
             <div className="grid gap-3 sm:grid-cols-3">
               <div className="cp-stat">
