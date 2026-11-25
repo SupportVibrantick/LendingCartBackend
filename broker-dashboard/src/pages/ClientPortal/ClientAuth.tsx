@@ -79,6 +79,9 @@ export default function ClientAuth() {
 
   const [bootLoading, setBootLoading] = useState(true);
   const [view, setView] = useState<AuthView>("login");
+  /** Invite link + password already created — show friendly "already set" UX. */
+  const [passwordAlreadySet, setPasswordAlreadySet] = useState(false);
+  const [passwordHintRevealed, setPasswordHintRevealed] = useState(false);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -203,9 +206,14 @@ export default function ClientAuth() {
       // Password already set for this email → always show Login, even if the
       // magic link was marked used after first-time set-password.
       if (data?.userExists) {
+        setPasswordAlreadySet(Boolean(token));
+        setPasswordHintRevealed(false);
+        setPassword("");
         setView("login");
         return;
       }
+
+      setPasswordAlreadySet(false);
 
       if (!data?.tokenValid) {
         toast.error("Invalid or expired link");
@@ -218,6 +226,7 @@ export default function ClientAuth() {
       const message =
         error?.response?.data?.message || "Something went wrong";
       toast.error(message);
+      setPasswordAlreadySet(false);
       setView("login");
     } finally {
       setBootLoading(false);
@@ -503,7 +512,9 @@ export default function ClientAuth() {
             : "This reset link is invalid or has expired."
         : view === "set-password"
           ? "Create a password to access your loan documents and applications."
-          : "Sign in to upload documents and track your application.";
+          : passwordAlreadySet
+            ? "Your account is ready. Enter the password you already created to continue."
+            : "Sign in to upload documents and track your application.";
 
   const badgeLabel =
     view === "forgot" || view === "reset"
@@ -578,6 +589,19 @@ export default function ClientAuth() {
                 </div>
               ) : null}
 
+              {view === "login" && passwordAlreadySet ? (
+                <div className="flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-[13px] text-emerald-800">
+                  <CheckCircle2 size={18} className="mt-0.5 shrink-0" />
+                  <div>
+                    <p className="font-semibold">Password already set</p>
+                    <p className="mt-0.5 text-emerald-700/90">
+                      Good news — this email already has a portal password.
+                      Type it below to sign in.
+                    </p>
+                  </div>
+                </div>
+              ) : null}
+
               {showEmailField ? (
                 <div>
                   <label className="mb-2 block text-sm font-medium text-gray-700">
@@ -620,8 +644,48 @@ export default function ClientAuth() {
               {showPasswordField ? (
                 <div>
                   <label className="mb-2 block text-sm font-medium text-gray-700">
-                    {view === "reset" ? "New password" : "Password"}
+                    {view === "reset"
+                      ? "New password"
+                      : passwordAlreadySet && view === "login"
+                        ? "Your password"
+                        : "Password"}
                   </label>
+
+                  {view === "login" && passwordAlreadySet ? (
+                    <div className="mb-2 flex items-center gap-3 rounded-xl border border-[#4C78F5]/20 bg-[#4C78F5]/5 px-4 py-3">
+                      <LockKeyhole size={18} className="shrink-0 text-[#4C78F5]" />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#4C78F5]">
+                          Saved on your account
+                        </p>
+                        <p
+                          className="mt-0.5 truncate text-sm font-semibold tracking-[0.18em] text-slate-700"
+                          aria-hidden
+                        >
+                          {passwordHintRevealed
+                            ? "password already set"
+                            : "••••••••••••"}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setPasswordHintRevealed((v) => !v)}
+                        className="shrink-0 text-gray-400 transition hover:text-gray-600"
+                        aria-label={
+                          passwordHintRevealed
+                            ? "Hide password status"
+                            : "Show password status"
+                        }
+                      >
+                        {passwordHintRevealed ? (
+                          <EyeOff size={18} />
+                        ) : (
+                          <Eye size={18} />
+                        )}
+                      </button>
+                    </div>
+                  ) : null}
+
                   <div className={inputWrap(Boolean(errors.password?.trim()))}>
                     <LockKeyhole
                       size={18}
@@ -638,7 +702,9 @@ export default function ClientAuth() {
                       }
                       placeholder={
                         view === "login"
-                          ? "Enter your password"
+                          ? passwordAlreadySet
+                            ? "Type your existing password"
+                            : "Enter your password"
                           : "Create a password"
                       }
                       aria-invalid={Boolean(errors.password?.trim())}
