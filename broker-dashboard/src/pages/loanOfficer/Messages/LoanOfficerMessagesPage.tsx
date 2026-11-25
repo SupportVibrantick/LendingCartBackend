@@ -270,7 +270,7 @@ export default function LoanOfficerMessagesPage() {
 
       <div className="space-y-4">
         {/* Hero */}
-        <div className="overflow-hidden rounded-2xl border border-[#13538A]/15 bg-gradient-to-br from-[#13538A] via-[#1a6aad] to-[#2C92D5] p-5 text-white sm:p-6">
+        <div className="overflow-hidden rounded-2xl border border-[#4C78F5]/15 bg-gradient-to-br from-[#4C78F5] via-[#1a6aad] to-[#4C78F5] p-5 text-white sm:p-6">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-xs font-semibold uppercase tracking-widest text-white/70">
@@ -301,7 +301,7 @@ export default function LoanOfficerMessagesPage() {
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Search deals or contacts..."
-                  className="w-full rounded-xl border border-gray-200 py-2 pl-10 pr-9 text-sm outline-none focus:border-[#13538A]/40 focus:ring-2 focus:ring-[#13538A]/10 dark:border-gray-700 dark:bg-gray-950"
+                  className="w-full rounded-xl border border-gray-200 py-2 pl-10 pr-9 text-sm outline-none focus:border-[#4C78F5]/40 focus:ring-2 focus:ring-[#4C78F5]/10 dark:border-gray-700 dark:bg-gray-950"
                 />
                 {search && (
                   <button
@@ -322,7 +322,7 @@ export default function LoanOfficerMessagesPage() {
                     onClick={() => setTypeFilter(f.value)}
                     className={`rounded-lg px-2.5 py-1 text-xs font-medium transition ${
                       typeFilter === f.value
-                        ? "bg-[#13538A] text-white"
+                        ? "bg-[#4C78F5] text-white"
                         : "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300"
                     }`}
                   >
@@ -337,7 +337,7 @@ export default function LoanOfficerMessagesPage() {
                   type="button"
                   onClick={() => loadInbox(inboxPage)}
                   disabled={inboxLoading}
-                  className="inline-flex items-center gap-1 text-[#13538A] hover:underline disabled:opacity-50"
+                  className="inline-flex items-center gap-1 text-[#4C78F5] hover:underline disabled:opacity-50"
                 >
                   <RefreshCw className={`h-3 w-3 ${inboxLoading ? "animate-spin" : ""}`} />
                   Refresh
@@ -372,7 +372,7 @@ export default function LoanOfficerMessagesPage() {
                       onClick={() => handleSelect(item)}
                       className={`w-full border-b border-gray-50 px-4 py-3 text-left transition dark:border-gray-800 ${
                         isActive
-                          ? "bg-[#13538A]/10"
+                          ? "bg-[#4C78F5]/10"
                           : "hover:bg-gray-50 dark:hover:bg-gray-800/60"
                       }`}
                     >
@@ -383,7 +383,7 @@ export default function LoanOfficerMessagesPage() {
                               {getConversationDisplayName(item)}
                             </p>
                             {(item.unreadCount || 0) > 0 && (
-                              <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[#13538A] px-1.5 text-[10px] font-bold text-white">
+                              <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[#4C78F5] px-1.5 text-[10px] font-bold text-white">
                                 {item.unreadCount}
                               </span>
                             )}
@@ -411,7 +411,7 @@ export default function LoanOfficerMessagesPage() {
                   type="button"
                   disabled={inboxPage <= 1 || inboxLoading}
                   onClick={() => loadInbox(inboxPage - 1)}
-                  className="text-xs text-[#13538A] disabled:opacity-40"
+                  className="text-xs text-[#4C78F5] disabled:opacity-40"
                 >
                   Prev
                 </button>
@@ -422,7 +422,7 @@ export default function LoanOfficerMessagesPage() {
                   type="button"
                   disabled={inboxPage >= inboxTotalPages || inboxLoading}
                   onClick={() => loadInbox(inboxPage + 1)}
-                  className="text-xs text-[#13538A] disabled:opacity-40"
+                  className="text-xs text-[#4C78F5] disabled:opacity-40"
                 >
                   Next
                 </button>
@@ -463,7 +463,7 @@ export default function LoanOfficerMessagesPage() {
                   <button
                     type="button"
                     onClick={() => openInPipeline(selected)}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-2 text-xs font-medium text-[#13538A] transition hover:bg-[#13538A]/10 dark:border-gray-700"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-2 text-xs font-medium text-[#4C78F5] transition hover:bg-[#4C78F5]/10 dark:border-gray-700"
                   >
                     <ExternalLink className="h-3.5 w-3.5" />
                     Open deal
@@ -519,7 +519,7 @@ export default function LoanOfficerMessagesPage() {
                               <div
                                 className={`max-w-[75%] rounded-2xl px-4 py-2.5 text-sm shadow-sm ${
                                   isOwn
-                                    ? "bg-[#13538A] text-white"
+                                    ? "bg-[#4C78F5] text-white"
                                     : "border border-gray-200 bg-white text-gray-800 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
                                 }`}
                               >
@@ -594,13 +594,13 @@ export default function LoanOfficerMessagesPage() {
                         }
                       }}
                       placeholder="Type a message..."
-                      className="flex-1 rounded-xl border border-gray-200 px-4 py-2.5 text-sm outline-none focus:border-[#13538A]/40 focus:ring-2 focus:ring-[#13538A]/10 dark:border-gray-700 dark:bg-gray-950"
+                      className="flex-1 rounded-xl border border-gray-200 px-4 py-2.5 text-sm outline-none focus:border-[#4C78F5]/40 focus:ring-2 focus:ring-[#4C78F5]/10 dark:border-gray-700 dark:bg-gray-950"
                     />
                     <button
                       type="button"
                       disabled={sending || (!messageText.trim() && !selectedFile)}
                       onClick={handleSend}
-                      className="rounded-xl bg-[#13538A] p-2.5 text-white transition hover:bg-[#1a6aad] disabled:opacity-50"
+                      className="rounded-xl bg-[#4C78F5] p-2.5 text-white transition hover:bg-[#1a6aad] disabled:opacity-50"
                     >
                       <Send className="h-4 w-4" />
                     </button>

@@ -22,7 +22,7 @@ type Props = {
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="space-y-3">
-      <h4 className="border-b border-gray-100 pb-2 text-xs font-semibold uppercase tracking-wider text-[#13538A] dark:border-gray-800">
+      <h4 className="border-b border-gray-100 pb-2 text-xs font-semibold uppercase tracking-wider text-[#4C78F5] dark:border-gray-800">
         {title}
       </h4>
       {children}
@@ -118,7 +118,7 @@ export default function CoBrokerDetailsModal({
                     className="h-20 w-20 rounded-xl border border-gray-200 object-cover dark:border-gray-700"
                   />
                 ) : (
-                  <div className="flex h-20 w-20 items-center justify-center rounded-xl bg-[#13538A]/10 text-xl font-bold text-[#13538A]">
+                  <div className="flex h-20 w-20 items-center justify-center rounded-xl bg-[#4C78F5]/10 text-xl font-bold text-[#4C78F5]">
                     {coBroker.firstName?.charAt(0)}
                     {coBroker.lastName?.charAt(0)}
                   </div>
@@ -294,7 +294,7 @@ export default function CoBrokerDetailsModal({
                           href={logoUrl}
                           target="_blank"
                           rel="noreferrer"
-                          className="inline-flex items-center gap-1 text-[#13538A] hover:underline"
+                          className="inline-flex items-center gap-1 text-[#4C78F5] hover:underline"
                         >
                           View logo <ExternalLink className="h-3.5 w-3.5" />
                         </a>
@@ -311,7 +311,7 @@ export default function CoBrokerDetailsModal({
                           href={w9Url}
                           target="_blank"
                           rel="noreferrer"
-                          className="inline-flex items-center gap-1 text-[#13538A] hover:underline"
+                          className="inline-flex items-center gap-1 text-[#4C78F5] hover:underline"
                         >
                           View W9 <ExternalLink className="h-3.5 w-3.5" />
                         </a>
@@ -365,7 +365,7 @@ export default function CoBrokerDetailsModal({
               <button
                 type="button"
                 onClick={() => onEdit(coBroker.id)}
-                className="inline-flex items-center gap-2 rounded-xl bg-[#13538A] px-5 py-2 text-sm font-semibold text-white hover:bg-[#1a6aad]"
+                className="inline-flex items-center gap-2 rounded-xl bg-[#4C78F5] px-5 py-2 text-sm font-semibold text-white hover:bg-[#1a6aad]"
               >
                 <Pencil className="h-4 w-4" />
                 Edit CO-Broker

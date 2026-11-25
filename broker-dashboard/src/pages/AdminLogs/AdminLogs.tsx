@@ -36,11 +36,16 @@ type BrokerLog = {
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
 const CATEGORY_STYLES: Record<string, string> = {
-  APPLICATION: "bg-indigo-50 text-indigo-700 ring-indigo-100 dark:bg-indigo-500/10 dark:text-indigo-300",
-  SYSTEM: "bg-slate-100 text-slate-700 ring-slate-200 dark:bg-slate-800 dark:text-slate-300",
-  USER_MANAGEMENT: "bg-blue-50 text-blue-700 ring-blue-100 dark:bg-blue-500/10 dark:text-blue-300",
-  SECURITY: "bg-rose-50 text-rose-700 ring-rose-100 dark:bg-rose-500/10 dark:text-rose-300",
-  REVIEW: "bg-amber-50 text-amber-700 ring-amber-100 dark:bg-amber-500/10 dark:text-amber-300",
+  APPLICATION:
+    "border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-800 dark:bg-indigo-500/10 dark:text-indigo-300",
+  SYSTEM:
+    "border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300",
+  USER_MANAGEMENT:
+    "border-[#4C78F5]/25 bg-[#4C78F5]/8 text-[#3B66E0] dark:border-[#4C78F5]/40 dark:bg-[#4C78F5]/15 dark:text-sky-300",
+  SECURITY:
+    "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-800 dark:bg-rose-500/10 dark:text-rose-300",
+  REVIEW:
+    "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-500/10 dark:text-amber-300",
 };
 
 const AVATAR_TONES = [
@@ -71,15 +76,22 @@ function getAvatarTone(seed?: string) {
 }
 
 function formatDateTime(value?: string) {
-  if (!value) return "—";
+  if (!value) return "Not available";
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "—";
+  if (Number.isNaN(date.getTime())) return "Not available";
   return date.toLocaleString(undefined, {
     month: "short",
     day: "numeric",
     hour: "numeric",
     minute: "2-digit",
   });
+}
+
+function formatEntityId(id?: string) {
+  const value = String(id || "").trim();
+  if (!value) return null;
+  if (value.length <= 16) return value;
+  return `${value.slice(0, 8)}…${value.slice(-4)}`;
 }
 
 function formatRelativeTime(value?: string) {
@@ -100,16 +112,16 @@ function formatRelativeTime(value?: string) {
 function actionClass(action: string) {
   const upper = action?.toUpperCase() || "";
   if (upper.includes("DELETE") || upper.includes("REMOVE"))
-    return "bg-rose-50 text-rose-700 ring-rose-200 dark:bg-rose-500/10 dark:text-rose-300";
+    return "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-800 dark:bg-rose-500/10 dark:text-rose-300";
   if (upper.includes("CREATE") || upper.includes("ADD"))
-    return "bg-emerald-50 text-emerald-700 ring-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300";
+    return "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-300";
   if (upper.includes("UPDATE") || upper.includes("EDIT"))
-    return "bg-blue-50 text-blue-700 ring-blue-200 dark:bg-blue-500/10 dark:text-blue-300";
+    return "border-[#4C78F5]/25 bg-[#4C78F5]/8 text-[#3B66E0] dark:border-[#4C78F5]/40 dark:bg-[#4C78F5]/15 dark:text-sky-300";
   if (upper.includes("ASSIGN"))
-    return "bg-violet-50 text-violet-700 ring-violet-200 dark:bg-violet-500/10 dark:text-violet-300";
+    return "border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-800 dark:bg-violet-500/10 dark:text-violet-300";
   if (upper.includes("MESSAGE") || upper.includes("SENT"))
-    return "bg-cyan-50 text-cyan-700 ring-cyan-200 dark:bg-cyan-500/10 dark:text-cyan-300";
-  return "bg-slate-100 text-slate-700 ring-slate-200 dark:bg-slate-800 dark:text-slate-300";
+    return "border-cyan-200 bg-cyan-50 text-cyan-700 dark:border-cyan-800 dark:bg-cyan-500/10 dark:text-cyan-300";
+  return "border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300";
 }
 
 function isLoanOfficerPerformer(log: BrokerLog) {
@@ -134,14 +146,14 @@ function formatJson(value: unknown) {
 
 function TableSkeleton() {
   return (
-    <div className="divide-y divide-gray-100 dark:divide-gray-800">
+    <div className="divide-y divide-slate-100 dark:divide-slate-800">
       {Array.from({ length: 8 }).map((_, i) => (
-        <div key={i} className="flex animate-pulse items-center gap-4 px-6 py-4">
-          <div className="h-10 w-28 rounded-lg bg-gray-100 dark:bg-gray-800" />
-          <div className="h-8 w-36 rounded-full bg-gray-100 dark:bg-gray-800" />
-          <div className="h-10 flex-1 rounded-lg bg-gray-100 dark:bg-gray-800" />
-          <div className="h-10 w-32 rounded-lg bg-gray-100 dark:bg-gray-800" />
-          <div className="h-8 w-20 rounded-lg bg-gray-100 dark:bg-gray-800" />
+        <div key={i} className="flex animate-pulse items-center gap-4 px-4 py-3.5 sm:px-5">
+          <div className="h-10 w-28 rounded-lg bg-slate-100 dark:bg-slate-800" />
+          <div className="h-8 w-36 rounded-lg bg-slate-100 dark:bg-slate-800" />
+          <div className="h-10 flex-1 rounded-lg bg-slate-100 dark:bg-slate-800" />
+          <div className="h-10 w-32 rounded-lg bg-slate-100 dark:bg-slate-800" />
+          <div className="h-8 w-20 rounded-lg bg-slate-100 dark:bg-slate-800" />
         </div>
       ))}
     </div>
@@ -267,23 +279,25 @@ export default function AdminLogs() {
     <>
       <PageMeta title="Activity Logs | Broker Dashboard" description="Broker audit trail" />
 
-      <div className="space-y-6">
+      <div className="w-full space-y-4">
         {/* Hero */}
-        <div className="overflow-hidden rounded-2xl border border-gray-200 bg-gradient-to-br from-[#13538A] via-[#1a6aad] to-[#2C92D5] p-6 text-white shadow-sm dark:border-gray-800">
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-medium backdrop-blur-sm">
+        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white p-4 shadow-none dark:border-slate-800 dark:bg-slate-950 sm:p-5">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="min-w-0">
+              <p className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#4C78F5]">
                 <Shield className="h-3.5 w-3.5" />
-                Audit Trail · Broker Portal
-              </div>
-              <h1 className="text-2xl font-semibold tracking-tight">Activity Logs</h1>
-              <p className="mt-1 max-w-2xl text-sm text-white/80">
+                Audit Trail
+              </p>
+              <h1 className="mt-1 text-lg font-semibold tracking-tight text-slate-900 dark:text-white sm:text-xl">
+                Activity Logs
+              </h1>
+              <p className="mt-1 max-w-2xl text-sm text-slate-500">
                 Track assignments, messages, application changes, and loan officer
                 activity across your brokerage.
               </p>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
               {[
                 { label: "Total Events", value: pageStats.total, icon: Activity },
                 { label: "This Page", value: pageStats.onPage, icon: Database },
@@ -292,13 +306,17 @@ export default function AdminLogs() {
               ].map(({ label, value, icon: Icon }) => (
                 <div
                   key={label}
-                  className="rounded-xl bg-white/10 px-4 py-3 ring-1 ring-white/20 backdrop-blur-sm"
+                  className="rounded-xl border border-slate-200 bg-slate-50/70 px-3.5 py-3 dark:border-slate-700 dark:bg-slate-900/40"
                 >
-                  <div className="flex items-center gap-2 text-white/70">
-                    <Icon className="h-4 w-4" />
-                    <span className="text-xs">{label}</span>
+                  <div className="flex items-center gap-1.5 text-slate-500">
+                    <Icon className="h-3.5 w-3.5" />
+                    <span className="text-xs font-semibold uppercase tracking-wide">
+                      {label}
+                    </span>
                   </div>
-                  <p className="mt-1 text-2xl font-semibold">{value}</p>
+                  <p className="mt-1 text-xl font-semibold tabular-nums text-slate-900 dark:text-white">
+                    {value}
+                  </p>
                 </div>
               ))}
             </div>
@@ -306,15 +324,15 @@ export default function AdminLogs() {
         </div>
 
         {/* Toolbar */}
-        <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-          <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+        <div className="rounded-xl border border-slate-200 bg-white p-3.5 shadow-none dark:border-slate-800 dark:bg-slate-950 sm:p-4">
+          <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <input
-                placeholder="Search by action (e.g. ASSIGN, MESSAGE)..."
+                placeholder="Search by action (e.g. ASSIGN, MESSAGE)…"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                className="h-10 w-full rounded-xl border border-gray-200 bg-gray-50 pl-10 pr-4 text-sm outline-none focus:border-[#13538A]/40 focus:ring-2 focus:ring-[#13538A]/10 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100"
+                className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-3 text-sm outline-none transition focus:border-[#4C78F5]/50 focus:ring-2 focus:ring-[#4C78F5]/15 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
               />
             </div>
 
@@ -322,7 +340,7 @@ export default function AdminLogs() {
               <select
                 value={pageSize}
                 onChange={(e) => setPageSize(Number(e.target.value))}
-                className="h-10 rounded-xl border border-gray-200 bg-white px-3 text-sm outline-none focus:border-[#13538A]/40 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100"
+                className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none transition focus:border-[#4C78F5]/50 focus:ring-2 focus:ring-[#4C78F5]/15 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
               >
                 <option value={10}>10 / page</option>
                 <option value={20}>20 / page</option>
@@ -333,7 +351,7 @@ export default function AdminLogs() {
                 type="button"
                 onClick={() => fetchLogs()}
                 disabled={loading}
-                className="inline-flex h-10 items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:opacity-60 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-200"
+                className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
               >
                 <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
                 Refresh
@@ -341,18 +359,20 @@ export default function AdminLogs() {
             </div>
           </div>
 
-          <div className="mt-4 flex flex-wrap items-center gap-2">
-            <span className="shrink-0 text-xs font-medium text-gray-500">Category:</span>
+          <div className="mt-3 flex flex-wrap items-center gap-1.5">
+            <span className="mr-1 shrink-0 text-sm font-semibold text-slate-500">
+              Category
+            </span>
             {["", "APPLICATION", "SYSTEM", "USER_MANAGEMENT", "SECURITY", "REVIEW"].map(
               (category) => (
                 <button
                   key={category || "all"}
                   type="button"
                   onClick={() => setCategoryFilter(category)}
-                  className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition ${
+                  className={`shrink-0 rounded-lg border px-2.5 py-1 text-xs font-semibold transition ${
                     categoryFilter === category
-                      ? "bg-[#13538A] text-white"
-                      : "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300"
+                      ? "border-[#4C78F5] bg-[#4C78F5] text-white"
+                      : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300"
                   }`}
                 >
                   {category ? category.replace(/_/g, " ") : "All"}
@@ -362,10 +382,10 @@ export default function AdminLogs() {
             <button
               type="button"
               onClick={() => setLoanOfficersOnly((v) => !v)}
-              className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition ${
+              className={`shrink-0 rounded-lg border px-2.5 py-1 text-xs font-semibold transition ${
                 loanOfficersOnly
-                  ? "bg-sky-600 text-white"
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300"
+                  ? "border-[#4C78F5] bg-[#4C78F5]/10 text-[#4C78F5]"
+                  : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300"
               }`}
             >
               Loan Officers Only
@@ -374,29 +394,29 @@ export default function AdminLogs() {
         </div>
 
         {/* Table */}
-        <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
+        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-none dark:border-slate-800 dark:bg-slate-950">
           {loading ? (
             <TableSkeleton />
           ) : error ? (
-            <div className="py-16 text-center">
-              <p className="font-medium text-red-500">{error}</p>
+            <div className="py-14 text-center">
+              <p className="text-sm font-semibold text-rose-600">{error}</p>
               <button
                 type="button"
                 onClick={() => fetchLogs()}
-                className="mt-3 text-sm font-medium text-[#13538A] hover:underline"
+                className="mt-3 text-sm font-semibold text-[#4C78F5] hover:underline"
               >
                 Try again
               </button>
             </div>
           ) : logs.length === 0 ? (
-            <div className="flex flex-col items-center py-20 text-center">
-              <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#13538A]/10 text-[#13538A]">
-                <Database size={24} />
+            <div className="flex flex-col items-center px-4 py-14 text-center">
+              <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800">
+                <Database className="h-5 w-5 text-slate-400" />
               </div>
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+              <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
                 No activity logs found
               </h3>
-              <p className="mt-1 max-w-md text-sm text-gray-500">
+              <p className="mt-1 max-w-md text-sm text-slate-500">
                 {query || categoryFilter
                   ? "Try adjusting your search or category filter."
                   : "Audit records will appear here as your team uses the broker portal."}
@@ -405,52 +425,55 @@ export default function AdminLogs() {
           ) : (
             <>
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[900px] text-left">
+                <table className="w-full min-w-[960px] text-left">
                   <thead>
-                    <tr className="border-b border-gray-100 bg-gray-50/80 dark:border-gray-800 dark:bg-gray-800/50">
-                      {["Timestamp", "Event", "Entity", "User / IP", ""].map((col) => (
-                        <th
-                          key={col}
-                          className="px-5 py-3.5 text-xs font-semibold uppercase tracking-wider text-gray-500"
-                        >
-                          {col}
-                        </th>
-                      ))}
+                    <tr className="border-b border-slate-200 bg-slate-50/70 dark:border-slate-800 dark:bg-slate-900/40">
+                      {["Timestamp", "Event", "Entity", "User / IP", "Actions"].map(
+                        (col) => (
+                          <th
+                            key={col}
+                            className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500 sm:px-5"
+                          >
+                            {col}
+                          </th>
+                        )
+                      )}
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                     {logs.map((log) => {
                       const performer = getPerformerName(log);
+                      const entityIdShort = formatEntityId(log.entityId);
                       return (
                         <tr
                           key={log.id}
-                          className="group transition hover:bg-[#13538A]/[0.03] dark:hover:bg-gray-800/50"
+                          className="transition hover:bg-[#4C78F5]/[0.03] dark:hover:bg-slate-900/50"
                         >
-                          <td className="px-5 py-4 whitespace-nowrap">
+                          <td className="whitespace-nowrap px-4 py-3.5 sm:px-5">
                             <div className="flex items-center gap-2">
-                              <Calendar className="h-4 w-4 text-gray-400" />
+                              <Calendar className="h-4 w-4 text-slate-400" />
                               <div>
-                                <p className="text-sm font-medium text-gray-800 dark:text-gray-100">
+                                <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">
                                   {formatDateTime(log.createdAt)}
                                 </p>
-                                <p className="text-xs text-gray-400">
-                                  {formatRelativeTime(log.createdAt)}
+                                <p className="text-sm text-slate-400">
+                                  {formatRelativeTime(log.createdAt) || "Just now"}
                                 </p>
                               </div>
                             </div>
                           </td>
 
-                          <td className="px-5 py-4">
+                          <td className="px-4 py-3.5 sm:px-5">
                             <div className="flex flex-col gap-1.5">
                               <span
-                                className={`inline-flex w-fit rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ring-inset ${actionClass(log.action)}`}
+                                className={`inline-flex w-fit rounded-full border px-2.5 py-0.5 text-xs font-semibold ${actionClass(log.action)}`}
                               >
                                 {log.action.replace(/_/g, " ")}
                               </span>
                               <span
-                                className={`inline-flex w-fit rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ring-1 ring-inset ${
+                                className={`inline-flex w-fit rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
                                   CATEGORY_STYLES[log.category] ||
-                                  "bg-gray-100 text-gray-600 ring-gray-200"
+                                  "border-slate-200 bg-slate-50 text-slate-600"
                                 }`}
                               >
                                 {log.category.replace(/_/g, " ")}
@@ -458,50 +481,69 @@ export default function AdminLogs() {
                             </div>
                           </td>
 
-                          <td className="px-5 py-4">
+                          <td className="px-4 py-3.5 sm:px-5">
                             <div className="flex items-center gap-3">
-                              <div className="rounded-lg bg-gray-100 p-2 dark:bg-gray-800">
-                                <Database className="h-4 w-4 text-gray-500" />
+                              <div className="rounded-lg bg-[#4C78F5]/10 p-2 text-[#4C78F5]">
+                                <Database className="h-4 w-4" />
                               </div>
-                              <div>
-                                <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">
-                                  {log.entityType}
+                              <div className="min-w-0">
+                                <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                                  {log.entityType || (
+                                    <span className="font-normal text-slate-400">
+                                      Not provided
+                                    </span>
+                                  )}
                                 </p>
-                                <p className="max-w-[140px] truncate text-xs text-gray-400">
-                                  {log.entityId}
-                                </p>
+                                {entityIdShort ? (
+                                  <p
+                                    className="font-mono text-sm text-slate-400"
+                                    title={log.entityId}
+                                  >
+                                    {entityIdShort}
+                                  </p>
+                                ) : (
+                                  <p className="text-sm text-slate-400">
+                                    Not provided
+                                  </p>
+                                )}
                               </div>
                             </div>
                           </td>
 
-                          <td className="px-5 py-4">
+                          <td className="px-4 py-3.5 sm:px-5">
                             <div className="flex items-center gap-3">
                               <span
-                                className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold ${getAvatarTone(performer)}`}
+                                className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-xs font-bold ${getAvatarTone(performer)}`}
                               >
                                 {getInitials(performer)}
                               </span>
-                              <div>
+                              <div className="min-w-0">
                                 <div className="flex items-center gap-2">
-                                  <p className="text-sm font-medium text-gray-800 dark:text-gray-100">
+                                  <p className="truncate text-sm font-semibold text-slate-800 dark:text-slate-100">
                                     {performer}
                                   </p>
                                   {isLoanOfficerPerformer(log) && (
-                                    <span className="rounded-full bg-sky-50 px-2 py-0.5 text-[10px] font-semibold uppercase text-sky-700">
+                                    <span className="rounded-full border border-[#4C78F5]/25 bg-[#4C78F5]/8 px-2 py-0.5 text-[10px] font-semibold uppercase text-[#4C78F5]">
                                       LO
                                     </span>
                                   )}
                                 </div>
-                                <p className="text-xs text-gray-400">{log.ipAddress || "—"}</p>
+                                <p className="text-sm text-slate-400">
+                                  {log.ipAddress?.trim() ? (
+                                    log.ipAddress
+                                  ) : (
+                                    <span>IP not available</span>
+                                  )}
+                                </p>
                               </div>
                             </div>
                           </td>
 
-                          <td className="px-5 py-4 text-right">
+                          <td className="px-4 py-3.5 text-right sm:px-5">
                             <button
                               type="button"
                               onClick={() => setSelectedLog(log)}
-                              className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-[#13538A] transition hover:bg-[#13538A]/10"
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-semibold text-[#4C78F5] transition hover:bg-[#4C78F5]/[0.06] dark:border-slate-700"
                             >
                               <Eye className="h-4 w-4" />
                               Details
@@ -515,13 +557,20 @@ export default function AdminLogs() {
               </div>
 
               {totalPages > 1 && (
-                <div className="flex flex-col gap-3 border-t border-gray-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between dark:border-gray-800">
-                  <p className="text-sm text-gray-500">
-                    Showing <span className="font-semibold text-gray-900 dark:text-white">{start}</span>
+                <div className="flex flex-col gap-3 border-t border-slate-200 px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between sm:px-5 dark:border-slate-800">
+                  <p className="text-sm text-slate-500">
+                    Showing{" "}
+                    <span className="font-semibold text-slate-900 dark:text-white">
+                      {start}
+                    </span>
                     {" – "}
-                    <span className="font-semibold text-gray-900 dark:text-white">{end}</span>
+                    <span className="font-semibold text-slate-900 dark:text-white">
+                      {end}
+                    </span>
                     {" of "}
-                    <span className="font-semibold text-gray-900 dark:text-white">{serverTotal}</span>
+                    <span className="font-semibold text-slate-900 dark:text-white">
+                      {serverTotal}
+                    </span>
                   </p>
 
                   <div className="flex items-center gap-2">
@@ -529,18 +578,18 @@ export default function AdminLogs() {
                       type="button"
                       disabled={currentPage === 1}
                       onClick={() => gotoPage(currentPage - 1)}
-                      className="rounded-lg border border-gray-200 p-2 disabled:opacity-40 dark:border-gray-700"
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 disabled:opacity-40 dark:border-slate-700"
                     >
                       <ChevronLeft className="h-4 w-4" />
                     </button>
-                    <span className="rounded-lg border border-gray-200 px-4 py-1.5 text-sm font-semibold text-[#13538A] dark:border-gray-700">
+                    <span className="rounded-lg border border-slate-200 px-3 py-1 text-sm font-semibold text-[#4C78F5] dark:border-slate-700">
                       {currentPage} / {totalPages}
                     </span>
                     <button
                       type="button"
                       disabled={currentPage === totalPages}
                       onClick={() => gotoPage(currentPage + 1)}
-                      className="rounded-lg border border-gray-200 p-2 disabled:opacity-40 dark:border-gray-700"
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 disabled:opacity-40 dark:border-slate-700"
                     >
                       <ChevronRight className="h-4 w-4" />
                     </button>
@@ -555,48 +604,48 @@ export default function AdminLogs() {
       {selectedLog &&
         createPortal(
           <div
-            className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
+            className="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-900/40 p-4"
             onClick={() => setSelectedLog(null)}
             role="dialog"
             aria-modal="true"
           >
             <div
-              className="flex max-h-[min(80vh,720px)] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl dark:border-gray-700 dark:bg-gray-900"
+              className="flex max-h-[min(80vh,720px)] w-full max-w-3xl flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-none dark:border-slate-700 dark:bg-slate-950"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex shrink-0 items-center justify-between border-b px-6 py-4 dark:border-gray-800">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+              <div className="flex shrink-0 items-center justify-between border-b border-slate-200 px-4 py-3.5 sm:px-5 dark:border-slate-800">
+                <div className="min-w-0">
+                  <h3 className="text-base font-semibold text-slate-900 dark:text-white">
                     Change Details
                   </h3>
-                  <p className="text-xs text-gray-500">
+                  <p className="mt-0.5 truncate text-sm text-slate-500">
                     {selectedLog.action.replace(/_/g, " ")} · {selectedLog.entityType}
                   </p>
                 </div>
                 <button
                   type="button"
                   onClick={() => setSelectedLog(null)}
-                  className="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 hover:text-red-500 dark:hover:bg-gray-800"
+                  className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-rose-500 dark:hover:bg-slate-800"
                   aria-label="Close"
                 >
                   <X className="h-5 w-5" />
                 </button>
               </div>
 
-              <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto p-6 md:grid-cols-2">
+              <div className="grid min-h-0 flex-1 gap-3 overflow-y-auto p-4 sm:p-5 md:grid-cols-2">
                 <div>
-                  <label className="mb-2 block text-xs font-bold uppercase text-gray-400">
+                  <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
                     Old Value
                   </label>
-                  <pre className="max-h-64 overflow-auto rounded-xl border border-gray-800 bg-gray-900 p-4 text-xs text-gray-300">
+                  <pre className="max-h-64 overflow-auto rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
                     {formatJson(selectedLog.oldValue)}
                   </pre>
                 </div>
                 <div>
-                  <label className="mb-2 block text-xs font-bold uppercase text-gray-400">
+                  <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
                     New Value
                   </label>
-                  <pre className="max-h-64 overflow-auto rounded-xl border border-blue-200 bg-blue-50 p-4 text-xs text-blue-900 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-200">
+                  <pre className="max-h-64 overflow-auto rounded-lg border border-[#4C78F5]/20 bg-[#4C78F5]/[0.06] p-3 text-sm text-slate-800 dark:border-[#4C78F5]/30 dark:bg-[#4C78F5]/10 dark:text-sky-100">
                     {formatJson(selectedLog.newValue)}
                   </pre>
                 </div>

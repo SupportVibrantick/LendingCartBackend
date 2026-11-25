@@ -74,8 +74,8 @@ type Props = {
 
 function InfoRow({ label, value }: { label: string; value?: string }) {
   return (
-    <div className="rounded-xl border border-slate-100 bg-white px-3 py-2.5 dark:border-slate-800 dark:bg-slate-950">
-      <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+    <div className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 dark:border-slate-700 dark:bg-slate-950">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
         {label}
       </p>
       <p className="mt-1 text-sm font-medium text-slate-800 dark:text-slate-100">
@@ -100,7 +100,7 @@ function ReadOnlyField({
 }) {
   return (
     <div data-loi-field={field}>
-      <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+      <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
         {label}
       </label>
       <input
@@ -108,12 +108,12 @@ function ReadOnlyField({
         readOnly
         tabIndex={-1}
         placeholder="Auto-calculated"
-        className="w-full cursor-not-allowed rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-200"
+        className="h-10 w-full cursor-not-allowed rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-200"
       />
       {error ? (
-        <p className="mt-1 text-xs text-rose-600">{error}</p>
+        <p className="mt-1 text-sm text-rose-600">{error}</p>
       ) : hint ? (
-        <p className="mt-1 text-[11px] text-slate-500">{hint}</p>
+        <p className="mt-1 text-xs text-slate-500">{hint}</p>
       ) : null}
     </div>
   );
@@ -368,48 +368,79 @@ export default function BrokerLoiEditorPanel({
   const brandingComplete = isLoiBrandingComplete(branding);
   const fieldsDisabled = submitting || readOnly;
   const inputClassName =
-    "w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-[#13538A] focus:ring-2 focus:ring-[#13538A]/20 dark:border-slate-700 dark:bg-slate-950 dark:focus:ring-[#13538A]/30 disabled:cursor-not-allowed disabled:opacity-60";
+    "h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none transition focus:border-[#4C78F5]/50 focus:ring-2 focus:ring-[#4C78F5]/15 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 disabled:cursor-not-allowed disabled:opacity-60";
+  const fieldLabelClassName =
+    "mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500";
+
+  const editorTitle =
+    mode === "revised"
+      ? revisedVersionNumber
+        ? `Revised term sheet · v${revisedVersionNumber}`
+        : "Revised term sheet"
+      : mode === "regenerate"
+        ? standalone
+          ? "Edit your term sheet"
+          : "Regenerate broker LOI"
+        : standalone
+          ? "Your broker term sheet"
+          : "Copied from lender LOI";
+
+  const editorHint =
+    mode === "revised"
+      ? "Previous signed versions stay on file. The client must sign this new version."
+      : mode === "regenerate"
+        ? standalone
+          ? "Update your commercial terms below, then regenerate the branded PDF."
+          : `Update terms below and regenerate your branded PDF based on ${sourceLenderName}.`
+        : standalone
+          ? "Fill in the commercial terms below. Your brokerage branding appears on the generated PDF."
+          : `Terms are pre-filled from ${sourceLenderName}. Edit anything needed — your branding replaces the lender branding on the PDF.`;
 
   return (
-    <div className="flex flex-1 flex-col overflow-hidden bg-white dark:bg-slate-900">
-      <div ref={scrollBodyRef} className="flex-1 overflow-y-auto p-4 sm:p-5">
+    <div className="flex flex-1 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-none dark:border-slate-800 dark:bg-slate-950">
+      <div ref={scrollBodyRef} className="custom-scrollbar flex-1 overflow-y-auto p-4 sm:p-5">
         {readOnly && (
           <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-500/20 dark:bg-amber-500/10">
             <p className="text-sm font-semibold text-amber-900 dark:text-amber-100">
               Broker LOI forwarded to lender
             </p>
-            <p className="mt-1 text-xs text-amber-800/90 dark:text-amber-200/90">
+            <p className="mt-1 text-sm text-amber-800/90 dark:text-amber-200/90">
               This LOI was already sent to the lender and cannot be edited or
               regenerated.
             </p>
           </div>
         )}
 
-        <div className="mb-4 rounded-xl border border-[#13538A]/20 bg-[#13538A]/8 px-4 py-3 dark:border-[#13538A]/30 dark:bg-[#13538A]/15">
-          <p className="text-xs font-semibold uppercase tracking-wide text-[#13538A] dark:text-sky-300">
-            {mode === "revised"
-              ? revisedVersionNumber
-                ? `Create Revised Term Sheet (Version ${revisedVersionNumber})`
-                : "Create Revised Term Sheet"
-              : mode === "regenerate"
-                ? standalone
-                  ? "Edit your term sheet"
-                  : "Regenerate broker LOI"
-                : standalone
-                  ? "Your broker term sheet"
-                  : "Copied from lender LOI"}
-          </p>
-          <p className="mt-1 text-sm text-slate-700 dark:text-slate-200">
-            {mode === "revised"
-              ? "Previous signed versions are preserved. The client must sign this new version."
-              : mode === "regenerate"
-                ? standalone
-                  ? "Update your commercial terms below, then regenerate your branded PDF."
-                  : `Update terms below and regenerate your branded PDF based on ${sourceLenderName}.`
-                : standalone
-                  ? "Enter your commercial terms below. Your broker branding will appear on the generated PDF."
-                  : `Terms pre-filled from ${sourceLenderName}. Edit below — your broker branding will replace the lender branding on the PDF.`}
-          </p>
+        <div className="mb-5 overflow-hidden rounded-xl border border-[#4C78F5]/20 bg-[#4C78F5]/[0.06] dark:border-[#4C78F5]/30 dark:bg-[#4C78F5]/15">
+          <div className="border-b border-[#4C78F5]/15 px-4 py-3 dark:border-[#4C78F5]/25">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#4C78F5] dark:text-sky-300">
+              {editorTitle}
+            </p>
+            <p className="mt-1 text-sm leading-relaxed text-slate-600 dark:text-slate-200">
+              {editorHint}
+            </p>
+          </div>
+          <div className="grid gap-0 sm:grid-cols-3">
+            {[
+              { step: "1", label: "Branding" },
+              { step: "2", label: "Terms" },
+              { step: "3", label: "Generate PDF" },
+            ].map((item, index) => (
+              <div
+                key={item.step}
+                className={`flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-600 dark:text-slate-300 ${
+                  index > 0
+                    ? "border-t border-[#4C78F5]/10 sm:border-l sm:border-t-0 dark:border-[#4C78F5]/20"
+                    : ""
+                }`}
+              >
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#4C78F5] text-[11px] font-bold text-white">
+                  {item.step}
+                </span>
+                {item.label}
+              </div>
+            ))}
+          </div>
         </div>
 
         <div data-loi-field="branding">
@@ -421,12 +452,12 @@ export default function BrokerLoiEditorPanel({
         </div>
 
         {applicationContext && (
-          <div className="mb-4 rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
-            <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
-              <User size={15} />
+          <div className="mb-4 overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800">
+            <div className="flex items-center gap-2 border-b border-slate-200 bg-slate-50/70 px-4 py-3 text-sm font-semibold text-slate-800 dark:border-slate-800 dark:bg-slate-900/40 dark:text-slate-100">
+              <User size={15} className="text-[#4C78F5]" />
               Application Snapshot
             </div>
-            <div className="grid gap-2 sm:grid-cols-2">
+            <div className="grid gap-2.5 p-4 sm:grid-cols-2">
               <InfoRow label="Borrower" value={applicationContext.borrowerName} />
               <InfoRow
                 label="Property"
@@ -454,14 +485,20 @@ export default function BrokerLoiEditorPanel({
           </div>
         )}
 
-        <div className="rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
-          <h4 className="mb-4 text-sm font-bold text-slate-900 dark:text-white">
-            Proposed Terms (editable)
-          </h4>
+        <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800">
+          <div className="border-b border-slate-200 bg-slate-50/70 px-4 py-3 dark:border-slate-800 dark:bg-slate-900/40">
+            <h4 className="text-sm font-semibold text-slate-900 dark:text-white">
+              Proposed Terms
+            </h4>
+            <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">
+              Edit the commercial terms that will appear on your term sheet PDF.
+            </p>
+          </div>
+          <div className="p-4">
 
           <div className="grid gap-4 md:grid-cols-2">
             <label className="block" data-loi-field="approvedAmount">
-              <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <span className={fieldLabelClassName}>
                 Loan Amount
               </span>
               <input
@@ -478,7 +515,7 @@ export default function BrokerLoiEditorPanel({
             </label>
 
             <label className="block" data-loi-field="interestRate">
-              <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <span className={fieldLabelClassName}>
                 Interest Rate (%)
               </span>
               <input
@@ -498,7 +535,7 @@ export default function BrokerLoiEditorPanel({
               className="block"
               data-loi-field="collateralOrPropertyValue"
             >
-              <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <span className={fieldLabelClassName}>
                 {valueFieldLabel}
               </span>
               <input
@@ -521,7 +558,7 @@ export default function BrokerLoiEditorPanel({
             {showRehabMetrics ? (
               <>
                 <label className="block" data-loi-field="rehabConstructionCost">
-                  <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <span className={fieldLabelClassName}>
                     Rehab/Construction Cost
                   </span>
                   <input
@@ -542,7 +579,7 @@ export default function BrokerLoiEditorPanel({
                 </label>
 
                 <label className="block" data-loi-field="afterRepairValue">
-                  <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <span className={fieldLabelClassName}>
                     After Repair Value
                   </span>
                   <input
@@ -589,7 +626,7 @@ export default function BrokerLoiEditorPanel({
             ) : null}
 
             <label className="block" data-loi-field="maximumLtvPercent">
-              <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <span className={fieldLabelClassName}>
                 Maximum LTV (%)
               </span>
               <input
@@ -612,7 +649,7 @@ export default function BrokerLoiEditorPanel({
             {showRehabMetrics ? (
               <>
                 <label className="block" data-loi-field="maximumLtcPercent">
-                  <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <span className={fieldLabelClassName}>
                     Maximum LTC (%)
                   </span>
                   <input
@@ -633,7 +670,7 @@ export default function BrokerLoiEditorPanel({
                 </label>
 
                 <label className="block" data-loi-field="maximumArvPercent">
-                  <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <span className={fieldLabelClassName}>
                     Maximum ARV (%)
                   </span>
                   <input
@@ -656,7 +693,7 @@ export default function BrokerLoiEditorPanel({
             ) : null}
 
             {bindingMaxLoan ? (
-              <div className="md:col-span-2 rounded-xl border border-[#13538A]/20 bg-[#13538A]/8 px-3 py-2.5 text-xs text-[#13538A] dark:border-[#13538A]/30 dark:bg-[#13538A]/15 dark:text-sky-100">
+              <div className="md:col-span-2 rounded-xl border border-[#4C78F5]/20 bg-[#4C78F5]/8 px-3 py-2.5 text-xs text-[#4C78F5] dark:border-[#4C78F5]/30 dark:bg-[#4C78F5]/15 dark:text-sky-100">
                 Binding max loan (whichever is lower):{" "}
                 {formatMoney(bindingMaxLoan.amount)} via{" "}
                 {bindingMaxLoan.bindingLabel}
@@ -672,7 +709,7 @@ export default function BrokerLoiEditorPanel({
             />
 
             <div>
-              <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <span className={fieldLabelClassName}>
                 Interest Only
               </span>
               <div className="flex gap-2">
@@ -686,7 +723,7 @@ export default function BrokerLoiEditorPanel({
                     }
                     className={`flex-1 rounded-xl px-3 py-2.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${
                       terms.interestOnly === value
-                        ? "bg-[#13538A] text-white"
+                        ? "bg-[#4C78F5] text-white"
                         : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300"
                     }`}
                   >
@@ -717,7 +754,7 @@ export default function BrokerLoiEditorPanel({
                     }}
                     className={`rounded-full px-4 py-2 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${
                       terms.loanTerm === option
-                        ? "bg-[#13538A] text-white"
+                        ? "bg-[#4C78F5] text-white"
                         : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300"
                     }`}
                   >
@@ -737,7 +774,7 @@ export default function BrokerLoiEditorPanel({
             </h5>
             <div className="grid gap-4 md:grid-cols-2">
               <label className="block" data-loi-field="originationPoints">
-                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <span className={fieldLabelClassName}>
                   Origination Points (%)
                 </span>
                 <input
@@ -758,7 +795,7 @@ export default function BrokerLoiEditorPanel({
               </label>
 
               <label className="block" data-loi-field="processingFee">
-                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <span className={fieldLabelClassName}>
                   Processing Fee ($)
                 </span>
                 <input
@@ -779,7 +816,7 @@ export default function BrokerLoiEditorPanel({
               </label>
 
               <label className="block" data-loi-field="appraisalFee">
-                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <span className={fieldLabelClassName}>
                   Appraisal Fee ($)
                 </span>
                 <input
@@ -800,7 +837,7 @@ export default function BrokerLoiEditorPanel({
               </label>
 
               <label className="block" data-loi-field="brokerPoints">
-                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <span className={fieldLabelClassName}>
                   Broker Points (%)
                 </span>
                 <input
@@ -821,7 +858,7 @@ export default function BrokerLoiEditorPanel({
               </label>
 
               <label className="block" data-loi-field="wireFee">
-                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <span className={fieldLabelClassName}>
                   Wire Fee ($)
                 </span>
                 <input
@@ -838,7 +875,7 @@ export default function BrokerLoiEditorPanel({
               </label>
 
               <label className="block">
-                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <span className={fieldLabelClassName}>
                   Underwriting Fee ($)
                 </span>
                 <input
@@ -863,12 +900,15 @@ export default function BrokerLoiEditorPanel({
           </div>
 
           <div className="mt-6 border-t border-slate-100 pt-5 dark:border-slate-800">
-            <h5 className="mb-4 text-sm font-bold text-slate-900 dark:text-white">
+            <h5 className="mb-1 text-sm font-semibold text-slate-900 dark:text-white">
               Required Reserves
             </h5>
+            <p className="mb-4 text-sm text-slate-500 dark:text-slate-400">
+              Reserve percent drives the auto-calculated reserve amount.
+            </p>
             <div className="grid gap-4 md:grid-cols-2">
               <label className="block" data-loi-field="requiredReservesPercent">
-                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <span className={fieldLabelClassName}>
                   Required Reserves (%)
                 </span>
                 <input
@@ -898,12 +938,15 @@ export default function BrokerLoiEditorPanel({
           </div>
 
           <div className="mt-6 border-t border-slate-100 pt-5 dark:border-slate-800">
-            <h5 className="mb-4 text-sm font-bold text-slate-900 dark:text-white">
+            <h5 className="mb-1 text-sm font-semibold text-slate-900 dark:text-white">
               Additional Terms
             </h5>
+            <p className="mb-4 text-sm text-slate-500 dark:text-slate-400">
+              Optional deal language that appears on the term sheet.
+            </p>
             <div className="grid gap-4 md:grid-cols-2">
               <label className="block">
-                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <span className={fieldLabelClassName}>
                   Prepayment Penalty
                 </span>
                 <input
@@ -919,7 +962,7 @@ export default function BrokerLoiEditorPanel({
               </label>
 
               <label className="block">
-                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <span className={fieldLabelClassName}>
                   Recourse
                 </span>
                 <input
@@ -934,7 +977,7 @@ export default function BrokerLoiEditorPanel({
               </label>
 
               <label className="block">
-                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <span className={fieldLabelClassName}>
                   Personal Guarantee
                 </span>
                 <input
@@ -952,7 +995,7 @@ export default function BrokerLoiEditorPanel({
               </label>
 
               <label className="block">
-                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <span className={fieldLabelClassName}>
                   Amortization
                 </span>
                 <input
@@ -970,7 +1013,7 @@ export default function BrokerLoiEditorPanel({
               </label>
 
               <label className="block">
-                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <span className={fieldLabelClassName}>
                   Expiration Date
                 </span>
                 <LoanDateField
@@ -1007,14 +1050,15 @@ export default function BrokerLoiEditorPanel({
               disabled={readOnly}
             />
           </div>
+          </div>
         </div>
       </div>
 
-      <div className="flex shrink-0 justify-end gap-2 border-t border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-800 dark:bg-slate-950">
+      <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-slate-200 bg-slate-50/90 px-4 py-3.5 dark:border-slate-800 dark:bg-slate-900/60">
         <button
           type="button"
           onClick={onCancel}
-          className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 dark:border-slate-700 dark:text-slate-200"
+          className="inline-flex h-10 items-center rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-800"
         >
           {standalone ? "Back" : "Back to Lender LOI"}
         </button>
@@ -1027,7 +1071,7 @@ export default function BrokerLoiEditorPanel({
               ? "Broker LOI was forwarded to the lender and cannot be regenerated"
               : undefined
           }
-          className="inline-flex items-center gap-2 rounded-xl bg-[#13538A] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#0E426E] disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#4C78F5] px-4 text-sm font-semibold text-white transition hover:bg-[#3B66E0] disabled:cursor-not-allowed disabled:opacity-50"
         >
           {submitting ? (
             <>

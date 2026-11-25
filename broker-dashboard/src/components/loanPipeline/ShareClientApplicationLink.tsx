@@ -233,18 +233,13 @@ export default function ShareClientApplicationLink({
           onClick={handleButtonClick}
           disabled={copying || loading}
           title="Copy your public client loan application link"
-          className="group relative inline-flex items-center justify-center gap-1.5 rounded-lg border border-[#13538A]/20 bg-white px-3 py-1.5 text-xs font-semibold text-[#13538A] shadow-sm ring-1 ring-cyan-200/70 transition hover:-translate-y-0.5 hover:bg-cyan-50 hover:ring-cyan-300 disabled:translate-y-0 disabled:opacity-60 dark:border-cyan-500/30 dark:bg-gray-900 dark:text-cyan-300 dark:ring-cyan-500/20"
+          className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-[#4C78F5] transition hover:bg-[#4C78F5]/[0.06] disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950 dark:text-sky-300 dark:hover:bg-sky-500/10"
         >
-          <span className="absolute -right-1 -top-1 rounded bg-gradient-to-r from-[#13538A] to-[#1a6aad] px-1 py-px text-[8px] font-bold uppercase tracking-wide text-white shadow-sm">
-            Share
-          </span>
-          <span className="flex h-5 w-5 items-center justify-center rounded-md bg-[#13538A]/10 text-[#13538A] transition group-hover:bg-[#13538A]/15 dark:bg-cyan-500/15 dark:text-cyan-300">
-            <Link2
-              className={`h-3 w-3 ${copying || loading ? "animate-pulse" : ""}`}
-            />
-          </span>
+          <Link2
+            className={`h-3.5 w-3.5 ${copying || loading ? "animate-pulse" : ""}`}
+          />
           {copying || loading
-            ? "Copying..."
+            ? "Copying…"
             : "Share Your Loan Application Link"}
         </button>
         <button
@@ -252,7 +247,7 @@ export default function ShareClientApplicationLink({
           onClick={openPreview}
           disabled={loading}
           title="Preview the client loan application form"
-          className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-sky-200 bg-white px-3 py-1.5 text-xs font-semibold text-sky-800 shadow-sm transition hover:-translate-y-0.5 hover:bg-sky-50 disabled:translate-y-0 disabled:opacity-60 dark:border-sky-800 dark:bg-gray-900 dark:text-sky-200"
+          className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-800"
         >
           <ExternalLink className="h-3.5 w-3.5" />
           Preview
@@ -306,7 +301,7 @@ export default function ShareClientApplicationLink({
             <button
               type="button"
               onClick={() => copyLink()}
-              className="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl bg-[#13538A] px-4 text-sm font-medium text-white hover:bg-[#1a6aad]"
+              className="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl bg-[#4C78F5] px-4 text-sm font-medium text-white hover:bg-[#1a6aad]"
             >
               <Copy className="h-4 w-4" />
               Copy

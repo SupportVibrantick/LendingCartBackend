@@ -144,7 +144,8 @@ export const brokerChatPortalConfig: ChatPortalConfig = {
   ensureConversationMode: "broker-officer",
   needsPlaceholderCheck: (conversation) =>
     isPlaceholderConversation(conversation),
-  accent: "sky",
+  accent: "brand",
+  hideCallButtons: true,
   getOwnSenderLabel: (msg) =>
     msg.senderType === "SUB_BROKER" ? "Sub Broker" : "You",
 };
@@ -162,7 +163,8 @@ export const loanOfficerChatPortalConfig: ChatPortalConfig = {
   ensureConversationMode: "broker-officer",
   needsPlaceholderCheck: (conversation) =>
     isPlaceholderConversation(conversation),
-  accent: "sky",
+  accent: "brand",
+  hideCallButtons: true,
   getOwnSenderLabel: (msg) =>
     msg.senderType === "SUB_BROKER" ? "Sub Broker" : "You",
 };

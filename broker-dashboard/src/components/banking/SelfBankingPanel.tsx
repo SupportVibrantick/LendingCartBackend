@@ -135,7 +135,7 @@ export default function SelfBankingPanel({
       }
     >
       <div className="flex items-start gap-3">
-        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#13538A] text-white">
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#4C78F5] text-white">
           <Landmark size={20} />
         </div>
         <div className="min-w-0 flex-1">
@@ -179,7 +179,7 @@ export default function SelfBankingPanel({
               <button
                 type="submit"
                 disabled={saving}
-                className="inline-flex items-center gap-2 rounded-xl bg-[#13538A] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#0f4470] disabled:opacity-60"
+                className="inline-flex items-center gap-2 rounded-xl bg-[#4C78F5] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#0f4470] disabled:opacity-60"
               >
                 {saving ? (
                   <>

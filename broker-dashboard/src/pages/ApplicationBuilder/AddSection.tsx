@@ -347,7 +347,7 @@ const PRODUCT_LABELS: Record<string, string> = {
           {/* LEFT – FORM (UNCHANGED UI) */}
           <div>
             <div className="bg-white dark:bg-[#0F172B] rounded-xl shadow-default border dark:border-slate-700 dark:border-strokedark p-8 space-y-6">
-              <h2 className="text-lg font-bold mb-4 text-[#2C92D5]">
+              <h2 className="text-lg font-bold mb-4 text-[#4C78F5]">
                 Add Application Sections
               </h2>
               <select
@@ -409,7 +409,7 @@ const PRODUCT_LABELS: Record<string, string> = {
               <button
                 onClick={handleSubmit}
                 disabled={saving}
-                className="w-full text-sm flex items-center justify-center gap-2 py-3 rounded-xl font-semibold bg-[#2C92D5] text-white hover:bg-[#1473b1]"
+                className="w-full text-sm flex items-center justify-center gap-2 py-3 rounded-xl font-semibold bg-[#4C78F5] text-white hover:bg-[#1473b1]"
               >
                 {saving ? <Loader2 className="animate-spin" /> : <PlusCircle />}
                 Create Section
@@ -420,7 +420,7 @@ const PRODUCT_LABELS: Record<string, string> = {
           {/* RIGHT – TABLE */}
           {/* ================= RIGHT – TABLE ================= */}
           <div className="bg-white rounded-xl shadow-default border border-stroke dark:border-strokedark p-6 dark:border-slate-700 dark:bg-slate-900">
-            <h2 className="text-lg font-bold mb-4 text-[#2C92D5]">
+            <h2 className="text-lg font-bold mb-4 text-[#4C78F5]">
               Application Sections
             </h2>
 

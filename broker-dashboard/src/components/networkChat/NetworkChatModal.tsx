@@ -17,7 +17,7 @@ import { getPortalToken } from "../../lib/portalAuth";
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 /** Chat accent. */
 const CHAT = {
-  primary: "#2C92D5",
+  primary: "#4C78F5",
   primaryDark: "#1E7BB8",
   soft: "#E8F4FC",
   ring: "#7EC4EA",

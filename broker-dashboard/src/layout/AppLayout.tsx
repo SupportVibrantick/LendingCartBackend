@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { SidebarProvider, useSidebar } from "../context/SidebarContext";
 import { Outlet, useLocation } from "react-router";
 import AppHeader from "./AppHeader";
@@ -13,26 +14,32 @@ const LayoutContent: React.FC = () => {
 
   useBrokerSessionMonitor();
 
-  return (
-    <div className="flex h-screen overflow-hidden bg-gray-50 dark:bg-gray-950">
-      <div className="shrink-0">
-        <AppSidebar />
-        <Backdrop />
-      </div>
+  useEffect(() => {
+    document.documentElement.classList.add("dashboard-scroll-lock");
+    return () => {
+      document.documentElement.classList.remove("dashboard-scroll-lock");
+    };
+  }, []);
 
+  const mainOffset =
+    isExpanded || isHovered || isMobileOpen ? "lg:pl-[260px]" : "lg:pl-[84px]";
+
+  return (
+    <div className="flex h-full overflow-hidden bg-surface dark:bg-gray-950">
+      <AppSidebar />
+      <Backdrop />
       <div
-        className={`flex min-h-0 min-w-0 flex-1 flex-col transition-all duration-300 ease-in-out
-        ${isExpanded || isHovered ? "lg:ml-[290px]" : "lg:ml-[90px]"}
-        ${isMobileOpen ? "ml-0" : ""}`}
+        className={`flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden transition-all duration-300 ease-in-out ${mainOffset} ${
+          isMobileOpen ? "pl-0" : ""
+        }`}
       >
         <AppHeader />
-
-        <main className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
+        <main className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain bg-surface">
           <div
             className={
               isLoanApplicationPage
                 ? "w-full"
-                : "mx-auto w-full max-w-[1480px] p-3 md:p-4 lg:px-5"
+                : "mx-auto w-full max-w-(--breakpoint-2xl) p-3 md:p-4 lg:p-4"
             }
           >
             {!isLoanApplicationPage ? <ClmTrialBanner /> : null}

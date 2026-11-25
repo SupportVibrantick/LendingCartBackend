@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useLocation } from "react-router";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router";
 
 import { ChevronDownIcon, GridIcon, HorizontaLDots } from "../icons";
 import { useSidebar } from "../context/SidebarContext";
@@ -10,7 +10,10 @@ import { MdOutlineDocumentScanner } from "react-icons/md";
 import { FaUsersBetweenLines, FaUserGroup } from "react-icons/fa6";
 import { PiSecurityCameraFill } from "react-icons/pi";
 import {
+  ChevronDown,
   FolderOpen,
+  LogOut,
+  PanelLeftOpen,
   PlugZap,
   TrendingUp,
   //  MessageSquare
@@ -25,6 +28,37 @@ import {
   type PermissionKey,
 } from "../lib/brokerPermissions";
 import { hydrateOrgEntitlements } from "../lib/brokerEntitlements";
+import { clearBrokerSession } from "../lib/brokerSession";
+
+function getUserInitials(
+  firstName?: string,
+  lastName?: string,
+  fallback = "U",
+) {
+  const first = (firstName || "").trim();
+  const last = (lastName || "").trim();
+  if (first && last) return `${first[0]}${last[0]}`.toUpperCase();
+  if (first) return first.slice(0, 2).toUpperCase();
+  if (last) return last.slice(0, 2).toUpperCase();
+  return String(fallback || "U").slice(0, 2).toUpperCase();
+}
+
+function toTitleCase(value?: string) {
+  if (!value) return "";
+  return value
+    .toLowerCase()
+    .split(" ")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+}
+
+function resolveBrokerRoleLabel(roles: string[], isSubBroker: boolean) {
+  if (roles.includes("BROKER_ADMIN")) return "Admin";
+  if (roles.includes("BROKER_OFFICER")) return "Loan Officer";
+  if (roles.includes("SUB_BROKER") || isSubBroker) return "Co-Broker";
+  if (roles.includes("BROKER")) return "Broker";
+  return "Member";
+}
 
 type NavItem = {
   name: string;
@@ -67,21 +101,34 @@ const filterBrokerNavItems = (items: NavItem[]): NavItem[] => {
 };
 
 const AppSidebar: React.FC = () => {
-  const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
+  const {
+    isExpanded,
+    isMobileOpen,
+    isHovered,
+    setIsHovered,
+    toggleSidebar,
+  } = useSidebar();
   const location = useLocation();
+  const navigate = useNavigate();
   const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({});
   const [isSubBroker, setIsSubBroker] = useState(false);
   const [isBrokerAdmin, setIsBrokerAdmin] = useState(false);
   const [entitlementsTick, setEntitlementsTick] = useState(0);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement | null>(null);
+  const [userTick, setUserTick] = useState(0);
 
   useEffect(() => {
     void hydrateOrgEntitlements().then(() => {
       setEntitlementsTick((n) => n + 1);
     });
     const onEntitlements = () => setEntitlementsTick((n) => n + 1);
+    const onProfileUpdated = () => setUserTick((n) => n + 1);
     window.addEventListener(ORG_ENTITLEMENTS_UPDATED_EVENT, onEntitlements);
+    window.addEventListener("broker-profile-updated", onProfileUpdated);
     return () => {
       window.removeEventListener(ORG_ENTITLEMENTS_UPDATED_EVENT, onEntitlements);
+      window.removeEventListener("broker-profile-updated", onProfileUpdated);
     };
   }, []);
 
@@ -357,7 +404,7 @@ const AppSidebar: React.FC = () => {
     parentKey = "",
   ) => (
     <ul
-      className={`flex flex-col gap-0.5 ${level > 0 ? "ml-2 mt-1 border-l border-[#13538A]/15 pl-2.5 dark:border-[#13538A]/25" : ""}`}
+      className={`flex flex-col gap-0.5 ${level > 0 ? "ml-2 mt-1 border-l border-[#4C78F5]/15 pl-2.5 dark:border-[#4C78F5]/25" : ""}`}
     >
       {items.map((nav, index) => {
         const key = parentKey
@@ -397,7 +444,7 @@ const AppSidebar: React.FC = () => {
                   {(isExpanded || isHovered || isMobileOpen) && (
                     <ChevronDownIcon
                       className={`ml-auto h-4 w-4 transition-all duration-200 ${isOpen
-                          ? "rotate-180 text-[#13538A]"
+                          ? "rotate-180 text-[#4C78F5]"
                           : "text-gray-400 group-hover:text-gray-600"
                         }`}
                     />
@@ -432,8 +479,9 @@ const AppSidebar: React.FC = () => {
                   ) : (
                     level > 0 && (
                       <span
-                        className={`ml-1 h-1.5 w-1.5 shrink-0 rounded-full ${linkActive ? "bg-[#13538A]" : "bg-[#13538A]/35"
-                          }`}
+                        className={`ml-1 h-1.5 w-1.5 shrink-0 rounded-full ${
+                          linkActive ? "bg-brand-500" : "bg-brand-500/35"
+                        }`}
                       />
                     )
                   )}
@@ -450,29 +498,100 @@ const AppSidebar: React.FC = () => {
     </ul>
   );
 
+  const showLabels = isExpanded || isHovered || isMobileOpen;
+
+  const sidebarUser = useMemo(() => {
+    let stored: any = {};
+    try {
+      stored = JSON.parse(sessionStorage.getItem("broker_user") || "{}");
+    } catch {
+      stored = {};
+    }
+
+    const user = stored?.user || stored || {};
+    const firstName = user.firstName || "";
+    const lastName = user.lastName || "";
+    const name =
+      `${firstName} ${lastName}`.trim() ||
+      user.name ||
+      sessionStorage.getItem("broker_user_name") ||
+      "Broker User";
+
+    let roles: string[] = [];
+    try {
+      roles = JSON.parse(sessionStorage.getItem("roles") || "[]");
+    } catch {
+      roles = Array.isArray(user.roles) ? user.roles : [];
+    }
+
+    const orgName =
+      stored?.organization?.name ||
+      user?.organization?.name ||
+      "Broker Portal";
+
+    return {
+      name: toTitleCase(name),
+      orgName,
+      roleLabel: resolveBrokerRoleLabel(roles, isSubBroker),
+      initials: getUserInitials(firstName, lastName, name.charAt(0) || "B"),
+    };
+  }, [location.pathname, isSubBroker, userTick]);
+
+  useEffect(() => {
+    setUserMenuOpen(false);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    if (!userMenuOpen) return;
+
+    const onPointerDown = (event: MouseEvent) => {
+      if (!userMenuRef.current?.contains(event.target as Node)) {
+        setUserMenuOpen(false);
+      }
+    };
+    const onEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setUserMenuOpen(false);
+    };
+
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onEscape);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onEscape);
+    };
+  }, [userMenuOpen]);
+
+  const handleSignOut = () => {
+    setUserMenuOpen(false);
+    try {
+      clearBrokerSession();
+    } catch {
+      // ignore storage errors
+    }
+    navigate("/signin");
+  };
+
   return (
     <aside
-      className={`fixed top-0 left-0 z-50 mt-16 flex h-[calc(100vh-4rem)] flex-col border-r border-gray-200 bg-white text-gray-800 shadow-[4px_0_24px_rgba(15,23,42,0.04)] transition-all duration-300 ease-in-out dark:border-gray-800 dark:bg-gray-950 dark:text-gray-100 dark:shadow-none lg:mt-0 lg:h-screen
-        ${isExpanded || isMobileOpen
-          ? "w-[290px]"
-          : isHovered
-            ? "w-[290px]"
-            : "w-[90px]"
-        }
+      className={`fixed top-0 left-0 z-50 mt-16 flex h-[calc(100vh-4rem)] flex-col border-r border-border bg-white text-text-primary transition-all duration-300 ease-in-out dark:border-gray-800 dark:bg-gray-950 dark:text-gray-100 lg:mt-0 lg:h-screen
+        ${showLabels ? "w-[260px]" : "w-[84px]"}
         ${isMobileOpen ? "translate-x-0" : "-translate-x-full"}
         lg:translate-x-0`}
       onMouseEnter={() => !isExpanded && setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+      onMouseLeave={() => {
+        setIsHovered(false);
+        setUserMenuOpen(false);
+      }}
     >
       <div
-        className={`relative shrink-0 overflow-hidden border-b border-gray-100 dark:border-gray-800 ${!isExpanded && !isHovered ? "lg:flex lg:justify-center lg:px-2 lg:py-4" : "px-4 py-5"
-          }`}
+        className={`flex shrink-0 items-center border-b border-border dark:border-gray-800 ${
+          showLabels ? "gap-2 px-3 py-4" : "justify-center px-2 py-4"
+        }`}
       >
-        <div className="absolute inset-0 bg-gradient-to-br from-[#13538A]/10 via-transparent to-[#13538A]/5 dark:from-[#13538A]/20 dark:to-[#13538A]/10" />
-        <Link to="/" className="relative block">
-          {isExpanded || isHovered || isMobileOpen ? (
-            <div className="flex items-center gap-3">
-              <div className="h-11 w-11 shrink-0 overflow-hidden rounded-xl ring-2 ring-white shadow-sm dark:ring-gray-800">
+        <Link to="/" className={`min-w-0 ${showLabels ? "flex-1" : ""}`}>
+          {showLabels ? (
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-brand-500 ring-2 ring-brand-100">
                 <img
                   src="/loanAutomation.jpeg"
                   alt="Logo"
@@ -480,16 +599,16 @@ const AppSidebar: React.FC = () => {
                 />
               </div>
               <div className="min-w-0">
-                <p className="truncate text-sm font-bold text-gray-900 dark:text-white">
-                  Loan Automation
+                <p className="truncate text-[14px] font-semibold tracking-tight text-text-primary dark:text-white">
+                  LoanAutomation
                 </p>
-                <p className="truncate text-[10px] font-semibold uppercase tracking-[0.12em] text-[#13538A] dark:text-cyan-400">
-                  Broker Portal
+                <p className="truncate text-[10px] font-semibold uppercase tracking-[0.14em] text-text-secondary">
+                  Broker Suite
                 </p>
               </div>
             </div>
           ) : (
-            <div className="mx-auto flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl ring-2 ring-[#13538A]/15">
+            <div className="mx-auto flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-brand-500 ring-2 ring-brand-100">
               <img
                 src="/loanAutomation.jpeg"
                 alt="Logo"
@@ -500,16 +619,17 @@ const AppSidebar: React.FC = () => {
         </Link>
       </div>
 
-      <div className="sidebar-scrollbar-light min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-3 py-4">
-        <nav className="pb-4">
+      <div className="sidebar-scrollbar-light min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-2.5 py-3">
+        <nav>
           <h2
-            className={`mb-3 px-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-gray-400 dark:text-gray-500 ${!isExpanded && !isHovered ? "lg:text-center" : ""
-              }`}
+            className={`mb-2 px-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-text-secondary ${
+              !showLabels ? "lg:text-center" : ""
+            }`}
           >
-            {isExpanded || isHovered || isMobileOpen ? (
-              "Navigation"
+            {showLabels ? (
+              "Broker Workspace"
             ) : (
-              <HorizontaLDots className="mx-auto size-5 text-gray-300" />
+              <HorizontaLDots className="mx-auto size-5 text-slate-300" />
             )}
           </h2>
 
@@ -517,13 +637,84 @@ const AppSidebar: React.FC = () => {
         </nav>
       </div>
 
-      {(isExpanded || isHovered || isMobileOpen) && (
-        <div className="shrink-0 border-t border-gray-100 px-4 py-3 dark:border-gray-800">
-          <p className="text-center text-[10px] font-medium uppercase tracking-wider text-gray-400 dark:text-gray-600">
-            Loan Automation Broker
-          </p>
-        </div>
-      )}
+      <div
+        ref={userMenuRef}
+        className={`relative shrink-0 border-t border-border dark:border-gray-800 ${
+          showLabels ? "p-3" : "px-2 py-3"
+        }`}
+      >
+        {userMenuOpen ? (
+          <div
+            className={`absolute bottom-[calc(100%-2px)] z-50 overflow-hidden rounded-xl border border-border bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900 ${
+              showLabels
+                ? "right-3 left-3"
+                : "left-1/2 w-40 -translate-x-1/2"
+            }`}
+          >
+            <button
+              type="button"
+              onClick={handleSignOut}
+              className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-sm font-semibold text-rose-600 transition hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-500/10"
+            >
+              <LogOut size={15} strokeWidth={1.75} />
+              Sign out
+            </button>
+          </div>
+        ) : null}
+
+        {showLabels ? (
+          <button
+            type="button"
+            onClick={() => setUserMenuOpen((open) => !open)}
+            className="flex w-full items-center gap-2.5 rounded-xl border border-border bg-white px-2.5 py-2 text-left transition hover:bg-surface dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800"
+            aria-expanded={userMenuOpen}
+            aria-haspopup="menu"
+          >
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-500 text-[11px] font-bold text-white">
+              {sidebarUser.initials}
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-[13px] font-semibold text-text-primary dark:text-white">
+                {sidebarUser.name}
+              </span>
+              <span className="block truncate text-[11px] text-text-secondary">
+                {sidebarUser.roleLabel} · {sidebarUser.orgName}
+              </span>
+            </span>
+            <ChevronDown
+              size={16}
+              className={`shrink-0 text-text-secondary transition ${
+                userMenuOpen ? "rotate-180" : ""
+              }`}
+            />
+          </button>
+        ) : (
+          <div className="flex flex-col items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setUserMenuOpen((open) => !open)}
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-500 text-[11px] font-bold text-white"
+              title={sidebarUser.name}
+              aria-label="Account menu"
+              aria-expanded={userMenuOpen}
+            >
+              {sidebarUser.initials}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setIsHovered(false);
+                toggleSidebar();
+              }}
+              className="hidden h-8 w-8 items-center justify-center rounded-lg border border-border text-text-secondary transition hover:bg-surface hover:text-brand-500 lg:flex"
+              title="Expand sidebar"
+              aria-label="Expand sidebar"
+            >
+              <PanelLeftOpen size={16} strokeWidth={1.75} />
+            </button>
+          </div>
+        )}
+      </div>
     </aside>
   );
 };

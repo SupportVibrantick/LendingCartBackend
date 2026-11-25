@@ -36,7 +36,7 @@ import {
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
 const inputClass =
-  "w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-gray-800 outline-none transition focus:border-[#13538A]/40 focus:bg-white focus:ring-2 focus:ring-[#13538A]/10 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100";
+  "w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-gray-800 outline-none transition focus:border-[#4C78F5]/40 focus:bg-white focus:ring-2 focus:ring-[#4C78F5]/10 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100";
 
 const labelClass =
   "mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300";
@@ -64,7 +64,7 @@ function ToggleRow({
         aria-checked={checked}
         onClick={() => onChange(!checked)}
         className={`relative h-6 w-11 rounded-full transition ${
-          checked ? "bg-[#13538A]" : "bg-gray-300 dark:bg-gray-700"
+          checked ? "bg-[#4C78F5]" : "bg-gray-300 dark:bg-gray-700"
         }`}
       >
         <span
@@ -1106,7 +1106,7 @@ export default function CoBrokerFormModal({
               <button
                 type="submit"
                 disabled={saving}
-                className="inline-flex items-center gap-2 rounded-xl bg-[#13538A] px-5 py-2 text-sm font-semibold text-white hover:bg-[#1a6aad] disabled:opacity-60"
+                className="inline-flex items-center gap-2 rounded-xl bg-[#4C78F5] px-5 py-2 text-sm font-semibold text-white hover:bg-[#1a6aad] disabled:opacity-60"
               >
                 {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                 {isEdit ? "Save CO-Broker" : "Create CO-Broker"}

@@ -5,7 +5,7 @@ import {
   ArrowRight,
   Building2,
   Contact,
-  Eye,
+  ExternalLink,
   FilePlus,
   Plus,
   RefreshCw,
@@ -140,50 +140,47 @@ function statusBadgeClass(status?: string) {
 
   switch (s) {
     case "new":
-      return "bg-[#13538A] text-white";
-    case "pending":
-      return "bg-amber-500 text-white";
-    case "client_pending":
-      return "bg-rose-500 text-white";
-    case "submitted":
-      return "bg-[#1a6aad] text-white";
     case "sent":
+    case "selected":
     case "lender_selected":
-      return "bg-[#13538A] text-white";
+    case "in_review":
+    case "submitted":
+      return "bg-sky-100 text-sky-700 ring-sky-200";
+    case "pending":
+    case "conditional":
+      return "bg-amber-100 text-amber-700 ring-amber-200";
+    case "client_pending":
+      return "bg-rose-100 text-rose-700 ring-rose-200";
     case "updated":
-      return "bg-[#0e3d66] text-white";
+      return "bg-[#4C78F5]/10 text-[#3B66E0] ring-[#4C78F5]/25";
     case "approved":
     case "auto_approved":
-      return "bg-emerald-600 text-white";
     case "lender_approved":
-      return "bg-green-600 text-white";
+      return "bg-emerald-100 text-emerald-700 ring-emerald-200";
     case "declined":
     case "rejected":
     case "auto_declined":
     case "withdrawn":
-      return "bg-red-600 text-white";
     case "lender_declined":
-      return "bg-rose-700 text-white";
-    case "in_review":
-      return "bg-[#13538A] text-white";
+      return "bg-rose-100 text-rose-700 ring-rose-200";
     case "draft":
-      return "bg-slate-500 text-white";
+      return "bg-slate-100 text-slate-600 ring-slate-200";
     case "incomplete":
     case "superseded":
     case "suspended":
-      return "bg-orange-500 text-white";
+      return "bg-orange-100 text-orange-700 ring-orange-200";
     case "completed":
-      return "bg-teal-600 text-white";
     case "funded":
-      return "bg-emerald-700 text-white";
+      return "bg-emerald-100 text-emerald-700 ring-emerald-200";
     default:
-      return "bg-slate-600 text-white";
+      return "bg-slate-100 text-slate-600 ring-slate-200";
   }
 }
 
-function getInitials(name?: string) {
-  if (!name?.trim()) return "?";
-  const parts = name.trim().split(/\s+/).filter(Boolean);
+function dealInitials(value?: string | null) {
+  const name = (value || "").trim() || "A";
+  const parts = name.split(/\s+/).filter(Boolean);
+  if (!parts.length) return "A";
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
   return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
 }
@@ -380,84 +377,81 @@ export default function Home() {
       />
 
       <div className="space-y-5">
-        <section className="relative overflow-hidden rounded-3xl border border-[#13538A]/10 bg-white shadow-[0_18px_40px_rgba(19,83,138,0.08)] dark:border-[#13538A]/30 dark:bg-gray-900">
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(900px_circle_at_-10%_-30%,rgba(19,83,138,0.16),transparent_55%),radial-gradient(700px_circle_at_110%_120%,rgba(14,165,233,0.14),transparent_50%)]" />
-          <div className="relative px-5 py-5 sm:px-6 sm:py-6">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <p className="text-sm font-medium text-[#13538A]">
-                  {greeting}, {firstName}
-                </p>
-                <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
-                  Pipeline overview
-                </h1>
-                <p className="mt-1 text-sm text-slate-500">
-                  Live application analytics for{" "}
-                  {PERIOD_OPTIONS.find((option) => option.value === period)?.label?.toLowerCase()}.
-                </p>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="inline-flex rounded-full bg-white/80 p-1 shadow-sm ring-1 ring-slate-200 backdrop-blur dark:bg-gray-800 dark:ring-gray-700">
-                  {PERIOD_OPTIONS.map((option) => (
-                    <button
-                      key={option.value}
-                      type="button"
-                      onClick={() => setPeriod(option.value)}
-                      className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
-                        period === option.value
-                          ? "bg-[#13538A] text-white shadow-sm"
-                          : "text-slate-500 hover:text-slate-800 dark:text-gray-300"
-                      }`}
-                    >
-                      {option.short}
-                    </button>
-                  ))}
-                </div>
-                <button
-                  type="button"
-                  onClick={load}
-                  disabled={loading}
-                  title="Refresh"
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:bg-slate-50 disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
-                >
-                  <RefreshCw
-                    className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
-                  />
-                </button>
-                <Link
-                  to="/loan-application"
-                  className="inline-flex items-center gap-1.5 rounded-full bg-[#13538A] px-4 py-2 text-sm font-semibold text-white shadow-[0_8px_18px_rgba(19,83,138,0.28)] transition hover:bg-[#0e3d66]"
-                >
-                  <Plus className="h-4 w-4" />
-                  New application
-                </Link>
-              </div>
+        <section className="rounded-2xl border border-border bg-white p-5 sm:p-6 dark:border-slate-800 dark:bg-slate-900">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p className="text-sm font-medium text-brand-500">
+                {greeting}, {firstName}
+              </p>
+              <h1 className="mt-1 text-[24px] font-semibold tracking-tight text-text-primary dark:text-white">
+                Pipeline overview
+              </h1>
+              <p className="mt-1 text-[13px] text-text-secondary">
+                Live application analytics for{" "}
+                {PERIOD_OPTIONS.find((option) => option.value === period)?.label?.toLowerCase()}.
+              </p>
             </div>
 
-            <div className="mt-5 flex flex-wrap gap-2">
-              {actions.map((action) => (
-                <Link
-                  key={action.path}
-                  to={action.path}
-                  className="group inline-flex shrink-0 items-center gap-2.5 rounded-2xl border border-white/70 bg-white/70 px-3 py-2.5 shadow-sm backdrop-blur transition hover:-translate-y-0.5 hover:border-[#13538A]/20 hover:shadow-md dark:border-gray-700 dark:bg-gray-800/80"
-                >
-                  <span
-                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${action.tone}`}
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="inline-flex rounded-full bg-surface p-1 ring-1 ring-border dark:bg-slate-800 dark:ring-slate-700">
+                {PERIOD_OPTIONS.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => setPeriod(option.value)}
+                    className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                      period === option.value
+                        ? "bg-brand-500 text-white"
+                        : "text-text-secondary hover:text-text-primary dark:text-slate-300"
+                    }`}
                   >
-                    <action.icon className="h-4 w-4" />
-                  </span>
-                  <span className="whitespace-nowrap text-[13px] font-semibold text-slate-700 dark:text-gray-200">
-                    {action.label}
-                  </span>
-                </Link>
-              ))}
+                    {option.short}
+                  </button>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={load}
+                disabled={loading}
+                title="Refresh"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-white text-text-secondary transition hover:bg-surface disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+              >
+                <RefreshCw
+                  className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
+                />
+              </button>
+              <Link
+                to="/loan-application"
+                className="inline-flex items-center gap-1.5 rounded-xl bg-brand-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-600"
+              >
+                <Plus className="h-4 w-4" />
+                New application
+              </Link>
             </div>
+          </div>
+
+          <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-8">
+            {actions.map((action) => (
+              <Link
+                key={action.path}
+                to={action.path}
+                className="group flex items-center gap-2.5 rounded-xl border border-border bg-surface px-3 py-2.5 transition hover:border-brand-200 hover:bg-white dark:border-slate-700 dark:bg-slate-800/80"
+              >
+                <span
+                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${action.tone}`}
+                >
+                  <action.icon className="h-4 w-4" />
+                </span>
+                <span className="truncate text-[13px] font-semibold text-text-primary dark:text-slate-200">
+                  {action.label}
+                </span>
+              </Link>
+            ))}
           </div>
         </section>
 
         {error && !loading ? (
-          <div className="rounded-[10px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-300">
+          <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-300">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <p>Unable to load analytics. {error}</p>
               <button
@@ -530,40 +524,36 @@ export default function Home() {
           {showCommissions ? (
             <>
               <div className="col-span-12 md:col-span-4 xl:col-span-3">
-                <div className="flex h-full flex-col rounded-2xl border border-slate-200/80 bg-white p-5 shadow-[0_10px_30px_rgba(15,23,42,0.05)] dark:border-gray-800 dark:bg-gray-900">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="h-4 w-1 rounded-full bg-gradient-to-b from-[#13538A] to-[#38BDF8]" />
-                        <h3 className="text-[15px] font-semibold text-slate-900 dark:text-white">
-                          Commission snapshot
-                        </h3>
-                      </div>
-                      <p className="pl-3 text-[12px] text-slate-400">This period</p>
+                <div className="flex h-full flex-col rounded-2xl border border-border bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <h3 className="truncate text-[16px] font-semibold leading-tight text-text-primary dark:text-white">
+                        Commission snapshot
+                      </h3>
+                      <p className="mt-1 text-[13px] text-text-secondary">
+                        This period
+                      </p>
                     </div>
-                    <span className="rounded-md bg-amber-50 p-2 text-amber-600">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
                       <Wallet className="h-4 w-4" />
                     </span>
                   </div>
 
                   {commissionLoading ? (
-                    <div className="mt-5 animate-pulse space-y-3">
-                      <div className="h-8 w-28 rounded bg-gray-200 dark:bg-gray-700" />
-                      <div className="h-16 rounded bg-gray-100 dark:bg-gray-800" />
-                    </div>
+                    <div className="mt-5 flex flex-1 animate-pulse rounded-xl bg-surface dark:bg-slate-800" />
                   ) : (
                     <div className="mt-4 flex flex-1 flex-col">
-                      <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-text-secondary">
                         Pending
                       </p>
-                      <p className="mt-1 text-3xl font-bold text-gray-900 dark:text-white">
+                      <p className="mt-2 text-[28px] font-bold leading-none tracking-tight text-text-primary dark:text-white">
                         {formatCommissionCurrency(
                           commissionSummary?.totals.pending || 0,
                         )}
                       </p>
                       <div className="mt-4 grid grid-cols-2 gap-2">
-                        <div className="rounded-lg bg-emerald-50 p-3 dark:bg-emerald-950/30">
-                          <p className="text-[10px] font-semibold uppercase text-emerald-700">
+                        <div className="rounded-xl border border-border bg-emerald-50/70 p-3 dark:border-slate-700 dark:bg-emerald-950/30">
+                          <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-700">
                             Paid
                           </p>
                           <p className="mt-1 text-sm font-bold text-emerald-800 dark:text-emerald-300">
@@ -572,11 +562,11 @@ export default function Home() {
                             )}
                           </p>
                         </div>
-                        <div className="rounded-lg bg-slate-50 p-3 dark:bg-gray-800">
-                          <p className="text-[10px] font-semibold uppercase text-gray-500">
+                        <div className="rounded-xl border border-border bg-surface p-3 dark:border-slate-700 dark:bg-slate-800">
+                          <p className="text-[10px] font-semibold uppercase tracking-wide text-text-secondary">
                             Total
                           </p>
-                          <p className="mt-1 text-sm font-bold text-gray-900 dark:text-white">
+                          <p className="mt-1 text-sm font-bold text-text-primary dark:text-white">
                             {formatCommissionCurrency(
                               commissionSummary?.totals.all || 0,
                             )}
@@ -584,28 +574,28 @@ export default function Home() {
                         </div>
                       </div>
                       <div className="mt-3 grid grid-cols-3 gap-2 text-center text-xs">
-                        <div className="rounded-lg border border-gray-100 py-2 dark:border-gray-800">
-                          <p className="font-bold text-gray-900 dark:text-white">
+                        <div className="rounded-xl border border-border py-2 dark:border-slate-700">
+                          <p className="font-bold text-text-primary dark:text-white">
                             {commissionSummary?.counts?.pending ?? 0}
                           </p>
-                          <p className="text-gray-500">Open</p>
+                          <p className="text-text-secondary">Open</p>
                         </div>
-                        <div className="rounded-lg border border-gray-100 py-2 dark:border-gray-800">
-                          <p className="font-bold text-gray-900 dark:text-white">
+                        <div className="rounded-xl border border-border py-2 dark:border-slate-700">
+                          <p className="font-bold text-text-primary dark:text-white">
                             {commissionSummary?.counts?.paid ?? 0}
                           </p>
-                          <p className="text-gray-500">Paid</p>
+                          <p className="text-text-secondary">Paid</p>
                         </div>
-                        <div className="rounded-lg border border-gray-100 py-2 dark:border-gray-800">
-                          <p className="font-bold text-gray-900 dark:text-white">
+                        <div className="rounded-xl border border-border py-2 dark:border-slate-700">
+                          <p className="font-bold text-text-primary dark:text-white">
                             {commissionSummary?.counts?.total ?? 0}
                           </p>
-                          <p className="text-gray-500">Deals</p>
+                          <p className="text-text-secondary">Deals</p>
                         </div>
                       </div>
                       <Link
                         to="/commissions"
-                        className="mt-auto inline-flex items-center gap-1 pt-4 text-sm font-semibold text-[#13538A] hover:underline"
+                        className="mt-auto inline-flex items-center gap-1 pt-4 text-sm font-semibold text-brand-500 hover:underline"
                       >
                         View commissions
                         <ArrowRight className="h-3.5 w-3.5" />
@@ -625,26 +615,29 @@ export default function Home() {
           ) : null}
 
           <div className="col-span-12">
-            <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[0_10px_30px_rgba(15,23,42,0.05)] dark:border-gray-800 dark:bg-gray-900">
-              <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-5 py-4 dark:border-gray-800 lg:px-6">
+            <section className="overflow-hidden rounded-2xl border border-border bg-white dark:border-slate-700 dark:bg-slate-900">
+              <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3.5 sm:px-5 dark:border-slate-800">
                 <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h2 className="text-[15px] font-semibold text-slate-900 dark:text-white">
-                      Recent Applications
-                    </h2>
-                    <span className="inline-flex items-center rounded-full bg-[#f3f5f7] px-2 py-0.5 text-[11px] font-medium text-[#6b7280] dark:bg-gray-800 dark:text-gray-300">
-                      {loading ? "…" : recent.length}
-                    </span>
-                  </div>
-                  <p className="text-[12px] text-[#9aa0a6]">
+                  <h2 className="text-sm font-semibold text-text-primary">
+                    Recent Applications
+                  </h2>
+                  <p className="mt-0.5 text-[13px] text-text-secondary">
                     {loading
                       ? "Loading pipeline…"
-                      : "Latest files in your broker pipeline"}
+                      : (
+                        <>
+                          Latest files in your broker pipeline.{" "}
+                          <span className="font-semibold text-[#4C78F5]">
+                            {recent.length}
+                          </span>{" "}
+                          shown.
+                        </>
+                      )}
                   </p>
                 </div>
                 <Link
                   to="/submit-applications"
-                  className="inline-flex shrink-0 items-center gap-1 text-[13px] font-medium text-[#13538A] hover:underline"
+                  className="inline-flex shrink-0 items-center gap-1 text-[13px] font-semibold text-[#4C78F5] hover:underline"
                 >
                   View all
                   <ArrowRight className="h-3.5 w-3.5" />
@@ -652,164 +645,194 @@ export default function Home() {
               </div>
 
               {loading ? (
-                <div className="divide-y divide-[#eef2f6] dark:divide-gray-800">
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <div key={i} className="px-5 py-4 lg:px-6">
-                      <div className="h-8 animate-pulse rounded-lg bg-[#f3f5f7] dark:bg-gray-800" />
-                    </div>
-                  ))}
+                <div className="overflow-x-auto">
+                  <table className="ds-table min-w-[900px] w-full">
+                    <thead>
+                      <tr>
+                        {[
+                          "Deal",
+                          "Program",
+                          "Amount",
+                          "Lender",
+                          "Stage",
+                          "Received",
+                          "Portal",
+                        ].map((label) => (
+                          <th
+                            key={label}
+                            className={
+                              label === "Portal" ? "!text-right" : undefined
+                            }
+                          >
+                            {label}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {Array.from({ length: 5 }).map((_, i) => (
+                        <tr key={i}>
+                          {Array.from({ length: 7 }).map((__, cell) => (
+                            <td key={cell}>
+                              <div className="h-4 animate-pulse rounded bg-surface" />
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               ) : recent.length === 0 ? (
                 <div className="px-6 py-14 text-center">
-                  <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#13538A]/10 text-[#13538A] dark:bg-[#13538A]/20">
-                    <SearchX className="h-6 w-6" />
+                  <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-[#4C78F5]/10 text-[#4C78F5]">
+                    <SearchX className="h-5 w-5" />
                   </div>
-                  <p className="text-base font-semibold text-slate-900 dark:text-white">
+                  <p className="text-sm font-semibold text-text-primary">
                     No applications yet
                   </p>
-                  <p className="mt-1 text-sm text-slate-500">
+                  <p className="mt-1.5 text-xs text-text-secondary">
                     Start a new loan file to see it here.
                   </p>
                   <button
                     type="button"
                     onClick={() => navigate("/loan-application")}
-                    className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-[#13538A] px-4 py-2 text-sm font-medium text-white hover:bg-[#0e3d66]"
+                    className="ds-btn-primary mt-4 h-9 px-4 text-xs"
                   >
                     Create application
-                    <ArrowRight className="h-4 w-4" />
+                    <ArrowRight className="h-3.5 w-3.5" />
                   </button>
                 </div>
               ) : (
-                <div className="min-w-0 overflow-hidden">
-                  <table className="w-full table-fixed text-left text-sm">
-                    <colgroup>
-                      <col className="w-[22%]" />
-                      <col className="w-[14%]" />
-                      <col className="w-[12%]" />
-                      <col className="w-[16%]" />
-                      <col className="w-[14%]" />
-                      <col className="w-[12%]" />
-                      <col className="w-[10%]" />
-                    </colgroup>
-                    <thead className="sticky top-0 z-[1] bg-[#f8fafc] text-[#6b7280] dark:bg-gray-800 dark:text-gray-300">
+                <div className="overflow-x-auto">
+                  <table className="ds-table min-w-[900px] w-full">
+                    <thead>
                       <tr>
                         {[
-                          "Borrower",
-                          "Loan Type",
+                          "Deal",
+                          "Program",
                           "Amount",
                           "Lender",
-                          "Status",
-                          "Submitted",
-                          "Actions",
+                          "Stage",
+                          "Received",
+                          "Portal",
                         ].map((label) => (
                           <th
                             key={label}
-                            className={`px-3 py-2.5 text-[11px] font-semibold uppercase tracking-wider first:pl-5 last:pr-5 lg:first:pl-6 lg:last:pr-6 ${
-                              label === "Amount" || label === "Actions"
-                                ? "text-right"
-                                : "text-left"
-                            }`}
+                            className={
+                              label === "Portal" ? "!text-right" : undefined
+                            }
                           >
-                            <span className="block truncate">{label}</span>
+                            {label}
                           </th>
                         ))}
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-[#eef2f6] dark:divide-gray-800">
-                      {recent.map((row) => (
-                        <tr
-                          key={row.submissionId}
-                          className="group cursor-pointer transition hover:bg-[#f8fafc] dark:hover:bg-gray-800/60"
-                          onClick={() =>
-                            navigate("/loan-preview", {
-                              state: { submissionId: row.submissionId },
-                            })
-                          }
-                        >
-                          <td
-                            className="px-3 py-3.5 align-middle first:pl-5 lg:first:pl-6"
-                            title={`${row.borrower} · ${row.applicationNumber || ""}`}
+                    <tbody>
+                      {recent.map((row) => {
+                        const product = formatProductLabel(row.loanInfo);
+
+                        return (
+                          <tr
+                            key={row.submissionId}
+                            className="cursor-pointer"
+                            onClick={() =>
+                              navigate("/loan-preview", {
+                                state: { submissionId: row.submissionId },
+                              })
+                            }
                           >
-                            <div className="flex min-w-0 items-center gap-3">
-                              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#13538A] text-[11px] font-semibold text-white shadow-sm">
-                                {getInitials(row.borrower)}
-                              </div>
-                              <div className="min-w-0">
-                                <p className="truncate text-sm font-semibold text-slate-900 dark:text-white">
-                                  {row.borrower || "Untitled"}
-                                </p>
-                                <span className="mt-0.5 inline-flex max-w-full truncate rounded-md bg-[#13538A]/10 px-1.5 py-0.5 font-mono text-[11px] font-medium text-[#13538A] dark:bg-[#13538A]/20 dark:text-[#9fd0f0]">
-                                  {row.applicationNumber || "—"}
+                            <td
+                              title={`${row.borrower || "Untitled"} · ${row.applicationNumber || ""}`}
+                            >
+                              <div className="flex items-center gap-3">
+                                <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#4C78F5] text-[11px] font-bold tracking-wide text-white">
+                                  {dealInitials(row.borrower)}
                                 </span>
+                                <div className="min-w-0">
+                                  <p className="ds-table-title">
+                                    {row.borrower || "Untitled"}
+                                  </p>
+                                  <p className="ds-table-meta">
+                                    {row.applicationNumber || (
+                                      <span className="italic text-text-secondary/70">
+                                        Not provided
+                                      </span>
+                                    )}
+                                  </p>
+                                </div>
                               </div>
-                            </div>
-                          </td>
-                          <td
-                            className="px-3 py-3.5 align-middle"
-                            title={formatProductLabel(row.loanInfo)}
-                          >
-                            <span className="inline-flex max-w-full truncate rounded-full bg-[#13538A]/10 px-2 py-0.5 text-xs font-medium text-[#13538A] dark:bg-[#13538A]/20 dark:text-[#9fd0f0]">
-                              {formatProductLabel(row.loanInfo)}
-                            </span>
-                          </td>
-                          <td className="px-3 py-3.5 align-middle text-right">
-                            <span className="text-sm font-semibold tabular-nums text-slate-900 dark:text-white">
-                              {formatRecentAmount(row.amount)}
-                            </span>
-                          </td>
-                          <td className="px-3 py-3.5 align-middle">
-                            {row.lenderCount > 0 && row.lenderName ? (
-                              <div
-                                className="flex min-w-0 items-center gap-1.5"
-                                title={row.lenderName}
-                              >
-                                <span className="inline-flex max-w-full truncate rounded-full bg-[#13538A]/10 px-2 py-0.5 text-xs font-medium text-[#13538A] dark:bg-[#13538A]/20 dark:text-[#9fd0f0]">
-                                  {row.lenderName}
+                            </td>
+                            <td title={product}>
+                              {product === "—" ? (
+                                <span className="text-[12px] font-medium italic text-text-secondary/70">
+                                  Not set
                                 </span>
-                                {row.lenderCount > 1 ? (
-                                  <span className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-[#13538A] px-1.5 text-[10px] font-semibold text-white">
-                                    +{row.lenderCount - 1}
-                                  </span>
-                                ) : null}
-                              </div>
-                            ) : (
-                              <span className="inline-flex items-center gap-1.5 rounded-full border border-dashed border-[#13538A]/25 px-2 py-0.5 text-[11px] text-[#13538A]/55">
-                                <Building2 className="h-3 w-3" />
-                                Not sent
+                              ) : (
+                                <span className="inline-flex max-w-[180px] truncate rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-medium lowercase text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                                  {product}
+                                </span>
+                              )}
+                            </td>
+                            <td>
+                              <span className="ds-table-amount">
+                                {formatRecentAmount(row.amount)}
                               </span>
-                            )}
-                          </td>
-                          <td className="px-3 py-3.5 align-middle">
-                            <span
-                              className={`inline-flex max-w-full items-center truncate rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide ${statusBadgeClass(row.status)}`}
+                            </td>
+                            <td>
+                              {row.lenderCount > 0 && row.lenderName ? (
+                                <div
+                                  className="flex min-w-0 items-center gap-1.5"
+                                  title={row.lenderName}
+                                >
+                                  <Building2 className="h-3.5 w-3.5 shrink-0 text-[#4C78F5]" />
+                                  <span className="truncate text-[13px] font-medium text-text-primary">
+                                    {row.lenderName}
+                                  </span>
+                                  {row.lenderCount > 1 ? (
+                                    <span className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-[#4C78F5]/10 px-1.5 text-[10px] font-semibold text-[#4C78F5]">
+                                      +{row.lenderCount - 1}
+                                    </span>
+                                  ) : null}
+                                </div>
+                              ) : (
+                                <span className="text-[12px] font-medium italic text-text-secondary/70">
+                                  Not sent
+                                </span>
+                              )}
+                            </td>
+                            <td>
+                              <span
+                                className={`inline-flex max-w-full items-center truncate rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 ring-inset ${statusBadgeClass(row.status)}`}
+                              >
+                                {statusLabel(row.status)}
+                              </span>
+                            </td>
+                            <td className="ds-table-muted whitespace-nowrap">
+                              {row.submittedOn
+                                ? formatUsDate(row.submittedOn)
+                                : "—"}
+                            </td>
+                            <td
+                              className="!text-right"
+                              onClick={(e) => e.stopPropagation()}
                             >
-                              {statusLabel(row.status)}
-                            </span>
-                          </td>
-                          <td className="whitespace-nowrap px-3 py-3.5 align-middle text-sm text-slate-500 dark:text-slate-400">
-                            {row.submittedOn
-                              ? formatUsDate(row.submittedOn)
-                              : "—"}
-                          </td>
-                          <td
-                            className="px-2 py-3.5 pr-5 text-right align-middle lg:pr-6"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <button
-                              type="button"
-                              title="View application"
-                              onClick={() =>
-                                navigate("/loan-preview", {
-                                  state: { submissionId: row.submissionId },
-                                })
-                              }
-                              className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-[#13538A] text-white shadow-sm transition hover:bg-[#0e3d66]"
-                            >
-                              <Eye size={15} />
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
+                              <button
+                                type="button"
+                                title="Open application"
+                                onClick={() =>
+                                  navigate("/loan-preview", {
+                                    state: { submissionId: row.submissionId },
+                                  })
+                                }
+                                className="inline-flex items-center gap-1 text-[13px] font-semibold text-[#4C78F5] transition hover:text-[#3B66E0] hover:underline"
+                              >
+                                Open
+                                <ExternalLink size={13} />
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>

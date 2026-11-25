@@ -324,15 +324,15 @@ function getDefaultBranding(): BrokerPdfBranding {
     return {
       brandName: user.organizationName || DEFAULT_BRAND_NAME,
       logoUrl: DEFAULT_LOGO_PATH,
-      primaryColor: "#13538A",
-      secondaryColor: "#2C92D5",
+      primaryColor: "#4C78F5",
+      secondaryColor: "#4C78F5",
     };
   } catch {
     return {
       brandName: DEFAULT_BRAND_NAME,
       logoUrl: DEFAULT_LOGO_PATH,
-      primaryColor: "#13538A",
-      secondaryColor: "#2C92D5",
+      primaryColor: "#4C78F5",
+      secondaryColor: "#4C78F5",
     };
   }
 }
@@ -364,8 +364,8 @@ export async function fetchBrokerBrandingForPdf(): Promise<BrokerPdfBranding> {
     return {
       brandName,
       logoUrl: rawLogo,
-      primaryColor: json.data?.primaryColor || "#13538A",
-      secondaryColor: json.data?.secondaryColor || "#2C92D5",
+      primaryColor: json.data?.primaryColor || "#4C78F5",
+      secondaryColor: json.data?.secondaryColor || "#4C78F5",
     };
   } catch {
     return getDefaultBranding();

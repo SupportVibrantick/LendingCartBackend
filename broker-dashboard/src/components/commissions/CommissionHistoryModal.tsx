@@ -38,7 +38,7 @@ export default function CommissionHistoryModal({
   return (
     <Modal isOpen={isOpen} onClose={onClose} className="max-w-2xl p-0 shadow-2xl">
       <div className="overflow-hidden rounded-3xl">
-        <div className="border-b border-slate-100 bg-gradient-to-br from-[#13538A]/10 to-white px-6 py-5">
+        <div className="border-b border-slate-100 bg-gradient-to-br from-[#4C78F5]/10 to-white px-6 py-5">
           <h2 className="text-lg font-semibold text-slate-900">
             Commission History
           </h2>
@@ -59,7 +59,7 @@ export default function CommissionHistoryModal({
             <>
               <section>
                 <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-900">
-                  <Clock3 size={16} className="text-[#13538A]" />
+                  <Clock3 size={16} className="text-[#4C78F5]" />
                   Audit log
                 </div>
                 {history?.auditLog?.length ? (

@@ -73,7 +73,7 @@ function inputClass(hasError: boolean) {
   return `w-full rounded-xl border px-4 py-3 text-sm outline-none transition placeholder:text-gray-400 dark:placeholder:text-gray-500 ${
     hasError
       ? "border-red-400 bg-red-50 text-gray-900 focus:border-red-500 focus:ring-2 focus:ring-red-500/20 dark:border-red-500/60 dark:bg-red-950/20 dark:text-white dark:focus:border-red-400 dark:focus:ring-red-400/20"
-      : "border-gray-200 bg-gray-50 text-gray-900 focus:border-[#13538A] focus:bg-white focus:ring-2 focus:ring-[#13538A]/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white dark:focus:border-cyan-500 dark:focus:ring-cyan-500/20"
+      : "border-gray-200 bg-gray-50 text-gray-900 focus:border-[#4C78F5] focus:bg-white focus:ring-2 focus:ring-[#4C78F5]/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white dark:focus:border-cyan-500 dark:focus:ring-cyan-500/20"
   }`;
 }
 
@@ -196,10 +196,10 @@ function MobileBrand() {
       <img
         src="/loanAutomation.jpeg"
         alt="Loan Automation"
-        className="h-12 w-12 rounded-full ring-2 ring-[#13538A]/20"
+        className="h-12 w-12 rounded-full ring-2 ring-[#4C78F5]/20"
       />
       <div>
-        <p className="text-lg font-bold text-[#13538A] dark:text-cyan-400">
+        <p className="text-lg font-bold text-[#4C78F5] dark:text-cyan-400">
           Loan Automation
         </p>
         <p className="text-[10px] font-medium uppercase tracking-wider text-gray-400">
@@ -231,7 +231,7 @@ function SectionCard({
       className="rounded-2xl border border-gray-200/80 bg-white p-4 shadow-sm shadow-gray-100/80 dark:border-gray-800 dark:bg-gray-900/60 dark:shadow-none sm:p-5"
     >
       <div className="mb-5 flex items-start gap-3">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#13538A]/10 text-[#13538A] dark:bg-cyan-500/15 dark:text-cyan-300">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#4C78F5]/10 text-[#4C78F5] dark:bg-cyan-500/15 dark:text-cyan-300">
           <Icon className="h-5 w-5" />
         </span>
         <div className="min-w-0 pt-0.5">
@@ -396,7 +396,7 @@ export default function TeamJoinForm({
       <div className="w-full">
         <MobileBrand />
         <div className="flex flex-col items-center justify-center py-16 text-center">
-          <Loader2 className="h-8 w-8 animate-spin text-[#13538A] dark:text-cyan-400" />
+          <Loader2 className="h-8 w-8 animate-spin text-[#4C78F5] dark:text-cyan-400" />
           <p className="mt-4 text-sm font-medium text-gray-700 dark:text-gray-300">
             Validating invite link…
           </p>
@@ -486,7 +486,7 @@ export default function TeamJoinForm({
         transition={{ duration: 0.4 }}
       >
         <div className="mb-2 flex flex-wrap items-center gap-2">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-[#13538A]/10 px-3 py-1 text-xs font-semibold text-[#13538A] dark:bg-cyan-500/15 dark:text-cyan-300">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-[#4C78F5]/10 px-3 py-1 text-xs font-semibold text-[#4C78F5] dark:bg-cyan-500/15 dark:text-cyan-300">
             <ShieldCheck className="h-3.5 w-3.5" />
             {roleLabel} invite
           </span>
@@ -594,14 +594,14 @@ export default function TeamJoinForm({
                     onClick={() => setField("accountType", type)}
                     className={`flex items-start gap-3 rounded-xl border px-4 py-3.5 text-left transition ${
                       selected
-                        ? "border-[#13538A] bg-[#13538A]/5 shadow-sm ring-1 ring-[#13538A]/30 dark:border-cyan-400 dark:bg-cyan-500/10 dark:ring-cyan-400/30"
+                        ? "border-[#4C78F5] bg-[#4C78F5]/5 shadow-sm ring-1 ring-[#4C78F5]/30 dark:border-cyan-400 dark:bg-cyan-500/10 dark:ring-cyan-400/30"
                         : "border-gray-200 bg-gray-50 hover:border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:hover:border-gray-600"
                     }`}
                   >
                     <span
                       className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
                         selected
-                          ? "bg-[#13538A] text-white dark:bg-cyan-500"
+                          ? "bg-[#4C78F5] text-white dark:bg-cyan-500"
                           : "bg-white text-gray-400 dark:bg-gray-800 dark:text-gray-500"
                       }`}
                     >
@@ -611,7 +611,7 @@ export default function TeamJoinForm({
                       <span
                         className={`block text-sm font-semibold ${
                           selected
-                            ? "text-[#13538A] dark:text-cyan-300"
+                            ? "text-[#4C78F5] dark:text-cyan-300"
                             : "text-gray-800 dark:text-gray-200"
                         }`}
                       >

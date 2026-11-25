@@ -76,7 +76,7 @@ const TemplateCard: React.FC<Template> = ({
 
         {/* Content */}
         <div className="flex-grow">
-          <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100 mb-3 group-hover:text-[#2C92D5] dark:group-hover:text-[#2C92D5] transition-colors">
+          <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100 mb-3 group-hover:text-[#4C78F5] dark:group-hover:text-[#4C78F5] transition-colors">
             {name}
           </h3>
 
@@ -92,7 +92,7 @@ const TemplateCard: React.FC<Template> = ({
             className={`w-full py-4 rounded-2xl font-bold text-sm transition-all duration-300 flex items-center justify-center gap-2 ${
               isUsed
                 ? "bg-emerald-500 text-white"
-                : "bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 hover:bg-[#2C92D5] dark:hover:bg-[#2C92D5] shadow-lg"
+                : "bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 hover:bg-[#4C78F5] dark:hover:bg-[#4C78F5] shadow-lg"
             }`}
           >
             {isUsed ? (

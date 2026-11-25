@@ -34,7 +34,7 @@ function PermissionCheckbox({
     <label
       className={`flex cursor-pointer items-start gap-2.5 rounded-lg border px-3 py-2.5 transition ${
         checked
-          ? "border-[#13538A]/30 bg-[#13538A]/5 dark:border-[#13538A]/40 dark:bg-[#13538A]/10"
+          ? "border-[#4C78F5]/30 bg-[#4C78F5]/5 dark:border-[#4C78F5]/40 dark:bg-[#4C78F5]/10"
           : "border-gray-200 hover:border-gray-300 dark:border-gray-800 dark:hover:border-gray-700"
       } ${disabled ? "cursor-not-allowed opacity-60" : ""}`}
     >
@@ -43,7 +43,7 @@ function PermissionCheckbox({
         checked={checked}
         disabled={disabled}
         onChange={onToggle}
-        className="mt-0.5 h-4 w-4 rounded border-gray-300 text-[#13538A] focus:ring-[#13538A]/20"
+        className="mt-0.5 h-4 w-4 rounded border-gray-300 text-[#4C78F5] focus:ring-[#4C78F5]/20"
       />
       <span className="min-w-0">
         <span className="block text-sm font-medium text-gray-800 dark:text-gray-100">
@@ -192,9 +192,9 @@ export default function LoanOfficerPermissionsPanel({
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#13538A]/15 bg-[#13538A]/5 px-4 py-3 dark:border-[#13538A]/25 dark:bg-[#13538A]/10">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#4C78F5]/15 bg-[#4C78F5]/5 px-4 py-3 dark:border-[#4C78F5]/25 dark:bg-[#4C78F5]/10">
         <div className="flex items-center gap-2">
-          <ShieldCheck className="h-4 w-4 text-[#13538A]" />
+          <ShieldCheck className="h-4 w-4 text-[#4C78F5]" />
           <div>
             <p className="text-sm font-semibold text-gray-900 dark:text-white">
               Permission Categories
@@ -281,7 +281,7 @@ export default function LoanOfficerPermissionsPanel({
                   type="button"
                   disabled={disabled}
                   onClick={() => setCategoryPermissions(category.title, !allSelected)}
-                  className="shrink-0 rounded-lg px-2 py-1 text-[11px] font-medium text-[#13538A] hover:bg-[#13538A]/10 disabled:opacity-50"
+                  className="shrink-0 rounded-lg px-2 py-1 text-[11px] font-medium text-[#4C78F5] hover:bg-[#4C78F5]/10 disabled:opacity-50"
                 >
                   {allSelected ? "Clear" : isRadioCategory ? "Enable" : "Select all"}
                 </button>
@@ -302,7 +302,7 @@ export default function LoanOfficerPermissionsPanel({
                               key={item.key}
                               className={`flex cursor-pointer items-start gap-2.5 rounded-lg border px-3 py-2.5 transition ${
                                 checked
-                                  ? "border-[#13538A]/30 bg-[#13538A]/5 dark:border-[#13538A]/40 dark:bg-[#13538A]/10"
+                                  ? "border-[#4C78F5]/30 bg-[#4C78F5]/5 dark:border-[#4C78F5]/40 dark:bg-[#4C78F5]/10"
                                   : "border-gray-200 hover:border-gray-300 dark:border-gray-800 dark:hover:border-gray-700"
                               } ${disabled ? "cursor-not-allowed opacity-60" : ""}`}
                             >
@@ -314,7 +314,7 @@ export default function LoanOfficerPermissionsPanel({
                                 onChange={() =>
                                   setRadioCategoryPermission(category.title, item.key)
                                 }
-                                className="mt-0.5 h-4 w-4 border-gray-300 text-[#13538A] focus:ring-[#13538A]/20"
+                                className="mt-0.5 h-4 w-4 border-gray-300 text-[#4C78F5] focus:ring-[#4C78F5]/20"
                               />
                               <span className="min-w-0">
                                 <span className="block text-sm font-medium text-gray-800 dark:text-gray-100">

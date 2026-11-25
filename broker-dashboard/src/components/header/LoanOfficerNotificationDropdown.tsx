@@ -341,7 +341,7 @@ export default function LoanOfficerNotificationDropdown() {
             <button
               type="button"
               onClick={markAllRead}
-              className="inline-flex items-center gap-1 rounded-lg bg-[#13538A]/10 px-2 py-1 text-xs font-medium text-[#13538A] hover:bg-[#13538A]/15"
+              className="inline-flex items-center gap-1 rounded-lg bg-[#4C78F5]/10 px-2 py-1 text-xs font-medium text-[#4C78F5] hover:bg-[#4C78F5]/15"
             >
               <FiCheck className="h-3.5 w-3.5" />
               Mark all read

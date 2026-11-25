@@ -2,10 +2,10 @@ import type { BankingFormErrors, BankingFormState } from "../../lib/bankingForm"
 import { formatBankingPhone } from "../../lib/bankingForm";
 
 const inputClass =
-  "w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-gray-800 outline-none transition focus:border-[#13538A]/40 focus:bg-white focus:ring-2 focus:ring-[#13538A]/10 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100";
+  "h-10 w-full rounded-xl border border-border bg-white px-3.5 text-sm text-text-primary outline-none transition placeholder:text-text-secondary/70 focus:border-[#4C78F5]/50 focus:ring-2 focus:ring-[#4C78F5]/15 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100";
 
 const labelClass =
-  "mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300";
+  "mb-1.5 block text-xs font-semibold uppercase tracking-[0.06em] text-text-secondary";
 
 function Field({
   label,
@@ -26,10 +26,10 @@ function Field({
     <div className={className} data-field={field || undefined}>
       <label className={labelClass}>
         {label}
-        {required ? <span className="text-red-500"> *</span> : null}
+        {required ? <span className="text-rose-500"> *</span> : null}
       </label>
       {children}
-      {error ? <p className="mt-1 text-xs text-red-500">{error}</p> : null}
+      {error ? <p className="mt-1 text-xs text-rose-500">{error}</p> : null}
     </div>
   );
 }
@@ -52,12 +52,12 @@ export default function BankingDetailsFields({
   const isBusiness = value.accountType === "BUSINESS";
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <div data-field="accountType">
         <p className={labelClass}>
-          Account type <span className="text-red-500">*</span>
+          Account type <span className="text-rose-500">*</span>
         </p>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
           {(
             [
               {
@@ -80,20 +80,20 @@ export default function BankingDetailsFields({
                 onClick={() => onChange("accountType", option.type)}
                 className={`rounded-xl border px-4 py-3 text-left transition ${
                   selected
-                    ? "border-[#13538A] bg-[#13538A]/5 ring-1 ring-[#13538A]/30 dark:border-cyan-400 dark:bg-cyan-500/10"
-                    : "border-gray-200 bg-gray-50 hover:border-gray-300 dark:border-gray-700 dark:bg-gray-950"
+                    ? "border-[#4C78F5] bg-[#4C78F5]/5 ring-1 ring-[#4C78F5]/25"
+                    : "border-border bg-white hover:border-[#4C78F5]/30 hover:bg-surface dark:border-slate-700 dark:bg-slate-950"
                 }`}
               >
                 <span
                   className={`block text-sm font-semibold ${
                     selected
-                      ? "text-[#13538A] dark:text-cyan-300"
-                      : "text-gray-800 dark:text-gray-200"
+                      ? "text-[#4C78F5]"
+                      : "text-text-primary dark:text-slate-100"
                   }`}
                 >
                   {option.label}
                 </span>
-                <span className="mt-0.5 block text-xs text-gray-500">
+                <span className="mt-0.5 block text-xs text-text-secondary">
                   {option.hint}
                 </span>
               </button>
@@ -101,11 +101,11 @@ export default function BankingDetailsFields({
           })}
         </div>
         {errors.accountType ? (
-          <p className="mt-1 text-xs text-red-500">{errors.accountType}</p>
+          <p className="mt-1 text-xs text-rose-500">{errors.accountType}</p>
         ) : null}
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
         <Field
           label={isBusiness ? "Business Name" : `${personalLabel} Name`}
           required
@@ -220,7 +220,6 @@ export default function BankingDetailsFields({
           required
           field="abaRoutingNumber"
           error={errors.abaRoutingNumber}
-          className="sm:col-span-2"
         >
           <input
             className={inputClass}
@@ -236,7 +235,7 @@ export default function BankingDetailsFields({
           />
         </Field>
       </div>
-      <p className="text-xs text-gray-500 dark:text-gray-400">
+      <p className="text-xs text-text-secondary">
         Used for commission ACH payouts after a deal funds. Keep these details
         accurate.
       </p>

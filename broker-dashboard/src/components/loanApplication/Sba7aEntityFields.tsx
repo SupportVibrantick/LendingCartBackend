@@ -29,7 +29,7 @@ const ToggleSwitch = ({
     aria-checked={checked}
     onClick={() => onChange(!checked)}
     className={`relative inline-flex h-6 w-11 shrink-0 rounded-full transition ${
-      checked ? "bg-[#13538A]" : "bg-slate-200 dark:bg-slate-700"
+      checked ? "bg-[#4C78F5]" : "bg-slate-200 dark:bg-slate-700"
     }`}
   >
     <span

@@ -61,7 +61,7 @@ async function listBrokerCustomDocumentTypes(fastify) {
           productFilter = resolved;
         }
 
-        const where = {
+        const baseWhere = {
           isCustom: true,
           createdByOrgId: brokerOrgId,
           ...(includeInactive ? {} : { isActive: true }),
@@ -85,27 +85,37 @@ async function listBrokerCustomDocumentTypes(fastify) {
                 },
               }
             : {}),
-          ...(usage === "used"
-            ? {
-                applicationRequirements: {
-                  some: {
-                    loanApplication: { brokerOrgId },
-                  },
-                },
-              }
-            : {}),
-          ...(usage === "unused"
-            ? {
-                applicationRequirements: {
-                  none: {
-                    loanApplication: { brokerOrgId },
-                  },
-                },
-              }
-            : {}),
         };
 
-        const total = await prisma.documentType.count({ where });
+        const usedClause = {
+          applicationRequirements: {
+            some: {
+              loanApplication: { brokerOrgId },
+            },
+          },
+        };
+        const unusedClause = {
+          applicationRequirements: {
+            none: {
+              loanApplication: { brokerOrgId },
+            },
+          },
+        };
+
+        const where = {
+          ...baseWhere,
+          ...(usage === "used" ? usedClause : {}),
+          ...(usage === "unused" ? unusedClause : {}),
+        };
+
+        const [total, statsTotal, statsUsed, statsUnused] = await Promise.all([
+          prisma.documentType.count({ where }),
+          prisma.documentType.count({ where: baseWhere }),
+          prisma.documentType.count({ where: { ...baseWhere, ...usedClause } }),
+          prisma.documentType.count({
+            where: { ...baseWhere, ...unusedClause },
+          }),
+        ]);
         const totalPages = total === 0 ? 0 : Math.ceil(total / limit);
         const resolvedPage =
           totalPages === 0 ? 1 : Math.min(page, totalPages);
@@ -179,6 +189,11 @@ async function listBrokerCustomDocumentTypes(fastify) {
             loanProductId: loanProductId || null,
             loanProductCode: loanProductCode || null,
             usage,
+          },
+          stats: {
+            total: statsTotal,
+            used: statsUsed,
+            unused: statsUnused,
           },
           pagination: {
             page: resolvedPage,

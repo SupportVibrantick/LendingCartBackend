@@ -16,10 +16,10 @@ function getSignInPath(portal: Portal) {
 }
 
 function inputWrap(hasError: boolean) {
-  return `flex items-center gap-3 rounded-xl border px-4 py-3.5 transition focus-within:ring-2 focus-within:ring-[#13538A]/30 ${
+  return `flex items-center gap-3 rounded-xl border px-4 py-3.5 transition focus-within:ring-2 focus-within:ring-[#4C78F5]/25 ${
     hasError
-      ? "border-red-300 bg-red-50 dark:border-red-500/50 dark:bg-red-950/20"
-      : "border-gray-200 bg-gray-50 focus-within:border-[#13538A] focus-within:bg-white dark:border-gray-700 dark:bg-gray-900 dark:focus-within:border-cyan-500 dark:focus-within:bg-gray-900"
+      ? "border-red-300 bg-red-50"
+      : "border-[#E2E8F0] bg-[#F7F9FC] focus-within:border-[#4C78F5] focus-within:bg-white"
   }`;
 }
 
@@ -82,19 +82,17 @@ export default function ForgotPasswordForm({
   };
 
   return (
-    <div className="w-full">
+    <div className="w-full font-[Inter,ui-sans-serif,system-ui,sans-serif] antialiased">
       <div className="mb-8 flex items-center gap-3 lg:hidden">
         <img
           src="/loanAutomation.jpeg"
           alt="Loan Automation"
-          className="h-12 w-12 rounded-full ring-2 ring-[#13538A]/20"
+          className="h-12 w-12 rounded-full ring-2 ring-[#4C78F5]/20"
         />
         <div>
-          <p className="text-lg font-bold text-[#13538A] dark:text-cyan-400">
-            Loan Automation
-          </p>
-          <p className="text-[10px] font-medium uppercase tracking-wider text-gray-400">
-            Broker Dashboard
+          <p className="text-lg font-semibold text-[#4C78F5]">Loan Automation</p>
+          <p className="text-[10px] font-medium uppercase tracking-wider text-[#94A3B8]">
+            Broker Portal
           </p>
         </div>
       </div>
@@ -104,26 +102,24 @@ export default function ForgotPasswordForm({
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
       >
-        <span className="mb-4 inline-flex items-center gap-1.5 rounded-full border border-[#13538A]/20 bg-[#13538A]/5 px-3 py-1 text-xs font-semibold text-[#13538A] dark:border-cyan-500/30 dark:bg-cyan-500/10 dark:text-cyan-300">
+        <span className="mb-4 inline-flex items-center gap-1.5 rounded-full border border-[#4C78F5]/20 bg-[#4C78F5]/10 px-3 py-1 text-xs font-semibold text-[#4C78F5]">
           <ShieldCheck size={12} />
           Account recovery
         </span>
 
         {emailSent ? (
           <>
-            <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
+            <h1 className="text-[26px] font-semibold tracking-tight text-[#111827]">
               Check your email
             </h1>
-            <p className="mt-2 text-sm leading-relaxed text-gray-500 dark:text-gray-400">
+            <p className="mt-2 text-[13px] leading-relaxed text-[#64748B]">
               If an account exists for{" "}
-              <span className="font-medium text-gray-700 dark:text-gray-200">
-                {email}
-              </span>
-              , we sent a reset link. It expires in about 1 hour.
+              <span className="font-medium text-[#334155]">{email}</span>, we
+              sent a reset link. It expires in about 1 hour.
             </p>
             <Link
               to={signInPath}
-              className="mt-8 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-linear-to-r from-[#13538A] to-[#1a6aad] px-5 py-3.5 text-sm font-semibold text-white shadow-lg shadow-[#13538A]/25"
+              className="mt-8 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#4C78F5] px-5 py-3.5 text-sm font-semibold text-white shadow-lg shadow-[#4C78F5]/25 transition hover:bg-[#3B66E0]"
             >
               Back to sign in
               <ArrowRight size={16} />
@@ -131,23 +127,23 @@ export default function ForgotPasswordForm({
           </>
         ) : (
           <>
-            <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
+            <h1 className="text-[26px] font-semibold tracking-tight text-[#111827]">
               Forgot password?
             </h1>
-            <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+            <p className="mt-2 text-[13px] leading-relaxed text-[#64748B]">
               Enter your broker email and we&apos;ll send a secure link to set a
               new password.
             </p>
 
             <form onSubmit={handleSubmit} className="mt-8 space-y-5">
               <div>
-                <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                <label className="mb-2 block text-sm font-medium text-[#334155]">
                   Email address
                 </label>
                 <div className={inputWrap(Boolean(emailError))}>
                   <Mail
                     size={18}
-                    className={emailError ? "text-red-400" : "text-gray-400"}
+                    className={emailError ? "text-red-400" : "text-[#94A3B8]"}
                   />
                   <input
                     type="email"
@@ -158,7 +154,7 @@ export default function ForgotPasswordForm({
                       setEmail(e.target.value);
                       setEmailError(undefined);
                     }}
-                    className="w-full bg-transparent text-sm text-gray-900 outline-none placeholder:text-gray-400 dark:text-white"
+                    className="w-full bg-transparent text-sm text-[#111827] outline-none placeholder:text-[#94A3B8]"
                   />
                 </div>
                 {emailError && (
@@ -172,7 +168,7 @@ export default function ForgotPasswordForm({
                 whileTap={{ scale: 0.98 }}
                 type="submit"
                 disabled={isSubmitting}
-                className="group flex w-full items-center justify-center gap-2 rounded-xl bg-linear-to-r from-[#13538A] to-[#1a6aad] px-5 py-3.5 text-sm font-semibold text-white shadow-lg shadow-[#13538A]/25 transition hover:shadow-[#13538A]/40 disabled:cursor-not-allowed disabled:opacity-70"
+                className="group flex w-full items-center justify-center gap-2 rounded-xl bg-[#4C78F5] px-5 py-3.5 text-sm font-semibold text-white shadow-lg shadow-[#4C78F5]/25 transition hover:bg-[#3B66E0] hover:shadow-[#4C78F5]/35 disabled:cursor-not-allowed disabled:opacity-70"
               >
                 {isSubmitting ? (
                   <>
@@ -193,7 +189,7 @@ export default function ForgotPasswordForm({
 
             <Link
               to={signInPath}
-              className="mt-6 inline-flex items-center gap-1.5 text-sm font-medium text-[#13538A] dark:text-cyan-400"
+              className="mt-6 inline-flex items-center gap-1.5 text-sm font-medium text-[#4C78F5] transition hover:text-[#3B66E0]"
             >
               <ArrowLeft size={14} />
               Back to sign in
@@ -202,7 +198,7 @@ export default function ForgotPasswordForm({
         )}
       </motion.div>
 
-      <p className="mt-8 text-center text-xs text-gray-400">
+      <p className="mt-8 text-center text-xs text-[#94A3B8]">
         Developed by Vibrantick Inc
       </p>
     </div>

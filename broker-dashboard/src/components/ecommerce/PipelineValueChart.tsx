@@ -28,7 +28,7 @@ export default function PipelineValueChart({ stats, loading }: Props) {
   const funded = Number(by.FUNDED || 0);
   const lost = LOST_KEYS.reduce((sum, key) => sum + Number(by[key] || 0), 0);
   const rows = [
-    { label: "Open", value: open, color: "#13538A" },
+    { label: "Open", value: open, color: "#4C78F5" },
     { label: "Funded", value: funded, color: "#14B8A6" },
     ...(lost > 0 ? [{ label: "Lost", value: lost, color: "#F43F5E" }] : []),
   ];
@@ -37,7 +37,7 @@ export default function PipelineValueChart({ stats, loading }: Props) {
 
   const options: ApexOptions = {
     chart: {
-      fontFamily: "Outfit, sans-serif",
+      fontFamily: "Inter, sans-serif",
       toolbar: { show: false },
     },
     plotOptions: {

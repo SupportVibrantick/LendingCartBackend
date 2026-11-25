@@ -765,7 +765,7 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
       showCancelButton: true,
       confirmButtonText: "Yes, send",
       cancelButtonText: "Cancel",
-      confirmButtonColor: "#13538A",
+      confirmButtonColor: "#4C78F5",
       cancelButtonColor: "#ef4444",
     });
 
@@ -966,7 +966,7 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
       icon: "question",
       showCancelButton: true,
       confirmButtonText: "Send to Client",
-      confirmButtonColor: "#13538A",
+      confirmButtonColor: "#4C78F5",
     });
 
     if (!result.isConfirmed) return;
@@ -1011,7 +1011,7 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
       icon: "question",
       showCancelButton: true,
       confirmButtonText: "Send to PB",
-      confirmButtonColor: "#13538A",
+      confirmButtonColor: "#4C78F5",
     });
 
     if (!result.isConfirmed) return;
@@ -2197,7 +2197,7 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
         key: "view-details",
         label: "Loan Application",
         icon: ClipboardList,
-        color: "text-[#13538A]",
+        color: "text-[#4C78F5]",
       },
     ];
 
@@ -2439,7 +2439,7 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
     if (!effectiveCanRequestDocuments) {
       return (
         <div className="rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-700 dark:bg-slate-900">
-          <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-[#13538A]">
+          <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-[#4C78F5]">
             Document workflow
           </p>
           <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
@@ -2467,7 +2467,7 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
     return (
       <div className="space-y-4">
         <div className="rounded-xl border border-slate-200 bg-white px-5 py-4 dark:border-slate-700 dark:bg-slate-900">
-          <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-[#13538A]">
+          <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-[#4C78F5]">
             Document workflow
           </p>
           <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
@@ -2509,13 +2509,13 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
                     handleAddCustomDocument();
                   }
                 }}
-                className="h-11 flex-1 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-[#13538A] focus:ring-2 focus:ring-[#13538A]/20 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+                className="h-11 flex-1 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-[#4C78F5] focus:ring-2 focus:ring-[#4C78F5]/20 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
               />
               <button
                 type="button"
                 onClick={handleAddCustomDocument}
                 disabled={addingCustomDoc || !customDocumentName.trim()}
-                className="inline-flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-[#13538A] px-4 text-sm font-semibold text-white transition hover:bg-[#0E426E] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
+                className="inline-flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-[#4C78F5] px-4 text-sm font-semibold text-white transition hover:bg-[#3B66E0] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
               >
                 {addingCustomDoc ? (
                   <Loader2 size={16} className="animate-spin" />
@@ -2531,7 +2531,7 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
         <div className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-4 py-3 dark:border-slate-800">
             <div className="flex min-w-0 items-center gap-2">
-              <FileText size={15} className="shrink-0 text-[#13538A]" />
+              <FileText size={15} className="shrink-0 text-[#4C78F5]" />
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-slate-800 dark:text-white">
                   Available documents
@@ -2557,7 +2557,7 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
                   value={requestDocSearch}
                   onChange={(e) => setRequestDocSearch(e.target.value)}
                   placeholder="Search documents..."
-                  className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-9 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-[#13538A] focus:ring-2 focus:ring-[#13538A]/20 dark:border-slate-700 dark:bg-slate-950 dark:text-white [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden"
+                  className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-9 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-[#4C78F5] focus:ring-2 focus:ring-[#4C78F5]/20 dark:border-slate-700 dark:bg-slate-950 dark:text-white [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden"
                 />
                 {requestDocSearch.trim() ? (
                   <button
@@ -2597,12 +2597,12 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
 
           {requestDocsLoading ? (
             <div className="flex flex-col items-center justify-center py-14">
-              <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#13538A] border-t-transparent" />
+              <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#4C78F5] border-t-transparent" />
               <p className="mt-3 text-sm text-slate-500">Loading documents...</p>
             </div>
           ) : requestDocs.length === 0 ? (
             <div className="flex flex-col items-center justify-center px-4 py-14 text-center">
-              <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-[#13538A]/10 text-[#13538A]">
+              <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-[#4C78F5]/10 text-[#4C78F5]">
                 <FileText size={22} />
               </div>
               <h3 className="text-base font-semibold text-slate-800 dark:text-slate-200">
@@ -2653,7 +2653,7 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
                           onClick={() => toggleRequestDocument(doc)}
                           className={`cursor-pointer transition-colors ${
                             isSelected
-                              ? "bg-[#13538A]/8 dark:bg-sky-950/25"
+                              ? "bg-[#4C78F5]/8 dark:bg-sky-950/25"
                               : rowIndex % 2 === 1
                                 ? "bg-slate-50/40 dark:bg-slate-900/30"
                                 : "bg-white dark:bg-slate-900"
@@ -2665,7 +2665,7 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
                               checked={isSelected}
                               onChange={() => toggleRequestDocument(doc)}
                               onClick={(e) => e.stopPropagation()}
-                              className="h-4 w-4 cursor-pointer accent-[#13538A]"
+                              className="h-4 w-4 cursor-pointer accent-[#4C78F5]"
                               aria-label={`Select ${doc.documentType.name}`}
                             />
                           </td>
@@ -2685,7 +2685,7 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
                               {isSelected ? (
                                 <CheckCircle2
                                   size={15}
-                                  className="shrink-0 text-[#13538A]"
+                                  className="shrink-0 text-[#4C78F5]"
                                 />
                               ) : null}
                             </div>
@@ -2713,17 +2713,22 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
                             )}
                           </td>
                           <td className="px-3 py-3 align-middle">
-                            {requestHistory ? (
-                              <span className="text-[11px] font-medium text-slate-600 dark:text-slate-300">
-                                {formatDocumentTimelineDate(
-                                  requestHistory.requestedAt,
-                                )}
-                              </span>
-                            ) : (
-                              <span className="text-[11px] text-slate-400">
-                                —
-                              </span>
-                            )}
+                            {(() => {
+                              const lastRequested = requestHistory
+                                ? formatDocumentTimelineDate(
+                                    requestHistory.requestedAt,
+                                  )
+                                : null;
+                              return lastRequested ? (
+                                <span className="text-[11px] font-medium text-slate-600 dark:text-slate-300">
+                                  {lastRequested}
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                                  Never requested
+                                </span>
+                              );
+                            })()}
                           </td>
                         </tr>
                       );
@@ -2771,7 +2776,7 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
                       type="button"
                       disabled={!requestDocPagination.hasNextPage}
                       onClick={() => setRequestDocPage((prev) => prev + 1)}
-                      className="inline-flex items-center gap-1 rounded-lg bg-[#13538A] px-3 py-2 text-sm font-medium text-white transition hover:bg-[#0E426E] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
+                      className="inline-flex items-center gap-1 rounded-lg bg-[#4C78F5] px-3 py-2 text-sm font-medium text-white transition hover:bg-[#3B66E0] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
                     >
                       Next
                       <ChevronRight size={16} />
@@ -2790,7 +2795,7 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
             </label>
             <textarea
               placeholder="Optional note included with this document request..."
-              className="min-h-[88px] w-full resize-none rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-[#13538A] focus:ring-2 focus:ring-[#13538A]/20 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+              className="min-h-[88px] w-full resize-none rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-[#4C78F5] focus:ring-2 focus:ring-[#4C78F5]/20 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
               value={requestMessage}
               onChange={(e) => setRequestMessage(e.target.value)}
             />
@@ -2809,7 +2814,7 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
                 type="button"
                 onClick={handleRequestDocuments}
                 disabled={selectedRequestDocs.length === 0 || requestSubmitting}
-                className="inline-flex min-w-[170px] items-center justify-center gap-2 rounded-lg bg-[#13538A] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0E426E] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
+                className="inline-flex min-w-[170px] items-center justify-center gap-2 rounded-lg bg-[#4C78F5] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#3B66E0] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
               >
                 {requestSubmitting ? (
                   <>
@@ -2934,17 +2939,20 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
       : [];
 
     return (
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-950">
-        <div className="border-b border-slate-100 px-5 py-5 dark:border-slate-800 sm:px-6">
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-none dark:border-slate-800 dark:bg-slate-950">
+        <div className="border-b border-slate-200 bg-slate-50/70 px-4 py-4 dark:border-slate-800 dark:bg-slate-900/40 sm:px-5">
           <div
             ref={lendersSectionRef}
-            className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between"
+            className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between"
           >
-            <div>
-              <h2 className="text-lg font-semibold tracking-tight text-slate-900 dark:text-white">
+            <div className="min-w-0">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#4C78F5]">
+                Lenders
+              </p>
+              <h2 className="mt-1 text-lg font-semibold tracking-tight text-slate-900 dark:text-white">
                 Matched Lenders
               </h2>
-              <p className="mt-0.5 text-sm text-slate-500">
+              <p className="mt-1 text-sm text-slate-500">
                 Connect with verified lenders for this submission.
               </p>
             </div>
@@ -2957,8 +2965,8 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
                     setLenderPage(1);
                     setLenderSearchQ(e.target.value);
                   }}
-                  placeholder="Search lenders..."
-                  className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm text-slate-800 outline-none transition focus:border-[#13538A] focus:ring-2 focus:ring-[#13538A]/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                  placeholder="Search lenders…"
+                  className="h-10 w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm text-slate-800 outline-none transition focus:border-[#4C78F5]/50 focus:ring-2 focus:ring-[#4C78F5]/15 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
                 />
               </div>
               <select
@@ -2967,7 +2975,7 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
                   setLenderLimit(Number(e.target.value));
                   setLenderPage(1);
                 }}
-                className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-[#13538A] focus:ring-2 focus:ring-[#13538A]/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition focus:border-[#4C78F5]/50 focus:ring-2 focus:ring-[#4C78F5]/15 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
               >
                 <option value={6}>6 / page</option>
                 <option value={9}>9 / page</option>
@@ -2977,7 +2985,7 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
             </div>
           </div>
 
-          <div className="mt-4 inline-flex flex-wrap gap-1 rounded-lg bg-slate-100 p-1 dark:bg-slate-800">
+          <div className="mt-3 inline-flex flex-wrap gap-1.5">
             {lenderFilterTabs.map((tab) => {
               const isActive = lenderFilter === tab.id;
               return (
@@ -2991,10 +2999,10 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
                     setLenderPage(1);
                     scrollToLenders();
                   }}
-                  className={`rounded-md px-3.5 py-1.5 text-xs font-semibold transition ${
+                  className={`rounded-lg border px-3 py-1.5 text-sm font-semibold transition ${
                     isActive
-                      ? "bg-[#13538A] text-white shadow-sm"
-                      : "text-slate-500 hover:bg-white hover:text-slate-800 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-white"
+                      ? "border-[#4C78F5] bg-[#4C78F5] text-white"
+                      : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300"
                   }`}
                 >
                   {tab.label}
@@ -3005,16 +3013,16 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
         </div>
 
         {summaryStats.length > 0 ? (
-          <div className="border-b border-white/10 bg-[#13538A] px-5 py-4 text-white sm:px-6">
+          <div className="border-b border-slate-200 bg-[#4C78F5]/[0.06] px-4 py-3.5 dark:border-slate-800 dark:bg-[#4C78F5]/10 sm:px-5">
             <div className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3 xl:grid-cols-9">
               {summaryStats.map((item) => (
                 <div key={item.label} className="min-w-0">
-                  <p className="text-[10px] font-medium uppercase tracking-[0.12em] text-white/65">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-[#4C78F5]/80 dark:text-sky-300/80">
                     {item.label}
                   </p>
                   <p
-                    className={`mt-1 truncate text-sm font-semibold tracking-tight ${
-                      item.value === "—" ? "text-white/35" : ""
+                    className={`mt-0.5 truncate text-sm font-semibold tracking-tight text-slate-900 dark:text-white ${
+                      item.value === "—" ? "text-slate-400 dark:text-slate-500" : ""
                     }`}
                   >
                     {item.value}
@@ -3025,28 +3033,30 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
           </div>
         ) : null}
 
-        <div className="p-5 sm:p-6">
+        <div className="p-4 sm:p-5">
           {lenderLoading && (
-            <div className="flex items-center justify-center py-16 text-sm text-slate-500">
-              <Loader2 className="mr-2 h-5 w-5 animate-spin text-[#13538A]" />
-              Loading lenders...
+            <div className="flex min-h-[220px] flex-col items-center justify-center gap-3 text-center">
+              <Loader2 className="h-7 w-7 animate-spin text-[#4C78F5]" />
+              <p className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                Loading lenders…
+              </p>
             </div>
           )}
 
           {filterLoading && (
-            <div className="flex items-center justify-center py-16">
-              <Loader2 className="h-8 w-8 animate-spin text-[#13538A]" />
+            <div className="flex min-h-[220px] items-center justify-center">
+              <Loader2 className="h-7 w-7 animate-spin text-[#4C78F5]" />
             </div>
           )}
 
           {!lenderLoading &&
             !filterLoading &&
             paginatedEligibleLenders.length === 0 && (
-              <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-6 py-16 text-center dark:border-slate-700 dark:bg-slate-900/40">
-                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-[#13538A] text-white">
-                  <SearchX className="h-6 w-6" />
+              <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 px-6 py-14 text-center dark:border-slate-700">
+                <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800">
+                  <SearchX className="h-5 w-5 text-slate-400" />
                 </div>
-                <h3 className="text-base font-semibold text-slate-800 dark:text-slate-100">
+                <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100">
                   No lenders found
                 </h3>
                 <p className="mt-1 max-w-md text-sm text-slate-500 dark:text-slate-400">
@@ -3059,7 +3069,7 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
           {!lenderLoading &&
             !filterLoading &&
             paginatedEligibleLenders.length > 0 && (
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                 {paginatedEligibleLenders.map((lender) => {
                   const initials = String(lender.name || "L")
                     .split(/\s+/)
@@ -3094,31 +3104,31 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
                   return (
                     <div
                       key={lender.id}
-                      className="flex h-full flex-col rounded-xl border border-slate-200 bg-white p-4 transition hover:border-[#13538A]/30 hover:shadow-sm dark:border-slate-800 dark:bg-slate-900"
+                      className="flex h-full flex-col rounded-xl border border-slate-200 bg-white p-3.5 shadow-none transition hover:border-[#4C78F5]/40 dark:border-slate-700 dark:bg-slate-950"
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex min-w-0 items-start gap-3">
-                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#13538A] text-xs font-semibold tracking-wide text-white">
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#4C78F5]/10 text-sm font-semibold tracking-wide text-[#4C78F5] dark:bg-[#4C78F5]/15 dark:text-sky-300">
                             {initials || "L"}
                           </div>
                           <div className="min-w-0">
                             <h3 className="truncate text-sm font-semibold text-slate-900 dark:text-white">
                               {lender.name}
                             </h3>
-                            <p className="mt-0.5 truncate text-xs text-slate-500">
+                            <p className="mt-0.5 truncate text-sm text-slate-500">
                               {lender.email || "—"}
                             </p>
                           </div>
                         </div>
                         <span
-                          className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold capitalize ${
+                          className={`shrink-0 rounded-full border px-2 py-0.5 text-xs font-semibold capitalize ${
                             lender.type === "eligible"
-                              ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+                              ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"
                               : lender.type === "ineligible"
-                                ? "bg-amber-50 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400"
+                                ? "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
                                 : lender.type === "rejected"
-                                  ? "bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400"
-                                  : "bg-[#13538A]/10 text-[#13538A] dark:bg-[#13538A]/20 dark:text-sky-300"
+                                  ? "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-300"
+                                  : "border-[#4C78F5]/25 bg-[#4C78F5]/8 text-[#3B66E0] dark:border-[#4C78F5]/40 dark:bg-[#4C78F5]/15 dark:text-sky-300"
                           }`}
                         >
                           {lender.type === "ineligible"
@@ -3127,45 +3137,45 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
                         </span>
                       </div>
 
-                      <dl className="mt-4 grid grid-cols-2 gap-x-3 gap-y-2.5 text-xs">
+                      <dl className="mt-3.5 grid grid-cols-2 gap-x-3 gap-y-2.5">
                         <div className="col-span-2">
-                          <dt className="text-[10px] font-medium uppercase tracking-[0.12em] text-slate-400">
+                          <dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">
                             Product
                           </dt>
-                          <dd className="mt-0.5 font-medium text-slate-800 dark:text-slate-200">
+                          <dd className="mt-0.5 text-sm font-medium text-slate-800 dark:text-slate-200">
                             {productLabel || "—"}
                           </dd>
                         </div>
                         <div>
-                          <dt className="text-[10px] font-medium uppercase tracking-[0.12em] text-slate-400">
+                          <dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">
                             Funding
                           </dt>
-                          <dd className="mt-0.5 font-medium text-slate-800 dark:text-slate-200">
+                          <dd className="mt-0.5 text-sm font-medium text-slate-800 dark:text-slate-200">
                             ${Number(lender.minFunding).toLocaleString()} – $
                             {Number(lender.maxFunding).toLocaleString()}
                           </dd>
                         </div>
                         <div>
-                          <dt className="text-[10px] font-medium uppercase tracking-[0.12em] text-slate-400">
+                          <dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">
                             Term
                           </dt>
-                          <dd className="mt-0.5 font-medium text-slate-800 dark:text-slate-200">
+                          <dd className="mt-0.5 text-sm font-medium text-slate-800 dark:text-slate-200">
                             {lender.minMonths} – {lender.maxMonths} mo
                           </dd>
                         </div>
                         <div>
-                          <dt className="text-[10px] font-medium uppercase tracking-[0.12em] text-slate-400">
+                          <dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">
                             Interest
                           </dt>
-                          <dd className="mt-0.5 font-medium text-slate-800 dark:text-slate-200">
+                          <dd className="mt-0.5 text-sm font-medium text-slate-800 dark:text-slate-200">
                             {lender.interestRateRange || "—"}
                           </dd>
                         </div>
                         <div>
-                          <dt className="text-[10px] font-medium uppercase tracking-[0.12em] text-slate-400">
+                          <dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">
                             Funding speed
                           </dt>
-                          <dd className="mt-0.5 font-medium text-slate-800 dark:text-slate-200">
+                          <dd className="mt-0.5 text-sm font-medium text-slate-800 dark:text-slate-200">
                             {lender.fundingSpeedDays} days
                           </dd>
                         </div>
@@ -3173,7 +3183,7 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
 
                       {lender.type === "ineligible" &&
                       lender.rejectionReasons.length > 0 ? (
-                        <div className="mt-4 rounded-lg border border-amber-200/80 bg-amber-50/80 px-3 py-2.5 text-xs text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-300">
+                        <div className="mt-3 rounded-lg border border-amber-200/80 bg-amber-50/80 px-3 py-2.5 text-sm text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-300">
                           <p className="font-semibold">Why is it not eligible?</p>
                           <ul className="mt-1 list-disc space-y-0.5 pl-4">
                             {lender.rejectionReasons.map((reason) => (
@@ -3184,7 +3194,7 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
                       ) : null}
 
                       {lender.type === "rejected" ? (
-                        <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-xs text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-400">
+                        <div className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2.5 text-sm text-rose-700 dark:border-rose-900/40 dark:bg-rose-950/20 dark:text-rose-300">
                           Lender declined this submission
                           {lender.applicationStatus
                             ? ` (${String(lender.applicationStatus)
@@ -3194,7 +3204,7 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
                         </div>
                       ) : null}
 
-                      <div ref={bottomRef} className="mt-auto pt-4">
+                      <div ref={bottomRef} className="mt-auto pt-3.5">
                         <button
                           type="button"
                           disabled={!canClick}
@@ -3206,18 +3216,18 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
                             isSending
                               ? "cursor-wait bg-slate-300 text-white"
                               : lender.alreadySent
-                                ? "bg-[#13538A] text-white"
+                                ? "bg-[#4C78F5] text-white"
                                 : lender.type === "rejected"
-                                  ? "bg-red-50 text-red-700 ring-1 ring-inset ring-red-200"
+                                  ? "border border-rose-200 bg-rose-50 text-rose-700"
                                   : lender.type === "ineligible"
-                                    ? "bg-slate-100 text-slate-500 ring-1 ring-inset ring-slate-200"
+                                    ? "border border-slate-200 bg-slate-50 text-slate-500"
                                     : !loDocPermissions.sendApplications
-                                      ? "bg-slate-100 text-slate-400"
-                                      : "bg-[#13538A] text-white shadow-sm hover:bg-[#0E426E]"
+                                      ? "border border-slate-200 bg-slate-50 text-slate-400"
+                                      : "bg-[#4C78F5] text-white hover:bg-[#3B66E0]"
                           }`}
                         >
                           {isSending
-                            ? "Sending..."
+                            ? "Sending…"
                             : lender.alreadySent
                               ? "Already Sent"
                               : lender.type === "rejected"
@@ -3236,12 +3246,12 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
             )}
 
           {lenderPagination && lenderPagination.totalPages > 1 ? (
-            <div className="mt-8 flex flex-wrap items-center justify-center gap-1.5">
+            <div className="mt-5 flex flex-wrap items-center justify-center gap-1.5">
               <button
                 type="button"
                 disabled={!lenderPagination.hasPrevPage}
                 onClick={() => setLenderPage((prev) => Math.max(prev - 1, 1))}
-                className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 transition hover:border-[#13538A]/30 hover:text-[#13538A] disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:bg-slate-900"
+                className="inline-flex h-8 items-center rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
               >
                 Previous
               </button>
@@ -3252,10 +3262,10 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
                     key={pageNum}
                     type="button"
                     onClick={() => setLenderPage(pageNum)}
-                    className={`h-9 w-9 rounded-lg text-sm font-semibold transition ${
+                    className={`h-8 w-8 rounded-lg text-sm font-semibold transition ${
                       lenderPage === pageNum
-                        ? "bg-[#13538A] text-white"
-                        : "border border-slate-200 bg-white text-slate-600 hover:border-[#13538A]/30 hover:text-[#13538A] dark:border-slate-700 dark:bg-slate-900"
+                        ? "bg-[#4C78F5] text-white"
+                        : "border border-slate-200 bg-white text-slate-600 hover:border-[#4C78F5]/40 hover:text-[#4C78F5] dark:border-slate-700 dark:bg-slate-950"
                     }`}
                   >
                     {pageNum}
@@ -3266,7 +3276,7 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
                 type="button"
                 disabled={!lenderPagination.hasNextPage}
                 onClick={() => setLenderPage((prev) => prev + 1)}
-                className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 transition hover:border-[#13538A]/30 hover:text-[#13538A] disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:bg-slate-900"
+                className="inline-flex h-8 items-center rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
               >
                 Next
               </button>
@@ -3372,20 +3382,22 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
   };
 
   const renderDocuments = () => (
-    <div className="h-[90vh] min-h-screen w-full">
-      <div className="mb-4 rounded-xl border border-slate-200 bg-white px-5 py-4 dark:border-slate-700 dark:bg-slate-900">
-        <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-[#13538A]">
-          Document workflow
-        </p>
-        <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
-          Requested Documents
-        </h2>
-        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-          {isCoBrokerPortal
-            ? "Request documents from your client, upload files, then forward them to the Principal Broker for review."
-            : "Upload, filter, and send documents to lenders on this application."}
-        </p>
-      </div>
+    <div className="w-full space-y-3">
+      <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-none dark:border-slate-700 dark:bg-slate-950">
+        <div className="flex flex-col gap-0.5 px-4 py-3">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#4C78F5]">
+            Document workflow
+          </p>
+          <h2 className="text-[15px] font-semibold tracking-tight text-slate-900 dark:text-white">
+            Requested Documents
+          </h2>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            {isCoBrokerPortal
+              ? "Request documents from your client, upload files, then forward them to the Principal Broker for review."
+              : "Upload, filter, and send documents to lenders on this application."}
+          </p>
+        </div>
+      </section>
 
       <DocumentControlsBar
         autoForwardEnabled={autoForwardEnabled}
@@ -3417,10 +3429,10 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
       />
 
       {isCoBrokerPortal && selectedCoBrokerPbSendableIds.length > 0 && (
-        <div className="mb-4 overflow-visible rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
+        <div className="overflow-visible rounded-2xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-950">
           <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
             <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#13538A] text-white">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#4C78F5] text-white">
                 <FiSend size={15} />
               </div>
               <div>
@@ -3440,7 +3452,7 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
                 handleSendToPrincipalBroker(selectedCoBrokerPbSendableIds)
               }
               disabled={sendingToBroker}
-              className="inline-flex min-w-[170px] items-center justify-center gap-2 rounded-lg bg-[#13538A] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#0E426E] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
+              className="inline-flex min-w-[170px] items-center justify-center gap-2 rounded-xl bg-[#4C78F5] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#3B66E0] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
             >
               {sendingToBroker ? (
                 <>
@@ -3459,32 +3471,32 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
       )}
 
       {!isCoBrokerPortal && !autoForwardEnabled && selectedRows.length > 0 && (
-        <div className="mb-4 overflow-visible rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-3 dark:border-slate-800">
-            <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#13538A] text-white">
-                <FiSend size={15} />
+        <div className="overflow-visible rounded-xl border border-slate-200 bg-white shadow-none dark:border-slate-700 dark:bg-slate-950">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-2.5 dark:border-slate-800">
+            <div className="flex min-w-0 items-center gap-2.5">
+              <div className="flex h-7 w-7 items-center justify-center rounded-md bg-[#4C78F5] text-white">
+                <FiSend size={13} />
               </div>
-              <div>
-                <p className="text-sm font-semibold text-slate-800 dark:text-white">
+              <div className="min-w-0">
+                <p className="text-[13px] font-semibold text-slate-900 dark:text-white">
                   Send selected documents
                 </p>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
                   Choose recipients, then send.
                 </p>
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
-              <span className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
+            <div className="flex items-center gap-1.5">
+              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-200">
                 {selectedRows.length} document
                 {selectedRows.length === 1 ? "" : "s"}
               </span>
               <span
-                className={`rounded-md border px-2.5 py-1 text-[11px] font-semibold ${
+                className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
                   selectedLenders.length > 0
-                    ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"
-                    : "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
+                    ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300"
+                    : "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
                 }`}
               >
                 {selectedLenders.length} lender
@@ -3493,19 +3505,19 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
             </div>
           </div>
 
-          <div className="grid gap-4 p-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
-            <div className="min-w-0 rounded-lg border border-slate-200 bg-slate-50/50 p-3 dark:border-slate-700 dark:bg-slate-800/50">
-              <div className="mb-2 flex items-center justify-between gap-3">
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-200">
+          <div className="flex flex-col gap-3 p-3 sm:flex-row sm:items-end">
+            <div className="min-w-0 flex-1">
+              <div className="mb-1.5 flex items-center justify-between gap-3">
+                <label className="block text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">
                   Select lender recipients
                 </label>
                 {selectedLenders.length > 0 ? (
                   <button
                     type="button"
                     onClick={() => setSelectedLenders([])}
-                    className="text-[11px] font-medium text-[#13538A] hover:underline"
+                    className="text-[11px] font-medium text-[#4C78F5] hover:underline"
                   >
-                    Clear lenders
+                    Clear
                   </button>
                 ) : null}
               </div>
@@ -3560,12 +3572,10 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
                     styles={{
                       control: (base, state) => ({
                         ...base,
-                        minHeight: "46px",
-                        borderRadius: "12px",
-                        borderColor: state.isFocused ? "#13538A" : "#e2e8f0",
-                        boxShadow: state.isFocused
-                          ? "0 0 0 2px rgba(58, 153, 216, 0.2)"
-                          : "none",
+                        minHeight: "40px",
+                        borderRadius: "10px",
+                        borderColor: state.isFocused ? "#4C78F5" : "#e2e8f0",
+                        boxShadow: "none",
                         backgroundColor: "#ffffff",
                         cursor: "pointer",
                       }),
@@ -3573,7 +3583,9 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
                         ...base,
                         zIndex: 80,
                         overflow: "hidden",
-                        borderRadius: "8px",
+                        borderRadius: "10px",
+                        boxShadow: "none",
+                        border: "1px solid #e2e8f0",
                       }),
                       valueContainer: (base) => ({
                         ...base,
@@ -3584,24 +3596,24 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
                   />
                 </div>
               ) : (
-                <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-700 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
+                <p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
                   No active lenders available. Approved, declined, or withdrawn
                   lenders cannot receive documents.
                 </p>
               )}
               {lenderOptions.length > 0 && selectedLenders.length === 0 ? (
-                <p className="mt-2 text-[11px] text-amber-600 dark:text-amber-400">
+                <p className="mt-1.5 text-[11px] text-slate-500 dark:text-slate-400">
                   Select at least one lender before sending.
                 </p>
               ) : selectedLenders.length > 0 ? (
-                <p className="mt-2 text-[11px] text-emerald-600 dark:text-emerald-400">
+                <p className="mt-1.5 text-[11px] text-emerald-600 dark:text-emerald-400">
                   Ready to send to {selectedLenders.length} selected lender
                   {selectedLenders.length === 1 ? "" : "s"}.
                 </p>
               ) : null}
             </div>
 
-            <div className="flex flex-wrap items-center gap-2 lg:flex-col lg:items-stretch">
+            <div className="flex shrink-0 flex-wrap items-center gap-2 sm:flex-col sm:items-stretch">
               <button
                 type="button"
                 onClick={handleSendToLender}
@@ -3615,21 +3627,21 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
                     ? "Select lender recipients first"
                     : "Send selected documents to chosen lenders"
                 }
-                className="inline-flex min-w-[170px] items-center justify-center gap-2 rounded-lg bg-[#13538A] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#0E426E] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 dark:disabled:bg-slate-700 dark:disabled:text-slate-400"
+                className="inline-flex h-10 min-w-[150px] items-center justify-center gap-2 rounded-lg bg-[#4C78F5] px-4 text-[13px] font-semibold text-white transition hover:bg-[#3B66E0] disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400 dark:disabled:bg-slate-800 dark:disabled:text-slate-500"
               >
                 {sending ? (
                   <>
-                    <Loader2 size={16} className="animate-spin" />
+                    <Loader2 size={15} className="animate-spin" />
                     Sending...
                   </>
                 ) : selectedLenders.length === 0 ? (
                   <>
-                    <FiSend size={16} />
+                    <FiSend size={15} />
                     Select lender first
                   </>
                 ) : (
                   <>
-                    <FiSend size={16} />
+                    <FiSend size={15} />
                     Send to {selectedLenders.length} lender
                     {selectedLenders.length === 1 ? "" : "s"}
                   </>
@@ -3643,13 +3655,13 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
                     handleForwardToClient(selectedClientSendableIds)
                   }
                   disabled={forwardingToClient}
-                  className="inline-flex min-w-[170px] items-center justify-center gap-2 rounded-lg bg-[#13538A] px-5 py-2.5 text-xs font-semibold text-white transition hover:bg-[#0E426E] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex h-10 min-w-[150px] items-center justify-center gap-2 rounded-lg border border-[#4C78F5]/30 bg-white px-4 text-[12px] font-semibold text-[#4C78F5] transition hover:bg-[#4C78F5]/5 disabled:cursor-not-allowed disabled:opacity-60 dark:border-sky-500/30 dark:bg-slate-900 dark:text-sky-300"
                 >
                   {forwardingToClient ? (
                     "Sending..."
                   ) : (
                     <>
-                      <Mail size={16} />
+                      <Mail size={15} />
                       Send to Client
                     </>
                   )}
@@ -3661,7 +3673,7 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
       )}
 
       {!isCoBrokerPortal && autoForwardEnabled && selectedClientSendableIds.length > 0 && (
-        <div className="mb-4 flex items-center justify-between rounded-xl border border-slate-200 bg-white px-5 py-3 dark:border-slate-700 dark:bg-slate-900">
+        <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-5 py-3 dark:border-slate-700 dark:bg-slate-950">
           <p className="text-sm font-medium text-slate-700 dark:text-slate-200">
             {selectedClientSendableIds.length} document(s) ready to send to
             client
@@ -3670,7 +3682,7 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
             type="button"
             onClick={() => handleForwardToClient(selectedClientSendableIds)}
             disabled={forwardingToClient}
-            className="inline-flex items-center gap-2 rounded-lg bg-[#13538A] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[#0E426E] disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex items-center gap-2 rounded-xl bg-[#4C78F5] px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-[#3B66E0] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {forwardingToClient ? (
               "Sending..."
@@ -3685,18 +3697,18 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
       )}
 
       {documentsLoading ? (
-        <div className="flex flex-col items-center justify-center rounded-xl border border-slate-200 bg-white py-16 dark:border-slate-700 dark:bg-slate-900">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#13538A] border-t-transparent" />
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-slate-200 bg-white py-16 dark:border-slate-700 dark:bg-slate-950">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#4C78F5] border-t-transparent" />
           <p className="mt-3 text-sm text-slate-500">Loading documents...</p>
         </div>
       ) : displayDocuments.length > 0 ? (
-        <div className="my-4 flex max-h-[calc(100vh-220px)] flex-col overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
-          <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-5 py-3 dark:border-slate-800">
+        <div className="flex max-h-[calc(100vh-220px)] flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-none dark:border-slate-700 dark:bg-slate-950">
+          <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-2.5 dark:border-slate-800">
             <div>
-              <p className="text-sm font-semibold text-slate-800 dark:text-white">
+              <p className="text-[13px] font-semibold text-slate-900 dark:text-white">
                 Requested documents
               </p>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">
                 {documentsPagination?.total ?? displayDocuments.length} document
                 {(documentsPagination?.total ?? displayDocuments.length) === 1
                   ? ""
@@ -3705,51 +3717,51 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
               </p>
             </div>
             {selectedRows.length > 0 && (
-              <span className="rounded-md bg-[#13538A]/15 px-2.5 py-1 text-xs font-semibold text-[#0E426E]">
+              <span className="rounded-full bg-[#4C78F5]/10 px-2 py-0.5 text-[11px] font-semibold text-[#4C78F5]">
                 {selectedRows.length} selected
               </span>
             )}
           </div>
 
-          <div className="min-h-0 flex-1 overflow-auto">
-            <table className="w-full min-w-[980px] table-fixed text-sm">
+          <div className="custom-scrollbar min-h-0 flex-1 overflow-auto">
+            <table className="w-full min-w-[920px] table-fixed text-left text-sm">
               <colgroup>
-                <col className="w-12" />
-                <col className="w-[22%]" />
-                <col className="w-[10%]" />
-                <col className="w-[14%]" />
-                <col className="w-[30%]" />
+                <col className="w-10" />
+                <col className="w-[24%]" />
                 <col className="w-[12%]" />
-                <col className="w-16" />
+                <col className="w-[14%]" />
+                <col className="w-[28%]" />
+                <col className="w-[12%]" />
+                <col className="w-14" />
               </colgroup>
 
-              <thead className="sticky top-0 z-10 border-b border-slate-200 bg-white/95 backdrop-blur dark:border-slate-800 dark:bg-slate-900/95">
-                <tr className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                  <th className="px-4 py-3 text-left">
+              <thead className="sticky top-0 z-10 border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950">
+                <tr className="text-[10px] font-semibold uppercase tracking-[0.1em] text-slate-400 dark:text-slate-500">
+                  <th className="px-3 py-2.5 text-left">
                     <input
                       type="checkbox"
                       checked={isAllSelected}
                       onChange={handleSelectAll}
-                      className="h-4 w-4 cursor-pointer accent-[#13538A]"
+                      className="h-3.5 w-3.5 cursor-pointer accent-[#4C78F5]"
                       aria-label="Select all documents"
                     />
                   </th>
-                  <th className="px-4 py-3 text-left">Document</th>
-                  <th className="px-4 py-3 text-left">Source</th>
-                  <th className="px-4 py-3 text-left">Requested</th>
-                  <th className="px-4 py-3 text-left">
+                  <th className="px-3 py-2.5 text-left">Document</th>
+                  <th className="px-3 py-2.5 text-left">Source</th>
+                  <th className="px-3 py-2.5 text-left">Requested</th>
+                  <th className="px-3 py-2.5 text-left">
                     <span className="block">Status</span>
-                    <span className="mt-0.5 block text-[10px] font-medium normal-case tracking-normal text-slate-400">
+                    <span className="mt-0.5 block text-[9px] font-medium normal-case tracking-normal text-slate-400">
                       Uploaded · Lender · Client
                     </span>
                   </th>
-                  <th className="px-4 py-3 text-left">Files</th>
-                  <th className="px-4 py-3 text-center">Actions</th>
+                  <th className="px-3 py-2.5 text-left">Files</th>
+                  <th className="px-3 py-2.5 text-center">Actions</th>
                 </tr>
               </thead>
 
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {displayDocuments.map((doc, rowIndex) => {
+              <tbody>
+                {displayDocuments.map((doc) => {
                   const isOpen = activeAction === doc.rowKey;
                   const isSelected = selectedRows.includes(doc.rowKey);
                   const { label: sourceLabel, className: sourceClass } =
@@ -3763,58 +3775,60 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
                   return (
                     <tr
                       key={doc.rowKey}
-                      className={`group transition-colors ${
+                      className={`group border-b border-slate-100 transition-colors last:border-b-0 dark:border-slate-800 ${
                         isSelected
-                          ? "bg-[#13538A]/8 dark:bg-sky-950/20"
-                          : rowIndex % 2 === 1
-                            ? "bg-slate-50/40 dark:bg-slate-900/20"
-                            : "bg-white dark:bg-slate-900"
-                      } hover:bg-slate-50 dark:hover:bg-slate-800/40`}
+                          ? "bg-[#4C78F5]/[0.06] dark:bg-sky-950/20"
+                          : "bg-white hover:bg-slate-50/80 dark:bg-slate-950 dark:hover:bg-slate-800/40"
+                      }`}
                     >
-                      <td className="px-4 py-3.5 align-middle">
+                      <td className="px-3 py-2.5 align-middle">
                         <input
                           type="checkbox"
                           disabled={doc.status === "SKIPPED"}
                           checked={isSelected}
                           onChange={() => handleSelectRow(doc.rowKey)}
-                          className="h-4 w-4 cursor-pointer accent-[#13538A] disabled:opacity-40"
+                          className="h-3.5 w-3.5 cursor-pointer accent-[#4C78F5] disabled:opacity-40"
                           aria-label={`Select ${doc.documentName}`}
                         />
                       </td>
 
-                      <td className="px-4 py-3.5 align-middle">
-                        <div className="flex min-w-0 items-center gap-3">
-                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#13538A]/10 text-[#13538A]">
-                            <FileText size={16} />
+                      <td className="px-3 py-2.5 align-middle">
+                        <div className="flex min-w-0 items-center gap-2.5">
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-[#4C78F5]/10 text-[#4C78F5]">
+                            <FileText size={14} />
                           </div>
                           <div className="min-w-0">
                             <p
-                              className="truncate font-semibold text-slate-800 dark:text-white"
+                              className="truncate text-[13px] font-semibold text-slate-900 dark:text-white"
                               title={doc.documentName}
                             >
                               {doc.documentName}
                             </p>
-                            {doc.isRequired && (
-                              <span className="mt-0.5 inline-flex rounded-md bg-rose-50 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-rose-600 dark:bg-rose-950/30 dark:text-rose-400">
+                            {doc.isRequired ? (
+                              <span className="mt-0.5 inline-flex rounded-full bg-rose-50 px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide text-rose-600 dark:bg-rose-950/30 dark:text-rose-400">
                                 Required
+                              </span>
+                            ) : (
+                              <span className="mt-0.5 block text-[11px] text-slate-400">
+                                Optional
                               </span>
                             )}
                           </div>
                         </div>
                       </td>
 
-                      <td className="px-4 py-3.5 align-middle">
+                      <td className="px-3 py-2.5 align-middle">
                         <span
-                          className={`inline-flex max-w-full truncate rounded-md px-2 py-1 text-[11px] font-semibold ${sourceClass}`}
+                          className={`inline-flex max-w-full truncate rounded-full px-2 py-0.5 text-[10px] font-semibold ${sourceClass}`}
                           title={sourceLabel}
                         >
                           {sourceLabel}
                         </span>
                       </td>
 
-                      <td className="px-4 py-3.5 align-middle">
+                      <td className="px-3 py-2.5 align-middle">
                         {requestDisplay?.date ? (
-                          <span className="text-[11px] font-medium leading-snug text-slate-700 dark:text-slate-200">
+                          <span className="text-[11px] font-medium leading-snug text-slate-500 dark:text-slate-300">
                             {requestDisplay.date}
                           </span>
                         ) : (
@@ -3822,7 +3836,7 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
                         )}
                       </td>
 
-                      <td className="px-4 py-3.5 align-middle">
+                      <td className="px-3 py-2.5 align-middle">
                         <DocumentStatusCell
                           doc={doc}
                           viewerPortal={
@@ -3831,7 +3845,7 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
                         />
                       </td>
 
-                      <td className="px-4 py-3.5 align-middle">
+                      <td className="px-3 py-2.5 align-middle">
                         {uploadedCount > 0 ? (
                           <button
                             type="button"
@@ -3841,22 +3855,22 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
                               );
                               setActiveIndex(0);
                             }}
-                            className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-700 transition hover:border-emerald-300 hover:bg-emerald-100 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-300 dark:hover:bg-emerald-950/50"
+                            className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 transition hover:bg-emerald-100 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-300 dark:hover:bg-emerald-950/50"
                           >
                             <span>
                               {uploadedCount} file
                               {uploadedCount === 1 ? "" : "s"}
                             </span>
-                            <Eye size={14} className="opacity-80" />
+                            <Eye size={12} className="opacity-80" />
                           </button>
                         ) : (
-                          <span className="inline-flex items-center rounded-lg bg-slate-100 px-2.5 py-1.5 text-xs font-medium text-slate-400 dark:bg-slate-800 dark:text-slate-500">
+                          <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-400 dark:bg-slate-800 dark:text-slate-500">
                             No files
                           </span>
                         )}
                       </td>
 
-                      <td className="px-4 py-3.5 text-center align-middle">
+                      <td className="px-3 py-2.5 text-center align-middle">
                         <button
                           type="button"
                           ref={(el) => {
@@ -3865,15 +3879,15 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
                           onClick={(event) =>
                             openDocumentActionMenu(doc.rowKey, event)
                           }
-                          className={`rounded-lg border p-2 transition ${
+                          className={`rounded-md border p-1.5 transition ${
                             isOpen
-                              ? "border-[#13538A]/40 bg-[#13538A]/10 text-[#0E426E] dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-300"
-                              : "border-transparent text-slate-500 hover:border-slate-200 hover:bg-white hover:text-slate-700 dark:hover:border-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+                              ? "border-[#4C78F5]/40 bg-[#4C78F5]/10 text-[#4C78F5] dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-300"
+                              : "border-transparent text-slate-500 hover:border-slate-200 hover:bg-slate-50 hover:text-slate-700 dark:hover:border-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
                           }`}
                           aria-label={`Actions for ${doc.documentName}`}
                           aria-expanded={isOpen}
                         >
-                          <MoreVertical size={16} />
+                          <MoreVertical size={15} />
                         </button>
                       </td>
                     </tr>
@@ -3883,8 +3897,8 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
             </table>
           </div>
 
-          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 bg-slate-50/80 px-4 py-3 dark:border-slate-800 dark:bg-slate-900/60">
-            <p className="text-sm text-slate-500 dark:text-slate-400">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 px-4 py-2.5 dark:border-slate-800">
+            <p className="text-[12px] text-slate-500 dark:text-slate-400">
               Page{" "}
               <span className="font-semibold text-slate-700 dark:text-slate-200">
                 {documentsPagination?.page}
@@ -3900,14 +3914,14 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
               )}
             </p>
 
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-1.5">
               <button
                 type="button"
                 disabled={page === 1}
                 onClick={() => setPage((p) => p - 1)}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 dark:disabled:border-slate-800 dark:disabled:bg-slate-800/50 dark:disabled:text-slate-600"
+                className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[12px] font-medium text-slate-700 transition hover:border-[#4C78F5]/30 hover:text-[#4C78F5] disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
               >
-                <ChevronLeft size={16} />
+                <ChevronLeft size={14} />
                 Previous
               </button>
 
@@ -3922,10 +3936,10 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
                         key={pageNum}
                         type="button"
                         onClick={() => setPage(pageNum)}
-                        className={`h-9 min-w-9 rounded-lg px-2.5 text-sm font-semibold transition ${
+                        className={`h-8 min-w-8 rounded-lg px-2 text-[12px] font-semibold transition ${
                           page === pageNum
-                            ? "bg-[#13538A] text-white"
-                            : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+                            ? "bg-[#4C78F5] text-white"
+                            : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
                         }`}
                       >
                         {pageNum}
@@ -3938,20 +3952,20 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
                 type="button"
                 disabled={page === documentsPagination?.totalPages}
                 onClick={() => setPage((p) => p + 1)}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 dark:disabled:border-slate-800 dark:disabled:bg-slate-800/50 dark:disabled:text-slate-600"
+                className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[12px] font-medium text-slate-700 transition hover:border-[#4C78F5]/30 hover:text-[#4C78F5] disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
               >
                 Next
-                <ChevronRight size={16} />
+                <ChevronRight size={14} />
               </button>
             </div>
           </div>
         </div>
       ) : (
-        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-white py-16 text-center dark:border-slate-700 dark:bg-slate-900">
-          <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-[#13538A]/10 text-[#13538A]">
-            <FiFolder size={28} />
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-white py-16 text-center dark:border-slate-700 dark:bg-slate-950">
+          <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-[#4C78F5]/10 text-[#4C78F5]">
+            <FiFolder size={24} />
           </div>
-          <h3 className="text-base font-semibold text-slate-800 dark:text-slate-200">
+          <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
             No documents found
           </h3>
           <p className="mt-1.5 max-w-sm text-sm text-slate-500 dark:text-slate-400">
@@ -3975,11 +3989,11 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
               left: actionMenuPos.left,
               zIndex: 9999,
             }}
-            className="w-52 overflow-hidden rounded-lg border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900"
+            className="w-48 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-none dark:border-slate-700 dark:bg-slate-950"
           >
             {loDocPermissions.upload ? (
-              <label className="flex cursor-pointer items-center gap-2 px-4 py-2.5 text-sm text-amber-700 transition hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950/20">
-                <Upload size={14} />
+              <label className="flex cursor-pointer items-center gap-2 px-3 py-2 text-[13px] font-medium text-slate-700 transition hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800">
+                <Upload size={14} className="text-[#4C78F5]" />
                 Upload Files
                 <input
                   type="file"
@@ -4043,9 +4057,9 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
                     closeDocumentActionMenu();
                   }}
                   disabled={sendingToBroker}
-                  className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-[#13538A] transition hover:bg-[#13538A]/10 disabled:opacity-60"
+                  className="flex w-full items-center gap-2 px-3 py-2 text-[13px] font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-60 dark:text-slate-200 dark:hover:bg-slate-800"
                 >
-                  <FiSend size={14} />
+                  <FiSend size={14} className="text-[#4C78F5]" />
                   Send To PB
                 </button>
               )}
@@ -4055,9 +4069,9 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
                 setActivityDoc(activeActionDoc);
                 closeDocumentActionMenu();
               }}
-              className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-slate-700 transition hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800"
+              className="flex w-full items-center gap-2 border-t border-slate-100 px-3 py-2 text-[13px] font-medium text-slate-700 transition hover:bg-slate-50 dark:border-slate-800 dark:text-slate-200 dark:hover:bg-slate-800"
             >
-              <Activity size={14} />
+              <Activity size={14} className="text-slate-400" />
               Current Activities
             </button>
             {(activeActionDoc.source === "LENDER_ADDED" ||
@@ -4071,9 +4085,9 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
                     ])
                   }
                   disabled={forwardingToClient}
-                  className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-[#13538A] transition hover:bg-[#13538A]/10 disabled:opacity-60"
+                  className="flex w-full items-center gap-2 border-t border-slate-100 px-3 py-2 text-[13px] font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-60 dark:border-slate-800 dark:text-slate-200 dark:hover:bg-slate-800"
                 >
-                  <Mail size={14} />
+                  <Mail size={14} className="text-[#4C78F5]" />
                   Send to Client
                 </button>
               )}
@@ -4318,7 +4332,7 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
                           "This action is not available for this application.",
                         icon: "info",
                         confirmButtonText: "OK",
-                        confirmButtonColor: "#13538A",
+                        confirmButtonColor: "#4C78F5",
                       });
                       return;
                     }
@@ -4328,14 +4342,14 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
                     opts?.compact
                       ? `inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
                           isActive
-                            ? "border-[#13538A]/25 bg-[#13538A] text-white"
+                            ? "border-[#4C78F5]/25 bg-[#4C78F5] text-white"
                             : isDisabled
                               ? "cursor-not-allowed border-slate-200 text-slate-300"
                               : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900"
                         }`
                       : `group flex w-full items-center gap-2.5 rounded-lg px-1.5 py-1.5 text-left text-[13px] font-medium transition ${
                           isActive
-                            ? "bg-[#13538A] text-white shadow-sm"
+                            ? "bg-[#4C78F5] text-white shadow-sm"
                             : isDisabled
                               ? "cursor-not-allowed text-slate-300"
                               : "text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
@@ -4351,7 +4365,7 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
                           ? "bg-white/15 text-white"
                           : isDisabled
                             ? "bg-slate-50 text-slate-300 dark:bg-slate-900"
-                            : "bg-slate-100 text-slate-500 group-hover:bg-white group-hover:text-[#13538A] dark:bg-slate-800 dark:text-slate-400 dark:group-hover:bg-slate-700 dark:group-hover:text-white"
+                            : "bg-slate-100 text-slate-500 group-hover:bg-white group-hover:text-[#4C78F5] dark:bg-slate-800 dark:text-slate-400 dark:group-hover:bg-slate-700 dark:group-hover:text-white"
                       }`}
                     >
                       <Icon size={15} strokeWidth={2} />
@@ -4415,13 +4429,13 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
               type="button"
               title={previewConfig.backLabel}
               onClick={() => navigate(previewConfig.pipelineListPath)}
-              className="group flex w-full items-center gap-2.5 rounded-lg border border-[#13538A]/20 bg-[#13538A]/[0.04] px-2 py-2 text-left transition hover:border-[#13538A]/40 hover:bg-[#13538A]/10 dark:border-sky-500/25 dark:bg-sky-500/10 dark:hover:bg-sky-500/15"
+              className="group flex w-full items-center gap-2.5 rounded-lg border border-[#4C78F5]/20 bg-[#4C78F5]/[0.04] px-2 py-2 text-left transition hover:border-[#4C78F5]/40 hover:bg-[#4C78F5]/10 dark:border-sky-500/25 dark:bg-sky-500/10 dark:hover:bg-sky-500/15"
             >
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-white text-[#13538A] shadow-sm dark:bg-slate-900 dark:text-sky-300">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-white text-[#4C78F5] shadow-none dark:bg-slate-900 dark:text-sky-300">
                 <ArrowLeft size={16} strokeWidth={2.25} />
               </span>
               <span className="min-w-0">
-                <span className="block truncate text-[13px] font-semibold text-[#13538A] dark:text-sky-300">
+                <span className="block truncate text-[13px] font-semibold text-[#4C78F5] dark:text-sky-300">
                   Back
                 </span>
                 <span className="block truncate text-[11px] font-medium text-slate-500 dark:text-slate-400">
@@ -4439,7 +4453,7 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
             <button
               type="button"
               onClick={() => navigate(previewConfig.pipelineListPath)}
-              className="inline-flex min-w-0 items-center gap-2 rounded-lg border border-[#13538A]/25 bg-white px-3 py-1.5 text-sm font-semibold text-[#13538A] shadow-sm transition hover:border-[#13538A]/50 hover:bg-[#13538A]/5 dark:border-sky-500/30 dark:bg-slate-900 dark:text-sky-300 dark:hover:bg-sky-500/10"
+              className="inline-flex min-w-0 items-center gap-2 rounded-lg border border-[#4C78F5]/25 bg-white px-3 py-1.5 text-sm font-semibold text-[#4C78F5] shadow-none transition hover:border-[#4C78F5]/50 hover:bg-[#4C78F5]/5 dark:border-sky-500/30 dark:bg-slate-900 dark:text-sky-300 dark:hover:bg-sky-500/10"
             >
               <ArrowLeft size={16} className="shrink-0" />
               <span className="truncate">{previewConfig.backLabel}</span>
@@ -4457,14 +4471,14 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
           </div>
 
           <div
-            className={`min-h-0 flex-1 ${
+            className={`min-h-0 flex-1 custom-scrollbar ${
               isChatTab ? "flex flex-col overflow-hidden" : "overflow-y-auto"
             }`}
           >
             <div
-              className={`mx-auto w-full max-w-[1400px] space-y-5 p-4 md:p-6 lg:px-8 ${
+              className={`mx-auto w-full max-w-[1400px] space-y-3 px-2 py-3 sm:px-3 ${
                 isChatTab
-                  ? "flex min-h-0 flex-1 flex-col overflow-hidden lg:pb-4"
+                  ? "flex min-h-0 flex-1 flex-col overflow-hidden lg:pb-3"
                   : ""
               }`}
             >
@@ -4524,63 +4538,87 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
                       ]
                     : [];
 
+                const isDetailsTab = activeTab === "view-details";
+
                 return (
-                  <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-950">
-                    <div className="flex flex-col gap-4 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
-                      <div className="flex min-w-0 items-center gap-3.5">
-                        <div
-                          aria-hidden
-                          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#13538A] text-sm font-semibold tracking-wide text-white"
-                        >
-                          {borrowerInitials(displayName)}
-                        </div>
-                        <div className="min-w-0">
-                          <h1 className="truncate text-xl font-semibold tracking-tight text-slate-900 dark:text-white">
-                            {displayName}
-                          </h1>
-                          <p className="mt-0.5 truncate text-sm text-slate-500 dark:text-slate-400">
-                            {displayProduct}
-                          </p>
-                          <div className="mt-2 flex flex-wrap items-center gap-2">
-                            {applicationNumber ? (
-                              <span className="rounded-md bg-slate-100 px-2 py-0.5 font-mono text-[11px] font-medium tracking-tight text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                                {applicationNumber}
-                              </span>
-                            ) : null}
-                            <span
-                              className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${getStatusChip(
-                                displayStatus,
-                              )}`}
+                  <div className="space-y-3">
+                    <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-none dark:border-slate-800 dark:bg-slate-950">
+                      <div
+                        className={`flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between ${
+                          isDetailsTab ? "px-4 py-3" : "px-3 py-2.5"
+                        }`}
+                      >
+                        <div className="flex min-w-0 items-center gap-3">
+                          <div
+                            aria-hidden
+                            className={`flex shrink-0 items-center justify-center rounded-lg bg-[#4C78F5] font-semibold tracking-wide text-white ${
+                              isDetailsTab
+                                ? "h-11 w-11 text-sm"
+                                : "h-9 w-9 text-xs"
+                            }`}
+                          >
+                            {borrowerInitials(displayName)}
+                          </div>
+                          <div className="min-w-0">
+                            <h1
+                              className={`truncate font-semibold tracking-tight text-slate-900 dark:text-white ${
+                                isDetailsTab ? "text-xl" : "text-[15px]"
+                              }`}
                             >
-                              {formatSubmissionStatus(displayStatus)}
-                            </span>
+                              {displayName}
+                            </h1>
+                            <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                              <p className="truncate text-xs text-slate-500 dark:text-slate-400">
+                                {displayProduct}
+                              </p>
+                              {applicationNumber ? (
+                                <span className="rounded-md bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] font-medium tracking-tight text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                                  {applicationNumber}
+                                </span>
+                              ) : null}
+                              <span
+                                className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${getStatusChip(
+                                  displayStatus,
+                                )}`}
+                              >
+                                {formatSubmissionStatus(displayStatus)}
+                              </span>
+                            </div>
                           </div>
                         </div>
-                      </div>
 
-                      {canEditApplication ? (
-                        <button
-                          type="button"
-                          onClick={() => setActiveTab("update-application")}
-                          className="inline-flex w-full shrink-0 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm font-semibold text-slate-700 transition hover:border-[#13538A]/40 hover:bg-slate-50 hover:text-[#13538A] sm:w-auto dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800 dark:hover:text-white"
-                        >
-                          <Pencil size={15} />
-                          Edit Application
-                        </button>
-                      ) : null}
-                    </div>
+                        {canEditApplication ? (
+                          <button
+                            type="button"
+                            onClick={() => setActiveTab("update-application")}
+                            className={`inline-flex w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-[#4C78F5] text-sm font-semibold text-white transition hover:bg-[#3B66E0] sm:w-auto ${
+                              isDetailsTab ? "px-4 py-2.5" : "px-3 py-2 text-[12px]"
+                            }`}
+                          >
+                            <Pencil size={14} />
+                            Edit Application
+                          </button>
+                        ) : null}
+                      </div>
+                    </section>
 
                     {!loading && metrics.length ? (
-                      <div className="border-t border-white/10 bg-[#13538A] px-4 py-4 text-white sm:px-5">
-                        <div className="grid grid-cols-2 gap-x-4 gap-y-4 sm:grid-cols-4 xl:grid-cols-7">
+                      <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-none dark:border-slate-800 dark:bg-slate-950">
+                        <div className="grid grid-cols-2 divide-x divide-y divide-slate-100 sm:grid-cols-4 xl:grid-cols-7 xl:divide-y-0 dark:divide-slate-800">
                           {metrics.map((item) => (
-                            <div key={item.label} className="min-w-0">
-                              <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-white/70">
+                            <div
+                              key={item.label}
+                              className="min-w-0 px-3 py-3 sm:px-4"
+                              title={`${item.label}: ${item.value}`}
+                            >
+                              <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#4C78F5]">
                                 {item.label}
                               </p>
                               <p
-                                className={`mt-1 truncate text-lg font-semibold tracking-tight ${
-                                  item.value === "—" ? "text-white/35" : ""
+                                className={`mt-1 truncate text-base font-bold tabular-nums tracking-tight ${
+                                  item.value === "—"
+                                    ? "text-slate-300 dark:text-slate-600"
+                                    : "text-slate-900 dark:text-white"
                                 }`}
                               >
                                 {item.value}
@@ -4588,9 +4626,9 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
                             </div>
                           ))}
                         </div>
-                      </div>
+                      </section>
                     ) : null}
-                  </section>
+                  </div>
                 );
               })()}
 
@@ -4636,7 +4674,7 @@ const LoanPreview = ({ portal = "broker" }: LoanPreviewProps) => {
             className="flex h-[90vh] max-h-[90vh] w-full max-w-6xl min-h-0 flex-col overflow-hidden rounded-3xl bg-white shadow-2xl dark:bg-slate-900"
           >
             {/* HEADER */}
-            <div className="flex shrink-0 items-center justify-between bg-[#13538A] px-6 py-4 text-white">
+            <div className="flex shrink-0 items-center justify-between bg-[#4C78F5] px-6 py-4 text-white">
               {/* LEFT */}
               <div>
                 <h2 className="text-sm font-semibold truncate max-w-md">

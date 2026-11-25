@@ -40,7 +40,7 @@ import SelfBankingPanel from "../../../components/banking/SelfBankingPanel";
 const API_BASE = CO_BROKER_API_BASE;
 
 const inputClass =
-  "w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-gray-900 outline-none transition focus:border-[#13538A]/40 focus:bg-white focus:ring-2 focus:ring-[#13538A]/10 dark:border-gray-700 dark:bg-gray-800 dark:text-white";
+  "w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-gray-900 outline-none transition focus:border-[#4C78F5]/40 focus:bg-white focus:ring-2 focus:ring-[#4C78F5]/10 dark:border-gray-700 dark:bg-gray-800 dark:text-white";
 
 const displayClass =
   "rounded-xl border border-gray-100 bg-gray-50 px-4 py-2.5 text-sm text-gray-800 dark:border-gray-700 dark:bg-gray-800/80 dark:text-gray-200";
@@ -383,7 +383,7 @@ export default function UserProfileCard() {
       />
 
       <div className="mx-auto max-w-5xl space-y-5">
-        <section className="overflow-hidden rounded-2xl border border-[#13538A]/15 bg-gradient-to-br from-[#13538A] via-[#1a6aad] to-[#2C92D5] p-6 text-white shadow-sm sm:p-8">
+        <section className="overflow-hidden rounded-2xl border border-[#4C78F5]/15 bg-gradient-to-br from-[#4C78F5] via-[#1a6aad] to-[#4C78F5] p-6 text-white shadow-sm sm:p-8">
           <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
             <div className="flex flex-col gap-5 sm:flex-row sm:items-end">
               <div className="group relative">
@@ -483,7 +483,7 @@ export default function UserProfileCard() {
               className={`inline-flex items-center gap-2 self-start rounded-xl px-4 py-2.5 text-sm font-medium transition ${
                 editing
                   ? "border border-white/25 bg-white/10 text-white hover:bg-white/20"
-                  : "bg-white text-[#13538A] hover:bg-white/90"
+                  : "bg-white text-[#4C78F5] hover:bg-white/90"
               }`}
             >
               {editing ? (
@@ -629,7 +629,7 @@ export default function UserProfileCard() {
               <div className="flex flex-wrap items-start justify-between gap-4 border-b border-gray-100 px-5 py-4 dark:border-gray-800">
                 <div>
                   <h2 className="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white">
-                    <LockKeyhole size={16} className="text-[#13538A]" />
+                    <LockKeyhole size={16} className="text-[#4C78F5]" />
                     Security
                   </h2>
                   <p className="mt-1 text-xs text-gray-500">
@@ -643,7 +643,7 @@ export default function UserProfileCard() {
                     setShowPasswordSection((prev) => !prev);
                     resetPasswordForm();
                   }}
-                  className="rounded-xl bg-[#13538A]/10 px-4 py-2 text-sm font-medium text-[#13538A] transition hover:bg-[#13538A]/15"
+                  className="rounded-xl bg-[#4C78F5]/10 px-4 py-2 text-sm font-medium text-[#4C78F5] transition hover:bg-[#4C78F5]/15"
                 >
                   {showPasswordSection ? "Cancel" : "Change Password"}
                 </button>
@@ -680,7 +680,7 @@ export default function UserProfileCard() {
                       type="button"
                       onClick={handleChangePassword}
                       disabled={changingPassword}
-                      className="inline-flex items-center gap-2 rounded-xl bg-[#13538A] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#1a6aad] disabled:opacity-50"
+                      className="inline-flex items-center gap-2 rounded-xl bg-[#4C78F5] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#1a6aad] disabled:opacity-50"
                     >
                       {changingPassword ? "Updating..." : "Update Password"}
                     </button>
@@ -702,7 +702,7 @@ export default function UserProfileCard() {
                   type="button"
                   onClick={handleSave}
                   disabled={saving || !isChanged}
-                  className="inline-flex items-center gap-2 rounded-xl bg-[#13538A] px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-[#1a6aad] disabled:opacity-50"
+                  className="inline-flex items-center gap-2 rounded-xl bg-[#4C78F5] px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-[#1a6aad] disabled:opacity-50"
                 >
                   {saving ? (
                     "Saving..."
@@ -738,7 +738,7 @@ export default function UserProfileCard() {
 
             <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
               <div className="mb-3 flex items-center gap-2">
-                <Users size={16} className="text-[#13538A]" />
+                <Users size={16} className="text-[#4C78F5]" />
                 <h3 className="font-semibold text-gray-900 dark:text-white">
                   Assigned Loan Officers
                 </h3>
@@ -760,7 +760,7 @@ export default function UserProfileCard() {
                         key={officer.id}
                         className="flex items-start gap-3 rounded-xl border border-gray-100 bg-gray-50 px-3 py-2.5 dark:border-gray-700 dark:bg-gray-800/80"
                       >
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#13538A]/10 text-xs font-bold text-[#13538A]">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#4C78F5]/10 text-xs font-bold text-[#4C78F5]">
                           {name.charAt(0)}
                         </div>
                         <div className="min-w-0">
@@ -813,7 +813,13 @@ function ProfileField({
           className={inputClass}
         />
       ) : (
-        <div className={displayClass}>{value || "—"}</div>
+        <div className={displayClass}>
+          {value?.trim() ? (
+            value
+          ) : (
+            <span className="font-normal text-slate-400">Not provided</span>
+          )}
+        </div>
       )}
     </div>
   );
@@ -830,13 +836,17 @@ function ReadOnlyBlock({
 }) {
   return (
     <div className="flex items-center gap-3 rounded-xl border border-gray-100 bg-gray-50/80 px-4 py-3 dark:border-gray-800 dark:bg-gray-800/40">
-      <div className="rounded-lg bg-[#13538A]/10 p-2 text-[#13538A] dark:bg-[#13538A]/20 dark:text-sky-300">
+      <div className="rounded-lg bg-[#4C78F5]/10 p-2 text-[#4C78F5] dark:bg-[#4C78F5]/20 dark:text-sky-300">
         {icon}
       </div>
       <div className="min-w-0">
         <p className="text-xs text-gray-400 dark:text-gray-500">{label}</p>
         <p className="truncate text-sm font-medium text-gray-800 dark:text-gray-200">
-          {value || "—"}
+          {value?.trim() ? (
+            value
+          ) : (
+            <span className="font-normal text-slate-400">Not provided</span>
+          )}
         </p>
       </div>
     </div>

@@ -175,61 +175,68 @@ module.exports = async function listBorrowersRoute(fastify) {
             orderBy = { createdAt: sortOrder };
         }
 
-        const [applications, total] = await prisma.$transaction([
-          prisma.loanApplication.findMany({
-            where,
-            orderBy,
-            skip,
-            take: limit,
-            select: {
-              id: true,
-              applicationNumber: true,
-              status: true,
-              createdAt: true,
-              client: {
-                select: {
-                  id: true,
-                  legalName: true,
-                  contacts: {
-                    orderBy: [{ isPrimary: "desc" }, { id: "asc" }],
-                    select: {
-                      firstName: true,
-                      lastName: true,
-                      email: true,
-                      phone: true,
-                      isPrimary: true,
+        const [applications, total, portalReadyCount, pendingLinkCount] =
+          await prisma.$transaction([
+            prisma.loanApplication.findMany({
+              where,
+              orderBy,
+              skip,
+              take: limit,
+              select: {
+                id: true,
+                applicationNumber: true,
+                status: true,
+                createdAt: true,
+                client: {
+                  select: {
+                    id: true,
+                    legalName: true,
+                    contacts: {
+                      orderBy: [{ isPrimary: "desc" }, { id: "asc" }],
+                      select: {
+                        firstName: true,
+                        lastName: true,
+                        email: true,
+                        phone: true,
+                        isPrimary: true,
+                      },
+                    },
+                    portalUsers: {
+                      where: { isDeleted: { not: true }, isActive: true },
+                      orderBy: [{ lastLoginAt: "desc" }, { createdAt: "desc" }],
+                      take: 1,
+                      select: { email: true },
                     },
                   },
-                  portalUsers: {
-                    where: { isDeleted: { not: true }, isActive: true },
-                    orderBy: [{ lastLoginAt: "desc" }, { createdAt: "desc" }],
-                    take: 1,
-                    select: { email: true },
-                  },
                 },
-              },
-              submissions: {
-                where: { status: { not: "SUPERSEDED" } },
-                orderBy: { createdAt: "desc" },
-                select: {
-                  id: true,
-                  status: true,
-                  createdAt: true,
-                  fields: {
-                    select: {
-                      fieldKey: true,
-                      value: true,
-                      builderField: {
-                        select: { fieldKey: true },
+                submissions: {
+                  where: { status: { not: "SUPERSEDED" } },
+                  orderBy: { createdAt: "desc" },
+                  select: {
+                    id: true,
+                    status: true,
+                    createdAt: true,
+                    fields: {
+                      select: {
+                        fieldKey: true,
+                        value: true,
+                        builderField: {
+                          select: { fieldKey: true },
+                        },
                       },
                     },
                   },
                 },
               },
-            },
-          }),
-          prisma.loanApplication.count({ where }),
-        ]);
+            }),
+            prisma.loanApplication.count({ where }),
+            prisma.loanApplication.count({
+              where: { ...where, clientId: { not: null } },
+            }),
+            prisma.loanApplication.count({
+              where: { ...where, clientId: null },
+            }),
+          ]);
 
         const data = applications.map((app) => {
           const submissions = app.submissions || [];
@@ -253,6 +260,11 @@ module.exports = async function listBorrowersRoute(fastify) {
         return reply.send({
           success: true,
           data,
+          stats: {
+            total,
+            portalReady: portalReadyCount,
+            pendingLink: pendingLinkCount,
+          },
           pagination: {
             total,
             page,

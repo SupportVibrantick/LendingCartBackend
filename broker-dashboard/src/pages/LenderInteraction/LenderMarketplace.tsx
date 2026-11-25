@@ -65,9 +65,11 @@ type MainTab = "discover" | "network" | "submissions";
 type NetworkFilter = "connected" | "sent" | "received";
 
 const PRIMARY_BTN =
-  "inline-flex items-center justify-center gap-2 rounded-lg bg-[#13538A] text-sm font-semibold text-white transition hover:bg-[#0E426E] disabled:opacity-60";
+  "inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-[#4C78F5] px-4 text-sm font-semibold text-white transition hover:bg-[#3B66E0] disabled:opacity-60";
+const SECONDARY_BTN =
+  "inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-border bg-white px-4 text-sm font-semibold text-text-secondary transition hover:border-[#4C78F5]/40 hover:bg-surface hover:text-[#4C78F5] disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950";
 const FOCUS =
-  "focus:outline-none focus:border-[#13538A] focus:ring-2 focus:ring-[#13538A]/20";
+  "outline-none focus:border-[#4C78F5]/50 focus:ring-2 focus:ring-[#4C78F5]/15";
 const DISCOVER_DEBOUNCE_MS = 400;
 
 type DiscoverFilters = {
@@ -502,36 +504,33 @@ export default function LenderMarketplace() {
   }
 
   return (
-    <div className="space-y-5">
-      <div className="space-y-5">
-        {/* Header */}
-        <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
-          <div>
-            <h1 className="text-xl font-semibold tracking-tight text-slate-900 dark:text-white sm:text-2xl">
-              Lender Marketplace
-            </h1>
-            <p className="mt-0.5 max-w-xl text-sm text-slate-500 dark:text-slate-400">
+    <div className="w-full min-w-0 space-y-4 pb-4 text-text-primary dark:text-slate-100">
+      <div className="space-y-4">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div className="min-w-0">
+            <h1 className="ds-page-title">Lender Marketplace</h1>
+            <p className="ds-page-subtitle max-w-xl">
               Discover verified lenders, manage your connections, and grow your
               funding network — all in one place.
             </p>
           </div>
 
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap gap-2.5">
             <StatPill
-              icon={<Users size={16} />}
+              icon={<Users size={14} />}
               label="Connected"
               value={stats.connected}
               color="emerald"
             />
             <StatPill
-              icon={<Clock size={16} />}
+              icon={<Clock size={14} />}
               label="Pending"
               value={stats.pending}
               color="amber"
             />
             {stats.incoming > 0 && (
               <StatPill
-                icon={<Send size={16} />}
+                icon={<Send size={14} />}
                 label="Requests"
                 value={stats.incoming}
                 color="blue"
@@ -541,8 +540,7 @@ export default function LenderMarketplace() {
           </div>
         </div>
 
-        {/* Main tabs */}
-        <div className="inline-flex w-full gap-1 rounded-lg bg-slate-100 p-1 dark:bg-slate-800 sm:w-fit">
+        <div className="inline-flex w-full gap-1 rounded-xl border border-border bg-white p-1 dark:border-slate-700 dark:bg-slate-950 sm:w-auto">
           {(
             [
               { key: "discover" as const, label: "Discover", icon: Search },
@@ -556,163 +554,172 @@ export default function LenderMarketplace() {
           ).map(({ key, label, icon: Icon }) => (
             <button
               key={key}
+              type="button"
               onClick={() => setMainTab(key)}
-              className={`inline-flex flex-1 items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-semibold transition sm:flex-none ${
+              className={`inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-semibold transition sm:flex-none ${
                 mainTab === key
-                  ? "bg-[#13538A] text-white shadow-sm"
-                  : "text-slate-500 hover:bg-white hover:text-slate-800 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-white"
+                  ? "bg-[#4C78F5] text-white"
+                  : "text-text-secondary hover:bg-surface hover:text-[#4C78F5] dark:text-slate-300 dark:hover:bg-slate-900"
               }`}
             >
-              <Icon size={16} />
+              <Icon size={14} />
               {label}
-              {key === "network" && stats.incoming > 0 && mainTab !== "network" && (
-                <span className="ml-1 px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-red-500 text-white">
-                  {stats.incoming}
-                </span>
-              )}
+              {key === "network" &&
+                stats.incoming > 0 &&
+                mainTab !== "network" && (
+                  <span className="ml-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white">
+                    {stats.incoming}
+                  </span>
+                )}
             </button>
           ))}
         </div>
 
-        {/* Discover tab */}
         {mainTab === "discover" && (
-          <div className="space-y-5">
-            <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:flex-row sm:items-center">
-              <div className="relative flex-1">
-                <Search
-                  size={16}
-                  className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-                />
-                <input
-                  value={discoverQ}
-                  onChange={(e) => setDiscoverQ(e.target.value)}
-                  placeholder="Search lenders by name, state, or product..."
-                  className={`w-full rounded-lg border border-slate-200 bg-white py-2.5 pl-9 pr-4 text-sm text-slate-800 placeholder:text-slate-400 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 ${FOCUS}`}
-                />
-              </div>
-              <button
-                type="button"
-                onClick={openFiltersDrawer}
-                className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-[#13538A]/30 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
-              >
-                <SlidersHorizontal size={16} />
-                Filters
-                {activeFilterCount > 0 && (
-                  <span className="inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-[#13538A] px-1.5 text-[10px] font-bold text-white">
-                    {activeFilterCount}
-                  </span>
-                )}
-              </button>
-              {canAddOwnLender && (
+          <div className="space-y-4">
+            <div className="overflow-hidden rounded-2xl border border-border bg-white dark:border-slate-700 dark:bg-slate-900">
+              <div className="flex flex-col gap-2.5 border-b border-border px-4 py-3.5 dark:border-slate-800 sm:flex-row sm:items-center sm:px-5">
+                <div className="group relative min-w-0 flex-1">
+                  <Search
+                    size={16}
+                    className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-text-secondary transition-colors group-focus-within:text-[#4C78F5]"
+                  />
+                  <input
+                    value={discoverQ}
+                    onChange={(e) => setDiscoverQ(e.target.value)}
+                    placeholder="Search lenders by name, state, or product..."
+                    className={`h-10 w-full rounded-xl border border-border bg-white py-2 pr-4 pl-10 text-sm text-text-primary placeholder:text-text-secondary/70 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 ${FOCUS}`}
+                  />
+                </div>
                 <button
                   type="button"
-                  onClick={() => setAddLenderOpen(true)}
-                  className={`${PRIMARY_BTN} shrink-0 px-4 py-2.5`}
+                  onClick={openFiltersDrawer}
+                  className={SECONDARY_BTN}
                 >
-                  <Plus size={16} />
-                  Add Your Own Lender
+                  <SlidersHorizontal size={16} />
+                  Filters
+                  {activeFilterCount > 0 && (
+                    <span className="inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-[#4C78F5] px-1.5 text-[10px] font-bold text-white">
+                      {activeFilterCount}
+                    </span>
+                  )}
                 </button>
-              )}
-              {discoverLoading && (
-                <div className="flex items-center gap-2 text-sm text-slate-500 px-2 shrink-0">
-                  <RefreshCcw size={16} className="animate-spin" />
-                  Searching...
-                </div>
-              )}
-            </div>
-
-            {!discoverLoading && (
-              <div className="flex flex-wrap items-center gap-2">
-                <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                  Showing{" "}
-                  <span className="font-bold text-slate-900 dark:text-white">
-                    {discoverTotal}
-                  </span>{" "}
-                  Verified Lending Partner{discoverTotal !== 1 ? "s" : ""}
-                  {debouncedDiscoverQ.trim()
-                    ? ` matching "${debouncedDiscoverQ.trim()}"`
-                    : ""}
-                </p>
-                {activeFilterCount > 0 && (
+                {canAddOwnLender && (
                   <button
                     type="button"
-                    onClick={clearDiscoverFilters}
-                    className="text-xs font-semibold text-[#13538A] hover:text-[#0E426E] dark:text-sky-300"
+                    onClick={() => setAddLenderOpen(true)}
+                    className={`${PRIMARY_BTN} shrink-0`}
                   >
-                    Clear filters
+                    <Plus size={16} />
+                    Add Your Own Lender
                   </button>
                 )}
+                {discoverLoading && (
+                  <div className="flex shrink-0 items-center gap-2 px-1 text-sm text-text-secondary">
+                    <RefreshCcw size={16} className="animate-spin" />
+                    Searching…
+                  </div>
+                )}
               </div>
-            )}
 
-            {discoverLoading ? (
-              <LenderCardSkeletonGrid />
-            ) : discoverLenders.length === 0 ? (
-              <EmptyState
-                icon={
-                  debouncedDiscoverQ.trim() ? (
-                    <SearchX size={40} className="text-orange-500" />
-                  ) : (
-                    <Building2 size={40} className="text-[#13538A]" />
-                  )
-                }
-                title={
-                  debouncedDiscoverQ.trim() || activeFilterCount > 0
-                    ? "No lenders found"
-                    : "No lenders available yet"
-                }
-                subtitle={
-                  debouncedDiscoverQ.trim() || activeFilterCount > 0
-                    ? "Try adjusting your search or filters."
-                    : "Verified lenders will appear here once they complete their profiles."
-                }
-                action={
-                  debouncedDiscoverQ.trim() || activeFilterCount > 0 ? (
-                    <div className="flex flex-wrap justify-center gap-3">
-                      {debouncedDiscoverQ.trim() && (
-                        <button
-                          onClick={() => setDiscoverQ("")}
-                          className="text-sm font-semibold text-[#13538A] hover:underline"
-                        >
-                          Clear search
-                        </button>
-                      )}
-                      {activeFilterCount > 0 && (
-                        <button
-                          onClick={clearDiscoverFilters}
-                          className="text-sm font-semibold text-[#13538A] hover:underline"
-                        >
-                          Clear filters
-                        </button>
-                      )}
+              <div className="space-y-4 px-4 py-4 sm:px-5">
+                {!discoverLoading && (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-[13px] text-text-secondary">
+                      Showing{" "}
+                      <span className="font-semibold text-text-primary">
+                        {discoverTotal}
+                      </span>{" "}
+                      verified lending partner
+                      {discoverTotal !== 1 ? "s" : ""}
+                      {debouncedDiscoverQ.trim()
+                        ? ` matching "${debouncedDiscoverQ.trim()}"`
+                        : ""}
+                    </p>
+                    {activeFilterCount > 0 && (
+                      <button
+                        type="button"
+                        onClick={clearDiscoverFilters}
+                        className="text-xs font-semibold text-[#4C78F5] hover:underline"
+                      >
+                        Clear filters
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {discoverLoading ? (
+                  <LenderCardSkeletonGrid />
+                ) : discoverLenders.length === 0 ? (
+                  <EmptyState
+                    icon={
+                      debouncedDiscoverQ.trim() ? (
+                        <SearchX size={28} className="text-amber-500" />
+                      ) : (
+                        <Building2 size={28} className="text-[#4C78F5]" />
+                      )
+                    }
+                    title={
+                      debouncedDiscoverQ.trim() || activeFilterCount > 0
+                        ? "No lenders found"
+                        : "No lenders available yet"
+                    }
+                    subtitle={
+                      debouncedDiscoverQ.trim() || activeFilterCount > 0
+                        ? "Try adjusting your search or filters."
+                        : "Verified lenders will appear here once they complete their profiles."
+                    }
+                    action={
+                      debouncedDiscoverQ.trim() || activeFilterCount > 0 ? (
+                        <div className="flex flex-wrap justify-center gap-3">
+                          {debouncedDiscoverQ.trim() && (
+                            <button
+                              type="button"
+                              onClick={() => setDiscoverQ("")}
+                              className="text-xs font-semibold text-[#4C78F5] hover:underline"
+                            >
+                              Clear search
+                            </button>
+                          )}
+                          {activeFilterCount > 0 && (
+                            <button
+                              type="button"
+                              onClick={clearDiscoverFilters}
+                              className="text-xs font-semibold text-[#4C78F5] hover:underline"
+                            >
+                              Clear filters
+                            </button>
+                          )}
+                        </div>
+                      ) : undefined
+                    }
+                  />
+                ) : (
+                  <>
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+                      {discoverLenders.map((l) => (
+                        <DiscoverLenderCard
+                          key={l.id}
+                          lender={l}
+                          connecting={connectingId === l.id}
+                          onConnect={() => handleConnect(l.id)}
+                          onViewProfile={() => setProfileLender(l)}
+                          showConnect={canConnectLenders}
+                        />
+                      ))}
                     </div>
-                  ) : undefined
-                }
-              />
-            ) : (
-              <>
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-                  {discoverLenders.map((l) => (
-                    <DiscoverLenderCard
-                      key={l.id}
-                      lender={l}
-                      connecting={connectingId === l.id}
-                      onConnect={() => handleConnect(l.id)}
-                      onViewProfile={() => setProfileLender(l)}
-                      showConnect={canConnectLenders}
-                    />
-                  ))}
-                </div>
 
-                <DiscoverPagination
-                  page={discoverPage}
-                  totalPages={discoverPages}
-                  total={discoverTotal}
-                  limit={discoverLimit}
-                  onPageChange={setDiscoverPage}
-                />
-              </>
-            )}
+                    <DiscoverPagination
+                      page={discoverPage}
+                      totalPages={discoverPages}
+                      total={discoverTotal}
+                      limit={discoverLimit}
+                      onPageChange={setDiscoverPage}
+                    />
+                  </>
+                )}
+              </div>
+            </div>
           </div>
         )}
 
@@ -733,8 +740,8 @@ export default function LenderMarketplace() {
                     onClick={() => setNetworkFilter(key)}
                     className={`inline-flex items-center gap-2 rounded-lg px-3.5 py-1.5 text-xs font-semibold transition ${
                       networkFilter === key
-                        ? "bg-[#13538A] text-white shadow-sm"
-                        : "border border-slate-200 bg-white text-slate-600 hover:border-[#13538A]/30 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400"
+                        ? "bg-[#4C78F5] text-white"
+                        : "border border-slate-200 bg-white text-slate-600 hover:border-[#4C78F5]/30 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400"
                     }`}
                   >
                     {label}
@@ -778,8 +785,8 @@ export default function LenderMarketplace() {
             </div>
 
             {networkFilter === "connected" && selectedConnectedIds.size > 0 && (
-              <div className="mb-4 flex flex-col gap-3 rounded-xl border border-[#13538A]/25 bg-[#13538A]/8 px-4 py-3 dark:border-[#13538A]/30 dark:bg-[#13538A]/15 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-sm font-medium text-[#0E426E] dark:text-sky-100">
+              <div className="mb-4 flex flex-col gap-3 rounded-xl border border-[#4C78F5]/25 bg-[#4C78F5]/8 px-4 py-3 dark:border-[#4C78F5]/30 dark:bg-[#4C78F5]/15 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-sm font-medium text-[#3B66E0] dark:text-sky-100">
                   {selectedConnectedIds.size} lender
                   {selectedConnectedIds.size === 1 ? "" : "s"} selected
                 </p>
@@ -811,7 +818,7 @@ export default function LenderMarketplace() {
               </div>
             )}
 
-            <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden shadow-sm">
+            <div className="overflow-hidden rounded-2xl border border-border bg-white dark:border-slate-700 dark:bg-slate-900">
               {networkLoading ? (
                 <TableSkeleton rows={5} cols={4} />
               ) : networkFilter === "connected" ? (
@@ -831,7 +838,7 @@ export default function LenderMarketplace() {
                         type="checkbox"
                         checked={allFilteredConnectedSelected}
                         onChange={toggleSelectAllConnected}
-                        className="h-4 w-4 rounded border-slate-300 text-[#13538A] focus:ring-[#13538A]"
+                        className="h-4 w-4 rounded border-slate-300 text-[#4C78F5] focus:ring-[#4C78F5]"
                         aria-label="Select all lenders"
                       />
                     ) : undefined
@@ -851,7 +858,7 @@ export default function LenderMarketplace() {
                               type="checkbox"
                               checked={selectedConnectedIds.has(l.lenderId)}
                               onChange={() => toggleConnectedSelection(l.lenderId)}
-                              className="h-4 w-4 rounded border-slate-300 text-[#13538A] focus:ring-[#13538A]"
+                              className="h-4 w-4 rounded border-slate-300 text-[#4C78F5] focus:ring-[#4C78F5]"
                               aria-label={`Select ${l.lenderName}`}
                             />,
                           ]
@@ -891,7 +898,7 @@ export default function LenderMarketplace() {
                           <button
                             type="button"
                             onClick={() => openSendApplication([l])}
-                            className="inline-flex items-center gap-1.5 rounded-lg bg-[#13538A] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#0E426E]"
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-[#4C78F5] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#3B66E0]"
                           >
                             <Send size={12} />
                             Send Application
@@ -980,46 +987,49 @@ export default function LenderMarketplace() {
         )}
 
         {mainTab === "submissions" && (
-          <div className="space-y-5">
-            <div className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
-              <div className="relative flex-1">
+          <div className="space-y-4">
+            <div className="flex flex-col gap-2.5 rounded-2xl border border-border bg-white p-3 dark:border-slate-700 dark:bg-slate-900 sm:flex-row sm:items-center">
+              <div className="group relative flex-1">
                 <Search
-                  size={18}
-                  className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
+                  size={16}
+                  className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-text-secondary transition-colors group-focus-within:text-[#4C78F5]"
                 />
                 <input
                   value={submissionsSearch}
                   onChange={(e) => setSubmissionsSearch(e.target.value)}
                   placeholder="Search by company, contact, or email..."
-                  className={`w-full rounded-lg border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm text-slate-800 placeholder:text-slate-400 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 ${FOCUS}`}
+                  className={`h-10 w-full rounded-xl border border-border bg-white py-2 pr-4 pl-10 text-sm text-text-primary placeholder:text-text-secondary/70 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 ${FOCUS}`}
                 />
               </div>
               {canAddOwnLender && (
                 <button
                   type="button"
                   onClick={() => setAddLenderOpen(true)}
-                  className={`${PRIMARY_BTN} shrink-0 px-4 py-2.5`}
+                  className={`${PRIMARY_BTN} shrink-0`}
                 >
                   <Plus size={16} />
                   Add Lender
                 </button>
               )}
               <button
+                type="button"
                 onClick={loadSubmissions}
                 disabled={submissionsLoading}
-                className="p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50 shrink-0"
+                className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border bg-white transition hover:bg-surface disabled:opacity-50 dark:border-slate-700 dark:bg-slate-950"
                 title="Refresh"
               >
                 <RefreshCcw
-                  size={18}
+                  size={16}
                   className={
-                    submissionsLoading ? "animate-spin text-slate-400" : "text-slate-500"
+                    submissionsLoading
+                      ? "animate-spin text-text-secondary"
+                      : "text-text-secondary"
                   }
                 />
               </button>
             </div>
 
-            <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden shadow-sm">
+            <div className="overflow-hidden rounded-2xl border border-border bg-white dark:border-slate-700 dark:bg-slate-900">
               {submissionsLoading ? (
                 <TableSkeleton rows={5} cols={5} />
               ) : submissions.length === 0 ? (
@@ -1103,7 +1113,7 @@ export default function LenderMarketplace() {
                                 }
                               }}
                               disabled={connectingId === s.lenderOrgId}
-                              className="inline-flex items-center gap-1.5 rounded-lg bg-[#13538A] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#0E426E] disabled:opacity-50"
+                              className="inline-flex items-center gap-1.5 rounded-lg bg-[#4C78F5] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#3B66E0] disabled:opacity-50"
                             >
                               <Handshake size={12} />
                               Connect
@@ -1204,22 +1214,32 @@ function StatPill({
   color: "emerald" | "amber" | "blue";
   pulse?: boolean;
 }) {
-  const colors = {
-    emerald: "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-500/20",
-    amber: "bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-500/20",
-    blue: "border-[#13538A]/20 bg-[#13538A]/8 text-[#13538A] dark:border-[#13538A]/30 dark:bg-[#13538A]/15 dark:text-sky-300",
+  const iconTone = {
+    emerald: "bg-emerald-50 text-emerald-600",
+    amber: "bg-amber-50 text-amber-600",
+    blue: "bg-[#4C78F5]/10 text-[#4C78F5]",
   };
 
   return (
     <div
-      className={`flex items-center gap-2.5 rounded-xl border px-4 py-2.5 ${colors[color]} ${pulse ? "ring-2 ring-[#13538A]/30" : ""}`}
+      className={`rounded-xl border border-border bg-white px-3.5 py-2.5 dark:border-slate-700 dark:bg-slate-900 ${
+        pulse ? "ring-2 ring-[#4C78F5]/25" : ""
+      }`}
     >
-      {icon}
-      <div>
-        <p className="text-[10px] font-semibold uppercase tracking-wide opacity-70">
-          {label}
-        </p>
-        <p className="text-lg font-bold leading-tight">{value}</p>
+      <div className="flex items-center gap-2.5">
+        <span
+          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${iconTone[color]}`}
+        >
+          {icon}
+        </span>
+        <div className="min-w-0">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-text-secondary">
+            {label}
+          </p>
+          <p className="mt-0.5 text-lg font-bold tabular-nums leading-none text-text-primary dark:text-white">
+            {value}
+          </p>
+        </div>
       </div>
     </div>
   );
@@ -1257,29 +1277,30 @@ function DiscoverLenderCard({
   const fundingTime = formatFundingTime(lender.fundingSpeedDays);
 
   return (
-    <div className="flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition hover:border-[#13538A]/30 hover:shadow-md dark:border-slate-800 dark:bg-slate-900">
-      <div className="p-5 pb-4">
-        <div className="flex items-start gap-4">
+    <div className="flex flex-col overflow-hidden rounded-2xl border border-border bg-white transition hover:border-[#4C78F5]/35 dark:border-slate-700 dark:bg-slate-950">
+      <div className="flex flex-1 flex-col p-4">
+        <div className="flex items-start gap-3">
           <LenderLogo
             brandLogoUrl={lender.brandLogoUrl}
             profileImage={lender.profileImage}
             name={displayName}
             alt={`${displayName} logo`}
-            className="h-12 w-12"
+            className="h-10 w-10"
           />
           <div className="min-w-0 flex-1">
-            <div className="flex items-start justify-between gap-3">
+            <div className="flex items-start justify-between gap-2">
               <div className="min-w-0 flex-1">
-                <h3 className="truncate text-base font-semibold text-slate-900 dark:text-white">
+                <h3 className="truncate text-sm font-semibold text-text-primary dark:text-white">
                   {displayName}
                 </h3>
-                <div className="mt-1.5">
+                <div className="mt-1">
                   <DiscoverStarRating count={lender.isEligible ? 5 : 4} />
                 </div>
               </div>
               {lender.isEligible && (
-                <span className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-500/20">
-                  Eligible ✓
+                <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-200">
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  Eligible
                 </span>
               )}
             </div>
@@ -1287,11 +1308,11 @@ function DiscoverLenderCard({
         </div>
 
         {loanTypes.length > 0 && (
-          <div className="mt-4 flex flex-wrap gap-1.5">
+          <div className="mt-3 flex flex-wrap gap-1.5">
             {loanTypes.map((t) => (
               <span
                 key={t}
-                className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300"
+                className="inline-flex max-w-full truncate rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-medium text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
               >
                 {t}
               </span>
@@ -1299,7 +1320,7 @@ function DiscoverLenderCard({
           </div>
         )}
 
-        <div className="mt-4 flex flex-col gap-3">
+        <div className="mt-3 flex flex-col gap-2">
           <InfoStat
             label="States"
             tooltip={statesSummary.tooltip || undefined}
@@ -1307,7 +1328,7 @@ function DiscoverLenderCard({
             {statesSummary.display}
           </InfoStat>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-2">
             <InfoStat label="Funding Time" tooltip={fundingTime}>
               {fundingTime}
             </InfoStat>
@@ -1317,35 +1338,35 @@ function DiscoverLenderCard({
             />
           </div>
         </div>
-      </div>
 
-      <div
-        className={`mt-auto grid gap-2 p-4 pt-0 ${
-          showConnect ? "grid-cols-2" : "grid-cols-1"
-        }`}
-      >
-        <button
-          type="button"
-          onClick={onViewProfile}
-          className="rounded-lg border border-slate-200 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-[#13538A]/30 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+        <div
+          className={`mt-auto grid gap-2 pt-4 ${
+            showConnect ? "grid-cols-2" : "grid-cols-1"
+          }`}
         >
-          View Profile
-        </button>
-        {showConnect && (
           <button
             type="button"
-            onClick={onConnect}
-            disabled={connecting}
-            className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#13538A] py-2.5 text-sm font-semibold text-white transition hover:bg-[#0E426E] disabled:opacity-60"
+            onClick={onViewProfile}
+            className="inline-flex h-9 items-center justify-center rounded-xl border border-border bg-white text-xs font-semibold text-text-secondary transition hover:border-[#4C78F5]/40 hover:text-[#4C78F5] dark:border-slate-700 dark:bg-slate-950"
           >
-            {connecting ? (
-              <RefreshCcw size={14} className="animate-spin" />
-            ) : (
-              <Handshake size={14} />
-            )}
-            {connecting ? "Connecting..." : "Connect"}
+            View Profile
           </button>
-        )}
+          {showConnect && (
+            <button
+              type="button"
+              onClick={onConnect}
+              disabled={connecting}
+              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl bg-[#4C78F5] text-xs font-semibold text-white transition hover:bg-[#3B66E0] disabled:opacity-60"
+            >
+              {connecting ? (
+                <RefreshCcw size={14} className="animate-spin" />
+              ) : (
+                <Handshake size={14} />
+              )}
+              {connecting ? "Connecting…" : "Connect"}
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -1368,17 +1389,17 @@ function InfoStat({
 
   return (
     <div
-      className="rounded-xl bg-slate-50 dark:bg-slate-800/60 p-3 border border-slate-100 dark:border-slate-800 min-w-0"
+      className="min-w-0 rounded-xl border border-border bg-slate-50/80 px-3 py-2.5 dark:border-slate-800 dark:bg-slate-900/60"
       title={tooltip}
     >
-      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-text-secondary">
         {label}
       </p>
       <div
-        className={`mt-1 text-sm font-semibold leading-snug break-words ${
+        className={`mt-1 break-words text-sm font-semibold leading-snug ${
           highlight
-            ? "text-slate-900 dark:text-white"
-            : "text-slate-800 dark:text-slate-100"
+            ? "text-text-primary dark:text-white"
+            : "text-text-primary dark:text-slate-100"
         }`}
       >
         {content}
@@ -1401,18 +1422,18 @@ function LoanAmountStat({
 
   return (
     <div
-      className="rounded-xl bg-slate-50 dark:bg-slate-800/60 p-3 border border-slate-100 dark:border-slate-800 min-w-0"
+      className="min-w-0 rounded-xl border border-border bg-slate-50/80 px-3 py-2.5 dark:border-slate-800 dark:bg-slate-900/60"
       title={tooltip}
     >
-      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-text-secondary">
         Loan Amount
       </p>
       {hasBoth ? (
-        <p className="mt-1 text-sm font-bold text-slate-900 dark:text-white leading-snug whitespace-nowrap">
+        <p className="mt-1 whitespace-nowrap text-sm font-bold leading-snug text-text-primary dark:text-white">
           {minStr} – {maxStr}
         </p>
       ) : (
-        <p className="mt-1 text-sm font-bold text-slate-900 dark:text-white leading-snug break-words">
+        <p className="mt-1 break-words text-sm font-bold leading-snug text-text-primary dark:text-white">
           {tooltip}
         </p>
       )}
@@ -1446,32 +1467,33 @@ function DiscoverPagination({
   for (let p = startPage; p <= endPage; p += 1) pages.push(p);
 
   return (
-    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2 border-t border-slate-200 dark:border-slate-800">
-      <p className="text-sm text-slate-500">
+    <div className="flex flex-col items-center justify-between gap-3 border-t border-border pt-3.5 dark:border-slate-800 sm:flex-row">
+      <p className="text-[13px] text-text-secondary">
         Showing{" "}
-        <span className="font-semibold text-slate-800 dark:text-white">
+        <span className="font-semibold text-text-primary">
           {start}–{end}
         </span>{" "}
-        of {total}
+        of{" "}
+        <span className="font-semibold text-text-primary">{total}</span>
       </p>
       <div className="flex items-center gap-1.5">
         <button
           type="button"
           disabled={page <= 1}
           onClick={() => onPageChange(page - 1)}
-          className="p-2 rounded-lg border border-slate-200 dark:border-slate-700 disabled:opacity-40 hover:bg-slate-50 dark:hover:bg-slate-800"
+          className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-white transition hover:bg-surface disabled:opacity-40 dark:border-slate-700 dark:bg-slate-950"
         >
-          <ChevronLeft size={18} />
+          <ChevronLeft size={16} />
         </button>
         {pages.map((p) => (
           <button
             key={p}
             type="button"
             onClick={() => onPageChange(p)}
-            className={`h-9 min-w-[2.25rem] rounded-lg px-2 text-sm font-semibold transition-colors ${
+            className={`inline-flex h-9 min-w-9 items-center justify-center rounded-xl px-2.5 text-sm font-semibold transition ${
               p === page
-                ? "bg-[#13538A] text-white"
-                : "border border-slate-200 text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                ? "bg-[#4C78F5] text-white"
+                : "border border-border bg-white text-text-secondary hover:bg-surface dark:border-slate-700 dark:bg-slate-950"
             }`}
           >
             {p}
@@ -1481,9 +1503,9 @@ function DiscoverPagination({
           type="button"
           disabled={page >= totalPages}
           onClick={() => onPageChange(page + 1)}
-          className="p-2 rounded-lg border border-slate-200 dark:border-slate-700 disabled:opacity-40 hover:bg-slate-50 dark:hover:bg-slate-800"
+          className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-white transition hover:bg-surface disabled:opacity-40 dark:border-slate-700 dark:bg-slate-950"
         >
-          <ChevronRight size={18} />
+          <ChevronRight size={16} />
         </button>
       </div>
     </div>
@@ -1523,7 +1545,7 @@ function SubmissionStatusBadge({ status }: { status: string }) {
   const styles: Record<string, string> = {
     emerald:
       "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300",
-    blue: "bg-[#13538A]/10 text-[#0E426E] dark:bg-[#13538A]/20 dark:text-sky-300",
+    blue: "bg-[#4C78F5]/10 text-[#3B66E0] dark:bg-[#4C78F5]/20 dark:text-sky-300",
     amber:
       "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300",
     rose: "bg-rose-100 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300",
@@ -1590,7 +1612,7 @@ function NetworkTable({
               key={row.id}
               className={`hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors ${
                 selectedIds?.has(row.id)
-                  ? "bg-[#13538A]/8 dark:bg-[#13538A]/10"
+                  ? "bg-[#4C78F5]/8 dark:bg-[#4C78F5]/10"
                   : ""
               }`}
             >
@@ -1619,26 +1641,26 @@ function EmptyState({
   action?: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col items-center rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-6 py-16 text-center dark:border-slate-700 dark:bg-slate-900/40">
-      <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-[#13538A] text-white [&>svg]:h-6 [&>svg]:w-6 [&>svg]:text-white">
+    <div className="flex flex-col items-center rounded-2xl border border-dashed border-border bg-slate-50/70 px-6 py-14 text-center dark:border-slate-700 dark:bg-slate-900/40">
+      <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-[#4C78F5]/10 text-[#4C78F5]">
         {icon}
       </div>
-      <h3 className="text-base font-semibold text-slate-800 dark:text-slate-200">{title}</h3>
-      <p className="text-sm text-slate-500 dark:text-slate-400 mt-2 max-w-md">
-        {subtitle}
-      </p>
-      {action && <div className="mt-4">{action}</div>}
+      <h3 className="text-sm font-semibold text-text-primary dark:text-white">
+        {title}
+      </h3>
+      <p className="mt-1.5 max-w-md text-xs text-text-secondary">{subtitle}</p>
+      {action ? <div className="mt-4">{action}</div> : null}
     </div>
   );
 }
 
 function LenderCardSkeletonGrid() {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+    <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
       {[1, 2, 3, 4, 5, 6].map((i) => (
         <div
           key={i}
-          className="h-52 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 animate-pulse"
+          className="h-52 animate-pulse rounded-2xl border border-border bg-slate-50 dark:border-slate-800 dark:bg-slate-900"
         />
       ))}
     </div>
@@ -1791,7 +1813,7 @@ function DiscoverFiltersDrawer({
                 type="checkbox"
                 checked={draft.eligible}
                 onChange={(e) => update("eligible", e.target.checked)}
-                className="h-4 w-4 rounded border-slate-300 text-[#13538A] focus:ring-[#13538A]"
+                className="h-4 w-4 rounded border-slate-300 text-[#4C78F5] focus:ring-[#4C78F5]"
               />
               <div>
                 <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">
@@ -1816,7 +1838,7 @@ function DiscoverFiltersDrawer({
           <button
             type="button"
             onClick={onApply}
-            className="flex-1 rounded-lg bg-[#13538A] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#0E426E]"
+            className="flex-1 rounded-lg bg-[#4C78F5] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#3B66E0]"
           >
             Apply filters
           </button>

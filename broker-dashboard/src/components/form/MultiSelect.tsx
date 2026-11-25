@@ -231,7 +231,7 @@ const MultiSelect: React.FC<MultiSelectProps> = ({
               }}
               onKeyDown={handleKeyDown}
               placeholder={`Search ${label.toLowerCase()}...`}
-              className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800 outline-none placeholder:text-slate-400 focus:border-[#13538A] focus:ring-2 focus:ring-[#13538A]/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+              className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800 outline-none placeholder:text-slate-400 focus:border-[#4C78F5] focus:ring-2 focus:ring-[#4C78F5]/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
             />
           </div>
         ) : null}
@@ -242,14 +242,14 @@ const MultiSelect: React.FC<MultiSelectProps> = ({
               type="button"
               onClick={toggleSelectAll}
               disabled={filteredOptions.length === 0}
-              className="inline-flex items-center gap-2 rounded-md px-1.5 py-1 text-sm font-semibold text-[#13538A] transition hover:bg-[#13538A]/5 disabled:cursor-not-allowed disabled:opacity-40 dark:text-sky-300"
+              className="inline-flex items-center gap-2 rounded-md px-1.5 py-1 text-sm font-semibold text-[#4C78F5] transition hover:bg-[#4C78F5]/5 disabled:cursor-not-allowed disabled:opacity-40 dark:text-sky-300"
             >
               <span
                 className={`flex h-4 w-4 items-center justify-center rounded border ${
                   allVisibleSelected
-                    ? "border-[#13538A] bg-[#13538A] text-white"
+                    ? "border-[#4C78F5] bg-[#4C78F5] text-white"
                     : someVisibleSelected
-                      ? "border-[#13538A] bg-[#13538A]/20"
+                      ? "border-[#4C78F5] bg-[#4C78F5]/20"
                       : "border-slate-300 bg-white dark:border-slate-600 dark:bg-slate-800"
                 }`}
                 aria-hidden
@@ -265,7 +265,7 @@ const MultiSelect: React.FC<MultiSelectProps> = ({
                     />
                   </svg>
                 ) : someVisibleSelected ? (
-                  <span className="h-0.5 w-2 rounded bg-[#13538A]" />
+                  <span className="h-0.5 w-2 rounded bg-[#4C78F5]" />
                 ) : null}
               </span>
               {allVisibleSelected ? "Clear all" : "Select all"}
@@ -296,7 +296,7 @@ const MultiSelect: React.FC<MultiSelectProps> = ({
                   key={option.value}
                   className={`w-full cursor-pointer border-b border-slate-100 last:border-b-0 dark:border-slate-800 ${
                     isFocused || isSelected
-                      ? "bg-[#13538A]/8 dark:bg-sky-500/10"
+                      ? "bg-[#4C78F5]/8 dark:bg-sky-500/10"
                       : "hover:bg-slate-50 dark:hover:bg-slate-800/80"
                   }`}
                   onClick={() => handleSelect(option.value)}
@@ -307,7 +307,7 @@ const MultiSelect: React.FC<MultiSelectProps> = ({
                     <span
                       className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${
                         isSelected
-                          ? "border-[#13538A] bg-[#13538A] text-white"
+                          ? "border-[#4C78F5] bg-[#4C78F5] text-white"
                           : "border-slate-300 bg-white dark:border-slate-600 dark:bg-slate-800"
                       }`}
                       aria-hidden
@@ -347,7 +347,7 @@ const MultiSelect: React.FC<MultiSelectProps> = ({
           {label}
         </label>
         {selectedOptions.length > 0 ? (
-          <span className="rounded-full bg-[#13538A]/10 px-2 py-0.5 text-xs font-semibold text-[#13538A] dark:bg-sky-500/15 dark:text-sky-300">
+          <span className="rounded-full bg-[#4C78F5]/10 px-2 py-0.5 text-xs font-semibold text-[#4C78F5] dark:bg-sky-500/15 dark:text-sky-300">
             {selectedOptions.length} selected
           </span>
         ) : null}
@@ -367,7 +367,7 @@ const MultiSelect: React.FC<MultiSelectProps> = ({
           tabIndex={disabled || loading ? -1 : 0}
         >
           <div
-            className={`flex min-h-12 rounded-xl border border-slate-300 bg-white py-1.5 pl-3 pr-3 shadow-sm outline-hidden transition focus-within:border-[#13538A] focus-within:ring-2 focus-within:ring-[#13538A]/20 dark:border-slate-700 dark:bg-slate-900 ${
+            className={`flex min-h-12 rounded-xl border border-slate-300 bg-white py-1.5 pl-3 pr-3 shadow-sm outline-hidden transition focus-within:border-[#4C78F5] focus-within:ring-2 focus-within:ring-[#4C78F5]/20 dark:border-slate-700 dark:bg-slate-900 ${
               disabled || loading
                 ? "cursor-not-allowed bg-slate-50 opacity-50 dark:bg-slate-800"
                 : "cursor-pointer"
@@ -382,7 +382,7 @@ const MultiSelect: React.FC<MultiSelectProps> = ({
                   return (
                     <div
                       key={selectedValue}
-                      className="group flex max-w-full items-center rounded-lg border border-[#13538A]/15 bg-[#13538A]/8 py-1 pl-2.5 pr-1.5 text-sm text-[#0e3d66] dark:border-sky-500/20 dark:bg-sky-500/10 dark:text-sky-100"
+                      className="group flex max-w-full items-center rounded-lg border border-[#4C78F5]/15 bg-[#4C78F5]/8 py-1 pl-2.5 pr-1.5 text-sm text-[#3B66E0] dark:border-sky-500/20 dark:bg-sky-500/10 dark:text-sky-100"
                     >
                       <span className="max-w-[14rem] truncate">{text}</span>
                       <button

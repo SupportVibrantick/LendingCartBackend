@@ -136,12 +136,12 @@ export default function LoanOfficerHeader() {
     user?.organizationName || user?.organization?.name || "Loan Officer Portal";
 
   return (
-    <header className="sticky top-0 z-40 border-b border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
-      <div className="flex h-14 items-center gap-3 px-4 lg:h-16 lg:px-6">
+    <header className="relative z-40 flex h-16 w-full shrink-0 border-b border-border bg-white dark:border-gray-800 dark:bg-gray-900">
+      <div className="flex w-full items-center gap-3 px-3 sm:px-4 lg:px-5">
         <button
           type="button"
           onClick={handleToggle}
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-gray-200 text-gray-500 transition hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800"
+          className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border text-text-secondary transition hover:bg-surface dark:border-gray-700 dark:text-gray-300"
           aria-label={isMobileOpen ? "Close menu" : "Open menu"}
         >
           <Menu size={18} />
@@ -150,23 +150,18 @@ export default function LoanOfficerHeader() {
         <img
           src="/loanAutomation.jpeg"
           alt="Logo"
-          className="h-8 w-8 rounded-full ring-2 ring-[#13538A]/15 lg:hidden"
+          className="h-8 w-8 rounded-full object-cover ring-2 ring-brand-100 lg:hidden"
         />
 
         <div className="min-w-0 flex-1">
-          <h1 className="truncate text-base font-semibold text-gray-900 dark:text-white lg:text-lg">
-            Welcome{" "}
-            <span className="text-[#3e86b7] dark:text-[#5ba8d4]">
-              {welcomeName}
-            </span>
+          <h1 className="truncate text-[15px] font-semibold tracking-tight text-text-primary dark:text-white sm:text-base">
+            Welcome <span className="text-brand-500">{welcomeName}</span>
           </h1>
-          <p className="truncate text-xs text-gray-500 dark:text-gray-400">
-            {orgName}
-          </p>
+          <p className="truncate text-[12px] text-text-secondary">{orgName}</p>
         </div>
 
         <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-3">
-          <span className="hidden whitespace-nowrap text-sm font-semibold text-[#3e86b7] dark:text-[#5ba8d4] sm:inline">
+          <span className="hidden whitespace-nowrap text-sm font-semibold text-brand-500 sm:inline">
             {time}
           </span>
           <ThemeToggleButton />

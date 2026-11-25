@@ -31,7 +31,7 @@ function Field({
       {href && value?.trim() ? (
         <a
           href={href}
-          className="mt-1 block truncate text-sm font-medium text-[#13538A] hover:underline"
+          className="mt-1 block truncate text-sm font-medium text-[#4C78F5] hover:underline"
         >
           {display}
         </a>
@@ -55,7 +55,7 @@ export default function ViewContactModal({ contact, onClose, onEdit }: Props) {
   return (
     <div className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm dark:bg-black/60">
       <div className="relative flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl dark:border-gray-800 dark:bg-gray-900">
-        <div className="border-b border-gray-100 bg-gradient-to-r from-[#13538A] to-[#1a6aad] px-6 py-5 text-white dark:border-gray-800">
+        <div className="border-b border-gray-100 bg-gradient-to-r from-[#4C78F5] to-[#1a6aad] px-6 py-5 text-white dark:border-gray-800">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
               <p className="text-[11px] font-semibold uppercase tracking-widest text-white/70">
@@ -158,7 +158,7 @@ export default function ViewContactModal({ contact, onClose, onEdit }: Props) {
             <button
               type="button"
               onClick={onEdit}
-              className="inline-flex items-center gap-2 rounded-xl bg-[#13538A] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#1a6aad]"
+              className="inline-flex items-center gap-2 rounded-xl bg-[#4C78F5] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#1a6aad]"
             >
               <Pencil className="h-4 w-4" />
               Edit Contact

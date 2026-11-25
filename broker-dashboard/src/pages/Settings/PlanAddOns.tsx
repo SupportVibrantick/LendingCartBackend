@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link } from "react-router";
 import {
   Check,
   CreditCard,
@@ -11,7 +12,7 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import PageMeta from "../../components/common/PageMeta";
-import PageBreadcrumb from "../../components/common/PageBreadCrumb";
+import StatPill from "../../components/common/StatPill";
 import { brokerFetch } from "../../lib/brokerApi";
 
 type PurchasedAddOn = {
@@ -73,9 +74,12 @@ function formatMoney(n: number | null | undefined) {
 
 function statusTone(status: string) {
   const s = String(status || "").toUpperCase();
-  if (s === "TRIAL") return "bg-amber-50 text-amber-800 ring-amber-200";
-  if (s === "ACTIVE") return "bg-emerald-50 text-emerald-800 ring-emerald-200";
-  if (s === "PAST_DUE") return "bg-rose-50 text-rose-800 ring-rose-200";
+  if (s === "TRIAL")
+    return "bg-amber-50 text-amber-800 ring-amber-200";
+  if (s === "ACTIVE")
+    return "bg-emerald-50 text-emerald-800 ring-emerald-200";
+  if (s === "PAST_DUE")
+    return "bg-rose-50 text-rose-800 ring-rose-200";
   return "bg-slate-50 text-slate-700 ring-slate-200";
 }
 
@@ -141,8 +145,12 @@ export default function PlanAddOns() {
 
   const lineItems = useMemo(() => {
     if (!data) return [];
-    const items: { code: string; name: string; amount: number; detail?: string }[] =
-      [];
+    const items: {
+      code: string;
+      name: string;
+      amount: number;
+      detail?: string;
+    }[] = [];
     for (const code of selected) {
       const item = data.availableAddOns.find((a) => a.code === code);
       if (!item) continue;
@@ -226,32 +234,86 @@ export default function PlanAddOns() {
         title="Plan & Add-ons | Broker"
         description="Manage subscription add-ons and additional users"
       />
-      <PageBreadcrumb pageTitle="Plan & Add-ons" />
 
-      {loading ? (
-        <div className="flex min-h-[40vh] items-center justify-center rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
-          <div className="flex items-center gap-2 text-sm text-gray-500">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            Loading your plan…
+      <div className="w-full min-w-0 space-y-4 pb-4 text-text-primary">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <h1 className="ds-page-title">Plan & Add-ons</h1>
+            <p className="ds-page-subtitle">
+              Manage your subscription, team seats, and paid upgrades.
+            </p>
           </div>
+          <nav className="shrink-0 text-[12px] text-text-secondary">
+            <ol className="flex items-center gap-1.5">
+              <li>
+                <Link to="/" className="hover:text-[#4C78F5]">
+                  Home
+                </Link>
+              </li>
+              <li aria-hidden>/</li>
+              <li className="font-medium text-text-primary">Plan & Add-ons</li>
+            </ol>
+          </nav>
         </div>
-      ) : !data ? (
-        <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-10 text-center dark:border-gray-700 dark:bg-white/[0.03]">
-          <p className="text-sm text-gray-600 dark:text-gray-300">
-            No active subscription found for this organization.
-          </p>
-        </div>
-      ) : (
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
-          <div className="space-y-6">
+
+        {loading ? (
+          <div className="flex min-h-[40vh] items-center justify-center rounded-2xl border border-border bg-white">
+            <div className="inline-flex items-center gap-2 text-sm text-text-secondary">
+              <Loader2 className="h-4 w-4 animate-spin text-[#4C78F5]" />
+              Loading your plan…
+            </div>
+          </div>
+        ) : !data ? (
+          <div className="rounded-2xl border border-dashed border-border bg-white px-6 py-14 text-center">
+            <p className="text-sm text-text-secondary">
+              No active subscription found for this organization.
+            </p>
+          </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
+              <StatPill
+                icon={<Sparkles size={14} />}
+                label="Plan"
+                value={data.packageName || data.packageCode || "—"}
+                color="blue"
+              />
+              <StatPill
+                icon={<ShieldCheck size={14} />}
+                label="Status"
+                value={data.status}
+                color={
+                  String(data.status).toUpperCase() === "ACTIVE"
+                    ? "emerald"
+                    : String(data.status).toUpperCase() === "TRIAL"
+                      ? "amber"
+                      : "rose"
+                }
+              />
+              <StatPill
+                icon={<Users size={14} />}
+                label="Team seats"
+                value={extraUserTotal}
+                color="slate"
+              />
+              <StatPill
+                icon={<CreditCard size={14} />}
+                label="Checkout"
+                value={lineItems.length}
+                color={hasDelta ? "amber" : "slate"}
+              />
+            </div>
+
             {isOnTrial ? (
-              <div className="rounded-2xl border border-sky-200 bg-sky-50 px-5 py-4 text-sm text-sky-950 dark:border-sky-500/30 dark:bg-sky-500/10 dark:text-sky-100">
-                <p className="font-semibold">
+              <div className="rounded-xl border border-[#4C78F5]/20 bg-[#4C78F5]/5 px-4 py-3.5 text-sm text-text-primary">
+                <p className="font-semibold text-[#2F5AD0]">
                   Free trial active
-                  {trialDaysLeft > 0 ? ` · ${trialDaysLeft} day${trialDaysLeft === 1 ? "" : "s"} left` : ""}
+                  {trialDaysLeft > 0
+                    ? ` · ${trialDaysLeft} day${trialDaysLeft === 1 ? "" : "s"} left`
+                    : ""}
                   {trialEndLabel ? ` (ends ${trialEndLabel})` : ""}
                 </p>
-                <p className="mt-1 text-sky-900/80 dark:text-sky-100/80">
+                <p className="mt-1 text-[13px] text-text-secondary">
                   You can purchase add-ons and team seats during your trial.
                   {data.paymentProvider === "stripe"
                     ? " Stripe will keep new add-ons at $0 until your trial ends, then bill them with your plan."
@@ -263,312 +325,334 @@ export default function PlanAddOns() {
               </div>
             ) : null}
 
-            {/* Current plan */}
-            <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-white/[0.03]">
-              <div className="bg-gradient-to-br from-[#13538A] via-[#1a6bab] to-[#2C92D5] px-6 py-6 text-white">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-white/70">
-                      Current plan
-                    </p>
-                    <h2 className="mt-1 text-2xl font-bold tracking-tight">
-                      {data.packageName || data.packageCode || "Plan"}
-                    </h2>
-                    <p className="mt-1 text-sm text-white/80">
-                      {isOnTrial
-                        ? `Free trial${trialDaysLeft > 0 ? ` · ${trialDaysLeft} days left` : ""}`
-                        : priceLabel}
-                      {!isOnTrial && data.currentPeriodEnd
-                        ? ` · renews ${new Date(data.currentPeriodEnd).toLocaleDateString()}`
-                        : ""}
-                      {isOnTrial && trialEndLabel
-                        ? ` · ends ${trialEndLabel}`
-                        : ""}
+            <div className="grid w-full gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
+              <div className="min-w-0 space-y-4">
+                {/* Current plan */}
+                <section className="overflow-hidden rounded-2xl border border-border bg-white">
+                  <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border px-4 py-4 sm:px-5">
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-text-secondary">
+                        Current plan
+                      </p>
+                      <h2 className="mt-1 text-xl font-semibold tracking-tight text-text-primary">
+                        {data.packageName || data.packageCode || "Plan"}
+                      </h2>
+                      <p className="mt-1 text-[13px] text-text-secondary">
+                        {isOnTrial
+                          ? `Free trial${trialDaysLeft > 0 ? ` · ${trialDaysLeft} days left` : ""}`
+                          : priceLabel}
+                        {!isOnTrial && data.currentPeriodEnd
+                          ? ` · renews ${new Date(data.currentPeriodEnd).toLocaleDateString()}`
+                          : ""}
+                        {isOnTrial && trialEndLabel
+                          ? ` · ends ${trialEndLabel}`
+                          : ""}
+                      </p>
+                    </div>
+                    <span
+                      className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide ring-1 ring-inset ${statusTone(data.status)}`}
+                    >
+                      {data.status}
+                    </span>
+                  </div>
+
+                  <div className="px-4 py-4 sm:px-5">
+                    <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-text-primary">
+                      <Sparkles className="h-4 w-4 text-[#4C78F5]" />
+                      Included / unlocked add-ons
+                    </div>
+                    {data.purchasedAddOns.length === 0 ? (
+                      <p className="text-[13px] text-text-secondary">
+                        {data.availableAddOns.length === 0
+                          ? "Your current plan already includes the full upgrade set. You can still add team seats below."
+                          : "No paid add-ons yet. Pick upgrades below to expand your plan."}
+                      </p>
+                    ) : (
+                      <ul className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                        {data.purchasedAddOns.map((item) => (
+                          <li
+                            key={`${item.code}-${item.quantity}`}
+                            className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-[13px] font-medium text-emerald-800"
+                          >
+                            <Check className="h-4 w-4 shrink-0" />
+                            <span>
+                              {item.name}
+                              {item.quantity > 1
+                                ? ` × ${item.quantity}`
+                                : ""}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                </section>
+
+                {/* Seats */}
+                <section className="overflow-hidden rounded-2xl border border-border bg-white">
+                  <div className="flex flex-wrap items-start justify-between gap-4 px-4 py-4 sm:px-5">
+                    <div className="min-w-0 max-w-xl">
+                      <div className="flex items-center gap-2.5">
+                        <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#4C78F5]/10 text-[#4C78F5]">
+                          <Users className="h-4 w-4" />
+                        </span>
+                        <h3 className="text-sm font-semibold text-text-primary">
+                          Team seats
+                        </h3>
+                      </div>
+                      <p className="mt-2 text-[13px] text-text-secondary">
+                        {data.extraUser.description ||
+                          "Add loan officer or co-broker seats. You can only increase seats here."}
+                      </p>
+                      <p className="mt-2 text-sm font-semibold text-text-primary">
+                        {formatMoney(data.extraUser.unitPriceMonthly)}
+                        <span className="font-medium text-text-secondary">
+                          /mo per seat
+                        </span>
+                        {isYearly ? (
+                          <span className="ml-1 text-[12px] font-normal text-text-secondary">
+                            ({formatMoney(
+                              (Number(data.extraUser.unitPriceMonthly) || 0) *
+                                12,
+                            )}
+                            /yr at checkout)
+                          </span>
+                        ) : null}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2.5 rounded-xl border border-border bg-white px-2.5 py-2">
+                      <button
+                        type="button"
+                        aria-label="Decrease seats"
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border text-text-secondary transition hover:bg-surface disabled:cursor-not-allowed disabled:opacity-40"
+                        disabled={
+                          extraUserTotal <=
+                          (data.extraUser.currentQuantity || 0)
+                        }
+                        onClick={() =>
+                          setExtraUserTotal((n) =>
+                            Math.max(
+                              data.extraUser.currentQuantity || 0,
+                              n - 1,
+                            ),
+                          )
+                        }
+                      >
+                        <Minus className="h-4 w-4" />
+                      </button>
+                      <div className="min-w-14 text-center">
+                        <div className="text-xl font-bold tabular-nums text-text-primary">
+                          {extraUserTotal}
+                        </div>
+                        <div className="text-[10px] font-semibold uppercase tracking-[0.08em] text-text-secondary">
+                          seats
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        aria-label="Increase seats"
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border text-text-secondary transition hover:border-[#4C78F5]/30 hover:bg-[#4C78F5]/5 hover:text-[#4C78F5]"
+                        onClick={() => setExtraUserTotal((n) => n + 1)}
+                      >
+                        <Plus className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                  {seatDelta > 0 ? (
+                    <div className="border-t border-border px-4 py-3 sm:px-5">
+                      <p className="rounded-xl border border-[#4C78F5]/20 bg-[#4C78F5]/5 px-3 py-2 text-[13px] font-medium text-[#2F5AD0]">
+                        Adding {seatDelta} new seat
+                        {seatDelta === 1 ? "" : "s"} — charged at checkout.
+                      </p>
+                    </div>
+                  ) : null}
+                </section>
+
+                {/* Available add-ons */}
+                <section className="overflow-hidden rounded-2xl border border-border bg-white">
+                  <div className="border-b border-border px-4 py-3.5 sm:px-5">
+                    <h3 className="text-sm font-semibold text-text-primary">
+                      Available upgrades
+                    </h3>
+                    <p className="mt-0.5 text-[13px] text-text-secondary">
+                      Select what you need. You&apos;ll pay securely
+                      {data.paymentProvider === "stripe"
+                        ? " with Stripe"
+                        : data.paymentProvider === "ghl"
+                          ? " via invoice"
+                          : ""}
+                      .
                     </p>
                   </div>
-                  <span
-                    className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ring-1 ring-inset ${statusTone(data.status)}`}
-                  >
-                    {data.status}
-                  </span>
-                </div>
+
+                  <div className="p-4 sm:p-5">
+                    {data.availableAddOns.length === 0 ? (
+                      <p className="rounded-xl border border-dashed border-border px-4 py-8 text-center text-[13px] text-text-secondary">
+                        Everything available for your plan is already included
+                        or owned.
+                      </p>
+                    ) : (
+                      <ul className="grid gap-2.5 md:grid-cols-2">
+                        {data.availableAddOns.map((item) => {
+                          const checked = selected.has(item.code);
+                          const blurb =
+                            item.description ||
+                            ADDON_BLURBS[item.code] ||
+                            "Expand your brokerage toolkit.";
+                          const unit = Number(item.priceMonthly) || 0;
+                          return (
+                            <li key={item.code}>
+                              <button
+                                type="button"
+                                onClick={() => toggleAddOn(item.code)}
+                                className={`flex w-full items-start gap-3 rounded-xl border px-3.5 py-3.5 text-left transition ${
+                                  checked
+                                    ? "border-[#4C78F5] bg-[#4C78F5]/5 ring-1 ring-[#4C78F5]/20"
+                                    : "border-border bg-white hover:border-[#4C78F5]/30 hover:bg-surface"
+                                }`}
+                              >
+                                <span
+                                  className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border ${
+                                    checked
+                                      ? "border-[#4C78F5] bg-[#4C78F5] text-white"
+                                      : "border-border bg-white"
+                                  }`}
+                                >
+                                  {checked ? (
+                                    <Check className="h-3.5 w-3.5" />
+                                  ) : null}
+                                </span>
+                                <span className="min-w-0 flex-1">
+                                  <span className="flex flex-wrap items-start justify-between gap-2">
+                                    <span className="font-semibold text-text-primary">
+                                      {item.name}
+                                    </span>
+                                    <span className="text-sm font-semibold tabular-nums text-text-primary">
+                                      {formatMoney(unit)}
+                                      <span className="font-medium text-text-secondary">
+                                        /mo
+                                      </span>
+                                      {isYearly ? (
+                                        <span className="ml-1 text-xs font-normal text-text-secondary">
+                                          ({formatMoney(unit * 12)}
+                                          {periodSuffix})
+                                        </span>
+                                      ) : null}
+                                    </span>
+                                  </span>
+                                  <span className="mt-1 block text-[13px] text-text-secondary">
+                                    {blurb}
+                                  </span>
+                                </span>
+                              </button>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </div>
+                </section>
               </div>
 
-              <div className="border-t border-gray-100 px-6 py-5 dark:border-gray-800">
-                <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white">
-                  <Sparkles className="h-4 w-4 text-[#2C92D5]" />
-                  Included / unlocked add-ons
-                </div>
-                {data.purchasedAddOns.length === 0 ? (
-                  <p className="text-sm text-gray-500">
-                    {data.availableAddOns.length === 0
-                      ? "Your current plan already includes the full upgrade set. You can still add team seats below."
-                      : "No paid add-ons yet. Pick upgrades below to expand your plan."}
-                  </p>
-                ) : (
-                  <ul className="grid gap-2 sm:grid-cols-2">
-                    {data.purchasedAddOns.map((item) => (
-                      <li
-                        key={`${item.code}-${item.quantity}`}
-                        className="flex items-center gap-2 rounded-xl bg-emerald-50/80 px-3 py-2 text-sm text-emerald-900 dark:bg-emerald-500/10 dark:text-emerald-200"
-                      >
-                        <Check className="h-4 w-4 shrink-0" />
-                        <span className="font-medium">
-                          {item.name}
-                          {item.quantity > 1 ? ` × ${item.quantity}` : ""}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            </section>
-
-            {/* Seats */}
-            <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-white/[0.03]">
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div className="max-w-md">
-                  <div className="flex items-center gap-2">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-sky-50 text-[#13538A] dark:bg-sky-500/10">
-                      <Users className="h-4 w-4" />
-                    </div>
-                    <h3 className="text-base font-semibold text-gray-900 dark:text-white">
-                      Team seats
+              {/* Checkout summary */}
+              <aside className="min-w-0 xl:sticky xl:top-20 xl:self-start">
+                <div className="overflow-hidden rounded-2xl border border-border bg-white">
+                  <div className="flex items-center gap-2 border-b border-border px-4 py-3.5 sm:px-5">
+                    <CreditCard className="h-4 w-4 text-[#4C78F5]" />
+                    <h3 className="text-sm font-semibold text-text-primary">
+                      Order summary
                     </h3>
                   </div>
-                  <p className="mt-2 text-sm text-gray-500">
-                    {data.extraUser.description ||
-                      "Add loan officer or co-broker seats. You can only increase seats here."}
-                  </p>
-                  <p className="mt-2 text-sm font-medium text-gray-700 dark:text-gray-200">
-                    {formatMoney(data.extraUser.unitPriceMonthly)}
-                    /mo per seat
-                    {isYearly ? (
-                      <span className="ml-1 font-normal text-gray-500">
-                        ({formatMoney(
-                          (Number(data.extraUser.unitPriceMonthly) || 0) * 12,
-                        )}
-                        /yr at checkout)
-                      </span>
-                    ) : null}
-                  </p>
-                </div>
 
-                <div className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-gray-50 px-3 py-2 dark:border-gray-700 dark:bg-white/[0.04]">
-                  <button
-                    type="button"
-                    aria-label="Decrease seats"
-                    className="rounded-xl border border-gray-200 bg-white p-2 text-gray-700 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-600 dark:bg-gray-900 dark:hover:bg-gray-800"
-                    disabled={
-                      extraUserTotal <= (data.extraUser.currentQuantity || 0)
-                    }
-                    onClick={() =>
-                      setExtraUserTotal((n) =>
-                        Math.max(data.extraUser.currentQuantity || 0, n - 1),
-                      )
-                    }
-                  >
-                    <Minus className="h-4 w-4" />
-                  </button>
-                  <div className="min-w-14 text-center">
-                    <div className="text-xl font-bold text-gray-900 dark:text-white">
-                      {extraUserTotal}
-                    </div>
-                    <div className="text-[11px] uppercase tracking-wide text-gray-400">
-                      seats
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    aria-label="Increase seats"
-                    className="rounded-xl border border-gray-200 bg-white p-2 text-gray-700 transition hover:bg-gray-100 dark:border-gray-600 dark:bg-gray-900 dark:hover:bg-gray-800"
-                    onClick={() => setExtraUserTotal((n) => n + 1)}
-                  >
-                    <Plus className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
-              {seatDelta > 0 ? (
-                <p className="mt-4 rounded-xl bg-sky-50 px-3 py-2 text-sm text-sky-900 dark:bg-sky-500/10 dark:text-sky-100">
-                  Adding {seatDelta} new seat{seatDelta === 1 ? "" : "s"} — charged
-                  at checkout.
-                </p>
-              ) : null}
-            </section>
-
-            {/* Available add-ons */}
-            <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-white/[0.03]">
-              <h3 className="text-base font-semibold text-gray-900 dark:text-white">
-                Available upgrades
-              </h3>
-              <p className="mt-1 text-sm text-gray-500">
-                Select what you need. You&apos;ll pay securely
-                {data.paymentProvider === "stripe"
-                  ? " with Stripe"
-                  : data.paymentProvider === "ghl"
-                    ? " via invoice"
-                    : ""}
-                .
-              </p>
-
-              {data.availableAddOns.length === 0 ? (
-                <p className="mt-4 rounded-xl border border-dashed border-gray-200 px-4 py-6 text-center text-sm text-gray-500 dark:border-gray-700">
-                  Everything available for your plan is already included or owned.
-                </p>
-              ) : (
-                <ul className="mt-4 space-y-3">
-                  {data.availableAddOns.map((item) => {
-                    const checked = selected.has(item.code);
-                    const blurb =
-                      item.description ||
-                      ADDON_BLURBS[item.code] ||
-                      "Expand your brokerage toolkit.";
-                    const unit = Number(item.priceMonthly) || 0;
-                    return (
-                      <li key={item.code}>
-                        <button
-                          type="button"
-                          onClick={() => toggleAddOn(item.code)}
-                          className={`flex w-full items-start gap-3 rounded-2xl border px-4 py-4 text-left transition ${
-                            checked
-                              ? "border-[#2C92D5] bg-sky-50/80 ring-1 ring-[#2C92D5]/30 dark:bg-sky-500/10"
-                              : "border-gray-200 hover:border-gray-300 dark:border-gray-700 dark:hover:border-gray-600"
-                          }`}
-                        >
-                          <span
-                            className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border ${
-                              checked
-                                ? "border-[#2C92D5] bg-[#2C92D5] text-white"
-                                : "border-gray-300 bg-white dark:border-gray-600 dark:bg-gray-900"
-                            }`}
+                  <div className="px-4 py-4 sm:px-5">
+                    {lineItems.length === 0 ? (
+                      <p className="text-[13px] text-text-secondary">
+                        Select upgrades or seats to see your total.
+                      </p>
+                    ) : (
+                      <ul className="space-y-3 border-b border-border pb-4">
+                        {lineItems.map((row) => (
+                          <li
+                            key={row.code}
+                            className="flex items-start justify-between gap-3 text-sm"
                           >
-                            {checked ? <Check className="h-3.5 w-3.5" /> : null}
-                          </span>
-                          <span className="min-w-0 flex-1">
-                            <span className="flex flex-wrap items-center justify-between gap-2">
-                              <span className="font-semibold text-gray-900 dark:text-white">
-                                {item.name}
-                              </span>
-                              <span className="text-sm font-semibold text-gray-800 dark:text-gray-100">
-                                {formatMoney(unit)}
-                                <span className="font-normal text-gray-500">
-                                  /mo
-                                </span>
-                                {isYearly ? (
-                                  <span className="ml-1 text-xs font-normal text-gray-400">
-                                    ({formatMoney(unit * 12)}
-                                    {periodSuffix})
-                                  </span>
-                                ) : null}
-                              </span>
-                            </span>
-                            <span className="mt-1 block text-sm text-gray-500">
-                              {blurb}
-                            </span>
-                          </span>
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </section>
-          </div>
+                            <div className="min-w-0">
+                              <div className="font-medium text-text-primary">
+                                {row.name}
+                              </div>
+                              {row.detail ? (
+                                <div className="text-xs text-text-secondary">
+                                  {row.detail}
+                                </div>
+                              ) : null}
+                            </div>
+                            <div className="shrink-0 font-semibold tabular-nums text-text-primary">
+                              {formatMoney(row.amount)}
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
 
-          {/* Checkout summary */}
-          <aside className="lg:sticky lg:top-24 lg:self-start">
-            <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-white/[0.03]">
-              <div className="flex items-center gap-2">
-                <CreditCard className="h-4 w-4 text-[#13538A]" />
-                <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
-                  Order summary
-                </h3>
-              </div>
+                    <div className="mt-4">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-text-secondary">
+                        Due today
+                      </p>
+                      <p className="mt-1 text-2xl font-bold tabular-nums text-text-primary">
+                        {formatMoney(dueTodayAmount)}
+                        <span className="ml-1 text-sm font-medium text-text-secondary">
+                          {periodSuffix}
+                        </span>
+                      </p>
+                      {isOnTrial && trialDaysLeft > 0 && hasDelta ? (
+                        <p className="mt-1 text-xs font-medium text-[#2F5AD0]">
+                          Then {formatMoney(estimated)}
+                          {periodSuffix} after trial
+                        </p>
+                      ) : null}
+                    </div>
 
-              {lineItems.length === 0 ? (
-                <p className="mt-4 text-sm text-gray-500">
-                  Select upgrades or seats to see your total.
-                </p>
-              ) : (
-                <ul className="mt-4 space-y-3 border-b border-gray-100 pb-4 dark:border-gray-800">
-                  {lineItems.map((row) => (
-                    <li
-                      key={row.code}
-                      className="flex items-start justify-between gap-3 text-sm"
+                    <button
+                      type="button"
+                      disabled={
+                        !hasDelta || submitting || !data.paymentProvider
+                      }
+                      onClick={() => void handleCheckout()}
+                      className="ds-btn-primary mt-5 w-full disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      <div>
-                        <div className="font-medium text-gray-800 dark:text-gray-100">
-                          {row.name}
-                        </div>
-                        {row.detail ? (
-                          <div className="text-xs text-gray-400">{row.detail}</div>
-                        ) : null}
-                      </div>
-                      <div className="shrink-0 font-semibold text-gray-900 dark:text-white">
-                        {formatMoney(row.amount)}
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
+                      {submitting ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <ShieldCheck className="h-4 w-4" />
+                      )}
+                      {submitting
+                        ? "Redirecting…"
+                        : isOnTrial && trialDaysLeft > 0
+                          ? data.paymentProvider === "stripe"
+                            ? "Add with Stripe (trial)"
+                            : "Unlock on trial"
+                          : data.paymentProvider === "stripe"
+                            ? "Pay with Stripe"
+                            : "Pay & unlock"}
+                    </button>
 
-              <div className="mt-4 flex items-end justify-between gap-3">
-                <div>
-                  <p className="text-xs uppercase tracking-wide text-gray-400">
-                    {isOnTrial && trialDaysLeft > 0 && hasDelta
-                      ? "Due today"
-                      : "Due today"}
-                  </p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                    {formatMoney(dueTodayAmount)}
-                    <span className="ml-1 text-sm font-medium text-gray-400">
-                      {periodSuffix}
-                    </span>
-                  </p>
-                  {isOnTrial && trialDaysLeft > 0 && hasDelta ? (
-                    <p className="mt-1 text-xs text-sky-700 dark:text-sky-300">
-                      Then {formatMoney(estimated)}
-                      {periodSuffix} after trial
+                    <p className="mt-3 text-center text-[11px] leading-relaxed text-text-secondary">
+                      {isOnTrial
+                        ? "Trial brokers can add upgrades anytime. Card is required; add-ons bill when the trial ends."
+                        : data.paymentProvider === "stripe"
+                          ? "Secure checkout powered by Stripe. You can use cards and saved payment methods."
+                          : data.paymentProvider === "ghl"
+                            ? "You will complete payment on a secure invoice page."
+                            : "Payment provider is not configured for this environment."}
                     </p>
-                  ) : null}
+                  </div>
                 </div>
-              </div>
-
-              <button
-                type="button"
-                disabled={!hasDelta || submitting || !data.paymentProvider}
-                onClick={() => void handleCheckout()}
-                className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#13538A] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#0f4470] disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {submitting ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <ShieldCheck className="h-4 w-4" />
-                )}
-                {submitting
-                  ? "Redirecting…"
-                  : isOnTrial && trialDaysLeft > 0
-                    ? data.paymentProvider === "stripe"
-                      ? "Add with Stripe (trial)"
-                      : "Unlock on trial"
-                    : data.paymentProvider === "stripe"
-                      ? "Pay with Stripe"
-                      : "Pay & unlock"}
-              </button>
-
-              <p className="mt-3 text-center text-xs text-gray-400">
-                {isOnTrial
-                  ? "Trial brokers can add upgrades anytime. Card is required; add-ons bill when the trial ends."
-                  : data.paymentProvider === "stripe"
-                    ? "Secure checkout powered by Stripe. You can use cards and saved payment methods."
-                    : data.paymentProvider === "ghl"
-                      ? "You will complete payment on a secure invoice page."
-                      : "Payment provider is not configured for this environment."}
-              </p>
+              </aside>
             </div>
-          </aside>
-        </div>
-      )}
+          </>
+        )}
+      </div>
     </>
   );
 }

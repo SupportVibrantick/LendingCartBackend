@@ -51,7 +51,7 @@ import {
   type PipelineSubmissionOption,
 } from "../../lib/lenderMarketplaceApi";
 
-const BRAND = "#13538A";
+const BRAND = "#4C78F5";
 
 type ModalShellProps = {
   title: string;
@@ -299,7 +299,7 @@ function ProductCard({ product, index }: { product: LenderProduct; index: number
   const codeLabel = formatLoanTypeLabel(product.loanProductCode);
 
   return (
-    <article className="rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden bg-white dark:bg-slate-900/50 hover:border-[#13538A]/30 dark:hover:border-blue-500/30 transition-colors">
+    <article className="rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden bg-white dark:bg-slate-900/50 hover:border-[#4C78F5]/30 dark:hover:border-blue-500/30 transition-colors">
       <div className="flex items-start gap-3 px-4 py-3.5 bg-slate-50/80 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
         <div
           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-sm font-bold text-white"
@@ -457,7 +457,7 @@ export function LenderLogo({
   if (!src || failed) {
     return (
       <div
-        className={`${className} flex shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[#13538A] shadow-sm`}
+        className={`${className} flex shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[#4C78F5] shadow-sm`}
         aria-label={alt}
       >
         {initials ? (
@@ -603,7 +603,7 @@ export function LenderDiscoverProfileModal({
           type="button"
           disabled={inviting}
           onClick={onInvite}
-          className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg bg-[#13538A] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#0E426E] disabled:opacity-50"
+          className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg bg-[#4C78F5] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#3B66E0] disabled:opacity-50"
         >
           {inviting ? (
             <RefreshCcw size={16} className="animate-spin" />
@@ -694,7 +694,7 @@ export function LenderDiscoverProfileModal({
                       <span
                         key={st}
                         title={st}
-                        className="rounded-md border border-[#13538A]/20 bg-[#13538A]/8 px-2 py-0.5 text-[10px] font-semibold text-[#0E426E] dark:border-[#13538A]/30 dark:bg-[#13538A]/15 dark:text-sky-200"
+                        className="rounded-md border border-[#4C78F5]/20 bg-[#4C78F5]/8 px-2 py-0.5 text-[10px] font-semibold text-[#3B66E0] dark:border-[#4C78F5]/30 dark:bg-[#4C78F5]/15 dark:text-sky-200"
                       >
                         {abbreviateStateCode(st)}
                       </span>
@@ -803,7 +803,7 @@ export function LenderDiscoverProfileModal({
                         }
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-[#13538A] hover:underline break-all"
+                        className="text-[#4C78F5] hover:underline break-all"
                       >
                         {profile.website}
                       </a>
@@ -898,7 +898,7 @@ function DiscoverProductCard({ product }: { product: LenderProfileProduct }) {
   return (
     <article className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900/50">
       <div className="flex items-start gap-3 border-b border-slate-100 bg-slate-50/70 px-3.5 py-3 dark:border-slate-800 dark:bg-slate-800/40">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#13538A] text-[11px] font-semibold text-white">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#4C78F5] text-[11px] font-semibold text-white">
           {initials || "LP"}
         </div>
         <div className="min-w-0 flex-1">
@@ -923,9 +923,9 @@ function DiscoverProductCard({ product }: { product: LenderProfileProduct }) {
             {highlightFacts.map((fact) => (
               <div
                 key={fact.label}
-                className="rounded-lg border border-[#13538A]/15 bg-[#13538A]/5 px-3 py-2.5 dark:border-[#13538A]/30 dark:bg-[#13538A]/10"
+                className="rounded-lg border border-[#4C78F5]/15 bg-[#4C78F5]/5 px-3 py-2.5 dark:border-[#4C78F5]/30 dark:bg-[#4C78F5]/10"
               >
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-[#13538A]">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-[#4C78F5]">
                   {fact.label}
                 </p>
                 <p className="mt-0.5 text-sm font-semibold text-slate-900 dark:text-white">
@@ -954,7 +954,7 @@ function DiscoverProductCard({ product }: { product: LenderProfileProduct }) {
               <span
                 key={st}
                 title={st}
-                className="rounded-md border border-[#13538A]/20 bg-[#13538A]/8 px-2 py-0.5 text-[10px] font-semibold text-[#0E426E] dark:border-[#13538A]/30 dark:bg-[#13538A]/15 dark:text-sky-200"
+                className="rounded-md border border-[#4C78F5]/20 bg-[#4C78F5]/8 px-2 py-0.5 text-[10px] font-semibold text-[#3B66E0] dark:border-[#4C78F5]/30 dark:bg-[#4C78F5]/15 dark:text-sky-200"
               >
                 {abbreviateStateCode(st)}
               </span>
@@ -1031,7 +1031,7 @@ function DiscoverProductCard({ product }: { product: LenderProfileProduct }) {
                   key={doc.id}
                   className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50/60 px-2.5 py-2 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-800/40 dark:text-slate-200"
                 >
-                  <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#13538A]" />
+                  <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#4C78F5]" />
                   <span className="min-w-0 truncate">
                     {doc.name || doc.code || "Document"}
                   </span>
@@ -1105,12 +1105,12 @@ function ProfileBlock({
   return (
     <section className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700">
       <div className="flex items-center gap-2 border-b border-slate-100 bg-slate-50/80 px-4 py-3 dark:border-slate-800 dark:bg-slate-800/50">
-        <span className="text-[#13538A]">{icon}</span>
+        <span className="text-[#4C78F5]">{icon}</span>
         <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100">
           {title}
         </h3>
         {badge ? (
-          <span className="ml-auto rounded-full bg-[#13538A]/10 px-2 py-0.5 text-[10px] font-semibold text-[#0E426E] dark:bg-[#13538A]/20 dark:text-sky-200">
+          <span className="ml-auto rounded-full bg-[#4C78F5]/10 px-2 py-0.5 text-[10px] font-semibold text-[#3B66E0] dark:bg-[#4C78F5]/20 dark:text-sky-200">
             {badge}
           </span>
         ) : null}
@@ -1597,7 +1597,7 @@ export function SendApplicationModal({
         />
 
         <div className="rounded-xl border border-blue-100 dark:border-blue-500/20 bg-blue-50/60 dark:bg-blue-500/5 px-4 py-3">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-[#13538A]/80 dark:text-blue-400/80 mb-2">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-[#4C78F5]/80 dark:text-blue-400/80 mb-2">
             Sending to
           </p>
           <div className="flex flex-wrap gap-2">
@@ -1657,7 +1657,7 @@ export function SendApplicationModal({
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search by borrower, product, or application ID..."
-                className="w-full pl-9 pr-3 py-3 rounded-xl text-sm border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-[#13538A]/20"
+                className="w-full pl-9 pr-3 py-3 rounded-xl text-sm border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-[#4C78F5]/20"
               />
             </div>
 
@@ -1704,7 +1704,7 @@ export function SendApplicationModal({
                       className={`group w-full text-left rounded-xl border p-4 transition-all ${
                         selected
                           ? "border-blue-400 bg-blue-50/60 dark:bg-blue-500/10 shadow-sm ring-2 ring-blue-400/25"
-                          : "border-slate-200 dark:border-slate-700 hover:border-[#13538A]/30 hover:bg-slate-50/80 dark:hover:bg-slate-800/40"
+                          : "border-slate-200 dark:border-slate-700 hover:border-[#4C78F5]/30 hover:bg-slate-50/80 dark:hover:bg-slate-800/40"
                       }`}
                     >
                       <div className="flex items-start gap-3">
@@ -1792,7 +1792,7 @@ export function SendApplicationModal({
               <button
                 type="button"
                 onClick={() => setStep(1)}
-                className="text-xs font-medium text-[#13538A] hover:text-blue-700 dark:text-blue-400"
+                className="text-xs font-medium text-[#4C78F5] hover:text-blue-700 dark:text-blue-400"
               >
                 Change application
               </button>
@@ -1881,7 +1881,7 @@ function StepIndicator({
                     active
                       ? "text-slate-900 dark:text-white"
                       : done
-                        ? "text-[#13538A] dark:text-blue-400"
+                        ? "text-[#4C78F5] dark:text-blue-400"
                         : "text-slate-400"
                   }`}
                 >

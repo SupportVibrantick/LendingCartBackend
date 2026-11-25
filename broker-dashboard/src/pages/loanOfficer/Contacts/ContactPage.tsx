@@ -288,7 +288,7 @@ export default function ContactPage({
       <PageMeta title={pageTitle} description={portalConfig.heroDescription} />
 
       <div className="space-y-5 text-gray-800 dark:text-gray-200">
-        <section className="overflow-hidden rounded-2xl border border-[#13538A]/15 bg-gradient-to-br from-[#13538A] via-[#1a6aad] to-[#2C92D5] p-6 text-white shadow-sm sm:p-8">
+        <section className="overflow-hidden rounded-2xl border border-[#4C78F5]/15 bg-gradient-to-br from-[#4C78F5] via-[#1a6aad] to-[#4C78F5] p-6 text-white shadow-sm sm:p-8">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <p className="text-xs font-semibold uppercase tracking-widest text-white/70">
@@ -326,7 +326,7 @@ export default function ContactPage({
                   placeholder="Search by name, email, phone, or company..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="h-11 w-full rounded-xl border border-gray-200 bg-gray-50 pl-10 pr-10 text-sm outline-none transition focus:border-[#13538A]/40 focus:bg-white focus:ring-2 focus:ring-[#13538A]/10 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100"
+                  className="h-11 w-full rounded-xl border border-gray-200 bg-gray-50 pl-10 pr-10 text-sm outline-none transition focus:border-[#4C78F5]/40 focus:bg-white focus:ring-2 focus:ring-[#4C78F5]/10 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100"
                 />
                 {search && (
                   <button
@@ -355,7 +355,7 @@ export default function ContactPage({
                   <button
                     type="button"
                     onClick={openCreateModal}
-                    className="inline-flex h-11 items-center gap-2 rounded-xl bg-[#13538A] px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#1a6aad]"
+                    className="inline-flex h-11 items-center gap-2 rounded-xl bg-[#4C78F5] px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#1a6aad]"
                   >
                     <Plus className="h-4 w-4" />
                     Create Contact
@@ -372,7 +372,7 @@ export default function ContactPage({
                   onClick={() => setTypeFilter("")}
                   className={`rounded-full px-3 py-1 text-xs font-medium transition ${
                     !typeFilter
-                      ? "bg-[#13538A] text-white"
+                      ? "bg-[#4C78F5] text-white"
                       : "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300"
                   }`}
                 >
@@ -389,7 +389,7 @@ export default function ContactPage({
                     }
                     className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition ${
                       typeFilter === type.toUpperCase()
-                        ? "bg-[#13538A] text-white"
+                        ? "bg-[#4C78F5] text-white"
                         : "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300"
                     }`}
                   >
@@ -500,7 +500,7 @@ export default function ContactPage({
                             {contact.email ? (
                               <a
                                 href={`mailto:${contact.email}`}
-                                className="flex max-w-[220px] items-center gap-1.5 truncate text-sm text-gray-600 transition hover:text-[#13538A] dark:text-gray-300"
+                                className="flex max-w-[220px] items-center gap-1.5 truncate text-sm text-gray-600 transition hover:text-[#4C78F5] dark:text-gray-300"
                                 onClick={(e) => e.stopPropagation()}
                               >
                                 <Mail className="h-3.5 w-3.5 shrink-0 text-gray-400" />
@@ -512,7 +512,7 @@ export default function ContactPage({
                             {contact.phone ? (
                               <a
                                 href={`tel:${contact.phone}`}
-                                className="flex items-center gap-1.5 text-sm text-gray-600 transition hover:text-[#13538A] dark:text-gray-300"
+                                className="flex items-center gap-1.5 text-sm text-gray-600 transition hover:text-[#4C78F5] dark:text-gray-300"
                                 onClick={(e) => e.stopPropagation()}
                               >
                                 <Phone className="h-3.5 w-3.5 shrink-0 text-gray-400" />
@@ -558,7 +558,7 @@ export default function ContactPage({
                               type="button"
                               title="View"
                               onClick={() => setViewContact(contact)}
-                              className="rounded-lg p-2 text-gray-500 transition hover:bg-[#13538A]/10 hover:text-[#13538A]"
+                              className="rounded-lg p-2 text-gray-500 transition hover:bg-[#4C78F5]/10 hover:text-[#4C78F5]"
                             >
                               <Eye size={16} />
                             </button>
@@ -593,7 +593,7 @@ export default function ContactPage({
 
           {!loading && filteredContacts.length === 0 && (
             <div className="flex flex-col items-center px-6 py-16 text-center">
-              <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#13538A]/10 text-[#13538A]">
+              <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#4C78F5]/10 text-[#4C78F5]">
                 <Users className="h-6 w-6" />
               </div>
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -610,7 +610,7 @@ export default function ContactPage({
                 <button
                   type="button"
                   onClick={openCreateModal}
-                  className="mt-4 inline-flex items-center gap-2 rounded-xl bg-[#13538A] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#1a6aad]"
+                  className="mt-4 inline-flex items-center gap-2 rounded-xl bg-[#4C78F5] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#1a6aad]"
                 >
                   <Plus className="h-4 w-4" />
                   Create Contact

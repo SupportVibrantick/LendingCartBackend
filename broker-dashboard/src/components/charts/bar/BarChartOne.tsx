@@ -1,11 +1,11 @@
-import Chart from "react-apexcharts";
+﻿import Chart from "react-apexcharts";
 import { ApexOptions } from "apexcharts";
 
 export default function BarChartOne() {
   const options: ApexOptions = {
     colors: ["#465fff"],
     chart: {
-      fontFamily: "Outfit, sans-serif",
+      fontFamily: "Inter, sans-serif",
       type: "bar",
       height: 180,
       toolbar: {
@@ -54,7 +54,7 @@ export default function BarChartOne() {
       show: true,
       position: "top",
       horizontalAlign: "left",
-      fontFamily: "Outfit",
+      fontFamily: "Inter",
     },
     yaxis: {
       title: {
