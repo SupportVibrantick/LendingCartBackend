@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import { Link, useNavigate } from "react-router";
 import toast from "react-hot-toast";
 import {
@@ -24,8 +30,37 @@ import ApplicationStatusChart from "../../components/ecommerce/ApplicationStatus
 import PipelineValueChart from "../../components/ecommerce/PipelineValueChart";
 import ConversionFunnelChart from "../../components/ecommerce/ConversionFunnelChart";
 import ConversionRatesChart from "../../components/ecommerce/ConversionRatesChart";
+import NetworkAnalyticsCharts from "../../components/ecommerce/NetworkAnalyticsCharts";
 import CommissionSummaryChart from "../../components/commissions/CommissionSummaryChart";
+import CommissionStatusChart from "../../components/commissions/CommissionStatusChart";
 import PageMeta from "../../components/common/PageMeta";
+
+function SectionHeader({
+  eyebrow,
+  title,
+  description,
+  action,
+}: {
+  eyebrow: string;
+  title: string;
+  description: string;
+  action?: ReactNode;
+}) {
+  return (
+    <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+      <div className="min-w-0">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-brand-500">
+          {eyebrow}
+        </p>
+        <h2 className="mt-1 text-[18px] font-semibold tracking-tight text-text-primary dark:text-white">
+          {title}
+        </h2>
+        <p className="mt-1 text-[13px] text-text-secondary">{description}</p>
+      </div>
+      {action}
+    </div>
+  );
+}
 import { formatUsDate } from "../../lib/usDateFormat";
 import { isSessionExpiredError } from "../../lib/sessionExpiry";
 import {
@@ -466,63 +501,105 @@ export default function Home() {
           </div>
         ) : null}
 
-        <EcommerceMetrics
-          stats={stats}
-          loading={loading}
-          onStatClick={(key) => openPipeline(METRIC_TO_PIPELINE[key])}
-        />
+        <section className="space-y-4">
+          <SectionHeader
+            eyebrow="Pipeline"
+            title="Application performance"
+            description="Volume, conversion, and status movement across your loan pipeline."
+            action={
+              <Link
+                to="/submit-applications"
+                className="inline-flex items-center gap-1 text-[13px] font-semibold text-brand-500 hover:underline"
+              >
+                Open pipeline
+                <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
+            }
+          />
 
-        <div className="grid grid-cols-12 gap-4">
-          <div className="col-span-12 lg:col-span-4">
-            <ApplicationStatusChart
-              stats={stats}
-              loading={loading}
-              onSliceClick={(key) =>
-                openPipeline(
-                  key === "OPEN"
-                    ? undefined
-                    : key === "FUNDED"
-                      ? "FUNDED"
-                      : "DECLINED",
-                )
+          <EcommerceMetrics
+            stats={stats}
+            loading={loading}
+            onStatClick={(key) => openPipeline(METRIC_TO_PIPELINE[key])}
+          />
+
+          <div className="grid grid-cols-12 gap-4">
+            <div className="col-span-12 lg:col-span-4">
+              <ApplicationStatusChart
+                stats={stats}
+                loading={loading}
+                onSliceClick={(key) =>
+                  openPipeline(
+                    key === "OPEN"
+                      ? undefined
+                      : key === "FUNDED"
+                        ? "FUNDED"
+                        : "DECLINED",
+                  )
+                }
+              />
+            </div>
+            <div className="col-span-12 lg:col-span-4">
+              <PipelineValueChart stats={stats} loading={loading} />
+            </div>
+            <div className="col-span-12 lg:col-span-4">
+              <ConversionRatesChart stats={stats} loading={loading} />
+            </div>
+
+            <div className="col-span-12 xl:col-span-7">
+              <ConversionFunnelChart
+                stats={stats}
+                loading={loading}
+                onStageClick={(statusKey) =>
+                  openPipeline(STATUS_TO_PIPELINE[statusKey])
+                }
+              />
+            </div>
+            <div className="col-span-12 xl:col-span-5">
+              <StatusDistributionChart
+                stats={stats}
+                loading={loading}
+                onStatusClick={(statusKey) =>
+                  openPipeline(STATUS_TO_PIPELINE[statusKey])
+                }
+              />
+            </div>
+
+            <div className="col-span-12 xl:col-span-8">
+              <StatisticsChart stats={stats} loading={loading} />
+            </div>
+            <div className="col-span-12 xl:col-span-4">
+              <ProductVolumeChart stats={stats} loading={loading} />
+            </div>
+          </div>
+        </section>
+
+        <section className="space-y-4">
+          <SectionHeader
+            eyebrow="Network"
+            title="Lenders, team & relationships"
+            description="Coverage across lenders, officers, co-brokers, borrowers, and contacts."
+          />
+          <NetworkAnalyticsCharts stats={stats} loading={loading} />
+        </section>
+
+        {showCommissions ? (
+          <section className="space-y-4">
+            <SectionHeader
+              eyebrow="Commissions"
+              title="Earnings and payouts"
+              description="Track pending dollars, paid volume, and deal counts over the last six months."
+              action={
+                <Link
+                  to="/commissions"
+                  className="inline-flex items-center gap-1 text-[13px] font-semibold text-brand-500 hover:underline"
+                >
+                  View commissions
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
               }
             />
-          </div>
-          <div className="col-span-12 lg:col-span-4">
-            <PipelineValueChart stats={stats} loading={loading} />
-          </div>
-          <div className="col-span-12 lg:col-span-4">
-            <ConversionRatesChart stats={stats} loading={loading} />
-          </div>
-
-          <div className="col-span-12 xl:col-span-7">
-            <ConversionFunnelChart
-              stats={stats}
-              loading={loading}
-              onStageClick={(statusKey) =>
-                openPipeline(STATUS_TO_PIPELINE[statusKey])
-              }
-            />
-          </div>
-          <div className="col-span-12 xl:col-span-5">
-            <StatusDistributionChart
-              stats={stats}
-              loading={loading}
-              onStatusClick={(statusKey) =>
-                openPipeline(STATUS_TO_PIPELINE[statusKey])
-              }
-            />
-          </div>
-
-          <div className="col-span-12 xl:col-span-8">
-            <StatisticsChart stats={stats} loading={loading} />
-          </div>
-          <div className="col-span-12 xl:col-span-4">
-            <ProductVolumeChart stats={stats} loading={loading} />
-          </div>
-
-          {showCommissions ? (
-            <>
+            <div className="grid grid-cols-12 gap-4">
               <div className="col-span-12 md:col-span-4 xl:col-span-3">
                 <div className="flex h-full flex-col rounded-2xl border border-border bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
                   <div className="flex items-start justify-between gap-3">
@@ -604,46 +681,39 @@ export default function Home() {
                   )}
                 </div>
               </div>
-              <div className="col-span-12 md:col-span-8 xl:col-span-9">
+              <div className="col-span-12 md:col-span-8 xl:col-span-5">
                 <CommissionSummaryChart
                   summary={commissionSummary}
                   loading={commissionLoading}
                   title="Commission over time"
                 />
               </div>
-            </>
-          ) : null}
-
-          <div className="col-span-12">
-            <section className="overflow-hidden rounded-2xl border border-border bg-white dark:border-slate-700 dark:bg-slate-900">
-              <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3.5 sm:px-5 dark:border-slate-800">
-                <div className="min-w-0">
-                  <h2 className="text-sm font-semibold text-text-primary">
-                    Recent Applications
-                  </h2>
-                  <p className="mt-0.5 text-[13px] text-text-secondary">
-                    {loading
-                      ? "Loading pipeline…"
-                      : (
-                        <>
-                          Latest files in your broker pipeline.{" "}
-                          <span className="font-semibold text-[#4C78F5]">
-                            {recent.length}
-                          </span>{" "}
-                          shown.
-                        </>
-                      )}
-                  </p>
-                </div>
-                <Link
-                  to="/submit-applications"
-                  className="inline-flex shrink-0 items-center gap-1 text-[13px] font-semibold text-[#4C78F5] hover:underline"
-                >
-                  View all
-                  <ArrowRight className="h-3.5 w-3.5" />
-                </Link>
+              <div className="col-span-12 xl:col-span-4">
+                <CommissionStatusChart
+                  summary={commissionSummary}
+                  loading={commissionLoading}
+                />
               </div>
+            </div>
+          </section>
+        ) : null}
 
+        <section className="space-y-4">
+          <SectionHeader
+            eyebrow="Pipeline"
+            title="Recent applications"
+            description="Latest files moving through your broker pipeline."
+            action={
+              <Link
+                to="/submit-applications"
+                className="inline-flex items-center gap-1 text-[13px] font-semibold text-brand-500 hover:underline"
+              >
+                View all
+                <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
+            }
+          />
+          <div className="overflow-hidden rounded-2xl border border-border bg-white dark:border-slate-700 dark:bg-slate-900">
               {loading ? (
                 <div className="overflow-x-auto">
                   <table className="ds-table min-w-[900px] w-full">
@@ -837,9 +907,8 @@ export default function Home() {
                   </table>
                 </div>
               )}
-            </section>
           </div>
-        </div>
+        </section>
       </div>
     </>
   );

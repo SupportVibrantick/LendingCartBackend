@@ -121,9 +121,167 @@ module.exports = async function brokerStatsList(fastify) {
           if (batch.length < BATCH_SIZE) break;
         }
 
+        const officerRoleWhere = {
+          organizationId: brokerOrgId,
+          isDeleted: false,
+          roles: { some: { role: { name: "BROKER_OFFICER" } } },
+        };
+        const coBrokerRoleWhere = {
+          organizationId: brokerOrgId,
+          isDeleted: false,
+          roles: { some: { role: { name: "SUB_BROKER" } } },
+        };
+        const borrowerAppWhere = {
+          brokerOrgId,
+          ...(isOfficer && { brokerUserId: userId }),
+          ...(isSubBroker && {
+            subBrokerAssignments: { some: { subBrokerId: userId } },
+          }),
+        };
+
+        const [
+          lendersConnected,
+          lendersInactive,
+          officersTotal,
+          officersActive,
+          officersDisabled,
+          coBrokersTotal,
+          coBrokersActive,
+          coBrokersDisabled,
+          contactsTotal,
+          contactTypeRows,
+          borrowersTotal,
+          borrowersPortalReady,
+          borrowersPendingLink,
+          clientsTotal,
+          topOfficerRows,
+        ] = await Promise.all([
+          prisma.brokerLenderAccess.count({
+            where: { brokerOrgId, isActive: true },
+          }),
+          prisma.brokerLenderAccess.count({
+            where: { brokerOrgId, isActive: false },
+          }),
+          prisma.userAccount.count({ where: officerRoleWhere }),
+          prisma.userAccount.count({
+            where: { ...officerRoleWhere, status: "ACTIVE" },
+          }),
+          prisma.userAccount.count({
+            where: { ...officerRoleWhere, status: "DISABLED" },
+          }),
+          prisma.userAccount.count({ where: coBrokerRoleWhere }),
+          prisma.userAccount.count({
+            where: { ...coBrokerRoleWhere, status: "ACTIVE" },
+          }),
+          prisma.userAccount.count({
+            where: { ...coBrokerRoleWhere, status: "DISABLED" },
+          }),
+          prisma.contact.count({
+            where: { brokerOrgId, isDeleted: false },
+          }),
+          prisma.contact.groupBy({
+            by: ["contactType"],
+            where: { brokerOrgId, isDeleted: false },
+            _count: { _all: true },
+          }),
+          prisma.loanApplication.count({ where: borrowerAppWhere }),
+          prisma.loanApplication.count({
+            where: { ...borrowerAppWhere, clientId: { not: null } },
+          }),
+          prisma.loanApplication.count({
+            where: { ...borrowerAppWhere, clientId: null },
+          }),
+          prisma.client.count({
+            where: {
+              primaryBrokerOrgId: brokerOrgId,
+              OR: [{ isDeleted: false }, { isDeleted: null }],
+            },
+          }),
+          prisma.loanApplication.groupBy({
+            by: ["brokerUserId"],
+            where: {
+              brokerOrgId,
+              brokerUserId: { not: null },
+            },
+            _count: { _all: true },
+          }),
+        ]);
+
+        const sortedContactTypes = [...contactTypeRows]
+          .sort((a, b) => b._count._all - a._count._all)
+          .slice(0, 8);
+
+        const sortedTopOfficers = [...topOfficerRows]
+          .filter((row) => row.brokerUserId)
+          .sort((a, b) => b._count._all - a._count._all)
+          .slice(0, 6);
+
+        const officerIds = sortedTopOfficers.map((row) => row.brokerUserId);
+
+        const officerAccounts = officerIds.length
+          ? await prisma.userAccount.findMany({
+              where: { id: { in: officerIds } },
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+                status: true,
+              },
+            })
+          : [];
+
+        const officerNameById = new Map(
+          officerAccounts.map((user) => [
+            user.id,
+            `${user.firstName || ""} ${user.lastName || ""}`.trim() ||
+              user.email ||
+              "Loan Officer",
+          ]),
+        );
+
+        const network = {
+          lenders: {
+            connected: lendersConnected,
+            inactive: lendersInactive,
+            total: lendersConnected + lendersInactive,
+          },
+          officers: {
+            total: officersTotal,
+            active: officersActive,
+            disabled: officersDisabled,
+          },
+          coBrokers: {
+            total: coBrokersTotal,
+            active: coBrokersActive,
+            disabled: coBrokersDisabled,
+          },
+          borrowers: {
+            total: borrowersTotal,
+            portalReady: borrowersPortalReady,
+            pendingLink: borrowersPendingLink,
+            clients: clientsTotal,
+          },
+          contacts: {
+            total: contactsTotal,
+            byType: sortedContactTypes.map((row) => ({
+              type: row.contactType,
+              count: row._count._all,
+            })),
+          },
+          topOfficers: sortedTopOfficers.map((row) => ({
+            id: row.brokerUserId,
+            name: officerNameById.get(row.brokerUserId) || "Loan Officer",
+            applications: row._count._all,
+          })),
+        };
+
         return reply.send({
           success: true,
-          data: engine.finalize(),
+          data: {
+            ...engine.finalize(),
+            network,
+          },
         });
       } catch (error) {
         fastify.log.error(

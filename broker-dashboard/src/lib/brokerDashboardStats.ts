@@ -32,6 +32,48 @@ export type BrokerMetricKey =
   | "totalVolumeFunded"
   | "uniqueLendersAccessed";
 
+export type NetworkRoleStats = {
+  total: number;
+  active: number;
+  disabled: number;
+};
+
+export type NetworkLenderStats = {
+  connected: number;
+  inactive: number;
+  total: number;
+};
+
+export type NetworkBorrowerStats = {
+  total: number;
+  portalReady: number;
+  pendingLink: number;
+  clients: number;
+};
+
+export type NetworkContactTypePoint = {
+  type: string;
+  count: number;
+};
+
+export type NetworkTopOfficer = {
+  id: string | null;
+  name: string;
+  applications: number;
+};
+
+export type BrokerNetworkStats = {
+  lenders: NetworkLenderStats;
+  officers: NetworkRoleStats;
+  coBrokers: NetworkRoleStats;
+  borrowers: NetworkBorrowerStats;
+  contacts: {
+    total: number;
+    byType: NetworkContactTypePoint[];
+  };
+  topOfficers: NetworkTopOfficer[];
+};
+
 export type BrokerStats = {
   totalApplications: number;
   totalSubmitted: number;
@@ -51,6 +93,7 @@ export type BrokerStats = {
   };
   monthlyTrend: MonthlyTrendPoint[];
   productWiseApprovedVolume: ProductVolumePoint[];
+  network?: BrokerNetworkStats;
   period?: {
     key: DashboardPeriod;
     start: string;
