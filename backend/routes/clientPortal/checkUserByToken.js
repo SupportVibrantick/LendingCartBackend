@@ -36,14 +36,11 @@ async function checkUserByTokenRoute(fastify) {
         if (req.query.token) {
           const token = req.query.token;
 
+          // Look up by token only — do not require isUsed=false here.
+          // After set-password the link is marked used; the same URL must still
+          // resolve so the client sees Login instead of "expired".
           const tokenRecord = await prisma.clientUploadToken.findFirst({
-            where: {
-              token,
-              isUsed: false,
-              expiresAt: {
-                gt: new Date(),
-              },
-            },
+            where: { token },
           });
 
           if (!tokenRecord) {
@@ -53,7 +50,55 @@ async function checkUserByTokenRoute(fastify) {
             });
           }
 
+          const isExpired = tokenRecord.expiresAt < new Date();
           clientId = tokenRecord.clientId;
+
+          const contactPreview = await prisma.clientContact.findFirst({
+            where: { clientId },
+            orderBy: { isPrimary: "desc" },
+            select: { email: true },
+          });
+          const previewEmail = contactPreview?.email || null;
+
+          const existingPortalUser = await prisma.clientPortalUser.findFirst({
+            where: {
+              isDeleted: false,
+              OR: [
+                { clientId },
+                ...(previewEmail
+                  ? [{ email: { equals: previewEmail, mode: "insensitive" } }]
+                  : []),
+              ],
+            },
+            select: { id: true, lastLoginAt: true },
+          });
+
+          const hasLoginAccount = Boolean(existingPortalUser?.lastLoginAt);
+
+          // Expired + no password yet → hard fail.
+          // Expired/used + password already set → continue so UI can show Login.
+          if (isExpired && !hasLoginAccount) {
+            return reply.code(404).send({
+              success: false,
+              message: "Invalid or expired access link",
+            });
+          }
+
+          // Fast-path response when we already loaded contact + user.
+          return reply.send({
+            success: true,
+            data: {
+              userExists: hasLoginAccount,
+              email: previewEmail,
+              clientId,
+              tokenValid: !isExpired && !tokenRecord.isUsed,
+              needsPasswordSetup:
+                Boolean(existingPortalUser) &&
+                !existingPortalUser.lastLoginAt &&
+                !tokenRecord.isUsed &&
+                !isExpired,
+            },
+          });
         } else if (req.headers.authorization) {
 
         /* ===============================

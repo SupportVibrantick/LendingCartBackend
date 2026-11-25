@@ -198,16 +198,26 @@ export default function ClientAuth() {
       );
       const data = res.data?.data;
 
+      setEmail(data?.email || "");
+
+      // Password already set for this email → always show Login, even if the
+      // magic link was marked used after first-time set-password.
+      if (data?.userExists) {
+        setView("login");
+        return;
+      }
+
       if (!data?.tokenValid) {
         toast.error("Invalid or expired link");
         setView("login");
         return;
       }
 
-      setEmail(data.email || "");
-      setView(data.userExists ? "login" : "set-password");
-    } catch {
-      toast.error("Something went wrong");
+      setView("set-password");
+    } catch (error: any) {
+      const message =
+        error?.response?.data?.message || "Something went wrong";
+      toast.error(message);
       setView("login");
     } finally {
       setBootLoading(false);
