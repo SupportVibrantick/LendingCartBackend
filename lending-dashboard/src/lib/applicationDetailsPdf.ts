@@ -412,6 +412,8 @@ async function renderElementToPdf(
       PDF_MARGIN_Y_MM,
       contentWidth,
       sliceHeightMm,
+      undefined,
+      "FAST",
     );
 
     sourceY = Math.max(sourceY + 1, sliceEnd);
