@@ -42,7 +42,7 @@ const ToggleSwitch = ({
       disabled
         ? "cursor-not-allowed bg-slate-200 opacity-50 dark:bg-slate-700"
         : checked
-          ? "bg-[#13538A]"
+          ? "bg-[#4C78F5]"
           : "bg-slate-200 dark:bg-slate-700"
     }`}
   >
@@ -75,7 +75,7 @@ const CurrencyInput = ({
       value={value}
       onChange={(e) => onChange(formatCurrencyInput(e.target.value))}
       placeholder="0"
-      className={`w-full rounded-md border py-1 pl-5 pr-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
+      className={`w-full rounded-md border py-1 pl-5 pr-2 text-sm outline-none focus:border-[#4C78F5]/50 focus:ring-2 focus:ring-[#4C78F5]/15 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
         shaded
           ? "border-slate-200 bg-slate-100 italic text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
           : "border-slate-300 bg-white"
@@ -303,7 +303,7 @@ export default function ResidentialFinancialsStep({
         <button
           type="button"
           onClick={() => onChange(addFinancialYearColumn(financials))}
-          className="mt-3 flex items-center gap-1 text-sm font-medium text-[#13538A] hover:underline"
+          className="mt-3 flex items-center gap-1 text-sm font-medium text-[#4C78F5] hover:underline"
         >
           <Plus className="h-4 w-4" />
           Add Year
@@ -324,7 +324,7 @@ export default function ResidentialFinancialsStep({
             value={financials.interimMonthsReported}
             onChange={(e) => patch({ interimMonthsReported: e.target.value })}
             placeholder="0"
-            className="w-full rounded-md border border-slate-300 bg-white px-4 py-1 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 md:w-28"
+            className="w-full rounded-md border border-slate-300 bg-white px-4 py-1 text-sm outline-none focus:border-[#4C78F5]/50 focus:ring-2 focus:ring-[#4C78F5]/15 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 md:w-28"
           />
           <p className="text-xs text-slate-500">
             Used to annualize the interim-year NOI when averaging DSCR across
@@ -387,7 +387,7 @@ export default function ResidentialFinancialsStep({
                 ],
               })
             }
-            className="flex items-center gap-1 text-sm font-medium text-[#13538A] hover:underline"
+            className="flex items-center gap-1 text-sm font-medium text-[#4C78F5] hover:underline"
           >
             <Plus className="h-4 w-4" />
             Add Year
@@ -407,7 +407,7 @@ export default function ResidentialFinancialsStep({
               name="dscrCalculationMethod"
               checked={financials.dscrCalculationMethod === "noi"}
               onChange={() => patch({ dscrCalculationMethod: "noi" })}
-              className="text-[#13538A]"
+              className="text-[#4C78F5]"
             />
             Use NOI
           </label>
@@ -417,7 +417,7 @@ export default function ResidentialFinancialsStep({
               name="dscrCalculationMethod"
               checked={financials.dscrCalculationMethod === "proForma"}
               onChange={() => patch({ dscrCalculationMethod: "proForma" })}
-              className="text-[#13538A]"
+              className="text-[#4C78F5]"
             />
             Use Pro-Forma NOI
           </label>
@@ -492,7 +492,7 @@ export default function ResidentialFinancialsStep({
             onChange={(e) => patch({ projectSummary: e.target.value })}
             rows={4}
             placeholder="Describe the project, property, and use of funds..."
-            className="mt-1 w-full rounded-md border border-slate-300 px-4 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+            className="mt-1 w-full rounded-md border border-slate-300 px-4 py-2 text-sm outline-none focus:border-[#4C78F5]/50 focus:ring-2 focus:ring-[#4C78F5]/15 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
           />
         </div>
       </div>

@@ -29,7 +29,7 @@ const ToggleSwitch = ({
     aria-checked={checked}
     onClick={() => onChange(!checked)}
     className={`relative inline-flex h-6 w-11 shrink-0 rounded-full transition ${
-      checked ? "bg-[#13538A]" : "bg-slate-200 dark:bg-slate-700"
+      checked ? "bg-[#4C78F5]" : "bg-slate-200 dark:bg-slate-700"
     }`}
   >
     <span
@@ -57,7 +57,7 @@ const CurrencyInput = ({
       value={value}
       onChange={(e) => onChange(formatCurrencyInput(e.target.value))}
       placeholder="0"
-      className="w-full rounded-md border border-slate-300 py-1 pl-7 pr-4 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+      className="w-full rounded-md border border-slate-300 py-1 pl-7 pr-4 text-sm outline-none focus:border-[#4C78F5]/50 focus:ring-2 focus:ring-[#4C78F5]/15 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
     />
   </div>
 );
@@ -107,7 +107,7 @@ export default function Sba7aEntityFields({
               onEntityChange("naicsCode", e.target.value.replace(/\D/g, ""))
             }
             placeholder="e.g. 522110"
-            className="mt-1 w-full rounded-md border border-slate-300 px-4 py-1 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+            className="mt-1 w-full rounded-md border border-slate-300 px-4 py-1 text-sm outline-none focus:border-[#4C78F5]/50 focus:ring-2 focus:ring-[#4C78F5]/15 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
           />
         </div>
 
@@ -127,7 +127,7 @@ export default function Sba7aEntityFields({
                 onEntityChange("goodwillAmount", formatCurrency(e.target.value))
               }
               placeholder="0"
-              className="w-full rounded-md border border-slate-300 py-1 pl-7 pr-4 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+              className="w-full rounded-md border border-slate-300 py-1 pl-7 pr-4 text-sm outline-none focus:border-[#4C78F5]/50 focus:ring-2 focus:ring-[#4C78F5]/15 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
             />
           </div>
         </div>
@@ -171,7 +171,7 @@ export default function Sba7aEntityFields({
                   )
                 }
                 placeholder="0"
-                className="w-full rounded-md border border-slate-300 py-1 pl-7 pr-4 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+                className="w-full rounded-md border border-slate-300 py-1 pl-7 pr-4 text-sm outline-none focus:border-[#4C78F5]/50 focus:ring-2 focus:ring-[#4C78F5]/15 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
               />
             </div>
             {errors["entity.inventoryValue"] && (
@@ -221,7 +221,7 @@ export default function Sba7aEntityFields({
                   )
                 }
                 placeholder="0"
-                className="w-full rounded-md border border-slate-300 py-1 pl-7 pr-4 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+                className="w-full rounded-md border border-slate-300 py-1 pl-7 pr-4 text-sm outline-none focus:border-[#4C78F5]/50 focus:ring-2 focus:ring-[#4C78F5]/15 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
               />
             </div>
             {errors["entity.equipmentValue"] && (
@@ -253,7 +253,7 @@ export default function Sba7aEntityFields({
               onEntityChange("ebitdaWithNoi", formatCurrency(e.target.value))
             }
             placeholder="0"
-            className="w-full rounded-md border border-slate-300 py-1 pl-7 pr-4 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+            className="w-full rounded-md border border-slate-300 py-1 pl-7 pr-4 text-sm outline-none focus:border-[#4C78F5]/50 focus:ring-2 focus:ring-[#4C78F5]/15 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
           />
         </div>
       </div>
