@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "react-router";
-import { CalendarClock } from "lucide-react";
+import { CalendarClock, Menu, MoreHorizontal, X } from "lucide-react";
 import { useSidebar } from "../context/SidebarContext";
 import { ThemeToggleButton } from "../components/common/ThemeToggleButton";
 import NotificationDropdown from "../components/header/NotificationDropdown";
@@ -78,7 +78,9 @@ function formatHeaderDateTime(now: Date) {
 const AppHeader: React.FC = () => {
   const [isApplicationMenuOpen, setApplicationMenuOpen] = useState(false);
   const [user, setUser] = useState<any | null>(null);
-  const [dateTime, setDateTime] = useState(() => formatHeaderDateTime(new Date()));
+  const [dateTime, setDateTime] = useState(() =>
+    formatHeaderDateTime(new Date()),
+  );
   const location = useLocation();
   const pageTitle = resolvePageTitle(location.pathname);
 
@@ -94,10 +96,6 @@ const AppHeader: React.FC = () => {
     } else {
       toggleMobileSidebar();
     }
-  };
-
-  const toggleApplicationMenu = () => {
-    setApplicationMenuOpen(!isApplicationMenuOpen);
   };
 
   const fetchAuthUser = async (isActive?: () => boolean) => {
@@ -140,6 +138,7 @@ const AppHeader: React.FC = () => {
     [user?.user?.roles],
   );
   const roleOption = getRoleOption(primaryRole);
+  const orgName = user?.organization?.name;
 
   useEffect(() => {
     let active = true;
@@ -155,6 +154,10 @@ const AppHeader: React.FC = () => {
     const interval = window.setInterval(tick, 1000);
     return () => window.clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    setApplicationMenuOpen(false);
+  }, [location.pathname]);
 
   const handleExitView = async () => {
     try {
@@ -210,108 +213,135 @@ const AppHeader: React.FC = () => {
   };
 
   return (
-    <header className="relative z-40 flex h-16 w-full shrink-0 border-b border-border bg-white dark:border-gray-800 dark:bg-gray-900">
+    <header className="relative z-40 flex h-14 w-full shrink-0 border-b border-border bg-white dark:border-slate-800 dark:bg-slate-950">
       <div className="flex w-full items-center justify-between gap-3 px-3 sm:px-4 lg:px-5">
         <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
           <button
-            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-border text-text-secondary transition hover:bg-surface dark:border-gray-700 dark:text-gray-300"
+            type="button"
+            className={`inline-flex h-9 w-9 items-center justify-center rounded-lg transition ${
+              isMobileOpen
+                ? "bg-[#4C78F5] text-white"
+                : "border border-border text-text-secondary hover:border-[#4C78F5]/30 hover:bg-[#4C78F5]/5 hover:text-[#4C78F5] dark:border-slate-700 dark:text-slate-300"
+            }`}
             onClick={handleToggle}
-            aria-label="Toggle Sidebar"
+            aria-label="Toggle sidebar"
           >
-            {isMobileOpen ? (
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                <path
-                  fillRule="evenodd"
-                  clipRule="evenodd"
-                  d="M6.22 7.28a.75.75 0 0 1 1.06-1.06L12 10.94l4.72-4.72a.75.75 0 1 1 1.06 1.06L13.06 12l4.72 4.72a.75.75 0 1 1-1.06 1.06L12 13.06l-4.72 4.72a.75.75 0 0 1-1.06-1.06L10.94 12 6.22 7.28Z"
-                  fill="currentColor"
-                />
-              </svg>
-            ) : (
-              <svg width="18" height="14" viewBox="0 0 16 12" fill="none">
-                <path
-                  fillRule="evenodd"
-                  clipRule="evenodd"
-                  d="M0.58 1C0.58 0.59 0.92 0.25 1.33 0.25H14.67C15.08 0.25 15.42 0.59 15.42 1C15.42 1.41 15.08 1.75 14.67 1.75H1.33C0.92 1.75 0.58 1.41 0.58 1ZM0.58 11C0.58 10.59 0.92 10.25 1.33 10.25H14.67C15.08 10.25 15.42 10.59 15.42 11C15.42 11.41 15.08 11.75 14.67 11.75H1.33C0.92 11.75 0.58 11.41 0.58 11ZM1.33 5.25C0.92 5.25 0.58 5.59 0.58 6C0.58 6.41 0.92 6.75 1.33 6.75H8C8.41 6.75 8.75 6.41 8.75 6C8.75 5.59 8.41 5.25 8 5.25H1.33Z"
-                  fill="currentColor"
-                />
-              </svg>
-            )}
+            {isMobileOpen ? <X size={17} /> : <Menu size={17} />}
           </button>
 
-          <Link to="/" className="lg:hidden">
+          <Link to="/" className="shrink-0 lg:hidden">
             <img
-              className="h-9 w-9 rounded-full object-cover"
+              className="h-8 w-8 rounded-full object-cover ring-2 ring-[#4C78F5]/15"
               src="/loanAutomation.jpeg"
               alt="Logo"
             />
           </Link>
 
-          <div className="min-w-0">
-            <h1 className="truncate text-[15px] font-semibold tracking-tight text-text-primary dark:text-white sm:text-base">
+          <div className="flex min-w-0 items-center gap-2 sm:gap-2.5">
+            <h1 className="truncate text-[15px] font-semibold tracking-tight text-text-primary dark:text-white">
               {pageTitle}
             </h1>
-            {roleOption || user?.organization?.name ? (
-              <div className="mt-0.5 hidden items-center gap-2 sm:flex">
-                {roleOption ? (
-                  <span
-                    title={roleOption.description}
-                    className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 ring-inset ${roleBadgeClass(primaryRole)}`}
-                  >
-                    {roleOption.label}
-                  </span>
-                ) : null}
-                {user?.organization?.name ? (
-                  <span className="truncate text-[12px] text-text-secondary">
-                    {user.organization.name}
-                  </span>
-                ) : null}
-              </div>
-            ) : null}
+
+            {(roleOption || orgName) && (
+              <>
+                <span
+                  className="hidden h-4 w-px shrink-0 bg-border sm:block dark:bg-slate-700"
+                  aria-hidden
+                />
+                <div className="hidden min-w-0 items-center gap-2 sm:flex">
+                  {roleOption ? (
+                    <span
+                      title={roleOption.description}
+                      className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 ring-inset ${roleBadgeClass(primaryRole)}`}
+                    >
+                      {roleOption.label}
+                    </span>
+                  ) : null}
+                  {orgName ? (
+                    <span className="truncate text-[12px] font-medium text-text-secondary">
+                      {orgName}
+                    </span>
+                  ) : null}
+                </div>
+              </>
+            )}
           </div>
 
           {isImpersonation ? (
             <button
+              type="button"
               onClick={handleExitView}
-              className="ml-1 rounded-xl bg-rose-500 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-rose-600"
+              className="ml-1 hidden h-8 items-center rounded-lg bg-rose-500 px-3 text-[11px] font-semibold text-white transition hover:bg-rose-600 sm:inline-flex"
             >
-              Exit View Mode
+              Exit view mode
             </button>
           ) : null}
         </div>
 
         <button
-          onClick={toggleApplicationMenu}
-          className="inline-flex h-10 w-10 items-center justify-center rounded-xl text-text-secondary hover:bg-surface lg:hidden"
-          aria-label="Open menu"
+          type="button"
+          onClick={() => setApplicationMenuOpen((open) => !open)}
+          className={`inline-flex h-9 w-9 items-center justify-center rounded-lg transition lg:hidden ${
+            isApplicationMenuOpen
+              ? "bg-[#4C78F5]/10 text-[#4C78F5]"
+              : "text-text-secondary hover:bg-surface"
+          }`}
+          aria-label="Open header menu"
+          aria-expanded={isApplicationMenuOpen}
         >
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-            <path
-              fillRule="evenodd"
-              clipRule="evenodd"
-              d="M6 10.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Zm6 0a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Zm6 0a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Z"
-              fill="currentColor"
-            />
-          </svg>
+          <MoreHorizontal size={18} />
         </button>
 
         <div
           className={`${
             isApplicationMenuOpen ? "flex" : "hidden"
-          } absolute top-16 right-3 left-3 z-50 items-center justify-between gap-3 rounded-2xl border border-border bg-white p-3 shadow-lg lg:static lg:flex lg:justify-end lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none`}
+          } absolute top-14 right-3 left-3 z-50 flex-col gap-3 rounded-2xl border border-border bg-white p-3 dark:border-slate-700 dark:bg-slate-900 sm:flex-row sm:items-center sm:justify-between lg:static lg:flex lg:flex-row lg:items-center lg:justify-end lg:gap-2.5 lg:border-0 lg:bg-transparent lg:p-0 dark:lg:bg-transparent`}
         >
-          <div className="inline-flex items-center gap-2 rounded-full border border-border bg-surface px-3 py-1.5 text-[12px] font-semibold text-brand-500 sm:text-[13px]">
-            <CalendarClock className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} />
-            <time dateTime={new Date().toISOString()} className="whitespace-nowrap tabular-nums">
+          {(roleOption || orgName) && (
+            <div className="flex min-w-0 flex-wrap items-center gap-2 sm:hidden">
+              {roleOption ? (
+                <span
+                  className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 ring-inset ${roleBadgeClass(primaryRole)}`}
+                >
+                  {roleOption.label}
+                </span>
+              ) : null}
+              {orgName ? (
+                <span className="truncate text-[12px] font-medium text-text-secondary">
+                  {orgName}
+                </span>
+              ) : null}
+            </div>
+          )}
+
+          <div className="hidden h-9 items-center gap-1.5 rounded-lg border border-border bg-white px-2.5 text-[12px] font-medium text-text-secondary sm:inline-flex dark:border-slate-700 dark:bg-slate-950">
+            <CalendarClock
+              className="h-3.5 w-3.5 shrink-0 text-[#4C78F5]"
+              strokeWidth={1.75}
+            />
+            <time
+              dateTime={new Date().toISOString()}
+              className="whitespace-nowrap tabular-nums"
+            >
               {dateTime}
             </time>
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-2.5">
+          <div className="flex items-center gap-1.5">
             <ThemeToggleButton />
             <NotificationDropdown />
             <UserDropdown user={user} />
           </div>
+
+          {isImpersonation ? (
+            <button
+              type="button"
+              onClick={handleExitView}
+              className="h-9 rounded-lg bg-rose-500 px-3 text-[11px] font-semibold text-white transition hover:bg-rose-600 sm:hidden"
+            >
+              Exit view mode
+            </button>
+          ) : null}
         </div>
       </div>
     </header>

@@ -1895,7 +1895,7 @@ export default function LoanPreview() {
     }
 
     return (
-      <div className="h-[min(80vh,760px)] min-h-0">
+      <div className="h-[min(72vh,680px)] min-h-0 scroll-mt-4">
         <Chat applicationId={resolvedChatApplicationId} />
       </div>
     );

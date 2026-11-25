@@ -251,6 +251,7 @@ const LoanChatPanel = ({
   const activeConversationRef = useRef<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const composerRef = useRef<HTMLDivElement | null>(null);
   const emojiPickerRef = useRef<HTMLDivElement | null>(null);
   const seenMessageIdsRef = useRef<Set<string>>(new Set());
   const currentUserIdRef = useRef<string | null>(null);
@@ -635,24 +636,6 @@ const LoanChatPanel = ({
   }, [searchTerm]);
 
   useEffect(() => {
-    if (
-      isSingleLayout ||
-      !applicationId ||
-      !conversations.length ||
-      selectedConversation
-    ) {
-      return;
-    }
-
-    void handleSelectConversation(conversations[0]);
-  }, [
-    applicationId,
-    conversations,
-    selectedConversation,
-    isSingleLayout,
-  ]);
-
-  useEffect(() => {
     setConversations([]);
     setSelectedConversation(null);
     setMessageText("");
@@ -676,6 +659,29 @@ const LoanChatPanel = ({
 
   useEffect(() => {
     activeConversationRef.current = selectedConversation?.id || null;
+  }, [selectedConversation?.id]);
+
+  useEffect(() => {
+    if (!selectedConversation?.id) return;
+
+    const scrollComposerIntoView = () => {
+      composerRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "end",
+        inline: "nearest",
+      });
+    };
+
+    let timeoutId = 0;
+    const frame = window.requestAnimationFrame(() => {
+      scrollComposerIntoView();
+      timeoutId = window.setTimeout(scrollComposerIntoView, 120);
+    });
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      if (timeoutId) window.clearTimeout(timeoutId);
+    };
   }, [selectedConversation?.id]);
 
   useEffect(() => {
@@ -1096,7 +1102,7 @@ const LoanChatPanel = ({
                 Select a conversation
               </h3>
               <p className="mt-2 text-sm leading-7 text-slate-500">
-                Open any client, lender, or team chat from the left panel.
+                Choose a broker channel from the left panel to open the thread.
               </p>
             </motion.div>
           </div>
@@ -1424,12 +1430,18 @@ const LoanChatPanel = ({
             </div>
 
             {isReadOnlyChat ? (
-              <div className="shrink-0 border-t border-amber-200/80 bg-amber-50 px-4 py-3 text-center text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200 sm:px-5">
+              <div
+                ref={composerRef}
+                className="shrink-0 border-t border-amber-200/80 bg-amber-50 px-4 py-3 text-center text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200 sm:px-5"
+              >
                 Read-only access. You can view chat history but cannot send
                 messages.
               </div>
             ) : (
-            <div className="relative shrink-0 border-t border-slate-200/80 bg-white/95 px-3 py-3 backdrop-blur dark:border-slate-800 dark:bg-slate-900/95 sm:px-5">
+            <div
+              ref={composerRef}
+              className="relative shrink-0 border-t border-slate-200/80 bg-white/95 px-3 py-3 backdrop-blur dark:border-slate-800 dark:bg-slate-900/95 sm:px-5"
+            >
               {showEmojiPicker ? (
                 <div
                   ref={emojiPickerRef}
